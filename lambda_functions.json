@@ -55,7 +55,7 @@
       "description": "df_total is the total degrees of freedom for the sum of squares. When an intercept is fit (default), one df is spent estimating the grand mean, giving n - 1. When the model is forced through the origin (Allow_Intercept = FALSE), no df is spent on the mean, giving n. df_total partitions into df_regression + df_residual.\n\nCalls Observations() for n, then returns IF(allow_arg, n-1, n)."
     },
     {
-      "name": "R2",
+      "name": "R_squared",
       "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),INDEX(LINEST(FILTER(Y,filt_arg),FILTER(X_s,filt_arg),allow_arg,TRUE),3,1)))",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 3, 1)\n  ))",
       "arguments": [
@@ -79,7 +79,7 @@
         }
       ],
       "yields": "R² (coefficient of determination) as a scalar in [0, 1]",
-      "description": "R² (coefficient of determination) is the proportion of variance in Y explained by the regression model. It equals SS_regression / SS_total, ranges from 0 (no explanatory power) to 1 (perfect fit), and is the square of Multiple R.\n\nReturns INDEX(LINEST(...), 3, 1) directly. R2 is the base statistic from which Multiple_R and Adjusted_R2 are derived."
+      "description": "R² (coefficient of determination) is the proportion of variance in Y explained by the regression model. It equals SS_regression / SS_total, ranges from 0 (no explanatory power) to 1 (perfect fit), and is the square of Multiple R.\n\nReturns INDEX(LINEST(...), 3, 1) directly. R_squared is the base statistic from which Multiple_R and Adjusted_R2 are derived."
     },
     {
       "name": "DF_Residual",
@@ -110,8 +110,8 @@
     },
     {
       "name": "Multiple_R",
-      "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),SQRT(R2(X_s,Y,allow_arg,filt_arg))))",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SQRT(R2(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),SQRT(R_squared(X_s,Y,allow_arg,filt_arg))))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SQRT(R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -133,12 +133,12 @@
         }
       ],
       "yields": "Multiple R (correlation coefficient) as a scalar in [0, 1]",
-      "description": "Multiple R is the Pearson correlation between the observed values of Y and the values predicted by the regression model. It ranges from 0 (no linear relationship) to 1 (perfect linear fit) and is the square root of R².\n\nComputed as SQRT(R2(...))."
+      "description": "Multiple R is the Pearson correlation between the observed values of Y and the values predicted by the regression model. It ranges from 0 (no linear relationship) to 1 (perfect linear fit) and is the square root of R².\n\nComputed as SQRT(R_squared(...))."
     },
     {
       "name": "Adjusted_R2",
-      "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),1-(1-R2(X_s,Y,allow_arg,filt_arg))*DF_Total(Y,allow_arg,filt_arg)/DF_Residual(X_s,Y,allow_arg,filt_arg)))",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    1 - (1 - R2(X_s, Y, allow_arg, filt_arg))\n      * DF_Total(Y, allow_arg, filt_arg)\n      / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),1-(1-R_squared(X_s,Y,allow_arg,filt_arg))*DF_Total(Y,allow_arg,filt_arg)/DF_Residual(X_s,Y,allow_arg,filt_arg)))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    1 - (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n      * DF_Total(Y, allow_arg, filt_arg)\n      / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -160,7 +160,7 @@
         }
       ],
       "yields": "Adjusted R² as a scalar, typically in [0, 1] but can be negative",
-      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R2(...)) * DF_Total(...) / DF_Residual(...), inheriting the Allow_Intercept correction from both df functions."
+      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_squared(...)) * DF_Total(...) / DF_Residual(...), inheriting the Allow_Intercept correction from both df functions."
     }
   ]
 }

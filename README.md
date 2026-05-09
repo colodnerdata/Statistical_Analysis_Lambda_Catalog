@@ -1,70 +1,58 @@
-# Statistical Analysis Lambda Catalog
+# Statistical_Analysis_Lambda_Catalog
 
-Reproduce the functionality of the Analysis Toolpak using named-object LAMBDA functions
-registered directly in an Excel workbook's Name Manager.
+Reproduce Analysis ToolPak-style statistics with workbook-scoped Excel LAMBDA functions.
 
-## Requirements
+## Build the workbook
 
-- Python 3.10+
-- Desktop Excel (Windows or macOS) — xlwings drives Excel through COM/AppleScript
-- Dependencies declared in `pyproject.toml`; install with [uv](https://github.com/astral-sh/uv):
+Run `build_lambda_library.py` to open or create `Lambda_Library.xlsx` and sync the workbook Name Manager entries from `lambda_functions.json`.
 
-  ```
-  uv sync
-  ```
+The script:
+- creates `Lambda_Library.xlsx` if it does not exist
+- opens the existing workbook if it already exists
+- ensures a starter worksheet named `MLR` is present
+- converts each JSON `formula_display` value into workbook XML syntax before writing workbook-scoped names
+- overwrites any existing workbook-scoped names that match the JSON definitions
 
-## Building the workbook
+This script requires desktop Excel because it uses `xlwings`.
 
+```powershell
+python build_lambda_library.py
 ```
-python build_workbook.py
+
+Use `--validate-reopen` to confirm Excel can reopen the saved workbook after the XML name patch.
+
+```powershell
+python build_lambda_library.py --validate-reopen
 ```
 
-This script:
+The current build path uses `formula_display` as the source of truth for workbook name syncing. The parser strips formatting whitespace outside string literals so the multi-line display form produces the same workbook XML as the older compact form.
 
-1. Reads all function definitions from `lambda_functions.json`.
-2. Opens `Lambda_Library.xlsx` if it already exists, or creates it from scratch.
-3. Ensures the workbook has a starter sheet named **MLR** (required by `format_workbook.py`).
-4. Syncs every function into the workbook's Name Manager as a workbook-level name using the
-   compact LAMBDA formula string.  Existing names are overwritten so the script is safe to
-   re-run.
-5. Prints a short summary: workbook path, created count, updated count, invalid count.
+## Write the catalog sheet
 
-**Note:** `build_workbook.py` depends on desktop Excel being installed.  It opens Excel
-invisibly in the background, writes the names, saves, and closes — no manual interaction
-is needed.
+Run `write_lambda_catalog.py` to write the human-readable catalog into a worksheet named `LAMBDA_functions` in any target workbook.
 
-## Files
+The script:
+- opens the target workbook if it already exists, or creates a new workbook if it does not
+- clears and rewrites the `LAMBDA_functions` worksheet starting at cell `A1`
+- writes a structured Excel table named `LAMBDAFunctionsCatalog`
+- loads the displayed formulas, arguments, yields, and descriptions from `lambda_functions.json`
 
-| File | Purpose |
-|---|---|
-| `build_workbook.py` | Primary entry point — builds/updates `Lambda_Library.xlsx` |
-| `lambda_functions.json` | Source of truth for function names and LAMBDA formulas |
-| `format_workbook.py` | Visual formatting pass (run after `build_workbook.py` when ready) |
-| `Lambda_Library.xlsx` | Output workbook (created by `build_workbook.py`) |
+```powershell
+python write_lambda_catalog.py Lambda_Library.xlsx
+```
 
-## Functions registered
+## Write the life expectancy sheet
 
-| Name | Returns | Notes |
-|---|---|---|
-| `Observations` | n — row count after filtering | |
-| `DF_Regression` | k — number of predictors | |
-| `DF_Total` | n−1 (with intercept) or n (without) | |
-| `DF_Residual` | n−k−1 (with intercept) or n−k (without) | |
-| `R2` | Coefficient of determination | See note below |
-| `Multiple_R` | Square root of R² | |
-| `Adjusted_R2` | R² penalised for predictor count | |
+Run `write_life_expectancy_data.py` to import `Life Expectancy Data.csv` into a worksheet named `Life Expectancy Data` in any target workbook.
 
-After running `build_workbook.py`, open `Lambda_Library.xlsx` in Excel and press
-**Ctrl+F3** to verify the names appear in Name Manager as workbook-level definitions.
+The script:
+- opens the target workbook if it already exists, or creates a new workbook if it does not
+- clears and rewrites the `Life Expectancy Data` worksheet starting at cell `A1`
+- writes a structured Excel table named `LifeExpectancyData`
+- adds a calculated column named `Full_Data` with the formula `=COUNT(LifeExpectancyData[@[Life expectancy]:[Schooling]])=19`
 
-### Known limitation: `R2`
+```powershell
+python write_life_expectancy_data.py Lambda_Library.xlsx
+```
 
-Excel's Name Manager rejects `R2` via the COM API because it conflicts with R1C1 cell
-reference notation (`R2` = row 2).  `build_workbook.py` reports this as a `Failed: 1`
-entry and continues — the other 6 names are registered successfully.
-
-**Workaround:** Add `R2` manually through the Name Manager UI (Formulas → Name Manager →
-New → Name: `R2`, Refers to: paste the compact formula from `lambda_functions.json`).
-Excel's interactive Name Manager accepts `R2` even though the COM API does not.  Once
-`R2` is registered manually, re-running `build_workbook.py` will maintain the other 6
-names without disturbing the manually-added `R2`.
+After the workbook exists, `format_workbook.py` can be used as a separate formatting step.

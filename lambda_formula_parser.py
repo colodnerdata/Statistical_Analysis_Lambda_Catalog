@@ -83,7 +83,16 @@ def _split_lambda_signature(formula: str) -> tuple[list[str], str]:
     current: list[str] = []
     depth = 0
 
-    for character in inner:
+    index = 0
+    while index < len(inner):
+        character = inner[index]
+
+        if character == '"':
+            string_end = _consume_string_literal(inner, index)
+            current.append(inner[index:string_end])
+            index = string_end
+            continue
+
         if character == "(":
             depth += 1
         elif character == ")":
@@ -92,9 +101,11 @@ def _split_lambda_signature(formula: str) -> tuple[list[str], str]:
         if character == "," and depth == 0:
             parts.append("".join(current).strip())
             current = []
+            index += 1
             continue
 
         current.append(character)
+        index += 1
 
     parts.append("".join(current).strip())
     if len(parts) < 2:

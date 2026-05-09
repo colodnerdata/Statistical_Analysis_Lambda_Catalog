@@ -154,6 +154,494 @@
       ],
       "yields": "Adjusted R² as a scalar, typically in [0, 1] but can be negative",
       "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_squared(...)) * DF_Total(...) / DF_Residual(...), inheriting the Allow_Intercept correction from both df functions."
+    },
+    {
+      "name": "SS_Residual",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 5, 2)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "SS_residual (error sum of squares) as a scalar",
+      "description": "SS_residual (also written SSE or SS_error) is the sum of squared differences between each observed Y value and its model-fitted value: Σ(yᵢ - ŷᵢ)². It measures the variance left unexplained by the regression and is the numerator of MSE = SS_residual / df_residual. Together with SS_regression it partitions SS_total.\n\nReturns INDEX(LINEST(..., TRUE), 5, 2). Position (5, 2) of the LINEST stats array is SS_residual; position (5, 1) is SS_regression."
+    },
+    {
+      "name": "SS_Total",
+      "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    Y_f, FILTER(Y, filt_arg),\n    IF(allow_arg, DEVSQ(Y_f), SUMSQ(Y_f))\n  ))",
+      "arguments": [
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "SS_total as a scalar",
+      "description": "SS_total is the total variability in Y before any regression model is applied. When an intercept is fit (default) it equals DEVSQ(Y) = Σ(yᵢ - ȳ)², the sum of squared deviations from the mean. When the model is forced through the origin it equals SUMSQ(Y) = Σyᵢ², because there is no mean to subtract. SS_total = SS_regression + SS_residual in both cases.\n\nX_s is not required because SS_total depends only on Y and whether an intercept is included. Uses DEVSQ for the intercept case and SUMSQ for the no-intercept case."
+    },
+    {
+      "name": "SS_Regression",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 5, 1)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "SS_regression (explained sum of squares) as a scalar",
+      "description": "SS_regression (also written SSR or SS_model) is the portion of total variability in Y that is explained by the regression model: Σ(ŷᵢ - ȳ)². It equals SS_total - SS_residual and is the numerator of the F-statistic (F = (SS_regression / df_regression) / MSE). R² = SS_regression / SS_total.\n\nReturns INDEX(LINEST(..., TRUE), 5, 1). Position (5, 1) of the LINEST stats array is SS_regression; position (5, 2) is SS_residual."
+    },
+    {
+      "name": "SE_Regression",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 3, 2)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "SE_regression (root mean square error, RMSE) as a scalar",
+      "description": "SE_regression is the standard error of the regression, also called the root mean square error (RMSE) or s. It equals √(SS_residual / df_residual) = √MSE and is measured in the same units as Y. It estimates the standard deviation of the residuals and is used as the base uncertainty in prediction intervals.\n\nReturns INDEX(LINEST(..., TRUE), 3, 2). Position (3, 2) of the LINEST stats array holds the standard error of the regression; position (3, 1) is R²."
+    },
+    {
+      "name": "Coefficients",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    n_coef, IF(allow_arg, k + 1, k),\n    MAKEARRAY(n_coef, 1, LAMBDA(r, c, INDEX(ls, 1, n_coef + 1 - r)))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "(k+1)×1 spill with intercept first, then b₁…bₖ — or k×1 when Allow_Intercept is FALSE",
+      "description": "Coefficients returns the fitted regression coefficients as a vertical array in natural order: intercept (b₀) first when an intercept is included, followed by the slope for the first predictor column through the last (b₁, b₂, …, bₖ).\n\nLINEST stores coefficients in reverse order (bₖ first, b₀ last). MAKEARRAY reverses this by reading column n_coef+1−r at each row r, producing the Analysis ToolPak ordering. This function spills and must be entered in a blank column range of at least k+1 rows."
+    },
+    {
+      "name": "Standard_Errors",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    n_coef, IF(allow_arg, k + 1, k),\n    MAKEARRAY(n_coef, 1, LAMBDA(r, c, INDEX(ls, 2, n_coef + 1 - r)))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "(k+1)×1 spill of coefficient standard errors, intercept first — or k×1 when Allow_Intercept is FALSE",
+      "description": "Standard_Errors returns the standard error of each fitted coefficient in the same natural order as Coefficients: SE(b₀) first (when an intercept is fit), then SE(b₁) through SE(bₖ). Each SE measures sampling uncertainty in the corresponding coefficient; dividing the coefficient by its SE yields the t-statistic.\n\nUses LINEST row 2, reversed via the same MAKEARRAY pattern as Coefficients. The result is parallel to Coefficients — row i of Standard_Errors corresponds to row i of Coefficients."
+    },
+    {
+      "name": "T_Stats",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    n_coef, IF(allow_arg, k + 1, k),\n    MAKEARRAY(n_coef, 1, LAMBDA(r, c,\n      INDEX(ls, 1, n_coef + 1 - r) / INDEX(ls, 2, n_coef + 1 - r)\n    ))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "(k+1)×1 spill of t-statistics, intercept first — or k×1 when Allow_Intercept is FALSE",
+      "description": "T_Stats returns the t-statistic for each coefficient, defined as bⱼ / SE(bⱼ). Under H₀: bⱼ = 0 the statistic follows a t-distribution with df_residual degrees of freedom. Large absolute values indicate that the coefficient is unlikely to be zero by chance.\n\nDivides LINEST row 1 by row 2 element-wise inside MAKEARRAY, using the same reversal as Coefficients so the output is in natural order (intercept first). The reference distribution for inference is T with df_residual = INDEX(LINEST(...), 4, 2) degrees of freedom."
+    },
+    {
+      "name": "P_Values",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    df_r,   INDEX(ls, 4, 2),\n    n_coef, IF(allow_arg, k + 1, k),\n    MAKEARRAY(n_coef, 1, LAMBDA(r, c,\n      T.DIST.2T(\n        ABS(INDEX(ls, 1, n_coef + 1 - r) / INDEX(ls, 2, n_coef + 1 - r)),\n        df_r\n      )\n    ))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "(k+1)×1 spill of two-tailed p-values, intercept first — or k×1 when Allow_Intercept is FALSE",
+      "description": "P_Values returns the two-tailed p-value for the null hypothesis H₀: bⱼ = 0 for each coefficient. P_value = T.DIST.2T(|tⱼ|, df_residual). Values below a chosen α (typically 0.05) indicate the coefficient is statistically significant at that level.\n\nComputed inside MAKEARRAY so all p-values share the single LINEST call. The df_residual used is INDEX(ls, 4, 2), which is the value Excel already computed internally. Output is in natural order (intercept first), parallel to Coefficients, Standard_Errors, and T_Stats."
+    },
+    {
+      "name": "CI_Lower",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Confidence_Level],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept),  TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),           TRUE, Filter),\n    conf,      IF(ISOMITTED(Confidence_Level), 0.95, Confidence_Level),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    df_r,   INDEX(ls, 4, 2),\n    t_crit, T.INV.2T(1 - conf, df_r),\n    n_coef, IF(allow_arg, k + 1, k),\n    MAKEARRAY(n_coef, 1, LAMBDA(r, c,\n      INDEX(ls, 1, n_coef + 1 - r) - t_crit * INDEX(ls, 2, n_coef + 1 - r)\n    ))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Confidence_Level",
+          "description": "confidence level as a decimal, e.g. 0.95 for 95%. Default 0.95",
+          "optional": true
+        }
+      ],
+      "yields": "(k+1)×1 spill of lower confidence-interval bounds, intercept first — or k×1 when Allow_Intercept is FALSE",
+      "description": "CI_Lower returns the lower bound of the confidence interval for each coefficient: bⱼ − t* × SE(bⱼ), where t* = T.INV.2T(1 − confidence_level, df_residual). With the default confidence_level of 0.95 this produces 95% lower bounds, matching the Analysis ToolPak output.\n\nOutput is in natural order (intercept first), parallel to Coefficients. Use CI_Excludes_Zero to test significance: a lower bound above zero, or an upper bound below zero, implies the coefficient is significantly different from zero at the chosen confidence level."
+    },
+    {
+      "name": "CI_Upper",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Confidence_Level],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept),  TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),           TRUE, Filter),\n    conf,      IF(ISOMITTED(Confidence_Level), 0.95, Confidence_Level),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    df_r,   INDEX(ls, 4, 2),\n    t_crit, T.INV.2T(1 - conf, df_r),\n    n_coef, IF(allow_arg, k + 1, k),\n    MAKEARRAY(n_coef, 1, LAMBDA(r, c,\n      INDEX(ls, 1, n_coef + 1 - r) + t_crit * INDEX(ls, 2, n_coef + 1 - r)\n    ))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Confidence_Level",
+          "description": "confidence level as a decimal, e.g. 0.95 for 95%. Default 0.95",
+          "optional": true
+        }
+      ],
+      "yields": "(k+1)×1 spill of upper confidence-interval bounds, intercept first — or k×1 when Allow_Intercept is FALSE",
+      "description": "CI_Upper returns the upper bound of the confidence interval for each coefficient: bⱼ + t* × SE(bⱼ), where t* = T.INV.2T(1 − confidence_level, df_residual). With the default confidence_level of 0.95 this produces 95% upper bounds, matching the Analysis ToolPak output.\n\nMirrors CI_Lower exactly, with addition instead of subtraction. Output is in natural order (intercept first). The pair (CI_Lower, CI_Upper) brackets the plausible range for each coefficient at the chosen confidence level."
+    },
+    {
+      "name": "CI_Excludes_Zero",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Confidence_Level],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept),  TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),           TRUE, Filter),\n    conf,      IF(ISOMITTED(Confidence_Level), 0.95, Confidence_Level),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    df_r,   INDEX(ls, 4, 2),\n    t_crit, T.INV.2T(1 - conf, df_r),\n    n_coef, IF(allow_arg, k + 1, k),\n    MAKEARRAY(n_coef, 1, LAMBDA(r, c,\n      LET(\n        coef,  INDEX(ls, 1, n_coef + 1 - r),\n        se,    INDEX(ls, 2, n_coef + 1 - r),\n        lower, coef - t_crit * se,\n        upper, coef + t_crit * se,\n        OR(lower > 0, upper < 0)\n      )\n    ))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Confidence_Level",
+          "description": "confidence level as a decimal, e.g. 0.95 for 95%. Default 0.95",
+          "optional": true
+        }
+      ],
+      "yields": "(k+1)×1 spill of TRUE/FALSE — TRUE means the CI excludes zero (coefficient is significant)",
+      "description": "CI_Excludes_Zero returns TRUE for each coefficient whose confidence interval does not contain zero, indicating statistical significance at the chosen confidence level. A coefficient is significant when CI_Lower > 0 (positive effect) or CI_Upper < 0 (negative effect).\n\nEquivalent to testing P_Values < (1 − confidence_level), but expressed in terms of the CI bounds for use in conditional formatting or logical formulas. Computed by OR(lower > 0, upper < 0) inside MAKEARRAY, reusing the same LINEST call for all coefficients."
+    },
+    {
+      "name": "Fitted_Values",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_f,   FILTER(X_s, filt_arg),\n    Y_f,   FILTER(Y,   filt_arg),\n    ls,    LINEST(Y_f, X_f, allow_arg, TRUE),\n    k,     COLUMNS(X_s),\n    betas, MAKEARRAY(k, 1, LAMBDA(r, c, INDEX(ls, 1, k + 1 - r))),\n    b0,    IF(allow_arg, INDEX(ls, 1, k + 1), 0),\n    MMULT(X_f, betas) + b0\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n×1 spill of fitted (predicted) values ŷᵢ",
+      "description": "Fitted_Values returns the model-predicted value ŷᵢ = b₀ + b₁x₁ᵢ + ⋯ + bₖxₖᵢ for each observation in the filtered training data. The result is parallel to the filtered Y column — row i corresponds to the i-th included observation.\n\nExtracts the k predictor coefficients [b₁, …, bₖ] from LINEST row 1 in natural order using MAKEARRAY, then computes MMULT(X_f, betas) + b0. When Allow_Intercept is FALSE, b0 = 0. Fitted_Values is the base for Residuals, and indirectly for LOOCV_Predicted."
+    },
+    {
+      "name": "Residuals",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    FILTER(Y, filt_arg) - Fitted_Values(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n×1 spill of ordinary residuals eᵢ = yᵢ − ŷᵢ",
+      "description": "Residuals returns the ordinary (raw) residual eᵢ = yᵢ − ŷᵢ for each observation in the filtered training data. Residuals should average to zero when an intercept is fit, be free of patterns when plotted against fitted values (homoscedasticity), and be approximately normal for inference to be valid.\n\nComputed as FILTER(Y, filt_arg) − Fitted_Values(...). Residuals are the input to LOOCV_Residuals and are used alongside Leverage to compute the PRESS statistic."
+    },
+    {
+      "name": "Leverage",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_f,     FILTER(X_s, filt_arg),\n    n,       ROWS(FILTER(Y, filt_arg)),\n    X_aug,   IF(allow_arg, HSTACK(SEQUENCE(n, 1, 1, 0), X_f), X_f),\n    XtX_inv, MINVERSE(MMULT(TRANSPOSE(X_aug), X_aug)),\n    BYROW(X_aug, LAMBDA(row, MMULT(MMULT(row, XtX_inv), TRANSPOSE(row))))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range — used only to determine n after filtering"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n×1 spill of hat-matrix diagonal values hᵢᵢ ∈ (0, 1]",
+      "description": "Leverage returns the diagonal of the hat matrix H = X_aug(X_augᵀX_aug)⁻¹X_augᵀ, where X_aug prepends a column of ones when an intercept is fit. The value hᵢᵢ measures how far observation i lies from the centroid of the predictor space; high leverage (hᵢᵢ > 2p/n, where p is the number of parameters) flags observations with unusual predictor patterns that have disproportionate influence on the fitted line.\n\nBYROW computes xᵢᵀ(XᵀX)⁻¹xᵢ for each row using a single MINVERSE call. SEQUENCE(n, 1, 1, 0) builds the intercept column of ones. Leverage values are the denominators in the Sherman-Morrison LOO shortcut used by LOOCV_Residuals."
+    },
+    {
+      "name": "LOOCV_Residuals",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    e, Residuals(X_s, Y, allow_arg, filt_arg),\n    h, Leverage(X_s,  Y, allow_arg, filt_arg),\n    e / (1 - h)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n×1 spill of leave-one-out cross-validated residuals ê₍₋ᵢ₎ = eᵢ / (1 − hᵢᵢ)",
+      "description": "LOOCV_Residuals returns the deleted residual for each observation: the difference between yᵢ and the value that would have been predicted by a model trained on all n − 1 other observations. Computing n separate regressions is avoided via the Sherman-Morrison identity ê₍₋ᵢ₎ = eᵢ / (1 − hᵢᵢ), which requires only the ordinary residual and the leverage value from the full-data fit.\n\nCalls Residuals() and Leverage() and divides elementwise. LOOCV residuals are larger in magnitude than ordinary residuals whenever hᵢᵢ > 0, and are the inputs to PRESS. An observation with high leverage and a large LOOCV residual is both unusual and poorly predicted."
+    },
+    {
+      "name": "LOOCV_Predicted",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    Y_f, FILTER(Y, filt_arg),\n    Y_f - LOOCV_Residuals(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n×1 spill of leave-one-out cross-validated predictions ŷ₍₋ᵢ₎",
+      "description": "LOOCV_Predicted returns the prediction each observation would have received from a model trained on all other observations. It equals yᵢ − ê₍₋ᵢ₎ = yᵢ − eᵢ/(1 − hᵢᵢ), derived from the Sherman-Morrison shortcut without refitting the model n times.\n\nComputed as FILTER(Y, filt_arg) − LOOCV_Residuals(...). Plotting LOOCV_Predicted vs Y gives a cross-validated fit diagnostic; the R² of this plot is a more honest estimate of predictive accuracy than the in-sample R²."
+    },
+    {
+      "name": "PRESS",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SUMSQ(LOOCV_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "PRESS statistic as a scalar — sum of squared LOO residuals",
+      "description": "PRESS (Predicted Residual Error Sum of Squares) is the sum of squared leave-one-out cross-validated residuals: Σ[eᵢ/(1 − hᵢᵢ)]². It measures out-of-sample predictive accuracy on the same scale as SS_residual; lower PRESS indicates a model that generalises better. PRESS ≥ SS_residual always, with equality only in the degenerate case where all leverages are zero.\n\nComputed as SUMSQ(LOOCV_Residuals(...)). PRESS is a scalar summary of the LOOCV_Residuals array and belongs in the model summary table alongside SS_residual, SE_regression, and R²."
+    },
+    {
+      "name": "Prediction_Interval",
+      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Filter], [Confidence_Level],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept),  TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),           TRUE, Filter),\n    conf,      IF(ISOMITTED(Confidence_Level), 0.95, Confidence_Level),\n    X_f,   FILTER(X_s, filt_arg),\n    Y_f,   FILTER(Y,   filt_arg),\n    n,     ROWS(Y_f),\n    k,     COLUMNS(X_s),\n    ls,    LINEST(Y_f, X_f, allow_arg, TRUE),\n    df_r,  INDEX(ls, 4, 2),\n    se_r,  INDEX(ls, 3, 2),\n    betas, MAKEARRAY(k, 1, LAMBDA(r, c, INDEX(ls, 1, k + 1 - r))),\n    b0,    IF(allow_arg, INDEX(ls, 1, k + 1), 0),\n    X_new_row, IF(ROWS(X_new) = 1, X_new, TRANSPOSE(X_new)),\n    y_hat_new, MMULT(X_new_row, betas) + b0,\n    X_aug,    IF(allow_arg, HSTACK(SEQUENCE(n, 1, 1, 0), X_f), X_f),\n    XtX_inv,  MINVERSE(MMULT(TRANSPOSE(X_aug), X_aug)),\n    X_new_aug, IF(allow_arg, HSTACK(1, X_new_row), X_new_row),\n    h_new,    MMULT(MMULT(X_new_aug, XtX_inv), TRANSPOSE(X_new_aug)),\n    se_pred,  se_r * SQRT(1 + h_new),\n    t_crit,   T.INV.2T(1 - conf, df_r),\n    VSTACK(\n      y_hat_new,\n      se_pred,\n      t_crit,\n      y_hat_new - t_crit * se_pred,\n      y_hat_new + t_crit * se_pred,\n      conf\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column) — the training data"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range — the training data"
+        },
+        {
+          "name": "X_new",
+          "description": "1×k row (or k×1 column) of predictor values for the new observation, e.g. a row reference from tbl_Prediction_Inputs"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Confidence_Level",
+          "description": "confidence level as a decimal, e.g. 0.95 for 95%. Default 0.95",
+          "optional": true
+        }
+      ],
+      "yields": "6×1 spill: Point_Estimate, SE_Prediction, T_Critical, Lower_Bound, Upper_Bound, Confidence_Level",
+      "description": "Prediction_Interval returns a 6-row vertical spill containing everything needed to report a prediction for a new observation: (1) the point estimate ŷ_new = b₀ + b₁x₁ + ⋯ + bₖxₖ; (2) the standard error of prediction SE_pred = s√(1 + x_newᵀ(XᵀX)⁻¹x_new); (3) the t-critical value t* = T.INV.2T(1 − conf, df_residual); (4) the lower bound ŷ_new − t*·SE_pred; (5) the upper bound ŷ_new + t*·SE_pred; (6) the confidence level used.\n\nThe prediction interval is wider than a confidence interval for the mean response because it includes an extra factor of 1 inside the square root, accounting for the irreducible residual variance of a single new observation. X_new must have exactly k columns matching X_s; both 1×k and k×1 orientations are accepted via the ROWS(X_new) = 1 check. Typically entered in a column aligned with a row from tbl_Prediction_Inputs."
     }
   ]
 }

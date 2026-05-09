@@ -169,11 +169,11 @@ def calculate_regression_summary(
     x_train, y_train, _, _ = _build_training_arrays(normalized_rows, include_intercept)
     model = _fit_ols_model(x_train, y_train, include_intercept)
 
-    observations = model.nobs
+    observations = int(model.nobs)
     df_regression = len(FEATURE_COLUMNS)
     df_total = observations - 1 if include_intercept else observations
     r_squared = model.rsquared
-    df_residual = model.df_resid
+    df_residual = int(model.df_resid)
     multiple_r = np.sqrt(max(r_squared, 0.0))
     adjusted_r2 = model.rsquared_adj
 

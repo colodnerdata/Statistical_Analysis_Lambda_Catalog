@@ -59,5 +59,3 @@ The script:
 ```powershell
 python write_sheet_life_expectancy_data.py Lambda_Library.xlsx
 ```
-
-After the workbook exists, `format_workbook.py` can be used as a separate formatting step.

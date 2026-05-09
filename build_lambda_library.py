@@ -299,7 +299,13 @@ def build_lambda_library(
     except OPEN_WORKBOOK_ERRORS as exc:
         _raise_excel_access_error(workbook_path, "open or save", exc)
 
-    result = sync_workbook_names(workbook_path, definitions)
+    try:
+        result = sync_workbook_names(workbook_path, definitions)
+    except OPEN_WORKBOOK_ERRORS as exc:
+        _raise_excel_access_error(workbook_path, "update", exc)
+    except (PermissionError, OSError) as exc:
+        _raise_excel_access_error(workbook_path, "update", exc)
+
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)
 

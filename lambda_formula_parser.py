@@ -2,10 +2,17 @@ from __future__ import annotations
 
 
 XML_FUNCTION_PREFIXES = {
+    "BYROW": "_xlfn.BYROW",
     "FILTER": "_xlfn._xlws.FILTER",
+    "HSTACK": "_xlfn.HSTACK",
     "ISOMITTED": "_xlfn.ISOMITTED",
     "LAMBDA": "_xlfn.LAMBDA",
     "LET": "_xlfn.LET",
+    "MAKEARRAY": "_xlfn.MAKEARRAY",
+    "SEQUENCE": "_xlfn.SEQUENCE",
+    "T.DIST.2T": "_xlfn.T.DIST.2T",
+    "T.INV.2T": "_xlfn.T.INV.2T",
+    "VSTACK": "_xlfn.VSTACK",
 }
 
 

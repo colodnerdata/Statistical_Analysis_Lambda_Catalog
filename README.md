@@ -7,13 +7,7 @@ registered directly in an Excel workbook's Name Manager.
 
 - Python 3.10+
 - Desktop Excel (Windows or macOS) — xlwings drives Excel through COM/AppleScript
-- Dependencies declared in `pyproject.toml`; install with:
-
-  ```
-  pip install xlwings
-  ```
-
-  or, if using [uv](https://github.com/astral-sh/uv):
+- Dependencies declared in `pyproject.toml`; install with [uv](https://github.com/astral-sh/uv):
 
   ```
   uv sync

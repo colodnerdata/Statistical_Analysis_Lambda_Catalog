@@ -36,6 +36,15 @@ DEFAULT_ANALYSIS_CACHE_PATH = ROOT_DIR / ".life_expectancy_analysis_cache.json"
 STARTER_SHEET_NAME = "MLR"
 PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 PREDICTIONS_TABLE_NAME = "LifeExpectancyPredictions"
+EXPECTED_RESULT_KEYS = (
+    "Observations",
+    "DF_Regression",
+    "DF_Total",
+    "R_squared",
+    "DF_Residual",
+    "Multiple_R",
+    "Adjusted_R2",
+)
 WORKBOOK_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 XL_SRC_RANGE = 1
 XL_YES = 1
@@ -135,6 +144,9 @@ def _analysis_cache_signature(csv_path: Path, definitions: list[LambdaDefinition
         "csv_size": csv_stat.st_size,
         "csv_mtime_ns": csv_stat.st_mtime_ns,
         "definition_names": [definition.name for definition in definitions],
+        "definitions_content": [
+            [definition.name, definition.formula_display] for definition in definitions
+        ],
         "include_intercept": True,
     }
 
@@ -142,11 +154,10 @@ def _analysis_cache_signature(csv_path: Path, definitions: list[LambdaDefinition
 def _load_cached_expected_values(
     cache_path: Path,
     cache_signature: dict[str, Any],
-    predictions_output_path: Path,
 ) -> dict[str, float | int] | None:
     """Load cached expected values when the dataset/functions signature still matches."""
 
-    if not cache_path.exists() or not predictions_output_path.exists():
+    if not cache_path.exists():
         return None
 
     try:
@@ -164,7 +175,7 @@ def _load_cached_expected_values(
     if not isinstance(expected_values, dict):
         return None
 
-    required_keys = {"Observations", "DF_Regression", "DF_Total", "R_squared", "DF_Residual", "Multiple_R", "Adjusted_R2"}
+    required_keys = set(EXPECTED_RESULT_KEYS)
     if not required_keys.issubset(expected_values):
         return None
 
@@ -559,8 +570,15 @@ def build_lambda_library(
     expected_values = _load_cached_expected_values(
         cache_path=DEFAULT_ANALYSIS_CACHE_PATH,
         cache_signature=cache_signature,
-        predictions_output_path=predictions_output_path,
     )
+    prediction_headers: list[str] = []
+    prediction_rows: list[list[str | int | float | None]] = []
+    if expected_values is not None:
+        try:
+            prediction_headers, prediction_rows = load_predictions_rows(predictions_output_path)
+        except (OSError, ValueError):
+            expected_values = None
+
     if expected_values is None:
         summary = calculate_regression_summary(input_csv_path=csv_path, include_intercept=True)
         expected_values = _expected_values_map(summary)
@@ -574,7 +592,7 @@ def build_lambda_library(
             cache_signature=cache_signature,
             expected_values=expected_values,
         )
-    prediction_headers, prediction_rows = load_predictions_rows(predictions_output_path)
+        prediction_headers, prediction_rows = load_predictions_rows(predictions_output_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()

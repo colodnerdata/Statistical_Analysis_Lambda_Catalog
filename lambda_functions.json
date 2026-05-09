@@ -527,8 +527,8 @@
           "optional": true
         }
       ],
-      "yields": "n×1 spill of hat-matrix diagonal values hᵢᵢ ∈ (0, 1]",
-      "description": "Leverage returns the diagonal of the hat matrix H = X_aug(X_augᵀX_aug)⁻¹X_augᵀ, where X_aug prepends a column of ones when an intercept is fit. The value hᵢᵢ measures how far observation i lies from the centroid of the predictor space; high leverage (hᵢᵢ > 2p/n, where p is the number of parameters) flags observations with unusual predictor patterns that have disproportionate influence on the fitted line.\n\nBYROW computes xᵢᵀ(XᵀX)⁻¹xᵢ for each row using a single MINVERSE call. SEQUENCE(n, 1, 1, 0) builds the intercept column of ones. Leverage values are the denominators in the Sherman-Morrison LOO shortcut used by LOOCV_Residuals."
+      "yields": "n×1 spill of hat-matrix diagonal values hᵢᵢ ∈ [0, 1]",
+      "description": "Leverage returns the diagonal of the hat matrix H = X_aug(X_augᵀX_aug)⁻¹X_augᵀ, where X_aug prepends a column of ones when an intercept is fit. The value hᵢᵢ measures how far observation i lies from the centroid of the predictor space; high leverage (hᵢᵢ > 2p/n, where p is the number of parameters) flags observations with unusual predictor patterns that have disproportionate influence on the fitted line. hᵢᵢ lies in [0, 1]: the lower bound of 0 can occur when Allow_Intercept is FALSE and all predictor values for that row are zero; the upper bound of 1 is reached only when n equals the number of fitted parameters.\n\nBYROW computes xᵢᵀ(XᵀX)⁻¹xᵢ for each row using a single MINVERSE call. SEQUENCE(n, 1, 1, 0) builds the intercept column of ones. Leverage values are the denominators in the Sherman-Morrison LOO shortcut used by LOOCV_Residuals."
     },
     {
       "name": "LOOCV_Residuals",
@@ -554,7 +554,7 @@
         }
       ],
       "yields": "n×1 spill of leave-one-out cross-validated residuals ê₍₋ᵢ₎ = eᵢ / (1 − hᵢᵢ)",
-      "description": "LOOCV_Residuals returns the deleted residual for each observation: the difference between yᵢ and the value that would have been predicted by a model trained on all n − 1 other observations. Computing n separate regressions is avoided via the Sherman-Morrison identity ê₍₋ᵢ₎ = eᵢ / (1 − hᵢᵢ), which requires only the ordinary residual and the leverage value from the full-data fit.\n\nCalls Residuals() and Leverage() and divides elementwise. LOOCV residuals are larger in magnitude than ordinary residuals whenever hᵢᵢ > 0, and are the inputs to PRESS. An observation with high leverage and a large LOOCV residual is both unusual and poorly predicted."
+      "description": "LOOCV_Residuals returns the deleted residual for each observation: the difference between yᵢ and the value that would have been predicted by a model trained on all n − 1 other observations. Computing n separate regressions is avoided via the Sherman-Morrison identity ê₍₋ᵢ₎ = eᵢ / (1 − hᵢᵢ), which requires only the ordinary residual and the leverage value from the full-data fit.\n\nCalls Residuals() and Leverage() and divides elementwise. For nonzero residuals, LOOCV residuals are larger in magnitude than ordinary residuals whenever hᵢᵢ > 0; when eᵢ = 0 the LOOCV residual is also 0 regardless of leverage. LOOCV residuals are the inputs to PRESS. An observation with high leverage and a large LOOCV residual is both unusual and poorly predicted."
     },
     {
       "name": "LOOCV_Predicted",
@@ -606,7 +606,7 @@
         }
       ],
       "yields": "PRESS statistic as a scalar — sum of squared LOO residuals",
-      "description": "PRESS (Predicted Residual Error Sum of Squares) is the sum of squared leave-one-out cross-validated residuals: Σ[eᵢ/(1 − hᵢᵢ)]². It measures out-of-sample predictive accuracy on the same scale as SS_residual; lower PRESS indicates a model that generalises better. PRESS ≥ SS_residual always, with equality only in the degenerate case where all leverages are zero.\n\nComputed as SUMSQ(LOOCV_Residuals(...)). PRESS is a scalar summary of the LOOCV_Residuals array and belongs in the model summary table alongside SS_residual, SE_regression, and R²."
+      "description": "PRESS (Predicted Residual Error Sum of Squares) is the sum of squared leave-one-out cross-validated residuals: Σ[eᵢ/(1 − hᵢᵢ)]². It measures out-of-sample predictive accuracy on the same scale as SS_residual; lower PRESS indicates a model that generalises better. PRESS ≥ SS_residual; equality holds when all residuals are zero (perfect fit) or when hᵢᵢ = 0 for every observation with a nonzero residual.\n\nComputed as SUMSQ(LOOCV_Residuals(...)). PRESS is a scalar summary of the LOOCV_Residuals array and belongs in the model summary table alongside SS_residual, SE_regression, and R²."
     },
     {
       "name": "Prediction_Interval",

@@ -2,7 +2,6 @@
   "functions": [
     {
       "name": "Observations",
-      "formula_compact": "=LAMBDA(Y,[Filter],LET(filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),ROWS(FILTER(Y,filt_arg))))",
       "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    ROWS(FILTER(Y, filt_arg))\n  ))",
       "arguments": [
         {
@@ -20,7 +19,6 @@
     },
     {
       "name": "DF_Regression",
-      "formula_compact": "=LAMBDA(X_s,COLUMNS(X_s))",
       "formula_display": "=LAMBDA(X_s,\n  COLUMNS(X_s))",
       "arguments": [
         {
@@ -33,7 +31,6 @@
     },
     {
       "name": "DF_Total",
-      "formula_compact": "=LAMBDA(Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),n,Observations(Y,filt_arg),IF(allow_arg,n-1,n)))",
       "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    n,         Observations(Y, filt_arg),\n    IF(allow_arg, n - 1, n)\n  ))",
       "arguments": [
         {
@@ -56,7 +53,6 @@
     },
     {
       "name": "R_squared",
-      "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),INDEX(LINEST(FILTER(Y,filt_arg),FILTER(X_s,filt_arg),allow_arg,TRUE),3,1)))",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 3, 1)\n  ))",
       "arguments": [
         {
@@ -83,7 +79,6 @@
     },
     {
       "name": "DF_Residual",
-      "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),DF_Total(Y,allow_arg,filt_arg)-DF_Regression(X_s)))",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    DF_Total(Y, allow_arg, filt_arg) - DF_Regression(X_s)\n  ))",
       "arguments": [
         {
@@ -110,7 +105,6 @@
     },
     {
       "name": "Multiple_R",
-      "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),SQRT(R_squared(X_s,Y,allow_arg,filt_arg))))",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SQRT(R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
@@ -137,7 +131,6 @@
     },
     {
       "name": "Adjusted_R2",
-      "formula_compact": "=LAMBDA(X_s,Y,[Allow_Intercept],[Filter],LET(allow_arg,IF(ISOMITTED(Allow_Intercept),TRUE,Allow_Intercept),filt_arg,IF(ISOMITTED(Filter),TRUE,Filter),1-(1-R_squared(X_s,Y,allow_arg,filt_arg))*DF_Total(Y,allow_arg,filt_arg)/DF_Residual(X_s,Y,allow_arg,filt_arg)))",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    1 - (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n      * DF_Total(Y, allow_arg, filt_arg)\n      / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {

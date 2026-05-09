@@ -5,6 +5,8 @@ description = "Generate an Excel lambda-function catalog for multilinear regress
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+  "lxml",
+  "pywin32",
   "xlwings",
 ]
 

@@ -12,6 +12,7 @@ import os
 from typing import Any
 import zipfile
 from lxml import etree
+from lambda_formula_parser import to_workbook_xml_formula_from_display
 import xlwings as xw
 
 
@@ -30,7 +31,6 @@ class Argument:
 @dataclass
 class LambdaFunction:
     name: str
-    formula_compact: str        # Single-line form stored in the Name Manager
     formula_display: str        # Indented/newline form shown in the Definition cell
     arguments: list[Argument]
     yields: str
@@ -82,11 +82,7 @@ def _patch_defined_names(path: str, functions: list[LambdaFunction]) -> None:
                 for fn in functions:
                     name_el = etree.SubElement(dn_el, f"{{{ns}}}definedName")
                     name_el.set("name", fn.name)
-                    # xlsx XML stores formulas without the leading "="
-                    formula = fn.formula_compact
-                    if formula.startswith("="):
-                        formula = formula[1:]
-                    name_el.text = formula
+                    name_el.text = to_workbook_xml_formula_from_display(fn.formula_display)
                 data = etree.tostring(
                     tree, xml_declaration=True, encoding="UTF-8", standalone=True
                 )
@@ -201,7 +197,6 @@ def _build_argument(argument_data: dict[str, Any]) -> Argument:
 def _build_function(function_data: dict[str, Any]) -> LambdaFunction:
     return LambdaFunction(
         name=str(function_data["name"]),
-        formula_compact=str(function_data["formula_compact"]),
         formula_display=str(function_data["formula_display"]),
         arguments=[
             _build_argument(argument_data)

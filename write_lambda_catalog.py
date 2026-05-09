@@ -175,7 +175,8 @@ def _raise_excel_access_error(workbook_path: Path, action: str, exc: BaseExcepti
 def write_lambda_catalog(
     workbook_path: Path,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
-) -> None:
+) -> int:
+    """Write the catalog to the workbook and return the number of entries written."""
     entries = load_catalog_entries(definitions_path)
     workbook_path = workbook_path.resolve()
 
@@ -192,6 +193,8 @@ def write_lambda_catalog(
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
         _raise_excel_access_error(workbook_path, "write catalog sheet in", exc)
+
+    return len(entries)
 
 
 def parse_args() -> argparse.Namespace:
@@ -214,10 +217,10 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
-    write_lambda_catalog(workbook_path=args.workbook, definitions_path=args.definitions)
+    rows_written = write_lambda_catalog(workbook_path=args.workbook, definitions_path=args.definitions)
     print(f"Workbook: {args.workbook.resolve()}")
     print(f"Sheet: {SHEET_NAME}")
-    print(f"Rows written: {len(load_catalog_entries(args.definitions))}")
+    print(f"Rows written: {rows_written}")
 
 
 if __name__ == "__main__":

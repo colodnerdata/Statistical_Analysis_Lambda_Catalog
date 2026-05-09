@@ -257,7 +257,7 @@
     },
     {
       "name": "Coefficients",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    n_coef, IF(allow_arg, k + 1, k),\n    MAKEARRAY(n_coef, 1, LAMBDA(r, c, INDEX(ls, 1, n_coef + 1 - r)))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,     LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    k,      COLUMNS(X_s),\n    n_coef, IF(allow_arg, k + 1, k),\n    _xlfn.MAKEARRAY(n_coef, 1, LAMBDA(r, c, INDEX(ls, 1, n_coef + 1 - r)))\n  ))",
       "arguments": [
         {
           "name": "X_s",

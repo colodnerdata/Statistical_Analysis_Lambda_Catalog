@@ -1,0 +1,13 @@
+[project]
+name = "statistical-analysis-lambda-catalog"
+version = "0.1.0"
+description = "Generate an Excel lambda-function catalog for multilinear regression"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "xlwings",
+  "lxml",
+]
+
+[tool.uv]
+package = false

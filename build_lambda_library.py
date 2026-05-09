@@ -7,6 +7,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 import tempfile
+from typing import Any
 from typing import Iterable
 import zipfile
 
@@ -31,6 +32,7 @@ import xlwings as xw
 ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
+DEFAULT_ANALYSIS_CACHE_PATH = ROOT_DIR / ".life_expectancy_analysis_cache.json"
 STARTER_SHEET_NAME = "MLR"
 PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 PREDICTIONS_TABLE_NAME = "LifeExpectancyPredictions"
@@ -121,6 +123,66 @@ def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
         "Multiple_R": summary.multiple_r,
         "Adjusted_R2": summary.adjusted_r2,
     }
+
+
+def _analysis_cache_signature(csv_path: Path, definitions: list[LambdaDefinition]) -> dict[str, Any]:
+    """Return the cache key fields for analysis artifacts."""
+
+    resolved_csv_path = csv_path.resolve()
+    csv_stat = resolved_csv_path.stat()
+    return {
+        "csv_path": str(resolved_csv_path),
+        "csv_size": csv_stat.st_size,
+        "csv_mtime_ns": csv_stat.st_mtime_ns,
+        "definition_names": [definition.name for definition in definitions],
+        "include_intercept": True,
+    }
+
+
+def _load_cached_expected_values(
+    cache_path: Path,
+    cache_signature: dict[str, Any],
+    predictions_output_path: Path,
+) -> dict[str, float | int] | None:
+    """Load cached expected values when the dataset/functions signature still matches."""
+
+    if not cache_path.exists() or not predictions_output_path.exists():
+        return None
+
+    try:
+        with cache_path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    if not isinstance(payload, dict):
+        return None
+    if payload.get("signature") != cache_signature:
+        return None
+
+    expected_values = payload.get("expected_values")
+    if not isinstance(expected_values, dict):
+        return None
+
+    required_keys = {"Observations", "DF_Regression", "DF_Total", "R_squared", "DF_Residual", "Multiple_R", "Adjusted_R2"}
+    if not required_keys.issubset(expected_values):
+        return None
+
+    return expected_values
+
+
+def _write_analysis_cache(
+    cache_path: Path,
+    cache_signature: dict[str, Any],
+    expected_values: dict[str, float | int],
+) -> None:
+    """Persist expected-values cache for later workbook builds."""
+
+    payload = {"signature": cache_signature, "expected_values": expected_values}
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    with cache_path.open("w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2)
+        handle.write("\n")
 
 
 def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
@@ -493,13 +555,25 @@ def build_lambda_library(
 
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
-    summary = calculate_regression_summary(input_csv_path=csv_path, include_intercept=True)
-    expected_values = _expected_values_map(summary)
-    generate_life_expectancy_predictions(
-        input_csv_path=csv_path,
-        output_csv_path=predictions_output_path,
-        include_intercept=True,
+    cache_signature = _analysis_cache_signature(csv_path, definitions)
+    expected_values = _load_cached_expected_values(
+        cache_path=DEFAULT_ANALYSIS_CACHE_PATH,
+        cache_signature=cache_signature,
+        predictions_output_path=predictions_output_path,
     )
+    if expected_values is None:
+        summary = calculate_regression_summary(input_csv_path=csv_path, include_intercept=True)
+        expected_values = _expected_values_map(summary)
+        generate_life_expectancy_predictions(
+            input_csv_path=csv_path,
+            output_csv_path=predictions_output_path,
+            include_intercept=True,
+        )
+        _write_analysis_cache(
+            cache_path=DEFAULT_ANALYSIS_CACHE_PATH,
+            cache_signature=cache_signature,
+            expected_values=expected_values,
+        )
     prediction_headers, prediction_rows = load_predictions_rows(predictions_output_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     workbook_path = workbook_path.resolve()

@@ -15,8 +15,7 @@ DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 SHEET_NAME = "LAMBDA_functions"
 TABLE_NAME = "LAMBDAFunctionsCatalog"
 TABLE_HEADERS = ["Function Name", "Definition", "Arguments", "Yields", "Description"]
-COLUMN_WIDTHS = {"A": 22, "B": 72, "C": 55, "D": 36, "E": 64}
-ROW_HEIGHT = 130
+COLUMN_WIDTHS = {"A": 120, "B": 500, "C": 210, "D": 100, "E": 500}
 XL_SRC_RANGE = 1
 XL_YES = 1
 OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
@@ -46,9 +45,8 @@ class LambdaCatalogEntry:
         if not self.arguments:
             return ""
 
-        max_len = max(len(argument.display_name()) for argument in self.arguments)
         lines = [
-            f"{argument.display_name().ljust(max_len)}  {argument.description}"
+            f"{argument.display_name()}: {argument.description}"
             for argument in self.arguments
         ]
         return "\n".join(lines)
@@ -123,7 +121,6 @@ def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) ->
         sheet.range((row_offset, 3)).value = entry.arguments_cell_text()
         sheet.range((row_offset, 4)).value = entry.yields
         sheet.range((row_offset, 5)).value = entry.description
-        sheet.range(f"{row_offset}:{row_offset}").row_height = ROW_HEIGHT
 
     table_range = sheet.range(f"A1:E{last_data_row}")
     table = sheet.api.ListObjects.Add(
@@ -136,8 +133,18 @@ def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) ->
     table.ShowTableStyleRowStripes = True
     table.ShowTableStyleColumnStripes = False
 
-    for column_letter, width in COLUMN_WIDTHS.items():
-        sheet.range(f"{column_letter}:{column_letter}").column_width = width
+    # Set specific column widths: A=18, B=72, C=30, D=15, E=66 characters
+    sheet.range("A1").column_width = 18
+    sheet.range("B1").column_width = 72
+    sheet.range("C1").column_width = 30
+    sheet.range("D1").column_width = 15
+    sheet.range("E1").column_width = 66
+
+    # Enable wrap text on the data area
+    sheet.range(f"A1:E{last_data_row}").api.WrapText = True
+
+    # Auto-fit row heights to accommodate wrapped content
+    sheet.range(f"A2:E{last_data_row}").api.EntireRow.AutoFit()
 
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0

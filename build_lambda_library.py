@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-import csv
 import json
 import os
 from dataclasses import dataclass
@@ -12,15 +11,13 @@ import zipfile
 
 from lxml import etree
 from analyze_life_expectancy import (
-    DEFAULT_OUTPUT_CSV,
     RegressionSummary,
     calculate_regression_summary,
-    generate_life_expectancy_predictions,
 )
 from lambda_formula_parser import to_workbook_xml_formula_from_display
 import pywintypes  # type: ignore[import-untyped]
-from write_lambda_catalog import load_catalog_entries, write_catalog_sheet
-from write_life_expectancy_data import (
+from write_sheet_lambda_functions import load_catalog_entries, write_catalog_sheet
+from write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
@@ -31,15 +28,50 @@ import xlwings as xw
 ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
-STARTER_SHEET_NAME = "MLR"
+STARTER_SHEET_NAME = "MLR_Testing"
 PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
-PREDICTIONS_TABLE_NAME = "LifeExpectancyPredictions"
 WORKBOOK_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 XL_SRC_RANGE = 1
 XL_YES = 1
 OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
     dict.fromkeys((getattr(pywintypes, "com_error", OSError), OSError))
 )
+
+_MLR_TABLE_HEADER_ROW = 4
+_MLR_TABLE_NAME = "MLRTestingResults"
+
+_SMOKE_TEST_FORMULA = (
+    "=AND("
+    "[@[Observations (Exp.)]]=[@[Observations (Calc.)]],"
+    "[@[DF_Regression (Exp.)]]=[@[DF_Regression (Calc.)]],"
+    "[@[DF_Total (Exp.)]]=[@[DF_Total (Calc.)]],"
+    "ROUND([@[R_squared (Exp.)]],10)=ROUND([@[R_squared (Calc.)]],10),"
+    "[@[DF_Residual (Exp.)]]=[@[DF_Residual (Calc.)]],"
+    "ROUND([@[Multiple_R (Exp.)]],10)=ROUND([@[Multiple_R (Calc.)]],10),"
+    "ROUND([@[Adjusted_R2 (Exp.)]],10)=ROUND([@[Adjusted_R2 (Calc.)]],10)"
+    ")"
+)
+
+# (header, expected_key_or_None, formula_or_None, number_format)
+_MLR_TABLE_COLUMNS: list[tuple[str, str | None, str | None, str]] = [
+    ("X_Variables",           None,            '=TEXTJOIN(", ",TRUE,OFFSET(x_s,-1,0,1,COLUMNS(x_s)))', "General"),
+    ("Allow_Intercept",       None,            None,                                                     "General"),
+    ("Smoke Test",            None,            _SMOKE_TEST_FORMULA,                                     "General"),
+    ("Observations (Exp.)",   "Observations",  None,                                                    "0"),
+    ("Observations (Calc.)",  None,            "=Observations(y, fil)",                                 "0"),
+    ("DF_Regression (Exp.)",  "DF_Regression", None,                                                    "0"),
+    ("DF_Regression (Calc.)", None,            "=DF_Regression(x_s)",                                  "0"),
+    ("DF_Total (Exp.)",       "DF_Total",      None,                                                    "0"),
+    ("DF_Total (Calc.)",      None,            "=DF_Total(y, [@[Allow_Intercept]], fil)",                 "0"),
+    ("R_squared (Exp.)",      "R_squared",     None,                                                    "0.000"),
+    ("R_squared (Calc.)",     None,            "=R_squared(x_s, y, [@[Allow_Intercept]], fil)",           "0.000"),
+    ("DF_Residual (Exp.)",    "DF_Residual",   None,                                                    "0"),
+    ("DF_Residual (Calc.)",   None,            "=DF_Residual(x_s, y, [@[Allow_Intercept]], fil)",         "0"),
+    ("Multiple_R (Exp.)",     "Multiple_R",    None,                                                    "0.000"),
+    ("Multiple_R (Calc.)",    None,            "=Multiple_R(x_s, y, [@[Allow_Intercept]], fil)",          "0.000"),
+    ("Adjusted_R2 (Exp.)",    "Adjusted_R2",   None,                                                    "0.000"),
+    ("Adjusted_R2 (Calc.)",   None,            "=Adjusted_R2(x_s, y, [@[Allow_Intercept]], fil)",         "0.000"),
+]
 
 
 @dataclass(frozen=True)
@@ -48,6 +80,7 @@ class LambdaDefinition:
 
     name: str
     formula_display: str
+    comment: str = ""
 
     @property
     def workbook_xml_formula_from_display(self) -> str:
@@ -87,9 +120,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         _delete_sheet_scoped_name_if_present(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
 
-    sheet["D2"].value = True
     _delete_sheet_scoped_name_if_present(sheet, "Allow_Intercept")
-    sheet.api.Names.Add(Name="Allow_Intercept", RefersTo=f"={sheet.name}!$D$2")
 
 
 def _actual_formula(function_name: str, argument_names: Iterable[str]) -> str:
@@ -154,11 +185,21 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
         if name in seen_names:
             raise ValueError(f"Duplicate function name in lambda_functions.json: {name}")
 
+        raw_arguments = item.get("arguments", [])
+        comment_lines = []
+        for arg in raw_arguments:
+            arg_name = str(arg.get("name", "")).strip()
+            arg_desc = str(arg.get("description", "")).strip()
+            display = f"[{arg_name}]" if arg.get("optional") else arg_name
+            comment_lines.append(f"{display}: {arg_desc}")
+        comment = "\n\n".join(comment_lines)
+
         seen_names.add(name)
         definitions.append(
             LambdaDefinition(
                 name=name,
                 formula_display=formula_display,
+                comment=comment,
             )
         )
 
@@ -169,9 +210,10 @@ def ensure_formula_test_sheet(
     workbook: xw.Book,
     definitions,
     definition_count: int,
-    expected_values: dict[str, float | int],
+    expected_true: dict[str, float | int],
+    expected_false: dict[str, float | int],
 ) -> None:
-    """Create or refresh the MLR sheet with formula test scaffolding."""
+    """Create or refresh the MLR_Testing sheet with a metric comparison table."""
 
     sheet_names = {sheet.name for sheet in workbook.sheets}
     if STARTER_SHEET_NAME in sheet_names:
@@ -186,64 +228,59 @@ def ensure_formula_test_sheet(
         sheet.api.ListObjects(index).Delete()
     sheet.api.Cells.Clear()
 
-    sheet["A1"].value = "MLR Formula Testing"
-    sheet["A2"].value = (
-        "Use this sheet to smoke-test workbook-scoped LAMBDA names after each build. "
-        "Edit Template Formula values to real calls and record expected vs actual results."
-    )
-    sheet["A3"].value = f"Registered definitions: {definition_count}"
-    sheet["C2"].value = "Allow_Intercept"
-    sheet["D2"].value = True
-    sheet["A5"].value = "Function Name"
-    sheet["B5"].value = "Template Formula"
-    sheet["C5"].value = "Expected"
-    sheet["D5"].value = "Actual"
-    sheet["E5"].value = "Notes"
+    # Title area
+    sheet["A1"].value = "MLR Testing"
+    sheet["A1"].api.Font.Bold = True
+    sheet["A2"].value = f"Registered definitions: {definition_count}"
 
-    for row_index, definition in enumerate(definitions, start=6):
-        sheet.range((row_index, 1)).value = definition.name
-        template_cell = sheet.range((row_index, 2))
-        template_cell.api.NumberFormat = "@"
-        template_cell.value = f"={definition.name}(... )"
-        expected_value = expected_values.get(definition.name)
-        if expected_value is not None:
-            sheet.range((row_index, 3)).value = expected_value
-        sheet.range((row_index, 4)).formula = _actual_formula(
-            definition.name,
-            (argument.name for argument in definition.arguments),
-        )
-
+    # Set sheet-scoped names
     _set_sheet_scoped_names(sheet)
 
-    sheet.range("A5:E5").api.Font.Bold = True
-    sheet.range("C2:D2").api.Font.Bold = True
-    sheet.range("A:A").column_width = 28
-    sheet.range("B:B").column_width = 42
-    sheet.range("C:E").column_width = 22
-    sheet.range("A1:E3").columns.autofit()
-    sheet.api.Application.ActiveWindow.SplitRow = 5
+    # Build metric comparison table with two rows: Allow_Intercept TRUE and FALSE
+    header_row = _MLR_TABLE_HEADER_ROW
+    last_data_row = header_row + 2
+    col_count = len(_MLR_TABLE_COLUMNS)
+
+    for col_idx, (header, _, _, _) in enumerate(_MLR_TABLE_COLUMNS, start=1):
+        sheet.range((header_row, col_idx)).value = header
+
+    table_range = sheet.range((header_row, 1), (last_data_row, col_count))
+    table = sheet.api.ListObjects.Add(
+        SourceType=XL_SRC_RANGE,
+        Source=table_range.api,
+        XlListObjectHasHeaders=XL_YES,
+    )
+    table.Name = _MLR_TABLE_NAME
+    table.TableStyle = "TableStyleMedium2"
+    table.ShowTableStyleRowStripes = False
+    table.ShowTableStyleColumnStripes = True
+
+    rows_data = [
+        (header_row + 1, True,  expected_true),
+        (header_row + 2, False, expected_false),
+    ]
+
+    for data_row, allow_intercept_val, expected_values in rows_data:
+        is_first_row = data_row == header_row + 1
+        for col_idx, (header, exp_key, formula, num_fmt) in enumerate(_MLR_TABLE_COLUMNS, start=1):
+            cell = sheet.range((data_row, col_idx))
+            cell.api.NumberFormat = num_fmt
+            if header == "Allow_Intercept":
+                cell.value = allow_intercept_val
+            elif formula is not None:
+                # Formulas auto-propagate in a table; only write on the first row
+                if is_first_row:
+                    cell.formula = formula
+            elif exp_key is not None:
+                val = expected_values.get(exp_key)
+                if val is not None:
+                    cell.value = val
+
+    sheet.range((1, 1), (last_data_row + 100, 1)).api.WrapText = True
+    sheet.range((header_row, 1), (last_data_row, col_count)).columns.autofit()
+    sheet.api.Application.ActiveWindow.SplitRow = header_row - 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True
-
-
-def _parse_predictions_cell(raw_value: str) -> str | int | float | None:
-    """Parse CSV text into basic scalar types for cleaner Excel output."""
-
-    value = raw_value.strip()
-    if value == "":
-        return None
-
-    try:
-        int_value = int(value)
-        if str(int_value) == value:
-            return int_value
-    except ValueError:
-        pass
-
-    try:
-        return float(value)
-    except ValueError:
-        return value
 
 
 def _get_or_create_sheet(workbook: xw.Book, sheet_name: str) -> xw.Sheet:
@@ -261,61 +298,6 @@ def _reset_generated_sheet(sheet: xw.Sheet) -> None:
     for index in range(sheet.api.ListObjects.Count, 0, -1):
         sheet.api.ListObjects(index).Delete()
     sheet.api.Cells.Clear()
-
-
-def load_predictions_rows(predictions_path: Path) -> tuple[list[str], list[list[str | int | float | None]]]:
-    """Load prediction CSV rows for workbook import."""
-
-    with predictions_path.open("r", encoding="utf-8-sig", newline="") as handle:
-        reader = csv.reader(handle)
-        try:
-            headers = next(reader)
-        except StopIteration as exc:
-            raise ValueError(f"Predictions CSV file is empty: {predictions_path}") from exc
-
-        rows: list[list[str | int | float | None]] = []
-        for row in reader:
-            padded_row = row + [""] * max(0, len(headers) - len(row))
-            parsed_row = [_parse_predictions_cell(value) for value in padded_row[: len(headers)]]
-            rows.append(parsed_row)
-
-    if not rows:
-        raise ValueError(f"Predictions CSV has headers but no data rows: {predictions_path}")
-
-    return headers, rows
-
-
-def write_predictions_sheet(
-    workbook: xw.Book,
-    headers: list[str],
-    rows: list[list[str | int | float | None]],
-) -> None:
-    """Write prediction CSV data into a workbook sheet as a structured table."""
-
-    sheet = _get_or_create_sheet(workbook, PREDICTIONS_SHEET_NAME)
-    _reset_generated_sheet(sheet)
-    sheet.activate()
-
-    last_data_row = len(rows) + 1
-    last_column_index = len(headers)
-    sheet.range((1, 1), (1, last_column_index)).value = headers
-    sheet.range((2, 1), (last_data_row, last_column_index)).value = rows
-
-    table_range = sheet.range((1, 1), (last_data_row, last_column_index))
-    table = sheet.api.ListObjects.Add(
-        SourceType=XL_SRC_RANGE,
-        Source=table_range.api,
-        XlListObjectHasHeaders=XL_YES,
-    )
-    table.Name = PREDICTIONS_TABLE_NAME
-    table.TableStyle = "TableStyleMedium2"
-    table.ShowTableStyleRowStripes = True
-    table.ShowTableStyleColumnStripes = False
-
-    sheet.used_range.columns.autofit()
-    sheet.api.Application.ActiveWindow.SplitRow = 1
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
 
 
 def sync_workbook_names(workbook_path: Path, definitions: list[LambdaDefinition]) -> NameSyncResult:
@@ -469,12 +451,6 @@ def parse_args() -> argparse.Namespace:
         help="Path to the Life Expectancy CSV data file.",
     )
     parser.add_argument(
-        "--predictions-output",
-        type=Path,
-        default=DEFAULT_OUTPUT_CSV,
-        help="Path to the generated Life Expectancy predictions CSV.",
-    )
-    parser.add_argument(
         "--validate-reopen",
         action="store_true",
         help="Reopen the workbook after syncing names to verify Excel accepts the result.",
@@ -482,25 +458,51 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _delete_sheet_if_present(workbook: xw.Book, sheet_name: str) -> None:
+    """Delete a worksheet by name if it exists in the workbook."""
+
+    for sheet in list(workbook.sheets):
+        if sheet.name == sheet_name:
+            sheet.delete()
+            return
+
+
+def _write_name_comments(workbook_path: Path, definitions: list[LambdaDefinition]) -> None:
+    """Set Name Manager comments via COM so newlines render correctly in intellisense."""
+
+    comments = {d.name: d.comment for d in definitions if d.comment}
+    if not comments:
+        return
+
+    try:
+        with xw.App(visible=False, add_book=False) as app:
+            workbook = app.books.open(str(workbook_path))
+            try:
+                for name_obj in workbook.api.Names:
+                    bare = name_obj.Name.split("!")[-1]
+                    if bare in comments:
+                        name_obj.Comment = comments[bare]
+                workbook.save(str(workbook_path))
+            finally:
+                workbook.close()
+    except OPEN_WORKBOOK_ERRORS as exc:
+        _raise_excel_access_error(workbook_path, "set comments on", exc)
+
+
 def build_lambda_library(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
     csv_path: Path = DEFAULT_CSV_PATH,
-    predictions_output_path: Path = DEFAULT_OUTPUT_CSV,
     validate_reopen: bool = False,
 ) -> NameSyncResult:
     """Build all workbook assets, sync JSON-backed names, and optionally validate reopen."""
 
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
-    summary = calculate_regression_summary(input_csv_path=csv_path, include_intercept=True)
-    expected_values = _expected_values_map(summary)
-    generate_life_expectancy_predictions(
-        input_csv_path=csv_path,
-        output_csv_path=predictions_output_path,
-        include_intercept=True,
-    )
-    prediction_headers, prediction_rows = load_predictions_rows(predictions_output_path)
+    summary_true = calculate_regression_summary(input_csv_path=csv_path, include_intercept=True)
+    summary_false = calculate_regression_summary(input_csv_path=csv_path, include_intercept=False)
+    expected_true = _expected_values_map(summary_true)
+    expected_false = _expected_values_map(summary_false)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
@@ -513,14 +515,17 @@ def build_lambda_library(
                 workbook = app.books.add()
 
             try:
+                _delete_sheet_if_present(workbook, PREDICTIONS_SHEET_NAME)
+                if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
+                    workbook.sheets["Sheet1"].name = "LAMBDA_functions"
                 write_catalog_sheet(workbook, catalog_entries)
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
-                write_predictions_sheet(workbook, prediction_headers, prediction_rows)
                 ensure_formula_test_sheet(
                     workbook,
                     catalog_entries,
                     len(definitions),
-                    expected_values,
+                    expected_true,
+                    expected_false,
                 )
                 workbook.save(str(workbook_path))
             finally:
@@ -534,6 +539,8 @@ def build_lambda_library(
         _raise_excel_access_error(workbook_path, "update", exc)
     except (PermissionError, OSError) as exc:
         _raise_excel_access_error(workbook_path, "update", exc)
+
+    _write_name_comments(workbook_path, definitions)
 
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)
@@ -549,14 +556,12 @@ def main() -> None:
         workbook_path=args.workbook,
         definitions_path=args.definitions,
         csv_path=args.csv,
-        predictions_output_path=args.predictions_output,
         validate_reopen=args.validate_reopen,
     )
     print(f"Workbook: {args.workbook.resolve()}")
-    print("Sheet updated: MLR")
+    print(f"Sheet updated: {STARTER_SHEET_NAME}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
-    print("Sheet updated: Life Expectancy Predictions")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     print("Invalid entries: 0")

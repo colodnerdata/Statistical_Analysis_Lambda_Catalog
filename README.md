@@ -9,7 +9,7 @@ Run `build_lambda_library.py` to open or create `Lambda_Library.xlsx` and sync t
 The script:
 - creates `Lambda_Library.xlsx` if it does not exist
 - opens the existing workbook if it already exists
-- ensures a starter worksheet named `MLR` is present
+- ensures a starter worksheet named `MLR_test` is present
 - converts each JSON `formula_display` value into workbook XML syntax before writing workbook-scoped names
 - overwrites any existing workbook-scoped names that match the JSON definitions
 

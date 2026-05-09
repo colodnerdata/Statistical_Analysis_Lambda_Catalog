@@ -65,57 +65,63 @@ def format_workbook(path: str) -> None:
     Expects the workbook to have been created by build_workbook.py first.
     """
     app = xw.App(visible=True)
-    wb  = app.books.open(path)
-    ws  = wb.sheets["MLR"]
+    wb  = None
+    try:
+        wb  = app.books.open(path)
+        ws  = wb.sheets["MLR"]
 
-    last_data_row = ws.range("A4").current_region.last_cell.row
+        last_data_row = ws.range("A4").current_region.last_cell.row
 
-    # Row 1 — title
-    _style(ws["A1"],
-           font_name="Arial", font_bold=True, font_size=14,
-           font_color=BLUE,
-           h_align=XL_HALIGN_LEFT, v_align=XL_VALIGN_CENTER)
-    ws.range("1:1").row_height = 28
+        # Row 1 — title
+        _style(ws["A1"],
+               font_name="Arial", font_bold=True, font_size=14,
+               font_color=BLUE,
+               h_align=XL_HALIGN_LEFT, v_align=XL_VALIGN_CENTER)
+        ws.range("1:1").row_height = 28
 
-    # Row 2 — description
-    _style(ws["A2"],
-           font_name="Arial", font_size=9, font_italic=True,
-           font_color=GRAY,
-           h_align=XL_HALIGN_LEFT, v_align=XL_VALIGN_CENTER, wrap_text=True)
-    ws.range("2:2").row_height = 30
+        # Row 2 — description
+        _style(ws["A2"],
+               font_name="Arial", font_size=9, font_italic=True,
+               font_color=GRAY,
+               h_align=XL_HALIGN_LEFT, v_align=XL_VALIGN_CENTER, wrap_text=True)
+        ws.range("2:2").row_height = 30
 
-    # Row 4 — table headers
-    for col_idx in range(1, 6):
-        _style(ws.range(4, col_idx),
-               font_name="Arial", font_bold=True, font_size=11,
-               font_color=WHITE, bg_color=BLUE,
-               h_align=XL_HALIGN_CENTER, v_align=XL_VALIGN_CENTER)
+        # Row 4 — table headers
+        for col_idx in range(1, 6):
+            _style(ws.range(4, col_idx),
+                   font_name="Arial", font_bold=True, font_size=11,
+                   font_color=WHITE, bg_color=BLUE,
+                   h_align=XL_HALIGN_CENTER, v_align=XL_VALIGN_CENTER)
 
-    # Data rows
-    for r in range(5, last_data_row + 1):
-        _style(ws.range(r, 1),
-               font_name="Arial", font_bold=True, font_size=10,
-               v_align=XL_VALIGN_TOP)
-        _style(ws.range(r, 2),
-               font_name="Courier New", font_size=9,
-               v_align=XL_VALIGN_TOP, wrap_text=True)
-        _style(ws.range(r, 3),
-               font_name="Courier New", font_size=9,
-               v_align=XL_VALIGN_TOP, wrap_text=True)
-        _style(ws.range(r, 4),
-               font_name="Arial", font_size=10,
-               v_align=XL_VALIGN_TOP, wrap_text=True)
-        _style(ws.range(r, 5),
-               font_name="Arial", font_size=10,
-               v_align=XL_VALIGN_TOP, wrap_text=True)
+        # Data rows
+        for r in range(5, last_data_row + 1):
+            _style(ws.range(r, 1),
+                   font_name="Arial", font_bold=True, font_size=10,
+                   v_align=XL_VALIGN_TOP)
+            _style(ws.range(r, 2),
+                   font_name="Courier New", font_size=9,
+                   v_align=XL_VALIGN_TOP, wrap_text=True)
+            _style(ws.range(r, 3),
+                   font_name="Courier New", font_size=9,
+                   v_align=XL_VALIGN_TOP, wrap_text=True)
+            _style(ws.range(r, 4),
+                   font_name="Arial", font_size=10,
+                   v_align=XL_VALIGN_TOP, wrap_text=True)
+            _style(ws.range(r, 5),
+                   font_name="Arial", font_size=10,
+                   v_align=XL_VALIGN_TOP, wrap_text=True)
 
-    # Table visual style
-    lo = ws.api.ListObjects("Lambda_Definitions")
-    lo.TableStyle = "TableStyleMedium2"
-    lo.ShowTableStyleRowStripes    = True
-    lo.ShowFirstColumn             = False
-    lo.ShowLastColumn              = False
-    lo.ShowTableStyleColumnStripes = False
+        # Table visual style
+        lo = ws.api.ListObjects("Lambda_Definitions")
+        lo.TableStyle = "TableStyleMedium2"
+        lo.ShowTableStyleRowStripes    = True
+        lo.ShowFirstColumn             = False
+        lo.ShowLastColumn              = False
+        lo.ShowTableStyleColumnStripes = False
 
-    wb.save()
-    print(f"Formatted: {path}")
+        wb.save()
+        print(f"Formatted: {path}")
+    finally:
+        if wb is not None:
+            wb.close()
+        app.quit()

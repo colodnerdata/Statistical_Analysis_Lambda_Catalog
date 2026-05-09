@@ -340,7 +340,9 @@ def ensure_formula_test_sheet(
                     cell.value = val
 
     sheet.range((1, 1), (last_data_row + 100, 1)).api.WrapText = True
-    sheet.range((header_row, 1), (last_data_row, col_count)).columns.autofit()
+    sheet.range("A1").column_width = 100
+    sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
+    sheet.range((header_row, 1), (last_data_row, col_count)).api.EntireRow.AutoFit()
     sheet.api.Application.ActiveWindow.SplitRow = header_row - 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True

@@ -35,10 +35,13 @@ dist/
 Thumbs.db
 
 # Excel generated temp files
-Lambda_Library.xlsx
 ~$*.xlsx
+
+# Force-include the built workbook
+!Lambda_Library.xlsx
 
 # Claude local/project assistant files
 .claude/
 .claude.json
+CLAUDE.md
 CLAUDE.local.md

@@ -38,9 +38,8 @@ class LambdaFunction:
 
     def arguments_cell_text(self) -> str:
         """Generate the Arguments cell value from the Argument list."""
-        max_len = max(len(a.display_name()) for a in self.arguments)
         lines = [
-            f"{a.display_name().ljust(max_len)}  {a.description}"
+            f"{a.display_name()}: {a.description}"
             for a in self.arguments
         ]
         return "\n".join(lines)

@@ -9,7 +9,7 @@ Run `build_lambda_library.py` to open or create `Lambda_Library.xlsx` and sync t
 The script:
 - creates `Lambda_Library.xlsx` if it does not exist
 - opens the existing workbook if it already exists
-- ensures a starter worksheet named `MLR` is present
+- ensures a starter worksheet named `MLR_test` is present
 - converts each JSON `formula_display` value into workbook XML syntax before writing workbook-scoped names
 - overwrites any existing workbook-scoped names that match the JSON definitions
 
@@ -27,9 +27,14 @@ python build_lambda_library.py --validate-reopen
 
 The current build path uses `formula_display` as the source of truth for workbook name syncing. The parser strips formatting whitespace outside string literals so the multi-line display form produces the same workbook XML as the older compact form.
 
+## File naming conventions
+
+- `build_*.py` — workbook-level scripts that open or create an Excel workbook and orchestrate one or more worksheet writes (e.g. `build_lambda_library.py`)
+- `write_sheet_*.py` — worksheet-level scripts that write a single worksheet and can also be run standalone against any target workbook
+
 ## Write the catalog sheet
 
-Run `write_lambda_catalog.py` to write the human-readable catalog into a worksheet named `LAMBDA_functions` in any target workbook.
+Run `write_sheet_lambda_functions.py` to write the human-readable catalog into a worksheet named `LAMBDA_functions` in any target workbook.
 
 The script:
 - opens the target workbook if it already exists, or creates a new workbook if it does not
@@ -38,12 +43,12 @@ The script:
 - loads the displayed formulas, arguments, yields, and descriptions from `lambda_functions.json`
 
 ```powershell
-python write_lambda_catalog.py Lambda_Library.xlsx
+python write_sheet_lambda_functions.py Lambda_Library.xlsx
 ```
 
 ## Write the life expectancy sheet
 
-Run `write_life_expectancy_data.py` to import `Life Expectancy Data.csv` into a worksheet named `Life Expectancy Data` in any target workbook.
+Run `write_sheet_life_expectancy_data.py` to import `Life Expectancy Data.csv` into a worksheet named `Life Expectancy Data` in any target workbook.
 
 The script:
 - opens the target workbook if it already exists, or creates a new workbook if it does not
@@ -52,7 +57,5 @@ The script:
 - adds a calculated column named `Full_Data` with the formula `=COUNT(LifeExpectancyData[@[Life expectancy]:[Schooling]])=19`
 
 ```powershell
-python write_life_expectancy_data.py Lambda_Library.xlsx
+python write_sheet_life_expectancy_data.py Lambda_Library.xlsx
 ```
-
-After the workbook exists, `format_workbook.py` can be used as a separate formatting step.

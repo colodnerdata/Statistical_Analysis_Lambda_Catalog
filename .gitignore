@@ -34,7 +34,7 @@ dist/
 .DS_Store
 Thumbs.db
 
-# Excel generated outputs/temp files
+# Excel generated temp files
 Lambda_Library.xlsx
 ~$*.xlsx
 

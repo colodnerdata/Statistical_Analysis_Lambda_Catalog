@@ -117,7 +117,8 @@ def main() -> None:
     wb_path = Path(__file__).parent / WORKBOOK
     functions, invalid = _load_functions()
 
-    app = xw.App(visible=True, add_book=False)
+    app = xw.App(visible=False, add_book=False)
+    app.display_alerts = False
     wb: xw.Book | None = None
     created = updated = failed = 0
     try:

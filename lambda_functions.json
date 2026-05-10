@@ -2,6 +2,8 @@
   "functions": [
     {
       "name": "Observations",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    ROWS(FILTER(Y, filt_arg))\n  ))",
       "arguments": [
         {
@@ -19,6 +21,8 @@
     },
     {
       "name": "DF_Regression",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0",
       "formula_display": "=LAMBDA(X_s,\n  COLUMNS(X_s))",
       "arguments": [
         {
@@ -31,6 +35,8 @@
     },
     {
       "name": "DF_Total",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    n,         Observations(Y, filt_arg),\n    IF(allow_arg, n - 1, n)\n  ))",
       "arguments": [
         {
@@ -53,6 +59,8 @@
     },
     {
       "name": "R_squared",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 3, 1)\n  ))",
       "arguments": [
         {
@@ -79,6 +87,8 @@
     },
     {
       "name": "DF_Residual",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    DF_Total(Y, allow_arg, filt_arg) - DF_Regression(X_s)\n  ))",
       "arguments": [
         {
@@ -105,6 +115,8 @@
     },
     {
       "name": "Multiple_R",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SQRT(R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
@@ -131,6 +143,8 @@
     },
     {
       "name": "Adjusted_R2",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    1 - (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n      * DF_Total(Y, allow_arg, filt_arg)\n      / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {

@@ -92,7 +92,7 @@ def build_smoke_test_formula(
         columns are TRUE.
     """
     _ = test_table
-    return "=AND(" + ",".join(f"[@[{h}]]" for h in match_headers) + ")"
+    return "=AND(TRUE," + ",".join(f"[@[{h}]]" for h in match_headers) + ")"
 
 
 def write_test_table(

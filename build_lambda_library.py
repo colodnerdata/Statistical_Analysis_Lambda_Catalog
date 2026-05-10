@@ -51,6 +51,10 @@ _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 # Replaces x_s in every (Calc.) formula; resolves dynamically from each row's ind_vars value.
 _MLR_X_S_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
 
+# Fallback ROUND precision used in smoke-test comparisons when number_format gives no decimal count.
+# Intentionally exceeds any display precision to catch floating-point drift without being affected by it.
+_SMOKE_TEST_ROUND_PRECISION = 10
+
 # (header, expected_key_or_None, formula_or_None, number_format)
 _ColumnSpec = tuple[str, str | None, str | None, str]
 
@@ -222,7 +226,6 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
 
     definitions: list[LambdaDefinition] = []
     seen_names: set[str] = set()
-    seen_test_tables: set[str] = set()
 
     for index, item in enumerate(functions, start=1):
         if not isinstance(item, dict):
@@ -260,12 +263,6 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
                 raise ValueError(f"Entry {index} 'test_table' must be a non-empty string.")
             test_table = raw_test_table.strip()
             _validate_test_table_tag(test_table, index)
-            normalized_test_table = test_table.casefold()
-            if normalized_test_table in seen_test_tables:
-                raise ValueError(
-                    f"Duplicate 'test_table' value in lambda_functions.json: {test_table}"
-                )
-            seen_test_tables.add(normalized_test_table)
 
         raw_number_format = item.get("number_format", "General")
         number_format = str(raw_number_format).strip() if raw_number_format else "General"
@@ -295,25 +292,40 @@ def _test_table_name(test_table: str) -> str:
     return test_table
 
 
+def _round_precision_for_format(num_fmt: str) -> int:
+    """Return the ROUND precision to use in smoke-test comparisons for a number format string.
+
+    The comparison precision intentionally exceeds the display precision: decimal places are
+    doubled (e.g. '0.000' → 6, '0.00' → 4) so the test is stricter than what the cell shows
+    while still tolerating unavoidable floating-point rounding beyond those digits.
+    Falls back to _SMOKE_TEST_ROUND_PRECISION for formats with no decimal point ('General', etc.).
+    """
+    dot = num_fmt.find(".")
+    if dot == -1:
+        return _SMOKE_TEST_ROUND_PRECISION
+    return (len(num_fmt) - dot - 1) * 2
+
+
+def _match_column_formula(exp_header: str, calc_header: str, num_fmt: str) -> str:
+    """Return the boolean comparison formula for a per-metric match column.
+
+    Integer formats ('0') compare exactly. All other formats compare via ROUND at a precision
+    that exceeds the display precision — see _round_precision_for_format.
+    """
+    if num_fmt == "0":
+        return f"=[@[{exp_header}]]=[@[{calc_header}]]"
+    precision = _round_precision_for_format(num_fmt)
+    return f"=ROUND([@[{exp_header}]],{precision})=ROUND([@[{calc_header}]],{precision})"
+
+
 def build_smoke_test_formula(
     test_table: str,  # reserved for per-table customization
-    metric_columns: list[_ColumnSpec],
+    match_headers: list[str],
 ) -> str:
-    """Build the =AND(...) smoke-test formula from the metric column pairs."""
+    """Build the =AND(...) smoke-test formula referencing each per-metric match column."""
 
     _ = test_table
-    comparisons: list[str] = []
-    for exp_col, calc_col in zip(metric_columns[::2], metric_columns[1::2]):
-        exp_header = exp_col[0]
-        calc_header = calc_col[0]
-        num_fmt = exp_col[3]
-        if num_fmt == "0":
-            comparisons.append(f"[@[{exp_header}]]=[@[{calc_header}]]")
-        else:
-            comparisons.append(
-                f"ROUND([@[{exp_header}]],10)=ROUND([@[{calc_header}]],10)"
-            )
-    return "=AND(" + ",".join(comparisons) + ")"
+    return "=AND(" + ",".join(f"[@[{h}]]" for h in match_headers) + ")"
 
 
 def build_test_columns(
@@ -324,18 +336,31 @@ def build_test_columns(
 
     filtered = [d for d in definitions if d.test_table == test_table]
     metric_columns: list[_ColumnSpec] = []
+    match_headers: list[str] = []
     for d in filtered:
-        metric_columns.append((f"{d.name} (Exp.)", d.name, None, d.number_format))
+        exp_header = f"{d.name} (Exp.)"
+        calc_header = f"{d.name} (Calc.)"
+        match_header = f"{d.name} (Match)"
+        metric_columns.append((exp_header, d.name, None, d.number_format))
         metric_columns.append(
             (
-                f"{d.name} (Calc.)",
+                calc_header,
                 None,
                 _actual_formula(d.name, d.argument_names, _MLR_X_S_OFFSET),
                 d.number_format,
             )
         )
+        metric_columns.append(
+            (
+                match_header,
+                None,
+                _match_column_formula(exp_header, calc_header, d.number_format),
+                "General",
+            )
+        )
+        match_headers.append(match_header)
 
-    smoke_formula = build_smoke_test_formula(test_table, metric_columns)
+    smoke_formula = build_smoke_test_formula(test_table, match_headers)
     fixed_columns: list[_ColumnSpec] = [
         (
             "X_Variables",

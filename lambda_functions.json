@@ -168,6 +168,114 @@
       ],
       "yields": "Adjusted R² as a scalar, typically in [0, 1] but can be negative",
       "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_squared(...)) * DF_Total(...) / DF_Residual(...), inheriting the Allow_Intercept correction from both df functions."
+    },
+    {
+      "name": "SS_Total",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    y_filt, FILTER(Y, filt_arg),\n    IF(allow_arg, DEVSQ(y_filt), SUMSQ(y_filt))\n  ))",
+      "arguments": [
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "SS_total (total sum of squares) as a scalar",
+      "description": "SS_total is the total variation in Y before any predictors are added. With an intercept it equals the sum of squared deviations from the mean — DEVSQ(Y). Without an intercept it equals the raw sum of squares — SUMSQ(Y). It is the denominator in the R² formula and partitions into SS_regression + SS_residual.\n\nReturns DEVSQ(filtered_Y) when Allow_Intercept is TRUE, SUMSQ(filtered_Y) when FALSE. Does not require X_s."
+    },
+    {
+      "name": "SS_Residual",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Total(Y, allow_arg, filt_arg) * (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "SS_residual (residual/error sum of squares) as a scalar",
+      "description": "SS_residual (also called SS_error) is the variation in Y left unexplained by the regression model — the sum of squared differences between observed and fitted values. It equals SS_total × (1 - R²) and shrinks as the model improves.\n\nComputed as SS_Total(...) * (1 - R_squared(...))."
+    },
+    {
+      "name": "SS_Regression",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Total(Y, allow_arg, filt_arg) * R_squared(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "SS_regression (explained/model sum of squares) as a scalar",
+      "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_squared(...)."
+    },
+    {
+      "name": "SE_Regression",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SQRT(SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "SE_regression (standard error of the regression) as a scalar",
+      "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / DF_Residual(...))."
     }
   ]
 }

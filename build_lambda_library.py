@@ -203,6 +203,10 @@ def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
         "DF_Residual": summary.df_residual,
         "Multiple_R": summary.multiple_r,
         "Adjusted_R2": summary.adjusted_r2,
+        "SS_Total": summary.ss_total,
+        "SS_Residual": summary.ss_residual,
+        "SS_Regression": summary.ss_regression,
+        "SE_Regression": summary.se_regression,
     }
 
 
@@ -336,7 +340,7 @@ def build_test_columns(
         (
             "X_Variables",
             None,
-            "=TEXTJOIN(\", \",TRUE,OFFSET(y,-1,[@[ind_vars]],1,[@[ind_vars]]))",
+            "=TEXTJOIN(\", \",TRUE,OFFSET(y,-1,1,1,[@[ind_vars]]))",
             "General",
         ),
         ("ind_vars",       None, None, "0"),

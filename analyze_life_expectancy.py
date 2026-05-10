@@ -46,6 +46,10 @@ class RegressionSummary:
     df_residual: int
     multiple_r: float
     adjusted_r2: float
+    ss_total: float
+    ss_residual: float
+    ss_regression: float
+    se_regression: float
 
 
 def _normalize_header(name: str) -> str:
@@ -196,6 +200,10 @@ def calculate_regression_summary(
     df_residual = int(model.df_resid)
     multiple_r = np.sqrt(max(r_squared, 0.0))
     adjusted_r2 = model.rsquared_adj
+    ss_total = float(model.centered_tss if include_intercept else model.uncentered_tss)
+    ss_residual = float(model.ssr)
+    ss_regression = ss_total - ss_residual
+    se_regression = float(np.sqrt(model.mse_resid))
 
     return RegressionSummary(
         observations=observations,
@@ -205,6 +213,10 @@ def calculate_regression_summary(
         df_residual=df_residual,
         multiple_r=multiple_r,
         adjusted_r2=adjusted_r2,
+        ss_total=ss_total,
+        ss_residual=ss_residual,
+        ss_regression=ss_regression,
+        se_regression=se_regression,
     )
 
 

@@ -1,9 +1,11 @@
+"""Print the character count of each LAMBDA function's Name Manager comment."""
 import argparse
 import json
 from pathlib import Path
 
 
 def main() -> None:
+    """Print Name Manager comment lengths for every function in the JSON catalog."""
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "json_path",

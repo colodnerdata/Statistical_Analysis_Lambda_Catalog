@@ -1,30 +1,26 @@
+"""Build Lambda_Library.xlsx from lambda_functions.json."""
 from __future__ import annotations
 
 import argparse
 import json
 import os
+import re
+import subprocess
+import tempfile
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
-import re
-import tempfile
-from typing import Any
-from typing import Iterable
-import zipfile
 
 from lxml import etree
-from analyze_life_expectancy import (
-    FEATURE_COLUMNS,
-    RegressionSummary,
-    calculate_regression_summary,
-)
 from lambda_formula_parser import to_workbook_xml_formula_from_display
-import pywintypes  # type: ignore[import-untyped]
+from workbook_helpers import OPEN_WORKBOOK_ERRORS, excel_error_message, raise_excel_access_error
 from write_sheet_lambda_functions import load_catalog_entries, write_catalog_sheet
 from write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
 )
+from write_sheet_mlr_test import build_mlr_row_configs, write_mlr_scalar_test_sheet
 import xlwings as xw
 
 
@@ -33,38 +29,31 @@ DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 WORKBOOK_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-XL_SRC_RANGE = 1
-XL_YES = 1
-OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
-    dict.fromkeys((getattr(pywintypes, "com_error", OSError), OSError))
-)
-
-_MLR_TABLE_HEADER_ROW = 4
 _MAX_TEST_SHEET_NAME_LEN = 31
 _INVALID_WORKSHEET_NAME_CHARS = set("[]:*?/\\")
 _VALID_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MAX_EXCEL_ROW = 1_048_576
 
-# Number of predictor columns (k) tested — one pair of rows per value (TRUE/FALSE intercept).
-_MLR_K_VALUES: list[int] = [1, 5, 10, 18]
-
-# Replaces x_s in every (Calc.) formula; resolves dynamically from each row's ind_vars value.
-_MLR_X_S_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
-
-# Fallback ROUND precision used in smoke-test comparisons when number_format gives no decimal count.
-# Intentionally exceeds any display precision to catch floating-point drift without being affected by it.
-_SMOKE_TEST_ROUND_PRECISION = 10
-
-# (header, expected_key_or_None, formula_or_None, number_format)
-_ColumnSpec = tuple[str, str | None, str | None, str]
-
-# Per-row config: (per-row cell values, expected-values dict)
-_RowConfig = tuple[dict[str, Any], dict[str, float | int]]
-
 
 @dataclass(frozen=True)
 class LambdaDefinition:
-    """Represents one workbook-scoped LAMBDA definition from the JSON catalog."""
+    """One workbook-scoped LAMBDA definition loaded from the JSON catalog.
+
+    Attributes
+    ----------
+    name : str
+        The Excel defined name for this LAMBDA.
+    formula_display : str
+        Human-readable LAMBDA formula (may include whitespace and newlines).
+    comment : str
+        Argument documentation formatted for the Name Manager comment field.
+    argument_names : tuple[str, ...]
+        Ordered argument names extracted from the argument list.
+    test_table : str or None
+        Tag identifying which test sheet this function belongs to.
+    number_format : str
+        Excel number format string for test result cells.
+    """
 
     name: str
     formula_display: str
@@ -75,22 +64,46 @@ class LambdaDefinition:
 
     @property
     def workbook_xml_formula_from_display(self) -> str:
-        """Return the display formula translated into workbook.xml token syntax."""
+        """Display formula translated into workbook.xml token syntax.
 
+        Returns
+        -------
+        str
+            The formula string with platform-specific XML prefixes applied.
+        """
         return to_workbook_xml_formula_from_display(self.formula_display)
 
 
 @dataclass(frozen=True)
 class NameSyncResult:
-    """Summarizes how many workbook names were created versus replaced."""
+    """Summary of how many workbook names were created versus replaced.
+
+    Attributes
+    ----------
+    created : int
+        Number of new workbook names added.
+    updated : int
+        Number of existing workbook names replaced.
+    """
 
     created: int
     updated: int
 
 
 def _looks_like_a1_reference(value: str) -> bool:
-    """Return True when a candidate name resembles an Excel A1-style reference."""
+    """Return True when a candidate name resembles an Excel A1-style reference.
 
+    Parameters
+    ----------
+    value : str
+        The string to test.
+
+    Returns
+    -------
+    bool
+        True if the string matches an Excel A1-style cell reference pattern
+        within the valid column (≤ XFD) and row (≤ 1,048,576) ranges.
+    """
     match = re.fullmatch(r"([A-Za-z]{1,3})([1-9][0-9]{0,6})", value)
     if match is None:
         return False
@@ -104,8 +117,22 @@ def _looks_like_a1_reference(value: str) -> bool:
 
 
 def _validate_test_table_tag(tag: str, entry_index: int) -> None:
-    """Validate a catalog test-table tag for both worksheet and table-name usage."""
+    """Validate a catalog test-table tag for worksheet and table-name usage.
 
+    Parameters
+    ----------
+    tag : str
+        The test_table string to validate.
+    entry_index : int
+        1-based index of the catalog entry, used in error messages.
+
+    Raises
+    ------
+    ValueError
+        If the tag exceeds the maximum worksheet name length, contains
+        invalid characters, starts or ends with an apostrophe, fails the
+        table-name regex, or resembles a cell reference.
+    """
     if len(tag) > _MAX_TEST_SHEET_NAME_LEN:
         raise ValueError(
             f"'test_table' value {tag!r} in entry {entry_index} is "
@@ -113,7 +140,9 @@ def _validate_test_table_tag(tag: str, entry_index: int) -> None:
             f"{_MAX_TEST_SHEET_NAME_LEN} characters."
         )
     if any(char in _INVALID_WORKSHEET_NAME_CHARS for char in tag):
-        invalid_chars = "".join(sorted({char for char in tag if char in _INVALID_WORKSHEET_NAME_CHARS}))
+        invalid_chars = "".join(
+            sorted({c for c in tag if c in _INVALID_WORKSHEET_NAME_CHARS})
+        )
         raise ValueError(
             f"'test_table' value {tag!r} in entry {entry_index} contains invalid "
             f"worksheet characters: {invalid_chars!r}."
@@ -136,87 +165,25 @@ def _validate_test_table_tag(tag: str, entry_index: int) -> None:
         )
 
 
-def _delete_sheet_scoped_name_if_present(sheet: xw.Sheet, target_name: str) -> None:
-    """Delete a local worksheet name if it already exists."""
-
-    for index in range(sheet.api.Names.Count, 0, -1):
-        existing_name = sheet.api.Names(index).Name
-        local_name = existing_name.split("!", 1)[-1]
-        if local_name.lower() == target_name.lower():
-            sheet.api.Names(index).Delete()
-
-
-def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
-    """Create worksheet-scoped helper names used by the MLR formula tests."""
-
-    local_names = {
-        "y":   "=LifeExpectancyData[Life expectancy]",
-        "fil": "=LifeExpectancyData[Full_Data]",
-    }
-
-    # Remove legacy x_s names from older workbook versions
-    for legacy in ("x_s", "x_s_k1", "x_s_k5", "x_s_k10", "x_s_k18"):
-        _delete_sheet_scoped_name_if_present(sheet, legacy)
-
-    for name, refers_to in local_names.items():
-        _delete_sheet_scoped_name_if_present(sheet, name)
-        sheet.api.Names.Add(Name=name, RefersTo=refers_to)
-
-    _delete_sheet_scoped_name_if_present(sheet, "Allow_Intercept")
-
-
-def _actual_formula(
-    function_name: str,
-    argument_names: Iterable[str],
-    x_s_name: str = "x_s",
-) -> str:
-    """Build an executable test formula that references local helper names.
-
-    When x_s_name is not the literal 'x_s' and the function takes an x_s argument,
-    the formula is wrapped in LET(x_s, <x_s_name>, ...) so the LAMBDA is called
-    with a plain 'x_s' reference rather than an inlined expression.
-    """
-
-    args = list(argument_names)
-    uses_x_s = any(a.strip().lower() == "x_s" for a in args)
-    use_let = uses_x_s and x_s_name != "x_s"
-
-    reference_map = {
-        "y": "y",
-        "x_s": "x_s" if use_let else x_s_name,
-        "filter": "fil",
-        "allow_intercept": "[@[Allow_Intercept]]",
-    }
-
-    resolved_arguments = [
-        reference_map.get(argument_name.strip().lower(), argument_name)
-        for argument_name in args
-    ]
-    call = f"{function_name}({', '.join(resolved_arguments)})"
-    return f"=LET(x_s, {x_s_name}, {call})" if use_let else f"={call}"
-
-
-def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
-    """Map workbook function names to expected values from regression analysis."""
-
-    return {
-        "Observations": summary.observations,
-        "DF_Regression": summary.df_regression,
-        "DF_Total": summary.df_total,
-        "R_squared": summary.r_squared,
-        "DF_Residual": summary.df_residual,
-        "Multiple_R": summary.multiple_r,
-        "Adjusted_R2": summary.adjusted_r2,
-        "SS_Total": summary.ss_total,
-        "SS_Residual": summary.ss_residual,
-        "SS_Regression": summary.ss_regression,
-        "SE_Regression": summary.se_regression,
-    }
-
-
 def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
-    """Load, validate, and normalize the JSON catalog into LambdaDefinition objects."""
+    """Load, validate, and normalize the JSON catalog into LambdaDefinition objects.
 
+    Parameters
+    ----------
+    path : Path
+        Path to the JSON file containing the lambda definitions.
+
+    Returns
+    -------
+    list[LambdaDefinition]
+        Ordered list of validated definitions.
+
+    Raises
+    ------
+    ValueError
+        If the JSON structure is invalid, required fields are missing,
+        names are duplicated, or any test_table tag fails validation.
+    """
     with path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
 
@@ -282,213 +249,23 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
     return definitions
 
 
-def _test_sheet_name(test_table: str) -> str:
-    """Return the worksheet name for a given test-table tag."""
-    return test_table
+def sync_workbook_names(
+    workbook_path: Path, definitions: list[LambdaDefinition]
+) -> NameSyncResult:
+    """Replace workbook-scoped names in workbook.xml with the supplied definitions.
 
+    Parameters
+    ----------
+    workbook_path : Path
+        Path to the .xlsx file to patch in place.
+    definitions : list[LambdaDefinition]
+        Definitions whose names will be inserted or replaced.
 
-def _test_table_name(test_table: str) -> str:
-    """Return the Excel ListObject name for a given test-table tag."""
-    return test_table
-
-
-def _round_precision_for_format(num_fmt: str) -> int:
-    """Return the ROUND precision to use in smoke-test comparisons for a number format string.
-
-    The comparison precision intentionally exceeds the display precision: decimal places are
-    doubled (e.g. '0.000' → 6, '0.00' → 4) so the test is stricter than what the cell shows
-    while still tolerating unavoidable floating-point rounding beyond those digits.
-    Falls back to _SMOKE_TEST_ROUND_PRECISION for formats with no decimal point ('General', etc.).
+    Returns
+    -------
+    NameSyncResult
+        Counts of created versus updated workbook names.
     """
-    dot = num_fmt.find(".")
-    if dot == -1:
-        return _SMOKE_TEST_ROUND_PRECISION
-    return (len(num_fmt) - dot - 1) * 2
-
-
-def _match_column_formula(exp_header: str, calc_header: str, num_fmt: str) -> str:
-    """Return the boolean comparison formula for a per-metric match column.
-
-    Integer formats ('0') compare exactly. All other formats compare via ROUND at a precision
-    that exceeds the display precision — see _round_precision_for_format.
-    """
-    if num_fmt == "0":
-        return f"=[@[{exp_header}]]=[@[{calc_header}]]"
-    precision = _round_precision_for_format(num_fmt)
-    return f"=ROUND([@[{exp_header}]],{precision})=ROUND([@[{calc_header}]],{precision})"
-
-
-def build_smoke_test_formula(
-    test_table: str,  # reserved for per-table customization
-    match_headers: list[str],
-) -> str:
-    """Build the =AND(...) smoke-test formula referencing each per-metric match column."""
-
-    _ = test_table
-    return "=AND(" + ",".join(f"[@[{h}]]" for h in match_headers) + ")"
-
-
-def build_test_columns(
-    test_table: str,
-    definitions: list[LambdaDefinition],
-) -> list[_ColumnSpec]:
-    """Build the full column spec list for a test table from the matching definitions."""
-
-    filtered = [d for d in definitions if d.test_table == test_table]
-    metric_columns: list[_ColumnSpec] = []
-    match_headers: list[str] = []
-    for d in filtered:
-        exp_header = f"{d.name} (Exp.)"
-        calc_header = f"{d.name} (Calc.)"
-        match_header = f"{d.name} (Match)"
-        metric_columns.append((exp_header, d.name, None, d.number_format))
-        metric_columns.append(
-            (
-                calc_header,
-                None,
-                _actual_formula(d.name, d.argument_names, _MLR_X_S_OFFSET),
-                d.number_format,
-            )
-        )
-        metric_columns.append(
-            (
-                match_header,
-                None,
-                _match_column_formula(exp_header, calc_header, d.number_format),
-                "General",
-            )
-        )
-        match_headers.append(match_header)
-
-    smoke_formula = build_smoke_test_formula(test_table, match_headers)
-    fixed_columns: list[_ColumnSpec] = [
-        (
-            "X_Variables",
-            None,
-            "=TEXTJOIN(\", \",TRUE,OFFSET(y,-1,1,1,[@[ind_vars]]))",
-            "General",
-        ),
-        ("ind_vars",       None, None, "0"),
-        ("Allow_Intercept", None, None, "General"),
-        ("Smoke Test",     None, smoke_formula, "General"),
-    ]
-    return fixed_columns + metric_columns
-
-
-def write_test_table(
-    sheet: xw.Sheet,
-    table_name: str,
-    columns: list[_ColumnSpec],
-    header_row: int,
-    rows_data: list[tuple[int, dict[str, Any], dict[str, float | int]]],
-) -> None:
-    """Create and populate an Excel ListObject for a test table."""
-
-    last_data_row = header_row + len(rows_data)
-    col_count = len(columns)
-
-    for col_idx, (header, _, _, _) in enumerate(columns, start=1):
-        sheet.range((header_row, col_idx)).value = header
-
-    table_range = sheet.range((header_row, 1), (last_data_row, col_count))
-    table = sheet.api.ListObjects.Add(
-        SourceType=XL_SRC_RANGE,
-        Source=table_range.api,
-        XlListObjectHasHeaders=XL_YES,
-    )
-    table.Name = table_name
-    table.TableStyle = "TableStyleMedium2"
-    table.ShowTableStyleRowStripes = False
-    table.ShowTableStyleColumnStripes = True
-
-    for data_row, row_values, expected_values in rows_data:
-        is_first_row = data_row == header_row + 1
-        for col_idx, (header, exp_key, formula, num_fmt) in enumerate(columns, start=1):
-            cell = sheet.range((data_row, col_idx))
-            cell.api.NumberFormat = num_fmt
-            if header in row_values:
-                cell.value = row_values[header]
-            elif formula is not None:
-                # Formulas auto-propagate within a table; only write on the first row
-                if is_first_row:
-                    cell.formula = formula
-            elif exp_key is not None:
-                val = expected_values.get(exp_key)
-                if val is not None:
-                    cell.value = val
-
-
-def ensure_mlr_scalar_test_sheet(
-    workbook: xw.Book,
-    definitions: list[LambdaDefinition],
-    definition_count: int,
-    row_configs: list[_RowConfig],
-) -> None:
-    """Create or refresh the MLR_Scalar_Test sheet with a single metric comparison table."""
-
-    test_table = "MLR_Scalar_Test"
-    sheet_name = _test_sheet_name(test_table)
-
-    sheet_names = {sheet.name for sheet in workbook.sheets}
-    if sheet_name in sheet_names:
-        sheet = workbook.sheets[sheet_name]
-    elif len(workbook.sheets) == 1 and not workbook.sheets[0]["A1"].value:
-        sheet = workbook.sheets[0]
-        sheet.name = sheet_name
-    else:
-        sheet = workbook.sheets.add(name=sheet_name, after=workbook.sheets[-1])
-
-    for index in range(sheet.api.ListObjects.Count, 0, -1):
-        sheet.api.ListObjects(index).Delete()
-    sheet.api.Cells.Clear()
-
-    sheet["A1"].value = "MLR Testing"
-    sheet["A1"].api.Font.Bold = True
-    sheet["A2"].value = f"Registered definitions: {definition_count}"
-
-    _set_sheet_scoped_names(sheet)
-
-    columns = build_test_columns(test_table, definitions)
-    header_row = _MLR_TABLE_HEADER_ROW
-    last_data_row = header_row + len(row_configs)
-    col_count = len(columns)
-
-    rows_data: list[tuple[int, dict[str, Any], dict[str, float | int]]] = [
-        (header_row + 1 + i, row_vals, expected)
-        for i, (row_vals, expected) in enumerate(row_configs)
-    ]
-
-    write_test_table(sheet, _test_table_name(test_table), columns, header_row, rows_data)
-
-    sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
-    sheet.range((header_row, 1), (last_data_row, col_count)).api.EntireRow.AutoFit()
-    sheet.api.Application.ActiveWindow.SplitRow = header_row - 1
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
-    sheet.range((1, 1), (last_data_row + 100, 1)).api.WrapText = True
-    sheet.range("A1").column_width = 100
-
-
-def _get_or_create_sheet(workbook: xw.Book, sheet_name: str) -> xw.Sheet:
-    """Return an existing worksheet by name or append a new one."""
-
-    for sheet in workbook.sheets:
-        if sheet.name == sheet_name:
-            return sheet
-    return workbook.sheets.add(name=sheet_name, after=workbook.sheets[-1])
-
-
-def _reset_generated_sheet(sheet: xw.Sheet) -> None:
-    """Clear worksheet cells and remove existing list objects."""
-
-    for index in range(sheet.api.ListObjects.Count, 0, -1):
-        sheet.api.ListObjects(index).Delete()
-    sheet.api.Cells.Clear()
-
-
-def sync_workbook_names(workbook_path: Path, definitions: list[LambdaDefinition]) -> NameSyncResult:
-    """Replace target workbook-scoped names in workbook.xml with the supplied definitions."""
-
     target_names = {definition.name for definition in definitions}
     existing_target_names: set[str] = set()
     temp_fd, temp_name = tempfile.mkstemp(suffix=".xlsx", dir=workbook_path.parent)
@@ -504,7 +281,9 @@ def sync_workbook_names(workbook_path: Path, definitions: list[LambdaDefinition]
 
                 if item.filename == "xl/workbook.xml":
                     workbook_root = etree.fromstring(data)
-                    defined_names_elements = workbook_root.findall(f"{{{WORKBOOK_NS}}}definedNames")
+                    defined_names_elements = workbook_root.findall(
+                        f"{{{WORKBOOK_NS}}}definedNames"
+                    )
 
                     if defined_names_elements:
                         defined_names = defined_names_elements[0]
@@ -512,7 +291,9 @@ def sync_workbook_names(workbook_path: Path, definitions: list[LambdaDefinition]
                             workbook_root.remove(extra)
                     else:
                         defined_names = etree.Element(f"{{{WORKBOOK_NS}}}definedNames")
-                        workbook_root.insert(_defined_names_insert_index(workbook_root), defined_names)
+                        workbook_root.insert(
+                            _defined_names_insert_index(workbook_root), defined_names
+                        )
 
                     for name_element in list(defined_names):
                         if name_element.tag != f"{{{WORKBOOK_NS}}}definedName":
@@ -525,7 +306,9 @@ def sync_workbook_names(workbook_path: Path, definitions: list[LambdaDefinition]
                             defined_names.remove(name_element)
 
                     for definition in definitions:
-                        name_element = etree.SubElement(defined_names, f"{{{WORKBOOK_NS}}}definedName")
+                        name_element = etree.SubElement(
+                            defined_names, f"{{{WORKBOOK_NS}}}definedName"
+                        )
                         name_element.set("name", definition.name)
                         name_element.text = definition.workbook_xml_formula_from_display
 
@@ -542,12 +325,25 @@ def sync_workbook_names(workbook_path: Path, definitions: list[LambdaDefinition]
     finally:
         Path(temp_name).unlink(missing_ok=True)
 
-    return NameSyncResult(created=len(definitions) - len(existing_target_names), updated=len(existing_target_names))
+    return NameSyncResult(
+        created=len(definitions) - len(existing_target_names),
+        updated=len(existing_target_names),
+    )
 
 
 def _defined_names_insert_index(workbook_root) -> int:
-    """Return the schema-safe insertion point for a definedNames element."""
+    """Return the schema-safe insertion point for a definedNames element.
 
+    Parameters
+    ----------
+    workbook_root : lxml.etree._Element
+        The root element of workbook.xml.
+
+    Returns
+    -------
+    int
+        Index at which to insert the definedNames child element.
+    """
     ordered_followers = {
         "calcPr",
         "oleSize",
@@ -569,55 +365,42 @@ def _defined_names_insert_index(workbook_root) -> int:
     return len(children)
 
 
-def _excel_error_message(exc: BaseException) -> str:
-    """Extract a readable message from an Excel automation exception."""
-
-    return str(exc).strip() or exc.__class__.__name__
-
-
-def _raise_excel_access_error(workbook_path: Path, action: str, exc: BaseException) -> None:
-    """Raise a clearer workbook access error when Excel has the file locked or read-only."""
-
-    message = _excel_error_message(exc)
-    normalized = message.lower()
-    likely_locked = any(
-        phrase in normalized
-        for phrase in (
-            "cannot access read-only document",
-            "read-only",
-            "currently in use",
-            "sharing violation",
-            "permission denied",
-        )
-    )
-
-    if likely_locked:
-        raise RuntimeError(
-            f"Excel could not {action} {workbook_path.name!r}. "
-            "The workbook is likely open in Excel or locked by another process. "
-            f"Close Excel and retry. Original error: {message}"
-        ) from exc
-
-    raise RuntimeError(f"Excel could not {action} {workbook_path.name!r}: {message}") from exc
-
-
 def _validate_workbook_reopen(workbook_path: Path) -> None:
-    """Reopen the saved workbook in Excel to confirm the patched package is still valid."""
+    """Reopen the saved workbook in Excel to confirm the patched package is valid.
 
+    Parameters
+    ----------
+    workbook_path : Path
+        Path to the .xlsx file to reopen and immediately close.
+
+    Raises
+    ------
+    RuntimeError
+        If Excel rejects the workbook during open.
+    """
     try:
         with xw.App(visible=False, add_book=False) as app:
             workbook = app.books.open(str(workbook_path))
             workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
         raise RuntimeError(
-            f"Workbook reopen validation failed for {workbook_path.name!r}: {_excel_error_message(exc)}"
+            f"Workbook reopen validation failed for {workbook_path.name!r}: "
+            f"{excel_error_message(exc)}"
         ) from exc
 
 
 def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments for workbook generation and optional validation."""
+    """Parse command-line arguments for workbook generation and validation.
 
-    parser = argparse.ArgumentParser(description="Build Lambda_Library.xlsx from lambda_functions.json.")
+    Returns
+    -------
+    argparse.Namespace
+        Parsed arguments with workbook, definitions, csv, and
+        validate_reopen attributes.
+    """
+    parser = argparse.ArgumentParser(
+        description="Build Lambda_Library.xlsx from lambda_functions.json."
+    )
     parser.add_argument(
         "--workbook",
         type=Path,
@@ -645,17 +428,33 @@ def parse_args() -> argparse.Namespace:
 
 
 def _delete_sheet_if_present(workbook: xw.Book, sheet_name: str) -> None:
-    """Delete a worksheet by name if it exists in the workbook."""
+    """Delete a worksheet by name if it exists in the workbook.
 
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open xlwings workbook.
+    sheet_name : str
+        Name of the sheet to delete.
+    """
     for sheet in list(workbook.sheets):
         if sheet.name == sheet_name:
             sheet.delete()
             return
 
 
-def _write_name_comments(workbook_path: Path, definitions: list[LambdaDefinition]) -> None:
-    """Set Name Manager comments via COM so newlines render correctly in intellisense."""
+def _write_name_comments(
+    workbook_path: Path, definitions: list[LambdaDefinition]
+) -> None:
+    """Set Name Manager comments via COM so newlines render in intellisense.
 
+    Parameters
+    ----------
+    workbook_path : Path
+        Path to the .xlsx file to open, update, and save.
+    definitions : list[LambdaDefinition]
+        Definitions whose comments will be written to the Name Manager.
+    """
     comments = {d.name: d.comment for d in definitions if d.comment}
     if not comments:
         return
@@ -672,7 +471,7 @@ def _write_name_comments(workbook_path: Path, definitions: list[LambdaDefinition
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
-        _raise_excel_access_error(workbook_path, "set comments on", exc)
+        raise_excel_access_error(workbook_path, "set comments on", exc)
 
 
 def build_lambda_library(
@@ -681,27 +480,27 @@ def build_lambda_library(
     csv_path: Path = DEFAULT_CSV_PATH,
     validate_reopen: bool = False,
 ) -> NameSyncResult:
-    """Build all workbook assets, sync JSON-backed names, and optionally validate reopen."""
+    """Build all workbook assets, sync JSON-backed names, and optionally validate.
 
+    Parameters
+    ----------
+    workbook_path : Path, optional
+        Path to the workbook to create or update.
+    definitions_path : Path, optional
+        Path to the JSON catalog file.
+    csv_path : Path, optional
+        Path to the Life Expectancy CSV file.
+    validate_reopen : bool, optional
+        If True, reopens the workbook in Excel after patching to verify it.
+
+    Returns
+    -------
+    NameSyncResult
+        Counts of created versus updated workbook names.
+    """
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
-
-    row_configs: list[_RowConfig] = []
-    for k in _MLR_K_VALUES:
-        feature_cols = FEATURE_COLUMNS[:k]
-        summary_true = calculate_regression_summary(
-            input_csv_path=csv_path,
-            include_intercept=True,
-            feature_columns=feature_cols,
-        )
-        summary_false = calculate_regression_summary(
-            input_csv_path=csv_path,
-            include_intercept=False,
-            feature_columns=feature_cols,
-        )
-        row_configs.append(({"ind_vars": k, "Allow_Intercept": True},  _expected_values_map(summary_true)))
-        row_configs.append(({"ind_vars": k, "Allow_Intercept": False}, _expected_values_map(summary_false)))
-
+    row_configs = build_mlr_row_configs(csv_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
@@ -719,7 +518,7 @@ def build_lambda_library(
                     workbook.sheets["Sheet1"].name = "LAMBDA_functions"
                 write_catalog_sheet(workbook, catalog_entries)
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
-                ensure_mlr_scalar_test_sheet(
+                write_mlr_scalar_test_sheet(
                     workbook,
                     definitions,
                     len(definitions),
@@ -729,14 +528,14 @@ def build_lambda_library(
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
-        _raise_excel_access_error(workbook_path, "open or save", exc)
+        raise_excel_access_error(workbook_path, "open or save", exc)
 
     try:
         result = sync_workbook_names(workbook_path, definitions)
     except OPEN_WORKBOOK_ERRORS as exc:
-        _raise_excel_access_error(workbook_path, "update", exc)
+        raise_excel_access_error(workbook_path, "update", exc)
     except (PermissionError, OSError) as exc:
-        _raise_excel_access_error(workbook_path, "update", exc)
+        raise_excel_access_error(workbook_path, "update", exc)
 
     _write_name_comments(workbook_path, definitions)
 
@@ -748,16 +547,28 @@ def build_lambda_library(
 
 def main() -> None:
     """Build the workbook and print a short sync summary for interactive use."""
-
     args = parse_args()
-    result = build_lambda_library(
-        workbook_path=args.workbook,
-        definitions_path=args.definitions,
-        csv_path=args.csv,
-        validate_reopen=args.validate_reopen,
-    )
+    while True:
+        try:
+            result = build_lambda_library(
+                workbook_path=args.workbook,
+                definitions_path=args.definitions,
+                csv_path=args.csv,
+                validate_reopen=args.validate_reopen,
+            )
+            break
+        except RuntimeError as exc:
+            if "likely open in Excel" in str(exc):
+                prompt = (
+                    f"\n{args.workbook.name} is open in Excel — close it "
+                    "and press Enter to retry (or Ctrl+C to cancel): "
+                )
+                input(prompt)
+            else:
+                raise
+
     print(f"Workbook: {args.workbook.resolve()}")
-    print(f"Sheet updated: {_test_sheet_name('MLR_Scalar_Test')}")
+    print("Sheet updated: MLR_Scalar_Test")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
     print(f"Created names: {result.created}")
@@ -765,6 +576,8 @@ def main() -> None:
     print("Invalid entries: 0")
     if args.validate_reopen:
         print("Reopen validation: passed")
+
+    subprocess.Popen(["cmd", "/c", "start", "", str(args.workbook.resolve())])
 
 
 if __name__ == "__main__":

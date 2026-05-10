@@ -14,3 +14,9 @@ dependencies = [
 
 [tool.uv]
 package = false
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.main]
+extension-pkg-allow-list = ["lxml"]

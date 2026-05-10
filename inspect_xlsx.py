@@ -1,18 +1,18 @@
-"""
-inspect_xlsx.py
-Inspect the ZIP contents and key XML files inside an Excel workbook.
-
-Usage:
-    python inspect_xlsx.py [FILE]
-
-    FILE  Path to the .xlsx file to inspect (default: Lambda_Library.xlsx)
-"""
+"""Inspect the ZIP contents and key XML files inside an Excel workbook."""
 from __future__ import annotations
+
 import argparse
 import zipfile
 
 
 def inspect(file_path: str) -> None:
+    """Print the ZIP file list and selected XML entries from an Excel workbook.
+
+    Parameters
+    ----------
+    file_path : str
+        Path to the .xlsx file to inspect.
+    """
     with zipfile.ZipFile(file_path, "r") as z:
         print("--- File List ---")
         for name in z.namelist():
@@ -31,9 +31,21 @@ def inspect(file_path: str) -> None:
 
 
 def main() -> None:
+    """Parse arguments and run the workbook inspection.
+
+    Usage
+    -----
+    python inspect_xlsx.py [FILE]
+
+    FILE defaults to Lambda_Library.xlsx in the current directory.
+    """
     parser = argparse.ArgumentParser(description="Inspect the contents of an Excel workbook.")
-    parser.add_argument("file", nargs="?", default="Lambda_Library.xlsx",
-                        help="Path to the .xlsx file (default: Lambda_Library.xlsx)")
+    parser.add_argument(
+        "file",
+        nargs="?",
+        default="Lambda_Library.xlsx",
+        help="Path to the .xlsx file (default: Lambda_Library.xlsx)",
+    )
     args = parser.parse_args()
 
     try:

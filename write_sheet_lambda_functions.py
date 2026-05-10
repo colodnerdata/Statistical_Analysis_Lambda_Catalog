@@ -1,3 +1,4 @@
+"""Write the LAMBDA function catalog to the LAMBDA_functions worksheet."""
 from __future__ import annotations
 
 import argparse
@@ -6,8 +7,17 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import pywintypes  # type: ignore[import-untyped]
 import xlwings as xw
+
+from workbook_helpers import (
+    OPEN_WORKBOOK_ERRORS,
+    XL_SRC_RANGE,
+    XL_YES,
+    get_or_create_sheet,
+    open_or_create_workbook,
+    raise_excel_access_error,
+    reset_generated_sheet,
+)
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -16,25 +26,56 @@ SHEET_NAME = "LAMBDA_functions"
 TABLE_NAME = "LAMBDAFunctionsCatalog"
 TABLE_HEADERS = ["Function Name", "Definition", "Arguments", "Yields", "Description"]
 COLUMN_WIDTHS = {"A": 120, "B": 500, "C": 210, "D": 100, "E": 500}
-XL_SRC_RANGE = 1
-XL_YES = 1
-OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
-    dict.fromkeys((getattr(pywintypes, "com_error", OSError), OSError))
-)
 
 
 @dataclass(frozen=True)
 class Argument:
+    """A single LAMBDA function argument with its display metadata.
+
+    Attributes
+    ----------
+    name : str
+        The argument identifier as used in the LAMBDA formula.
+    description : str
+        Human-readable description of what the argument represents.
+    optional : bool
+        If True, the argument is optional and is displayed in brackets.
+    """
+
     name: str
     description: str
     optional: bool = False
 
     def display_name(self) -> str:
+        """Return the argument name formatted for display in the catalog.
+
+        Returns
+        -------
+        str
+            The name wrapped in square brackets when optional, otherwise
+            the bare name.
+        """
         return f"[{self.name}]" if self.optional else self.name
 
 
 @dataclass(frozen=True)
 class LambdaCatalogEntry:
+    """A single row of data for the LAMBDA_functions catalog sheet.
+
+    Attributes
+    ----------
+    name : str
+        The Excel defined name for this LAMBDA.
+    formula_display : str
+        Human-readable LAMBDA formula shown in the Definition column.
+    arguments : list[Argument]
+        Ordered list of arguments accepted by the function.
+    yields : str
+        Short description of the value the function returns.
+    description : str
+        Full description shown in the Description column.
+    """
+
     name: str
     formula_display: str
     arguments: list[Argument]
@@ -42,6 +83,14 @@ class LambdaCatalogEntry:
     description: str
 
     def arguments_cell_text(self) -> str:
+        """Format all arguments as multi-line text for the Arguments cell.
+
+        Returns
+        -------
+        str
+            Each argument on its own line as ``name: description``, or an
+            empty string when the function takes no arguments.
+        """
         if not self.arguments:
             return ""
 
@@ -53,6 +102,19 @@ class LambdaCatalogEntry:
 
 
 def _build_argument(argument_data: dict[str, Any]) -> Argument:
+    """Construct an Argument from a raw JSON argument dict.
+
+    Parameters
+    ----------
+    argument_data : dict[str, Any]
+        Dictionary with ``name``, ``description``, and optional ``optional``
+        keys, as found in lambda_functions.json.
+
+    Returns
+    -------
+    Argument
+        The constructed Argument instance.
+    """
     return Argument(
         name=str(argument_data["name"]),
         description=str(argument_data["description"]),
@@ -61,6 +123,18 @@ def _build_argument(argument_data: dict[str, Any]) -> Argument:
 
 
 def _build_catalog_entry(function_data: dict[str, Any]) -> LambdaCatalogEntry:
+    """Construct a LambdaCatalogEntry from a raw JSON function dict.
+
+    Parameters
+    ----------
+    function_data : dict[str, Any]
+        Dictionary for one function entry from lambda_functions.json.
+
+    Returns
+    -------
+    LambdaCatalogEntry
+        The constructed catalog entry.
+    """
     return LambdaCatalogEntry(
         name=str(function_data["name"]),
         formula_display=str(function_data["formula_display"]),
@@ -74,6 +148,23 @@ def _build_catalog_entry(function_data: dict[str, Any]) -> LambdaCatalogEntry:
 
 
 def load_catalog_entries(definitions_path: Path) -> list[LambdaCatalogEntry]:
+    """Load and parse all catalog entries from the JSON definitions file.
+
+    Parameters
+    ----------
+    definitions_path : Path
+        Path to lambda_functions.json.
+
+    Returns
+    -------
+    list[LambdaCatalogEntry]
+        Ordered list of catalog entries, one per function definition.
+
+    Raises
+    ------
+    ValueError
+        If the JSON does not contain a top-level ``functions`` array.
+    """
     with definitions_path.open("r", encoding="utf-8") as handle:
         payload = json.load(handle)
 
@@ -84,28 +175,18 @@ def load_catalog_entries(definitions_path: Path) -> list[LambdaCatalogEntry]:
     return [_build_catalog_entry(function_data) for function_data in functions]
 
 
-def _open_or_create_workbook(app: xw.App, workbook_path: Path) -> tuple[xw.Book, bool]:
-    if workbook_path.exists():
-        return app.books.open(str(workbook_path)), True
-    return app.books.add(), False
-
-
-def _get_or_create_sheet(workbook: xw.Book, sheet_name: str) -> xw.Sheet:
-    for sheet in workbook.sheets:
-        if sheet.name == sheet_name:
-            return sheet
-    return workbook.sheets.add(name=sheet_name, after=workbook.sheets[-1])
-
-
-def _reset_generated_sheet(sheet: xw.Sheet) -> None:
-    for index in range(sheet.api.ListObjects.Count, 0, -1):
-        sheet.api.ListObjects(index).Delete()
-    sheet.api.Cells.Clear()
-
-
 def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) -> None:
-    sheet = _get_or_create_sheet(workbook, SHEET_NAME)
-    _reset_generated_sheet(sheet)
+    """Write catalog entries to the LAMBDA_functions sheet as a formatted table.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open xlwings workbook to write into.
+    entries : list[LambdaCatalogEntry]
+        Catalog entries to populate the table rows.
+    """
+    sheet = get_or_create_sheet(workbook, SHEET_NAME)
+    reset_generated_sheet(sheet)
     sheet.activate()
 
     for column_index, header in enumerate(TABLE_HEADERS, start=1):
@@ -133,17 +214,13 @@ def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) ->
     table.ShowTableStyleRowStripes = True
     table.ShowTableStyleColumnStripes = False
 
-    # Set specific column widths: A=18, B=72, C=30, D=15, E=66 characters
     sheet.range("A1").column_width = 18
     sheet.range("B1").column_width = 72
     sheet.range("C1").column_width = 30
     sheet.range("D1").column_width = 15
     sheet.range("E1").column_width = 66
 
-    # Enable wrap text on the data area
     sheet.range(f"A1:E{last_data_row}").api.WrapText = True
-
-    # Auto-fit row heights to accommodate wrapped content
     sheet.range(f"A2:E{last_data_row}").api.EntireRow.AutoFit()
 
     sheet.api.Application.ActiveWindow.SplitRow = 1
@@ -151,45 +228,30 @@ def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) ->
     sheet.api.Application.ActiveWindow.FreezePanes = True
 
 
-def _excel_error_message(exc: BaseException) -> str:
-    return str(exc).strip() or exc.__class__.__name__
-
-
-def _raise_excel_access_error(workbook_path: Path, action: str, exc: BaseException) -> None:
-    message = _excel_error_message(exc)
-    normalized = message.lower()
-    likely_locked = any(
-        phrase in normalized
-        for phrase in (
-            "cannot access read-only document",
-            "read-only",
-            "currently in use",
-            "sharing violation",
-            "permission denied",
-        )
-    )
-
-    if likely_locked:
-        raise RuntimeError(
-            f"Excel could not {action} {workbook_path.name!r}. "
-            "The workbook is likely open in Excel or locked by another process. "
-            f"Close Excel and retry. Original error: {message}"
-        ) from exc
-
-    raise RuntimeError(f"Excel could not {action} {workbook_path.name!r}: {message}") from exc
-
-
 def write_lambda_catalog(
     workbook_path: Path,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
 ) -> int:
-    """Write the catalog to the workbook and return the number of entries written."""
+    """Write the catalog sheet to the workbook and return the number of entries written.
+
+    Parameters
+    ----------
+    workbook_path : Path
+        Path to the workbook file to create or update.
+    definitions_path : Path, optional
+        Path to the JSON file containing lambda catalog metadata.
+
+    Returns
+    -------
+    int
+        Number of catalog entries written to the sheet.
+    """
     entries = load_catalog_entries(definitions_path)
     workbook_path = workbook_path.resolve()
 
     try:
         with xw.App(visible=False, add_book=False) as app:
-            workbook, workbook_exists = _open_or_create_workbook(app, workbook_path)
+            workbook, workbook_exists = open_or_create_workbook(app, workbook_path)
             try:
                 write_catalog_sheet(workbook, entries)
                 if workbook_exists:
@@ -199,14 +261,24 @@ def write_lambda_catalog(
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
-        _raise_excel_access_error(workbook_path, "write catalog sheet in", exc)
+        raise_excel_access_error(workbook_path, "write catalog sheet in", exc)
 
     return len(entries)
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the catalog sheet writer.
+
+    Returns
+    -------
+    argparse.Namespace
+        Parsed arguments with workbook and definitions attributes.
+    """
     parser = argparse.ArgumentParser(
-        description="Write the human-readable LAMBDA catalog into a workbook sheet named LAMBDA_functions."
+        description=(
+            "Write the human-readable LAMBDA catalog into a workbook sheet "
+            "named LAMBDA_functions."
+        )
     )
     parser.add_argument(
         "workbook",
@@ -223,8 +295,11 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Write the catalog sheet and print a summary for interactive use."""
     args = parse_args()
-    rows_written = write_lambda_catalog(workbook_path=args.workbook, definitions_path=args.definitions)
+    rows_written = write_lambda_catalog(
+        workbook_path=args.workbook, definitions_path=args.definitions
+    )
     print(f"Workbook: {args.workbook.resolve()}")
     print(f"Sheet: {SHEET_NAME}")
     print(f"Rows written: {rows_written}")

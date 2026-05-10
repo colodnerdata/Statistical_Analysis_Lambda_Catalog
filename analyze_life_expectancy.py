@@ -1,3 +1,4 @@
+"""Fit OLS regression on the Life Expectancy dataset and generate predictions."""
 from __future__ import annotations
 
 import argparse
@@ -6,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import statsmodels.api as sm
+import statsmodels.api as sm  # type: ignore[import-untyped]
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -37,7 +38,33 @@ FEATURE_COLUMNS = [
 
 @dataclass(frozen=True)
 class RegressionSummary:
-    """Core regression metrics aligned with workbook LAMBDA outputs."""
+    """Core regression metrics aligned with workbook LAMBDA outputs.
+
+    Attributes
+    ----------
+    observations : int
+        Number of training rows used in the fit.
+    df_regression : int
+        Degrees of freedom for the regression (number of predictors).
+    df_total : int
+        Total degrees of freedom (n-1 with intercept, n without).
+    r_squared : float
+        Coefficient of determination.
+    df_residual : int
+        Residual degrees of freedom.
+    multiple_r : float
+        Square root of R-squared.
+    adjusted_r2 : float
+        R-squared adjusted for the number of predictors.
+    ss_total : float
+        Total sum of squares.
+    ss_residual : float
+        Residual (error) sum of squares.
+    ss_regression : float
+        Regression sum of squares.
+    se_regression : float
+        Standard error of the regression.
+    """
 
     observations: int
     df_regression: int
@@ -53,10 +80,35 @@ class RegressionSummary:
 
 
 def _normalize_header(name: str) -> str:
+    """Collapse internal whitespace in a CSV header name.
+
+    Parameters
+    ----------
+    name : str
+        Raw header string from the CSV file.
+
+    Returns
+    -------
+    str
+        Header with leading/trailing whitespace stripped and internal
+        runs of whitespace collapsed to a single space.
+    """
     return " ".join(name.strip().split())
 
 
 def _parse_float(raw: str | None) -> float | None:
+    """Convert a raw CSV cell value to float, returning None for blanks.
+
+    Parameters
+    ----------
+    raw : str or None
+        The raw cell value from the CSV reader.
+
+    Returns
+    -------
+    float or None
+        Parsed float, or None if the value is None or an empty string.
+    """
     if raw is None:
         return None
     value = raw.strip()
@@ -68,8 +120,27 @@ def _parse_float(raw: str | None) -> float | None:
         return None
 
 
-def _load_normalized_rows(input_path: Path) -> tuple[list[str], list[dict[str, str]]]:
-    """Load CSV and normalize headers."""
+def _load_normalized_rows(
+    input_path: Path,
+) -> tuple[list[str], list[dict[str, str]]]:
+    """Load CSV rows and normalize column header whitespace.
+
+    Parameters
+    ----------
+    input_path : Path
+        Path to the input CSV file.
+
+    Returns
+    -------
+    tuple[list[str], list[dict[str, str]]]
+        A 2-tuple of (original_headers, normalized_rows) where each
+        normalized row maps normalized header names to raw cell strings.
+
+    Raises
+    ------
+    ValueError
+        If the CSV file has no header row.
+    """
     with input_path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
@@ -82,7 +153,9 @@ def _load_normalized_rows(input_path: Path) -> tuple[list[str], list[dict[str, s
         for row in reader:
             normalized_row = {
                 normalized_name: row.get(original_name, "")
-                for original_name, normalized_name in zip(original_headers, normalized_headers, strict=True)
+                for original_name, normalized_name in zip(
+                    original_headers, normalized_headers, strict=True
+                )
             }
             normalized_rows.append(normalized_row)
 
@@ -93,11 +166,28 @@ def _validate_required_headers(
     original_headers: list[str],
     feature_columns: list[str] | None = None,
 ) -> None:
-    """Check that all required columns are present."""
-    columns_to_check = feature_columns if feature_columns is not None else FEATURE_COLUMNS
+    """Raise ValueError if any required column is absent from the CSV.
+
+    Parameters
+    ----------
+    original_headers : list[str]
+        Raw header names read from the CSV file.
+    feature_columns : list[str] or None, optional
+        Predictor columns to validate. Defaults to FEATURE_COLUMNS.
+
+    Raises
+    ------
+    ValueError
+        If any required column (target or predictor) is missing.
+    """
+    columns_to_check = (
+        feature_columns if feature_columns is not None else FEATURE_COLUMNS
+    )
     normalized_headers = [_normalize_header(name) for name in original_headers]
     missing_headers = [
-        header for header in [TARGET_COLUMN, *columns_to_check] if header not in normalized_headers
+        header
+        for header in [TARGET_COLUMN, *columns_to_check]
+        if header not in normalized_headers
     ]
     if missing_headers:
         raise ValueError(f"Missing required columns: {', '.join(missing_headers)}")
@@ -109,12 +199,35 @@ def _build_training_arrays(
     feature_columns: list[str] | None = None,
     filter_columns: list[str] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, list[list[float] | None], list[float | None]]:
-    """Build NumPy arrays for training and track per-row parsed values.
+    """Build NumPy training arrays and track per-row parsed values.
 
-    filter_columns controls which columns must be non-null for a row to be included.
-    It defaults to feature_columns, but callers can supply the full FEATURE_COLUMNS list
-    to match an Excel filter (e.g. Full_Data) that always checks all columns regardless
-    of how many predictors are actually used.
+    ``filter_columns`` controls which columns must be non-null for a row to be
+    included. It defaults to ``feature_columns``, but callers can supply the
+    full ``FEATURE_COLUMNS`` list to match an Excel Full_Data filter that always
+    checks all columns regardless of how many predictors are actually used.
+
+    Parameters
+    ----------
+    normalized_rows : list[dict[str, str]]
+        Rows with normalized header keys from ``_load_normalized_rows``.
+    include_intercept : bool
+        If True, prepend a column of ones to the design matrix.
+    feature_columns : list[str] or None, optional
+        Predictor columns to use. Defaults to FEATURE_COLUMNS.
+    filter_columns : list[str] or None, optional
+        Columns that must be non-null for a row to be included in training.
+        Defaults to ``feature_columns``.
+
+    Returns
+    -------
+    tuple
+        A 4-tuple of (x_train, y_train, parsed_features_per_row,
+        parsed_targets_per_row).
+
+    Raises
+    ------
+    ValueError
+        If no training rows remain after filtering.
     """
     predictor_cols = feature_columns if feature_columns is not None else FEATURE_COLUMNS
     filter_cols = filter_columns if filter_columns is not None else predictor_cols
@@ -133,7 +246,7 @@ def _build_training_arrays(
         parsed_targets_per_row.append(target_value)
 
         if row_passes_filter and predictors_complete:
-            dense_features = [float(value) for value in predictor_values]
+            dense_features = [float(value) for value in predictor_values if value is not None]
             parsed_features_per_row.append(dense_features)
         else:
             parsed_features_per_row.append(None)
@@ -156,7 +269,23 @@ def _build_training_arrays(
 def _fit_ols_model(
     x_train: np.ndarray, y_train: np.ndarray, include_intercept: bool
 ) -> sm.regression.linear_model.RegressionResults:
-    """Fit OLS model using statsmodels."""
+    """Fit an OLS model using statsmodels.
+
+    Parameters
+    ----------
+    x_train : np.ndarray
+        Design matrix (n_samples, n_features). The intercept column, when
+        required, is already embedded by ``_build_training_arrays``.
+    y_train : np.ndarray
+        Target vector (n_samples,).
+    include_intercept : bool
+        Unused; retained for call-site symmetry with other helpers.
+
+    Returns
+    -------
+    statsmodels.regression.linear_model.RegressionResults
+        Fitted OLS results object.
+    """
     if include_intercept:
         model = sm.OLS(y_train, x_train)
     else:
@@ -167,7 +296,22 @@ def _fit_ols_model(
 def _predict_single_row(
     coefficients: np.ndarray, features: list[float] | None, include_intercept: bool
 ) -> float | None:
-    """Predict a single row using fitted coefficients."""
+    """Predict life expectancy for one row using fitted OLS coefficients.
+
+    Parameters
+    ----------
+    coefficients : np.ndarray
+        Fitted coefficient vector from the OLS model.
+    features : list[float] or None
+        Predictor values for the row, or None if the row was filtered out.
+    include_intercept : bool
+        If True, prepend 1.0 to the feature vector before the dot product.
+
+    Returns
+    -------
+    float or None
+        Predicted value, or None when features is None.
+    """
     if features is None:
         return None
     design_row = np.array(features, dtype=np.float64)
@@ -181,8 +325,22 @@ def calculate_regression_summary(
     include_intercept: bool = True,
     feature_columns: list[str] | None = None,
 ) -> RegressionSummary:
-    """Fit OLS and return regression metrics without writing output files."""
+    """Fit OLS and return regression metrics without writing any output files.
 
+    Parameters
+    ----------
+    input_csv_path : Path, optional
+        Path to the Life Expectancy CSV file.
+    include_intercept : bool, optional
+        If True, fit a model with an intercept term.
+    feature_columns : list[str] or None, optional
+        Predictor columns to include. Defaults to FEATURE_COLUMNS.
+
+    Returns
+    -------
+    RegressionSummary
+        Scalar regression metrics matching the workbook LAMBDA outputs.
+    """
     columns = feature_columns if feature_columns is not None else FEATURE_COLUMNS
     input_path = input_csv_path.resolve()
     original_headers, normalized_rows = _load_normalized_rows(input_path)
@@ -221,6 +379,13 @@ def calculate_regression_summary(
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for life expectancy prediction.
+
+    Returns
+    -------
+    argparse.Namespace
+        Parsed arguments with csv, output, and no_intercept attributes.
+    """
     parser = argparse.ArgumentParser(
         description="Fit OLS on Life Expectancy data and output predicted values to CSV."
     )
@@ -246,18 +411,28 @@ def generate_life_expectancy_predictions(
 ) -> tuple[int, int]:
     """Fit OLS predictions and write an output CSV.
 
-    Returns a tuple of (training_rows_used, rows_with_predictions).
-    """
+    Parameters
+    ----------
+    input_csv_path : Path, optional
+        Path to the input Life Expectancy CSV file.
+    output_csv_path : Path, optional
+        Path where the output CSV with predictions will be written.
+    include_intercept : bool, optional
+        If True, fit a model with an intercept term.
 
+    Returns
+    -------
+    tuple[int, int]
+        A 2-tuple of (training_rows_used, rows_with_predictions).
+    """
     input_path = input_csv_path.resolve()
     output_path = output_csv_path.resolve()
 
     original_headers, normalized_rows = _load_normalized_rows(input_path)
     _validate_required_headers(original_headers)
 
-    x_train, y_train, parsed_features_per_row, parsed_targets_per_row = _build_training_arrays(
-        normalized_rows,
-        include_intercept,
+    x_train, y_train, parsed_features_per_row, parsed_targets_per_row = (
+        _build_training_arrays(normalized_rows, include_intercept)
     )
     model = _fit_ols_model(x_train, y_train, include_intercept)
     coefficients = model.params
@@ -276,7 +451,10 @@ def generate_life_expectancy_predictions(
             parsed_targets_per_row,
             strict=True,
         ):
-            out_row = {header: original_row.get(_normalize_header(header), "") for header in original_headers}
+            out_row = {
+                header: original_row.get(_normalize_header(header), "")
+                for header in original_headers
+            }
             predicted_value: float | None = None
             residual: float | None = None
 
@@ -308,6 +486,7 @@ def generate_life_expectancy_predictions(
 
 
 def main() -> None:
+    """Fit predictions and write output CSV from command-line arguments."""
     args = parse_args()
     generate_life_expectancy_predictions(
         input_csv_path=args.csv,

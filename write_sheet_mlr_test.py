@@ -1,225 +1,304 @@
-"""
-build_mlr.py
-Generates MLR_Lambda_Library.xlsx from LambdaFunction dataclasses loaded from JSON.
-To add a new function: append a new object to lambda_functions.json.
-
-Dependencies: xlwings, lxml
-"""
+"""Build and write the MLR_Scalar_Test worksheet for regression formula smoke tests."""
 from __future__ import annotations
-from dataclasses import dataclass
-import json
-import os
-from typing import Any
-import zipfile
-from lxml import etree
-from lambda_formula_parser import to_workbook_xml_formula_from_display
+
+from pathlib import Path
+from typing import Iterable
+
 import xlwings as xw
 
-
-# ── Data model ────────────────────────────────────────────────────────────────
-
-@dataclass
-class Argument:
-    name: str
-    description: str
-    optional: bool = False
-
-    def display_name(self) -> str:
-        return f"[{self.name}]" if self.optional else self.name
-
-
-@dataclass
-class LambdaFunction:
-    name: str
-    formula_display: str        # Indented/newline form shown in the Definition cell
-    arguments: list[Argument]
-    yields: str
-    description: str
-
-    def arguments_cell_text(self) -> str:
-        """Generate the Arguments cell value from the Argument list."""
-        lines = [
-            f"{a.display_name()}: {a.description}"
-            for a in self.arguments
-        ]
-        return "\n".join(lines)
-
-
-# ── Layout constants ──────────────────────────────────────────────────────────
-
-COL_WIDTHS = {"A": 22, "B": 72, "C": 55, "D": 36, "E": 64}
-TABLE_COLS  = ["Function Name", "Definition", "Arguments", "Yields", "Description"]
-ROW_HEIGHT  = 130
-SHEET_NAME  = "MLR"
-TABLE_NAME  = "Lambda_Definitions"
-FUNCTIONS_JSON_PATH = os.path.join(
-    os.path.dirname(os.path.abspath(__file__)),
-    "lambda_functions.json",
+from analyze_life_expectancy import (
+    FEATURE_COLUMNS,
+    RegressionSummary,
+    calculate_regression_summary,
+)
+from make_test_sheet import (
+    _ColumnSpec,
+    _RowConfig,
+    _match_column_formula,
+    build_smoke_test_formula,
+    write_test_table,
 )
 
 
-# ── XML patch for DefinedNames ────────────────────────────────────────────────
+_MLR_K_VALUES: list[int] = [1, 5, 10, 18]
+_MLR_TABLE_HEADER_ROW = 4
 
-def _patch_defined_names(path: str, functions: list[LambdaFunction]) -> None:
+# Replaces x_s in every (Calc.) formula; resolves dynamically from each
+# row's ind_vars value.
+_MLR_X_S_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
+
+
+def _delete_sheet_scoped_name_if_present(sheet: xw.Sheet, target_name: str) -> None:
+    """Delete a local worksheet name if it already exists.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The worksheet whose Names collection will be searched.
+    target_name : str
+        The local (unqualified) name to remove, compared case-insensitively.
     """
-    Excel's COM Names.Add rejects LAMBDA formulas with optional [params] at
-    write time. This patches workbook.xml directly — same technique Excel uses
-    internally when reading a saved file.
+    for index in range(sheet.api.Names.Count, 0, -1):
+        existing_name = sheet.api.Names(index).Name
+        local_name = existing_name.split("!", 1)[-1]
+        if local_name.lower() == target_name.lower():
+            sheet.api.Names(index).Delete()
+
+
+def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
+    """Create worksheet-scoped helper names used by the MLR formula tests.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The MLR test worksheet to define names on.
     """
-    ns  = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-    tmp = path + ".tmp.xlsx"
+    local_names = {
+        "y": "=LifeExpectancyData[Life expectancy]",
+        "fil": "=LifeExpectancyData[Full_Data]",
+    }
 
-    with zipfile.ZipFile(path, "r") as zin, \
-         zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as zout:
-        for item in zin.infolist():
-            data = zin.read(item.filename)
-            if item.filename == "xl/workbook.xml":
-                tree = etree.fromstring(data)
-                for el in tree.findall(f"{{{ns}}}definedNames"):
-                    tree.remove(el)
-                dn_el = etree.SubElement(tree, f"{{{ns}}}definedNames")
-                for fn in functions:
-                    name_el = etree.SubElement(dn_el, f"{{{ns}}}definedName")
-                    name_el.set("name", fn.name)
-                    name_el.text = to_workbook_xml_formula_from_display(fn.formula_display)
-                data = etree.tostring(
-                    tree, xml_declaration=True, encoding="UTF-8", standalone=True
-                )
-            zout.writestr(item, data)
+    # Remove legacy x_s names from older workbook versions
+    for legacy in ("x_s", "x_s_k1", "x_s_k5", "x_s_k10", "x_s_k18"):
+        _delete_sheet_scoped_name_if_present(sheet, legacy)
 
-    os.replace(tmp, path)
+    for name, refers_to in local_names.items():
+        _delete_sheet_scoped_name_if_present(sheet, name)
+        sheet.api.Names.Add(Name=name, RefersTo=refers_to)
+
+    _delete_sheet_scoped_name_if_present(sheet, "Allow_Intercept")
 
 
-# ── Workbook builder ──────────────────────────────────────────────────────────
+def _actual_formula(
+    function_name: str,
+    argument_names: Iterable[str],
+    x_s_name: str = "x_s",
+) -> str:
+    """Build an executable test formula that references local helper names.
 
-def _open_or_create_workbook(app: xw.App, path: str) -> tuple[xw.Book, bool]:
-    if os.path.exists(path):
-        try:
-            return app.books.open(path), True
-        except Exception as exc:
-            raise RuntimeError(
-                f"Could not open existing workbook at {path}. Close it in Excel and try again."
-            ) from exc
+    When ``x_s_name`` is not the literal ``'x_s'`` and the function takes an
+    ``x_s`` argument, the formula is wrapped in
+    ``LET(x_s, <x_s_name>, ...)`` so the LAMBDA is called with a plain
+    ``'x_s'`` reference rather than an inlined expression.
 
-    return app.books.add(), False
+    Parameters
+    ----------
+    function_name : str
+        The Excel defined name of the LAMBDA to call.
+    argument_names : Iterable[str]
+        Ordered argument names accepted by the function.
+    x_s_name : str, optional
+        Expression to substitute for the ``x_s`` argument. Defaults to
+        the literal name ``'x_s'``.
+
+    Returns
+    -------
+    str
+        An Excel formula string that calls the function with the
+        appropriate helper-name references.
+    """
+    args = list(argument_names)
+    uses_x_s = any(a.strip().lower() == "x_s" for a in args)
+    use_let = uses_x_s and x_s_name != "x_s"
+
+    reference_map = {
+        "y": "y",
+        "x_s": "x_s" if use_let else x_s_name,
+        "filter": "fil",
+        "allow_intercept": "[@[Allow_Intercept]]",
+    }
+
+    resolved_arguments = [
+        reference_map.get(argument_name.strip().lower(), argument_name)
+        for argument_name in args
+    ]
+    call = f"{function_name}({', '.join(resolved_arguments)})"
+    return f"=LET(x_s, {x_s_name}, {call})" if use_let else f"={call}"
 
 
-def _get_or_create_sheet(wb: xw.Book, name: str) -> xw.Sheet:
-    for sheet in wb.sheets:
-        if sheet.name == name:
-            return sheet
-    return wb.sheets.add(name=name, after=wb.sheets[-1])
+def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
+    """Map workbook function names to expected values from a regression summary.
+
+    Parameters
+    ----------
+    summary : RegressionSummary
+        Regression metrics computed by ``calculate_regression_summary``.
+
+    Returns
+    -------
+    dict[str, float | int]
+        Mapping from Excel defined-name strings to their expected scalar
+        values, keyed to match the ``(Exp.)`` column headers in the test
+        table.
+    """
+    return {
+        "Observations": summary.observations,
+        "DF_Regression": summary.df_regression,
+        "DF_Total": summary.df_total,
+        "R_squared": summary.r_squared,
+        "DF_Residual": summary.df_residual,
+        "Multiple_R": summary.multiple_r,
+        "Adjusted_R2": summary.adjusted_r2,
+        "SS_Total": summary.ss_total,
+        "SS_Residual": summary.ss_residual,
+        "SS_Regression": summary.ss_regression,
+        "SE_Regression": summary.se_regression,
+    }
 
 
-def _reset_generated_sheet(ws: xw.Sheet) -> None:
-    for idx in range(ws.api.ListObjects.Count, 0, -1):
-        ws.api.ListObjects(idx).Delete()
-    ws.api.Cells.Clear()
+def build_test_columns(
+    test_table: str,
+    definitions: list,
+) -> list[_ColumnSpec]:
+    """Build the full column spec list for a test table from matching definitions.
+
+    Parameters
+    ----------
+    test_table : str
+        Tag value used to filter definitions by their ``test_table`` attribute.
+    definitions : list
+        Sequence of LambdaDefinition-like objects with ``test_table``,
+        ``name``, ``argument_names``, and ``number_format`` attributes.
+
+    Returns
+    -------
+    list[_ColumnSpec]
+        Ordered column specs beginning with fixed control columns followed
+        by three columns per matched definition: (Exp.), (Calc.), and (Match).
+    """
+    filtered = [d for d in definitions if d.test_table == test_table]
+    metric_columns: list[_ColumnSpec] = []
+    match_headers: list[str] = []
+    for d in filtered:
+        exp_header = f"{d.name} (Exp.)"
+        calc_header = f"{d.name} (Calc.)"
+        match_header = f"{d.name} (Match)"
+        metric_columns.append((exp_header, d.name, None, d.number_format))
+        metric_columns.append(
+            (
+                calc_header,
+                None,
+                _actual_formula(d.name, d.argument_names, _MLR_X_S_OFFSET),
+                d.number_format,
+            )
+        )
+        metric_columns.append(
+            (
+                match_header,
+                None,
+                _match_column_formula(exp_header, calc_header, d.number_format),
+                "General",
+            )
+        )
+        match_headers.append(match_header)
+
+    smoke_formula = build_smoke_test_formula(test_table, match_headers)
+    fixed_columns: list[_ColumnSpec] = [
+        (
+            "X_Variables",
+            None,
+            "=TEXTJOIN(\", \",TRUE,OFFSET(y,-1,1,1,[@[ind_vars]]))",
+            "General",
+        ),
+        ("ind_vars", None, None, "0"),
+        ("Allow_Intercept", None, None, "General"),
+        ("Smoke Test", None, smoke_formula, "General"),
+    ]
+    return fixed_columns + metric_columns
 
 
-def build_workbook(functions: list[LambdaFunction], path: str) -> None:
-    app = xw.App(visible=False)
-    wb, existing_workbook = _open_or_create_workbook(app, path)
-    ws = _get_or_create_sheet(wb, SHEET_NAME)
-    _reset_generated_sheet(ws)
-    ws.activate()
+def build_mlr_row_configs(csv_path: Path) -> list[_RowConfig]:
+    """Build the per-row test configurations for all MLR k values.
 
-    # Info rows
-    ws["A1"].value = "MLR Lambda Library"
-    ws["A2"].value = (
-        "Workbook-scoped LAMBDA functions for multilinear regression. "
-        "Copy this sheet into any workbook to carry the named formulas with it."
-    )
+    Parameters
+    ----------
+    csv_path : Path
+        Path to the Life Expectancy CSV file used to compute expected values.
 
-    # Table header row (row 4)
-    for col_idx, header in enumerate(TABLE_COLS, start=1):
-        ws.range((4, col_idx)).value = header
+    Returns
+    -------
+    list[_RowConfig]
+        Two row configs per k value (intercept=True and intercept=False),
+        ordered by ascending k.
+    """
+    row_configs: list[_RowConfig] = []
+    for k in _MLR_K_VALUES:
+        feature_cols = FEATURE_COLUMNS[:k]
+        summary_true = calculate_regression_summary(
+            input_csv_path=csv_path,
+            include_intercept=True,
+            feature_columns=feature_cols,
+        )
+        summary_false = calculate_regression_summary(
+            input_csv_path=csv_path,
+            include_intercept=False,
+            feature_columns=feature_cols,
+        )
+        row_configs.append(
+            ({"ind_vars": k, "Allow_Intercept": True}, _expected_values_map(summary_true))
+        )
+        row_configs.append(
+            ({"ind_vars": k, "Allow_Intercept": False}, _expected_values_map(summary_false))
+        )
+    return row_configs
 
-    # Data rows
-    last_data_row = 4 + len(functions)
-    # NumberFormat "@" forces text storage so =LAMBDA(... is not evaluated as a formula
-    ws.range(f"B5:B{last_data_row}").api.NumberFormat = "@"
 
-    for row_offset, fn in enumerate(functions):
-        r = 5 + row_offset
-        ws.range((r, 1)).value = fn.name
-        ws.range((r, 2)).value = fn.formula_display
-        ws.range((r, 3)).value = fn.arguments_cell_text()
-        ws.range((r, 4)).value = fn.yields
-        ws.range((r, 5)).value = fn.description
-        ws.range(f"{r}:{r}").row_height = ROW_HEIGHT
+def write_mlr_scalar_test_sheet(
+    workbook: xw.Book,
+    definitions: list,
+    definition_count: int,
+    row_configs: list[_RowConfig],
+) -> None:
+    """Create or refresh the MLR_Scalar_Test sheet with a metric comparison table.
 
-    # Excel Table
-    tbl_range = ws.range(f"A4:E{last_data_row}")
-    lo = ws.api.ListObjects.Add(
-        SourceType=1,            # xlSrcRange
-        Source=tbl_range.api,
-        XlListObjectHasHeaders=1 # xlYes
-    )
-    lo.Name = TABLE_NAME
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open xlwings workbook to write into.
+    definitions : list
+        Sequence of LambdaDefinition-like objects used to build column specs.
+    definition_count : int
+        Total number of registered definitions, shown in the sheet header.
+    row_configs : list[_RowConfig]
+        Per-row configurations produced by ``build_mlr_row_configs``.
+    """
+    test_table = "MLR_Scalar_Test"
 
-    # Column widths
-    for col_letter, width in COL_WIDTHS.items():
-        ws.range(f"{col_letter}:{col_letter}").column_width = width
-
-    # Freeze rows 1–4 (first scrollable row = 5)
-    ws.api.Application.ActiveWindow.SplitRow    = 4
-    ws.api.Application.ActiveWindow.SplitColumn = 0
-    ws.api.Application.ActiveWindow.FreezePanes = True
-
-    # Save and close so we can patch the file; app stays alive for the reopen
-    if existing_workbook:
-        wb.save()
+    sheet_names = {sheet.name for sheet in workbook.sheets}
+    if test_table in sheet_names:
+        sheet = workbook.sheets[test_table]
+    elif len(workbook.sheets) == 1 and not workbook.sheets[0]["A1"].value:
+        sheet = workbook.sheets[0]
+        sheet.name = test_table
     else:
-        wb.save(path)
-    wb.close()
+        sheet = workbook.sheets.add(name=test_table, after=workbook.sheets[-1])
 
-    # COM's Names.Add rejects LAMBDA with optional [params] — patch XML directly
-    _patch_defined_names(path, functions)
-    print(f"Saved: {path}")
+    for index in range(sheet.api.ListObjects.Count, 0, -1):
+        sheet.api.ListObjects(index).Delete()
+    sheet.api.Cells.Clear()
 
-    # Reopen visibly so the user can inspect
-    app.visible = True
-    app.books.open(path)
+    sheet["A1"].value = "MLR Testing"
+    sheet["A1"].api.Font.Bold = True
+    sheet["A2"].value = f"Registered definitions: {definition_count}"
 
+    _set_sheet_scoped_names(sheet)
 
-# ── Function definitions ──────────────────────────────────────────────────────
+    columns = build_test_columns(test_table, definitions)
+    header_row = _MLR_TABLE_HEADER_ROW
+    last_data_row = header_row + len(row_configs)
+    col_count = len(columns)
 
-def _build_argument(argument_data: dict[str, Any]) -> Argument:
-    return Argument(
-        name=str(argument_data["name"]),
-        description=str(argument_data["description"]),
-        optional=bool(argument_data.get("optional", False)),
-    )
+    rows_data: list[tuple[int, dict, dict]] = [
+        (header_row + 1 + i, row_vals, expected)
+        for i, (row_vals, expected) in enumerate(row_configs)
+    ]
 
+    write_test_table(sheet, test_table, columns, header_row, rows_data)
 
-def _build_function(function_data: dict[str, Any]) -> LambdaFunction:
-    return LambdaFunction(
-        name=str(function_data["name"]),
-        formula_display=str(function_data["formula_display"]),
-        arguments=[
-            _build_argument(argument_data)
-            for argument_data in function_data["arguments"]
-        ],
-        yields=str(function_data["yields"]),
-        description=str(function_data["description"]),
-    )
-
-
-def load_functions(path: str = FUNCTIONS_JSON_PATH) -> list[LambdaFunction]:
-    with open(path, encoding="utf-8") as file:
-        payload = json.load(file)
-
-    return [_build_function(function_data) for function_data in payload["functions"]]
-
-
-FUNCTIONS = load_functions()
-
-
-# ── Entry point ───────────────────────────────────────────────────────────────
-
-if __name__ == "__main__":
-    import os
-    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "MLR_Lambda_Library.xlsx")
-    build_workbook(FUNCTIONS, out)
-    print("Done. Excel is open — the existing workbook was updated in place, or created if missing.")
+    sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
+    sheet.range((header_row, 1), (last_data_row, col_count)).api.EntireRow.AutoFit()
+    sheet.api.Application.ActiveWindow.SplitRow = header_row - 1
+    sheet.api.Application.ActiveWindow.SplitColumn = 0
+    sheet.api.Application.ActiveWindow.FreezePanes = True
+    sheet.range((1, 1), (last_data_row + 100, 1)).api.WrapText = True
+    sheet.range("A1").column_width = 100

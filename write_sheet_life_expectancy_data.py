@@ -1,3 +1,4 @@
+"""Write the Life Expectancy CSV dataset to the Life Expectancy Data worksheet."""
 from __future__ import annotations
 
 import argparse
@@ -5,8 +6,17 @@ import csv
 import re
 from pathlib import Path
 
-import pywintypes  # type: ignore[import-untyped]
 import xlwings as xw
+
+from workbook_helpers import (
+    OPEN_WORKBOOK_ERRORS,
+    XL_SRC_RANGE,
+    XL_YES,
+    get_or_create_sheet,
+    open_or_create_workbook,
+    raise_excel_access_error,
+    reset_generated_sheet,
+)
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -15,15 +25,23 @@ SHEET_NAME = "Life Expectancy Data"
 TABLE_NAME = "LifeExpectancyData"
 FULL_DATA_HEADER = "Full_Data"
 FULL_DATA_FORMULA = "=COUNT(LifeExpectancyData[@[Life expectancy]:[Schooling]])=19"
-XL_SRC_RANGE = 1
-XL_YES = 1
 INTEGER_PATTERN = re.compile(r"-?\d+")
-OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
-    dict.fromkeys((getattr(pywintypes, "com_error", OSError), OSError))
-)
 
 
 def _normalize_headers(headers: list[str]) -> list[str]:
+    """Deduplicate and clean raw CSV header strings.
+
+    Parameters
+    ----------
+    headers : list[str]
+        Raw header strings from the CSV file.
+
+    Returns
+    -------
+    list[str]
+        Normalized headers with internal whitespace collapsed. Duplicate
+        names are made unique by appending ``_2``, ``_3``, etc.
+    """
     normalized: list[str] = []
     used_names: dict[str, int] = {}
 
@@ -37,6 +55,19 @@ def _normalize_headers(headers: list[str]) -> list[str]:
 
 
 def _parse_cell(raw_value: str) -> str | int | float | None:
+    """Convert a raw CSV cell string to the most specific Python type.
+
+    Parameters
+    ----------
+    raw_value : str
+        The raw cell string from the CSV reader.
+
+    Returns
+    -------
+    str or int or float or None
+        None for empty strings, int for whole-number strings, float when
+        the value parses as a float, and str otherwise.
+    """
     value = raw_value.strip()
     if value == "":
         return None
@@ -50,7 +81,27 @@ def _parse_cell(raw_value: str) -> str | int | float | None:
         return value
 
 
-def load_life_expectancy_rows(csv_path: Path) -> tuple[list[str], list[list[str | int | float | None]]]:
+def load_life_expectancy_rows(
+    csv_path: Path,
+) -> tuple[list[str], list[list[str | int | float | None]]]:
+    """Read the CSV and return normalized headers and typed data rows.
+
+    Parameters
+    ----------
+    csv_path : Path
+        Path to the Life Expectancy CSV file.
+
+    Returns
+    -------
+    tuple[list[str], list[list[str | int | float | None]]]
+        A 2-tuple of (headers, rows) where each row is a list of typed
+        cell values aligned with the header list.
+
+    Raises
+    ------
+    ValueError
+        If the CSV file is empty or contains only a header row.
+    """
     with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.reader(handle)
         try:
@@ -67,32 +118,24 @@ def load_life_expectancy_rows(csv_path: Path) -> tuple[list[str], list[list[str 
     return headers, rows
 
 
-def _open_or_create_workbook(app: xw.App, workbook_path: Path) -> tuple[xw.Book, bool]:
-    if workbook_path.exists():
-        return app.books.open(str(workbook_path)), True
-    return app.books.add(), False
-
-
-def _get_or_create_sheet(workbook: xw.Book, sheet_name: str) -> xw.Sheet:
-    for sheet in workbook.sheets:
-        if sheet.name == sheet_name:
-            return sheet
-    return workbook.sheets.add(name=sheet_name, after=workbook.sheets[-1])
-
-
-def _reset_generated_sheet(sheet: xw.Sheet) -> None:
-    for index in range(sheet.api.ListObjects.Count, 0, -1):
-        sheet.api.ListObjects(index).Delete()
-    sheet.api.Cells.Clear()
-
-
 def write_life_expectancy_sheet(
     workbook: xw.Book,
     headers: list[str],
     rows: list[list[str | int | float | None]],
 ) -> None:
-    sheet = _get_or_create_sheet(workbook, SHEET_NAME)
-    _reset_generated_sheet(sheet)
+    """Write headers and data rows to the Life Expectancy Data sheet as a table.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open xlwings workbook to write into.
+    headers : list[str]
+        Column header strings (without the computed Full_Data column).
+    rows : list[list[str | int | float | None]]
+        Typed data rows aligned with headers.
+    """
+    sheet = get_or_create_sheet(workbook, SHEET_NAME)
+    reset_generated_sheet(sheet)
     sheet.activate()
 
     all_headers = headers + [FULL_DATA_HEADER]
@@ -114,52 +157,41 @@ def write_life_expectancy_sheet(
     table.ShowTableStyleRowStripes = True
     table.ShowTableStyleColumnStripes = False
 
-    sheet.range((2, full_data_column_index), (last_data_row, full_data_column_index)).formula = FULL_DATA_FORMULA
+    sheet.range(
+        (2, full_data_column_index), (last_data_row, full_data_column_index)
+    ).formula = FULL_DATA_FORMULA
     sheet.used_range.columns.autofit()
-    sheet.range((1, full_data_column_index)).column_width = max(sheet.range((1, full_data_column_index)).column_width, 12)
+    full_data_col = sheet.range((1, full_data_column_index))
+    full_data_col.column_width = max(full_data_col.column_width or 0, 12)
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True
-
-
-def _excel_error_message(exc: BaseException) -> str:
-    return str(exc).strip() or exc.__class__.__name__
-
-
-def _raise_excel_access_error(workbook_path: Path, action: str, exc: BaseException) -> None:
-    message = _excel_error_message(exc)
-    normalized = message.lower()
-    likely_locked = any(
-        phrase in normalized
-        for phrase in (
-            "cannot access read-only document",
-            "read-only",
-            "currently in use",
-            "sharing violation",
-            "permission denied",
-        )
-    )
-
-    if likely_locked:
-        raise RuntimeError(
-            f"Excel could not {action} {workbook_path.name!r}. "
-            "The workbook is likely open in Excel or locked by another process. "
-            f"Close Excel and retry. Original error: {message}"
-        ) from exc
-
-    raise RuntimeError(f"Excel could not {action} {workbook_path.name!r}: {message}") from exc
 
 
 def write_life_expectancy_data(
     workbook_path: Path,
     csv_path: Path = DEFAULT_CSV_PATH,
 ) -> int:
+    """Write the life expectancy sheet to the workbook and return the row count.
+
+    Parameters
+    ----------
+    workbook_path : Path
+        Path to the workbook file to create or update.
+    csv_path : Path, optional
+        Path to the Life Expectancy CSV file.
+
+    Returns
+    -------
+    int
+        Number of data rows written (excluding the header row).
+    """
     headers, rows = load_life_expectancy_rows(csv_path)
     workbook_path = workbook_path.resolve()
 
     try:
         with xw.App(visible=False, add_book=False) as app:
-            workbook, workbook_exists = _open_or_create_workbook(app, workbook_path)
+            workbook, workbook_exists = open_or_create_workbook(app, workbook_path)
             try:
                 write_life_expectancy_sheet(workbook, headers, rows)
                 if workbook_exists:
@@ -169,14 +201,24 @@ def write_life_expectancy_data(
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
-        _raise_excel_access_error(workbook_path, "write life expectancy data in", exc)
+        raise_excel_access_error(workbook_path, "write life expectancy data in", exc)
 
     return len(rows)
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the life expectancy sheet writer.
+
+    Returns
+    -------
+    argparse.Namespace
+        Parsed arguments with workbook and csv attributes.
+    """
     parser = argparse.ArgumentParser(
-        description="Write Life Expectancy Data.csv into a workbook sheet named 'Life Expectancy Data'."
+        description=(
+            "Write Life Expectancy Data.csv into a workbook sheet "
+            "named 'Life Expectancy Data'."
+        )
     )
     parser.add_argument(
         "workbook",
@@ -193,6 +235,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> None:
+    """Write the life expectancy sheet and print a summary for interactive use."""
     args = parse_args()
     row_count = write_life_expectancy_data(workbook_path=args.workbook, csv_path=args.csv)
     print(f"Workbook: {args.workbook.resolve()}")

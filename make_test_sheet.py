@@ -132,7 +132,7 @@ def write_test_table(
     )
     table.Name = table_name
     table.TableStyle = "TableStyleMedium2"
-    table.ShowTableStyleRowStripes = False
+    table.ShowTableStyleRowStripes = True
     table.ShowTableStyleColumnStripes = False
 
     for data_row, row_values, expected_values in rows_data:

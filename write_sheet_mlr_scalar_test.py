@@ -21,7 +21,7 @@ from make_test_sheet import (
 
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
-_MLR_TABLE_HEADER_ROW = 4
+_MLR_TABLE_HEADER_ROW = 1
 
 # Replaces x_s in every (Calc.) formula; resolves dynamically from each
 # row's ind_vars value.
@@ -246,7 +246,6 @@ def build_mlr_row_configs(csv_path: Path) -> list[_RowConfig]:
 def write_mlr_scalar_test_sheet(
     workbook: xw.Book,
     definitions: list,
-    definition_count: int,
     row_configs: list[_RowConfig],
 ) -> None:
     """Create or refresh the MLR_Scalar_Test sheet with a metric comparison table.
@@ -257,8 +256,6 @@ def write_mlr_scalar_test_sheet(
         The open xlwings workbook to write into.
     definitions : list
         Sequence of LambdaDefinition-like objects used to build column specs.
-    definition_count : int
-        Total number of registered definitions, shown in the sheet header.
     row_configs : list[_RowConfig]
         Per-row configurations produced by ``build_mlr_row_configs``.
     """
@@ -277,10 +274,6 @@ def write_mlr_scalar_test_sheet(
         sheet.api.ListObjects(index).Delete()
     sheet.api.Cells.Clear()
 
-    sheet["A1"].value = "MLR Testing"
-    sheet["A1"].api.Font.Bold = True
-    sheet["A2"].value = f"Registered definitions: {definition_count}"
-
     _set_sheet_scoped_names(sheet)
 
     columns = build_test_columns(test_table, definitions)
@@ -295,10 +288,9 @@ def write_mlr_scalar_test_sheet(
 
     write_test_table(sheet, test_table, columns, header_row, rows_data)
 
-    sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
+    sheet.range((header_row, 1), (last_data_row, col_count)).columns.autofit()
     sheet.range((header_row, 1), (last_data_row, col_count)).api.EntireRow.AutoFit()
-    sheet.api.Application.ActiveWindow.SplitRow = header_row - 1
+    sheet.activate()
+    sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True
-    sheet.range((1, 1), (last_data_row + 100, 1)).api.WrapText = True
-    sheet.range("A1").column_width = 100

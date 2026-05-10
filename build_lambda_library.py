@@ -522,7 +522,6 @@ def build_lambda_library(
                 write_mlr_scalar_test_sheet(
                     workbook,
                     definitions,
-                    len(definitions),
                     row_configs,
                 )
                 workbook.save(str(workbook_path))

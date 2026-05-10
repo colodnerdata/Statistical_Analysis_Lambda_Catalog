@@ -10,8 +10,8 @@ import numpy as np
 import statsmodels.api as sm  # type: ignore[import-untyped]
 
 
-ROOT_DIR = Path(__file__).resolve().parent
-DEFAULT_INPUT_CSV = ROOT_DIR / "Life Expectancy Data.csv"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_INPUT_CSV = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
 DEFAULT_OUTPUT_CSV = ROOT_DIR / "Life Expectancy Predictions.csv"
 TARGET_COLUMN = "Life expectancy"
 FEATURE_COLUMNS = [
@@ -248,15 +248,14 @@ def _build_training_arrays(
         if row_passes_filter and predictors_complete:
             dense_features = [float(value) for value in predictor_values if value is not None]
             parsed_features_per_row.append(dense_features)
+            if target_value is not None:
+                design_row = dense_features[:]
+                if include_intercept:
+                    design_row.insert(0, 1.0)
+                x_train_list.append(design_row)
+                y_train_list.append(target_value)
         else:
             parsed_features_per_row.append(None)
-
-        if row_passes_filter and predictors_complete and target_value is not None:
-            design_row = dense_features[:]
-            if include_intercept:
-                design_row.insert(0, 1.0)
-            x_train_list.append(design_row)
-            y_train_list.append(target_value)
 
     if not x_train_list:
         raise ValueError("No training rows available for regression.")

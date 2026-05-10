@@ -9,7 +9,7 @@ from typing import Any
 
 import xlwings as xw
 
-from workbook_helpers import (
+from .workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
     XL_SRC_RANGE,
     XL_YES,

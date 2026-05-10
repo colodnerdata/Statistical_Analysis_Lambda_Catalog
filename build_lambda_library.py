@@ -13,15 +13,15 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from lxml import etree
-from lambda_formula_parser import to_workbook_xml_formula_from_display
-from workbook_helpers import OPEN_WORKBOOK_ERRORS, excel_error_message, raise_excel_access_error
-from write_sheet_lambda_functions import load_catalog_entries, write_catalog_sheet
-from write_sheet_life_expectancy_data import (
+from lambda_catalog.lambda_formula_parser import to_workbook_xml_formula_from_display
+from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, excel_error_message, raise_excel_access_error
+from lambda_catalog.write_sheet_lambda_functions import load_catalog_entries, write_catalog_sheet
+from lambda_catalog.write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
 )
-from write_sheet_mlr_scalar_test import build_mlr_row_configs, write_mlr_scalar_test_sheet
+from lambda_catalog.write_sheet_mlr_scalar_test import build_mlr_row_configs, write_mlr_scalar_test_sheet
 import xlwings as xw
 
 

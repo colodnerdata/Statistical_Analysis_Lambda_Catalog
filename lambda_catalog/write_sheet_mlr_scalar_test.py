@@ -6,12 +6,12 @@ from typing import Iterable
 
 import xlwings as xw
 
-from analyze_life_expectancy import (
+from .analyze_life_expectancy import (
     FEATURE_COLUMNS,
     RegressionSummary,
     calculate_regression_summary,
 )
-from make_test_sheet import (
+from .make_test_sheet import (
     _ColumnSpec,
     _RowConfig,
     _match_column_formula,
@@ -170,9 +170,9 @@ def build_test_columns(
     metric_columns: list[_ColumnSpec] = []
     match_headers: list[str] = []
     for d in filtered:
-        exp_header = f"{d.name} (Exp.)"
-        calc_header = f"{d.name} (Calc.)"
-        match_header = f"{d.name} (Match)"
+        exp_header = f"{d.name}\n(Exp.)"
+        calc_header = f"{d.name}\n(Calc.)"
+        match_header = f"{d.name}\n(Match)"
         metric_columns.append((exp_header, d.name, None, d.number_format))
         metric_columns.append(
             (
@@ -288,8 +288,17 @@ def write_mlr_scalar_test_sheet(
 
     write_test_table(sheet, test_table, columns, header_row, rows_data)
 
-    sheet.range((header_row, 1), (last_data_row, col_count)).columns.autofit()
+    # Column A: fixed width, wrap text, auto-height rows
+    sheet.range("A1").column_width = 100
+    sheet.range((header_row, 1), (last_data_row, 1)).api.WrapText = True
     sheet.range((header_row, 1), (last_data_row, col_count)).api.EntireRow.AutoFit()
+
+    # Header row: wrap text so Alt-Enter column names display on two lines
+    sheet.range((header_row, 1), (header_row, col_count)).api.WrapText = True
+    sheet.range((header_row, 1), (header_row, col_count)).api.EntireRow.AutoFit()
+
+    # All columns except A: autofit width
+    sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
     sheet.activate()
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0

@@ -8,7 +8,7 @@ from pathlib import Path
 
 import xlwings as xw
 
-from workbook_helpers import (
+from .workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
     XL_SRC_RANGE,
     XL_YES,
@@ -19,8 +19,8 @@ from workbook_helpers import (
 )
 
 
-ROOT_DIR = Path(__file__).resolve().parent
-DEFAULT_CSV_PATH = ROOT_DIR / "Life Expectancy Data.csv"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
 SHEET_NAME = "Life Expectancy Data"
 TABLE_NAME = "LifeExpectancyData"
 FULL_DATA_HEADER = "Full_Data"

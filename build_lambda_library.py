@@ -52,6 +52,7 @@ _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 _MLR_X_S_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
 
 # Fallback ROUND precision used in smoke-test comparisons when number_format gives no decimal count.
+# Intentionally exceeds any display precision to catch floating-point drift without being affected by it.
 _SMOKE_TEST_ROUND_PRECISION = 10
 
 # (header, expected_key_or_None, formula_or_None, number_format)
@@ -294,7 +295,9 @@ def _test_table_name(test_table: str) -> str:
 def _round_precision_for_format(num_fmt: str) -> int:
     """Return the ROUND precision to use in smoke-test comparisons for a number format string.
 
-    Counts the decimal places encoded in formats like '0.000' (→ 3) or '0.00' (→ 2).
+    The comparison precision intentionally exceeds the display precision: decimal places are
+    doubled (e.g. '0.000' → 6, '0.00' → 4) so the test is stricter than what the cell shows
+    while still tolerating unavoidable floating-point rounding beyond those digits.
     Falls back to _SMOKE_TEST_ROUND_PRECISION for formats with no decimal point ('General', etc.).
     """
     dot = num_fmt.find(".")
@@ -304,7 +307,11 @@ def _round_precision_for_format(num_fmt: str) -> int:
 
 
 def _match_column_formula(exp_header: str, calc_header: str, num_fmt: str) -> str:
-    """Return the boolean comparison formula for a per-metric match column."""
+    """Return the boolean comparison formula for a per-metric match column.
+
+    Integer formats ('0') compare exactly. All other formats compare via ROUND at a precision
+    that exceeds the display precision — see _round_precision_for_format.
+    """
     if num_fmt == "0":
         return f"=[@[{exp_header}]]=[@[{calc_header}]]"
     precision = _round_precision_for_format(num_fmt)

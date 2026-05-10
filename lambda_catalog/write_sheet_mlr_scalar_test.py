@@ -6,12 +6,12 @@ from typing import Iterable
 
 import xlwings as xw
 
-from analyze_life_expectancy import (
+from .analyze_life_expectancy import (
     FEATURE_COLUMNS,
     RegressionSummary,
     calculate_regression_summary,
 )
-from make_test_sheet import (
+from .make_test_sheet import (
     _ColumnSpec,
     _RowConfig,
     _match_column_formula,

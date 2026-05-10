@@ -11,7 +11,7 @@ import statsmodels.api as sm  # type: ignore[import-untyped]
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_INPUT_CSV = ROOT_DIR / "Life Expectancy Data.csv"
+DEFAULT_INPUT_CSV = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
 DEFAULT_OUTPUT_CSV = ROOT_DIR / "Life Expectancy Predictions.csv"
 TARGET_COLUMN = "Life expectancy"
 FEATURE_COLUMNS = [

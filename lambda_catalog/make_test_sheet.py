@@ -5,7 +5,7 @@ from typing import Any
 
 import xlwings as xw
 
-from workbook_helpers import XL_SRC_RANGE, XL_YES
+from .workbook_helpers import XL_SRC_RANGE, XL_YES
 
 
 _SMOKE_TEST_ROUND_PRECISION = 10

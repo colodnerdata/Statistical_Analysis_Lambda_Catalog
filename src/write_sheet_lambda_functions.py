@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import xlwings as xw
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,

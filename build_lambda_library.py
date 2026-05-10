@@ -12,6 +12,8 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent / "src"))
+
 from lxml import etree
 from lambda_formula_parser import to_workbook_xml_formula_from_display
 from workbook_helpers import OPEN_WORKBOOK_ERRORS, excel_error_message, raise_excel_access_error

@@ -4,9 +4,12 @@ from __future__ import annotations
 import argparse
 import csv
 import re
+import sys
 from pathlib import Path
 
 import xlwings as xw
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
@@ -19,7 +22,7 @@ from workbook_helpers import (
 )
 
 
-ROOT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CSV_PATH = ROOT_DIR / "Life Expectancy Data.csv"
 SHEET_NAME = "Life Expectancy Data"
 TABLE_NAME = "LifeExpectancyData"

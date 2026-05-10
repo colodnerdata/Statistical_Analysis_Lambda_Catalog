@@ -6,6 +6,7 @@ import json
 import os
 import re
 import subprocess
+import sys
 import tempfile
 import zipfile
 from dataclasses import dataclass
@@ -559,6 +560,8 @@ def main() -> None:
             break
         except RuntimeError as exc:
             if "likely open in Excel" in str(exc):
+                if not sys.stdin.isatty():
+                    raise
                 prompt = (
                     f"\n{args.workbook.name} is open in Excel — close it "
                     "and press Enter to retry (or Ctrl+C to cancel): "

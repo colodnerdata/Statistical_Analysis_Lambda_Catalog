@@ -85,11 +85,15 @@ def _load_normalized_rows(input_path: Path) -> tuple[list[str], list[dict[str, s
     return original_headers, normalized_rows
 
 
-def _validate_required_headers(original_headers: list[str]) -> None:
+def _validate_required_headers(
+    original_headers: list[str],
+    feature_columns: list[str] | None = None,
+) -> None:
     """Check that all required columns are present."""
+    columns_to_check = feature_columns if feature_columns is not None else FEATURE_COLUMNS
     normalized_headers = [_normalize_header(name) for name in original_headers]
     missing_headers = [
-        header for header in [TARGET_COLUMN, *FEATURE_COLUMNS] if header not in normalized_headers
+        header for header in [TARGET_COLUMN, *columns_to_check] if header not in normalized_headers
     ]
     if missing_headers:
         raise ValueError(f"Missing required columns: {', '.join(missing_headers)}")
@@ -98,27 +102,39 @@ def _validate_required_headers(original_headers: list[str]) -> None:
 def _build_training_arrays(
     normalized_rows: list[dict[str, str]],
     include_intercept: bool,
+    feature_columns: list[str] | None = None,
+    filter_columns: list[str] | None = None,
 ) -> tuple[np.ndarray, np.ndarray, list[list[float] | None], list[float | None]]:
-    """Build NumPy arrays for training and track per-row parsed values."""
+    """Build NumPy arrays for training and track per-row parsed values.
+
+    filter_columns controls which columns must be non-null for a row to be included.
+    It defaults to feature_columns, but callers can supply the full FEATURE_COLUMNS list
+    to match an Excel filter (e.g. Full_Data) that always checks all columns regardless
+    of how many predictors are actually used.
+    """
+    predictor_cols = feature_columns if feature_columns is not None else FEATURE_COLUMNS
+    filter_cols = filter_columns if filter_columns is not None else predictor_cols
     x_train_list: list[list[float]] = []
     y_train_list: list[float] = []
     parsed_features_per_row: list[list[float] | None] = []
     parsed_targets_per_row: list[float | None] = []
 
     for row in normalized_rows:
-        feature_values = [_parse_float(row.get(column)) for column in FEATURE_COLUMNS]
+        predictor_values = [_parse_float(row.get(column)) for column in predictor_cols]
+        filter_values = [_parse_float(row.get(column)) for column in filter_cols]
         target_value = _parse_float(row.get(TARGET_COLUMN))
 
-        features_complete = all(value is not None for value in feature_values)
+        row_passes_filter = all(value is not None for value in filter_values)
+        predictors_complete = all(value is not None for value in predictor_values)
         parsed_targets_per_row.append(target_value)
 
-        if features_complete:
-            dense_features = [float(value) for value in feature_values if value is not None]
+        if row_passes_filter and predictors_complete:
+            dense_features = [float(value) for value in predictor_values]
             parsed_features_per_row.append(dense_features)
         else:
             parsed_features_per_row.append(None)
 
-        if features_complete and target_value is not None:
+        if row_passes_filter and predictors_complete and target_value is not None:
             design_row = dense_features[:]
             if include_intercept:
                 design_row.insert(0, 1.0)
@@ -159,18 +175,22 @@ def _predict_single_row(
 def calculate_regression_summary(
     input_csv_path: Path = DEFAULT_INPUT_CSV,
     include_intercept: bool = True,
+    feature_columns: list[str] | None = None,
 ) -> RegressionSummary:
     """Fit OLS and return regression metrics without writing output files."""
 
+    columns = feature_columns if feature_columns is not None else FEATURE_COLUMNS
     input_path = input_csv_path.resolve()
     original_headers, normalized_rows = _load_normalized_rows(input_path)
-    _validate_required_headers(original_headers)
+    _validate_required_headers(original_headers, columns)
 
-    x_train, y_train, _, _ = _build_training_arrays(normalized_rows, include_intercept)
+    x_train, y_train, _, _ = _build_training_arrays(
+        normalized_rows, include_intercept, columns, filter_columns=FEATURE_COLUMNS
+    )
     model = _fit_ols_model(x_train, y_train, include_intercept)
 
     observations = int(model.nobs)
-    df_regression = len(FEATURE_COLUMNS)
+    df_regression = len(columns)
     df_total = observations - 1 if include_intercept else observations
     r_squared = model.rsquared
     df_residual = int(model.df_resid)

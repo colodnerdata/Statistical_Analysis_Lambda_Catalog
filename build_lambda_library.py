@@ -12,6 +12,7 @@ import zipfile
 
 from lxml import etree
 from analyze_life_expectancy import (
+    FEATURE_COLUMNS,
     RegressionSummary,
     calculate_regression_summary,
 )
@@ -29,7 +30,6 @@ import xlwings as xw
 ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
-STARTER_SHEET_NAME = "MLR_Testing"
 PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 WORKBOOK_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 XL_SRC_RANGE = 1
@@ -39,40 +39,19 @@ OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
 )
 
 _MLR_TABLE_HEADER_ROW = 4
-_MLR_TABLE_NAME = "MLRTestingResults"
+_MAX_TEST_TABLE_NAME_LEN = 26  # Excel sheet names cap at 31; 5 chars reserved
 
-_SMOKE_TEST_FORMULA = (
-    "=AND("
-    "[@[Observations (Exp.)]]=[@[Observations (Calc.)]],"
-    "[@[DF_Regression (Exp.)]]=[@[DF_Regression (Calc.)]],"
-    "[@[DF_Total (Exp.)]]=[@[DF_Total (Calc.)]],"
-    "ROUND([@[R_squared (Exp.)]],10)=ROUND([@[R_squared (Calc.)]],10),"
-    "[@[DF_Residual (Exp.)]]=[@[DF_Residual (Calc.)]],"
-    "ROUND([@[Multiple_R (Exp.)]],10)=ROUND([@[Multiple_R (Calc.)]],10),"
-    "ROUND([@[Adjusted_R2 (Exp.)]],10)=ROUND([@[Adjusted_R2 (Calc.)]],10)"
-    ")"
-)
+# Number of predictor columns (k) tested — one pair of rows per value (TRUE/FALSE intercept).
+_MLR_K_VALUES: list[int] = [1, 5, 10, 18]
+
+# Replaces x_s in every (Calc.) formula; resolves dynamically from each row's ind_vars value.
+_MLR_X_S_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
 
 # (header, expected_key_or_None, formula_or_None, number_format)
-_MLR_TABLE_COLUMNS: list[tuple[str, str | None, str | None, str]] = [
-    ("X_Variables",           None,            '=TEXTJOIN(", ",TRUE,OFFSET(x_s,-1,0,1,COLUMNS(x_s)))', "General"),
-    ("Allow_Intercept",       None,            None,                                                     "General"),
-    ("Smoke Test",            None,            _SMOKE_TEST_FORMULA,                                     "General"),
-    ("Observations (Exp.)",   "Observations",  None,                                                    "0"),
-    ("Observations (Calc.)",  None,            "=Observations(y, fil)",                                 "0"),
-    ("DF_Regression (Exp.)",  "DF_Regression", None,                                                    "0"),
-    ("DF_Regression (Calc.)", None,            "=DF_Regression(x_s)",                                  "0"),
-    ("DF_Total (Exp.)",       "DF_Total",      None,                                                    "0"),
-    ("DF_Total (Calc.)",      None,            "=DF_Total(y, [@[Allow_Intercept]], fil)",                 "0"),
-    ("R_squared (Exp.)",      "R_squared",     None,                                                    "0.000"),
-    ("R_squared (Calc.)",     None,            "=R_squared(x_s, y, [@[Allow_Intercept]], fil)",           "0.000"),
-    ("DF_Residual (Exp.)",    "DF_Residual",   None,                                                    "0"),
-    ("DF_Residual (Calc.)",   None,            "=DF_Residual(x_s, y, [@[Allow_Intercept]], fil)",         "0"),
-    ("Multiple_R (Exp.)",     "Multiple_R",    None,                                                    "0.000"),
-    ("Multiple_R (Calc.)",    None,            "=Multiple_R(x_s, y, [@[Allow_Intercept]], fil)",          "0.000"),
-    ("Adjusted_R2 (Exp.)",    "Adjusted_R2",   None,                                                    "0.000"),
-    ("Adjusted_R2 (Calc.)",   None,            "=Adjusted_R2(x_s, y, [@[Allow_Intercept]], fil)",         "0.000"),
-]
+_ColumnSpec = tuple[str, str | None, str | None, str]
+
+# Per-row config: (per-row cell values, expected-values dict)
+_RowConfig = tuple[dict[str, Any], dict[str, float | int]]
 
 
 @dataclass(frozen=True)
@@ -82,6 +61,9 @@ class LambdaDefinition:
     name: str
     formula_display: str
     comment: str = ""
+    argument_names: tuple[str, ...] = ()
+    test_table: str | None = None
+    number_format: str = "General"
 
     @property
     def workbook_xml_formula_from_display(self) -> str:
@@ -112,10 +94,13 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     """Create worksheet-scoped helper names used by the MLR formula tests."""
 
     local_names = {
-        "y": "=LifeExpectancyData[Life expectancy]",
-        "x_s": "=LifeExpectancyData[[Adult Mortality]:[Schooling]]",
+        "y":   "=LifeExpectancyData[Life expectancy]",
         "fil": "=LifeExpectancyData[Full_Data]",
     }
+
+    # Remove legacy x_s names from older workbook versions
+    for legacy in ("x_s", "x_s_k1", "x_s_k5", "x_s_k10", "x_s_k18"):
+        _delete_sheet_scoped_name_if_present(sheet, legacy)
 
     for name, refers_to in local_names.items():
         _delete_sheet_scoped_name_if_present(sheet, name)
@@ -124,21 +109,35 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     _delete_sheet_scoped_name_if_present(sheet, "Allow_Intercept")
 
 
-def _actual_formula(function_name: str, argument_names: Iterable[str]) -> str:
-    """Build an executable test formula that references local helper names."""
+def _actual_formula(
+    function_name: str,
+    argument_names: Iterable[str],
+    x_s_name: str = "x_s",
+) -> str:
+    """Build an executable test formula that references local helper names.
+
+    When x_s_name is not the literal 'x_s' and the function takes an x_s argument,
+    the formula is wrapped in LET(x_s, <x_s_name>, ...) so the LAMBDA is called
+    with a plain 'x_s' reference rather than an inlined expression.
+    """
+
+    args = list(argument_names)
+    uses_x_s = any(a.strip().lower() == "x_s" for a in args)
+    use_let = uses_x_s and x_s_name != "x_s"
 
     reference_map = {
         "y": "y",
-        "x_s": "x_s",
+        "x_s": "x_s" if use_let else x_s_name,
         "filter": "fil",
-        "allow_intercept": "Allow_Intercept",
+        "allow_intercept": "[@[Allow_Intercept]]",
     }
 
     resolved_arguments = [
         reference_map.get(argument_name.strip().lower(), argument_name)
-        for argument_name in argument_names
+        for argument_name in args
     ]
-    return f"={function_name}({', '.join(resolved_arguments)})"
+    call = f"{function_name}({', '.join(resolved_arguments)})"
+    return f"=LET(x_s, {x_s_name}, {call})" if use_let else f"={call}"
 
 
 def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
@@ -153,68 +152,6 @@ def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
         "Multiple_R": summary.multiple_r,
         "Adjusted_R2": summary.adjusted_r2,
     }
-
-
-def _analysis_cache_signature(csv_path: Path, definitions: list[LambdaDefinition]) -> dict[str, Any]:
-    """Return the cache key fields for analysis artifacts."""
-
-    resolved_csv_path = csv_path.resolve()
-    csv_stat = resolved_csv_path.stat()
-    return {
-        "csv_path": str(resolved_csv_path),
-        "csv_size": csv_stat.st_size,
-        "csv_mtime_ns": csv_stat.st_mtime_ns,
-        "definition_names": [definition.name for definition in definitions],
-        "definitions_content": [
-            [definition.name, definition.formula_display] for definition in definitions
-        ],
-        "include_intercept": True,
-    }
-
-
-def _load_cached_expected_values(
-    cache_path: Path,
-    cache_signature: dict[str, Any],
-) -> dict[str, float | int] | None:
-    """Load cached expected values when the dataset/functions signature still matches."""
-
-    if not cache_path.exists():
-        return None
-
-    try:
-        with cache_path.open("r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-    except (OSError, json.JSONDecodeError):
-        return None
-
-    if not isinstance(payload, dict):
-        return None
-    if payload.get("signature") != cache_signature:
-        return None
-
-    expected_values = payload.get("expected_values")
-    if not isinstance(expected_values, dict):
-        return None
-
-    required_keys = set(EXPECTED_RESULT_KEYS)
-    if not required_keys.issubset(expected_values):
-        return None
-
-    return expected_values
-
-
-def _write_analysis_cache(
-    cache_path: Path,
-    cache_signature: dict[str, Any],
-    expected_values: dict[str, float | int],
-) -> None:
-    """Persist expected-values cache for later workbook builds."""
-
-    payload = {"signature": cache_signature, "expected_values": expected_values}
-    cache_path.parent.mkdir(parents=True, exist_ok=True)
-    with cache_path.open("w", encoding="utf-8") as handle:
-        json.dump(payload, handle, indent=2)
-        handle.write("\n")
 
 
 def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
@@ -250,12 +187,29 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
 
         raw_arguments = item.get("arguments", [])
         comment_lines = []
+        arg_names: list[str] = []
         for arg in raw_arguments:
             arg_name = str(arg.get("name", "")).strip()
             arg_desc = str(arg.get("description", "")).strip()
             display = f"[{arg_name}]" if arg.get("optional") else arg_name
             comment_lines.append(f"{display}: {arg_desc}")
+            arg_names.append(arg_name)
         comment = "\n\n".join(comment_lines)
+
+        raw_test_table = item.get("test_table")
+        test_table: str | None = None
+        if raw_test_table is not None:
+            if not isinstance(raw_test_table, str) or not raw_test_table.strip():
+                raise ValueError(f"Entry {index} 'test_table' must be a non-empty string.")
+            test_table = raw_test_table.strip()
+            if len(test_table) > _MAX_TEST_TABLE_NAME_LEN:
+                raise ValueError(
+                    f"'test_table' value {test_table!r} in entry {index} is "
+                    f"{len(test_table)} characters; maximum is {_MAX_TEST_TABLE_NAME_LEN}."
+                )
+
+        raw_number_format = item.get("number_format", "General")
+        number_format = str(raw_number_format).strip() if raw_number_format else "General"
 
         seen_names.add(name)
         definitions.append(
@@ -263,48 +217,93 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
                 name=name,
                 formula_display=formula_display,
                 comment=comment,
+                argument_names=tuple(arg_names),
+                test_table=test_table,
+                number_format=number_format,
             )
         )
 
     return definitions
 
 
-def ensure_formula_test_sheet(
-    workbook: xw.Book,
-    definitions,
-    definition_count: int,
-    expected_true: dict[str, float | int],
-    expected_false: dict[str, float | int],
+def _test_sheet_name(test_table: str) -> str:
+    """Return the worksheet name for a given test-table tag."""
+    return test_table
+
+
+def _test_table_name(test_table: str) -> str:
+    """Return the Excel ListObject name for a given test-table tag."""
+    return test_table
+
+
+def build_smoke_test_formula(
+    test_table: str,  # reserved for per-table customization
+    metric_columns: list[_ColumnSpec],
+) -> str:
+    """Build the =AND(...) smoke-test formula from the metric column pairs."""
+
+    _ = test_table
+    comparisons: list[str] = []
+    for exp_col, calc_col in zip(metric_columns[::2], metric_columns[1::2]):
+        exp_header = exp_col[0]
+        calc_header = calc_col[0]
+        num_fmt = exp_col[3]
+        if num_fmt == "0":
+            comparisons.append(f"[@[{exp_header}]]=[@[{calc_header}]]")
+        else:
+            comparisons.append(
+                f"ROUND([@[{exp_header}]],10)=ROUND([@[{calc_header}]],10)"
+            )
+    return "=AND(" + ",".join(comparisons) + ")"
+
+
+def build_test_columns(
+    test_table: str,
+    definitions: list[LambdaDefinition],
+) -> list[_ColumnSpec]:
+    """Build the full column spec list for a test table from the matching definitions."""
+
+    filtered = [d for d in definitions if d.test_table == test_table]
+    metric_columns: list[_ColumnSpec] = []
+    for d in filtered:
+        metric_columns.append((f"{d.name} (Exp.)", d.name, None, d.number_format))
+        metric_columns.append(
+            (
+                f"{d.name} (Calc.)",
+                None,
+                _actual_formula(d.name, d.argument_names, _MLR_X_S_OFFSET),
+                d.number_format,
+            )
+        )
+
+    smoke_formula = build_smoke_test_formula(test_table, metric_columns)
+    fixed_columns: list[_ColumnSpec] = [
+        (
+            "X_Variables",
+            None,
+            "=TEXTJOIN(\", \",TRUE,OFFSET(y,-1,[@[ind_vars]],1,[@[ind_vars]]))",
+            "General",
+        ),
+        ("ind_vars",       None, None, "0"),
+        ("Allow_Intercept", None, None, "General"),
+        ("Smoke Test",     None, smoke_formula, "General"),
+    ]
+    return fixed_columns + metric_columns
+
+
+def write_test_table(
+    sheet: xw.Sheet,
+    table_name: str,
+    columns: list[_ColumnSpec],
+    header_row: int,
+    rows_data: list[tuple[int, dict[str, Any], dict[str, float | int]]],
 ) -> None:
-    """Create or refresh the MLR_Testing sheet with a metric comparison table."""
+    """Create and populate an Excel ListObject for a test table."""
 
-    sheet_names = {sheet.name for sheet in workbook.sheets}
-    if STARTER_SHEET_NAME in sheet_names:
-        sheet = workbook.sheets[STARTER_SHEET_NAME]
-    elif len(workbook.sheets) == 1 and not workbook.sheets[0]["A1"].value:
-        sheet = workbook.sheets[0]
-        sheet.name = STARTER_SHEET_NAME
-    else:
-        sheet = workbook.sheets.add(name=STARTER_SHEET_NAME, after=workbook.sheets[-1])
+    last_data_row = header_row + len(rows_data)
+    col_count = len(columns)
 
-    for index in range(sheet.api.ListObjects.Count, 0, -1):
-        sheet.api.ListObjects(index).Delete()
-    sheet.api.Cells.Clear()
-
-    # Title area
-    sheet["A1"].value = "MLR Testing"
-    sheet["A1"].api.Font.Bold = True
-    sheet["A2"].value = f"Registered definitions: {definition_count}"
-
-    # Set sheet-scoped names
-    _set_sheet_scoped_names(sheet)
-
-    # Build metric comparison table with two rows: Allow_Intercept TRUE and FALSE
-    header_row = _MLR_TABLE_HEADER_ROW
-    last_data_row = header_row + 2
-    col_count = len(_MLR_TABLE_COLUMNS)
-
-    for col_idx, (header, _, _, _) in enumerate(_MLR_TABLE_COLUMNS, start=1):
+    for col_idx, (header, _, _, _) in enumerate(columns, start=1):
         sheet.range((header_row, col_idx)).value = header
 
     table_range = sheet.range((header_row, 1), (last_data_row, col_count))
@@ -313,25 +312,20 @@ def ensure_formula_test_sheet(
         Source=table_range.api,
         XlListObjectHasHeaders=XL_YES,
     )
-    table.Name = _MLR_TABLE_NAME
+    table.Name = table_name
     table.TableStyle = "TableStyleMedium2"
     table.ShowTableStyleRowStripes = False
     table.ShowTableStyleColumnStripes = True
 
-    rows_data = [
-        (header_row + 1, True,  expected_true),
-        (header_row + 2, False, expected_false),
-    ]
-
-    for data_row, allow_intercept_val, expected_values in rows_data:
+    for data_row, row_values, expected_values in rows_data:
         is_first_row = data_row == header_row + 1
-        for col_idx, (header, exp_key, formula, num_fmt) in enumerate(_MLR_TABLE_COLUMNS, start=1):
+        for col_idx, (header, exp_key, formula, num_fmt) in enumerate(columns, start=1):
             cell = sheet.range((data_row, col_idx))
             cell.api.NumberFormat = num_fmt
-            if header == "Allow_Intercept":
-                cell.value = allow_intercept_val
+            if header in row_values:
+                cell.value = row_values[header]
             elif formula is not None:
-                # Formulas auto-propagate in a table; only write on the first row
+                # Formulas auto-propagate within a table; only write on the first row
                 if is_first_row:
                     cell.formula = formula
             elif exp_key is not None:
@@ -339,13 +333,56 @@ def ensure_formula_test_sheet(
                 if val is not None:
                     cell.value = val
 
-    sheet.range((1, 1), (last_data_row + 100, 1)).api.WrapText = True
-    sheet.range("A1").column_width = 100
+
+def ensure_mlr_scalar_test_sheet(
+    workbook: xw.Book,
+    definitions: list[LambdaDefinition],
+    definition_count: int,
+    row_configs: list[_RowConfig],
+) -> None:
+    """Create or refresh the MLR_Scalar_Test sheet with a single metric comparison table."""
+
+    test_table = "MLR_Scalar_Test"
+    sheet_name = _test_sheet_name(test_table)
+
+    sheet_names = {sheet.name for sheet in workbook.sheets}
+    if sheet_name in sheet_names:
+        sheet = workbook.sheets[sheet_name]
+    elif len(workbook.sheets) == 1 and not workbook.sheets[0]["A1"].value:
+        sheet = workbook.sheets[0]
+        sheet.name = sheet_name
+    else:
+        sheet = workbook.sheets.add(name=sheet_name, after=workbook.sheets[-1])
+
+    for index in range(sheet.api.ListObjects.Count, 0, -1):
+        sheet.api.ListObjects(index).Delete()
+    sheet.api.Cells.Clear()
+
+    sheet["A1"].value = "MLR Testing"
+    sheet["A1"].api.Font.Bold = True
+    sheet["A2"].value = f"Registered definitions: {definition_count}"
+
+    _set_sheet_scoped_names(sheet)
+
+    columns = build_test_columns(test_table, definitions)
+    header_row = _MLR_TABLE_HEADER_ROW
+    last_data_row = header_row + len(row_configs)
+    col_count = len(columns)
+
+    rows_data: list[tuple[int, dict[str, Any], dict[str, float | int]]] = [
+        (header_row + 1 + i, row_vals, expected)
+        for i, (row_vals, expected) in enumerate(row_configs)
+    ]
+
+    write_test_table(sheet, _test_table_name(test_table), columns, header_row, rows_data)
+
     sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
     sheet.range((header_row, 1), (last_data_row, col_count)).api.EntireRow.AutoFit()
     sheet.api.Application.ActiveWindow.SplitRow = header_row - 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True
+    sheet.range((1, 1), (last_data_row + 100, 1)).api.WrapText = True
+    sheet.range("A1").column_width = 100
 
 
 def _get_or_create_sheet(workbook: xw.Book, sheet_name: str) -> xw.Sheet:
@@ -564,10 +601,23 @@ def build_lambda_library(
 
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
-    summary_true = calculate_regression_summary(input_csv_path=csv_path, include_intercept=True)
-    summary_false = calculate_regression_summary(input_csv_path=csv_path, include_intercept=False)
-    expected_true = _expected_values_map(summary_true)
-    expected_false = _expected_values_map(summary_false)
+
+    row_configs: list[_RowConfig] = []
+    for k in _MLR_K_VALUES:
+        feature_cols = FEATURE_COLUMNS[:k]
+        summary_true = calculate_regression_summary(
+            input_csv_path=csv_path,
+            include_intercept=True,
+            feature_columns=feature_cols,
+        )
+        summary_false = calculate_regression_summary(
+            input_csv_path=csv_path,
+            include_intercept=False,
+            feature_columns=feature_cols,
+        )
+        row_configs.append(({"ind_vars": k, "Allow_Intercept": True},  _expected_values_map(summary_true)))
+        row_configs.append(({"ind_vars": k, "Allow_Intercept": False}, _expected_values_map(summary_false)))
+
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
@@ -585,12 +635,11 @@ def build_lambda_library(
                     workbook.sheets["Sheet1"].name = "LAMBDA_functions"
                 write_catalog_sheet(workbook, catalog_entries)
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
-                ensure_formula_test_sheet(
+                ensure_mlr_scalar_test_sheet(
                     workbook,
-                    catalog_entries,
+                    definitions,
                     len(definitions),
-                    expected_true,
-                    expected_false,
+                    row_configs,
                 )
                 workbook.save(str(workbook_path))
             finally:
@@ -624,7 +673,7 @@ def main() -> None:
         validate_reopen=args.validate_reopen,
     )
     print(f"Workbook: {args.workbook.resolve()}")
-    print(f"Sheet updated: {STARTER_SHEET_NAME}")
+    print(f"Sheet updated: {_test_sheet_name('MLR_Scalar_Test')}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
     print(f"Created names: {result.created}")

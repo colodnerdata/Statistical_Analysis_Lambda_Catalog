@@ -40,6 +40,9 @@ Thumbs.db
 # Force-include the built workbook
 !Lambda_Library.xlsx
 
+# Manual updates folder
+Manual Updates/
+
 # Claude local/project assistant files
 .claude/
 .claude.json

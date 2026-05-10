@@ -162,7 +162,7 @@ def write_life_expectancy_sheet(
     ).formula = FULL_DATA_FORMULA
     sheet.used_range.columns.autofit()
     full_data_col = sheet.range((1, full_data_column_index))
-    full_data_col.column_width = max(full_data_col.column_width, 12)
+    full_data_col.column_width = max(full_data_col.column_width or 0, 12)
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True

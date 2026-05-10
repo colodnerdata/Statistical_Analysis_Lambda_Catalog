@@ -50,7 +50,7 @@ def main() -> None:
 
     try:
         inspect(args.file)
-    except Exception as e:
+    except (OSError, zipfile.BadZipFile) as e:
         print(f"Error: {e}")
 
 

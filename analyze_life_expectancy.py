@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
-import statsmodels.api as sm
+import statsmodels.api as sm  # type: ignore[import-untyped]
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -246,7 +246,7 @@ def _build_training_arrays(
         parsed_targets_per_row.append(target_value)
 
         if row_passes_filter and predictors_complete:
-            dense_features = [float(value) for value in predictor_values]
+            dense_features = [float(value) for value in predictor_values if value is not None]
             parsed_features_per_row.append(dense_features)
         else:
             parsed_features_per_row.append(None)

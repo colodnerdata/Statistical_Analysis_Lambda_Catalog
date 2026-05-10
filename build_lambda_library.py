@@ -5,6 +5,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
+import re
 import tempfile
 from typing import Any
 from typing import Iterable
@@ -39,7 +40,10 @@ OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
 )
 
 _MLR_TABLE_HEADER_ROW = 4
-_MAX_TEST_TABLE_NAME_LEN = 26  # Excel sheet names cap at 31; 5 chars reserved
+_MAX_TEST_SHEET_NAME_LEN = 31
+_MAX_TEST_TABLE_NAME_LEN = 255
+_INVALID_WORKSHEET_NAME_CHARS = set("[]:*?/\\")
+_VALID_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 # Number of predictor columns (k) tested — one pair of rows per value (TRUE/FALSE intercept).
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
@@ -78,6 +82,59 @@ class NameSyncResult:
 
     created: int
     updated: int
+
+
+def _looks_like_a1_reference(value: str) -> bool:
+    """Return True when a candidate name resembles an Excel A1-style reference."""
+
+    match = re.fullmatch(r"([A-Za-z]{1,3})([1-9][0-9]{0,6})", value)
+    if match is None:
+        return False
+
+    column_label = match.group(1).upper()
+    column_number = 0
+    for char in column_label:
+        column_number = (column_number * 26) + (ord(char) - ord("A") + 1)
+    return column_number <= 16384
+
+
+def _validate_test_table_tag(tag: str, entry_index: int) -> None:
+    """Validate a catalog test-table tag for both worksheet and table-name usage."""
+
+    if len(tag) > _MAX_TEST_SHEET_NAME_LEN:
+        raise ValueError(
+            f"'test_table' value {tag!r} in entry {entry_index} is "
+            f"{len(tag)} characters; worksheet names may be at most "
+            f"{_MAX_TEST_SHEET_NAME_LEN} characters."
+        )
+    if any(char in _INVALID_WORKSHEET_NAME_CHARS for char in tag):
+        invalid_chars = "".join(sorted({char for char in tag if char in _INVALID_WORKSHEET_NAME_CHARS}))
+        raise ValueError(
+            f"'test_table' value {tag!r} in entry {entry_index} contains invalid "
+            f"worksheet characters: {invalid_chars!r}."
+        )
+    if tag[0] == "'" or tag[-1] == "'":
+        raise ValueError(
+            f"'test_table' value {tag!r} in entry {entry_index} cannot begin or end "
+            "with an apostrophe in Excel worksheet names."
+        )
+    if len(tag) > _MAX_TEST_TABLE_NAME_LEN:
+        raise ValueError(
+            f"'test_table' value {tag!r} in entry {entry_index} is "
+            f"{len(tag)} characters; Excel table names may be at most "
+            f"{_MAX_TEST_TABLE_NAME_LEN} characters."
+        )
+    if not _VALID_TABLE_NAME_RE.fullmatch(tag):
+        raise ValueError(
+            f"'test_table' value {tag!r} in entry {entry_index} must be a valid Excel "
+            "table name: start with a letter or underscore and contain only letters, "
+            "numbers, and underscores."
+        )
+    if _looks_like_a1_reference(tag):
+        raise ValueError(
+            f"'test_table' value {tag!r} in entry {entry_index} cannot look like an "
+            "Excel cell reference when used as a table name."
+        )
 
 
 def _delete_sheet_scoped_name_if_present(sheet: xw.Sheet, target_name: str) -> None:
@@ -166,6 +223,7 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
 
     definitions: list[LambdaDefinition] = []
     seen_names: set[str] = set()
+    seen_test_tables: set[str] = set()
 
     for index, item in enumerate(functions, start=1):
         if not isinstance(item, dict):
@@ -202,11 +260,13 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
             if not isinstance(raw_test_table, str) or not raw_test_table.strip():
                 raise ValueError(f"Entry {index} 'test_table' must be a non-empty string.")
             test_table = raw_test_table.strip()
-            if len(test_table) > _MAX_TEST_TABLE_NAME_LEN:
+            _validate_test_table_tag(test_table, index)
+            normalized_test_table = test_table.casefold()
+            if normalized_test_table in seen_test_tables:
                 raise ValueError(
-                    f"'test_table' value {test_table!r} in entry {index} is "
-                    f"{len(test_table)} characters; maximum is {_MAX_TEST_TABLE_NAME_LEN}."
+                    f"Duplicate 'test_table' value in lambda_functions.json: {test_table}"
                 )
+            seen_test_tables.add(normalized_test_table)
 
         raw_number_format = item.get("number_format", "General")
         number_format = str(raw_number_format).strip() if raw_number_format else "General"

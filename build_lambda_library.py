@@ -41,9 +41,9 @@ OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
 
 _MLR_TABLE_HEADER_ROW = 4
 _MAX_TEST_SHEET_NAME_LEN = 31
-_MAX_TEST_TABLE_NAME_LEN = 255
 _INVALID_WORKSHEET_NAME_CHARS = set("[]:*?/\\")
 _VALID_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_MAX_EXCEL_ROW = 1_048_576
 
 # Number of predictor columns (k) tested — one pair of rows per value (TRUE/FALSE intercept).
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
@@ -92,10 +92,11 @@ def _looks_like_a1_reference(value: str) -> bool:
         return False
 
     column_label = match.group(1).upper()
+    row_number = int(match.group(2))
     column_number = 0
     for char in column_label:
         column_number = (column_number * 26) + (ord(char) - ord("A") + 1)
-    return column_number <= 16384
+    return column_number <= 16384 and row_number <= _MAX_EXCEL_ROW
 
 
 def _validate_test_table_tag(tag: str, entry_index: int) -> None:
@@ -117,12 +118,6 @@ def _validate_test_table_tag(tag: str, entry_index: int) -> None:
         raise ValueError(
             f"'test_table' value {tag!r} in entry {entry_index} cannot begin or end "
             "with an apostrophe in Excel worksheet names."
-        )
-    if len(tag) > _MAX_TEST_TABLE_NAME_LEN:
-        raise ValueError(
-            f"'test_table' value {tag!r} in entry {entry_index} is "
-            f"{len(tag)} characters; Excel table names may be at most "
-            f"{_MAX_TEST_TABLE_NAME_LEN} characters."
         )
     if not _VALID_TABLE_NAME_RE.fullmatch(tag):
         raise ValueError(

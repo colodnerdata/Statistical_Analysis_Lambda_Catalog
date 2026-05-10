@@ -20,7 +20,7 @@ from write_sheet_life_expectancy_data import (
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
 )
-from write_sheet_mlr_test import build_mlr_row_configs, write_mlr_scalar_test_sheet
+from write_sheet_mlr_scalars_test import build_mlr_row_configs, write_mlr_scalar_test_sheet
 import xlwings as xw
 
 

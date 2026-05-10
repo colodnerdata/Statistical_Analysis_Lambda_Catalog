@@ -19,8 +19,6 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["lambda_catalog"]
 
-[tool.uv]
-
 [tool.pylint.format]
 max-line-length = 120
 

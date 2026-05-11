@@ -16,6 +16,9 @@ ENV/
 .pyre/
 .hypothesis/
 
+# Analysis cache
+.analysis_cache.json
+
 # Build/package artifacts
 build/
 dist/

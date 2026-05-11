@@ -21,7 +21,9 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
 )
-from lambda_catalog.write_sheet_mlr_scalar_test import build_mlr_row_configs, write_mlr_scalar_test_sheet
+from lambda_catalog.analysis_cache import get_analysis_results
+from lambda_catalog.write_sheet_mlr_scalar_test import write_mlr_scalar_test_sheet
+from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_outputs_test_sheet
 import xlwings as xw
 
 
@@ -501,7 +503,7 @@ def build_lambda_library(
     """
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
-    row_configs = build_mlr_row_configs(csv_path)
+    row_configs, vector_row_configs = get_analysis_results(csv_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
@@ -523,6 +525,10 @@ def build_lambda_library(
                     workbook,
                     definitions,
                     row_configs,
+                )
+                write_mlr_vector_outputs_test_sheet(
+                    workbook,
+                    vector_row_configs,
                 )
                 workbook.save(str(workbook_path))
             finally:
@@ -571,6 +577,7 @@ def main() -> None:
 
     print(f"Workbook: {args.workbook.resolve()}")
     print("Sheet updated: MLR_Scalar_Test")
+    print("Sheet updated: MLR_Vector_Outputs_Test")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
     print(f"Created names: {result.created}")

@@ -37,6 +37,42 @@ FEATURE_COLUMNS = [
 
 
 @dataclass(frozen=True)
+class RegressionVectors:
+    """Per-coefficient regression statistics aligned with workbook vector LAMBDA outputs.
+
+    Attributes
+    ----------
+    term_names : tuple[str, ...]
+        Ordered labels for each term. "Intercept" appears first when the model
+        includes an intercept.
+    coefficients : tuple[float, ...]
+        Fitted OLS coefficients in the same order as term_names.
+    std_errors : tuple[float, ...]
+        Standard errors of the coefficients.
+    t_stats : tuple[float, ...]
+        t-statistics for each coefficient (coefficient / standard error).
+    p_values : tuple[float, ...]
+        Two-tailed p-values for each coefficient.
+    ci_lower : tuple[float, ...]
+        Lower bound of the confidence interval for each coefficient.
+    ci_upper : tuple[float, ...]
+        Upper bound of the confidence interval for each coefficient.
+    ci_excludes_zero : tuple[bool, ...]
+        True when the confidence interval does not straddle zero
+        (ci_lower > 0 or ci_upper < 0).
+    """
+
+    term_names: tuple[str, ...]
+    coefficients: tuple[float, ...]
+    std_errors: tuple[float, ...]
+    t_stats: tuple[float, ...]
+    p_values: tuple[float, ...]
+    ci_lower: tuple[float, ...]
+    ci_upper: tuple[float, ...]
+    ci_excludes_zero: tuple[bool, ...]
+
+
+@dataclass(frozen=True)
 class RegressionSummary:
     """Core regression metrics aligned with workbook LAMBDA outputs.
 
@@ -353,10 +389,10 @@ def calculate_regression_summary(
     observations = int(model.nobs)
     df_regression = len(columns)
     df_total = observations - 1 if include_intercept else observations
-    r_squared = model.rsquared
+    r_squared = float(model.rsquared)
     df_residual = int(model.df_resid)
-    multiple_r = np.sqrt(max(r_squared, 0.0))
-    adjusted_r2 = model.rsquared_adj
+    multiple_r = float(np.sqrt(max(r_squared, 0.0)))
+    adjusted_r2 = float(model.rsquared_adj)
     ss_total = float(model.centered_tss if include_intercept else model.uncentered_tss)
     ss_residual = float(model.ssr)
     ss_regression = ss_total - ss_residual
@@ -374,6 +410,65 @@ def calculate_regression_summary(
         ss_residual=ss_residual,
         ss_regression=ss_regression,
         se_regression=se_regression,
+    )
+
+
+def calculate_regression_vectors(
+    input_csv_path: Path = DEFAULT_INPUT_CSV,
+    include_intercept: bool = True,
+    feature_columns: list[str] | None = None,
+    alpha: float = 0.05,
+) -> RegressionVectors:
+    """Fit OLS and return per-coefficient statistics without writing any output files.
+
+    Parameters
+    ----------
+    input_csv_path : Path, optional
+        Path to the Life Expectancy CSV file.
+    include_intercept : bool, optional
+        If True, fit a model with an intercept term.
+    feature_columns : list[str] or None, optional
+        Predictor columns to include. Defaults to FEATURE_COLUMNS.
+    alpha : float, optional
+        Significance level for confidence intervals. Default 0.05 yields 95% CIs.
+
+    Returns
+    -------
+    RegressionVectors
+        Per-coefficient statistics matching the workbook vector LAMBDA outputs.
+    """
+    columns = feature_columns if feature_columns is not None else FEATURE_COLUMNS
+    input_path = input_csv_path.resolve()
+    original_headers, normalized_rows = _load_normalized_rows(input_path)
+    _validate_required_headers(original_headers, columns)
+
+    x_train, y_train, _, _ = _build_training_arrays(
+        normalized_rows, include_intercept, columns, filter_columns=FEATURE_COLUMNS
+    )
+    model = _fit_ols_model(x_train, y_train, include_intercept)
+    ci = model.conf_int(alpha=alpha)
+
+    if include_intercept:
+        term_names: tuple[str, ...] = ("Intercept", *columns)
+    else:
+        term_names = tuple(columns)
+
+    ci_array = ci if hasattr(ci, "__array__") else ci.values
+    ci_lower_vals = tuple(float(v) for v in ci_array[:, 0])
+    ci_upper_vals = tuple(float(v) for v in ci_array[:, 1])
+
+    return RegressionVectors(
+        term_names=term_names,
+        coefficients=tuple(float(v) for v in model.params),
+        std_errors=tuple(float(v) for v in model.bse),
+        t_stats=tuple(float(v) for v in model.tvalues),
+        p_values=tuple(float(v) for v in model.pvalues),
+        ci_lower=ci_lower_vals,
+        ci_upper=ci_upper_vals,
+        ci_excludes_zero=tuple(
+            bool(lo > 0 or hi < 0)
+            for lo, hi in zip(ci_lower_vals, ci_upper_vals)
+        ),
     )
 
 

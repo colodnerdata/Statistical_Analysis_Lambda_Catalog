@@ -383,7 +383,7 @@ def _validate_workbook_reopen(workbook_path: Path) -> None:
         If Excel rejects the workbook during open.
     """
     try:
-        with xw.App(visible=True, add_book=False) as app:
+        with xw.App(visible=False, add_book=False) as app:
             workbook = app.books.open(str(workbook_path))
             workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
@@ -469,7 +469,7 @@ def _write_name_comments(
         return
 
     try:
-        with xw.App(visible=True, add_book=False) as app:
+        with xw.App(visible=False, add_book=False) as app:
             workbook = app.books.open(str(workbook_path))
             try:
                 for name_obj in workbook.api.Names:

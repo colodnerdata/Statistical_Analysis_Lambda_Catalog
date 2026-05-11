@@ -506,17 +506,18 @@ def verify_test_sheets(
     """
     import importlib.util
 
-    spec = importlib.util.spec_from_file_location(
-        "inspect_test_sheets", ROOT_DIR / "tools" / "inspect_test_sheets.py"
-    )
+    tool_path = ROOT_DIR / "tools" / "inspect_test_sheets.py"
+    spec = importlib.util.spec_from_file_location("inspect_test_sheets", tool_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load inspect_test_sheets from {tool_path}")
     mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    spec.loader.exec_module(mod)
 
     workbook.app.calculate()
 
     scalar_df = mod.read_scalar_df(workbook)
     vector_df = mod.read_vector_df(workbook)
-    tol = mod._TOLERANCE_DECIMALS
+    tol = mod.TOLERANCE_DECIMALS
 
     for _, row in scalar_df.iterrows():
         fdd = row["first_digit_deviation"]

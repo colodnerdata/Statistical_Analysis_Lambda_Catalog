@@ -13,10 +13,12 @@ from typing import Any
 import pandas as pd
 import xlwings as xw
 
+from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
+
 
 # Matches _D in write_sheet_mlr_vector_outputs_test.py
 _D = 3
-_TOLERANCE_DECIMALS = _D * 2  # 6 decimal places
+TOLERANCE_DECIMALS = _D * 2  # 6 decimal places
 
 # Vector sheet layout constants (must match write_sheet_mlr_vector_outputs_test.py)
 _STATS = [
@@ -235,14 +237,20 @@ def main() -> None:
         print(f"Error: workbook not found: {workbook_path}", file=sys.stderr)
         sys.exit(1)
 
-    with xw.App(visible=False, add_book=False) as app:
-        workbook = app.books.open(str(workbook_path))
-        try:
-            app.calculate()
-            scalar_df = read_scalar_df(workbook)
-            vector_df = read_vector_df(workbook)
-        finally:
-            workbook.close()
+    try:
+        with xw.App(visible=False, add_book=False) as app:
+            try:
+                workbook = app.books.open(str(workbook_path))
+            except OPEN_WORKBOOK_ERRORS as exc:
+                raise_excel_access_error(workbook_path, "open", exc)
+            try:
+                app.calculate()
+                scalar_df = read_scalar_df(workbook)
+                vector_df = read_vector_df(workbook)
+            finally:
+                workbook.close()
+    except OPEN_WORKBOOK_ERRORS as exc:
+        raise_excel_access_error(workbook_path, "open", exc)
 
     print("=== MLR_Scalar_Test ===")
     print(scalar_df.to_string(index=False))

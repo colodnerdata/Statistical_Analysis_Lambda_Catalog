@@ -21,9 +21,9 @@ _FORMULA_COLS = 7  # col 8: Term names; cols 9–14: individual function calls
 _EXPECTED_COLS = 6 # cols 15–20: expected values
 _TOTAL_COLS = _TESTS_COLS + _FORMULA_COLS + _EXPECTED_COLS  # 20
 
-_TERM_COL = _TESTS_COLS + 1                            # col 9
-_CALC_START_COL = _TESTS_COLS + 2                      # col 10
-_EXPECTED_START_COL = _TESTS_COLS + _FORMULA_COLS + 1  # col 17
+_TERM_COL = _TESTS_COLS + 1                            # col 8
+_CALC_START_COL = _TESTS_COLS + 2                      # col 9
+_EXPECTED_START_COL = _TESTS_COLS + _FORMULA_COLS + 1  # col 15
 
 _CI_FUNCS = frozenset({"CI_Lower", "CI_Upper"})
 

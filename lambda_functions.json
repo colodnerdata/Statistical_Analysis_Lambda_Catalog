@@ -276,6 +276,107 @@
       ],
       "yields": "SE_regression (standard error of the regression) as a scalar",
       "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / DF_Residual(...))."
+    },
+    {
+      "name": "Coefficients",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, FALSE),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ls, 1, k + 1), CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
+      "arguments": [
+        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
+        { "name": "Y", "description": "single-column outcome range" },
+        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
+        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true }
+      ],
+      "yields": "vertical array of fitted OLS coefficients — intercept first (when included), then predictors in input order",
+      "description": "Returns a vertical spill array of the fitted OLS regression coefficients. When Allow_Intercept is TRUE the intercept is the first element, followed by the coefficients for each column of X_s in input order. When Allow_Intercept is FALSE the output contains only the k predictor coefficients.\n\nUses LINEST with stats=FALSE (row 1 only), then reverses and optionally prepends the intercept to match X_s column order."
+    },
+    {
+      "name": "SE_Coefficients",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    ses,       INDEX(ls, 2),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ses, 1, k + 1), CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
+      "arguments": [
+        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
+        { "name": "Y", "description": "single-column outcome range" },
+        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
+        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true }
+      ],
+      "yields": "vertical array of standard errors of the OLS coefficients — same order as Coefficients",
+      "description": "Returns a vertical spill array of the standard errors of the fitted OLS coefficients, in the same order as Coefficients (intercept first when included).\n\nUses LINEST with stats=TRUE and extracts row 2 (the standard error row), then applies the same reversal as Coefficients."
+    },
+    {
+      "name": "T_Stats",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    Coefficients(X_s, Y, allow_arg, filt_arg) / SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "arguments": [
+        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
+        { "name": "Y", "description": "single-column outcome range" },
+        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
+        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true }
+      ],
+      "yields": "vertical array of t-statistics for each coefficient (coefficient / standard error)",
+      "description": "Returns a vertical spill array of t-statistics for each OLS coefficient. Each element equals the corresponding Coefficients value divided by its SE_Coefficients value.\n\nComputed as Coefficients(...) / SE_Coefficients(...)."
+    },
+    {
+      "name": "P_Values",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.00E+00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    T.DIST.2T(ABS(T_Stats(X_s, Y, allow_arg, filt_arg)), DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "arguments": [
+        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
+        { "name": "Y", "description": "single-column outcome range" },
+        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
+        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true }
+      ],
+      "yields": "vertical array of two-tailed p-values for each coefficient",
+      "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Stats(...)), DF_Residual(...))."
+    },
+    {
+      "name": "CI_Lower",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg, IF(ISOMITTED(Alpha),            0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "arguments": [
+        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
+        { "name": "Y", "description": "single-column outcome range" },
+        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
+        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true },
+        { "name": "Alpha", "description": "significance level; default 0.05 yields 95% confidence intervals", "optional": true }
+      ],
+      "yields": "vertical array of lower confidence interval bounds for each coefficient",
+      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at the specified significance level.\n\nComputed as Coefficients(...) - T.INV.2T(alpha, DF_Residual(...)) * SE_Coefficients(...)."
+    },
+    {
+      "name": "CI_Upper",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg, IF(ISOMITTED(Alpha),            0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "arguments": [
+        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
+        { "name": "Y", "description": "single-column outcome range" },
+        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
+        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true },
+        { "name": "Alpha", "description": "significance level; default 0.05 yields 95% confidence intervals", "optional": true }
+      ],
+      "yields": "vertical array of upper confidence interval bounds for each coefficient",
+      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at the specified significance level.\n\nComputed as Coefficients(...) + T.INV.2T(alpha, DF_Residual(...)) * SE_Coefficients(...)."
+    },
+    {
+      "name": "CI_Excludes_Zero",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg, IF(ISOMITTED(Alpha),            0.05, Alpha),\n    (CI_Lower(X_s, Y, allow_arg, filt_arg, alpha_arg) > 0)\n      + (CI_Upper(X_s, Y, allow_arg, filt_arg, alpha_arg) < 0) > 0\n  ))",
+      "arguments": [
+        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
+        { "name": "Y", "description": "single-column outcome range" },
+        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
+        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true },
+        { "name": "Alpha", "description": "significance level; default 0.05 yields 95% confidence intervals", "optional": true }
+      ],
+      "yields": "vertical array of booleans — TRUE when the confidence interval for that coefficient does not straddle zero",
+      "description": "Returns a vertical spill array of booleans indicating whether each coefficient's confidence interval excludes zero, i.e. whether the coefficient is statistically distinguishable from zero at the given significance level.\n\nTRUE when CI_Lower > 0 (entirely positive) or CI_Upper < 0 (entirely negative). Computed as (CI_Lower(...) > 0) + (CI_Upper(...) < 0) > 0."
     }
   ]
 }

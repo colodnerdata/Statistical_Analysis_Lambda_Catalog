@@ -337,46 +337,49 @@
       "name": "CI_Lower",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [N],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    n_arg,     IF(ISOMITTED(N),               95,   N),\n    alpha_arg, (100 - n_arg) / 100,\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha], [N],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    final_alpha, IF(ISOMITTED(N), alpha_arg, (100 - N) / 100),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(final_alpha, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
         { "name": "Y", "description": "single-column outcome range" },
         { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
         { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true },
-        { "name": "N", "description": "confidence level (0–100); default 95 yields 95% CIs", "optional": true }
+        { "name": "Alpha", "description": "significance level (0–1); default 0.05 yields 95% CIs. Ignored when N is supplied.", "optional": true },
+        { "name": "N", "description": "confidence level (0–100); default 95 yields 95% CIs. Takes precedence over Alpha.", "optional": true }
       ],
       "yields": "vertical array of lower confidence interval bounds for each coefficient",
-      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at the specified confidence level.\n\nComputed as Coefficients(...) - T.INV.2T((100-N)/100, DF_Residual(...)) * SE_Coefficients(...)."
+      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value derived from Alpha (significance level, default 0.05) or N (confidence level 0–100, default 95). N takes precedence over Alpha when both are supplied.\n\nComputed as Coefficients(...) - T.INV.2T((100-N)/100, DF_Residual(...)) * SE_Coefficients(...)."
     },
     {
       "name": "CI_Upper",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [N],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    n_arg,     IF(ISOMITTED(N),               95,   N),\n    alpha_arg, (100 - n_arg) / 100,\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha], [N],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    final_alpha, IF(ISOMITTED(N), alpha_arg, (100 - N) / 100),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(final_alpha, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
         { "name": "Y", "description": "single-column outcome range" },
         { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
         { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true },
-        { "name": "N", "description": "confidence level (0–100); default 95 yields 95% CIs", "optional": true }
+        { "name": "Alpha", "description": "significance level (0–1); default 0.05 yields 95% CIs. Ignored when N is supplied.", "optional": true },
+        { "name": "N", "description": "confidence level (0–100); default 95 yields 95% CIs. Takes precedence over Alpha.", "optional": true }
       ],
       "yields": "vertical array of upper confidence interval bounds for each coefficient",
-      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at the specified confidence level.\n\nComputed as Coefficients(...) + T.INV.2T((100-N)/100, DF_Residual(...)) * SE_Coefficients(...)."
+      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value derived from Alpha (significance level, default 0.05) or N (confidence level 0–100, default 95). N takes precedence over Alpha when both are supplied.\n\nComputed as Coefficients(...) + T.INV.2T((100-N)/100, DF_Residual(...)) * SE_Coefficients(...)."
     },
     {
       "name": "CI_Excludes_Zero",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "General",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [N],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    n_arg,     IF(ISOMITTED(N),               95,   N),\n    alpha_arg, (100 - n_arg) / 100,\n    (CI_Lower(X_s, Y, allow_arg, filt_arg, n_arg) > 0)\n      + (CI_Upper(X_s, Y, allow_arg, filt_arg, n_arg) < 0) > 0\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha], [N],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    final_alpha, IF(ISOMITTED(N), alpha_arg, (100 - N) / 100),\n    (CI_Lower(X_s, Y, allow_arg, filt_arg, final_alpha) > 0)\n      + (CI_Upper(X_s, Y, allow_arg, filt_arg, final_alpha) < 0) > 0\n  ))",
       "arguments": [
         { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
         { "name": "Y", "description": "single-column outcome range" },
         { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
         { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true },
-        { "name": "N", "description": "confidence level (0–100); default 95 yields 95% CIs", "optional": true }
+        { "name": "Alpha", "description": "significance level (0–1); default 0.05 yields 95% CIs. Ignored when N is supplied.", "optional": true },
+        { "name": "N", "description": "confidence level (0–100); default 95 yields 95% CIs. Takes precedence over Alpha.", "optional": true }
       ],
       "yields": "vertical array of booleans — TRUE when the confidence interval for that coefficient does not straddle zero",
-      "description": "Returns a vertical spill array of booleans indicating whether each coefficient's confidence interval excludes zero, i.e. whether the coefficient is statistically distinguishable from zero at the given confidence level.\n\nTRUE when CI_Lower > 0 (entirely positive) or CI_Upper < 0 (entirely negative). Computed as (CI_Lower(...) > 0) + (CI_Upper(...) < 0) > 0."
+      "description": "Returns a vertical spill array of booleans indicating whether each coefficient's confidence interval excludes zero, i.e. whether the coefficient is statistically distinguishable from zero at the given confidence level. Accepts Alpha (significance level, default 0.05) or N (confidence level 0–100, default 95); N takes precedence over Alpha when both are supplied.\n\nTRUE when CI_Lower > 0 (entirely positive) or CI_Upper < 0 (entirely negative). Computed as (CI_Lower(...) > 0) + (CI_Upper(...) < 0) > 0."
     }
   ]
 }

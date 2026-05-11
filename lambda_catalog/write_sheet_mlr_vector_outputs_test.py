@@ -14,7 +14,9 @@ from .analyze_life_expectancy import (
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 
-# Confidence level passed to CI functions; matches Python's alpha=0.05 ((100-95)/100).
+# Significance level and confidence level passed to CI functions (both are passed
+# explicitly so the correct positional arg slots are used: Alpha then N).
+_ALPHA = 0.05
 _N = 95
 
 _TESTS_COLS = 8    # col 1: Smoke Test; cols 2–8: one Match per stat
@@ -116,7 +118,7 @@ def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
         Excel formula string starting with ``=``.
     """
     allow_arg = "TRUE" if allow_intercept else "FALSE"
-    extra = f",{_N}" if func_name in _CI_FUNCS else ""
+    extra = f",{_ALPHA},{_N}" if func_name in _CI_FUNCS else ""
     return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},fil{extra}))"
 
 

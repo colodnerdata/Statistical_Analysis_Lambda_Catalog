@@ -163,18 +163,22 @@ def build_test_columns(
     Returns
     -------
     list[_ColumnSpec]
-        Ordered column specs beginning with fixed control columns followed
-        by three columns per matched definition: (Exp.), (Calc.), and (Match).
+        Ordered column specs: fixed control columns (X_Variables, ind_vars,
+        Allow_Intercept, Smoke Test), then one (Match) column per definition,
+        then one (Calc.) column per definition, then one (Exp.) column per
+        definition.
     """
     filtered = [d for d in definitions if d.test_table == test_table]
-    metric_columns: list[_ColumnSpec] = []
+    exp_columns: list[_ColumnSpec] = []
+    calc_columns: list[_ColumnSpec] = []
+    match_columns: list[_ColumnSpec] = []
     match_headers: list[str] = []
     for d in filtered:
         exp_header = f"{d.name}\n(Exp.)"
         calc_header = f"{d.name}\n(Calc.)"
         match_header = f"{d.name}\n(Match)"
-        metric_columns.append((exp_header, d.name, None, d.number_format))
-        metric_columns.append(
+        exp_columns.append((exp_header, d.name, None, d.number_format))
+        calc_columns.append(
             (
                 calc_header,
                 None,
@@ -182,7 +186,7 @@ def build_test_columns(
                 d.number_format,
             )
         )
-        metric_columns.append(
+        match_columns.append(
             (
                 match_header,
                 None,
@@ -204,7 +208,7 @@ def build_test_columns(
         ("Allow_Intercept", None, None, "General"),
         ("Smoke Test", None, smoke_formula, "General"),
     ]
-    return fixed_columns + metric_columns
+    return fixed_columns + match_columns + calc_columns + exp_columns
 
 
 def build_mlr_row_configs(csv_path: Path) -> list[_RowConfig]:

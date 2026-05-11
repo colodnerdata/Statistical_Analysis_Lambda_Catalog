@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -427,6 +428,11 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Reopen the workbook after syncing names to verify Excel accepts the result.",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print timing information for each build phase.",
+    )
     return parser.parse_args()
 
 
@@ -482,6 +488,7 @@ def build_lambda_library(
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
     csv_path: Path = DEFAULT_CSV_PATH,
     validate_reopen: bool = False,
+    verbose: bool = False,
 ) -> NameSyncResult:
     """Build all workbook assets, sync JSON-backed names, and optionally validate.
 
@@ -495,19 +502,26 @@ def build_lambda_library(
         Path to the Life Expectancy CSV file.
     validate_reopen : bool, optional
         If True, reopens the workbook in Excel after patching to verify it.
+    verbose : bool, optional
+        If True, prints timing information for each build phase to stdout.
 
     Returns
     -------
     NameSyncResult
         Counts of created versus updated workbook names.
     """
+    _t = time.monotonic()
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
     row_configs, vector_row_configs = get_analysis_results(csv_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
+    if verbose:
+        print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
+
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
 
+    _t = time.monotonic()
     try:
         with xw.App(visible=False, add_book=False) as app:
             if workbook_exists:
@@ -535,15 +549,23 @@ def build_lambda_library(
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "open or save", exc)
+    if verbose:
+        print(f"  Write sheets:   {time.monotonic() - _t:.1f}s", flush=True)
 
+    _t = time.monotonic()
     try:
         result = sync_workbook_names(workbook_path, definitions)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "update", exc)
     except (PermissionError, OSError) as exc:
         raise_excel_access_error(workbook_path, "update", exc)
+    if verbose:
+        print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
 
+    _t = time.monotonic()
     _write_name_comments(workbook_path, definitions)
+    if verbose:
+        print(f"  Write comments: {time.monotonic() - _t:.1f}s", flush=True)
 
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)
@@ -561,6 +583,7 @@ def main() -> None:
                 definitions_path=args.definitions,
                 csv_path=args.csv,
                 validate_reopen=args.validate_reopen,
+                verbose=args.verbose,
             )
             break
         except RuntimeError as exc:

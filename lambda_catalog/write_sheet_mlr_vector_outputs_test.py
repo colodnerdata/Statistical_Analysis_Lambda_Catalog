@@ -10,21 +10,38 @@ from .analyze_life_expectancy import (
     RegressionVectors,
     calculate_regression_vectors,
 )
-from .make_test_sheet import _round_precision_for_format
 
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
-_FIXED_COLS = 2  # Term + Smoke Test
 
-# (function_name, number_format)
-_STATS: list[tuple[str, str]] = [
-    ("Coefficients", "0.000000"),
-    ("SE_Coefficients", "0.000000"),
-    ("T_Stats", "0.000"),
-    ("P_Values", "0.00E+00"),
-    ("CI_Lower", "0.000000"),
-    ("CI_Upper", "0.000000"),
-    ("CI_Excludes_Zero", "General"),
+# Significance level and confidence level passed to CI functions (both are passed
+# explicitly so the correct positional arg slots are used: Alpha then N).
+_ALPHA = 0.05
+_N = 95
+
+_TESTS_COLS = 8    # col 1: Smoke Test; cols 2–8: one Match per stat
+_FORMULA_COLS = 8  # col 9: Term names; cols 10–16: individual function calls
+_EXPECTED_COLS = 7 # cols 17–23: expected values
+_TOTAL_COLS = _TESTS_COLS + _FORMULA_COLS + _EXPECTED_COLS  # 23
+
+_TERM_COL = _TESTS_COLS + 1                            # col 9
+_CALC_START_COL = _TESTS_COLS + 2                      # col 10
+_EXPECTED_START_COL = _TESTS_COLS + _FORMULA_COLS + 1  # col 17
+
+_CI_FUNCS = frozenset({"CI_Lower", "CI_Upper", "CI_Excludes_Zero"})
+
+# (display name, Excel function name, display_digits, number format)
+# display_digits: decimal places shown in cells; match precision = 2 × display_digits.
+# display_digits=None → General format, boolean element-wise comparison.
+_D = 3  # display decimal digits for all numeric vector stats
+_STATS: list[tuple[str, str, int | None, str]] = [
+    ("Coefficients",       "Coefficients",     _D,   f"0.{'0' * _D}"),
+    ("SE_Coefficients",    "SE_Coefficients",  _D,   f"0.{'0' * _D}"),
+    ("T_Stats",            "T_Stats",          _D,   f"0.{'0' * _D}"),
+    ("P_Values",           "P_Values",         _D,   f"0.{'0' * _D}E+00"),
+    (f"CI_Lower {_N}%",    "CI_Lower",         _D,   f"0.{'0' * _D}"),
+    (f"CI_Upper {_N}%",    "CI_Upper",         _D,   f"0.{'0' * _D}"),
+    ("CI_Excludes_Zero",   "CI_Excludes_Zero", None, "General"),
 ]
 
 
@@ -82,51 +99,58 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 
 
 def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
-    """Build the spill formula for a vector stat column in a given test section.
+    """Build an individual stat function call for a given k and intercept setting.
+
+    CI functions receive the module-level confidence level ``_N`` as an extra arg.
 
     Parameters
     ----------
     k : int
-        Number of predictor columns used in this section.
+        Number of predictor columns.
     allow_intercept : bool
         Whether the model includes an intercept.
     func_name : str
-        Name of the workbook-scoped LAMBDA to call.
+        Excel function name (e.g. ``'Coefficients'``, ``'CI_Lower'``).
 
     Returns
     -------
     str
-        Excel formula string that calls func_name via a LET-bound x_s.
+        Excel formula string starting with ``=``.
     """
     allow_arg = "TRUE" if allow_intercept else "FALSE"
-    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},fil))"
+    extra = f",{_ALPHA},{_N}" if func_name in _CI_FUNCS else ""
+    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},fil{extra}))"
 
 
-def _match_formula_numeric(
-    exp_col: str, calc_col: str, first_row: int, n_terms: int, num_fmt: str
+def _match_formula_numeric(  # noqa: PLR0913
+    exp_col_idx: int,
+    calc_col_idx: int,
+    first_row: int,
+    n_terms: int,
+    prec: int,
 ) -> str:
-    """Build the AND(ROUND…=ROUND…) match formula for a numeric stat column.
+    """Build a ROUND-based match formula comparing an expected range to a spill column.
 
     Parameters
     ----------
-    exp_col : str
-        Excel column letter for the expected-value column.
-    calc_col : str
-        Excel column letter for the calculated-value (spill) column.
+    exp_col_idx : int
+        1-based column index of the expected values.
+    calc_col_idx : int
+        1-based column index of the calc (spill anchor) column.
     first_row : int
-        1-based Excel row of the first data row in this section.
+        1-based Excel row of the first data row.
     n_terms : int
-        Number of terms (rows) in this section.
-    num_fmt : str
-        Excel number format string used to derive comparison precision.
+        Number of coefficient terms.
+    prec : int
+        ROUND precision derived from the number format.
 
     Returns
     -------
     str
-        Excel formula string evaluating to TRUE when the two ranges match
-        within the appropriate ROUND precision.
+        Excel formula evaluating to TRUE when the ranges match within precision.
     """
-    prec = _round_precision_for_format(num_fmt)
+    exp_col = _col_letter(exp_col_idx)
+    calc_col = _col_letter(calc_col_idx)
     last_row = first_row + n_terms - 1
     return (
         f"=AND(ROUND({exp_col}{first_row}:{exp_col}{last_row},{prec})"
@@ -135,51 +159,33 @@ def _match_formula_numeric(
 
 
 def _match_formula_bool(
-    exp_col: str, calc_col: str, first_row: int, n_terms: int
+    exp_col_idx: int,
+    calc_col_idx: int,
+    first_row: int,
+    n_terms: int,
 ) -> str:
-    """Build the AND(…=…) match formula for a boolean stat column.
+    """Build a boolean match formula comparing an expected range to a spill column.
 
     Parameters
     ----------
-    exp_col : str
-        Excel column letter for the expected-value column.
-    calc_col : str
-        Excel column letter for the calculated-value (spill) column.
+    exp_col_idx : int
+        1-based column index of the expected values.
+    calc_col_idx : int
+        1-based column index of the calc (spill anchor) column.
     first_row : int
-        1-based Excel row of the first data row in this section.
+        1-based Excel row of the first data row.
     n_terms : int
-        Number of terms (rows) in this section.
+        Number of coefficient terms.
 
     Returns
     -------
     str
-        Excel formula string evaluating to TRUE when every element of the
-        expected range equals the corresponding spill value.
+        Excel formula evaluating to TRUE when every element matches.
     """
+    exp_col = _col_letter(exp_col_idx)
+    calc_col = _col_letter(calc_col_idx)
     last_row = first_row + n_terms - 1
     return f"=AND({exp_col}{first_row}:{exp_col}{last_row}={calc_col}{first_row}#)"
-
-
-def _smoke_test_formula(match_col_indices: list[int], first_data_row: int) -> str:
-    """Build the AND(TRUE, …) smoke-test formula referencing each match column cell.
-
-    Mirrors ``build_smoke_test_formula`` from make_test_sheet but uses absolute
-    cell addresses instead of structured references since there is no ListObject.
-
-    Parameters
-    ----------
-    match_col_indices : list[int]
-        1-based column indices of every Match column.
-    first_data_row : int
-        1-based Excel row of the first data row in this section.
-
-    Returns
-    -------
-    str
-        Excel formula string that evaluates to TRUE when all match cells are TRUE.
-    """
-    refs = [f"{_col_letter(c)}{first_data_row}" for c in match_col_indices]
-    return "=AND(TRUE," + ",".join(refs) + ")"
 
 
 def build_mlr_vector_row_configs(
@@ -210,11 +216,82 @@ def build_mlr_vector_row_configs(
     return row_configs
 
 
+def _write_section(  # noqa: PLR0914
+    sheet: xw.Sheet,
+    k: int,
+    allow_intercept: bool,
+    vectors: RegressionVectors,
+    first_data_row: int,
+) -> None:
+    """Write one section: term names, expected values, calc formulas, match formulas, smoke test.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The target worksheet.
+    k : int
+        Number of predictor columns for this section.
+    allow_intercept : bool
+        Whether this section's model includes an intercept.
+    vectors : RegressionVectors
+        Computed regression statistics used as expected values.
+    first_data_row : int
+        1-based Excel row for the first data row of this section.
+    """
+    n_terms = len(vectors.coefficients)
+
+    for term_idx, term_name in enumerate(vectors.term_names):
+        sheet.range((first_data_row + term_idx, _TERM_COL)).value = term_name
+
+    exp_vectors: list[tuple] = [
+        vectors.coefficients,
+        vectors.std_errors,
+        vectors.t_stats,
+        vectors.p_values,
+        vectors.ci_lower,
+        vectors.ci_upper,
+        vectors.ci_excludes_zero,
+    ]
+    for stat_idx, (_, func_name, display_digits, num_fmt) in enumerate(_STATS):
+        exp_col_idx = _EXPECTED_START_COL + stat_idx
+        calc_col = _CALC_START_COL + stat_idx
+        match_col = 2 + stat_idx
+
+        for term_idx, val in enumerate(exp_vectors[stat_idx]):
+            cell = sheet.range((first_data_row + term_idx, exp_col_idx))
+            if num_fmt != "General":
+                cell.api.NumberFormat = num_fmt
+            cell.value = val
+
+        sheet.range((first_data_row, calc_col)).api.Formula2 = (
+            _calc_formula(k, allow_intercept, func_name)
+        )
+
+        if func_name == "CI_Excludes_Zero":
+            mf = _match_formula_bool(exp_col_idx, calc_col, first_data_row, n_terms)
+        else:
+            mf = _match_formula_numeric(
+                exp_col_idx, calc_col, first_data_row, n_terms, display_digits * 2,
+            )
+        sheet.range((first_data_row, match_col)).api.Formula2 = mf
+
+    match_refs = ",".join(
+        f"{_col_letter(2 + i)}{first_data_row}" for i in range(len(_STATS))
+    )
+    sheet.range((first_data_row, 1)).formula = f"=AND({match_refs})"
+
+
 def write_mlr_vector_outputs_test_sheet(
     workbook: xw.Book,
     row_configs: list[tuple[int, bool, RegressionVectors]],
 ) -> None:
-    """Create or refresh the MLR_Vector_Outputs_Test sheet with vector comparison sections.
+    """Create or refresh the MLR_Vector_Outputs_Test sheet.
+
+    Layout (23 columns total):
+      Cols 1–8   Tests: Smoke Test + one Match column per stat
+      Col  9     Term names (Python-written)
+      Cols 10–16 Individual function call per stat (each spills n_terms rows)
+      Cols 17–23 Expected values
 
     Parameters
     ----------
@@ -237,102 +314,32 @@ def write_mlr_vector_outputs_test_sheet(
     sheet.api.Cells.Clear()
     _set_sheet_scoped_names(sheet)
 
-    total_cols = _FIXED_COLS + len(_STATS) * 3  # 2 + 7×3 = 23
+    header_row = 1
+    sheet.range((header_row, 1)).value = "Smoke Test"
+    for i, (display_name, _, _, _) in enumerate(_STATS):
+        sheet.range((header_row, 2 + i)).value = f"{display_name}\n(Match)"
+    sheet.range((header_row, _TERM_COL)).value = "Term"
+    for i, (display_name, _, _, _) in enumerate(_STATS):
+        sheet.range((header_row, _CALC_START_COL + i)).value = display_name
+    for i, (display_name, _, _, _) in enumerate(_STATS):
+        sheet.range((header_row, _EXPECTED_START_COL + i)).value = f"{display_name}\n(Exp.)"
 
-    # 1-based column indices of every Match column: 5, 8, 11, 14, 17, 20, 23
-    match_col_indices = [_FIXED_COLS + 3 + i * 3 for i in range(len(_STATS))]
-
-    HEADER_ROW = 1
-    current_row = HEADER_ROW
-
-    # Column headers
-    sheet.range((current_row, 1)).value = "Term"
-    sheet.range((current_row, 2)).value = "Smoke Test"
-    for i, (stat_name, _) in enumerate(_STATS):
-        base_col = _FIXED_COLS + 1 + i * 3
-        sheet.range((current_row, base_col)).value = f"{stat_name}\n(Exp.)"
-        sheet.range((current_row, base_col + 1)).value = f"{stat_name}\n(Calc.)"
-        sheet.range((current_row, base_col + 2)).value = f"{stat_name}\n(Match)"
-    current_row += 1
+    current_row = header_row + 1
 
     for k, allow_intercept, vectors in row_configs:
         n_terms = len(vectors.coefficients)
-
-        # Section divider row
         sheet.range((current_row, 1)).value = (
             f"k={k} | Intercept={'TRUE' if allow_intercept else 'FALSE'}"
         )
         current_row += 1
-
-        first_data_row = current_row
-
-        # Term labels — every data row
-        for term_idx, term_name in enumerate(vectors.term_names):
-            sheet.range((first_data_row + term_idx, 1)).value = term_name
-
-        # Expected values — every data row
-        exp_vectors: list[tuple] = [
-            vectors.coefficients,
-            vectors.std_errors,
-            vectors.t_stats,
-            vectors.p_values,
-            vectors.ci_lower,
-            vectors.ci_upper,
-            vectors.ci_excludes_zero,
-        ]
-        for stat_idx, (_, num_fmt) in enumerate(_STATS):
-            exp_col_idx = _FIXED_COLS + 1 + stat_idx * 3
-            for term_idx, val in enumerate(exp_vectors[stat_idx]):
-                cell = sheet.range((first_data_row + term_idx, exp_col_idx))
-                if num_fmt != "General":
-                    cell.api.NumberFormat = num_fmt
-                cell.value = val
-
-        # Calc. spill formulas — first data row only
-        # .api.Formula2 is required for Excel 365 dynamic-array spill behavior;
-        # .formula uses the legacy engine and collapses the result to a scalar.
-        for stat_idx, (func_name, _) in enumerate(_STATS):
-            calc_col_idx = _FIXED_COLS + 2 + stat_idx * 3
-            sheet.range((first_data_row, calc_col_idx)).api.Formula2 = _calc_formula(
-                k, allow_intercept, func_name
-            )
-
-        # Match formulas — first data row only
-        # Also needs Formula2: these reference the spill range via `#` and compare
-        # a multi-row expected range against the spilled calc range.
-        for stat_idx, (stat_name, num_fmt) in enumerate(_STATS):
-            exp_col_idx = _FIXED_COLS + 1 + stat_idx * 3
-            calc_col_idx = _FIXED_COLS + 2 + stat_idx * 3
-            match_col_idx = _FIXED_COLS + 3 + stat_idx * 3
-            exp_col = _col_letter(exp_col_idx)
-            calc_col = _col_letter(calc_col_idx)
-
-            if stat_name == "CI_Excludes_Zero":
-                mf = _match_formula_bool(exp_col, calc_col, first_data_row, n_terms)
-            else:
-                mf = _match_formula_numeric(
-                    exp_col, calc_col, first_data_row, n_terms, num_fmt
-                )
-            sheet.range((first_data_row, match_col_idx)).api.Formula2 = mf
-
-        # Smoke Test formula — first data row, col 2
-        sheet.range((first_data_row, 2)).api.Formula2 = _smoke_test_formula(
-            match_col_indices, first_data_row
-        )
-
-        current_row += n_terms + 1  # +1 for blank gap row
+        _write_section(sheet, k, allow_intercept, vectors, current_row)
+        current_row += n_terms + 1  # data rows + blank gap
 
     last_content_row = current_row - 1
+    sheet.range((header_row, 1), (header_row, _TOTAL_COLS)).api.WrapText = True
+    sheet.range((header_row, 1), (header_row, _TOTAL_COLS)).api.EntireRow.AutoFit()
+    sheet.range((header_row, 1), (last_content_row, _TOTAL_COLS)).columns.autofit()
 
-    # Wrap and autofit header row
-    header_range = sheet.range((HEADER_ROW, 1), (HEADER_ROW, total_cols))
-    header_range.api.WrapText = True
-    header_range.api.EntireRow.AutoFit()
-
-    # Autofit all columns
-    sheet.range((HEADER_ROW, 1), (last_content_row, total_cols)).columns.autofit()
-
-    # Freeze header row
     sheet.activate()
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0

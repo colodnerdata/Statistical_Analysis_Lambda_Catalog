@@ -153,36 +153,6 @@ def _match_formula_numeric(  # noqa: PLR0913
     )
 
 
-def _match_formula_bool(
-    exp_col_idx: int,
-    calc_col_idx: int,
-    first_row: int,
-    n_terms: int,
-) -> str:
-    """Build a boolean match formula comparing an expected range to a spill column.
-
-    Parameters
-    ----------
-    exp_col_idx : int
-        1-based column index of the expected values.
-    calc_col_idx : int
-        1-based column index of the calc (spill anchor) column.
-    first_row : int
-        1-based Excel row of the first data row.
-    n_terms : int
-        Number of coefficient terms.
-
-    Returns
-    -------
-    str
-        Excel formula evaluating to TRUE when every element matches.
-    """
-    exp_col = _col_letter(exp_col_idx)
-    calc_col = _col_letter(calc_col_idx)
-    last_row = first_row + n_terms - 1
-    return f"=AND({exp_col}{first_row}:{exp_col}{last_row}={calc_col}{first_row}#)"
-
-
 def build_mlr_vector_row_configs(
     csv_path: Path,
 ) -> list[tuple[int, bool, RegressionVectors]]:

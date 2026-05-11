@@ -298,7 +298,7 @@ def _build_training_arrays(
 
 
 def _fit_ols_model(
-    x_train: np.ndarray, y_train: np.ndarray, include_intercept: bool
+    x_train: np.ndarray, y_train: np.ndarray, _include_intercept: bool
 ) -> sm.regression.linear_model.RegressionResults:
     """Fit an OLS model using statsmodels.
 
@@ -309,7 +309,7 @@ def _fit_ols_model(
         required, is already embedded by ``_build_training_arrays``.
     y_train : np.ndarray
         Target vector (n_samples,).
-    include_intercept : bool
+    _include_intercept : bool
         Unused; retained for call-site symmetry with other helpers.
 
     Returns

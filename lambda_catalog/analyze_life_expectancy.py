@@ -389,10 +389,10 @@ def calculate_regression_summary(
     observations = int(model.nobs)
     df_regression = len(columns)
     df_total = observations - 1 if include_intercept else observations
-    r_squared = model.rsquared
+    r_squared = float(model.rsquared)
     df_residual = int(model.df_resid)
-    multiple_r = np.sqrt(max(r_squared, 0.0))
-    adjusted_r2 = model.rsquared_adj
+    multiple_r = float(np.sqrt(max(r_squared, 0.0)))
+    adjusted_r2 = float(model.rsquared_adj)
     ss_total = float(model.centered_tss if include_intercept else model.uncentered_tss)
     ss_residual = float(model.ssr)
     ss_regression = ss_total - ss_residual

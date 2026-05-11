@@ -1,7 +1,10 @@
-"""Inspect Calc vs Exp columns in MLR test sheets and report discrepancies.
+"""Inspect Calc columns in MLR test sheets and compare against Python-computed expected values.
+
+Expected values come from the analysis cache / analyze_life_expectancy.py, not from
+the (Exp.) columns in the workbook, so the tool survives removal of those columns.
 
 Usage:
-    python tools/inspect_test_sheets.py Lambda_Library.xlsx
+    python tools/inspect_test_sheets.py Lambda_Library.xlsx [--csv path/to/data.csv]
 """
 from __future__ import annotations
 
@@ -13,6 +16,8 @@ from typing import Any
 import pandas as pd
 import xlwings as xw
 
+from lambda_catalog.analyze_life_expectancy import DEFAULT_INPUT_CSV, RegressionVectors
+from lambda_catalog.analysis_cache import get_analysis_results
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
 
 
@@ -29,11 +34,28 @@ _STATS = [
     "CI_Lower",
     "CI_Upper",
 ]
+# RegressionVectors field names in the same order as _STATS
+_STAT_FIELDS = [
+    "coefficients",
+    "std_errors",
+    "t_stats",
+    "p_values",
+    "ci_lower",
+    "ci_upper",
+]
 _TESTS_COLS = 7
 _FORMULA_COLS = 7
 _TERM_COL = _TESTS_COLS + 1           # col 8 (1-based)
 _CALC_START_COL = _TESTS_COLS + 2     # col 9 (1-based)
-_EXPECTED_START_COL = _TESTS_COLS + _FORMULA_COLS + 1  # col 15 (1-based)
+
+_DF_SCALAR_COLS = [
+    "k", "allow_intercept", "stat_name",
+    "expected", "excel_calc", "abs_diff", "first_digit_deviation",
+]
+_DF_VECTOR_COLS = [
+    "k", "allow_intercept", "term_name", "stat_name",
+    "expected", "excel_calc", "abs_diff", "first_digit_deviation",
+]
 
 
 def _first_digit_deviation(expected: float, actual: float) -> int | None:
@@ -51,25 +73,28 @@ def _first_digit_deviation(expected: float, actual: float) -> int | None:
     return 0
 
 
-def read_scalar_df(workbook: xw.Book) -> pd.DataFrame:
-    """Read MLR_Scalar_Test and return a DataFrame comparing Calc vs Exp values.
+def read_scalar_df(
+    workbook: xw.Book,
+    scalar_row_configs: list,
+) -> pd.DataFrame:
+    """Read MLR_Scalar_Test Calc columns and compare against Python-computed expected values.
 
-    Each row corresponds to one (k, allow_intercept, stat_name) triple.
-    Columns: k, allow_intercept, stat_name, expected, excel_calc, abs_diff,
+    Expected values are taken from ``scalar_row_configs`` (Python-computed OLS metrics),
+    not from the (Exp.) columns in the sheet. Only the Calc columns and the row-identity
+    columns (ind_vars, Allow_Intercept) are read from the workbook.
+
+    Each row in the returned DataFrame corresponds to one (k, allow_intercept, stat_name)
+    triple. Columns: k, allow_intercept, stat_name, expected, excel_calc, abs_diff,
     first_digit_deviation.
     """
     sheet = workbook.sheets["MLR_Scalar_Test"]
     data: list[list[Any]] = sheet.used_range.value
     if not data or len(data) < 2:
-        return pd.DataFrame(
-            columns=["k", "allow_intercept", "stat_name", "expected",
-                     "excel_calc", "abs_diff", "first_digit_deviation"]
-        )
+        return pd.DataFrame(columns=_DF_SCALAR_COLS)
 
     headers = [str(h).strip() if h is not None else "" for h in data[0]]
 
     calc_cols: dict[str, int] = {}
-    exp_cols: dict[str, int] = {}
     ind_vars_col: int | None = None
     intercept_col: int | None = None
 
@@ -78,13 +103,20 @@ def read_scalar_df(workbook: xw.Book) -> pd.DataFrame:
         if h_norm.endswith(" (Calc.)"):
             stat = h_norm[: -len(" (Calc.)")].strip()
             calc_cols[stat] = i
-        elif h_norm.endswith(" (Exp.)"):
-            stat = h_norm[: -len(" (Exp.)")].strip()
-            exp_cols[stat] = i
         elif h_norm == "ind_vars":
             ind_vars_col = i
         elif h_norm == "Allow_Intercept":
             intercept_col = i
+
+    # Build lookup: (k, allow_intercept) -> expected_dict
+    config_lookup: dict[tuple[int, bool], dict[str, float]] = {}
+    for item in scalar_row_configs:
+        row_vals = item[0]
+        expected_dict = item[1]
+        k_val = row_vals.get("ind_vars")
+        ai_val = bool(row_vals.get("Allow_Intercept"))
+        if k_val is not None:
+            config_lookup[(int(k_val), ai_val)] = expected_dict
 
     rows = []
     for row in data[1:]:
@@ -101,15 +133,14 @@ def read_scalar_df(workbook: xw.Book) -> pd.DataFrame:
             else None
         )
 
-        for stat_name, calc_i in calc_cols.items():
-            if stat_name not in exp_cols:
-                continue
-            exp_i = exp_cols[stat_name]
-            calc_val = row[calc_i] if calc_i < len(row) else None
-            exp_val = row[exp_i] if exp_i < len(row) else None
+        expected_dict = config_lookup.get((k, allow_intercept), {}) if k is not None else {}
 
+        for stat_name, calc_i in calc_cols.items():
+            calc_val = row[calc_i] if calc_i < len(row) else None
             calc_f = float(calc_val) if calc_val is not None else None
-            exp_f = float(exp_val) if exp_val is not None else None
+
+            raw_exp = expected_dict.get(stat_name)
+            exp_f = float(raw_exp) if raw_exp is not None else None
 
             abs_diff = (
                 abs(calc_f - exp_f)
@@ -132,35 +163,41 @@ def read_scalar_df(workbook: xw.Book) -> pd.DataFrame:
                 "first_digit_deviation": fdd,
             })
 
-    return pd.DataFrame(
-        rows,
-        columns=["k", "allow_intercept", "stat_name", "expected",
-                 "excel_calc", "abs_diff", "first_digit_deviation"],
-    )
+    return pd.DataFrame(rows, columns=_DF_SCALAR_COLS)
 
 
-def read_vector_df(workbook: xw.Book) -> pd.DataFrame:
-    """Read MLR_Vector_Outputs_Test and return a DataFrame comparing Calc vs Exp values.
+def read_vector_df(
+    workbook: xw.Book,
+    vector_row_configs: list,
+) -> pd.DataFrame:
+    """Read MLR_Vector_Outputs_Test Calc columns and compare against Python-computed expected values.
 
-    Each row corresponds to one (k, allow_intercept, term_name, stat_name) quad.
-    Columns: k, allow_intercept, term_name, stat_name, expected, excel_calc,
-    abs_diff, first_digit_deviation.
+    Expected values are taken from ``vector_row_configs`` (Python-computed OLS vectors),
+    not from the (Exp.) columns in the sheet. Only the Calc columns and the Term column
+    are read from the workbook.
+
+    Each row in the returned DataFrame corresponds to one
+    (k, allow_intercept, term_name, stat_name) quad. Columns: k, allow_intercept,
+    term_name, stat_name, expected, excel_calc, abs_diff, first_digit_deviation.
     """
     sheet = workbook.sheets["MLR_Vector_Outputs_Test"]
     data: list[list[Any]] = sheet.used_range.value
     if not data or len(data) < 2:
-        return pd.DataFrame(
-            columns=["k", "allow_intercept", "term_name", "stat_name",
-                     "expected", "excel_calc", "abs_diff", "first_digit_deviation"]
-        )
+        return pd.DataFrame(columns=_DF_VECTOR_COLS)
 
     term_col_0 = _TERM_COL - 1           # 0-indexed: 7
     calc_start_0 = _CALC_START_COL - 1   # 0-indexed: 8
-    exp_start_0 = _EXPECTED_START_COL - 1  # 0-indexed: 14
+
+    # Build lookup: (k, allow_intercept) -> RegressionVectors
+    config_lookup: dict[tuple[int, bool], RegressionVectors] = {
+        (k, allow_intercept): vectors
+        for k, allow_intercept, vectors in vector_row_configs
+    }
 
     rows = []
     section_k: int | None = None
     section_intercept: bool | None = None
+    term_offset = 0  # position within the current section's term list
 
     for row in data[1:]:
         if not row:
@@ -177,6 +214,7 @@ def read_vector_df(workbook: xw.Book) -> pd.DataFrame:
             except (IndexError, ValueError):
                 section_k = None
             section_intercept = "TRUE" in int_str.upper()
+            term_offset = 0
             continue
 
         if section_k is None:
@@ -184,17 +222,21 @@ def read_vector_df(workbook: xw.Book) -> pd.DataFrame:
 
         term_name = row[term_col_0] if len(row) > term_col_0 else None
         if not term_name:
+            term_offset = 0
             continue
+
+        vectors = config_lookup.get((section_k, section_intercept))
 
         for stat_idx, stat_name in enumerate(_STATS):
             calc_0 = calc_start_0 + stat_idx
-            exp_0 = exp_start_0 + stat_idx
-
             calc_val = row[calc_0] if calc_0 < len(row) else None
-            exp_val = row[exp_0] if exp_0 < len(row) else None
-
             calc_f = float(calc_val) if calc_val is not None else None
-            exp_f = float(exp_val) if exp_val is not None else None
+
+            exp_f: float | None = None
+            if vectors is not None:
+                vector_data: tuple = getattr(vectors, _STAT_FIELDS[stat_idx])
+                if term_offset < len(vector_data):
+                    exp_f = float(vector_data[term_offset])
 
             abs_diff = (
                 abs(calc_f - exp_f)
@@ -218,24 +260,30 @@ def read_vector_df(workbook: xw.Book) -> pd.DataFrame:
                 "first_digit_deviation": fdd,
             })
 
-    return pd.DataFrame(
-        rows,
-        columns=["k", "allow_intercept", "term_name", "stat_name",
-                 "expected", "excel_calc", "abs_diff", "first_digit_deviation"],
-    )
+        term_offset += 1
+
+    return pd.DataFrame(rows, columns=_DF_VECTOR_COLS)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Inspect Calc vs Exp columns in MLR test sheets."
+        description="Inspect Calc columns in MLR test sheets against Python-computed expected values."
     )
     parser.add_argument("workbook", type=Path, help="Path to the Excel workbook.")
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        default=DEFAULT_INPUT_CSV,
+        help="Path to the Life Expectancy CSV used to compute expected values.",
+    )
     args = parser.parse_args()
 
     workbook_path = args.workbook.resolve()
     if not workbook_path.exists():
         print(f"Error: workbook not found: {workbook_path}", file=sys.stderr)
         sys.exit(1)
+
+    scalar_row_configs, vector_row_configs = get_analysis_results(args.csv)
 
     try:
         with xw.App(visible=False, add_book=False) as app:
@@ -245,8 +293,8 @@ def main() -> None:
                 raise_excel_access_error(workbook_path, "open", exc)
             try:
                 app.calculate()
-                scalar_df = read_scalar_df(workbook)
-                vector_df = read_vector_df(workbook)
+                scalar_df = read_scalar_df(workbook, scalar_row_configs)
+                vector_df = read_vector_df(workbook, vector_row_configs)
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:

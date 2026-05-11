@@ -515,8 +515,8 @@ def verify_test_sheets(
 
     workbook.app.calculate()
 
-    scalar_df = mod.read_scalar_df(workbook)
-    vector_df = mod.read_vector_df(workbook)
+    scalar_df = mod.read_scalar_df(workbook, scalar_row_configs)
+    vector_df = mod.read_vector_df(workbook, vector_row_configs)
     tol = mod.TOLERANCE_DECIMALS
 
     for _, row in scalar_df.iterrows():

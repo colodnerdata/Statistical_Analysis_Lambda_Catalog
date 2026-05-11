@@ -8,6 +8,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
@@ -501,13 +502,17 @@ def build_lambda_library(
     NameSyncResult
         Counts of created versus updated workbook names.
     """
+    _t = time.monotonic()
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
     row_configs, vector_row_configs = get_analysis_results(csv_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
+    print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
+
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
 
+    _t = time.monotonic()
     try:
         with xw.App(visible=False, add_book=False) as app:
             if workbook_exists:
@@ -535,15 +540,20 @@ def build_lambda_library(
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "open or save", exc)
+    print(f"  Write sheets:   {time.monotonic() - _t:.1f}s", flush=True)
 
+    _t = time.monotonic()
     try:
         result = sync_workbook_names(workbook_path, definitions)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "update", exc)
     except (PermissionError, OSError) as exc:
         raise_excel_access_error(workbook_path, "update", exc)
+    print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
 
+    _t = time.monotonic()
     _write_name_comments(workbook_path, definitions)
+    print(f"  Write comments: {time.monotonic() - _t:.1f}s", flush=True)
 
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)

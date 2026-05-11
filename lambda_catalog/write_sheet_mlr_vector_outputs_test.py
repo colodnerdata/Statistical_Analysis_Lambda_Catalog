@@ -14,34 +14,29 @@ from .analyze_life_expectancy import (
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 
-# Significance level and confidence level passed to CI functions (both are passed
-# explicitly so the correct positional arg slots are used: Alpha then N).
 _ALPHA = 0.05
-_N = 95
 
-_TESTS_COLS = 8    # col 1: Smoke Test; cols 2–8: one Match per stat
-_FORMULA_COLS = 8  # col 9: Term names; cols 10–16: individual function calls
-_EXPECTED_COLS = 7 # cols 17–23: expected values
-_TOTAL_COLS = _TESTS_COLS + _FORMULA_COLS + _EXPECTED_COLS  # 23
+_TESTS_COLS = 7    # col 1: Smoke Test; cols 2–7: one Match per stat
+_FORMULA_COLS = 7  # col 8: Term names; cols 9–14: individual function calls
+_EXPECTED_COLS = 6 # cols 15–20: expected values
+_TOTAL_COLS = _TESTS_COLS + _FORMULA_COLS + _EXPECTED_COLS  # 20
 
-_TERM_COL = _TESTS_COLS + 1                            # col 9
-_CALC_START_COL = _TESTS_COLS + 2                      # col 10
-_EXPECTED_START_COL = _TESTS_COLS + _FORMULA_COLS + 1  # col 17
+_TERM_COL = _TESTS_COLS + 1                            # col 8
+_CALC_START_COL = _TESTS_COLS + 2                      # col 9
+_EXPECTED_START_COL = _TESTS_COLS + _FORMULA_COLS + 1  # col 15
 
-_CI_FUNCS = frozenset({"CI_Lower", "CI_Upper", "CI_Excludes_Zero"})
+_CI_FUNCS = frozenset({"CI_Lower", "CI_Upper"})
 
 # (display name, Excel function name, display_digits, number format)
 # display_digits: decimal places shown in cells; match precision = 2 × display_digits.
-# display_digits=None → General format, boolean element-wise comparison.
 _D = 3  # display decimal digits for all numeric vector stats
-_STATS: list[tuple[str, str, int | None, str]] = [
-    ("Coefficients",       "Coefficients",     _D,   f"0.{'0' * _D}"),
-    ("SE_Coefficients",    "SE_Coefficients",  _D,   f"0.{'0' * _D}"),
-    ("T_Stats",            "T_Stats",          _D,   f"0.{'0' * _D}"),
-    ("P_Values",           "P_Values",         _D,   f"0.{'0' * _D}E+00"),
-    (f"CI_Lower {_N}%",    "CI_Lower",         _D,   f"0.{'0' * _D}"),
-    (f"CI_Upper {_N}%",    "CI_Upper",         _D,   f"0.{'0' * _D}"),
-    ("CI_Excludes_Zero",   "CI_Excludes_Zero", None, "General"),
+_STATS: list[tuple[str, str, int, str]] = [
+    ("Coefficients",    "Coefficients",    _D, f"0.{'0' * _D}"),
+    ("SE_Coefficients", "SE_Coefficients", _D, f"0.{'0' * _D}"),
+    ("T_Stats",         "T_Stats",         _D, f"0.{'0' * _D}"),
+    ("P_Values",        "P_Values",        _D, f"0.{'0' * _D}E+00"),
+    ("CI_Lower",        "CI_Lower",        _D, f"0.{'0' * _D}"),
+    ("CI_Upper",        "CI_Upper",        _D, f"0.{'0' * _D}"),
 ]
 
 
@@ -101,7 +96,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
     """Build an individual stat function call for a given k and intercept setting.
 
-    CI functions receive the module-level confidence level ``_N`` as an extra arg.
+    CI functions receive the module-level significance level ``_ALPHA`` as an extra arg.
 
     Parameters
     ----------
@@ -118,7 +113,7 @@ def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
         Excel formula string starting with ``=``.
     """
     allow_arg = "TRUE" if allow_intercept else "FALSE"
-    extra = f",{_ALPHA},{_N}" if func_name in _CI_FUNCS else ""
+    extra = f",{_ALPHA}" if func_name in _CI_FUNCS else ""
     return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},fil{extra}))"
 
 
@@ -156,36 +151,6 @@ def _match_formula_numeric(  # noqa: PLR0913
         f"=AND(ROUND({exp_col}{first_row}:{exp_col}{last_row},{prec})"
         f"=ROUND({calc_col}{first_row}#,{prec}))"
     )
-
-
-def _match_formula_bool(
-    exp_col_idx: int,
-    calc_col_idx: int,
-    first_row: int,
-    n_terms: int,
-) -> str:
-    """Build a boolean match formula comparing an expected range to a spill column.
-
-    Parameters
-    ----------
-    exp_col_idx : int
-        1-based column index of the expected values.
-    calc_col_idx : int
-        1-based column index of the calc (spill anchor) column.
-    first_row : int
-        1-based Excel row of the first data row.
-    n_terms : int
-        Number of coefficient terms.
-
-    Returns
-    -------
-    str
-        Excel formula evaluating to TRUE when every element matches.
-    """
-    exp_col = _col_letter(exp_col_idx)
-    calc_col = _col_letter(calc_col_idx)
-    last_row = first_row + n_terms - 1
-    return f"=AND({exp_col}{first_row}:{exp_col}{last_row}={calc_col}{first_row}#)"
 
 
 def build_mlr_vector_row_configs(
@@ -250,7 +215,6 @@ def _write_section(  # noqa: PLR0914
         vectors.p_values,
         vectors.ci_lower,
         vectors.ci_upper,
-        vectors.ci_excludes_zero,
     ]
     for stat_idx, (_, func_name, display_digits, num_fmt) in enumerate(_STATS):
         exp_col_idx = _EXPECTED_START_COL + stat_idx
@@ -267,12 +231,9 @@ def _write_section(  # noqa: PLR0914
             _calc_formula(k, allow_intercept, func_name)
         )
 
-        if func_name == "CI_Excludes_Zero":
-            mf = _match_formula_bool(exp_col_idx, calc_col, first_data_row, n_terms)
-        else:
-            mf = _match_formula_numeric(
-                exp_col_idx, calc_col, first_data_row, n_terms, display_digits * 2,
-            )
+        mf = _match_formula_numeric(
+            exp_col_idx, calc_col, first_data_row, n_terms, display_digits * 2,
+        )
         sheet.range((first_data_row, match_col)).api.Formula2 = mf
 
     match_refs = ",".join(
@@ -287,11 +248,11 @@ def write_mlr_vector_outputs_test_sheet(
 ) -> None:
     """Create or refresh the MLR_Vector_Outputs_Test sheet.
 
-    Layout (23 columns total):
-      Cols 1–8   Tests: Smoke Test + one Match column per stat
-      Col  9     Term names (Python-written)
-      Cols 10–16 Individual function call per stat (each spills n_terms rows)
-      Cols 17–23 Expected values
+    Layout (20 columns total):
+      Cols 1–7   Tests: Smoke Test + one Match column per stat
+      Col  8     Term names (Python-written)
+      Cols 9–14  Individual function call per stat (each spills n_terms rows)
+      Cols 15–20 Expected values
 
     Parameters
     ----------

@@ -57,9 +57,6 @@ class RegressionVectors:
         Lower bound of the confidence interval for each coefficient.
     ci_upper : tuple[float, ...]
         Upper bound of the confidence interval for each coefficient.
-    ci_excludes_zero : tuple[bool, ...]
-        True when the confidence interval does not straddle zero
-        (ci_lower > 0 or ci_upper < 0).
     """
 
     term_names: tuple[str, ...]
@@ -69,7 +66,6 @@ class RegressionVectors:
     p_values: tuple[float, ...]
     ci_lower: tuple[float, ...]
     ci_upper: tuple[float, ...]
-    ci_excludes_zero: tuple[bool, ...]
 
 
 @dataclass(frozen=True)
@@ -302,7 +298,7 @@ def _build_training_arrays(
 
 
 def _fit_ols_model(
-    x_train: np.ndarray, y_train: np.ndarray, include_intercept: bool
+    x_train: np.ndarray, y_train: np.ndarray, _include_intercept: bool
 ) -> sm.regression.linear_model.RegressionResults:
     """Fit an OLS model using statsmodels.
 
@@ -313,7 +309,7 @@ def _fit_ols_model(
         required, is already embedded by ``_build_training_arrays``.
     y_train : np.ndarray
         Target vector (n_samples,).
-    include_intercept : bool
+    _include_intercept : bool
         Unused; retained for call-site symmetry with other helpers.
 
     Returns
@@ -321,10 +317,8 @@ def _fit_ols_model(
     statsmodels.regression.linear_model.RegressionResults
         Fitted OLS results object.
     """
-    if include_intercept:
-        model = sm.OLS(y_train, x_train)
-    else:
-        model = sm.OLS(y_train, x_train)
+    # intercept column already embedded by _build_training_arrays
+    model = sm.OLS(y_train, x_train)
     return model.fit()
 
 
@@ -465,10 +459,6 @@ def calculate_regression_vectors(
         p_values=tuple(float(v) for v in model.pvalues),
         ci_lower=ci_lower_vals,
         ci_upper=ci_upper_vals,
-        ci_excludes_zero=tuple(
-            bool(lo > 0 or hi < 0)
-            for lo, hi in zip(ci_lower_vals, ci_upper_vals)
-        ),
     )
 
 

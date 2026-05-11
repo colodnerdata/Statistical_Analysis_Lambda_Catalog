@@ -383,7 +383,7 @@ def _validate_workbook_reopen(workbook_path: Path) -> None:
         If Excel rejects the workbook during open.
     """
     try:
-        with xw.App(visible=False, add_book=False) as app:
+        with xw.App(visible=True, add_book=False) as app:
             workbook = app.books.open(str(workbook_path))
             workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
@@ -469,7 +469,7 @@ def _write_name_comments(
         return
 
     try:
-        with xw.App(visible=False, add_book=False) as app:
+        with xw.App(visible=True, add_book=False) as app:
             workbook = app.books.open(str(workbook_path))
             try:
                 for name_obj in workbook.api.Names:
@@ -481,6 +481,73 @@ def _write_name_comments(
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "set comments on", exc)
+
+
+def verify_test_sheets(
+    workbook: xw.Book,
+    scalar_row_configs: list,
+    vector_row_configs: list,
+) -> None:
+    """Compare Calc columns against Exp columns in both MLR test sheets.
+
+    Forces a full recalculation on the open workbook, then reads each sheet's
+    Calc and Exp columns via inspect_test_sheets and warns (without raising) for
+    every cell pair whose values diverge within the tolerance band.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        Open xlwings Book to inspect (must already be saved so formulas are
+        linked to the workbook-scoped defined names).
+    scalar_row_configs : list
+        Per-row configs from ``build_mlr_row_configs``, passed for context.
+    vector_row_configs : list
+        Per-section configs from ``build_mlr_vector_row_configs``, passed for context.
+    """
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "inspect_test_sheets", ROOT_DIR / "tools" / "inspect_test_sheets.py"
+    )
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+
+    workbook.app.calculate()
+
+    scalar_df = mod.read_scalar_df(workbook)
+    vector_df = mod.read_vector_df(workbook)
+    tol = mod._TOLERANCE_DECIMALS
+
+    for _, row in scalar_df.iterrows():
+        fdd = row["first_digit_deviation"]
+        if fdd is not None and fdd <= tol:
+            k = row["k"]
+            ai = row["allow_intercept"]
+            stat = row["stat_name"]
+            print(
+                f"WARNING [MLR_Scalar_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
+                f"stat={stat!r}: Calc vs Exp mismatch — first digit of deviation at "
+                f"decimal place {fdd} (tolerance={tol}). "
+                f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
+                f"abs_diff={row['abs_diff']!r}",
+                flush=True,
+            )
+
+    for _, row in vector_df.iterrows():
+        fdd = row["first_digit_deviation"]
+        if fdd is not None and fdd <= tol:
+            k = row["k"]
+            ai = row["allow_intercept"]
+            stat = row["stat_name"]
+            term = row["term_name"]
+            print(
+                f"WARNING [MLR_Vector_Outputs_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
+                f"stat={stat!r} term={term!r}: Calc vs Exp mismatch — first digit of deviation "
+                f"at decimal place {fdd} (tolerance={tol}). "
+                f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
+                f"abs_diff={row['abs_diff']!r}",
+                flush=True,
+            )
 
 
 def build_lambda_library(
@@ -523,7 +590,7 @@ def build_lambda_library(
 
     _t = time.monotonic()
     try:
-        with xw.App(visible=False, add_book=False) as app:
+        with xw.App(visible=True, add_book=False) as app:
             if workbook_exists:
                 workbook = app.books.open(str(workbook_path))
             else:
@@ -545,6 +612,7 @@ def build_lambda_library(
                     vector_row_configs,
                 )
                 workbook.save(str(workbook_path))
+                verify_test_sheets(workbook, row_configs, vector_row_configs)
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:

@@ -298,7 +298,7 @@ def main() -> None:
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
-        raise_excel_access_error(workbook_path, "open", exc)
+        raise_excel_access_error(workbook_path, "inspect", exc)
 
     print("=== MLR_Scalar_Test ===")
     print(scalar_df.to_string(index=False))

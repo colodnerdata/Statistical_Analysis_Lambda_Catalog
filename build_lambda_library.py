@@ -488,11 +488,12 @@ def verify_test_sheets(
     scalar_row_configs: list,
     vector_row_configs: list,
 ) -> None:
-    """Compare Calc columns against Exp columns in both MLR test sheets.
+    """Compare Excel Calc columns against Python-computed expected values in both MLR test sheets.
 
     Forces a full recalculation on the open workbook, then reads each sheet's
-    Calc and Exp columns via inspect_test_sheets and warns (without raising) for
-    every cell pair whose values diverge within the tolerance band.
+    Calc columns via inspect_test_sheets, compares them against expected values
+    derived from the supplied analysis configs (not from the sheet's (Exp.) columns),
+    and warns (without raising) for every value that diverges within the tolerance band.
 
     Parameters
     ----------
@@ -500,9 +501,11 @@ def verify_test_sheets(
         Open xlwings Book to inspect (must already be saved so formulas are
         linked to the workbook-scoped defined names).
     scalar_row_configs : list
-        Per-row configs from ``build_mlr_row_configs``, passed for context.
+        Per-row configs from ``build_mlr_row_configs``; provides the Python-computed
+        expected scalar values used for comparison.
     vector_row_configs : list
-        Per-section configs from ``build_mlr_vector_row_configs``, passed for context.
+        Per-section configs from ``build_mlr_vector_row_configs``; provides the
+        Python-computed expected coefficient vectors used for comparison.
     """
     import importlib.util
 
@@ -527,7 +530,7 @@ def verify_test_sheets(
             stat = row["stat_name"]
             print(
                 f"WARNING [MLR_Scalar_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
-                f"stat={stat!r}: Calc vs Exp mismatch — first digit of deviation at "
+                f"stat={stat!r}: Calc vs Python-expected mismatch — first digit of deviation at "
                 f"decimal place {fdd} (tolerance={tol}). "
                 f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
                 f"abs_diff={row['abs_diff']!r}",
@@ -543,7 +546,7 @@ def verify_test_sheets(
             term = row["term_name"]
             print(
                 f"WARNING [MLR_Vector_Outputs_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
-                f"stat={stat!r} term={term!r}: Calc vs Exp mismatch — first digit of deviation "
+                f"stat={stat!r} term={term!r}: Calc vs Python-expected mismatch — first digit of deviation "
                 f"at decimal place {fdd} (tolerance={tol}). "
                 f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
                 f"abs_diff={row['abs_diff']!r}",

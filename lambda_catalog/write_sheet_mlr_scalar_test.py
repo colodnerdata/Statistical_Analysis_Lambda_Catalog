@@ -22,7 +22,8 @@ from .make_test_sheet import (
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 _MLR_TABLE_HEADER_ROW = 1
-_FIXED_COLUMN_COUNT = 4
+_FIXED_COLUMN_HEADERS = ("k", "ind_vars", "allow_intercept", "input")
+_FIXED_COLUMN_COUNT = len(_FIXED_COLUMN_HEADERS)
 
 # Replaces x_s in every (Calc.) formula; resolves dynamically from each
 # row's ind_vars value.

@@ -131,3 +131,34 @@ def reset_generated_sheet(sheet: xw.Sheet) -> None:
     for index in range(sheet.api.ListObjects.Count, 0, -1):
         sheet.api.ListObjects(index).Delete()
     sheet.api.Cells.Clear()
+
+
+def reset_column_groups(sheet: xw.Sheet) -> None:
+    """Remove existing column outlines and ensure all columns are visible.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The worksheet whose column grouping state should be reset.
+    """
+    sheet.api.Cells.ClearOutline()
+    sheet.api.Cells.EntireColumn.Hidden = False
+
+
+def group_and_hide_columns(sheet: xw.Sheet, start_col: int, end_col: int) -> None:
+    """Group a contiguous column range and collapse it by hiding those columns.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The worksheet where grouping should be applied.
+    start_col : int
+        1-based start column index of the group.
+    end_col : int
+        1-based end column index of the group.
+    """
+    if start_col > end_col:
+        return
+    grouped_columns = sheet.range((1, start_col), (1, end_col)).api.EntireColumn
+    grouped_columns.Group()
+    grouped_columns.Hidden = True

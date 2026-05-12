@@ -10,6 +10,7 @@ from .analyze_life_expectancy import (
     RegressionVectors,
     calculate_regression_vectors,
 )
+from .workbook_helpers import group_and_hide_columns, reset_column_groups
 
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
@@ -91,21 +92,6 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     ):
         _delete_sheet_scoped_name_if_present(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
-
-
-def _reset_column_groups(sheet: xw.Sheet) -> None:
-    """Remove existing column outlines and ensure columns are visible."""
-    sheet.api.Cells.ClearOutline()
-    sheet.api.Cells.EntireColumn.Hidden = False
-
-
-def _group_and_hide_columns(sheet: xw.Sheet, start_col: int, end_col: int) -> None:
-    """Create a column outline group and collapse it by hiding the columns."""
-    if start_col > end_col:
-        return
-    group_range = sheet.range(f"{_col_letter(start_col)}:{_col_letter(end_col)}")
-    group_range.api.Columns.Group()
-    group_range.api.EntireColumn.Hidden = True
 
 
 def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
@@ -288,7 +274,7 @@ def write_mlr_vector_outputs_test_sheet(
         sheet = workbook.sheets.add(name=sheet_name, after=workbook.sheets[-1])
 
     sheet.api.Cells.Clear()
-    _reset_column_groups(sheet)
+    reset_column_groups(sheet)
     _set_sheet_scoped_names(sheet)
 
     header_row = 1
@@ -316,8 +302,8 @@ def write_mlr_vector_outputs_test_sheet(
     sheet.range((header_row, 1), (header_row, _TOTAL_COLS)).api.WrapText = True
     sheet.range((header_row, 1), (header_row, _TOTAL_COLS)).api.EntireRow.AutoFit()
     sheet.range((header_row, 1), (last_content_row, _TOTAL_COLS)).columns.autofit()
-    _group_and_hide_columns(sheet, 2, _TESTS_COLS)
-    _group_and_hide_columns(sheet, _EXPECTED_START_COL, _TOTAL_COLS)
+    group_and_hide_columns(sheet, 2, _TESTS_COLS)
+    group_and_hide_columns(sheet, _EXPECTED_START_COL, _TOTAL_COLS)
 
     sheet.activate()
     sheet.api.Application.ActiveWindow.SplitRow = 1

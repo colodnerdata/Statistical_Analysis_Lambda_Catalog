@@ -37,7 +37,7 @@ _MAX_TEST_SHEET_NAME_LEN = 31
 _INVALID_WORKSHEET_NAME_CHARS = set("[]:*?/\\")
 _VALID_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MAX_EXCEL_ROW = 1_048_576
-XL_CALCULATION_AUTOMATIC = -4105
+XL_CALCULATION_AUTOMATIC = -4105  # Excel XlCalculation.xlCalculationAutomatic
 
 
 @dataclass(frozen=True)

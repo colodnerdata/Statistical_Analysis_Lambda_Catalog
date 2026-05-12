@@ -283,10 +283,24 @@
       "number_format": "0.000000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, FALSE),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ls, 1, k + 1), CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
       "arguments": [
-        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
-        { "name": "Y", "description": "single-column outcome range" },
-        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
-        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true }
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
       ],
       "yields": "vertical array of fitted OLS coefficients — intercept first (when included), then predictors in input order",
       "description": "Returns a vertical spill array of the fitted OLS regression coefficients. When Allow_Intercept is TRUE the intercept is the first element, followed by the coefficients for each column of X_s in input order. When Allow_Intercept is FALSE the output contains only the k predictor coefficients.\n\nUses LINEST with stats=FALSE (row 1 only), then reverses and optionally prepends the intercept to match X_s column order."
@@ -297,10 +311,24 @@
       "number_format": "0.000000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    ses,       INDEX(ls, 2),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ses, 1, k + 1), CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
       "arguments": [
-        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
-        { "name": "Y", "description": "single-column outcome range" },
-        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
-        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true }
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
       ],
       "yields": "vertical array of standard errors of the OLS coefficients — same order as Coefficients",
       "description": "Returns a vertical spill array of the standard errors of the fitted OLS coefficients, in the same order as Coefficients (intercept first when included).\n\nUses LINEST with stats=TRUE and extracts row 2 (the standard error row), then applies the same reversal as Coefficients."
@@ -311,10 +339,24 @@
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    Coefficients(X_s, Y, allow_arg, filt_arg) / SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
-        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
-        { "name": "Y", "description": "single-column outcome range" },
-        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
-        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true }
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
       ],
       "yields": "vertical array of t-statistics for each coefficient (coefficient / standard error)",
       "description": "Returns a vertical spill array of t-statistics for each OLS coefficient. Each element equals the corresponding Coefficients value divided by its SE_Coefficients value.\n\nComputed as Coefficients(...) / SE_Coefficients(...)."
@@ -325,10 +367,24 @@
       "number_format": "0.00E+00",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    T.DIST.2T(ABS(T_Stats(X_s, Y, allow_arg, filt_arg)), DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
-        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
-        { "name": "Y", "description": "single-column outcome range" },
-        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
-        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true }
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
       ],
       "yields": "vertical array of two-tailed p-values for each coefficient",
       "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Stats(...)), DF_Residual(...))."
@@ -339,11 +395,29 @@
       "number_format": "0.000000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
-        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
-        { "name": "Y", "description": "single-column outcome range" },
-        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
-        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true },
-        { "name": "Alpha", "description": "significance level (0–1); default 0.05 yields 95% CIs.", "optional": true }
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Alpha",
+          "description": "significance level (0–1); default 0.05 yields 95% CIs.",
+          "optional": true
+        }
       ],
       "yields": "vertical array of lower confidence interval bounds for each coefficient",
       "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) - T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...)."
@@ -354,14 +428,244 @@
       "number_format": "0.000000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
-        { "name": "X_s", "description": "column range of predictors (single or multi-column)" },
-        { "name": "Y", "description": "single-column outcome range" },
-        { "name": "Allow_Intercept", "description": "TRUE/FALSE — fit intercept? Default TRUE", "optional": true },
-        { "name": "Filter", "description": "boolean array — TRUE includes the row, FALSE excludes it", "optional": true },
-        { "name": "Alpha", "description": "significance level (0–1); default 0.05 yields 95% CIs.", "optional": true }
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Alpha",
+          "description": "significance level (0–1); default 0.05 yields 95% CIs.",
+          "optional": true
+        }
       ],
       "yields": "vertical array of upper confidence interval bounds for each coefficient",
       "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...)."
+    },
+    {
+      "name": "Observation_Num",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    SEQUENCE(Observations(Y, filt_arg))\n  ))",
+      "arguments": [
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "1..n observation index as a spilled vector",
+      "description": "Spills 1..n, where n is the number of filtered observations."
+    },
+    {
+      "name": "Percentile",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    obs_num, Observation_Num(Y, filt_arg),\n    (obs_num - 0.5) / ROWS(obs_num)\n  ))",
+      "arguments": [
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "plotting-position percentiles as a spilled vector",
+      "description": "Uses plotting position (i - 0.5) / n for filtered observations."
+    },
+    {
+      "name": "Y_Ranked",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    SORT(FILTER(Y, filt_arg), 1, 1)\n  ))",
+      "arguments": [
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "sorted filtered Y values as a spilled vector",
+      "description": "Useful for empirical distribution/probability plots of the response variable."
+    },
+    {
+      "name": "Normal_Scores",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    NORM.S.INV(Percentile(Y, filt_arg))\n  ))",
+      "arguments": [
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "theoretical standard-normal scores as a spilled vector",
+      "description": "Intended for normal probability plot x-values."
+    },
+    {
+      "name": "Design_Matrix",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    x_filt,    FILTER(X_s, filt_arg),\n    IF(\n      allow_arg,\n      HSTACK(SEQUENCE(ROWS(x_filt), , 1, 0), x_filt),\n      x_filt\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "filtered numeric design matrix as spilled array",
+      "description": "Returns the matrix used for prediction: with intercept, a leading column of 1s followed by filtered X columns; without intercept, filtered X columns only. Factor encoding is intentionally deferred."
+    },
+    {
+      "name": "Predictions",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    MMULT(\n      Design_Matrix(X_s, allow_arg, filt_arg),\n      Coefficients(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "fitted Y values as a spilled vector",
+      "description": "Computes X_design * beta using MMULT."
+    },
+    {
+      "name": "Residuals",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    FILTER(Y, filt_arg) - Predictions(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "raw residuals as a spilled vector",
+      "description": "Residuals are Y - fitted Y."
+    },
+    {
+      "name": "Scaled_Residuals",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    Residuals(X_s, Y, allow_arg, filt_arg)\n      / SE_Regression(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "residual divided by SE_Regression as a spilled vector",
+      "description": "Residual divided by SE_Regression. This is not Excel Analysis ToolPak 'Standard Residuals' and is not leverage-adjusted/studentized."
+    },
+    {
+      "name": "Scaled_Residuals_Ranked",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    SORT(Scaled_Residuals(X_s, Y, allow_arg, filt_arg), 1, 1)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "sorted scaled residuals as spilled vector",
+      "description": "Sorted Scaled_Residuals, intended for plotting against Normal_Scores."
     }
   ]
 }

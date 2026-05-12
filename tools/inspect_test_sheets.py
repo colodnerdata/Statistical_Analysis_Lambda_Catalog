@@ -56,6 +56,7 @@ _DF_VECTOR_COLS = [
     "k", "allow_intercept", "term_name", "stat_name",
     "expected", "excel_calc", "abs_diff", "first_digit_deviation",
 ]
+_DF_OBS_COLS = ["k", "allow_intercept", "row_idx", "stat_name", "expected", "excel_calc", "abs_diff", "first_digit_deviation"]
 
 
 def _first_digit_deviation(expected: float, actual: float) -> int | None:
@@ -265,6 +266,38 @@ def read_vector_df(
     return pd.DataFrame(rows, columns=_DF_VECTOR_COLS)
 
 
+def read_observation_df(workbook: xw.Book, observation_row_configs: list) -> pd.DataFrame:
+    sheet = workbook.sheets["MLR_Observation_Test"]
+    data: list[list[Any]] = sheet.used_range.value
+    if not data or len(data) < 2:
+        return pd.DataFrame(columns=_DF_OBS_COLS)
+    lookup = {(k, ai): v for k, ai, v in observation_row_configs}
+    rows = []
+    section_k = None
+    section_intercept = None
+    row_offset = 0
+    calc_start = 11 - 1
+    stat_fields = ["observation_num", "percentile", "y_ranked", "normal_scores", "predictions", "residuals", "scaled_residuals", "scaled_residuals_ranked"]
+    for row in data[1:]:
+        if isinstance(row[0] if row else None, str) and str(row[0]).startswith("k="):
+            section_k = int(str(row[0]).split(",")[0].split("=")[1])
+            section_intercept = "TRUE" in str(row[0]).upper()
+            row_offset = 0
+            continue
+        if section_k is None or not row or row[0] is None:
+            continue
+        vectors = lookup.get((section_k, section_intercept))
+        for i, stat in enumerate(_STATS + ["Scaled_Residuals_Ranked"]):
+            calc_val = row[calc_start + i] if len(row) > calc_start + i else None
+            calc_f = float(calc_val) if calc_val is not None else None
+            exp_f = None
+            if vectors is not None and row_offset < len(getattr(vectors, stat_fields[i])):
+                exp_f = float(getattr(vectors, stat_fields[i])[row_offset])
+            rows.append({"k": section_k, "allow_intercept": section_intercept, "row_idx": row_offset + 1, "stat_name": stat, "expected": exp_f, "excel_calc": calc_f, "abs_diff": abs(calc_f-exp_f) if calc_f is not None and exp_f is not None else None, "first_digit_deviation": _first_digit_deviation(exp_f, calc_f) if calc_f is not None and exp_f is not None else None})
+        row_offset += 1
+    return pd.DataFrame(rows, columns=_DF_OBS_COLS)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Inspect Calc columns in MLR test sheets against Python-computed expected values."
@@ -283,7 +316,7 @@ def main() -> None:
         print(f"Error: workbook not found: {workbook_path}", file=sys.stderr)
         sys.exit(1)
 
-    scalar_row_configs, vector_row_configs = get_analysis_results(args.csv)
+    scalar_row_configs, vector_row_configs, observation_row_configs = get_analysis_results(args.csv)
 
     try:
         with xw.App(visible=False, add_book=False) as app:
@@ -295,6 +328,7 @@ def main() -> None:
                 app.calculate()
                 scalar_df = read_scalar_df(workbook, scalar_row_configs)
                 vector_df = read_vector_df(workbook, vector_row_configs)
+                observation_df = read_observation_df(workbook, observation_row_configs)
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
@@ -305,6 +339,9 @@ def main() -> None:
     print()
     print("=== MLR_Vector_Outputs_Test ===")
     print(vector_df.to_string(index=False))
+    print()
+    print("=== MLR_Observation_Test ===")
+    print(observation_df.to_string(index=False))
 
 
 if __name__ == "__main__":

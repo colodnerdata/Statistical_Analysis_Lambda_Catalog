@@ -24,6 +24,7 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
 )
 from lambda_catalog.analysis_cache import get_analysis_results
 from lambda_catalog.write_sheet_mlr_scalar_test import write_mlr_scalar_test_sheet
+from lambda_catalog.write_sheet_mlr_observation_test import write_mlr_observation_test_sheet
 from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_outputs_test_sheet
 import xlwings as xw
 
@@ -489,6 +490,7 @@ def verify_test_sheets(
     workbook: xw.Book,
     scalar_row_configs: list,
     vector_row_configs: list,
+    observation_row_configs: list,
 ) -> None:
     """Compare Excel Calc columns against Python-computed expected values in both MLR test sheets.
 
@@ -522,6 +524,7 @@ def verify_test_sheets(
 
     scalar_df = mod.read_scalar_df(workbook, scalar_row_configs)
     vector_df = mod.read_vector_df(workbook, vector_row_configs)
+    observation_df = mod.read_observation_df(workbook, observation_row_configs)
     tol = mod.TOLERANCE_DECIMALS
 
     for _, row in scalar_df.iterrows():
@@ -552,6 +555,14 @@ def verify_test_sheets(
                 f"at decimal place {fdd} (tolerance={tol}). "
                 f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
                 f"abs_diff={row['abs_diff']!r}",
+                flush=True,
+            )
+    for _, row in observation_df.iterrows():
+        fdd = row["first_digit_deviation"]
+        if fdd is not None and fdd <= tol:
+            print(
+                f"WARNING [MLR_Observation_Test] k={row['k']} intercept={'TRUE' if row['allow_intercept'] else 'FALSE'} "
+                f"stat={row['stat_name']!r}: expected={row['expected']!r}, excel_calc={row['excel_calc']!r}",
                 flush=True,
             )
 
@@ -586,7 +597,7 @@ def build_lambda_library(
     _t = time.monotonic()
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
-    row_configs, vector_row_configs = get_analysis_results(csv_path)
+    row_configs, vector_row_configs, observation_row_configs = get_analysis_results(csv_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
@@ -617,9 +628,10 @@ def build_lambda_library(
                     workbook,
                     vector_row_configs,
                 )
+                write_mlr_observation_test_sheet(workbook, observation_row_configs)
                 workbook.app.api.Calculation = XL_CALCULATION_AUTOMATIC
                 workbook.save(str(workbook_path))
-                verify_test_sheets(workbook, row_configs, vector_row_configs)
+                verify_test_sheets(workbook, row_configs, vector_row_configs, observation_row_configs)
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
@@ -676,6 +688,7 @@ def main() -> None:
     print(f"Workbook: {args.workbook.resolve()}")
     print("Sheet updated: MLR_Scalar_Test")
     print("Sheet updated: MLR_Vector_Outputs_Test")
+    print("Sheet updated: MLR_Observation_Test")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
     print(f"Created names: {result.created}")

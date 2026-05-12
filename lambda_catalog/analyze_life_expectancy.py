@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import argparse
 import csv
+from math import sqrt
+from statistics import NormalDist
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -109,6 +111,40 @@ class RegressionSummary:
     ss_residual: float
     ss_regression: float
     se_regression: float
+
+
+@dataclass(frozen=True)
+class RegressionObservationVectors:
+    """Observation-level regression diagnostics aligned with workbook spill LAMBDA outputs.
+
+    Attributes
+    ----------
+    observation_num : tuple[int, ...]
+        1-based index of each filtered observation.
+    percentile : tuple[float, ...]
+        Plotting-position percentile ``(i - 0.5) / n``.
+    y_ranked : tuple[float, ...]
+        Sorted filtered response values.
+    normal_scores : tuple[float, ...]
+        Standard-normal quantiles for the plotting positions.
+    predictions : tuple[float, ...]
+        Fitted values for each filtered observation.
+    residuals : tuple[float, ...]
+        Raw residuals, computed as actual minus predicted.
+    scaled_residuals : tuple[float, ...]
+        Residuals divided by regression standard error.
+    scaled_residuals_ranked : tuple[float, ...]
+        Sorted scaled residuals.
+    """
+
+    observation_num: tuple[int, ...]
+    percentile: tuple[float, ...]
+    y_ranked: tuple[float, ...]
+    normal_scores: tuple[float, ...]
+    predictions: tuple[float, ...]
+    residuals: tuple[float, ...]
+    scaled_residuals: tuple[float, ...]
+    scaled_residuals_ranked: tuple[float, ...]
 
 
 def _normalize_header(name: str) -> str:
@@ -459,6 +495,59 @@ def calculate_regression_vectors(
         p_values=tuple(float(v) for v in model.pvalues),
         ci_lower=ci_lower_vals,
         ci_upper=ci_upper_vals,
+    )
+
+
+def calculate_regression_observation_vectors(
+    input_csv_path: Path = DEFAULT_INPUT_CSV,
+    include_intercept: bool = True,
+    feature_columns: list[str] | None = None,
+) -> RegressionObservationVectors:
+    """Fit OLS and return observation-level diagnostics without writing files.
+
+    Parameters
+    ----------
+    input_csv_path : Path, optional
+        Path to the Life Expectancy CSV file.
+    include_intercept : bool, optional
+        If True, fit a model with an intercept term.
+    feature_columns : list[str] or None, optional
+        Predictor columns to include. Defaults to FEATURE_COLUMNS.
+
+    Returns
+    -------
+    RegressionObservationVectors
+        Observation-level diagnostics matching workbook spill LAMBDA outputs.
+    """
+    columns = feature_columns if feature_columns is not None else FEATURE_COLUMNS
+    input_path = input_csv_path.resolve()
+    original_headers, normalized_rows = _load_normalized_rows(input_path)
+    _validate_required_headers(original_headers, columns)
+
+    x_train, y_train, _, _ = _build_training_arrays(
+        normalized_rows, include_intercept, columns, filter_columns=FEATURE_COLUMNS
+    )
+    model = _fit_ols_model(x_train, y_train, include_intercept)
+
+    n = len(y_train)
+    observation_num = tuple(range(1, n + 1))
+    percentile_array = (np.arange(1, n + 1, dtype=np.float64) - 0.5) / n
+    normal_dist = NormalDist()
+    normal_scores_array = np.array([normal_dist.inv_cdf(float(p)) for p in percentile_array])
+    predictions = np.asarray(model.fittedvalues, dtype=np.float64)
+    residuals = y_train - predictions
+    se_regression = sqrt(float(model.mse_resid))
+    scaled_residuals = residuals / se_regression
+
+    return RegressionObservationVectors(
+        observation_num=observation_num,
+        percentile=tuple(float(v) for v in percentile_array),
+        y_ranked=tuple(float(v) for v in np.sort(y_train)),
+        normal_scores=tuple(float(v) for v in normal_scores_array),
+        predictions=tuple(float(v) for v in predictions),
+        residuals=tuple(float(v) for v in residuals),
+        scaled_residuals=tuple(float(v) for v in scaled_residuals),
+        scaled_residuals_ranked=tuple(float(v) for v in np.sort(scaled_residuals)),
     )
 
 

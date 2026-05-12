@@ -191,7 +191,8 @@ def build_test_columns(
     list[_ColumnSpec]
         Ordered column specs: fixed control columns (X_Variables, ind_vars,
         Allow_Intercept, Smoke Test), then one (Match) column per definition,
-        then one (Calc.) column per definition, then one (Exp.) column per
+        then one calculated-value column (header uses the bare function name)
+        per definition, then one (Exp.) column per
         definition.
     """
     filtered = [d for d in definitions if d.test_table == test_table]

@@ -18,10 +18,13 @@ from .make_test_sheet import (
     build_smoke_test_formula,
     write_test_table,
 )
+from .workbook_helpers import group_and_hide_columns, reset_column_groups
 
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 _MLR_TABLE_HEADER_ROW = 1
+_FIXED_COLUMN_HEADERS = ("k", "ind_vars", "allow_intercept", "input")
+_FIXED_COLUMN_COUNT = len(_FIXED_COLUMN_HEADERS)
 
 # Replaces x_s in every (Calc.) formula; resolves dynamically from each
 # row's ind_vars value.
@@ -165,7 +168,8 @@ def build_test_columns(
     list[_ColumnSpec]
         Ordered column specs: fixed control columns (X_Variables, ind_vars,
         Allow_Intercept, Smoke Test), then one (Match) column per definition,
-        then one (Calc.) column per definition, then one (Exp.) column per
+        then one calculated-value column (header uses the bare function name)
+        per definition, then one (Exp.) column per
         definition.
     """
     filtered = [d for d in definitions if d.test_table == test_table]
@@ -175,7 +179,7 @@ def build_test_columns(
     match_headers: list[str] = []
     for d in filtered:
         exp_header = f"{d.name}\n(Exp.)"
-        calc_header = f"{d.name}\n(Calc.)"
+        calc_header = d.name
         match_header = f"{d.name}\n(Match)"
         exp_columns.append((exp_header, d.name, None, d.number_format))
         calc_columns.append(
@@ -277,6 +281,7 @@ def write_mlr_scalar_test_sheet(
     for index in range(sheet.api.ListObjects.Count, 0, -1):
         sheet.api.ListObjects(index).Delete()
     sheet.api.Cells.Clear()
+    reset_column_groups(sheet)
 
     _set_sheet_scoped_names(sheet)
 
@@ -284,6 +289,7 @@ def write_mlr_scalar_test_sheet(
     header_row = _MLR_TABLE_HEADER_ROW
     last_data_row = header_row + len(row_configs)
     col_count = len(columns)
+    metric_count = sum(1 for d in definitions if d.test_table == test_table)
 
     rows_data: list[tuple[int, dict, dict]] = [
         (header_row + 1 + i, row_vals, expected)
@@ -303,6 +309,12 @@ def write_mlr_scalar_test_sheet(
 
     # All columns except A: autofit width
     sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
+    match_start_col = _FIXED_COLUMN_COUNT + 1
+    match_end_col = _FIXED_COLUMN_COUNT + metric_count
+    exp_start_col = _FIXED_COLUMN_COUNT + (2 * metric_count) + 1
+    group_and_hide_columns(sheet, match_start_col, match_end_col)
+    group_and_hide_columns(sheet, exp_start_col, col_count)
+
     sheet.activate()
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0

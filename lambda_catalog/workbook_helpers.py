@@ -131,3 +131,45 @@ def reset_generated_sheet(sheet: xw.Sheet) -> None:
     for index in range(sheet.api.ListObjects.Count, 0, -1):
         sheet.api.ListObjects(index).Delete()
     sheet.api.Cells.Clear()
+
+
+def reset_column_groups(sheet: xw.Sheet) -> None:
+    """Remove existing column outlines and ensure all columns are visible.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The worksheet whose column grouping state should be reset.
+    """
+    sheet.api.Cells.ClearOutline()
+    sheet.api.Cells.EntireColumn.Hidden = False
+
+
+def group_and_hide_columns(sheet: xw.Sheet, start_col: int, end_col: int) -> None:
+    """Group a contiguous column range and collapse it by hiding those columns.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The worksheet where grouping should be applied.
+    start_col : int
+        1-based start column index of the group.
+    end_col : int
+        1-based end column index of the group.
+    """
+    if start_col > end_col:
+        return
+    start_letter = _col_letter(start_col)
+    end_letter = _col_letter(end_col)
+    grouped_columns = sheet.range(f"{start_letter}:{end_letter}").api.EntireColumn
+    grouped_columns.Group()
+    grouped_columns.Hidden = True
+
+
+def _col_letter(col_idx: int) -> str:
+    """Convert a 1-based column index to an Excel column letter string."""
+    result = ""
+    while col_idx > 0:
+        col_idx, remainder = divmod(col_idx - 1, 26)
+        result = chr(ord("A") + remainder) + result
+    return result

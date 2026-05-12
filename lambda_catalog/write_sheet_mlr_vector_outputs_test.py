@@ -10,6 +10,7 @@ from .analyze_life_expectancy import (
     RegressionVectors,
     calculate_regression_vectors,
 )
+from .workbook_helpers import group_and_hide_columns, reset_column_groups
 
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
@@ -273,6 +274,7 @@ def write_mlr_vector_outputs_test_sheet(
         sheet = workbook.sheets.add(name=sheet_name, after=workbook.sheets[-1])
 
     sheet.api.Cells.Clear()
+    reset_column_groups(sheet)
     _set_sheet_scoped_names(sheet)
 
     header_row = 1
@@ -300,6 +302,8 @@ def write_mlr_vector_outputs_test_sheet(
     sheet.range((header_row, 1), (header_row, _TOTAL_COLS)).api.WrapText = True
     sheet.range((header_row, 1), (header_row, _TOTAL_COLS)).api.EntireRow.AutoFit()
     sheet.range((header_row, 1), (last_content_row, _TOTAL_COLS)).columns.autofit()
+    group_and_hide_columns(sheet, 2, _TESTS_COLS)
+    group_and_hide_columns(sheet, _EXPECTED_START_COL, _TOTAL_COLS)
 
     sheet.activate()
     sheet.api.Application.ActiveWindow.SplitRow = 1

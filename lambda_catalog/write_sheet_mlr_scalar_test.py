@@ -22,10 +22,20 @@ from .make_test_sheet import (
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 _MLR_TABLE_HEADER_ROW = 1
+_FIXED_COLUMN_COUNT = 4
 
 # Replaces x_s in every (Calc.) formula; resolves dynamically from each
 # row's ind_vars value.
 _MLR_X_S_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
+
+
+def _col_letter(col_idx: int) -> str:
+    """Convert a 1-based column index to an Excel column letter string."""
+    result = ""
+    while col_idx > 0:
+        col_idx, remainder = divmod(col_idx - 1, 26)
+        result = chr(ord("A") + remainder) + result
+    return result
 
 
 def _delete_sheet_scoped_name_if_present(sheet: xw.Sheet, target_name: str) -> None:
@@ -67,6 +77,21 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
 
     _delete_sheet_scoped_name_if_present(sheet, "Allow_Intercept")
+
+
+def _reset_column_groups(sheet: xw.Sheet) -> None:
+    """Remove existing column outlines and ensure columns are visible."""
+    sheet.api.Cells.ClearOutline()
+    sheet.api.Cells.EntireColumn.Hidden = False
+
+
+def _group_and_hide_columns(sheet: xw.Sheet, start_col: int, end_col: int) -> None:
+    """Create a column outline group and collapse it by hiding the columns."""
+    if start_col > end_col:
+        return
+    group_range = sheet.range(f"{_col_letter(start_col)}:{_col_letter(end_col)}")
+    group_range.api.Columns.Group()
+    group_range.api.EntireColumn.Hidden = True
 
 
 def _actual_formula(
@@ -175,7 +200,7 @@ def build_test_columns(
     match_headers: list[str] = []
     for d in filtered:
         exp_header = f"{d.name}\n(Exp.)"
-        calc_header = f"{d.name}\n(Calc.)"
+        calc_header = d.name
         match_header = f"{d.name}\n(Match)"
         exp_columns.append((exp_header, d.name, None, d.number_format))
         calc_columns.append(
@@ -277,6 +302,7 @@ def write_mlr_scalar_test_sheet(
     for index in range(sheet.api.ListObjects.Count, 0, -1):
         sheet.api.ListObjects(index).Delete()
     sheet.api.Cells.Clear()
+    _reset_column_groups(sheet)
 
     _set_sheet_scoped_names(sheet)
 
@@ -284,6 +310,7 @@ def write_mlr_scalar_test_sheet(
     header_row = _MLR_TABLE_HEADER_ROW
     last_data_row = header_row + len(row_configs)
     col_count = len(columns)
+    metric_count = sum(1 for d in definitions if d.test_table == test_table)
 
     rows_data: list[tuple[int, dict, dict]] = [
         (header_row + 1 + i, row_vals, expected)
@@ -303,6 +330,12 @@ def write_mlr_scalar_test_sheet(
 
     # All columns except A: autofit width
     sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
+    match_start_col = _FIXED_COLUMN_COUNT + 1
+    match_end_col = _FIXED_COLUMN_COUNT + metric_count
+    exp_start_col = _FIXED_COLUMN_COUNT + (2 * metric_count) + 1
+    _group_and_hide_columns(sheet, match_start_col, match_end_col)
+    _group_and_hide_columns(sheet, exp_start_col, col_count)
+
     sheet.activate()
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0

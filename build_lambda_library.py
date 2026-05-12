@@ -37,6 +37,7 @@ _MAX_TEST_SHEET_NAME_LEN = 31
 _INVALID_WORKSHEET_NAME_CHARS = set("[]:*?/\\")
 _VALID_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 _MAX_EXCEL_ROW = 1_048_576
+XL_CALCULATION_AUTOMATIC = -4105
 
 
 @dataclass(frozen=True)
@@ -476,6 +477,7 @@ def _write_name_comments(
                     bare = name_obj.Name.split("!")[-1]
                     if bare in comments:
                         name_obj.Comment = comments[bare]
+                workbook.app.api.Calculation = XL_CALCULATION_AUTOMATIC
                 workbook.save(str(workbook_path))
             finally:
                 workbook.close()
@@ -615,6 +617,7 @@ def build_lambda_library(
                     workbook,
                     vector_row_configs,
                 )
+                workbook.app.api.Calculation = XL_CALCULATION_AUTOMATIC
                 workbook.save(str(workbook_path))
                 verify_test_sheets(workbook, row_configs, vector_row_configs)
             finally:

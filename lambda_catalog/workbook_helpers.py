@@ -159,6 +159,17 @@ def group_and_hide_columns(sheet: xw.Sheet, start_col: int, end_col: int) -> Non
     """
     if start_col > end_col:
         return
-    grouped_columns = sheet.range((1, start_col), (1, end_col)).api.EntireColumn
+    start_letter = _col_letter(start_col)
+    end_letter = _col_letter(end_col)
+    grouped_columns = sheet.range(f"{start_letter}:{end_letter}").api.EntireColumn
     grouped_columns.Group()
     grouped_columns.Hidden = True
+
+
+def _col_letter(col_idx: int) -> str:
+    """Convert a 1-based column index to an Excel column letter string."""
+    result = ""
+    while col_idx > 0:
+        col_idx, remainder = divmod(col_idx - 1, 26)
+        result = chr(ord("A") + remainder) + result
+    return result

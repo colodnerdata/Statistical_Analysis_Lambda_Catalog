@@ -26,6 +26,7 @@ from lambda_catalog.analysis_cache import get_analysis_results
 from lambda_catalog.write_sheet_mlr_scalar_test import write_mlr_scalar_test_sheet
 from lambda_catalog.write_sheet_mlr_observation_test import write_mlr_observation_test_sheet
 from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_outputs_test_sheet
+from write_regression_output import write_regression_output_sheet
 import xlwings as xw
 
 
@@ -619,6 +620,7 @@ def build_lambda_library(
                     workbook.sheets["Sheet1"].name = "LAMBDA_functions"
                 write_catalog_sheet(workbook, catalog_entries)
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
+                write_regression_output_sheet(workbook)
                 write_mlr_scalar_test_sheet(
                     workbook,
                     definitions,
@@ -691,6 +693,7 @@ def main() -> None:
     print("Sheet updated: MLR_Observation_Test")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    print("Sheet updated: Regression")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     print("Invalid entries: 0")

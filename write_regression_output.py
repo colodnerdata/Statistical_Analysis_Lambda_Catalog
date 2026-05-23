@@ -3,9 +3,11 @@ write_regression_output.py
 Writes the ToolPak-style Regression sheet into any target workbook.
 
 Layout (three horizontal zones):
-  Col A          — prediction input vector (k values, one per predictor)
-  Cols C–J       — main analysis: Regression Statistics, Diagnostics, ANOVA,
-                   Prediction Interval, Coefficients
+  Col A          — predictor name labels (spill formula from table headers)
+  Col B          — prediction input values (user-editable, k rows)
+  Cols C–J       — main analysis: Regression Statistics, Diagnostics,
+                   Prediction Interval (rows 3-9), ANOVA (rows 10-14),
+                   Coefficients (rows 18+)
   Cols L–O       — residual table (fixed columns, independent of k)
 """
 from __future__ import annotations
@@ -37,14 +39,15 @@ PREDICTOR_NAMES: list[str] = [
 ]
 
 # 1-based column indices
-_C_A = 1    # prediction input values
+_C_A = 1    # prediction input labels (auto-populated via spill formula)
+_C_B = 2    # prediction input values (user-editable)
 _C_C = 3    # section labels / ANOVA row labels / coefficient row labels
 _C_D = 4    # stat values / ANOVA df / coefficients / Allow_Intercept toggle
 _C_E = 5    # ANOVA SS / coefficient standard errors
 _C_F = 6    # ANOVA MS / coefficient t-stats / diagnostics labels
 _C_G = 7    # ANOVA F / coefficient p-values / diagnostics values
 _C_H = 8    # ANOVA Significance F / coefficient CI lower
-_C_I = 9    # coefficient CI upper / prediction interval labels
+_C_I = 9    # prediction interval labels / coefficient CI upper
 _C_J = 10   # prediction interval values
 _C_L = 12   # residual: observation number
 _C_M = 13   # residual: predicted Y
@@ -113,11 +116,11 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
         RefersTo=f"={sheet.name}!$D$2",
     )
 
-    # Prediction input vector: col A, rows 3 to 2+k
+    # Prediction input vector: col B, rows 2 to 1+k
     _drop_local_name(sheet, "pred_input")
     sheet.api.Names.Add(
         Name="pred_input",
-        RefersTo=f"={sheet.name}!$A$3:$A${2 + k}",
+        RefersTo=f"={sheet.name}!$B$2:$B${1 + k}",
     )
 
 
@@ -126,14 +129,11 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     _v(sheet, 1, _C_A, "PREDICTION INPUTS")
     _bold(sheet, 1, _C_A)
-    for i, name in enumerate(PREDICTOR_NAMES):
-        cell = sheet.range(_rc(3 + i, _C_A))
-        cell.value = 0.0
-        try:
-            cell.api.AddComment(name)
-            cell.api.Comment.Shape.Width = 160
-        except Exception:
-            pass  # non-critical; comment may already exist
+    # Col A: auto-populated predictor names from the table header row
+    _f(sheet, 2, _C_A, "=TRANSPOSE(OFFSET(x_s,-1,0,1,COLUMNS(x_s)))")
+    # Col B: user-editable numeric inputs; default to 0
+    for i in range(len(PREDICTOR_NAMES)):
+        sheet.range(_rc(2 + i, _C_B)).value = 0.0
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
@@ -194,15 +194,15 @@ def _write_anova(sheet: xw.Sheet) -> None:
 
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
-    _v(sheet, 10, _C_I, "PREDICTION INTERVAL")
-    _bold(sheet, 10, _C_I)
+    _v(sheet, 3, _C_I, "PREDICTION INTERVAL")
+    _bold(sheet, 3, _C_I)
     for row, label, idx in [
-        (11, "Point Estimate",   1),
-        (12, "SE Prediction",    2),
-        (13, "t Critical",       3),
-        (14, "Lower 95%",        4),
-        (15, "Upper 95%",        5),
-        (16, "Confidence Level", 6),
+        (4, "Point Estimate",   1),
+        (5, "SE Prediction",    2),
+        (6, "t Critical",       3),
+        (7, "Lower 95%",        4),
+        (8, "Upper 95%",        5),
+        (9, "Confidence Level", 6),
     ]:
         _v(sheet, row, _C_I, label)
         _f(sheet, row, _C_J,
@@ -287,7 +287,7 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
 
     # Column widths
     for col_letter, width in {
-        "A": 10, "B": 3,  "C": 24, "D": 14, "E": 14,
+        "A": 30, "B": 12, "C": 24, "D": 14, "E": 14,
         "F": 16, "G": 14, "H": 16, "I": 22, "J": 14,
         "K": 3,  "L": 14, "M": 14, "N": 12, "O": 16,
     }.items():

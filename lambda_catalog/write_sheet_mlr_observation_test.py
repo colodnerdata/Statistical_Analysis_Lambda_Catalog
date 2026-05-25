@@ -79,8 +79,7 @@ def write_mlr_observation_test_sheet(
         for i, (_, fn_name, _, num_fmt) in enumerate(_STATS):
             calc_col = _CALC_START_COL + i
             sheet.range((row, calc_col)).api.Formula2 = _calc_formula(k, allow_intercept, fn_name)
-            last = row + n - 1
-            sheet.range((row, calc_col), (last, calc_col)).api.NumberFormat = num_fmt
+            sheet.range((row, calc_col)).api.NumberFormat = num_fmt
 
         row += n + 1
 

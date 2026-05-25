@@ -87,8 +87,7 @@ def _write_section(
         sheet.range((first_data_row, calc_col)).api.Formula2 = (
             _calc_formula(k, allow_intercept, func_name)
         )
-        last_row = first_data_row + n_terms - 1
-        sheet.range((first_data_row, calc_col), (last_row, calc_col)).api.NumberFormat = num_fmt
+        sheet.range((first_data_row, calc_col)).api.NumberFormat = num_fmt
 
 
 def write_mlr_vector_outputs_test_sheet(

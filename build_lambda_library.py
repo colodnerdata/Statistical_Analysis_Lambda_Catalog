@@ -317,15 +317,18 @@ def sync_workbook_names(
                             defined_names, f"{{{WORKBOOK_NS}}}definedName"
                         )
                         name_element.set("name", definition.name)
-                        if definition.comment:
-                            name_element.set("comment", definition.comment)
                         name_element.text = definition.workbook_xml_formula_from_display
 
-                    data = etree.tostring(
-                        workbook_root,
-                        encoding="UTF-8",
-                        xml_declaration=True,
-                        standalone=True,
+                    xml_body = etree.tostring(workbook_root, encoding="unicode")
+                    data = (
+                        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                        + xml_body
+                    ).encode("UTF-8")
+
+                elif item.filename == "xl/calcChain.xml":
+                    data = (
+                        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                        b'<calcChain xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
                     )
 
                 output_zip.writestr(item, data)

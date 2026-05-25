@@ -11,6 +11,7 @@ XML_FUNCTION_PREFIXES = {
     "LET": "_xlfn.LET",
     "MAKEARRAY": "_xlfn.MAKEARRAY",
     "SEQUENCE": "_xlfn.SEQUENCE",
+    "SORT": "_xlfn._xlws.SORT",
     "T.DIST.2T": "_xlfn.T.DIST.2T",
     "T.INV.2T": "_xlfn.T.INV.2T",
     "VSTACK": "_xlfn.VSTACK",

@@ -4,16 +4,21 @@ from __future__ import annotations
 
 XML_FUNCTION_PREFIXES = {
     "BYROW": "_xlfn.BYROW",
+    "CHOOSECOLS": "_xlfn.CHOOSECOLS",
+    "CHOOSEROWS": "_xlfn.CHOOSEROWS",
+    "DROP": "_xlfn.DROP",
     "FILTER": "_xlfn._xlws.FILTER",
     "HSTACK": "_xlfn.HSTACK",
     "ISOMITTED": "_xlfn.ISOMITTED",
     "LAMBDA": "_xlfn.LAMBDA",
     "LET": "_xlfn.LET",
     "MAKEARRAY": "_xlfn.MAKEARRAY",
+    "NORM.S.INV": "_xlfn.NORM.S.INV",
     "SEQUENCE": "_xlfn.SEQUENCE",
     "SORT": "_xlfn._xlws.SORT",
     "T.DIST.2T": "_xlfn.T.DIST.2T",
     "T.INV.2T": "_xlfn.T.INV.2T",
+    "TAKE": "_xlfn.TAKE",
     "VSTACK": "_xlfn.VSTACK",
 }
 

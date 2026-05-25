@@ -136,9 +136,9 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # Row 2: intercept term — auto-set to 1 when Allow_Intercept is TRUE
     _v(sheet, 2, _C_A, "Intercept")
     _f(sheet, 2, _C_B, "=IF(Allow_Intercept,1,0)")
-    # Rows 3+: predictor name labels (spill) and user-editable values
-    _f(sheet, 3, _C_A, "=TRANSPOSE(OFFSET(x_s,-1,0,1,COLUMNS(x_s)))")
-    for i in range(len(PREDICTOR_NAMES)):
+    # Rows 3+: predictor name labels (static) and user-editable values
+    for i, name in enumerate(PREDICTOR_NAMES):
+        _v(sheet, 3 + i, _C_A, name)
         sheet.range(_rc(3 + i, _C_B)).value = 0.0
 
 
@@ -236,7 +236,7 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     _f(sheet, 20, _C_D,
        '=IF(Allow_Intercept,Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",Coefficients(x_s,y,Allow_Intercept,fil)))')
     _f(sheet, 20, _C_E,
-       '=IF(Allow_Intercept,Standard_Errors(x_s,y,Allow_Intercept,fil),VSTACK("",Standard_Errors(x_s,y,Allow_Intercept,fil)))')
+       '=IF(Allow_Intercept,SE_Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",SE_Coefficients(x_s,y,Allow_Intercept,fil)))')
     _f(sheet, 20, _C_F,
        '=IF(Allow_Intercept,T_Stats(x_s,y,Allow_Intercept,fil),VSTACK("",T_Stats(x_s,y,Allow_Intercept,fil)))')
     _f(sheet, 20, _C_G,

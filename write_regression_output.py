@@ -156,7 +156,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     for row, label, formula in [
         (4, "PRESS",          "=PRESS(x_s,y,Allow_Intercept,fil)"),
         (5, "PRESS R²",  "=1-PRESS(x_s,y,Allow_Intercept,fil)/SS_Total(y,Allow_Intercept,fil)"),
-        (6, "Mean Leverage",  "=(DF_Regression(x_s)+1)/Observations(y,fil)"),
+        (6, "Mean Leverage",  "=(DF_Regression(x_s)+IF(Allow_Intercept,1,0))/Observations(y,fil)"),
     ]:
         _v(sheet, row, _C_F, label)
         _f(sheet, row, _C_G, formula)

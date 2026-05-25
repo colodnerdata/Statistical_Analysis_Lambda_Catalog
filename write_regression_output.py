@@ -3,8 +3,10 @@ write_regression_output.py
 Writes the ToolPak-style Regression sheet into any target workbook.
 
 Layout (three horizontal zones):
-  Col A          — predictor name labels (spill formula from table headers)
-  Col B          — prediction input values (user-editable, k rows)
+  Col A          — input labels: "Intercept" in row 2, predictor names spill in rows 3+
+  Col B          — input values: intercept=IF(Allow_Intercept,1,0) in row 2 (auto),
+                   user-editable predictor values in rows 3+ (k rows)
+                   pred_input (B2:B{k+2}) aligns with Coefficients() for SUMPRODUCT
   Cols C–J       — main analysis: Regression Statistics, Diagnostics,
                    Prediction Interval (rows 3-9), ANOVA (rows 10-14),
                    Coefficients (rows 18+)
@@ -116,11 +118,13 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
         RefersTo=f"={sheet.name}!$D$2",
     )
 
-    # Prediction input vector: col B, rows 2 to 1+k
+    # Prediction input vector: col B, rows 2 to 2+k (k+1 entries: intercept + k predictors)
+    # Row 2 holds the intercept term (=1 when Allow_Intercept); rows 3+ hold predictor values.
+    # This aligns with Coefficients(...) so =SUMPRODUCT(Coefficients(...),pred_input) is valid.
     _drop_local_name(sheet, "pred_input")
     sheet.api.Names.Add(
         Name="pred_input",
-        RefersTo=f"={sheet.name}!$B$2:$B${1 + k}",
+        RefersTo=f"={sheet.name}!$B$2:$B${2 + k}",
     )
 
 
@@ -129,11 +133,13 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     _v(sheet, 1, _C_A, "PREDICTION INPUTS")
     _bold(sheet, 1, _C_A)
-    # Col A: auto-populated predictor names from the table header row
-    _f(sheet, 2, _C_A, "=TRANSPOSE(OFFSET(x_s,-1,0,1,COLUMNS(x_s)))")
-    # Col B: user-editable numeric inputs; default to 0
+    # Row 2: intercept term — auto-set to 1 when Allow_Intercept is TRUE
+    _v(sheet, 2, _C_A, "Intercept")
+    _f(sheet, 2, _C_B, "=IF(Allow_Intercept,1,0)")
+    # Rows 3+: predictor name labels (spill) and user-editable values
+    _f(sheet, 3, _C_A, "=TRANSPOSE(OFFSET(x_s,-1,0,1,COLUMNS(x_s)))")
     for i in range(len(PREDICTOR_NAMES)):
-        sheet.range(_rc(2 + i, _C_B)).value = 0.0
+        sheet.range(_rc(3 + i, _C_B)).value = 0.0
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:

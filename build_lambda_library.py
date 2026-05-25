@@ -26,7 +26,7 @@ from lambda_catalog.analysis_cache import get_analysis_results
 from lambda_catalog.write_sheet_mlr_scalar_test import write_mlr_scalar_test_sheet
 from lambda_catalog.write_sheet_mlr_observation_test import write_mlr_observation_test_sheet
 from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_outputs_test_sheet
-from write_regression_output import write_regression_output_sheet
+from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 import xlwings as xw
 
 
@@ -317,6 +317,8 @@ def sync_workbook_names(
                             defined_names, f"{{{WORKBOOK_NS}}}definedName"
                         )
                         name_element.set("name", definition.name)
+                        if definition.comment:
+                            name_element.set("comment", definition.comment)
                         name_element.text = definition.workbook_xml_formula_from_display
 
                     data = etree.tostring(
@@ -454,37 +456,6 @@ def _delete_sheet_if_present(workbook: xw.Book, sheet_name: str) -> None:
             sheet.delete()
             return
 
-
-def _write_name_comments(
-    workbook_path: Path, definitions: list[LambdaDefinition]
-) -> None:
-    """Set Name Manager comments via COM so newlines render in intellisense.
-
-    Parameters
-    ----------
-    workbook_path : Path
-        Path to the .xlsx file to open, update, and save.
-    definitions : list[LambdaDefinition]
-        Definitions whose comments will be written to the Name Manager.
-    """
-    comments = {d.name: d.comment for d in definitions if d.comment}
-    if not comments:
-        return
-
-    try:
-        with xw.App(visible=False, add_book=False) as app:
-            workbook = app.books.open(str(workbook_path))
-            try:
-                for name_obj in workbook.api.Names:
-                    bare = name_obj.Name.split("!")[-1]
-                    if bare in comments:
-                        name_obj.Comment = comments[bare]
-                workbook.app.api.Calculation = XL_CALCULATION_AUTOMATIC
-                workbook.save(str(workbook_path))
-            finally:
-                workbook.close()
-    except OPEN_WORKBOOK_ERRORS as exc:
-        raise_excel_access_error(workbook_path, "set comments on", exc)
 
 
 def verify_test_sheets(
@@ -631,7 +602,7 @@ def build_lambda_library(
                     vector_row_configs,
                 )
                 write_mlr_observation_test_sheet(workbook, observation_row_configs)
-                workbook.app.api.Calculation = XL_CALCULATION_AUTOMATIC
+                app.api.Calculation = XL_CALCULATION_AUTOMATIC
                 workbook.save(str(workbook_path))
                 verify_test_sheets(workbook, row_configs, vector_row_configs, observation_row_configs)
             finally:
@@ -650,11 +621,6 @@ def build_lambda_library(
         raise_excel_access_error(workbook_path, "update", exc)
     if verbose:
         print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
-
-    _t = time.monotonic()
-    _write_name_comments(workbook_path, definitions)
-    if verbose:
-        print(f"  Write comments: {time.monotonic() - _t:.1f}s", flush=True)
 
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)

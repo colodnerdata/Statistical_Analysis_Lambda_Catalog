@@ -25,7 +25,7 @@ from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_ac
 _D = 3
 TOLERANCE_DECIMALS = _D * 2  # 6 decimal places
 
-# Vector sheet layout constants (must match write_sheet_mlr_vector_outputs_test.py)
+# Layout constants (must match write_sheet_mlr_vector_outputs_test.py and write_sheet_mlr_observation_test.py)
 _STATS = [
     "Coefficients",
     "SE_Coefficients",
@@ -43,10 +43,8 @@ _STAT_FIELDS = [
     "ci_lower",
     "ci_upper",
 ]
-_TESTS_COLS = 7
-_FORMULA_COLS = 7
-_TERM_COL = _TESTS_COLS + 1           # col 8 (1-based)
-_CALC_START_COL = _TESTS_COLS + 2     # col 9 (1-based)
+_TERM_COL = 1
+_CALC_START_COL = 2
 
 _DF_SCALAR_COLS = [
     "k", "allow_intercept", "stat_name",
@@ -119,15 +117,15 @@ def read_scalar_df(
     ind_vars_col: int | None = None
     intercept_col: int | None = None
 
+    _SCALAR_FIXED = {"", "X_Variables", "ind_vars", "Allow_Intercept"}
     for i, h in enumerate(headers):
         h_norm = h.replace("\n", " ").strip()
-        if h_norm.endswith(" (Calc.)"):
-            stat = h_norm[: -len(" (Calc.)")].strip()
-            calc_cols[stat] = i
-        elif h_norm == "ind_vars":
+        if h_norm == "ind_vars":
             ind_vars_col = i
         elif h_norm == "Allow_Intercept":
             intercept_col = i
+        elif h_norm not in _SCALAR_FIXED:
+            calc_cols[h_norm] = i
 
     # Build lookup: (k, allow_intercept) -> expected_dict
     config_lookup: dict[tuple[int, bool], dict[str, float]] = {}
@@ -297,7 +295,7 @@ def read_observation_df(workbook: xw.Book, observation_row_configs: list) -> pd.
     section_intercept = None
     row_offset = 0
     section_n: int | None = None
-    calc_start = 11 - 1
+    calc_start = _CALC_START_COL - 1
     for row in data[1:]:
         if isinstance(row[0] if row else None, str) and str(row[0]).startswith("k="):
             section_k = int(str(row[0]).split(",")[0].split("=")[1])

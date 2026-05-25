@@ -459,7 +459,7 @@
       "name": "Observation_Num",
       "test_table": "MLR_Observation_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    SEQUENCE(Observations(Y, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  SEQUENCE(ROWS(FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter))))\n)",
       "arguments": [
         {
           "name": "Y",
@@ -478,7 +478,7 @@
       "name": "Percentile",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    obs_num, Observation_Num(Y, filt_arg),\n    (obs_num - 0.5) / ROWS(obs_num)\n  ))",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)),\n    n,        ROWS(filtered),\n    (SEQUENCE(n) - 0.5) / n\n  ))",
       "arguments": [
         {
           "name": "Y",
@@ -497,7 +497,7 @@
       "name": "Y_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    SORT(FILTER(Y, filt_arg), 1, 1)\n  ))",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  SORT(FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)))\n)",
       "arguments": [
         {
           "name": "Y",
@@ -516,7 +516,7 @@
       "name": "Normal_Scores",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    NORM.S.INV(Percentile(Y, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  NORM.S.INV(Percentile(Y, IF(ISOMITTED(Filter), TRUE, Filter)))\n)",
       "arguments": [
         {
           "name": "Y",
@@ -643,7 +643,7 @@
       "name": "Scaled_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    SORT(Scaled_Residuals(X_s, Y, allow_arg, filt_arg), 1, 1)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    SORT(Scaled_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",

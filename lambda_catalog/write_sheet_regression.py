@@ -1,5 +1,5 @@
 """
-write_regression_output.py
+write_sheet_regression.py
 Writes the ToolPak-style Regression sheet into any target workbook.
 
 Layout (three horizontal zones):
@@ -260,7 +260,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
 
     # Spill anchors — each spills n rows downward
     _f(sheet, 3, _C_L, "=SEQUENCE(Observations(y,fil))")
-    _f(sheet, 3, _C_M, "=Fitted_Values(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_M, "=Predictions(x_s,y,Allow_Intercept,fil)")
     _f(sheet, 3, _C_N, "=Residuals(x_s,y,Allow_Intercept,fil)")
     _v(sheet, 3, _C_O, "(paste LOOCV formula here)")
 

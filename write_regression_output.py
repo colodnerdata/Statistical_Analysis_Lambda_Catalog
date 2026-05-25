@@ -231,13 +231,20 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     for i, name in enumerate(PREDICTOR_NAMES):
         _v(sheet, 21 + i, _C_C, name)
 
-    # Spill anchors — each formula spills k+1 rows downward
-    _f(sheet, 20, _C_D, "=Coefficients(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 20, _C_E, "=Standard_Errors(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 20, _C_F, "=T_Stats(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 20, _C_G, "=P_Values(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 20, _C_H, "=CI_Lower(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 20, _C_I, "=CI_Upper(x_s,y,Allow_Intercept,fil)")
+    # Spill anchors — when intercepts are disabled, pad with a blank top row
+    # so predictor values remain aligned with predictor labels.
+    _f(sheet, 20, _C_D,
+       '=IF(Allow_Intercept,Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",Coefficients(x_s,y,Allow_Intercept,fil)))')
+    _f(sheet, 20, _C_E,
+       '=IF(Allow_Intercept,Standard_Errors(x_s,y,Allow_Intercept,fil),VSTACK("",Standard_Errors(x_s,y,Allow_Intercept,fil)))')
+    _f(sheet, 20, _C_F,
+       '=IF(Allow_Intercept,T_Stats(x_s,y,Allow_Intercept,fil),VSTACK("",T_Stats(x_s,y,Allow_Intercept,fil)))')
+    _f(sheet, 20, _C_G,
+       '=IF(Allow_Intercept,P_Values(x_s,y,Allow_Intercept,fil),VSTACK("",P_Values(x_s,y,Allow_Intercept,fil)))')
+    _f(sheet, 20, _C_H,
+       '=IF(Allow_Intercept,CI_Lower(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Lower(x_s,y,Allow_Intercept,fil)))')
+    _f(sheet, 20, _C_I,
+       '=IF(Allow_Intercept,CI_Upper(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Upper(x_s,y,Allow_Intercept,fil)))')
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:

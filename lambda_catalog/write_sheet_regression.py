@@ -212,7 +212,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     ]:
         _v(sheet, row, _C_I, label)
         _f(sheet, row, _C_J,
-           f"=INDEX(Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,0.95),{idx})")
+           f"=INDEX(Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,0.05),{idx})")
 
 
 def _write_coefficients(sheet: xw.Sheet) -> None:

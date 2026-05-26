@@ -705,6 +705,67 @@
       "description": "Residual divided by SE_Regression. This is not Excel Analysis ToolPak 'Standard Residuals' and is not leverage-adjusted/studentized."
     },
     {
+      "name": "nth_row",
+      "number_format": "0",
+      "formula_display": "=LAMBDA(x_s,\n  SEQUENCE(ROWS(x_s))\n)",
+      "arguments": [
+        {
+          "name": "x_s",
+          "description": "any matrix whose row count is needed"
+        }
+      ],
+      "yields": "1..n row-index vector as a spilled column",
+      "description": "Returns SEQUENCE(ROWS(x_s)), producing the integer row indices 1 through n. Used as the n argument to Exclude_nth_row inside LOOCV_prediction."
+    },
+    {
+      "name": "Exclude_nth_row",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(x_s, y, n,\n  LET(\n    mask, SEQUENCE(ROWS(x_s)) <> n,\n    HSTACK(FILTER(x_s, mask), FILTER(y, mask))\n  )\n)",
+      "arguments": [
+        {
+          "name": "x_s",
+          "description": "predictor matrix"
+        },
+        {
+          "name": "y",
+          "description": "response column vector"
+        },
+        {
+          "name": "n",
+          "description": "1-based row index to exclude"
+        }
+      ],
+      "yields": "HSTACK of (x_s | y) with row n removed — shape (ROWS(x_s)-1) × (COLUMNS(x_s)+1)",
+      "description": "Removes row n from x_s and y and returns them concatenated side-by-side. Used inside LOOCV_prediction to assemble the leave-one-out training dataset for each observation."
+    },
+    {
+      "name": "LOOCV_prediction",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(x_s, y, [allow_intercept], [fil],\n  LET(\n    allow_arg, IF(ISOMITTED(allow_intercept), TRUE, allow_intercept),\n    filt_arg,  IF(ISOMITTED(fil), TRUE, fil),\n    x_f, FILTER(x_s, filt_arg),\n    y_f, FILTER(y,   filt_arg),\n    n,   ROWS(x_f),\n    k,   COLUMNS(x_f),\n    MAKEARRAY(n, 1, LAMBDA(i, dummy,\n      LET(\n        excl,  Exclude_nth_row(x_f, y_f, i),\n        x_e,   INDEX(excl, SEQUENCE(n - 1), SEQUENCE(1, k)),\n        y_e,   INDEX(excl, SEQUENCE(n - 1), k + 1),\n        fil_e, SEQUENCE(n - 1) > 0,\n        coefs, Coefficients(x_e, y_e, allow_arg, fil_e),\n        x_i,   INDEX(x_f, i, SEQUENCE(1, k)),\n        IF(allow_arg,\n          INDEX(coefs, 1) + SUMPRODUCT(TRANSPOSE(INDEX(coefs, SEQUENCE(k, 1, 2), 1)), x_i),\n          SUMPRODUCT(TRANSPOSE(coefs), x_i)\n        )\n      )\n    ))\n  )\n)",
+      "arguments": [
+        {
+          "name": "x_s",
+          "description": "column range of predictors"
+        },
+        {
+          "name": "y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "allow_intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "fil",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n-element vector of leave-one-out predicted values",
+      "description": "For each filtered observation i, refits the model on all other observations via Exclude_nth_row, then predicts for observation i. Implemented with MAKEARRAY so each element is an independent OLS fit — expect slow recalculation on large datasets."
+    },
+    {
       "name": "Scaled_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",

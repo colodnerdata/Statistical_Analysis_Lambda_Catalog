@@ -54,7 +54,12 @@ _C_J = 10   # prediction interval values
 _C_L = 12   # residual: observation number
 _C_M = 13   # residual: predicted Y
 _C_N = 14   # residual: residuals
-_C_O = 15   # residual: LOOCV residuals
+_C_O = 15   # residual: LOOCV prediction
+_C_P = 16   # residual: percentile
+_C_Q = 17   # residual: Y ranked
+_C_R = 18   # residual: normal scores
+_C_S = 19   # residual: scaled residuals
+_C_T = 20   # residual: scaled residuals ranked
 
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
@@ -81,7 +86,7 @@ def _v(sheet: xw.Sheet, row: int, col: int, value: object) -> None:
 
 
 def _f(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:
-    sheet.range(_rc(row, col)).formula = formula
+    sheet.range(_rc(row, col)).api.Formula2 = formula
 
 
 def _bold(sheet: xw.Sheet, row: int, col: int) -> None:
@@ -252,17 +257,26 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _bold(sheet, 1, _C_L)
 
     for col, header in zip(
-        [_C_L, _C_M, _C_N, _C_O],
-        ["Observation", "Predicted Y", "Residuals", "LOOCV Residuals"],
+        [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q, _C_R, _C_S, _C_T],
+        [
+            "Observation", "Predicted Y", "Residuals", "LOOCV Prediction",
+            "Percentile", "Y Ranked", "Normal Scores",
+            "Scaled Residuals", "Scaled Residuals Ranked",
+        ],
     ):
         _v(sheet, 2, col, header)
-    _bold_row(sheet, 2, _C_L, _C_O)
+    _bold_row(sheet, 2, _C_L, _C_T)
 
     # Spill anchors — each spills n rows downward
     _f(sheet, 3, _C_L, "=SEQUENCE(Observations(y,fil))")
     _f(sheet, 3, _C_M, "=Predictions(x_s,y,Allow_Intercept,fil)")
     _f(sheet, 3, _C_N, "=Residuals(x_s,y,Allow_Intercept,fil)")
-    _v(sheet, 3, _C_O, "(paste LOOCV formula here)")
+    _f(sheet, 3, _C_O, "=LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_P, "=Percentile(y,fil)")
+    _f(sheet, 3, _C_Q, "=Y_Ranked(y,fil)")
+    _f(sheet, 3, _C_R, "=Normal_Scores(y,fil)")
+    _f(sheet, 3, _C_S, "=Scaled_Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_T, "=Scaled_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -302,7 +316,8 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     for col_letter, width in {
         "A": 30, "B": 12, "C": 24, "D": 14, "E": 14,
         "F": 16, "G": 14, "H": 16, "I": 22, "J": 14,
-        "K": 3,  "L": 14, "M": 14, "N": 12, "O": 16,
+        "K": 3,  "L": 14, "M": 14, "N": 12, "O": 18,
+        "P": 12, "Q": 12, "R": 14, "S": 16, "T": 22,
     }.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
 

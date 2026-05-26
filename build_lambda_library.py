@@ -35,6 +35,9 @@ DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 WORKBOOK_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+_CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
+_RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+_CALC_CHAIN_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain"
 _MAX_TEST_SHEET_NAME_LEN = 31
 _INVALID_WORKSHEET_NAME_CHARS = set("[]:*?/\\")
 _VALID_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
@@ -326,10 +329,29 @@ def sync_workbook_names(
                     ).encode("UTF-8")
 
                 elif item.filename == "xl/calcChain.xml":
+                    continue  # omit stale calc chain; Excel rebuilds on open
+
+                elif item.filename == "xl/_rels/workbook.xml.rels":
+                    rels_root = etree.fromstring(data)
+                    for rel in rels_root.findall(f"{{{_RELS_NS}}}Relationship"):
+                        if rel.get("Type") == _CALC_CHAIN_REL_TYPE:
+                            rels_root.remove(rel)
+                    xml_body = etree.tostring(rels_root, encoding="unicode")
                     data = (
-                        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
-                        b'<calcChain xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"/>'
-                    )
+                        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                        + xml_body
+                    ).encode("UTF-8")
+
+                elif item.filename == "[Content_Types].xml":
+                    ct_root = etree.fromstring(data)
+                    for override in ct_root.findall(f"{{{_CT_NS}}}Override"):
+                        if override.get("PartName", "").lower() == "/xl/calcchain.xml":
+                            ct_root.remove(override)
+                    xml_body = etree.tostring(ct_root, encoding="unicode")
+                    data = (
+                        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                        + xml_body
+                    ).encode("UTF-8")
 
                 output_zip.writestr(item, data)
 

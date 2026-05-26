@@ -252,6 +252,20 @@ def _render_xml_expression(expression: str, bound_names: dict[str, str]) -> str:
                 index = call_end + 1
                 continue
 
+            if (
+                token == "LAMBDA"
+                and next_non_space < len(expression)
+                and expression[next_non_space] == "("
+            ):
+                call_end = _find_matching_paren(expression, next_non_space)
+                rendered.append(
+                    _render_inner_lambda_call(
+                        expression[next_non_space + 1:call_end], bound_names
+                    )
+                )
+                index = call_end + 1
+                continue
+
             if token in bound_names:
                 rendered.append(bound_names[token])
                 index = token_end
@@ -274,6 +288,47 @@ def _render_xml_expression(expression: str, bound_names: dict[str, str]) -> str:
         index += 1
 
     return "".join(rendered)
+
+
+def _render_inner_lambda_call(arguments_text: str, bound_names: dict[str, str]) -> str:
+    """Render a LAMBDA(...) call that appears inside a larger expression body.
+
+    Parameters
+    ----------
+    arguments_text : str
+        The raw argument text inside the inner LAMBDA(...) call, excluding the
+        outer parentheses.
+    bound_names : dict[str, str]
+        Mapping of currently in-scope names to their ``_xlpm.*`` prefixed
+        XML counterparts (from the enclosing LAMBDA and any enclosing LET bindings).
+
+    Returns
+    -------
+    str
+        The fully translated ``_xlfn.LAMBDA(...)`` expression with the inner
+        parameters added to the bound-name scope for the body.
+    """
+    arguments = _split_top_level_arguments(arguments_text)
+    if len(arguments) < 2:
+        raise ValueError(
+            f"LAMBDA requires at least one parameter and a body: LAMBDA({arguments_text})"
+        )
+
+    inner_bound_names = dict(bound_names)
+    xml_parameters: list[str] = []
+
+    for param in arguments[:-1]:
+        param = param.strip()
+        is_optional = param.startswith("[") and param.endswith("]")
+        param_name = param[1:-1].strip() if is_optional else param
+        if not param_name:
+            raise ValueError(f"Invalid inner LAMBDA parameter: '{param}'")
+        prefix = "_xlop" if is_optional else "_xlpm"
+        xml_parameters.append(f"{prefix}.{param_name}")
+        inner_bound_names[param_name] = f"_xlpm.{param_name}"
+
+    body = _render_xml_expression(arguments[-1], inner_bound_names)
+    return f"_xlfn.LAMBDA({','.join(xml_parameters + [body])})"
 
 
 def _render_let_call(arguments_text: str, bound_names: dict[str, str]) -> str:

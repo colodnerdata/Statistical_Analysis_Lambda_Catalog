@@ -98,6 +98,9 @@ class RegressionSummary:
         Regression sum of squares.
     se_regression : float
         Standard error of the regression.
+    press : float
+        PRESS (Prediction Residual Error Sum of Squares) — LOOCV shortcut
+        Σ(eᵢ / (1 − hᵢ))² where hᵢ are hat-matrix diagonal leverages.
     """
 
     observations: int
@@ -111,6 +114,7 @@ class RegressionSummary:
     ss_residual: float
     ss_regression: float
     se_regression: float
+    press: float
 
 
 @dataclass(frozen=True)
@@ -428,6 +432,14 @@ def calculate_regression_summary(
     ss_regression = ss_total - ss_residual
     se_regression = float(np.sqrt(model.mse_resid))
 
+    # PRESS via hat-matrix diagonal shortcut: h = row-sums of (X * (X'X)^{-1} * X')
+    xtx = x_train.T @ x_train
+    xtx_inv = np.linalg.inv(xtx)
+    z = x_train @ xtx_inv
+    h = np.sum(z * x_train, axis=1)
+    e = np.asarray(model.resid, dtype=np.float64)
+    press = float(np.sum((e / (1.0 - h)) ** 2))
+
     return RegressionSummary(
         observations=observations,
         df_regression=df_regression,
@@ -440,6 +452,7 @@ def calculate_regression_summary(
         ss_residual=ss_residual,
         ss_regression=ss_regression,
         se_regression=se_regression,
+        press=press,
     )
 
 

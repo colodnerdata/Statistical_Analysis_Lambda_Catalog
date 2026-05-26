@@ -278,6 +278,34 @@
       "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / DF_Residual(...))."
     },
     {
+      "name": "PRESS",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    XtX,       MMULT(TRANSPOSE(X_design), X_design),\n    XtX_inv,   MINVERSE(XtX),\n    p,         COLUMNS(X_design),\n    Z,         MMULT(X_design, XtX_inv),\n    h,         MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0)),\n    SUMSQ(e / (1 - h))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "PRESS (Prediction Residual Error Sum of Squares) as a scalar",
+      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nLeverage is computed without forming the full n×n hat matrix: h = row-wise sum of (X_design * MMULT(X_design, MINVERSE(X'X))), giving an n×1 vector. Then SUMSQ(e / (1 - h)) gives PRESS as a scalar."
+    },
+    {
       "name": "Coefficients",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
@@ -454,6 +482,43 @@
       ],
       "yields": "vertical array of upper confidence interval bounds for each coefficient",
       "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...)."
+    },
+    {
+      "name": "Prediction_Interval",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Filter], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX,           MMULT(TRANSPOSE(X_design), X_design),\n    XtX_inv,       MINVERSE(XtX),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "X_new",
+          "description": "column vector of predictor values for the new observation — intercept term first (=1 or 0) when Allow_Intercept is TRUE, matching the layout of pred_input on the Regression sheet"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "alpha",
+          "description": "significance level (0–1); default 0.05 yields 95% prediction intervals",
+          "optional": true
+        }
+      ],
+      "yields": "6-element vertical array: [Point Estimate, SE Prediction, t Critical, Lower bound, Upper bound, Confidence Level]",
+      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using MINVERSE and MMULT without forming the full hat matrix."
     },
     {
       "name": "Observation_Num",

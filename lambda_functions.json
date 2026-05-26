@@ -306,6 +306,118 @@
       "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nLeverage is computed without forming the full n×n hat matrix: h = row-wise sum of (X_design * MMULT(X_design, MINVERSE(X'X))), giving an n×1 vector. Then SUMSQ(e / (1 - h)) gives PRESS as a scalar."
     },
     {
+      "name": "AIC",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + 2 * p\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "Akaike Information Criterion (AIC) scalar",
+      "description": "AIC = n·ln(SSR/n) + 2p, where p = number of regression parameters (predictors + intercept when Allow_Intercept is TRUE). Smaller values indicate better-fitting models; compare across models on the same dataset."
+    },
+    {
+      "name": "BIC",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + p * LN(n)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "Bayesian Information Criterion (BIC) scalar",
+      "description": "BIC = n·ln(SSR/n) + p·ln(n), where p = number of regression parameters. Applies a heavier penalty than AIC for additional parameters, favouring sparser models in large samples."
+    },
+    {
+      "name": "AICc",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "Corrected Akaike Information Criterion (AICc) scalar",
+      "description": "AICc = AIC + 2p(p+1)/(n−p−1). The small-sample correction reduces upward bias in AIC when n/p < 40. Converges to AIC as n → ∞."
+    },
+    {
+      "name": "QQ_Correlation",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    sr,        Scaled_Residuals_Ranked(X_filt, Y_filt, allow_arg),\n    ns,        Normal_Scores(Y_filt),\n    CORREL(sr, ns)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "Filliben Q-Q correlation coefficient (normality statistic) scalar",
+      "description": "CORREL(Scaled_Residuals_Ranked, Normal_Scores) — the Filliben approximation to the Shapiro-Wilk statistic. Values near 1 indicate approximately normal residuals; values below ~0.99 suggest non-normality. The Q-Q plot is the corresponding visual: plot Normal_Scores (x) vs Scaled_Residuals_Ranked (y) and look for alignment with the identity line."
+    },
+    {
       "name": "Coefficients",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
@@ -705,65 +817,204 @@
       "description": "Residual divided by SE_Regression. This is not Excel Analysis ToolPak 'Standard Residuals' and is not leverage-adjusted/studentized."
     },
     {
-      "name": "nth_row",
+      "name": "This_row",
+      "test_table": null,
       "number_format": "0",
-      "formula_display": "=LAMBDA(x_s,\n  SEQUENCE(ROWS(x_s))\n)",
+      "formula_display": "=LAMBDA(array,\n  SEQUENCE(ROWS(array))\n)",
       "arguments": [
         {
-          "name": "x_s",
-          "description": "any matrix whose row count is needed"
+          "name": "array",
+          "description": "any contiguous array (including one that has already been filtered)"
         }
       ],
-      "yields": "1..n row-index vector as a spilled column",
-      "description": "Returns SEQUENCE(ROWS(x_s)), producing the integer row indices 1 through n. Used as the n argument to Exclude_nth_row inside LOOCV_prediction."
+      "yields": "1..n column vector of relative row numbers",
+      "description": "Returns a 1-based integer sequence 1, 2, …, n where n = ROWS(array). The row numbers are relative to the top of the supplied array, so they are stable regardless of where the array sits on the sheet or whether it has been pre-filtered by the caller.\n\nDesigned to be passed to CHOOSEROWS or used as a comparison mask inside FILTER; see Exclude_row_n for the canonical usage."
     },
     {
-      "name": "Exclude_nth_row",
+      "name": "Exclude_row_n",
+      "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(x_s, y, n,\n  LET(\n    mask, SEQUENCE(ROWS(x_s)) <> n,\n    HSTACK(FILTER(x_s, mask), FILTER(y, mask))\n  )\n)",
+      "formula_display": "=LAMBDA(array, n,\n  LET(\n    total_rows, ROWS(array),\n    n_abs,      IF(n < 0, total_rows + n + 1, n),\n    IF(\n      OR(n_abs < 1, n_abs > total_rows),\n      NA(),\n      LET(\n        rows, SEQUENCE(total_rows),\n        CHOOSEROWS(array, FILTER(rows, rows <> n_abs))\n      )\n    )\n  )\n)",
       "arguments": [
         {
-          "name": "x_s",
-          "description": "predictor matrix"
-        },
-        {
-          "name": "y",
-          "description": "response column vector"
+          "name": "array",
+          "description": "any contiguous array to drop a row from"
         },
         {
           "name": "n",
-          "description": "1-based row index to exclude"
+          "description": "1-based row to exclude; negative values count from the end (−1 = last row)"
         }
       ],
-      "yields": "HSTACK of (x_s | y) with row n removed — shape (ROWS(x_s)-1) × (COLUMNS(x_s)+1)",
-      "description": "Removes row n from x_s and y and returns them concatenated side-by-side. Used inside LOOCV_prediction to assemble the leave-one-out training dataset for each observation."
+      "yields": "array with row n removed; NA() if n is out of bounds",
+      "description": "Returns the input array with exactly one row removed. Positive n selects from the top (1 = first row); negative n selects from the bottom (−1 = last row, −2 = second-to-last, …). Returns NA() when the resolved index is less than 1 or greater than ROWS(array).\n\nImplemented as CHOOSEROWS(array, FILTER(SEQUENCE(total_rows), SEQUENCE(total_rows) <> n_abs)): SEQUENCE produces the full index 1..n, FILTER removes the target index, and CHOOSEROWS reassembles the array without that row."
     },
     {
-      "name": "LOOCV_prediction",
+      "name": "LOO_prediction",
+      "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(x_s, y, [allow_intercept], [fil],\n  LET(\n    allow_arg, IF(ISOMITTED(allow_intercept), TRUE, allow_intercept),\n    filt_arg,  IF(ISOMITTED(fil), TRUE, fil),\n    x_f, FILTER(x_s, filt_arg),\n    y_f, FILTER(y,   filt_arg),\n    n,   ROWS(x_f),\n    k,   COLUMNS(x_f),\n    MAKEARRAY(n, 1, LAMBDA(i, dummy,\n      LET(\n        excl,  Exclude_nth_row(x_f, y_f, i),\n        x_e,   INDEX(excl, SEQUENCE(n - 1), SEQUENCE(1, k)),\n        y_e,   INDEX(excl, SEQUENCE(n - 1), k + 1),\n        fil_e, SEQUENCE(n - 1) > 0,\n        coefs, Coefficients(x_e, y_e, allow_arg, fil_e),\n        x_i,   INDEX(x_f, i, SEQUENCE(1, k)),\n        IF(allow_arg,\n          INDEX(coefs, 1) + SUMPRODUCT(TRANSPOSE(INDEX(coefs, SEQUENCE(k, 1, 2), 1)), x_i),\n          SUMPRODUCT(TRANSPOSE(coefs), x_i)\n        )\n      )\n    ))\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_row_n(X_filt, n),\n    Y_loo,     Exclude_row_n(Y_filt, n),\n    x_n,       Design_Matrix(CHOOSEROWS(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
       "arguments": [
         {
-          "name": "x_s",
-          "description": "column range of predictors"
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
         },
         {
-          "name": "y",
+          "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "allow_intercept",
+          "name": "n",
+          "description": "relative row index of the observation to predict (1-based within the filtered dataset; negative values count from the end)"
+        },
+        {
+          "name": "Allow_Intercept",
           "description": "TRUE/FALSE — fit intercept? Default TRUE",
           "optional": true
         },
         {
-          "name": "fil",
+          "name": "Filter",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
       ],
-      "yields": "n-element vector of leave-one-out predicted values",
-      "description": "For each filtered observation i, refits the model on all other observations via Exclude_nth_row, then predicts for observation i. Implemented with MAKEARRAY so each element is an independent OLS fit — expect slow recalculation on large datasets."
+      "yields": "scalar LOO prediction for observation n — the fitted value from a model trained on all rows except n, evaluated at row n of X_s",
+      "description": "Applies the filter once in the outer scope to produce X_filt and Y_filt, then delegates to inner LAMBDAs without re-passing the filter. Exclude_row_n removes observation n from both X and Y; Coefficients fits OLS on the remaining n−1 rows; Design_Matrix builds the single-row design vector for row n (with or without intercept column); MMULT computes the dot product.\n\nNote: for n LOO predictions at once use LOOCV_prediction, which avoids n separate OLS fits via the hat-matrix shortcut."
+    },
+    {
+      "name": "LOOCV_prediction",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    yhat,      Predictions(X_filt, Y_filt, allow_arg),\n    e,         Y_filt - yhat,\n    X_design,  Design_Matrix(X_filt, allow_arg),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    p,         COLUMNS(X_design),\n    h,         MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0)),\n    yhat - h * e / (1 - h)\n  )\n)",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n-element spill vector of LOO predictions for every filtered observation",
+      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal computed as the row-wise sum of (X_design ⊙ X_design(X′X)⁻¹).\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS. Filter is applied once in the outer scope; Predictions and Design_Matrix are called on the pre-filtered arrays without re-passing a filter argument."
+    },
+    {
+      "name": "Hat_diagonal",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    X_design,  Design_Matrix(X_filt, allow_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n-element hat-matrix diagonal (leverage values) as spilled vector",
+      "description": "Returns h_i = x_iᵀ(XᵀX)⁻¹x_i for each observation. Values range from p/n (minimum leverage, uniform design) to 1. Observations with h_i > 2p/n are conventionally flagged as high-leverage. Used internally by Studentized_Residuals and Cooks_Distance; exposed here for direct inspection."
+    },
+    {
+      "name": "Studentized_Residuals",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    e,         Residuals(X_filt, Y_filt, allow_arg),\n    se,        SE_Regression(X_filt, Y_filt, allow_arg),\n    h,         Hat_diagonal(X_filt, allow_arg),\n    e / (se * SQRT(1 - h))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n-element vector of internally studentized residuals",
+      "description": "r_i = e_i / (s√(1−h_i)), the leverage-adjusted scaled residual. Unlike Scaled_Residuals (which divides by s only), studentized residuals have equal variance under the normal model and are more sensitive to outliers in high-leverage regions. Values beyond ±2 or ±3 indicate potential outliers."
+    },
+    {
+      "name": "Studentized_Residuals_Ranked",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    SORT(Studentized_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "sorted studentized residuals as spilled vector",
+      "description": "Ascending sort of Studentized_Residuals. Paired with Normal_Scores gives a leverage-corrected Q-Q plot; paired with Percentile gives a cumulative distribution plot."
+    },
+    {
+      "name": "Cooks_Distance",
+      "test_table": "MLR_Observation_Test",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    r,         Studentized_Residuals(X_filt, Y_filt, allow_arg),\n    h,         Hat_diagonal(X_filt, allow_arg),\n    p,         COLUMNS(Design_Matrix(X_filt, allow_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n-element vector of Cook’s distances",
+      "description": "D_i = r_i² · h_i / ((1−h_i)·p) where r_i is the internally studentized residual, h_i the hat-matrix diagonal, and p the number of regression parameters. Combines outlier signal (r_i) with leverage (h_i) into a single influence measure. Observations with D_i > 4/n or D_i > 1 are conventionally flagged as influential."
     },
     {
       "name": "Scaled_Residuals_Ranked",

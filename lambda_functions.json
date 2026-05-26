@@ -487,7 +487,7 @@
       "name": "Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Filter], [Alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,     IF(ISOMITTED(Alpha),           0.05, Alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX,           MMULT(TRANSPOSE(X_design), X_design),\n    XtX_inv,       MINVERSE(XtX),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Filter], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX,           MMULT(TRANSPOSE(X_design), X_design),\n    XtX_inv,       MINVERSE(XtX),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -512,13 +512,13 @@
           "optional": true
         },
         {
-          "name": "Alpha",
+          "name": "alpha",
           "description": "significance level (0–1); default 0.05 yields 95% prediction intervals",
           "optional": true
         }
       ],
       "yields": "6-element vertical array: [Point Estimate, SE Prediction, t Critical, Lower bound, Upper bound, Confidence Level]",
-      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at Alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − Alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using MINVERSE and MMULT without forming the full hat matrix."
+      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using MINVERSE and MMULT without forming the full hat matrix."
     },
     {
       "name": "Observation_Num",

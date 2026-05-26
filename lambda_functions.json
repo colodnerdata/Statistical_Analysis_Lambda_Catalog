@@ -834,7 +834,7 @@
       "name": "Exclude_row_n",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(array, n,\n  LET(\n    total_rows, ROWS(array),\n    n_abs,      IF(n < 0, total_rows + n + 1, n),\n    IF(\n      OR(n_abs < 1, n_abs > total_rows),\n      NA(),\n      LET(\n        rows, This_row(array),\n        CHOOSEROWS(array, FILTER(rows, rows <> n_abs))\n      )\n    )\n  )\n)",
+      "formula_display": "=LAMBDA(array, n,\n  LET(\n    total_rows, ROWS(array),\n    n_abs,      IF(n < 0, total_rows + n + 1, n),\n    IF(\n      OR(n_abs < 1, n_abs > total_rows),\n      NA(),\n      LET(\n        rows, SEQUENCE(total_rows),\n        CHOOSEROWS(array, FILTER(rows, rows <> n_abs))\n      )\n    )\n  )\n)",
       "arguments": [
         {
           "name": "array",
@@ -846,13 +846,13 @@
         }
       ],
       "yields": "array with row n removed; NA() if n is out of bounds",
-      "description": "Returns the input array with exactly one row removed. Positive n selects from the top (1 = first row); negative n selects from the bottom (−1 = last row, −2 = second-to-last, …). Returns NA() when the resolved index is less than 1 or greater than ROWS(array).\n\nImplemented as CHOOSEROWS(array, FILTER(This_row(array), This_row(array) <> n_abs)): This_row produces the full index 1..n, FILTER removes the target index, and CHOOSEROWS reassembles the array without that row."
+      "description": "Returns the input array with exactly one row removed. Positive n selects from the top (1 = first row); negative n selects from the bottom (−1 = last row, −2 = second-to-last, …). Returns NA() when the resolved index is less than 1 or greater than ROWS(array).\n\nImplemented as CHOOSEROWS(array, FILTER(SEQUENCE(total_rows), SEQUENCE(total_rows) <> n_abs)): SEQUENCE produces the full index 1..n, FILTER removes the target index, and CHOOSEROWS reassembles the array without that row."
     },
     {
       "name": "LOO_prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_row_n(X_filt, n),\n    Y_loo,     Exclude_row_n(Y_filt, n),\n    x_n,       Design_Matrix(INDEX(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_row_n(X_filt, n),\n    Y_loo,     Exclude_row_n(Y_filt, n),\n    x_n,       Design_Matrix(CHOOSEROWS(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
       "arguments": [
         {
           "name": "X_s",

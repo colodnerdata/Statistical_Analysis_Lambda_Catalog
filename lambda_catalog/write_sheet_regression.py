@@ -60,6 +60,10 @@ _C_Q = 17   # residual: Y ranked
 _C_R = 18   # residual: normal scores
 _C_S = 19   # residual: scaled residuals
 _C_T = 20   # residual: scaled residuals ranked
+_C_U = 21   # residual: hat diagonal
+_C_V = 22   # residual: studentized residuals
+_C_W = 23   # residual: studentized residuals ranked
+_C_X = 24   # residual: Cook's distance
 
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
@@ -165,9 +169,13 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     _v(sheet, 3, _C_F, "DIAGNOSTICS")
     _bold(sheet, 3, _C_F)
     for row, label, formula in [
-        (4, "PRESS",          "=PRESS(x_s,y,Allow_Intercept,fil)"),
-        (5, "PRESS R²",  "=1-PRESS(x_s,y,Allow_Intercept,fil)/SS_Total(y,Allow_Intercept,fil)"),
-        (6, "Mean Leverage",  "=(DF_Regression(x_s)+IF(Allow_Intercept,1,0))/Observations(y,fil)"),
+        (4,  "PRESS",          "=PRESS(x_s,y,Allow_Intercept,fil)"),
+        (5,  "PRESS R²",       "=1-PRESS(x_s,y,Allow_Intercept,fil)/SS_Total(y,Allow_Intercept,fil)"),
+        (6,  "Mean Leverage",  "=(DF_Regression(x_s)+IF(Allow_Intercept,1,0))/Observations(y,fil)"),
+        (7,  "AIC",            "=AIC(x_s,y,Allow_Intercept,fil)"),
+        (8,  "BIC",            "=BIC(x_s,y,Allow_Intercept,fil)"),
+        (9,  "AICc",           "=AICc(x_s,y,Allow_Intercept,fil)"),
+        (10, "QQ Correlation", "=QQ_Correlation(x_s,y,Allow_Intercept,fil)"),
     ]:
         _v(sheet, row, _C_F, label)
         _f(sheet, row, _C_G, formula)
@@ -257,15 +265,17 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _bold(sheet, 1, _C_L)
 
     for col, header in zip(
-        [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q, _C_R, _C_S, _C_T],
+        [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q, _C_R, _C_S, _C_T, _C_U, _C_V, _C_W, _C_X],
         [
             "Observation", "Predicted Y", "Residuals", "LOOCV Prediction",
             "Percentile", "Y Ranked", "Normal Scores",
             "Scaled Residuals", "Scaled Residuals Ranked",
+            "Hat Diagonal", "Studentized Residuals", "Studentized Residuals Ranked",
+            "Cook's Distance",
         ],
     ):
         _v(sheet, 2, col, header)
-    _bold_row(sheet, 2, _C_L, _C_T)
+    _bold_row(sheet, 2, _C_L, _C_X)
 
     # Spill anchors — each spills n rows downward
     _f(sheet, 3, _C_L, "=SEQUENCE(Observations(y,fil))")
@@ -277,6 +287,10 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _f(sheet, 3, _C_R, "=Normal_Scores(y,fil)")
     _f(sheet, 3, _C_S, "=Scaled_Residuals(x_s,y,Allow_Intercept,fil)")
     _f(sheet, 3, _C_T, "=Scaled_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_U, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_V, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_W, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_X, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -318,6 +332,7 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
         "F": 16, "G": 14, "H": 16, "I": 22, "J": 14,
         "K": 3,  "L": 14, "M": 14, "N": 12, "O": 18,
         "P": 12, "Q": 12, "R": 14, "S": 16, "T": 22,
+        "U": 14, "V": 22, "W": 26, "X": 14,
     }.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
 

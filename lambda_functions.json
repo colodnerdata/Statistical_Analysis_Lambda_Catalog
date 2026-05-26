@@ -705,65 +705,96 @@
       "description": "Residual divided by SE_Regression. This is not Excel Analysis ToolPak 'Standard Residuals' and is not leverage-adjusted/studentized."
     },
     {
-      "name": "nth_row",
+      "name": "This_row",
+      "test_table": null,
       "number_format": "0",
-      "formula_display": "=LAMBDA(x_s,\n  SEQUENCE(ROWS(x_s))\n)",
+      "formula_display": "=LAMBDA(array,\n  SEQUENCE(ROWS(array))\n)",
       "arguments": [
         {
-          "name": "x_s",
-          "description": "any matrix whose row count is needed"
+          "name": "array",
+          "description": "any contiguous array (including one that has already been filtered)"
         }
       ],
-      "yields": "1..n row-index vector as a spilled column",
-      "description": "Returns SEQUENCE(ROWS(x_s)), producing the integer row indices 1 through n. Used as the n argument to Exclude_nth_row inside LOOCV_prediction."
+      "yields": "1..n column vector of relative row numbers",
+      "description": "Returns a 1-based integer sequence 1, 2, …, n where n = ROWS(array). The row numbers are relative to the top of the supplied array, so they are stable regardless of where the array sits on the sheet or whether it has been pre-filtered by the caller.\n\nDesigned to be passed to CHOOSEROWS or used as a comparison mask inside FILTER; see Exclude_row_n for the canonical usage."
     },
     {
-      "name": "Exclude_nth_row",
+      "name": "Exclude_row_n",
+      "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(x_s, y, n,\n  LET(\n    mask, SEQUENCE(ROWS(x_s)) <> n,\n    HSTACK(FILTER(x_s, mask), FILTER(y, mask))\n  )\n)",
+      "formula_display": "=LAMBDA(array, n,\n  LET(\n    total_rows, ROWS(array),\n    n_abs,      IF(n < 0, total_rows + n + 1, n),\n    IF(\n      OR(n_abs < 1, n_abs > total_rows),\n      NA(),\n      LET(\n        rows, This_row(array),\n        CHOOSEROWS(array, FILTER(rows, rows <> n_abs))\n      )\n    )\n  )\n)",
       "arguments": [
         {
-          "name": "x_s",
-          "description": "predictor matrix"
-        },
-        {
-          "name": "y",
-          "description": "response column vector"
+          "name": "array",
+          "description": "any contiguous array to drop a row from"
         },
         {
           "name": "n",
-          "description": "1-based row index to exclude"
+          "description": "1-based row to exclude; negative values count from the end (−1 = last row)"
         }
       ],
-      "yields": "HSTACK of (x_s | y) with row n removed — shape (ROWS(x_s)-1) × (COLUMNS(x_s)+1)",
-      "description": "Removes row n from x_s and y and returns them concatenated side-by-side. Used inside LOOCV_prediction to assemble the leave-one-out training dataset for each observation."
+      "yields": "array with row n removed; NA() if n is out of bounds",
+      "description": "Returns the input array with exactly one row removed. Positive n selects from the top (1 = first row); negative n selects from the bottom (−1 = last row, −2 = second-to-last, …). Returns NA() when the resolved index is less than 1 or greater than ROWS(array).\n\nImplemented as CHOOSEROWS(array, FILTER(This_row(array), This_row(array) <> n_abs)): This_row produces the full index 1..n, FILTER removes the target index, and CHOOSEROWS reassembles the array without that row."
     },
     {
-      "name": "LOOCV_prediction",
+      "name": "LOO_prediction",
+      "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(x_s, y, [allow_intercept], [fil],\n  LET(\n    allow_arg, IF(ISOMITTED(allow_intercept), TRUE, allow_intercept),\n    filt_arg,  IF(ISOMITTED(fil), TRUE, fil),\n    x_f, FILTER(x_s, filt_arg),\n    y_f, FILTER(y,   filt_arg),\n    n,   ROWS(x_f),\n    k,   COLUMNS(x_f),\n    MAKEARRAY(n, 1, LAMBDA(i, dummy,\n      LET(\n        excl,  Exclude_nth_row(x_f, y_f, i),\n        x_e,   INDEX(excl, SEQUENCE(n - 1), SEQUENCE(1, k)),\n        y_e,   INDEX(excl, SEQUENCE(n - 1), k + 1),\n        fil_e, SEQUENCE(n - 1) > 0,\n        coefs, Coefficients(x_e, y_e, allow_arg, fil_e),\n        x_i,   INDEX(x_f, i, SEQUENCE(1, k)),\n        IF(allow_arg,\n          INDEX(coefs, 1) + SUMPRODUCT(TRANSPOSE(INDEX(coefs, SEQUENCE(k, 1, 2), 1)), x_i),\n          SUMPRODUCT(TRANSPOSE(coefs), x_i)\n        )\n      )\n    ))\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_row_n(X_filt, n),\n    Y_loo,     Exclude_row_n(Y_filt, n),\n    x_n,       Design_Matrix(INDEX(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
       "arguments": [
         {
-          "name": "x_s",
-          "description": "column range of predictors"
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
         },
         {
-          "name": "y",
+          "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "allow_intercept",
+          "name": "n",
+          "description": "relative row index of the observation to predict (1-based within the filtered dataset; negative values count from the end)"
+        },
+        {
+          "name": "Allow_Intercept",
           "description": "TRUE/FALSE — fit intercept? Default TRUE",
           "optional": true
         },
         {
-          "name": "fil",
+          "name": "Filter",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
       ],
-      "yields": "n-element vector of leave-one-out predicted values",
-      "description": "For each filtered observation i, refits the model on all other observations via Exclude_nth_row, then predicts for observation i. Implemented with MAKEARRAY so each element is an independent OLS fit — expect slow recalculation on large datasets."
+      "yields": "scalar LOO prediction for observation n — the fitted value from a model trained on all rows except n, evaluated at row n of X_s",
+      "description": "Applies the filter once in the outer scope to produce X_filt and Y_filt, then delegates to inner LAMBDAs without re-passing the filter. Exclude_row_n removes observation n from both X and Y; Coefficients fits OLS on the remaining n−1 rows; Design_Matrix builds the single-row design vector for row n (with or without intercept column); MMULT computes the dot product.\n\nNote: for n LOO predictions at once use LOOCV_prediction, which avoids n separate OLS fits via the hat-matrix shortcut."
+    },
+    {
+      "name": "LOOCV_prediction",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    yhat,      Predictions(X_filt, Y_filt, allow_arg),\n    e,         Y_filt - yhat,\n    X_design,  Design_Matrix(X_filt, allow_arg),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    p,         COLUMNS(X_design),\n    h,         MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0)),\n    yhat - h * e / (1 - h)\n  )\n)",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n-element spill vector of LOO predictions for every filtered observation",
+      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal computed as the row-wise sum of (X_design ⊙ X_design(X′X)⁻¹).\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS. Filter is applied once in the outer scope; Predictions and Design_Matrix are called on the pre-filtered arrays without re-passing a filter argument."
     },
     {
       "name": "Scaled_Residuals_Ranked",

@@ -15,20 +15,6 @@ from statsmodels.regression.linear_model import (  # type: ignore[import-untyped
 )
 
 
-def _rank_avg(a: np.ndarray) -> np.ndarray:
-    """Return 1-based average ranks (ascending) matching Excel RANK.AVG(a, a, 1)."""
-    n = len(a)
-    sorter = np.argsort(a, kind='stable')
-    a_sorted = a[sorter]
-    obs = np.concatenate(([True], a_sorted[1:] != a_sorted[:-1]))
-    group_id = np.cumsum(obs) - 1
-    first_rank = np.where(obs)[0] + 1.0
-    group_sizes = np.diff(np.concatenate((np.where(obs)[0], [n])))
-    avg_rank_per_group = first_rank + (group_sizes - 1) / 2.0
-    result = np.empty(n, dtype=np.float64)
-    result[sorter] = avg_rank_per_group[group_id]
-    return result
-
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT_CSV = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
@@ -143,8 +129,10 @@ class RegressionObservationVectors:
     ----------
     observation_num : tuple[int, ...]
         1-based index of each filtered observation.
-    percentile : tuple[float, ...]
-        Plotting-position percentile ``(i - 0.5) / n``.
+    rank_fraction : tuple[float, ...]
+        Empirical CDF: fraction of filtered observations with value <= each
+        observation, i.e. ``count(filtered <= v) / n``.  Matches the
+        ``Rank_Fraction`` LAMBDA (SUMPRODUCT formula).
     y_ranked : tuple[float, ...]
         Sorted filtered response values.
     normal_scores : tuple[float, ...]
@@ -160,7 +148,7 @@ class RegressionObservationVectors:
     """
 
     observation_num: tuple[int, ...]
-    percentile: tuple[float, ...]
+    rank_fraction: tuple[float, ...]
     y_ranked: tuple[float, ...]
     normal_scores: tuple[float, ...]
     predictions: tuple[float, ...]
@@ -562,9 +550,12 @@ def calculate_regression_observation_vectors(
 
     n = len(y_train)
     observation_num = tuple(range(1, n + 1))
-    percentile_array = (_rank_avg(y_train) - 0.5) / n
+    sorted_y = np.sort(y_train)
+    count_leq = np.searchsorted(sorted_y, y_train, side='right')   # SUMPRODUCT(filtered<=v)
+    count_less = np.searchsorted(sorted_y, y_train, side='left')   # SUMPRODUCT(filtered<v)
+    rank_fraction_array = count_leq / n
     normal_dist = NormalDist()
-    normal_scores_array = np.array([normal_dist.inv_cdf(float(p)) for p in percentile_array])
+    normal_scores_array = np.array([normal_dist.inv_cdf(float((cl + 0.5) / n)) for cl in count_less])
     predictions = np.asarray(model.fittedvalues, dtype=np.float64)
     residuals = y_train - predictions
     se_regression = sqrt(float(model.mse_resid))
@@ -572,7 +563,7 @@ def calculate_regression_observation_vectors(
 
     return RegressionObservationVectors(
         observation_num=observation_num,
-        percentile=tuple(float(v) for v in percentile_array),
+        rank_fraction=tuple(float(v) for v in rank_fraction_array),
         y_ranked=tuple(float(v) for v in np.sort(y_train)),
         normal_scores=tuple(float(v) for v in normal_scores_array),
         predictions=tuple(float(v) for v in predictions),

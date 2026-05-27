@@ -13,7 +13,7 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
-from lxml import etree
+import lxml.etree as etree  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
 from lambda_catalog.lambda_formula_parser import to_workbook_xml_formula_from_display
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, excel_error_message, raise_excel_access_error
 from lambda_catalog.write_sheet_lambda_functions import load_catalog_entries, write_catalog_sheet
@@ -322,7 +322,7 @@ def sync_workbook_names(
                         name_element.set("name", definition.name)
                         name_element.text = definition.workbook_xml_formula_from_display
 
-                    xml_body = etree.tostring(workbook_root, encoding="unicode")
+                    xml_body = str(etree.tostring(workbook_root, encoding="unicode"))
                     data = (
                         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                         + xml_body
@@ -336,7 +336,7 @@ def sync_workbook_names(
                     for rel in rels_root.findall(f"{{{_RELS_NS}}}Relationship"):
                         if rel.get("Type") == _CALC_CHAIN_REL_TYPE:
                             rels_root.remove(rel)
-                    xml_body = etree.tostring(rels_root, encoding="unicode")
+                    xml_body = str(etree.tostring(rels_root, encoding="unicode"))
                     data = (
                         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                         + xml_body
@@ -345,9 +345,10 @@ def sync_workbook_names(
                 elif item.filename == "[Content_Types].xml":
                     ct_root = etree.fromstring(data)
                     for override in ct_root.findall(f"{{{_CT_NS}}}Override"):
-                        if override.get("PartName", "").lower() == "/xl/calcchain.xml":
+                        part_name = override.get("PartName") or ""
+                        if part_name.lower() == "/xl/calcchain.xml":
                             ct_root.remove(override)
-                    xml_body = etree.tostring(ct_root, encoding="unicode")
+                    xml_body = str(etree.tostring(ct_root, encoding="unicode"))
                     data = (
                         '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
                         + xml_body

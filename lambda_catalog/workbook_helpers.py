@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import NoReturn
 
 import pywintypes  # type: ignore[import-untyped]
 import xlwings as xw
@@ -33,7 +34,7 @@ def excel_error_message(exc: BaseException) -> str:
 
 def raise_excel_access_error(
     workbook_path: Path, action: str, exc: BaseException
-) -> None:
+) -> NoReturn:
     """Raise a RuntimeError describing why Excel could not access a workbook.
 
     Parameters

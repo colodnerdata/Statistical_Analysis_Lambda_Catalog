@@ -268,7 +268,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q, _C_R, _C_S, _C_T, _C_U, _C_V, _C_W, _C_X],
         [
             "Observation", "Predicted Y", "Residuals", "LOOCV Prediction",
-            "Percentile", "Y Ranked", "Normal Scores",
+            "Rank Fraction", "Y Ranked", "Normal Scores",
             "Scaled Residuals", "Scaled Residuals Ranked",
             "Hat Diagonal", "Studentized Residuals", "Studentized Residuals Ranked",
             "Cook's Distance",
@@ -282,7 +282,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _f(sheet, 3, _C_M, "=Predictions(x_s,y,Allow_Intercept,fil)")
     _f(sheet, 3, _C_N, "=Residuals(x_s,y,Allow_Intercept,fil)")
     _f(sheet, 3, _C_O, "=LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_P, "=Percentile(y,fil)")
+    _f(sheet, 3, _C_P, "=Rank_Fraction(y,fil)")
     _f(sheet, 3, _C_Q, "=Y_Ranked(y,fil)")
     _f(sheet, 3, _C_R, "=Normal_Scores(y,fil)")
     _f(sheet, 3, _C_S, "=Scaled_Residuals(x_s,y,Allow_Intercept,fil)")

@@ -57,7 +57,7 @@ _DF_VECTOR_COLS = [
 _DF_OBS_COLS = ["k", "allow_intercept", "row_idx", "stat_name", "expected", "excel_calc", "abs_diff", "first_digit_deviation"]
 _OBS_STATS = [
     "Observation_Num",
-    "Percentile",
+    "Rank_Fraction",
     "Y_Ranked",
     "Normal_Scores",
     "Predictions",
@@ -67,7 +67,7 @@ _OBS_STATS = [
 ]
 _OBS_STAT_FIELDS = [
     "observation_num",
-    "percentile",
+    "rank_fraction",
     "y_ranked",
     "normal_scores",
     "predictions",

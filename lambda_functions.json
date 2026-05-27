@@ -393,7 +393,7 @@
       "name": "QQ_Correlation",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    sr,        Scaled_Residuals_Ranked(X_filt, Y_filt, allow_arg),\n    ns,        Normal_Scores(Y_filt),\n    CORREL(sr, ns)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    sr,        Scaled_Residuals_Ranked(X_s, Y, allow_arg, filt_arg),\n    n,         ROWS(sr),\n    ns,        NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -652,10 +652,10 @@
       "description": "Spills 1..n, where n is the number of filtered observations."
     },
     {
-      "name": "Percentile",
+      "name": "Rank_Fraction",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)),\n    n,        ROWS(filtered),\n    (SEQUENCE(n) - 0.5) / n\n  ))",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)),\n    n,        ROWS(filtered),\n    BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered <= v) * 1))) / n\n  ))",
       "arguments": [
         {
           "name": "Y",
@@ -667,8 +667,8 @@
           "optional": true
         }
       ],
-      "yields": "plotting-position percentiles as a spilled vector",
-      "description": "Uses plotting position (i - 0.5) / n for filtered observations."
+      "yields": "empirical-CDF fractions as a spilled vector, in original data order",
+      "description": "Empirical CDF: fraction of filtered observations with value <= each observation. Equivalent to SUMPRODUCT((filtered<=v)*1)/n for each v. Output is in original data order."
     },
     {
       "name": "Y_Ranked",
@@ -693,7 +693,7 @@
       "name": "Normal_Scores",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  NORM.S.INV(Percentile(Y, IF(ISOMITTED(Filter), TRUE, Filter)))\n)",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)),\n    n,        ROWS(filtered),\n    NORM.S.INV(\n      (BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered < v) * 1))) + 0.5) / n\n    )\n  ))",
       "arguments": [
         {
           "name": "Y",
@@ -884,7 +884,7 @@
       "name": "LOOCV_prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    yhat,      Predictions(X_filt, Y_filt, allow_arg),\n    e,         Y_filt - yhat,\n    X_design,  Design_Matrix(X_filt, allow_arg),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    p,         COLUMNS(X_design),\n    h,         MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0)),\n    yhat - h * e / (1 - h)\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    yhat,      Predictions(X_s, Y, allow_arg, filt_arg),\n    e,         FILTER(Y, filt_arg) - yhat,\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    p,         COLUMNS(X_design),\n    h,         MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0)),\n    yhat - h * e / (1 - h)\n  )\n)",
       "arguments": [
         {
           "name": "X_s",
@@ -912,7 +912,7 @@
       "name": "Hat_diagonal",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    X_design,  Design_Matrix(X_filt, allow_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -936,7 +936,7 @@
       "name": "Studentized_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    e,         Residuals(X_filt, Y_filt, allow_arg),\n    se,        SE_Regression(X_filt, Y_filt, allow_arg),\n    h,         Hat_diagonal(X_filt, allow_arg),\n    e / (se * SQRT(1 - h))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    e / (se * SQRT(1 - h))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -992,7 +992,7 @@
       "name": "Cooks_Distance",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    r,         Studentized_Residuals(X_filt, Y_filt, allow_arg),\n    h,         Hat_diagonal(X_filt, allow_arg),\n    p,         COLUMNS(Design_Matrix(X_filt, allow_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    r,         Studentized_Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(Design_Matrix(X_s, allow_arg, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
       "arguments": [
         {
           "name": "X_s",

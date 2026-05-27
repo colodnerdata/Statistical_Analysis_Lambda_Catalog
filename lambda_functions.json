@@ -393,7 +393,7 @@
       "name": "QQ_Correlation",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    sr,        Scaled_Residuals_Ranked(X_filt, Y_filt, allow_arg),\n    ns,        Normal_Scores(Y_filt),\n    CORREL(sr, ns)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    sr,        Scaled_Residuals_Ranked(X_filt, Y_filt, allow_arg),\n    n,         ROWS(sr),\n    ns,        NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -655,7 +655,7 @@
       "name": "Percentile",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)),\n    n,        ROWS(filtered),\n    (SEQUENCE(n) - 0.5) / n\n  ))",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)),\n    n,        ROWS(filtered),\n    (RANK.AVG(filtered, filtered, 1) - 0.5) / n\n  ))",
       "arguments": [
         {
           "name": "Y",
@@ -667,8 +667,8 @@
           "optional": true
         }
       ],
-      "yields": "plotting-position percentiles as a spilled vector",
-      "description": "Uses plotting position (i - 0.5) / n for filtered observations."
+      "yields": "rank-based plotting-position percentiles as a spilled vector, in original data order",
+      "description": "Hazen plotting-position percentile for each observation: (RANK.AVG - 0.5) / n. Rank is computed within the filtered values; result is in original (unfiltered) data order."
     },
     {
       "name": "Y_Ranked",

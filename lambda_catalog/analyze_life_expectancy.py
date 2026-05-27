@@ -15,6 +15,21 @@ from statsmodels.regression.linear_model import (  # type: ignore[import-untyped
 )
 
 
+def _rank_avg(a: np.ndarray) -> np.ndarray:
+    """Return 1-based average ranks (ascending) matching Excel RANK.AVG(a, a, 1)."""
+    n = len(a)
+    sorter = np.argsort(a, kind='stable')
+    a_sorted = a[sorter]
+    obs = np.concatenate(([True], a_sorted[1:] != a_sorted[:-1]))
+    group_id = np.cumsum(obs) - 1
+    first_rank = np.where(obs)[0] + 1.0
+    group_sizes = np.diff(np.concatenate((np.where(obs)[0], [n])))
+    avg_rank_per_group = first_rank + (group_sizes - 1) / 2.0
+    result = np.empty(n, dtype=np.float64)
+    result[sorter] = avg_rank_per_group[group_id]
+    return result
+
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT_CSV = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
 DEFAULT_OUTPUT_CSV = ROOT_DIR / "Life Expectancy Predictions.csv"
@@ -547,7 +562,7 @@ def calculate_regression_observation_vectors(
 
     n = len(y_train)
     observation_num = tuple(range(1, n + 1))
-    percentile_array = (np.arange(1, n + 1, dtype=np.float64) - 0.5) / n
+    percentile_array = (_rank_avg(y_train) - 0.5) / n
     normal_dist = NormalDist()
     normal_scores_array = np.array([normal_dist.inv_cdf(float(p)) for p in percentile_array])
     predictions = np.asarray(model.fittedvalues, dtype=np.float64)

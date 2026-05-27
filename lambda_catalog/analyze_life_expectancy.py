@@ -10,6 +10,9 @@ from pathlib import Path
 
 import numpy as np
 import statsmodels.api as sm  # type: ignore[import-untyped]
+from statsmodels.regression.linear_model import (  # type: ignore[import-untyped]
+    RegressionResultsWrapper,
+)
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -339,7 +342,7 @@ def _build_training_arrays(
 
 def _fit_ols_model(
     x_train: np.ndarray, y_train: np.ndarray, _include_intercept: bool
-) -> sm.regression.linear_model.RegressionResults:
+) -> RegressionResultsWrapper:
     """Fit an OLS model using statsmodels.
 
     Parameters
@@ -354,7 +357,7 @@ def _fit_ols_model(
 
     Returns
     -------
-    statsmodels.regression.linear_model.RegressionResults
+    statsmodels.regression.linear_model.RegressionResultsWrapper
         Fitted OLS results object.
     """
     # intercept column already embedded by _build_training_arrays
@@ -496,7 +499,7 @@ def calculate_regression_vectors(
     else:
         term_names = tuple(columns)
 
-    ci_array = ci if hasattr(ci, "__array__") else ci.values
+    ci_array = np.asarray(ci, dtype=np.float64)
     ci_lower_vals = tuple(float(v) for v in ci_array[:, 0])
     ci_upper_vals = tuple(float(v) for v in ci_array[:, 1])
 

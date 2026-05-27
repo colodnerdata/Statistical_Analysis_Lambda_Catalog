@@ -79,7 +79,7 @@ def _write_section(
     vectors: RegressionVectors,
     first_data_row: int,
 ) -> None:
-    n_terms = len(vectors.coefficients)
+    len(vectors.coefficients)
     for term_idx, term_name in enumerate(vectors.term_names):
         sheet.range((first_data_row + term_idx, _TERM_COL)).value = term_name
     for stat_idx, (_, func_name, _, num_fmt) in enumerate(_STATS):

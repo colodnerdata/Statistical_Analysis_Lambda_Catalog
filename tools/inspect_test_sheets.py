@@ -13,7 +13,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
+import pandas as pd  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
 import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import DEFAULT_INPUT_CSV, RegressionVectors
@@ -131,11 +131,11 @@ def read_scalar_df(
     config_lookup: dict[tuple[int, bool], dict[str, float]] = {}
     for item in scalar_row_configs:
         row_vals = item[0]
-        expected_dict = item[1]
+        expected_values = item[1]
         k_val = row_vals.get("ind_vars")
         ai_val = bool(row_vals.get("Allow_Intercept"))
         if k_val is not None:
-            config_lookup[(int(k_val), ai_val)] = expected_dict
+            config_lookup[(int(k_val), ai_val)] = expected_values
 
     rows = []
     for row in data[1:]:
@@ -152,7 +152,9 @@ def read_scalar_df(
             else None
         )
 
-        expected_dict = config_lookup.get((k, allow_intercept), {}) if k is not None else {}
+        expected_dict: dict[str, float] = {}
+        if k is not None and allow_intercept is not None:
+            expected_dict = config_lookup.get((k, allow_intercept), {})
 
         for stat_name, calc_i in calc_cols.items():
             calc_val = row[calc_i] if calc_i < len(row) else None
@@ -244,7 +246,9 @@ def read_vector_df(
             term_offset = 0
             continue
 
-        vectors = config_lookup.get((section_k, section_intercept))
+        vectors = None
+        if section_intercept is not None:
+            vectors = config_lookup.get((section_k, section_intercept))
 
         for stat_idx, stat_name in enumerate(_STATS):
             calc_0 = calc_start_0 + stat_idx
@@ -300,13 +304,17 @@ def read_observation_df(workbook: xw.Book, observation_row_configs: list) -> pd.
         if isinstance(row[0] if row else None, str) and str(row[0]).startswith("k="):
             section_k = int(str(row[0]).split(",")[0].split("=")[1])
             section_intercept = "TRUE" in str(row[0]).upper()
-            vectors = lookup.get((section_k, section_intercept))
+            vectors = None
+            if section_intercept is not None:
+                vectors = lookup.get((section_k, section_intercept))
             section_n = len(vectors.observation_num) if vectors is not None else None
             row_offset = 0
             continue
         if section_k is None or not row or (section_n is not None and row_offset >= section_n):
             continue
-        vectors = lookup.get((section_k, section_intercept))
+        vectors = None
+        if section_intercept is not None:
+            vectors = lookup.get((section_k, section_intercept))
         for i, stat in enumerate(_OBS_STATS):
             calc_val = row[calc_start + i] if len(row) > calc_start + i else None
             calc_f = float(calc_val) if calc_val is not None else None

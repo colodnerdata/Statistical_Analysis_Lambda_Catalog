@@ -19,18 +19,26 @@ _ALPHA = 0.05
 
 _TERM_COL = 1
 _CALC_START_COL = 2
-_TOTAL_COLS = 7
+_TOTAL_COLS = 11  # 1 (term) + 8 (_STATS) + 2 (_VIF_STATS)
 
 _CI_FUNCS = frozenset({"CI_Lower", "CI_Upper"})
 
 _D = 3
 _STATS: list[tuple[str, str, int, str]] = [
-    ("Coefficients",    "Coefficients",    _D, f"0.{'0' * _D}"),
-    ("SE_Coefficients", "SE_Coefficients", _D, f"0.{'0' * _D}"),
-    ("T_Stats",         "T_Stats",         _D, f"0.{'0' * _D}"),
-    ("P_Values",        "P_Values",        _D, f"0.{'0' * _D}E+00"),
-    ("CI_Lower",        "CI_Lower",        _D, f"0.{'0' * _D}"),
-    ("CI_Upper",        "CI_Upper",        _D, f"0.{'0' * _D}"),
+    ("Coefficients",      "Coefficients",      _D, f"0.{'0' * _D}"),
+    ("SE_Coefficients",   "SE_Coefficients",   _D, f"0.{'0' * _D}"),
+    ("T_Stats",           "T_Stats",           _D, f"0.{'0' * _D}"),
+    ("P_Values",          "P_Values",          _D, f"0.{'0' * _D}E+00"),
+    ("CI_Lower",          "CI_Lower",          _D, f"0.{'0' * _D}"),
+    ("CI_Upper",          "CI_Upper",          _D, f"0.{'0' * _D}"),
+    ("Partial_R2",        "Partial_R2",        _D, f"0.{'0' * _D}"),
+    ("Partial_Corr",      "Partial_Correlation", _D, f"0.{'0' * _D}"),
+]
+
+# VIF / Tolerance: k rows only (no intercept row); formula omits Y argument.
+_VIF_STATS: list[tuple[str, str, str]] = [
+    ("VIF",       "VIF",       "0.000"),
+    ("Tolerance", "Tolerance", "0.000"),
 ]
 
 
@@ -57,6 +65,11 @@ def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
     return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},fil{extra}))"
 
 
+def _calc_vif_formula(k: int, allow_intercept: bool, func_name: str) -> str:
+    allow_arg = "TRUE" if allow_intercept else "FALSE"
+    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,{allow_arg},fil))"
+
+
 def build_mlr_vector_row_configs(
     csv_path: Path,
 ) -> list[tuple[int, bool, RegressionVectors]]:
@@ -79,7 +92,6 @@ def _write_section(
     vectors: RegressionVectors,
     first_data_row: int,
 ) -> None:
-    len(vectors.coefficients)
     for term_idx, term_name in enumerate(vectors.term_names):
         sheet.range((first_data_row + term_idx, _TERM_COL)).value = term_name
     for stat_idx, (_, func_name, _, num_fmt) in enumerate(_STATS):
@@ -88,6 +100,15 @@ def _write_section(
             _calc_formula(k, allow_intercept, func_name)
         )
         sheet.range((first_data_row, calc_col)).api.NumberFormat = num_fmt
+    # VIF / Tolerance return k values (no intercept row), so start one row lower when
+    # the model includes an intercept to align with the first predictor row.
+    vif_row = first_data_row + (1 if allow_intercept else 0)
+    for vif_idx, (_, func_name, num_fmt) in enumerate(_VIF_STATS):
+        calc_col = _CALC_START_COL + len(_STATS) + vif_idx
+        sheet.range((vif_row, calc_col)).api.Formula2 = (
+            _calc_vif_formula(k, allow_intercept, func_name)
+        )
+        sheet.range((vif_row, calc_col)).api.NumberFormat = num_fmt
 
 
 def write_mlr_vector_outputs_test_sheet(
@@ -113,6 +134,8 @@ def write_mlr_vector_outputs_test_sheet(
     sheet.range((header_row, _TERM_COL)).value = "Term"
     for i, (display_name, _, _, _) in enumerate(_STATS):
         sheet.range((header_row, _CALC_START_COL + i)).value = display_name
+    for j, (display_name, _, _) in enumerate(_VIF_STATS):
+        sheet.range((header_row, _CALC_START_COL + len(_STATS) + j)).value = display_name
 
     current_row = header_row + 1
 

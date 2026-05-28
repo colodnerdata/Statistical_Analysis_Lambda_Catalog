@@ -13,6 +13,7 @@ import statsmodels.api as sm  # type: ignore[import-untyped]
 from statsmodels.regression.linear_model import (  # type: ignore[import-untyped]
     RegressionResultsWrapper,
 )
+from statsmodels.stats.stattools import durbin_watson as _durbin_watson  # type: ignore[import-untyped]
 
 
 
@@ -105,6 +106,9 @@ class RegressionSummary:
     press : float
         PRESS (Prediction Residual Error Sum of Squares) — LOOCV shortcut
         Σ(eᵢ / (1 − hᵢ))² where hᵢ are hat-matrix diagonal leverages.
+    durbin_watson : float
+        Durbin-Watson statistic Σ(eₜ − eₜ₋₁)² / Σeₜ², testing first-order
+        serial correlation in residuals.
     """
 
     observations: int
@@ -119,6 +123,7 @@ class RegressionSummary:
     ss_regression: float
     se_regression: float
     press: float
+    durbin_watson: float
 
 
 @dataclass(frozen=True)
@@ -446,6 +451,8 @@ def calculate_regression_summary(
     e = np.asarray(model.resid, dtype=np.float64)
     press = float(np.sum((e / (1.0 - h)) ** 2))
 
+    dw = float(_durbin_watson(e))
+
     return RegressionSummary(
         observations=observations,
         df_regression=df_regression,
@@ -459,6 +466,7 @@ def calculate_regression_summary(
         ss_regression=ss_regression,
         se_regression=se_regression,
         press=press,
+        durbin_watson=dw,
     )
 
 

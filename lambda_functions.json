@@ -390,6 +390,34 @@
       "description": "AICc = AIC + 2p(p+1)/(n−p−1). The small-sample correction reduces upward bias in AIC when n/p < 40. Converges to AIC as n → ∞."
     },
     {
+      "name": "Durbin_Watson",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    SUM((DROP(e, 1) - DROP(e, -1))^2) / SUM(e^2)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "Durbin-Watson statistic as a scalar",
+      "description": "DW = Σ(eₜ − eₜ₋₁)² / Σeₜ², testing for first-order serial correlation in residuals. Values near 2 indicate no autocorrelation; values below ~1.5 suggest positive autocorrelation, values above ~2.5 suggest negative autocorrelation.\n\nComputed as SUM((DROP(e,1) − DROP(e,−1))²) / SUM(e²), where DROP(e,1) removes the first residual (giving e₂..eₙ) and DROP(e,−1) removes the last (giving e₁..eₙ₋₁), so consecutive differences are formed without OFFSET or index arithmetic."
+    },
+    {
       "name": "QQ_Correlation",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
@@ -594,6 +622,110 @@
       ],
       "yields": "vertical array of upper confidence interval bounds for each coefficient",
       "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...)."
+    },
+    {
+      "name": "Partial_R2",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    t,         T_Stats(X_s, Y, allow_arg, filt_arg),\n    df,        DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t^2 / (t^2 + df)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "vertical array of partial R² values — same order as Coefficients (intercept first when included)",
+      "description": "Partial R² for coefficient j = t²ⱼ / (t²ⱼ + df_residual), the proportion of residual variance explained by predictor j after controlling for all other predictors. Equivalently, it is the squared partial correlation between Y and Xⱼ given all other Xₛ.\n\nComputed as T_Stats² / (T_Stats² + DF_Residual), element-wise. The intercept row is included (row 1) for consistency with T_Stats and P_Values."
+    },
+    {
+      "name": "Partial_Correlation",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    t,         T_Stats(X_s, Y, allow_arg, filt_arg),\n    df,        DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t / SQRT(t^2 + df)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "vertical array of partial correlation coefficients — same order as Coefficients (intercept first when included)",
+      "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R2) × sign(t).\n\nComputed as T_Stats / SQRT(T_Stats² + DF_Residual), element-wise. Ranges from −1 to +1."
+    },
+    {
+      "name": "VIF",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    k,        COLUMNS(X_s),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_squared(\n            CHOOSECOLS(X_s, FILTER(col_idx, col_idx <> j)),\n            CHOOSECOLS(X_s, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — included for interface consistency; VIF always fits intercept in auxiliary regressions",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of VIF values, one per predictor (does not include an intercept row)",
+      "description": "Variance Inflation Factor for each predictor Xⱼ = 1 / (1 − R²ⱼ), where R²ⱼ is the R² from regressing Xⱼ on all other predictors. VIF measures how much the variance of coefficient j is inflated by multicollinearity. VIF = 1 means no collinearity; VIF > 10 (or > 5 by stricter convention) signals a problem.\n\nAuxiliary regressions always include an intercept regardless of the main model's Allow_Intercept setting (standard convention). When k = 1 the function returns 1 (no collinearity possible with a single predictor). Uses MAKEARRAY + FILTER to iterate over column indices without VBA or helper columns."
+    },
+    {
+      "name": "Tolerance",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  1 / VIF(X_s, Allow_Intercept, Filter)\n)",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — passed through to VIF; included for interface consistency",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of Tolerance values (= 1/VIF), one per predictor",
+      "description": "Tolerance = 1 − R²ⱼ = 1 / VIF, where R²ⱼ is the coefficient of determination from regressing Xⱼ on all other predictors. Values below 0.1 (VIF > 10) conventionally flag severe multicollinearity; values below 0.2 (VIF > 5) flag moderate concern.\n\nComputed as 1 / VIF(...), forwarding all arguments."
     },
     {
       "name": "Prediction_Interval",

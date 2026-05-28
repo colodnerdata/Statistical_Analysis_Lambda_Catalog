@@ -40,6 +40,9 @@ Thumbs.db
 # Excel generated temp files
 ~$*.xlsx
 
+# QC workbook (local dev only)
+Lambda_Library_QC.xlsx
+
 # Force-include the built workbook
 !Lambda_Library.xlsx
 

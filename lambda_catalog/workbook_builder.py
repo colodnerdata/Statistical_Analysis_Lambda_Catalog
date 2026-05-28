@@ -1,39 +1,21 @@
-"""Build Lambda_Library.xlsx from lambda_functions.json."""
+"""Shared LAMBDA definitions, name-syncing utilities, and workbook helpers."""
 from __future__ import annotations
 
-import argparse
 import json
 import os
 import re
-import subprocess
-import sys
 import tempfile
-import time
 import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
 import lxml.etree as etree  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
-from lambda_catalog.lambda_formula_parser import to_workbook_xml_formula_from_display
-from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, excel_error_message, raise_excel_access_error
-from lambda_catalog.write_sheet_lambda_functions import load_catalog_entries, write_catalog_sheet
-from lambda_catalog.write_sheet_life_expectancy_data import (
-    DEFAULT_CSV_PATH,
-    load_life_expectancy_rows,
-    write_life_expectancy_sheet,
-)
-from lambda_catalog.analysis_cache import get_analysis_results
-from lambda_catalog.write_sheet_mlr_scalar_test import write_mlr_scalar_test_sheet
-from lambda_catalog.write_sheet_mlr_observation_test import write_mlr_observation_test_sheet
-from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_outputs_test_sheet
-from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 import xlwings as xw
 
+from lambda_catalog.lambda_formula_parser import to_workbook_xml_formula_from_display
+from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, excel_error_message
 
-ROOT_DIR = Path(__file__).resolve().parent
-DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
-DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
-PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
+
 WORKBOOK_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 _CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
 _RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
@@ -259,6 +241,40 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
     return definitions
 
 
+def _defined_names_insert_index(workbook_root) -> int:
+    """Return the schema-safe insertion point for a definedNames element.
+
+    Parameters
+    ----------
+    workbook_root : lxml.etree._Element
+        The root element of workbook.xml.
+
+    Returns
+    -------
+    int
+        Index at which to insert the definedNames child element.
+    """
+    ordered_followers = {
+        "calcPr",
+        "oleSize",
+        "customWorkbookViews",
+        "pivotCaches",
+        "smartTagPr",
+        "smartTagTypes",
+        "webPublishing",
+        "fileRecoveryPr",
+        "webPublishObjects",
+        "extLst",
+    }
+
+    children = list(workbook_root)
+    for index, child in enumerate(children):
+        tag_name = child.tag.rsplit("}", 1)[-1]
+        if tag_name in ordered_followers:
+            return index
+    return len(children)
+
+
 def sync_workbook_names(
     workbook_path: Path, definitions: list[LambdaDefinition]
 ) -> NameSyncResult:
@@ -366,40 +382,6 @@ def sync_workbook_names(
     )
 
 
-def _defined_names_insert_index(workbook_root) -> int:
-    """Return the schema-safe insertion point for a definedNames element.
-
-    Parameters
-    ----------
-    workbook_root : lxml.etree._Element
-        The root element of workbook.xml.
-
-    Returns
-    -------
-    int
-        Index at which to insert the definedNames child element.
-    """
-    ordered_followers = {
-        "calcPr",
-        "oleSize",
-        "customWorkbookViews",
-        "pivotCaches",
-        "smartTagPr",
-        "smartTagTypes",
-        "webPublishing",
-        "fileRecoveryPr",
-        "webPublishObjects",
-        "extLst",
-    }
-
-    children = list(workbook_root)
-    for index, child in enumerate(children):
-        tag_name = child.tag.rsplit("}", 1)[-1]
-        if tag_name in ordered_followers:
-            return index
-    return len(children)
-
-
 def _validate_workbook_reopen(workbook_path: Path) -> None:
     """Reopen the saved workbook in Excel to confirm the patched package is valid.
 
@@ -424,49 +406,6 @@ def _validate_workbook_reopen(workbook_path: Path) -> None:
         ) from exc
 
 
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments for workbook generation and validation.
-
-    Returns
-    -------
-    argparse.Namespace
-        Parsed arguments with workbook, definitions, csv, and
-        validate_reopen attributes.
-    """
-    parser = argparse.ArgumentParser(
-        description="Build Lambda_Library.xlsx from lambda_functions.json."
-    )
-    parser.add_argument(
-        "--workbook",
-        type=Path,
-        default=DEFAULT_WORKBOOK_PATH,
-        help="Path to the workbook to create or update.",
-    )
-    parser.add_argument(
-        "--definitions",
-        type=Path,
-        default=DEFAULT_DEFINITIONS_PATH,
-        help="Path to the JSON file containing lambda definitions.",
-    )
-    parser.add_argument(
-        "--csv",
-        type=Path,
-        default=DEFAULT_CSV_PATH,
-        help="Path to the Life Expectancy CSV data file.",
-    )
-    parser.add_argument(
-        "--validate-reopen",
-        action="store_true",
-        help="Reopen the workbook after syncing names to verify Excel accepts the result.",
-    )
-    parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Print timing information for each build phase.",
-    )
-    return parser.parse_args()
-
-
 def _delete_sheet_if_present(workbook: xw.Book, sheet_name: str) -> None:
     """Delete a worksheet by name if it exists in the workbook.
 
@@ -481,219 +420,3 @@ def _delete_sheet_if_present(workbook: xw.Book, sheet_name: str) -> None:
         if sheet.name == sheet_name:
             sheet.delete()
             return
-
-
-
-def verify_test_sheets(
-    workbook: xw.Book,
-    scalar_row_configs: list,
-    vector_row_configs: list,
-    observation_row_configs: list,
-) -> None:
-    """Compare Excel Calc columns against Python-computed expected values in both MLR test sheets.
-
-    Forces a full recalculation on the open workbook, then reads each sheet's
-    Calc columns via inspect_test_sheets, compares them against expected values
-    derived from the supplied analysis configs (not from the sheet's (Exp.) columns),
-    and warns (without raising) for every value that diverges within the tolerance band.
-
-    Parameters
-    ----------
-    workbook : xw.Book
-        Open xlwings Book to inspect (must already be saved so formulas are
-        linked to the workbook-scoped defined names).
-    scalar_row_configs : list
-        Per-row configs from ``build_mlr_row_configs``; provides the Python-computed
-        expected scalar values used for comparison.
-    vector_row_configs : list
-        Per-section configs from ``build_mlr_vector_row_configs``; provides the
-        Python-computed expected coefficient vectors used for comparison.
-    """
-    import importlib.util
-
-    tool_path = ROOT_DIR / "tools" / "inspect_test_sheets.py"
-    spec = importlib.util.spec_from_file_location("inspect_test_sheets", tool_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Could not load inspect_test_sheets from {tool_path}")
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-
-    workbook.app.calculate()
-
-    scalar_df = mod.read_scalar_df(workbook, scalar_row_configs)
-    vector_df = mod.read_vector_df(workbook, vector_row_configs)
-    observation_df = mod.read_observation_df(workbook, observation_row_configs)
-    tol = mod.TOLERANCE_DECIMALS
-
-    for _, row in scalar_df.iterrows():
-        fdd = row["first_digit_deviation"]
-        if fdd is not None and fdd <= tol:
-            k = row["k"]
-            ai = row["allow_intercept"]
-            stat = row["stat_name"]
-            print(
-                f"WARNING [MLR_Scalar_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
-                f"stat={stat!r}: Calc vs Python-expected mismatch — first digit of deviation at "
-                f"decimal place {fdd} (tolerance={tol}). "
-                f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
-                f"abs_diff={row['abs_diff']!r}",
-                flush=True,
-            )
-
-    for _, row in vector_df.iterrows():
-        fdd = row["first_digit_deviation"]
-        if fdd is not None and fdd <= tol:
-            k = row["k"]
-            ai = row["allow_intercept"]
-            stat = row["stat_name"]
-            term = row["term_name"]
-            print(
-                f"WARNING [MLR_Vector_Outputs_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
-                f"stat={stat!r} term={term!r}: Calc vs Python-expected mismatch — first digit of deviation "
-                f"at decimal place {fdd} (tolerance={tol}). "
-                f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
-                f"abs_diff={row['abs_diff']!r}",
-                flush=True,
-            )
-    for _, row in observation_df.iterrows():
-        fdd = row["first_digit_deviation"]
-        if fdd is not None and fdd <= tol:
-            print(
-                f"WARNING [MLR_Observation_Test] k={row['k']} intercept={'TRUE' if row['allow_intercept'] else 'FALSE'} "
-                f"stat={row['stat_name']!r}: expected={row['expected']!r}, excel_calc={row['excel_calc']!r}",
-                flush=True,
-            )
-
-
-def build_lambda_library(
-    workbook_path: Path = DEFAULT_WORKBOOK_PATH,
-    definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
-    csv_path: Path = DEFAULT_CSV_PATH,
-    validate_reopen: bool = False,
-    verbose: bool = False,
-) -> NameSyncResult:
-    """Build all workbook assets, sync JSON-backed names, and optionally validate.
-
-    Parameters
-    ----------
-    workbook_path : Path, optional
-        Path to the workbook to create or update.
-    definitions_path : Path, optional
-        Path to the JSON catalog file.
-    csv_path : Path, optional
-        Path to the Life Expectancy CSV file.
-    validate_reopen : bool, optional
-        If True, reopens the workbook in Excel after patching to verify it.
-    verbose : bool, optional
-        If True, prints timing information for each build phase to stdout.
-
-    Returns
-    -------
-    NameSyncResult
-        Counts of created versus updated workbook names.
-    """
-    _t = time.monotonic()
-    definitions = load_lambda_definitions(definitions_path)
-    catalog_entries = load_catalog_entries(definitions_path)
-    row_configs, vector_row_configs, observation_row_configs = get_analysis_results(csv_path)
-    csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
-    if verbose:
-        print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
-
-    workbook_path = workbook_path.resolve()
-    workbook_exists = workbook_path.exists()
-
-    _t = time.monotonic()
-    try:
-        with xw.App(visible=True, add_book=False) as app:
-            if workbook_exists:
-                workbook = app.books.open(str(workbook_path))
-            else:
-                workbook = app.books.add()
-
-            try:
-                _delete_sheet_if_present(workbook, PREDICTIONS_SHEET_NAME)
-                if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
-                    workbook.sheets["Sheet1"].name = "LAMBDA_functions"
-                write_catalog_sheet(workbook, catalog_entries)
-                write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
-                write_regression_output_sheet(workbook)
-                write_mlr_scalar_test_sheet(
-                    workbook,
-                    definitions,
-                    row_configs,
-                )
-                write_mlr_vector_outputs_test_sheet(
-                    workbook,
-                    vector_row_configs,
-                )
-                write_mlr_observation_test_sheet(workbook, observation_row_configs)
-                app.api.Calculation = XL_CALCULATION_AUTOMATIC
-                workbook.save(str(workbook_path))
-                verify_test_sheets(workbook, row_configs, vector_row_configs, observation_row_configs)
-            finally:
-                workbook.close()
-    except OPEN_WORKBOOK_ERRORS as exc:
-        raise_excel_access_error(workbook_path, "open or save", exc)
-    if verbose:
-        print(f"  Write sheets:   {time.monotonic() - _t:.1f}s", flush=True)
-
-    _t = time.monotonic()
-    try:
-        result = sync_workbook_names(workbook_path, definitions)
-    except OPEN_WORKBOOK_ERRORS as exc:
-        raise_excel_access_error(workbook_path, "update", exc)
-    except (PermissionError, OSError) as exc:
-        raise_excel_access_error(workbook_path, "update", exc)
-    if verbose:
-        print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
-
-    if validate_reopen:
-        _validate_workbook_reopen(workbook_path)
-
-    return result
-
-
-def main() -> None:
-    """Build the workbook and print a short sync summary for interactive use."""
-    args = parse_args()
-    while True:
-        try:
-            result = build_lambda_library(
-                workbook_path=args.workbook,
-                definitions_path=args.definitions,
-                csv_path=args.csv,
-                validate_reopen=args.validate_reopen,
-                verbose=args.verbose,
-            )
-            break
-        except RuntimeError as exc:
-            if "likely open in Excel" in str(exc):
-                if not sys.stdin.isatty():
-                    raise
-                prompt = (
-                    f"\n{args.workbook.name} is open in Excel — close it "
-                    "and press Enter to retry (or Ctrl+C to cancel): "
-                )
-                input(prompt)
-            else:
-                raise
-
-    print(f"Workbook: {args.workbook.resolve()}")
-    print("Sheet updated: MLR_Scalar_Test")
-    print("Sheet updated: MLR_Vector_Outputs_Test")
-    print("Sheet updated: MLR_Observation_Test")
-    print("Sheet updated: LAMBDA_functions")
-    print("Sheet updated: Life Expectancy Data")
-    print("Sheet updated: Regression")
-    print(f"Created names: {result.created}")
-    print(f"Updated names: {result.updated}")
-    print("Invalid entries: 0")
-    if args.validate_reopen:
-        print("Reopen validation: passed")
-
-    subprocess.Popen(["cmd", "/c", "start", "", str(args.workbook.resolve())])
-
-
-if __name__ == "__main__":
-    main()

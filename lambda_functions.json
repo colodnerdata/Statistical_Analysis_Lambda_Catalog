@@ -1043,6 +1043,43 @@
       ],
       "yields": "sorted scaled residuals as spilled vector",
       "description": "Sorted Scaled_Residuals, intended for plotting against Normal_Scores."
+    },
+    {
+      "name": "Col_Select",
+      "test_table": null,
+      "number_format": "General",
+      "formula_display": "=LAMBDA(table, col_nums,\n  CHOOSECOLS(table, col_nums)\n)",
+      "arguments": [
+        {
+          "name": "table",
+          "description": "source range or table body (multi-column)"
+        },
+        {
+          "name": "col_nums",
+          "description": "horizontal array of 1-based column numbers, e.g. {1,3,5}; negative indices count from the right"
+        }
+      ],
+      "yields": "array of the selected columns in the specified order",
+      "description": "Wraps CHOOSECOLS to give column selection a named, self-documenting form. The output is a calculated array with the same row count as the source table, valid as X_s in any library function.\n\nPrimary use: define a named range — e.g. X_Predictors = Col_Select(LifeData, {3,7,9}) — then pass that name as X_s. Non-contiguous column sets are fully supported. Combine with Complete_Cases_Filter to drop rows that have missing or non-numeric values in the chosen columns."
+    },
+    {
+      "name": "Complete_Cases_Filter",
+      "test_table": null,
+      "number_format": "General",
+      "formula_display": "=LAMBDA(X_s, [Y],\n  LET(\n    combined, IF(ISOMITTED(Y), X_s, HSTACK(X_s, Y)),\n    MMULT((ISNUMBER(combined)) * 1, SEQUENCE(COLUMNS(combined), 1, 1, 0)) = COLUMNS(combined)\n  )\n)",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column), or a Col_Select result"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range; when supplied, rows where Y is also non-numeric are excluded",
+          "optional": true
+        }
+      ],
+      "yields": "boolean column vector — TRUE for rows where every included column is numeric",
+      "description": "Produces a ready-made Filter argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))"
     }
   ]
 }

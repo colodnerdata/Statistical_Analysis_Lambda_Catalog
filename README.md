@@ -1,97 +1,119 @@
-# Statistical_Analysis_Lambda_Catalog
+# Statistical Analysis Lambda Catalog
 
-Reproduce Analysis ToolPak-style statistics with workbook-scoped Excel LAMBDA functions.
+Excel 365 LAMBDA functions that replicate and extend Analysis ToolPak regression statistics — no VBA, no add-ins, no installation. Download `Lambda_Library.xlsx`, open it in Excel, and all functions are immediately available in formulas.
 
-## Build the workbook
+## Getting started
 
-Run `build_lambda_library.py` to open or create `Lambda_Library.xlsx`, sync the workbook Name Manager entries from `lambda_functions.json`, and write all worksheets.
+1. Download `Lambda_Library.xlsx` from this repository.
+2. Open it in Excel 365 (Windows or Mac).
+3. Enter your data in columns on any sheet, then call any function by name.
 
-The script:
-- creates `Lambda_Library.xlsx` if it does not exist, or opens it if it does
-- converts each JSON `formula_display` value into workbook XML syntax and writes workbook-scoped LAMBDA names to the Name Manager
-- writes four worksheets: `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `LAMBDA_functions`, and `Life Expectancy Data`
-- uses a disk cache (`.analysis_cache.json`) to skip recomputing OLS expected values when the input CSV has not changed
+All functions are defined as workbook-scoped names, so they work in any cell formula within the workbook. The **Regression** sheet provides a ready-to-use analysis interface: select your predictor and outcome columns, and it computes the full regression output automatically. The **LAMBDA_functions** sheet is a browsable catalog of every function with its full description and argument documentation.
 
-This script requires desktop Excel because it uses `xlwings`.
+To use these functions in a different workbook, open both files in Excel at the same time. You can reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
 
-```powershell
-python build_lambda_library.py
-```
+## Common function signature
 
-Use `--validate-reopen` to confirm Excel can reopen the saved workbook after the XML name patch.
-
-```powershell
-python build_lambda_library.py --validate-reopen
-```
-
-## File naming conventions
-
-- `build_*.py` — workbook-level scripts that open or create an Excel workbook and orchestrate one or more worksheet writes
-- `write_sheet_*.py` — worksheet-level scripts that write a single worksheet and can also be run standalone against any target workbook
-- `lambda_catalog/` — installable Python package containing all worksheet writers and shared helpers
-
-## Project structure
+Most regression functions share this signature:
 
 ```
-build_lambda_library.py          # main entry point
-lambda_functions.json            # LAMBDA definitions (source of truth)
-sample_data/
-  Life Expectancy Data.csv       # WHO life expectancy dataset
-lambda_catalog/
-  analyze_life_expectancy.py     # OLS regression: RegressionSummary, RegressionVectors
-  analysis_cache.py              # disk cache keyed on CSV SHA-256 + schema version
-  lambda_formula_parser.py       # converts display formulas to workbook XML syntax
-  make_test_sheet.py             # shared helpers for Excel ListObject test tables
-  workbook_helpers.py            # shared xlwings helpers
-  write_sheet_lambda_functions.py
-  write_sheet_life_expectancy_data.py
-  write_sheet_mlr_scalar_test.py
-  write_sheet_mlr_vector_outputs_test.py
+FunctionName(X_s, Y, [Allow_Intercept], [Filter])
 ```
 
-## Worksheets
+| Argument | Description |
+|---|---|
+| `X_s` | Predictor column range (one or more columns) |
+| `Y` | Outcome column range (single column) |
+| `[Allow_Intercept]` | TRUE to fit an intercept (default), FALSE to force through the origin |
+| `[Filter]` | Boolean column — TRUE includes the row, FALSE excludes it |
 
-### MLR_Scalar_Test
+Square brackets indicate optional arguments. A few functions have different signatures, as noted in their entries below.
 
-Smoke-tests scalar regression LAMBDA functions (e.g. `R_squared`, `SE_Regression`, `Observations`) against OLS expected values computed by `analyze_life_expectancy.py`. Each row represents one regression configuration (k predictors × intercept on/off). Columns show expected values, calculated values, per-metric match booleans, and an overall `Smoke Test` AND column.
+## Function reference
 
-### MLR_Vector_Outputs_Test
+### Model fit — scalar outputs
 
-Smoke-tests vector regression LAMBDA functions (`Coefficients`, `SE_Coefficients`, `T_Stats`, `P_Values`, `CI_Lower`, `CI_Upper`, `CI_Excludes_Zero`) against OLS expected values. Each section represents one regression configuration; calculated values use Excel 365 dynamic-array spill formulas (`.Formula2`).
+These functions return a single number summarizing the regression.
 
-### LAMBDA_functions
+| Function | Returns |
+|---|---|
+| `Observations(Y, [Filter])` | Number of observations (n) |
+| `DF_Regression(X_s)` | Degrees of freedom for the model (k predictors) |
+| `DF_Residual(X_s, Y, [Allow_Intercept], [Filter])` | Degrees of freedom for residuals (n − k − 1) |
+| `DF_Total(Y, [Allow_Intercept], [Filter])` | Total degrees of freedom (n − 1) |
+| `R_squared(X_s, Y, [Allow_Intercept], [Filter])` | R² — proportion of variance explained, 0 to 1 |
+| `Multiple_R(X_s, Y, [Allow_Intercept], [Filter])` | √R² — multiple correlation coefficient |
+| `Adjusted_R2(X_s, Y, [Allow_Intercept], [Filter])` | R² penalized for number of predictors |
+| `SE_Regression(X_s, Y, [Allow_Intercept], [Filter])` | Standard error of the regression |
+| `SS_Regression(X_s, Y, [Allow_Intercept], [Filter])` | Model sum of squares |
+| `SS_Residual(X_s, Y, [Allow_Intercept], [Filter])` | Residual (error) sum of squares |
+| `SS_Total(Y, [Allow_Intercept], [Filter])` | Total sum of squares |
+| `PRESS(X_s, Y, [Allow_Intercept], [Filter])` | Leave-one-out cross-validation error sum |
+| `Durbin_Watson(X_s, Y, [Allow_Intercept], [Filter])` | Serial autocorrelation test for residuals (2 = no autocorrelation) |
+| `AIC(X_s, Y, [Allow_Intercept], [Filter])` | Akaike Information Criterion |
+| `AICc(X_s, Y, [Allow_Intercept], [Filter])` | Corrected AIC (for small samples) |
+| `BIC(X_s, Y, [Allow_Intercept], [Filter])` | Bayesian Information Criterion |
+| `QQ_Correlation(X_s, Y, [Allow_Intercept], [Filter])` | Filliben Q-Q normality statistic for residuals |
 
-Human-readable catalog of all LAMBDA definitions loaded from `lambda_functions.json`, written as a structured Excel table (`LAMBDAFunctionsCatalog`).
+### Coefficient-level outputs — (k+1)×1 vector
 
-### Life Expectancy Data
+These functions return one value per coefficient (intercept first when included, then predictors in input order). Enter them as array formulas and let them spill.
 
-The WHO life expectancy CSV imported as a structured Excel table (`LifeExpectancyData`) with a computed `Full_Data` boolean column indicating rows with no missing values across all 18 feature columns.
+| Function | Returns |
+|---|---|
+| `Coefficients(X_s, Y, [Allow_Intercept], [Filter])` | OLS coefficient estimates |
+| `SE_Coefficients(X_s, Y, [Allow_Intercept], [Filter])` | Standard errors of the coefficients |
+| `T_Stats(X_s, Y, [Allow_Intercept], [Filter])` | t-statistics (coefficient / standard error) |
+| `P_Values(X_s, Y, [Allow_Intercept], [Filter])` | Two-tailed p-values |
+| `CI_Lower(X_s, Y, [Allow_Intercept], [Filter], [Alpha])` | Lower confidence interval bounds (default 95%) |
+| `CI_Upper(X_s, Y, [Allow_Intercept], [Filter], [Alpha])` | Upper confidence interval bounds (default 95%) |
+| `Partial_R2(X_s, Y, [Allow_Intercept], [Filter])` | Partial R² per coefficient |
+| `Partial_Correlation(X_s, Y, [Allow_Intercept], [Filter])` | Partial correlation per coefficient |
 
-## Analysis cache
+### Multicollinearity — k×1 vector
 
-`build_lambda_library.py` caches OLS expected values in `.analysis_cache.json` (gitignored) to avoid rerunning statsmodels on every build. The cache is invalidated automatically when:
+These functions return one value per predictor (no intercept row). `VIF > 10` or `Tolerance < 0.1` indicates severe collinearity.
 
-- the CSV file content changes (SHA-256 hash)
-- `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` is bumped
+| Function | Returns |
+|---|---|
+| `VIF(X_s, [Allow_Intercept], [Filter])` | Variance inflation factor per predictor |
+| `Tolerance(X_s, [Allow_Intercept], [Filter])` | Tolerance (= 1 / VIF) per predictor |
 
-Bump `_CACHE_SCHEMA_VERSION` whenever analysis configuration changes (k values, `alpha`, regression methodology, or cached output fields). Delete `.analysis_cache.json` to force a full recompute at any time.
+### Observation-level outputs — n×1 vector
 
-## Write individual sheets
+These functions return one value per observation in the filtered dataset, spilled in original data order.
 
-Each `write_sheet_*.py` module can be run standalone against any workbook:
+| Function | Returns |
+|---|---|
+| `Predictions(X_s, Y, [Allow_Intercept], [Filter])` | Fitted (predicted) values |
+| `Residuals(X_s, Y, [Allow_Intercept], [Filter])` | Raw residuals (Y − Ŷ) |
+| `Scaled_Residuals(X_s, Y, [Allow_Intercept], [Filter])` | Residuals divided by SE_Regression |
+| `Scaled_Residuals_Ranked(X_s, Y, [Allow_Intercept], [Filter])` | Scaled residuals sorted ascending |
+| `Studentized_Residuals(X_s, Y, [Allow_Intercept], [Filter])` | Internally studentized residuals |
+| `Studentized_Residuals_Ranked(X_s, Y, [Allow_Intercept], [Filter])` | Studentized residuals sorted ascending |
+| `Hat_diagonal(X_s, [Allow_Intercept], [Filter])` | Leverage values (diagonal of the hat matrix) |
+| `Cooks_Distance(X_s, Y, [Allow_Intercept], [Filter])` | Cook's distance per observation |
+| `LOOCV_prediction(X_s, Y, [Allow_Intercept], [Filter])` | Leave-one-out predicted value per observation |
+| `Observation_Num(Y, [Filter])` | Sequential row indices 1 through n |
+| `Rank_Fraction(Y, [Filter])` | Empirical CDF fractions in original data order |
+| `Y_Ranked(Y, [Filter])` | Sorted filtered outcome values |
+| `Normal_Scores(Y, [Filter])` | Theoretical standard-normal quantiles |
 
-```powershell
-python -m lambda_catalog.write_sheet_lambda_functions Lambda_Library.xlsx
-python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
-```
+### Prediction interval
 
-## Setup
+`Prediction_Interval(X_s, Y, X_new, [Allow_Intercept], [Filter], [alpha])` returns a 6-element vertical array: point estimate, SE of prediction, critical t value, lower bound, upper bound, and confidence level. `X_new` is a single-row range of predictor values for the new observation.
 
-Requires Python 3.10+ and desktop Excel (Windows). Install dependencies with [uv](https://github.com/astral-sh/uv):
+### Utility functions
 
-```powershell
-uv sync
-```
+| Function | Returns |
+|---|---|
+| `Design_Matrix(X_s, [Allow_Intercept], [Filter])` | Filtered numeric design matrix as a spilled array |
+| `Complete_Cases_Filter(X_s, [Y])` | Boolean column — TRUE for rows with no missing values |
+| `Col_Select(table, col_nums)` | Selected columns from an array in the specified order |
+| `LOO_prediction(X_s, Y, n, [Allow_Intercept], [Filter])` | Leave-one-out prediction for a single observation n |
+| `This_row(array)` | 1-to-n relative row indices |
+| `Exclude_row_n(array, n)` | Array with row n removed |
 
-This installs the project as an editable package (`lambda_catalog`) along with all dependencies: `lxml`, `numpy`, `pywin32`, `statsmodels`, `xlwings`.
+## Sample data and Regression sheet
 
+`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The **Regression** sheet uses this dataset to demonstrate a full multiple regression analysis: select any subset of the 18 health and economic predictors, and the sheet recomputes all statistics instantly using the LAMBDA functions.

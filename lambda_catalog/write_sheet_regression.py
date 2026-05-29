@@ -77,13 +77,13 @@ _C_AA = 27  # reference line X endpoints (rows 1–12, static scalars)
 _C_AB = 28  # reference line Y endpoints (rows 1–12, static scalars)
 
 # XL chart constants (XlChartType / XlMarkerStyle / line style)
-_XL_XY_SCATTER = 74            # xlXYScatter: markers only, no connecting lines
+_XL_XY_SCATTER = -4169         # xlXYScatter: markers only, no connecting lines
 _XL_XY_SCATTER_LINES = 75     # xlXYScatterLinesNoMarkers: line, no markers
 _XL_MARKER_NONE = -4142        # xlMarkerStyleNone
 _XL_MARKER_CIRCLE = 8          # xlMarkerStyleCircle
 _XL_DASH = -4115               # xlDash line style
-_XL_COLOR_BLUE = 0x4472C4      # Excel theme blue (main scatter series)
-_XL_COLOR_GRAY = 0x808080      # gray (reference lines)
+_XL_COLOR_BLUE = 0xC47244      # OLE BGR for Excel theme blue RGB(68, 114, 196)
+_XL_COLOR_GRAY = 0x808080      # OLE BGR for gray RGB(128, 128, 128)
 
 _CHART_W = 320.0    # chart width in points
 _CHART_H = 240.0    # chart height in points

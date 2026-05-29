@@ -78,6 +78,8 @@ def build_production_workbook(
                 workbook = app.books.open(str(workbook_path))
             else:
                 workbook = app.books.add()
+                for sheet in list(workbook.sheets)[1:]:
+                    sheet.delete()
 
             try:
                 _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)

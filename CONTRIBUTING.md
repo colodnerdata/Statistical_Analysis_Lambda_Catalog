@@ -104,7 +104,7 @@ Bump `_CACHE_SCHEMA_VERSION` whenever analysis configuration changes — k value
 Each `write_sheet_*.py` module can be run standalone against any open workbook:
 
 ```powershell
-python -m lambda_catalog.write_sheet_lambda_functions Lambda_Library.xlsx
+python -m lambda_catalog.write_sheet_lambda_functions Lambda_Library.xlsx --definitions lambda_functions.json
 python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
 ```
 

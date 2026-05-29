@@ -164,6 +164,7 @@ def build_qc_workbook(
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
 
+    # Phase 1: Write all sheets and save
     _t = time.monotonic()
     try:
         with xw.App(visible=True, add_book=False) as app:
@@ -171,6 +172,8 @@ def build_qc_workbook(
                 workbook = app.books.open(str(workbook_path))
             else:
                 workbook = app.books.add()
+                for sheet in list(workbook.sheets)[1:]:
+                    sheet.delete()
 
             try:
                 _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
@@ -184,7 +187,6 @@ def build_qc_workbook(
                 write_mlr_observation_test_sheet(workbook, observation_row_configs)
                 app.api.Calculation = XL_CALCULATION_AUTOMATIC
                 workbook.save(str(workbook_path))
-                verify_test_sheets(workbook, row_configs, vector_row_configs, observation_row_configs)
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
@@ -192,6 +194,7 @@ def build_qc_workbook(
     if verbose:
         print(f"  Write sheets:   {time.monotonic() - _t:.1f}s", flush=True)
 
+    # Phase 2: Sync LAMBDA definitions into the Name Manager via XML patch
     _t = time.monotonic()
     try:
         result = sync_workbook_names(workbook_path, definitions)
@@ -201,6 +204,20 @@ def build_qc_workbook(
         raise_excel_access_error(workbook_path, "update", exc)
     if verbose:
         print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
+
+    # Phase 3: Reopen and verify test sheets against the freshly synced definitions
+    _t = time.monotonic()
+    try:
+        with xw.App(visible=True, add_book=False) as app:
+            workbook = app.books.open(str(workbook_path))
+            try:
+                verify_test_sheets(workbook, row_configs, vector_row_configs, observation_row_configs)
+            finally:
+                workbook.close()
+    except OPEN_WORKBOOK_ERRORS as exc:
+        raise_excel_access_error(workbook_path, "verify", exc)
+    if verbose:
+        print(f"  Verify:         {time.monotonic() - _t:.1f}s", flush=True)
 
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)

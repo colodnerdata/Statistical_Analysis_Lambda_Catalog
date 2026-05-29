@@ -10,11 +10,16 @@ Layout (three horizontal zones):
   Cols C–J       — main analysis: Regression Statistics, Diagnostics,
                    Prediction Interval (rows 3-9), ANOVA (rows 10-14),
                    Coefficients (rows 18+)
-  Cols L–O       — residual table (fixed columns, independent of k)
+  Cols L–X       — residual table (fixed columns, independent of k)
+  Cols Y–AB      — hidden helpers: filtered actual Y (Y), top predictor (Z),
+                   reference line endpoints for charts (AA–AB)
+  Cols AC+        — diagnostic charts (2-column grid)
 """
 from __future__ import annotations
 
 import xlwings as xw
+
+from .workbook_helpers import group_and_hide_columns
 
 
 REGRESSION_SHEET_NAME = "Regression"
@@ -64,6 +69,26 @@ _C_U = 21   # residual: hat diagonal
 _C_V = 22   # residual: studentized residuals
 _C_W = 23   # residual: studentized residuals ranked
 _C_X = 24   # residual: Cook's distance
+
+# Hidden helper columns (grouped and collapsed after writing)
+_C_Y = 25   # filtered actual Y — spills from row 3
+_C_Z = 26   # top-predictor values — spills from row 3
+_C_AA = 27  # reference line X endpoints (rows 1–12, static scalars)
+_C_AB = 28  # reference line Y endpoints (rows 1–12, static scalars)
+
+# XL chart constants (XlChartType / XlMarkerStyle / line style)
+_XL_XY_SCATTER = 74            # xlXYScatter: markers only, no connecting lines
+_XL_XY_SCATTER_LINES = 75     # xlXYScatterLinesNoMarkers: line, no markers
+_XL_MARKER_NONE = -4142        # xlMarkerStyleNone
+_XL_MARKER_CIRCLE = 8          # xlMarkerStyleCircle
+_XL_DASH = -4115               # xlDash line style
+_XL_COLOR_BLUE = 0x4472C4      # Excel theme blue (main scatter series)
+_XL_COLOR_GRAY = 0x808080      # gray (reference lines)
+
+_CHART_W = 320.0    # chart width in points
+_CHART_H = 240.0    # chart height in points
+_CHART_GAP = 20.0   # gap between adjacent charts in points
+_REF_MAX_ROW = 3001  # upper row bound for chart series ranges (covers any real dataset)
 
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
@@ -293,6 +318,190 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _f(sheet, 3, _C_X, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
 
 
+# ── Diagnostic chart helpers ──────────────────────────────────────────────────
+
+def _write_helper_columns(sheet: xw.Sheet) -> None:
+    """Write filtered-Y (col Y) and top-predictor (col Z) helper columns."""
+    # Col Y: actual Y values filtered to the same rows as the residual table
+    _v(sheet, 2, _C_Y, "Actual Y")
+    _f(sheet, 3, _C_Y, "=FILTER(y,fil)")
+
+    # Col Z: values for the predictor with the largest |t-stat|
+    # Row 2 header: dynamic predictor name (matches the coefficient table in col C)
+    _f(sheet, 2, _C_Z,
+       "=LET(t,DROP(T_Stats(x_s,y,Allow_Intercept,fil),IF(Allow_Intercept,1,0)),"
+       "INDEX(C21:C38,MATCH(MAX(ABS(t)),ABS(t),0)))")
+    # Row 3 spill: filtered values for that predictor column from the design matrix
+    _f(sheet, 3, _C_Z,
+       "=LET(t,DROP(T_Stats(x_s,y,Allow_Intercept,fil),IF(Allow_Intercept,1,0)),"
+       "j,MATCH(MAX(ABS(t)),ABS(t),0),"
+       "CHOOSECOLS(Design_Matrix(x_s,FALSE,fil),j))")
+
+
+def _write_reference_line_helpers(sheet: xw.Sheet) -> None:
+    """Write 2-row reference line endpoints for each chart into cols AA–AB.
+
+    Each chart uses a consecutive pair of rows:
+      rows 1–2   Actual vs Predicted   y = x line
+      rows 3–4   Residuals vs Fitted   y = 0 line
+      rows 5–6   Normal Q-Q            identity line
+      rows 7–8   Predicted vs LOOCV    y = x line
+      rows 9–10  Cook's Distance       4/n threshold line
+      rows 11–12 Residuals vs Top Pred y = 0 line
+    """
+    # Chart 1 — Actual vs Predicted: y=x reference (AA/AB rows 1–2)
+    _f(sheet, 1,  _C_AA, "=MIN(M3#,Y3#)")
+    _f(sheet, 2,  _C_AA, "=MAX(M3#,Y3#)")
+    _f(sheet, 1,  _C_AB, f"={_a1(1,  _C_AA)}")
+    _f(sheet, 2,  _C_AB, f"={_a1(2,  _C_AA)}")
+
+    # Chart 2 — Residuals vs Fitted: y=0 reference (rows 3–4)
+    _f(sheet, 3,  _C_AA, "=MIN(M3#)")
+    _f(sheet, 4,  _C_AA, "=MAX(M3#)")
+    _v(sheet, 3,  _C_AB, 0)
+    _v(sheet, 4,  _C_AB, 0)
+
+    # Chart 3 — Normal Q-Q: identity reference (rows 5–6)
+    _f(sheet, 5,  _C_AA, "=MIN(R3#)")
+    _f(sheet, 6,  _C_AA, "=MAX(R3#)")
+    _f(sheet, 5,  _C_AB, f"={_a1(5,  _C_AA)}")
+    _f(sheet, 6,  _C_AB, f"={_a1(6,  _C_AA)}")
+
+    # Chart 4 — Predicted vs LOOCV: y=x reference (rows 7–8)
+    _f(sheet, 7,  _C_AA, "=MIN(MIN(M3#),MIN(O3#))")
+    _f(sheet, 8,  _C_AA, "=MAX(MAX(M3#),MAX(O3#))")
+    _f(sheet, 7,  _C_AB, f"={_a1(7,  _C_AA)}")
+    _f(sheet, 8,  _C_AB, f"={_a1(8,  _C_AA)}")
+
+    # Chart 5 — Cook's Distance: 4/n threshold (rows 9–10)
+    _f(sheet, 9,  _C_AA, "=MIN(L3#)")
+    _f(sheet, 10, _C_AA, "=MAX(L3#)")
+    _f(sheet, 9,  _C_AB, "=4/Observations(y,fil)")
+    _f(sheet, 10, _C_AB, "=4/Observations(y,fil)")
+
+    # Chart 6 — Residuals vs Top Predictor: y=0 reference (rows 11–12)
+    _f(sheet, 11, _C_AA, "=MIN(Z3#)")
+    _f(sheet, 12, _C_AA, "=MAX(Z3#)")
+    _v(sheet, 11, _C_AB, 0)
+    _v(sheet, 12, _C_AB, 0)
+
+
+def _add_chart(
+    sheet: xw.Sheet,
+    left: float,
+    top: float,
+    title: str,
+    x_label: str,
+    y_label: str,
+    data_x_col: int,
+    data_y_col: int,
+    ref_row: int,
+) -> None:
+    """Add one XY scatter chart with a main series and a dashed reference line.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        Worksheet to embed the chart in.
+    left, top : float
+        Chart position in points from the sheet origin.
+    title : str
+        Chart title text.
+    x_label, y_label : str
+        Horizontal and vertical axis title text.
+    data_x_col, data_y_col : int
+        1-based column indices for the main scatter series X and Y data.
+    ref_row : int
+        First of the two helper rows in cols AA/AB that bound the reference line.
+    """
+    sname = sheet.name
+    xl_c = _col_letter(data_x_col)
+    yl_c = _col_letter(data_y_col)
+    aa_c = _col_letter(_C_AA)
+    ab_c = _col_letter(_C_AB)
+    ref_row2 = ref_row + 1
+
+    chart = sheet.charts.add(left=left, top=top, width=_CHART_W, height=_CHART_H)
+    cobj = chart.api        # ChartObject (container)
+    capi = cobj.Chart       # Chart COM object
+
+    # Remove the auto-generated placeholder series Excel inserts on creation
+    while capi.SeriesCollection().Count > 0:
+        capi.SeriesCollection(1).Delete()
+
+    capi.ChartType = _XL_XY_SCATTER
+    capi.HasTitle = True
+    capi.ChartTitle.Text = title
+    capi.ChartTitle.Font.Size = 10
+    capi.HasLegend = False
+
+    # Main scatter series: rows 3 to _REF_MAX_ROW; empty trailing cells are ignored
+    s1 = capi.SeriesCollection().NewSeries()
+    s1.Formula = (
+        f'=SERIES("",{sname}!${xl_c}$3:${xl_c}${_REF_MAX_ROW},'
+        f'{sname}!${yl_c}$3:${yl_c}${_REF_MAX_ROW},1)'
+    )
+    s1.MarkerStyle = _XL_MARKER_CIRCLE
+    s1.MarkerSize = 3
+    s1.MarkerForegroundColor = _XL_COLOR_BLUE
+    s1.MarkerBackgroundColor = _XL_COLOR_BLUE
+
+    # Reference line series: 2 anchor points define a dashed line
+    s2 = capi.SeriesCollection().NewSeries()
+    s2.Formula = (
+        f'=SERIES("",{sname}!${aa_c}${ref_row}:${aa_c}${ref_row2},'
+        f'{sname}!${ab_c}${ref_row}:${ab_c}${ref_row2},2)'
+    )
+    s2.ChartType = _XL_XY_SCATTER_LINES  # line connecting the 2 anchor points
+    s2.MarkerStyle = _XL_MARKER_NONE
+    s2.Border.LineStyle = _XL_DASH
+    s2.Border.Color = _XL_COLOR_GRAY
+    s2.Border.Weight = 2  # xlThin
+
+    # Axis labels
+    x_ax = capi.Axes(1)
+    x_ax.HasTitle = True
+    x_ax.AxisTitle.Text = x_label
+    x_ax.AxisTitle.Font.Size = 9
+
+    y_ax = capi.Axes(2)
+    y_ax.HasTitle = True
+    y_ax.AxisTitle.Text = y_label
+    y_ax.AxisTitle.Font.Size = 9
+
+
+def _write_charts(sheet: xw.Sheet) -> None:
+    """Add 6 diagnostic charts in a 2-column grid starting at cell AC2."""
+    anchor = sheet.range("AC2")
+    x0 = anchor.left
+    y0 = anchor.top
+    col_step = _CHART_W + _CHART_GAP
+    row_step = _CHART_H + _CHART_GAP
+
+    # (title, x_label, y_label, x_col, y_col, ref_row_in_AA_AB)
+    specs = [
+        ("Actual vs Predicted",        "Predicted Y",   "Actual Y",         _C_M, _C_Y,  1),
+        ("Residuals vs Fitted",        "Fitted Values", "Residuals",         _C_M, _C_N,  3),
+        ("Normal Q-Q",                 "Theoretical",   "Sample Quantiles",  _C_R, _C_T,  5),
+        ("Predicted vs LOOCV",         "Predicted Y",   "LOOCV Predicted",   _C_M, _C_O,  7),
+        ("Cook's Distance",            "Observation",   "Cook's Distance",   _C_L, _C_X,  9),
+        ("Residuals vs Top Predictor", "Top Predictor", "Residuals",         _C_Z, _C_N, 11),
+    ]
+
+    for i, (title, x_label, y_label, x_col, y_col, ref_row) in enumerate(specs):
+        _add_chart(
+            sheet,
+            left=x0 + (i % 2) * col_step,
+            top=y0 + (i // 2) * row_step,
+            title=title,
+            x_label=x_label,
+            y_label=y_label,
+            data_x_col=x_col,
+            data_y_col=y_col,
+            ref_row=ref_row,
+        )
+
+
 # ── Public entry point ────────────────────────────────────────────────────────
 
 def write_regression_output_sheet(workbook: xw.Book) -> None:
@@ -308,6 +517,8 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
 
     for idx in range(sheet.api.ListObjects.Count, 0, -1):
         sheet.api.ListObjects(idx).Delete()
+    for idx in range(sheet.api.ChartObjects().Count, 0, -1):
+        sheet.api.ChartObjects(idx).Delete()
     sheet.api.Cells.Clear()
     sheet.activate()
 
@@ -325,8 +536,12 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_prediction_interval(sheet)
     _write_coefficients(sheet)
     _write_residuals(sheet)
+    _write_helper_columns(sheet)
+    _write_reference_line_helpers(sheet)
+    _write_charts(sheet)
+    group_and_hide_columns(sheet, _C_Y, _C_AB)
 
-    # Column widths
+    # Column widths (A–X only; Y–AB are hidden)
     for col_letter, width in {
         "A": 30, "B": 12, "C": 24, "D": 14, "E": 14,
         "F": 16, "G": 14, "H": 16, "I": 22, "J": 14,

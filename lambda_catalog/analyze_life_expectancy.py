@@ -455,7 +455,11 @@ def calculate_regression_summary(
 
     dw = float(_durbin_watson(e))
 
-    f_stat = float((ss_regression / df_regression) / (ss_residual / df_residual))
+    f_stat = (
+        float((ss_regression / df_regression) / (ss_residual / df_residual))
+        if df_regression > 0 and df_residual > 0 and ss_residual != 0.0
+        else float("nan")
+    )
     p_value_f = float(model.f_pvalue)
 
     return RegressionSummary(

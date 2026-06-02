@@ -1346,7 +1346,7 @@
           "optional": true
         }
       ],
-      "yields": "p-value for the overall F-test (two-tailed area in the right tail of the F distribution)",
+      "yields": "p-value for the overall F-test (right-tail probability of the F distribution)",
       "description": "P_Value_F returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Stat under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Stat, df_regression, df_residual).\n\nConventionally, P_Value_F < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use."
     },
     {

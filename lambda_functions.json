@@ -1212,6 +1212,160 @@
       ],
       "yields": "boolean column vector — TRUE for rows where every included column is numeric",
       "description": "Produces a ready-made Filter argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))"
+    },
+    {
+      "name": "Pearson_R",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), yf)))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "predictor column range (single or multi-column); returns one correlation per column"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of Pearson correlations between each predictor and Y",
+      "description": "Pearson_R computes the linear (Pearson product-moment) correlation between each column of X_s and Y, after applying the optional filter. When X_s has a single column the result is a scalar; when X_s has k columns it spills as a k×1 column vector.\n\nA Pearson_R close to ±1 indicates a strong linear association. Comparing Pearson_R with Spearman_R on the same data reveals nonlinearity: a large gap (Spearman > Pearson in magnitude) suggests a monotonic but curved relationship that may warrant a log or polynomial transformation."
+    },
+    {
+      "name": "Spearman_R",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    ry, BYROW(yf, LAMBDA(v, RANK.AVG(v, yf, 1))),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c,\n      LET(col, CHOOSECOLS(xf, r),\n          rx,  BYROW(col, LAMBDA(v, RANK.AVG(v, col, 1))),\n          CORREL(rx, ry))))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "predictor column range (single or multi-column); returns one correlation per column"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of Spearman rank correlations between each predictor and Y",
+      "description": "Spearman_R computes the rank (Spearman) correlation between each column of X_s and Y after filtering. Ties receive average ranks (RANK.AVG). Returns a k×1 vector when X_s has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit."
+    },
+    {
+      "name": "Skewness",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, SKEW(CHOOSECOLS(xf, r))))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range to summarize (single or multi-column); returns one value per column"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of sample skewness values (one per column of X_s)",
+      "description": "Skewness returns the sample skewness (Fisher-Pearson standardized third moment) for each column of X_s after filtering. Uses Excel's SKEW function, which divides by (n-1)(n-2).\n\nInterpretation: 0 = symmetric; positive = right tail (mean > median, common in counts and incomes); negative = left tail. |Skewness| > 1 typically signals that a log or square-root transformation would linearize relationships and stabilize regression residual variance. Compare with Kurtosis for a fuller picture of distributional shape."
+    },
+    {
+      "name": "Kurtosis",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, KURT(CHOOSECOLS(xf, r))))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range to summarize (single or multi-column); returns one value per column"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of excess kurtosis values (one per column of X_s)",
+      "description": "Kurtosis returns the excess kurtosis for each filtered column of X_s. Uses Excel's KURT function (Fisher's excess kurtosis: kurtosis − 3, so a normal distribution returns 0).\n\nPositive excess kurtosis (leptokurtic) indicates heavier tails and more extreme outliers than a normal distribution. Negative (platykurtic) indicates lighter tails. High kurtosis in a predictor or in regression residuals signals that OLS standard errors may be unreliable, and that robust standard errors or a different distributional assumption may be warranted."
+    },
+    {
+      "name": "F_Stat",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s) /\n    (SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "F-statistic for the overall regression model as a scalar",
+      "description": "F_Stat returns the F-statistic for the omnibus test of the null hypothesis that all regression coefficients are simultaneously zero. It equals (MS_Regression / MS_Residual) = (SS_Regression / df_regression) / (SS_Residual / df_residual).\n\nA large F-statistic (and correspondingly small P_Value_F) means the model explains significantly more variance than would be expected by chance. Note that a significant F does not guarantee that every individual predictor is significant — individual t-statistics (T_Stats) address that question. F_Stat appears in the ANOVA table on the Regression sheet; this function exposes it as a named reference for use in other formulas."
+    },
+    {
+      "name": "P_Value_F",
+      "test_table": "MLR_Scalar_Test",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    F.DIST.RT(\n      F_Stat(X_s, Y, allow_arg, filt_arg),\n      DF_Regression(X_s),\n      DF_Residual(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "p-value for the overall F-test (right-tail probability of the F distribution)",
+      "description": "P_Value_F returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Stat under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Stat, df_regression, df_residual).\n\nConventionally, P_Value_F < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use."
+    },
+    {
+      "name": "Correlation_Matrix",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    k,  COLUMNS(X_s),\n    MAKEARRAY(k, k, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), CHOOSECOLS(xf, c))))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of variables (single or multi-column); returns a k×k symmetric matrix"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×k symmetric matrix of pairwise Pearson correlations (diagonal = 1)",
+      "description": "Correlation_Matrix returns the k×k Pearson correlation matrix for all columns of X_s after filtering. Each cell [r, c] equals CORREL(column r, column c). The diagonal is always 1. The matrix is symmetric. Enter as a single formula and let it spill.\n\nUse this to screen for multicollinearity before fitting a model: pairs with |r| > 0.7 are candidates for VIF investigation. High off-diagonal correlations indicate redundant predictors whose coefficients will be unstable and hard to interpret. For formal post-fit diagnostics, use VIF and Tolerance instead."
     }
   ]
 }

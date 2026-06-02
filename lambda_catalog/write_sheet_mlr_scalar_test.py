@@ -89,6 +89,8 @@ def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
         "SE_Regression": summary.se_regression,
         "PRESS": summary.press,
         "Durbin_Watson": summary.durbin_watson,
+        "F_Stat": summary.f_stat,
+        "P_Value_F": summary.p_value_f,
     }
 
 

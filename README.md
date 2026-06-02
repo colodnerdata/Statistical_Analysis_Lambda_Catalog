@@ -103,6 +103,27 @@ These functions return one value per observation in the filtered dataset, spille
 
 `Prediction_Interval(X_s, Y, X_new, [Allow_Intercept], [Filter], [alpha])` returns a 6-element vertical array: point estimate, SE of prediction, critical t value, lower bound, upper bound, and confidence level. `X_new` is a single-row range of predictor values for the new observation.
 
+### Model significance — scalar outputs
+
+These functions return the overall F-test results for the regression model.
+
+| Function | Returns |
+|---|---|
+| `F_Stat(X_s, Y, [Allow_Intercept], [Filter])` | F-statistic for overall model significance |
+| `P_Value_F(X_s, Y, [Allow_Intercept], [Filter])` | p-value for the overall F-test |
+
+### Descriptive and correlation functions
+
+These functions support exploratory analysis before model fitting. `Pearson_R`, `Spearman_R`, `Skewness`, and `Kurtosis` accept a multi-column `X_s` and return a k×1 array — one value per predictor. Comparing `Pearson_R` and `Spearman_R` for the same predictor diagnoses nonlinearity: a large gap between the two suggests curvature that a linear model will not capture.
+
+| Function | Signature | Returns |
+|---|---|---|
+| `Pearson_R` | `(X_s, Y, [Filter])` | k×1 vector of Pearson correlations between each predictor and Y |
+| `Spearman_R` | `(X_s, Y, [Filter])` | k×1 vector of Spearman rank correlations between each predictor and Y |
+| `Skewness` | `(X_s, [Filter])` | k×1 vector of skewness for each predictor column |
+| `Kurtosis` | `(X_s, [Filter])` | k×1 vector of excess kurtosis (Fisher convention) for each predictor column |
+| `Correlation_Matrix` | `(X_s, [Filter])` | k×k symmetric matrix of pairwise Pearson correlations among predictors |
+
 ### Utility functions
 
 | Function | Returns |

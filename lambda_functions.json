@@ -281,7 +281,7 @@
       "name": "PRESS",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    XtX,       MMULT(TRANSPOSE(X_design), X_design),\n    XtX_inv,   MINVERSE(XtX),\n    p,         COLUMNS(X_design),\n    Z,         MMULT(X_design, XtX_inv),\n    h,         MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0)),\n    SUMSQ(e / (1 - h))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    SUMSQ(e / (1 - h))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -303,7 +303,7 @@
         }
       ],
       "yields": "PRESS (Prediction Residual Error Sum of Squares) as a scalar",
-      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nLeverage is computed without forming the full n×n hat matrix: h = row-wise sum of (X_design * MMULT(X_design, MINVERSE(X'X))), giving an n×1 vector. Then SUMSQ(e / (1 - h)) gives PRESS as a scalar."
+      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nLeverage is obtained from Hat_diagonal, which delegates the matrix inversion to Gram_Inverse. Then SUMSQ(e / (1 − h)) gives PRESS as a scalar."
     },
     {
       "name": "AIC",
@@ -731,7 +731,7 @@
       "name": "Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Filter], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX,           MMULT(TRANSPOSE(X_design), X_design),\n    XtX_inv,       MINVERSE(XtX),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Filter], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -762,7 +762,7 @@
         }
       ],
       "yields": "6-element vertical array: [Point Estimate, SE Prediction, t Critical, Lower bound, Upper bound, Confidence Level]",
-      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using MINVERSE and MMULT without forming the full hat matrix."
+      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using Gram_Inverse(X_design) and MMULT."
     },
     {
       "name": "Observation_Num",
@@ -863,6 +863,18 @@
       ],
       "yields": "filtered numeric design matrix as spilled array",
       "description": "Returns the matrix used for prediction: with intercept, a leading column of 1s followed by filtered X columns; without intercept, filtered X columns only. Factor encoding is intentionally deferred."
+    },
+    {
+      "name": "Gram_Inverse",
+      "formula_display": "=LAMBDA(X,\n  MINVERSE(MMULT(TRANSPOSE(X), X))\n)",
+      "arguments": [
+        {
+          "name": "X",
+          "description": "design matrix (already filtered and intercept-augmented as needed)"
+        }
+      ],
+      "yields": "p×p matrix — the inverse of the Gram matrix (X'X)⁻¹",
+      "description": "Returns (X'X)⁻¹ for a design matrix X. Single point of inversion used by Hat_diagonal, PRESS, LOOCV_prediction, and Prediction_Interval — any future stability upgrade (e.g., Tikhonov regularisation) only needs to be made here.\n\nPass the output of Design_Matrix — already filtered and intercept-augmented — directly as X."
     },
     {
       "name": "Predictions",
@@ -1016,7 +1028,7 @@
       "name": "LOOCV_prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    yhat,      Predictions(X_s, Y, allow_arg, filt_arg),\n    e,         FILTER(Y, filt_arg) - yhat,\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    p,         COLUMNS(X_design),\n    h,         MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0)),\n    yhat - h * e / (1 - h)\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    yhat,      Predictions(X_s, Y, allow_arg, filt_arg),\n    e,         FILTER(Y, filt_arg) - yhat,\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    yhat - h * e / (1 - h)\n  )\n)",
       "arguments": [
         {
           "name": "X_s",
@@ -1038,13 +1050,13 @@
         }
       ],
       "yields": "n-element spill vector of LOO predictions for every filtered observation",
-      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal computed as the row-wise sum of (X_design ⊙ X_design(X′X)⁻¹).\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS. Filter is applied once in the outer scope; Predictions and Design_Matrix are called on the pre-filtered arrays without re-passing a filter argument."
+      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal from Hat_diagonal.\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS."
     },
     {
       "name": "Hat_diagonal",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   MINVERSE(MMULT(TRANSPOSE(X_design), X_design)),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   Gram_Inverse(X_design),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1062,7 +1074,7 @@
         }
       ],
       "yields": "n-element hat-matrix diagonal (leverage values) as spilled vector",
-      "description": "Returns h_i = x_iᵀ(XᵀX)⁻¹x_i for each observation. Values range from p/n (minimum leverage, uniform design) to 1. Observations with h_i > 2p/n are conventionally flagged as high-leverage. Used internally by Studentized_Residuals and Cooks_Distance; exposed here for direct inspection."
+      "description": "Returns h_i = x_iᵀ(XᵀX)⁻¹x_i for each observation. Values range from p/n (minimum leverage, uniform design) to 1. Observations with h_i > 2p/n are conventionally flagged as high-leverage. Used internally by Studentized_Residuals, Cooks_Distance, PRESS, and LOOCV_prediction; exposed here for direct inspection. Inversion is delegated to Gram_Inverse."
     },
     {
       "name": "Studentized_Residuals",

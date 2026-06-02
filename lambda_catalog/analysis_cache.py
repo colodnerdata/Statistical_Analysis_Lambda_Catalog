@@ -14,7 +14,7 @@ from .write_sheet_mlr_vector_outputs_test import build_mlr_vector_row_configs
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
-_CACHE_SCHEMA_VERSION = 5
+_CACHE_SCHEMA_VERSION = 6
 
 
 def _csv_fingerprint(csv_path: Path) -> str:

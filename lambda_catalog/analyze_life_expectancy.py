@@ -124,6 +124,8 @@ class RegressionSummary:
     se_regression: float
     press: float
     durbin_watson: float
+    f_stat: float
+    p_value_f: float
 
 
 @dataclass(frozen=True)
@@ -453,6 +455,9 @@ def calculate_regression_summary(
 
     dw = float(_durbin_watson(e))
 
+    f_stat = float((ss_regression / df_regression) / (ss_residual / df_residual))
+    p_value_f = float(model.f_pvalue)
+
     return RegressionSummary(
         observations=observations,
         df_regression=df_regression,
@@ -467,6 +472,8 @@ def calculate_regression_summary(
         se_regression=se_regression,
         press=press,
         durbin_watson=dw,
+        f_stat=f_stat,
+        p_value_f=p_value_f,
     )
 
 

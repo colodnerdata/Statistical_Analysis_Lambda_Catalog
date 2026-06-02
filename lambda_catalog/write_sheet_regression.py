@@ -9,7 +9,7 @@ Layout (three horizontal zones):
                    pred_input (B2:B{k+2}) aligns with Coefficients() for SUMPRODUCT
   Cols C–J       — main analysis: Regression Statistics, Diagnostics,
                    Prediction Interval (rows 3-9), ANOVA (rows 10-14),
-                   Coefficients (rows 18+)
+                   Coefficients (rows 18-38), Predictor Summary (rows 40+)
   Cols L–X       — residual table (fixed columns, independent of k)
   Cols Y–AB      — hidden helpers: filtered actual Y (Y), top predictor (Z),
                    reference line endpoints for charts (AA–AB)
@@ -222,8 +222,8 @@ def _write_anova(sheet: xw.Sheet) -> None:
     _f(sheet, 12, _C_D, "=DF_Regression(x_s)")
     _f(sheet, 12, _C_E, "=SS_Regression(x_s,y,Allow_Intercept,fil)")
     _f(sheet, 12, _C_F, f"={_a1(12,_C_E)}/{_a1(12,_C_D)}")
-    _f(sheet, 12, _C_G, f"={_a1(12,_C_F)}/{_a1(13,_C_F)}")
-    _f(sheet, 12, _C_H, f"=F.DIST.RT({_a1(12,_C_G)},{_a1(12,_C_D)},{_a1(13,_C_D)})")
+    _f(sheet, 12, _C_G, "=F_Stat(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 12, _C_H, "=P_Value_F(x_s,y,Allow_Intercept,fil)")
 
     # Residual row (13): MS = E13/D13
     _v(sheet, 13, _C_C, "Residual")
@@ -502,6 +502,41 @@ def _write_charts(sheet: xw.Sheet) -> None:
         )
 
 
+# ── Predictor summary ─────────────────────────────────────────────────────────
+
+def _write_predictor_summary(sheet: xw.Sheet) -> None:
+    """Write a per-predictor EDA panel below the coefficients table (row 40+).
+
+    Columns: Pearson R | Spearman R | Skewness | Kurtosis | VIF | Tolerance
+    All spill formulas return k×1 vectors; predictor labels fill col C.
+    """
+    k = len(PREDICTOR_NAMES)
+
+    _v(sheet, 40, _C_C, "PREDICTOR SUMMARY")
+    _bold(sheet, 40, _C_C)
+
+    headers = ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "VIF", "Tolerance"]
+    for col, header in zip([_C_C, _C_D, _C_E, _C_F, _C_G, _C_H, _C_I], headers):
+        _v(sheet, 41, col, header)
+    _bold_row(sheet, 41, _C_C, _C_I)
+
+    for i, name in enumerate(PREDICTOR_NAMES):
+        _v(sheet, 42 + i, _C_C, name)
+
+    _f(sheet, 42, _C_D, "=Pearson_R(x_s,y,fil)")
+    _f(sheet, 42, _C_E, "=Spearman_R(x_s,y,fil)")
+    _f(sheet, 42, _C_F, "=Skewness(x_s,fil)")
+    _f(sheet, 42, _C_G, "=Kurtosis(x_s,fil)")
+    _f(sheet, 42, _C_H, "=VIF(x_s,Allow_Intercept,fil)")
+    _f(sheet, 42, _C_I, "=Tolerance(x_s,Allow_Intercept,fil)")
+
+    last_data_row = 42 + k - 1
+    sheet.range((42, _C_D), (last_data_row, _C_E)).number_format = "0.000"
+    sheet.range((42, _C_F), (last_data_row, _C_G)).number_format = "0.00"
+    sheet.range((42, _C_H), (last_data_row, _C_H)).number_format = "0.00"
+    sheet.range((42, _C_I), (last_data_row, _C_I)).number_format = "0.000"
+
+
 # ── Public entry point ────────────────────────────────────────────────────────
 
 def write_regression_output_sheet(workbook: xw.Book) -> None:
@@ -535,6 +570,7 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_anova(sheet)
     _write_prediction_interval(sheet)
     _write_coefficients(sheet)
+    _write_predictor_summary(sheet)
     _write_residuals(sheet)
     _write_helper_columns(sheet)
     _write_reference_line_helpers(sheet)

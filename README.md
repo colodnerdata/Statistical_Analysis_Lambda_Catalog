@@ -129,6 +129,7 @@ These functions support exploratory analysis before model fitting. `Pearson_R`, 
 | Function | Returns |
 |---|---|
 | `Design_Matrix(X_s, [Allow_Intercept], [Filter])` | Filtered numeric design matrix as a spilled array |
+| `Gram_Inverse(X)` | Inverse of the Gram matrix (X'X)⁻¹ — used internally by `Hat_diagonal`, `PRESS`, `LOOCV_prediction`, and `Prediction_Interval` |
 | `Complete_Cases_Filter(X_s, [Y])` | Boolean column — TRUE for rows with no missing values |
 | `Col_Select(table, col_nums)` | Selected columns from an array in the specified order |
 | `LOO_prediction(X_s, Y, n, [Allow_Intercept], [Filter])` | Leave-one-out prediction for a single observation n |
@@ -137,4 +138,13 @@ These functions support exploratory analysis before model fitting. `Pearson_R`, 
 
 ## Sample data and Regression sheet
 
-`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The **Regression** sheet uses this dataset to demonstrate a full multiple regression analysis: select any subset of the 18 health and economic predictors, and the sheet recomputes all statistics instantly using the LAMBDA functions.
+`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The **Regression** sheet uses this dataset to demonstrate a full multiple regression analysis.
+
+The sheet is organized in four zones:
+
+- **Cols A–J — Main analysis.** Prediction inputs, regression statistics, ANOVA (including `F_Stat` and `P_Value_F`), prediction interval for a new observation, and coefficient table.
+- **Predictor summary (below the coefficient table).** A per-predictor panel showing `Pearson_R`, `Spearman_R`, `Skewness`, `Kurtosis`, `VIF`, and `Tolerance` for every predictor — all filtered and recomputed whenever `Full_Data` changes.
+- **Cols L–X — Residual output.** One row per filtered observation: predicted values, residuals, LOOCV predictions, leverage, studentized residuals, Cook's distance, and ranked/scored variants.
+- **Diagnostic charts (col AC+).** Six XY scatter charts — Actual vs Predicted, Residuals vs Fitted, Normal Q-Q, Predicted vs LOOCV, Cook's Distance, and Residuals vs Top Predictor — that update automatically.
+
+`Correlation_Matrix(X_s, [Filter])` returns a k×k pairwise correlation matrix and can be entered in any blank cell on the sheet.

@@ -9,7 +9,8 @@ Layout (three horizontal zones):
                    pred_input (B2:B{k+2}) aligns with Coefficients() for SUMPRODUCT
   Cols C–J       — main analysis: Regression Statistics, Diagnostics,
                    Prediction Interval (rows 3-9), ANOVA (rows 10-14),
-                   Coefficients (rows 18-38), Predictor Summary (rows 40+)
+                   Predictor Summary (rows 16-35, fixed height),
+                   Coefficients (rows 37+, spills downward)
   Cols L–X       — residual table (fixed columns, independent of k)
   Cols Y–AB      — hidden helpers: filtered actual Y (Y), top predictor (Z),
                    reference line endpoints for charts (AA–AB)
@@ -254,34 +255,37 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
 
 
 def _write_coefficients(sheet: xw.Sheet) -> None:
-    _v(sheet, 18, _C_C, "COEFFICIENTS")
-    _bold(sheet, 18, _C_C)
+    # Section starts at row 37: one blank row (36) below the predictor summary
+    # data (which ends at row 35). The spill formulas here grow downward and
+    # cannot collide with anything above them.
+    _v(sheet, 37, _C_C, "COEFFICIENTS")
+    _bold(sheet, 37, _C_C)
 
     for col, header in zip(
         [_C_C, _C_D, _C_E, _C_F, _C_G, _C_H, _C_I],
         ["", "Coefficients", "Std Error", "t Stat", "P-value", "Lower 95%", "Upper 95%"],
     ):
-        _v(sheet, 19, col, header)
-    _bold_row(sheet, 19, _C_C, _C_I)
+        _v(sheet, 38, col, header)
+    _bold_row(sheet, 38, _C_C, _C_I)
 
     # Row labels: intercept then one row per predictor
-    _v(sheet, 20, _C_C, "Intercept")
+    _v(sheet, 39, _C_C, "Intercept")
     for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, 21 + i, _C_C, name)
+        _v(sheet, 40 + i, _C_C, name)
 
     # Spill anchors — when intercepts are disabled, pad with a blank top row
     # so predictor values remain aligned with predictor labels.
-    _f(sheet, 20, _C_D,
+    _f(sheet, 39, _C_D,
        '=IF(Allow_Intercept,Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",Coefficients(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 20, _C_E,
+    _f(sheet, 39, _C_E,
        '=IF(Allow_Intercept,SE_Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",SE_Coefficients(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 20, _C_F,
+    _f(sheet, 39, _C_F,
        '=IF(Allow_Intercept,T_Stats(x_s,y,Allow_Intercept,fil),VSTACK("",T_Stats(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 20, _C_G,
+    _f(sheet, 39, _C_G,
        '=IF(Allow_Intercept,P_Values(x_s,y,Allow_Intercept,fil),VSTACK("",P_Values(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 20, _C_H,
+    _f(sheet, 39, _C_H,
        '=IF(Allow_Intercept,CI_Lower(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Lower(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 20, _C_I,
+    _f(sheet, 39, _C_I,
        '=IF(Allow_Intercept,CI_Upper(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Upper(x_s,y,Allow_Intercept,fil)))')
 
 
@@ -330,7 +334,7 @@ def _write_helper_columns(sheet: xw.Sheet) -> None:
     # Row 2 header: dynamic predictor name (matches the coefficient table in col C)
     _f(sheet, 2, _C_Z,
        "=LET(t,DROP(T_Stats(x_s,y,Allow_Intercept,fil),IF(Allow_Intercept,1,0)),"
-       "INDEX(C21:C38,MATCH(MAX(ABS(t)),ABS(t),0)))")
+       "INDEX(C40:C57,MATCH(MAX(ABS(t)),ABS(t),0)))")
     # Row 3 spill: filtered values for that predictor column from the design matrix
     _f(sheet, 3, _C_Z,
        "=LET(t,DROP(T_Stats(x_s,y,Allow_Intercept,fil),IF(Allow_Intercept,1,0)),"
@@ -505,45 +509,47 @@ def _write_charts(sheet: xw.Sheet) -> None:
 # ── Predictor summary ─────────────────────────────────────────────────────────
 
 def _write_predictor_summary(sheet: xw.Sheet) -> None:
-    """Write a per-predictor EDA panel below the coefficients table.
+    """Write a per-predictor EDA panel between the ANOVA and Coefficients sections.
 
-    All row numbers are derived from k so that this section always starts
-    below the coefficients spill, regardless of how many predictors there are.
-    The coefficients spill anchors at row 20 and returns k+1 values
-    (intercept + k predictors), occupying rows 20 through 20+k.
+    This section is FIXED HEIGHT (always k rows for k predictors) and is
+    placed ABOVE the variable-length coefficients spill so that static
+    header cells can never fall inside a spill range.
+
+    Layout (k=18):
+      row 16 — section header
+      row 17 — column headers
+      rows 18-35 — one row per predictor (fixed: x_s always has k columns)
     """
     k = len(PREDICTOR_NAMES)
+    _HDR = 16
+    _COL_HDR = 17
+    _DATA = 18
+    last_data_row = _DATA + k - 1  # = 35 for k=18
 
-    # Coefficients spill occupies rows 20 through 20+k.
-    # Leave one blank row (20+k+1) as buffer; section starts at 20+k+2.
-    _COEFF_ANCHOR = 20
-    header_row = _COEFF_ANCHOR + k + 2
-    col_header_row = header_row + 1
-    data_row = header_row + 2
-    last_data_row = data_row + k - 1
+    _v(sheet, _HDR, _C_C, "PREDICTOR SUMMARY")
+    _bold(sheet, _HDR, _C_C)
 
-    _v(sheet, header_row, _C_C, "PREDICTOR SUMMARY")
-    _bold(sheet, header_row, _C_C)
-
-    headers = ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "VIF", "Tolerance"]
-    for col, header in zip([_C_C, _C_D, _C_E, _C_F, _C_G, _C_H, _C_I], headers):
-        _v(sheet, col_header_row, col, header)
-    _bold_row(sheet, col_header_row, _C_C, _C_I)
+    for col, header in zip(
+        [_C_C, _C_D, _C_E, _C_F, _C_G, _C_H, _C_I],
+        ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "VIF", "Tolerance"],
+    ):
+        _v(sheet, _COL_HDR, col, header)
+    _bold_row(sheet, _COL_HDR, _C_C, _C_I)
 
     for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, data_row + i, _C_C, name)
+        _v(sheet, _DATA + i, _C_C, name)
 
-    _f(sheet, data_row, _C_D, "=Pearson_R(x_s,y,fil)")
-    _f(sheet, data_row, _C_E, "=Spearman_R(x_s,y,fil)")
-    _f(sheet, data_row, _C_F, "=Skewness(x_s,fil)")
-    _f(sheet, data_row, _C_G, "=Kurtosis(x_s,fil)")
-    _f(sheet, data_row, _C_H, "=VIF(x_s,Allow_Intercept,fil)")
-    _f(sheet, data_row, _C_I, "=Tolerance(x_s,Allow_Intercept,fil)")
+    _f(sheet, _DATA, _C_D, "=Pearson_R(x_s,y,fil)")
+    _f(sheet, _DATA, _C_E, "=Spearman_R(x_s,y,fil)")
+    _f(sheet, _DATA, _C_F, "=Skewness(x_s,fil)")
+    _f(sheet, _DATA, _C_G, "=Kurtosis(x_s,fil)")
+    _f(sheet, _DATA, _C_H, "=VIF(x_s,Allow_Intercept,fil)")
+    _f(sheet, _DATA, _C_I, "=Tolerance(x_s,Allow_Intercept,fil)")
 
-    sheet.range((data_row, _C_D), (last_data_row, _C_E)).number_format = "0.000"
-    sheet.range((data_row, _C_F), (last_data_row, _C_G)).number_format = "0.00"
-    sheet.range((data_row, _C_H), (last_data_row, _C_H)).number_format = "0.00"
-    sheet.range((data_row, _C_I), (last_data_row, _C_I)).number_format = "0.000"
+    sheet.range((_DATA, _C_D), (last_data_row, _C_E)).number_format = "0.000"
+    sheet.range((_DATA, _C_F), (last_data_row, _C_G)).number_format = "0.00"
+    sheet.range((_DATA, _C_H), (last_data_row, _C_H)).number_format = "0.00"
+    sheet.range((_DATA, _C_I), (last_data_row, _C_I)).number_format = "0.000"
 
 
 # ── Public entry point ────────────────────────────────────────────────────────

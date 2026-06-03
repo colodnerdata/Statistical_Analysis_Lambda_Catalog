@@ -505,36 +505,45 @@ def _write_charts(sheet: xw.Sheet) -> None:
 # ── Predictor summary ─────────────────────────────────────────────────────────
 
 def _write_predictor_summary(sheet: xw.Sheet) -> None:
-    """Write a per-predictor EDA panel below the coefficients table (row 40+).
+    """Write a per-predictor EDA panel below the coefficients table.
 
-    Columns: Pearson R | Spearman R | Skewness | Kurtosis | VIF | Tolerance
-    All spill formulas return k×1 vectors; predictor labels fill col C.
+    All row numbers are derived from k so that this section always starts
+    below the coefficients spill, regardless of how many predictors there are.
+    The coefficients spill anchors at row 20 and returns k+1 values
+    (intercept + k predictors), occupying rows 20 through 20+k.
     """
     k = len(PREDICTOR_NAMES)
 
-    _v(sheet, 40, _C_C, "PREDICTOR SUMMARY")
-    _bold(sheet, 40, _C_C)
+    # Coefficients spill occupies rows 20 through 20+k.
+    # Leave one blank row (20+k+1) as buffer; section starts at 20+k+2.
+    _COEFF_ANCHOR = 20
+    header_row = _COEFF_ANCHOR + k + 2
+    col_header_row = header_row + 1
+    data_row = header_row + 2
+    last_data_row = data_row + k - 1
+
+    _v(sheet, header_row, _C_C, "PREDICTOR SUMMARY")
+    _bold(sheet, header_row, _C_C)
 
     headers = ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "VIF", "Tolerance"]
     for col, header in zip([_C_C, _C_D, _C_E, _C_F, _C_G, _C_H, _C_I], headers):
-        _v(sheet, 41, col, header)
-    _bold_row(sheet, 41, _C_C, _C_I)
+        _v(sheet, col_header_row, col, header)
+    _bold_row(sheet, col_header_row, _C_C, _C_I)
 
     for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, 42 + i, _C_C, name)
+        _v(sheet, data_row + i, _C_C, name)
 
-    _f(sheet, 42, _C_D, "=Pearson_R(x_s,y,fil)")
-    _f(sheet, 42, _C_E, "=Spearman_R(x_s,y,fil)")
-    _f(sheet, 42, _C_F, "=Skewness(x_s,fil)")
-    _f(sheet, 42, _C_G, "=Kurtosis(x_s,fil)")
-    _f(sheet, 42, _C_H, "=VIF(x_s,Allow_Intercept,fil)")
-    _f(sheet, 42, _C_I, "=Tolerance(x_s,Allow_Intercept,fil)")
+    _f(sheet, data_row, _C_D, "=Pearson_R(x_s,y,fil)")
+    _f(sheet, data_row, _C_E, "=Spearman_R(x_s,y,fil)")
+    _f(sheet, data_row, _C_F, "=Skewness(x_s,fil)")
+    _f(sheet, data_row, _C_G, "=Kurtosis(x_s,fil)")
+    _f(sheet, data_row, _C_H, "=VIF(x_s,Allow_Intercept,fil)")
+    _f(sheet, data_row, _C_I, "=Tolerance(x_s,Allow_Intercept,fil)")
 
-    last_data_row = 42 + k - 1
-    sheet.range((42, _C_D), (last_data_row, _C_E)).number_format = "0.000"
-    sheet.range((42, _C_F), (last_data_row, _C_G)).number_format = "0.00"
-    sheet.range((42, _C_H), (last_data_row, _C_H)).number_format = "0.00"
-    sheet.range((42, _C_I), (last_data_row, _C_I)).number_format = "0.000"
+    sheet.range((data_row, _C_D), (last_data_row, _C_E)).number_format = "0.000"
+    sheet.range((data_row, _C_F), (last_data_row, _C_G)).number_format = "0.00"
+    sheet.range((data_row, _C_H), (last_data_row, _C_H)).number_format = "0.00"
+    sheet.range((data_row, _C_I), (last_data_row, _C_I)).number_format = "0.000"
 
 
 # ── Public entry point ────────────────────────────────────────────────────────

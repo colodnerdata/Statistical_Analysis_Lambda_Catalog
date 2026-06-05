@@ -250,11 +250,7 @@
       "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_squared(...)."
     },
     {
-      "name": "MS_Regression",
-      "test_table": null,
-      "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  SS_Regression(X_s, Y, Allow_Intercept, Filter) / DF_Regression(X_s))",
-      "arguments": [
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s)\n  ))",
         {
           "name": "X_s",
           "description": "column range of predictors (single or multi-column)"

@@ -2,25 +2,25 @@
 write_sheet_regression.py
 Writes the ToolPak-style Regression sheet into any target workbook.
 
-Layout (three horizontal zones):
-  Col A          — input labels: "Intercept" in row 2, predictor names spill in rows 3+
-  Col B          — input values: intercept=IF(Allow_Intercept,1,0) in row 2 (auto),
-                   user-editable predictor values in rows 3+ (k rows)
-                   pred_input (B2:B{k+2}) aligns with Coefficients() for SUMPRODUCT
-  Cols C–J       — main analysis: Regression Statistics, Diagnostics,
-                   Prediction Interval (rows 3-9), ANOVA (rows 10-14),
-                   Predictor Summary (rows 16-35, fixed height),
-                   Coefficients (rows 37+, spills downward)
-  Cols L–X       — residual table (fixed columns, independent of k)
-  Cols Y–AB      — hidden helpers: filtered actual Y (Y), top predictor (Z),
-                   reference line endpoints for charts (AA–AB)
-  Cols AC+        — diagnostic charts (2-column grid)
+Layout (four horizontal zones):
+  Col A–B        — Prediction Inputs: predictor labels + "In linear model?" toggles
+                   B2 = Allow_Intercept toggle; B3:B20 = per-predictor on/off (orange)
+  Col C          — thin gap (width 2)
+  Col D–J        — Predictor Summary: names + Pearson R, Spearman R, Skewness, Kurtosis,
+                   VIF, Tolerance (always using All_Xs — all 18 predictors)
+  Col K          — thin gap (width 2)
+  Col L–R        — Regression Outputs: Statistics (L–M rows 3–8), Diagnostics (N–O rows 3–10),
+                   Alpha input (M12), ANOVA Table (rows 13–17),
+                   Coefficients (rows 19+, spills downward)
+  Col S          — thin gap (width 2)
+  Col T–U        — Prediction Outputs: Prediction Interval (T1:U8, boxed),
+                   Prediction Inputs (T10+, no box — dynamic height)
+  Col V          — thin gap (width 2)
+  Col W–AI       — Residual Output (13 columns, spills downward from row 3)
 """
 from __future__ import annotations
 
 import xlwings as xw
-
-from .workbook_helpers import group_and_hide_columns
 
 
 REGRESSION_SHEET_NAME = "Regression"
@@ -46,50 +46,52 @@ PREDICTOR_NAMES: list[str] = [
     "Schooling",
 ]
 
-# 1-based column indices
-_C_A = 1    # prediction input labels (auto-populated via spill formula)
-_C_B = 2    # prediction input values (user-editable)
-_C_C = 3    # section labels / ANOVA row labels / coefficient row labels
-_C_D = 4    # stat values / ANOVA df / coefficients / Allow_Intercept toggle
-_C_E = 5    # ANOVA SS / coefficient standard errors
-_C_F = 6    # ANOVA MS / coefficient t-stats / diagnostics labels
-_C_G = 7    # ANOVA F / coefficient p-values / diagnostics values
-_C_H = 8    # ANOVA Significance F / coefficient CI lower
-_C_I = 9    # prediction interval labels / coefficient CI upper
-_C_J = 10   # prediction interval values
-_C_L = 12   # residual: observation number
-_C_M = 13   # residual: predicted Y
-_C_N = 14   # residual: residuals
-_C_O = 15   # residual: LOOCV prediction
-_C_P = 16   # residual: percentile
-_C_Q = 17   # residual: Y ranked
-_C_R = 18   # residual: normal scores
-_C_S = 19   # residual: scaled residuals
-_C_T = 20   # residual: scaled residuals ranked
-_C_U = 21   # residual: hat diagonal
-_C_V = 22   # residual: studentized residuals
-_C_W = 23   # residual: studentized residuals ranked
-_C_X = 24   # residual: Cook's distance
+# ── 1-based column indices ─────────────────────────────────────────────────────
 
-# Hidden helper columns (grouped and collapsed after writing)
-_C_Y = 25   # filtered actual Y — spills from row 3
-_C_Z = 26   # top-predictor values — spills from row 3
-_C_AA = 27  # reference line X endpoints (rows 1–12, static scalars)
-_C_AB = 28  # reference line Y endpoints (rows 1–12, static scalars)
+# Zone 1: Prediction Inputs
+_C_A = 1    # predictor labels
+_C_B = 2    # "In linear model?" toggles (orange user input); B2 = Allow_Intercept
 
-# XL chart constants (XlChartType / XlMarkerStyle / line style)
-_XL_XY_SCATTER = -4169         # xlXYScatter: markers only, no connecting lines
-_XL_XY_SCATTER_LINES = 75     # xlXYScatterLinesNoMarkers: line, no markers
-_XL_MARKER_NONE = -4142        # xlMarkerStyleNone
-_XL_MARKER_CIRCLE = 8          # xlMarkerStyleCircle
-_XL_DASH = -4115               # xlDash line style
-_XL_COLOR_BLUE = 0xC47244      # OLE BGR for Excel theme blue RGB(68, 114, 196)
-_XL_COLOR_GRAY = 0x808080      # OLE BGR for gray RGB(128, 128, 128)
+# Zone 2: Predictor Summary
+_C_C = 3    # thin gap
+_C_D = 4    # predictor names
+_C_E = 5    # Pearson R
+_C_F = 6    # Spearman R
+_C_G = 7    # Skewness
+_C_H = 8    # Kurtosis
+_C_I = 9    # VIF
+_C_J = 10   # Tolerance
 
-_CHART_W = 320.0    # chart width in points
-_CHART_H = 240.0    # chart height in points
-_CHART_GAP = 20.0   # gap between adjacent charts in points
-_REF_MAX_ROW = 3001  # upper row bound for chart series ranges (covers any real dataset)
+# Zone 3: Regression Outputs
+_C_K = 11   # thin gap
+_C_L = 12   # labels (stats / ANOVA / coefficients)
+_C_M = 13   # stat values / ANOVA df / coefficient values
+_C_N = 14   # diagnostics labels / ANOVA SS / coefficient SE
+_C_O = 15   # diagnostics values / ANOVA MS / coefficient t-stat
+_C_P = 16   # ANOVA F / coefficient p-value
+_C_Q = 17   # ANOVA Sig F / coefficient CI lower
+_C_R = 18   # coefficient CI upper
+
+# Zone 4: Prediction Outputs
+_C_S = 19   # thin gap
+_C_T = 20   # prediction interval labels / prediction input labels
+_C_U = 21   # prediction interval values / prediction input values (orange)
+
+# Zone 5: Residual Output
+_C_V = 22   # thin gap
+_C_W = 23   # observation number
+_C_X = 24   # predicted Y
+_C_Y = 25   # residuals
+_C_Z = 26   # LOOCV prediction
+_C_AA = 27  # rank fraction
+_C_AB = 28  # Y ranked
+_C_AC = 29  # normal scores
+_C_AD = 30  # scaled residuals
+_C_AE = 31  # scaled residuals ranked
+_C_AF = 32  # hat diagonal
+_C_AG = 33  # studentized residuals
+_C_AH = 34  # studentized residuals ranked
+_C_AI = 35  # Cook's distance
 
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
@@ -127,6 +129,33 @@ def _bold_row(sheet: xw.Sheet, row: int, col1: int, col2: int) -> None:
     sheet.range(_rc(row, col1), _rc(row, col2)).api.Font.Bold = True
 
 
+# ── Visual formatting helpers ─────────────────────────────────────────────────
+
+_YELLOW = (255, 255, 0)   # section headings
+_ORANGE = (255, 192, 0)   # user-editable input cells
+
+
+def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
+    _v(sheet, row, col, label)
+    sheet.range(_rc(row, col)).api.Font.Bold = True
+    sheet.range(_rc(row, col)).color = _YELLOW
+
+
+def _orange_input(sheet: xw.Sheet, row: int, col: int) -> None:
+    sheet.range(_rc(row, col)).color = _ORANGE
+
+
+def _orange_range(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
+    sheet.range(_rc(r1, c1), _rc(r2, c2)).color = _ORANGE
+
+
+def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
+    rng = sheet.range(_rc(r1, c1), _rc(r2, c2)).api
+    for edge in [7, 8, 9, 10]:   # xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
+        rng.Borders(edge).LineStyle = 1   # xlContinuous
+        rng.Borders(edge).Weight = 2      # xlThin
+
+
 # ── Local name management ─────────────────────────────────────────────────────
 
 def _drop_local_name(sheet: xw.Sheet, name: str) -> None:
@@ -138,48 +167,116 @@ def _drop_local_name(sheet: xw.Sheet, name: str) -> None:
 
 def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
     """Register sheet-scoped names used by every formula on this sheet."""
+    sname = sheet.name
+
+    # All_Xs: full 18-predictor range — predictor summary always uses this
+    _drop_local_name(sheet, "All_Xs")
+    sheet.api.Names.Add(
+        Name="All_Xs",
+        RefersTo="=LifeExpectancyData[[Adult Mortality]:[Schooling]]",
+    )
+
+    # x_s: dynamic — only the predictors toggled TRUE in col B (B3:B20)
+    # Falls back to the first column if all toggles are off.
+    _drop_local_name(sheet, "x_s")
+    sheet.api.Names.Add(
+        Name="x_s",
+        RefersTo=(
+            f"=IFERROR("
+            f"CHOOSECOLS(All_Xs,FILTER(SEQUENCE(COLUMNS(All_Xs)),{sname}!$B$3:$B$20)),"
+            f"CHOOSECOLS(All_Xs,1))"
+        ),
+    )
+
     for name, ref in [
-        ("x_s", "=LifeExpectancyData[[Adult Mortality]:[Schooling]]"),
         ("y",   "=LifeExpectancyData[Life expectancy]"),
         ("fil", "=LifeExpectancyData[Full_Data]"),
     ]:
         _drop_local_name(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=ref)
 
-    # Allow_Intercept toggle lives in D2
+    # Allow_Intercept toggle lives in B2
     _drop_local_name(sheet, "Allow_Intercept")
     sheet.api.Names.Add(
         Name="Allow_Intercept",
-        RefersTo=f"={sheet.name}!$D$2",
+        RefersTo=f"={sname}!$B$2",
     )
 
-    # Prediction input vector: col B, rows 2 to 2+k (k+1 entries: intercept + k predictors)
-    # Row 2 holds the intercept term (=1 when Allow_Intercept); rows 3+ hold predictor values.
-    # This aligns with Coefficients(...) so =SUMPRODUCT(Coefficients(...),pred_input) is valid.
+    # alpha: confidence level input, lives in M12
+    _drop_local_name(sheet, "alpha")
+    sheet.api.Names.Add(
+        Name="alpha",
+        RefersTo=f"={sname}!$M$12",
+    )
+
+    # pred_input: intercept + predictor values for point prediction
+    # Row U12 = intercept (auto), U13:U{12+k} = per-predictor values
     _drop_local_name(sheet, "pred_input")
     sheet.api.Names.Add(
         Name="pred_input",
-        RefersTo=f"={sheet.name}!$B$2:$B${2 + k}",
+        RefersTo=f"={sname}!$U$12:$U${12 + k}",
     )
 
 
 # ── Section writers ───────────────────────────────────────────────────────────
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
-    _v(sheet, 1, _C_A, "PREDICTION INPUTS")
-    _bold(sheet, 1, _C_A)
-    # Row 2: intercept term — auto-set to 1 when Allow_Intercept is TRUE
-    _v(sheet, 2, _C_A, "Intercept")
-    _f(sheet, 2, _C_B, "=IF(Allow_Intercept,1,0)")
-    # Rows 3+: predictor name labels (static) and user-editable values
+    """Zone A–B: predictor labels + 'In linear model?' toggles."""
+    _section_heading(sheet, 1, _C_A, "PREDICTION INPUTS")
+    _v(sheet, 1, _C_B, "In linear model?")
+    _bold(sheet, 1, _C_B)
+
+    # Row 2: Allow Intercept toggle (the named Allow_Intercept cell)
+    _v(sheet, 2, _C_A, "Allow Intercept")
+    _v(sheet, 2, _C_B, True)
+
+    # Rows 3+: one row per predictor
     for i, name in enumerate(PREDICTOR_NAMES):
         _v(sheet, 3 + i, _C_A, name)
-        sheet.range(_rc(3 + i, _C_B)).value = 0.0
+        _v(sheet, 3 + i, _C_B, True)
+
+    # Orange for all user-editable toggle cells
+    k = len(PREDICTOR_NAMES)
+    _orange_range(sheet, 2, _C_B, 2 + k, _C_B)
+
+
+def _write_predictor_summary(sheet: xw.Sheet) -> None:
+    """Zone D–J: EDA stats for all 18 predictors using All_Xs (not dynamic x_s)."""
+    _section_heading(sheet, 1, _C_D, "PREDICTOR SUMMARY")
+
+    for col, header in zip(
+        [_C_D, _C_E, _C_F, _C_G, _C_H, _C_I, _C_J],
+        ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "VIF", "Tolerance"],
+    ):
+        _v(sheet, 2, col, header)
+    _bold_row(sheet, 2, _C_D, _C_J)
+
+    k = len(PREDICTOR_NAMES)
+    for i, name in enumerate(PREDICTOR_NAMES):
+        _v(sheet, 3 + i, _C_D, name)
+
+    # Spill anchors at row 3 — each spills k rows downward
+    _f(sheet, 3, _C_E, "=Pearson_R(All_Xs,y,fil)")
+    _f(sheet, 3, _C_F, "=Spearman_R(All_Xs,y,fil)")
+    _f(sheet, 3, _C_G, "=Skewness(All_Xs,fil)")
+    _f(sheet, 3, _C_H, "=Kurtosis(All_Xs,fil)")
+    _f(sheet, 3, _C_I, "=VIF(All_Xs,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_J, "=Tolerance(All_Xs,Allow_Intercept,fil)")
+
+    last = 3 + k - 1
+    sheet.range((_rc(3, _C_E)), (_rc(last, _C_F))).number_format = "0.000"
+    sheet.range((_rc(3, _C_G)), (_rc(last, _C_H))).number_format = "0.00"
+    sheet.range((_rc(3, _C_I)), (_rc(last, _C_I))).number_format = "0.00"
+    sheet.range((_rc(3, _C_J)), (_rc(last, _C_J))).number_format = "0.000"
+
+
+def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
+    _section_heading(sheet, 1, _C_L, "REGRESSION OUTPUTS")
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
-    _v(sheet, 3, _C_C, "REGRESSION STATISTICS")
-    _bold(sheet, 3, _C_C)
+    """Cols L–M, rows 3–8."""
+    _section_heading(sheet, 3, _C_L, "REGRESSION STATISTICS")
     for row, label, formula in [
         (4, "Multiple R",        "=Multiple_R(x_s,y,Allow_Intercept,fil)"),
         (5, "R Square",          "=R_squared(x_s,y,Allow_Intercept,fil)"),
@@ -187,114 +284,146 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
         (7, "Standard Error",    "=SE_Regression(x_s,y,Allow_Intercept,fil)"),
         (8, "Observations",      "=Observations(y,fil)"),
     ]:
-        _v(sheet, row, _C_C, label)
-        _f(sheet, row, _C_D, formula)
+        _v(sheet, row, _C_L, label)
+        _f(sheet, row, _C_M, formula)
+    _border_box(sheet, 3, _C_L, 8, _C_M)
 
 
 def _write_diagnostics(sheet: xw.Sheet) -> None:
-    _v(sheet, 3, _C_F, "DIAGNOSTICS")
-    _bold(sheet, 3, _C_F)
+    """Cols N–O, rows 3–10."""
+    _section_heading(sheet, 3, _C_N, "DIAGNOSTICS")
     for row, label, formula in [
         (4,  "PRESS",          "=PRESS(x_s,y,Allow_Intercept,fil)"),
-        (5,  "PRESS R²",       "=1-PRESS(x_s,y,Allow_Intercept,fil)/SS_Total(y,Allow_Intercept,fil)"),
+        (5,  "PRESS R²",  "=1-PRESS(x_s,y,Allow_Intercept,fil)/SS_Total(y,Allow_Intercept,fil)"),
         (6,  "Mean Leverage",  "=(DF_Regression(x_s)+IF(Allow_Intercept,1,0))/Observations(y,fil)"),
         (7,  "AIC",            "=AIC(x_s,y,Allow_Intercept,fil)"),
         (8,  "BIC",            "=BIC(x_s,y,Allow_Intercept,fil)"),
         (9,  "AICc",           "=AICc(x_s,y,Allow_Intercept,fil)"),
         (10, "QQ Correlation", "=QQ_Correlation(x_s,y,Allow_Intercept,fil)"),
     ]:
-        _v(sheet, row, _C_F, label)
-        _f(sheet, row, _C_G, formula)
+        _v(sheet, row, _C_N, label)
+        _f(sheet, row, _C_O, formula)
+    _border_box(sheet, 3, _C_N, 10, _C_O)
+
+
+def _write_alpha(sheet: xw.Sheet) -> None:
+    """Alpha input cell at M12 — controls prediction interval confidence level."""
+    _v(sheet, 12, _C_L, "Alpha")
+    _bold(sheet, 12, _C_L)
+    _v(sheet, 12, _C_M, 0.05)
+    _orange_input(sheet, 12, _C_M)
 
 
 def _write_anova(sheet: xw.Sheet) -> None:
-    _v(sheet, 10, _C_C, "ANOVA")
-    _bold(sheet, 10, _C_C)
+    """ANOVA table, rows 13–17, cols L–Q."""
+    _section_heading(sheet, 13, _C_L, "ANOVA TABLE")
 
     for col, header in zip(
-        [_C_C, _C_D, _C_E, _C_F, _C_G, _C_H],
+        [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q],
         ["", "df", "SS", "MS", "F", "Significance F"],
     ):
-        _v(sheet, 11, col, header)
-    _bold_row(sheet, 11, _C_C, _C_H)
+        _v(sheet, 14, col, header)
+    _bold_row(sheet, 14, _C_L, _C_Q)
 
-    # Regression row (12): MS = E12/D12, F = F12/F13, Sig F = F.DIST.RT(G12, D12, D13)
-    _v(sheet, 12, _C_C, "Regression")
-    _f(sheet, 12, _C_D, "=DF_Regression(x_s)")
-    _f(sheet, 12, _C_E, "=SS_Regression(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 12, _C_F, f"={_a1(12,_C_E)}/{_a1(12,_C_D)}")
-    _f(sheet, 12, _C_G, "=F_Stat(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 12, _C_H, "=P_Value_F(x_s,y,Allow_Intercept,fil)")
+    _v(sheet, 15, _C_L, "Regression")
+    _f(sheet, 15, _C_M, "=DF_Regression(x_s)")
+    _f(sheet, 15, _C_N, "=SS_Regression(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 15, _C_O, "=MS_Regression(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 15, _C_P, "=F_Stat(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 15, _C_Q, "=P_Value_F(x_s,y,Allow_Intercept,fil)")
 
-    # Residual row (13): MS = E13/D13
-    _v(sheet, 13, _C_C, "Residual")
-    _f(sheet, 13, _C_D, "=DF_Residual(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 13, _C_E, "=SS_Residual(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 13, _C_F, f"={_a1(13,_C_E)}/{_a1(13,_C_D)}")
+    _v(sheet, 16, _C_L, "Residual")
+    _f(sheet, 16, _C_M, "=DF_Residual(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 16, _C_N, "=SS_Residual(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 16, _C_O, "=MS_Residual(x_s,y,Allow_Intercept,fil)")
 
-    # Total row (14)
-    _v(sheet, 14, _C_C, "Total")
-    _f(sheet, 14, _C_D, "=DF_Total(y,Allow_Intercept,fil)")
-    _f(sheet, 14, _C_E, "=SS_Total(y,Allow_Intercept,fil)")
+    _v(sheet, 17, _C_L, "Total")
+    _f(sheet, 17, _C_M, "=DF_Total(y,Allow_Intercept,fil)")
+    _f(sheet, 17, _C_N, "=SS_Total(y,Allow_Intercept,fil)")
 
-
-def _write_prediction_interval(sheet: xw.Sheet) -> None:
-    _v(sheet, 3, _C_I, "PREDICTION INTERVAL")
-    _bold(sheet, 3, _C_I)
-    for row, label, idx in [
-        (4, "Point Estimate",   1),
-        (5, "SE Prediction",    2),
-        (6, "t Critical",       3),
-        (7, "Lower 95%",        4),
-        (8, "Upper 95%",        5),
-        (9, "Confidence Level", 6),
-    ]:
-        _v(sheet, row, _C_I, label)
-        _f(sheet, row, _C_J,
-           f"=INDEX(Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,0.05),{idx})")
+    _border_box(sheet, 13, _C_L, 17, _C_Q)
 
 
 def _write_coefficients(sheet: xw.Sheet) -> None:
-    # Section starts at row 37: one blank row (36) below the predictor summary
-    # data (which ends at row 35). The spill formulas here grow downward and
-    # cannot collide with anything above them.
-    _v(sheet, 37, _C_C, "COEFFICIENTS")
-    _bold(sheet, 37, _C_C)
+    """Cols L–R, rows 19+. Spills downward — nothing placed below row 39 in these cols."""
+    _section_heading(sheet, 19, _C_L, "COEFFICIENTS")
 
     for col, header in zip(
-        [_C_C, _C_D, _C_E, _C_F, _C_G, _C_H, _C_I],
+        [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q, _C_R],
         ["", "Coefficients", "Std Error", "t Stat", "P-value", "Lower 95%", "Upper 95%"],
     ):
-        _v(sheet, 38, col, header)
-    _bold_row(sheet, 38, _C_C, _C_I)
+        _v(sheet, 20, col, header)
+    _bold_row(sheet, 20, _C_L, _C_R)
 
-    # Row labels: intercept then one row per predictor
-    _v(sheet, 39, _C_C, "Intercept")
+    # Static row labels (intercept + all 18 predictors)
+    _v(sheet, 21, _C_L, "Intercept")
     for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, 40 + i, _C_C, name)
+        _v(sheet, 22 + i, _C_L, name)
 
-    # Spill anchors — when intercepts are disabled, pad with a blank top row
-    # so predictor values remain aligned with predictor labels.
-    _f(sheet, 39, _C_D,
+    # Spill anchors at row 21 — pad with blank top row when intercept is disabled
+    _f(sheet, 21, _C_M,
        '=IF(Allow_Intercept,Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",Coefficients(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 39, _C_E,
+    _f(sheet, 21, _C_N,
        '=IF(Allow_Intercept,SE_Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",SE_Coefficients(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 39, _C_F,
+    _f(sheet, 21, _C_O,
        '=IF(Allow_Intercept,T_Stats(x_s,y,Allow_Intercept,fil),VSTACK("",T_Stats(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 39, _C_G,
+    _f(sheet, 21, _C_P,
        '=IF(Allow_Intercept,P_Values(x_s,y,Allow_Intercept,fil),VSTACK("",P_Values(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 39, _C_H,
+    _f(sheet, 21, _C_Q,
        '=IF(Allow_Intercept,CI_Lower(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Lower(x_s,y,Allow_Intercept,fil)))')
-    _f(sheet, 39, _C_I,
+    _f(sheet, 21, _C_R,
        '=IF(Allow_Intercept,CI_Upper(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Upper(x_s,y,Allow_Intercept,fil)))')
 
 
+def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
+    """Zone T–U: prediction interval (boxed) + prediction inputs (no box, dynamic)."""
+
+    # ── Prediction Interval (T1:U8, fixed height → box) ──────────────────────
+    _section_heading(sheet, 1, _C_T, "PREDICTION OUTPUTS")
+    _v(sheet, 2, _C_T, "PREDICTION INTERVAL")
+    _bold(sheet, 2, _C_T)
+
+    for row, label, idx in [
+        (3, "Point Estimate",   1),
+        (4, "SE Prediction",    2),
+        (5, "t Critical",       3),
+        (6, "Lower 95%",        4),
+        (7, "Upper 95%",        5),
+        (8, "Confidence Level", 6),
+    ]:
+        _v(sheet, row, _C_T, label)
+        _f(sheet, row, _C_U,
+           f"=INDEX(Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,alpha),{idx})")
+
+    _border_box(sheet, 1, _C_T, 8, _C_U)
+
+    # ── Prediction Inputs (T10+, no box — height depends on k) ───────────────
+    _section_heading(sheet, 10, _C_T, "PREDICTION INPUTS")
+    _v(sheet, 11, _C_T, "Predictor")
+    _v(sheet, 11, _C_U, "Prediction Value")
+    _bold_row(sheet, 11, _C_T, _C_U)
+
+    # Row 12: intercept (auto-set, still orange to show it's a value)
+    _v(sheet, 12, _C_T, "Intercept")
+    _f(sheet, 12, _C_U, "=IF(Allow_Intercept,1,0)")
+    _orange_input(sheet, 12, _C_U)
+
+    # Rows 13+: one per predictor
+    for i, name in enumerate(PREDICTOR_NAMES):
+        _v(sheet, 13 + i, _C_T, name)
+        _v(sheet, 13 + i, _C_U, 0.0)
+
+    # Orange for all user-editable prediction value cells
+    _orange_range(sheet, 13, _C_U, 12 + k, _C_U)
+
+
 def _write_residuals(sheet: xw.Sheet) -> None:
-    _v(sheet, 1, _C_L, "RESIDUAL OUTPUT")
-    _bold(sheet, 1, _C_L)
+    """Zone W–AI: residual diagnostic table."""
+    _section_heading(sheet, 1, _C_W, "RESIDUAL OUTPUT")
 
     for col, header in zip(
-        [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q, _C_R, _C_S, _C_T, _C_U, _C_V, _C_W, _C_X],
+        [_C_W, _C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC,
+         _C_AD, _C_AE, _C_AF, _C_AG, _C_AH, _C_AI],
         [
             "Observation", "Predicted Y", "Residuals", "LOOCV Prediction",
             "Rank Fraction", "Y Ranked", "Normal Scores",
@@ -304,252 +433,22 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         ],
     ):
         _v(sheet, 2, col, header)
-    _bold_row(sheet, 2, _C_L, _C_X)
+    _bold_row(sheet, 2, _C_W, _C_AI)
 
     # Spill anchors — each spills n rows downward
-    _f(sheet, 3, _C_L, "=SEQUENCE(Observations(y,fil))")
-    _f(sheet, 3, _C_M, "=Predictions(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_N, "=Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_O, "=LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_P, "=Rank_Fraction(y,fil)")
-    _f(sheet, 3, _C_Q, "=Y_Ranked(y,fil)")
-    _f(sheet, 3, _C_R, "=Normal_Scores(y,fil)")
-    _f(sheet, 3, _C_S, "=Scaled_Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_T, "=Scaled_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_U, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_V, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_W, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_X, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
-
-
-# ── Diagnostic chart helpers ──────────────────────────────────────────────────
-
-def _write_helper_columns(sheet: xw.Sheet) -> None:
-    """Write filtered-Y (col Y) and top-predictor (col Z) helper columns."""
-    # Col Y: actual Y values filtered to the same rows as the residual table
-    _v(sheet, 2, _C_Y, "Actual Y")
-    _f(sheet, 3, _C_Y, "=FILTER(y,fil)")
-
-    # Col Z: values for the predictor with the largest |t-stat|
-    # Row 2 header: dynamic predictor name (matches the coefficient table in col C)
-    _f(sheet, 2, _C_Z,
-       "=LET(t,DROP(T_Stats(x_s,y,Allow_Intercept,fil),IF(Allow_Intercept,1,0)),"
-       "INDEX(C40:C57,MATCH(MAX(ABS(t)),ABS(t),0)))")
-    # Row 3 spill: filtered values for that predictor column from the design matrix
-    _f(sheet, 3, _C_Z,
-       "=LET(t,DROP(T_Stats(x_s,y,Allow_Intercept,fil),IF(Allow_Intercept,1,0)),"
-       "j,MATCH(MAX(ABS(t)),ABS(t),0),"
-       "CHOOSECOLS(Design_Matrix(x_s,FALSE,fil),j))")
-
-
-def _write_reference_line_helpers(sheet: xw.Sheet) -> None:
-    """Write 2-row reference line endpoints for each chart into cols AA–AB.
-
-    Each chart uses a consecutive pair of rows:
-      rows 1–2   Actual vs Predicted   y = x line
-      rows 3–4   Residuals vs Fitted   y = 0 line
-      rows 5–6   Normal Q-Q            identity line
-      rows 7–8   Predicted vs LOOCV    y = x line
-      rows 9–10  Cook's Distance       4/n threshold line
-      rows 11–12 Residuals vs Top Pred y = 0 line
-    """
-    # Chart 1 — Actual vs Predicted: y=x reference (AA/AB rows 1–2)
-    _f(sheet, 1,  _C_AA, "=MIN(M3#,Y3#)")
-    _f(sheet, 2,  _C_AA, "=MAX(M3#,Y3#)")
-    _f(sheet, 1,  _C_AB, f"={_a1(1,  _C_AA)}")
-    _f(sheet, 2,  _C_AB, f"={_a1(2,  _C_AA)}")
-
-    # Chart 2 — Residuals vs Fitted: y=0 reference (rows 3–4)
-    _f(sheet, 3,  _C_AA, "=MIN(M3#)")
-    _f(sheet, 4,  _C_AA, "=MAX(M3#)")
-    _v(sheet, 3,  _C_AB, 0)
-    _v(sheet, 4,  _C_AB, 0)
-
-    # Chart 3 — Normal Q-Q: identity reference (rows 5–6)
-    _f(sheet, 5,  _C_AA, "=MIN(R3#)")
-    _f(sheet, 6,  _C_AA, "=MAX(R3#)")
-    _f(sheet, 5,  _C_AB, f"={_a1(5,  _C_AA)}")
-    _f(sheet, 6,  _C_AB, f"={_a1(6,  _C_AA)}")
-
-    # Chart 4 — Predicted vs LOOCV: y=x reference (rows 7–8)
-    _f(sheet, 7,  _C_AA, "=MIN(MIN(M3#),MIN(O3#))")
-    _f(sheet, 8,  _C_AA, "=MAX(MAX(M3#),MAX(O3#))")
-    _f(sheet, 7,  _C_AB, f"={_a1(7,  _C_AA)}")
-    _f(sheet, 8,  _C_AB, f"={_a1(8,  _C_AA)}")
-
-    # Chart 5 — Cook's Distance: 4/n threshold (rows 9–10)
-    _f(sheet, 9,  _C_AA, "=MIN(L3#)")
-    _f(sheet, 10, _C_AA, "=MAX(L3#)")
-    _f(sheet, 9,  _C_AB, "=4/Observations(y,fil)")
-    _f(sheet, 10, _C_AB, "=4/Observations(y,fil)")
-
-    # Chart 6 — Residuals vs Top Predictor: y=0 reference (rows 11–12)
-    _f(sheet, 11, _C_AA, "=MIN(Z3#)")
-    _f(sheet, 12, _C_AA, "=MAX(Z3#)")
-    _v(sheet, 11, _C_AB, 0)
-    _v(sheet, 12, _C_AB, 0)
-
-
-def _add_chart(
-    sheet: xw.Sheet,
-    left: float,
-    top: float,
-    title: str,
-    x_label: str,
-    y_label: str,
-    data_x_col: int,
-    data_y_col: int,
-    ref_row: int,
-) -> None:
-    """Add one XY scatter chart with a main series and a dashed reference line.
-
-    Parameters
-    ----------
-    sheet : xw.Sheet
-        Worksheet to embed the chart in.
-    left, top : float
-        Chart position in points from the sheet origin.
-    title : str
-        Chart title text.
-    x_label, y_label : str
-        Horizontal and vertical axis title text.
-    data_x_col, data_y_col : int
-        1-based column indices for the main scatter series X and Y data.
-    ref_row : int
-        First of the two helper rows in cols AA/AB that bound the reference line.
-    """
-    sname = sheet.name
-    xl_c = _col_letter(data_x_col)
-    yl_c = _col_letter(data_y_col)
-    aa_c = _col_letter(_C_AA)
-    ab_c = _col_letter(_C_AB)
-    ref_row2 = ref_row + 1
-
-    chart = sheet.charts.add(left=left, top=top, width=_CHART_W, height=_CHART_H)
-    cobj = chart.api        # ChartObject (container)
-    capi = cobj.Chart       # Chart COM object
-
-    # Remove the auto-generated placeholder series Excel inserts on creation
-    while capi.SeriesCollection().Count > 0:
-        capi.SeriesCollection(1).Delete()
-
-    capi.ChartType = _XL_XY_SCATTER
-    capi.HasTitle = True
-    capi.ChartTitle.Text = title
-    capi.ChartTitle.Font.Size = 10
-    capi.HasLegend = False
-
-    # Main scatter series: rows 3 to _REF_MAX_ROW; empty trailing cells are ignored
-    s1 = capi.SeriesCollection().NewSeries()
-    s1.Formula = (
-        f'=SERIES("",{sname}!${xl_c}$3:${xl_c}${_REF_MAX_ROW},'
-        f'{sname}!${yl_c}$3:${yl_c}${_REF_MAX_ROW},1)'
-    )
-    s1.MarkerStyle = _XL_MARKER_CIRCLE
-    s1.MarkerSize = 3
-    s1.MarkerForegroundColor = _XL_COLOR_BLUE
-    s1.MarkerBackgroundColor = _XL_COLOR_BLUE
-
-    # Reference line series: 2 anchor points define a dashed line
-    s2 = capi.SeriesCollection().NewSeries()
-    s2.Formula = (
-        f'=SERIES("",{sname}!${aa_c}${ref_row}:${aa_c}${ref_row2},'
-        f'{sname}!${ab_c}${ref_row}:${ab_c}${ref_row2},2)'
-    )
-    s2.ChartType = _XL_XY_SCATTER_LINES  # line connecting the 2 anchor points
-    s2.MarkerStyle = _XL_MARKER_NONE
-    s2.Border.LineStyle = _XL_DASH
-    s2.Border.Color = _XL_COLOR_GRAY
-    s2.Border.Weight = 2  # xlThin
-
-    # Axis labels
-    x_ax = capi.Axes(1)
-    x_ax.HasTitle = True
-    x_ax.AxisTitle.Text = x_label
-    x_ax.AxisTitle.Font.Size = 9
-
-    y_ax = capi.Axes(2)
-    y_ax.HasTitle = True
-    y_ax.AxisTitle.Text = y_label
-    y_ax.AxisTitle.Font.Size = 9
-
-
-def _write_charts(sheet: xw.Sheet) -> None:
-    """Add 6 diagnostic charts in a 2-column grid starting at cell AC2."""
-    anchor = sheet.range("AC2")
-    x0 = anchor.left
-    y0 = anchor.top
-    col_step = _CHART_W + _CHART_GAP
-    row_step = _CHART_H + _CHART_GAP
-
-    # (title, x_label, y_label, x_col, y_col, ref_row_in_AA_AB)
-    specs = [
-        ("Actual vs Predicted",        "Predicted Y",   "Actual Y",         _C_M, _C_Y,  1),
-        ("Residuals vs Fitted",        "Fitted Values", "Residuals",         _C_M, _C_N,  3),
-        ("Normal Q-Q",                 "Theoretical",   "Sample Quantiles",  _C_R, _C_T,  5),
-        ("Predicted vs LOOCV",         "Predicted Y",   "LOOCV Predicted",   _C_M, _C_O,  7),
-        ("Cook's Distance",            "Observation",   "Cook's Distance",   _C_L, _C_X,  9),
-        ("Residuals vs Top Predictor", "Top Predictor", "Residuals",         _C_Z, _C_N, 11),
-    ]
-
-    for i, (title, x_label, y_label, x_col, y_col, ref_row) in enumerate(specs):
-        _add_chart(
-            sheet,
-            left=x0 + (i % 2) * col_step,
-            top=y0 + (i // 2) * row_step,
-            title=title,
-            x_label=x_label,
-            y_label=y_label,
-            data_x_col=x_col,
-            data_y_col=y_col,
-            ref_row=ref_row,
-        )
-
-
-# ── Predictor summary ─────────────────────────────────────────────────────────
-
-def _write_predictor_summary(sheet: xw.Sheet) -> None:
-    """Write a per-predictor EDA panel between the ANOVA and Coefficients sections.
-
-    This section is FIXED HEIGHT (always k rows for k predictors) and is
-    placed ABOVE the variable-length coefficients spill so that static
-    header cells can never fall inside a spill range.
-
-    Layout (k=18):
-      row 16 — section header
-      row 17 — column headers
-      rows 18-35 — one row per predictor (fixed: x_s always has k columns)
-    """
-    k = len(PREDICTOR_NAMES)
-    _HDR = 16
-    _COL_HDR = 17
-    _DATA = 18
-    last_data_row = _DATA + k - 1  # = 35 for k=18
-
-    _v(sheet, _HDR, _C_C, "PREDICTOR SUMMARY")
-    _bold(sheet, _HDR, _C_C)
-
-    for col, header in zip(
-        [_C_C, _C_D, _C_E, _C_F, _C_G, _C_H, _C_I],
-        ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "VIF", "Tolerance"],
-    ):
-        _v(sheet, _COL_HDR, col, header)
-    _bold_row(sheet, _COL_HDR, _C_C, _C_I)
-
-    for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, _DATA + i, _C_C, name)
-
-    _f(sheet, _DATA, _C_D, "=Pearson_R(x_s,y,fil)")
-    _f(sheet, _DATA, _C_E, "=Spearman_R(x_s,y,fil)")
-    _f(sheet, _DATA, _C_F, "=Skewness(x_s,fil)")
-    _f(sheet, _DATA, _C_G, "=Kurtosis(x_s,fil)")
-    _f(sheet, _DATA, _C_H, "=VIF(x_s,Allow_Intercept,fil)")
-    _f(sheet, _DATA, _C_I, "=Tolerance(x_s,Allow_Intercept,fil)")
-
-    sheet.range((_DATA, _C_D), (last_data_row, _C_E)).number_format = "0.000"
-    sheet.range((_DATA, _C_F), (last_data_row, _C_G)).number_format = "0.00"
-    sheet.range((_DATA, _C_H), (last_data_row, _C_H)).number_format = "0.00"
-    sheet.range((_DATA, _C_I), (last_data_row, _C_I)).number_format = "0.000"
+    _f(sheet, 3, _C_W,  "=SEQUENCE(Observations(y,fil))")
+    _f(sheet, 3, _C_X,  "=Predictions(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_Y,  "=Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_Z,  "=LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AA, "=Rank_Fraction(y,fil)")
+    _f(sheet, 3, _C_AB, "=Y_Ranked(y,fil)")
+    _f(sheet, 3, _C_AC, "=Normal_Scores(y,fil)")
+    _f(sheet, 3, _C_AD, "=Scaled_Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AE, "=Scaled_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AF, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AG, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AH, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AI, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -575,34 +474,37 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     k = len(PREDICTOR_NAMES)
     _setup_local_names(sheet, k)
 
-    # Allow_Intercept toggle: label in C2, value cell in D2
-    _v(sheet, 2, _C_C, "Allow Intercept")
-    _v(sheet, 2, _C_D, True)
-
     _write_prediction_inputs(sheet)
+    _write_predictor_summary(sheet)
+    _write_regression_outputs_header(sheet)
     _write_regression_statistics(sheet)
     _write_diagnostics(sheet)
+    _write_alpha(sheet)
     _write_anova(sheet)
-    _write_prediction_interval(sheet)
     _write_coefficients(sheet)
-    _write_predictor_summary(sheet)
+    _write_prediction_outputs(sheet, k)
     _write_residuals(sheet)
-    _write_helper_columns(sheet)
-    _write_reference_line_helpers(sheet)
-    _write_charts(sheet)
-    group_and_hide_columns(sheet, _C_Y, _C_AB)
 
-    # Column widths (A–X only; Y–AB are hidden)
+    # Column widths
     for col_letter, width in {
-        "A": 30, "B": 12, "C": 24, "D": 14, "E": 14,
-        "F": 16, "G": 14, "H": 16, "I": 22, "J": 14,
-        "K": 3,  "L": 14, "M": 14, "N": 12, "O": 18,
-        "P": 12, "Q": 12, "R": 14, "S": 16, "T": 22,
-        "U": 14, "V": 22, "W": 26, "X": 14,
+        "A": 28, "B": 14, "C": 2,
+        "D": 28, "E": 10, "F": 11, "G": 10, "H": 10, "I": 10, "J": 10,
+        "K": 2,
+        "L": 22, "M": 14, "N": 20, "O": 14, "P": 14, "Q": 16, "R": 14,
+        "S": 2,
+        "T": 20, "U": 14,
+        "V": 2,
+        "W": 12, "X": 14, "Y": 12, "Z": 18,
+        "AA": 12, "AB": 12, "AC": 14, "AD": 16,
+        "AE": 22, "AF": 14, "AG": 22, "AH": 26, "AI": 14,
     }.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
 
     # Freeze top 2 rows
-    sheet.api.Application.ActiveWindow.SplitRow = 2
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
+    sheet.activate()
+    sheet.range("A3").select()
+    win = sheet.api.Application.ActiveWindow
+    win.FreezePanes = False
+    win.SplitRow = 2
+    win.SplitColumn = 0
+    win.FreezePanes = True

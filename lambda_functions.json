@@ -250,6 +250,62 @@
       "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_squared(...)."
     },
     {
+      "name": "MS_Regression",
+      "test_table": null,
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  SS_Regression(X_s, Y, Allow_Intercept, Filter) / DF_Regression(X_s))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "mean square for regression (MS_regression = SS_regression / df_regression) as a scalar",
+      "description": "MS_Regression is the mean square for the regression model: SS_Regression divided by df_Regression. It is the numerator of the overall F-statistic and represents the average explained variation per predictor degree of freedom."
+    },
+    {
+      "name": "MS_Residual",
+      "test_table": null,
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  SS_Residual(X_s, Y, Allow_Intercept, Filter) / DF_Residual(X_s, Y, Allow_Intercept, Filter))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "mean square for residual error (MS_residual = SS_residual / df_residual) as a scalar",
+      "description": "MS_Residual is the mean square for residual error: SS_Residual divided by df_Residual. It equals SE_Regression² and is the denominator of the overall F-statistic. It represents the average unexplained variation per residual degree of freedom."
+    },
+    {
       "name": "SE_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
@@ -1250,7 +1306,7 @@
     {
       "name": "Spearman_R",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    ry, BYROW(yf, LAMBDA(v, RANK.AVG(v, yf, 1))),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c,\n      LET(col, CHOOSECOLS(xf, r),\n          rx,  BYROW(col, LAMBDA(v, RANK.AVG(v, col, 1))),\n          CORREL(rx, ry))))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    ry, RANK.AVG(yf, yf, 1),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c,\n      LET(col, CHOOSECOLS(xf, r),\n          rx,  RANK.AVG(col, col, 1),\n          CORREL(rx, ry))))\n  ))",
       "arguments": [
         {
           "name": "X_s",

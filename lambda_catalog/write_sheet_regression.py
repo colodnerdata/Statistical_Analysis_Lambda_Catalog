@@ -282,11 +282,12 @@ def _write_boolean_validation(sheet: xw.Sheet) -> None:
     """B2:B16000 — in-cell dropdown restricted to TRUE / FALSE."""
     rng = sheet.range(_rc(2, _C_B), _rc(16000, _C_B)).api
     rng.Validation.Delete()
+    sep = sheet.api.Application.International(5)  # xlListSeparator
     rng.Validation.Add(
         Type=3,        # xlValidateList
         AlertStyle=1,  # xlValidAlertStop
         Operator=1,    # xlBetween (required positional arg, unused for lists)
-        Formula1="TRUE,FALSE",
+        Formula1=f"TRUE{sep}FALSE",
     )
     rng.Validation.IgnoreBlank = True
     rng.Validation.InCellDropdown = True

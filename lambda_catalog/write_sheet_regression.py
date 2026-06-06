@@ -262,6 +262,20 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     _orange_range(sheet, 2, _C_B, 2 + k, _C_B)
 
 
+def _write_boolean_validation(sheet: xw.Sheet) -> None:
+    """B2:B16000 — in-cell dropdown restricted to TRUE / FALSE."""
+    rng = sheet.range(_rc(2, _C_B), _rc(16000, _C_B)).api
+    rng.Validation.Delete()
+    rng.Validation.Add(
+        Type=3,        # xlValidateList
+        AlertStyle=1,  # xlValidAlertStop
+        Operator=1,    # xlBetween (required positional arg, unused for lists)
+        Formula1="TRUE,FALSE",
+    )
+    rng.Validation.IgnoreBlank = True
+    rng.Validation.InCellDropdown = True
+
+
 def _write_predictor_summary(sheet: xw.Sheet) -> None:
     """Zone D–J: EDA stats for the predictors currently selected into x_s."""
     _section_heading(sheet, 1, _C_D, "PREDICTOR SUMMARY")
@@ -497,6 +511,7 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _setup_local_names(sheet, k)
 
     _write_prediction_inputs(sheet)
+    _write_boolean_validation(sheet)
     _write_predictor_summary(sheet)
     _write_regression_outputs_header(sheet)
     _write_regression_statistics(sheet)

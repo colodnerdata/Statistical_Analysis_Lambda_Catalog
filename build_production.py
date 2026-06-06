@@ -93,7 +93,10 @@ def build_production_workbook(
                     message = str(exc).lower()
                     if "open method of workbooks class failed" not in message:
                         raise
-                    _backup_unopenable_workbook(workbook_path)
+                    try:
+                        _backup_unopenable_workbook(workbook_path)
+                    except OSError as backup_exc:
+                        raise_excel_access_error(workbook_path, "open", backup_exc)
                     workbook = app.books.add()
                     rebuilt_from_scratch = True
             else:

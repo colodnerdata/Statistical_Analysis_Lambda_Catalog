@@ -277,7 +277,7 @@
       "name": "MS_Residual",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  SS_Residual(X_s, Y, Allow_Intercept, Filter) / DF_Residual(X_s, Y, Allow_Intercept, Filter))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",

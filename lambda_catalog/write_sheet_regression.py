@@ -9,7 +9,7 @@ Layout (five horizontal zones):
   Col D–J        — Predictor Summary: names + Pearson R, Spearman R, Skewness, Kurtosis,
                    VIF, Tolerance (always using All_Xs — all 18 predictors)
   Col K          — thin gap (width 2)
-  Col L–R        — Regression Outputs: Statistics (L–M rows 3–8), Diagnostics (N–O rows 3–10),
+  Col L–R        — Regression Outputs: Statistics (L–M rows 3–8), Diagnostics (O–P rows 3–10),
                    Alpha input (M12), ANOVA Table (rows 13–17),
                    Coefficients (rows 19+, spills downward)
   Col S          — thin gap (width 2)
@@ -66,9 +66,9 @@ _C_J = 10   # Tolerance
 _C_K = 11   # thin gap
 _C_L = 12   # labels (stats / ANOVA / coefficients)
 _C_M = 13   # stat values / ANOVA df / coefficient values
-_C_N = 14   # diagnostics labels / ANOVA SS / coefficient SE
-_C_O = 15   # diagnostics values / ANOVA MS / coefficient t-stat
-_C_P = 16   # ANOVA F / coefficient p-value
+_C_N = 14   # ANOVA SS / coefficient SE
+_C_O = 15   # diagnostics labels / ANOVA MS / coefficient t-stat
+_C_P = 16   # diagnostics values / ANOVA F / coefficient p-value
 _C_Q = 17   # ANOVA Sig F / coefficient CI lower
 _C_R = 18   # coefficient CI upper
 
@@ -309,8 +309,8 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
 
 
 def _write_diagnostics(sheet: xw.Sheet) -> None:
-    """Cols N–O, rows 3–10."""
-    _section_heading(sheet, 3, _C_N, "DIAGNOSTICS")
+    """Cols O–P, rows 3–10."""
+    _section_heading(sheet, 3, _C_O, "DIAGNOSTICS")
     for row, label, formula in [
         (4,  "PRESS",          "=PRESS(x_s,y,Allow_Intercept,fil)"),
         (5,  "PRESS R²",  "=1-PRESS(x_s,y,Allow_Intercept,fil)/SS_Total(y,Allow_Intercept,fil)"),
@@ -320,9 +320,9 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         (9,  "AICc",           "=AICc(x_s,y,Allow_Intercept,fil)"),
         (10, "QQ Correlation", "=QQ_Correlation(x_s,y,Allow_Intercept,fil)"),
     ]:
-        _v(sheet, row, _C_N, label)
-        _f(sheet, row, _C_O, formula)
-    _border_box(sheet, 3, _C_N, 10, _C_O)
+        _v(sheet, row, _C_O, label)
+        _f(sheet, row, _C_P, formula)
+    _border_box(sheet, 3, _C_O, 10, _C_P)
 
 
 def _write_alpha(sheet: xw.Sheet) -> None:
@@ -512,7 +512,7 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
         "A": 28, "B": 14, "C": 2,
         "D": 28, "E": 10, "F": 11, "G": 10, "H": 10, "I": 10, "J": 10,
         "K": 2,
-        "L": 22, "M": 14, "N": 20, "O": 14, "P": 14, "Q": 16, "R": 14,
+        "L": 22, "M": 14, "N": 14, "O": 20, "P": 14, "Q": 16, "R": 14,
         "S": 2,
         "T": 20, "U": 14,
         "V": 2,

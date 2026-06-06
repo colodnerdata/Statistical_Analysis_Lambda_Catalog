@@ -10,6 +10,8 @@ Layout (five horizontal zones):
                    VIF, Tolerance (always using All_Xs — all 18 predictors)
   Col K          — thin gap (width 2)
   Col L–R        — Regression Outputs: Statistics (L–M rows 3–8), Diagnostics (O–P rows 3–10),
+                   Sheet-scoped names: All_Xs, Ind_Var_Filter ($B$3:$B$16000), x_s (filtered),
+                   Coefficient_Name_Col([Filter] optional), Allow_Intercept, alpha, pred_input
                    Alpha input (M12), ANOVA Table (rows 13–17),
                    Coefficients (rows 19+, spills downward)
   Col S          — thin gap (width 2)
@@ -176,37 +178,41 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
         RefersTo="=LifeExpectancyData[[Adult Mortality]:[Schooling]]",
     )
 
-    # Selected_Col_Nums and Coefficient_Name_Col are sheet-local because they
-    # depend on Regression-sheet cell references such as $B$3:.$B$1600.
+    # Retire Selected_Col_Nums — clean it up from any existing workbook.
     _drop_local_name(sheet, "Selected_Col_Nums")
-    sheet.api.Names.Add(
-        Name="Selected_Col_Nums",
-        RefersTo=(
-            "=LAMBDA(All_Xs,"
-            "LET("
-            "selected,FILTER(SEQUENCE(COLUMNS(All_Xs)),$B$3:INDEX($B:$B,2+COLUMNS(All_Xs))),"
-            "IFERROR(selected,1)"
-            "))"
-        ),
-    )
 
+    # Coefficient_Name_Col: optional Filter arg.
+    #   (All_Xs)              → all n header names as a column vector
+    #   (All_Xs, Ind_Var_Filter) → only headers whose toggle is TRUE
+    # TAKE(Filter, n) trims the filter range to exactly n rows.
+    # IFERROR fallback returns the first header when all toggles are off.
     _drop_local_name(sheet, "Coefficient_Name_Col")
     sheet.api.Names.Add(
         Name="Coefficient_Name_Col",
         RefersTo=(
-            "=LAMBDA(All_Xs,"
-            "TRANSPOSE(CHOOSECOLS(OFFSET(All_Xs,-1,0,1,COLUMNS(All_Xs)),Selected_Col_Nums(All_Xs)))"
+            "=LAMBDA(All_Xs,[Filter],"
+            "LET("
+            "n,COLUMNS(All_Xs),"
+            "headers,TRANSPOSE(OFFSET(All_Xs,-1,0,1,n)),"
+            "IF(ISOMITTED(Filter),"
+            "headers,"
+            "IFERROR(FILTER(headers,TAKE(Filter,n)),TAKE(headers,1))"
             ")"
+            "))"
         ),
     )
 
-    # x_s: dynamic — only the predictors toggled TRUE in col B
+    # x_s: dynamic — only the predictors toggled TRUE in col B via Ind_Var_Filter.
     # Falls back to the first column if all toggles are off.
     _drop_local_name(sheet, "x_s")
     sheet.api.Names.Add(
         Name="x_s",
         RefersTo=(
-            "=CHOOSECOLS(All_Xs,Selected_Col_Nums(All_Xs))"
+            "=LET("
+            "n,COLUMNS(All_Xs),"
+            "sel,IFERROR(FILTER(SEQUENCE(n),TAKE(Ind_Var_Filter,n)),1),"
+            "CHOOSECOLS(All_Xs,sel)"
+            ")"
         ),
     )
 
@@ -222,6 +228,14 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
     sheet.api.Names.Add(
         Name="Allow_Intercept",
         RefersTo=f"={sname}!$B$2",
+    )
+
+    # Ind_Var_Filter: boolean range covering all predictor toggle cells.
+    # Used by Coefficient_Name_Col and x_s to filter to selected predictors.
+    _drop_local_name(sheet, "Ind_Var_Filter")
+    sheet.api.Names.Add(
+        Name="Ind_Var_Filter",
+        RefersTo=f"={sname}!$B$3:$B$16000",
     )
 
     # alpha: confidence level input, lives in M12
@@ -252,9 +266,11 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     _v(sheet, 2, _C_A, "Allow Intercept")
     _v(sheet, 2, _C_B, True)
 
-    # Rows 3+: one row per predictor
-    for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, 3 + i, _C_A, name)
+    # A3: spill formula — fills predictor names from the table headers
+    _f(sheet, 3, _C_A, "=Coefficient_Name_Col(All_Xs)")
+
+    # Rows 3+: write B toggles only (A names come from the spill formula above)
+    for i in range(len(PREDICTOR_NAMES)):
         _v(sheet, 3 + i, _C_B, True)
 
     # Orange for all user-editable toggle cells
@@ -288,7 +304,7 @@ def _write_predictor_summary(sheet: xw.Sheet) -> None:
     _bold_row(sheet, 2, _C_D, _C_J)
 
     # Spill anchors at row 3 — each spills once per selected predictor
-    _f(sheet, 3, _C_D, "=Coefficient_Name_Col(All_Xs)")
+    _f(sheet, 3, _C_D, "=Coefficient_Name_Col(All_Xs,Ind_Var_Filter)")
     _f(sheet, 3, _C_E, "=Pearson_R(x_s,y,fil)")
     _f(sheet, 3, _C_F, "=Spearman_R(x_s,y,fil)")
     _f(sheet, 3, _C_G, "=Skewness(x_s,fil)")
@@ -393,7 +409,9 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
         sheet,
         21,
         _C_L,
-        '=IF(Allow_Intercept,VSTACK("Intercept",Coefficient_Name_Col(All_Xs)),VSTACK("",Coefficient_Name_Col(All_Xs)))',
+        '=IF(Allow_Intercept,'
+        'VSTACK("Intercept",Coefficient_Name_Col(All_Xs,Ind_Var_Filter)),'
+        'VSTACK("",Coefficient_Name_Col(All_Xs,Ind_Var_Filter)))',
     )
 
     # Spill anchors at row 21 — pad with blank top row when intercept is disabled
@@ -444,9 +462,11 @@ def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
     _f(sheet, 12, _C_U, "=IF(Allow_Intercept,1,0)")
     _orange_input(sheet, 12, _C_U)
 
-    # Rows 13+: one per predictor (fixed order so user-entered values stay aligned)
-    for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, 13 + i, _C_T, name)
+    # T13: spill formula — fills predictor names from the table headers
+    _f(sheet, 13, _C_T, "=Coefficient_Name_Col(All_Xs)")
+
+    # Rows 13+: write U values only (T names come from the spill formula above)
+    for i in range(len(PREDICTOR_NAMES)):
         _v(sheet, 13 + i, _C_U, 0.0)
 
     # Orange for all user-editable prediction value cells

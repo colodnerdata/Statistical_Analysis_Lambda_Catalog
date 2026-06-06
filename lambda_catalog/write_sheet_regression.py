@@ -355,10 +355,13 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
         _v(sheet, 20, col, header)
     _bold_row(sheet, 20, _C_L, _C_R)
 
-    # Static row labels (intercept + all 18 predictors)
-    _v(sheet, 21, _C_L, "Intercept")
-    for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, 22 + i, _C_L, name)
+    # Spill row labels aligned to selected predictors
+    _f(
+        sheet,
+        21,
+        _C_L,
+        '=IF(Allow_Intercept,VSTACK("Intercept",Coefficient_Name_Col(All_Xs)),VSTACK("",Coefficient_Name_Col(All_Xs)))',
+    )
 
     # Spill anchors at row 21 — pad with blank top row when intercept is disabled
     _f(sheet, 21, _C_M,

@@ -250,7 +250,11 @@
       "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_squared(...)."
     },
     {
+      "name": "MS_Regression",
+      "test_table": null,
+      "number_format": "0.00",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s)\n  ))",
+      "arguments": [
         {
           "name": "X_s",
           "description": "column range of predictors (single or multi-column)"
@@ -1302,14 +1306,14 @@
     {
       "name": "Spearman_R",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    ry, RANK.AVG(yf, yf, 1),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c,\n      LET(col, CHOOSECOLS(xf, r),\n          rx,  RANK.AVG(col, col, 1),\n          CORREL(rx, ry))))\n  ))",
+      "formula_display": "=LAMBDA(xf, yf, [Filter],\n  LET(\n    baseFilter, IF(ISOMITTED(Filter), TRUE, Filter),\n    RankAvgAsc, LAMBDA(a,\n      MAP(a, LAMBDA(v, 1+SUM(--(a<v))+(SUM(--(a=v))-1)/2))\n    ),\n    TRANSPOSE(\n      BYCOL(xf,\n        LAMBDA(xcol,\n          LET(\n            valid, baseFilter*ISNUMBER(xcol)*ISNUMBER(yf),\n            x, FILTER(xcol, valid),\n            y, FILTER(yf, valid),\n            rx, RankAvgAsc(x),\n            ry, RankAvgAsc(y),\n            CORREL(rx, ry)\n          )\n        )\n      )\n    )\n  ))",
       "arguments": [
         {
-          "name": "X_s",
+          "name": "xf",
           "description": "predictor column range (single or multi-column); returns one correlation per column"
         },
         {
-          "name": "Y",
+          "name": "yf",
           "description": "single-column outcome range"
         },
         {
@@ -1319,7 +1323,7 @@
         }
       ],
       "yields": "k×1 column vector of Spearman rank correlations between each predictor and Y",
-      "description": "Spearman_R computes the rank (Spearman) correlation between each column of X_s and Y after filtering. Ties receive average ranks (RANK.AVG). Returns a k×1 vector when X_s has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit."
+      "description": "Spearman_R computes the rank (Spearman) correlation between each column of xf and yf. For each predictor column, rows are kept where both that column and yf are numeric (and pass the optional Filter). Ties receive average ranks via a MAP-based helper (avoids RANK.AVG on dynamic arrays). Returns a k×1 vector when xf has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit."
     },
     {
       "name": "Skewness",

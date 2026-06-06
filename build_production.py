@@ -34,6 +34,16 @@ _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 _QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")
 
 
+def _backup_unopenable_workbook(workbook_path: Path) -> Path:
+    """Move aside a workbook Excel cannot open so the build can recreate it."""
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    backup_path = workbook_path.with_name(
+        f"{workbook_path.stem}_unopenable_{timestamp}{workbook_path.suffix}"
+    )
+    workbook_path.replace(backup_path)
+    return backup_path
+
+
 def build_production_workbook(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
@@ -74,10 +84,26 @@ def build_production_workbook(
     _t = time.monotonic()
     try:
         with xw.App(visible=True, add_book=False) as app:
+            workbook = None
+            rebuilt_from_scratch = False
             if workbook_exists:
-                workbook = app.books.open(str(workbook_path))
+                try:
+                    workbook = app.books.open(str(workbook_path))
+                except OPEN_WORKBOOK_ERRORS as exc:
+                    message = str(exc).lower()
+                    if "open method of workbooks class failed" not in message:
+                        raise
+                    try:
+                        _backup_unopenable_workbook(workbook_path)
+                    except OSError as backup_exc:
+                        raise_excel_access_error(workbook_path, "open", backup_exc)
+                    workbook = app.books.add()
+                    rebuilt_from_scratch = True
             else:
                 workbook = app.books.add()
+                rebuilt_from_scratch = True
+
+            if rebuilt_from_scratch:
                 for sheet in list(workbook.sheets)[1:]:
                     sheet.delete()
 

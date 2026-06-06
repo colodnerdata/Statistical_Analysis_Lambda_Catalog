@@ -3,6 +3,7 @@ from __future__ import annotations
 
 
 XML_FUNCTION_PREFIXES = {
+    "BYCOL": "_xlfn.BYCOL",
     "BYROW": "_xlfn.BYROW",
     "CHOOSECOLS": "_xlfn.CHOOSECOLS",
     "CHOOSEROWS": "_xlfn.CHOOSEROWS",
@@ -12,6 +13,7 @@ XML_FUNCTION_PREFIXES = {
     "ISOMITTED": "_xlfn.ISOMITTED",
     "LAMBDA": "_xlfn.LAMBDA",
     "LET": "_xlfn.LET",
+    "MAP": "_xlfn.MAP",
     "MAKEARRAY": "_xlfn.MAKEARRAY",
     "F.DIST.RT": "_xlfn.F.DIST.RT",
     "NORM.S.INV": "_xlfn.NORM.S.INV",

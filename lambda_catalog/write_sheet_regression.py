@@ -4,7 +4,7 @@ Writes the ToolPak-style Regression sheet into any target workbook.
 
 Layout (five horizontal zones):
   Col A–B        — Prediction Inputs: predictor labels + "In linear model?" toggles
-                   B2 = Allow_Intercept toggle; B3:B20 = per-predictor on/off (orange)
+                   B2 = Allow_Intercept toggle; B3:B16000 = per-predictor on/off (orange)
   Col C          — thin gap (width 2)
   Col D–J        — Predictor Summary: names + Pearson R, Spearman R, Skewness, Kurtosis,
                    VIF, Tolerance (always using All_Xs — all 18 predictors)

@@ -176,15 +176,37 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
         RefersTo="=LifeExpectancyData[[Adult Mortality]:[Schooling]]",
     )
 
-    # x_s: dynamic — only the predictors toggled TRUE in col B (B3:B20)
+    # Selected_Col_Nums and Coefficient_Name_Col are sheet-local because they
+    # depend on Regression-sheet cell references such as $B$3:.$B$1600.
+    _drop_local_name(sheet, "Selected_Col_Nums")
+    sheet.api.Names.Add(
+        Name="Selected_Col_Nums",
+        RefersTo=(
+            "=LAMBDA(All_Xs,"
+            "LET("
+            "selected,FILTER(SEQUENCE(COLUMNS(All_Xs)),$B$3:.$B$1600),"
+            "IFERROR(selected,1)"
+            "))"
+        ),
+    )
+
+    _drop_local_name(sheet, "Coefficient_Name_Col")
+    sheet.api.Names.Add(
+        Name="Coefficient_Name_Col",
+        RefersTo=(
+            "=LAMBDA(All_Xs,"
+            "TRANSPOSE(CHOOSECOLS(OFFSET(All_Xs,-1,0,1,COLUMNS(All_Xs)),Selected_Col_Nums(All_Xs)))"
+            ")"
+        ),
+    )
+
+    # x_s: dynamic — only the predictors toggled TRUE in col B
     # Falls back to the first column if all toggles are off.
     _drop_local_name(sheet, "x_s")
     sheet.api.Names.Add(
         Name="x_s",
         RefersTo=(
-            f"=IFERROR("
-            f"CHOOSECOLS(All_Xs,FILTER(SEQUENCE(COLUMNS(All_Xs)),{sname}!$B$3:$B$20)),"
-            f"CHOOSECOLS(All_Xs,1))"
+            "=CHOOSECOLS(All_Xs,Selected_Col_Nums(All_Xs))"
         ),
     )
 
@@ -214,7 +236,7 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
     _drop_local_name(sheet, "pred_input")
     sheet.api.Names.Add(
         Name="pred_input",
-        RefersTo=f"={sname}!$U$12:$U${12 + k}",
+        RefersTo=f"={sname}!$U$12:INDEX({sname}!$U:$U,12+COLUMNS(x_s))",
     )
 
 
@@ -241,7 +263,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
 
 
 def _write_predictor_summary(sheet: xw.Sheet) -> None:
-    """Zone D–J: EDA stats for all 18 predictors using All_Xs (not dynamic x_s)."""
+    """Zone D–J: EDA stats for the predictors currently selected into x_s."""
     _section_heading(sheet, 1, _C_D, "PREDICTOR SUMMARY")
 
     for col, header in zip(
@@ -251,19 +273,16 @@ def _write_predictor_summary(sheet: xw.Sheet) -> None:
         _v(sheet, 2, col, header)
     _bold_row(sheet, 2, _C_D, _C_J)
 
-    k = len(PREDICTOR_NAMES)
-    for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, 3 + i, _C_D, name)
+    # Spill anchors at row 3 — each spills once per selected predictor
+    _f(sheet, 3, _C_D, "=Coefficient_Name_Col(All_Xs)")
+    _f(sheet, 3, _C_E, "=Pearson_R(x_s,y,fil)")
+    _f(sheet, 3, _C_F, "=Spearman_R(x_s,y,fil)")
+    _f(sheet, 3, _C_G, "=Skewness(x_s,fil)")
+    _f(sheet, 3, _C_H, "=Kurtosis(x_s,fil)")
+    _f(sheet, 3, _C_I, "=VIF(x_s,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_J, "=Tolerance(x_s,Allow_Intercept,fil)")
 
-    # Spill anchors at row 3 — each spills k rows downward
-    _f(sheet, 3, _C_E, "=Pearson_R(All_Xs,y,fil)")
-    _f(sheet, 3, _C_F, "=Spearman_R(All_Xs,y,fil)")
-    _f(sheet, 3, _C_G, "=Skewness(All_Xs,fil)")
-    _f(sheet, 3, _C_H, "=Kurtosis(All_Xs,fil)")
-    _f(sheet, 3, _C_I, "=VIF(All_Xs,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_J, "=Tolerance(All_Xs,Allow_Intercept,fil)")
-
-    last = 3 + k - 1
+    last = 3 + len(PREDICTOR_NAMES) - 1
     sheet.range((_rc(3, _C_E)), (_rc(last, _C_F))).number_format = "0.000"
     sheet.range((_rc(3, _C_G)), (_rc(last, _C_H))).number_format = "0.00"
     sheet.range((_rc(3, _C_I)), (_rc(last, _C_I))).number_format = "0.00"
@@ -411,9 +430,9 @@ def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
     _f(sheet, 12, _C_U, "=IF(Allow_Intercept,1,0)")
     _orange_input(sheet, 12, _C_U)
 
-    # Rows 13+: one per predictor
-    for i, name in enumerate(PREDICTOR_NAMES):
-        _v(sheet, 13 + i, _C_T, name)
+    # Rows 13+: one per selected predictor label, with default input values prefilled below.
+    _f(sheet, 13, _C_T, "=Coefficient_Name_Col(All_Xs)")
+    for i in range(k):
         _v(sheet, 13 + i, _C_U, 0.0)
 
     # Orange for all user-editable prediction value cells

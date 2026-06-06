@@ -184,7 +184,7 @@ def _setup_local_names(sheet: xw.Sheet, k: int) -> None:
         RefersTo=(
             "=LAMBDA(All_Xs,"
             "LET("
-            "selected,FILTER(SEQUENCE(COLUMNS(All_Xs)),$B$3:.$B$1600),"
+            "selected,FILTER(SEQUENCE(COLUMNS(All_Xs)),$B$3:INDEX($B:$B,2+COLUMNS(All_Xs))),"
             "IFERROR(selected,1)"
             "))"
         ),

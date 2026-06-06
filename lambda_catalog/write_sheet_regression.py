@@ -430,9 +430,9 @@ def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
     _f(sheet, 12, _C_U, "=IF(Allow_Intercept,1,0)")
     _orange_input(sheet, 12, _C_U)
 
-    # Rows 13+: one per selected predictor label, with default input values prefilled below.
-    _f(sheet, 13, _C_T, "=Coefficient_Name_Col(All_Xs)")
-    for i in range(k):
+    # Rows 13+: one per predictor (fixed order so user-entered values stay aligned)
+    for i, name in enumerate(PREDICTOR_NAMES):
+        _v(sheet, 13 + i, _C_T, name)
         _v(sheet, 13 + i, _C_U, 0.0)
 
     # Orange for all user-editable prediction value cells

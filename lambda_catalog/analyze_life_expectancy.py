@@ -10,6 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import statsmodels.api as sm  # type: ignore[import-untyped]
+from scipy import stats as _scipy_stats  # type: ignore[import-untyped]
 from statsmodels.regression.linear_model import (  # type: ignore[import-untyped]
     RegressionResultsWrapper,
 )
@@ -109,6 +110,16 @@ class RegressionSummary:
     durbin_watson : float
         Durbin-Watson statistic Σ(eₜ − eₜ₋₁)² / Σeₜ², testing first-order
         serial correlation in residuals.
+    aic : float
+        Akaike Information Criterion: n·log(SSR/n) + 2·p. Note: statsmodels
+        .aic counts σ² as a free parameter; this uses the classical regression form.
+    bic : float
+        Bayesian Information Criterion: n·log(SSR/n) + p·log(n).
+    aicc : float
+        AIC corrected for small samples: AIC + 2·p·(p+1)/(n−p−1).
+    qq_correlation : float
+        Pearson correlation of sorted scaled residuals with standard-normal
+        quantiles (Q-Q plot linearity measure). Computed via scipy.
     """
 
     observations: int
@@ -126,6 +137,10 @@ class RegressionSummary:
     durbin_watson: float
     f_stat: float
     p_value_f: float
+    aic: float
+    bic: float
+    aicc: float
+    qq_correlation: float
 
 
 @dataclass(frozen=True)
@@ -462,6 +477,20 @@ def calculate_regression_summary(
     )
     p_value_f = float(model.f_pvalue)
 
+    # AIC/BIC/AICc: statsmodels .aic/.bic count σ² as a free parameter; use
+    # the classical regression form matching the Excel LAMBDAs instead.
+    _p = df_regression + (1 if include_intercept else 0)
+    _log_term = float(observations * np.log(ss_residual / observations))
+    aic = _log_term + 2.0 * _p
+    bic = _log_term + _p * float(np.log(observations))
+    aicc = aic + 2.0 * _p * (_p + 1) / (observations - _p - 1)
+
+    # QQ correlation: Pearson r of sorted scaled residuals vs. normal scores.
+    _sr = np.sort(e / se_regression)
+    _ns = _scipy_stats.norm.ppf((np.arange(1, observations + 1) - 0.5) / observations)
+    qq_correlation, _ = _scipy_stats.pearsonr(_sr, _ns)
+    qq_correlation = float(qq_correlation)
+
     return RegressionSummary(
         observations=observations,
         df_regression=df_regression,
@@ -478,6 +507,10 @@ def calculate_regression_summary(
         durbin_watson=dw,
         f_stat=f_stat,
         p_value_f=p_value_f,
+        aic=aic,
+        bic=bic,
+        aicc=aicc,
+        qq_correlation=qq_correlation,
     )
 
 

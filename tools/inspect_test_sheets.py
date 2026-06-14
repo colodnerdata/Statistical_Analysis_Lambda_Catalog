@@ -344,7 +344,7 @@ def main() -> None:
         print(f"Error: workbook not found: {workbook_path}", file=sys.stderr)
         sys.exit(1)
 
-    scalar_row_configs, vector_row_configs, observation_row_configs = get_analysis_results(args.csv)
+    scalar_row_configs, vector_row_configs, observation_row_configs, _ = get_analysis_results(args.csv)
 
     try:
         with xw.App(visible=False, add_book=False) as app:

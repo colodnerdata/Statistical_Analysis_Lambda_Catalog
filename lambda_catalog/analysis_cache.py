@@ -3,18 +3,27 @@ from __future__ import annotations
 
 import hashlib
 import json
+from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
 from .analyze_life_expectancy import RegressionObservationVectors, RegressionVectors
+from .analyze_regression_sheet import (
+    RegressionFullResiduals,
+    RegressionPredictionInterval,
+    RegressionPredictorSummary,
+    RegressionSheetResults,
+    build_regression_sheet_qc_configs,
+)
 from .write_sheet_mlr_scalar_test import build_mlr_row_configs
 from .write_sheet_mlr_observation_test import build_mlr_observation_row_configs
 from .write_sheet_mlr_vector_outputs_test import build_mlr_vector_row_configs
+from .analyze_life_expectancy import RegressionSummary
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
-_CACHE_SCHEMA_VERSION = 6
+_CACHE_SCHEMA_VERSION = 8
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -78,11 +87,136 @@ def _deserialize_observation_configs(
     return result
 
 
+def _serialize_regression_sheet_configs(
+    configs: list[tuple[str, bool, RegressionSheetResults]],
+) -> list[dict[str, Any]]:
+    result = []
+    for name, allow_intercept, r in configs:
+        result.append({
+            "name": name,
+            "allow_intercept": allow_intercept,
+            "summary": asdict(r.summary),
+            "vectors": {
+                "term_names": list(r.vectors.term_names),
+                "coefficients": list(r.vectors.coefficients),
+                "std_errors": list(r.vectors.std_errors),
+                "t_stats": list(r.vectors.t_stats),
+                "p_values": list(r.vectors.p_values),
+                "ci_lower": list(r.vectors.ci_lower),
+                "ci_upper": list(r.vectors.ci_upper),
+            },
+            "predictor_summary": {
+                "predictor_names": list(r.predictor_summary.predictor_names),
+                "pearson_r": list(r.predictor_summary.pearson_r),
+                "spearman_r": list(r.predictor_summary.spearman_r),
+                "skewness": list(r.predictor_summary.skewness),
+                "kurtosis": list(r.predictor_summary.kurtosis),
+                "vif": list(r.predictor_summary.vif),
+                "tolerance": list(r.predictor_summary.tolerance),
+            },
+            "full_residuals": {
+                "predictions": list(r.full_residuals.predictions),
+                "residuals": list(r.full_residuals.residuals),
+                "loocv_predictions": list(r.full_residuals.loocv_predictions),
+                "rank_fraction": list(r.full_residuals.rank_fraction),
+                "y_ranked": list(r.full_residuals.y_ranked),
+                "normal_scores": list(r.full_residuals.normal_scores),
+                "scaled_residuals": list(r.full_residuals.scaled_residuals),
+                "scaled_residuals_ranked": list(r.full_residuals.scaled_residuals_ranked),
+                "hat_diagonal": list(r.full_residuals.hat_diagonal),
+                "studentized_residuals": list(r.full_residuals.studentized_residuals),
+                "studentized_residuals_ranked": list(r.full_residuals.studentized_residuals_ranked),
+                "cooks_distance": list(r.full_residuals.cooks_distance),
+            },
+            "prediction_interval": {
+                "pred_input_values": list(r.prediction_interval.pred_input_values),
+                "point_estimate": r.prediction_interval.point_estimate,
+                "se_prediction": r.prediction_interval.se_prediction,
+                "t_critical": r.prediction_interval.t_critical,
+                "lower": r.prediction_interval.lower,
+                "upper": r.prediction_interval.upper,
+                "confidence_level": r.prediction_interval.confidence_level,
+            },
+        })
+    return result
+
+
+def _deserialize_regression_sheet_configs(
+    data: list[dict[str, Any]],
+) -> list[tuple[str, bool, RegressionSheetResults]]:
+    result = []
+    for item in data:
+        s = item["summary"]
+        summary = RegressionSummary(**s)
+        v = item["vectors"]
+        vectors = RegressionVectors(
+            term_names=tuple(v["term_names"]),
+            coefficients=tuple(v["coefficients"]),
+            std_errors=tuple(v["std_errors"]),
+            t_stats=tuple(v["t_stats"]),
+            p_values=tuple(v["p_values"]),
+            ci_lower=tuple(v["ci_lower"]),
+            ci_upper=tuple(v["ci_upper"]),
+        )
+        ps = item["predictor_summary"]
+        predictor_summary = RegressionPredictorSummary(
+            predictor_names=tuple(ps["predictor_names"]),
+            pearson_r=tuple(ps["pearson_r"]),
+            spearman_r=tuple(ps["spearman_r"]),
+            skewness=tuple(ps["skewness"]),
+            kurtosis=tuple(ps["kurtosis"]),
+            vif=tuple(ps["vif"]),
+            tolerance=tuple(ps["tolerance"]),
+        )
+        fr = item["full_residuals"]
+        full_residuals = RegressionFullResiduals(
+            predictions=tuple(fr["predictions"]),
+            residuals=tuple(fr["residuals"]),
+            loocv_predictions=tuple(fr["loocv_predictions"]),
+            rank_fraction=tuple(fr["rank_fraction"]),
+            y_ranked=tuple(fr["y_ranked"]),
+            normal_scores=tuple(fr["normal_scores"]),
+            scaled_residuals=tuple(fr["scaled_residuals"]),
+            scaled_residuals_ranked=tuple(fr["scaled_residuals_ranked"]),
+            hat_diagonal=tuple(fr["hat_diagonal"]),
+            studentized_residuals=tuple(fr["studentized_residuals"]),
+            studentized_residuals_ranked=tuple(fr["studentized_residuals_ranked"]),
+            cooks_distance=tuple(fr["cooks_distance"]),
+        )
+        pi = item["prediction_interval"]
+        prediction_interval = RegressionPredictionInterval(
+            pred_input_values=tuple(pi["pred_input_values"]),
+            point_estimate=pi["point_estimate"],
+            se_prediction=pi["se_prediction"],
+            t_critical=pi["t_critical"],
+            lower=pi["lower"],
+            upper=pi["upper"],
+            confidence_level=pi["confidence_level"],
+        )
+        result.append((
+            item["name"],
+            item["allow_intercept"],
+            RegressionSheetResults(
+                summary=summary,
+                vectors=vectors,
+                predictor_summary=predictor_summary,
+                full_residuals=full_residuals,
+                prediction_interval=prediction_interval,
+            ),
+        ))
+    return result
+
+
 def get_analysis_results(
     csv_path: Path,
     cache_path: Path = DEFAULT_CACHE_PATH,
-) -> tuple[list, list[tuple[int, bool, RegressionVectors]], list[tuple[int, bool, RegressionObservationVectors]]]:
-    """Return (scalar, vector, observation configs), from cache or computed fresh.
+) -> tuple[
+    list,
+    list[tuple[int, bool, RegressionVectors]],
+    list[tuple[int, bool, RegressionObservationVectors]],
+    list[tuple[str, bool, RegressionSheetResults]],
+]:
+    """Return (scalar, vector, observation, regression_sheet configs), from cache or fresh.
 
     The cache is invalidated when the CSV content changes (SHA-256 hash).
     Delete .analysis_cache.json manually after code or schema changes.
@@ -94,17 +228,22 @@ def get_analysis_results(
         try:
             with cache_path.open("r", encoding="utf-8") as handle:
                 cached = json.load(handle)
-            if cached.get("schema_version") == _CACHE_SCHEMA_VERSION and cached.get("csv_fingerprint") == fingerprint:
+            if (
+                cached.get("schema_version") == _CACHE_SCHEMA_VERSION
+                and cached.get("csv_fingerprint") == fingerprint
+            ):
                 scalar_configs = [tuple(item) for item in cached["scalar_row_configs"]]
                 vector_configs = _deserialize_vector_configs(cached["vector_row_configs"])
                 observation_configs = _deserialize_observation_configs(cached["observation_row_configs"])
-                return scalar_configs, vector_configs, observation_configs
+                regression_sheet_configs = _deserialize_regression_sheet_configs(cached["regression_sheet_configs"])
+                return scalar_configs, vector_configs, observation_configs, regression_sheet_configs
         except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError):
             pass
 
     scalar_configs = build_mlr_row_configs(csv_path)
     vector_configs = build_mlr_vector_row_configs(csv_path)
     observation_configs = build_mlr_observation_row_configs(csv_path)
+    regression_sheet_configs = build_regression_sheet_qc_configs(csv_path)
 
     try:
         payload = {
@@ -113,10 +252,11 @@ def get_analysis_results(
             "scalar_row_configs": [list(item) for item in scalar_configs],
             "vector_row_configs": _serialize_vector_configs(vector_configs),
             "observation_row_configs": _serialize_observation_configs(observation_configs),
+            "regression_sheet_configs": _serialize_regression_sheet_configs(regression_sheet_configs),
         }
         with cache_path.open("w", encoding="utf-8") as handle:
             json.dump(payload, handle, indent=2)
     except (OSError, TypeError):
         pass
 
-    return scalar_configs, vector_configs, observation_configs
+    return scalar_configs, vector_configs, observation_configs, regression_sheet_configs

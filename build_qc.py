@@ -43,6 +43,7 @@ def verify_test_sheets(
     scalar_row_configs: list,
     vector_row_configs: list,
     observation_row_configs: list,
+    regression_sheet_configs: list,
 ) -> None:
     """Compare Excel Calc columns against Python-computed expected values in all test sheets.
 
@@ -65,6 +66,9 @@ def verify_test_sheets(
     observation_row_configs : list
         Per-section configs from ``build_mlr_observation_row_configs``; provides the
         Python-computed expected observation-level values used for comparison.
+    regression_sheet_configs : list
+        Per-config tuples from ``build_regression_sheet_qc_configs``; provides the
+        Python-computed expected values for all Regression sheet output zones.
     """
     tool_path = ROOT_DIR / "tools" / "inspect_test_sheets.py"
     spec = importlib.util.spec_from_file_location("inspect_test_sheets", tool_path)
@@ -120,6 +124,38 @@ def verify_test_sheets(
                 flush=True,
             )
 
+    # Phase 4: Regression sheet verification
+    reg_tool_path = ROOT_DIR / "tools" / "inspect_regression_sheet.py"
+    reg_spec = importlib.util.spec_from_file_location("inspect_regression_sheet", reg_tool_path)
+    if reg_spec is None or reg_spec.loader is None:
+        raise RuntimeError(f"Could not load inspect_regression_sheet from {reg_tool_path}")
+    reg_mod = importlib.util.module_from_spec(reg_spec)
+    reg_spec.loader.exec_module(reg_mod)
+
+    reg_dfs = reg_mod.read_regression_df(workbook, regression_sheet_configs)
+
+    _SECTION_DF_KEYS = [
+        ("scalars",             ["config_name", "allow_intercept", "stat_name"]),
+        ("predictors",          ["config_name", "allow_intercept", "predictor_name", "stat_name"]),
+        ("coefficients",        ["config_name", "allow_intercept", "term_name", "stat_name"]),
+        ("prediction_interval", ["config_name", "allow_intercept", "stat_name"]),
+        ("residuals",           ["config_name", "allow_intercept", "row_idx", "stat_name"]),
+    ]
+    for section_key, id_cols in _SECTION_DF_KEYS:
+        df = reg_dfs[section_key]
+        for _, row in df.iterrows():
+            fdd = row["first_digit_deviation"]
+            if fdd is not None and fdd <= tol:
+                identity = " ".join(
+                    f"{col}={row[col]!r}" for col in id_cols if col in row.index
+                )
+                print(
+                    f"WARNING [Regression/{section_key}] {identity}: "
+                    f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
+                    f"abs_diff={row['abs_diff']!r}, fdd={fdd}",
+                    flush=True,
+                )
+
 
 def build_qc_workbook(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
@@ -154,7 +190,7 @@ def build_qc_workbook(
     _t = time.monotonic()
     definitions = load_lambda_definitions(definitions_path)
     catalog_entries = load_catalog_entries(definitions_path)
-    row_configs, vector_row_configs, observation_row_configs = get_analysis_results(
+    row_configs, vector_row_configs, observation_row_configs, regression_sheet_configs = get_analysis_results(
         csv_path, cache_path
     )
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
@@ -211,7 +247,7 @@ def build_qc_workbook(
         with xw.App(visible=True, add_book=False) as app:
             workbook = app.books.open(str(workbook_path))
             try:
-                verify_test_sheets(workbook, row_configs, vector_row_configs, observation_row_configs)
+                verify_test_sheets(workbook, row_configs, vector_row_configs, observation_row_configs, regression_sheet_configs)
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
@@ -307,6 +343,7 @@ def main() -> None:
     print("Sheet updated: MLR_Scalar_Test")
     print("Sheet updated: MLR_Vector_Outputs_Test")
     print("Sheet updated: MLR_Observation_Test")
+    print("Sheet verified: Regression")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

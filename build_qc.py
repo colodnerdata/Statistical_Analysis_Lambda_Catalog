@@ -203,7 +203,9 @@ def build_qc_workbook(
     # Phase 1: Write all sheets and save
     _t = time.monotonic()
     try:
-        with xw.App(visible=True, add_book=False) as app:
+        with xw.App(visible=False, add_book=False) as app:
+            app.api.DisplayAlerts = False
+            app.api.AskToUpdateLinks = False
             if workbook_exists:
                 workbook = app.books.open(str(workbook_path))
             else:
@@ -244,7 +246,9 @@ def build_qc_workbook(
     # Phase 3: Reopen and verify test sheets against the freshly synced definitions
     _t = time.monotonic()
     try:
-        with xw.App(visible=True, add_book=False) as app:
+        with xw.App(visible=False, add_book=False) as app:
+            app.api.DisplayAlerts = False
+            app.api.AskToUpdateLinks = False
             workbook = app.books.open(str(workbook_path))
             try:
                 verify_test_sheets(workbook, row_configs, vector_row_configs, observation_row_configs, regression_sheet_configs)

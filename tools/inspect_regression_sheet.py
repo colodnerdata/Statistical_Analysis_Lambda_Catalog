@@ -20,10 +20,10 @@ import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import DEFAULT_INPUT_CSV, FEATURE_COLUMNS
 from lambda_catalog.analyze_regression_sheet import (
-    REGRESSION_QC_CONFIGS,
     RegressionSheetResults,
     build_regression_sheet_qc_configs,
 )
+from lambda_catalog.inspection_compare import compare_values, to_float_or_none
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
 from lambda_catalog.write_sheet_regression import REGRESSION_SHEET_NAME
 
@@ -102,21 +102,6 @@ _DF_COEF = ["config_name", "allow_intercept", "term_name", "stat_name", "expecte
 _DF_RESID = ["config_name", "allow_intercept", "row_idx", "stat_name", "expected", "excel_calc", "abs_diff", "first_digit_deviation"]
 
 
-def _fdd(expected: float, actual: float) -> int | None:
-    if expected == actual:
-        return None
-    for d in range(15, -1, -1):
-        if round(expected, d) == round(actual, d):
-            return d + 1
-    return 0
-
-
-def _cmp(expected: float | None, excel: float | None) -> tuple[float | None, int | None]:
-    if expected is None or excel is None:
-        return None, None
-    return abs(excel - expected), _fdd(expected, excel)
-
-
 def _set_toggles(
     sheet: xw.Sheet,
     feature_columns: list[str],
@@ -145,7 +130,7 @@ def _set_pred_inputs(
 
 def _read_cell(sheet: xw.Sheet, row: int, col: int) -> float | None:
     val = sheet.range(row, col).value
-    return float(val) if val is not None else None
+    return to_float_or_none(val)
 
 
 def _read_col(sheet: xw.Sheet, start_row: int, col: int, n_rows: int) -> list[float | None]:
@@ -153,7 +138,7 @@ def _read_col(sheet: xw.Sheet, start_row: int, col: int, n_rows: int) -> list[fl
         return []
     rng = sheet.range((start_row, col), (start_row + n_rows - 1, col))
     raw: list[Any] = rng.value if n_rows > 1 else [rng.value]
-    return [float(v) if v is not None else None for v in raw]
+    return [to_float_or_none(v) for v in raw]
 
 
 def _read_block(
@@ -167,7 +152,7 @@ def _read_block(
     if n_rows == 1:
         raw = [raw]
     return [
-        [float(v) if v is not None else None for v in row]
+        [to_float_or_none(v) for v in row]
         for row in raw
     ]
 
@@ -243,7 +228,7 @@ def read_regression_df(
 
         for stat_name, exp_val, row, col in scalar_specs:
             xl_val = _read_cell(sheet, row, col)
-            diff, fdd_val = _cmp(exp_val, xl_val)
+            diff, fdd_val = compare_values(exp_val, xl_val)
             scalar_rows.append({
                 "config_name": config_name,
                 "allow_intercept": allow_intercept,
@@ -262,7 +247,7 @@ def read_regression_df(
         for stat_name, exp_tuple, col in zip(pred_stat_names, pred_exp_tuples, pred_col_indices):
             xl_vals = _read_col(sheet, _ROW_PREDICTOR_FIRST, col, k)
             for j, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
-                diff, fdd_val = _cmp(exp_val, xl_val)
+                diff, fdd_val = compare_values(exp_val, xl_val)
                 predictor_rows.append({
                     "config_name": config_name,
                     "allow_intercept": allow_intercept,
@@ -291,7 +276,7 @@ def read_regression_df(
             xl_vals = xl_vals_all  # k+1 entries align with vectors tuples
             for i, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
                 term = vectors.term_names[i]
-                diff, fdd_val = _cmp(exp_val, xl_val)
+                diff, fdd_val = compare_values(exp_val, xl_val)
                 coeff_rows.append({
                     "config_name": config_name,
                     "allow_intercept": allow_intercept,
@@ -314,7 +299,7 @@ def read_regression_df(
         ]
         pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_U, 6)
         for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
-            diff, fdd_val = _cmp(exp_val, xl_val)
+            diff, fdd_val = compare_values(exp_val, xl_val)
             pi_rows.append({
                 "config_name": config_name,
                 "allow_intercept": allow_intercept,
@@ -345,7 +330,7 @@ def read_regression_df(
         for row_idx, xl_row in enumerate(block):
             for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
                 exp_val = float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None
-                diff, fdd_val = _cmp(exp_val, xl_val)
+                diff, fdd_val = compare_values(exp_val, xl_val)
                 resid_rows.append({
                     "config_name": config_name,
                     "allow_intercept": allow_intercept,

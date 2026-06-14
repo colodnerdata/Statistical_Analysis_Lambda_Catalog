@@ -18,6 +18,7 @@ import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import DEFAULT_INPUT_CSV, RegressionVectors
 from lambda_catalog.analysis_cache import get_analysis_results
+from lambda_catalog.inspection_compare import compare_values, to_float_or_none
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
 
 
@@ -75,21 +76,6 @@ _OBS_STAT_FIELDS = [
     "scaled_residuals",
     "scaled_residuals_ranked",
 ]
-
-
-def _first_digit_deviation(expected: float, actual: float) -> int | None:
-    """Return the decimal place where expected and actual first deviate.
-
-    Scans d from 15 down to 0. Returns d+1 where d is the finest precision
-    at which round(expected, d) == round(actual, d). Returns None if the
-    values are identical, 0 if they differ even at d=0.
-    """
-    if expected == actual:
-        return None
-    for d in range(15, -1, -1):
-        if round(expected, d) == round(actual, d):
-            return d + 1
-    return 0
 
 
 def read_scalar_df(
@@ -158,21 +144,11 @@ def read_scalar_df(
 
         for stat_name, calc_i in calc_cols.items():
             calc_val = row[calc_i] if calc_i < len(row) else None
-            calc_f = float(calc_val) if calc_val is not None else None
+            calc_f = to_float_or_none(calc_val)
 
             raw_exp = expected_dict.get(stat_name)
-            exp_f = float(raw_exp) if raw_exp is not None else None
-
-            abs_diff = (
-                abs(calc_f - exp_f)
-                if calc_f is not None and exp_f is not None
-                else None
-            )
-            fdd = (
-                _first_digit_deviation(exp_f, calc_f)
-                if exp_f is not None and calc_f is not None
-                else None
-            )
+            exp_f = to_float_or_none(raw_exp)
+            abs_diff, fdd = compare_values(exp_f, calc_f)
 
             rows.append({
                 "k": k,
@@ -253,24 +229,15 @@ def read_vector_df(
         for stat_idx, stat_name in enumerate(_STATS):
             calc_0 = calc_start_0 + stat_idx
             calc_val = row[calc_0] if calc_0 < len(row) else None
-            calc_f = float(calc_val) if calc_val is not None else None
+            calc_f = to_float_or_none(calc_val)
 
             exp_f: float | None = None
             if vectors is not None:
                 vector_data: tuple = getattr(vectors, _STAT_FIELDS[stat_idx])
                 if term_offset < len(vector_data):
-                    exp_f = float(vector_data[term_offset])
+                    exp_f = to_float_or_none(vector_data[term_offset])
 
-            abs_diff = (
-                abs(calc_f - exp_f)
-                if calc_f is not None and exp_f is not None
-                else None
-            )
-            fdd = (
-                _first_digit_deviation(exp_f, calc_f)
-                if exp_f is not None and calc_f is not None
-                else None
-            )
+            abs_diff, fdd = compare_values(exp_f, calc_f)
 
             rows.append({
                 "k": section_k,
@@ -317,11 +284,21 @@ def read_observation_df(workbook: xw.Book, observation_row_configs: list) -> pd.
             vectors = lookup.get((section_k, section_intercept))
         for i, stat in enumerate(_OBS_STATS):
             calc_val = row[calc_start + i] if len(row) > calc_start + i else None
-            calc_f = float(calc_val) if calc_val is not None else None
-            exp_f = None
+            calc_f = to_float_or_none(calc_val)
+            exp_f: float | None = None
             if vectors is not None and row_offset < len(getattr(vectors, _OBS_STAT_FIELDS[i])):
-                exp_f = float(getattr(vectors, _OBS_STAT_FIELDS[i])[row_offset])
-            rows.append({"k": section_k, "allow_intercept": section_intercept, "row_idx": row_offset + 1, "stat_name": stat, "expected": exp_f, "excel_calc": calc_f, "abs_diff": abs(calc_f-exp_f) if calc_f is not None and exp_f is not None else None, "first_digit_deviation": _first_digit_deviation(exp_f, calc_f) if calc_f is not None and exp_f is not None else None})
+                exp_f = to_float_or_none(getattr(vectors, _OBS_STAT_FIELDS[i])[row_offset])
+            abs_diff, fdd = compare_values(exp_f, calc_f)
+            rows.append({
+                "k": section_k,
+                "allow_intercept": section_intercept,
+                "row_idx": row_offset + 1,
+                "stat_name": stat,
+                "expected": exp_f,
+                "excel_calc": calc_f,
+                "abs_diff": abs_diff,
+                "first_digit_deviation": fdd,
+            })
         row_offset += 1
     return pd.DataFrame(rows, columns=_DF_OBS_COLS)
 
@@ -344,7 +321,7 @@ def main() -> None:
         print(f"Error: workbook not found: {workbook_path}", file=sys.stderr)
         sys.exit(1)
 
-    scalar_row_configs, vector_row_configs, observation_row_configs = get_analysis_results(args.csv)
+    scalar_row_configs, vector_row_configs, observation_row_configs, _ = get_analysis_results(args.csv)
 
     try:
         with xw.App(visible=False, add_book=False) as app:

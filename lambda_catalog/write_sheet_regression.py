@@ -18,7 +18,7 @@ Layout (five horizontal zones):
   Col T–U        — Prediction Outputs: Prediction Interval (T1:U8, boxed),
                    Prediction Inputs (T10+, no box — dynamic height)
   Col V          — thin gap (width 2)
-    Col W–AF       — Residual Output (9 columns, spills downward from row 3)
+  Col W–AF       — Residual Output: heading in W; 9 diagnostics columns (X–AF), spills downward from row 3
 """
 from __future__ import annotations
 

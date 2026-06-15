@@ -429,7 +429,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 # ── Section writers ───────────────────────────────────────────────────────────
 
-def _write_prediction_inputs(sheet: xw.Sheet, k:int) -> None:
+def _write_prediction_inputs(sheet: xw.Sheet, k: int) -> None:
     """Zone A–B: predictor labels + 'In linear model?' toggles."""
     _section_heading(sheet, 1, _C_A, "PREDICTION INPUTS")
     _val(sheet, 1, _C_B, "In linear model?")

@@ -18,7 +18,7 @@ Layout (five horizontal zones):
   Col T–U        — Prediction Outputs: Prediction Interval (T1:U8, boxed),
                    Prediction Inputs (T10+, no box — dynamic height)
   Col V          — thin gap (width 2)
-  Col W–AF       — Residual Output: heading in W; 9 diagnostics columns (X–AF), spills downward from row 3
+  Col W–AE       — Residual Output: heading in W; 9 diagnostics columns (W–AE), spills downward from row 3
 """
 from __future__ import annotations
 
@@ -81,17 +81,15 @@ _C_U = 21   # prediction interval values / prediction input values (orange)
 
 # Zone 5: Residual Output
 _C_V = 22   # thin gap
-_C_W = 23   # section heading anchor
-_C_X = 24   # Y
-_C_Y = 25   # Predicted Y
-_C_Z = 26   # Residuals
-_C_AA = 27  # LOOCV residual
-_C_AB = 28  # Hat Diagonal
-_C_AC = 29  # Studentized Residuals
-_C_AD = 30  # Cook's Distance
-_C_AE = 31  # Normal Scores Ranked
-_C_AF = 32  # Studentized Residuals Ranked
-
+_C_W = 23   # section heading anchor / Y
+_C_X = 24   # Predicted Y
+_C_Y = 25   # Residuals
+_C_Z = 26   # LOOCV residual
+_C_AA = 27  # Hat Diagonal
+_C_AB = 28  # Studentized Residuals
+_C_AC = 29  # Cook's Distance
+_C_AD = 30  # Normal Scores Ranked
+_C_AE = 31  # Studentized Residuals Ranked
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
 
@@ -130,22 +128,22 @@ def _bold_row(sheet: xw.Sheet, row: int, col1: int, col2: int) -> None:
 
 # ── Visual formatting helpers ─────────────────────────────────────────────────
 
-_YELLOW = (255, 255, 0)   # section headings
-_ORANGE = (255, 192, 0)   # user-editable input cells
+_HEADER = (202, 237, 251)   # section headings
+_INPUT = (251, 226, 213)   # user-editable input cells
 
 
 def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
     _v(sheet, row, col, label)
     sheet.range(_rc(row, col)).api.Font.Bold = True
-    sheet.range(_rc(row, col)).color = _YELLOW
+    sheet.range(_rc(row, col)).color = _HEADER
 
 
-def _orange_input(sheet: xw.Sheet, row: int, col: int) -> None:
-    sheet.range(_rc(row, col)).color = _ORANGE
+def _format_input(sheet: xw.Sheet, row: int, col: int) -> None:
+    sheet.range(_rc(row, col)).color = _INPUT
 
 
-def _orange_range(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
-    sheet.range(_rc(r1, c1), _rc(r2, c2)).color = _ORANGE
+def _input_range(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
+    sheet.range(_rc(r1, c1), _rc(r2, c2)).color = _INPUT
 
 
 def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
@@ -272,7 +270,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
 
     # Orange for all user-editable toggle cells
     k = len(PREDICTOR_NAMES)
-    _orange_range(sheet, 2, _C_B, 2 + k, _C_B)
+    _input_range(sheet, 2, _C_B, 2 + k, _C_B)
 
 
 def _write_boolean_validation(sheet: xw.Sheet) -> None:
@@ -357,7 +355,7 @@ def _write_alpha(sheet: xw.Sheet) -> None:
     _v(sheet, 12, _C_L, "Alpha")
     _bold(sheet, 12, _C_L)
     _v(sheet, 12, _C_M, 0.05)
-    _orange_input(sheet, 12, _C_M)
+    _format_input(sheet, 12, _C_M)
 
 
 def _write_anova(sheet: xw.Sheet) -> None:
@@ -457,7 +455,7 @@ def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
     # Row 12: intercept (auto-set, still orange to show it's a value)
     _v(sheet, 12, _C_T, "Intercept")
     _f(sheet, 12, _C_U, "=IF(Allow_Intercept,1,0)")
-    _orange_input(sheet, 12, _C_U)
+    _format_input(sheet, 12, _C_U)
 
     # T13: spill formula — fills predictor names from the table headers
     _f(sheet, 13, _C_T, "=Coefficient_Name_Col(All_Xs)")
@@ -467,7 +465,7 @@ def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
         _v(sheet, 13 + i, _C_U, 0.0)
 
     # Orange for all user-editable prediction value cells
-    _orange_range(sheet, 13, _C_U, 12 + k, _C_U)
+    _input_range(sheet, 13, _C_U, 12 + k, _C_U)
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
@@ -475,7 +473,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _section_heading(sheet, 1, _C_W, "RESIDUAL OUTPUT")
 
     for col, header in zip(
-        [_C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE, _C_AF],
+        [_C_W, _C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE],
         [
             "Y", "Predicted Y", "Residuals", "LOOCV Residual",
             "Hat Diagonal", "Studentized Residuals", "Cook's Distance",
@@ -483,18 +481,18 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         ],
     ):
         _v(sheet, 2, col, header)
-    _bold_row(sheet, 2, _C_X, _C_AF)
+    _bold_row(sheet, 2, _C_W, _C_AE)
 
     # Spill anchors — each spills n rows downward
-    _f(sheet, 3, _C_X,  "=Dependent_Var(y,fil)")
-    _f(sheet, 3, _C_Y,  "=Predictions(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_Z,  "=Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AA, "=Dependent_Var(y,fil)-LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AB, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AC, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AD, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AE, "=SORT(Normal_Scores(y,fil))")
-    _f(sheet, 3, _C_AF, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_W,  "=Dependent_Var(y,fil)")
+    _f(sheet, 3, _C_X,  "=Predictions(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_Y,  "=Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_Z, "=Dependent_Var(y,fil)-LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AA, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AB, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AC, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AD, "=SORT(Normal_Scores(y,fil))")
+    _f(sheet, 3, _C_AE, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -534,16 +532,15 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
 
     # Column widths
     for col_letter, width in {
-        "A": 28, "B": 14, "C": 2,
+        "A": 28, "B": 14, 
+        "C": 2,
         "D": 28, "E": 10, "F": 11, "G": 10, "H": 10, "I": 10, "J": 10,
         "K": 2,
         "L": 22, "M": 14, "N": 14, "O": 20, "P": 14, "Q": 16, "R": 14,
         "S": 2,
         "T": 20, "U": 14,
         "V": 2,
-        "W": 4, "X": 12, "Y": 14, "Z": 12,
-        "AA": 14, "AB": 14, "AC": 22, "AD": 14,
-        "AE": 22, "AF": 26,
+        "W": 18, "X": 12, "Y": 14, "Z": 12, "AA": 14, "AB": 14, "AC": 22, "AD": 14, "AE": 22,
     }.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
 

@@ -881,7 +881,7 @@
       "name": "Dependent_Var",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  IF(ISOMITTED(Filter), Y, FILTER(Y, Filter))\n)",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter))\n)",
       "arguments": [
         {
           "name": "Y",
@@ -893,7 +893,7 @@
           "optional": true
         }
       ],
-      "yields": "filtered dependent variable vector (or raw Y when Filter is omitted)",
+      "yields": "filtered dependent variable vector (all rows when Filter is omitted)",
       "description": "Returns the dependent-variable vector used by residual and diagnostic outputs."
     },
     {

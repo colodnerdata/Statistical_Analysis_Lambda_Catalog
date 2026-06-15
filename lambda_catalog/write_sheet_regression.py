@@ -464,7 +464,7 @@ def _write_boolean_validation(sheet: xw.Sheet) -> None:
     rng.Validation.InCellDropdown = True
 
 
-def _write_predictor_summary(sheet: xw.Sheet, k:int) -> None:
+def _write_predictor_summary(sheet: xw.Sheet, k: int) -> None:
     """Zone D–J: EDA stats for the predictors currently selected into x_s."""
     _section_heading(sheet, 1, _C_D, "PREDICTOR SUMMARY")
 

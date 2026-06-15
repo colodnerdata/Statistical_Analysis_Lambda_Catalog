@@ -878,6 +878,25 @@
       "description": "Useful for empirical distribution/probability plots of the response variable."
     },
     {
+      "name": "Dependent_Var",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(Y, [Filter],\n  FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter))\n)",
+      "arguments": [
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "filtered dependent variable vector (all rows when Filter is omitted)",
+      "description": "Returns the dependent-variable vector used by residual and diagnostic outputs."
+    },
+    {
       "name": "Normal_Scores",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",

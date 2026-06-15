@@ -77,20 +77,17 @@ class RegressionPredictorSummary:
 
 @dataclass(frozen=True)
 class RegressionFullResiduals:
-    """Per-observation diagnostics for the Residual Output zone (W–AI)."""
+    """Per-observation diagnostics for the Residual Output zone (X–AF)."""
 
+    dependent_var: tuple[float, ...]
     predictions: tuple[float, ...]
     residuals: tuple[float, ...]
-    loocv_predictions: tuple[float, ...]
-    rank_fraction: tuple[float, ...]
-    y_ranked: tuple[float, ...]
-    normal_scores: tuple[float, ...]
-    scaled_residuals: tuple[float, ...]
-    scaled_residuals_ranked: tuple[float, ...]
+    loocv_residuals: tuple[float, ...]
     hat_diagonal: tuple[float, ...]
     studentized_residuals: tuple[float, ...]
-    studentized_residuals_ranked: tuple[float, ...]
     cooks_distance: tuple[float, ...]
+    normal_scores_ranked: tuple[float, ...]
+    studentized_residuals_ranked: tuple[float, ...]
 
 
 @dataclass(frozen=True)
@@ -202,16 +199,12 @@ def calculate_regression_sheet_results(
     # LOOCV: yhat - h*e/(1-h)  [matches LAMBDA: yhat - h*e/(1-h)]
     loocv_predictions = predictions - h * e / (1.0 - h)
 
-    # Q-Q plotting positions: rank_fraction and normal_scores
+    # Q-Q plotting positions: normal scores
     sorted_y = np.sort(y_train)
-    count_leq = np.searchsorted(sorted_y, y_train, side="right")
     count_less = np.searchsorted(sorted_y, y_train, side="left")
-    rank_fraction_arr = count_leq / n
     nd = NormalDist()
     normal_scores_arr = np.array([nd.inv_cdf(float((cl + 0.5) / n)) for cl in count_less])
-
-    scaled_residuals = residuals / se_regression
-    scaled_residuals_ranked = np.sort(scaled_residuals)
+    normal_scores_ranked = np.sort(normal_scores_arr)
 
     # Studentized residuals: e / (se * sqrt(1-h))  [matches LAMBDA exactly]
     studentized_residuals = e / (se_regression * np.sqrt(1.0 - h))
@@ -220,20 +213,18 @@ def calculate_regression_sheet_results(
     # Cook's distance: r² * h / ((1-h) * p)  [matches LAMBDA exactly]
     p_design = k + (1 if include_intercept else 0)
     cooks_distance = studentized_residuals**2 * h / ((1.0 - h) * p_design)
+    loocv_residuals = y_train - loocv_predictions
 
     full_residuals = RegressionFullResiduals(
+        dependent_var=tuple(float(v) for v in y_train),
         predictions=tuple(float(v) for v in predictions),
         residuals=tuple(float(v) for v in residuals),
-        loocv_predictions=tuple(float(v) for v in loocv_predictions),
-        rank_fraction=tuple(float(v) for v in rank_fraction_arr),
-        y_ranked=tuple(float(v) for v in np.sort(y_train)),
-        normal_scores=tuple(float(v) for v in normal_scores_arr),
-        scaled_residuals=tuple(float(v) for v in scaled_residuals),
-        scaled_residuals_ranked=tuple(float(v) for v in scaled_residuals_ranked),
+        loocv_residuals=tuple(float(v) for v in loocv_residuals),
         hat_diagonal=tuple(float(v) for v in h),
         studentized_residuals=tuple(float(v) for v in studentized_residuals),
-        studentized_residuals_ranked=tuple(float(v) for v in studentized_residuals_ranked),
         cooks_distance=tuple(float(v) for v in cooks_distance),
+        normal_scores_ranked=tuple(float(v) for v in normal_scores_ranked),
+        studentized_residuals_ranked=tuple(float(v) for v in studentized_residuals_ranked),
     )
 
     # ── Group 5: Prediction interval at training-data column means ────────────

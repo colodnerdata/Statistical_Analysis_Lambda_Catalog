@@ -18,7 +18,7 @@ Layout (five horizontal zones):
   Col T–U        — Prediction Outputs: Prediction Interval (T1:U8, boxed),
                    Prediction Inputs (T10+, no box — dynamic height)
   Col V          — thin gap (width 2)
-  Col W–AI       — Residual Output (13 columns, spills downward from row 3)
+    Col W–AF       — Residual Output (9 columns, spills downward from row 3)
 """
 from __future__ import annotations
 
@@ -81,19 +81,16 @@ _C_U = 21   # prediction interval values / prediction input values (orange)
 
 # Zone 5: Residual Output
 _C_V = 22   # thin gap
-_C_W = 23   # observation number
-_C_X = 24   # predicted Y
-_C_Y = 25   # residuals
-_C_Z = 26   # LOOCV prediction
-_C_AA = 27  # rank fraction
-_C_AB = 28  # Y ranked
-_C_AC = 29  # normal scores
-_C_AD = 30  # scaled residuals
-_C_AE = 31  # scaled residuals ranked
-_C_AF = 32  # hat diagonal
-_C_AG = 33  # studentized residuals
-_C_AH = 34  # studentized residuals ranked
-_C_AI = 35  # Cook's distance
+_C_W = 23   # section heading anchor
+_C_X = 24   # Y
+_C_Y = 25   # Predicted Y
+_C_Z = 26   # Residuals
+_C_AA = 27  # LOOCV residual
+_C_AB = 28  # Hat Diagonal
+_C_AC = 29  # Studentized Residuals
+_C_AD = 30  # Cook's Distance
+_C_AE = 31  # Normal Scores Ranked
+_C_AF = 32  # Studentized Residuals Ranked
 
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
@@ -474,37 +471,30 @@ def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
-    """Zone W–AI: residual diagnostic table."""
+    """Zone X–AF: residual diagnostic table."""
     _section_heading(sheet, 1, _C_W, "RESIDUAL OUTPUT")
 
     for col, header in zip(
-        [_C_W, _C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC,
-         _C_AD, _C_AE, _C_AF, _C_AG, _C_AH, _C_AI],
+        [_C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE, _C_AF],
         [
-            "Observation", "Predicted Y", "Residuals", "LOOCV Prediction",
-            "Rank Fraction", "Y Ranked", "Normal Scores",
-            "Scaled Residuals", "Scaled Residuals Ranked",
-            "Hat Diagonal", "Studentized Residuals", "Studentized Residuals Ranked",
-            "Cook's Distance",
+            "Y", "Predicted Y", "Residuals", "LOOCV Residual",
+            "Hat Diagonal", "Studentized Residuals", "Cook's Distance",
+            "Normal Scores Ranked", "Studentized Residuals Ranked",
         ],
     ):
         _v(sheet, 2, col, header)
-    _bold_row(sheet, 2, _C_W, _C_AI)
+    _bold_row(sheet, 2, _C_X, _C_AF)
 
     # Spill anchors — each spills n rows downward
-    _f(sheet, 3, _C_W,  "=SEQUENCE(Observations(y,fil))")
-    _f(sheet, 3, _C_X,  "=Predictions(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_Y,  "=Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_Z,  "=LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AA, "=Rank_Fraction(y,fil)")
-    _f(sheet, 3, _C_AB, "=Y_Ranked(y,fil)")
-    _f(sheet, 3, _C_AC, "=Normal_Scores(y,fil)")
-    _f(sheet, 3, _C_AD, "=Scaled_Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AE, "=Scaled_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AF, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AG, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AH, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AI, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_X,  "=Dependent_Var(y,fil)")
+    _f(sheet, 3, _C_Y,  "=Predictions(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_Z,  "=Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AA, "=Dependent_Var(y,fil)-LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AB, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AC, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AD, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AE, "=SORT(Normal_Scores(y,fil))")
+    _f(sheet, 3, _C_AF, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -551,9 +541,9 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
         "S": 2,
         "T": 20, "U": 14,
         "V": 2,
-        "W": 12, "X": 14, "Y": 12, "Z": 18,
-        "AA": 12, "AB": 12, "AC": 14, "AD": 16,
-        "AE": 22, "AF": 14, "AG": 22, "AH": 26, "AI": 14,
+        "W": 4, "X": 12, "Y": 14, "Z": 12,
+        "AA": 14, "AB": 14, "AC": 22, "AD": 14,
+        "AE": 22, "AF": 26,
     }.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
 

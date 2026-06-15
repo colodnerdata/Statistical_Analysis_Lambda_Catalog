@@ -23,7 +23,7 @@ from .analyze_life_expectancy import RegressionSummary
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
-_CACHE_SCHEMA_VERSION = 8
+_CACHE_SCHEMA_VERSION = 9
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -115,18 +115,15 @@ def _serialize_regression_sheet_configs(
                 "tolerance": list(r.predictor_summary.tolerance),
             },
             "full_residuals": {
+                "dependent_var": list(r.full_residuals.dependent_var),
                 "predictions": list(r.full_residuals.predictions),
                 "residuals": list(r.full_residuals.residuals),
-                "loocv_predictions": list(r.full_residuals.loocv_predictions),
-                "rank_fraction": list(r.full_residuals.rank_fraction),
-                "y_ranked": list(r.full_residuals.y_ranked),
-                "normal_scores": list(r.full_residuals.normal_scores),
-                "scaled_residuals": list(r.full_residuals.scaled_residuals),
-                "scaled_residuals_ranked": list(r.full_residuals.scaled_residuals_ranked),
+                "loocv_residuals": list(r.full_residuals.loocv_residuals),
                 "hat_diagonal": list(r.full_residuals.hat_diagonal),
                 "studentized_residuals": list(r.full_residuals.studentized_residuals),
-                "studentized_residuals_ranked": list(r.full_residuals.studentized_residuals_ranked),
                 "cooks_distance": list(r.full_residuals.cooks_distance),
+                "normal_scores_ranked": list(r.full_residuals.normal_scores_ranked),
+                "studentized_residuals_ranked": list(r.full_residuals.studentized_residuals_ranked),
             },
             "prediction_interval": {
                 "pred_input_values": list(r.prediction_interval.pred_input_values),
@@ -170,18 +167,15 @@ def _deserialize_regression_sheet_configs(
         )
         fr = item["full_residuals"]
         full_residuals = RegressionFullResiduals(
+            dependent_var=tuple(fr["dependent_var"]),
             predictions=tuple(fr["predictions"]),
             residuals=tuple(fr["residuals"]),
-            loocv_predictions=tuple(fr["loocv_predictions"]),
-            rank_fraction=tuple(fr["rank_fraction"]),
-            y_ranked=tuple(fr["y_ranked"]),
-            normal_scores=tuple(fr["normal_scores"]),
-            scaled_residuals=tuple(fr["scaled_residuals"]),
-            scaled_residuals_ranked=tuple(fr["scaled_residuals_ranked"]),
+            loocv_residuals=tuple(fr["loocv_residuals"]),
             hat_diagonal=tuple(fr["hat_diagonal"]),
             studentized_residuals=tuple(fr["studentized_residuals"]),
-            studentized_residuals_ranked=tuple(fr["studentized_residuals_ranked"]),
             cooks_distance=tuple(fr["cooks_distance"]),
+            normal_scores_ranked=tuple(fr["normal_scores_ranked"]),
+            studentized_residuals_ranked=tuple(fr["studentized_residuals_ranked"]),
         )
         pi = item["prediction_interval"]
         prediction_interval = RegressionPredictionInterval(

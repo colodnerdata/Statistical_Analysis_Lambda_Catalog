@@ -19,7 +19,7 @@ _ALPHA = 0.05
 
 _TERM_COL = 1
 _CALC_START_COL = 2
-_TOTAL_COLS = 11  # 1 (term) + 8 (_STATS) + 2 (_VIF_STATS)
+_TOTAL_COLS = 12  # 1 (term) + 8 (_STATS) + 3 (_K_STATS)
 
 _CI_FUNCS = frozenset({"CI_Lower", "CI_Upper"})
 
@@ -35,10 +35,12 @@ _STATS: list[tuple[str, str, int, str]] = [
     ("Partial_Corr",      "Partial_Correlation", _D, f"0.{'0' * _D}"),
 ]
 
-# VIF / Tolerance: k rows only (no intercept row); formula omits Y argument.
-_VIF_STATS: list[tuple[str, str, str]] = [
-    ("VIF",       "VIF",       "0.000"),
-    ("Tolerance", "Tolerance", "0.000"),
+# k-only stats: return k rows (no intercept row); formula starts one row below intercept.
+# needs_y=True means the function takes (X_s, Y, ...) rather than (X_s, ...).
+_K_STATS: list[tuple[str, str, str, bool]] = [
+    ("VIF",          "VIF",          "0.000", False),
+    ("Tolerance",    "Tolerance",    "0.000", False),
+    ("Beta_Weights", "Beta_Weights", "0.000", True),
 ]
 
 
@@ -65,9 +67,10 @@ def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
     return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},fil{extra}))"
 
 
-def _calc_vif_formula(k: int, allow_intercept: bool, func_name: str) -> str:
+def _calc_k_formula(k: int, allow_intercept: bool, func_name: str, needs_y: bool) -> str:
     allow_arg = "TRUE" if allow_intercept else "FALSE"
-    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,{allow_arg},fil))"
+    y_arg = ",y" if needs_y else ""
+    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s{y_arg},{allow_arg},fil))"
 
 
 def build_mlr_vector_row_configs(
@@ -100,15 +103,15 @@ def _write_section(
             _calc_formula(k, allow_intercept, func_name)
         )
         sheet.range((first_data_row, calc_col)).api.NumberFormat = num_fmt
-    # VIF / Tolerance return k values (no intercept row), so start one row lower when
+    # k-only stats return k values (no intercept row), so start one row lower when
     # the model includes an intercept to align with the first predictor row.
-    vif_row = first_data_row + (1 if allow_intercept else 0)
-    for vif_idx, (_, func_name, num_fmt) in enumerate(_VIF_STATS):
-        calc_col = _CALC_START_COL + len(_STATS) + vif_idx
-        sheet.range((vif_row, calc_col)).api.Formula2 = (
-            _calc_vif_formula(k, allow_intercept, func_name)
+    k_row = first_data_row + (1 if allow_intercept else 0)
+    for k_idx, (_, func_name, num_fmt, needs_y) in enumerate(_K_STATS):
+        calc_col = _CALC_START_COL + len(_STATS) + k_idx
+        sheet.range((k_row, calc_col)).api.Formula2 = (
+            _calc_k_formula(k, allow_intercept, func_name, needs_y)
         )
-        sheet.range((vif_row, calc_col)).api.NumberFormat = num_fmt
+        sheet.range((k_row, calc_col)).api.NumberFormat = num_fmt
 
 
 def write_mlr_vector_outputs_test_sheet(
@@ -134,7 +137,7 @@ def write_mlr_vector_outputs_test_sheet(
     sheet.range((header_row, _TERM_COL)).value = "Term"
     for i, (display_name, _, _, _) in enumerate(_STATS):
         sheet.range((header_row, _CALC_START_COL + i)).value = display_name
-    for j, (display_name, _, _) in enumerate(_VIF_STATS):
+    for j, (display_name, _, _, _) in enumerate(_K_STATS):
         sheet.range((header_row, _CALC_START_COL + len(_STATS) + j)).value = display_name
 
     current_row = header_row + 1

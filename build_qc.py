@@ -29,6 +29,7 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
 from lambda_catalog.write_sheet_mlr_observation_test import write_mlr_observation_test_sheet
 from lambda_catalog.write_sheet_mlr_scalar_test import write_mlr_scalar_test_sheet
 from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_outputs_test_sheet
+from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 
@@ -221,6 +222,7 @@ def build_qc_workbook(
                 write_catalog_sheet(workbook, catalog_entries)
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
                 write_regression_instructions_sheet(workbook)
+                write_diagnostic_guide_sheet(workbook)
                 write_regression_output_sheet(workbook)
                 write_mlr_scalar_test_sheet(workbook, definitions, row_configs)
                 write_mlr_vector_outputs_test_sheet(workbook, vector_row_configs)

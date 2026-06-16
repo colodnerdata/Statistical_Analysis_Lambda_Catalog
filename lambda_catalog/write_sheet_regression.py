@@ -793,13 +793,11 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
     sname = REGRESSION_SHEET_NAME
 
     # Chart SERIES formulas require explicit range references; the # spill operator is
-    # only valid in worksheet formulas.  Use the same row bound as Ind_Var_Filter so
-    # the range covers any dataset the sheet is expected to handle.
-    _DATA_BOUND = 16000
-
+    # only valid in worksheet formulas.  Reference the full column so charts cover any
+    # dataset size; scatter charts ignore empty rows automatically.
     def _ref(col: int) -> str:
         c = _col_letter(col)
-        return f"='{sname}'!${c}$3:${c}${_DATA_BOUND}"
+        return f"='{sname}'!${c}$3:${c}${_MAX_EXCEL_ROW}"
 
     chart_specs = [
         (

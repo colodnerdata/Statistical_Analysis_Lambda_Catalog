@@ -875,10 +875,12 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
         x_axis = chart.Axes(_XL_CATEGORY)
         x_axis.HasTitle = True
         x_axis.AxisTitle.Text = x_label
+        x_axis.TickLabels.NumberFormat = "0"
 
         y_axis = chart.Axes(_XL_VALUE)
         y_axis.HasTitle = True
         y_axis.AxisTitle.Text = y_label
+        y_axis.TickLabels.NumberFormat = "0"
 
 
 # ── Public entry point ────────────────────────────────────────────────────────

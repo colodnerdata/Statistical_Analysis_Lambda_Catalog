@@ -19,7 +19,7 @@ _COL_D_WIDTH = 46
 
 
 def _heading(sheet: xw.Sheet, row: int, text: str) -> None:
-# TODO: Make the green range the same number of cells wide as the subheading; (i.e. 4 for Tier 1, Tier 2, Diagnostic Guide and 3 for Common patterns & next steps)
+    # TODO: Make the green range the same number of cells wide as the subheading; (i.e. 4 for Tier 1, Tier 2, Diagnostic Guide and 3 for Common patterns & next steps)
     cell = sheet.range((row, 1))
     cell.value = text
     cell.api.Font.Bold = True

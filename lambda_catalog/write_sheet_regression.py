@@ -886,6 +886,8 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
         chart.ChartTitle.Text = title
         chart.ChartTitle.Font.Bold = True
         chart.ChartTitle.Font.Size = 14
+        chart.ChartTitle.Format.Fill.Visible = True
+        chart.ChartTitle.Format.Fill.Solid()
         chart.ChartTitle.Format.Fill.ForeColor.RGB = _excel_color(_HEADER)
 
         x_axis = chart.Axes(_XL_CATEGORY)

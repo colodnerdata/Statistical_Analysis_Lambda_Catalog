@@ -3,11 +3,11 @@ write_sheet_regression.py
 Writes the ToolPak-style Regression sheet into any target workbook.
 
 Layout (five horizontal zones):
-  Col A–B        — Model Inputs: predictor labels + "In linear model?" toggles
+  Col A–B        — Model Inputs: independent variable labels + "In linear model?" toggles
                    B2 = Allow_Intercept toggle; B3:B16000 = per-independent variable on/off (orange)
   Col C          — thin gap (width 2)
-  Col D–J        — Predictor Summary: names + Pearson R, Spearman R, Skewness, Kurtosis,
-                   VIF, Tolerance (always using all predictors in All_Xs)
+  Col D–J        — Independent Variable Summary: names + Pearson R, Spearman R, Skewness, Kurtosis,
+                   VIF, Tolerance (always using all independent variables in All_Xs)
   Col K          — thin gap (width 2)
   Col L–S        — Regression Outputs: Statistics (L–M rows 3–8), Diagnostics (O–P rows 3–10),
                    Sheet-scoped names: All_Xs, Ind_Var_Filter ($B$3:$B$16000), x_s (filtered),

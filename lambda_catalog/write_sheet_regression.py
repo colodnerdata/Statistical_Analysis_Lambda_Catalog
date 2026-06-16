@@ -82,6 +82,16 @@ _C_AF = 32  # Studentized Residuals Ranked
 _C_AG = 33  # Scale-Location
 _C_AH = 34  # PRESS Residual
 
+# ── Chart constants ───────────────────────────────────────────────────────────
+_XL_XY_SCATTER = -4169       # Excel xlXYScatter
+_XL_COLUMN_CLUSTERED = 51    # Excel xlColumnClustered
+_XL_CATEGORY = 1             # horizontal axis
+_XL_VALUE = 2                # vertical axis
+_CHART_WIDTH = 310.0         # points
+_CHART_HEIGHT = 225.0        # points
+_CHART_GAP = 10.0            # gap between charts in points
+_CHART_DATA_ROWS = 3000      # max rows in chart data ranges (covers current dataset with buffer)
+
 # ── Cell helpers ──────────────────────────────────────────────────────────────
 
 def _rc(row: int, col: int) -> tuple[int, int]:
@@ -167,6 +177,7 @@ def _add_expression_format(
     fill: tuple[int, int, int] | None = None,
     font_color: tuple[int, int, int] | None = None,
     bold: bool | None = None,
+    strikethrough: bool | None = None,
     stop_if_true: bool = False,
 ):
     """Add a formula-based conditional-formatting rule to a range."""
@@ -183,6 +194,9 @@ def _add_expression_format(
 
     if bold is not None:
         condition.Font.Bold = bold
+
+    if strikethrough is not None:
+        condition.Font.Strikethrough = strikethrough
 
     condition.StopIfTrue = stop_if_true
     return condition
@@ -332,6 +346,16 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         "=AND(ISNUMBER(AH3),ABS(AH3)>3*$M$7)",
         fill=_CF_LIGHT_RED_FILL,
         font_color=_CF_DARK_RED_TEXT,
+    )
+
+def _write_prediction_inputs_strikethrough_cf(sheet: xw.Sheet) -> None:
+    address = f"U13:U{_MAX_EXCEL_ROW}"
+    sheet.range(address).api.FormatConditions.Delete()
+    _add_expression_format(
+        sheet,
+        address,
+        "=NOT(INDEX(TAKE(Ind_Var_Filter,COLUMNS(All_Xs)),ROW()-ROW($U$13)+1))",
+        strikethrough=True,
     )
 
 def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
@@ -753,6 +777,98 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     sheet.range(f"{_col_letter(_C_Y)}:{_col_letter(_C_AH)}").number_format = "0.0000"
 
 
+def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
+    """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
+    start_left = sheet.range(_a1(1, _C_AH + 1)).left
+    start_top = sheet.range("A1").top
+
+    col_step = _CHART_WIDTH + _CHART_GAP
+    row_step = _CHART_HEIGHT + _CHART_GAP
+
+    def _pos(grid_row: int, grid_col: int) -> tuple[float, float]:
+        return (
+            start_left + (grid_col - 1) * col_step,
+            start_top + (grid_row - 1) * row_step,
+        )
+
+    n = _CHART_DATA_ROWS
+    sname = REGRESSION_SHEET_NAME
+
+    chart_specs = [
+        (
+            "Residuals vs. Fitted", "scatter",
+            f"{sname}!{_col_letter(_C_Y)}3:{_col_letter(_C_Y)}{n}",
+            f"{sname}!{_col_letter(_C_Z)}3:{_col_letter(_C_Z)}{n}",
+            "Fitted Values", "Residuals", 1, 1,
+        ),
+        (
+            "Normal Q-Q", "scatter",
+            f"{sname}!{_col_letter(_C_AE)}3:{_col_letter(_C_AE)}{n}",
+            f"{sname}!{_col_letter(_C_AF)}3:{_col_letter(_C_AF)}{n}",
+            "Theoretical Quantiles", "Studentized Residuals", 1, 2,
+        ),
+        (
+            "Actual vs. Predicted", "scatter",
+            f"{sname}!{_col_letter(_C_Y)}3:{_col_letter(_C_Y)}{n}",
+            f"{sname}!{_col_letter(_C_X)}3:{_col_letter(_C_X)}{n}",
+            "Predicted Y", "Actual Y", 2, 1,
+        ),
+        (
+            "Scale-Location", "scatter",
+            f"{sname}!{_col_letter(_C_Y)}3:{_col_letter(_C_Y)}{n}",
+            f"{sname}!{_col_letter(_C_AG)}3:{_col_letter(_C_AG)}{n}",
+            "Fitted Values", "√|Studentized Residual|", 2, 2,
+        ),
+        (
+            "Cook's Distance", "bar",
+            None,
+            f"{sname}!{_col_letter(_C_AD)}3:{_col_letter(_C_AD)}{n}",
+            "Observation", "Cook's Distance", 3, 1,
+        ),
+        (
+            "Leverage vs. Studentized", "scatter",
+            f"{sname}!{_col_letter(_C_AB)}3:{_col_letter(_C_AB)}{n}",
+            f"{sname}!{_col_letter(_C_AC)}3:{_col_letter(_C_AC)}{n}",
+            "Leverage (Hat Diagonal)", "Studentized Residuals", 3, 2,
+        ),
+        (
+            "PRESS Residuals", "bar",
+            None,
+            f"{sname}!{_col_letter(_C_AH)}3:{_col_letter(_C_AH)}{n}",
+            "Observation", "PRESS Residual", 4, 1,
+        ),
+    ]
+
+    for title, chart_type, x_addr, y_addr, x_label, y_label, grid_row, grid_col in chart_specs:
+        left, top = _pos(grid_row, grid_col)
+        co = sheet.api.ChartObjects().Add(left, top, _CHART_WIDTH, _CHART_HEIGHT)
+        chart = co.Chart
+
+        chart.ChartType = _XL_XY_SCATTER if chart_type == "scatter" else _XL_COLUMN_CLUSTERED
+
+        sc = chart.SeriesCollection()
+        for i in range(sc.Count, 0, -1):
+            sc.Item(i).Delete()
+
+        series = chart.SeriesCollection().NewSeries()
+        if x_addr is not None:
+            series.XValues = f"={x_addr}"
+        series.Values = f"={y_addr}"
+        series.Name = title
+
+        chart.HasLegend = False
+        chart.HasTitle = True
+        chart.ChartTitle.Text = title
+
+        x_axis = chart.Axes(_XL_CATEGORY)
+        x_axis.HasTitle = True
+        x_axis.AxisTitle.Text = x_label
+
+        y_axis = chart.Axes(_XL_VALUE)
+        y_axis.HasTitle = True
+        y_axis.AxisTitle.Text = y_label
+
+
 # ── Public entry point ────────────────────────────────────────────────────────
 
 def write_regression_output_sheet(workbook: xw.Book) -> None:
@@ -793,7 +909,9 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_prediction_inputs(sheet, k)
     _write_residuals(sheet)
     _write_residual_conditional_formatting(sheet)
-    
+    _write_prediction_inputs_strikethrough_cf(sheet)
+    _write_diagnostic_charts(sheet)
+
     sheet.range(_rc(2, _C_A), _rc(2, _C_AH)).api.WrapText = True
 
     # Column widths (U = prediction labels, V = prediction values; residuals start at X)

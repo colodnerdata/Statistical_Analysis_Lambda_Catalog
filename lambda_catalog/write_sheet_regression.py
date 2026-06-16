@@ -152,13 +152,11 @@ def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
     for edge in [7, 8, 9, 10]:   # xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
         rng.Borders(edge).LineStyle = 1   # xlContinuous
         rng.Borders(edge).Weight = 2      # xlThin
-'''
-TODO: Update the displayed number of digits: Use 2 for the predictor summary section,
-4 for regression statistics, diagnostics, and coefficients (except P-value, use scientific with 2 sig digits).
-Use 1 for SS, MS, F, 0 for df and Observations (anywhere we have integers).
-Use 4 digits for Prediction Interval, Prediction Inputs, and Residuals (do not format column X)
-TODO: Add word wrap to row 2 for compatibility with new column widths.
-'''
+# TODO: Update displayed number of digits:
+# - 2: predictor summary; 4: stats/diagnostics/coefficients (p-value: scientific, 2 sig digits)
+# - SS/MS/F: 1; df/Observations: 0 (integers)
+# - Prediction interval/inputs/residuals: 4 (do not format column X)
+# TODO: Add word wrap to row 2 for compatibility with new column widths.
 # -- Conditional-formatting helpers ----------------------------------------------
 def _excel_color(rgb: tuple[int, int, int]) -> int:
     """Convert an RGB tuple to the OLE color integer expected by Excel COM."""

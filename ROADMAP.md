@@ -51,7 +51,7 @@ later versions fill in the conceptual foundations beneath it and then climb past
   against sheet output across six configurations (sparse / medium / full predictor sets ×
   intercept / no-intercept).
 
-**Gate items (remaining before v1.0.0):** all complete — ready to tag v1.0.0.
+**Gate items (all complete — ready to tag v1.0.0):**
 
 - ✅ Default diagnostic charts — placed to the right of the Residual Output section.
   The four Tier 1 and Tier 2 charts that the Diagnostic Guide references should be
@@ -61,8 +61,8 @@ later versions fill in the conceptual foundations beneath it and then climb past
   recalculate live with the spill data from the residual columns.
 - ✅ Version History sheet — a workbook-level sheet (per the versioning convention stated
   above) that mirrors the changelog so version history travels with the distributed file.
-  Entries should include version number, release date, and summary of changes. Should be
-  written by `workbook_builder.py` alongside the other sheets.
+  Entries should include version number, release date, and summary of changes. Written
+  by `write_sheet_version_history.py`, called from `build_production.py`.
 - ✅ Conditional formatting on Prediction Inputs variable names — strikethrough on the
   name in column U for any predictor whose toggle in column B is FALSE. Rule must cover
   the full `All_Xs` range dynamically so it remains correct when the user swaps to a

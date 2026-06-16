@@ -90,7 +90,6 @@ _XL_VALUE = 2                # vertical axis
 _CHART_WIDTH = 310.0         # points
 _CHART_HEIGHT = 225.0        # points
 _CHART_GAP = 10.0            # gap between charts in points
-_CHART_DATA_ROWS = 3000      # max rows in chart data ranges (covers current dataset with buffer)
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
 
@@ -791,50 +790,52 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
             start_top + (grid_row - 1) * row_step,
         )
 
-    n = _CHART_DATA_ROWS
     sname = REGRESSION_SHEET_NAME
+
+    def _spill(col: int) -> str:
+        return f"{sname}!{_col_letter(col)}3#"
 
     chart_specs = [
         (
             "Residuals vs. Fitted", "scatter",
-            f"{sname}!{_col_letter(_C_Y)}3:{_col_letter(_C_Y)}{n}",
-            f"{sname}!{_col_letter(_C_Z)}3:{_col_letter(_C_Z)}{n}",
+            _spill(_C_Y),
+            _spill(_C_Z),
             "Fitted Values", "Residuals", 1, 1,
         ),
         (
             "Normal Q-Q", "scatter",
-            f"{sname}!{_col_letter(_C_AE)}3:{_col_letter(_C_AE)}{n}",
-            f"{sname}!{_col_letter(_C_AF)}3:{_col_letter(_C_AF)}{n}",
+            _spill(_C_AE),
+            _spill(_C_AF),
             "Theoretical Quantiles", "Studentized Residuals", 1, 2,
         ),
         (
             "Actual vs. Predicted", "scatter",
-            f"{sname}!{_col_letter(_C_Y)}3:{_col_letter(_C_Y)}{n}",
-            f"{sname}!{_col_letter(_C_X)}3:{_col_letter(_C_X)}{n}",
+            _spill(_C_Y),
+            _spill(_C_X),
             "Predicted Y", "Actual Y", 2, 1,
         ),
         (
             "Scale-Location", "scatter",
-            f"{sname}!{_col_letter(_C_Y)}3:{_col_letter(_C_Y)}{n}",
-            f"{sname}!{_col_letter(_C_AG)}3:{_col_letter(_C_AG)}{n}",
+            _spill(_C_Y),
+            _spill(_C_AG),
             "Fitted Values", "√|Studentized Residual|", 2, 2,
         ),
         (
             "Cook's Distance", "bar",
             None,
-            f"{sname}!{_col_letter(_C_AD)}3:{_col_letter(_C_AD)}{n}",
+            _spill(_C_AD),
             "Observation", "Cook's Distance", 3, 1,
         ),
         (
             "Leverage vs. Studentized", "scatter",
-            f"{sname}!{_col_letter(_C_AB)}3:{_col_letter(_C_AB)}{n}",
-            f"{sname}!{_col_letter(_C_AC)}3:{_col_letter(_C_AC)}{n}",
+            _spill(_C_AB),
+            _spill(_C_AC),
             "Leverage (Hat Diagonal)", "Studentized Residuals", 3, 2,
         ),
         (
             "PRESS Residuals", "bar",
             None,
-            f"{sname}!{_col_letter(_C_AH)}3:{_col_letter(_C_AH)}{n}",
+            _spill(_C_AH),
             "Observation", "PRESS Residual", 4, 1,
         ),
     ]

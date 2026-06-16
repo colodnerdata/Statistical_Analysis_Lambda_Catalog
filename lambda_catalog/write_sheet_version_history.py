@@ -57,3 +57,4 @@ def write_version_history_sheet(workbook: xw.Book) -> None:
         cell = sheet.range((row, 3))
         cell.value = entry["summary"]
         cell.api.WrapText = True
+        sheet.range((row, 1), (row, 3)).api.EntireRow.AutoFit()

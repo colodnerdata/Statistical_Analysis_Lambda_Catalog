@@ -19,6 +19,7 @@ _COL_D_WIDTH = 46
 
 
 def _heading(sheet: xw.Sheet, row: int, text: str) -> None:
+    # TODO: Make the green range the same number of cells wide as the subheading; (i.e. 4 for Tier 1, Tier 2, Diagnostic Guide and 3 for Common patterns & next steps)
     cell = sheet.range((row, 1))
     cell.value = text
     cell.api.Font.Bold = True
@@ -85,7 +86,7 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
             "Normal Scores (theoretical)",
             "Studentized Residuals Ranked",
             "Points close to a straight diagonal line. Heavy tails or an S-curve indicate "
-            "non-normal errors. Check QQ Correlation (P10): below 0.98 = mild concern, "
+            "non-normal errors. Check QQ Correlation (Cell P10): below 0.98 = mild concern, "
             "below 0.95 = stronger concern.",
         ],
         [
@@ -120,7 +121,11 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
             "Cook's Distance",
             "Spikes above 4/n (yellow) or above 0.9 (red) mark observations with "
             "outsized influence on the fitted coefficients. Inspect those rows for data "
-            "entry errors or genuine outliers before removing them.",
+            "entry errors or genuine outliers before removing them. Remove outliers only "
+            "when you have a definitive, non-statistical reason to believe the data point "
+            "is invalid, comes from a different population, or disproportionately distorts "
+            "the analysis. Never filter out data solely because it is an extreme "
+            "statistical value, as doing so can introduce bias and erase genuine insights.",
         ],
         [
             "Leverage vs. Studentized",
@@ -156,11 +161,11 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
          "VIF > 5  (possible collinearity)", "VIF > 10  (strong collinearity)"],
         ["Tolerance", "Col J, Predictor Summary",
          "Tolerance < 0.2", "Tolerance < 0.1"],
-        ["PRESS R²", "P5, Diagnostics",
+        ["PRESS R²", "Cell P5, Diagnostics",
          "—", "PRESS R² < 0  (worse than predicting Y-mean)"],
-        ["QQ Correlation", "P10, Diagnostics",
+        ["QQ Correlation", "Cell P10, Diagnostics",
          "< 0.98  (mild non-normality)", "< 0.95  (clear non-normality)"],
-        ["Significance F", "Q15, ANOVA Table",
+        ["Significance F", "Cell Q15, ANOVA Table",
          "—", "P-value > alpha  (model not significant)"],
         ["Coefficient P-values", "Col P, Coefficients",
          "—", "P-value > alpha  (term not significant)"],
@@ -196,11 +201,14 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
         ["Non-normal errors\n(Q-Q deviation)",
          "Q-Q plot shows heavy tails or S-curve; QQ Correlation < 0.98.",
          "With n > 100 moderate departures rarely invalidate inference. For small n, "
-         "consider robust standard errors or a bootstrap CI approach (planned for v3.0)."],
+         "consider robust standard errors or a bootstrap Confidence Interval approach."],
         ["Influential observations\n(high Cook's D or PRESS)",
          "Cook's D > 4/n or |PRESS| > 2 × SE for one or more rows.",
-         "Inspect those rows. Verify data entry. Refit without the observation and "
-         "compare coefficients — if they shift substantially, report both fits."],
+         "Inspect those rows. Verify data entry. Refit without the observation(s) and "
+         "compare coefficients — if they shift substantially, see which ones and "
+         "research the reasons why those data points are different. If there's a "
+         "significant difference, choose one model, but report the prediction results "
+         "of the other regression as a sensitivity analysis."],
         ["Multicollinearity\n(high VIF)",
          "VIF > 10 for one or more predictors.",
          "Remove or combine correlated predictors. Use the Correlation_Matrix "

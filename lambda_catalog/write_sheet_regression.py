@@ -3,11 +3,11 @@ write_sheet_regression.py
 Writes the ToolPak-style Regression sheet into any target workbook.
 
 Layout (five horizontal zones):
-  Col A–B        — Prediction Inputs: predictor labels + "In linear model?" toggles
-                   B2 = Allow_Intercept toggle; B3:B16000 = per-predictor on/off (orange)
+  Col A–B        — Model Inputs: independent variable labels + "In linear model?" toggles
+                   B2 = Allow_Intercept toggle; B3:B16000 = per-independent variable on/off (orange)
   Col C          — thin gap (width 2)
-  Col D–J        — Predictor Summary: names + Pearson R, Spearman R, Skewness, Kurtosis,
-                   VIF, Tolerance (always using all predictors in All_Xs)
+  Col D–J        — Independent Variable Summary: names + Pearson R, Spearman R, Skewness, Kurtosis,
+                   VIF, Tolerance (always using all independent variables in All_Xs)
   Col K          — thin gap (width 2)
   Col L–S        — Regression Outputs: Statistics (L–M rows 3–8), Diagnostics (O–P rows 3–10),
                    Sheet-scoped names: All_Xs, Ind_Var_Filter ($B$3:$B$16000), x_s (filtered),
@@ -39,13 +39,13 @@ REGRESSION_SHEET_NAME = "Regression"
 
 # ── 1-based column indices ─────────────────────────────────────────────────────
 
-# Zone 1: Prediction Inputs
-_C_A = 1    # predictor labels
+# Zone 1: Model Inputs
+_C_A = 1    # Independent variable labels
 _C_B = 2    # "In linear model?" toggles (orange user input); B2 = Allow_Intercept
 
-# Zone 2: Predictor Summary
+# Zone 2: Independent Variable Summary
 _C_C = 3    # thin gap
-_C_D = 4    # predictor names
+_C_D = 4    # Independent variable names
 _C_E = 5    # Pearson R
 _C_F = 6    # Spearman R
 _C_G = 7    # Skewness
@@ -62,8 +62,6 @@ _C_O = 15   # diagnostics labels / ANOVA MS / coefficient t-stat
 _C_P = 16   # diagnostics values / ANOVA F / coefficient p-value
 _C_Q = 17   # ANOVA Sig F / coefficient CI lower
 _C_R = 18   # coefficient CI upper
-
-# Zone 3 (extended): Beta Weights column appended to Coefficients section
 _C_S = 19   # Beta Weights
 
 # Zone 4: Prediction Outputs
@@ -75,7 +73,7 @@ _C_W = 23   # thin gap
 _C_X = 24   # section heading anchor / Y
 _C_Y = 25   # Predicted Y
 _C_Z = 26   # Residuals
-_C_AA = 27   # LOOCV residual
+_C_AA = 27  # LOOCV residual
 _C_AB = 28  # Hat Diagonal
 _C_AC = 29  # Studentized Residuals
 _C_AD = 30  # Cook's Distance
@@ -154,7 +152,11 @@ def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
     for edge in [7, 8, 9, 10]:   # xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
         rng.Borders(edge).LineStyle = 1   # xlContinuous
         rng.Borders(edge).Weight = 2      # xlThin
-
+# TODO: Update displayed number of digits:
+# - 2: predictor summary; 4: stats/diagnostics/coefficients (p-value: scientific, 2 sig digits)
+# - SS/MS/F: 1; df/Observations: 0 (integers)
+# - Prediction interval/inputs/residuals: 4 (do not format column X)
+# TODO: Add word wrap to row 2 for compatibility with new column widths.
 # -- Conditional-formatting helpers ----------------------------------------------
 def _excel_color(rgb: tuple[int, int, int]) -> int:
     """Convert an RGB tuple to the OLE color integer expected by Excel COM."""
@@ -674,7 +676,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     _section_heading(sheet, 1, _C_U, "PREDICTION OUTPUTS")
     _val(sheet, 2, _C_U, "PREDICTION INTERVAL")
     _bold(sheet, 2, _C_U)
-
+# TODO: Change this implementation to avoid using index, and simply use the Prediction_Interval array function.
     for row, label, idx in [
         (3, "Point Estimate",   1),
         (4, "SE Prediction",    2),
@@ -789,16 +791,15 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     # Column widths (U = prediction labels, V = prediction values; residuals start at X)
     for col_letter, width in {
         "A": 28, "B": 14,
-        "C": 2,
-        "D": 28, "E": 10, "F": 11, "G": 10, "H": 10, "I": 10, "J": 10,
-        "K": 2,
-        "L": 22, "M": 14, "N": 14, "O": 20, "P": 14, "Q": 16, "R": 14,
-        "S": 12,  # Beta Weights
+        "C": 2,   # thin gap
+        "D": 28, "E": 8, "F": 10, "G": 10, "H": 8, "I": 8, "J": 10,
+        "K": 2,   # thin gap
+        "L": 22, "M": 12, "N": 12, "O": 14, "P": 10, "Q": 13, "R": 10, "S": 12,
         "T": 2,   # thin gap
         "U": 20, "V": 14,  # prediction labels / values
         "W": 2,   # thin gap
-        "X": 18, "Y": 12, "Z": 14, "AA": 12, "AB": 14, "AC": 14, "AD": 22, "AE": 14, "AF": 22,
-        "AG": 16, "AH": 14,  # Scale-Location / PRESS Residual
+        "X": 10, "Y": 9, "Z": 10, "AA": 9, "AB": 9, "AC": 12, "AD": 9, "AE": 14, "AF": 17,
+        "AG": 14, "AH": 15,  # Scale-Location / PRESS Residual
     }.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
 

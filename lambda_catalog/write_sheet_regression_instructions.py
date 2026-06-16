@@ -25,6 +25,13 @@ _ROWS: list[tuple[int, str, str | None]] = [
     (
         1,
         (
+            "How to use the Regression sheet for Multilinear Regression (MLR)"
+        ),
+        "heading",
+    ),
+    (
+        2,
+        (
             "To analyze your own dataset, copy the Regression sheet into your workbook "
             "(right-click the tab → Move or Copy). This carries over all workbook-scoped "
             "LAMBDA functions as well as the sheet-scoped named ranges used by the Regression sheet."
@@ -32,7 +39,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
         "body",
     ),
     (
-        2,
+        3,
         (
             "Ensure your data is organized as a structured Excel table. Select the range "
             "including column headers and press Ctrl+T, or go to Home → Format as Table."
@@ -40,7 +47,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
         "body",
     ),
     (
-        3,
+        4,
         (
             "Next, update the named ranges that point to your data. Open the Name Manager "
             "from Formulas → Name Manager. You will see the named ranges and the "
@@ -48,10 +55,10 @@ _ROWS: list[tuple[int, str, str | None]] = [
         ),
         "body",
     ),
-    (4, "", None),
-    (5, "Required:", "heading"),
+    (5, "", None),
+    (6, "Required Name Range Updates:", "heading"),
     (
-        6,
+        7,
         (
             'In the Name Manager, update All_Xs (the “Refers To” field) to span '
             "all potential independent variable columns in your dataset."
@@ -59,35 +66,40 @@ _ROWS: list[tuple[int, str, str | None]] = [
         "body",
     ),
     (
-        7,
+        8,
         (
             "Update y to refer to your dependent variable column. "
             "It must span exactly the same rows as All_Xs."
         ),
         "body",
     ),
-    (8, "Optional — data filter:", "heading"),
+    (9, "Optional — data filter:", "heading"),
     (
-        9,
+        10,
         (
             'Update fil (the “Refers To” field) to a column in the same table '
             "containing TRUE or FALSE for each row. A recommended completeness check — "
-            "if your table has k predictor columns — is:\n\n"
+            "if your table has k predictor columns — is to add a filter column with:\n\n"
             "=COUNT(YourTable[@[First_Predictor]:[Last_Predictor]])=k\n\n"
             "Replace First_Predictor, Last_Predictor, and k with your first predictor column name, "
             "last predictor column name, and the total number of predictors. "
-            "This returns TRUE only when every predictor value in the row is numeric."
+            "This returns TRUE only when every predictor value in the row is numeric. "
+            "This avoids including rows with blanks or non-numeric predictor values in the regression."
         ),
         "body",
     ),
-    (10, "", None),
-    (11, "Optional — point prediction:", "heading"),
+    (11, "", None),
+    (12, "Optional — point prediction:", "heading"),
     (
-        12,
+        13,
         (
             "To generate a point prediction and prediction interval, enter a value for each "
-            "predictor in the orange cells in column V under the PREDICTION INPUTS heading. "
-            "Results appear automatically in the PREDICTION OUTPUTS box above."
+            "independent variable in the orange cells in column V under the PREDICTION INPUTS heading. "
+            "Results appear automatically in the PREDICTION OUTPUTS box above. "
+            "By default, these inputs are set to the mean of each independent variable in the data, "
+            "so the SE prediction equals the SE of the regression.\n\n"
+            "If you are making a prediction using the regression, overwrite these defaults "
+            "with the values of the independent variables for your scenario."
         ),
         "body",
     ),

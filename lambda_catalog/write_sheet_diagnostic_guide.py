@@ -18,10 +18,6 @@ _COL_C_WIDTH = 22
 _COL_D_WIDTH = 46
 
 
-def _bold(sheet: xw.Sheet, row: int, col: int) -> None:
-    sheet.range((row, col)).api.Font.Bold = True
-
-
 def _heading(sheet: xw.Sheet, row: int, text: str) -> None:
     cell = sheet.range((row, 1))
     cell.value = text
@@ -132,7 +128,7 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
             "Studentized Residuals",
             "High leverage alone is not a problem. Combined high leverage and large "
             "residual (top-right or bottom-right of the plot) = influential outlier. "
-            "Hat > 2p/n is flagged yellow; Hat > 3p/n is bold.",
+            "Hat > 2p/n is flagged red; Hat > 3p/n is additionally bold.",
         ],
         [
             "PRESS Residuals",

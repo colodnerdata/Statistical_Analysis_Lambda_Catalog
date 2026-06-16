@@ -66,23 +66,23 @@ _C_R = 18   # coefficient CI upper
 # Zone 3 (extended): Beta Weights column appended to Coefficients section
 _C_S = 19   # Beta Weights
 
-# Zone 4: Prediction Outputs (shifted +1 to make room for Beta Weights)
-_C_T = 21   # prediction interval labels / prediction input labels  (letter U)
-_C_U = 22   # prediction interval values / prediction input values  (letter V, orange)
+# Zone 4: Prediction Outputs
+_C_U = 21   # prediction interval labels / prediction input labels
+_C_V = 22   # prediction interval values / prediction input values
 
-# Zone 5: Residual Output (shifted +1)
-_C_V = 23   # thin gap  (letter W)
-_C_W = 24   # section heading anchor / Y  (letter X)
-_C_X = 25   # Predicted Y
-_C_Y = 26   # Residuals
-_C_Z = 27   # LOOCV residual
-_C_AA = 28  # Hat Diagonal  (letter AB)
-_C_AB = 29  # Studentized Residuals  (letter AC)
-_C_AC = 30  # Cook's Distance  (letter AD)
-_C_AD = 31  # Normal Scores Ranked
-_C_AE = 32  # Studentized Residuals Ranked  (letter AF)
-_C_AF = 33  # Scale-Location  (letter AG)
-_C_AG = 34  # PRESS Residual  (letter AH)
+# Zone 5: Residual Output
+_C_W = 23   # thin gap
+_C_X = 24   # section heading anchor / Y
+_C_Y = 25   # Predicted Y
+_C_Z = 26   # Residuals
+_C_AA = 27   # LOOCV residual
+_C_AB = 28  # Hat Diagonal
+_C_AC = 29  # Studentized Residuals
+_C_AD = 30  # Cook's Distance
+_C_AE = 31  # Normal Scores Ranked
+_C_AF = 32  # Studentized Residuals Ranked
+_C_AG = 33  # Scale-Location
+_C_AH = 34  # PRESS Residual
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
 
@@ -219,7 +219,6 @@ def _write_significance_conditional_formatting(sheet: xw.Sheet) -> None:
 def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     """Apply diagnostic cutoffs to the residual-output columns."""
 
-    # Column letters match the shifted layout (_C_AA=28=AB, _C_AB=29=AC, etc.)
     addresses = {
         "hat":                f"AB3:AB{_MAX_EXCEL_ROW}",
         "studentized":        f"AC3:AC{_MAX_EXCEL_ROW}",
@@ -482,8 +481,8 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     )
 
     # pred_input: intercept + predictor values for point prediction
-    # prediction values column letter is derived from _C_U to stay in sync with the layout.
-    _pred_val_letter = _col_letter(_C_U)
+    # prediction values column letter is derived from _C_V to stay in sync with the layout.
+    _pred_val_letter = _col_letter(_C_V)
     _drop_local_name(sheet, "pred_input")
     sheet.api.Names.Add(
         Name="pred_input",
@@ -666,18 +665,15 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
        '=IF(Allow_Intercept,CI_Lower(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Lower(x_s,y,Allow_Intercept,fil)))')
     _f(sheet, 21, _C_R,
        '=IF(Allow_Intercept,CI_Upper(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Upper(x_s,y,Allow_Intercept,fil)))')
-    # Beta Weights: k×1 (no intercept row); prepend blank/NA to align with other columns.
-    _f(sheet, 21, _C_S,
-       '=IF(Allow_Intercept,'
-       'VSTACK(NA(),Beta_Weights(x_s,y,Allow_Intercept,fil)),'
-       'VSTACK("",Beta_Weights(x_s,y,Allow_Intercept,fil)))')
+    # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
+    _f(sheet, 21, _C_S, '=VSTACK("",Beta_Weights(x_s,y,Allow_Intercept,fil))')
 
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
     """Zone U1:V8: boxed prediction interval output."""
-    _section_heading(sheet, 1, _C_T, "PREDICTION OUTPUTS")
-    _val(sheet, 2, _C_T, "PREDICTION INTERVAL")
-    _bold(sheet, 2, _C_T)
+    _section_heading(sheet, 1, _C_U, "PREDICTION OUTPUTS")
+    _val(sheet, 2, _C_U, "PREDICTION INTERVAL")
+    _bold(sheet, 2, _C_U)
 
     for row, label, idx in [
         (3, "Point Estimate",   1),
@@ -687,42 +683,42 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         (7, "Upper 95%",        5),
         (8, "Confidence Level", 6),
     ]:
-        _val(sheet, row, _C_T, label)
-        _f(sheet, row, _C_U,
+        _val(sheet, row, _C_U, label)
+        _f(sheet, row, _C_V,
            f"=INDEX(Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,alpha),{idx})")
 
-    _border_box(sheet, 1, _C_T, 8, _C_U)
+    _border_box(sheet, 1, _C_U, 8, _C_V)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet, k: int) -> None:
     """Zone U10:V12+k: per-predictor values used for the point prediction."""
-    _section_heading(sheet, 10, _C_T, "PREDICTION INPUTS")
-    _val(sheet, 11, _C_T, "Predictor")
-    _val(sheet, 11, _C_U, "Prediction Value")
-    _bold_row(sheet, 11, _C_T, _C_U)
+    _section_heading(sheet, 10, _C_U, "PREDICTION INPUTS")
+    _val(sheet, 11, _C_U, "Predictor")
+    _val(sheet, 11, _C_V, "Prediction Value")
+    _bold_row(sheet, 11, _C_U, _C_V)
 
     # Row 12: intercept (auto-set, still orange to show it's a value)
-    _val(sheet, 12, _C_T, "Intercept")
-    _f(sheet, 12, _C_U, "=IF(Allow_Intercept,1,0)")
-    _format_input(sheet, 12, _C_U)
+    _val(sheet, 12, _C_U, "Intercept")
+    _f(sheet, 12, _C_V, "=IF(Allow_Intercept,1,0)")
+    _format_input(sheet, 12, _C_V)
 
     # T13: spill formula — fills predictor names from the table headers
-    _f(sheet, 13, _C_T, "=Coefficient_Name_Col(All_Xs)")
+    _f(sheet, 13, _C_U, "=Coefficient_Name_Col(All_Xs)")
 
     # U13:U12+k — mean of each predictor column (filtered), individually overridable
     for i in range(k):
-        _f(sheet, 13 + i, _C_U, f"=AVERAGEIF(fil,TRUE,INDEX(All_Xs,,{i + 1}))")
+        _f(sheet, 13 + i, _C_V, f"=AVERAGEIF(fil,TRUE,INDEX(All_Xs,,{i + 1}))")
 
     # Orange for all user-editable prediction value cells
-    _input_range(sheet, 13, _C_U, 12 + k, _C_U)
+    _input_range(sheet, 13, _C_V, 12 + k, _C_V)
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
-    """Residual diagnostic table — 11 columns starting at _C_W."""
-    _section_heading(sheet, 1, _C_W, "RESIDUAL OUTPUT")
+    """Residual diagnostic table — 11 columns starting at _C_X."""
+    _section_heading(sheet, 1, _C_X, "RESIDUAL OUTPUT")
 
     for col, header in zip(
-        [_C_W, _C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE, _C_AF, _C_AG],
+        [_C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE, _C_AF, _C_AG, _C_AH],
         [
             "Y", "Predicted Y", "Residuals", "LOOCV Residual",
             "Hat Diagonal", "Studentized Residuals", "Cook's Distance",
@@ -731,22 +727,22 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         ],
     ):
         _val(sheet, 2, col, header)
-    _bold_row(sheet, 2, _C_W, _C_AG)
+    _bold_row(sheet, 2, _C_X, _C_AH)
 
     # Spill anchors — each spills n rows downward
-    _f(sheet, 3, _C_W,  "=Dependent_Var(y,fil)")
-    _f(sheet, 3, _C_X,  "=Predictions(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_Y,  "=Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_Z,  "=Dependent_Var(y,fil)-LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AA, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AB, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AC, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AD, "=SORT(Normal_Scores(y,fil))")
-    _f(sheet, 3, _C_AE, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_X,  "=Dependent_Var(y,fil)")
+    _f(sheet, 3, _C_Y,  "=Predictions(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_Z,  "=Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AA,  "=Dependent_Var(y,fil)-LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AB, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AC, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AD, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AE, "=SORT(Normal_Scores(y,fil))")
+    _f(sheet, 3, _C_AF, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
-    _f(sheet, 3, _C_AF, "=SQRT(ABS(Studentized_Residuals(x_s,y,Allow_Intercept,fil)))")
+    _f(sheet, 3, _C_AG, "=SQRT(ABS(Studentized_Residuals(x_s,y,Allow_Intercept,fil)))")
     # PRESS Residual: e_i / (1 - h_i) — large values flag high-influence observations.
-    _f(sheet, 3, _C_AG, "=Residuals(x_s,y,Allow_Intercept,fil)/(1-Hat_diagonal(x_s,Allow_Intercept,fil))")
+    _f(sheet, 3, _C_AH, "=Residuals(x_s,y,Allow_Intercept,fil)/(1-Hat_diagonal(x_s,Allow_Intercept,fil))")
 
 
 # ── Public entry point ────────────────────────────────────────────────────────

@@ -429,7 +429,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 # ── Section writers ───────────────────────────────────────────────────────────
 
-def _write_prediction_inputs(sheet: xw.Sheet, k: int) -> None:
+def _write_model_selection(sheet: xw.Sheet, k: int) -> None:
     """Zone A–B: predictor labels + 'In linear model?' toggles."""
     _section_heading(sheet, 1, _C_A, "PREDICTION INPUTS")
     _val(sheet, 1, _C_B, "In linear model?")
@@ -601,10 +601,8 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
        '=IF(Allow_Intercept,CI_Upper(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Upper(x_s,y,Allow_Intercept,fil)))')
 
 
-def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
-    """Zone T–U: prediction interval (boxed) + prediction inputs (no box, dynamic)."""
-
-    # ── Prediction Interval (T1:U8, fixed height → box) ──────────────────────
+def _write_prediction_interval(sheet: xw.Sheet) -> None:
+    """Zone T1:U8: boxed prediction interval output."""
     _section_heading(sheet, 1, _C_T, "PREDICTION OUTPUTS")
     _val(sheet, 2, _C_T, "PREDICTION INTERVAL")
     _bold(sheet, 2, _C_T)
@@ -623,7 +621,9 @@ def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
 
     _border_box(sheet, 1, _C_T, 8, _C_U)
 
-    # ── Prediction Inputs (T10+, no box — height depends on k) ───────────────
+
+def _write_prediction_inputs(sheet: xw.Sheet, k: int) -> None:
+    """Zone T10:U12+k: per-predictor values used for the point prediction."""
     _section_heading(sheet, 10, _C_T, "PREDICTION INPUTS")
     _val(sheet, 11, _C_T, "Predictor")
     _val(sheet, 11, _C_U, "Prediction Value")
@@ -637,9 +637,9 @@ def _write_prediction_outputs(sheet: xw.Sheet, k: int) -> None:
     # T13: spill formula — fills predictor names from the table headers
     _f(sheet, 13, _C_T, "=Coefficient_Name_Col(All_Xs)")
 
-    # Rows 13+: U13:U12+k contain one prediction value per All_Xs column.
+    # U13:U12+k — mean of each predictor column (filtered), individually overridable
     for i in range(k):
-        _val(sheet, 13 + i, _C_U, 0.0)
+        _f(sheet, 13 + i, _C_U, f"=AVERAGEIF(fil,TRUE,INDEX(All_Xs,,{i + 1}))")
 
     # Orange for all user-editable prediction value cells
     _input_range(sheet, 13, _C_U, 12 + k, _C_U)
@@ -697,7 +697,7 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     # Derive the predictor count directly from the columns in All_Xs.
     k = _named_range_column_count(sheet, "All_Xs")
 
-    _write_prediction_inputs(sheet, k)
+    _write_model_selection(sheet, k)
     _write_boolean_validation(sheet)
     _write_predictor_summary(sheet, k)
     _write_regression_outputs_header(sheet)
@@ -708,7 +708,8 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_anova(sheet)
     _write_coefficients(sheet)
     _write_significance_conditional_formatting(sheet)
-    _write_prediction_outputs(sheet, k)
+    _write_prediction_interval(sheet)
+    _write_prediction_inputs(sheet, k)
     _write_residuals(sheet)
     _write_residual_conditional_formatting(sheet)
     

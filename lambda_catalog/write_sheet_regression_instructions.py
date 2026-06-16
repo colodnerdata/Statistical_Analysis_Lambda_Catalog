@@ -124,7 +124,7 @@ def _main() -> None:
     workbook_path = args.workbook.resolve()
     try:
         with xw.App(visible=True, add_book=False) as app:
-            workbook = open_or_create_workbook(app, workbook_path)
+            workbook, _ = open_or_create_workbook(app, workbook_path)
             try:
                 write_regression_instructions_sheet(workbook)
                 workbook.save(str(workbook_path))

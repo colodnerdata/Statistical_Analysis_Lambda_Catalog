@@ -22,7 +22,7 @@ Do not reference the names without the sheet prefix. Charts live "above" the wor
 
 TODO: Fix the references for every chart on the Regression sheet to follow this pattern. create similar worksheet-scoped names for the x and y series needed for other charts, (i.e. columns past AK)
 ~~TODO: Decrease the marker size for the scatter charts to 4.~~ ✅ Done
-TODO: Change chart titles to Header format and font size 14.
+~~TODO: Change chart titles to Header format and font size 14.~~ ✅ Done
 TODO: Add a Y=X Reference line to the QQ and Actual v Predicted Plots - do not add helper columns. for QQ plot example, add a second "Identity" series and use Regression!QQPlotX for both Series X and Series Y values. Remove markers and add line. Change line dash type so it appears as a dotted line. Use a similar method for the actual vs. predicted: choose one and use it for the "Identity" series x & y values.
 TODO: Change axis number formatting to 0 DP for all charts.
 TODO: Add reference lines to the Cook's Distance, PRESS Residuals, Leverage vs. Studentized. Format the reference lines thematically similar to the conditional formatting in the table. Use minimalist helper columns (2 points using max/min; they can be underneath the charts.)

@@ -860,12 +860,17 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
             series.XValues = x_addr
         series.Values = y_addr
         series.Name = title
+        # Bar charts (Cook's Distance, PRESS Residuals) have no markers to resize.
         if chart_type == "scatter":
             series.MarkerSize = 4
 
+        # All charts: Header-style title (bold, 14 pt, light-blue fill).
         chart.HasLegend = False
         chart.HasTitle = True
         chart.ChartTitle.Text = title
+        chart.ChartTitle.Font.Bold = True
+        chart.ChartTitle.Font.Size = 14
+        chart.ChartTitle.Format.Fill.ForeColor.RGB = _excel_color(_HEADER)
 
         x_axis = chart.Axes(_XL_CATEGORY)
         x_axis.HasTitle = True

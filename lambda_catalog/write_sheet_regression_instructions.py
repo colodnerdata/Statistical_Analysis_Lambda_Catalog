@@ -93,12 +93,12 @@ _ROWS: list[tuple[int, str, str | None]] = [
         13,
         (
             "To generate a point prediction and prediction interval, enter a value for each "
-            "predictor in the orange cells in column V under the PREDICTION INPUTS heading. "
-            "Results appear automatically in the PREDICTION OUTPUTS box above."
-            "By default, these are set to the mean of each independent variable data, so "
-            "the SE prediction equals the SE of the regression.\n\n"
+            "independent variable in the orange cells in column V under the PREDICTION INPUTS heading. "
+            "Results appear automatically in the PREDICTION OUTPUTS box above. "
+            "By default, these inputs are set to the mean of each independent variable in the data, "
+            "so the SE prediction equals the SE of the regression.\n\n"
             "If you are making a prediction using the regression, overwrite these defaults "
-            "with the values of the independent variables for each variable in your model."
+            "with the values of the independent variables for your scenario."
         ),
         "body",
     ),

@@ -36,7 +36,7 @@ Issues = "https://github.com/colodnerdata/Statistical_Analysis_Lambda_Catalog/is
 [dependency-groups]
 dev = [
   "pylint>=3.2,<4",
-  "pytest>=8.2,<9",
+  "pytest>=9.0.3,<10",
 ]
 
 [tool.uv]

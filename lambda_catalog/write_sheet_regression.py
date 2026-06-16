@@ -490,7 +490,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
         Name="pred_input",
         RefersTo=(
             f"={sname}!${_pred_val_letter}$12:"
-            f"INDEX({sname}!${_pred_val_letter}:{_pred_val_letter},12+COLUMNS(x_s))"
+            f"OFFSET({sname}!${_pred_val_letter}$12,1,0,COLUMNS(x_s))"
         ),
     )
 

@@ -750,7 +750,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _f(sheet, 3, _C_AG, "=SQRT(ABS(Studentized_Residuals(x_s,y,Allow_Intercept,fil)))")
     # PRESS Residual: e_i / (1 - h_i) — large values flag high-influence observations.
     _f(sheet, 3, _C_AH, "=Residuals(x_s,y,Allow_Intercept,fil)/(1-Hat_diagonal(x_s,Allow_Intercept,fil))")
-    sheet.range(_rc(3, _C_Y), _rc(_MAX_EXCEL_ROW, _C_AH)).number_format = "0.0000"
+    sheet.range(f"{_col_letter(_C_Y)}:{_col_letter(_C_AH)}").number_format = "0.0000"
 
 
 # ── Public entry point ────────────────────────────────────────────────────────

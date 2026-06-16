@@ -27,6 +27,7 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
+from lambda_catalog.write_sheet_version_history import write_version_history_sheet
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -119,6 +120,7 @@ def build_production_workbook(
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
                 write_regression_instructions_sheet(workbook)
                 write_diagnostic_guide_sheet(workbook)
+                write_version_history_sheet(workbook)
                 write_regression_output_sheet(workbook)
                 app.api.Calculation = XL_CALCULATION_AUTOMATIC
                 workbook.save(str(workbook_path))
@@ -218,6 +220,7 @@ def main() -> None:
     print("Sheet updated: Life Expectancy Data")
     print("Sheet updated: Regression Instructions")
     print("Sheet updated: Diagnostic Guide")
+    print("Sheet updated: Version History")
     print("Sheet updated: Regression")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")

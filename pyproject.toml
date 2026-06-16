@@ -1,18 +1,46 @@
 [project]
 name = "statistical-analysis-lambda-catalog"
 version = "0.1.0"
-description = "Generate an Excel lambda-function catalog for multilinear regression"
+description = "Generate an Excel LAMBDA-function catalog for multilinear regression"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.10,<3.14"
 dependencies = [
-  "lxml",
-  "numpy",
-  "pandas",
-  "pywin32",
-  "scipy",
-  "statsmodels",
-  "xlwings",
+  "lxml>=6.0,<7",
+  "numpy>=2.0,<3",
+  "pandas>=2.2,<3",
+  "pywin32>=306; platform_system == 'Windows'",
+  "scipy>=1.13,<2",
+  "statsmodels>=0.14,<1",
+  "xlwings>=0.33,<1",
 ]
+
+keywords = ["excel", "lambda", "ols", "regression", "toolpak"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Developers",
+  "Operating System :: Microsoft :: Windows",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Scientific/Engineering :: Information Analysis",
+  "Topic :: Office/Business :: Financial :: Spreadsheet",
+]
+
+[project.urls]
+Repository = "https://github.com/colodnerdata/Statistical_Analysis_Lambda_Catalog"
+Issues = "https://github.com/colodnerdata/Statistical_Analysis_Lambda_Catalog/issues"
+
+[dependency-groups]
+dev = [
+  "pylint>=3.2,<4",
+  "pytest>=8.2,<9",
+]
+
+[tool.uv]
+default-groups = ["dev"]
 
 [build-system]
 requires = ["hatchling"]
@@ -21,8 +49,26 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.wheel]
 packages = ["lambda_catalog"]
 
+[tool.hatch.build.targets.sdist]
+include = [
+  "/build_production.py",
+  "/build_qc.py",
+  "/lambda_catalog",
+  "/sample_data",
+  "/tests",
+  "/tools",
+  "/README.md",
+  "/CONTRIBUTING.md",
+  "/lambda_functions.json",
+  "/test_excel_connection.py",
+]
+
 [tool.pylint.format]
 max-line-length = 120
 
 [tool.pylint.main]
 extension-pkg-allow-list = ["lxml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

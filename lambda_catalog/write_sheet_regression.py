@@ -792,50 +792,54 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
     sname = REGRESSION_SHEET_NAME
 
-    def _spill(col: int) -> str:
-        return f"{sname}!{_col_letter(col)}3#"
+    # Chart SERIES formulas require explicit range references; the # spill operator is
+    # only valid in worksheet formulas.  Reference the full column so charts cover any
+    # dataset size; scatter charts ignore empty rows automatically.
+    def _ref(col: int) -> str:
+        c = _col_letter(col)
+        return f"='{sname}'!${c}$3:${c}${_MAX_EXCEL_ROW}"
 
     chart_specs = [
         (
             "Residuals vs. Fitted", "scatter",
-            _spill(_C_Y),
-            _spill(_C_Z),
+            _ref(_C_Y),
+            _ref(_C_Z),
             "Fitted Values", "Residuals", 1, 1,
         ),
         (
             "Normal Q-Q", "scatter",
-            _spill(_C_AE),
-            _spill(_C_AF),
+            _ref(_C_AE),
+            _ref(_C_AF),
             "Theoretical Quantiles", "Studentized Residuals", 1, 2,
         ),
         (
             "Actual vs. Predicted", "scatter",
-            _spill(_C_Y),
-            _spill(_C_X),
+            _ref(_C_Y),
+            _ref(_C_X),
             "Predicted Y", "Actual Y", 2, 1,
         ),
         (
             "Scale-Location", "scatter",
-            _spill(_C_Y),
-            _spill(_C_AG),
+            _ref(_C_Y),
+            _ref(_C_AG),
             "Fitted Values", "√|Studentized Residual|", 2, 2,
         ),
         (
             "Cook's Distance", "bar",
             None,
-            _spill(_C_AD),
+            _ref(_C_AD),
             "Observation", "Cook's Distance", 3, 1,
         ),
         (
             "Leverage vs. Studentized", "scatter",
-            _spill(_C_AB),
-            _spill(_C_AC),
+            _ref(_C_AB),
+            _ref(_C_AC),
             "Leverage (Hat Diagonal)", "Studentized Residuals", 3, 2,
         ),
         (
             "PRESS Residuals", "bar",
             None,
-            _spill(_C_AH),
+            _ref(_C_AH),
             "Observation", "PRESS Residual", 4, 1,
         ),
     ]
@@ -853,8 +857,8 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
         series = chart.SeriesCollection().NewSeries()
         if x_addr is not None:
-            series.XValues = f"={x_addr}"
-        series.Values = f"={y_addr}"
+            series.XValues = x_addr
+        series.Values = y_addr
         series.Name = title
 
         chart.HasLegend = False
@@ -911,7 +915,6 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_residuals(sheet)
     _write_residual_conditional_formatting(sheet)
     _write_prediction_inputs_strikethrough_cf(sheet)
-    _write_diagnostic_charts(sheet)
 
     sheet.range(_rc(2, _C_A), _rc(2, _C_AH)).api.WrapText = True
 
@@ -929,6 +932,10 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
         "AG": 14, "AH": 15,  # Scale-Location / PRESS Residual
     }.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
+
+    # Charts must be positioned after column widths are set so that
+    # sheet.range("AI1").left reflects the final column layout.
+    _write_diagnostic_charts(sheet)
 
     # Freeze top 2 rows
     sheet.activate()

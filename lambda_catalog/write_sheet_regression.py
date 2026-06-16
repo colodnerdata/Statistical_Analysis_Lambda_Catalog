@@ -431,7 +431,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 def _write_model_selection(sheet: xw.Sheet, k: int) -> None:
     """Zone A–B: predictor labels + 'In linear model?' toggles."""
-    _section_heading(sheet, 1, _C_A, "PREDICTION INPUTS")
+    _section_heading(sheet, 1, _C_A, "MODEL SELECTION")
     _val(sheet, 1, _C_B, "In linear model?")
     _bold(sheet, 1, _C_B)
 

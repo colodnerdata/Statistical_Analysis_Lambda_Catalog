@@ -30,9 +30,9 @@ history travels with the file.
 The complete OLS package and the first stable release. This is the multivariate capstone;
 later versions fill in the conceptual foundations beneath it and then climb past OLS.
 
-**Status:** all gate items complete — ready to tag v1.0.0.
+**Status:** gate items nearly complete — 3 remaining before tagging v1.0.0.
 
-**Gate items (all done):**
+**Gate items (completed):**
 
 - ✅ Diagnostic guide sheet — Tier 1 and Tier 2 plot specifications, threshold reference
   table, and "Common Patterns & Next Steps" interpretation guidance.
@@ -50,6 +50,25 @@ later versions fill in the conceptual foundations beneath it and then climb past
 - ✅ QC flow — `analyze_regression_sheet.py` computes Python reference values and compares
   against sheet output across six configurations (sparse / medium / full predictor sets ×
   intercept / no-intercept).
+
+**Gate items (remaining before v1.0.0):**
+
+- ☐ Default diagnostic charts — placed to the right of the Residual Output section.
+  The four Tier 1 and Tier 2 charts that the Diagnostic Guide references should be
+  pre-built in the sheet so users see them immediately without manual chart creation:
+  Residuals vs. Fitted, Normal Q-Q, Actual vs. Predicted, Scale-Location,
+  Cook's Distance, Leverage vs. Studentized, and PRESS Residuals. Charts should
+  recalculate live with the spill data from the residual columns.
+- ☐ Version History sheet — a workbook-level sheet (per the versioning convention stated
+  above) that mirrors the changelog so version history travels with the distributed file.
+  Entries should include version number, release date, and summary of changes. Should be
+  written by `workbook_builder.py` alongside the other sheets.
+- ☐ Conditional formatting on Prediction Inputs variable names — strikethrough on the
+  name in column U for any predictor whose toggle in column B is FALSE. Rule must cover
+  the full `All_Xs` range dynamically so it remains correct when the user swaps to a
+  dataset with more or fewer independent variables. The formula should reference the
+  `Ind_Var_Filter` named range (trimmed to `n` rows via `TAKE`) so no hard-coded row
+  count is needed.
 
 **Additional items completed beyond the original gate list:**
 

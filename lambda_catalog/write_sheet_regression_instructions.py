@@ -82,8 +82,8 @@ _ROWS: list[tuple[int, str, str | None]] = [
             "=COUNT(YourTable[@[First_Predictor]:[Last_Predictor]])=k\n\n"
             "Replace First_Predictor, Last_Predictor, and k with your first predictor column name, "
             "last predictor column name, and the total number of predictors. "
-            "This returns TRUE only when every predictor value in the row is numeric."
-            "This avoids any "
+            "This returns TRUE only when every predictor value in the row is numeric. "
+            "This avoids including rows with blanks or non-numeric predictor values in the regression."
         ),
         "body",
     ),

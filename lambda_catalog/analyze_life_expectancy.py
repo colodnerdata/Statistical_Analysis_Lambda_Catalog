@@ -65,6 +65,9 @@ class RegressionVectors:
         Lower bound of the confidence interval for each coefficient.
     ci_upper : tuple[float, ...]
         Upper bound of the confidence interval for each coefficient.
+    beta_weights : tuple[float, ...]
+        Standardized coefficients (Beta weights): b_j * std(X_j) / std(Y) for each
+        predictor. k values only — intercept row excluded.
     """
 
     term_names: tuple[str, ...]
@@ -74,6 +77,7 @@ class RegressionVectors:
     p_values: tuple[float, ...]
     ci_lower: tuple[float, ...]
     ci_upper: tuple[float, ...]
+    beta_weights: tuple[float, ...]
 
 
 @dataclass(frozen=True)
@@ -558,6 +562,17 @@ def calculate_regression_vectors(
     ci_lower_vals = tuple(float(v) for v in ci_array[:, 0])
     ci_upper_vals = tuple(float(v) for v in ci_array[:, 1])
 
+    # Beta weights: b_j * std(X_j) / std(Y), predictor rows only.
+    k = len(columns)
+    x_features = x_train[:, 1:] if include_intercept else x_train
+    std_y = float(np.std(y_train, ddof=1))
+    coefs_arr = np.asarray(model.params, dtype=np.float64)
+    pred_coefs = coefs_arr[1:] if include_intercept else coefs_arr
+    beta_weights_vals = tuple(
+        float(pred_coefs[j] * np.std(x_features[:, j], ddof=1) / std_y)
+        for j in range(k)
+    )
+
     return RegressionVectors(
         term_names=term_names,
         coefficients=tuple(float(v) for v in model.params),
@@ -566,6 +581,7 @@ def calculate_regression_vectors(
         p_values=tuple(float(v) for v in model.pvalues),
         ci_lower=ci_lower_vals,
         ci_upper=ci_upper_vals,
+        beta_weights=beta_weights_vals,
     )
 
 

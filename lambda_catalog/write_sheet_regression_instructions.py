@@ -86,7 +86,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
         12,
         (
             "To generate a point prediction and prediction interval, enter a value for each "
-            "predictor in the orange cells in column U under the PREDICTION INPUTS heading. "
+            "predictor in the orange cells in column V under the PREDICTION INPUTS heading. "
             "Results appear automatically in the PREDICTION OUTPUTS box above."
         ),
         "body",

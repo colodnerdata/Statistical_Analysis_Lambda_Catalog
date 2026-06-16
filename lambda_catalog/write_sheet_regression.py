@@ -9,16 +9,16 @@ Layout (five horizontal zones):
   Col D–J        — Predictor Summary: names + Pearson R, Spearman R, Skewness, Kurtosis,
                    VIF, Tolerance (always using all predictors in All_Xs)
   Col K          — thin gap (width 2)
-  Col L–R        — Regression Outputs: Statistics (L–M rows 3–8), Diagnostics (O–P rows 3–10),
+  Col L–S        — Regression Outputs: Statistics (L–M rows 3–8), Diagnostics (O–P rows 3–10),
                    Sheet-scoped names: All_Xs, Ind_Var_Filter ($B$3:$B$16000), x_s (filtered),
                    Coefficient_Name_Col([Filter] optional), Allow_Intercept, alpha, pred_input
                    Alpha input (M12), ANOVA Table (rows 13–17),
-                   Coefficients (rows 19+, spills downward)
-  Col S          — thin gap (width 2)
-  Col T–U        — Prediction Outputs: Prediction Interval (T1:U8, boxed),
-                   Prediction Inputs (T10+, no box — dynamic height)
-  Col V          — thin gap (width 2)
-  Col W–AE       — Residual Output: heading in W; 9 diagnostics columns (W–AE), spills downward from row 3
+                   Coefficients (rows 19+, cols L–R), Beta Weights (col S, rows 19+)
+  Col T          — thin gap (width 2)
+  Col U–V        — Prediction Outputs: Prediction Interval (U1:V8, boxed),
+                   Prediction Inputs (U10+, no box — dynamic height)
+  Col W          — thin gap (width 2)
+  Col X–AH       — Residual Output: heading in X; 11 diagnostics columns (X–AH), spills downward from row 3
 """
 from __future__ import annotations
 
@@ -63,22 +63,26 @@ _C_P = 16   # diagnostics values / ANOVA F / coefficient p-value
 _C_Q = 17   # ANOVA Sig F / coefficient CI lower
 _C_R = 18   # coefficient CI upper
 
+# Zone 3 (extended): Beta Weights column appended to Coefficients section
+_C_S = 19   # Beta Weights
+
 # Zone 4: Prediction Outputs
-_C_S = 19   # thin gap
-_C_T = 20   # prediction interval labels / prediction input labels
-_C_U = 21   # prediction interval values / prediction input values (orange)
+_C_U = 21   # prediction interval labels / prediction input labels
+_C_V = 22   # prediction interval values / prediction input values
 
 # Zone 5: Residual Output
-_C_V = 22   # thin gap
-_C_W = 23   # section heading anchor / Y
-_C_X = 24   # Predicted Y
-_C_Y = 25   # Residuals
-_C_Z = 26   # LOOCV residual
-_C_AA = 27  # Hat Diagonal
-_C_AB = 28  # Studentized Residuals
-_C_AC = 29  # Cook's Distance
-_C_AD = 30  # Normal Scores Ranked
-_C_AE = 31  # Studentized Residuals Ranked
+_C_W = 23   # thin gap
+_C_X = 24   # section heading anchor / Y
+_C_Y = 25   # Predicted Y
+_C_Z = 26   # Residuals
+_C_AA = 27   # LOOCV residual
+_C_AB = 28  # Hat Diagonal
+_C_AC = 29  # Studentized Residuals
+_C_AD = 30  # Cook's Distance
+_C_AE = 31  # Normal Scores Ranked
+_C_AF = 32  # Studentized Residuals Ranked
+_C_AG = 33  # Scale-Location
+_C_AH = 34  # PRESS Residual
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
 
@@ -216,10 +220,12 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     """Apply diagnostic cutoffs to the residual-output columns."""
 
     addresses = {
-        "hat": f"AA3:AA{_MAX_EXCEL_ROW}",
-        "studentized": f"AB3:AB{_MAX_EXCEL_ROW}",
-        "cooks": f"AC3:AC{_MAX_EXCEL_ROW}",
-        "studentized_ranked": f"AE3:AE{_MAX_EXCEL_ROW}",
+        "hat":                f"AB3:AB{_MAX_EXCEL_ROW}",
+        "studentized":        f"AC3:AC{_MAX_EXCEL_ROW}",
+        "cooks":              f"AD3:AD{_MAX_EXCEL_ROW}",
+        "studentized_ranked": f"AF3:AF{_MAX_EXCEL_ROW}",
+        "scale_location":     f"AG3:AG{_MAX_EXCEL_ROW}",
+        "press_residual":     f"AH3:AH{_MAX_EXCEL_ROW}",
     }
 
     # Remove existing rules so repeated builds do not duplicate them.
@@ -232,7 +238,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     _add_expression_format(
         sheet,
         addresses["hat"],
-        "=AND(ISNUMBER(AA3),AA3>2*$P$6)",
+        "=AND(ISNUMBER(AB3),AB3>2*$P$6)",
         fill=_CF_LIGHT_RED_FILL,
         font_color=_CF_DARK_RED_TEXT,
     )
@@ -241,14 +247,14 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     _add_expression_format(
         sheet,
         addresses["hat"],
-        "=AND(ISNUMBER(AA3),AA3>3*$P$6)",
+        "=AND(ISNUMBER(AB3),AB3>3*$P$6)",
         bold=True,
     )
 
     # ── Studentized residuals ────────────────────────────────────────────────
     for column, address in [
-        ("AB", addresses["studentized"]),
-        ("AE", addresses["studentized_ranked"]),
+        ("AC", addresses["studentized"]),
+        ("AF", addresses["studentized_ranked"]),
     ]:
         # 2 < |r| < 3: light-yellow fill and dark-yellow text.
         _add_expression_format(
@@ -280,7 +286,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     _add_expression_format(
         sheet,
         addresses["cooks"],
-        "=AND(ISNUMBER(AC3),AC3>4/$M$8,AC3<=0.9)",
+        "=AND(ISNUMBER(AD3),AD3>4/$M$8,AD3<=0.9)",
         fill=_CF_LIGHT_YELLOW_FILL,
         font_color=_CF_DARK_YELLOW_TEXT,
     )
@@ -289,20 +295,58 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     _add_expression_format(
         sheet,
         addresses["cooks"],
-        "=AND(ISNUMBER(AC3),AC3>0.9)",
+        "=AND(ISNUMBER(AD3),AD3>0.9)",
+        fill=_CF_LIGHT_RED_FILL,
+        font_color=_CF_DARK_RED_TEXT,
+    )
+
+    # ── Scale-Location: SQRT(|Studentized|) ─────────────────────────────────
+    # SQRT(2) ≈ 1.414 corresponds to |Studentized| = 2.
+    # SQRT(3) ≈ 1.732 corresponds to |Studentized| = 3.
+    _add_expression_format(
+        sheet,
+        addresses["scale_location"],
+        "=AND(ISNUMBER(AG3),AG3>1.414,AG3<=1.732)",
+        fill=_CF_LIGHT_YELLOW_FILL,
+        font_color=_CF_DARK_YELLOW_TEXT,
+    )
+    _add_expression_format(
+        sheet,
+        addresses["scale_location"],
+        "=AND(ISNUMBER(AG3),AG3>1.732)",
+        fill=_CF_LIGHT_RED_FILL,
+        font_color=_CF_DARK_RED_TEXT,
+    )
+
+    # ── PRESS Residual: e_i / (1 - h_i) ─────────────────────────────────────
+    # M7 contains the Standard Error of the regression.
+    # |PRESS| > 2*SE: mild concern; > 3*SE: strong concern.
+    _add_expression_format(
+        sheet,
+        addresses["press_residual"],
+        "=AND(ISNUMBER(AH3),ABS(AH3)>2*$M$7,ABS(AH3)<=3*$M$7)",
+        fill=_CF_LIGHT_YELLOW_FILL,
+        font_color=_CF_DARK_YELLOW_TEXT,
+    )
+    _add_expression_format(
+        sheet,
+        addresses["press_residual"],
+        "=AND(ISNUMBER(AH3),ABS(AH3)>3*$M$7)",
         fill=_CF_LIGHT_RED_FILL,
         font_color=_CF_DARK_RED_TEXT,
     )
 
 def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
-    """Apply rule-of-thumb formatting to VIF and PRESS R²."""
+    """Apply rule-of-thumb formatting to VIF, PRESS R², and QQ Correlation."""
 
     vif_address = f"I3:I{_MAX_EXCEL_ROW}"
     press_r2_address = "P5"
+    qq_corr_address = "P10"
 
     # Prevent duplicate rules when rebuilding the sheet.
     sheet.range(vif_address).api.FormatConditions.Delete()
     sheet.range(press_r2_address).api.FormatConditions.Delete()
+    sheet.range(qq_corr_address).api.FormatConditions.Delete()
 
     # ── VIF ─────────────────────────────────────────────────────────────────
     # 5 < VIF <= 10: possible multicollinearity; review.
@@ -330,6 +374,24 @@ def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
         sheet,
         press_r2_address,
         "=AND(ISNUMBER(P5),P5<0)",
+        fill=_CF_LIGHT_RED_FILL,
+        font_color=_CF_DARK_RED_TEXT,
+    )
+
+    # ── QQ Correlation ────────────────────────────────────────────────────────
+    # Pearson r of sorted scaled residuals vs. normal quantiles; near 1.0 = normal errors.
+    # < 0.98: mild departure (yellow); < 0.95: stronger departure (red).
+    _add_expression_format(
+        sheet,
+        qq_corr_address,
+        "=AND(ISNUMBER(P10),P10<0.98,P10>=0.95)",
+        fill=_CF_LIGHT_YELLOW_FILL,
+        font_color=_CF_DARK_YELLOW_TEXT,
+    )
+    _add_expression_format(
+        sheet,
+        qq_corr_address,
+        "=AND(ISNUMBER(P10),P10<0.95)",
         fill=_CF_LIGHT_RED_FILL,
         font_color=_CF_DARK_RED_TEXT,
     )
@@ -419,11 +481,15 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     )
 
     # pred_input: intercept + predictor values for point prediction
-    # Row U12 = intercept (auto), U13:U{12+k} = per-predictor values
+    # prediction values column letter is derived from _C_V to stay in sync with the layout.
+    _pred_val_letter = _col_letter(_C_V)
     _drop_local_name(sheet, "pred_input")
     sheet.api.Names.Add(
         Name="pred_input",
-        RefersTo=f"={sname}!$U$12:INDEX({sname}!$U:$U,12+COLUMNS(x_s))",
+        RefersTo=(
+            f"={sname}!${_pred_val_letter}$12:"
+            f"INDEX({sname}!${_pred_val_letter}:{_pred_val_letter},12+COLUMNS(x_s))"
+        ),
     )
 
 
@@ -566,15 +632,15 @@ def _write_anova(sheet: xw.Sheet) -> None:
 
 
 def _write_coefficients(sheet: xw.Sheet) -> None:
-    """Cols L–R, rows 19+. Spills downward — nothing placed below row 39 in these cols."""
+    """Cols L–S, rows 19+. Spills downward — nothing placed below row 39 in these cols."""
     _section_heading(sheet, 19, _C_L, "COEFFICIENTS")
 
     for col, header in zip(
-        [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q, _C_R],
-        ["", "Coefficients", "Std Error", "t Stat", "P-value", "Lower 95%", "Upper 95%"],
+        [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q, _C_R, _C_S],
+        ["", "Coefficients", "Std Error", "t Stat", "P-value", "Lower 95%", "Upper 95%", "Beta Weight"],
     ):
         _val(sheet, 20, col, header)
-    _bold_row(sheet, 20, _C_L, _C_R)
+    _bold_row(sheet, 20, _C_L, _C_S)
 
     # Spill row labels aligned to selected predictors
     _f(
@@ -599,13 +665,15 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
        '=IF(Allow_Intercept,CI_Lower(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Lower(x_s,y,Allow_Intercept,fil)))')
     _f(sheet, 21, _C_R,
        '=IF(Allow_Intercept,CI_Upper(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Upper(x_s,y,Allow_Intercept,fil)))')
+    # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
+    _f(sheet, 21, _C_S, '=VSTACK("",Beta_Weights(x_s,y,Allow_Intercept,fil))')
 
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
-    """Zone T1:U8: boxed prediction interval output."""
-    _section_heading(sheet, 1, _C_T, "PREDICTION OUTPUTS")
-    _val(sheet, 2, _C_T, "PREDICTION INTERVAL")
-    _bold(sheet, 2, _C_T)
+    """Zone U1:V8: boxed prediction interval output."""
+    _section_heading(sheet, 1, _C_U, "PREDICTION OUTPUTS")
+    _val(sheet, 2, _C_U, "PREDICTION INTERVAL")
+    _bold(sheet, 2, _C_U)
 
     for row, label, idx in [
         (3, "Point Estimate",   1),
@@ -615,61 +683,66 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         (7, "Upper 95%",        5),
         (8, "Confidence Level", 6),
     ]:
-        _val(sheet, row, _C_T, label)
-        _f(sheet, row, _C_U,
+        _val(sheet, row, _C_U, label)
+        _f(sheet, row, _C_V,
            f"=INDEX(Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,alpha),{idx})")
 
-    _border_box(sheet, 1, _C_T, 8, _C_U)
+    _border_box(sheet, 1, _C_U, 8, _C_V)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet, k: int) -> None:
-    """Zone T10:U12+k: per-predictor values used for the point prediction."""
-    _section_heading(sheet, 10, _C_T, "PREDICTION INPUTS")
-    _val(sheet, 11, _C_T, "Predictor")
-    _val(sheet, 11, _C_U, "Prediction Value")
-    _bold_row(sheet, 11, _C_T, _C_U)
+    """Zone U10:V12+k: per-predictor values used for the point prediction."""
+    _section_heading(sheet, 10, _C_U, "PREDICTION INPUTS")
+    _val(sheet, 11, _C_U, "Predictor")
+    _val(sheet, 11, _C_V, "Prediction Value")
+    _bold_row(sheet, 11, _C_U, _C_V)
 
     # Row 12: intercept (auto-set, still orange to show it's a value)
-    _val(sheet, 12, _C_T, "Intercept")
-    _f(sheet, 12, _C_U, "=IF(Allow_Intercept,1,0)")
-    _format_input(sheet, 12, _C_U)
+    _val(sheet, 12, _C_U, "Intercept")
+    _f(sheet, 12, _C_V, "=IF(Allow_Intercept,1,0)")
+    _format_input(sheet, 12, _C_V)
 
     # T13: spill formula — fills predictor names from the table headers
-    _f(sheet, 13, _C_T, "=Coefficient_Name_Col(All_Xs)")
+    _f(sheet, 13, _C_U, "=Coefficient_Name_Col(All_Xs)")
 
     # U13:U12+k — mean of each predictor column (filtered), individually overridable
     for i in range(k):
-        _f(sheet, 13 + i, _C_U, f"=AVERAGEIF(fil,TRUE,INDEX(All_Xs,,{i + 1}))")
+        _f(sheet, 13 + i, _C_V, f"=AVERAGEIF(fil,TRUE,INDEX(All_Xs,,{i + 1}))")
 
     # Orange for all user-editable prediction value cells
-    _input_range(sheet, 13, _C_U, 12 + k, _C_U)
+    _input_range(sheet, 13, _C_V, 12 + k, _C_V)
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
-    """Zone X–AF: residual diagnostic table."""
-    _section_heading(sheet, 1, _C_W, "RESIDUAL OUTPUT")
+    """Residual diagnostic table — 11 columns starting at _C_X."""
+    _section_heading(sheet, 1, _C_X, "RESIDUAL OUTPUT")
 
     for col, header in zip(
-        [_C_W, _C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE],
+        [_C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE, _C_AF, _C_AG, _C_AH],
         [
             "Y", "Predicted Y", "Residuals", "LOOCV Residual",
             "Hat Diagonal", "Studentized Residuals", "Cook's Distance",
             "Normal Scores Ranked", "Studentized Residuals Ranked",
+            "Scale-Location", "PRESS Residual",
         ],
     ):
         _val(sheet, 2, col, header)
-    _bold_row(sheet, 2, _C_W, _C_AE)
+    _bold_row(sheet, 2, _C_X, _C_AH)
 
     # Spill anchors — each spills n rows downward
-    _f(sheet, 3, _C_W,  "=Dependent_Var(y,fil)")
-    _f(sheet, 3, _C_X,  "=Predictions(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_Y,  "=Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_Z, "=Dependent_Var(y,fil)-LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AA, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AB, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AC, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AD, "=SORT(Normal_Scores(y,fil))")
-    _f(sheet, 3, _C_AE, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_X,  "=Dependent_Var(y,fil)")
+    _f(sheet, 3, _C_Y,  "=Predictions(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_Z,  "=Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AA,  "=Dependent_Var(y,fil)-LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AB, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AC, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AD, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_AE, "=SORT(Normal_Scores(y,fil))")
+    _f(sheet, 3, _C_AF, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
+    _f(sheet, 3, _C_AG, "=SQRT(ABS(Studentized_Residuals(x_s,y,Allow_Intercept,fil)))")
+    # PRESS Residual: e_i / (1 - h_i) — large values flag high-influence observations.
+    _f(sheet, 3, _C_AH, "=Residuals(x_s,y,Allow_Intercept,fil)/(1-Hat_diagonal(x_s,Allow_Intercept,fil))")
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -713,17 +786,19 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_residuals(sheet)
     _write_residual_conditional_formatting(sheet)
     
-    # Column widths
+    # Column widths (U = prediction labels, V = prediction values; residuals start at X)
     for col_letter, width in {
-        "A": 28, "B": 14, 
+        "A": 28, "B": 14,
         "C": 2,
         "D": 28, "E": 10, "F": 11, "G": 10, "H": 10, "I": 10, "J": 10,
         "K": 2,
         "L": 22, "M": 14, "N": 14, "O": 20, "P": 14, "Q": 16, "R": 14,
-        "S": 2,
-        "T": 20, "U": 14,
-        "V": 2,
-        "W": 18, "X": 12, "Y": 14, "Z": 12, "AA": 14, "AB": 14, "AC": 22, "AD": 14, "AE": 22,
+        "S": 12,  # Beta Weights
+        "T": 2,   # thin gap
+        "U": 20, "V": 14,  # prediction labels / values
+        "W": 2,   # thin gap
+        "X": 18, "Y": 12, "Z": 14, "AA": 12, "AB": 14, "AC": 14, "AD": 22, "AE": 14, "AF": 22,
+        "AG": 16, "AH": 14,  # Scale-Location / PRESS Residual
     }.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
 

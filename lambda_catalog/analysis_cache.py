@@ -23,7 +23,7 @@ from .analyze_life_expectancy import RegressionSummary
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
-_CACHE_SCHEMA_VERSION = 9
+_CACHE_SCHEMA_VERSION = 10
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -49,6 +49,7 @@ def _serialize_vector_configs(
             "p_values": list(vectors.p_values),
             "ci_lower": list(vectors.ci_lower),
             "ci_upper": list(vectors.ci_upper),
+            "beta_weights": list(vectors.beta_weights),
         })
     return result
 
@@ -66,6 +67,7 @@ def _deserialize_vector_configs(
             p_values=tuple(item["p_values"]),
             ci_lower=tuple(item["ci_lower"]),
             ci_upper=tuple(item["ci_upper"]),
+            beta_weights=tuple(item["beta_weights"]),
         )
         result.append((item["k"], item["allow_intercept"], vectors))
     return result
@@ -104,6 +106,7 @@ def _serialize_regression_sheet_configs(
                 "p_values": list(r.vectors.p_values),
                 "ci_lower": list(r.vectors.ci_lower),
                 "ci_upper": list(r.vectors.ci_upper),
+                "beta_weights": list(r.vectors.beta_weights),
             },
             "predictor_summary": {
                 "predictor_names": list(r.predictor_summary.predictor_names),
@@ -154,6 +157,7 @@ def _deserialize_regression_sheet_configs(
             p_values=tuple(v["p_values"]),
             ci_lower=tuple(v["ci_lower"]),
             ci_upper=tuple(v["ci_upper"]),
+            beta_weights=tuple(v["beta_weights"]),
         )
         ps = item["predictor_summary"]
         predictor_summary = RegressionPredictorSummary(

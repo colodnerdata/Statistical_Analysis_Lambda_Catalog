@@ -736,6 +736,34 @@
       "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R2) × sign(t).\n\nComputed as T_Stats / SQRT(T_Stats² + DF_Residual), element-wise. Ranges from −1 to +1."
     },
     {
+      "name": "Beta_Weights",
+      "test_table": "MLR_Vector_Outputs_Test",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg,  IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,   IF(ISOMITTED(Filter),          TRUE, Filter),\n    coefs,      Coefficients(X_s, Y, allow_arg, filt_arg),\n    pred_coefs, IF(allow_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(X_s),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(X_s, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Filter",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of standardized coefficients (Beta weights), one per predictor — intercept row excluded",
+      "description": "Standardized (Beta) coefficient for predictor j = b_j × std(X_j) / std(Y). Expresses each coefficient in standard-deviation units, making predictors with different scales directly comparable in magnitude. Always returns k values (one per predictor); the intercept has no meaningful standardized counterpart and is excluded.\n\nComputed as Coefficients × column-wise STDEV(X) / STDEV(Y), using filtered rows. Mirrors the output of VIF and Tolerance in returning k rows without an intercept entry."
+    },
+    {
       "name": "VIF",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",

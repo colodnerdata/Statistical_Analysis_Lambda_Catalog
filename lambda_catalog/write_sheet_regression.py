@@ -152,11 +152,7 @@ def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
     for edge in [7, 8, 9, 10]:   # xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
         rng.Borders(edge).LineStyle = 1   # xlContinuous
         rng.Borders(edge).Weight = 2      # xlThin
-# TODO: Update displayed number of digits:
-# - 2: predictor summary; 4: stats/diagnostics/coefficients (p-value: scientific, 2 sig digits)
-# - SS/MS/F: 1; df/Observations: 0 (integers)
-# - Prediction interval/inputs/residuals: 4 (do not format column X)
-# TODO: Add word wrap to row 2 for compatibility with new column widths.
+
 # -- Conditional-formatting helpers ----------------------------------------------
 def _excel_color(rgb: tuple[int, int, int]) -> int:
     """Convert an RGB tuple to the OLE color integer expected by Excel COM."""
@@ -553,10 +549,7 @@ def _write_predictor_summary(sheet: xw.Sheet, k: int) -> None:
     _f(sheet, 3, _C_J, "=Tolerance(x_s,Allow_Intercept,fil)")
 
     last = 2 + k
-    sheet.range((_rc(3, _C_E)), (_rc(last, _C_F))).number_format = "0.000"
-    sheet.range((_rc(3, _C_G)), (_rc(last, _C_H))).number_format = "0.00"
-    sheet.range((_rc(3, _C_I)), (_rc(last, _C_I))).number_format = "0.00"
-    sheet.range((_rc(3, _C_J)), (_rc(last, _C_J))).number_format = "0.000"
+    sheet.range((_rc(3, _C_E)), (_rc(last, _C_J))).number_format = "0.00"
 
 
 def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
@@ -575,6 +568,8 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     ]:
         _val(sheet, row, _C_L, label)
         _f(sheet, row, _C_M, formula)
+    sheet.range(_rc(4, _C_M), _rc(7, _C_M)).number_format = "0.0000"
+    sheet.range(_rc(8, _C_M), _rc(8, _C_M)).number_format = "0"
     _border_box(sheet, 3, _C_L, 8, _C_M)
 
 
@@ -592,6 +587,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     ]:
         _val(sheet, row, _C_O, label)
         _f(sheet, row, _C_P, formula)
+    sheet.range(_rc(4, _C_P), _rc(10, _C_P)).number_format = "0.0000"
     _border_box(sheet, 3, _C_O, 10, _C_P)
 
 
@@ -630,10 +626,15 @@ def _write_anova(sheet: xw.Sheet) -> None:
     _f(sheet, 17, _C_M, "=DF_Total(y,Allow_Intercept,fil)")
     _f(sheet, 17, _C_N, "=SS_Total(y,Allow_Intercept,fil)")
 
+    sheet.range(_rc(15, _C_M), _rc(17, _C_M)).number_format = "0"
+    sheet.range(_rc(15, _C_N), _rc(17, _C_N)).number_format = "0.0"
+    sheet.range(_rc(15, _C_O), _rc(16, _C_O)).number_format = "0.0"
+    sheet.range(_rc(15, _C_P), _rc(15, _C_P)).number_format = "0.0"
+    sheet.range(_rc(15, _C_Q), _rc(15, _C_Q)).number_format = "0.0E+00"
     _border_box(sheet, 13, _C_L, 17, _C_Q)
 
 
-def _write_coefficients(sheet: xw.Sheet) -> None:
+def _write_coefficients(sheet: xw.Sheet, k: int) -> None:
     """Cols L–S, rows 19+. Spills downward — nothing placed below row 39 in these cols."""
     _section_heading(sheet, 19, _C_L, "COEFFICIENTS")
 
@@ -670,25 +671,28 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     _f(sheet, 21, _C_S, '=VSTACK("",Beta_Weights(x_s,y,Allow_Intercept,fil))')
 
+    last_coef_row = 21 + k
+    for col in [_C_M, _C_N, _C_O, _C_Q, _C_R, _C_S]:
+        sheet.range(_rc(21, col), _rc(last_coef_row, col)).number_format = "0.0000"
+    sheet.range(_rc(21, _C_P), _rc(last_coef_row, _C_P)).number_format = "0.0E+00"
+
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
     """Zone U1:V8: boxed prediction interval output."""
     _section_heading(sheet, 1, _C_U, "PREDICTION OUTPUTS")
     _val(sheet, 2, _C_U, "PREDICTION INTERVAL")
     _bold(sheet, 2, _C_U)
-# TODO: Change this implementation to avoid using index, and simply use the Prediction_Interval array function.
-    for row, label, idx in [
-        (3, "Point Estimate",   1),
-        (4, "SE Prediction",    2),
-        (5, "t Critical",       3),
-        (6, "Lower 95%",        4),
-        (7, "Upper 95%",        5),
-        (8, "Confidence Level", 6),
+    for row, label in [
+        (3, "Point Estimate"),
+        (4, "SE Prediction"),
+        (5, "t Critical"),
+        (6, "Lower 95%"),
+        (7, "Upper 95%"),
+        (8, "Confidence Level"),
     ]:
         _val(sheet, row, _C_U, label)
-        _f(sheet, row, _C_V,
-           f"=INDEX(Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,alpha),{idx})")
-
+    _f(sheet, 3, _C_V, "=Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,alpha)")
+    sheet.range(_rc(3, _C_V), _rc(8, _C_V)).number_format = "0.0000"
     _border_box(sheet, 1, _C_U, 8, _C_V)
 
 
@@ -713,6 +717,7 @@ def _write_prediction_inputs(sheet: xw.Sheet, k: int) -> None:
 
     # Orange for all user-editable prediction value cells
     _input_range(sheet, 13, _C_V, 12 + k, _C_V)
+    sheet.range(_rc(13, _C_V), _rc(12 + k, _C_V)).number_format = "0.0000"
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
@@ -745,6 +750,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _f(sheet, 3, _C_AG, "=SQRT(ABS(Studentized_Residuals(x_s,y,Allow_Intercept,fil)))")
     # PRESS Residual: e_i / (1 - h_i) — large values flag high-influence observations.
     _f(sheet, 3, _C_AH, "=Residuals(x_s,y,Allow_Intercept,fil)/(1-Hat_diagonal(x_s,Allow_Intercept,fil))")
+    sheet.range(_rc(3, _C_Y), _rc(_MAX_EXCEL_ROW, _C_AH)).number_format = "0.0000"
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -781,13 +787,15 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_model_diagnostic_conditional_formatting(sheet)
     _write_alpha(sheet)
     _write_anova(sheet)
-    _write_coefficients(sheet)
+    _write_coefficients(sheet, k)
     _write_significance_conditional_formatting(sheet)
     _write_prediction_interval(sheet)
     _write_prediction_inputs(sheet, k)
     _write_residuals(sheet)
     _write_residual_conditional_formatting(sheet)
     
+    sheet.range(_rc(2, _C_A), _rc(2, _C_AH)).api.WrapText = True
+
     # Column widths (U = prediction labels, V = prediction values; residuals start at X)
     for col_letter, width in {
         "A": 28, "B": 14,

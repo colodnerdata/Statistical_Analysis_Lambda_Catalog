@@ -19,18 +19,17 @@ _COL_D_WIDTH = 46
 
 
 def _heading(sheet: xw.Sheet, row: int, text: str) -> None:
-    # TODO: Make the green range the same number of cells wide as the subheading; (i.e. 4 for Tier 1, Tier 2, Diagnostic Guide and 3 for Common patterns & next steps)
     cell = sheet.range((row, 1))
     cell.value = text
     cell.api.Font.Bold = True
-    cell.color = _HEADER_COLOR
+    sheet.range((row, 1), (row, 4)).color = _HEADER_COLOR
 
 
-def _subheading(sheet: xw.Sheet, row: int, text: str) -> None:
+def _subheading(sheet: xw.Sheet, row: int, text: str, cols: int = 4) -> None:
     cell = sheet.range((row, 1))
     cell.value = text
     cell.api.Font.Bold = True
-    cell.color = _SUBHEADER_COLOR
+    sheet.range((row, 1), (row, cols)).color = _SUBHEADER_COLOR
 
 
 def _table_header_row(sheet: xw.Sheet, row: int, headers: list[str]) -> None:
@@ -186,7 +185,7 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
     r += 1
 
     # ── Interpretation guidance ────────────────────────────────────────────────
-    _subheading(sheet, r, "COMMON PATTERNS AND NEXT STEPS"); r += 1
+    _subheading(sheet, r, "COMMON PATTERNS AND NEXT STEPS", cols=3); r += 1
 
     guidance = [
         ["Heteroscedasticity\n(funnel residuals)",

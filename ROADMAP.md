@@ -30,23 +30,62 @@ history travels with the file.
 The complete OLS package and the first stable release. This is the multivariate capstone;
 later versions fill in the conceptual foundations beneath it and then climb past OLS.
 
-**Status:** substantially built; finishing gate items.
+**Status:** gate items nearly complete — 3 remaining before tagging v1.0.0.
 
-**Gate items before tagging v1.0.0:**
+**Gate items (completed):**
 
-- Diagnostic guide sheet (Tier 1 + Tier 2 plot specifications, interpretation guidance).
-- Helper columns on the Regression sheet:
+- ✅ Diagnostic guide sheet — Tier 1 and Tier 2 plot specifications, threshold reference
+  table, and "Common Patterns & Next Steps" interpretation guidance.
+- ✅ Helper columns on the Regression sheet:
   - Scale-Location: `=SQRT(ABS([Studentized Residuals]))`
   - PRESS residual index: `=[Residuals]/(1-[Hat Diagonal])`
-- Standardized coefficients (Beta weights), added to the Coefficients section.
-- Conditional formatting to highlight diagnostics that fall out of bounds for the given
-  alpha or rule-of-thumb threshold.
-- Prediction-with-filtering validation — confirm `Prediction_Interval` and prediction
-  inputs behave correctly when independent variables are filtered (design-matrix
-  dimensions, intercept alignment, `X_new` construction).
-- A finished QC flow confirming correct results across multiple datasets.
+- ✅ Standardized coefficients (Beta weights), added to the Coefficients section.
+- ✅ Conditional formatting to highlight diagnostics that fall out of bounds for the given
+  alpha or rule-of-thumb threshold (VIF, PRESS R², QQ Correlation, hat diagonal,
+  studentized residuals, Cook's distance, Scale-Location, PRESS residual,
+  coefficient p-values, Significance F).
+- ✅ Prediction-with-filtering validation — `Prediction_Interval` and prediction inputs
+  confirmed correct when independent variables are toggled; `Ind_Var_Filter`, optional
+  `Coefficient_Name_Col` filter, and `X_new` construction all validated.
+- ✅ QC flow — `analyze_regression_sheet.py` computes Python reference values and compares
+  against sheet output across six configurations (sparse / medium / full predictor sets ×
+  intercept / no-intercept).
 
-**Already implemented (engine):** full model-fit and ANOVA statistics, coefficient
+**Gate items (remaining before v1.0.0):**
+
+- ☐ Default diagnostic charts — placed to the right of the Residual Output section.
+  The four Tier 1 and Tier 2 charts that the Diagnostic Guide references should be
+  pre-built in the sheet so users see them immediately without manual chart creation:
+  Residuals vs. Fitted, Normal Q-Q, Actual vs. Predicted, Scale-Location,
+  Cook's Distance, Leverage vs. Studentized, and PRESS Residuals. Charts should
+  recalculate live with the spill data from the residual columns.
+- ☐ Version History sheet — a workbook-level sheet (per the versioning convention stated
+  above) that mirrors the changelog so version history travels with the distributed file.
+  Entries should include version number, release date, and summary of changes. Should be
+  written by `workbook_builder.py` alongside the other sheets.
+- ☐ Conditional formatting on Prediction Inputs variable names — strikethrough on the
+  name in column U for any predictor whose toggle in column B is FALSE. Rule must cover
+  the full `All_Xs` range dynamically so it remains correct when the user swaps to a
+  dataset with more or fewer independent variables. The formula should reference the
+  `Ind_Var_Filter` named range (trimmed to `n` rows via `TAKE`) so no hard-coded row
+  count is needed.
+
+**Additional items completed beyond the original gate list:**
+
+- ✅ Regression Instructions sheet — step-by-step guide for adapting the sheet to a new
+  dataset, including Name Manager updates and table setup.
+- ✅ Number formatting applied uniformly across all output zones: 2 dp for predictor
+  summary; 4 dp for statistics, diagnostics, coefficients, prediction interval/inputs, and
+  residual columns; scientific notation (2 sig digits) for p-values and Significance F;
+  1 dp for SS/MS/F; integers for df and Observations.
+- ✅ Word wrap on header row 2 across all zones.
+- ✅ Prediction interval refactored to a single spill formula
+  (`=Prediction_Interval(...)` in V3) rather than six individual `INDEX(...)` calls.
+- ✅ Diagnostic guide heading and subheading highlights span the correct column widths
+  (4 columns for Tier 1, Tier 2, and Diagnostic Threshold sections; 3 for Common
+  Patterns & Next Steps).
+
+**Engine (all implemented):** full model-fit and ANOVA statistics, coefficient
 inference (SE, t, p, CIs, partial R²/correlation), multicollinearity (VIF, Tolerance,
 correlation matrix), residual and influence diagnostics (residuals, studentized residuals,
 hat diagonal, Cook's distance, Q-Q machinery, Durbin-Watson), cross-validation (PRESS,
@@ -210,7 +249,7 @@ Deliberately left loose. Candidate milestones, roughly in conceptual order:
 
 The ToolPak ships 19 tools. Tracking which are covered, planned, or intentionally skipped.
 
-**Covered or exceeded (v1):** Regression, Correlation, partial descriptive stats.
+**Covered or exceeded (v1):** Regression (with diagnostics, influence measures, cross-validation, information criteria, and prediction), Correlation, partial descriptive stats.
 
 **Planned:** Descriptive Statistics + Histogram + Rank/Percentile (v2); t-tests, F-test,
 Covariance (future two-sample); one-way ANOVA (future); Moving Average + Exponential

@@ -513,6 +513,22 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
         ),
     )
 
+    # ── Chart data ranges (OFFSET-based, sized to n = $M$8 observations) ────────
+    # These worksheet-scoped names feed chart SERIES formulas as
+    # ='Regression'!<Name>, avoiding full-column references that degrade
+    # performance and avoiding the unsupported # spill operator in chart formulas.
+    _qqplot_x_col = _col_letter(_C_AE)  # Normal Scores Ranked
+    _qqplot_y_col = _col_letter(_C_AF)  # Studentized Residuals Ranked
+    for _name, _col_ltr in [
+        ("QQPlotX", _qqplot_x_col),
+        ("QQPlotY", _qqplot_y_col),
+    ]:
+        _drop_local_name(sheet, _name)
+        sheet.api.Names.Add(
+            Name=_name,
+            RefersTo=f"=OFFSET('{sname}'!${_col_ltr}$2,1,0,'{sname}'!$M$8,1)",
+        )
+
 
 # ── Section writers ───────────────────────────────────────────────────────────
 
@@ -808,8 +824,8 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
         ),
         (
             "Normal Q-Q", "scatter",
-            _ref(_C_AE),
-            _ref(_C_AF),
+            f"='{sname}'!QQPlotX",
+            f"='{sname}'!QQPlotY",
             "Theoretical Quantiles", "Studentized Residuals", 1, 2,
         ),
         (

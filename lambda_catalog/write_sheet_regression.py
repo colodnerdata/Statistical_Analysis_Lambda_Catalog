@@ -860,6 +860,8 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
             series.XValues = x_addr
         series.Values = y_addr
         series.Name = title
+        if chart_type == "scatter":
+            series.MarkerSize = 4
 
         chart.HasLegend = False
         chart.HasTitle = True

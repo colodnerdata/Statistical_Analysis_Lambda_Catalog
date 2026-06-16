@@ -23,12 +23,13 @@ _COL_A_WIDTH = 110
 # (row, text, style): style is "heading", "body", or None (empty spacer)
 _ROWS: list[tuple[int, str, str | None]] = [
     (
-# TODO: Add a header column above these - 
         1,
         (
             "How to use the Regression sheet for Multilinear Regression (MLR)"
         ),
         "heading",
+    ),
+    (
         2,
         (
             "To analyze your own dataset, copy the Regression sheet into your workbook "

@@ -2,15 +2,15 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import xlwings as xw
 
-from .analyze_life_expectancy import (
-    FEATURE_COLUMNS,
-    RegressionVectors,
-    calculate_regression_vectors,
-)
+from .regression_shared import FEATURE_COLUMNS
 from .workbook_helpers import reset_column_groups
+
+if TYPE_CHECKING:
+    from .regression_shared import RegressionVectors
 
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
@@ -76,6 +76,8 @@ def _calc_k_formula(k: int, allow_intercept: bool, func_name: str, needs_y: bool
 def build_mlr_vector_row_configs(
     csv_path: Path,
 ) -> list[tuple[int, bool, RegressionVectors]]:
+    from .analyze_life_expectancy import calculate_regression_vectors
+
     row_configs: list[tuple[int, bool, RegressionVectors]] = []
     for k in _MLR_K_VALUES:
         for allow_intercept in (True, False):

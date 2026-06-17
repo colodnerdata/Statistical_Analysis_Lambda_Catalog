@@ -24,8 +24,15 @@ ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 SHEET_NAME = "LAMBDA_functions"
 TABLE_NAME = "LAMBDAFunctionsCatalog"
-TABLE_HEADERS = ["Function Name", "Definition", "Arguments", "Yields", "Description"]
-COLUMN_WIDTHS = {"A": 120, "B": 500, "C": 210, "D": 100, "E": 500}
+TABLE_HEADERS = [
+    "Function Name",
+    "Definition",
+    "Arguments",
+    "Yields",
+    "Plain-Language Summary",
+    "Description",
+]
+COLUMN_WIDTHS = {"A": 18, "B": 72, "C": 30, "D": 15, "E": 34, "F": 66}
 
 
 @dataclass(frozen=True)
@@ -74,6 +81,8 @@ class LambdaCatalogEntry:
         Short description of the value the function returns.
     description : str
         Full description shown in the Description column.
+    plain_language_summary : str
+        Short, plain-English explanation shown in its own catalog column.
     """
 
     name: str
@@ -81,6 +90,7 @@ class LambdaCatalogEntry:
     arguments: list[Argument]
     yields: str
     description: str
+    plain_language_summary: str
 
     def arguments_cell_text(self) -> str:
         """Format all arguments as multi-line text for the Arguments cell.
@@ -134,7 +144,20 @@ def _build_catalog_entry(function_data: dict[str, Any]) -> LambdaCatalogEntry:
     -------
     LambdaCatalogEntry
         The constructed catalog entry.
+
+    Raises
+    ------
+    ValueError
+        If ``plain_language_summary`` is missing or blank.
     """
+    plain_language_summary = str(function_data.get("plain_language_summary", "")).strip()
+    if not plain_language_summary:
+        function_name = str(function_data.get("name", "<unknown>"))
+        raise ValueError(
+            f"Function {function_name!r} is missing a non-empty "
+            "'plain_language_summary' in lambda_functions.json."
+        )
+
     return LambdaCatalogEntry(
         name=str(function_data["name"]),
         formula_display=str(function_data["formula_display"]),
@@ -144,6 +167,7 @@ def _build_catalog_entry(function_data: dict[str, Any]) -> LambdaCatalogEntry:
         ],
         yields=str(function_data["yields"]),
         description=str(function_data["description"]),
+        plain_language_summary=plain_language_summary,
     )
 
 
@@ -201,9 +225,10 @@ def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) ->
         sheet.range((row_offset, 2)).value = entry.formula_display
         sheet.range((row_offset, 3)).value = entry.arguments_cell_text()
         sheet.range((row_offset, 4)).value = entry.yields
-        sheet.range((row_offset, 5)).value = entry.description
+        sheet.range((row_offset, 5)).value = entry.plain_language_summary
+        sheet.range((row_offset, 6)).value = entry.description
 
-    table_range = sheet.range(f"A1:E{last_data_row}")
+    table_range = sheet.range(f"A1:F{last_data_row}")
     table = sheet.api.ListObjects.Add(
         SourceType=XL_SRC_RANGE,
         Source=table_range.api,
@@ -214,14 +239,11 @@ def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) ->
     table.ShowTableStyleRowStripes = True
     table.ShowTableStyleColumnStripes = False
 
-    sheet.range("A1").column_width = 18
-    sheet.range("B1").column_width = 72
-    sheet.range("C1").column_width = 30
-    sheet.range("D1").column_width = 15
-    sheet.range("E1").column_width = 66
+    for col_letter, width in COLUMN_WIDTHS.items():
+        sheet.range(f"{col_letter}:{col_letter}").column_width = width
 
-    sheet.range(f"A1:E{last_data_row}").api.WrapText = True
-    sheet.range(f"A2:E{last_data_row}").api.EntireRow.AutoFit()
+    sheet.range(f"A1:F{last_data_row}").api.WrapText = True
+    sheet.range(f"A2:F{last_data_row}").api.EntireRow.AutoFit()
 
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0

@@ -1,7 +1,6 @@
 """Compute Python expected values for every output zone of the Regression worksheet."""
 from __future__ import annotations
 
-from dataclasses import dataclass
 from math import sqrt
 from pathlib import Path
 from statistics import NormalDist
@@ -11,9 +10,6 @@ import statsmodels.api as sm  # type: ignore[import-untyped]
 from scipy import stats as _scipy_stats  # type: ignore[import-untyped]
 
 from .analyze_life_expectancy import (
-    FEATURE_COLUMNS,
-    RegressionSummary,
-    RegressionVectors,
     _build_training_arrays,
     _fit_ols_model,
     _load_normalized_rows,
@@ -21,6 +17,13 @@ from .analyze_life_expectancy import (
     calculate_regression_summary,
     calculate_regression_vectors,
     DEFAULT_INPUT_CSV,
+)
+from .regression_shared import (
+    FEATURE_COLUMNS,
+    RegressionFullResiduals,
+    RegressionPredictionInterval,
+    RegressionPredictorSummary,
+    RegressionSheetResults,
 )
 
 
@@ -56,62 +59,6 @@ REGRESSION_QC_CONFIGS: list[tuple[str, bool, list[str]]] = [
     ("full_intercept",      True,  FEATURE_COLUMNS),
     ("full_no_intercept",   False, FEATURE_COLUMNS),
 ]
-
-
-# ---------------------------------------------------------------------------
-# Dataclasses
-# ---------------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class RegressionPredictorSummary:
-    """Per-predictor summary statistics for the Predictor Summary zone (D–J)."""
-
-    predictor_names: tuple[str, ...]
-    pearson_r: tuple[float, ...]
-    spearman_r: tuple[float, ...]
-    skewness: tuple[float, ...]
-    kurtosis: tuple[float, ...]
-    vif: tuple[float, ...]
-    tolerance: tuple[float, ...]
-
-
-@dataclass(frozen=True)
-class RegressionFullResiduals:
-    """Per-observation diagnostics for the Residual Output zone (X–AF)."""
-
-    dependent_var: tuple[float, ...]
-    predictions: tuple[float, ...]
-    residuals: tuple[float, ...]
-    loocv_residuals: tuple[float, ...]
-    hat_diagonal: tuple[float, ...]
-    studentized_residuals: tuple[float, ...]
-    cooks_distance: tuple[float, ...]
-    normal_scores_ranked: tuple[float, ...]
-    studentized_residuals_ranked: tuple[float, ...]
-
-
-@dataclass(frozen=True)
-class RegressionPredictionInterval:
-    """Prediction interval at training-data column means (T–U zone, U3:U8)."""
-
-    pred_input_values: tuple[float, ...]  # means of selected predictors, for writing to U13:U(12+k)
-    point_estimate: float
-    se_prediction: float
-    t_critical: float
-    lower: float
-    upper: float
-    confidence_level: float
-
-
-@dataclass(frozen=True)
-class RegressionSheetResults:
-    """All Python expected values for one (predictor_set, intercept) configuration."""
-
-    summary: RegressionSummary
-    vectors: RegressionVectors
-    predictor_summary: RegressionPredictorSummary
-    full_residuals: RegressionFullResiduals
-    prediction_interval: RegressionPredictionInterval
 
 
 # ---------------------------------------------------------------------------

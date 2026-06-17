@@ -7,23 +7,23 @@ from dataclasses import asdict
 from pathlib import Path
 from typing import Any
 
-from .analyze_life_expectancy import RegressionObservationVectors, RegressionVectors
-from .analyze_regression_sheet import (
+from .regression_shared import (
     RegressionFullResiduals,
+    RegressionObservationVectors,
     RegressionPredictionInterval,
     RegressionPredictorSummary,
     RegressionSheetResults,
-    build_regression_sheet_qc_configs,
+    RegressionSummary,
+    RegressionVectors,
 )
 from .write_sheet_mlr_scalar_test import build_mlr_row_configs
 from .write_sheet_mlr_observation_test import build_mlr_observation_row_configs
 from .write_sheet_mlr_vector_outputs_test import build_mlr_vector_row_configs
-from .analyze_life_expectancy import RegressionSummary
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
-_CACHE_SCHEMA_VERSION = 10
+_CACHE_SCHEMA_VERSION = 11
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -241,6 +241,8 @@ def get_analysis_results(
     scalar_configs = build_mlr_row_configs(csv_path)
     vector_configs = build_mlr_vector_row_configs(csv_path)
     observation_configs = build_mlr_observation_row_configs(csv_path)
+    from .analyze_regression_sheet import build_regression_sheet_qc_configs
+
     regression_sheet_configs = build_regression_sheet_qc_configs(csv_path)
 
     try:

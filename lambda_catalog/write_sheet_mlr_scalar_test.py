@@ -2,21 +2,20 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable
 
 import xlwings as xw
 
-from .analyze_life_expectancy import (
-    FEATURE_COLUMNS,
-    RegressionSummary,
-    calculate_regression_summary,
-)
 from .make_test_sheet import (
     _ColumnSpec,
     _RowConfig,
     write_test_table,
 )
+from .regression_shared import FEATURE_COLUMNS
 from .workbook_helpers import reset_column_groups
+
+if TYPE_CHECKING:
+    from .regression_shared import RegressionSummary
 
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
@@ -124,6 +123,8 @@ def build_test_columns(
 
 
 def build_mlr_row_configs(csv_path: Path) -> list[_RowConfig]:
+    from .analyze_life_expectancy import calculate_regression_summary
+
     row_configs: list[_RowConfig] = []
     for k in _MLR_K_VALUES:
         feature_cols = FEATURE_COLUMNS[:k]

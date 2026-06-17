@@ -17,7 +17,8 @@
         }
       ],
       "yields": "n — count of rows used in the regression as a scalar integer",
-      "description": "n (number of observations) is the count of data points available to the model after any filtering is applied. It is the fundamental sample size that drives all degrees-of-freedom calculations.\n\nReturns ROWS(FILTER(Y, filt_arg)). X_s is not required because row count is fully determined by Y."
+      "description": "n (number of observations) is the count of data points available to the model after any filtering is applied. It is the fundamental sample size that drives all degrees-of-freedom calculations.\n\nReturns ROWS(FILTER(Y, filt_arg)). X_s is not required because row count is fully determined by Y.",
+      "plain_language_summary": "How many rows of data the model is using."
     },
     {
       "name": "DF_Regression",
@@ -31,7 +32,8 @@
         }
       ],
       "yields": "df_regression (k, number of predictors) as a scalar integer",
-      "description": "df_regression is the number of degrees of freedom attributable to the regression model — equal to k, the number of predictor columns. The intercept term (if any) is not counted here; it is accounted for implicitly in df_total.\n\nReturns COLUMNS(X_s). Filter and Allow_Intercept do not affect this value."
+      "description": "df_regression is the number of degrees of freedom attributable to the regression model — equal to k, the number of predictor columns. The intercept term (if any) is not counted here; it is accounted for implicitly in df_total.\n\nReturns COLUMNS(X_s). Filter and Allow_Intercept do not affect this value.",
+      "plain_language_summary": "How many predictor slots the model is trying to fit."
     },
     {
       "name": "DF_Total",
@@ -55,7 +57,8 @@
         }
       ],
       "yields": "df_total (n-1 with intercept, n without) as a scalar integer",
-      "description": "df_total is the total degrees of freedom for the sum of squares. When an intercept is fit (default), one df is spent estimating the grand mean, giving n - 1. When the model is forced through the origin (Allow_Intercept = FALSE), no df is spent on the mean, giving n. df_total partitions into df_regression + df_residual.\n\nCalls Observations() for n, then returns IF(allow_arg, n-1, n)."
+      "description": "df_total is the total degrees of freedom for the sum of squares. When an intercept is fit (default), one df is spent estimating the grand mean, giving n - 1. When the model is forced through the origin (Allow_Intercept = FALSE), no df is spent on the mean, giving n. df_total partitions into df_regression + df_residual.\n\nCalls Observations() for n, then returns IF(allow_arg, n-1, n).",
+      "plain_language_summary": "The total amount of independent information in the outcome column."
     },
     {
       "name": "R_squared",
@@ -83,7 +86,8 @@
         }
       ],
       "yields": "R² (coefficient of determination) as a scalar in [0, 1]",
-      "description": "R² (coefficient of determination) is the proportion of variance in Y explained by the regression model. It equals SS_regression / SS_total, ranges from 0 (no explanatory power) to 1 (perfect fit), and is the square of Multiple R.\n\nReturns INDEX(LINEST(...), 3, 1) directly. R_squared is the base statistic from which Multiple_R and Adjusted_R2 are derived."
+      "description": "R² (coefficient of determination) is the proportion of variance in Y explained by the regression model. It equals SS_regression / SS_total, ranges from 0 (no explanatory power) to 1 (perfect fit), and is the square of Multiple R.\n\nReturns INDEX(LINEST(...), 3, 1) directly. R_squared is the base statistic from which Multiple_R and Adjusted_R2 are derived.",
+      "plain_language_summary": "How much of the outcome's movement the model explains."
     },
     {
       "name": "DF_Residual",
@@ -111,7 +115,8 @@
         }
       ],
       "yields": "df_residual (n-k-1 with intercept, n-k without) as a scalar integer",
-      "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as DF_Total(...) - DF_Regression(...), inheriting the Allow_Intercept correction from DF_Total."
+      "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as DF_Total(...) - DF_Regression(...), inheriting the Allow_Intercept correction from DF_Total.",
+      "plain_language_summary": "How much data is left to estimate random error after fitting the model."
     },
     {
       "name": "Multiple_R",
@@ -139,7 +144,8 @@
         }
       ],
       "yields": "Multiple R (correlation coefficient) as a scalar in [0, 1]",
-      "description": "Multiple R is the Pearson correlation between the observed values of Y and the values predicted by the regression model. It ranges from 0 (no linear relationship) to 1 (perfect linear fit) and is the square root of R².\n\nComputed as SQRT(R_squared(...))."
+      "description": "Multiple R is the Pearson correlation between the observed values of Y and the values predicted by the regression model. It ranges from 0 (no linear relationship) to 1 (perfect linear fit) and is the square root of R².\n\nComputed as SQRT(R_squared(...)).",
+      "plain_language_summary": "How closely the model's predictions track the real outcome values."
     },
     {
       "name": "Adjusted_R2",
@@ -167,7 +173,8 @@
         }
       ],
       "yields": "Adjusted R² as a scalar, typically in [0, 1] but can be negative",
-      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_squared(...)) * DF_Total(...) / DF_Residual(...), inheriting the Allow_Intercept correction from both df functions."
+      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_squared(...)) * DF_Total(...) / DF_Residual(...), inheriting the Allow_Intercept correction from both df functions.",
+      "plain_language_summary": "R-squared adjusted so extra predictors do not get free credit."
     },
     {
       "name": "SS_Total",
@@ -191,7 +198,8 @@
         }
       ],
       "yields": "SS_total (total sum of squares) as a scalar",
-      "description": "SS_total is the total variation in Y before any predictors are added. With an intercept it equals the sum of squared deviations from the mean — DEVSQ(Y). Without an intercept it equals the raw sum of squares — SUMSQ(Y). It is the denominator in the R² formula and partitions into SS_regression + SS_residual.\n\nReturns DEVSQ(filtered_Y) when Allow_Intercept is TRUE, SUMSQ(filtered_Y) when FALSE. Does not require X_s."
+      "description": "SS_total is the total variation in Y before any predictors are added. With an intercept it equals the sum of squared deviations from the mean — DEVSQ(Y). Without an intercept it equals the raw sum of squares — SUMSQ(Y). It is the denominator in the R² formula and partitions into SS_regression + SS_residual.\n\nReturns DEVSQ(filtered_Y) when Allow_Intercept is TRUE, SUMSQ(filtered_Y) when FALSE. Does not require X_s.",
+      "plain_language_summary": "All of the variation in Y before the model explains any of it."
     },
     {
       "name": "SS_Residual",
@@ -219,7 +227,8 @@
         }
       ],
       "yields": "SS_residual (residual/error sum of squares) as a scalar",
-      "description": "SS_residual (also called SS_error) is the variation in Y left unexplained by the regression model — the sum of squared differences between observed and fitted values. It equals SS_total × (1 - R²) and shrinks as the model improves.\n\nComputed as SS_Total(...) * (1 - R_squared(...))."
+      "description": "SS_residual (also called SS_error) is the variation in Y left unexplained by the regression model — the sum of squared differences between observed and fitted values. It equals SS_total × (1 - R²) and shrinks as the model improves.\n\nComputed as SS_Total(...) * (1 - R_squared(...)).",
+      "plain_language_summary": "The part of Y's variation the model still misses."
     },
     {
       "name": "SS_Regression",
@@ -247,7 +256,8 @@
         }
       ],
       "yields": "SS_regression (explained/model sum of squares) as a scalar",
-      "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_squared(...)."
+      "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_squared(...).",
+      "plain_language_summary": "The part of Y's variation the model successfully explains."
     },
     {
       "name": "MS_Regression",
@@ -275,7 +285,8 @@
         }
       ],
       "yields": "mean square for regression (MS_regression = SS_regression / df_regression) as a scalar",
-      "description": "MS_Regression is the mean square for the regression model: SS_Regression divided by df_Regression. It is the numerator of the overall F-statistic and represents the average explained variation per predictor degree of freedom."
+      "description": "MS_Regression is the mean square for the regression model: SS_Regression divided by df_Regression. It is the numerator of the overall F-statistic and represents the average explained variation per predictor degree of freedom.",
+      "plain_language_summary": "Average explained variation per model degree of freedom."
     },
     {
       "name": "MS_Residual",
@@ -303,7 +314,8 @@
         }
       ],
       "yields": "mean square for residual error (MS_residual = SS_residual / df_residual) as a scalar",
-      "description": "MS_Residual is the mean square for residual error: SS_Residual divided by df_Residual. It equals SE_Regression² and is the denominator of the overall F-statistic. It represents the average unexplained variation per residual degree of freedom."
+      "description": "MS_Residual is the mean square for residual error: SS_Residual divided by df_Residual. It equals SE_Regression² and is the denominator of the overall F-statistic. It represents the average unexplained variation per residual degree of freedom.",
+      "plain_language_summary": "Average unexplained variation per residual degree of freedom."
     },
     {
       "name": "SE_Regression",
@@ -331,7 +343,8 @@
         }
       ],
       "yields": "SE_regression (standard error of the regression) as a scalar",
-      "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / DF_Residual(...))."
+      "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / DF_Residual(...)).",
+      "plain_language_summary": "The typical size of the model's prediction mistakes, in Y units."
     },
     {
       "name": "PRESS",
@@ -359,7 +372,8 @@
         }
       ],
       "yields": "PRESS (Prediction Residual Error Sum of Squares) as a scalar",
-      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nLeverage is obtained from Hat_diagonal, which delegates the matrix inversion to Gram_Inverse. Then SUMSQ(e / (1 − h)) gives PRESS as a scalar."
+      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nLeverage is obtained from Hat_diagonal, which delegates the matrix inversion to Gram_Inverse. Then SUMSQ(e / (1 − h)) gives PRESS as a scalar.",
+      "plain_language_summary": "How well the model predicts rows it did not get to train on."
     },
     {
       "name": "AIC",
@@ -387,7 +401,8 @@
         }
       ],
       "yields": "Akaike Information Criterion (AIC) scalar",
-      "description": "AIC = n·ln(SSR/n) + 2p, where p = number of regression parameters (predictors + intercept when Allow_Intercept is TRUE). Smaller values indicate better-fitting models; compare across models on the same dataset."
+      "description": "AIC = n·ln(SSR/n) + 2p, where p = number of regression parameters (predictors + intercept when Allow_Intercept is TRUE). Smaller values indicate better-fitting models; compare across models on the same dataset.",
+      "plain_language_summary": "A score for comparing models that rewards fit but penalizes extra complexity."
     },
     {
       "name": "BIC",
@@ -415,7 +430,8 @@
         }
       ],
       "yields": "Bayesian Information Criterion (BIC) scalar",
-      "description": "BIC = n·ln(SSR/n) + p·ln(n), where p = number of regression parameters. Applies a heavier penalty than AIC for additional parameters, favouring sparser models in large samples."
+      "description": "BIC = n·ln(SSR/n) + p·ln(n), where p = number of regression parameters. Applies a heavier penalty than AIC for additional parameters, favouring sparser models in large samples.",
+      "plain_language_summary": "A model-comparison score that penalizes extra complexity more strongly than AIC."
     },
     {
       "name": "AICc",
@@ -443,7 +459,8 @@
         }
       ],
       "yields": "Corrected Akaike Information Criterion (AICc) scalar",
-      "description": "AICc = AIC + 2p(p+1)/(n−p−1). The small-sample correction reduces upward bias in AIC when n/p < 40. Converges to AIC as n → ∞."
+      "description": "AICc = AIC + 2p(p+1)/(n−p−1). The small-sample correction reduces upward bias in AIC when n/p < 40. Converges to AIC as n → ∞.",
+      "plain_language_summary": "AIC with an extra small-sample penalty."
     },
     {
       "name": "Durbin_Watson",
@@ -471,7 +488,8 @@
         }
       ],
       "yields": "Durbin-Watson statistic as a scalar",
-      "description": "DW = Σ(eₜ − eₜ₋₁)² / Σeₜ², testing for first-order serial correlation in residuals. Values near 2 indicate no autocorrelation; values below ~1.5 suggest positive autocorrelation, values above ~2.5 suggest negative autocorrelation.\n\nComputed as SUM((DROP(e,1) − DROP(e,−1))²) / SUM(e²), where DROP(e,1) removes the first residual (giving e₂..eₙ) and DROP(e,−1) removes the last (giving e₁..eₙ₋₁), so consecutive differences are formed without OFFSET or index arithmetic."
+      "description": "DW = Σ(eₜ − eₜ₋₁)² / Σeₜ², testing for first-order serial correlation in residuals. Values near 2 indicate no autocorrelation; values below ~1.5 suggest positive autocorrelation, values above ~2.5 suggest negative autocorrelation.\n\nComputed as SUM((DROP(e,1) − DROP(e,−1))²) / SUM(e²), where DROP(e,1) removes the first residual (giving e₂..eₙ) and DROP(e,−1) removes the last (giving e₁..eₙ₋₁), so consecutive differences are formed without OFFSET or index arithmetic.",
+      "plain_language_summary": "Whether nearby residuals tend to move together instead of staying independent."
     },
     {
       "name": "QQ_Correlation",
@@ -499,7 +517,8 @@
         }
       ],
       "yields": "Filliben Q-Q correlation coefficient (normality statistic) scalar",
-      "description": "CORREL(Scaled_Residuals_Ranked, Normal_Scores) — the Filliben approximation to the Shapiro-Wilk statistic. Values near 1 indicate approximately normal residuals; values below ~0.99 suggest non-normality. The Q-Q plot is the corresponding visual: plot Normal_Scores (x) vs Scaled_Residuals_Ranked (y) and look for alignment with the identity line."
+      "description": "CORREL(Scaled_Residuals_Ranked, Normal_Scores) — the Filliben approximation to the Shapiro-Wilk statistic. Values near 1 indicate approximately normal residuals; values below ~0.99 suggest non-normality. The Q-Q plot is the corresponding visual: plot Normal_Scores (x) vs Scaled_Residuals_Ranked (y) and look for alignment with the identity line.",
+      "plain_language_summary": "How close the residual distribution is to a normal bell shape."
     },
     {
       "name": "Coefficients",
@@ -527,7 +546,8 @@
         }
       ],
       "yields": "vertical array of fitted OLS coefficients — intercept first (when included), then predictors in input order",
-      "description": "Returns a vertical spill array of the fitted OLS regression coefficients. When Allow_Intercept is TRUE the intercept is the first element, followed by the coefficients for each column of X_s in input order. When Allow_Intercept is FALSE the output contains only the k predictor coefficients.\n\nUses LINEST with stats=FALSE (row 1 only), then reverses and optionally prepends the intercept to match X_s column order."
+      "description": "Returns a vertical spill array of the fitted OLS regression coefficients. When Allow_Intercept is TRUE the intercept is the first element, followed by the coefficients for each column of X_s in input order. When Allow_Intercept is FALSE the output contains only the k predictor coefficients.\n\nUses LINEST with stats=FALSE (row 1 only), then reverses and optionally prepends the intercept to match X_s column order.",
+      "plain_language_summary": "The fitted intercept and predictor weights used to make predictions."
     },
     {
       "name": "SE_Coefficients",
@@ -555,7 +575,8 @@
         }
       ],
       "yields": "vertical array of standard errors of the OLS coefficients — same order as Coefficients",
-      "description": "Returns a vertical spill array of the standard errors of the fitted OLS coefficients, in the same order as Coefficients (intercept first when included).\n\nUses LINEST with stats=TRUE and extracts row 2 (the standard error row), then applies the same reversal as Coefficients."
+      "description": "Returns a vertical spill array of the standard errors of the fitted OLS coefficients, in the same order as Coefficients (intercept first when included).\n\nUses LINEST with stats=TRUE and extracts row 2 (the standard error row), then applies the same reversal as Coefficients.",
+      "plain_language_summary": "How uncertain each fitted coefficient is."
     },
     {
       "name": "T_Stats",
@@ -583,7 +604,8 @@
         }
       ],
       "yields": "vertical array of t-statistics for each coefficient (coefficient / standard error)",
-      "description": "Returns a vertical spill array of t-statistics for each OLS coefficient. Each element equals the corresponding Coefficients value divided by its SE_Coefficients value.\n\nComputed as Coefficients(...) / SE_Coefficients(...)."
+      "description": "Returns a vertical spill array of t-statistics for each OLS coefficient. Each element equals the corresponding Coefficients value divided by its SE_Coefficients value.\n\nComputed as Coefficients(...) / SE_Coefficients(...).",
+      "plain_language_summary": "Each coefficient measured in standard-error units."
     },
     {
       "name": "P_Values",
@@ -611,7 +633,8 @@
         }
       ],
       "yields": "vertical array of two-tailed p-values for each coefficient",
-      "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Stats(...)), DF_Residual(...))."
+      "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Stats(...)), DF_Residual(...)).",
+      "plain_language_summary": "How surprising each coefficient would be if its true effect were zero."
     },
     {
       "name": "CI_Lower",
@@ -644,7 +667,8 @@
         }
       ],
       "yields": "vertical array of lower confidence interval bounds for each coefficient",
-      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) - T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...)."
+      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) - T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...).",
+      "plain_language_summary": "The low end of the likely range for each coefficient."
     },
     {
       "name": "CI_Upper",
@@ -677,7 +701,8 @@
         }
       ],
       "yields": "vertical array of upper confidence interval bounds for each coefficient",
-      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...)."
+      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...).",
+      "plain_language_summary": "The high end of the likely range for each coefficient."
     },
     {
       "name": "Partial_R2",
@@ -705,7 +730,8 @@
         }
       ],
       "yields": "vertical array of partial R² values — same order as Coefficients (intercept first when included)",
-      "description": "Partial R² for coefficient j = t²ⱼ / (t²ⱼ + df_residual), the proportion of residual variance explained by predictor j after controlling for all other predictors. Equivalently, it is the squared partial correlation between Y and Xⱼ given all other Xₛ.\n\nComputed as T_Stats² / (T_Stats² + DF_Residual), element-wise. The intercept row is included (row 1) for consistency with T_Stats and P_Values."
+      "description": "Partial R² for coefficient j = t²ⱼ / (t²ⱼ + df_residual), the proportion of residual variance explained by predictor j after controlling for all other predictors. Equivalently, it is the squared partial correlation between Y and Xⱼ given all other Xₛ.\n\nComputed as T_Stats² / (T_Stats² + DF_Residual), element-wise. The intercept row is included (row 1) for consistency with T_Stats and P_Values.",
+      "plain_language_summary": "How much unique explanatory value each predictor adds after controlling for the rest."
     },
     {
       "name": "Partial_Correlation",
@@ -733,7 +759,8 @@
         }
       ],
       "yields": "vertical array of partial correlation coefficients — same order as Coefficients (intercept first when included)",
-      "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R2) × sign(t).\n\nComputed as T_Stats / SQRT(T_Stats² + DF_Residual), element-wise. Ranges from −1 to +1."
+      "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R2) × sign(t).\n\nComputed as T_Stats / SQRT(T_Stats² + DF_Residual), element-wise. Ranges from −1 to +1.",
+      "plain_language_summary": "The predictor-outcome relationship left over after accounting for the other predictors."
     },
     {
       "name": "Beta_Weights",
@@ -761,7 +788,8 @@
         }
       ],
       "yields": "k×1 column vector of standardized coefficients (Beta weights), one per predictor — intercept row excluded",
-      "description": "Standardized (Beta) coefficient for predictor j = b_j × std(X_j) / std(Y). Expresses each coefficient in standard-deviation units, making predictors with different scales directly comparable in magnitude. Always returns k values (one per predictor); the intercept has no meaningful standardized counterpart and is excluded.\n\nComputed as Coefficients × column-wise STDEV(X) / STDEV(Y), using filtered rows. Mirrors the output of VIF and Tolerance in returning k rows without an intercept entry."
+      "description": "Standardized (Beta) coefficient for predictor j = b_j × std(X_j) / std(Y). Expresses each coefficient in standard-deviation units, making predictors with different scales directly comparable in magnitude. Always returns k values (one per predictor); the intercept has no meaningful standardized counterpart and is excluded.\n\nComputed as Coefficients × column-wise STDEV(X) / STDEV(Y), using filtered rows. Mirrors the output of VIF and Tolerance in returning k rows without an intercept entry.",
+      "plain_language_summary": "Coefficients rescaled so predictors on different units can be compared fairly."
     },
     {
       "name": "VIF",
@@ -785,7 +813,8 @@
         }
       ],
       "yields": "k×1 column vector of VIF values, one per predictor (does not include an intercept row)",
-      "description": "Variance Inflation Factor for each predictor Xⱼ = 1 / (1 − R²ⱼ), where R²ⱼ is the R² from regressing Xⱼ on all other predictors. VIF measures how much the variance of coefficient j is inflated by multicollinearity. VIF = 1 means no collinearity; VIF > 10 (or > 5 by stricter convention) signals a problem.\n\nAuxiliary regressions always include an intercept regardless of the main model's Allow_Intercept setting (standard convention). When k = 1 the function returns 1 (no collinearity possible with a single predictor). Uses MAKEARRAY + FILTER to iterate over column indices without VBA or helper columns."
+      "description": "Variance Inflation Factor for each predictor Xⱼ = 1 / (1 − R²ⱼ), where R²ⱼ is the R² from regressing Xⱼ on all other predictors. VIF measures how much the variance of coefficient j is inflated by multicollinearity. VIF = 1 means no collinearity; VIF > 10 (or > 5 by stricter convention) signals a problem.\n\nAuxiliary regressions always include an intercept regardless of the main model's Allow_Intercept setting (standard convention). When k = 1 the function returns 1 (no collinearity possible with a single predictor). Uses MAKEARRAY + FILTER to iterate over column indices without VBA or helper columns.",
+      "plain_language_summary": "How much overlap with other predictors is inflating each coefficient's instability."
     },
     {
       "name": "Tolerance",
@@ -809,7 +838,8 @@
         }
       ],
       "yields": "k×1 column vector of Tolerance values (= 1/VIF), one per predictor",
-      "description": "Tolerance = 1 − R²ⱼ = 1 / VIF, where R²ⱼ is the coefficient of determination from regressing Xⱼ on all other predictors. Values below 0.1 (VIF > 10) conventionally flag severe multicollinearity; values below 0.2 (VIF > 5) flag moderate concern.\n\nComputed as 1 / VIF(...), forwarding all arguments."
+      "description": "Tolerance = 1 − R²ⱼ = 1 / VIF, where R²ⱼ is the coefficient of determination from regressing Xⱼ on all other predictors. Values below 0.1 (VIF > 10) conventionally flag severe multicollinearity; values below 0.2 (VIF > 5) flag moderate concern.\n\nComputed as 1 / VIF(...), forwarding all arguments.",
+      "plain_language_summary": "How much unique information a predictor still has after overlap with the others."
     },
     {
       "name": "Prediction_Interval",
@@ -846,7 +876,8 @@
         }
       ],
       "yields": "6-element vertical array: [Point Estimate, SE Prediction, t Critical, Lower bound, Upper bound, Confidence Level]",
-      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using Gram_Inverse(X_design) and MMULT."
+      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using Gram_Inverse(X_design) and MMULT.",
+      "plain_language_summary": "A predicted outcome plus the range a new real-world observation is likely to fall in."
     },
     {
       "name": "Observation_Num",
@@ -865,7 +896,8 @@
         }
       ],
       "yields": "1..n observation index as a spilled vector",
-      "description": "Spills 1..n, where n is the number of filtered observations."
+      "description": "Spills 1..n, where n is the number of filtered observations.",
+      "plain_language_summary": "A simple 1-to-n row counter for the filtered data."
     },
     {
       "name": "Rank_Fraction",
@@ -884,7 +916,8 @@
         }
       ],
       "yields": "empirical-CDF fractions as a spilled vector, in original data order",
-      "description": "Empirical CDF: fraction of filtered observations with value <= each observation. Equivalent to SUMPRODUCT((filtered<=v)*1)/n for each v. Output is in original data order."
+      "description": "Empirical CDF: fraction of filtered observations with value <= each observation. Equivalent to SUMPRODUCT((filtered<=v)*1)/n for each v. Output is in original data order.",
+      "plain_language_summary": "Each row's percentile-style position within the filtered outcome values."
     },
     {
       "name": "Y_Ranked",
@@ -903,7 +936,8 @@
         }
       ],
       "yields": "sorted filtered Y values as a spilled vector",
-      "description": "Useful for empirical distribution/probability plots of the response variable."
+      "description": "Useful for empirical distribution/probability plots of the response variable.",
+      "plain_language_summary": "The filtered outcome values sorted from low to high."
     },
     {
       "name": "Dependent_Var",
@@ -922,7 +956,8 @@
         }
       ],
       "yields": "filtered dependent variable vector (all rows when Filter is omitted)",
-      "description": "Returns the dependent-variable vector used by residual and diagnostic outputs."
+      "description": "Returns the dependent-variable vector used by residual and diagnostic outputs.",
+      "plain_language_summary": "The filtered outcome column in the order the model uses it."
     },
     {
       "name": "Normal_Scores",
@@ -941,7 +976,8 @@
         }
       ],
       "yields": "theoretical standard-normal scores as a spilled vector",
-      "description": "Intended for normal probability plot x-values."
+      "description": "Intended for normal probability plot x-values.",
+      "plain_language_summary": "The bell-curve quantiles used to build a Q-Q plot."
     },
     {
       "name": "Design_Matrix",
@@ -965,7 +1001,8 @@
         }
       ],
       "yields": "filtered numeric design matrix as spilled array",
-      "description": "Returns the matrix used for prediction: with intercept, a leading column of 1s followed by filtered X columns; without intercept, filtered X columns only. Factor encoding is intentionally deferred."
+      "description": "Returns the matrix used for prediction: with intercept, a leading column of 1s followed by filtered X columns; without intercept, filtered X columns only. Factor encoding is intentionally deferred.",
+      "plain_language_summary": "The cleaned predictor matrix the regression actually fits."
     },
     {
       "name": "Gram_Inverse",
@@ -977,7 +1014,8 @@
         }
       ],
       "yields": "p×p matrix — the inverse of the Gram matrix (X'X)⁻¹",
-      "description": "Returns (X'X)⁻¹ for a design matrix X. Single point of inversion used by Hat_diagonal, PRESS, LOOCV_prediction, and Prediction_Interval — any future stability upgrade (e.g., Tikhonov regularisation) only needs to be made here.\n\nPass the output of Design_Matrix — already filtered and intercept-augmented — directly as X."
+      "description": "Returns (X'X)⁻¹ for a design matrix X. Single point of inversion used by Hat_diagonal, PRESS, LOOCV_prediction, and Prediction_Interval — any future stability upgrade (e.g., Tikhonov regularisation) only needs to be made here.\n\nPass the output of Design_Matrix — already filtered and intercept-augmented — directly as X.",
+      "plain_language_summary": "The matrix inverse the regression uses for leverage, intervals, and influence math."
     },
     {
       "name": "Predictions",
@@ -1005,7 +1043,8 @@
         }
       ],
       "yields": "fitted Y values as a spilled vector",
-      "description": "Computes X_design * beta using MMULT."
+      "description": "Computes X_design * beta using MMULT.",
+      "plain_language_summary": "The model's fitted Y values for each row."
     },
     {
       "name": "Residuals",
@@ -1033,7 +1072,8 @@
         }
       ],
       "yields": "raw residuals as a spilled vector",
-      "description": "Residuals are Y - fitted Y."
+      "description": "Residuals are Y - fitted Y.",
+      "plain_language_summary": "How far each actual Y value is above or below its fitted value."
     },
     {
       "name": "Scaled_Residuals",
@@ -1061,7 +1101,8 @@
         }
       ],
       "yields": "residual divided by SE_Regression as a spilled vector",
-      "description": "Residual divided by SE_Regression. This is not Excel Analysis ToolPak 'Standard Residuals' and is not leverage-adjusted/studentized."
+      "description": "Residual divided by SE_Regression. This is not Excel Analysis ToolPak 'Standard Residuals' and is not leverage-adjusted/studentized.",
+      "plain_language_summary": "Residuals converted to a common error scale."
     },
     {
       "name": "This_row",
@@ -1075,7 +1116,8 @@
         }
       ],
       "yields": "1..n column vector of relative row numbers",
-      "description": "Returns a 1-based integer sequence 1, 2, …, n where n = ROWS(array). The row numbers are relative to the top of the supplied array, so they are stable regardless of where the array sits on the sheet or whether it has been pre-filtered by the caller.\n\nDesigned to be passed to CHOOSEROWS or used as a comparison mask inside FILTER; see Exclude_row_n for the canonical usage."
+      "description": "Returns a 1-based integer sequence 1, 2, …, n where n = ROWS(array). The row numbers are relative to the top of the supplied array, so they are stable regardless of where the array sits on the sheet or whether it has been pre-filtered by the caller.\n\nDesigned to be passed to CHOOSEROWS or used as a comparison mask inside FILTER; see Exclude_row_n for the canonical usage.",
+      "plain_language_summary": "Relative row numbers for the current spilled array."
     },
     {
       "name": "Exclude_row_n",
@@ -1093,7 +1135,8 @@
         }
       ],
       "yields": "array with row n removed; NA() if n is out of bounds",
-      "description": "Returns the input array with exactly one row removed. Positive n selects from the top (1 = first row); negative n selects from the bottom (−1 = last row, −2 = second-to-last, …). Returns NA() when the resolved index is less than 1 or greater than ROWS(array).\n\nImplemented as CHOOSEROWS(array, FILTER(SEQUENCE(total_rows), SEQUENCE(total_rows) <> n_abs)): SEQUENCE produces the full index 1..n, FILTER removes the target index, and CHOOSEROWS reassembles the array without that row."
+      "description": "Returns the input array with exactly one row removed. Positive n selects from the top (1 = first row); negative n selects from the bottom (−1 = last row, −2 = second-to-last, …). Returns NA() when the resolved index is less than 1 or greater than ROWS(array).\n\nImplemented as CHOOSEROWS(array, FILTER(SEQUENCE(total_rows), SEQUENCE(total_rows) <> n_abs)): SEQUENCE produces the full index 1..n, FILTER removes the target index, and CHOOSEROWS reassembles the array without that row.",
+      "plain_language_summary": "The same array with one chosen row removed."
     },
     {
       "name": "LOO_prediction",
@@ -1125,7 +1168,8 @@
         }
       ],
       "yields": "scalar LOO prediction for observation n — the fitted value from a model trained on all rows except n, evaluated at row n of X_s",
-      "description": "Applies the filter once in the outer scope to produce X_filt and Y_filt, then delegates to inner LAMBDAs without re-passing the filter. Exclude_row_n removes observation n from both X and Y; Coefficients fits OLS on the remaining n−1 rows; Design_Matrix builds the single-row design vector for row n (with or without intercept column); MMULT computes the dot product.\n\nNote: for n LOO predictions at once use LOOCV_prediction, which avoids n separate OLS fits via the hat-matrix shortcut."
+      "description": "Applies the filter once in the outer scope to produce X_filt and Y_filt, then delegates to inner LAMBDAs without re-passing the filter. Exclude_row_n removes observation n from both X and Y; Coefficients fits OLS on the remaining n−1 rows; Design_Matrix builds the single-row design vector for row n (with or without intercept column); MMULT computes the dot product.\n\nNote: for n LOO predictions at once use LOOCV_prediction, which avoids n separate OLS fits via the hat-matrix shortcut.",
+      "plain_language_summary": "One leave-one-out prediction for the requested row."
     },
     {
       "name": "LOOCV_prediction",
@@ -1153,7 +1197,8 @@
         }
       ],
       "yields": "n-element spill vector of LOO predictions for every filtered observation",
-      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal from Hat_diagonal.\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS."
+      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal from Hat_diagonal.\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS.",
+      "plain_language_summary": "Each row's prediction from a model refit without that row."
     },
     {
       "name": "Hat_diagonal",
@@ -1177,7 +1222,8 @@
         }
       ],
       "yields": "n-element hat-matrix diagonal (leverage values) as spilled vector",
-      "description": "Returns h_i = x_iᵀ(XᵀX)⁻¹x_i for each observation. Values range from p/n (minimum leverage, uniform design) to 1. Observations with h_i > 2p/n are conventionally flagged as high-leverage. Used internally by Studentized_Residuals, Cooks_Distance, PRESS, and LOOCV_prediction; exposed here for direct inspection. Inversion is delegated to Gram_Inverse."
+      "description": "Returns h_i = x_iᵀ(XᵀX)⁻¹x_i for each observation. Values range from p/n (minimum leverage, uniform design) to 1. Observations with h_i > 2p/n are conventionally flagged as high-leverage. Used internally by Studentized_Residuals, Cooks_Distance, PRESS, and LOOCV_prediction; exposed here for direct inspection. Inversion is delegated to Gram_Inverse.",
+      "plain_language_summary": "Each row's leverage, meaning how unusual its predictor values are."
     },
     {
       "name": "Studentized_Residuals",
@@ -1205,7 +1251,8 @@
         }
       ],
       "yields": "n-element vector of internally studentized residuals",
-      "description": "r_i = e_i / (s√(1−h_i)), the leverage-adjusted scaled residual. Unlike Scaled_Residuals (which divides by s only), studentized residuals have equal variance under the normal model and are more sensitive to outliers in high-leverage regions. Values beyond ±2 or ±3 indicate potential outliers."
+      "description": "r_i = e_i / (s√(1−h_i)), the leverage-adjusted scaled residual. Unlike Scaled_Residuals (which divides by s only), studentized residuals have equal variance under the normal model and are more sensitive to outliers in high-leverage regions. Values beyond ±2 or ±3 indicate potential outliers.",
+      "plain_language_summary": "Residuals adjusted for both model error and leverage."
     },
     {
       "name": "Studentized_Residuals_Ranked",
@@ -1233,7 +1280,8 @@
         }
       ],
       "yields": "sorted studentized residuals as spilled vector",
-      "description": "Ascending sort of Studentized_Residuals. Paired with Normal_Scores gives a leverage-corrected Q-Q plot; paired with Percentile gives a cumulative distribution plot."
+      "description": "Ascending sort of Studentized_Residuals. Paired with Normal_Scores gives a leverage-corrected Q-Q plot; paired with Percentile gives a cumulative distribution plot.",
+      "plain_language_summary": "Studentized residuals sorted from smallest to largest."
     },
     {
       "name": "Cooks_Distance",
@@ -1261,7 +1309,8 @@
         }
       ],
       "yields": "n-element vector of Cook’s distances",
-      "description": "D_i = r_i² · h_i / ((1−h_i)·p) where r_i is the internally studentized residual, h_i the hat-matrix diagonal, and p the number of regression parameters. Combines outlier signal (r_i) with leverage (h_i) into a single influence measure. Observations with D_i > 4/n or D_i > 1 are conventionally flagged as influential."
+      "description": "D_i = r_i² · h_i / ((1−h_i)·p) where r_i is the internally studentized residual, h_i the hat-matrix diagonal, and p the number of regression parameters. Combines outlier signal (r_i) with leverage (h_i) into a single influence measure. Observations with D_i > 4/n or D_i > 1 are conventionally flagged as influential.",
+      "plain_language_summary": "How much one row can pull the fitted model around."
     },
     {
       "name": "Scaled_Residuals_Ranked",
@@ -1289,7 +1338,8 @@
         }
       ],
       "yields": "sorted scaled residuals as spilled vector",
-      "description": "Sorted Scaled_Residuals, intended for plotting against Normal_Scores."
+      "description": "Sorted Scaled_Residuals, intended for plotting against Normal_Scores.",
+      "plain_language_summary": "Scaled residuals sorted from smallest to largest."
     },
     {
       "name": "Col_Select",
@@ -1307,7 +1357,8 @@
         }
       ],
       "yields": "array of the selected columns in the specified order",
-      "description": "Wraps CHOOSECOLS to give column selection a named, self-documenting form. The output is a calculated array with the same row count as the source table, valid as X_s in any library function.\n\nPrimary use: define a named range — e.g. X_Predictors = Col_Select(LifeData, {3,7,9}) — then pass that name as X_s. Non-contiguous column sets are fully supported. Combine with Complete_Cases_Filter to drop rows that have missing or non-numeric values in the chosen columns."
+      "description": "Wraps CHOOSECOLS to give column selection a named, self-documenting form. The output is a calculated array with the same row count as the source table, valid as X_s in any library function.\n\nPrimary use: define a named range — e.g. X_Predictors = Col_Select(LifeData, {3,7,9}) — then pass that name as X_s. Non-contiguous column sets are fully supported. Combine with Complete_Cases_Filter to drop rows that have missing or non-numeric values in the chosen columns.",
+      "plain_language_summary": "A helper that picks specific columns from a larger table."
     },
     {
       "name": "Complete_Cases_Filter",
@@ -1326,7 +1377,8 @@
         }
       ],
       "yields": "boolean column vector — TRUE for rows where every included column is numeric",
-      "description": "Produces a ready-made Filter argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))"
+      "description": "Produces a ready-made Filter argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))",
+      "plain_language_summary": "A TRUE/FALSE mask that keeps only rows with usable numeric data."
     },
     {
       "name": "Pearson_R",
@@ -1348,7 +1400,8 @@
         }
       ],
       "yields": "k×1 column vector of Pearson correlations between each predictor and Y",
-      "description": "Pearson_R computes the linear (Pearson product-moment) correlation between each column of X_s and Y, after applying the optional filter. When X_s has a single column the result is a scalar; when X_s has k columns it spills as a k×1 column vector.\n\nA Pearson_R close to ±1 indicates a strong linear association. Comparing Pearson_R with Spearman_R on the same data reveals nonlinearity: a large gap (Spearman > Pearson in magnitude) suggests a monotonic but curved relationship that may warrant a log or polynomial transformation."
+      "description": "Pearson_R computes the linear (Pearson product-moment) correlation between each column of X_s and Y, after applying the optional filter. When X_s has a single column the result is a scalar; when X_s has k columns it spills as a k×1 column vector.\n\nA Pearson_R close to ±1 indicates a strong linear association. Comparing Pearson_R with Spearman_R on the same data reveals nonlinearity: a large gap (Spearman > Pearson in magnitude) suggests a monotonic but curved relationship that may warrant a log or polynomial transformation.",
+      "plain_language_summary": "The straight-line relationship between each predictor and the outcome."
     },
     {
       "name": "Spearman_R",
@@ -1370,7 +1423,8 @@
         }
       ],
       "yields": "k×1 column vector of Spearman rank correlations between each predictor and Y",
-      "description": "Spearman_R computes the rank (Spearman) correlation between each column of xf and yf. For each predictor column, rows are kept where both that column and yf are numeric (and pass the optional Filter). Ties receive average ranks via a MAP-based helper (avoids RANK.AVG on dynamic arrays). Returns a k×1 vector when xf has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit."
+      "description": "Spearman_R computes the rank (Spearman) correlation between each column of xf and yf. For each predictor column, rows are kept where both that column and yf are numeric (and pass the optional Filter). Ties receive average ranks via a MAP-based helper (avoids RANK.AVG on dynamic arrays). Returns a k×1 vector when xf has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit.",
+      "plain_language_summary": "The rank-order relationship between each predictor and the outcome."
     },
     {
       "name": "Skewness",
@@ -1388,7 +1442,8 @@
         }
       ],
       "yields": "k×1 column vector of sample skewness values (one per column of X_s)",
-      "description": "Skewness returns the sample skewness (Fisher-Pearson standardized third moment) for each column of X_s after filtering. Uses Excel's SKEW function, which divides by (n-1)(n-2).\n\nInterpretation: 0 = symmetric; positive = right tail (mean > median, common in counts and incomes); negative = left tail. |Skewness| > 1 typically signals that a log or square-root transformation would linearize relationships and stabilize regression residual variance. Compare with Kurtosis for a fuller picture of distributional shape."
+      "description": "Skewness returns the sample skewness (Fisher-Pearson standardized third moment) for each column of X_s after filtering. Uses Excel's SKEW function, which divides by (n-1)(n-2).\n\nInterpretation: 0 = symmetric; positive = right tail (mean > median, common in counts and incomes); negative = left tail. |Skewness| > 1 typically signals that a log or square-root transformation would linearize relationships and stabilize regression residual variance. Compare with Kurtosis for a fuller picture of distributional shape.",
+      "plain_language_summary": "Whether a variable has a longer tail on one side than the other."
     },
     {
       "name": "Kurtosis",
@@ -1406,7 +1461,8 @@
         }
       ],
       "yields": "k×1 column vector of excess kurtosis values (one per column of X_s)",
-      "description": "Kurtosis returns the excess kurtosis for each filtered column of X_s. Uses Excel's KURT function (Fisher's excess kurtosis: kurtosis − 3, so a normal distribution returns 0).\n\nPositive excess kurtosis (leptokurtic) indicates heavier tails and more extreme outliers than a normal distribution. Negative (platykurtic) indicates lighter tails. High kurtosis in a predictor or in regression residuals signals that OLS standard errors may be unreliable, and that robust standard errors or a different distributional assumption may be warranted."
+      "description": "Kurtosis returns the excess kurtosis for each filtered column of X_s. Uses Excel's KURT function (Fisher's excess kurtosis: kurtosis − 3, so a normal distribution returns 0).\n\nPositive excess kurtosis (leptokurtic) indicates heavier tails and more extreme outliers than a normal distribution. Negative (platykurtic) indicates lighter tails. High kurtosis in a predictor or in regression residuals signals that OLS standard errors may be unreliable, and that robust standard errors or a different distributional assumption may be warranted.",
+      "plain_language_summary": "Whether a variable has unusually heavy tails or outliers."
     },
     {
       "name": "F_Stat",
@@ -1434,7 +1490,8 @@
         }
       ],
       "yields": "F-statistic for the overall regression model as a scalar",
-      "description": "F_Stat returns the F-statistic for the omnibus test of the null hypothesis that all regression coefficients are simultaneously zero. It equals (MS_Regression / MS_Residual) = (SS_Regression / df_regression) / (SS_Residual / df_residual).\n\nA large F-statistic (and correspondingly small P_Value_F) means the model explains significantly more variance than would be expected by chance. Note that a significant F does not guarantee that every individual predictor is significant — individual t-statistics (T_Stats) address that question. F_Stat appears in the ANOVA table on the Regression sheet; this function exposes it as a named reference for use in other formulas."
+      "description": "F_Stat returns the F-statistic for the omnibus test of the null hypothesis that all regression coefficients are simultaneously zero. It equals (MS_Regression / MS_Residual) = (SS_Regression / df_regression) / (SS_Residual / df_residual).\n\nA large F-statistic (and correspondingly small P_Value_F) means the model explains significantly more variance than would be expected by chance. Note that a significant F does not guarantee that every individual predictor is significant — individual t-statistics (T_Stats) address that question. F_Stat appears in the ANOVA table on the Regression sheet; this function exposes it as a named reference for use in other formulas.",
+      "plain_language_summary": "Whether the model, taken as a whole, explains more than random noise would."
     },
     {
       "name": "P_Value_F",
@@ -1462,7 +1519,8 @@
         }
       ],
       "yields": "p-value for the overall F-test (right-tail probability of the F distribution)",
-      "description": "P_Value_F returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Stat under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Stat, df_regression, df_residual).\n\nConventionally, P_Value_F < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use."
+      "description": "P_Value_F returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Stat under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Stat, df_regression, df_residual).\n\nConventionally, P_Value_F < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use.",
+      "plain_language_summary": "How surprising the overall F-statistic would be if the model had no real signal."
     },
     {
       "name": "Correlation_Matrix",
@@ -1480,7 +1538,8 @@
         }
       ],
       "yields": "k×k symmetric matrix of pairwise Pearson correlations (diagonal = 1)",
-      "description": "Correlation_Matrix returns the k×k Pearson correlation matrix for all columns of X_s after filtering. Each cell [r, c] equals CORREL(column r, column c). The diagonal is always 1. The matrix is symmetric. Enter as a single formula and let it spill.\n\nUse this to screen for multicollinearity before fitting a model: pairs with |r| > 0.7 are candidates for VIF investigation. High off-diagonal correlations indicate redundant predictors whose coefficients will be unstable and hard to interpret. For formal post-fit diagnostics, use VIF and Tolerance instead."
+      "description": "Correlation_Matrix returns the k×k Pearson correlation matrix for all columns of X_s after filtering. Each cell [r, c] equals CORREL(column r, column c). The diagonal is always 1. The matrix is symmetric. Enter as a single formula and let it spill.\n\nUse this to screen for multicollinearity before fitting a model: pairs with |r| > 0.7 are candidates for VIF investigation. High off-diagonal correlations indicate redundant predictors whose coefficients will be unstable and hard to interpret. For formal post-fit diagnostics, use VIF and Tolerance instead.",
+      "plain_language_summary": "The pairwise correlations among all predictor columns."
     }
   ]
 }

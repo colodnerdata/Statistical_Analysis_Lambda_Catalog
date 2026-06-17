@@ -127,7 +127,7 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
             "statistical value, as doing so can introduce bias and erase genuine insights.",
         ],
         [
-            "Leverage vs. Studentized",
+            "Studentized Residuals vs. Leverage",
             "Hat Diagonal (leverage)",
             "Studentized Residuals",
             "High leverage alone is not a problem. Combined high leverage and large "

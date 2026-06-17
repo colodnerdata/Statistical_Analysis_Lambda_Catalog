@@ -22,6 +22,8 @@ Layout (five horizontal zones):
 """
 from __future__ import annotations
 
+from typing import Any
+
 import xlwings as xw
 
 # ── Conditional-formatting helpers ────────────────────────────────────────────
@@ -88,7 +90,7 @@ _XL_COLUMN_CLUSTERED = 51    # Excel xlColumnClustered
 _XL_CATEGORY = 1             # horizontal axis
 _XL_VALUE = 2                # vertical axis
 _CHART_WIDTH = 310.0         # points
-_CHART_HEIGHT = 225.0        # points
+_CHART_HEIGHT = 310.0        # points
 _CHART_GAP = 10.0            # gap between charts in points
 
 # ── Cell helpers ──────────────────────────────────────────────────────────────
@@ -141,6 +143,58 @@ def _bold_row(sheet: xw.Sheet, row: int, col1: int, col2: int) -> None:
 _HEADER = (202, 237, 251)   # section headings
 _INPUT = (251, 226, 213)   # user-editable input cells
 
+_PLAIN_LANGUAGE_NOTES: dict[str, str] = {
+    "Pearson R": "Measures the straight-line relationship between a predictor and Y. Values near 1 or -1 mean a strong linear relationship; values near 0 mean little linear pattern.",
+    "Spearman R": "Measures whether higher X tends to go with higher or lower Y after converting both to ranks. It is useful when the relationship is ordered but curved instead of perfectly linear.",
+    "Skewness": "Shows whether the data have a longer tail on one side. Positive means a longer right tail; negative means a longer left tail.",
+    "Kurtosis": "Shows how heavy the tails are compared with a normal bell curve. High values usually mean more extreme outliers.",
+    "VIF": "Variance Inflation Factor. It shows how much overlap with other predictors is making this coefficient less stable.",
+    "Tolerance": "The share of a predictor's information that is still unique after overlap with the other predictors. Small values mean strong collinearity.",
+    "Multiple R": "How closely the model's predicted Y values track the actual Y values overall.",
+    "R Square": "The share of the outcome's variation explained by the model.",
+    "Adjusted R Square": "R Square with a penalty for adding predictors that do not help enough.",
+    "Standard Error": "The typical size of the model's prediction errors, measured in the same units as Y.",
+    "Observations": "The number of rows actually used in the regression after filtering.",
+    "PRESS": "A leave-one-out prediction error score. Lower is better because it means the model predicts unseen rows more accurately.",
+    "PRESS R²": "An out-of-sample version of R Square based on leave-one-out prediction. Negative values mean the model predicts worse than just using the average Y.",
+    "Mean Leverage": "The average leverage level in the fitted model. It is a baseline for spotting rows whose predictor values are unusually extreme.",
+    "AIC": "A model-comparison score that balances fit against complexity. Lower is better when comparing models on the same data.",
+    "BIC": "Another model-comparison score like AIC, but it penalizes extra predictors more strongly.",
+    "AICc": "AIC with an extra correction for small samples.",
+    "QQ Correlation": "A numeric check of how close the residuals are to a normal bell shape. Values closer to 1 are better.",
+    "Alpha": "The cutoff for statistical significance. At 0.05, results with p-values below 0.05 are treated as statistically significant.",
+    "df": "Degrees of freedom. This is the amount of independent information available for each part of the model.",
+    "SS": "Sum of squares. It measures how much variation is being counted in that row.",
+    "MS": "Mean square. This is the sum of squares divided by its degrees of freedom.",
+    "F": "The model-vs-noise ratio used in the overall regression significance test.",
+    "Significance F": "The p-value for the overall F test. Small values mean the model as a whole is unlikely to be pure noise.",
+    "Regression": "The variation explained by the predictors taken together.",
+    "Residual": "The variation the model does not explain.",
+    "Total": "All variation in the outcome before splitting it into explained and unexplained parts.",
+    "Coefficients": "The fitted weights used to turn predictor values into predictions.",
+    "Std Error": "How uncertain each coefficient estimate is.",
+    "t Stat": "How many standard errors the coefficient is away from zero.",
+    "P-value": "How surprising this coefficient would be if its true effect were zero. Smaller values mean stronger evidence of a real effect.",
+    "Lower 95%": "The lower end of the 95% confidence interval for the coefficient.",
+    "Upper 95%": "The upper end of the 95% confidence interval for the coefficient.",
+    "Beta Weight": "The coefficient after standardizing units, so predictors can be compared on the same scale.",
+    "Point Estimate": "The model's single best predicted Y value for the inputs you entered.",
+    "SE Prediction": "The standard error for a new prediction. It reflects both model uncertainty and ordinary row-to-row noise.",
+    "t Critical": "The multiplier used to turn standard error into a confidence or prediction margin.",
+    "Confidence Level": "The probability level associated with the interval. With alpha 0.05, this is 95%.",
+    "Y": "The actual observed outcome values.",
+    "Predicted Y": "The fitted outcome values produced by the model.",
+    "Residuals": "Actual Y minus predicted Y. Positive means the row came in above the model's prediction; negative means below.",
+    "LOOCV Residual": "The prediction error for a row when that row is left out of the fitting step.",
+    "Hat Diagonal": "Leverage. It shows how unusual a row's predictor values are relative to the rest of the data.",
+    "Studentized Residuals": "Residuals scaled to account for overall error size and leverage, making outliers easier to compare fairly.",
+    "Cook's Distance": "How much a single row can pull the fitted coefficients and predictions around.",
+    "Normal Scores Ranked": "Expected bell-curve quantiles used for the Q-Q comparison.",
+    "Studentized Residuals Ranked": "Studentized residuals sorted from smallest to largest for the Q-Q plot.",
+    "Scale-Location": "The square root of the absolute studentized residual. A flat pattern suggests stable error spread.",
+    "PRESS Residual": "A leverage-adjusted residual used to show how much a row affects out-of-sample prediction error.",
+}
+
 
 def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
     _val(sheet, row, col, label)
@@ -161,6 +215,79 @@ def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
     for edge in [7, 8, 9, 10]:   # xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
         rng.Borders(edge).LineStyle = 1   # xlContinuous
         rng.Borders(edge).Weight = 2      # xlThin
+
+
+def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
+    """Replace the cell's note/comment text with a plain-language explanation."""
+    cell_api = sheet.range(_rc(row, col)).api
+    try:
+        cell_api.ClearComments()
+    except Exception:
+        pass
+    cell_api.AddComment(text)
+    cell_api.Comment.Visible = False
+
+
+def _annotate_statistical_terms(sheet: xw.Sheet) -> None:
+    """Attach plain-language notes to key statistical labels on the sheet."""
+    note_cells = [
+        (2, _C_E, "Pearson R"),
+        (2, _C_F, "Spearman R"),
+        (2, _C_G, "Skewness"),
+        (2, _C_H, "Kurtosis"),
+        (2, _C_I, "VIF"),
+        (2, _C_J, "Tolerance"),
+        (4, _C_L, "Multiple R"),
+        (5, _C_L, "R Square"),
+        (6, _C_L, "Adjusted R Square"),
+        (7, _C_L, "Standard Error"),
+        (8, _C_L, "Observations"),
+        (4, _C_O, "PRESS"),
+        (5, _C_O, "PRESS R²"),
+        (6, _C_O, "Mean Leverage"),
+        (7, _C_O, "AIC"),
+        (8, _C_O, "BIC"),
+        (9, _C_O, "AICc"),
+        (10, _C_O, "QQ Correlation"),
+        (12, _C_L, "Alpha"),
+        (14, _C_M, "df"),
+        (14, _C_N, "SS"),
+        (14, _C_O, "MS"),
+        (14, _C_P, "F"),
+        (14, _C_Q, "Significance F"),
+        (15, _C_L, "Regression"),
+        (16, _C_L, "Residual"),
+        (17, _C_L, "Total"),
+        (20, _C_M, "Coefficients"),
+        (20, _C_N, "Std Error"),
+        (20, _C_O, "t Stat"),
+        (20, _C_P, "P-value"),
+        (20, _C_Q, "Lower 95%"),
+        (20, _C_R, "Upper 95%"),
+        (20, _C_S, "Beta Weight"),
+        (3, _C_U, "Point Estimate"),
+        (4, _C_U, "SE Prediction"),
+        (5, _C_U, "t Critical"),
+        (6, _C_U, "Lower 95%"),
+        (7, _C_U, "Upper 95%"),
+        (8, _C_U, "Confidence Level"),
+        (2, _C_X, "Y"),
+        (2, _C_Y, "Predicted Y"),
+        (2, _C_Z, "Residuals"),
+        (2, _C_AA, "LOOCV Residual"),
+        (2, _C_AB, "Hat Diagonal"),
+        (2, _C_AC, "Studentized Residuals"),
+        (2, _C_AD, "Cook's Distance"),
+        (2, _C_AE, "Normal Scores Ranked"),
+        (2, _C_AF, "Studentized Residuals Ranked"),
+        (2, _C_AG, "Scale-Location"),
+        (2, _C_AH, "PRESS Residual"),
+    ]
+
+    for row, col, key in note_cells:
+        note_text = _PLAIN_LANGUAGE_NOTES.get(key)
+        if note_text is not None:
+            _set_note(sheet, row, col, note_text)
 
 # -- Conditional-formatting helpers ----------------------------------------------
 def _excel_color(rgb: tuple[int, int, int]) -> int:
@@ -517,11 +644,17 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     # These worksheet-scoped names feed chart SERIES formulas as
     # ='Regression'!<Name>, avoiding full-column references that degrade
     # performance and avoiding the unsupported # spill operator in chart formulas.
-    _qqplot_x_col = _col_letter(_C_AE)  # Normal Scores Ranked
-    _qqplot_y_col = _col_letter(_C_AF)  # Studentized Residuals Ranked
     for _name, _col_ltr in [
-        ("QQPlotX", _qqplot_x_col),
-        ("QQPlotY", _qqplot_y_col),
+        ("QQPlotX", _col_letter(_C_AE)),        # Normal Scores Ranked
+        ("QQPlotY", _col_letter(_C_AF)),        # Studentized Residuals Ranked
+        ("FittedY", _col_letter(_C_Y)),         # Predicted Y (shared)
+        ("ResidData", _col_letter(_C_Z)),       # Residuals
+        ("ActualY", _col_letter(_C_X)),         # Actual Y
+        ("ScaleLocData", _col_letter(_C_AG)),   # Scale-Location
+        ("CooksDistData", _col_letter(_C_AD)),  # Cook's Distance
+        ("LeverageData", _col_letter(_C_AB)),   # Hat Diagonal
+        ("StudResidData", _col_letter(_C_AC)),  # Studentized Residuals
+        ("PRESSResidData", _col_letter(_C_AH)), # PRESS Residual
     ]:
         _drop_local_name(sheet, _name)
         sheet.api.Names.Add(
@@ -795,7 +928,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
     """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
     start_left = sheet.range(_a1(1, _C_AH + 1)).left
-    start_top = sheet.range("A1").top
+    start_top = sheet.range("A3").top
 
     col_step = _CHART_WIDTH + _CHART_GAP
     row_step = _CHART_HEIGHT + _CHART_GAP
@@ -808,57 +941,99 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
     sname = REGRESSION_SHEET_NAME
 
-    # Chart SERIES formulas require explicit range references; the # spill operator is
-    # only valid in worksheet formulas.  Reference the full column so charts cover any
-    # dataset size; scatter charts ignore empty rows automatically.
-    def _ref(col: int) -> str:
-        c = _col_letter(col)
-        return f"='{sname}'!${c}$3:${c}${_MAX_EXCEL_ROW}"
+    # Chart SERIES formulas require explicit references. The # spill operator is not
+    # reliably supported in chart formulas, so use worksheet-scoped names sized to n.
+    def _name_ref(local_name: str) -> str:
+        return f"='{sname}'!{local_name}"
 
     chart_specs = [
         (
             "Residuals vs. Fitted", "scatter",
-            _ref(_C_Y),
-            _ref(_C_Z),
+            _name_ref("FittedY"),
+            _name_ref("ResidData"),
             "Fitted Values", "Residuals", 1, 1,
         ),
         (
             "Normal Q-Q", "scatter",
-            f"='{sname}'!QQPlotX",
-            f"='{sname}'!QQPlotY",
+            _name_ref("QQPlotX"),
+            _name_ref("QQPlotY"),
             "Theoretical Quantiles", "Studentized Residuals", 1, 2,
         ),
         (
             "Actual vs. Predicted", "scatter",
-            _ref(_C_Y),
-            _ref(_C_X),
+            _name_ref("FittedY"),
+            _name_ref("ActualY"),
             "Predicted Y", "Actual Y", 2, 1,
         ),
         (
             "Scale-Location", "scatter",
-            _ref(_C_Y),
-            _ref(_C_AG),
+            _name_ref("FittedY"),
+            _name_ref("ScaleLocData"),
             "Fitted Values", "√|Studentized Residual|", 2, 2,
         ),
         (
             "Cook's Distance", "bar",
             None,
-            _ref(_C_AD),
+            _name_ref("CooksDistData"),
             "Observation", "Cook's Distance", 3, 1,
         ),
         (
-            "Leverage vs. Studentized", "scatter",
-            _ref(_C_AB),
-            _ref(_C_AC),
+            "Studentized Residuals vs. Leverage", "scatter",
+            _name_ref("LeverageData"),
+            _name_ref("StudResidData"),
             "Leverage (Hat Diagonal)", "Studentized Residuals", 3, 2,
         ),
         (
             "PRESS Residuals", "bar",
             None,
-            _ref(_C_AH),
+            _name_ref("PRESSResidData"),
             "Observation", "PRESS Residual", 4, 1,
         ),
     ]
+
+    # Per-chart gridline strategy:
+    # - Use Y major gridlines for residual magnitude judgment on residual and bar charts.
+    # - Use both axes on comparative scatter plots where position relative to both axes matters.
+    gridline_modes = {
+        "Residuals vs. Fitted": "none",
+        "Normal Q-Q": "both",
+        "Actual vs. Predicted": "both",
+        "Scale-Location": "y",
+        "Cook's Distance": "y",
+        "Studentized Residuals vs. Leverage": "both",
+        "PRESS Residuals": "y",
+    }
+
+    def _set_equal_axis_scale_from_named_ranges(
+        x_axis: Any,
+        y_axis: Any,
+        x_name: str,
+        y_name: str,
+    ) -> None:
+        """Set equal min/max scales on both axes using two sheet-scoped named ranges."""
+        common_min = float(sheet.api.Evaluate(f"=MIN('{sname}'!{x_name},'{sname}'!{y_name})"))
+        common_max = float(sheet.api.Evaluate(f"=MAX('{sname}'!{x_name},'{sname}'!{y_name})"))
+
+        if common_max <= common_min:
+            return
+
+        x_axis.MinimumScale = common_min
+        x_axis.MaximumScale = common_max
+        y_axis.MinimumScale = common_min
+        y_axis.MaximumScale = common_max
+
+    def _add_identity_line(chart: Any) -> None:
+        """Draw a dotted y=x line inside the chart plot area without adding a data series."""
+        plot_area = chart.PlotArea
+        line = chart.Shapes.AddLine(
+            plot_area.InsideLeft,
+            plot_area.InsideTop + plot_area.InsideHeight,
+            plot_area.InsideLeft + plot_area.InsideWidth,
+            plot_area.InsideTop,
+        )
+        line.Line.ForeColor.RGB = _excel_color((120, 120, 120))
+        line.Line.DashStyle = 3  # msoLineRoundDot
+        line.Line.Weight = 1.25
 
     for title, chart_type, x_addr, y_addr, x_label, y_label, grid_row, grid_col in chart_specs:
         left, top = _pos(grid_row, grid_col)
@@ -900,6 +1075,25 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
         y_axis.AxisTitle.Text = y_label
         y_axis.TickLabels.NumberFormat = "0"
 
+        gridline_mode = gridline_modes.get(title, "none")
+        x_axis.HasMajorGridlines = gridline_mode == "both"
+        y_axis.HasMajorGridlines = gridline_mode in {"y", "both"}
+
+        if title == "Cook's Distance":
+            y_axis.TickLabels.NumberFormat = "0.0E+00"
+            x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
+        if title == "Studentized Residuals vs. Leverage":
+            x_axis.TickLabels.NumberFormat = "0.00"
+        if title == "PRESS Residuals":
+            x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
+
+        if title == "Normal Q-Q":
+            _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "QQPlotX", "QQPlotY")
+            _add_identity_line(chart)
+        if title == "Actual vs. Predicted":
+            _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "FittedY", "ActualY")
+            _add_identity_line(chart)
+
 
 # ── Public entry point ────────────────────────────────────────────────────────
 
@@ -940,6 +1134,7 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_prediction_interval(sheet)
     _write_prediction_inputs(sheet, k)
     _write_residuals(sheet)
+    _annotate_statistical_terms(sheet)
     _write_residual_conditional_formatting(sheet)
     _write_prediction_inputs_strikethrough_cf(sheet)
 

@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import xlwings as xw
 
-from .analyze_life_expectancy import FEATURE_COLUMNS, RegressionObservationVectors, calculate_regression_observation_vectors
+from .regression_shared import FEATURE_COLUMNS
 from .workbook_helpers import reset_column_groups
 from .write_sheet_mlr_vector_outputs_test import _delete_sheet_scoped_name_if_present
+
+if TYPE_CHECKING:
+    from .regression_shared import RegressionObservationVectors
 
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 _CALC_START_COL = 2
@@ -42,6 +46,8 @@ def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
 
 
 def build_mlr_observation_row_configs(csv_path: Path) -> list[tuple[int, bool, RegressionObservationVectors]]:
+    from .analyze_life_expectancy import calculate_regression_observation_vectors
+
     row_configs: list[tuple[int, bool, RegressionObservationVectors]] = []
     for k in _MLR_K_VALUES:
         for allow_intercept in (True, False):

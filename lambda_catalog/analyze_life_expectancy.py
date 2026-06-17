@@ -5,7 +5,6 @@ import argparse
 import csv
 from math import sqrt
 from statistics import NormalDist
-from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
@@ -16,171 +15,17 @@ from statsmodels.regression.linear_model import (  # type: ignore[import-untyped
 )
 from statsmodels.stats.stattools import durbin_watson as _durbin_watson  # type: ignore[import-untyped]
 
-
+from .regression_shared import (
+    FEATURE_COLUMNS,
+    RegressionObservationVectors,
+    RegressionSummary,
+    RegressionVectors,
+)
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT_CSV = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
 DEFAULT_OUTPUT_CSV = ROOT_DIR / "Life Expectancy Predictions.csv"
 TARGET_COLUMN = "Life expectancy"
-FEATURE_COLUMNS = [
-    "Adult Mortality",
-    "infant deaths",
-    "Alcohol",
-    "percentage expenditure",
-    "Hepatitis B",
-    "Measles",
-    "BMI",
-    "under-five deaths",
-    "Polio",
-    "Total expenditure",
-    "Diphtheria",
-    "HIV/AIDS",
-    "GDP",
-    "Population",
-    "thinness 1-19 years",
-    "thinness 5-9 years",
-    "Income composition of resources",
-    "Schooling",
-]
-
-
-@dataclass(frozen=True)
-class RegressionVectors:
-    """Per-coefficient regression statistics aligned with workbook vector LAMBDA outputs.
-
-    Attributes
-    ----------
-    term_names : tuple[str, ...]
-        Ordered labels for each term. "Intercept" appears first when the model
-        includes an intercept.
-    coefficients : tuple[float, ...]
-        Fitted OLS coefficients in the same order as term_names.
-    std_errors : tuple[float, ...]
-        Standard errors of the coefficients.
-    t_stats : tuple[float, ...]
-        t-statistics for each coefficient (coefficient / standard error).
-    p_values : tuple[float, ...]
-        Two-tailed p-values for each coefficient.
-    ci_lower : tuple[float, ...]
-        Lower bound of the confidence interval for each coefficient.
-    ci_upper : tuple[float, ...]
-        Upper bound of the confidence interval for each coefficient.
-    beta_weights : tuple[float, ...]
-        Standardized coefficients (Beta weights): b_j * std(X_j) / std(Y) for each
-        predictor. k values only — intercept row excluded.
-    """
-
-    term_names: tuple[str, ...]
-    coefficients: tuple[float, ...]
-    std_errors: tuple[float, ...]
-    t_stats: tuple[float, ...]
-    p_values: tuple[float, ...]
-    ci_lower: tuple[float, ...]
-    ci_upper: tuple[float, ...]
-    beta_weights: tuple[float, ...]
-
-
-@dataclass(frozen=True)
-class RegressionSummary:
-    """Core regression metrics aligned with workbook LAMBDA outputs.
-
-    Attributes
-    ----------
-    observations : int
-        Number of training rows used in the fit.
-    df_regression : int
-        Degrees of freedom for the regression (number of predictors).
-    df_total : int
-        Total degrees of freedom (n-1 with intercept, n without).
-    r_squared : float
-        Coefficient of determination.
-    df_residual : int
-        Residual degrees of freedom.
-    multiple_r : float
-        Square root of R-squared.
-    adjusted_r2 : float
-        R-squared adjusted for the number of predictors.
-    ss_total : float
-        Total sum of squares.
-    ss_residual : float
-        Residual (error) sum of squares.
-    ss_regression : float
-        Regression sum of squares.
-    se_regression : float
-        Standard error of the regression.
-    press : float
-        PRESS (Prediction Residual Error Sum of Squares) — LOOCV shortcut
-        Σ(eᵢ / (1 − hᵢ))² where hᵢ are hat-matrix diagonal leverages.
-    durbin_watson : float
-        Durbin-Watson statistic Σ(eₜ − eₜ₋₁)² / Σeₜ², testing first-order
-        serial correlation in residuals.
-    aic : float
-        Akaike Information Criterion: n·log(SSR/n) + 2·p. Note: statsmodels
-        .aic counts σ² as a free parameter; this uses the classical regression form.
-    bic : float
-        Bayesian Information Criterion: n·log(SSR/n) + p·log(n).
-    aicc : float
-        AIC corrected for small samples: AIC + 2·p·(p+1)/(n−p−1).
-    qq_correlation : float
-        Pearson correlation of sorted scaled residuals with standard-normal
-        quantiles (Q-Q plot linearity measure). Computed via scipy.
-    """
-
-    observations: int
-    df_regression: int
-    df_total: int
-    r_squared: float
-    df_residual: int
-    multiple_r: float
-    adjusted_r2: float
-    ss_total: float
-    ss_residual: float
-    ss_regression: float
-    se_regression: float
-    press: float
-    durbin_watson: float
-    f_stat: float
-    p_value_f: float
-    aic: float
-    bic: float
-    aicc: float
-    qq_correlation: float
-
-
-@dataclass(frozen=True)
-class RegressionObservationVectors:
-    """Observation-level regression diagnostics aligned with workbook spill LAMBDA outputs.
-
-    Attributes
-    ----------
-    observation_num : tuple[int, ...]
-        1-based index of each filtered observation.
-    rank_fraction : tuple[float, ...]
-        Empirical CDF: fraction of filtered observations with value <= each
-        observation, i.e. ``count(filtered <= v) / n``.  Matches the
-        ``Rank_Fraction`` LAMBDA (SUMPRODUCT formula).
-    y_ranked : tuple[float, ...]
-        Sorted filtered response values.
-    normal_scores : tuple[float, ...]
-        Standard-normal quantiles for the plotting positions.
-    predictions : tuple[float, ...]
-        Fitted values for each filtered observation.
-    residuals : tuple[float, ...]
-        Raw residuals, computed as actual minus predicted.
-    scaled_residuals : tuple[float, ...]
-        Residuals divided by regression standard error.
-    scaled_residuals_ranked : tuple[float, ...]
-        Sorted scaled residuals.
-    """
-
-    observation_num: tuple[int, ...]
-    rank_fraction: tuple[float, ...]
-    y_ranked: tuple[float, ...]
-    normal_scores: tuple[float, ...]
-    predictions: tuple[float, ...]
-    residuals: tuple[float, ...]
-    scaled_residuals: tuple[float, ...]
-    scaled_residuals_ranked: tuple[float, ...]
 
 
 def _normalize_header(name: str) -> str:

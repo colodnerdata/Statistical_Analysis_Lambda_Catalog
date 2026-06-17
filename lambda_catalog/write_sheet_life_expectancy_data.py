@@ -28,6 +28,14 @@ FULL_DATA_FORMULA = "=COUNT(LifeExpectancyData[@[Life expectancy]:[Schooling]])=
 INTEGER_PATTERN = re.compile(r"-?\d+")
 
 
+def _verbose_checkpoint(verbose: bool, start_time: float, label: str) -> None:
+    """Print a progress checkpoint for verbose life-expectancy sheet writes."""
+    if verbose:
+        from time import monotonic
+
+        print(f"  {label:<28} {monotonic() - start_time:6.1f}s", flush=True)
+
+
 def _normalize_headers(headers: list[str]) -> list[str]:
     """Deduplicate and clean raw CSV header strings.
 
@@ -122,6 +130,7 @@ def write_life_expectancy_sheet(
     workbook: xw.Book,
     headers: list[str],
     rows: list[list[str | int | float | None]],
+    verbose: bool = False,
 ) -> None:
     """Write headers and data rows to the Life Expectancy Data sheet as a table.
 
@@ -134,38 +143,66 @@ def write_life_expectancy_sheet(
     rows : list[list[str | int | float | None]]
         Typed data rows aligned with headers.
     """
+    start_time = __import__("time").monotonic()
+    _verbose_checkpoint(verbose, start_time, "LifeExp: get/create start")
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
+    _verbose_checkpoint(verbose, start_time, "LifeExp: get/create done")
+    _verbose_checkpoint(verbose, start_time, "LifeExp: reset start")
     reset_generated_sheet(sheet)
+    _verbose_checkpoint(verbose, start_time, "LifeExp: reset done")
     sheet.activate()
+    _verbose_checkpoint(verbose, start_time, "LifeExp: activate done")
 
     all_headers = headers + [FULL_DATA_HEADER]
     last_data_row = len(rows) + 1
     last_column_index = len(all_headers)
     full_data_column_index = last_column_index
 
+    _verbose_checkpoint(
+        verbose,
+        start_time,
+        f"LifeExp: headers start ({len(headers)} cols)",
+    )
     sheet.range((1, 1), (1, last_column_index)).value = all_headers
+    _verbose_checkpoint(verbose, start_time, "LifeExp: headers done")
+    _verbose_checkpoint(
+        verbose,
+        start_time,
+        f"LifeExp: row write start ({len(rows)} rows)",
+    )
     sheet.range((2, 1), (last_data_row, len(headers))).value = rows
+    _verbose_checkpoint(verbose, start_time, "LifeExp: row write done")
 
     table_range = sheet.range((1, 1), (last_data_row, last_column_index))
+    _verbose_checkpoint(verbose, start_time, "LifeExp: table add start")
     table = sheet.api.ListObjects.Add(
         SourceType=XL_SRC_RANGE,
         Source=table_range.api,
         XlListObjectHasHeaders=XL_YES,
     )
+    _verbose_checkpoint(verbose, start_time, "LifeExp: table add done")
     table.Name = TABLE_NAME
     table.TableStyle = "TableStyleMedium2"
     table.ShowTableStyleRowStripes = True
     table.ShowTableStyleColumnStripes = False
+    _verbose_checkpoint(verbose, start_time, "LifeExp: table style done")
 
+    _verbose_checkpoint(verbose, start_time, "LifeExp: formula start")
     sheet.range(
         (2, full_data_column_index), (last_data_row, full_data_column_index)
     ).formula = FULL_DATA_FORMULA
+    _verbose_checkpoint(verbose, start_time, "LifeExp: formula done")
+    _verbose_checkpoint(verbose, start_time, "LifeExp: autofit start")
     sheet.used_range.columns.autofit()
+    _verbose_checkpoint(verbose, start_time, "LifeExp: autofit done")
     full_data_col = sheet.range((1, full_data_column_index))
     full_data_col.column_width = max(full_data_col.column_width or 0, 12)
+    _verbose_checkpoint(verbose, start_time, "LifeExp: width done")
+    _verbose_checkpoint(verbose, start_time, "LifeExp: freeze start")
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True
+    _verbose_checkpoint(verbose, start_time, "LifeExp: freeze done")
 
 
 def write_life_expectancy_data(

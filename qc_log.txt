@@ -1,0 +1,228 @@
+python build_qc.py --verbose
+  Prep: definitions loaded        0.0s
+  Prep: catalog loaded            0.0s
+  Prep: analysis loaded           0.0s
+  Prep: csv loaded                0.0s
+  Prep total                      0.0s
+  Write: app start                0.0s
+  Write: app ready                0.3s
+  Write: open workbook            0.4s
+  Write: workbook opened          1.7s
+  Write: catalog start            1.7s
+  Write: catalog done           301.6s
+  Write: life exp start         301.6s
+  LifeExp: get/create start       0.0s
+  LifeExp: get/create done        0.0s
+  LifeExp: reset start            0.0s
+  LifeExp: reset done             0.0s
+  LifeExp: activate done          0.0s
+  LifeExp: headers start (22 cols)    0.0s
+  LifeExp: headers done           0.1s
+  LifeExp: row write start (2938 rows)    0.1s
+  LifeExp: row write done         0.2s
+  LifeExp: table add start        0.2s
+  LifeExp: table add done         0.2s
+  LifeExp: table style done       0.2s
+  LifeExp: formula start          0.2s
+  LifeExp: formula done           0.2s
+  LifeExp: autofit start          0.2s
+  LifeExp: autofit done           0.2s
+  LifeExp: width done             0.2s
+  LifeExp: freeze start           0.2s
+  LifeExp: freeze done            0.2s
+  Write: life exp done          301.8s
+  Write: regression instr start  301.8s
+  Write: regression instr done  301.9s
+  Write: diagnostic start       301.9s
+  Write: diagnostic done        302.5s
+  Write: regression start       302.5s
+  Write: regression done        316.5s
+  Write: scalar start           316.5s
+  Write: scalar done            322.1s
+  Write: vector start           322.1s
+  Write: vector done            409.4s
+  Write: observation start      409.4s
+  Write: observation done       526.8s
+  Write: save start             527.6s
+  Write: save done              528.6s
+  Write sheets:   529.0s
+  Sync: start                     0.0s
+  Sync: done                      0.2s
+  Sync names:     0.2s
+  Verify: app start               0.0s
+  Verify: app ready               0.3s
+  Verify: open workbook           0.4s
+  Verify: workbook opened         2.6s
+  Verify: calculate start         0.0s
+  Verify: calculate done          0.8s
+  Verify: read scalar start       0.8s
+  Verify: read scalar done        0.8s
+  Verify: read vector start       0.8s
+  Verify: read vector done        0.8s
+  Verify: read obs start          0.8s
+  Verify: read obs done           1.2s
+  Verify: regression start        2.1s
+  Verify: regression done       574.9s
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='BMI' stat_name='Coefficients': expected=0.04305608197951585, excel_calc=0.03567295607917171, abs_diff=0.007383125900344144, fdd=3.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='Coefficients': expected=-0.6553073728256881, excel_calc=0.04305608197952073, abs_diff=0.6983634548052088, fdd=0.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='Schooling' stat_name='Coefficients': expected=5.058470342455545, excel_calc=-0.6553073728256857, abs_diff=5.71377771528123, fdd=0.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='BMI' stat_name='SE_Coefficients': expected=0.015530486580263082, excel_calc=0.0021337412773283883, abs_diff=0.013396745302934693, fdd=2.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='SE_Coefficients': expected=0.04977320296058866, excel_calc=0.015530486580263026, abs_diff=0.03424271638032563, fdd=2.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='Schooling' stat_name='SE_Coefficients': expected=0.06158134486697625, excel_calc=0.049773202960588674, abs_diff=0.011808141906387577, fdd=1.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='BMI' stat_name='T_Stats': expected=2.7723588541155997, excel_calc=16.718501187659008, abs_diff=13.946142333543408, fdd=0.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='T_Stats': expected=-13.165867049877672, excel_calc=2.7723588541159234, abs_diff=15.938225903993596, fdd=0.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='Schooling' stat_name='T_Stats': expected=82.14290144819833, excel_calc=-13.165867049877622, abs_diff=95.30876849807595, fdd=0.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='BMI' stat_name='P_Values': expected=0.005627904252851545, excel_calc=4.5148917930194185e-58, abs_diff=0.005627904252851545, fdd=2.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='P_Values': expected=1.0360769907765807e-37, excel_calc=0.0056279042528459815, abs_diff=0.0056279042528459815, fdd=2.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='BMI' stat_name='CI_Lower': expected=0.012594474739293694, excel_calc=0.031487820706476544, abs_diff=0.01889334596718285, fdd=2.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='CI_Lower': expected=-0.7529328884099932, excel_calc=0.012594474739299033, abs_diff=0.7655273631492923, fdd=0.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='Schooling' stat_name='CI_Lower': expected=4.937684253045671, excel_calc=-0.7529328884099897, abs_diff=5.69061714145566, fdd=0.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='BMI' stat_name='CI_Upper': expected=0.07351768921973802, excel_calc=0.039858091451866876, abs_diff=0.03365959776787114, fdd=1.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='CI_Upper': expected=-0.557681857241383, excel_calc=0.07351768921974243, abs_diff=0.6311995464611254, fdd=0.0
+WARNING [Regression/coefficients] config_name='sparse_no_intercept' allow_intercept=False term_name='Schooling' stat_name='CI_Upper': expected=5.179256431865419, excel_calc=-0.5576818572413818, abs_diff=5.7369382891068, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='Coefficients': expected=-0.5883516666427268, excel_calc=0.012748249827577735, abs_diff=0.6010999164703045, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='Coefficients': expected=0.05649155914441188, excel_calc=-0.5883516666428317, abs_diff=0.6448432257872435, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Polio' stat_name='Coefficients': expected=0.11363938419668748, excel_calc=0.05649155914441635, abs_diff=0.05714782505227113, fdd=2.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='Coefficients': expected=-0.548647845254255, excel_calc=0.11363938419668289, abs_diff=0.6622872294509379, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='GDP' stat_name='Coefficients': expected=4.99243464238694e-06, excel_calc=-0.5486478452542565, abs_diff=0.5486528376888988, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='Coefficients': expected=0.6101103984681432, excel_calc=4.992434642069717e-06, abs_diff=0.6101054060335012, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Schooling' stat_name='Coefficients': expected=4.371176294137909, excel_calc=0.6101103984681429, abs_diff=3.7610658956697662, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='SE_Coefficients': expected=0.0665203118270651, excel_calc=0.0019247980371879564, abs_diff=0.06459551378987714, fdd=1.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='SE_Coefficients': expected=0.0089859175793652, excel_calc=0.06652031182707878, abs_diff=0.05753439424771358, fdd=1.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Polio' stat_name='SE_Coefficients': expected=0.010504640703956484, excel_calc=0.008985917579365139, abs_diff=0.0015187231245913455, fdd=3.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='SE_Coefficients': expected=0.0409478239625797, excel_calc=0.01050464070395648, abs_diff=0.03044318325862322, fdd=2.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='GDP' stat_name='SE_Coefficients': expected=2.080706228894617e-05, excel_calc=0.04094782396257973, abs_diff=0.04092701690029078, fdd=2.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='SE_Coefficients': expected=0.04774268233562256, excel_calc=2.080706228894791e-05, abs_diff=0.04772187527333361, fdd=2.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Schooling' stat_name='SE_Coefficients': expected=0.0744345583785946, excel_calc=0.047742682335622476, abs_diff=0.026691876042972122, fdd=1.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='T_Stats': expected=-8.84469195171969, excel_calc=6.623162316916302, abs_diff=15.467854268635993, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='T_Stats': expected=6.2866767523147775, excel_calc=-8.844691951719447, abs_diff=15.131368704034225, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Polio' stat_name='T_Stats': expected=10.818017236314057, excel_calc=6.2866767523153175, abs_diff=4.53134048399874, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='T_Stats': expected=-13.398705771413852, excel_calc=10.818017236313624, abs_diff=24.216723007727474, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='GDP' stat_name='T_Stats': expected=0.23993942888512376, excel_calc=-13.398705771413876, abs_diff=13.638645200299, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='T_Stats': expected=12.779139516694427, excel_calc=0.23993942886985775, abs_diff=12.539200087824568, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Schooling' stat_name='T_Stats': expected=58.72509207221874, excel_calc=12.77913951669444, abs_diff=45.9459525555243, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='GDP' stat_name='P_Values': expected=0.8104071809237188, excel_calc=6.311773960464717e-39, abs_diff=0.8104071809237188, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='P_Values': expected=1.0170754635628042e-35, excel_calc=0.8104071809355518, abs_diff=0.8104071809355518, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='CI_Lower': expected=-0.7188253152751211, excel_calc=0.008972930441744572, abs_diff=0.7277982457168656, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='CI_Lower': expected=0.03886648462675567, excel_calc=-0.718825315275254, abs_diff=0.7576917999020096, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Polio' stat_name='CI_Lower': expected=0.09303546995496381, excel_calc=0.038866484626760095, abs_diff=0.05416898532820372, fdd=1.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='CI_Lower': expected=-0.628963343621793, excel_calc=0.09303546995495904, abs_diff=0.721998813576752, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='GDP' stat_name='CI_Lower': expected=-3.581875910574198e-05, excel_calc=-0.6289633436217952, abs_diff=0.6289275248626894, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='CI_Lower': expected=0.5164673924638993, excel_calc=-3.5818759106062977e-05, abs_diff=0.5165032112230054, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Schooling' stat_name='CI_Lower': expected=4.225179557964391, excel_calc=0.5164673924638983, abs_diff=3.7087121655004927, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='CI_Upper': expected=-0.45787801801033245, excel_calc=0.0165235692134109, abs_diff=0.47440158722374337, fdd=1.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='CI_Upper': expected=0.0741166336620681, excel_calc=-0.45787801801040934, abs_diff=0.5319946516724774, fdd=1.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Polio' stat_name='CI_Upper': expected=0.13424329843841115, excel_calc=0.0741166336620726, abs_diff=0.060126664776338545, fdd=2.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='CI_Upper': expected=-0.4683323468867171, excel_calc=0.13424329843840674, abs_diff=0.6025756453251239, fdd=1.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='GDP' stat_name='CI_Upper': expected=4.580362839051585e-05, excel_calc=-0.46833234688671777, abs_diff=0.4683781505151083, fdd=1.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='CI_Upper': expected=0.7037534044723871, excel_calc=4.580362839020242e-05, abs_diff=0.7037076008439969, fdd=0.0
+WARNING [Regression/coefficients] config_name='medium_no_intercept' allow_intercept=False term_name='Schooling' stat_name='CI_Upper': expected=4.517173030311427, excel_calc=0.7037534044723874, abs_diff=3.8134196258390394, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='infant deaths' stat_name='Coefficients': expected=-0.026597381016835817, excel_calc=0.0116949135509783, abs_diff=0.03829229456781412, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='Coefficients': expected=-0.6556140117419553, excel_calc=-0.02659738101708722, abs_diff=0.6290166307248681, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='percentage expenditure' stat_name='Coefficients': expected=0.0011415767872052646, excel_calc=-0.6556140117429451, abs_diff=0.6567555885301504, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='Coefficients': expected=0.015686452510427322, excel_calc=0.001141576787209394, abs_diff=0.014544875723217929, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Measles' stat_name='Coefficients': expected=7.174075130737242e-05, excel_calc=0.015686452510347944, abs_diff=0.015614711759040572, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='BMI' stat_name='Coefficients': expected=0.10158241469508797, excel_calc=7.174075130667754e-05, abs_diff=0.10151067394378128, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='under-five deaths' stat_name='Coefficients': expected=0.02284905385093336, excel_calc=0.10158241469525493, abs_diff=0.07873336084432157, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Polio' stat_name='Coefficients': expected=0.0633374545170351, excel_calc=0.02284905385141582, abs_diff=0.040488400665619276, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Total expenditure' stat_name='Coefficients': expected=0.7819592105109164, excel_calc=0.06333745451709637, abs_diff=0.71862175599382, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Diphtheria' stat_name='Coefficients': expected=0.08212976912193735, excel_calc=0.7819592105100662, abs_diff=0.6998294413881289, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='Coefficients': expected=-0.5384122338318293, excel_calc=0.08212976912198827, abs_diff=0.6205420029538176, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='GDP' stat_name='Coefficients': expected=-0.0001771528513990323, excel_calc=-0.5384122338320707, abs_diff=0.5382350809806716, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Population' stat_name='Coefficients': expected=-1.1084626401486074e-08, excel_calc=-0.00017715285139888778, abs_diff=0.0001771417667724863, fdd=4.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='Coefficients': expected=0.4912185167914448, excel_calc=-1.1084626388126037e-08, abs_diff=0.4912185278760712, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 5-9 years' stat_name='Coefficients': expected=0.20107036536346515, excel_calc=0.49121851679145984, abs_diff=0.29014815142799466, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Income composition of resources' stat_name='Coefficients': expected=19.408956085829338, excel_calc=0.20107036536345524, abs_diff=19.20788572046588, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Schooling' stat_name='Coefficients': expected=2.726519512840873, excel_calc=19.40895608582928, abs_diff=16.682436572988408, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='infant deaths' stat_name='SE_Coefficients': expected=0.021650722880829164, excel_calc=0.0017677880064828426, abs_diff=0.019882934874346322, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='SE_Coefficients': expected=0.06047588392089586, excel_calc=0.021650722881030926, abs_diff=0.038825161039864935, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='percentage expenditure' stat_name='SE_Coefficients': expected=0.0003698459703878948, excel_calc=0.060475883921003504, abs_diff=0.06010603795061561, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='SE_Coefficients': expected=0.009107497807990033, excel_calc=0.0003698459703878289, abs_diff=0.008737651837602204, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Measles' stat_name='SE_Coefficients': expected=2.2067219218695995e-05, excel_calc=0.00910749780799201, abs_diff=0.009085430588773313, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='BMI' stat_name='SE_Coefficients': expected=0.012187228667515168, excel_calc=2.2067219218583282e-05, abs_diff=0.012165161448296585, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='under-five deaths' stat_name='SE_Coefficients': expected=0.015642855631658854, excel_calc=0.012187228667517534, abs_diff=0.0034556269641413204, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Polio' stat_name='SE_Coefficients': expected=0.010482032001795372, excel_calc=0.01564285563204815, abs_diff=0.005160823630252779, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Total expenditure' stat_name='SE_Coefficients': expected=0.08123335222597593, excel_calc=0.01048203200179679, abs_diff=0.07075132022417914, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Diphtheria' stat_name='SE_Coefficients': expected=0.012038336375629882, excel_calc=0.08123335222601522, abs_diff=0.06919501585038533, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='SE_Coefficients': expected=0.036586957214359804, excel_calc=0.012038336375633132, abs_diff=0.02454862083872667, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='GDP' stat_name='SE_Coefficients': expected=5.800269253948891e-05, excel_calc=0.03658695721435993, abs_diff=0.03652895452182044, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Population' stat_name='SE_Coefficients': expected=3.5855381675094774e-09, excel_calc=5.800269253948971e-05, abs_diff=5.7999107001322196e-05, fdd=4.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='SE_Coefficients': expected=0.10808726184796648, excel_calc=3.5855381680195885e-09, abs_diff=0.1080872582624283, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 5-9 years' stat_name='SE_Coefficients': expected=0.1073691616545934, excel_calc=0.10808726184796649, abs_diff=0.0007181001933730946, fdd=3.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Income composition of resources' stat_name='SE_Coefficients': expected=1.6903078689813171, excel_calc=0.10736916165459325, abs_diff=1.5829387073267238, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Schooling' stat_name='SE_Coefficients': expected=0.11008781457267856, excel_calc=1.690307868981314, abs_diff=1.5802200544086356, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='infant deaths' stat_name='T_Stats': expected=-1.2284754261201467, excel_calc=6.615563352670481, abs_diff=7.844038778790628, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='T_Stats': expected=-10.840916564353432, excel_calc=-1.2284754261203104, abs_diff=9.612441138233121, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='percentage expenditure' stat_name='T_Stats': expected=3.086627619622238, excel_calc=-10.840916564350502, abs_diff=13.92754418397274, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='T_Stats': expected=1.7223668719047676, excel_calc=3.086627619633954, abs_diff=1.3642607477291864, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Measles' stat_name='T_Stats': expected=3.251010043285905, excel_calc=1.7223668718956784, abs_diff=1.5286431713902267, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='BMI' stat_name='T_Stats': expected=8.335152926592245, excel_calc=3.251010043271021, abs_diff=5.084142883321224, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='under-five deaths' stat_name='T_Stats': expected=1.4606702503020108, excel_calc=8.335152926604328, abs_diff=6.874482676302318, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Polio' stat_name='T_Stats': expected=6.042478644044075, excel_calc=1.460670250296502, abs_diff=4.581808393747573, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Total expenditure' stat_name='T_Stats': expected=9.626085703513168, excel_calc=6.042478644049102, abs_diff=3.5836070594640654, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Diphtheria' stat_name='T_Stats': expected=6.82235207251717, excel_calc=9.626085703498045, abs_diff=2.803733630980876, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='T_Stats': expected=-14.715960955083498, excel_calc=6.822352072519557, abs_diff=21.538313027603053, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='GDP' stat_name='T_Stats': expected=-3.054217720641582, excel_calc=-14.715960955090043, abs_diff=11.661743234448462, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Population' stat_name='T_Stats': expected=-3.0914819153035205, excel_calc=-3.054217720639048, abs_diff=0.037264194664472505, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='T_Stats': expected=4.544647615205421, excel_calc=-3.0914819111376084, abs_diff=7.63612952634303, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 5-9 years' stat_name='T_Stats': expected=1.8727012697585228, excel_calc=4.54464761520556, abs_diff=2.671946345447037, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Income composition of resources' stat_name='T_Stats': expected=11.482497621883736, excel_calc=1.872701269758433, abs_diff=9.609796352125302, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Schooling' stat_name='T_Stats': expected=24.7667693597538, excel_calc=11.482497621883722, abs_diff=13.284271737870077, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='infant deaths' stat_name='P_Values': expected=0.21944577976754798, excel_calc=5.0041597531470924e-11, abs_diff=0.21944577971750637, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='P_Values': expected=1.7199666215290935e-26, excel_calc=0.21944577976748644, abs_diff=0.21944577976748644, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='percentage expenditure' stat_name='P_Values': expected=0.0020584834136019715, excel_calc=1.7199666215804826e-26, abs_diff=0.0020584834136019715, fdd=3.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='P_Values': expected=0.08519265697537189, excel_calc=0.0020584834135213216, abs_diff=0.08313417356185056, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Measles' stat_name='P_Values': expected=0.0011734157033424575, excel_calc=0.0851926569770177, abs_diff=0.08401924127367524, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='BMI' stat_name='P_Values': expected=1.6225438348105296e-16, excel_calc=0.0011734157034034877, abs_diff=0.0011734157034033255, fdd=3.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='under-five deaths' stat_name='P_Values': expected=0.14429855951697576, excel_calc=1.6225438346515406e-16, abs_diff=0.1442985595169756, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Polio' stat_name='P_Values': expected=1.876561213106612e-09, excel_calc=0.144298559518488, abs_diff=0.14429855764192678, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='GDP' stat_name='P_Values': expected=0.0022930128935936905, excel_calc=4.021221622310338e-46, abs_diff=0.0022930128935936905, fdd=3.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Population' stat_name='P_Values': expected=0.002025316950262917, excel_calc=0.0022930128936129476, abs_diff=0.00026769594335003056, fdd=4.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='P_Values': expected=5.9077480295256795e-06, excel_calc=0.002025316978514252, abs_diff=0.002019409230484726, fdd=3.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 5-9 years' stat_name='P_Values': expected=0.061288420741505284, excel_calc=5.907748029521493e-06, abs_diff=0.061282512993475764, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Income composition of resources' stat_name='P_Values': expected=2.1062919312463182e-29, excel_calc=0.061288420741517635, abs_diff=0.061288420741517635, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='infant deaths' stat_name='CI_Lower': expected=-0.06906353182115472, excel_calc=0.008227539621406748, abs_diff=0.07729107144256148, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='CI_Lower': expected=-0.7742325918579692, excel_calc=-0.0690635318218011, abs_diff=0.7051690600361681, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='percentage expenditure' stat_name='CI_Lower': expected=0.00041615367596268453, excel_calc=-0.7742325918591679, abs_diff=0.7746487455351306, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='CI_Lower': expected=-0.0021771716047087712, excel_calc=0.0004161536759669566, abs_diff=0.002593325280675728, fdd=3.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Measles' stat_name='CI_Lower': expected=2.8457676449724992e-05, excel_calc=-0.0021771716047917014, abs_diff=0.0022056292812414266, fdd=3.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='BMI' stat_name='CI_Lower': expected=0.07767814630968073, excel_calc=2.8457676449251982e-05, abs_diff=0.07764968863323148, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='under-five deaths' stat_name='CI_Lower': expected=-0.007833148767456704, excel_calc=0.07767814630984349, abs_diff=0.0855112950773002, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Polio' stat_name='CI_Lower': expected=0.04277779218270791, excel_calc=-0.007833148767737257, abs_diff=0.050610940950445174, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Total expenditure' stat_name='CI_Lower': expected=0.6226265265651444, excel_calc=0.042777792182766776, abs_diff=0.5798487343823776, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Diphtheria' stat_name='CI_Lower': expected=0.05851754098643788, excel_calc=0.62262652656422, abs_diff=0.5641089855777821, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='CI_Lower': expected=-0.6101746064365756, excel_calc=0.05851754098648286, abs_diff=0.6686921474230585, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='GDP' stat_name='CI_Lower': expected=-0.0002909204656258764, excel_calc=-0.6101746064368159, abs_diff=0.60988368597119, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Population' stat_name='CI_Lower': expected=-1.8117371006559855e-08, excel_calc=-0.0002909204656257314, abs_diff=0.00029090234825472486, fdd=4.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='CI_Lower': expected=0.27921404992322985, excel_calc=-1.811737099420023e-08, abs_diff=0.27921406804060084, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 5-9 years' stat_name='CI_Lower': expected=-0.009525605757414124, excel_calc=0.2792140499232487, abs_diff=0.28873965568066284, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Income composition of resources' stat_name='CI_Lower': expected=16.093553211524085, excel_calc=-0.009525605757419897, abs_diff=16.103078817281506, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Schooling' stat_name='CI_Lower': expected=2.510591122777704, excel_calc=16.093553211524092, abs_diff=13.582962088746388, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='infant deaths' stat_name='CI_Upper': expected=0.015868769787483094, excel_calc=0.015162287480549853, abs_diff=0.0007064823069332406, fdd=3.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Alcohol' stat_name='CI_Upper': expected=-0.5369954316259414, excel_calc=0.015868769787626653, abs_diff=0.5528642014135681, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='percentage expenditure' stat_name='CI_Upper': expected=0.0018669998984478446, excel_calc=-0.5369954316267223, abs_diff=0.5388624315251701, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Hepatitis B' stat_name='CI_Upper': expected=0.03355007662556342, excel_calc=0.0018669998984518314, abs_diff=0.031683076727111584, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Measles' stat_name='CI_Upper': expected=0.00011502382616501985, excel_calc=0.03355007662548759, abs_diff=0.03343505279932257, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='BMI' stat_name='CI_Upper': expected=0.1254866830804952, excel_calc=0.0001150238261641031, abs_diff=0.1253716592543311, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='under-five deaths' stat_name='CI_Upper': expected=0.05353125646932343, excel_calc=0.12548668308066638, abs_diff=0.07195542661134295, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Polio' stat_name='CI_Upper': expected=0.08389711685136228, excel_calc=0.0535312564705689, abs_diff=0.030365860380793377, fdd=2.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Total expenditure' stat_name='CI_Upper': expected=0.9412918944566885, excel_calc=0.08389711685142595, abs_diff=0.8573947776052625, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Diphtheria' stat_name='CI_Upper': expected=0.10574199725743683, excel_calc=0.9412918944559124, abs_diff=0.8355498971984756, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='HIV/AIDS' stat_name='CI_Upper': expected=-0.46664986122708313, excel_calc=0.10574199725749368, abs_diff=0.5723918584845769, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='GDP' stat_name='CI_Upper': expected=-6.338523717218818e-05, excel_calc=-0.46664986122732555, abs_diff=0.46658647599015335, fdd=1.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Population' stat_name='CI_Upper': expected=-4.051881796412294e-09, excel_calc=-6.338523717204417e-05, abs_diff=6.338118529024777e-05, fdd=4.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 1-19 years' stat_name='CI_Upper': expected=0.7032229836596597, excel_calc=-4.051881782051843e-09, abs_diff=0.7032229877115416, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='thinness 5-9 years' stat_name='CI_Upper': expected=0.4116663364843444, excel_calc=0.703222983659671, abs_diff=0.29155664717532653, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Income composition of resources' stat_name='CI_Upper': expected=22.72435896013459, excel_calc=0.4116663364843304, abs_diff=22.31269262365026, fdd=0.0
+WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Schooling' stat_name='CI_Upper': expected=2.9424479029040422, excel_calc=22.72435896013447, abs_diff=19.781911057230428, fdd=0.0
+  Verify:         582.1s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_QC.xlsx
+Sheet updated: LAMBDA_functions
+Sheet updated: Life Expectancy Data
+Sheet updated: Regression
+Sheet updated: MLR_Scalar_Test
+Sheet updated: MLR_Vector_Outputs_Test
+Sheet updated: MLR_Observation_Test
+Sheet verified: Regression
+Created names: 2
+Updated names: 57

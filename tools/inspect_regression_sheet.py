@@ -257,8 +257,12 @@ def read_regression_df(
                 })
 
         # ── Coefficients (columns M–R, rows 21 to 21+k) ──────────────────
-        # Excel always emits k+1 rows (blank or "Intercept" row first);
-        # skip row index 0 when allow_intercept=False (blank row).
+        # Excel always emits k+1 rows in the Regression sheet:
+        # intercept models spill the intercept first, while no-intercept
+        # models intentionally pad the top row with a blank so the table
+        # layout stays aligned. The Python expected tuples only contain the
+        # actual coefficient terms, so we must drop that blank top row for
+        # no-intercept configs before comparing.
         n_coef_rows = k + 1
         coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Stats", "P_Values", "CI_Lower", "CI_Upper"]
         coef_col_indices = [_C_M, _C_N, _C_O, _C_P, _C_Q, _C_R]
@@ -269,8 +273,7 @@ def read_regression_df(
 
         for stat_name, exp_tuple, col in zip(coef_stat_names, coef_exp_tuples, coef_col_indices):
             xl_vals_all = _read_col(sheet, _ROW_COEFF_DATA, col, n_coef_rows)
-            # Row 0 is intercept (True) or blank (False); expected tuple starts from intercept position
-            xl_vals = xl_vals_all  # k+1 entries align with vectors tuples
+            xl_vals = xl_vals_all if allow_intercept else xl_vals_all[1:]
             for i, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
                 term = vectors.term_names[i]
                 diff, fdd_val = compare_values(exp_val, xl_val)

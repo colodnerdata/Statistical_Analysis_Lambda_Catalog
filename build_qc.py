@@ -38,6 +38,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_QC.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
+_QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")
 
 
 def _verbose_checkpoint(verbose: bool, start_time: float, label: str) -> None:
@@ -244,6 +245,8 @@ def build_qc_workbook(
 
             try:
                 _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
+                for qc_sheet in _QC_SHEET_NAMES:
+                    _delete_sheet_if_present(workbook, qc_sheet)
                 if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                     workbook.sheets["Sheet1"].name = "LAMBDA_functions"
                 _verbose_checkpoint(verbose, _t, "Write: catalog start")

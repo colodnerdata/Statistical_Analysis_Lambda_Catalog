@@ -216,7 +216,7 @@ WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercep
 WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Income composition of resources' stat_name='CI_Upper': expected=22.72435896013459, excel_calc=0.4116663364843304, abs_diff=22.31269262365026, fdd=0.0
 WARNING [Regression/coefficients] config_name='full_no_intercept' allow_intercept=False term_name='Schooling' stat_name='CI_Upper': expected=2.9424479029040422, excel_calc=22.72435896013447, abs_diff=19.781911057230428, fdd=0.0
   Verify:         582.1s
-Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_QC.xlsx
+Workbook: Lambda_Library_QC.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
 Sheet updated: Regression

@@ -143,57 +143,6 @@ def _bold_row(sheet: xw.Sheet, row: int, col1: int, col2: int) -> None:
 _HEADER = (202, 237, 251)   # section headings
 _INPUT = (251, 226, 213)   # user-editable input cells
 
-_PLAIN_LANGUAGE_NOTES: dict[str, str] = {
-    "Pearson R": "Measures the straight-line relationship between a predictor and Y. Values near 1 or -1 mean a strong linear relationship; values near 0 mean little linear pattern.",
-    "Spearman R": "Measures whether higher X tends to go with higher or lower Y after converting both to ranks. It is useful when the relationship is ordered but curved instead of perfectly linear.",
-    "Skewness": "Shows whether the data have a longer tail on one side. Positive means a longer right tail; negative means a longer left tail.",
-    "Kurtosis": "Shows how heavy the tails are compared with a normal bell curve. High values usually mean more extreme outliers.",
-    "VIF": "Variance Inflation Factor. It shows how much overlap with other predictors is making this coefficient less stable.",
-    "Tolerance": "The share of a predictor's information that is still unique after overlap with the other predictors. Small values mean strong collinearity.",
-    "Multiple R": "How closely the model's predicted Y values track the actual Y values overall.",
-    "R Square": "The share of the outcome's variation explained by the model.",
-    "Adjusted R Square": "R Square with a penalty for adding predictors that do not help enough.",
-    "Standard Error": "The typical size of the model's prediction errors, measured in the same units as Y.",
-    "Observations": "The number of rows actually used in the regression after filtering.",
-    "PRESS": "A leave-one-out prediction error score. Lower is better because it means the model predicts unseen rows more accurately.",
-    "PRESS R²": "An out-of-sample version of R Square based on leave-one-out prediction. Negative values mean the model predicts worse than just using the average Y.",
-    "Mean Leverage": "The average leverage level in the fitted model. It is a baseline for spotting rows whose predictor values are unusually extreme.",
-    "AIC": "A model-comparison score that balances fit against complexity. Lower is better when comparing models on the same data.",
-    "BIC": "Another model-comparison score like AIC, but it penalizes extra predictors more strongly.",
-    "AICc": "AIC with an extra correction for small samples.",
-    "QQ Correlation": "A numeric check of how close the residuals are to a normal bell shape. Values closer to 1 are better.",
-    "Alpha": "The cutoff for statistical significance. At 0.05, results with p-values below 0.05 are treated as statistically significant.",
-    "df": "Degrees of freedom. This is the amount of independent information available for each part of the model.",
-    "SS": "Sum of squares. It measures how much variation is being counted in that row.",
-    "MS": "Mean square. This is the sum of squares divided by its degrees of freedom.",
-    "F": "The model-vs-noise ratio used in the overall regression significance test.",
-    "Significance F": "The p-value for the overall F test. Small values mean the model as a whole is unlikely to be pure noise.",
-    "Regression": "The variation explained by the predictors taken together.",
-    "Residual": "The variation the model does not explain.",
-    "Total": "All variation in the outcome before splitting it into explained and unexplained parts.",
-    "Coefficients": "The fitted weights used to turn predictor values into predictions.",
-    "Std Error": "How uncertain each coefficient estimate is.",
-    "t Stat": "How many standard errors the coefficient is away from zero.",
-    "P-value": "How surprising this coefficient would be if its true effect were zero. Smaller values mean stronger evidence of a real effect.",
-    "Lower 95%": "The lower end of the 95% confidence interval for the coefficient.",
-    "Upper 95%": "The upper end of the 95% confidence interval for the coefficient.",
-    "Beta Weight": "The coefficient after standardizing units, so predictors can be compared on the same scale.",
-    "Point Estimate": "The model's single best predicted Y value for the inputs you entered.",
-    "SE Prediction": "The standard error for a new prediction. It reflects both model uncertainty and ordinary row-to-row noise.",
-    "t Critical": "The multiplier used to turn standard error into a confidence or prediction margin.",
-    "Confidence Level": "The probability level associated with the interval. With alpha 0.05, this is 95%.",
-    "Y": "The actual observed outcome values.",
-    "Predicted Y": "The fitted outcome values produced by the model.",
-    "Residuals": "Actual Y minus predicted Y. Positive means the row came in above the model's prediction; negative means below.",
-    "LOOCV Residual": "The prediction error for a row when that row is left out of the fitting step.",
-    "Hat Diagonal": "Leverage. It shows how unusual a row's predictor values are relative to the rest of the data.",
-    "Studentized Residuals": "Residuals scaled to account for overall error size and leverage, making outliers easier to compare fairly.",
-    "Cook's Distance": "How much a single row can pull the fitted coefficients and predictions around.",
-    "Normal Scores Ranked": "Expected bell-curve quantiles used for the Q-Q comparison.",
-    "Studentized Residuals Ranked": "Studentized residuals sorted from smallest to largest for the Q-Q plot.",
-    "Scale-Location": "The square root of the absolute studentized residual. A flat pattern suggests stable error spread.",
-    "PRESS Residual": "A leverage-adjusted residual used to show how much a row affects out-of-sample prediction error.",
-}
 
 
 def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
@@ -228,7 +177,7 @@ def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
     cell_api.Comment.Visible = False
 
 
-def _annotate_statistical_terms(sheet: xw.Sheet) -> None:
+def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> None:
     """Attach plain-language notes to key statistical labels on the sheet."""
     note_cells = [
         (2, _C_E, "Pearson R"),
@@ -285,7 +234,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet) -> None:
     ]
 
     for row, col, key in note_cells:
-        note_text = _PLAIN_LANGUAGE_NOTES.get(key)
+        note_text = sheet_notes.get(key)
         if note_text is not None:
             _set_note(sheet, row, col, note_text)
 
@@ -1097,8 +1046,19 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
 # ── Public entry point ────────────────────────────────────────────────────────
 
-def write_regression_output_sheet(workbook: xw.Book) -> None:
-    """Create or refresh the ToolPak-style Regression sheet in workbook."""
+def write_regression_output_sheet(
+    workbook: xw.Book,
+    sheet_notes: dict[str, str] | None = None,
+) -> None:
+    """Create or refresh the ToolPak-style Regression sheet in workbook.
+
+    Parameters
+    ----------
+    sheet_notes : dict[str, str] | None
+        Mapping of sheet label → plain-language note text from the
+        ``regression_sheet_notes`` key in lambda_functions.json.
+        Pass ``None`` to skip annotation (useful for isolated tests).
+    """
 
     sheet = next(
         (s for s in workbook.sheets if s.name == REGRESSION_SHEET_NAME), None
@@ -1134,7 +1094,7 @@ def write_regression_output_sheet(workbook: xw.Book) -> None:
     _write_prediction_interval(sheet)
     _write_prediction_inputs(sheet, k)
     _write_residuals(sheet)
-    _annotate_statistical_terms(sheet)
+    _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
     _write_prediction_inputs_strikethrough_cf(sheet)
 

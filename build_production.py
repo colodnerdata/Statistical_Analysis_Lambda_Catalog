@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 import time
@@ -18,7 +19,11 @@ from lambda_catalog.workbook_builder import (
     sync_workbook_names,
 )
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
-from lambda_catalog.write_sheet_lambda_functions import load_catalog_entries, write_catalog_sheet
+from lambda_catalog.write_sheet_lambda_functions import (
+    load_catalog_entries,
+    load_regression_sheet_notes,
+    write_catalog_sheet,
+)
 from lambda_catalog.write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
     load_life_expectancy_rows,
@@ -75,8 +80,11 @@ def build_production_workbook(
         Counts of created versus updated workbook names.
     """
     _t = time.monotonic()
-    definitions = load_lambda_definitions(definitions_path)
-    catalog_entries = load_catalog_entries(definitions_path)
+    with definitions_path.open("r", encoding="utf-8") as handle:
+        catalog_payload = json.load(handle)
+    definitions = load_lambda_definitions(definitions_path, payload=catalog_payload)
+    catalog_entries = load_catalog_entries(definitions_path, payload=catalog_payload)
+    sheet_notes = load_regression_sheet_notes(definitions_path, payload=catalog_payload)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
@@ -121,7 +129,7 @@ def build_production_workbook(
                 write_regression_instructions_sheet(workbook)
                 write_diagnostic_guide_sheet(workbook)
                 write_version_history_sheet(workbook)
-                write_regression_output_sheet(workbook)
+                write_regression_output_sheet(workbook, sheet_notes)
                 app.api.Calculation = XL_CALCULATION_AUTOMATIC
                 workbook.save(str(workbook_path))
             finally:

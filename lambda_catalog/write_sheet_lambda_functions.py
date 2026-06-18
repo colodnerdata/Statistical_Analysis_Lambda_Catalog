@@ -171,13 +171,19 @@ def _build_catalog_entry(function_data: dict[str, Any]) -> LambdaCatalogEntry:
     )
 
 
-def load_catalog_entries(definitions_path: Path) -> list[LambdaCatalogEntry]:
+def load_catalog_entries(
+    definitions_path: Path, *, payload: dict | None = None
+) -> list[LambdaCatalogEntry]:
     """Load and parse all catalog entries from the JSON definitions file.
 
     Parameters
     ----------
     definitions_path : Path
         Path to lambda_functions.json.
+    payload : dict or None, optional
+        Pre-parsed JSON payload. When supplied the file at ``definitions_path``
+        is not re-read, avoiding redundant I/O when the caller already has the
+        data.
 
     Returns
     -------
@@ -189,14 +195,54 @@ def load_catalog_entries(definitions_path: Path) -> list[LambdaCatalogEntry]:
     ValueError
         If the JSON does not contain a top-level ``functions`` array.
     """
-    with definitions_path.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
+    if payload is None:
+        with definitions_path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
 
     functions = payload.get("functions")
     if not isinstance(functions, list):
         raise ValueError("lambda_functions.json must contain a top-level 'functions' array.")
 
     return [_build_catalog_entry(function_data) for function_data in functions]
+
+
+def load_regression_sheet_notes(
+    path: Path, *, payload: dict | None = None
+) -> dict[str, str]:
+    """Load the regression_sheet_notes mapping from the JSON catalog.
+
+    Parameters
+    ----------
+    path : Path
+        Path to lambda_functions.json.
+    payload : dict or None, optional
+        Pre-parsed JSON payload. When supplied the file at ``path`` is not
+        re-read, avoiding redundant I/O when the caller already has the data.
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping of sheet label → plain-language note text.
+        Returns an empty dict if the key is absent.
+
+    Raises
+    ------
+    ValueError
+        If the ``regression_sheet_notes`` key exists but is not an object.
+    """
+    if payload is None:
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+    notes = payload.get("regression_sheet_notes", {})
+    if not isinstance(notes, dict):
+        raise ValueError("regression_sheet_notes in lambda_functions.json must be an object.")
+    for key, value in notes.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError(
+                f"regression_sheet_notes entry {key!r} must have string key and string value;"
+                f" got {type(value).__name__}."
+            )
+    return notes
 
 
 def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) -> None:

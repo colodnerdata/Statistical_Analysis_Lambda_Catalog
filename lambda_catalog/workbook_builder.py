@@ -241,28 +241,6 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
     return definitions
 
 
-def load_regression_sheet_notes(path: Path) -> dict[str, str]:
-    """Load the regression_sheet_notes mapping from the JSON catalog.
-
-    Parameters
-    ----------
-    path : Path
-        Path to the JSON file containing the lambda definitions.
-
-    Returns
-    -------
-    dict[str, str]
-        Mapping of sheet label → plain-language note text.
-        Returns an empty dict if the key is absent.
-    """
-    with path.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
-    notes = payload.get("regression_sheet_notes", {})
-    if not isinstance(notes, dict):
-        raise ValueError("regression_sheet_notes in lambda_functions.json must be an object.")
-    return notes
-
-
 def _defined_names_insert_index(workbook_root) -> int:
     """Return the schema-safe insertion point for a definedNames element.
 

@@ -117,3 +117,51 @@ python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
 5. Update the relevant `write_sheet_mlr_*.py` to include a Calc column for the new function.
 6. Run `python build_qc.py` and confirm no WARNING lines appear.
 7. Run `python build_production.py` to rebuild the distributable.
+
+## Regression sheet conventions
+
+### Chart series data ranges
+
+Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$Y$3:$Y$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
+
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$M$8`:
+
+```python
+sheet.api.Names.Add(
+    Name="FittedY",
+    RefersTo=f"=OFFSET('{sname}'!$Y$2,1,0,'{sname}'!$M$8,1)",
+)
+```
+
+This starts one row below the column header (row 2) and extends exactly `$M$8` rows — the number of filtered observations.
+
+**Naming convention** — names identify the data, not the chart that uses them:
+
+| Name | Column | Contents |
+|---|---|---|
+| `QQPlotX` | AE | Normal Scores Ranked (QQ theoretical axis) |
+| `QQPlotY` | AF | Studentized Residuals Ranked (QQ actual axis) |
+| `FittedY` | Y | Predicted Y — shared by multiple charts |
+| `ResidData` | Z | Residuals |
+| `ActualY` | X | Actual Y |
+| `ScaleLocData` | AG | Scale-Location |
+| `CooksDistData` | AD | Cook's Distance |
+| `LeverageData` | AB | Hat Diagonal |
+| `StudResidData` | AC | Studentized Residuals |
+| `PRESSResidData` | AH | PRESS Residual |
+
+**Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
+
+```excel
+Series X values: ='Regression'!FittedY
+Series Y values: ='Regression'!ResidData
+```
+
+In code, use the `_name_ref` helper in `_write_diagnostic_charts`:
+
+```python
+def _name_ref(local_name: str) -> str:
+    return f"='{sname}'!{local_name}"
+```
+
+When adding a new diagnostic column or chart, add the corresponding named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.

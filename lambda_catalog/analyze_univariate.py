@@ -92,7 +92,8 @@ def descriptive_stats(data: Sequence[float | None]) -> dict[str, float | int]:
     mc = missing_count(data)
 
     try:
-        mode_val = float(scipy_stats.mode(x, keepdims=False).mode)
+        mode_result = scipy_stats.mode(x, keepdims=False)
+        mode_val = float("nan") if mode_result.count <= 1 else float(mode_result.mode)
     except Exception:
         mode_val = float("nan")
 
@@ -128,6 +129,8 @@ def scott_bins(data: Sequence[float | None]) -> int:
     x = _clean(data)
     n = int(np.sum(np.isfinite(x)))
     sd = float(np.std(x, ddof=1))
+    if sd == 0.0:
+        return 1
     width = 3.49 * sd * n ** (-1.0 / 3.0)
     data_range = float(np.max(x) - np.min(x))
     return math.ceil(data_range / width)
@@ -224,6 +227,8 @@ def nll_weibull(data: Sequence[float | None], shape: float, scale: float) -> flo
 
 def nll_gamma(data: Sequence[float | None], shape: float, rate: float) -> float:
     """NLL for Gamma(shape, rate) via scipy.stats.gamma.  rate = 1/scale."""
+    if rate <= 0.0 or shape <= 0.0:
+        return 1e15
     x = _clean(data)
     log_pdf = scipy_stats.gamma.logpdf(x, a=shape, scale=1.0 / rate)
     if not np.all(np.isfinite(log_pdf)):

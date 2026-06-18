@@ -139,9 +139,8 @@ def scott_bins(data: Sequence[float | None]) -> int:
 def fd_bins(data: Sequence[float | None]) -> int:
     """Freedman-Diaconis bin count from width 2 * IQR * n^(-1/3).
 
-    IQR uses scipy.stats.iqr (linear interpolation) as an independent
-    reference.  The LAMBDA uses QUARTILE.EXC; for small n the resulting
-    bin count may differ by ±1, which is acceptable.
+    IQR uses scipy.stats.iqr (linear interpolation), which matches
+    QUARTILE.INC (type 7) — the same method used by the LAMBDA.
     """
     x = _clean(data)
     n = int(np.sum(np.isfinite(x)))

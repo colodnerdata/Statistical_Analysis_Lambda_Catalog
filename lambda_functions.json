@@ -1540,6 +1540,407 @@
       "yields": "k×k symmetric matrix of pairwise Pearson correlations (diagonal = 1)",
       "description": "Correlation_Matrix returns the k×k Pearson correlation matrix for all columns of X_s after filtering. Each cell [r, c] equals CORREL(column r, column c). The diagonal is always 1. The matrix is symmetric. Enter as a single formula and let it spill.\n\nUse this to screen for multicollinearity before fitting a model: pairs with |r| > 0.7 are candidates for VIF investigation. High off-diagonal correlations indicate redundant predictors whose coefficients will be unstable and hard to interpret. For formal post-fit diagnostics, use VIF and Tolerance instead.",
       "plain_language_summary": "The pairwise correlations among all predictor columns."
+    },
+    {
+      "name": "Missing_Count",
+      "number_format": "0",
+      "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), TRUE, filter),\n    d, FILTER(data, filt_arg),\n    last_row, IFERROR(LOOKUP(2, 1/(d<>\"\"), SEQUENCE(ROWS(d))), 0),\n    IF(last_row = 0, 0,\n      last_row - COUNT(TAKE(d, last_row)))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range (may contain blanks or non-numeric cells)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "count of non-numeric (blank or text) cells within the active rows of the data range",
+      "description": "Missing_Count counts cells that are present in the active data range but not numeric. The active range is determined from the first row down to the last non-empty row (using MATCH to find the last non-empty entry), so trailing blanks beyond the user's data do not inflate the count.\n\nReturns 0 when no active rows exist. A non-zero result signals that some cells the user likely intended as data values were blank or contained text and were silently excluded from statistical calculations.",
+      "plain_language_summary": "How many cells in the data column are blank or non-numeric."
+    },
+    {
+      "name": "Descriptive_Stats",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    skew_val, INDEX(Skewness(data, filt_arg), 1),\n    kurt_val, INDEX(Kurtosis(data, filt_arg), 1),\n    VSTACK(\n      AVERAGE(x),\n      MEDIAN(x),\n      IFERROR(MODE.SNGL(x), NA()),\n      STDEV.S(x),\n      VAR.S(x),\n      MIN(x),\n      MAX(x),\n      MAX(x) - MIN(x),\n      skew_val,\n      kurt_val,\n      n,\n      Missing_Count(data, IF(ISOMITTED(filter), TRUE, filter))\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array — TRUE includes the row, FALSE excludes it; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "12×1 column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count",
+      "description": "Descriptive_Stats returns a 12-element column vector of summary statistics for a single data column. When no filter is supplied, non-numeric cells are automatically excluded via ISNUMBER. Mode returns NA() when no unique mode exists. Skewness and kurtosis reuse the existing Skewness and Kurtosis LAMBDAs (Excel SKEW and KURT bias-correction formulas).\n\nUse INDEX to extract individual values: INDEX(Descriptive_Stats(data), 1) = mean, INDEX(..., 4) = SD, etc. Or enter as a single spill formula to populate all 12 rows at once.",
+      "plain_language_summary": "All 12 standard summary statistics for a data column, returned as a column vector."
+    },
+    {
+      "name": "Sturges_Bins",
+      "number_format": "0",
+      "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    CEILING(LOG(n, 2) + 1, 1)\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column numeric data range"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array",
+          "optional": true
+        }
+      ],
+      "yields": "integer bin count via Sturges' rule",
+      "description": "Sturges_Bins returns the bin count k = ⌈log₂(n) + 1⌉, where n is the count of numeric values after filtering. Sturges' rule works well for roughly symmetric, unimodal data with moderate sample sizes (50–200 observations). It tends to undersmooth (too few bins) for skewed or heavy-tailed data.\n\nUsed by Bin_Edges to generate upper bin edges for the Sturges histogram column chart.",
+      "plain_language_summary": "How many histogram bins Sturges' rule recommends for this data."
+    },
+    {
+      "name": "Scott_Bins",
+      "number_format": "0",
+      "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    sd, STDEV.S(x),\n    width, 3.49 * sd * n ^ (-1/3),\n    range_, MAX(x) - MIN(x),\n    IF(sd = 0, 1, CEILING(range_ / width, 1))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column numeric data range"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array",
+          "optional": true
+        }
+      ],
+      "yields": "integer bin count via Scott's normal reference rule",
+      "description": "Scott_Bins computes the bin width h = 3.49 × σ × n^(−1/3) that minimises mean integrated squared error assuming the data are normally distributed, then returns k = ⌈range / h⌉.\n\nScott's rule is more adaptive than Sturges for larger samples and performs well when the data are approximately normal. For strongly skewed or multimodal data, Freedman-Diaconis is more appropriate.",
+      "plain_language_summary": "How many histogram bins Scott's normal-reference rule recommends."
+    },
+    {
+      "name": "FD_Bins",
+      "number_format": "0",
+      "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    iqr, QUARTILE.EXC(x, 3) - QUARTILE.EXC(x, 1),\n    width, 2 * iqr * n ^ (-1/3),\n    range_, MAX(x) - MIN(x),\n    IF(iqr = 0, Sturges_Bins(data, filt_arg), CEILING(range_ / width, 1))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column numeric data range"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array",
+          "optional": true
+        }
+      ],
+      "yields": "integer bin count via the Freedman-Diaconis rule",
+      "description": "FD_Bins computes the bin width h = 2 × IQR × n^(−1/3) where IQR is the interquartile range (QUARTILE.EXC), then returns k = ⌈range / h⌉.\n\nFreedman-Diaconis is robust to outliers because it uses the IQR rather than the standard deviation. It is the preferred rule for skewed or heavy-tailed distributions and for large samples where the shape deviates from normality.",
+      "plain_language_summary": "How many histogram bins the Freedman-Diaconis rule recommends."
+    },
+    {
+      "name": "Bin_Edges",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, method, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, IF(method = \"Sturges\", Sturges_Bins(data, filt_arg),\n         IF(method = \"Scott\",   Scott_Bins(data,   filt_arg),\n            FD_Bins(data, filt_arg))),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k, 1, min_x + width, width)\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column numeric data range"
+        },
+        {
+          "name": "method",
+          "description": "bin-count method: \"Sturges\", \"Scott\", or \"FD\""
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of upper bin edges (evenly spaced from min to max)",
+      "description": "Bin_Edges returns a column vector of upper bin edges using the specified bin-count rule. Edges are evenly spaced from min+width to max (half-open (lower, upper] intervals matching Excel's FREQUENCY and histogram-chart convention). The vector length equals the bin count from the chosen method.\n\nPass the output directly to Bin_Counts. Use the spill range (e.g. F4#) as the chart category axis. The bin width equals (max − min) / k regardless of the rule — the rule determines only k.",
+      "plain_language_summary": "The upper edge of each histogram bin for a chosen binning method."
+    },
+    {
+      "name": "Bin_Counts",
+      "number_format": "0",
+      "formula_display": "=LAMBDA(data, edges, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    TAKE(FREQUENCY(x, edges), ROWS(edges))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column numeric data range"
+        },
+        {
+          "name": "edges",
+          "description": "column vector of upper bin edges (from Bin_Edges or custom)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of bin frequencies",
+      "description": "Bin_Counts uses Excel's FREQUENCY to count observations in each bin defined by the upper edges vector. TAKE trims the overflow element that FREQUENCY always appends, so the output length matches the edges length exactly.\n\nMatches Excel's half-open (lower, upper] convention: the first bin counts all values ≤ edges[1]; subsequent bins count values where edges[i-1] < x ≤ edges[i]. Enter as a spill formula in the column next to the edges output.",
+      "plain_language_summary": "How many data values fall into each histogram bin."
+    },
+    {
+      "name": "NLL_Normal",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, mean, sd, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(NORM.DIST(x, mean, sd, FALSE)))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range"
+        },
+        {
+          "name": "mean",
+          "description": "distribution mean parameter μ"
+        },
+        {
+          "name": "sd",
+          "description": "distribution standard deviation σ (must be > 0)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "negative log-likelihood (positive scalar) for Normal(mean, sd) given data",
+      "description": "NLL_Normal computes −Σ ln f(xᵢ | μ, σ) where f is the Normal PDF evaluated via NORM.DIST. Minimising NLL over (μ, σ) gives the MLE; for the Normal distribution the MLE is the sample mean and sample standard deviation.\n\nThe filter defaults to ISNUMBER(data) so blank cells in the input range are automatically excluded. Pass this value to GoF_AIC and GoF_BIC with k = 2.",
+      "plain_language_summary": "How unlikely the Normal distribution is to have generated this data at the given parameters."
+    },
+    {
+      "name": "NLL_Lognormal",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, meanlog, sdlog, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(LOGNORM.DIST(x, meanlog, sdlog, FALSE)))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range (all values must be > 0)"
+        },
+        {
+          "name": "meanlog",
+          "description": "mean of ln(data), μ_ln"
+        },
+        {
+          "name": "sdlog",
+          "description": "standard deviation of ln(data), σ_ln (must be > 0)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "negative log-likelihood for Lognormal(meanlog, sdlog) given data",
+      "description": "NLL_Lognormal evaluates −Σ ln f(xᵢ | μ_ln, σ_ln) using Excel's LOGNORM.DIST PDF. The MLE closed form is: μ_ln = AVERAGE(LN(data)), σ_ln = STDEV.S(LN(data)).\n\nLognormal fits well when data is right-skewed and multiplicative (incomes, sizes, concentrations). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "plain_language_summary": "How unlikely the Lognormal distribution is to have generated this data at the given parameters."
+    },
+    {
+      "name": "NLL_Exponential",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, rate, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(EXPON.DIST(x, rate, FALSE)))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range (all values must be ≥ 0)"
+        },
+        {
+          "name": "rate",
+          "description": "rate parameter λ = 1/mean (must be > 0)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "negative log-likelihood for Exponential(rate) given data",
+      "description": "NLL_Exponential evaluates −Σ ln f(xᵢ | λ) = −n·ln(λ) + λ·Σxᵢ via EXPON.DIST. The MLE closed form is: rate = 1/AVERAGE(data).\n\nExponential fits well for memoryless waiting times, inter-arrival times, and time-to-failure data. Pass to GoF_AIC and GoF_BIC with k = 1.",
+      "plain_language_summary": "How unlikely the Exponential distribution is to have generated this data at the given rate."
+    },
+    {
+      "name": "NLL_Weibull",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, shape, scale, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(WEIBULL.DIST(x, shape, scale, FALSE))), 1E+15)\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range (all values must be > 0)"
+        },
+        {
+          "name": "shape",
+          "description": "shape parameter k (must be > 0)"
+        },
+        {
+          "name": "scale",
+          "description": "scale parameter λ (must be > 0)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "negative log-likelihood for Weibull(shape, scale) given data; returns 1E+15 for invalid parameter combinations",
+      "description": "NLL_Weibull evaluates −Σ ln f(xᵢ | k, λ) using WEIBULL.DIST. The IFERROR sentinel maps overflow or invalid regions (shape → 0, or data violating support) to 1E+15, keeping MIN and grid-search argmin robust.\n\nWeibull is the standard model for failure times and wind speeds. No closed-form MLE exists; fit using a two-input Data Table grid-search (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "plain_language_summary": "How unlikely the Weibull distribution is to have generated this data at the given shape and scale."
+    },
+    {
+      "name": "NLL_Gamma",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, shape, rate, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    scale, 1 / rate,\n    IFERROR(-SUMPRODUCT(LN(GAMMA.DIST(x, shape, scale, FALSE))), 1E+15)\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range (all values must be > 0)"
+        },
+        {
+          "name": "shape",
+          "description": "shape parameter α (must be > 0)"
+        },
+        {
+          "name": "rate",
+          "description": "rate parameter β = 1/scale (must be > 0)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "negative log-likelihood for Gamma(shape, rate) given data; returns 1E+15 for invalid parameter combinations",
+      "description": "NLL_Gamma evaluates −Σ ln f(xᵢ | α, β) via GAMMA.DIST, converting rate to scale internally (scale = 1/rate). IFERROR maps overflow near shape → 0 to a large sentinel.\n\nGamma fits well for right-skewed positive data (insurance claims, rainfall, queuing times). No closed-form MLE; fit using grid-search Data Table (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "plain_language_summary": "How unlikely the Gamma distribution is to have generated this data at the given shape and rate."
+    },
+    {
+      "name": "NLL_Triangular",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, min_val, mode_val, max_val, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    range_, max_val - min_val,\n    pdf, IF(\n      x <= mode_val,\n      2 * (x - min_val)  / (range_ * (mode_val - min_val)),\n      2 * (max_val - x)  / (range_ * (max_val - mode_val))\n    ),\n    IFERROR(-SUMPRODUCT(LN(pdf)), 1E+15)\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range"
+        },
+        {
+          "name": "min_val",
+          "description": "lower bound of the triangular distribution"
+        },
+        {
+          "name": "mode_val",
+          "description": "peak (most likely value)"
+        },
+        {
+          "name": "max_val",
+          "description": "upper bound"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "negative log-likelihood for Triangular(min, mode, max) given data; returns 1E+15 for invalid parameters",
+      "description": "NLL_Triangular implements the triangular PDF directly: 2(x − min) / (range × (mode − min)) on [min, mode] and 2(max − x) / (range × (max − mode)) on (mode, max]. The likelihood is non-differentiable at the mode, so MLE is non-standard; the conventional approach is to set min = data min, mode = data mode, max = data max.\n\nTriangular is common in project risk and cost estimation (three-point estimates). Pass to GoF_AIC and GoF_BIC with k = 3.",
+      "plain_language_summary": "How unlikely the Triangular distribution is to have generated this data at the given bounds."
+    },
+    {
+      "name": "NLL_Beta",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, alpha_param, beta_param, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(BETA.DIST(x, alpha_param, beta_param, FALSE))), 1E+15)\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range; values must be strictly on (0, 1)"
+        },
+        {
+          "name": "alpha_param",
+          "description": "first shape parameter α (must be > 0)"
+        },
+        {
+          "name": "beta_param",
+          "description": "second shape parameter β (must be > 0)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "negative log-likelihood for Beta(α, β) given data on (0,1); returns 1E+15 for boundary or invalid values",
+      "description": "NLL_Beta evaluates −Σ ln f(xᵢ | α, β) via BETA.DIST. Values exactly at 0 or 1 cause BETA.DIST to return errors; the IFERROR sentinel catches these and maps the entire NLL to 1E+15, making the cell visible as an overflow region in grid-search heatmaps.\n\nBeta fits proportions and rates bounded on [0, 1] (e.g. efficiencies, fractions). Data must be rescaled to (0, 1) before fitting. No closed-form MLE; fit using grid-search Data Table (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "plain_language_summary": "How unlikely the Beta distribution is to have generated this (0,1)-bounded data at the given shape parameters."
+    },
+    {
+      "name": "NLL_BetaPERT",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, min_val, mode_val, max_val, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    range_, max_val - min_val,\n    z, (x - min_val) / range_,\n    alpha_p, 1 + 4 * (mode_val - min_val) / range_,\n    beta_p,  1 + 4 * (max_val  - mode_val) / range_,\n    pdf_z, BETA.DIST(z, alpha_p, beta_p, FALSE),\n    pdf_x, pdf_z / range_,\n    IFERROR(-SUMPRODUCT(LN(pdf_x)), 1E+15)\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range"
+        },
+        {
+          "name": "min_val",
+          "description": "lower bound (minimum possible value)"
+        },
+        {
+          "name": "mode_val",
+          "description": "most likely value (peak of the PERT curve)"
+        },
+        {
+          "name": "max_val",
+          "description": "upper bound (maximum possible value)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "negative log-likelihood for BetaPERT(min, mode, max) given data; returns 1E+15 for invalid parameters",
+      "description": "NLL_BetaPERT reparameterises the Beta distribution using the PERT convention: α = 1 + 4·(mode − min)/(max − min), β = 1 + 4·(max − mode)/(max − min). Data are rescaled to z = (x − min)/(max − min); the Jacobian correction log(1/(max − min)) converts the Beta log-likelihood back to the original data scale.\n\nBetaPERT is the standard distribution for three-point cost and schedule estimates. Parameters are estimated directly from min, mode, max; no optimisation is needed. Pass to GoF_AIC and GoF_BIC with k = 3.",
+      "plain_language_summary": "How unlikely the BetaPERT distribution is to have generated this data at the given three-point bounds."
+    },
+    {
+      "name": "GoF_AIC",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(nll, k, 2 * k + 2 * nll)",
+      "arguments": [
+        {
+          "name": "nll",
+          "description": "negative log-likelihood from any NLL_* function"
+        },
+        {
+          "name": "k",
+          "description": "number of free parameters in the distribution (1 for Exponential, 2 for Normal/Lognormal/Weibull/Gamma/Beta, 3 for Triangular/BetaPERT)"
+        }
+      ],
+      "yields": "AIC = 2k + 2·NLL as a scalar",
+      "description": "GoF_AIC computes the Akaike Information Criterion: AIC = 2k + 2·NLL. Lower AIC indicates a better balance of fit quality and model complexity. AIC is comparable across all distributions fitted to the same dataset — the distribution with the lowest AIC is the best-fitting model under this criterion.\n\nAIC does not penalise extra parameters as strongly as BIC, so it may favour more complex distributions (larger k) when sample sizes are large. For small samples, use AICc instead (not implemented here — add a correction term 2k(k+1)/(n−k−1) if n/k < 40).",
+      "plain_language_summary": "A model-comparison score that balances fit quality against the number of parameters."
+    },
+    {
+      "name": "GoF_BIC",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(nll, k, n, k * LN(n) + 2 * nll)",
+      "arguments": [
+        {
+          "name": "nll",
+          "description": "negative log-likelihood from any NLL_* function"
+        },
+        {
+          "name": "k",
+          "description": "number of free parameters in the distribution"
+        },
+        {
+          "name": "n",
+          "description": "number of observations used in the fit (from UV_n or COUNT(data))"
+        }
+      ],
+      "yields": "BIC = k·ln(n) + 2·NLL as a scalar",
+      "description": "GoF_BIC computes the Bayesian Information Criterion: BIC = k·ln(n) + 2·NLL. Lower BIC indicates a better model. BIC penalises extra parameters more strongly than AIC (penalty grows with log(n) rather than 2), favouring simpler distributions in larger samples.\n\nCompare AIC and BIC together: if they agree, the best-fit distribution is clear; if they disagree, AIC is selecting a more complex distribution and BIC is selecting a simpler one. The difference is informative about how much the extra parameters contribute to fit.",
+      "plain_language_summary": "A model-comparison score that penalises extra parameters more strongly as sample size grows."
     }
   ],
   "regression_sheet_notes": {

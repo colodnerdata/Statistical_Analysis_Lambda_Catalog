@@ -1,16 +1,35 @@
-"""Python reference implementations for univariate analysis.
+"""Reference implementations for validating the Excel LAMBDA univariate outputs.
 
-These functions mirror the Excel LAMBDA formulas in lambda_functions.json and
-serve as QC reference values.  Each function accepts a sequence of values that
-may contain None/NaN (representing blank Excel cells) and cleans them before
-computing.
+These functions use scipy and numpy as *independent* oracles.  The purpose is
+to catch divergence between the Excel formulas and statistically correct
+results — not to reproduce the same formula twice.
 
-Skewness and kurtosis use the exact adjustment factors from Excel's SKEW and
-KURT functions so that QC comparisons pass to float-comparison precision.
+Intentional differences from the LAMBDA formulas
+─────────────────────────────────────────────────
+Skewness / kurtosis
+    scipy.stats.skew(bias=False) and scipy.stats.kurtosis(bias=False) are the
+    reference.  Excel's SKEW and KURT implement the same Fisher-Pearson
+    estimator, so agreement validates the formula.  Disagreement flags an
+    Excel formula error.
 
-IQR for Freedman-Diaconis bins is computed with numpy's default linear
-interpolation (equivalent to Excel QUARTILE.INC).  The LAMBDA uses
-QUARTILE.EXC; for small samples the resulting bin count may differ by ±1.
+Normal / Lognormal / Exponential MLE
+    scipy.stats.<dist>.fit() returns true MLE parameters (Normal uses ddof=0
+    for σ; Excel's closed-form uses STDEV.S, i.e. ddof=1).  For n ≥ 30 the
+    difference is negligible; for small n the discrepancy is expected and QC
+    tests should use a tolerance of ~1/n.
+
+Weibull / Gamma MLE
+    scipy numerically optimises the likelihood — this is the reference that
+    the v2.1 grid-search results will be validated against.
+
+Triangular / BetaPERT
+    No scipy.fit for these; parameters come from the data min/mode/max.
+    The NLL is still evaluated via scipy, providing an independent check of
+    the LAMBDA's hand-coded PDF implementation.
+
+Histogram bin counts
+    bin_counts() implements the FREQUENCY convention directly (prev < x ≤ edge)
+    using numpy comparisons, which is independent of FREQUENCY itself.
 """
 from __future__ import annotations
 
@@ -34,51 +53,43 @@ def _clean(data: Sequence[float | None]) -> np.ndarray:
 # ── Descriptive statistics ────────────────────────────────────────────────────
 
 def missing_count(data: Sequence[float | None]) -> int:
-    """Count of None/NaN values (blank or non-numeric cells)."""
-    clean = _clean(data)
-    last_row = len(clean)
-    numeric = int(np.sum(np.isfinite(clean)))
-    return last_row - numeric
+    """Count of None/NaN values (blank or non-numeric cells).
 
-
-def skewness_excel(x: np.ndarray) -> float:
-    """Sample skewness using Excel's SKEW formula."""
-    n = len(x)
-    if n < 3:
-        return float("nan")
-    mean = float(np.mean(x))
-    s = float(np.std(x, ddof=1))
-    if s == 0:
-        return float("nan")
-    return float(n / ((n - 1) * (n - 2)) * np.sum(((x - mean) / s) ** 3))
-
-
-def kurtosis_excel(x: np.ndarray) -> float:
-    """Excess kurtosis using Excel's KURT formula."""
-    n = len(x)
-    if n < 4:
-        return float("nan")
-    mean = float(np.mean(x))
-    s = float(np.std(x, ddof=1))
-    if s == 0:
-        return float("nan")
-    fourth = float(np.sum(((x - mean) / s) ** 4))
-    return (
-        n * (n + 1) / ((n - 1) * (n - 2) * (n - 3)) * fourth
-        - 3 * (n - 1) ** 2 / ((n - 2) * (n - 3))
+    Counts from the start of the sequence to the last non-None entry, matching
+    the LAMBDA's MATCH-based active-range heuristic.
+    """
+    items = list(data)
+    # Find last non-None index
+    last = -1
+    for i, v in enumerate(items):
+        if v is not None and not (isinstance(v, float) and math.isnan(v)):
+            last = i
+        elif v is not None:
+            last = i   # non-None text/bad value still counts as "active row"
+    if last < 0:
+        return 0
+    active = items[: last + 1]
+    return sum(
+        1 for v in active
+        if v is None or (isinstance(v, float) and math.isnan(v))
     )
 
 
 def descriptive_stats(data: Sequence[float | None]) -> dict[str, float | int]:
-    """Compute the 12 descriptive statistics displayed on the Univariate sheet.
+    """Compute the 12 summary statistics shown on the Univariate sheet.
 
-    Returns a dict with keys:
-        mean, median, mode, sd, variance, min, max, range,
-        skewness, kurtosis, count, missing_count
+    Uses scipy.stats for skewness and kurtosis so the reference is
+    independent of Excel's SKEW/KURT formula.  Agreement with the LAMBDA
+    validates the Excel formulas; disagreement flags an error.
+
+    Returns
+    -------
+    dict with keys: mean, median, mode, sd, variance, min, max, range,
+                    skewness, kurtosis, count, missing_count
     """
     x = _clean(data)
     n = int(len(x))
-    mc = int(len(data)) - n  # cells passed in vs numeric cells
+    mc = missing_count(data)
 
     try:
         mode_val = float(scipy_stats.mode(x, keepdims=False).mode)
@@ -94,8 +105,10 @@ def descriptive_stats(data: Sequence[float | None]) -> dict[str, float | int]:
         "min":           float(np.min(x)),
         "max":           float(np.max(x)),
         "range":         float(np.max(x) - np.min(x)),
-        "skewness":      skewness_excel(x),
-        "kurtosis":      kurtosis_excel(x),
+        # scipy bias=False matches the bias-corrected Fisher-Pearson estimator
+        # used by Excel SKEW and KURT.
+        "skewness":      float(scipy_stats.skew(x, bias=False)),
+        "kurtosis":      float(scipy_stats.kurtosis(x, bias=False, fisher=True)),
         "count":         n,
         "missing_count": mc,
     }
@@ -121,11 +134,15 @@ def scott_bins(data: Sequence[float | None]) -> int:
 
 
 def fd_bins(data: Sequence[float | None]) -> int:
-    """Freedman-Diaconis bin count from width 2 * IQR * n^(-1/3)."""
+    """Freedman-Diaconis bin count from width 2 * IQR * n^(-1/3).
+
+    IQR uses scipy.stats.iqr (linear interpolation) as an independent
+    reference.  The LAMBDA uses QUARTILE.EXC; for small n the resulting
+    bin count may differ by ±1, which is acceptable.
+    """
     x = _clean(data)
     n = int(np.sum(np.isfinite(x)))
-    q1, q3 = float(np.percentile(x, 25)), float(np.percentile(x, 75))
-    iqr = q3 - q1
+    iqr = float(scipy_stats.iqr(x))
     if iqr == 0:
         return sturges_bins(data)
     width = 2.0 * iqr * n ** (-1.0 / 3.0)
@@ -136,8 +153,7 @@ def fd_bins(data: Sequence[float | None]) -> int:
 def bin_edges(data: Sequence[float | None], method: str) -> np.ndarray:
     """Return upper bin edges for the given method (Sturges, Scott, or FD).
 
-    Edges are evenly spaced from min to max, with the count determined by the
-    chosen binning rule.  Matches Excel's SEQUENCE-based Bin_Edges LAMBDA.
+    Evenly spaced from min to max; the bin count comes from the chosen rule.
     """
     x = _clean(data)
     min_x, max_x = float(np.min(x)), float(np.max(x))
@@ -156,10 +172,9 @@ def bin_edges(data: Sequence[float | None], method: str) -> np.ndarray:
 
 
 def bin_counts(data: Sequence[float | None], edges: np.ndarray) -> np.ndarray:
-    """Frequency counts matching Excel's FREQUENCY convention.
+    """Frequency counts matching Excel FREQUENCY's (prev < x ≤ edge) convention.
 
-    For each bin i, counts x where edges[i-1] < x <= edges[i].
-    The first bin counts x <= edges[0].
+    Implemented with numpy comparisons — independent of Excel FREQUENCY itself.
     """
     x = _clean(data)
     bins = np.asarray(edges, dtype=float)
@@ -172,13 +187,11 @@ def bin_counts(data: Sequence[float | None], edges: np.ndarray) -> np.ndarray:
 
 
 # ── Negative log-likelihood functions ────────────────────────────────────────
-# All return positive NLL = -sum(log(pdf(x))).  These match their LAMBDA
-# counterparts; the LAMBDAs use the same Excel built-in distribution functions.
+# NLL = -Σ log f(xᵢ | params).  All use scipy's logpdf, which is the
+# independent reference the LAMBDA formulas are validated against.
 
-def nll_normal(
-    data: Sequence[float | None], mean: float, sd: float
-) -> float:
-    """NLL for Normal(mean, sd)."""
+def nll_normal(data: Sequence[float | None], mean: float, sd: float) -> float:
+    """NLL for Normal(mean, sd) via scipy.stats.norm."""
     x = _clean(data)
     return float(-np.sum(scipy_stats.norm.logpdf(x, loc=mean, scale=sd)))
 
@@ -186,36 +199,45 @@ def nll_normal(
 def nll_lognormal(
     data: Sequence[float | None], meanlog: float, sdlog: float
 ) -> float:
-    """NLL for Lognormal with log-space parameters (meanlog, sdlog)."""
+    """NLL for Lognormal(meanlog, sdlog) via scipy.stats.lognorm.
+
+    meanlog = μ of ln(x), sdlog = σ of ln(x).
+    """
     x = _clean(data)
     return float(-np.sum(scipy_stats.lognorm.logpdf(x, s=sdlog, scale=math.exp(meanlog))))
 
 
 def nll_exponential(data: Sequence[float | None], rate: float) -> float:
-    """NLL for Exponential(rate).  rate = 1/mean."""
+    """NLL for Exponential(rate) via scipy.stats.expon.  rate = 1/mean."""
     x = _clean(data)
     return float(-np.sum(scipy_stats.expon.logpdf(x, scale=1.0 / rate)))
 
 
 def nll_weibull(data: Sequence[float | None], shape: float, scale: float) -> float:
-    """NLL for Weibull(shape, scale)."""
+    """NLL for Weibull(shape, scale) via scipy.stats.weibull_min."""
     x = _clean(data)
-    return float(-np.sum(scipy_stats.weibull_min.logpdf(x, c=shape, scale=scale)))
+    log_pdf = scipy_stats.weibull_min.logpdf(x, c=shape, scale=scale)
+    if not np.all(np.isfinite(log_pdf)):
+        return 1e15
+    return float(-np.sum(log_pdf))
 
 
 def nll_gamma(data: Sequence[float | None], shape: float, rate: float) -> float:
-    """NLL for Gamma(shape, rate).  rate = 1/scale."""
+    """NLL for Gamma(shape, rate) via scipy.stats.gamma.  rate = 1/scale."""
     x = _clean(data)
-    return float(-np.sum(scipy_stats.gamma.logpdf(x, a=shape, scale=1.0 / rate)))
+    log_pdf = scipy_stats.gamma.logpdf(x, a=shape, scale=1.0 / rate)
+    if not np.all(np.isfinite(log_pdf)):
+        return 1e15
+    return float(-np.sum(log_pdf))
 
 
 def nll_triangular(
     data: Sequence[float | None], min_val: float, mode_val: float, max_val: float
 ) -> float:
-    """NLL for Triangular(min, mode, max).
+    """NLL for Triangular(min, mode, max) via scipy.stats.triang.
 
-    Returns 1e15 for degenerate parameter sets (mode at either bound) or
-    any value outside the support [min, max].
+    Returns 1e15 for degenerate parameters or out-of-support data points.
+    This matches the IFERROR(…, 1E+15) sentinel in the LAMBDA.
     """
     if mode_val <= min_val or mode_val >= max_val:
         return 1e15
@@ -233,7 +255,10 @@ def nll_triangular(
 def nll_beta(
     data: Sequence[float | None], alpha_param: float, beta_param: float
 ) -> float:
-    """NLL for Beta(alpha, beta).  Data must be on (0, 1)."""
+    """NLL for Beta(alpha, beta) via scipy.stats.beta.  Data must be on (0,1).
+
+    Returns 1e15 when any value is exactly at 0 or 1, matching the LAMBDA sentinel.
+    """
     x = _clean(data)
     log_pdf = scipy_stats.beta.logpdf(x, a=alpha_param, b=beta_param)
     if not np.all(np.isfinite(log_pdf)):
@@ -244,91 +269,122 @@ def nll_beta(
 def nll_betapert(
     data: Sequence[float | None], min_val: float, mode_val: float, max_val: float
 ) -> float:
-    """NLL for BetaPERT(min, mode, max).
+    """NLL for BetaPERT(min, mode, max) via scipy.stats.beta with Jacobian.
 
-    PERT reparameterization: alpha = 1 + 4*(mode - min)/(max - min),
-    beta = 1 + 4*(max - mode)/(max - min).  The Jacobian log(1/(max-min))
-    shifts the log-likelihood from the scaled [0,1] domain back to the
-    original domain.
+    PERT reparameterisation: α = 1 + 4(mode−min)/(max−min),
+    β = 1 + 4(max−mode)/(max−min).  Data are rescaled to z ∈ [0,1];
+    the log-Jacobian −log(max−min) corrects back to the original scale.
     """
     x = _clean(data)
     data_range = max_val - min_val
     alpha_p = 1.0 + 4.0 * (mode_val - min_val) / data_range
-    beta_p = 1.0 + 4.0 * (max_val - mode_val) / data_range
+    beta_p   = 1.0 + 4.0 * (max_val  - mode_val) / data_range
     z = (x - min_val) / data_range
-    log_pdf_z = scipy_stats.beta.logpdf(z, a=alpha_p, b=beta_p)
-    log_pdf_x = log_pdf_z - math.log(data_range)
-    if not np.all(np.isfinite(log_pdf_x)):
+    log_pdf = scipy_stats.beta.logpdf(z, a=alpha_p, b=beta_p) - math.log(data_range)
+    if not np.all(np.isfinite(log_pdf)):
         return 1e15
-    return float(-np.sum(log_pdf_x))
+    return float(-np.sum(log_pdf))
 
 
-# ── Closed-form MLE parameter estimates ──────────────────────────────────────
+# ── MLE parameter estimates (independent of the LAMBDA closed-form) ───────────
+# These use scipy's optimised fitting, not the same algebra the LAMBDAs use.
+# Comparing these parameters with the LAMBDA's fitted values validates the
+# closed-form expressions.
 
 def mle_normal(data: Sequence[float | None]) -> tuple[float, float]:
-    """MLE for Normal: (mean, sd).  Uses sample SD (ddof=1), matching STDEV.S."""
+    """True MLE for Normal via scipy: (mean, sd).
+
+    scipy uses ddof=0 (true MLE); the LAMBDA uses STDEV.S (ddof=1).
+    The difference = σ * sqrt(1 - 1/(n-1)).  For n ≥ 30 it is negligible.
+    """
     x = _clean(data)
-    return float(np.mean(x)), float(np.std(x, ddof=1))
+    loc, scale = scipy_stats.norm.fit(x)
+    return float(loc), float(scale)
 
 
 def mle_lognormal(data: Sequence[float | None]) -> tuple[float, float]:
-    """MLE for Lognormal: (meanlog, sdlog) = (mean of ln(x), SD of ln(x))."""
+    """True MLE for Lognormal via scipy: (meanlog, sdlog).
+
+    floc=0 fixes the location to 0 (two-parameter fit matching the LAMBDA).
+    """
     x = _clean(data)
-    log_x = np.log(x)
-    return float(np.mean(log_x)), float(np.std(log_x, ddof=1))
+    s, loc, scale = scipy_stats.lognorm.fit(x, floc=0)
+    meanlog = math.log(scale)
+    sdlog = s
+    return float(meanlog), float(sdlog)
 
 
 def mle_exponential(data: Sequence[float | None]) -> float:
-    """MLE for Exponential: rate = 1 / mean."""
+    """True MLE for Exponential via scipy: rate = 1/mean.
+
+    floc=0 fixes the location to 0; MLE rate = 1/sample_mean.
+    """
     x = _clean(data)
-    return float(1.0 / np.mean(x))
+    _loc, scale = scipy_stats.expon.fit(x, floc=0)
+    return float(1.0 / scale)
 
 
-def mle_triangular(
-    data: Sequence[float | None],
-) -> tuple[float, float, float]:
-    """Triangular estimation: (min, mode, max).
+def mle_weibull(data: Sequence[float | None]) -> tuple[float, float]:
+    """True MLE for Weibull via scipy: (shape, scale).
+
+    Used to validate v2.1 grid-search results.  floc=0 fixes location to 0.
+    """
+    x = _clean(data)
+    c, _loc, scale = scipy_stats.weibull_min.fit(x, floc=0)
+    return float(c), float(scale)
+
+
+def mle_gamma(data: Sequence[float | None]) -> tuple[float, float]:
+    """True MLE for Gamma via scipy: (shape, rate).
+
+    Returns rate = 1/scale.  floc=0 fixes location to 0.
+    Used to validate v2.1 grid-search results.
+    """
+    x = _clean(data)
+    a, _loc, scale = scipy_stats.gamma.fit(x, floc=0)
+    return float(a), float(1.0 / scale)
+
+
+def mle_triangular(data: Sequence[float | None]) -> tuple[float, float, float]:
+    """Estimate Triangular parameters: (min, mode, max).
 
     True MLE is non-differentiable at the mode; direct min/mode/max estimation
-    is used instead.  When no unique mode exists (all values appear once),
-    falls back to the median, matching the IFERROR(MODE.SNGL, MEDIAN())
-    formula in the Univariate sheet.
+    is used instead, matching the LAMBDA's approach.  When no unique mode exists
+    (all values distinct), falls back to the median — matching the LAMBDA's
+    IFERROR(MODE.SNGL, MEDIAN()) fallback.
     """
     x = _clean(data)
     min_val = float(np.min(x))
     max_val = float(np.max(x))
-    try:
-        result = scipy_stats.mode(x, keepdims=False)
-        # scipy mode returns the minimum value when counts are all 1;
-        # treat that as "no unique mode" and fall back to median.
-        if result.count == 1 and np.sum(x == result.mode) == 1:
-            mode_val = float(np.median(x))
-        else:
-            mode_val = float(result.mode)
-    except Exception:
+
+    mode_result = scipy_stats.mode(x, keepdims=False)
+    # Treat as no unique mode when every value appears exactly once
+    if mode_result.count <= 1 and np.sum(x == mode_result.mode) <= 1:
         mode_val = float(np.median(x))
-    # Ensure mode is strictly interior to [min, max]
+    else:
+        mode_val = float(mode_result.mode)
+
+    # Ensure mode is strictly interior to (min, max)
     if mode_val <= min_val or mode_val >= max_val:
         mode_val = float(np.median(x))
     if mode_val <= min_val or mode_val >= max_val:
         mode_val = (min_val + max_val) / 2.0
+
     return min_val, mode_val, max_val
 
 
-def mle_betapert(
-    data: Sequence[float | None],
-) -> tuple[float, float, float]:
-    """BetaPERT estimation: (min, mode, max), same as Triangular."""
+def mle_betapert(data: Sequence[float | None]) -> tuple[float, float, float]:
+    """Estimate BetaPERT parameters: (min, mode, max).  Same as Triangular."""
     return mle_triangular(data)
 
 
 # ── Goodness-of-fit statistics ────────────────────────────────────────────────
 
 def gof_aic(nll: float, k: int) -> float:
-    """AIC = 2k + 2*NLL."""
+    """AIC = 2k + 2·NLL."""
     return 2.0 * k + 2.0 * nll
 
 
 def gof_bic(nll: float, k: int, n: int) -> float:
-    """BIC = k*ln(n) + 2*NLL."""
+    """BIC = k·ln(n) + 2·NLL."""
     return k * math.log(n) + 2.0 * nll

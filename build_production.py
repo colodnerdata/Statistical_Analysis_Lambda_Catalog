@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import subprocess
 import sys
 import time
@@ -79,9 +80,11 @@ def build_production_workbook(
         Counts of created versus updated workbook names.
     """
     _t = time.monotonic()
-    definitions = load_lambda_definitions(definitions_path)
-    catalog_entries = load_catalog_entries(definitions_path)
-    sheet_notes = load_regression_sheet_notes(definitions_path)
+    with definitions_path.open("r", encoding="utf-8") as handle:
+        catalog_payload = json.load(handle)
+    definitions = load_lambda_definitions(definitions_path, payload=catalog_payload)
+    catalog_entries = load_catalog_entries(definitions_path, payload=catalog_payload)
+    sheet_notes = load_regression_sheet_notes(definitions_path, payload=catalog_payload)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)

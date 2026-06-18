@@ -157,13 +157,18 @@ def _validate_test_table_tag(tag: str, entry_index: int) -> None:
         )
 
 
-def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
+def load_lambda_definitions(
+    path: Path, *, payload: dict | None = None
+) -> list[LambdaDefinition]:
     """Load, validate, and normalize the JSON catalog into LambdaDefinition objects.
 
     Parameters
     ----------
     path : Path
         Path to the JSON file containing the lambda definitions.
+    payload : dict or None, optional
+        Pre-parsed JSON payload. When supplied the file at ``path`` is not
+        re-read, avoiding redundant I/O when the caller already has the data.
 
     Returns
     -------
@@ -176,8 +181,9 @@ def load_lambda_definitions(path: Path) -> list[LambdaDefinition]:
         If the JSON structure is invalid, required fields are missing,
         names are duplicated, or any test_table tag fails validation.
     """
-    with path.open("r", encoding="utf-8") as handle:
-        payload = json.load(handle)
+    if payload is None:
+        with path.open("r", encoding="utf-8") as handle:
+            payload = json.load(handle)
 
     functions = payload.get("functions")
     if not isinstance(functions, list):

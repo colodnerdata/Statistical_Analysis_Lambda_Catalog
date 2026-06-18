@@ -20,7 +20,11 @@ from lambda_catalog.workbook_builder import (
     sync_workbook_names,
 )
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
-from lambda_catalog.write_sheet_lambda_functions import load_catalog_entries, write_catalog_sheet
+from lambda_catalog.write_sheet_lambda_functions import (
+    load_catalog_entries,
+    load_regression_sheet_notes,
+    write_catalog_sheet,
+)
 from lambda_catalog.write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
     load_life_expectancy_rows,
@@ -213,6 +217,8 @@ def build_qc_workbook(
     _verbose_checkpoint(verbose, _t, "Prep: definitions loaded")
     catalog_entries = load_catalog_entries(definitions_path)
     _verbose_checkpoint(verbose, _t, "Prep: catalog loaded")
+    sheet_notes = load_regression_sheet_notes(definitions_path)
+    _verbose_checkpoint(verbose, _t, "Prep: sheet notes loaded")
     row_configs, vector_row_configs, observation_row_configs, regression_sheet_configs = get_analysis_results(
         csv_path, cache_path
     )
@@ -262,7 +268,7 @@ def build_qc_workbook(
                 write_diagnostic_guide_sheet(workbook)
                 _verbose_checkpoint(verbose, _t, "Write: diagnostic done")
                 _verbose_checkpoint(verbose, _t, "Write: regression start")
-                write_regression_output_sheet(workbook)
+                write_regression_output_sheet(workbook, sheet_notes)
                 _verbose_checkpoint(verbose, _t, "Write: regression done")
                 _verbose_checkpoint(verbose, _t, "Write: scalar start")
                 write_mlr_scalar_test_sheet(workbook, definitions, row_configs)

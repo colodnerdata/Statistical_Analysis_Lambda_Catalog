@@ -22,14 +22,9 @@ Layout (five horizontal zones):
 """
 from __future__ import annotations
 
-from pathlib import Path
 from typing import Any
 
 import xlwings as xw
-
-from .write_sheet_lambda_functions import load_regression_sheet_notes
-
-_DEFAULT_DEFS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.json"
 
 # ── Conditional-formatting helpers ────────────────────────────────────────────
 
@@ -1053,19 +1048,17 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
 def write_regression_output_sheet(
     workbook: xw.Book,
-    definitions_path: Path | None = None,
+    sheet_notes: dict[str, str] | None = None,
 ) -> None:
     """Create or refresh the ToolPak-style Regression sheet in workbook.
 
     Parameters
     ----------
-    definitions_path : Path | None
-        Path to lambda_functions.json. Defaults to the project-root copy
-        when omitted. The ``regression_sheet_notes`` section is loaded from
-        this file to populate plain-language tooltip annotations.
+    sheet_notes : dict[str, str] | None
+        Mapping of sheet label → plain-language note text from the
+        ``regression_sheet_notes`` key in lambda_functions.json.
+        Pass ``None`` to skip annotation (useful for isolated tests).
     """
-    _path = definitions_path if definitions_path is not None else _DEFAULT_DEFS_PATH
-    sheet_notes = load_regression_sheet_notes(_path) if _path.exists() else {}
 
     sheet = next(
         (s for s in workbook.sheets if s.name == REGRESSION_SHEET_NAME), None

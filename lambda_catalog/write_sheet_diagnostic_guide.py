@@ -116,15 +116,16 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
         ],
         [
             "Cook's Distance",
-            "Observation index",
+            "Observation (bar position)",
             "Cook's Distance",
             "Spikes above 4/n (yellow) or above 0.9 (red) mark observations with "
-            "outsized influence on the fitted coefficients. Inspect those rows for data "
-            "entry errors or genuine outliers before removing them. Remove outliers only "
-            "when you have a definitive, non-statistical reason to believe the data point "
-            "is invalid, comes from a different population, or disproportionately distorts "
-            "the analysis. Never filter out data solely because it is an extreme "
-            "statistical value, as doing so can introduce bias and erase genuine insights.",
+            "outsized influence on the fitted coefficients. Bars are ordered by "
+            "observation number. Inspect those rows for data entry errors or genuine "
+            "outliers before removing them. Remove outliers only when you have a "
+            "definitive, non-statistical reason to believe the data point is invalid, "
+            "comes from a different population, or disproportionately distorts the "
+            "analysis. Never filter out data solely because it is an extreme statistical "
+            "value, as doing so can introduce bias and erase genuine insights.",
         ],
         [
             "Studentized Residuals vs. Leverage",
@@ -136,11 +137,11 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
         ],
         [
             "PRESS Residuals",
-            "Observation index",
+            "Observation (bar position)",
             "PRESS Residual\n(e / (1 − h))",
-            "PRESS residuals inflate the ordinary residual by leverage. Large values "
-            "(|PRESS| > 2 × SE yellow, > 3 × SE red) flag observations whose removal "
-            "would substantially shift the fitted model.",
+            "PRESS residuals inflate the ordinary residual by leverage. Bars are ordered "
+            "by observation number. Large values (|PRESS| > 2 × SE yellow, > 3 × SE red) "
+            "flag observations whose removal would substantially shift the fitted model.",
         ],
     ]
     for vals in tier2:

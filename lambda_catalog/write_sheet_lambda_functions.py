@@ -223,6 +223,12 @@ def load_regression_sheet_notes(path: Path) -> dict[str, str]:
     notes = payload.get("regression_sheet_notes", {})
     if not isinstance(notes, dict):
         raise ValueError("regression_sheet_notes in lambda_functions.json must be an object.")
+    for key, value in notes.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError(
+                f"regression_sheet_notes entry {key!r} must have string key and string value;"
+                f" got {type(value).__name__}."
+            )
     return notes
 
 

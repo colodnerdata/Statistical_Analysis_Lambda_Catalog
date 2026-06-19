@@ -26,6 +26,8 @@ from typing import Any
 
 import xlwings as xw
 
+from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT
+
 # ── Conditional-formatting helpers ────────────────────────────────────────────
 
 _XL_EXPRESSION = 2
@@ -139,10 +141,6 @@ def _bold_row(sheet: xw.Sheet, row: int, col1: int, col2: int) -> None:
 
 
 # ── Visual formatting helpers ─────────────────────────────────────────────────
-
-_HEADER = (202, 237, 251)   # section headings
-_INPUT = (251, 226, 213)   # user-editable input cells
-
 
 
 def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
@@ -890,52 +888,56 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
     sname = REGRESSION_SHEET_NAME
 
-    # Chart SERIES formulas require explicit references. The # spill operator is not
-    # reliably supported in chart formulas, so use worksheet-scoped names sized to n.
-    def _name_ref(local_name: str) -> str:
-        return f"='{sname}'!{local_name}"
+    def _name_range(local_name: str) -> Any:
+        """Resolve a sheet-scoped chart data name to its concrete Excel range."""
+        try:
+            return sheet.names[local_name].refers_to_range.api
+        except Exception as exc:
+            raise RuntimeError(
+                f"Could not resolve chart data name {local_name!r} on sheet {sname!r}."
+            ) from exc
 
     chart_specs = [
         (
             "Residuals vs. Fitted", "scatter",
-            _name_ref("FittedY"),
-            _name_ref("ResidData"),
+            "FittedY",
+            "ResidData",
             "Fitted Values", "Residuals", 1, 1,
         ),
         (
             "Normal Q-Q", "scatter",
-            _name_ref("QQPlotX"),
-            _name_ref("QQPlotY"),
+            "QQPlotX",
+            "QQPlotY",
             "Theoretical Quantiles", "Studentized Residuals", 1, 2,
         ),
         (
             "Actual vs. Predicted", "scatter",
-            _name_ref("FittedY"),
-            _name_ref("ActualY"),
+            "FittedY",
+            "ActualY",
             "Predicted Y", "Actual Y", 2, 1,
         ),
         (
             "Scale-Location", "scatter",
-            _name_ref("FittedY"),
-            _name_ref("ScaleLocData"),
+            "FittedY",
+            "ScaleLocData",
             "Fitted Values", "√|Studentized Residual|", 2, 2,
         ),
         (
             "Cook's Distance", "bar",
             None,
-            _name_ref("CooksDistData"),
+            "CooksDistData",
             "Observation", "Cook's Distance", 3, 1,
         ),
         (
             "Studentized Residuals vs. Leverage", "scatter",
-            _name_ref("LeverageData"),
-            _name_ref("StudResidData"),
+            "LeverageData",
+            "StudResidData",
             "Leverage (Hat Diagonal)", "Studentized Residuals", 3, 2,
         ),
         (
             "PRESS Residuals", "bar",
             None,
-            _name_ref("PRESSResidData"),
+            "PRESSResidData",
             "Observation", "PRESS Residual", 4, 1,
         ),
     ]
@@ -997,8 +999,8 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
         series = chart.SeriesCollection().NewSeries()
         if x_addr is not None:
-            series.XValues = x_addr
-        series.Values = y_addr
+            series.XValues = _name_range(x_addr)
+        series.Values = _name_range(y_addr)
         series.Name = title
         # Bar charts (Cook's Distance, PRESS Residuals) have no markers to resize.
         if chart_type == "scatter":

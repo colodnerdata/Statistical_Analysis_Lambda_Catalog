@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import xlwings as xw
 
+from .sheet_styles import HEADER_COLOR as _HEADER_COLOR
 from .workbook_helpers import get_or_create_sheet, reset_generated_sheet
 
 
 SHEET_NAME = "Version History"
-
-_HEADER_COLOR = (202, 237, 251)
 _TABLE_HEADER_COLOR = (217, 225, 242)
 
 _VERSIONS = [

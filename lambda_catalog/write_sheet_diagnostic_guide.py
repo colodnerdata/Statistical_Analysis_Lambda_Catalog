@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import xlwings as xw
 
+from .sheet_styles import HEADER_COLOR as _HEADER_COLOR
 from .workbook_helpers import get_or_create_sheet, reset_generated_sheet
 
 
 SHEET_NAME = "Diagnostic Guide"
-
-_HEADER_COLOR = (202, 237, 251)   # blue header
 _SUBHEADER_COLOR = (226, 239, 218)  # light green for section subheadings
 _TABLE_HEADER_COLOR = (217, 225, 242)  # light blue for table column headers
 

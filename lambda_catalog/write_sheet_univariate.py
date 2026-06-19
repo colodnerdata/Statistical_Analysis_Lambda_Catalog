@@ -11,11 +11,16 @@ direct min/mode/max estimation is used — the result is a valid parameter set
 that the NLL formula evaluates against.  Grid-search MLE for the two-parameter
 shape distributions (Weibull, Gamma, Beta) is deferred to v2.1.
 
-Sheet layout (four horizontal zones)
-──────────────────────────────────────
-  Col A          — Data input: row-3 header, data in A4:A2003 (2000 rows)
-  Col B          — thin gap (width 2)
-  Col C–D        — Descriptive Statistics: 12 stat label/value rows
+Sheet layout
+────────────
+  Row 1          — Title "Univariate Analysis"
+  Row 2          — Section headings: Data | Descriptive Statistics | Sturges | Scott | FD | Distribution Fitting
+  Row 3          — Column sub-headers (table header for col A); pane freeze anchored here
+  Row 4+         — Data: FILTER formula spill (col A), stats (C–D), histogram bins (F–M), fitting (P–Z)
+
+  Col A          — Data: Excel table UV_Data_Table[Life Expectancy], FILTER formula in A4
+  Col B          — thin gap (width 2); freeze pane left boundary
+  Col C–D        — Descriptive Statistics (12 stat rows)
   Col E          — thin gap (width 2)
   Col F–G        — Sturges histogram table (edge | count)
   Col H          — thin gap (width 2)
@@ -23,15 +28,13 @@ Sheet layout (four horizontal zones)
   Col K          — thin gap (width 2)
   Col L–M        — Freedman-Diaconis histogram table
   Col N          — thin gap (width 2)
-  Col O–Z        — Distribution Fitting summary table
-                   P: distribution name | Q: θ₁ label | R: θ₁ value |
-                   S: θ₂ label | T: θ₂ value | U: θ₃ label | V: θ₃ value |
-                   W: NLL | X: k | Y: AIC | Z: BIC
+  Col O          — thin gap (width 2)
+  Col P–Z        — Distribution Fitting summary table
 
 Sheet-scoped named ranges
 ─────────────────────────
-  UV_Data        — data input column  $A$4:$A$2003
-  UV_n           — COUNT(UV_Data)  — scalar numeric count
+  UV_Data        — alias for UV_Data_Table[Life Expectancy]
+  UV_n           — COUNT(UV_Data_Table[Life Expectancy])
   UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
   UV_Scott_Edges,   UV_Scott_Counts
   UV_FD_Edges,      UV_FD_Counts
@@ -79,16 +82,12 @@ _C_Z = 26   # BIC
 
 # ── Row anchors ───────────────────────────────────────────────────────────────
 _ROW_TITLE        = 1   # "Univariate Analysis"
-_ROW_SECTION_HDR  = 3   # section headings across all zones
-_ROW_COL_HDRS     = 4   # column sub-headers (histograms, fitting table)
-_ROW_DATA_START   = 4   # data values begin (col A)
-_ROW_STATS_START  = 4   # descriptive stat rows begin (col C–D)
-_ROW_HIST_START   = 5   # histogram spill formulas begin
-_ROW_DIST_START   = 5   # distribution fitting rows begin
-
-# ── Data capacity ─────────────────────────────────────────────────────────────
-_DATA_ROWS = 2000
-_DATA_END  = _ROW_DATA_START + _DATA_ROWS - 1   # last data row = 2003
+_ROW_SECTION_HDR  = 2   # section headings across all zones
+_ROW_COL_HDRS     = 3   # column sub-headers / table header row; freeze below here
+_ROW_DATA_START   = 4   # FILTER formula (col A) and stat rows begin
+_ROW_STATS_START  = 4   # descriptive stat rows begin
+_ROW_HIST_START   = 4   # histogram spill formulas begin
+_ROW_DIST_START   = 4   # distribution fitting rows begin
 
 # ── Chart constants ───────────────────────────────────────────────────────────
 _XL_COLUMN_CLUSTERED = 51   # xlColumnClustered
@@ -206,25 +205,23 @@ def _drop_local_name(sheet: xw.Sheet, name: str) -> None:
 def _setup_local_names(sheet: xw.Sheet) -> None:
     """Register sheet-scoped named ranges used by formulas and charts."""
     sname = sheet.name
-    data_col = _col_letter(_C_A)
 
-    # UV_Data: full input column (includes blanks; LAMBDAs filter via ISNUMBER)
+    # UV_Data: alias for the Excel table column; all formula refs use this name
     _drop_local_name(sheet, "UV_Data")
     sheet.api.Names.Add(
         Name="UV_Data",
-        RefersTo=f"='{sname}'!${data_col}${_ROW_DATA_START}:${data_col}${_DATA_END}",
+        RefersTo=f"='{sname}'!UV_Data_Table[Life Expectancy]",
     )
 
-    # UV_n: count of numeric entries in the data column
+    # UV_n: count of entries in the data column
     _drop_local_name(sheet, "UV_n")
     sheet.api.Names.Add(
         Name="UV_n",
-        RefersTo=f"=COUNT('{sname}'!${data_col}${_ROW_DATA_START}:${data_col}${_DATA_END})",
+        RefersTo=f"=COUNT('{sname}'!UV_Data_Table[Life Expectancy])",
     )
 
     # Chart series ranges: OFFSET-based, sized by calling the bin-count
-    # LAMBDAs directly inside the named-range formula.  This avoids hidden
-    # helper cells that would conflict with the descriptive stats column.
+    # LAMBDAs directly inside the named-range formula.
     for name, col_ltr, start_row, size_formula in [
         ("UV_Sturges_Edges",  _col_letter(_C_F), _ROW_HIST_START, "Sturges_Bins(UV_Data)"),
         ("UV_Sturges_Counts", _col_letter(_C_G), _ROW_HIST_START, "Sturges_Bins(UV_Data)"),
@@ -247,16 +244,24 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 def _write_data_zone(sheet: xw.Sheet) -> None:
     _section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
-    # Shade entire input range so the user sees where to paste
-    sheet.range(
-        _rc(_ROW_DATA_START, _C_A), _rc(_DATA_END, _C_A)
-    ).color = _INPUT
-    _border_box(sheet, _ROW_SECTION_HDR, _C_A, _DATA_END, _C_A)
+    # Table header cell — becomes the ListObject column name
+    _val(sheet, _ROW_COL_HDRS, _C_A, "Life Expectancy")
+    # FILTER formula auto-populates from the Life Expectancy Data sheet
+    _f(sheet, _ROW_DATA_START, _C_A,
+       "=FILTER(LifeExpectancyData[Life Expectancy],LifeExpectancyData[Filter])")
+    # Wrap in an Excel table so formulas can use structured references
+    lo = sheet.api.ListObjects.Add(
+        1,  # xlSrcRange
+        sheet.range(_rc(_ROW_COL_HDRS, _C_A), _rc(_ROW_DATA_START, _C_A)).api,
+        None,
+        1,  # xlYes — first row is header
+    )
+    lo.Name = "UV_Data_Table"
 
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────
 
-# Stat label, formula (using Excel functions; UV_Data is the named range)
+# Stat label, formula (UV_Data resolves to the table column via named range)
 _STAT_ROWS: list[tuple[str, str]] = [
     ("Mean",      "=AVERAGE(UV_Data)"),
     ("Median",    "=MEDIAN(UV_Data)"),
@@ -275,6 +280,11 @@ _STAT_ROWS: list[tuple[str, str]] = [
 def _write_descriptive_stats(sheet: xw.Sheet) -> None:
     _section_heading(sheet, _ROW_SECTION_HDR, _C_C, "Descriptive Statistics")
 
+    # Column sub-headers
+    _val(sheet, _ROW_COL_HDRS, _C_C, "Statistic")
+    _val(sheet, _ROW_COL_HDRS, _C_D, "Value")
+    _subheader_row(sheet, _ROW_COL_HDRS, _C_C, _C_D)
+
     for i, (label, formula) in enumerate(_STAT_ROWS):
         row = _ROW_STATS_START + i
         _val(sheet, row, _C_C, label)
@@ -283,10 +293,8 @@ def _write_descriptive_stats(sheet: xw.Sheet) -> None:
             "0" if label in ("Count", "Missing") else "0.0000"
         )
 
-    # Border around the whole stats table
     last_row = _ROW_STATS_START + len(_STAT_ROWS) - 1
     _border_box(sheet, _ROW_SECTION_HDR, _C_C, last_row, _C_D)
-    _subheader_row(sheet, _ROW_SECTION_HDR, _C_C, _C_D)
 
 
 # ── Zone 3: histogram tables ──────────────────────────────────────────────────
@@ -299,40 +307,31 @@ def _write_histogram_table(
     short_label: str,
 ) -> None:
     """Write one histogram bin table (edges + counts) for the given method."""
-    # Section heading spans edge and count columns
     _section_heading(sheet, _ROW_SECTION_HDR, col_edge, short_label)
     sheet.range(_rc(_ROW_SECTION_HDR, col_edge), _rc(_ROW_SECTION_HDR, col_count)).merge()
 
-    # Column sub-headers
     _val(sheet, _ROW_COL_HDRS, col_edge,  "Upper Edge")
     _val(sheet, _ROW_COL_HDRS, col_count, "Count")
     _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_count)
 
-    # Spill formulas
     _f(sheet, _ROW_HIST_START, col_edge,
        f"=Bin_Edges(UV_Data,\"{method}\")")
     edge_spill_ref = f"{_col_letter(col_edge)}{_ROW_HIST_START}#"
     _f(sheet, _ROW_HIST_START, col_count,
        f"=Bin_Counts(UV_Data,{edge_spill_ref})")
 
-    # Number format for edges
     sheet.range(_rc(_ROW_HIST_START, col_edge)).number_format = "0.00"
     sheet.range(_rc(_ROW_HIST_START, col_count)).number_format = "0"
 
 
 def _write_histograms(sheet: xw.Sheet) -> None:
-    # Three side-by-side bin tables; each method heading sits in the shared
-    # section-header row alongside "Data" and "Descriptive Statistics".
     _write_histogram_table(sheet, _C_F, _C_G, "Sturges", "Sturges")
     _write_histogram_table(sheet, _C_I, _C_J, "Scott",   "Scott")
     _write_histogram_table(sheet, _C_L, _C_M, "FD",      "Freedman-Diaconis")
 
 
 # ── Zone 4: distribution fitting summary table ────────────────────────────────
-# Closed-form distributions only.  Each row: name, param labels/values, NLL, k, AIC, BIC.
-# The formulas reference UV_Data directly; the LAMBDA functions handle numeric filtering.
 
-# Columns headers and number formats
 _FIT_COL_HDRS = [
     (_C_P, "Distribution"),
     (_C_Q, "θ₁"),
@@ -357,11 +356,6 @@ _FIT_NUMBER_FORMATS: dict[int, str] = {
     _C_Z: "0.00",
 }
 
-# Distribution definitions.
-# Each entry: (name, θ₁_label, θ₁_formula, θ₂_label, θ₂_formula,
-#              θ₃_label, θ₃_formula, nll_formula, k)
-# θ₂/θ₃ may be "" (blank).  nll_formula uses R, T, V column letter
-# references at the distribution's own row.
 
 def _dist_rows(base_row: int) -> list[tuple]:
     """Return distribution row specs.  base_row = row of first distribution."""
@@ -380,7 +374,6 @@ def _dist_rows(base_row: int) -> list[tuple]:
 
     rows: list[tuple] = []
     dist_specs = [
-        # (name, θ₁_lbl, θ₁_formula, θ₂_lbl, θ₂_formula, θ₃_lbl, θ₃_formula, nll_builder, k)
         (
             "Normal",
             "Mean",    "=AVERAGE(UV_Data)",
@@ -406,18 +399,23 @@ def _dist_rows(base_row: int) -> list[tuple]:
             1,
         ),
         (
+            # NLL_Triangular and NLL_BetaPERT both have PDF = 0 at the boundary
+            # points (x = min or x = max), which means any dataset where data
+            # includes its own minimum or maximum (i.e. always) would produce
+            # LN(0) → error → 1E+15.  Expanding the support by 0.1 % of the
+            # data range gives boundary data points positive (tiny) density.
             "Triangular",
-            "Min",  "=MIN(UV_Data)",
+            "Min",  "=MIN(UV_Data)-(MAX(UV_Data)-MIN(UV_Data))*0.001",
             "Mode", "=IFERROR(MODE.SNGL(UV_Data),MEDIAN(UV_Data))",
-            "Max",  "=MAX(UV_Data)",
+            "Max",  "=MAX(UV_Data)+(MAX(UV_Data)-MIN(UV_Data))*0.001",
             lambda r: f"=NLL_Triangular(UV_Data,{_r(r)},{_t(r)},{_v(r)})",
             3,
         ),
         (
             "BetaPERT",
-            "Min",  "=MIN(UV_Data)",
+            "Min",  "=MIN(UV_Data)-(MAX(UV_Data)-MIN(UV_Data))*0.001",
             "Mode", "=IFERROR(MODE.SNGL(UV_Data),MEDIAN(UV_Data))",
-            "Max",  "=MAX(UV_Data)",
+            "Max",  "=MAX(UV_Data)+(MAX(UV_Data)-MIN(UV_Data))*0.001",
             lambda r: f"=NLL_BetaPERT(UV_Data,{_r(r)},{_t(r)},{_v(r)})",
             3,
         ),
@@ -433,12 +431,10 @@ def _dist_rows(base_row: int) -> list[tuple]:
 def _write_fitting_table(sheet: xw.Sheet) -> None:
     _section_heading(sheet, _ROW_SECTION_HDR, _C_P, "Distribution Fitting — Closed-Form MLE")
 
-    # Column headers
     for col, label in _FIT_COL_HDRS:
         _val(sheet, _ROW_COL_HDRS, col, label)
     _subheader_row(sheet, _ROW_COL_HDRS, _C_P, _C_Z)
 
-    # Distribution rows
     dist_data = _dist_rows(_ROW_DIST_START)
     for row, name, l1, f1, l2, f2, l3, f3, nll_f, k in dist_data:
         _val(sheet, row, _C_P, name)
@@ -457,27 +453,17 @@ def _write_fitting_table(sheet: xw.Sheet) -> None:
         _f(sheet, row, _C_Z,
            f"=GoF_BIC(${_col_letter(_C_W)}${row},${_col_letter(_C_X)}${row},UV_n)")
 
-        # Number formats
         for col, fmt in _FIT_NUMBER_FORMATS.items():
             sheet.range(_rc(row, col)).number_format = fmt
 
-    # Border around the table
     last_row = _ROW_DIST_START + len(dist_data) - 1
     _border_box(sheet, _ROW_SECTION_HDR, _C_P, last_row, _C_Z)
 
-    # Highlight the best-fit row (lowest AIC) with conditional formatting
-    aic_range = sheet.range(
-        _rc(_ROW_DIST_START, _C_Y),
-        _rc(last_row, _C_Y),
-    )
-    row_range = sheet.range(
-        _rc(_ROW_DIST_START, _C_P),
-        _rc(last_row, _C_Z),
-    )
-    # Use a formula-based rule: highlight the entire row where AIC = MIN(AIC column)
+    # Highlight best-fit row (lowest AIC) with conditional formatting
     aic_col_letter = _col_letter(_C_Y)
     aic_min_range  = f"${aic_col_letter}${_ROW_DIST_START}:${aic_col_letter}${last_row}"
     formula = f"=${aic_col_letter}{_ROW_DIST_START}=MIN({aic_min_range})"
+    row_range = sheet.range(_rc(_ROW_DIST_START, _C_P), _rc(last_row, _C_Z))
     cf = row_range.api.FormatConditions.Add(Type=2, Formula1=formula)  # xlExpression=2
     cf.Interior.Color = 0xC6EFCE  # light green fill
     cf.Font.Color     = 0x276228  # dark green text
@@ -506,13 +492,11 @@ def _add_histogram_chart(
     chart.has_title = True
     chart.chart_title.text = title
 
-    # Clear default series
     while chart.series_collection.count > 0:
         chart.series_collection(1).delete()
 
     series = chart.series_collection.new_series()
     series.name      = title
-    # Reference sheet-scoped names for X (categories) and Y (values)
     series.formula   = (
         f"=SERIES(\"{title}\","
         f"'{sname}'!{edges_name},"
@@ -520,7 +504,6 @@ def _add_histogram_chart(
         f"1)"
     )
 
-    # Gap width 0 → bars touch (histogram style)
     series.api.GapWidth = 0
 
     chart.axes(_XL_CATEGORY).has_title = True
@@ -528,15 +511,12 @@ def _add_histogram_chart(
     chart.axes(_XL_VALUE).has_title = True
     chart.axes(_XL_VALUE).axis_title.text = "Count"
 
-    # Remove legend (single series)
     chart.has_legend = False
 
 
 def _write_histogram_charts(sheet: xw.Sheet) -> None:
     """Add three histogram charts below the bin tables."""
-    # Anchor charts below the histogram tables; top is at row ~35 equivalent
-    # Use pixel-based positioning: each row ≈ 15 pt, chart starts after some rows
-    top_offset = (_ROW_HIST_START + 35) * 15.0  # approximate top in points
+    top_offset = (_ROW_HIST_START + 35) * 15.0
 
     for i, (title, edges_name, counts_name, col) in enumerate([
         ("Sturges",           "UV_Sturges_Edges", "UV_Sturges_Counts", _C_F),
@@ -544,7 +524,7 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
         ("Freedman-Diaconis", "UV_FD_Edges",      "UV_FD_Counts",      _C_L),
     ]):
         left = sum(
-            sheet.range(_rc(1, c)).column_width * 7.5  # approx pts per char
+            sheet.range(_rc(1, c)).column_width * 7.5
             for c in range(1, col)
         )
         _add_histogram_chart(
@@ -557,14 +537,14 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
         )
 
 
-# ── Row height and freeze ─────────────────────────────────────────────────────
+# ── Row heights and freeze ────────────────────────────────────────────────────
 
 def _finalize_sheet(sheet: xw.Sheet) -> None:
-    sheet.range(_rc(1, 1)).api.EntireRow.RowHeight = 20
+    sheet.range(_rc(_ROW_TITLE, 1)).api.EntireRow.RowHeight = 20
     sheet.range(_rc(_ROW_SECTION_HDR, 1)).api.EntireRow.RowHeight = 18
     sheet.range(_rc(_ROW_COL_HDRS, 1)).api.EntireRow.RowHeight = 18
-    # Freeze panes below the column header row and to the right of col A
-    sheet.range(_rc(_ROW_HIST_START, _C_C)).api.Select()
+    # Freeze at B4: rows 1-3 (title + section headers + col headers) and col A always visible
+    sheet.range(_rc(_ROW_DATA_START, 2)).api.Select()
     sheet.book.app.api.ActiveWindow.FreezePanes = True
 
 
@@ -583,34 +563,29 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     xw.Sheet
         The written sheet.
     """
-    # Delete existing sheet if present
     if UNIVARIATE_SHEET_NAME in {s.name for s in workbook.sheets}:
         workbook.sheets[UNIVARIATE_SHEET_NAME].delete()
 
-    # Add sheet after the last existing sheet
     sheet = workbook.sheets.add(
         name=UNIVARIATE_SHEET_NAME,
         after=workbook.sheets[-1],
     )
 
-    # Title row
     _val(sheet, _ROW_TITLE, _C_A, "Univariate Analysis")
     sheet.range(_rc(_ROW_TITLE, _C_A)).api.Font.Bold = True
     sheet.range(_rc(_ROW_TITLE, _C_A)).api.Font.Size = 14
 
-    # Column widths
     _set_column_widths(sheet)
 
-    # Sheet-scoped named ranges (must exist before formulas reference them)
+    # Data zone must be written first so UV_Data_Table exists before
+    # _setup_local_names registers the UV_Data alias for it.
+    _write_data_zone(sheet)
     _setup_local_names(sheet)
 
-    # Write zones
-    _write_data_zone(sheet)
     _write_descriptive_stats(sheet)
     _write_histograms(sheet)
     _write_fitting_table(sheet)
 
-    # Charts (skipped silently if chart API raises; e.g. headless builds)
     try:
         _write_histogram_charts(sheet)
     except Exception:

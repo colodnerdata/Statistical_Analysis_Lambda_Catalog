@@ -1685,7 +1685,7 @@
     {
       "name": "NLL_Normal",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, mean, sd, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(NORM.DIST(x, mean, sd, FALSE)))\n  ))",
+      "formula_display": "=LAMBDA(data, mean, sd, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(NORM.DIST(x, mean, sd, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1712,7 +1712,7 @@
     {
       "name": "NLL_Lognormal",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, meanlog, sdlog, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(LOGNORM.DIST(x, meanlog, sdlog, FALSE)))\n  ))",
+      "formula_display": "=LAMBDA(data, meanlog, sdlog, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(LOGNORM.DIST(x, meanlog, sdlog, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1739,7 +1739,7 @@
     {
       "name": "NLL_Exponential",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, rate, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(EXPON.DIST(x, rate, FALSE)))\n  ))",
+      "formula_display": "=LAMBDA(data, rate, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(EXPON.DIST(x, rate, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
           "name": "data",

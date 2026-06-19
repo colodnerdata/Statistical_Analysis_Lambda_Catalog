@@ -692,9 +692,10 @@ def _write_grid_stage(
         sheet.range(_rc(row, c0 + 1)).number_format = "0.0000"
         sheet.range(_rc(row, c0 + 2)).number_format = "0.0000"
 
-    # Min NLL row
+    # Min NLL row — COUNT guard needed because MIN(empty range) = 0, not an error
     _val(sheet, r0 + _GS_R_MINNLL, c0, "Min NLL:")
-    _f(sheet, r0 + _GS_R_MINNLL, c0 + 1, f"=IFERROR(MIN({body_name}),\"—\")")
+    _f(sheet, r0 + _GS_R_MINNLL, c0 + 1,
+       f'=IF(COUNT({body_name})=0,"—",MIN({body_name}))')
     sheet.range(_rc(r0 + _GS_R_MINNLL, c0 + 1)).number_format = "0.00"
 
     # Auxiliary row: row_offset, col_offset, dt_row_input, dt_col_input
@@ -782,10 +783,15 @@ def _write_grid_stage(
         ),
     )
 
-    # Two-input Data Table: body filled by Excel at recalc
+    # Two-input Data Table: must call Table() on the FULL range (corner + headers + body)
+    # so that Excel can locate the corner formula and header sequences.
     row_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_ROW))
     col_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_COL))
-    body_range.api.Table(
+    full_table_range = sheet.range(
+        _rc(hdr_row, c0),
+        _rc(body_row_end, body_col_end),
+    )
+    full_table_range.api.Table(
         RowInput=row_input_cell.api,
         ColumnInput=col_input_cell.api,
     )

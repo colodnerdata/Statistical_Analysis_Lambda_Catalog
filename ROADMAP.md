@@ -284,7 +284,7 @@ Naming Convention above (no abbreviations) rather than needing a retrofit.
 
 - `Lag_By(x, group, time, [periods], [include])` — prior-period value within the same
   group, keyed on `group`/`time`, not on physical row order.
-- `Diff_By(x, group, time, [periods], [include])` — within-group time difference,
+- `Difference_By(x, group, time, [periods], [include])` — within-group time difference,
   \(\Delta_k x_{it} = x_{it} - x_{i,t-k}\).
 
 ---

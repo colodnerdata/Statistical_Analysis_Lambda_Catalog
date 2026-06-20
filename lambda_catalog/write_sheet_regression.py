@@ -546,9 +546,10 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
         ),
     )
 
+    _drop_local_name(sheet, "fil")   # remove legacy name if present
     for name, ref in [
         ("y",   "=LifeExpectancyData[Life expectancy]"),
-        ("fil", "=LifeExpectancyData[Full_Data]"),
+        ("Regression_Sample_Include", "=LifeExpectancyData[Full_Data]"),
     ]:
         _drop_local_name(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=ref)
@@ -661,12 +662,12 @@ def _write_predictor_summary(sheet: xw.Sheet, k: int) -> None:
 
     # Spill anchors at row 3 — each spills once per selected predictor
     _f(sheet, 3, _C_D, "=Coefficient_Name_Col(All_Xs,Ind_Var_Include)")
-    _f(sheet, 3, _C_E, "=Pearson_R(x_s,y,fil)")
-    _f(sheet, 3, _C_F, "=Spearman_R(x_s,y,fil)")
-    _f(sheet, 3, _C_G, "=Skewness(x_s,fil)")
-    _f(sheet, 3, _C_H, "=Kurtosis(x_s,fil)")
-    _f(sheet, 3, _C_I, "=VIF(x_s,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_J, "=Tolerance(x_s,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_E, "=Pearson_R(x_s,y,Regression_Sample_Include)")
+    _f(sheet, 3, _C_F, "=Spearman_R(x_s,y,Regression_Sample_Include)")
+    _f(sheet, 3, _C_G, "=Skewness(x_s,Regression_Sample_Include)")
+    _f(sheet, 3, _C_H, "=Kurtosis(x_s,Regression_Sample_Include)")
+    _f(sheet, 3, _C_I, "=VIF(x_s,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 3, _C_J, "=Tolerance(x_s,Allow_Intercept,Regression_Sample_Include)")
 
     last = 2 + k
     sheet.range((_rc(3, _C_E)), (_rc(last, _C_J))).number_format = "0.00"
@@ -680,11 +681,11 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     """Cols L–M, rows 3–8."""
     _section_heading(sheet, 3, _C_L, "REGRESSION STATISTICS")
     for row, label, formula in [
-        (4, "Multiple R",        "=Multiple_R(x_s,y,Allow_Intercept,fil)"),
-        (5, "R Square",          "=R_squared(x_s,y,Allow_Intercept,fil)"),
-        (6, "Adjusted R Square", "=Adjusted_R2(x_s,y,Allow_Intercept,fil)"),
-        (7, "Standard Error",    "=SE_Regression(x_s,y,Allow_Intercept,fil)"),
-        (8, "Observations",      "=Observations(y,fil)"),
+        (4, "Multiple R",        "=Multiple_R(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
+        (5, "R Square",          "=R_squared(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
+        (6, "Adjusted R Square", "=Adjusted_R2(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
+        (7, "Standard Error",    "=SE_Regression(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
+        (8, "Observations",      "=Observations(y,Regression_Sample_Include)"),
     ]:
         _val(sheet, row, _C_L, label)
         _f(sheet, row, _C_M, formula)
@@ -697,13 +698,13 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     """Cols O–P, rows 3–10."""
     _section_heading(sheet, 3, _C_O, "DIAGNOSTICS")
     for row, label, formula in [
-        (4,  "PRESS",          "=PRESS(x_s,y,Allow_Intercept,fil)"),
-        (5,  "PRESS R²",  "=1-PRESS(x_s,y,Allow_Intercept,fil)/SS_Total(y,Allow_Intercept,fil)"),
-        (6,  "Mean Leverage",  "=(DF_Regression(x_s)+IF(Allow_Intercept,1,0))/Observations(y,fil)"),
-        (7,  "AIC",            "=AIC(x_s,y,Allow_Intercept,fil)"),
-        (8,  "BIC",            "=BIC(x_s,y,Allow_Intercept,fil)"),
-        (9,  "AICc",           "=AICc(x_s,y,Allow_Intercept,fil)"),
-        (10, "QQ Correlation", "=QQ_Correlation(x_s,y,Allow_Intercept,fil)"),
+        (4,  "PRESS",          "=PRESS(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
+        (5,  "PRESS R²",  "=1-PRESS(x_s,y,Allow_Intercept,Regression_Sample_Include)/SS_Total(y,Allow_Intercept,Regression_Sample_Include)"),
+        (6,  "Mean Leverage",  "=(DF_Regression(x_s)+IF(Allow_Intercept,1,0))/Observations(y,Regression_Sample_Include)"),
+        (7,  "AIC",            "=AIC(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
+        (8,  "BIC",            "=BIC(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
+        (9,  "AICc",           "=AICc(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
+        (10, "QQ Correlation", "=QQ_Correlation(x_s,y,Allow_Intercept,Regression_Sample_Include)"),
     ]:
         _val(sheet, row, _C_O, label)
         _f(sheet, row, _C_P, formula)
@@ -732,19 +733,19 @@ def _write_anova(sheet: xw.Sheet) -> None:
 
     _val(sheet, 15, _C_L, "Regression")
     _f(sheet, 15, _C_M, "=DF_Regression(x_s)")
-    _f(sheet, 15, _C_N, "=SS_Regression(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 15, _C_O, "=MS_Regression(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 15, _C_P, "=F_Stat(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 15, _C_Q, "=P_Value_F(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 15, _C_N, "=SS_Regression(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 15, _C_O, "=MS_Regression(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 15, _C_P, "=F_Stat(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 15, _C_Q, "=P_Value_F(x_s,y,Allow_Intercept,Regression_Sample_Include)")
 
     _val(sheet, 16, _C_L, "Residual")
-    _f(sheet, 16, _C_M, "=DF_Residual(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 16, _C_N, "=SS_Residual(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 16, _C_O, "=MS_Residual(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 16, _C_M, "=DF_Residual(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 16, _C_N, "=SS_Residual(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 16, _C_O, "=MS_Residual(x_s,y,Allow_Intercept,Regression_Sample_Include)")
 
     _val(sheet, 17, _C_L, "Total")
-    _f(sheet, 17, _C_M, "=DF_Total(y,Allow_Intercept,fil)")
-    _f(sheet, 17, _C_N, "=SS_Total(y,Allow_Intercept,fil)")
+    _f(sheet, 17, _C_M, "=DF_Total(y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 17, _C_N, "=SS_Total(y,Allow_Intercept,Regression_Sample_Include)")
 
     sheet.range(_rc(15, _C_M), _rc(17, _C_M)).number_format = "0"
     sheet.range(_rc(15, _C_N), _rc(17, _C_N)).number_format = "0.0"
@@ -777,19 +778,19 @@ def _write_coefficients(sheet: xw.Sheet, k: int) -> None:
 
     # Spill anchors at row 21 — pad with blank top row when intercept is disabled
     _f(sheet, 21, _C_M,
-       '=IF(Allow_Intercept,Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",Coefficients(x_s,y,Allow_Intercept,fil)))')
+       '=IF(Allow_Intercept,Coefficients(x_s,y,Allow_Intercept,Regression_Sample_Include),VSTACK("",Coefficients(x_s,y,Allow_Intercept,Regression_Sample_Include)))')
     _f(sheet, 21, _C_N,
-       '=IF(Allow_Intercept,SE_Coefficients(x_s,y,Allow_Intercept,fil),VSTACK("",SE_Coefficients(x_s,y,Allow_Intercept,fil)))')
+       '=IF(Allow_Intercept,SE_Coefficients(x_s,y,Allow_Intercept,Regression_Sample_Include),VSTACK("",SE_Coefficients(x_s,y,Allow_Intercept,Regression_Sample_Include)))')
     _f(sheet, 21, _C_O,
-       '=IF(Allow_Intercept,T_Stats(x_s,y,Allow_Intercept,fil),VSTACK("",T_Stats(x_s,y,Allow_Intercept,fil)))')
+       '=IF(Allow_Intercept,T_Stats(x_s,y,Allow_Intercept,Regression_Sample_Include),VSTACK("",T_Stats(x_s,y,Allow_Intercept,Regression_Sample_Include)))')
     _f(sheet, 21, _C_P,
-       '=IF(Allow_Intercept,P_Values(x_s,y,Allow_Intercept,fil),VSTACK("",P_Values(x_s,y,Allow_Intercept,fil)))')
+       '=IF(Allow_Intercept,P_Values(x_s,y,Allow_Intercept,Regression_Sample_Include),VSTACK("",P_Values(x_s,y,Allow_Intercept,Regression_Sample_Include)))')
     _f(sheet, 21, _C_Q,
-       '=IF(Allow_Intercept,CI_Lower(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Lower(x_s,y,Allow_Intercept,fil)))')
+       '=IF(Allow_Intercept,CI_Lower(x_s,y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Lower(x_s,y,Allow_Intercept,Regression_Sample_Include)))')
     _f(sheet, 21, _C_R,
-       '=IF(Allow_Intercept,CI_Upper(x_s,y,Allow_Intercept,fil),VSTACK("",CI_Upper(x_s,y,Allow_Intercept,fil)))')
+       '=IF(Allow_Intercept,CI_Upper(x_s,y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Upper(x_s,y,Allow_Intercept,Regression_Sample_Include)))')
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
-    _f(sheet, 21, _C_S, '=VSTACK("",Beta_Weights(x_s,y,Allow_Intercept,fil))')
+    _f(sheet, 21, _C_S, '=VSTACK("",Beta_Weights(x_s,y,Allow_Intercept,Regression_Sample_Include))')
 
     last_coef_row = 21 + k
     for col in [_C_M, _C_N, _C_O, _C_Q, _C_R, _C_S]:
@@ -811,7 +812,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         (8, "Confidence Level"),
     ]:
         _val(sheet, row, _C_U, label)
-    _f(sheet, 3, _C_V, "=Prediction_Interval(x_s,y,pred_input,Allow_Intercept,fil,alpha)")
+    _f(sheet, 3, _C_V, "=Prediction_Interval(x_s,y,pred_input,Allow_Intercept,Regression_Sample_Include,alpha)")
     sheet.range(_rc(3, _C_V), _rc(8, _C_V)).number_format = "0.0000"
     _border_box(sheet, 1, _C_U, 8, _C_V)
 
@@ -833,7 +834,7 @@ def _write_prediction_inputs(sheet: xw.Sheet, k: int) -> None:
 
     # U13:U12+k — mean of each predictor column (filtered), individually overridable
     for i in range(k):
-        _f(sheet, 13 + i, _C_V, f"=AVERAGEIF(fil,TRUE,INDEX(All_Xs,,{i + 1}))")
+        _f(sheet, 13 + i, _C_V, f"=AVERAGEIF(Regression_Sample_Include,TRUE,INDEX(All_Xs,,{i + 1}))")
 
     # Orange for all user-editable prediction value cells
     _input_range(sheet, 13, _C_V, 12 + k, _C_V)
@@ -857,19 +858,19 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     _bold_row(sheet, 2, _C_X, _C_AH)
 
     # Spill anchors — each spills n rows downward
-    _f(sheet, 3, _C_X,  "=Dependent_Var(y,fil)")
-    _f(sheet, 3, _C_Y,  "=Predictions(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_Z,  "=Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AA,  "=Dependent_Var(y,fil)-LOOCV_prediction(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AB, "=Hat_diagonal(x_s,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AC, "=Studentized_Residuals(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AD, "=Cooks_Distance(x_s,y,Allow_Intercept,fil)")
-    _f(sheet, 3, _C_AE, "=SORT(Normal_Scores(y,fil))")
-    _f(sheet, 3, _C_AF, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,fil)")
+    _f(sheet, 3, _C_X,  "=Dependent_Var(y,Regression_Sample_Include)")
+    _f(sheet, 3, _C_Y,  "=Predictions(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 3, _C_Z,  "=Residuals(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 3, _C_AA,  "=Dependent_Var(y,Regression_Sample_Include)-LOOCV_prediction(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 3, _C_AB, "=Hat_diagonal(x_s,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 3, _C_AC, "=Studentized_Residuals(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 3, _C_AD, "=Cooks_Distance(x_s,y,Allow_Intercept,Regression_Sample_Include)")
+    _f(sheet, 3, _C_AE, "=SORT(Normal_Scores(y,Regression_Sample_Include))")
+    _f(sheet, 3, _C_AF, "=Studentized_Residuals_Ranked(x_s,y,Allow_Intercept,Regression_Sample_Include)")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
-    _f(sheet, 3, _C_AG, "=SQRT(ABS(Studentized_Residuals(x_s,y,Allow_Intercept,fil)))")
+    _f(sheet, 3, _C_AG, "=SQRT(ABS(Studentized_Residuals(x_s,y,Allow_Intercept,Regression_Sample_Include)))")
     # PRESS Residual: e_i / (1 - h_i) — large values flag high-influence observations.
-    _f(sheet, 3, _C_AH, "=Residuals(x_s,y,Allow_Intercept,fil)/(1-Hat_diagonal(x_s,Allow_Intercept,fil))")
+    _f(sheet, 3, _C_AH, "=Residuals(x_s,y,Allow_Intercept,Regression_Sample_Include)/(1-Hat_diagonal(x_s,Allow_Intercept,Regression_Sample_Include))")
     sheet.range(f"{_col_letter(_C_Y)}:{_col_letter(_C_AH)}").number_format = "0.0000"
 
 

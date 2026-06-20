@@ -72,11 +72,11 @@ _ROWS: list[tuple[int, str, str | None]] = [
         ),
         "body",
     ),
-    (9, "Optional — data filter:", "heading"),
+    (9, “Optional — sample include mask:”, “heading”),
     (
         10,
         (
-            'Update fil (the “Refers To” field) to a column in the same table '
+            'Update Regression_Sample_Include (the “Refers To” field) to a column in the same table '
             "containing TRUE or FALSE for each row. A recommended completeness check — "
             "if your table has k predictor columns — is to add a filter column with:\n\n"
             "=COUNT(YourTable[@[First_Predictor]:[Last_Predictor]])=k\n\n"

@@ -12,7 +12,7 @@ import xlwings as xw
 
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
-    XL_CALCULATION_AUTOMATIC,
+    XL_CALCULATION_MANUAL,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
     load_lambda_definitions,
@@ -120,6 +120,7 @@ def build_production_workbook(
                     sheet.delete()
 
             try:
+                app.api.Calculation = XL_CALCULATION_MANUAL
                 _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
                 for qc_sheet in _QC_SHEET_NAMES:
                     _delete_sheet_if_present(workbook, qc_sheet)
@@ -132,7 +133,6 @@ def build_production_workbook(
                 write_diagnostic_guide_sheet(workbook)
                 write_version_history_sheet(workbook)
                 write_regression_output_sheet(workbook, sheet_notes)
-                app.api.Calculation = XL_CALCULATION_AUTOMATIC
                 workbook.save(str(workbook_path))
             finally:
                 workbook.close()

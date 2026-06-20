@@ -1637,9 +1637,9 @@
       "plain_language_summary": "How many histogram bins the Freedman-Diaconis rule recommends."
     },
     {
-      "name": "Bin_Edges",
-      "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, method, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, IF(method = \"Sturges\", Sturges_Bins(data, filt_arg),\n         IF(method = \"Scott\",   Scott_Bins(data,   filt_arg),\n            FD_Bins(data, filt_arg))),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k, 1, min_x + width, width)\n  ))",
+      "name": "n_histogram_bins",
+      "number_format": "0",
+      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    m, IF(ISOMITTED(method), \"FD\", method),\n    SWITCH(m,\n      \"Sturges\", CEILING(LOG(n, 2) + 1, 1),\n      \"Scott\",   LET(\n                   sd, STDEV.S(x),\n                   range_, MAX(x) - MIN(x),\n                   IF(sd = 0, 1, CEILING(range_ / (3.49 * sd * n ^ (-1/3)), 1))\n                 ),\n      LET(\n        iqr, QUARTILE.EXC(x, 3) - QUARTILE.EXC(x, 1),\n        range_, MAX(x) - MIN(x),\n        IF(iqr = 0,\n          CEILING(LOG(n, 2) + 1, 1),\n          CEILING(range_ / (2 * iqr * n ^ (-1/3)), 1))\n      )\n    )\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1647,7 +1647,32 @@
         },
         {
           "name": "method",
-          "description": "bin-count method: \"Sturges\", \"Scott\", or \"FD\""
+          "description": "bin-count rule: \"Sturges\", \"Scott\", or \"FD\" (default when omitted)",
+          "optional": true
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array",
+          "optional": true
+        }
+      ],
+      "yields": "integer bin count k for the chosen method",
+      "description": "n_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = ⌈log₂(n) + 1⌉\n  Scott:   width = 3.49 × SD × n^(−1/3);  k = ⌈range / width⌉  (k=1 when SD=0)\n  FD:      width = 2 × IQR × n^(−1/3);   k = ⌈range / width⌉  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
+      "plain_language_summary": "How many histogram bins a chosen rule (default: Freedman-Diaconis) recommends for this data."
+    },
+    {
+      "name": "Bin_Edges",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, n_histogram_bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k, 1, min_x + width, width)\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column numeric data range"
+        },
+        {
+          "name": "method",
+          "description": "bin-count rule: \"Sturges\", \"Scott\", or \"FD\" (default when omitted)",
+          "optional": true
         },
         {
           "name": "filter",
@@ -1656,8 +1681,8 @@
         }
       ],
       "yields": "k×1 column vector of upper bin edges (evenly spaced from min to max)",
-      "description": "Bin_Edges returns a column vector of upper bin edges using the specified bin-count rule. Edges are evenly spaced from min+width to max (half-open (lower, upper] intervals matching Excel's FREQUENCY and histogram-chart convention). The vector length equals the bin count from the chosen method.\n\nPass the output directly to Bin_Counts. Use the spill range (e.g. F4#) as the chart category axis. The bin width equals (max − min) / k regardless of the rule — the rule determines only k.",
-      "plain_language_summary": "The upper edge of each histogram bin for a chosen binning method."
+      "description": "Bin_Edges returns a column vector of upper bin edges using the specified bin-count rule, defaulting to Freedman-Diaconis when method is omitted. Edges are evenly spaced from min+width to max (half-open (lower, upper] intervals matching Excel's FREQUENCY and histogram-chart convention). The vector length equals the bin count from the chosen method.\n\nPass the output directly to Bin_Counts. Use the spill range (e.g. F4#) as the chart category axis. The bin width equals (max − min) / k regardless of the rule — the rule determines only k.",
+      "plain_language_summary": "The upper edge of each histogram bin for a chosen binning method (default: Freedman-Diaconis)."
     },
     {
       "name": "Bin_Counts",

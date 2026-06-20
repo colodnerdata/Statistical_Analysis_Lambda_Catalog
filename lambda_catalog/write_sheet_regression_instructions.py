@@ -6,6 +6,7 @@ from pathlib import Path
 
 import xlwings as xw
 
+from .sheet_styles import HEADER_COLOR as _HEADER_COLOR
 from .workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
     get_or_create_sheet,
@@ -16,8 +17,6 @@ from .workbook_helpers import (
 
 
 SHEET_NAME = "Regression Instructions"
-
-_HEADER_COLOR = (202, 237, 251)
 _COL_A_WIDTH = 110
 
 # (row, text, style): style is "heading", "body", or None (empty spacer)

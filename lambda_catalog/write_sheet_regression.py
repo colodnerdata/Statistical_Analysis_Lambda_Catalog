@@ -26,6 +26,8 @@ from typing import Any
 
 import xlwings as xw
 
+from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT
+
 # ── Conditional-formatting helpers ────────────────────────────────────────────
 
 _XL_EXPRESSION = 2
@@ -139,10 +141,6 @@ def _bold_row(sheet: xw.Sheet, row: int, col1: int, col2: int) -> None:
 
 
 # ── Visual formatting helpers ─────────────────────────────────────────────────
-
-_HEADER = (202, 237, 251)   # section headings
-_INPUT = (251, 226, 213)   # user-editable input cells
-
 
 
 def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
@@ -594,16 +592,16 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     # ='Regression'!<Name>, avoiding full-column references that degrade
     # performance and avoiding the unsupported # spill operator in chart formulas.
     for _name, _col_ltr in [
-        ("QQPlotX", _col_letter(_C_AE)),        # Normal Scores Ranked
-        ("QQPlotY", _col_letter(_C_AF)),        # Studentized Residuals Ranked
-        ("FittedY", _col_letter(_C_Y)),         # Predicted Y (shared)
-        ("ResidData", _col_letter(_C_Z)),       # Residuals
-        ("ActualY", _col_letter(_C_X)),         # Actual Y
-        ("ScaleLocData", _col_letter(_C_AG)),   # Scale-Location
-        ("CooksDistData", _col_letter(_C_AD)),  # Cook's Distance
-        ("LeverageData", _col_letter(_C_AB)),   # Hat Diagonal
-        ("StudResidData", _col_letter(_C_AC)),  # Studentized Residuals
-        ("PRESSResidData", _col_letter(_C_AH)), # PRESS Residual
+        ("RegChartQQX", _col_letter(_C_AE)),        # Normal Scores Ranked
+        ("RegChartQQY", _col_letter(_C_AF)),        # Studentized Residuals Ranked
+        ("RegChartFitY", _col_letter(_C_Y)),        # Predicted Y (shared)
+        ("RegChartResid", _col_letter(_C_Z)),       # Residuals
+        ("RegChartActY", _col_letter(_C_X)),        # Actual Y
+        ("RegChartScaleLoc", _col_letter(_C_AG)),   # Scale-Location
+        ("RegChartCookDist", _col_letter(_C_AD)),   # Cook's Distance
+        ("RegChartLeverage", _col_letter(_C_AB)),   # Hat Diagonal
+        ("RegChartStudResid", _col_letter(_C_AC)),  # Studentized Residuals
+        ("RegChartPRESSResid", _col_letter(_C_AH)), # PRESS Residual
     ]:
         _drop_local_name(sheet, _name)
         sheet.api.Names.Add(
@@ -890,52 +888,50 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
     sname = REGRESSION_SHEET_NAME
 
-    # Chart SERIES formulas require explicit references. The # spill operator is not
-    # reliably supported in chart formulas, so use worksheet-scoped names sized to n.
     def _name_ref(local_name: str) -> str:
         return f"='{sname}'!{local_name}"
 
     chart_specs = [
         (
             "Residuals vs. Fitted", "scatter",
-            _name_ref("FittedY"),
-            _name_ref("ResidData"),
+            _name_ref("RegChartFitY"),
+            _name_ref("RegChartResid"),
             "Fitted Values", "Residuals", 1, 1,
         ),
         (
             "Normal Q-Q", "scatter",
-            _name_ref("QQPlotX"),
-            _name_ref("QQPlotY"),
+            _name_ref("RegChartQQX"),
+            _name_ref("RegChartQQY"),
             "Theoretical Quantiles", "Studentized Residuals", 1, 2,
         ),
         (
             "Actual vs. Predicted", "scatter",
-            _name_ref("FittedY"),
-            _name_ref("ActualY"),
+            _name_ref("RegChartFitY"),
+            _name_ref("RegChartActY"),
             "Predicted Y", "Actual Y", 2, 1,
         ),
         (
             "Scale-Location", "scatter",
-            _name_ref("FittedY"),
-            _name_ref("ScaleLocData"),
+            _name_ref("RegChartFitY"),
+            _name_ref("RegChartScaleLoc"),
             "Fitted Values", "√|Studentized Residual|", 2, 2,
         ),
         (
             "Cook's Distance", "bar",
             None,
-            _name_ref("CooksDistData"),
+            _name_ref("RegChartCookDist"),
             "Observation", "Cook's Distance", 3, 1,
         ),
         (
             "Studentized Residuals vs. Leverage", "scatter",
-            _name_ref("LeverageData"),
-            _name_ref("StudResidData"),
+            _name_ref("RegChartLeverage"),
+            _name_ref("RegChartStudResid"),
             "Leverage (Hat Diagonal)", "Studentized Residuals", 3, 2,
         ),
         (
             "PRESS Residuals", "bar",
             None,
-            _name_ref("PRESSResidData"),
+            _name_ref("RegChartPRESSResid"),
             "Observation", "PRESS Residual", 4, 1,
         ),
     ]
@@ -1037,10 +1033,10 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
             x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
 
         if title == "Normal Q-Q":
-            _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "QQPlotX", "QQPlotY")
+            _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartQQX", "RegChartQQY")
             _add_identity_line(chart)
         if title == "Actual vs. Predicted":
-            _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "FittedY", "ActualY")
+            _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartFitY", "RegChartActY")
             _add_identity_line(chart)
 
 

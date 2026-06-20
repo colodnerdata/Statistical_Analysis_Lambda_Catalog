@@ -45,10 +45,7 @@ from typing import Any
 
 import xlwings as xw
 
-# ── Colors ────────────────────────────────────────────────────────────────────
-_HEADER = (202, 237, 251)    # section headings (same as Regression sheet)
-_INPUT  = (251, 226, 213)    # user-editable cells (orange)
-_SUBHDR = (220, 230, 241)    # sub-section / column header row
+from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
 
@@ -114,13 +111,18 @@ _GS_C_DT_ROW  = 2   # Data Table row-input placeholder (param1 substitute)
 _GS_C_DT_COL  = 3   # Data Table col-input placeholder (param2 substitute)
 
 # ── Row anchors ───────────────────────────────────────────────────────────────
-_ROW_TITLE        = 1   # "Univariate Analysis"
-_ROW_SECTION_HDR  = 2   # section headings across all zones
-_ROW_COL_HDRS     = 3   # column sub-headers / table header row; freeze below here
-_ROW_DATA_START   = 4   # FILTER formula (col A) and stat rows begin
-_ROW_STATS_START  = 4   # descriptive stat rows begin
-_ROW_HIST_START   = 4   # histogram spill formulas begin
-_ROW_DIST_START   = 4   # distribution fitting rows begin
+_ROW_TITLE        = 1   # "Univariate Analysis" + zone-level "Histograms" label
+_ROW_METHOD_HDR   = 2   # method/zone headings: "Sturges Method", "Scott Method", etc.
+_ROW_SECTION_HDR  = 3   # section headings: "Data", "Descriptive Statistics"
+_ROW_COL_HDRS     = 4   # column sub-headers (histograms, fitting table)
+_ROW_DATA_START   = 4   # data values begin (col A)
+_ROW_STATS_START  = 4   # descriptive stat rows begin (col C–D)
+_ROW_HIST_START   = 5   # histogram spill formulas begin
+_ROW_DIST_START   = 5   # distribution fitting rows begin
+
+# ── Data capacity ─────────────────────────────────────────────────────────────
+_DATA_ROWS = 2000
+_DATA_END  = _ROW_DATA_START + _DATA_ROWS - 1   # last data row = 2003
 
 # ── Chart constants ───────────────────────────────────────────────────────────
 _XL_COLUMN_CLUSTERED = 51   # xlColumnClustered
@@ -268,12 +270,12 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     # Chart series ranges: OFFSET-based, sized by calling the bin-count
     # LAMBDAs directly inside the named-range formula.
     for name, col_ltr, start_row, size_formula in [
-        ("UV_Sturges_Edges",  _col_letter(_C_F), _ROW_HIST_START, "Sturges_Bins(UV_Data)"),
-        ("UV_Sturges_Counts", _col_letter(_C_G), _ROW_HIST_START, "Sturges_Bins(UV_Data)"),
-        ("UV_Scott_Edges",    _col_letter(_C_I), _ROW_HIST_START, "Scott_Bins(UV_Data)"),
-        ("UV_Scott_Counts",   _col_letter(_C_J), _ROW_HIST_START, "Scott_Bins(UV_Data)"),
-        ("UV_FD_Edges",       _col_letter(_C_L), _ROW_HIST_START, "FD_Bins(UV_Data)"),
-        ("UV_FD_Counts",      _col_letter(_C_M), _ROW_HIST_START, "FD_Bins(UV_Data)"),
+        ("UV_Sturges_Edges",  _col_letter(_C_F), _ROW_HIST_START, "n_histogram_bins(UV_Data,\"Sturges\")"),
+        ("UV_Sturges_Counts", _col_letter(_C_G), _ROW_HIST_START, "n_histogram_bins(UV_Data,\"Sturges\")"),
+        ("UV_Scott_Edges",    _col_letter(_C_I), _ROW_HIST_START, "n_histogram_bins(UV_Data,\"Scott\")"),
+        ("UV_Scott_Counts",   _col_letter(_C_J), _ROW_HIST_START, "n_histogram_bins(UV_Data,\"Scott\")"),
+        ("UV_FD_Edges",       _col_letter(_C_L), _ROW_HIST_START, "n_histogram_bins(UV_Data)"),
+        ("UV_FD_Counts",      _col_letter(_C_M), _ROW_HIST_START, "n_histogram_bins(UV_Data)"),
     ]:
         _drop_local_name(sheet, name)
         sheet.api.Names.Add(
@@ -353,18 +355,23 @@ def _write_histogram_table(
     col_edge: int,
     col_count: int,
     method: str,
-    short_label: str,
+    method_label: str,
 ) -> None:
     """Write one histogram bin table (edges + counts) for the given method."""
-    _section_heading(sheet, _ROW_SECTION_HDR, col_edge, short_label)
-    sheet.range(_rc(_ROW_SECTION_HDR, col_edge), _rc(_ROW_SECTION_HDR, col_count)).merge()
+    # Method heading at row 2, merged across the edge and count columns
+    _section_heading(sheet, _ROW_METHOD_HDR, col_edge, method_label)
+    sheet.range(_rc(_ROW_METHOD_HDR, col_edge), _rc(_ROW_METHOD_HDR, col_count)).merge()
 
     _val(sheet, _ROW_COL_HDRS, col_edge,  "Upper Edge")
     _val(sheet, _ROW_COL_HDRS, col_count, "Count")
     _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_count)
 
-    _f(sheet, _ROW_HIST_START, col_edge,
-       f"=Bin_Edges(UV_Data,\"{method}\")")
+    # Spill formulas — omit method for FD since it is the default
+    bin_edges_formula = (
+        "=Bin_Edges(UV_Data)" if method == "FD"
+        else f"=Bin_Edges(UV_Data,\"{method}\")"
+    )
+    _f(sheet, _ROW_HIST_START, col_edge, bin_edges_formula)
     edge_spill_ref = f"{_col_letter(col_edge)}{_ROW_HIST_START}#"
     _f(sheet, _ROW_HIST_START, col_count,
        f"=Bin_Counts(UV_Data,{edge_spill_ref})")
@@ -374,9 +381,14 @@ def _write_histogram_table(
 
 
 def _write_histograms(sheet: xw.Sheet) -> None:
-    _write_histogram_table(sheet, _C_F, _C_G, "Sturges", "Sturges")
-    _write_histogram_table(sheet, _C_I, _C_J, "Scott",   "Scott")
-    _write_histogram_table(sheet, _C_L, _C_M, "FD",      "Freedman-Diaconis")
+    # Zone super-heading in title row, merged across all three histogram tables
+    _section_heading(sheet, _ROW_TITLE, _C_F, "Histograms")
+    sheet.range(_rc(_ROW_TITLE, _C_F), _rc(_ROW_TITLE, _C_M)).merge()
+
+    # Each table writes its own method heading at _ROW_METHOD_HDR (row 2)
+    _write_histogram_table(sheet, _C_F, _C_G, "Sturges", "Sturges Method")
+    _write_histogram_table(sheet, _C_I, _C_J, "Scott",   "Scott Method")
+    _write_histogram_table(sheet, _C_L, _C_M, "FD",      "Freedman-Diaconis Method")
 
 
 # ── Zone 4: distribution fitting summary table ────────────────────────────────
@@ -489,7 +501,9 @@ def _dist_rows(base_row: int) -> list[tuple]:
 
 
 def _write_fitting_table(sheet: xw.Sheet) -> None:
-    _section_heading(sheet, _ROW_SECTION_HDR, _C_P, "Distribution Fitting")
+    # Zone heading at row 2, merged across all fitting columns
+    _section_heading(sheet, _ROW_METHOD_HDR, _C_P, "Distribution Fitting/Comparison")
+    sheet.range(_rc(_ROW_METHOD_HDR, _C_P), _rc(_ROW_METHOD_HDR, _C_Z)).merge()
 
     for col, label in _FIT_COL_HDRS:
         _val(sheet, _ROW_COL_HDRS, col, label)
@@ -516,8 +530,9 @@ def _write_fitting_table(sheet: xw.Sheet) -> None:
         for col, fmt in _FIT_NUMBER_FORMATS.items():
             sheet.range(_rc(row, col)).number_format = fmt
 
+    # Border around the table (col headers through last data row)
     last_row = _ROW_DIST_START + len(dist_data) - 1
-    _border_box(sheet, _ROW_SECTION_HDR, _C_P, last_row, _C_Z)
+    _border_box(sheet, _ROW_COL_HDRS, _C_P, last_row, _C_Z)
 
     # Highlight best-fit row (lowest AIC) with conditional formatting
     aic_col_letter = _col_letter(_C_Y)
@@ -859,7 +874,8 @@ def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
 # ── Row height and freeze ─────────────────────────────────────────────────────
 
 def _finalize_sheet(sheet: xw.Sheet) -> None:
-    sheet.range(_rc(_ROW_TITLE, 1)).api.EntireRow.RowHeight = 20
+    sheet.range(_rc(1, 1)).api.EntireRow.RowHeight = 20
+    sheet.range(_rc(_ROW_METHOD_HDR, 1)).api.EntireRow.RowHeight = 18
     sheet.range(_rc(_ROW_SECTION_HDR, 1)).api.EntireRow.RowHeight = 18
     sheet.range(_rc(_ROW_COL_HDRS, 1)).api.EntireRow.RowHeight = 18
     # Freeze at B4: rows 1-3 (title + section headers + col headers) and col A always visible

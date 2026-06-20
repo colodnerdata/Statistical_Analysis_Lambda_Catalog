@@ -1710,7 +1710,7 @@
     {
       "name": "NLL_Normal",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, mean, sd, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(NORM.DIST(x, mean, sd, FALSE)))\n  ))",
+      "formula_display": "=LAMBDA(data, mean, sd, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(NORM.DIST(x, mean, sd, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1730,14 +1730,14 @@
           "optional": true
         }
       ],
-      "yields": "negative log-likelihood (positive scalar) for Normal(mean, sd) given data",
-      "description": "NLL_Normal computes −Σ ln f(xᵢ | μ, σ) where f is the Normal PDF evaluated via NORM.DIST. Minimising NLL over (μ, σ) gives the MLE; for the Normal distribution the MLE is the sample mean and sample standard deviation.\n\nThe filter defaults to ISNUMBER(data) so blank cells in the input range are automatically excluded. Pass this value to GoF_AIC and GoF_BIC with k = 2.",
+      "yields": "negative log-likelihood for Normal(mean, sd) given data; returns 1E+15 for invalid parameter combinations",
+      "description": "NLL_Normal computes −Σ ln f(xᵢ | μ, σ) where f is the Normal PDF evaluated via NORM.DIST. The IFERROR sentinel maps overflow or invalid regions (sd ≤ 0, or non-positive PDF values) to 1E+15, keeping MIN and grid-search argmin robust. Minimising NLL over (μ, σ) gives the MLE; for the Normal distribution the MLE is the sample mean and sample standard deviation.\n\nThe filter defaults to ISNUMBER(data) so blank cells in the input range are automatically excluded. Pass this value to GoF_AIC and GoF_BIC with k = 2.",
       "plain_language_summary": "How unlikely the Normal distribution is to have generated this data at the given parameters."
     },
     {
       "name": "NLL_Lognormal",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, meanlog, sdlog, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(LOGNORM.DIST(x, meanlog, sdlog, FALSE)))\n  ))",
+      "formula_display": "=LAMBDA(data, meanlog, sdlog, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(LOGNORM.DIST(x, meanlog, sdlog, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1757,14 +1757,14 @@
           "optional": true
         }
       ],
-      "yields": "negative log-likelihood for Lognormal(meanlog, sdlog) given data",
-      "description": "NLL_Lognormal evaluates −Σ ln f(xᵢ | μ_ln, σ_ln) using Excel's LOGNORM.DIST PDF. The MLE closed form is: μ_ln = AVERAGE(LN(data)), σ_ln = STDEV.S(LN(data)).\n\nLognormal fits well when data is right-skewed and multiplicative (incomes, sizes, concentrations). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "yields": "negative log-likelihood for Lognormal(meanlog, sdlog) given data; returns 1E+15 for invalid parameter combinations",
+      "description": "NLL_Lognormal evaluates −Σ ln f(xᵢ | μ_ln, σ_ln) using Excel's LOGNORM.DIST PDF. The IFERROR sentinel maps overflow or invalid regions (non-positive data or sdlog ≤ 0) to 1E+15, keeping MIN and grid-search argmin robust. The MLE closed form is: μ_ln = AVERAGE(LN(data)), σ_ln = STDEV.S(LN(data)).\n\nLognormal fits well when data is right-skewed and multiplicative (incomes, sizes, concentrations). Pass to GoF_AIC and GoF_BIC with k = 2.",
       "plain_language_summary": "How unlikely the Lognormal distribution is to have generated this data at the given parameters."
     },
     {
       "name": "NLL_Exponential",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, rate, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    -SUMPRODUCT(LN(EXPON.DIST(x, rate, FALSE)))\n  ))",
+      "formula_display": "=LAMBDA(data, rate, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(EXPON.DIST(x, rate, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1780,8 +1780,8 @@
           "optional": true
         }
       ],
-      "yields": "negative log-likelihood for Exponential(rate) given data",
-      "description": "NLL_Exponential evaluates −Σ ln f(xᵢ | λ) = −n·ln(λ) + λ·Σxᵢ via EXPON.DIST. The MLE closed form is: rate = 1/AVERAGE(data).\n\nExponential fits well for memoryless waiting times, inter-arrival times, and time-to-failure data. Pass to GoF_AIC and GoF_BIC with k = 1.",
+      "yields": "negative log-likelihood for Exponential(rate) given data; returns 1E+15 for invalid parameter combinations",
+      "description": "NLL_Exponential evaluates −Σ ln f(xᵢ | λ) = −n·ln(λ) + λ·Σxᵢ via EXPON.DIST. The IFERROR sentinel maps invalid regions (rate ≤ 0, or data violating the ≥ 0 support) to 1E+15, keeping MIN and grid-search argmin robust. The MLE closed form is: rate = 1/AVERAGE(data).\n\nExponential fits well for memoryless waiting times, inter-arrival times, and time-to-failure data. Pass to GoF_AIC and GoF_BIC with k = 1.",
       "plain_language_summary": "How unlikely the Exponential distribution is to have generated this data at the given rate."
     },
     {

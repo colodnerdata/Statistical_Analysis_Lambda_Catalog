@@ -1,4 +1,4 @@
-"""Build Lambda_Library.xlsx: LAMBDA_functions, Life Expectancy Data, and Regression."""
+"""Build Lambda_Library.xlsx: LAMBDA_functions, Life Expectancy Data, Univariate Analysis, and Regression."""
 from __future__ import annotations
 
 import argparse
@@ -32,6 +32,7 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
+from lambda_catalog.write_sheet_univariate import write_univariate_sheet
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
 
 
@@ -59,7 +60,7 @@ def build_production_workbook(
     validate_reopen: bool = False,
     verbose: bool = False,
 ) -> NameSyncResult:
-    """Build the 3 production sheets and sync the LAMBDA name manager.
+    """Build the production sheets and sync the LAMBDA name manager.
 
     Parameters
     ----------
@@ -127,6 +128,7 @@ def build_production_workbook(
                     workbook.sheets["Sheet1"].name = "LAMBDA_functions"
                 write_catalog_sheet(workbook, catalog_entries)
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
+                write_univariate_sheet(workbook)
                 write_regression_instructions_sheet(workbook)
                 write_diagnostic_guide_sheet(workbook)
                 write_version_history_sheet(workbook)
@@ -226,6 +228,7 @@ def main() -> None:
     print(f"Workbook: {args.workbook.resolve()}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    print("Sheet updated: Univariate Analysis")
     print("Sheet updated: Regression Instructions")
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")

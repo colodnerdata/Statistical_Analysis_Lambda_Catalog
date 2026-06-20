@@ -1705,8 +1705,8 @@
           "optional": true
         }
       ],
-      "yields": "negative log-likelihood (positive scalar) for Normal(mean, sd) given data",
-      "description": "NLL_Normal computes −Σ ln f(xᵢ | μ, σ) where f is the Normal PDF evaluated via NORM.DIST. Minimising NLL over (μ, σ) gives the MLE; for the Normal distribution the MLE is the sample mean and sample standard deviation.\n\nThe filter defaults to ISNUMBER(data) so blank cells in the input range are automatically excluded. Pass this value to GoF_AIC and GoF_BIC with k = 2.",
+      "yields": "negative log-likelihood for Normal(mean, sd) given data; returns 1E+15 for invalid parameter combinations",
+      "description": "NLL_Normal computes −Σ ln f(xᵢ | μ, σ) where f is the Normal PDF evaluated via NORM.DIST. The IFERROR sentinel maps overflow or invalid regions (sd ≤ 0, or non-positive PDF values) to 1E+15, keeping MIN and grid-search argmin robust. Minimising NLL over (μ, σ) gives the MLE; for the Normal distribution the MLE is the sample mean and sample standard deviation.\n\nThe filter defaults to ISNUMBER(data) so blank cells in the input range are automatically excluded. Pass this value to GoF_AIC and GoF_BIC with k = 2.",
       "plain_language_summary": "How unlikely the Normal distribution is to have generated this data at the given parameters."
     },
     {

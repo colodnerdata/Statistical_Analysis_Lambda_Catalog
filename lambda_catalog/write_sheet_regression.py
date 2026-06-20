@@ -561,7 +561,8 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     )
 
     # Ind_Var_Include: boolean range covering all predictor toggle cells.
-    # Used by Coefficient_Name_Col and x_s to filter to selected predictors.
+    # Used by Coefficient_Name_Col and x_s to select active predictors.
+    _drop_local_name(sheet, "Ind_Var_Filter")   # remove legacy name if present
     _drop_local_name(sheet, "Ind_Var_Include")
     sheet.api.Names.Add(
         Name="Ind_Var_Include",

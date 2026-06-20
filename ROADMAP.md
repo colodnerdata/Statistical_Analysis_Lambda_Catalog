@@ -25,6 +25,121 @@ history travels with the file.
 
 ---
 
+## Naming Convention
+
+Canonical function names use **Title_Case_With_Underscores**, fully spelled out — no
+abbreviations (e.g. `Absorb_Two_Way_Fixed_Effects`, not `ABSORB_2FE`). This is a
+deliberate departure from Excel's all-caps native functions: a mixed-case name in a
+formula bar is immediately recognizable as library code, not a built-in. A reviewer
+should be able to scan a nested formula and tell at a glance which calls are library
+functions versus native Excel (`SUM`, `FILTER`, `XLOOKUP`) without cross-referencing a
+function list.
+
+Rules:
+
+- Full English words only. Spell out what an abbreviation would have stood for
+  (`Two_Way`, not `2WAY`; `Fixed_Effects`, not `FE`).
+- Numerals appear only when the numeral is itself the statistical quantity (e.g. a
+  literal lag of `2`, not a stand-in for "two-way").
+- Underscores separate words; no camelCase.
+- One canonical name, one LAMBDA, one place it can be wrong.
+
+**Existing names predate this convention.** Functions shipped in v1.0 (`Observations`,
+`DF_Regression`, `R_squared`, etc.) are already Title_Case-ish but were not written
+against an explicit rule. No retroactive rename is planned for v1.0 names unless a
+broader breaking-change pass (see *Filter → Include*, below) is already underway —
+folding a pure cosmetic rename into an unrelated MAJOR bump avoids spending two breaking
+changes on what could be one.
+
+### Alias layer (future, optional)
+
+A separate, optional layer of short, ALL-CAPS aliases may be added in a later pass for
+power-user typing speed (e.g. `ABSORB2FE` as an alias for
+`Absorb_Two_Way_Fixed_Effects`). Aliases are thin wrappers — each alias LAMBDA's entire
+body is a call to the canonical function, with no independent logic:
+
+```excel
+ABSORB2FE = LAMBDA(x, group1, group2, [include], [passes],
+    Absorb_Two_Way_Fixed_Effects(x, group1, group2, include, passes)
+)
+```
+
+This keeps a single source of truth: if the canonical implementation changes, every
+alias inherits the fix automatically. Aliases are never the documented or taught form —
+they exist purely as optional shortcuts and should be introduced only after the
+canonical library is stable, to avoid maintaining two names for a function that's still
+under active revision.
+
+---
+
+## Function Categories
+
+Every catalog entry carries a `category` and a `subcategory`, used to drive filtering on
+the `LAMBDA_functions` sheet. This taxonomy is **purely functional — it does not encode
+version.** Version is a property of the library's release history (tracked in the
+changelog and Version History sheet); category is a property of what the function *does*,
+and a function's category should not change just because it shipped in a later release.
+Mixing the two into one column would force functions usable across versions (e.g. a
+centering or scaling transform usable in both MLR and univariate prep) into an arbitrary
+single version-tag, which is the wrong axis for a "show me all grouping transformations"
+filter.
+
+Subcategories are scoped *within* a category — each category defines its own
+subcategory list rather than sharing one flat list across categories, so a category can
+grow its own subdivisions independently as it fills up.
+
+| Category | Subcategories |
+|---|---|
+| **Model Construction** | MLR Core · Coefficient Inference · Prediction |
+| **Diagnostics** | Residual · Influence & Leverage · Multicollinearity · Cross-Validation · Information Criteria |
+| **Data Transformation** | Sample Construction & Diagnostics · Location & Scale · Group & Panel · Categorical & Model Construction · Longitudinal & Panel-Time |
+| **Distribution Fitting** | Descriptive · Histogram Binning · Parameter Estimation · Goodness-of-Fit |
+| **Resampling & Simulation** | Bootstrap · Monte Carlo |
+
+The **Data Transformation** subcategories mirror this roadmap's own implementation
+phases for that category, wherever that catalog is planned in detail — the sheet filter
+and the build-order phases should always describe the same grouping, so reorganizing one
+should be reflected in the other.
+
+This table is the source of truth for the controlled vocabulary; `category` and
+`subcategory` values in `lambda_functions.json` should be drawn only from this list,
+not invented ad hoc per function.
+
+---
+
+## Open Decision: `Filter` → `Include`
+
+**Status: not yet scheduled.** Flagging here so it isn't lost, not committing to a date.
+
+The current `[Filter]` argument — present on 69 of the 77 v1.0 functions — is a boolean
+column where `TRUE` keeps the row and `FALSE` drops it. `Include` is the more accurate
+name for that semantic (unambiguously "TRUE means keep" on sight) and would also resolve
+an existing overload: `Complete_Cases_Filter` *produces* a boolean mask, while the
+`[Filter]` *argument* on every other function *consumes* one — same word, two different
+grammatical roles. Renaming the argument to `[Include]` removes that ambiguity without
+touching `Complete_Cases_Filter`'s own name.
+
+This is **not** a docs-only or MINOR change. It touches:
+
+- the `[Filter]` parameter in `formula_display` across all 69 affected entries in
+  `lambda_functions.json`
+- every signature table in `README.md`
+- the `Ind_Var_Filter` named range and its dependent conditional-formatting rule in
+  `write_sheet_regression.py`
+- the QC and test-sheet column headers that reference `Filter`
+
+Given the surface area, this should ship as its own MAJOR-version breaking change with a
+dedicated, descriptively named PR (e.g. `Rename Filter argument to Include across all
+functions`) rather than bundled into unrelated feature work — so the diff stays
+reviewable in isolation and the changelog entry is unambiguous about what broke.
+
+Decide before scheduling: does this land in its own MAJOR bump, or ride along with the
+next breaking change that was going to force one anyway (e.g. a future signature change
+to the core MLR engine)? Spending a MAJOR version on a pure rename is defensible given
+the disambiguation benefit, but worth deciding deliberately rather than by default.
+
+---
+
 ## v1.0 — Multivariate (OLS / MLR)
 
 The complete OLS package and the first stable release. This is the multivariate capstone;
@@ -92,6 +207,85 @@ hat diagonal, Cook's distance, Q-Q machinery, Durbin-Watson), cross-validation (
 LOOCV), information criteria (AIC, AICc, BIC), distributional exploration (skewness,
 kurtosis, Pearson/Spearman), and prediction. Filter argument supports stratified OLS
 natively.
+
+---
+
+## Data Transformation
+
+Cross-cutting infrastructure, not tied to a single version — these functions are meant to
+be usable wherever a model needs a prepared column, whether that's MLR predictors today or
+univariate/distribution-fitting inputs in v2.0 and beyond. Tracked here as its own
+catalog, separate from the version ladder, because tagging it to one version would be
+arbitrary (see *Function Categories*, above).
+
+Every function accepts an optional `include` mask (`1`/`TRUE` keeps the row,
+`0`/`FALSE` excludes it). When omitted, a default mask is constructed from the required
+inputs. Excluded rows return `""` so spilled arrays stay aligned with the source rows —
+`""` was chosen deliberately over `NA()` because it round-trips cleanly through
+`ISNUMBER`-based keep logic elsewhere in the library (`ISNUMBER("")` is `FALSE`, so a
+downstream mask built on `ISNUMBER` correctly re-excludes it) without erroring inside
+`SUM`/`AVERAGE` the way a propagated error value would.
+
+**Note on naming:** these functions are new, so they're written directly against the
+Naming Convention above (no abbreviations) rather than needing a retrofit.
+
+### Sample Construction & Diagnostics — *subcategory*
+
+- `Numeric_Complete_Cases(data)` — listwise-deletion sample mask; `1` when every value in
+  a row is numeric.
+- `Is_Balanced_Panel(group, time, [include])` — `TRUE` only when every included group has
+  exactly one observation for every included time period.
+- `Fixed_Effects_Convergence_Check(x, group1, group2, [include])` — largest absolute
+  remaining group mean across two fixed-effect dimensions; near zero indicates
+  convergence after `Absorb_Two_Way_Fixed_Effects`.
+
+### Location & Scale — *subcategory*
+
+- `Center(x, [include])` — grand-mean centering, \(x_i - \bar{x}\).
+- `Zscore(x, [include])` — standardization via `STDEV.S`, \((x_i - \bar{x}) / s_x\).
+- `Minmax_Scale(x, [include])` — scales to \([0, 1]\).
+- `Winsorize(x, [lower_p], [upper_p], [include])` — caps values outside selected
+  percentiles (default 1st/99th). Remains an explicit modeling decision, never an
+  automatic preprocessing step.
+- `Ln_Positive(x, [include])` — natural log, restricted to strictly positive numeric
+  values; returns `""` rather than a worksheet error for zero, negative, or non-numeric
+  input.
+
+### Group & Panel — *subcategory*
+
+- `Group_Mean(x, group, [include])` — matching group mean on every included row.
+- `Demean_By(x, group, [include])` — one-way within transformation, \(x_{ig} - \bar{x}_g\).
+- `Zscore_By(x, group, [include])` — within-group standardization.
+- `Decompose_By(x, group, [include])` — returns the between-group mean and within-group
+  deviation as two columns, exposing \(x_{ig} = \bar{x}_g + (x_{ig} - \bar{x}_g)\).
+- `Demean_Two_Way_Balanced(x, group1, group2, [include])` — direct two-way demeaning,
+  exact only for a balanced panel; check with `Is_Balanced_Panel` first.
+- `Absorb_Two_Way_Fixed_Effects(x, group1, group2, [include], [passes])` — iterative
+  alternating-projection demeaning for unbalanced panels. Convergence is not verified
+  internally; always pair with `Fixed_Effects_Convergence_Check`.
+
+### Categorical & Model Construction — *subcategory*
+
+- `Dummy_Levels(category, [reference], [include])` — retained categorical levels as a
+  horizontal header row.
+- `Dummy_Code(category, [reference], [include])` — dummy-coded matrix. Use a reference
+  level (treatment coding) when the design includes an intercept; full one-hot coding
+  plus an intercept causes perfect multicollinearity. **Reference-level validation
+  (confirming the requested reference actually exists in the included sample) is
+  required at implementation, not deferred** — an invalid reference silently fails to
+  drop a column and reintroduces the exact collinearity the function exists to prevent.
+- `Interact(x1, x2)` — elementwise product \(x_1 x_2\); broadcasts across dummy-coded
+  matrices to produce one interaction column per retained level.
+- `Model_Matrix(X, [add_intercept])` — optionally prepends an intercept column.
+  Intentionally not variadic — predictors are assembled explicitly with `HSTACK` so the
+  specification stays visible and auditable.
+
+### Longitudinal & Panel-Time — *subcategory*
+
+- `Lag_By(x, group, time, [periods], [include])` — prior-period value within the same
+  group, keyed on `group`/`time`, not on physical row order.
+- `Diff_By(x, group, time, [periods], [include])` — within-group time difference,
+  \(\Delta_k x_{it} = x_{it} - x_{i,t-k}\).
 
 ---
 

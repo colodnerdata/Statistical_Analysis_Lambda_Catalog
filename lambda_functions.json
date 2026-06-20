@@ -1400,7 +1400,7 @@
         }
       ],
       "yields": "k×1 column vector of Pearson correlations between each predictor and Y",
-      "description": "Pearson_R computes the linear (Pearson product-moment) correlation between each column of X_s and Y, for the included rows. When X_s has a single column the result is a scalar; when X_s has k columns it spills as a k×1 column vector.\n\nA Pearson_R close to ±1 indicates a strong linear association. Comparing Pearson_R with Spearman_R on the same data reveals nonlinearity: a large gap (Spearman > Pearson in magnitude) suggests a monotonic but curved relationship that may warrant a log or polynomial transformation.",
+      "description": "Pearson_R computes the linear (Pearson product-moment) correlation between each column of X_s and Y after applying the optional Include argument. When X_s has a single column the result is a scalar; when X_s has k columns it spills as a k×1 column vector.\n\nA Pearson_R close to ±1 indicates a strong linear association. Comparing Pearson_R with Spearman_R on the same data reveals nonlinearity: a large gap (Spearman > Pearson in magnitude) suggests a monotonic but curved relationship that may warrant a log or polynomial transformation.",
       "plain_language_summary": "The straight-line relationship between each predictor and the outcome."
     },
     {

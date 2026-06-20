@@ -47,9 +47,8 @@ Rules:
 **Existing names predate this convention.** Functions shipped in v1.0 (`Observations`,
 `DF_Regression`, `R_squared`, etc.) are already Title_Case-ish but were not written
 against an explicit rule. No retroactive rename is planned for v1.0 names unless a
-broader breaking-change pass (see *Filter → Include*, below) is already underway —
-folding a pure cosmetic rename into an unrelated MAJOR bump avoids spending two breaking
-changes on what could be one.
+broader breaking-change pass is already underway — folding a pure cosmetic rename into
+an unrelated MAJOR bump avoids spending two breaking changes on what could be one.
 
 ### Alias layer (future, optional)
 
@@ -107,39 +106,6 @@ not invented ad hoc per function.
 
 ---
 
-## Open Decision: `Filter` → `Include`
-
-**Status: not yet scheduled.** Flagging here so it isn't lost, not committing to a date.
-
-The current `[Filter]` argument — present on 69 of the 77 v1.0 functions — is a boolean
-column where `TRUE` keeps the row and `FALSE` drops it. `Include` is the more accurate
-name for that semantic (unambiguously "TRUE means keep" on sight) and would also resolve
-an existing overload: `Complete_Cases_Filter` *produces* a boolean mask, while the
-`[Filter]` *argument* on every other function *consumes* one — same word, two different
-grammatical roles. Renaming the argument to `[Include]` removes that ambiguity without
-touching `Complete_Cases_Filter`'s own name.
-
-This is **not** a docs-only or MINOR change. It touches:
-
-- the `[Filter]` parameter in `formula_display` across all 69 affected entries in
-  `lambda_functions.json`
-- every signature table in `README.md`
-- the `Ind_Var_Filter` named range and its dependent conditional-formatting rule in
-  `write_sheet_regression.py`
-- the QC and test-sheet column headers that reference `Filter`
-
-Given the surface area, this should ship as its own MAJOR-version breaking change with a
-dedicated, descriptively named PR (e.g. `Rename Filter argument to Include across all
-functions`) rather than bundled into unrelated feature work — so the diff stays
-reviewable in isolation and the changelog entry is unambiguous about what broke.
-
-Decide before scheduling: does this land in its own MAJOR bump, or ride along with the
-next breaking change that was going to force one anyway (e.g. a future signature change
-to the core MLR engine)? Spending a MAJOR version on a pure rename is defensible given
-the disambiguation benefit, but worth deciding deliberately rather than by default.
-
----
-
 ## v1.0 — Multivariate (OLS / MLR)
 
 The complete OLS package and the first stable release. This is the multivariate capstone;
@@ -160,8 +126,8 @@ later versions fill in the conceptual foundations beneath it and then climb past
   studentized residuals, Cook's distance, Scale-Location, PRESS residual,
   coefficient p-values, Significance F).
 - ✅ Prediction-with-filtering validation — `Prediction_Interval` and prediction inputs
-  confirmed correct when independent variables are toggled; `Ind_Var_Filter`, optional
-  `Coefficient_Name_Col` filter, and `X_new` construction all validated.
+  confirmed correct when independent variables are toggled; `Ind_Var_Include`, optional
+  `Coefficient_Name_Col` include mask, and `X_new` construction all validated.
 - ✅ QC flow — `analyze_regression_sheet.py` computes Python reference values and compares
   against sheet output across six configurations (sparse / medium / full predictor sets ×
   intercept / no-intercept).
@@ -182,7 +148,7 @@ later versions fill in the conceptual foundations beneath it and then climb past
   name in column U for any predictor whose toggle in column B is FALSE. Rule must cover
   the full `All_Xs` range dynamically so it remains correct when the user swaps to a
   dataset with more or fewer independent variables. The formula should reference the
-  `Ind_Var_Filter` named range (trimmed to `n` rows via `TAKE`) so no hard-coded row
+  `Ind_Var_Include` named range (trimmed to `n` rows via `TAKE`) so no hard-coded row
   count is needed.
 
 **Additional items completed beyond the original gate list:**
@@ -205,7 +171,7 @@ inference (SE, t, p, CIs, partial R²/correlation), multicollinearity (VIF, Tole
 correlation matrix), residual and influence diagnostics (residuals, studentized residuals,
 hat diagonal, Cook's distance, Q-Q machinery, Durbin-Watson), cross-validation (PRESS,
 LOOCV), information criteria (AIC, AICc, BIC), distributional exploration (skewness,
-kurtosis, Pearson/Spearman), and prediction. Filter argument supports stratified OLS
+kurtosis, Pearson/Spearman), and prediction. Include argument supports stratified OLS
 natively.
 
 ---

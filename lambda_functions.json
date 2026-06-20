@@ -4,14 +4,14 @@
       "name": "Observations",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    ROWS(FILTER(Y, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    ROWS(FILTER(Y, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -32,14 +32,14 @@
         }
       ],
       "yields": "df_regression (k, number of predictors) as a scalar integer",
-      "description": "df_regression is the number of degrees of freedom attributable to the regression model — equal to k, the number of predictor columns. The intercept term (if any) is not counted here; it is accounted for implicitly in df_total.\n\nReturns COLUMNS(X_s). Filter and Allow_Intercept do not affect this value.",
+      "description": "df_regression is the number of degrees of freedom attributable to the regression model — equal to k, the number of predictor columns. The intercept term (if any) is not counted here; it is accounted for implicitly in df_total.\n\nReturns COLUMNS(X_s). Include and Allow_Intercept do not affect this value.",
       "plain_language_summary": "How many predictor slots the model is trying to fit."
     },
     {
       "name": "DF_Total",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    n,         Observations(Y, filt_arg),\n    IF(allow_arg, n - 1, n)\n  ))",
+      "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    n,         Observations(Y, filt_arg),\n    IF(allow_arg, n - 1, n)\n  ))",
       "arguments": [
         {
           "name": "Y",
@@ -51,7 +51,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -64,7 +64,7 @@
       "name": "R_squared",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 3, 1)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 3, 1)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -80,7 +80,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -93,7 +93,7 @@
       "name": "DF_Residual",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    DF_Total(Y, allow_arg, filt_arg) - DF_Regression(X_s)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    DF_Total(Y, allow_arg, filt_arg) - DF_Regression(X_s)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -109,7 +109,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -122,7 +122,7 @@
       "name": "Multiple_R",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SQRT(R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SQRT(R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -138,7 +138,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -151,7 +151,7 @@
       "name": "Adjusted_R2",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    1 - (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n      * DF_Total(Y, allow_arg, filt_arg)\n      / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    1 - (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n      * DF_Total(Y, allow_arg, filt_arg)\n      / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -167,7 +167,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -180,7 +180,7 @@
       "name": "SS_Total",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    y_filt, FILTER(Y, filt_arg),\n    IF(allow_arg, DEVSQ(y_filt), SUMSQ(y_filt))\n  ))",
+      "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    y_filt, FILTER(Y, filt_arg),\n    IF(allow_arg, DEVSQ(y_filt), SUMSQ(y_filt))\n  ))",
       "arguments": [
         {
           "name": "Y",
@@ -192,7 +192,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -205,7 +205,7 @@
       "name": "SS_Residual",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Total(Y, allow_arg, filt_arg) * (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Total(Y, allow_arg, filt_arg) * (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -221,7 +221,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -234,7 +234,7 @@
       "name": "SS_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Total(Y, allow_arg, filt_arg) * R_squared(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Total(Y, allow_arg, filt_arg) * R_squared(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -250,7 +250,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -263,7 +263,7 @@
       "name": "MS_Regression",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -279,7 +279,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -292,7 +292,7 @@
       "name": "MS_Residual",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -308,7 +308,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -321,7 +321,7 @@
       "name": "SE_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SQRT(SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SQRT(SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -337,7 +337,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -350,7 +350,7 @@
       "name": "PRESS",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    SUMSQ(e / (1 - h))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    SUMSQ(e / (1 - h))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -366,7 +366,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -379,7 +379,7 @@
       "name": "AIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + 2 * p\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + 2 * p\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -395,7 +395,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -408,7 +408,7 @@
       "name": "BIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + p * LN(n)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + p * LN(n)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -424,7 +424,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -437,7 +437,7 @@
       "name": "AICc",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -453,7 +453,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -466,7 +466,7 @@
       "name": "Durbin_Watson",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    SUM((DROP(e, 1) - DROP(e, -1))^2) / SUM(e^2)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    SUM((DROP(e, 1) - DROP(e, -1))^2) / SUM(e^2)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -482,7 +482,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -495,7 +495,7 @@
       "name": "QQ_Correlation",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    sr,        Scaled_Residuals_Ranked(X_s, Y, allow_arg, filt_arg),\n    n,         ROWS(sr),\n    ns,        NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    sr,        Scaled_Residuals_Ranked(X_s, Y, allow_arg, filt_arg),\n    n,         ROWS(sr),\n    ns,        NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -511,7 +511,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -524,7 +524,7 @@
       "name": "Coefficients",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, FALSE),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ls, 1, k + 1), CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, FALSE),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ls, 1, k + 1), CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -540,7 +540,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -553,7 +553,7 @@
       "name": "SE_Coefficients",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    ses,       INDEX(ls, 2),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ses, 1, k + 1), CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    ses,       INDEX(ls, 2),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ses, 1, k + 1), CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -569,7 +569,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -582,7 +582,7 @@
       "name": "T_Stats",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    Coefficients(X_s, Y, allow_arg, filt_arg) / SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    Coefficients(X_s, Y, allow_arg, filt_arg) / SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -598,7 +598,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -611,7 +611,7 @@
       "name": "P_Values",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.00E+00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    T.DIST.2T(ABS(T_Stats(X_s, Y, allow_arg, filt_arg)), DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    T.DIST.2T(ABS(T_Stats(X_s, Y, allow_arg, filt_arg)), DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -627,7 +627,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -640,7 +640,7 @@
       "name": "CI_Lower",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -656,7 +656,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         },
@@ -674,7 +674,7 @@
       "name": "CI_Upper",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -690,7 +690,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         },
@@ -708,7 +708,7 @@
       "name": "Partial_R2",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    t,         T_Stats(X_s, Y, allow_arg, filt_arg),\n    df,        DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t^2 / (t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    t,         T_Stats(X_s, Y, allow_arg, filt_arg),\n    df,        DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t^2 / (t^2 + df)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -724,7 +724,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -737,7 +737,7 @@
       "name": "Partial_Correlation",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    t,         T_Stats(X_s, Y, allow_arg, filt_arg),\n    df,        DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t / SQRT(t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    t,         T_Stats(X_s, Y, allow_arg, filt_arg),\n    df,        DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t / SQRT(t^2 + df)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -753,7 +753,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -766,7 +766,7 @@
       "name": "Beta_Weights",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg,  IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,   IF(ISOMITTED(Filter),          TRUE, Filter),\n    coefs,      Coefficients(X_s, Y, allow_arg, filt_arg),\n    pred_coefs, IF(allow_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(X_s),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(X_s, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg,  IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,   IF(ISOMITTED(Include),          TRUE, Include),\n    coefs,      Coefficients(X_s, Y, allow_arg, filt_arg),\n    pred_coefs, IF(allow_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(X_s),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(X_s, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -782,7 +782,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -795,7 +795,7 @@
       "name": "VIF",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    k,        COLUMNS(X_s),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_squared(\n            CHOOSECOLS(X_s, FILTER(col_idx, col_idx <> j)),\n            CHOOSECOLS(X_s, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(X_s),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_squared(\n            CHOOSECOLS(X_s, FILTER(col_idx, col_idx <> j)),\n            CHOOSECOLS(X_s, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -807,7 +807,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -820,7 +820,7 @@
       "name": "Tolerance",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  1 / VIF(X_s, Allow_Intercept, Filter)\n)",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  1 / VIF(X_s, Allow_Intercept, Include)\n)",
       "arguments": [
         {
           "name": "X_s",
@@ -832,7 +832,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -845,7 +845,7 @@
       "name": "Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Filter], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Filter),          TRUE, Filter),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Include], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -865,7 +865,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         },
@@ -883,14 +883,14 @@
       "name": "Observation_Num",
       "test_table": "MLR_Observation_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  SEQUENCE(ROWS(FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter))))\n)",
+      "formula_display": "=LAMBDA(Y, [Include],\n  SEQUENCE(ROWS(FILTER(Y, IF(ISOMITTED(Include), TRUE, Include))))\n)",
       "arguments": [
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -903,14 +903,14 @@
       "name": "Rank_Fraction",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)),\n    n,        ROWS(filtered),\n    BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered <= v) * 1))) / n\n  ))",
+      "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)),\n    n,        ROWS(filtered),\n    BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered <= v) * 1))) / n\n  ))",
       "arguments": [
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -923,14 +923,14 @@
       "name": "Y_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  SORT(FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)))\n)",
+      "formula_display": "=LAMBDA(Y, [Include],\n  SORT(FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)))\n)",
       "arguments": [
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -943,19 +943,19 @@
       "name": "Dependent_Var",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter))\n)",
+      "formula_display": "=LAMBDA(Y, [Include],\n  FILTER(Y, IF(ISOMITTED(Include), TRUE, Include))\n)",
       "arguments": [
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
       ],
-      "yields": "filtered dependent variable vector (all rows when Filter is omitted)",
+      "yields": "filtered dependent variable vector (all rows when Include is omitted)",
       "description": "Returns the dependent-variable vector used by residual and diagnostic outputs.",
       "plain_language_summary": "The filtered outcome column in the order the model uses it."
     },
@@ -963,14 +963,14 @@
       "name": "Normal_Scores",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(Y, [Filter],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Filter), TRUE, Filter)),\n    n,        ROWS(filtered),\n    NORM.S.INV(\n      (BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered < v) * 1))) + 0.5) / n\n    )\n  ))",
+      "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)),\n    n,        ROWS(filtered),\n    NORM.S.INV(\n      (BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered < v) * 1))) + 0.5) / n\n    )\n  ))",
       "arguments": [
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -983,7 +983,7 @@
       "name": "Design_Matrix",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    x_filt,    FILTER(X_s, filt_arg),\n    IF(\n      allow_arg,\n      HSTACK(SEQUENCE(ROWS(x_filt), , 1, 0), x_filt),\n      x_filt\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    x_filt,    FILTER(X_s, filt_arg),\n    IF(\n      allow_arg,\n      HSTACK(SEQUENCE(ROWS(x_filt), , 1, 0), x_filt),\n      x_filt\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -995,7 +995,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1021,7 +1021,7 @@
       "name": "Predictions",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    MMULT(\n      Design_Matrix(X_s, allow_arg, filt_arg),\n      Coefficients(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    MMULT(\n      Design_Matrix(X_s, allow_arg, filt_arg),\n      Coefficients(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1037,7 +1037,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1050,7 +1050,7 @@
       "name": "Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    FILTER(Y, filt_arg) - Predictions(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    FILTER(Y, filt_arg) - Predictions(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1066,7 +1066,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1079,7 +1079,7 @@
       "name": "Scaled_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    Residuals(X_s, Y, allow_arg, filt_arg)\n      / SE_Regression(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    Residuals(X_s, Y, allow_arg, filt_arg)\n      / SE_Regression(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1095,7 +1095,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1142,7 +1142,7 @@
       "name": "LOO_prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_row_n(X_filt, n),\n    Y_loo,     Exclude_row_n(Y_filt, n),\n    x_n,       Design_Matrix(CHOOSEROWS(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_row_n(X_filt, n),\n    Y_loo,     Exclude_row_n(Y_filt, n),\n    x_n,       Design_Matrix(CHOOSEROWS(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
       "arguments": [
         {
           "name": "X_s",
@@ -1162,7 +1162,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1175,7 +1175,7 @@
       "name": "LOOCV_prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    yhat,      Predictions(X_s, Y, allow_arg, filt_arg),\n    e,         FILTER(Y, filt_arg) - yhat,\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    yhat - h * e / (1 - h)\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    yhat,      Predictions(X_s, Y, allow_arg, filt_arg),\n    e,         FILTER(Y, filt_arg) - yhat,\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    yhat - h * e / (1 - h)\n  )\n)",
       "arguments": [
         {
           "name": "X_s",
@@ -1191,7 +1191,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1204,7 +1204,7 @@
       "name": "Hat_diagonal",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   Gram_Inverse(X_design),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   Gram_Inverse(X_design),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1216,7 +1216,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1229,7 +1229,7 @@
       "name": "Studentized_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    e / (se * SQRT(1 - h))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    e / (se * SQRT(1 - h))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1245,7 +1245,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1258,7 +1258,7 @@
       "name": "Studentized_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    SORT(Studentized_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    SORT(Studentized_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1274,7 +1274,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1287,7 +1287,7 @@
       "name": "Cooks_Distance",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    r,         Studentized_Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(Design_Matrix(X_s, allow_arg, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    r,         Studentized_Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(Design_Matrix(X_s, allow_arg, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1303,7 +1303,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1316,7 +1316,7 @@
       "name": "Scaled_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter), TRUE, Filter),\n    SORT(Scaled_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    SORT(Scaled_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1332,7 +1332,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1377,13 +1377,13 @@
         }
       ],
       "yields": "boolean column vector — TRUE for rows where every included column is numeric",
-      "description": "Produces a ready-made Filter argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))",
+      "description": "Produces a ready-made Include argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))",
       "plain_language_summary": "A TRUE/FALSE mask that keeps only rows with usable numeric data."
     },
     {
       "name": "Pearson_R",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), yf)))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), yf)))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1394,7 +1394,7 @@
           "description": "single-column outcome range"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1406,7 +1406,7 @@
     {
       "name": "Spearman_R",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(xf, yf, [Filter],\n  LET(\n    baseFilter, IF(ISOMITTED(Filter), TRUE, Filter),\n    RankAvgAsc, LAMBDA(a,\n      MAP(a, LAMBDA(v, 1+SUM(--(a<v))+(SUM(--(a=v))-1)/2))\n    ),\n    TRANSPOSE(\n      BYCOL(xf,\n        LAMBDA(xcol,\n          LET(\n            valid, baseFilter*ISNUMBER(xcol)*ISNUMBER(yf),\n            x, FILTER(xcol, valid),\n            y, FILTER(yf, valid),\n            rx, RankAvgAsc(x),\n            ry, RankAvgAsc(y),\n            CORREL(rx, ry)\n          )\n        )\n      )\n    )\n  ))",
+      "formula_display": "=LAMBDA(xf, yf, [Include],\n  LET(\n    baseFilter, IF(ISOMITTED(Include), TRUE, Include),\n    RankAvgAsc, LAMBDA(a,\n      MAP(a, LAMBDA(v, 1+SUM(--(a<v))+(SUM(--(a=v))-1)/2))\n    ),\n    TRANSPOSE(\n      BYCOL(xf,\n        LAMBDA(xcol,\n          LET(\n            valid, baseFilter*ISNUMBER(xcol)*ISNUMBER(yf),\n            x, FILTER(xcol, valid),\n            y, FILTER(yf, valid),\n            rx, RankAvgAsc(x),\n            ry, RankAvgAsc(y),\n            CORREL(rx, ry)\n          )\n        )\n      )\n    )\n  ))",
       "arguments": [
         {
           "name": "xf",
@@ -1417,26 +1417,26 @@
           "description": "single-column outcome range"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
       ],
       "yields": "k×1 column vector of Spearman rank correlations between each predictor and Y",
-      "description": "Spearman_R computes the rank (Spearman) correlation between each column of xf and yf. For each predictor column, rows are kept where both that column and yf are numeric (and pass the optional Filter). Ties receive average ranks via a MAP-based helper (avoids RANK.AVG on dynamic arrays). Returns a k×1 vector when xf has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit.",
+      "description": "Spearman_R computes the rank (Spearman) correlation between each column of xf and yf. For each predictor column, rows are kept where both that column and yf are numeric (and pass the optional Include). Ties receive average ranks via a MAP-based helper (avoids RANK.AVG on dynamic arrays). Returns a k×1 vector when xf has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit.",
       "plain_language_summary": "The rank-order relationship between each predictor and the outcome."
     },
     {
       "name": "Skewness",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, SKEW(CHOOSECOLS(xf, r))))\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, SKEW(CHOOSECOLS(xf, r))))\n  ))",
       "arguments": [
         {
           "name": "X_s",
           "description": "column range to summarize (single or multi-column); returns one value per column"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1448,14 +1448,14 @@
     {
       "name": "Kurtosis",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, KURT(CHOOSECOLS(xf, r))))\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, KURT(CHOOSECOLS(xf, r))))\n  ))",
       "arguments": [
         {
           "name": "X_s",
           "description": "column range to summarize (single or multi-column); returns one value per column"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1468,7 +1468,7 @@
       "name": "F_Stat",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s) /\n    (SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s) /\n    (SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1484,7 +1484,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1497,7 +1497,7 @@
       "name": "P_Value_F",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Filter],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Filter),          TRUE, Filter),\n    F.DIST.RT(\n      F_Stat(X_s, Y, allow_arg, filt_arg),\n      DF_Regression(X_s),\n      DF_Residual(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    F.DIST.RT(\n      F_Stat(X_s, Y, allow_arg, filt_arg),\n      DF_Regression(X_s),\n      DF_Residual(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1513,7 +1513,7 @@
           "optional": true
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
@@ -1525,14 +1525,14 @@
     {
       "name": "Correlation_Matrix",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Filter],\n  LET(\n    filt_arg, IF(ISOMITTED(Filter), TRUE, Filter),\n    xf, FILTER(X_s, filt_arg),\n    k,  COLUMNS(X_s),\n    MAKEARRAY(k, k, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), CHOOSECOLS(xf, c))))\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    k,  COLUMNS(X_s),\n    MAKEARRAY(k, k, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), CHOOSECOLS(xf, c))))\n  ))",
       "arguments": [
         {
           "name": "X_s",
           "description": "column range of variables (single or multi-column); returns a k×k symmetric matrix"
         },
         {
-          "name": "Filter",
+          "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }

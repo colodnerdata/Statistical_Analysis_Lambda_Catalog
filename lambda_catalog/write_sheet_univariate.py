@@ -18,7 +18,7 @@ Sheet layout
   Row 3          — Column sub-headers (table header for col A); pane freeze anchored here
   Row 4+         — Data: FILTER formula spill (col A), stats (C–D), histogram bins (F–M), fitting (P–Z)
 
-  Col A          — Data: Excel table UV_Data_Table[Life Expectancy], FILTER formula in A4
+  Col A          — Data: FILTER formula spill in A4 (no table; spill range referenced as $A$4#)
   Col B          — thin gap (width 2); freeze pane left boundary
   Col C–D        — Descriptive Statistics (12 stat rows)
   Col E          — thin gap (width 2)
@@ -300,19 +300,11 @@ def _write_data_zone(sheet: xw.Sheet) -> None:
         _C_A,
         "=IFERROR(FILTER(LifeExpectancyData[Life expectancy],LifeExpectancyData[Full_Data]),\"\")",
     )
-    # Wrap in an Excel table so formulas can use structured references
-    lo = sheet.api.ListObjects.Add(
-        1,  # xlSrcRange
-        sheet.range(_rc(_ROW_COL_HDRS, _C_A), _rc(_ROW_DATA_START, _C_A)).api,
-        None,
-        1,  # xlYes — first row is header
-    )
-    lo.Name = "UV_Data_Table"
 
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────
 
-# Stat label, formula (UV_Data resolves to the table column via named range)
+# Stat label, formula (UV_Data resolves to the FILTER spill range via named range)
 _STAT_ROWS: list[tuple[str, str]] = [
     ("Mean",      "=AVERAGE(UV_Data)"),
     ("Median",    "=MEDIAN(UV_Data)"),
@@ -912,8 +904,8 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
 
     _set_column_widths(sheet)
 
-    # Data zone must be written first so UV_Data_Table exists before
-    # _setup_local_names registers the UV_Data alias for it.
+    # Data zone must be written first so the FILTER spill in A4 is in place
+    # before _setup_local_names registers UV_Data ($A$4#) and UV_n.
     _write_data_zone(sheet)
     _setup_local_names(sheet)
 

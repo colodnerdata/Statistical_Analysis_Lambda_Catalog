@@ -33,8 +33,8 @@ Sheet layout
 
 Sheet-scoped named ranges
 ─────────────────────────
-  UV_Data        — alias for UV_Data_Table[Life Expectancy]
-  UV_n           — COUNT(UV_Data_Table[Life Expectancy])
+  UV_Data        — spill range of the FILTER formula ($A$4#)
+  UV_n           — IFERROR(COUNT($A$4#), 0) — robust when FILTER returns empty (#CALC!)
   UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
   UV_Scott_Edges,   UV_Scott_Counts
   UV_FD_Edges,      UV_FD_Counts
@@ -251,18 +251,18 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     """Register sheet-scoped named ranges used by formulas and charts."""
     sname = sheet.name
 
-    # UV_Data: alias for the Excel table column; all formula refs use this name
+    # UV_Data: spill range of the FILTER formula in A4; all formula refs use this name
     _drop_local_name(sheet, "UV_Data")
     sheet.api.Names.Add(
         Name="UV_Data",
-        RefersTo=f"='{sname}'!UV_Data_Table[Life Expectancy]",
+        RefersTo=f"='{sname}'!${_col_letter(_C_A)}${_ROW_DATA_START}#",
     )
 
-    # UV_n: count of entries in the data column
+    # UV_n: count of entries in the spill range; IFERROR handles #CALC! when FILTER is empty
     _drop_local_name(sheet, "UV_n")
     sheet.api.Names.Add(
         Name="UV_n",
-        RefersTo=f"=COUNT('{sname}'!UV_Data_Table[Life Expectancy])",
+        RefersTo=f"=IFERROR(COUNT('{sname}'!${_col_letter(_C_A)}${_ROW_DATA_START}#),0)",
     )
 
     # Chart series ranges: OFFSET-based, sized by calling the bin-count

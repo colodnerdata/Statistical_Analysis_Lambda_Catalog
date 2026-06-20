@@ -218,9 +218,9 @@ univariate/distribution-fitting inputs in v2.0 and beyond. Tracked here as its o
 catalog, separate from the version ladder, because tagging it to one version would be
 arbitrary (see *Function Categories*, above).
 
-Every function accepts an optional `include` mask (`1`/`TRUE` keeps the row,
-`0`/`FALSE` excludes it). When omitted, a default mask is constructed from the required
-inputs. Excluded rows return `""` so spilled arrays stay aligned with the source rows —
+Row-aligned transforms accept an optional `include` mask (`1`/`TRUE` keeps the row,
+`0`/`FALSE` excludes it). When `include` is omitted, those functions construct a default
+mask from the required inputs. Excluded rows return `""` so spilled arrays stay aligned with the source rows —
 `""` was chosen deliberately over `NA()` because it round-trips cleanly through
 `ISNUMBER`-based keep logic elsewhere in the library (`ISNUMBER("")` is `FALSE`, so a
 downstream mask built on `ISNUMBER` correctly re-excludes it) without erroring inside

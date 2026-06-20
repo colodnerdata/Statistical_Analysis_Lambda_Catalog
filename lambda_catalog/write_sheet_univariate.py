@@ -289,11 +289,15 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 def _write_data_zone(sheet: xw.Sheet) -> None:
     _section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
-    # Table header cell — becomes the ListObject column name
-    _val(sheet, _ROW_COL_HDRS, _C_A, "Life Expectancy")
+    # Table header cell
+    _val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
     # FILTER formula auto-populates from the Life Expectancy Data sheet
-    _f(sheet, _ROW_DATA_START, _C_A,
-       "=FILTER(LifeExpectancyData[Life Expectancy],LifeExpectancyData[Filter])")
+    _f(
+        sheet,
+        _ROW_DATA_START,
+        _C_A,
+        "=IFERROR(FILTER(LifeExpectancyData[Life expectancy],LifeExpectancyData[Full_Data]),\"\")",
+    )
     # Wrap in an Excel table so formulas can use structured references
     lo = sheet.api.ListObjects.Add(
         1,  # xlSrcRange

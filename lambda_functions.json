@@ -1755,8 +1755,8 @@
           "optional": true
         }
       ],
-      "yields": "negative log-likelihood for Exponential(rate) given data",
-      "description": "NLL_Exponential evaluates −Σ ln f(xᵢ | λ) = −n·ln(λ) + λ·Σxᵢ via EXPON.DIST. The MLE closed form is: rate = 1/AVERAGE(data).\n\nExponential fits well for memoryless waiting times, inter-arrival times, and time-to-failure data. Pass to GoF_AIC and GoF_BIC with k = 1.",
+      "yields": "negative log-likelihood for Exponential(rate) given data; returns 1E+15 for invalid parameter combinations",
+      "description": "NLL_Exponential evaluates −Σ ln f(xᵢ | λ) = −n·ln(λ) + λ·Σxᵢ via EXPON.DIST. The IFERROR sentinel maps invalid regions (rate ≤ 0, or data violating the ≥ 0 support) to 1E+15, keeping MIN and grid-search argmin robust. The MLE closed form is: rate = 1/AVERAGE(data).\n\nExponential fits well for memoryless waiting times, inter-arrival times, and time-to-failure data. Pass to GoF_AIC and GoF_BIC with k = 1.",
       "plain_language_summary": "How unlikely the Exponential distribution is to have generated this data at the given rate."
     },
     {

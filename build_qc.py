@@ -36,6 +36,7 @@ from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
+from lambda_catalog.write_sheet_univariate import write_univariate_sheet
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -267,6 +268,9 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, _t, "Write: diagnostic start")
                 write_diagnostic_guide_sheet(workbook)
                 _verbose_checkpoint(verbose, _t, "Write: diagnostic done")
+                _verbose_checkpoint(verbose, _t, "Write: univariate start")
+                write_univariate_sheet(workbook)
+                _verbose_checkpoint(verbose, _t, "Write: univariate done")
                 _verbose_checkpoint(verbose, _t, "Write: regression start")
                 write_regression_output_sheet(workbook, sheet_notes)
                 _verbose_checkpoint(verbose, _t, "Write: regression done")
@@ -414,6 +418,7 @@ def main() -> None:
     print(f"Workbook: {args.workbook.resolve()}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    print("Sheet updated: Univariate Analysis")
     print("Sheet updated: Regression")
     print("Sheet updated: MLR_Scalar_Test")
     print("Sheet updated: MLR_Vector_Outputs_Test")

@@ -8,10 +8,10 @@ MLE throughout.  For Normal, Lognormal, and Exponential the MLE estimators are
 closed-form (sample mean/SD on the raw or log-transformed data).  For
 Triangular and BetaPERT the likelihood is non-differentiable at the mode, so
 direct min/mode/max estimation is used — the result is a valid parameter set
-that the NLL formula evaluates against.  Grid-search MLE for the two-parameter
-shape distributions (Weibull, Gamma, Beta) is deferred to v2.1.
+that the NLL formula evaluates against.  Weibull uses a two-stage 20×20
+grid-search MLE (Zone 5).
 
-Sheet layout (four horizontal zones)
+Sheet layout (five horizontal zones)
 ──────────────────────────────────────
   Col A          — Data input: row-3 header, data in A4:A2003 (2000 rows)
   Col B          — thin gap (width 2)
@@ -27,6 +27,19 @@ Sheet layout (four horizontal zones)
                    P: distribution name | Q: θ₁ label | R: θ₁ value |
                    S: θ₂ label | T: θ₂ value | U: θ₃ label | V: θ₃ value |
                    W: NLL | X: k | Y: AIC | Z: BIC
+  Col AA         — thin gap (width 2)
+  Col AB–AV      — Weibull Stage 1 grid-search (20×20): label/param2 col + 20 body cols
+  Col AW         — thin gap (width 2)
+  Col AX–BR      — Weibull Stage 2 grid-search (20×20): label/param2 col + 20 body cols
+
+  Both grid stages share the same compact 3-row header:
+    row 1  — zone title (c0); "Min NLL:" label (c0+3), value (c0+4)
+    row 2  — "shape (k) range:" (c0); min (c0+1), max (c0+2);
+             "Best shape:" (c0+3), value (c0+4); "Best scale:" (c0+5), value (c0+6)
+    row 3  — "scale (λ) range:" (c0); min (c0+1), max (c0+2);
+             row_offset (c0+3), col_offset (c0+4), dt_row_input (c0+5), dt_col_input (c0+6)
+    row 4  — corner cell (c0), param1 (shape) SEQUENCE → spills right 20 cols
+    rows 5–24 — param2 (scale) SEQUENCE (c0), Data Table body (c0+1:c0+20)
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -35,6 +48,8 @@ Sheet-scoped named ranges
   UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
   UV_Scott_Edges,   UV_Scott_Counts
   UV_FD_Edges,      UV_FD_Counts
+  UV_WB_S1       — Weibull Stage 1 body  AC5:AV24
+  UV_WB_S2       — Weibull Stage 2 body  AY5:BR24
 """
 from __future__ import annotations
 
@@ -81,31 +96,32 @@ _GS_W     = _N_GRID + 1   # cols per stage = 21  (1 param2 col + N param1 cols)
 _GS_GAP_C = 1              # gap col between Stage 1 and Stage 2
 _C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col AX = 50
 
-# Weibull block row anchor (aligns with other section headers; = _ROW_SECTION_HDR = 3)
-_ROW_GS_WB   = 3
+# Grid block row anchor — row 1 aligns zone titles with "Univariate Analysis" / "Histograms"
+_ROW_GS_WB   = 1
 
 # Within-stage row offsets from block row_start
-_GS_R_P1_BND = 1   # param1 (shape) bounds row
-_GS_R_P2_BND = 2   # param2 (scale) bounds row
-_GS_R_MINNLL = 3   # min-NLL display row
-_GS_R_BEST   = 4   # best-param display row
-_GS_R_AUX    = 5   # auxiliary row (argmin cells + Data Table input placeholders)
-_GS_R_HDR    = 6   # grid header row (corner cell + param1 SEQUENCE)
-_GS_R_BODY   = 7   # first grid body row
+_GS_R_P1_BND = 1   # shape (k) bounds row
+_GS_R_P2_BND = 2   # scale (λ) bounds row
+_GS_R_HDR    = 3   # grid header row (corner cell + param1 SEQUENCE)
+_GS_R_BODY   = 4   # first grid body row
 
 # Within-stage col offsets relative to stage col_start
-# col_start+0  : param2 column (labels, param2 SEQUENCE, corner)
-# col_start+1  : first param1 col (SEQUENCE + first body col)
-# col_start+N  : last param1 col / body col
-# Best-param display in _GS_R_BEST row:
-_GS_C_BEST_P1 = 1   # best param1 value offset
-_GS_C_LBL_P2  = 2   # "Best p2:" label offset
-_GS_C_BEST_P2 = 3   # best param2 value offset
-# Auxiliary cells in _GS_R_AUX row:
-_GS_C_ROW_OFF = 0   # row-offset of grid minimum (1-indexed)
-_GS_C_COL_OFF = 1   # col-offset of grid minimum (1-indexed)
-_GS_C_DT_ROW  = 2   # Data Table row-input placeholder (param1 substitute)
-_GS_C_DT_COL  = 3   # Data Table col-input placeholder (param2 substitute)
+# col_start+0  : param2 col (zone label, bounds labels, corner, param2 SEQUENCE)
+# col_start+1  : p1_min / p2_min / param1 SEQUENCE start / body start
+# col_start+2  : p1_max / p2_max
+# Title row (dr=0) additional cells:
+_GS_C_MINNLL_LBL  = 3   # "Min NLL:" label
+_GS_C_MINNLL_VAL  = 4   # Min NLL value
+# Shape bounds row (dr=_GS_R_P1_BND) additional cells:
+_GS_C_BEST_P1_LBL = 3   # "Best shape:" label
+_GS_C_BEST_P1_VAL = 4   # best shape value
+_GS_C_BEST_P2_LBL = 5   # "Best scale:" label
+_GS_C_BEST_P2_VAL = 6   # best scale value
+# Scale bounds row (dr=_GS_R_P2_BND) auxiliary cells:
+_GS_C_ROW_OFF = 3        # row-offset of grid minimum (1-indexed)
+_GS_C_COL_OFF = 4        # col-offset of grid minimum (1-indexed)
+_GS_C_DT_ROW  = 5        # Data Table row-input placeholder (param1 / shape substitute)
+_GS_C_DT_COL  = 6        # Data Table col-input placeholder (param2 / scale substitute)
 
 # ── Row anchors ───────────────────────────────────────────────────────────────
 _ROW_TITLE        = 1   # "Univariate Analysis" + zone-level "Histograms" label
@@ -470,13 +486,13 @@ def _dist_rows(base_row: int) -> list[tuple]:
             lambda r: f"=NLL_BetaPERT(UV_Data,{_r(r)},{_t(r)},{_v(r)})",
             3,
         ),
-        # Weibull: params come from Stage 2 grid-search MLE (see Zone 5)
+        # Weibull: params from Stage 2 best-param cells (row 2, cols BB and BD)
         (
             "Weibull",
             "shape",
-            f"=${_col_letter(_C_GS_S2 + _GS_C_BEST_P1)}${_ROW_GS_WB + _GS_R_BEST}",
+            f"=${_col_letter(_C_GS_S2 + _GS_C_BEST_P1_VAL)}${_ROW_GS_WB + _GS_R_P1_BND}",
             "scale",
-            f"=${_col_letter(_C_GS_S2 + _GS_C_BEST_P2)}${_ROW_GS_WB + _GS_R_BEST}",
+            f"=${_col_letter(_C_GS_S2 + _GS_C_BEST_P2_VAL)}${_ROW_GS_WB + _GS_R_P1_BND}",
             "",    "",
             lambda r: f"=NLL_Weibull(UV_Data,{_r(r)},{_t(r)})",
             2,
@@ -621,22 +637,18 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 
 # ── Zone 5: Weibull grid-search MLE ──────────────────────────────────────────
 #
-# Layout within one stage block (row_start, col_start):
-#   row+0  : section heading (merged across all stage cols)
-#   row+1  : shape (k) bounds  — min at col+1, max at col+2
-#   row+2  : scale (λ) bounds  — min at col+1, max at col+2
-#   row+3  : Min NLL display   — value at col+1
-#   row+4  : Best shape        — col+1; Best scale — col+2 (label) col+3 (value)
-#   row+5  : row_offset (col+0), col_offset (col+1), dt_row_input (col+2), dt_col_input (col+3)
-#   row+6  : corner cell (col+0), param1 SEQUENCE → spills right N cols
-#   row+7…+6+N : param2 SEQUENCE (col+0), Data Table body (cols+1…+N)
+# Layout within one stage block (row_start=1, col_start):
+#   row+0  : zone title at c0 (merged c0:c0+2); "Min NLL:" at c0+3, value at c0+4
+#   row+1  : "shape (k) range:" at c0; min at c0+1, max at c0+2;
+#             "Best shape:" at c0+3, value at c0+4; "Best scale:" at c0+5, value at c0+6
+#   row+2  : "scale (λ) range:" at c0; min at c0+1, max at c0+2;
+#             row_offset at c0+3, col_offset at c0+4, dt_row_input at c0+5, dt_col_input at c0+6
+#   row+3  : corner cell (c0), param1 SEQUENCE → spills right N cols
+#   row+4…+4+N-1 : param2 SEQUENCE (c0), Data Table body (c0+1…c0+N)
 #
-# Stage 1: col_start = _C_GS  = 28 (AB)
-# Stage 2: col_start = _C_GS_S2 = 50 (AX)  — bounds computed from Stage 1 best ± 1 step
-#
-# Named ranges registered here:
-#   UV_WB_S1 = Stage 1 body  (AC10:AV29 for default layout)
-#   UV_WB_S2 = Stage 2 body  (AY10:BR29)
+# Stage 1: col_start = _C_GS  = 28 (AB);  body = AC5:AV24
+# Stage 2: col_start = _C_GS_S2 = 50 (AX); body = AY5:BR24
+#           bounds auto-computed from Stage 1 best ± one Stage-1 grid step
 
 
 def _gs_a1(row_start: int, col_start: int, dr: int, dc: int) -> str:
@@ -665,81 +677,56 @@ def _write_grid_stage(
     """
     sname = sheet.name
     n = _N_GRID
-
-    # ── Control cells ────────────────────────────────────────────────────────
     r0, c0 = row_start, col_start
-    last_col = c0 + n  # inclusive last col (param1 col N)
+    last_col = c0 + n
 
-    # Title row — merged across full stage width
+    # Pre-compute all cell addresses needed by cross-referencing formulas.
+    aux_row    = r0 + _GS_R_P2_BND
+    r_off_ref  = _gs_a1(r0, c0, _GS_R_P2_BND, _GS_C_ROW_OFF)
+    c_off_ref  = _gs_a1(r0, c0, _GS_R_P2_BND, _GS_C_COL_OFF)
+    dt_row_ref = _gs_a1(r0, c0, _GS_R_P2_BND, _GS_C_DT_ROW)
+    dt_col_ref = _gs_a1(r0, c0, _GS_R_P2_BND, _GS_C_DT_COL)
+    corner_ref = _gs_a1(r0, c0, _GS_R_HDR, 0)
+    p1_seq_ref = _gs_a1(r0, c0, _GS_R_HDR, 1)
+    p2_seq_ref = _gs_a1(r0, c0, _GS_R_BODY, 0)
+    min_p1_ref = _gs_a1(r0, c0, _GS_R_P1_BND, 1)
+    max_p1_ref = _gs_a1(r0, c0, _GS_R_P1_BND, 2)
+    min_p2_ref = _gs_a1(r0, c0, _GS_R_P2_BND, 1)
+    max_p2_ref = _gs_a1(r0, c0, _GS_R_P2_BND, 2)
+
+    # ── Row 0: zone title + Min NLL ───────────────────────────────────────────
     _val(sheet, r0, c0, title)
-    sheet.range(_rc(r0, c0), _rc(r0, last_col)).merge()
+    sheet.range(_rc(r0, c0), _rc(r0, c0 + 2)).merge()
     sheet.range(_rc(r0, c0)).api.Font.Bold = True
     sheet.range(_rc(r0, c0)).color = _HEADER
+    _val(sheet, r0, c0 + _GS_C_MINNLL_LBL, "Min NLL:")
+    sheet.range(_rc(r0, c0 + _GS_C_MINNLL_LBL)).api.Font.Bold = True
 
-    # Param bounds rows
+    # ── Row 1: shape bounds + best-param display ──────────────────────────────
     _val(sheet, r0 + _GS_R_P1_BND, c0, "shape (k) range:")
-    _val(sheet, r0 + _GS_R_P2_BND, c0, "scale (λ) range:")
-    for dr, p_min, p_max in [
-        (_GS_R_P1_BND, p1_min, p1_max),
-        (_GS_R_P2_BND, p2_min, p2_max),
-    ]:
-        row = r0 + dr
-        if isinstance(p_min, str):
-            _f(sheet, row, c0 + 1, p_min)
+    for dc_val, p_val in [(1, p1_min), (2, p1_max)]:
+        row = r0 + _GS_R_P1_BND
+        if isinstance(p_val, str):
+            _f(sheet, row, c0 + dc_val, p_val)
         else:
-            _val(sheet, row, c0 + 1, p_min)
-        if isinstance(p_max, str):
-            _f(sheet, row, c0 + 2, p_max)
-        else:
-            _val(sheet, row, c0 + 2, p_max)
+            _val(sheet, row, c0 + dc_val, p_val)
         if editable_bounds:
-            sheet.range(_rc(row, c0 + 1)).color = _INPUT
-            sheet.range(_rc(row, c0 + 2)).color = _INPUT
-        sheet.range(_rc(row, c0 + 1)).number_format = "0.0000"
-        sheet.range(_rc(row, c0 + 2)).number_format = "0.0000"
+            sheet.range(_rc(row, c0 + dc_val)).color = _INPUT
+        sheet.range(_rc(row, c0 + dc_val)).number_format = "0.0000"
 
-    # Min NLL row — COUNT guard needed because MIN(empty range) = 0, not an error
-    _val(sheet, r0 + _GS_R_MINNLL, c0, "Min NLL:")
-    _f(sheet, r0 + _GS_R_MINNLL, c0 + 1,
-       f'=IF(COUNT({body_name})=0,"—",MIN({body_name}))')
-    sheet.range(_rc(r0 + _GS_R_MINNLL, c0 + 1)).number_format = "0.00"
-
-    # Auxiliary row: row_offset, col_offset, dt_row_input, dt_col_input
-    aux_row   = r0 + _GS_R_AUX
-    r_off_ref = _gs_a1(r0, c0, _GS_R_AUX, _GS_C_ROW_OFF)   # row_offset cell
-    c_off_ref = _gs_a1(r0, c0, _GS_R_AUX, _GS_C_COL_OFF)   # col_offset cell
-    corner_ref = _gs_a1(r0, c0, _GS_R_HDR, 0)               # corner cell
-    p1_seq_ref = _gs_a1(r0, c0, _GS_R_HDR, 1)               # param1 SEQUENCE anchor
-    p2_seq_ref = _gs_a1(r0, c0, _GS_R_BODY, 0)              # param2 SEQUENCE anchor
-
-    # row_offset: 1-indexed row position of minimum within body
-    _f(sheet, aux_row, c0 + _GS_C_ROW_OFF,
-       f"=IFERROR(MIN(IF({body_name}=MIN({body_name}),"
-       f"ROW({body_name})-ROW({corner_ref}))),1)")
-    # col_offset: 1-indexed column position of minimum within body
-    _f(sheet, aux_row, c0 + _GS_C_COL_OFF,
-       f"=IFERROR(MIN(IF({body_name}=MIN({body_name}),"
-       f"COLUMN({body_name})-COLUMN({corner_ref}))),1)")
-    # Data Table input placeholder cells (written as values; Excel substitutes them)
-    sheet.range(_rc(aux_row, c0 + _GS_C_DT_ROW)).value = 1.0   # param1 (shape)
-    sheet.range(_rc(aux_row, c0 + _GS_C_DT_COL)).value = 1.0   # param2 (scale)
-    dt_row_ref = _gs_a1(r0, c0, _GS_R_AUX, _GS_C_DT_ROW)
-    dt_col_ref = _gs_a1(r0, c0, _GS_R_AUX, _GS_C_DT_COL)
-
-    # Best-param display row (references the SEQUENCE spill anchors)
-    best_row = r0 + _GS_R_BEST
-    _val(sheet, best_row, c0, "Best shape:")
-    _f(sheet, best_row, c0 + _GS_C_BEST_P1,
+    _val(sheet, r0 + _GS_R_P1_BND, c0 + _GS_C_BEST_P1_LBL, "Best shape:")
+    _f(sheet, r0 + _GS_R_P1_BND, c0 + _GS_C_BEST_P1_VAL,
        f"=IFERROR(INDEX({p1_seq_ref}#,1,{c_off_ref}),\"—\")")
-    _val(sheet, best_row, c0 + _GS_C_LBL_P2, "Best scale:")
-    _f(sheet, best_row, c0 + _GS_C_BEST_P2,
-       f"=IFERROR(INDEX({p2_seq_ref}#,{r_off_ref}),\"—\")")
-    for dc in (_GS_C_BEST_P1, _GS_C_BEST_P2):
-        sheet.range(_rc(best_row, c0 + dc)).number_format = "0.0000"
+    sheet.range(_rc(r0 + _GS_R_P1_BND, c0 + _GS_C_BEST_P1_VAL)).number_format = "0.0000"
 
-    # Boundary guard: red fill on best-param cells when minimum is on grid edge
-    for dc, off_ref in [(_GS_C_BEST_P1, c_off_ref), (_GS_C_BEST_P2, r_off_ref)]:
-        cell_api = sheet.range(_rc(best_row, c0 + dc)).api
+    _val(sheet, r0 + _GS_R_P1_BND, c0 + _GS_C_BEST_P2_LBL, "Best scale:")
+    _f(sheet, r0 + _GS_R_P1_BND, c0 + _GS_C_BEST_P2_VAL,
+       f"=IFERROR(INDEX({p2_seq_ref}#,{r_off_ref}),\"—\")")
+    sheet.range(_rc(r0 + _GS_R_P1_BND, c0 + _GS_C_BEST_P2_VAL)).number_format = "0.0000"
+
+    # Boundary guard: red fill on best-param cells when minimum is on a grid edge
+    for dc, off_ref in [(_GS_C_BEST_P1_VAL, c_off_ref), (_GS_C_BEST_P2_VAL, r_off_ref)]:
+        cell_api = sheet.range(_rc(r0 + _GS_R_P1_BND, c0 + dc)).api
         cf = cell_api.FormatConditions.Add(
             Type=2,  # xlExpression
             Formula1=f"=OR({off_ref}=1,{off_ref}={n})",
@@ -747,35 +734,48 @@ def _write_grid_stage(
         cf.Interior.Color = 0x0000FF   # red (BGR)
         cf.Font.Color     = 0xFFFFFF   # white
 
-    # ── Grid: header row (corner + param1 SEQUENCE) ──────────────────────────
-    hdr_row = r0 + _GS_R_HDR
-    min_p1_ref = _gs_a1(r0, c0, _GS_R_P1_BND, 1)
-    max_p1_ref = _gs_a1(r0, c0, _GS_R_P1_BND, 2)
-    min_p2_ref = _gs_a1(r0, c0, _GS_R_P2_BND, 1)
-    max_p2_ref = _gs_a1(r0, c0, _GS_R_P2_BND, 2)
+    # ── Row 2: scale bounds + auxiliary cells ─────────────────────────────────
+    _val(sheet, aux_row, c0, "scale (λ) range:")
+    for dc_val, p_val in [(1, p2_min), (2, p2_max)]:
+        if isinstance(p_val, str):
+            _f(sheet, aux_row, c0 + dc_val, p_val)
+        else:
+            _val(sheet, aux_row, c0 + dc_val, p_val)
+        if editable_bounds:
+            sheet.range(_rc(aux_row, c0 + dc_val)).color = _INPUT
+        sheet.range(_rc(aux_row, c0 + dc_val)).number_format = "0.0000"
 
-    # Corner cell: NLL formula referencing the two Data Table input placeholders
+    # row_offset and col_offset: 1-indexed position of the grid minimum
+    _f(sheet, aux_row, c0 + _GS_C_ROW_OFF,
+       f"=IFERROR(MIN(IF({body_name}=MIN({body_name}),"
+       f"ROW({body_name})-ROW({corner_ref}))),1)")
+    _f(sheet, aux_row, c0 + _GS_C_COL_OFF,
+       f"=IFERROR(MIN(IF({body_name}=MIN({body_name}),"
+       f"COLUMN({body_name})-COLUMN({corner_ref}))),1)")
+    # Data Table input placeholders (Excel substitutes these during table evaluation)
+    sheet.range(_rc(aux_row, c0 + _GS_C_DT_ROW)).value = 1.0   # param1 (shape)
+    sheet.range(_rc(aux_row, c0 + _GS_C_DT_COL)).value = 1.0   # param2 (scale)
+
+    # ── Row 3: grid header (corner + param1 SEQUENCE) ─────────────────────────
+    hdr_row = r0 + _GS_R_HDR
     _f(sheet, hdr_row, c0,
        f"=NLL_Weibull(UV_Data,{dt_row_ref},{dt_col_ref})")
     sheet.range(_rc(hdr_row, c0)).number_format = "0.00"
 
-    # Param1 (shape) SEQUENCE — spills right across N cols
     _f(sheet, hdr_row, c0 + 1,
        f"=SEQUENCE(1,{n},{min_p1_ref},({max_p1_ref}-{min_p1_ref})/({n}-1))")
     sheet.range(_rc(hdr_row, c0 + 1)).number_format = "0.00"
 
-    # ── Grid: body rows (param2 SEQUENCE + Data Table body) ──────────────────
+    # ── Rows 4–23: body (param2 SEQUENCE + Data Table) ───────────────────────
     body_row_start = r0 + _GS_R_BODY
     body_row_end   = body_row_start + n - 1
     body_col_start = c0 + 1
     body_col_end   = c0 + n
 
-    # Param2 (scale) SEQUENCE — spills down N rows in col c0
     _f(sheet, body_row_start, c0,
        f"=SEQUENCE({n},1,{min_p2_ref},({max_p2_ref}-{min_p2_ref})/({n}-1))")
     sheet.range(_rc(body_row_start, c0)).number_format = "0.0000"
 
-    # Register named range for the body BEFORE setting up the Data Table
     body_range = sheet.range(
         _rc(body_row_start, body_col_start),
         _rc(body_row_end,   body_col_end),
@@ -789,8 +789,12 @@ def _write_grid_stage(
         ),
     )
 
-    # Two-input Data Table: must call Table() on the FULL range (corner + headers + body)
-    # so that Excel can locate the corner formula and header sequences.
+    # Min NLL display — body_name must be defined first
+    _f(sheet, r0, c0 + _GS_C_MINNLL_VAL,
+       f'=IF(COUNT({body_name})=0,"—",MIN({body_name}))')
+    sheet.range(_rc(r0, c0 + _GS_C_MINNLL_VAL)).number_format = "0.00"
+
+    # Two-input Data Table over the full range (corner + headers + body)
     row_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_ROW))
     col_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_COL))
     full_table_range = sheet.range(
@@ -802,10 +806,9 @@ def _write_grid_stage(
         ColumnInput=col_input_cell.api,
     )
 
-    # Number format for the body
     body_range.number_format = "0.00"
 
-    # Heatmap: 3-color scale (green=low NLL → yellow=mid → red=high / overflow)
+    # Heatmap: 3-color scale (green=low NLL → yellow=mid → red=high)
     try:
         body_range.api.FormatConditions.Delete()
         cs = body_range.api.FormatConditions.AddColorScale(3)
@@ -819,18 +822,17 @@ def _write_grid_stage(
     except Exception:
         pass
 
-    # Border around the whole stage block
     _border_box(sheet, r0, c0, body_row_end, last_col)
 
     return {
-        "best_p1":    _gs_a1(r0, c0, _GS_R_BEST, _GS_C_BEST_P1),
-        "best_p2":    _gs_a1(r0, c0, _GS_R_BEST, _GS_C_BEST_P2),
+        "best_p1":    _gs_a1(r0, c0, _GS_R_P1_BND, _GS_C_BEST_P1_VAL),
+        "best_p2":    _gs_a1(r0, c0, _GS_R_P1_BND, _GS_C_BEST_P2_VAL),
         "min_p1":     _gs_a1(r0, c0, _GS_R_P1_BND, 1),
         "max_p1":     _gs_a1(r0, c0, _GS_R_P1_BND, 2),
         "min_p2":     _gs_a1(r0, c0, _GS_R_P2_BND, 1),
         "max_p2":     _gs_a1(r0, c0, _GS_R_P2_BND, 2),
-        "row_offset": _gs_a1(r0, c0, _GS_R_AUX, _GS_C_ROW_OFF),
-        "col_offset": _gs_a1(r0, c0, _GS_R_AUX, _GS_C_COL_OFF),
+        "row_offset": _gs_a1(r0, c0, _GS_R_P2_BND, _GS_C_ROW_OFF),
+        "col_offset": _gs_a1(r0, c0, _GS_R_P2_BND, _GS_C_COL_OFF),
         "corner":     _gs_a1(r0, c0, _GS_R_HDR, 0),
         "p1_seq":     _gs_a1(r0, c0, _GS_R_HDR, 1),
         "p2_seq":     _gs_a1(r0, c0, _GS_R_BODY, 0),
@@ -840,7 +842,7 @@ def _write_grid_stage(
 def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
     """Write Stage 1 and Stage 2 Weibull grid-search MLE blocks side by side."""
     n = _N_GRID
-    rs = _ROW_GS_WB   # row_start = 3
+    rs = _ROW_GS_WB   # row_start = 1
 
     # Stage 1 — user-editable bounds, initial wide search
     s1 = _write_grid_stage(

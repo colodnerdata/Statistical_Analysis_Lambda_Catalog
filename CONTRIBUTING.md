@@ -20,10 +20,14 @@ There are two separate build scripts with distinct purposes.
 python build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes three sheets:
+Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes these sheets (in order):
 
 - **LAMBDA_functions** — browsable catalog of all function definitions
 - **Life Expectancy Data** — WHO dataset as a structured table
+- **Regression Instructions** — user guide for the Regression sheet
+- **Diagnostic Guide** — interpretation guide for regression diagnostics
+- **Version History** — changelog
+- **Univariate Analysis** — histogram tables, descriptive statistics, distribution fitting, Weibull grid-search MLE
 - **Regression** — ToolPak-style analysis interface
 
 No test sheets, no OLS analysis, no cache dependency.
@@ -41,7 +45,7 @@ python build_production.py --verbose           # print per-phase timing
 python build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all six sheets (the three above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all production sheets plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, and `MLR_Observation_Test`, updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
 
 The verification step forces Excel to recalculate all test formulas, reads the Calc columns, compares them against Python-computed expected values, and prints a `WARNING` line for any value that diverges beyond the tolerance band. No warnings means the LAMBDA implementations agree with statsmodels.
 
@@ -70,8 +74,10 @@ lambda_catalog/
   lambda_formula_parser.py   # converts display formulas to workbook XML syntax
   make_test_sheet.py         # shared helpers for Excel ListObject test tables
   workbook_helpers.py        # shared xlwings utilities
+  sheet_styles.py            # shared color constants (HEADER_COLOR, SUBHDR_COLOR, INPUT_COLOR)
   write_sheet_lambda_functions.py
   write_sheet_life_expectancy_data.py
+  write_sheet_univariate.py
   write_sheet_regression.py
   write_sheet_mlr_scalar_test.py
   write_sheet_mlr_vector_outputs_test.py
@@ -150,33 +156,33 @@ Instead, all chart series reference **worksheet-scoped named ranges** defined vi
 
 ```python
 sheet.api.Names.Add(
-    Name="FittedY",
+    Name="RegChartFitY",
     RefersTo=f"=OFFSET('{sname}'!$Y$2,1,0,'{sname}'!$M$8,1)",
 )
 ```
 
 This starts one row below the column header (row 2) and extends exactly `$M$8` rows — the number of filtered observations.
 
-**Naming convention** — names identify the data, not the chart that uses them:
+**Naming convention** — all chart-series named ranges carry the `RegChart` prefix. This distinguishes them from formula-helper names (`All_Xs`, `pred_input`, `alpha`, etc.) which use plain noun names:
 
 | Name | Column | Contents |
 |---|---|---|
-| `QQPlotX` | AE | Normal Scores Ranked (QQ theoretical axis) |
-| `QQPlotY` | AF | Studentized Residuals Ranked (QQ actual axis) |
-| `FittedY` | Y | Predicted Y — shared by multiple charts |
-| `ResidData` | Z | Residuals |
-| `ActualY` | X | Actual Y |
-| `ScaleLocData` | AG | Scale-Location |
-| `CooksDistData` | AD | Cook's Distance |
-| `LeverageData` | AB | Hat Diagonal |
-| `StudResidData` | AC | Studentized Residuals |
-| `PRESSResidData` | AH | PRESS Residual |
+| `RegChartQQX` | AE | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AF | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | Y | Predicted Y — shared by multiple charts |
+| `RegChartResid` | Z | Residuals |
+| `RegChartActY` | X | Actual Y |
+| `RegChartScaleLoc` | AG | Scale-Location |
+| `RegChartCookDist` | AD | Cook's Distance |
+| `RegChartLeverage` | AB | Hat Diagonal |
+| `RegChartStudResid` | AC | Studentized Residuals |
+| `RegChartPRESSResid` | AH | PRESS Residual |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 
 ```excel
-Series X values: ='Regression'!FittedY
-Series Y values: ='Regression'!ResidData
+Series X values: ='Regression'!RegChartFitY
+Series Y values: ='Regression'!RegChartResid
 ```
 
 In code, use the `_name_ref` helper in `_write_diagnostic_charts`:
@@ -186,4 +192,82 @@ def _name_ref(local_name: str) -> str:
     return f"='{sname}'!{local_name}"
 ```
 
-When adding a new diagnostic column or chart, add the corresponding named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
+When adding a new diagnostic column or chart, add the corresponding `RegChart*` named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
+
+## Univariate sheet conventions
+
+### Sheet layout overview
+
+The Univariate Analysis sheet is written by `write_sheet_univariate.py`. It has five horizontal zones:
+
+| Cols | Zone | Contents |
+|---|---|---|
+| A | Data input | User data column, rows 4–2003 (2 000 rows max) |
+| C–D | Descriptive Statistics | 12 stat label/value rows |
+| F–M | Histograms | Sturges (F–G), Scott (I–J), Freedman-Diaconis (L–M) |
+| O–Z | Distribution Fitting | Per-distribution MLE params, NLL, AIC, BIC |
+| AB–BR | Weibull Grid-Search | Two 20×20 stages (Stage 1: AB–AV; Stage 2: AX–BR) |
+
+### Sheet-scoped named ranges
+
+All named ranges on this sheet carry the `UV_` prefix:
+
+| Name | Range | Purpose |
+|---|---|---|
+| `UV_Data` | `$A$4:$A$2003` | Input data column — referenced by all LAMBDA formulas |
+| `UV_n` | scalar | `COUNT(UV_Data)` — used for AIC/BIC denominators |
+| `UV_Sturges_Edges` | OFFSET-based | Chart series for Sturges histogram |
+| `UV_Sturges_Counts` | OFFSET-based | Chart series for Sturges histogram |
+| `UV_Scott_Edges` | OFFSET-based | Chart series for Scott histogram |
+| `UV_Scott_Counts` | OFFSET-based | Chart series for Scott histogram |
+| `UV_FD_Edges` | OFFSET-based | Chart series for Freedman-Diaconis histogram |
+| `UV_FD_Counts` | OFFSET-based | Chart series for Freedman-Diaconis histogram |
+| `UV_WB_S1` | `AC5:AV24` | Weibull Stage 1 NLL grid body |
+| `UV_WB_S2` | `AY5:BR24` | Weibull Stage 2 NLL grid body |
+
+### Weibull two-stage grid-search (Zone 5)
+
+The Weibull fit uses a two-stage 20×20 grid-search MLE implemented entirely in Excel formulas. Stage 1 searches a coarse range; Stage 2 zooms in on the Stage 1 best estimate using a narrower range seeded from Stage 1's result. The distribution fitting table (Zone 4) reads the best shape and scale from Stage 2.
+
+Each stage is written by `_write_grid_stage(sheet, row_start, col_start, title, ...)`. Both stages share the same compact 3-row header layout:
+
+| Row offset | Contents |
+|---|---|
+| dr=0 (row 1) | Zone title (merged c0:c0+2, `_HEADER` fill); "Min NLL:" label at c0+3, MIN formula at c0+4 |
+| dr=1 (row 2) | "shape (k) range:"; min/max bounds (editable, `_INPUT` fill); "Best shape:" label + INDEX formula; "Best scale:" label + INDEX formula |
+| dr=2 (row 3) | "scale (λ) range:"; min/max bounds; row_offset formula; col_offset formula; dt_row_input placeholder; dt_col_input placeholder |
+| dr=3 (row 4) | Corner cell: `=NLL_Weibull(UV_Data, dt_row_ref, dt_col_ref)`; param1 SEQUENCE spills right 20 cols |
+| dr=4–23 (rows 5–24) | Param2 SEQUENCE in col c0; Data Table body in c0+1:c0+20 |
+
+The auxiliary cells in dr=2 serve two purposes:
+
+- **row_offset / col_offset** — `IFERROR(MIN(IF(...)), 1)` array formulas that locate the minimum within the grid body. They feed the "Best shape" and "Best scale" `INDEX` formulas in dr=1.
+- **dt_row_input / dt_col_input** — plain numeric placeholders (`1.0`) that Excel substitutes during Data Table evaluation. They connect the corner NLL formula to the parameter SEQUENCE headers.
+
+#### Excel Data Table setup
+
+The two-input Data Table is created by calling `.api.Table(RowInput, ColumnInput)` on the full range from the corner cell through the last body cell. The corner cell contains the NLL formula; the param1 SEQUENCE is the column header (spilling right); the param2 SEQUENCE is the row header (spilling down). Excel substitutes `dt_row_input` with each param1 value and `dt_col_input` with each param2 value to populate the body.
+
+**Important:** `_drop_local_name(sheet, body_name)` must be called and the named range for the body (`UV_WB_S1` or `UV_WB_S2`) must be registered via `sheet.api.Names.Add` before calling `.api.Table()`. The Data Table write must happen before the Min NLL formula that references the body name.
+
+#### Layout constants
+
+All row and column positions within a stage are expressed as `_GS_R_*` (row offset from `row_start`) and `_GS_C_*` (column offset from `col_start`) constants. Never hard-code positions inside `_write_grid_stage`.
+
+| Constant | Value | Meaning |
+|---|---|---|
+| `_ROW_GS_WB` | 1 | Row anchor for both grid stages (`row_start`) |
+| `_GS_R_P1_BND` | 1 | Shape bounds row offset |
+| `_GS_R_P2_BND` | 2 | Scale bounds / auxiliary row offset |
+| `_GS_R_HDR` | 3 | Grid header row offset (corner + param1 SEQUENCE) |
+| `_GS_R_BODY` | 4 | First grid body row offset |
+| `_GS_C_MINNLL_LBL` | 3 | "Min NLL:" label col offset |
+| `_GS_C_MINNLL_VAL` | 4 | Min NLL value col offset |
+| `_GS_C_BEST_P1_LBL` | 3 | "Best shape:" label col offset |
+| `_GS_C_BEST_P1_VAL` | 4 | Best shape value col offset |
+| `_GS_C_BEST_P2_LBL` | 5 | "Best scale:" label col offset |
+| `_GS_C_BEST_P2_VAL` | 6 | Best scale value col offset |
+| `_GS_C_ROW_OFF` | 3 | row_offset formula col offset |
+| `_GS_C_COL_OFF` | 4 | col_offset formula col offset |
+| `_GS_C_DT_ROW` | 5 | dt_row_input placeholder col offset |
+| `_GS_C_DT_COL` | 6 | dt_col_input placeholder col offset |

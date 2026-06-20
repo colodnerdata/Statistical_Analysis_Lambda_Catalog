@@ -1732,8 +1732,8 @@
           "optional": true
         }
       ],
-      "yields": "negative log-likelihood for Lognormal(meanlog, sdlog) given data",
-      "description": "NLL_Lognormal evaluates −Σ ln f(xᵢ | μ_ln, σ_ln) using Excel's LOGNORM.DIST PDF. The MLE closed form is: μ_ln = AVERAGE(LN(data)), σ_ln = STDEV.S(LN(data)).\n\nLognormal fits well when data is right-skewed and multiplicative (incomes, sizes, concentrations). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "yields": "negative log-likelihood for Lognormal(meanlog, sdlog) given data; returns 1E+15 for invalid parameter combinations",
+      "description": "NLL_Lognormal evaluates −Σ ln f(xᵢ | μ_ln, σ_ln) using Excel's LOGNORM.DIST PDF. The IFERROR sentinel maps overflow or invalid regions (non-positive data or sdlog ≤ 0) to 1E+15, keeping MIN and grid-search argmin robust. The MLE closed form is: μ_ln = AVERAGE(LN(data)), σ_ln = STDEV.S(LN(data)).\n\nLognormal fits well when data is right-skewed and multiplicative (incomes, sizes, concentrations). Pass to GoF_AIC and GoF_BIC with k = 2.",
       "plain_language_summary": "How unlikely the Lognormal distribution is to have generated this data at the given parameters."
     },
     {

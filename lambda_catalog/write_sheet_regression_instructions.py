@@ -72,7 +72,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
         ),
         "body",
     ),
-    (9, “Optional — sample include mask:”, “heading”),
+    (9, "Optional — sample include mask:", "heading"),
     (
         10,
         (

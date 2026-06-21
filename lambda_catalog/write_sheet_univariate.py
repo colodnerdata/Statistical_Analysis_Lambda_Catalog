@@ -48,6 +48,10 @@ from __future__ import annotations
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
+from .workbook_helpers import (
+    a1, bold, bold_row, border_box, col_letter, drop_local_name,
+    f, format_input, rc, section_heading, val,
+)
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
 
@@ -139,61 +143,9 @@ _CHART_GAP_V         = 10.0
 UNIVARIATE_SHEET_NAME = "Univariate"
 
 
-# ── Cell helpers ──────────────────────────────────────────────────────────────
-
-def _rc(row: int, col: int) -> tuple[int, int]:
-    return (row, col)
-
-
-def _col_letter(col: int) -> str:
-    result = ""
-    c = col
-    while c > 0:
-        c, rem = divmod(c - 1, 26)
-        result = chr(ord("A") + rem) + result
-    return result
-
-
-def _a1(row: int, col: int) -> str:
-    return f"{_col_letter(col)}{row}"
-
-
-def _val(sheet: xw.Sheet, row: int, col: int, value: object) -> None:
-    sheet.range(_rc(row, col)).value = value
-
-
-def _f(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:
-    sheet.range(_rc(row, col)).api.Formula2 = formula
-
-
-def _bold(sheet: xw.Sheet, row: int, col: int) -> None:
-    sheet.range(_rc(row, col)).api.Font.Bold = True
-
-
-def _bold_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
-    sheet.range(_rc(row, c1), _rc(row, c2)).api.Font.Bold = True
-
-
-def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
-    _val(sheet, row, col, label)
-    sheet.range(_rc(row, col)).api.Font.Bold = True
-    sheet.range(_rc(row, col)).color = _HEADER
-
-
 def _subheader_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
-    sheet.range(_rc(row, c1), _rc(row, c2)).color = _SUBHDR
-    sheet.range(_rc(row, c1), _rc(row, c2)).api.Font.Bold = True
-
-
-def _format_input(sheet: xw.Sheet, row: int, col: int) -> None:
-    sheet.range(_rc(row, col)).color = _INPUT
-
-
-def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
-    rng = sheet.range(_rc(r1, c1), _rc(r2, c2)).api
-    for edge in [7, 8, 9, 10]:
-        rng.Borders(edge).LineStyle = 1
-        rng.Borders(edge).Weight = 2
+    sheet.range(rc(row, c1), rc(row, c2)).color = _SUBHDR
+    sheet.range(rc(row, c1), rc(row, c2)).api.Font.Bold = True
 
 
 # ── Column widths ─────────────────────────────────────────────────────────────
@@ -230,28 +182,21 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         28:   2,     # gap (AB) before grid-search section
     }
     for col, w in widths.items():
-        sheet.range(_rc(1, col), _rc(1, col)).column_width = w
+        sheet.range(rc(1, col), rc(1, col)).column_width = w
 
     # Grid-search columns: label/param2 cols are wider; body cols are narrow
     # Stage 1: AB(28)–AV(48); gap AW(49); Stage 2: AX(50)–BR(70)
     for stage_start in (_C_GS, _C_GS_S2):
         # param2 / label column
-        sheet.range(_rc(1, stage_start), _rc(1, stage_start)).column_width = 12
+        sheet.range(rc(1, stage_start), rc(1, stage_start)).column_width = 12
         # param1 / body columns (N_GRID cols)
         for c in range(stage_start + 1, stage_start + _N_GRID + 1):
-            sheet.range(_rc(1, c), _rc(1, c)).column_width = 6
+            sheet.range(rc(1, c), rc(1, c)).column_width = 6
     # gap col AX (col 50) between Stage 1 (AC–AW) and Stage 2 (AY onward)
-    sheet.range(_rc(1, _C_GS + _GS_W), _rc(1, _C_GS + _GS_W)).column_width = 2
+    sheet.range(rc(1, _C_GS + _GS_W), rc(1, _C_GS + _GS_W)).column_width = 2
 
 
 # ── Sheet-scoped named range management ──────────────────────────────────────
-
-def _drop_local_name(sheet: xw.Sheet, name: str) -> None:
-    for idx in range(sheet.api.Names.Count, 0, -1):
-        local = sheet.api.Names(idx).Name.split("!", 1)[-1]
-        if local.lower() == name.lower():
-            sheet.api.Names(idx).Delete()
-
 
 def _drop_wb_name(sheet: xw.Sheet, name: str) -> None:
     """Remove a workbook-scoped (non-local) name if present."""
@@ -267,37 +212,37 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     sname = sheet.name
 
     # UV_Data: spill range of the raw column formula in A4; unfiltered — filter is UV_Include
-    _drop_local_name(sheet, "UV_Data")
+    drop_local_name(sheet, "UV_Data")
     sheet.api.Names.Add(
         Name="UV_Data",
-        RefersTo=f"='{sname}'!${_col_letter(_C_A)}${_ROW_DATA_START}#",
+        RefersTo=f"='{sname}'!${col_letter(_C_A)}${_ROW_DATA_START}#",
     )
 
     # UV_Include: local filter mask — spill of the Data_Completeness formula in B4
-    _drop_local_name(sheet, "UV_Include")
+    drop_local_name(sheet, "UV_Include")
     sheet.api.Names.Add(
         Name="UV_Include",
-        RefersTo=f"='{sname}'!${_col_letter(_C_B)}${_ROW_DATA_START}#",
+        RefersTo=f"='{sname}'!${col_letter(_C_B)}${_ROW_DATA_START}#",
     )
 
     # UV_n: count of numeric included observations; used by GoF_BIC and chart range sizing
-    _drop_local_name(sheet, "UV_n")
+    drop_local_name(sheet, "UV_n")
     sheet.api.Names.Add(
         Name="UV_n",
-        RefersTo=f"=IFERROR(COUNT(FILTER('{sname}'!${_col_letter(_C_A)}${_ROW_DATA_START}#,UV_Include)),0)",
+        RefersTo=f"=IFERROR(COUNT(FILTER('{sname}'!${col_letter(_C_A)}${_ROW_DATA_START}#,UV_Include)),0)",
     )
 
     # Chart series ranges: OFFSET-based, sized by n_histogram_bins with the include filter.
     # FD must pass "FD" explicitly because filter is the 3rd arg (can't skip method).
     for name, col_ltr, start_row, size_formula in [
-        ("UV_Sturges_Edges",  _col_letter(_C_F), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"Sturges",UV_Include)'),
-        ("UV_Sturges_Counts", _col_letter(_C_G), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"Sturges",UV_Include)'),
-        ("UV_Scott_Edges",    _col_letter(_C_I), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"Scott",UV_Include)'),
-        ("UV_Scott_Counts",   _col_letter(_C_J), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"Scott",UV_Include)'),
-        ("UV_FD_Edges",       _col_letter(_C_L), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"FD",UV_Include)'),
-        ("UV_FD_Counts",      _col_letter(_C_M), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"FD",UV_Include)'),
+        ("UV_Sturges_Edges",  col_letter(_C_F), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$G$2,UV_Include)'),
+        ("UV_Sturges_Counts", col_letter(_C_G), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$G$2,UV_Include)'),
+        ("UV_Scott_Edges",    col_letter(_C_I), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$J$2,UV_Include)'),
+        ("UV_Scott_Counts",   col_letter(_C_J), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$J$2,UV_Include)'),
+        ("UV_FD_Edges",       col_letter(_C_L), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$M$2,UV_Include)'),
+        ("UV_FD_Counts",      col_letter(_C_M), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$M$2,UV_Include)'),
     ]:
-        _drop_local_name(sheet, name)
+        drop_local_name(sheet, name)
         sheet.api.Names.Add(
             Name=name,
             RefersTo=(
@@ -310,15 +255,15 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 # ── Zone 1: data input column ─────────────────────────────────────────────────
 
 def _write_data_zone(sheet: xw.Sheet) -> None:
-    _section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
-    _val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
-    _f(sheet, _ROW_DATA_START, _C_A, "=LifeExpectancyData[Life expectancy]")
+    section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
+    val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
+    f(sheet, _ROW_DATA_START, _C_A, "=LifeExpectancyData[Life expectancy]")
 
     # Filter column — local Data_Completeness mask; UV_Include is defined as $B$4#
-    _section_heading(sheet, _ROW_SECTION_HDR, _C_B, "Filter")
-    _val(sheet, _ROW_COL_HDRS, _C_B, "Include")
-    _f(sheet, _ROW_DATA_START, _C_B,
-       f"=MAP({_col_letter(_C_A)}{_ROW_DATA_START}#,Data_Completeness)")
+    section_heading(sheet, _ROW_SECTION_HDR, _C_B, "Filter")
+    val(sheet, _ROW_COL_HDRS, _C_B, "Include")
+    f(sheet, _ROW_DATA_START, _C_B,
+       f"=MAP({col_letter(_C_A)}{_ROW_DATA_START}#,Data_Completeness)")
 
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────
@@ -341,23 +286,23 @@ _STAT_ROWS: list[tuple[str, str]] = [
 ]
 
 def _write_descriptive_stats(sheet: xw.Sheet) -> None:
-    _section_heading(sheet, _ROW_SECTION_HDR, _C_C, "Descriptive Statistics")
+    section_heading(sheet, _ROW_SECTION_HDR, _C_C, "Descriptive Statistics")
 
     # Column sub-headers
-    _val(sheet, _ROW_COL_HDRS, _C_C, "Statistic")
-    _val(sheet, _ROW_COL_HDRS, _C_D, "Value")
+    val(sheet, _ROW_COL_HDRS, _C_C, "Statistic")
+    val(sheet, _ROW_COL_HDRS, _C_D, "Value")
     _subheader_row(sheet, _ROW_COL_HDRS, _C_C, _C_D)
 
     for i, (label, formula) in enumerate(_STAT_ROWS):
         row = _ROW_STATS_START + i
-        _val(sheet, row, _C_C, label)
-        _f(sheet, row, _C_D, formula)
-        sheet.range(_rc(row, _C_D)).number_format = (
+        val(sheet, row, _C_C, label)
+        f(sheet, row, _C_D, formula)
+        sheet.range(rc(row, _C_D)).number_format = (
             "0" if label in ("Count", "Missing") else "0.0000"
         )
 
     last_row = _ROW_STATS_START + len(_STAT_ROWS) - 1
-    _border_box(sheet, _ROW_SECTION_HDR, _C_C, last_row, _C_D)
+    border_box(sheet, _ROW_SECTION_HDR, _C_C, last_row, _C_D)
 
 
 # ── Zone 3: histogram tables ──────────────────────────────────────────────────
@@ -371,37 +316,37 @@ def _write_histogram_table(
 ) -> None:
     """Write one histogram bin table (edges + counts) for the given method."""
     # Method heading at row 2, merged across the edge and count columns
-    _section_heading(sheet, _ROW_METHOD_HDR, col_edge, method_label)
-    sheet.range(_rc(_ROW_METHOD_HDR, col_edge), _rc(_ROW_METHOD_HDR, col_count)).merge()
+    section_heading(sheet, _ROW_METHOD_HDR, col_edge, method_label)
+    sheet.range(rc(_ROW_METHOD_HDR, col_edge), rc(_ROW_METHOD_HDR, col_count)).merge()
 
-    _val(sheet, _ROW_COL_HDRS, col_edge,  "Upper Edge")
-    _val(sheet, _ROW_COL_HDRS, col_count, "Count")
+    val(sheet, _ROW_COL_HDRS, col_edge,  "Upper Edge")
+    val(sheet, _ROW_COL_HDRS, col_count, "Count")
     _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_count)
 
     # Row 3: bin-count display — "Bins" label + n_histogram_bins formula
-    _val(sheet, _ROW_SECTION_HDR, col_edge, "Bins")
-    _f(sheet, _ROW_SECTION_HDR, col_count, f'=n_histogram_bins(UV_Data,"{method}",UV_Include)')
-    sheet.range(_rc(_ROW_SECTION_HDR, col_count)).number_format = "0"
+    val(sheet, _ROW_SECTION_HDR, col_edge, "Bins")
+    f(sheet, _ROW_SECTION_HDR, col_count, f'=n_histogram_bins(UV_Data,"{method}",UV_Include)')
+    sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = "0"
 
     # Spill formulas — method must be explicit (can't skip it to reach the 3rd filter arg)
-    _f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,\"{method}\",UV_Include)")
-    edge_spill_ref = f"{_col_letter(col_edge)}{_ROW_HIST_START}#"
-    _f(sheet, _ROW_HIST_START, col_count,
+    f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,\"{method}\",UV_Include)")
+    edge_spill_ref = f"{col_letter(col_edge)}{_ROW_HIST_START}#"
+    f(sheet, _ROW_HIST_START, col_count,
        f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
 
-    sheet.range(_rc(_ROW_HIST_START, col_edge)).number_format = "0.00"
-    sheet.range(_rc(_ROW_HIST_START, col_count)).number_format = "0"
+    sheet.range(rc(_ROW_HIST_START, col_edge)).number_format = "0.00"
+    sheet.range(rc(_ROW_HIST_START, col_count)).number_format = "0"
 
 
 def _write_histograms(sheet: xw.Sheet) -> None:
     # Zone super-heading in title row, merged across all three histogram tables
-    _section_heading(sheet, _ROW_TITLE, _C_F, "Histograms")
-    sheet.range(_rc(_ROW_TITLE, _C_F), _rc(_ROW_TITLE, _C_M)).merge()
+    section_heading(sheet, _ROW_TITLE, _C_F, "Histograms")
+    sheet.range(rc(_ROW_TITLE, _C_F), rc(_ROW_TITLE, _C_M)).merge()
 
     # Each table writes its own method heading at _ROW_METHOD_HDR (row 2)
-    _write_histogram_table(sheet, _C_F, _C_G, "Sturges", "Sturges Method")
-    _write_histogram_table(sheet, _C_I, _C_J, "Scott",   "Scott Method")
-    _write_histogram_table(sheet, _C_L, _C_M, "FD",      "Freedman-Diaconis Method")
+    _write_histogram_table(sheet, _C_F, _C_G, "Sturges", "Sturges")
+    _write_histogram_table(sheet, _C_I, _C_J, "Scott",   "Scott")
+    _write_histogram_table(sheet, _C_L, _C_M, "FD",      "Freedman-Diaconis")
 
 
 # ── Zone 4: distribution fitting summary table ────────────────────────────────
@@ -435,16 +380,16 @@ def _dist_rows(base_row: int) -> list[tuple]:
     """Return distribution row specs.  base_row = row of first distribution."""
 
     def _r(row: int) -> str:
-        return f"${_col_letter(_C_R)}${row}"
+        return f"${col_letter(_C_R)}${row}"
 
     def _t(row: int) -> str:
-        return f"${_col_letter(_C_T)}${row}"
+        return f"${col_letter(_C_T)}${row}"
 
     def _v(row: int) -> str:
-        return f"${_col_letter(_C_V)}${row}"
+        return f"${col_letter(_C_V)}${row}"
 
     def _n(row: int) -> str:
-        return f"${_col_letter(_C_X)}${row}"
+        return f"${col_letter(_C_X)}${row}"
 
     rows: list[tuple] = []
     dist_specs = [
@@ -497,9 +442,9 @@ def _dist_rows(base_row: int) -> list[tuple]:
         (
             "Weibull",
             "shape",
-            f"=${_col_letter(_C_GS_S2 + _GS_C_BEST_P1)}${_ROW_GS_WB + _GS_R_BEST}",
+            f"=${col_letter(_C_GS_S2 + _GS_C_BEST_P1)}${_ROW_GS_WB + _GS_R_BEST}",
             "scale",
-            f"=${_col_letter(_C_GS_S2 + _GS_C_BEST_P2)}${_ROW_GS_WB + _GS_R_BEST}",
+            f"=${col_letter(_C_GS_S2 + _GS_C_BEST_P2)}${_ROW_GS_WB + _GS_R_BEST}",
             "",    "",
             lambda r: f"=NLL_Weibull(UV_Data,{_r(r)},{_t(r)},UV_Include)",
             2,
@@ -515,43 +460,43 @@ def _dist_rows(base_row: int) -> list[tuple]:
 
 def _write_fitting_table(sheet: xw.Sheet) -> None:
     # Zone heading at row 2, merged across all fitting columns
-    _section_heading(sheet, _ROW_METHOD_HDR, _C_P, "Distribution Fitting/Comparison")
-    sheet.range(_rc(_ROW_METHOD_HDR, _C_P), _rc(_ROW_METHOD_HDR, _C_Z)).merge()
+    section_heading(sheet, _ROW_METHOD_HDR, _C_P, "Distribution Fitting/Comparison")
+    sheet.range(rc(_ROW_METHOD_HDR, _C_P), rc(_ROW_METHOD_HDR, _C_Z)).merge()
 
     for col, label in _FIT_COL_HDRS:
-        _val(sheet, _ROW_COL_HDRS, col, label)
+        val(sheet, _ROW_COL_HDRS, col, label)
     _subheader_row(sheet, _ROW_COL_HDRS, _C_P, _C_Z)
 
     dist_data = _dist_rows(_ROW_DIST_START)
     for row, name, l1, f1, l2, f2, l3, f3, nll_f, k in dist_data:
-        _val(sheet, row, _C_P, name)
-        _val(sheet, row, _C_Q, l1)
+        val(sheet, row, _C_P, name)
+        val(sheet, row, _C_Q, l1)
         if f1:
-            _f(sheet, row, _C_R, f1)
-        _val(sheet, row, _C_S, l2)
+            f(sheet, row, _C_R, f1)
+        val(sheet, row, _C_S, l2)
         if f2:
-            _f(sheet, row, _C_T, f2)
-        _val(sheet, row, _C_U, l3)
+            f(sheet, row, _C_T, f2)
+        val(sheet, row, _C_U, l3)
         if f3:
-            _f(sheet, row, _C_V, f3)
-        _f(sheet, row, _C_W, nll_f)
-        _val(sheet, row, _C_X, k)
-        _f(sheet, row, _C_Y, f"=GoF_AIC(${_col_letter(_C_W)}${row},${_col_letter(_C_X)}${row})")
-        _f(sheet, row, _C_Z,
-           f"=GoF_BIC(${_col_letter(_C_W)}${row},${_col_letter(_C_X)}${row},UV_n)")
+            f(sheet, row, _C_V, f3)
+        f(sheet, row, _C_W, nll_f)
+        val(sheet, row, _C_X, k)
+        f(sheet, row, _C_Y, f"=GoF_AIC(${col_letter(_C_W)}${row},${col_letter(_C_X)}${row})")
+        f(sheet, row, _C_Z,
+           f"=GoF_BIC(${col_letter(_C_W)}${row},${col_letter(_C_X)}${row},UV_n)")
 
         for col, fmt in _FIT_NUMBER_FORMATS.items():
-            sheet.range(_rc(row, col)).number_format = fmt
+            sheet.range(rc(row, col)).number_format = fmt
 
     # Border around the table (col headers through last data row)
     last_row = _ROW_DIST_START + len(dist_data) - 1
-    _border_box(sheet, _ROW_COL_HDRS, _C_P, last_row, _C_Z)
+    border_box(sheet, _ROW_COL_HDRS, _C_P, last_row, _C_Z)
 
     # Highlight best-fit row (lowest AIC) with conditional formatting
-    aic_col_letter = _col_letter(_C_Y)
+    aic_col_letter = col_letter(_C_Y)
     aic_min_range  = f"${aic_col_letter}${_ROW_DIST_START}:${aic_col_letter}${last_row}"
     formula = f"=${aic_col_letter}{_ROW_DIST_START}=MIN({aic_min_range})"
-    row_range = sheet.range(_rc(_ROW_DIST_START, _C_P), _rc(last_row, _C_Z))
+    row_range = sheet.range(rc(_ROW_DIST_START, _C_P), rc(last_row, _C_Z))
     cf = row_range.api.FormatConditions.Add(Type=2, Formula1=formula)  # xlExpression=2
     cf.Interior.Color = 0xC6EFCE  # light green fill
     cf.Font.Color     = 0x276228  # dark green text
@@ -612,7 +557,7 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
         ("Freedman-Diaconis", "UV_FD_Edges",      "UV_FD_Counts",      _C_L),
     ]):
         left = sum(
-            sheet.range(_rc(1, c)).column_width * 7.5
+            sheet.range(rc(1, c)).column_width * 7.5
             for c in range(1, col)
         )
         _add_histogram_chart(
@@ -647,7 +592,7 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 
 def _gs_a1(row_start: int, col_start: int, dr: int, dc: int) -> str:
     """Absolute A1 ref offset from (row_start, col_start) by (dr, dc)."""
-    return f"${_col_letter(col_start + dc)}${row_start + dr}"
+    return f"${col_letter(col_start + dc)}${row_start + dr}"
 
 
 def _write_grid_stage(
@@ -677,38 +622,38 @@ def _write_grid_stage(
     last_col = c0 + n  # inclusive last col (param1 col N)
 
     # Title row — merged across full stage width
-    _val(sheet, r0, c0, title)
-    sheet.range(_rc(r0, c0), _rc(r0, last_col)).merge()
-    sheet.range(_rc(r0, c0)).api.Font.Bold = True
-    sheet.range(_rc(r0, c0)).color = _HEADER
+    val(sheet, r0, c0, title)
+    sheet.range(rc(r0, c0), rc(r0, last_col)).merge()
+    sheet.range(rc(r0, c0)).api.Font.Bold = True
+    sheet.range(rc(r0, c0)).color = _HEADER
 
     # Param bounds rows
-    _val(sheet, r0 + _GS_R_P1_BND, c0, "shape (k) range:")
-    _val(sheet, r0 + _GS_R_P2_BND, c0, "scale (λ) range:")
+    val(sheet, r0 + _GS_R_P1_BND, c0, "shape (k) range:")
+    val(sheet, r0 + _GS_R_P2_BND, c0, "scale (λ) range:")
     for dr, p_min, p_max in [
         (_GS_R_P1_BND, p1_min, p1_max),
         (_GS_R_P2_BND, p2_min, p2_max),
     ]:
         row = r0 + dr
         if isinstance(p_min, str):
-            _f(sheet, row, c0 + 1, p_min)
+            f(sheet, row, c0 + 1, p_min)
         else:
-            _val(sheet, row, c0 + 1, p_min)
+            val(sheet, row, c0 + 1, p_min)
         if isinstance(p_max, str):
-            _f(sheet, row, c0 + 2, p_max)
+            f(sheet, row, c0 + 2, p_max)
         else:
-            _val(sheet, row, c0 + 2, p_max)
+            val(sheet, row, c0 + 2, p_max)
         if editable_bounds:
-            sheet.range(_rc(row, c0 + 1)).color = _INPUT
-            sheet.range(_rc(row, c0 + 2)).color = _INPUT
-        sheet.range(_rc(row, c0 + 1)).number_format = "0.0000"
-        sheet.range(_rc(row, c0 + 2)).number_format = "0.0000"
+            sheet.range(rc(row, c0 + 1)).color = _INPUT
+            sheet.range(rc(row, c0 + 2)).color = _INPUT
+        sheet.range(rc(row, c0 + 1)).number_format = "0.0000"
+        sheet.range(rc(row, c0 + 2)).number_format = "0.0000"
 
     # Min NLL row — COUNT guard needed because MIN(empty range) = 0, not an error
-    _val(sheet, r0 + _GS_R_MINNLL, c0, "Min NLL:")
-    _f(sheet, r0 + _GS_R_MINNLL, c0 + 1,
+    val(sheet, r0 + _GS_R_MINNLL, c0, "Min NLL:")
+    f(sheet, r0 + _GS_R_MINNLL, c0 + 1,
        f'=IF(COUNT({body_name})=0,"—",MIN({body_name}))')
-    sheet.range(_rc(r0 + _GS_R_MINNLL, c0 + 1)).number_format = "0.00"
+    sheet.range(rc(r0 + _GS_R_MINNLL, c0 + 1)).number_format = "0.00"
 
     # Auxiliary row: row_offset, col_offset, dt_row_input, dt_col_input
     aux_row   = r0 + _GS_R_AUX
@@ -719,33 +664,33 @@ def _write_grid_stage(
     p2_seq_ref = _gs_a1(r0, c0, _GS_R_BODY, 0)              # param2 SEQUENCE anchor
 
     # row_offset: 1-indexed row position of minimum within body
-    _f(sheet, aux_row, c0 + _GS_C_ROW_OFF,
+    f(sheet, aux_row, c0 + _GS_C_ROW_OFF,
        f"=IFERROR(MIN(IF({body_name}=MIN({body_name}),"
        f"ROW({body_name})-ROW({corner_ref}))),1)")
     # col_offset: 1-indexed column position of minimum within body
-    _f(sheet, aux_row, c0 + _GS_C_COL_OFF,
+    f(sheet, aux_row, c0 + _GS_C_COL_OFF,
        f"=IFERROR(MIN(IF({body_name}=MIN({body_name}),"
        f"COLUMN({body_name})-COLUMN({corner_ref}))),1)")
     # Data Table input placeholder cells (written as values; Excel substitutes them)
-    sheet.range(_rc(aux_row, c0 + _GS_C_DT_ROW)).value = 1.0   # param1 (shape)
-    sheet.range(_rc(aux_row, c0 + _GS_C_DT_COL)).value = 1.0   # param2 (scale)
+    sheet.range(rc(aux_row, c0 + _GS_C_DT_ROW)).value = 1.0   # param1 (shape)
+    sheet.range(rc(aux_row, c0 + _GS_C_DT_COL)).value = 1.0   # param2 (scale)
     dt_row_ref = _gs_a1(r0, c0, _GS_R_AUX, _GS_C_DT_ROW)
     dt_col_ref = _gs_a1(r0, c0, _GS_R_AUX, _GS_C_DT_COL)
 
     # Best-param display row (references the SEQUENCE spill anchors)
     best_row = r0 + _GS_R_BEST
-    _val(sheet, best_row, c0, "Best shape:")
-    _f(sheet, best_row, c0 + _GS_C_BEST_P1,
+    val(sheet, best_row, c0, "Best shape:")
+    f(sheet, best_row, c0 + _GS_C_BEST_P1,
        f"=IFERROR(INDEX({p1_seq_ref}#,1,{c_off_ref}),\"—\")")
-    _val(sheet, best_row, c0 + _GS_C_LBL_P2, "Best scale:")
-    _f(sheet, best_row, c0 + _GS_C_BEST_P2,
+    val(sheet, best_row, c0 + _GS_C_LBL_P2, "Best scale:")
+    f(sheet, best_row, c0 + _GS_C_BEST_P2,
        f"=IFERROR(INDEX({p2_seq_ref}#,{r_off_ref}),\"—\")")
     for dc in (_GS_C_BEST_P1, _GS_C_BEST_P2):
-        sheet.range(_rc(best_row, c0 + dc)).number_format = "0.0000"
+        sheet.range(rc(best_row, c0 + dc)).number_format = "0.0000"
 
     # Boundary guard: red fill on best-param cells when minimum is on grid edge
     for dc, off_ref in [(_GS_C_BEST_P1, c_off_ref), (_GS_C_BEST_P2, r_off_ref)]:
-        cell_api = sheet.range(_rc(best_row, c0 + dc)).api
+        cell_api = sheet.range(rc(best_row, c0 + dc)).api
         cf = cell_api.FormatConditions.Add(
             Type=2,  # xlExpression
             Formula1=f"=OR({off_ref}=1,{off_ref}={n})",
@@ -761,14 +706,14 @@ def _write_grid_stage(
     max_p2_ref = _gs_a1(r0, c0, _GS_R_P2_BND, 2)
 
     # Corner cell: NLL formula referencing the two Data Table input placeholders
-    _f(sheet, hdr_row, c0,
+    f(sheet, hdr_row, c0,
        f"=NLL_Weibull(UV_Data,{dt_row_ref},{dt_col_ref},UV_Include)")
-    sheet.range(_rc(hdr_row, c0)).number_format = "0.00"
+    sheet.range(rc(hdr_row, c0)).number_format = "0.00"
 
     # Param1 (shape) SEQUENCE — spills right across N cols
-    _f(sheet, hdr_row, c0 + 1,
+    f(sheet, hdr_row, c0 + 1,
        f"=SEQUENCE(1,{n},{min_p1_ref},({max_p1_ref}-{min_p1_ref})/({n}-1))")
-    sheet.range(_rc(hdr_row, c0 + 1)).number_format = "0.00"
+    sheet.range(rc(hdr_row, c0 + 1)).number_format = "0.00"
 
     # ── Grid: body rows (param2 SEQUENCE + Data Table body) ──────────────────
     body_row_start = r0 + _GS_R_BODY
@@ -777,30 +722,30 @@ def _write_grid_stage(
     body_col_end   = c0 + n
 
     # Param2 (scale) SEQUENCE — spills down N rows in col c0
-    _f(sheet, body_row_start, c0,
+    f(sheet, body_row_start, c0,
        f"=SEQUENCE({n},1,{min_p2_ref},({max_p2_ref}-{min_p2_ref})/({n}-1))")
-    sheet.range(_rc(body_row_start, c0)).number_format = "0.0000"
+    sheet.range(rc(body_row_start, c0)).number_format = "0.0000"
 
     # Register named range for the body BEFORE setting up the Data Table
     body_range = sheet.range(
-        _rc(body_row_start, body_col_start),
-        _rc(body_row_end,   body_col_end),
+        rc(body_row_start, body_col_start),
+        rc(body_row_end,   body_col_end),
     )
-    _drop_local_name(sheet, body_name)
+    drop_local_name(sheet, body_name)
     sheet.api.Names.Add(
         Name=body_name,
         RefersTo=(
-            f"='{sname}'!${_col_letter(body_col_start)}${body_row_start}"
-            f":${_col_letter(body_col_end)}${body_row_end}"
+            f"='{sname}'!${col_letter(body_col_start)}${body_row_start}"
+            f":${col_letter(body_col_end)}${body_row_end}"
         ),
     )
 
     # Two-input Data Table wiring is disabled — wire manually via the Excel UI.
-    # row_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_ROW))
-    # col_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_COL))
+    # row_input_cell = sheet.range(rc(aux_row, c0 + _GS_C_DT_ROW))
+    # col_input_cell = sheet.range(rc(aux_row, c0 + _GS_C_DT_COL))
     # full_table_range = sheet.range(
-    #     _rc(hdr_row, c0),
-    #     _rc(body_row_end, body_col_end),
+    #     rc(hdr_row, c0),
+    #     rc(body_row_end, body_col_end),
     # )
     # full_table_range.api.Table(
     #     RowInput=row_input_cell.api,
@@ -825,7 +770,7 @@ def _write_grid_stage(
         pass
 
     # Border around the whole stage block
-    _border_box(sheet, r0, c0, body_row_end, last_col)
+    border_box(sheet, r0, c0, body_row_end, last_col)
 
     return {
         "best_p1":    _gs_a1(r0, c0, _GS_R_BEST, _GS_C_BEST_P1),
@@ -880,18 +825,18 @@ def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
     )
 
     # Section heading label over the gap column between stages
-    _val(sheet, rs, _C_GS + _GS_W, "")
+    val(sheet, rs, _C_GS + _GS_W, "")
 
 
 # ── Row height and freeze ─────────────────────────────────────────────────────
 
 def _finalize_sheet(sheet: xw.Sheet) -> None:
-    sheet.range(_rc(1, 1)).api.EntireRow.RowHeight = 20
-    sheet.range(_rc(_ROW_METHOD_HDR, 1)).api.EntireRow.RowHeight = 18
-    sheet.range(_rc(_ROW_SECTION_HDR, 1)).api.EntireRow.RowHeight = 18
-    sheet.range(_rc(_ROW_COL_HDRS, 1)).api.EntireRow.RowHeight = 18
+    sheet.range(rc(1, 1)).api.EntireRow.RowHeight = 20
+    sheet.range(rc(_ROW_METHOD_HDR, 1)).api.EntireRow.RowHeight = 18
+    sheet.range(rc(_ROW_SECTION_HDR, 1)).api.EntireRow.RowHeight = 18
+    sheet.range(rc(_ROW_COL_HDRS, 1)).api.EntireRow.RowHeight = 18
     # Freeze at C4: rows 1-3 and cols A-B (data + filter) always visible
-    sheet.range(_rc(_ROW_DATA_START, 3)).api.Select()
+    sheet.range(rc(_ROW_DATA_START, 3)).api.Select()
     sheet.book.app.api.ActiveWindow.FreezePanes = True
 
 
@@ -918,9 +863,9 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
         after=workbook.sheets[-1],
     )
 
-    _val(sheet, _ROW_TITLE, _C_A, "Univariate Analysis")
-    sheet.range(_rc(_ROW_TITLE, _C_A)).api.Font.Bold = True
-    sheet.range(_rc(_ROW_TITLE, _C_A)).api.Font.Size = 14
+    val(sheet, _ROW_TITLE, _C_A, "Univariate Analysis")
+    sheet.range(rc(_ROW_TITLE, _C_A)).api.Font.Bold = True
+    sheet.range(rc(_ROW_TITLE, _C_A)).api.Font.Size = 14
 
     _set_column_widths(sheet)
 

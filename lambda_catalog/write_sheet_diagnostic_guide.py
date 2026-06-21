@@ -3,14 +3,11 @@ from __future__ import annotations
 
 import xlwings as xw
 
-from .sheet_styles import HEADER_COLOR as _HEADER_COLOR
+from .sheet_styles import HEADER_COLOR as _HEADER_COLOR, SUBHDR_COLOR as _SUBHEADER_COLOR
 from .workbook_helpers import get_or_create_sheet, reset_generated_sheet
 
 
 SHEET_NAME = "Diagnostic Guide"
-_SUBHEADER_COLOR = (226, 239, 218)  # light green for section subheadings
-_TABLE_HEADER_COLOR = (217, 225, 242)  # light blue for table column headers
-
 _COL_A_WIDTH = 28
 _COL_B_WIDTH = 22
 _COL_C_WIDTH = 22
@@ -36,7 +33,7 @@ def _table_header_row(sheet: xw.Sheet, row: int, headers: list[str]) -> None:
         cell = sheet.range((row, col))
         cell.value = text
         cell.api.Font.Bold = True
-        cell.color = _TABLE_HEADER_COLOR
+        cell.color = _SUBHEADER_COLOR
 
 
 def _row(sheet: xw.Sheet, row: int, values: list[str]) -> None:

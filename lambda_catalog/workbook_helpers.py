@@ -7,9 +7,13 @@ from typing import NoReturn
 import pywintypes  # type: ignore[import-untyped]
 import xlwings as xw
 
+from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT
+
 
 XL_SRC_RANGE = 1
 XL_YES = 1
+MAX_EXCEL_ROW = 1_048_576
+_XL_EXPRESSION = 2
 OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
     dict.fromkeys((getattr(pywintypes, "com_error", OSError), OSError))
 )
@@ -160,17 +164,111 @@ def group_and_hide_columns(sheet: xw.Sheet, start_col: int, end_col: int) -> Non
     """
     if start_col > end_col:
         return
-    start_letter = _col_letter(start_col)
-    end_letter = _col_letter(end_col)
+    start_letter = col_letter(start_col)
+    end_letter = col_letter(end_col)
     grouped_columns = sheet.range(f"{start_letter}:{end_letter}").api.EntireColumn
     grouped_columns.Group()
     grouped_columns.Hidden = True
 
 
-def _col_letter(col_idx: int) -> str:
+def col_letter(col_idx: int) -> str:
     """Convert a 1-based column index to an Excel column letter string."""
     result = ""
     while col_idx > 0:
         col_idx, remainder = divmod(col_idx - 1, 26)
         result = chr(ord("A") + remainder) + result
     return result
+
+
+# ── Cell address helpers ───────────────────────────────────────────────────────
+
+def rc(row: int, col: int) -> tuple[int, int]:
+    return (row, col)
+
+
+def a1(row: int, col: int) -> str:
+    return f"{col_letter(col)}{row}"
+
+
+# ── Cell value / formula helpers ───────────────────────────────────────────────
+
+def val(sheet: xw.Sheet, row: int, col: int, value: object) -> None:
+    sheet.range(rc(row, col)).value = value
+
+
+def f(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:
+    sheet.range(rc(row, col)).api.Formula2 = formula
+
+
+# ── Cell formatting helpers ────────────────────────────────────────────────────
+
+def bold(sheet: xw.Sheet, row: int, col: int) -> None:
+    sheet.range(rc(row, col)).api.Font.Bold = True
+
+
+def bold_row(sheet: xw.Sheet, row: int, col1: int, col2: int) -> None:
+    sheet.range(rc(row, col1), rc(row, col2)).api.Font.Bold = True
+
+
+def section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
+    val(sheet, row, col, label)
+    sheet.range(rc(row, col)).api.Font.Bold = True
+    sheet.range(rc(row, col)).color = _HEADER
+
+
+def format_input(sheet: xw.Sheet, row: int, col: int) -> None:
+    sheet.range(rc(row, col)).color = _INPUT
+
+
+def border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
+    rng = sheet.range(rc(r1, c1), rc(r2, c2)).api
+    for edge in [7, 8, 9, 10]:   # xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
+        rng.Borders(edge).LineStyle = 1   # xlContinuous
+        rng.Borders(edge).Weight = 2      # xlThin
+
+
+def excel_color(rgb: tuple[int, int, int]) -> int:
+    """Convert an RGB tuple to the OLE color integer expected by Excel COM."""
+    red, green, blue = rgb
+    return red + green * 256 + blue * 65536
+
+
+def add_expression_format(
+    sheet: xw.Sheet,
+    address: str,
+    formula: str,
+    *,
+    fill: tuple[int, int, int] | None = None,
+    font_color: tuple[int, int, int] | None = None,
+    bold_font: bool | None = None,
+    strikethrough: bool | None = None,
+    stop_if_true: bool = False,
+):
+    """Add a formula-based conditional-formatting rule to a range."""
+    condition = sheet.range(address).api.FormatConditions.Add(
+        Type=_XL_EXPRESSION,
+        Formula1=formula,
+    )
+
+    if fill is not None:
+        condition.Interior.Color = excel_color(fill)
+
+    if font_color is not None:
+        condition.Font.Color = excel_color(font_color)
+
+    if bold_font is not None:
+        condition.Font.Bold = bold_font
+    if strikethrough is not None:
+        condition.Font.Strikethrough = strikethrough
+
+    condition.StopIfTrue = stop_if_true
+    return condition
+
+
+# ── Name management ───────────────────────────────────────────────────────────
+
+def drop_local_name(sheet: xw.Sheet, name: str) -> None:
+    for idx in range(sheet.api.Names.Count, 0, -1):
+        local = sheet.api.Names(idx).Name.split("!", 1)[-1]
+        if local.lower() == name.lower():
+            sheet.api.Names(idx).Delete()

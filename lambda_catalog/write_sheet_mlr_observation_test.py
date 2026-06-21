@@ -7,8 +7,7 @@ from typing import TYPE_CHECKING
 import xlwings as xw
 
 from .regression_shared import FEATURE_COLUMNS
-from .workbook_helpers import reset_column_groups
-from .write_sheet_mlr_vector_outputs_test import _delete_sheet_scoped_name_if_present
+from .workbook_helpers import drop_local_name, reset_column_groups
 
 if TYPE_CHECKING:
     from .regression_shared import RegressionObservationVectors
@@ -30,12 +29,12 @@ _STATS: list[tuple[str, str, int, str]] = [
 
 
 def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
-    _delete_sheet_scoped_name_if_present(sheet, "fil")  # remove legacy name if present
+    drop_local_name(sheet, "fil")  # remove legacy name if present
     for name, refers_to in (
         ("y", "=LifeExpectancyData[Life expectancy]"),
         ("Regression_Sample_Include", "=LifeExpectancyData[Full_Data]"),
     ):
-        _delete_sheet_scoped_name_if_present(sheet, name)
+        drop_local_name(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
 
 

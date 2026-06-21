@@ -14,8 +14,9 @@ shape distributions (Weibull, Gamma, Beta) is deferred to v2.1.
 Sheet layout
 ────────────
   Row 1          — Title "Univariate Analysis"
-  Row 2          — Section headings: Data | Descriptive Statistics | Sturges | Scott | FD | Distribution Fitting
-  Row 3          — Column sub-headers (table header for cols A–B); pane freeze anchored here
+  Row 2          — Method/zone headings: Sturges Method | Scott Method | Freedman-Diaconis Method | Distribution Fitting/Comparison
+  Row 3          — Section headings: Data | Filter | Descriptive Statistics | Bins; pane freeze anchored here
+  Row 4          — Column sub-headers (table headers for histogram and fitting tables)
   Row 4+         — Data: raw column spill (col A), filter mask (col B), stats (D–E), histogram bins (G–N), fitting (Q–AA)
 
   Col A          — Data: LifeExpectancyData[Life expectancy] spill in A4 (unfiltered; spill range = $A$4#)
@@ -239,7 +240,7 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         # param1 / body columns (N_GRID cols)
         for c in range(stage_start + 1, stage_start + _N_GRID + 1):
             sheet.range(_rc(1, c), _rc(1, c)).column_width = 6
-    # gap col between Stage 1 and Stage 2
+    # gap col AX (col 50) between Stage 1 (AC–AW) and Stage 2 (AY onward)
     sheet.range(_rc(1, _C_GS + _GS_W), _rc(1, _C_GS + _GS_W)).column_width = 2
 
 
@@ -316,7 +317,8 @@ def _write_data_zone(sheet: xw.Sheet) -> None:
     # Filter column — local Data_Completeness mask; UV_Include is defined as $B$4#
     _section_heading(sheet, _ROW_SECTION_HDR, _C_B, "Filter")
     _val(sheet, _ROW_COL_HDRS, _C_B, "Include")
-    _f(sheet, _ROW_DATA_START, _C_B, "=MAP(A4#,Data_Completeness)")
+    _f(sheet, _ROW_DATA_START, _C_B,
+       f"=MAP({_col_letter(_C_A)}{_ROW_DATA_START}#,Data_Completeness)")
 
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────

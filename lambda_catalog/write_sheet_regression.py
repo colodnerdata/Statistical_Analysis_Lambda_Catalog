@@ -608,7 +608,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
         _drop_local_name(sheet, _name)
         sheet.api.Names.Add(
             Name=_name,
-            RefersTo=f"=OFFSET('{sname}'!${_col_ltr}$2,1,0,'{sname}'!$M$8,1)",
+            RefersTo=f"=OFFSET('{sname}'!${_col_ltr}$2,1,0,MAX(IFERROR('{sname}'!$M$8,1),1),1)",
         )
 
 

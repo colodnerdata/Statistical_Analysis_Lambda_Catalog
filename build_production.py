@@ -13,6 +13,7 @@ import xlwings as xw
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
     XL_CALCULATION_MANUAL,
+    XL_CALCULATION_SEMIAUTOMATIC,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
     load_lambda_definitions,
@@ -133,6 +134,7 @@ def build_production_workbook(
                 write_diagnostic_guide_sheet(workbook)
                 write_version_history_sheet(workbook)
                 write_regression_output_sheet(workbook, sheet_notes)
+                app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
                 workbook.save(str(workbook_path))
             finally:
                 workbook.close()

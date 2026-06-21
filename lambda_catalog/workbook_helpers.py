@@ -257,8 +257,7 @@ def add_expression_format(
         condition.Font.Color = excel_color(font_color)
 
     if bold_font is not None:
-        condition.Font.Bold = bold
-
+        condition.Font.Bold = bold_font
     if strikethrough is not None:
         condition.Font.Strikethrough = strikethrough
 

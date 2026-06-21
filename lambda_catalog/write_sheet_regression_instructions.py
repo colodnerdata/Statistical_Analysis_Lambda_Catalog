@@ -72,18 +72,17 @@ _ROWS: list[tuple[int, str, str | None]] = [
         ),
         "body",
     ),
-    (9, "Optional — data filter:", "heading"),
+    (9, "Optional — sample include mask:", "heading"),
     (
         10,
         (
-            'Update fil (the “Refers To” field) to a column in the same table '
-            "containing TRUE or FALSE for each row. A recommended completeness check — "
-            "if your table has k predictor columns — is to add a filter column with:\n\n"
-            "=COUNT(YourTable[@[First_Predictor]:[Last_Predictor]])=k\n\n"
-            "Replace First_Predictor, Last_Predictor, and k with your first predictor column name, "
-            "last predictor column name, and the total number of predictors. "
-            "This returns TRUE only when every predictor value in the row is numeric. "
-            "This avoids including rows with blanks or non-numeric predictor values in the regression."
+            'Update Regression_Sample_Include (the “Refers To” field) to a column in the same table '
+            "containing TRUE or FALSE for each row. A recommended approach is to add a completeness "
+            "column using the Data_Completeness function:\n\n"
+            "=Data_Completeness(YourTable[@[First_Predictor]:[Last_Predictor]])\n\n"
+            "Replace First_Predictor and Last_Predictor with your first and last predictor column names. "
+            "This returns TRUE only when every predictor value in the row is numeric, "
+            "automatically excluding rows with blanks or non-numeric values from the regression."
         ),
         "body",
     ),

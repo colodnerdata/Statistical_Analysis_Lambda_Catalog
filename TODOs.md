@@ -26,31 +26,31 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 ### LAMBDA functions
 
 **Descriptive statistics**
-- TODO: Implement `Descriptive_Stats(data, [filter])` — returns a column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count. Reuse existing `Skewness` and `Kurtosis` LAMBDAs.
-- TODO: Implement `Missing_Count(data, [filter])` — count of blank/non-numeric cells; surface prominently in the sheet.
+- TODO: Implement `Descriptive_Stats(data, [include])` — returns a column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count. Reuse existing `Skewness` and `Kurtosis` LAMBDAs.
+- TODO: Implement `Missing_Count(data, [include])` — count of blank/non-numeric cells; surface prominently in the sheet.
 
 **Histogram binning**
-- TODO: Implement `Sturges_Bins(data, [filter])` → bin count via `CEILING(LOG(n,2)+1, 1)`.
-- TODO: Implement `Scott_Bins(data, [filter])` → bin width `3.49 × SD × n^(-1/3)`; bin count from range/width.
-- TODO: Implement `FD_Bins(data, [filter])` → Freedman-Diaconis bin width `2 × IQR × n^(-1/3)`.
-- TODO: Implement `Bin_Edges(data, method, [filter])` → vector of upper bin edges (half-open `(lower, upper]` intervals, matching Excel `FREQUENCY` convention).
-- TODO: Implement `Bin_Counts(data, edges, [filter])` → frequency vector for the given edges.
+- TODO: Implement `Sturges_Bins(data, [include])` → bin count via `CEILING(LOG(n,2)+1, 1)`.
+- TODO: Implement `Scott_Bins(data, [include])` → bin width `3.49 × SD × n^(-1/3)`; bin count from range/width.
+- TODO: Implement `FD_Bins(data, [include])` → Freedman-Diaconis bin width `2 × IQR × n^(-1/3)`.
+- TODO: Implement `Bin_Edges(data, method, [include])` → vector of upper bin edges (half-open `(lower, upper]` intervals, matching Excel `FREQUENCY` convention).
+- TODO: Implement `Bin_Counts(data, edges, [include])` → frequency vector for the given edges.
 
 **Distribution fitting — negative log-likelihood (NLL)**
-- TODO: Implement `NLL_Normal(data, mean, sd, [filter])`.
-- TODO: Implement `NLL_Lognormal(data, meanlog, sdlog, [filter])`.
-- TODO: Implement `NLL_Exponential(data, rate, [filter])`.
-- TODO: Implement `NLL_Weibull(data, shape, scale, [filter])` — two-parameter; grid-search MLE.
-- TODO: Implement `NLL_Gamma(data, shape, rate, [filter])` — two-parameter; grid-search MLE.
-- TODO: Implement `NLL_Triangular(data, min, mode, max, [filter])` — fit by direct min/mode/max estimation (likelihood non-differentiable at mode; not grid-search).
-- TODO: Implement `NLL_Beta(data, alpha_param, beta_param, [filter])` — requires data rescaled to `[0,1]`; wrap in `IFERROR` sentinel for values exactly at 0 or 1.
-- TODO: Implement `NLL_BetaPERT(data, min, mode, max, [filter])` — closed-form via PERT reparameterization of Beta.
+- TODO: Implement `NLL_Normal(data, mean, sd, [include])`.
+- TODO: Implement `NLL_Lognormal(data, meanlog, sdlog, [include])`.
+- TODO: Implement `NLL_Exponential(data, rate, [include])`.
+- TODO: Implement `NLL_Weibull(data, shape, scale, [include])` — two-parameter; grid-search MLE.
+- TODO: Implement `NLL_Gamma(data, shape, rate, [include])` — two-parameter; grid-search MLE.
+- TODO: Implement `NLL_Triangular(data, min, mode, max, [include])` — fit by direct min/mode/max estimation (likelihood non-differentiable at mode; not grid-search).
+- TODO: Implement `NLL_Beta(data, alpha_param, beta_param, [include])` — requires data rescaled to `[0,1]`; wrap in `IFERROR` sentinel for values exactly at 0 or 1.
+- TODO: Implement `NLL_BetaPERT(data, min, mode, max, [include])` — closed-form via PERT reparameterization of Beta.
 
 **Goodness-of-fit statistics**
 - TODO: Implement `GoF_AIC(nll, k)` — `2k + 2 × NLL`; comparable across distributions on the same data.
 - TODO: Implement `GoF_BIC(nll, k, n)` — `k × ln(n) + 2 × NLL`.
-- TODO: Implement `GoF_AndersonDarling(data, dist_cdf, [filter])` — handle bounded-support distributions (Beta, Triangular, BetaPERT) at support edges explicitly.
-- TODO: Implement `GoF_KS(data, dist_cdf, [filter])` — Kolmogorov-Smirnov statistic.
+- TODO: Implement `GoF_AndersonDarling(data, dist_cdf, [include])` — handle bounded-support distributions (Beta, Triangular, BetaPERT) at support edges explicitly.
+- TODO: Implement `GoF_KS(data, dist_cdf, [include])` — Kolmogorov-Smirnov statistic.
 
 **CDF/PDF functions (histogram overlay curves)**
 - TODO: Implement `PDF_Normal`, `PDF_Lognormal`, `PDF_Exponential`, `PDF_Weibull`, `PDF_Gamma`, `PDF_Triangular`, `PDF_Beta`, `PDF_BetaPERT` — evaluated at bin midpoints.
@@ -81,7 +81,7 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 
 ## v3.0 — Resampling & Simulation
 
-- TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples, alpha, [filter])` — bootstrap confidence interval for an arbitrary statistic passed as a LAMBDA. Evaluate whether `RANDARRAY`-based resampling is viable or whether a pre-drawn random table is needed.
+- TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples, alpha, [include])` — bootstrap confidence interval for an arbitrary statistic passed as a LAMBDA. Evaluate whether `RANDARRAY`-based resampling is viable or whether a pre-drawn random table is needed.
 - TODO: Implement `MC_Percentile(dist_params, n_samples, percentile)` — Monte Carlo draw from a fitted distribution; complements v2.0 fitting.
 - TODO: Implement `PERT_Sample(min, mode, max, n_samples)` — BetaPERT sampling for cost/schedule risk analysis.
 - TODO: Design sheet layout (bootstrap section + Monte Carlo section; may share one sheet). Implement `write_sheet_simulation.py`.
@@ -90,10 +90,10 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 
 ## v4.0 — Bivariate / Two-sample
 
-- TODO: Implement `T_Test_OneSample(data, mu0, alpha, [filter])` → test statistic, p-value, CI.
-- TODO: Implement `T_Test_TwoSample(data1, data2, alpha, equal_var, [filter1], [filter2])` — equal-variance, Welch, and paired variants via `equal_var` flag.
-- TODO: Implement `F_Test_Variance(data1, data2, alpha, [filter1], [filter2])` — test for equality of variances; output feeds a recommendation cell that selects the appropriate t-test variant.
-- TODO: Implement `Covariance_Matrix(data, [filter])` — complement to the existing `Correlation_Matrix`.
+- TODO: Implement `T_Test_OneSample(data, mu0, alpha, [include])` → test statistic, p-value, CI.
+- TODO: Implement `T_Test_TwoSample(data1, data2, alpha, equal_var, [include1], [include2])` — equal-variance, Welch, and paired variants via `equal_var` flag.
+- TODO: Implement `F_Test_Variance(data1, data2, alpha, [include1], [include2])` — test for equality of variances; output feeds a recommendation cell that selects the appropriate t-test variant.
+- TODO: Implement `Covariance_Matrix(data, [include])` — complement to the existing `Correlation_Matrix`.
 - TODO: Design two-sample sheet layout: inputs, test selector, F-test assumption check, output (test statistic, df, p-value, CI, effect size). Implement `write_sheet_two_sample.py`.
 
 ---
@@ -115,6 +115,6 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 
 ## v4.x — Time series
 
-- TODO: Implement `Moving_Average(data, window, [filter])`.
-- TODO: Implement `Exponential_Smoothing(data, alpha_smooth, [filter])` — note: use `alpha_smooth` to distinguish from the significance-level `alpha`.
+- TODO: Implement `Moving_Average(data, window, [include])`.
+- TODO: Implement `Exponential_Smoothing(data, alpha_smooth, [include])` — note: use `alpha_smooth` to distinguish from the significance-level `alpha`.
 - TODO: Implement `write_sheet_time_series.py` with forecast output, error metrics (MAE, RMSE, MAPE), and an actual vs. smoothed series chart.

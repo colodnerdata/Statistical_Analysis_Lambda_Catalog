@@ -17,7 +17,7 @@ To use these functions in a different workbook, open both files in Excel at the 
 Most regression functions share this signature:
 
 ```
-FunctionName(X_s, Y, [Allow_Intercept], [Filter])
+FunctionName(X_s, Y, [Allow_Intercept], [Include])
 ```
 
 | Argument | Description |
@@ -25,7 +25,7 @@ FunctionName(X_s, Y, [Allow_Intercept], [Filter])
 | `X_s` | Predictor column range (one or more columns) |
 | `Y` | Outcome column range (single column) |
 | `[Allow_Intercept]` | TRUE to fit an intercept (default), FALSE to force through the origin |
-| `[Filter]` | Boolean column — TRUE includes the row, FALSE excludes it |
+| `[Include]` | Boolean column — TRUE includes the row, FALSE excludes it |
 
 Square brackets indicate optional arguments. A few functions have different signatures, as noted in their entries below.
 
@@ -37,23 +37,23 @@ These functions return a single number summarizing the regression.
 
 | Function | Returns |
 |---|---|
-| `Observations(Y, [Filter])` | Number of observations (n) |
+| `Observations(Y, [Include])` | Number of observations (n) |
 | `DF_Regression(X_s)` | Degrees of freedom for the model (k predictors) |
-| `DF_Residual(X_s, Y, [Allow_Intercept], [Filter])` | Degrees of freedom for residuals (n − k − 1) |
-| `DF_Total(Y, [Allow_Intercept], [Filter])` | Total degrees of freedom (n − 1) |
-| `R_squared(X_s, Y, [Allow_Intercept], [Filter])` | R² — proportion of variance explained, 0 to 1 |
-| `Multiple_R(X_s, Y, [Allow_Intercept], [Filter])` | √R² — multiple correlation coefficient |
-| `Adjusted_R2(X_s, Y, [Allow_Intercept], [Filter])` | R² penalized for number of predictors |
-| `SE_Regression(X_s, Y, [Allow_Intercept], [Filter])` | Standard error of the regression |
-| `SS_Regression(X_s, Y, [Allow_Intercept], [Filter])` | Model sum of squares |
-| `SS_Residual(X_s, Y, [Allow_Intercept], [Filter])` | Residual (error) sum of squares |
-| `SS_Total(Y, [Allow_Intercept], [Filter])` | Total sum of squares |
-| `PRESS(X_s, Y, [Allow_Intercept], [Filter])` | Leave-one-out cross-validation error sum |
-| `Durbin_Watson(X_s, Y, [Allow_Intercept], [Filter])` | Serial autocorrelation test for residuals (2 = no autocorrelation) |
-| `AIC(X_s, Y, [Allow_Intercept], [Filter])` | Akaike Information Criterion |
-| `AICc(X_s, Y, [Allow_Intercept], [Filter])` | Corrected AIC (for small samples) |
-| `BIC(X_s, Y, [Allow_Intercept], [Filter])` | Bayesian Information Criterion |
-| `QQ_Correlation(X_s, Y, [Allow_Intercept], [Filter])` | Filliben Q-Q normality statistic for residuals |
+| `DF_Residual(X_s, Y, [Allow_Intercept], [Include])` | Degrees of freedom for residuals (n − k − 1) |
+| `DF_Total(Y, [Allow_Intercept], [Include])` | Total degrees of freedom (n − 1) |
+| `R_squared(X_s, Y, [Allow_Intercept], [Include])` | R² — proportion of variance explained, 0 to 1 |
+| `Multiple_R(X_s, Y, [Allow_Intercept], [Include])` | √R² — multiple correlation coefficient |
+| `Adjusted_R2(X_s, Y, [Allow_Intercept], [Include])` | R² penalized for number of predictors |
+| `SE_Regression(X_s, Y, [Allow_Intercept], [Include])` | Standard error of the regression |
+| `SS_Regression(X_s, Y, [Allow_Intercept], [Include])` | Model sum of squares |
+| `SS_Residual(X_s, Y, [Allow_Intercept], [Include])` | Residual (error) sum of squares |
+| `SS_Total(Y, [Allow_Intercept], [Include])` | Total sum of squares |
+| `PRESS(X_s, Y, [Allow_Intercept], [Include])` | Leave-one-out cross-validation error sum |
+| `Durbin_Watson(X_s, Y, [Allow_Intercept], [Include])` | Serial autocorrelation test for residuals (2 = no autocorrelation) |
+| `AIC(X_s, Y, [Allow_Intercept], [Include])` | Akaike Information Criterion |
+| `AICc(X_s, Y, [Allow_Intercept], [Include])` | Corrected AIC (for small samples) |
+| `BIC(X_s, Y, [Allow_Intercept], [Include])` | Bayesian Information Criterion |
+| `QQ_Correlation(X_s, Y, [Allow_Intercept], [Include])` | Filliben Q-Q normality statistic for residuals |
 
 ### Coefficient-level outputs — (k+1)×1 vector
 
@@ -61,14 +61,14 @@ These functions return one value per coefficient (intercept first when included,
 
 | Function | Returns |
 |---|---|
-| `Coefficients(X_s, Y, [Allow_Intercept], [Filter])` | OLS coefficient estimates |
-| `SE_Coefficients(X_s, Y, [Allow_Intercept], [Filter])` | Standard errors of the coefficients |
-| `T_Stats(X_s, Y, [Allow_Intercept], [Filter])` | t-statistics (coefficient / standard error) |
-| `P_Values(X_s, Y, [Allow_Intercept], [Filter])` | Two-tailed p-values |
-| `CI_Lower(X_s, Y, [Allow_Intercept], [Filter], [Alpha])` | Lower confidence interval bounds (default 95%) |
-| `CI_Upper(X_s, Y, [Allow_Intercept], [Filter], [Alpha])` | Upper confidence interval bounds (default 95%) |
-| `Partial_R2(X_s, Y, [Allow_Intercept], [Filter])` | Partial R² per coefficient |
-| `Partial_Correlation(X_s, Y, [Allow_Intercept], [Filter])` | Partial correlation per coefficient |
+| `Coefficients(X_s, Y, [Allow_Intercept], [Include])` | OLS coefficient estimates |
+| `SE_Coefficients(X_s, Y, [Allow_Intercept], [Include])` | Standard errors of the coefficients |
+| `T_Stats(X_s, Y, [Allow_Intercept], [Include])` | t-statistics (coefficient / standard error) |
+| `P_Values(X_s, Y, [Allow_Intercept], [Include])` | Two-tailed p-values |
+| `CI_Lower(X_s, Y, [Allow_Intercept], [Include], [Alpha])` | Lower confidence interval bounds (default 95%) |
+| `CI_Upper(X_s, Y, [Allow_Intercept], [Include], [Alpha])` | Upper confidence interval bounds (default 95%) |
+| `Partial_R2(X_s, Y, [Allow_Intercept], [Include])` | Partial R² per coefficient |
+| `Partial_Correlation(X_s, Y, [Allow_Intercept], [Include])` | Partial correlation per coefficient |
 
 ### Multicollinearity — k×1 vector
 
@@ -76,8 +76,8 @@ These functions return one value per predictor (no intercept row). `VIF > 10` or
 
 | Function | Returns |
 |---|---|
-| `VIF(X_s, [Allow_Intercept], [Filter])` | Variance inflation factor per predictor |
-| `Tolerance(X_s, [Allow_Intercept], [Filter])` | Tolerance (= 1 / VIF) per predictor |
+| `VIF(X_s, [Allow_Intercept], [Include])` | Variance inflation factor per predictor |
+| `Tolerance(X_s, [Allow_Intercept], [Include])` | Tolerance (= 1 / VIF) per predictor |
 
 ### Observation-level outputs — n×1 vector
 
@@ -85,23 +85,23 @@ These functions return one value per observation in the filtered dataset, spille
 
 | Function | Returns |
 |---|---|
-| `Predictions(X_s, Y, [Allow_Intercept], [Filter])` | Fitted (predicted) values |
-| `Residuals(X_s, Y, [Allow_Intercept], [Filter])` | Raw residuals (Y − Ŷ) |
-| `Scaled_Residuals(X_s, Y, [Allow_Intercept], [Filter])` | Residuals divided by SE_Regression |
-| `Scaled_Residuals_Ranked(X_s, Y, [Allow_Intercept], [Filter])` | Scaled residuals sorted ascending |
-| `Studentized_Residuals(X_s, Y, [Allow_Intercept], [Filter])` | Internally studentized residuals |
-| `Studentized_Residuals_Ranked(X_s, Y, [Allow_Intercept], [Filter])` | Studentized residuals sorted ascending |
-| `Hat_diagonal(X_s, [Allow_Intercept], [Filter])` | Leverage values (diagonal of the hat matrix) |
-| `Cooks_Distance(X_s, Y, [Allow_Intercept], [Filter])` | Cook's distance per observation |
-| `LOOCV_prediction(X_s, Y, [Allow_Intercept], [Filter])` | Leave-one-out predicted value per observation |
-| `Observation_Num(Y, [Filter])` | Sequential row indices 1 through n |
-| `Rank_Fraction(Y, [Filter])` | Empirical CDF fractions in original data order |
-| `Y_Ranked(Y, [Filter])` | Sorted filtered outcome values |
-| `Normal_Scores(Y, [Filter])` | Theoretical standard-normal quantiles |
+| `Predictions(X_s, Y, [Allow_Intercept], [Include])` | Fitted (predicted) values |
+| `Residuals(X_s, Y, [Allow_Intercept], [Include])` | Raw residuals (Y − Ŷ) |
+| `Scaled_Residuals(X_s, Y, [Allow_Intercept], [Include])` | Residuals divided by SE_Regression |
+| `Scaled_Residuals_Ranked(X_s, Y, [Allow_Intercept], [Include])` | Scaled residuals sorted ascending |
+| `Studentized_Residuals(X_s, Y, [Allow_Intercept], [Include])` | Internally studentized residuals |
+| `Studentized_Residuals_Ranked(X_s, Y, [Allow_Intercept], [Include])` | Studentized residuals sorted ascending |
+| `Hat_diagonal(X_s, [Allow_Intercept], [Include])` | Leverage values (diagonal of the hat matrix) |
+| `Cooks_Distance(X_s, Y, [Allow_Intercept], [Include])` | Cook's distance per observation |
+| `LOOCV_prediction(X_s, Y, [Allow_Intercept], [Include])` | Leave-one-out predicted value per observation |
+| `Observation_Num(Y, [Include])` | Sequential row indices 1 through n |
+| `Rank_Fraction(Y, [Include])` | Empirical CDF fractions in original data order |
+| `Y_Ranked(Y, [Include])` | Sorted filtered outcome values |
+| `Normal_Scores(Y, [Include])` | Theoretical standard-normal quantiles |
 
 ### Prediction interval
 
-`Prediction_Interval(X_s, Y, X_new, [Allow_Intercept], [Filter], [alpha])` returns a 6-element vertical array: point estimate, SE of prediction, critical t value, lower bound, upper bound, and confidence level. `X_new` is a single-row range of predictor values for the new observation.
+`Prediction_Interval(X_s, Y, X_new, [Allow_Intercept], [Include], [alpha])` returns a 6-element vertical array: point estimate, SE of prediction, critical t value, lower bound, upper bound, and confidence level. `X_new` is a single-row range of predictor values for the new observation.
 
 ### Model significance — scalar outputs
 
@@ -109,8 +109,8 @@ These functions return the overall F-test results for the regression model.
 
 | Function | Returns |
 |---|---|
-| `F_Stat(X_s, Y, [Allow_Intercept], [Filter])` | F-statistic for overall model significance |
-| `P_Value_F(X_s, Y, [Allow_Intercept], [Filter])` | p-value for the overall F-test |
+| `F_Stat(X_s, Y, [Allow_Intercept], [Include])` | F-statistic for overall model significance |
+| `P_Value_F(X_s, Y, [Allow_Intercept], [Include])` | p-value for the overall F-test |
 
 ### Descriptive and correlation functions
 
@@ -118,21 +118,21 @@ These functions support exploratory analysis before model fitting. `Pearson_R`, 
 
 | Function | Signature | Returns |
 |---|---|---|
-| `Pearson_R` | `(X_s, Y, [Filter])` | k×1 vector of Pearson correlations between each predictor and Y |
-| `Spearman_R` | `(X_s, Y, [Filter])` | k×1 vector of Spearman rank correlations between each predictor and Y |
-| `Skewness` | `(X_s, [Filter])` | k×1 vector of skewness for each predictor column |
-| `Kurtosis` | `(X_s, [Filter])` | k×1 vector of excess kurtosis (Fisher convention) for each predictor column |
-| `Correlation_Matrix` | `(X_s, [Filter])` | k×k symmetric matrix of pairwise Pearson correlations among predictors |
+| `Pearson_R` | `(X_s, Y, [Include])` | k×1 vector of Pearson correlations between each predictor and Y |
+| `Spearman_R` | `(X_s, Y, [Include])` | k×1 vector of Spearman rank correlations between each predictor and Y |
+| `Skewness` | `(X_s, [Include])` | k×1 vector of skewness for each predictor column |
+| `Kurtosis` | `(X_s, [Include])` | k×1 vector of excess kurtosis (Fisher convention) for each predictor column |
+| `Correlation_Matrix` | `(X_s, [Include])` | k×k symmetric matrix of pairwise Pearson correlations among predictors |
 
 ### Utility functions
 
 | Function | Returns |
 |---|---|
-| `Design_Matrix(X_s, [Allow_Intercept], [Filter])` | Filtered numeric design matrix as a spilled array |
+| `Design_Matrix(X_s, [Allow_Intercept], [Include])` | Filtered numeric design matrix as a spilled array |
 | `Gram_Inverse(X)` | Inverse of the Gram matrix (X'X)⁻¹ — used internally by `Hat_diagonal`, `PRESS`, `LOOCV_prediction`, and `Prediction_Interval` |
 | `Complete_Cases_Filter(X_s, [Y])` | Boolean column — TRUE for rows with no missing values |
 | `Col_Select(table, col_nums)` | Selected columns from an array in the specified order |
-| `LOO_prediction(X_s, Y, n, [Allow_Intercept], [Filter])` | Leave-one-out prediction for a single observation n |
+| `LOO_prediction(X_s, Y, n, [Allow_Intercept], [Include])` | Leave-one-out prediction for a single observation n |
 | `This_row(array)` | 1-to-n relative row indices |
 | `Exclude_row_n(array, n)` | Array with row n removed |
 
@@ -147,4 +147,4 @@ The sheet is organized in four zones:
 - **Cols L–X — Residual output.** One row per filtered observation: predicted values, residuals, LOOCV predictions, leverage, studentized residuals, Cook's distance, and ranked/scored variants.
 - **Diagnostic charts (col AC+).** Six XY scatter charts — Actual vs Predicted, Residuals vs Fitted, Normal Q-Q, Predicted vs LOOCV, Cook's Distance, and Residuals vs Top Predictor — that update automatically.
 
-`Correlation_Matrix(X_s, [Filter])` returns a k×k pairwise correlation matrix and can be entered in any blank cell on the sheet.
+`Correlation_Matrix(X_s, [Include])` returns a k×k pairwise correlation matrix and can be entered in any blank cell on the sheet.

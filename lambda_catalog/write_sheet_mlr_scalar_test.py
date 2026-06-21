@@ -36,10 +36,10 @@ def _delete_sheet_scoped_name_if_present(sheet: xw.Sheet, target_name: str) -> N
 def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     local_names = {
         "y": "=LifeExpectancyData[Life expectancy]",
-        "fil": "=LifeExpectancyData[Full_Data]",
+        "Regression_Sample_Include": "=LifeExpectancyData[Full_Data]",
     }
 
-    for legacy in ("x_s", "x_s_k1", "x_s_k5", "x_s_k10", "x_s_k18"):
+    for legacy in ("fil", "x_s", "x_s_k1", "x_s_k5", "x_s_k10", "x_s_k18"):
         _delete_sheet_scoped_name_if_present(sheet, legacy)
 
     for name, refers_to in local_names.items():
@@ -61,7 +61,7 @@ def _actual_formula(
     reference_map = {
         "y": "y",
         "x_s": "x_s" if use_let else x_s_name,
-        "filter": "fil",
+        "filter": "Regression_Sample_Include",
         "allow_intercept": "[@[Allow_Intercept]]",
     }
 

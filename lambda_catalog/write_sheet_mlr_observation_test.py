@@ -30,9 +30,10 @@ _STATS: list[tuple[str, str, int, str]] = [
 
 
 def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
+    _delete_sheet_scoped_name_if_present(sheet, "fil")  # remove legacy name if present
     for name, refers_to in (
         ("y", "=LifeExpectancyData[Life expectancy]"),
-        ("fil", "=LifeExpectancyData[Full_Data]"),
+        ("Regression_Sample_Include", "=LifeExpectancyData[Full_Data]"),
     ):
         _delete_sheet_scoped_name_if_present(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
@@ -41,8 +42,8 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
     allow_arg = "TRUE" if allow_intercept else "FALSE"
     if func_name in {"Observation_Num", "Rank_Fraction", "Y_Ranked", "Normal_Scores"}:
-        return f"={func_name}(y,fil)"
-    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},fil))"
+        return f"={func_name}(y,Regression_Sample_Include)"
+    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},Regression_Sample_Include))"
 
 
 def build_mlr_observation_row_configs(csv_path: Path) -> list[tuple[int, bool, RegressionObservationVectors]]:

@@ -53,9 +53,10 @@ def _delete_sheet_scoped_name_if_present(sheet: xw.Sheet, target_name: str) -> N
 
 
 def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
+    _delete_sheet_scoped_name_if_present(sheet, "fil")  # remove legacy name if present
     for name, refers_to in (
         ("y", "=LifeExpectancyData[Life expectancy]"),
-        ("fil", "=LifeExpectancyData[Full_Data]"),
+        ("Regression_Sample_Include", "=LifeExpectancyData[Full_Data]"),
     ):
         _delete_sheet_scoped_name_if_present(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
@@ -64,13 +65,13 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
     allow_arg = "TRUE" if allow_intercept else "FALSE"
     extra = f",{_ALPHA}" if func_name in _CI_FUNCS else ""
-    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},fil{extra}))"
+    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},Regression_Sample_Include{extra}))"
 
 
 def _calc_k_formula(k: int, allow_intercept: bool, func_name: str, needs_y: bool) -> str:
     allow_arg = "TRUE" if allow_intercept else "FALSE"
     y_arg = ",y" if needs_y else ""
-    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s{y_arg},{allow_arg},fil))"
+    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s{y_arg},{allow_arg},Regression_Sample_Include))"
 
 
 def build_mlr_vector_row_configs(

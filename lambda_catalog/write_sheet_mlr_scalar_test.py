@@ -12,7 +12,7 @@ from .make_test_sheet import (
     write_test_table,
 )
 from .regression_shared import FEATURE_COLUMNS
-from .workbook_helpers import _drop_local_name, reset_column_groups
+from .workbook_helpers import drop_local_name, reset_column_groups
 
 if TYPE_CHECKING:
     from .regression_shared import RegressionSummary
@@ -32,13 +32,13 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     }
 
     for legacy in ("fil", "x_s", "x_s_k1", "x_s_k5", "x_s_k10", "x_s_k18"):
-        _drop_local_name(sheet, legacy)
+        drop_local_name(sheet, legacy)
 
     for name, refers_to in local_names.items():
-        _drop_local_name(sheet, name)
+        drop_local_name(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
 
-    _drop_local_name(sheet, "Allow_Intercept")
+    drop_local_name(sheet, "Allow_Intercept")
 
 
 def _actual_formula(

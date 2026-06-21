@@ -24,8 +24,20 @@ XML_FUNCTION_PREFIXES = {
     "SORT":        "_xlfn._xlws.SORT",
     "SORTBY":      "_xlfn.SORTBY",
     "TAKE":        "_xlfn.TAKE",
-    "UNIQUE":      "_xlfn.UNIQUE",
-    "VSTACK":      "_xlfn.VSTACK",
+    "UNIQUE":       "_xlfn.UNIQUE",
+    "VSTACK":       "_xlfn.VSTACK",
+
+    # ── Excel 365 text / array utilities ─────────────────────────────────────
+    "ARRAYTOTEXT": "_xlfn.ARRAYTOTEXT",
+    "EXPAND":      "_xlfn.EXPAND",
+    "TEXTAFTER":   "_xlfn.TEXTAFTER",
+    "TEXTBEFORE":  "_xlfn.TEXTBEFORE",
+    "TEXTSPLIT":   "_xlfn.TEXTSPLIT",
+    "TOCOL":       "_xlfn.TOCOL",
+    "TOROW":       "_xlfn.TOROW",
+    "VALUETOTEXT": "_xlfn.VALUETOTEXT",
+    "WRAPCOLS":    "_xlfn.WRAPCOLS",
+    "WRAPROWS":    "_xlfn.WRAPROWS",
 
     # ── Excel 2019 / 365 new functions ───────────────────────────────────────
     "CONCAT":   "_xlfn.CONCAT",
@@ -37,23 +49,54 @@ XML_FUNCTION_PREFIXES = {
     "XMATCH":   "_xlfn.XMATCH",
 
     # ── Excel 2013 functions ─────────────────────────────────────────────────
-    "DAYS":      "_xlfn.DAYS",
-    "ISFORMULA": "_xlfn.ISFORMULA",
-    "PDURATION": "_xlfn.PDURATION",
-    "RRI":       "_xlfn.RRI",
-    "SHEET":     "_xlfn.SHEET",
-    "SHEETS":    "_xlfn.SHEETS",
-    "UNICHAR":   "_xlfn.UNICHAR",
-    "UNICODE":   "_xlfn.UNICODE",
-    "XOR":       "_xlfn.XOR",
+    "ARABIC":       "_xlfn.ARABIC",
+    "BASE":         "_xlfn.BASE",
+    "BITAND":       "_xlfn.BITAND",
+    "BITLSHIFT":    "_xlfn.BITLSHIFT",
+    "BITOR":        "_xlfn.BITOR",
+    "BITRSHIFT":    "_xlfn.BITRSHIFT",
+    "BITXOR":       "_xlfn.BITXOR",
+    "COMBINA":      "_xlfn.COMBINA",
+    "DAYS":         "_xlfn.DAYS",
+    "DECIMAL":      "_xlfn.DECIMAL",
+    "ENCODEURL":    "_xlfn.ENCODEURL",
+    "FILTERXML":    "_xlfn.FILTERXML",
+    "FORMULATEXT":  "_xlfn.FORMULATEXT",
+    "IFNA":         "_xlfn.IFNA",
+    "IMCOSH":       "_xlfn.IMCOSH",
+    "IMCOT":        "_xlfn.IMCOT",
+    "IMCSC":        "_xlfn.IMCSC",
+    "IMCSCH":       "_xlfn.IMCSCH",
+    "IMSEC":        "_xlfn.IMSEC",
+    "IMSECH":       "_xlfn.IMSECH",
+    "IMSINH":       "_xlfn.IMSINH",
+    "IMTAN":        "_xlfn.IMTAN",
+    "ISFORMULA":    "_xlfn.ISFORMULA",
+    "MUNIT":        "_xlfn.MUNIT",
+    "NUMBERVALUE":  "_xlfn.NUMBERVALUE",
+    "PDURATION":    "_xlfn.PDURATION",
+    "PERMUTATIONA": "_xlfn.PERMUTATIONA",
+    "PHI":          "_xlfn.PHI",
+    "RRI":          "_xlfn.RRI",
+    "SHEET":        "_xlfn.SHEET",
+    "SHEETS":       "_xlfn.SHEETS",
+    "SKEW.P":       "_xlfn.SKEW.P",
+    "UNICHAR":      "_xlfn.UNICHAR",
+    "UNICODE":      "_xlfn.UNICODE",
+    "WEBSERVICE":   "_xlfn.WEBSERVICE",
+    "XOR":          "_xlfn.XOR",
 
-    # ── Excel 2016 function (uses _xludf — confirmed from workbook.xml) ──────
-    "SWITCH": "_xludf.SWITCH",
+    # ── Excel 2016 functions ────────────────────────────────────────────
+    "FORECAST.ETS":             "_xlfn.FORECAST.ETS",
+    "FORECAST.ETS.CONFINT":     "_xlfn.FORECAST.ETS.CONFINT",
+    "FORECAST.ETS.SEASONALITY": "_xlfn.FORECAST.ETS.SEASONALITY",
+    "FORECAST.ETS.STAT":        "_xlfn.FORECAST.ETS.STAT",
+    "FORECAST.LINEAR":          "_xlfn.FORECAST.LINEAR",
+    "SWITCH":                   "_xludf.SWITCH",  # confirmed _xludf from workbook.xml
 
     # ── Excel 2010 statistical dot-notation functions ─────────────────────────
-    # Prefixes confirmed by inspecting an Excel-serialized workbook.xml.
-    # Functions that replaced old single-name equivalents use _xludf; a small
-    # set of 2010 additions that exist alongside the old names use _xlfn.
+    # All prefixes confirmed by inspecting an Excel-serialized workbook.xml.
+    # Do not infer prefixes from rules of thumb — always verify against a real Excel file.
     "BETA.DIST":        "_xludf.BETA.DIST",
     "BETA.INV":         "_xludf.BETA.INV",
     "BINOM.DIST":       "_xludf.BINOM.DIST",
@@ -120,6 +163,99 @@ XML_FUNCTION_PREFIXES = {
     "NETWORKDAYS.INTL": "_xlfn.NETWORKDAYS.INTL",
     "WORKDAY.INTL":     "_xlfn.WORKDAY.INTL",
 }
+
+
+# Excel built-in functions that need no prefix in workbook.xml definedName formulas.
+# Together with XML_FUNCTION_PREFIXES this forms the complete registry of known Excel
+# built-ins; anything else encountered in a LAMBDA body is treated as a workbook-defined
+# name (another LAMBDA or named range) and emitted as-is, which is also correct.
+CLASSIC_FUNCTIONS: frozenset[str] = frozenset({
+    # ── Math & Trigonometry ──────────────────────────────────────────────────
+    "ABS", "ACOS", "ACOSH", "ASIN", "ASINH", "ATAN", "ATAN2", "ATANH",
+    "CEILING", "COMBIN", "COS", "COSH", "DEGREES", "EVEN", "EXP",
+    "FACT", "FACTDOUBLE", "FLOOR", "GCD", "INT", "LCM", "LN", "LOG", "LOG10",
+    "MDETERM", "MINVERSE", "MMULT", "MOD", "MROUND", "MULTINOMIAL",
+    "ODD", "PI", "POWER", "PRODUCT", "QUOTIENT", "RADIANS", "RAND", "RANDBETWEEN",
+    "ROMAN", "ROUND", "ROUNDDOWN", "ROUNDUP", "SERIESSUM", "SIGN",
+    "SIN", "SINH", "SQRT", "SQRTPI", "SUBTOTAL",
+    "SUM", "SUMIF", "SUMIFS", "SUMPRODUCT", "SUMSQ",
+    "SUMX2MY2", "SUMX2PY2", "SUMXMY2", "TAN", "TANH", "TRUNC",
+    # ── Statistical — pre-2010 names (dot-notation replacements are in XML_FUNCTION_PREFIXES) ──
+    "AVEDEV", "AVERAGE", "AVERAGEA", "AVERAGEIF", "AVERAGEIFS",
+    "BETADIST", "BETAINV", "BINOMDIST",
+    "CHIDIST", "CHIINV", "CHITEST",
+    "CONFIDENCE", "CORREL",
+    "COUNT", "COUNTA", "COUNTBLANK", "COUNTIF", "COUNTIFS",
+    "COVAR", "CRITBINOM", "DEVSQ",
+    "EXPONDIST", "FDIST", "FINV", "FISHER", "FISHERINV",
+    "FORECAST", "FTEST",
+    "GAMMADIST", "GAMMAINV", "GAMMALN",
+    "GEOMEAN", "GROWTH", "HARMEAN", "HYPGEOMDIST",
+    "INTERCEPT", "KURT", "LARGE",
+    "LINEST", "LOGEST", "LOGINV", "LOGNORMDIST",
+    "MAX", "MAXA", "MEDIAN", "MIN", "MINA", "MODE",
+    "NEGBINOMDIST", "NORMDIST", "NORMINV", "NORMSDIST", "NORMSINV",
+    "PEARSON", "PERCENTILE", "PERCENTRANK",
+    "PERMUT", "POISSON", "PROB", "QUARTILE", "RANK",
+    "RSQ", "SKEW", "SLOPE", "SMALL",
+    "STANDARDIZE", "STDEV", "STDEVA", "STDEVP", "STDEVPA", "STEYX",
+    "TDIST", "TINV", "TREND", "TRIMMEAN", "TTEST",
+    "VAR", "VARA", "VARP", "VARPA", "WEIBULL", "ZTEST",
+    # ── Lookup & Reference ────────────────────────────────────────────────────
+    "ADDRESS", "AREAS", "CHOOSE", "COLUMN", "COLUMNS",
+    "GETPIVOTDATA", "HLOOKUP", "HYPERLINK", "INDEX", "INDIRECT",
+    "LOOKUP", "MATCH", "OFFSET", "ROW", "ROWS", "RTD", "TRANSPOSE", "VLOOKUP",
+    # ── Date & Time ───────────────────────────────────────────────────────────
+    "DATE", "DATEVALUE", "DAY", "DAYS360",
+    "EDATE", "EOMONTH", "HOUR", "MINUTE", "MONTH",
+    "NETWORKDAYS", "NOW", "SECOND", "TIME", "TIMEVALUE", "TODAY",
+    "WEEKDAY", "WEEKNUM", "WORKDAY", "YEAR", "YEARFRAC",
+    # ── Text ──────────────────────────────────────────────────────────────────
+    "BAHTTEXT", "CHAR", "CLEAN", "CODE", "CONCATENATE", "DOLLAR",
+    "EXACT", "FIND", "FINDB", "FIXED",
+    "LEFT", "LEFTB", "LEN", "LENB", "LOWER",
+    "MID", "MIDB", "PHONETIC", "PROPER",
+    "REPLACE", "REPLACEB", "REPT",
+    "RIGHT", "RIGHTB", "SEARCH", "SEARCHB",
+    "SUBSTITUTE", "T", "TEXT", "TRIM", "UPPER", "VALUE",
+    # ── Logical ───────────────────────────────────────────────────────────────
+    "AND", "FALSE", "IF", "IFERROR", "NOT", "OR", "TRUE",
+    # ── Information ───────────────────────────────────────────────────────────
+    "CELL", "ERROR.TYPE", "INFO",
+    "ISBLANK", "ISERR", "ISERROR", "ISEVEN",
+    "ISLOGICAL", "ISNA", "ISNONTEXT", "ISNUMBER", "ISODD",
+    "ISREF", "ISTEXT", "N", "NA", "TYPE",
+    # ── Financial ─────────────────────────────────────────────────────────────
+    "ACCRINT", "ACCRINTM", "AMORDEGRC", "AMORLINC",
+    "COUPDAYBS", "COUPDAYS", "COUPDAYSNC", "COUPNCD", "COUPNUM", "COUPPCD",
+    "CUMIPMT", "CUMPRINC", "DB", "DDB", "DISC",
+    "DOLLARDE", "DOLLARFR", "DURATION", "EFFECT",
+    "FV", "FVSCHEDULE", "INTRATE", "IPMT", "IRR", "ISPMT",
+    "MDURATION", "MIRR", "NOMINAL", "NPER", "NPV",
+    "ODDFPRICE", "ODDFYIELD", "ODDLPRICE", "ODDLYIELD",
+    "PMT", "PPMT", "PRICE", "PRICEDISC", "PRICEMAT",
+    "PV", "RATE", "RECEIVED", "SLN", "SYD",
+    "TBILLEQ", "TBILLPRICE", "TBILLYIELD", "VDB",
+    "XIRR", "XNPV", "YIELD", "YIELDDISC", "YIELDMAT",
+    # ── Engineering (pre-2013 functions) ──────────────────────────────────────
+    "BESSELI", "BESSELJ", "BESSELK", "BESSELY",
+    "BIN2DEC", "BIN2HEX", "BIN2OCT",
+    "COMPLEX", "CONVERT",
+    "DEC2BIN", "DEC2HEX", "DEC2OCT",
+    "DELTA", "ERF", "ERFC", "GESTEP",
+    "HEX2BIN", "HEX2DEC", "HEX2OCT",
+    "IMABS", "IMAGINARY", "IMARGUMENT", "IMCONJUGATE",
+    "IMCOS", "IMDIV", "IMEXP", "IMLN", "IMLOG10", "IMLOG2",
+    "IMPOWER", "IMPRODUCT", "IMREAL",
+    "IMSIN", "IMSQRT", "IMSUB", "IMSUM",
+    "OCT2BIN", "OCT2DEC", "OCT2HEX",
+    # ── Cube ──────────────────────────────────────────────────────────────────
+    "CUBEKPIMEMBER", "CUBEMEMBER", "CUBEMEMBERPROPERTY",
+    "CUBERANKEDMEMBER", "CUBESET", "CUBESETCOUNT", "CUBEVALUE",
+    # ── Database ──────────────────────────────────────────────────────────────
+    "DAVERAGE", "DCOUNT", "DCOUNTA", "DGET", "DMAX", "DMIN",
+    "DPRODUCT", "DSTDEV", "DSTDEVP", "DSUM", "DVAR", "DVARP",
+})
 
 
 def _normalize_user_formula(formula: str) -> str:

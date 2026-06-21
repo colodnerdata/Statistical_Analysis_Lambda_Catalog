@@ -14,7 +14,7 @@ shape distributions (Weibull, Gamma, Beta) is deferred to v2.1.
 Sheet layout
 ────────────
   Row 1          — Title "Univariate Analysis"
-  Row 2          — Method/zone headings: Sturges Method | Scott Method | Freedman-Diaconis Method | Distribution Fitting/Comparison
+  Row 2          — Method/zone headings: Sturges | Scott | Freedman-Diaconis | Distribution Fitting/Comparison
   Row 3          — Section headings: Data | Filter | Descriptive Statistics | Bins; pane freeze anchored here
   Row 4          — Column sub-headers (table headers for histogram and fitting tables)
   Row 4+         — Data: raw column spill (col A), filter mask (col B), stats (D–E), histogram bins (G–N), fitting (Q–AA)
@@ -119,7 +119,7 @@ _GS_C_DT_COL  = 3   # Data Table col-input placeholder (param2 substitute)
 
 # ── Row anchors ───────────────────────────────────────────────────────────────
 _ROW_TITLE        = 1   # "Univariate Analysis" + zone-level "Histograms" label
-_ROW_METHOD_HDR   = 2   # method/zone headings: "Sturges Method", "Scott Method", etc.
+_ROW_METHOD_HDR   = 2   # method/zone headings: "Method:", "Sturges", "Method:","Scott", etc.
 _ROW_SECTION_HDR  = 3   # section headings: "Data", "Descriptive Statistics"
 _ROW_COL_HDRS     = 4   # column sub-headers (histograms, fitting table)
 _ROW_DATA_START   = 4   # data values begin (col A)
@@ -235,12 +235,12 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     # Chart series ranges: OFFSET-based, sized by n_histogram_bins with the include filter.
     # FD must pass "FD" explicitly because filter is the 3rd arg (can't skip method).
     for name, col_ltr, start_row, size_formula in [
-        ("UV_Sturges_Edges",  col_letter(_C_F), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$G$2,UV_Include)'),
-        ("UV_Sturges_Counts", col_letter(_C_G), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$G$2,UV_Include)'),
-        ("UV_Scott_Edges",    col_letter(_C_I), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$J$2,UV_Include)'),
-        ("UV_Scott_Counts",   col_letter(_C_J), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$J$2,UV_Include)'),
-        ("UV_FD_Edges",       col_letter(_C_L), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$M$2,UV_Include)'),
-        ("UV_FD_Counts",      col_letter(_C_M), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$M$2,UV_Include)'),
+        ("UV_Sturges_Edges",  col_letter(_C_F), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$H$2,UV_Include)'),
+        ("UV_Sturges_Counts", col_letter(_C_G), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$H$2,UV_Include)'),
+        ("UV_Scott_Edges",    col_letter(_C_I), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$K$2,UV_Include)'),
+        ("UV_Scott_Counts",   col_letter(_C_J), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$K$2,UV_Include)'),
+        ("UV_FD_Edges",       col_letter(_C_L), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$N$2,UV_Include)'),
+        ("UV_FD_Counts",      col_letter(_C_M), _ROW_HIST_START, 'n_histogram_bins(UV_Data,$N$2,UV_Include)'),
     ]:
         drop_local_name(sheet, name)
         sheet.api.Names.Add(
@@ -346,7 +346,7 @@ def _write_histograms(sheet: xw.Sheet) -> None:
     # Each table writes its own method heading at _ROW_METHOD_HDR (row 2)
     _write_histogram_table(sheet, _C_F, _C_G, "Sturges", "Sturges")
     _write_histogram_table(sheet, _C_I, _C_J, "Scott",   "Scott")
-    _write_histogram_table(sheet, _C_L, _C_M, "FD",      "Freedman-Diaconis")
+_write_histogram_table(sheet, _C_L, _C_M, "FD",      "Freedman-Diaconis")
 
 
 # ── Zone 4: distribution fitting summary table ────────────────────────────────

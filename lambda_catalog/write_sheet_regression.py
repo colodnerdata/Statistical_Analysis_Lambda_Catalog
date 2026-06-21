@@ -247,7 +247,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         sheet,
         addresses["hat"],
         "=AND(ISNUMBER(AB3),AB3>3*$P$6)",
-        bold=True,
+        bold_font=True,
     )
 
     # ── Studentized residuals ────────────────────────────────────────────────

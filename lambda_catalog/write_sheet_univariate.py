@@ -212,6 +212,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     sname = sheet.name
 
     # UV_Data: spill range of the raw column formula in A4; unfiltered — filter is UV_Include
+    _drop_wb_name(sheet, "UV_Data")
     drop_local_name(sheet, "UV_Data")
     sheet.api.Names.Add(
         Name="UV_Data",
@@ -219,6 +220,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     )
 
     # UV_Include: local filter mask — spill of the Data_Completeness formula in B4
+    _drop_wb_name(sheet, "UV_Include")
     drop_local_name(sheet, "UV_Include")
     sheet.api.Names.Add(
         Name="UV_Include",
@@ -226,6 +228,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     )
 
     # UV_n: count of numeric included observations; used by GoF_BIC and chart range sizing
+    _drop_wb_name(sheet, "UV_n")
     drop_local_name(sheet, "UV_n")
     sheet.api.Names.Add(
         Name="UV_n",
@@ -247,6 +250,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
         ("UV_FD_Counts",      col_letter(_C_N), _ROW_HIST_START,
          f'n_histogram_bins(UV_Data,${col_letter(_C_N)}${_ROW_METHOD_HDR},UV_Include)'),
     ]:
+        _drop_wb_name(sheet, name)
         drop_local_name(sheet, name)
         sheet.api.Names.Add(
             Name=name,
@@ -273,8 +277,8 @@ def _write_data_zone(sheet: xw.Sheet) -> None:
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────
 
-# Stat label, formula — native Excel functions wrap UV_Data in FILTER(UV_Data,UV_Include);
-# custom LAMBDAs receive UV_Include as their optional filter/Include argument.
+# Stat label and formula. Numeric statistics use UV_Include; Missing_Count must
+# inspect the unfiltered active range so excluded nonnumeric cells remain visible.
 _STAT_ROWS: list[tuple[str, str]] = [
     ("Mean",      "=AVERAGE(FILTER(UV_Data,UV_Include))"),
     ("Median",    "=MEDIAN(FILTER(UV_Data,UV_Include))"),
@@ -287,7 +291,7 @@ _STAT_ROWS: list[tuple[str, str]] = [
     ("Skewness",  "=INDEX(Skewness(UV_Data,UV_Include),1)"),
     ("Kurtosis",  "=INDEX(Kurtosis(UV_Data,UV_Include),1)"),
     ("Count",     "=COUNT(FILTER(UV_Data,UV_Include))"),
-    ("Missing",   "=Missing_Count(UV_Data,UV_Include)"),
+    ("Missing",   "=Missing_Count(UV_Data)"),
 ]
 
 def _write_descriptive_stats(sheet: xw.Sheet) -> None:
@@ -319,7 +323,7 @@ def _write_histogram_table(
     method: str,
 ) -> None:
     """Write one histogram bin table (edges + counts) for the given method."""
-    # Method heading at row 2, merged across the edge and count columns
+    # Row 2: fixed label in the edge column, method value in the count column.
     section_heading(sheet, _ROW_METHOD_HDR, col_edge, "Method")
     val(sheet, _ROW_METHOD_HDR, col_count, method)
     sheet.range(rc(_ROW_METHOD_HDR, col_count)).color = _HEADER
@@ -328,13 +332,13 @@ def _write_histogram_table(
     val(sheet, _ROW_COL_HDRS, col_count, "Count")
     _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_count)
 
-    # Row 3: bin-count display — "Bins" label + n_histogram_bins formula
+    # Row 3: "Bins:" label + formula referencing the method cell in row 2.
     val(sheet, _ROW_SECTION_HDR, col_edge, "Bins:")
     method_cell = a1(_ROW_METHOD_HDR, col_count)
     f(sheet, _ROW_SECTION_HDR, col_count, f"=n_histogram_bins(UV_Data,{method_cell},UV_Include)")
     sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = "0"
 
-    # Spill formulas — method must be explicit (can't skip it to reach the 3rd filter arg)
+    # Spill formulas reference the row-2 method cell for consistency.
     f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,{method_cell},UV_Include)")
     edge_spill_ref = f"{col_letter(col_edge)}{_ROW_HIST_START}#"
     f(sheet, _ROW_HIST_START, col_count,
@@ -345,11 +349,11 @@ def _write_histogram_table(
 
 
 def _write_histograms(sheet: xw.Sheet) -> None:
-    # Zone super-heading in title row, merged across all three histogram tables
+    # Zone super-heading in the title row, merged across all three histogram tables.
     section_heading(sheet, _ROW_TITLE, _C_G, "Histograms")
     sheet.range(rc(_ROW_TITLE, _C_G), rc(_ROW_TITLE, _C_N)).merge()
 
-    # Each table writes its own method heading at _ROW_METHOD_HDR (row 2)
+    # Each table writes its own row-2 method cell pair and row-3 bin formula.
     _write_histogram_table(sheet, _C_G, _C_H, "Sturges")
     _write_histogram_table(sheet, _C_J, _C_K, "Scott")
     _write_histogram_table(sheet, _C_M, _C_N, "FD")
@@ -465,7 +469,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
 
 
 def _write_fitting_table(sheet: xw.Sheet) -> None:
-    # Zone heading at row 2, merged across all fitting columns
+    # Zone heading at row 2, merged across the full Q:AA fitting block.
     section_heading(sheet, _ROW_METHOD_HDR, _C_Q, "Distribution Fitting/Comparison")
     sheet.range(rc(_ROW_METHOD_HDR, _C_Q), rc(_ROW_METHOD_HDR, _C_AA)).merge()
 

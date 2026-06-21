@@ -55,6 +55,14 @@ def _verbose_checkpoint(verbose: bool, start_time: float, label: str) -> None:
         print(f"  {label:<28} {time.monotonic() - start_time:6.1f}s", flush=True)
 
 
+def _normalize_excel_bool(value):
+    if value in ("TRUE", "True", 1, 1.0):
+        return True
+    if value in ("FALSE", "False", 0, 0.0):
+        return False
+    return value
+
+
 def verify_test_sheets(
     workbook: xw.Book,
     scalar_row_configs: list,
@@ -131,11 +139,9 @@ def verify_test_sheets(
                 if row_offset < len(life_expectancy_rows)
                 else []
             )
-            actual = row[full_data_col_idx] if full_data_col_idx < len(row) else None
-            if actual in ("TRUE", "True", 1, 1.0):
-                actual = True
-            elif actual in ("FALSE", "False", 0, 0.0):
-                actual = False
+            actual = _normalize_excel_bool(
+                row[full_data_col_idx] if full_data_col_idx < len(row) else None
+            )
             if actual is not expected:
                 print(
                     f"WARNING [Life Expectancy Data] row={row_offset + 1} stat='Full_Data': "

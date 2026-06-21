@@ -246,12 +246,22 @@ def _drop_local_name(sheet: xw.Sheet, name: str) -> None:
             sheet.api.Names(idx).Delete()
 
 
+def _drop_wb_name(sheet: xw.Sheet, name: str) -> None:
+    """Remove a workbook-scoped (non-local) name if present."""
+    wb_names = sheet.book.api.Names
+    for idx in range(wb_names.Count, 0, -1):
+        n = wb_names(idx)
+        if "!" not in n.Name and n.Name.lower() == name.lower():
+            n.Delete()
+
+
 def _setup_local_names(sheet: xw.Sheet) -> None:
     """Register sheet-scoped named ranges used by formulas and charts."""
     sname = sheet.name
     data_col = _col_letter(_C_A)
 
     # UV_Data: full input column (includes blanks; LAMBDAs filter via ISNUMBER)
+    _drop_wb_name(sheet, "UV_Data")
     _drop_local_name(sheet, "UV_Data")
     sheet.api.Names.Add(
         Name="UV_Data",

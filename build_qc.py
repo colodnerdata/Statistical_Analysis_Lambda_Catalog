@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import importlib.util
+import io
 import subprocess
 import sys
 import time
@@ -385,9 +386,39 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+class _Tee(io.TextIOBase):
+    """Write to two streams simultaneously."""
+
+    def __init__(self, primary: io.TextIOBase, secondary: io.TextIOBase) -> None:
+        self._primary = primary
+        self._secondary = secondary
+
+    def write(self, s: str) -> int:
+        self._secondary.write(s)
+        return self._primary.write(s)
+
+    def flush(self) -> None:
+        self._primary.flush()
+        self._secondary.flush()
+
+
+DEFAULT_LOG_PATH = ROOT_DIR / "qc_log.txt"
+
+
 def main() -> None:
     """Build the QC workbook and print a sync summary for interactive use."""
     args = parse_args()
+    with open(DEFAULT_LOG_PATH, "w", encoding="utf-8") as _log_file:
+        _real_stdout = sys.stdout
+        sys.stdout = _Tee(sys.stdout, _log_file)  # type: ignore[assignment]
+        try:
+            print(f"python {Path(__file__).name} " + " ".join(sys.argv[1:]))
+            _run_main(args)
+        finally:
+            sys.stdout = _real_stdout
+
+
+def _run_main(args: argparse.Namespace) -> None:
     while True:
         try:
             result = build_qc_workbook(
@@ -425,6 +456,7 @@ def main() -> None:
         print("Reopen validation: passed")
 
     subprocess.Popen(["cmd", "/c", "start", "", str(args.workbook.resolve())])
+    print(f"Log: {DEFAULT_LOG_PATH}")
 
 
 if __name__ == "__main__":

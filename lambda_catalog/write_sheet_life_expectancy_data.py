@@ -24,7 +24,7 @@ DEFAULT_CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
 SHEET_NAME = "Life Expectancy Data"
 TABLE_NAME = "LifeExpectancyData"
 FULL_DATA_HEADER = "Full_Data"
-FULL_DATA_FORMULA = "=COUNT(LifeExpectancyData[@[Life expectancy]:[Schooling]])=19"
+FULL_DATA_FORMULA = "=Data_Completeness(LifeExpectancyData[@[Life expectancy]:[Schooling]])"
 INTEGER_PATTERN = re.compile(r"-?\d+")
 
 

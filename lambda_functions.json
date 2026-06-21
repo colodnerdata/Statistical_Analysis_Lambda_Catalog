@@ -1381,6 +1381,21 @@
       "plain_language_summary": "A TRUE/FALSE mask that keeps only rows with usable numeric data."
     },
     {
+      "name": "Data_Completeness",
+      "test_table": null,
+      "number_format": "General",
+      "formula_display": "=LAMBDA(predictor_row,\n  AND(ISNUMBER(predictor_row))\n)",
+      "arguments": [
+        {
+          "name": "predictor_row",
+          "description": "single-row range covering the predictor columns for one data row — typically a structured table row reference such as Table[@[FirstCol]:[LastCol]]"
+        }
+      ],
+      "yields": "TRUE if every cell in predictor_row is numeric, FALSE if any value is blank, text, or an error",
+      "description": "Data_Completeness tests whether a single data row has usable numeric values in every predictor column. It applies ISNUMBER to each cell in predictor_row and reduces the results with AND, returning TRUE only when no cell is blank, text, or an error.\n\nDesigned to be entered as a calculated table column formula — e.g. =Data_Completeness(Table[@[First]:[Last]]) — so that every row carries its own TRUE/FALSE completeness flag. That column can then be used directly as the Regression_Sample_Include argument to any regression library function, restricting the model to rows with complete predictor data.\n\nContrast with Complete_Cases_Filter, which operates on full column ranges and returns a boolean vector for all rows at once.",
+      "plain_language_summary": "Returns TRUE when every predictor value in the row is a usable number."
+    },
+    {
       "name": "Pearson_R",
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X_s, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), yf)))\n  ))",

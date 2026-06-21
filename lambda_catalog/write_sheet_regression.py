@@ -26,7 +26,11 @@ from typing import Any
 
 import xlwings as xw
 
-from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT
+from .sheet_styles import INPUT_COLOR as _INPUT
+from .workbook_helpers import (
+    _a1, _bold, _bold_row, _border_box, _drop_local_name,
+    _f, _format_input, _rc, _section_heading, _val,
+)
 
 # ── Conditional-formatting helpers ────────────────────────────────────────────
 
@@ -95,28 +99,6 @@ _CHART_WIDTH = 310.0         # points
 _CHART_HEIGHT = 310.0        # points
 _CHART_GAP = 10.0            # gap between charts in points
 
-# ── Cell helpers ──────────────────────────────────────────────────────────────
-
-def _rc(row: int, col: int) -> tuple[int, int]:
-    return (row, col)
-
-
-def _col_letter(col: int) -> str:
-    result = ""
-    c = col
-    while c > 0:
-        c, rem = divmod(c - 1, 26)
-        result = chr(ord("A") + rem) + result
-    return result
-
-
-def _a1(row: int, col: int) -> str:
-    return f"{_col_letter(col)}{row}"
-
-
-def _val(sheet: xw.Sheet, row: int, col: int, value: object) -> None:
-    sheet.range(_rc(row, col)).value = value
-
 def _named_range_column_count(sheet: xw.Sheet, name: str) -> int:
     """Return the number of columns in a sheet-scoped named range."""
     try:
@@ -128,40 +110,11 @@ def _named_range_column_count(sheet: xw.Sheet, name: str) -> int:
             f"sheet-scoped name {name!r} on sheet {sheet.name!r}."
         ) from exc
     
-def _f(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:
-    sheet.range(_rc(row, col)).api.Formula2 = formula
-
-
-def _bold(sheet: xw.Sheet, row: int, col: int) -> None:
-    sheet.range(_rc(row, col)).api.Font.Bold = True
-
-
-def _bold_row(sheet: xw.Sheet, row: int, col1: int, col2: int) -> None:
-    sheet.range(_rc(row, col1), _rc(row, col2)).api.Font.Bold = True
-
-
 # ── Visual formatting helpers ─────────────────────────────────────────────────
-
-
-def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
-    _val(sheet, row, col, label)
-    sheet.range(_rc(row, col)).api.Font.Bold = True
-    sheet.range(_rc(row, col)).color = _HEADER
-
-
-def _format_input(sheet: xw.Sheet, row: int, col: int) -> None:
-    sheet.range(_rc(row, col)).color = _INPUT
 
 
 def _input_range(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
     sheet.range(_rc(r1, c1), _rc(r2, c2)).color = _INPUT
-
-
-def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
-    rng = sheet.range(_rc(r1, c1), _rc(r2, c2)).api
-    for edge in [7, 8, 9, 10]:   # xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
-        rng.Borders(edge).LineStyle = 1   # xlContinuous
-        rng.Borders(edge).Weight = 2      # xlThin
 
 
 def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
@@ -492,13 +445,6 @@ def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
     )
 
 # ── Local name management ─────────────────────────────────────────────────────
-
-def _drop_local_name(sheet: xw.Sheet, name: str) -> None:
-    for idx in range(sheet.api.Names.Count, 0, -1):
-        local = sheet.api.Names(idx).Name.split("!", 1)[-1]
-        if local.lower() == name.lower():
-            sheet.api.Names(idx).Delete()
-
 
 def _setup_local_names(sheet: xw.Sheet) -> None:
     """Register sheet-scoped names used by every formula on this sheet."""

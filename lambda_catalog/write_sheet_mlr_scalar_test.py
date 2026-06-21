@@ -12,7 +12,7 @@ from .make_test_sheet import (
     write_test_table,
 )
 from .regression_shared import FEATURE_COLUMNS
-from .workbook_helpers import reset_column_groups
+from .workbook_helpers import _drop_local_name, reset_column_groups
 
 if TYPE_CHECKING:
     from .regression_shared import RegressionSummary
@@ -25,14 +25,6 @@ _MLR_TABLE_HEADER_ROW = 1
 _MLR_X_S_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
 
 
-def _delete_sheet_scoped_name_if_present(sheet: xw.Sheet, target_name: str) -> None:
-    for index in range(sheet.api.Names.Count, 0, -1):
-        existing_name = sheet.api.Names(index).Name
-        local_name = existing_name.split("!", 1)[-1]
-        if local_name.lower() == target_name.lower():
-            sheet.api.Names(index).Delete()
-
-
 def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     local_names = {
         "y": "=LifeExpectancyData[Life expectancy]",
@@ -40,13 +32,13 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     }
 
     for legacy in ("fil", "x_s", "x_s_k1", "x_s_k5", "x_s_k10", "x_s_k18"):
-        _delete_sheet_scoped_name_if_present(sheet, legacy)
+        _drop_local_name(sheet, legacy)
 
     for name, refers_to in local_names.items():
-        _delete_sheet_scoped_name_if_present(sheet, name)
+        _drop_local_name(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
 
-    _delete_sheet_scoped_name_if_present(sheet, "Allow_Intercept")
+    _drop_local_name(sheet, "Allow_Intercept")
 
 
 def _actual_formula(

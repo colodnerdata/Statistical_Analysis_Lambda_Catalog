@@ -47,7 +47,11 @@ from __future__ import annotations
 
 import xlwings as xw
 
-from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
+from .sheet_styles import SUBHDR_COLOR as _SUBHDR
+from .workbook_helpers import (
+    _a1, _bold, _bold_row, _border_box, _drop_local_name,
+    _f, _format_input, _rc, _section_heading, _val,
+)
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
 
@@ -139,61 +143,9 @@ _CHART_GAP_V         = 10.0
 UNIVARIATE_SHEET_NAME = "Univariate"
 
 
-# ── Cell helpers ──────────────────────────────────────────────────────────────
-
-def _rc(row: int, col: int) -> tuple[int, int]:
-    return (row, col)
-
-
-def _col_letter(col: int) -> str:
-    result = ""
-    c = col
-    while c > 0:
-        c, rem = divmod(c - 1, 26)
-        result = chr(ord("A") + rem) + result
-    return result
-
-
-def _a1(row: int, col: int) -> str:
-    return f"{_col_letter(col)}{row}"
-
-
-def _val(sheet: xw.Sheet, row: int, col: int, value: object) -> None:
-    sheet.range(_rc(row, col)).value = value
-
-
-def _f(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:
-    sheet.range(_rc(row, col)).api.Formula2 = formula
-
-
-def _bold(sheet: xw.Sheet, row: int, col: int) -> None:
-    sheet.range(_rc(row, col)).api.Font.Bold = True
-
-
-def _bold_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
-    sheet.range(_rc(row, c1), _rc(row, c2)).api.Font.Bold = True
-
-
-def _section_heading(sheet: xw.Sheet, row: int, col: int, label: str) -> None:
-    _val(sheet, row, col, label)
-    sheet.range(_rc(row, col)).api.Font.Bold = True
-    sheet.range(_rc(row, col)).color = _HEADER
-
-
 def _subheader_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
     sheet.range(_rc(row, c1), _rc(row, c2)).color = _SUBHDR
     sheet.range(_rc(row, c1), _rc(row, c2)).api.Font.Bold = True
-
-
-def _format_input(sheet: xw.Sheet, row: int, col: int) -> None:
-    sheet.range(_rc(row, col)).color = _INPUT
-
-
-def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
-    rng = sheet.range(_rc(r1, c1), _rc(r2, c2)).api
-    for edge in [7, 8, 9, 10]:
-        rng.Borders(edge).LineStyle = 1
-        rng.Borders(edge).Weight = 2
 
 
 # ── Column widths ─────────────────────────────────────────────────────────────
@@ -245,13 +197,6 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
 
 
 # ── Sheet-scoped named range management ──────────────────────────────────────
-
-def _drop_local_name(sheet: xw.Sheet, name: str) -> None:
-    for idx in range(sheet.api.Names.Count, 0, -1):
-        local = sheet.api.Names(idx).Name.split("!", 1)[-1]
-        if local.lower() == name.lower():
-            sheet.api.Names(idx).Delete()
-
 
 def _drop_wb_name(sheet: xw.Sheet, name: str) -> None:
     """Remove a workbook-scoped (non-local) name if present."""

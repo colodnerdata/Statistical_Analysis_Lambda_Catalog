@@ -16,9 +16,6 @@ from .regression_shared import (
     RegressionSummary,
     RegressionVectors,
 )
-from .write_sheet_mlr_scalar_test import build_mlr_row_configs
-from .write_sheet_mlr_observation_test import build_mlr_observation_row_configs
-from .write_sheet_mlr_vector_outputs_test import build_mlr_vector_row_configs
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -238,10 +235,14 @@ def get_analysis_results(
         except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError):
             pass
 
+    from .write_sheet_mlr_scalar_test import build_mlr_row_configs
+    from .write_sheet_mlr_observation_test import build_mlr_observation_row_configs
+    from .write_sheet_mlr_vector_outputs_test import build_mlr_vector_row_configs
+    from .analyze_regression_sheet import build_regression_sheet_qc_configs
+
     scalar_configs = build_mlr_row_configs(csv_path)
     vector_configs = build_mlr_vector_row_configs(csv_path)
     observation_configs = build_mlr_observation_row_configs(csv_path)
-    from .analyze_regression_sheet import build_regression_sheet_qc_configs
 
     regression_sheet_configs = build_regression_sheet_qc_configs(csv_path)
 

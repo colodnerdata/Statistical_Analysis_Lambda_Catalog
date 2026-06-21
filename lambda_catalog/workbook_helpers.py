@@ -12,6 +12,8 @@ from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT
 
 XL_SRC_RANGE = 1
 XL_YES = 1
+MAX_EXCEL_ROW = 1_048_576
+_XL_EXPRESSION = 2
 OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
     dict.fromkeys((getattr(pywintypes, "com_error", OSError), OSError))
 )
@@ -223,6 +225,45 @@ def border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
     for edge in [7, 8, 9, 10]:   # xlEdgeLeft, xlEdgeTop, xlEdgeBottom, xlEdgeRight
         rng.Borders(edge).LineStyle = 1   # xlContinuous
         rng.Borders(edge).Weight = 2      # xlThin
+
+
+def excel_color(rgb: tuple[int, int, int]) -> int:
+    """Convert an RGB tuple to the OLE color integer expected by Excel COM."""
+    red, green, blue = rgb
+    return red + green * 256 + blue * 65536
+
+
+def add_expression_format(
+    sheet: xw.Sheet,
+    address: str,
+    formula: str,
+    *,
+    fill: tuple[int, int, int] | None = None,
+    font_color: tuple[int, int, int] | None = None,
+    bold_font: bool | None = None,
+    strikethrough: bool | None = None,
+    stop_if_true: bool = False,
+):
+    """Add a formula-based conditional-formatting rule to a range."""
+    condition = sheet.range(address).api.FormatConditions.Add(
+        Type=_XL_EXPRESSION,
+        Formula1=formula,
+    )
+
+    if fill is not None:
+        condition.Interior.Color = excel_color(fill)
+
+    if font_color is not None:
+        condition.Font.Color = excel_color(font_color)
+
+    if bold_font is not None:
+        condition.Font.Bold = bold
+
+    if strikethrough is not None:
+        condition.Font.Strikethrough = strikethrough
+
+    condition.StopIfTrue = stop_if_true
+    return condition
 
 
 # ── Name management ───────────────────────────────────────────────────────────

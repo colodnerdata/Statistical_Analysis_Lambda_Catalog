@@ -26,22 +26,21 @@ from typing import Any
 
 import xlwings as xw
 
-from .sheet_styles import INPUT_COLOR as _INPUT
+from .sheet_styles import (
+    CF_DARK_RED_TEXT,
+    CF_DARK_YELLOW_TEXT,
+    CF_LIGHT_RED_FILL,
+    CF_YELLOW_FILL,
+    HEADER_COLOR as _HEADER,
+    INPUT_COLOR as _INPUT,
+)
 from .workbook_helpers import (
-    a1, bold, bold_row, border_box, col_letter, drop_local_name,
-    f, format_input, rc, section_heading, val,
+    MAX_EXCEL_ROW, a1, add_expression_format, bold, bold_row, border_box,
+    col_letter, drop_local_name, excel_color, f, format_input, rc,
+    section_heading, val,
 )
 
 # ── Conditional-formatting helpers ────────────────────────────────────────────
-
-_XL_EXPRESSION = 2
-_MAX_EXCEL_ROW = 1_048_576
-
-# Excel built-in conditional-formatting colors
-_CF_LIGHT_RED_FILL = (255, 199, 206)       # #FFC7CE
-_CF_DARK_RED_TEXT = (156, 0, 6)            # #9C0006
-_CF_LIGHT_YELLOW_FILL = (255, 235, 156)    # #FFEB9C
-_CF_DARK_YELLOW_TEXT = (156, 101, 0)       # #9C6500
 
 REGRESSION_SHEET_NAME = "Regression"
 
@@ -189,81 +188,43 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         if note_text is not None:
             _set_note(sheet, row, col, note_text)
 
-# -- Conditional-formatting helpers ----------------------------------------------
-def _excel_color(rgb: tuple[int, int, int]) -> int:
-    """Convert an RGB tuple to the OLE color integer expected by Excel COM."""
-    red, green, blue = rgb
-    return red + green * 256 + blue * 65536
-
-def _add_expression_format(
-    sheet: xw.Sheet,
-    address: str,
-    formula: str,
-    *,
-    fill: tuple[int, int, int] | None = None,
-    font_color: tuple[int, int, int] | None = None,
-    bold: bool | None = None,
-    strikethrough: bool | None = None,
-    stop_if_true: bool = False,
-):
-    """Add a formula-based conditional-formatting rule to a range."""
-    condition = sheet.range(address).api.FormatConditions.Add(
-        Type=_XL_EXPRESSION,
-        Formula1=formula,
-    )
-
-    if fill is not None:
-        condition.Interior.Color = _excel_color(fill)
-
-    if font_color is not None:
-        condition.Font.Color = _excel_color(font_color)
-
-    if bold is not None:
-        condition.Font.Bold = bold
-
-    if strikethrough is not None:
-        condition.Font.Strikethrough = strikethrough
-
-    condition.StopIfTrue = stop_if_true
-    return condition
-
 def _write_significance_conditional_formatting(sheet: xw.Sheet) -> None:
     """Flag nonsignificant coefficient and overall-model P-values."""
 
-    coefficient_p_values = f"P21:P{_MAX_EXCEL_ROW}"
+    coefficient_p_values = f"P21:P{MAX_EXCEL_ROW}"
     significance_f = "Q15"
 
     sheet.range(coefficient_p_values).api.FormatConditions.Delete()
     sheet.range(significance_f).api.FormatConditions.Delete()
 
     # Individual coefficient P-values above alpha.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         coefficient_p_values,
         "=AND(ISNUMBER(P21),P21>$M$12)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
     # Overall regression P-value above alpha.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         significance_f,
         "=AND(ISNUMBER(Q15),Q15>$M$12)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
 def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     """Apply diagnostic cutoffs to the residual-output columns."""
 
     addresses = {
-        "hat":                f"AB3:AB{_MAX_EXCEL_ROW}",
-        "studentized":        f"AC3:AC{_MAX_EXCEL_ROW}",
-        "cooks":              f"AD3:AD{_MAX_EXCEL_ROW}",
-        "studentized_ranked": f"AF3:AF{_MAX_EXCEL_ROW}",
-        "scale_location":     f"AG3:AG{_MAX_EXCEL_ROW}",
-        "press_residual":     f"AH3:AH{_MAX_EXCEL_ROW}",
+        "hat":                f"AB3:AB{MAX_EXCEL_ROW}",
+        "studentized":        f"AC3:AC{MAX_EXCEL_ROW}",
+        "cooks":              f"AD3:AD{MAX_EXCEL_ROW}",
+        "studentized_ranked": f"AF3:AF{MAX_EXCEL_ROW}",
+        "scale_location":     f"AG3:AG{MAX_EXCEL_ROW}",
+        "press_residual":     f"AH3:AH{MAX_EXCEL_ROW}",
     }
 
     # Remove existing rules so repeated builds do not duplicate them.
@@ -273,16 +234,16 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     # ── Hat diagonal ─────────────────────────────────────────────────────────
     # P6 contains mean leverage, p/n.
     # > 2p/n: light-red fill and dark-red text.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         addresses["hat"],
         "=AND(ISNUMBER(AB3),AB3>2*$P$6)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
     # > 3p/n: additionally bold.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         addresses["hat"],
         "=AND(ISNUMBER(AB3),AB3>3*$P$6)",
@@ -295,7 +256,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         ("AF", addresses["studentized_ranked"]),
     ]:
         # 2 < |r| < 3: light-yellow fill and dark-yellow text.
-        _add_expression_format(
+        add_expression_format(
             sheet,
             address,
             (
@@ -305,79 +266,79 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
                 f"ABS({column}3)<3"
                 f")"
             ),
-            fill=_CF_LIGHT_YELLOW_FILL,
-            font_color=_CF_DARK_YELLOW_TEXT,
+            fill=CF_YELLOW_FILL,
+            font_color=CF_DARK_YELLOW_TEXT,
         )
 
         # |r| >= 3: light-red fill and dark-red text.
-        _add_expression_format(
+        add_expression_format(
             sheet,
             address,
             f"=AND(ISNUMBER({column}3),ABS({column}3)>=3)",
-            fill=_CF_LIGHT_RED_FILL,
-            font_color=_CF_DARK_RED_TEXT,
+            fill=CF_LIGHT_RED_FILL,
+            font_color=CF_DARK_RED_TEXT,
         )
 
     # ── Cook's distance ──────────────────────────────────────────────────────
     # M8 contains the number of observations, n.
     # 4/n < D <= 0.9: light-yellow fill and dark-yellow text.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         addresses["cooks"],
         "=AND(ISNUMBER(AD3),AD3>4/$M$8,AD3<=0.9)",
-        fill=_CF_LIGHT_YELLOW_FILL,
-        font_color=_CF_DARK_YELLOW_TEXT,
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
     )
 
     # D > 0.9: light-red fill and dark-red text.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         addresses["cooks"],
         "=AND(ISNUMBER(AD3),AD3>0.9)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
     # ── Scale-Location: SQRT(|Studentized|) ─────────────────────────────────
     # SQRT(2) ≈ 1.414 corresponds to |Studentized| = 2.
     # SQRT(3) ≈ 1.732 corresponds to |Studentized| = 3.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         addresses["scale_location"],
         "=AND(ISNUMBER(AG3),AG3>1.414,AG3<=1.732)",
-        fill=_CF_LIGHT_YELLOW_FILL,
-        font_color=_CF_DARK_YELLOW_TEXT,
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
     )
-    _add_expression_format(
+    add_expression_format(
         sheet,
         addresses["scale_location"],
         "=AND(ISNUMBER(AG3),AG3>1.732)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
     # ── PRESS Residual: e_i / (1 - h_i) ─────────────────────────────────────
     # M7 contains the Standard Error of the regression.
     # |PRESS| > 2*SE: mild concern; > 3*SE: strong concern.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         addresses["press_residual"],
         "=AND(ISNUMBER(AH3),ABS(AH3)>2*$M$7,ABS(AH3)<=3*$M$7)",
-        fill=_CF_LIGHT_YELLOW_FILL,
-        font_color=_CF_DARK_YELLOW_TEXT,
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
     )
-    _add_expression_format(
+    add_expression_format(
         sheet,
         addresses["press_residual"],
         "=AND(ISNUMBER(AH3),ABS(AH3)>3*$M$7)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
 def _write_prediction_inputs_strikethrough_cf(sheet: xw.Sheet) -> None:
-    address = f"U13:U{_MAX_EXCEL_ROW}"
+    address = f"U13:U{MAX_EXCEL_ROW}"
     sheet.range(address).api.FormatConditions.Delete()
-    _add_expression_format(
+    add_expression_format(
         sheet,
         address,
         "=NOT(INDEX(TAKE(Ind_Var_Include,COLUMNS(All_Xs)),ROW()-ROW($U$13)+1))",
@@ -387,7 +348,7 @@ def _write_prediction_inputs_strikethrough_cf(sheet: xw.Sheet) -> None:
 def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
     """Apply rule-of-thumb formatting to VIF, PRESS R², and QQ Correlation."""
 
-    vif_address = f"I3:I{_MAX_EXCEL_ROW}"
+    vif_address = f"I3:I{MAX_EXCEL_ROW}"
     press_r2_address = "P5"
     qq_corr_address = "P10"
 
@@ -398,50 +359,50 @@ def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
 
     # ── VIF ─────────────────────────────────────────────────────────────────
     # 5 < VIF <= 10: possible multicollinearity; review.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         vif_address,
         "=AND(ISNUMBER(I3),I3>5,I3<=10)",
-        fill=_CF_LIGHT_YELLOW_FILL,
-        font_color=_CF_DARK_YELLOW_TEXT,
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
     )
 
     # VIF > 10: strong multicollinearity warning.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         vif_address,
         "=AND(ISNUMBER(I3),I3>10)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
     # ── PRESS R² ─────────────────────────────────────────────────────────────
     # Negative PRESS R² means cross-validated predictions perform worse than
     # predicting the outcome mean.
-    _add_expression_format(
+    add_expression_format(
         sheet,
         press_r2_address,
         "=AND(ISNUMBER(P5),P5<0)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
     # ── QQ Correlation ────────────────────────────────────────────────────────
     # Pearson r of sorted scaled residuals vs. normal quantiles; near 1.0 = normal errors.
     # < 0.98: mild departure (yellow); < 0.95: stronger departure (red).
-    _add_expression_format(
+    add_expression_format(
         sheet,
         qq_corr_address,
         "=AND(ISNUMBER(P10),P10<0.98,P10>=0.95)",
-        fill=_CF_LIGHT_YELLOW_FILL,
-        font_color=_CF_DARK_YELLOW_TEXT,
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
     )
-    _add_expression_format(
+    add_expression_format(
         sheet,
         qq_corr_address,
         "=AND(ISNUMBER(P10),P10<0.95)",
-        fill=_CF_LIGHT_RED_FILL,
-        font_color=_CF_DARK_RED_TEXT,
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
     )
 
 # ── Local name management ─────────────────────────────────────────────────────
@@ -924,7 +885,7 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
             plot_area.InsideLeft + plot_area.InsideWidth,
             plot_area.InsideTop,
         )
-        line.Line.ForeColor.RGB = _excel_color((120, 120, 120))
+        line.Line.ForeColor.RGB = excel_color((120, 120, 120))
         line.Line.DashStyle = 3  # msoLineRoundDot
         line.Line.Weight = 1.25
 
@@ -956,7 +917,7 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
         chart.ChartTitle.Font.Size = 14
         chart.ChartTitle.Format.Fill.Visible = True
         chart.ChartTitle.Format.Fill.Solid()
-        chart.ChartTitle.Format.Fill.ForeColor.RGB = _excel_color(_HEADER)
+        chart.ChartTitle.Format.Fill.ForeColor.RGB = excel_color(_HEADER)
 
         x_axis = chart.Axes(_XL_CATEGORY)
         x_axis.HasTitle = True

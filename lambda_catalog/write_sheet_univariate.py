@@ -47,7 +47,7 @@ from __future__ import annotations
 
 import xlwings as xw
 
-from .sheet_styles import SUBHDR_COLOR as _SUBHDR
+from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
     a1, bold, bold_row, border_box, col_letter, drop_local_name,
     f, format_input, rc, section_heading, val,

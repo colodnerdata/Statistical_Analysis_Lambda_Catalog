@@ -2,13 +2,55 @@
 
 ## Setup
 
-Requires Python 3.10+, [uv](https://github.com/astral-sh/uv), and desktop Excel on Windows (xlwings uses COM automation).
+Requires Python 3.10+, [uv](https://github.com/astral-sh/uv). Building the Excel workbook also requires desktop Excel on Windows (xlwings uses COM automation), but running the Python test suite does not.
 
 ```powershell
 uv sync
 ```
 
-This installs the `lambda_catalog` package in editable mode along with all dependencies: `lxml`, `numpy`, `pywin32`, `statsmodels`, `xlwings`.
+This installs the `lambda_catalog` package in editable mode along with all dependencies: `lxml`, `numpy`, `pywin32`, `statsmodels`, `xlwings`, plus dev tools (`pytest`, `pytest-cov`, `pylint`).
+
+## Running tests
+
+The Python test suite covers the pure-Python analysis engine, formula parser, and serialization helpers. It runs on any platform without Excel.
+
+```powershell
+# Run all tests
+uv run pytest
+
+# Run with coverage (omits xlwings-dependent workbook writers)
+uv run pytest --cov --cov-report=term-missing
+```
+
+Tests live in `tests/`. The current test files are:
+
+| File | What it covers |
+|---|---|
+| `test_univariate.py` | NLL functions, MLE estimators, binning rules, GoF metrics |
+| `test_regression_summary_metrics.py` | AIC, BIC, AICc, QQ-correlation formulas |
+| `test_regression_vectors.py` | Per-coefficient statistics (SE, t-stats, p-values, CI, beta weights) |
+| `test_regression_observation_vectors.py` | Observation-level diagnostics (rank fraction, normal scores, residuals) |
+| `test_internal_helpers.py` | `_parse_float`, `_normalize_header`, `_validate_required_headers`, `_build_training_arrays`, `_predict_single_row` |
+| `test_formula_parser.py` | LAMBDA formula → workbook.xml XML token translation |
+| `test_cache_serialization.py` | JSON serialization round-trips for `RegressionVectors` and `RegressionObservationVectors` |
+| `test_data_completeness_qc.py` | `calculate_data_completeness_flags` against the sample dataset |
+| `test_lambda_catalog_plain_language.py` | All 78 LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
+
+### Coverage scope
+
+The coverage configuration in `pyproject.toml` tracks only the modules that are testable without Excel:
+
+- `analyze_life_expectancy.py`
+- `analyze_univariate.py`
+- `lambda_formula_parser.py`
+- `regression_shared.py`
+- `analysis_cache.py`
+
+The `write_sheet_*.py` modules, `workbook_builder.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the QC build instead (see below).
+
+### CI
+
+GitHub Actions runs the test suite on Python 3.10–3.13 (Ubuntu) on every push and pull request. See `.github/workflows/ci.yml`. Coverage must stay at or above 70% on the tracked modules.
 
 ## Building
 

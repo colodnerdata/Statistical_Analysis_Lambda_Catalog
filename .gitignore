@@ -15,6 +15,8 @@ ENV/
 .ruff_cache/
 .pyre/
 .hypothesis/
+.coverage
+coverage.xml
 
 # Analysis cache
 .analysis_cache.json

@@ -15,26 +15,27 @@ Sheet layout
 ────────────
   Row 1          — Title "Univariate Analysis"
   Row 2          — Section headings: Data | Descriptive Statistics | Sturges | Scott | FD | Distribution Fitting
-  Row 3          — Column sub-headers (table header for col A); pane freeze anchored here
-  Row 4+         — Data: raw column reference spill (col A), stats (C–D), histogram bins (F–M), fitting (P–Z)
+  Row 3          — Column sub-headers (table header for cols A–B); pane freeze anchored here
+  Row 4+         — Data: raw column spill (col A), filter mask (col B), stats (D–E), histogram bins (G–N), fitting (Q–AA)
 
   Col A          — Data: LifeExpectancyData[Life expectancy] spill in A4 (unfiltered; spill range = $A$4#)
-  Col B          — thin gap (width 2); freeze pane left boundary
-  Col C–D        — Descriptive Statistics (12 stat rows)
-  Col E          — thin gap (width 2)
-  Col F–G        — Sturges histogram table (edge | count)
-  Col H          — thin gap (width 2)
-  Col I–J        — Scott histogram table
-  Col K          — thin gap (width 2)
-  Col L–M        — Freedman-Diaconis histogram table
-  Col N          — thin gap (width 2)
+  Col B          — Filter: MAP(A4#,Data_Completeness) per-row mask — local UV_Include source ($B$4#)
+  Col C          — thin gap (width 2); freeze pane left boundary
+  Col D–E        — Descriptive Statistics (12 stat rows)
+  Col F          — thin gap (width 2)
+  Col G–H        — Sturges histogram table (edge | count)
+  Col I          — thin gap (width 2)
+  Col J–K        — Scott histogram table
+  Col L          — thin gap (width 2)
+  Col M–N        — Freedman-Diaconis histogram table
   Col O          — thin gap (width 2)
-  Col P–Z        — Distribution Fitting summary table
+  Col P          — thin gap (width 2)
+  Col Q–AA       — Distribution Fitting summary table
 
 Sheet-scoped named ranges
 ─────────────────────────
   UV_Data        — spill range of the raw column formula ($A$4#, unfiltered)
-  UV_Include     — LifeExpectancyData[Full_Data] — the row-inclusion filter
+  UV_Include     — local filter mask spill ($B$4#) — Data_Completeness applied per row
   UV_n           — IFERROR(COUNT(FILTER(UV_Data,UV_Include)), 0)
   UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
   UV_Scott_Edges,   UV_Scott_Counts
@@ -49,40 +50,41 @@ from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
 
-# Zone 1: Data Input
+# Zone 1: Data Input + Filter
 _C_A = 1    # data values
+_C_B = 2    # local filter mask (MAP(A4#,Data_Completeness))
 
 # Zone 2: Descriptive Statistics
-_C_C = 3    # stat labels
-_C_D = 4    # stat values
+_C_C = 4    # stat labels
+_C_D = 5    # stat values
 
 # Zone 3: Histogram Tables
-_C_F = 6    # Sturges edges
-_C_G = 7    # Sturges counts
-_C_I = 9    # Scott edges
-_C_J = 10   # Scott counts
-_C_L = 12   # FD edges
-_C_M = 13   # FD counts
+_C_F = 7    # Sturges edges
+_C_G = 8    # Sturges counts
+_C_I = 10   # Scott edges
+_C_J = 11   # Scott counts
+_C_L = 13   # FD edges
+_C_M = 14   # FD counts
 
 # Zone 4: Distribution Fitting
-_C_P = 16   # distribution name
-_C_Q = 17   # θ₁ label
-_C_R = 18   # θ₁ value
-_C_S = 19   # θ₂ label
-_C_T = 20   # θ₂ value
-_C_U = 21   # θ₃ label
-_C_V = 22   # θ₃ value
-_C_W = 23   # NLL
-_C_X = 24   # k (param count)
-_C_Y = 25   # AIC
-_C_Z = 26   # BIC
+_C_P = 17   # distribution name
+_C_Q = 18   # θ₁ label
+_C_R = 19   # θ₁ value
+_C_S = 20   # θ₂ label
+_C_T = 21   # θ₂ value
+_C_U = 22   # θ₃ label
+_C_V = 23   # θ₃ value
+_C_W = 24   # NLL
+_C_X = 25   # k (param count)
+_C_Y = 26   # AIC
+_C_Z = 27   # BIC
 
-# Zone 5: Weibull Grid-Search MLE (cols AB onward)
+# Zone 5: Weibull Grid-Search MLE (cols AC onward)
 _N_GRID   = 20             # grid points per axis per stage (20×20 = 400/stage)
-_C_GS     = 28             # col AB — first col of grid-search region (AA=27 is gap)
+_C_GS     = 29             # col AC — first col of grid-search region (AB=28 is gap)
 _GS_W     = _N_GRID + 1   # cols per stage = 21  (1 param2 col + N param1 cols)
 _GS_GAP_C = 1              # gap col between Stage 1 and Stage 2
-_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col AX = 50
+_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col AY = 51
 
 # Weibull block row anchor (aligns with other section headers; = _ROW_SECTION_HDR = 3)
 _ROW_GS_WB   = 3
@@ -198,20 +200,21 @@ def _border_box(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
 def _set_column_widths(sheet: xw.Sheet) -> None:
     widths = {
         _C_A: 14,    # data
-        2:    2,     # gap
+        _C_B: 10,    # filter mask
+        3:    2,     # gap (C) between filter and stats
         _C_C: 16,    # stat labels
         _C_D: 12,    # stat values
-        5:    2,     # gap
+        6:    2,     # gap
         _C_F: 12,    # Sturges edge
         _C_G: 10,    # Sturges count
-        8:    2,     # gap
+        9:    2,     # gap
         _C_I: 12,    # Scott edge
         _C_J: 10,    # Scott count
-        11:   2,     # gap
+        12:   2,     # gap
         _C_L: 12,    # FD edge
         _C_M: 10,    # FD count
-        14:   2,     # gap
         15:   2,     # gap
+        16:   2,     # gap
         _C_P: 14,    # distribution name
         _C_Q: 10,    # θ₁ label
         _C_R: 12,    # θ₁ value
@@ -223,7 +226,7 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         _C_X: 6,     # k
         _C_Y: 12,    # AIC
         _C_Z: 12,    # BIC
-        27:   2,     # gap (AA) before grid-search section
+        28:   2,     # gap (AB) before grid-search section
     }
     for col, w in widths.items():
         sheet.range(_rc(1, col), _rc(1, col)).column_width = w
@@ -236,7 +239,7 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         # param1 / body columns (N_GRID cols)
         for c in range(stage_start + 1, stage_start + _N_GRID + 1):
             sheet.range(_rc(1, c), _rc(1, c)).column_width = 6
-    # gap col AW
+    # gap col between Stage 1 and Stage 2
     sheet.range(_rc(1, _C_GS + _GS_W), _rc(1, _C_GS + _GS_W)).column_width = 2
 
 
@@ -269,11 +272,11 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
         RefersTo=f"='{sname}'!${_col_letter(_C_A)}${_ROW_DATA_START}#",
     )
 
-    # UV_Include: row-inclusion filter; passed into every LAMBDA instead of pre-filtering UV_Data
+    # UV_Include: local filter mask — spill of the Data_Completeness formula in B4
     _drop_local_name(sheet, "UV_Include")
     sheet.api.Names.Add(
         Name="UV_Include",
-        RefersTo="=LifeExpectancyData[Full_Data]",
+        RefersTo=f"='{sname}'!${_col_letter(_C_B)}${_ROW_DATA_START}#",
     )
 
     # UV_n: count of numeric included observations; used by GoF_BIC and chart range sizing
@@ -307,15 +310,13 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 def _write_data_zone(sheet: xw.Sheet) -> None:
     _section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
-    # Table header cell
     _val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
-    # Raw column reference — filtering is done inside each LAMBDA via UV_Include
-    _f(
-        sheet,
-        _ROW_DATA_START,
-        _C_A,
-        "=LifeExpectancyData[Life expectancy]",
-    )
+    _f(sheet, _ROW_DATA_START, _C_A, "=LifeExpectancyData[Life expectancy]")
+
+    # Filter column — local Data_Completeness mask; UV_Include is defined as $B$4#
+    _section_heading(sheet, _ROW_SECTION_HDR, _C_B, "Filter")
+    _val(sheet, _ROW_COL_HDRS, _C_B, "Include")
+    _f(sheet, _ROW_DATA_START, _C_B, "=MAP(A4#,Data_Completeness)")
 
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────
@@ -887,8 +888,8 @@ def _finalize_sheet(sheet: xw.Sheet) -> None:
     sheet.range(_rc(_ROW_METHOD_HDR, 1)).api.EntireRow.RowHeight = 18
     sheet.range(_rc(_ROW_SECTION_HDR, 1)).api.EntireRow.RowHeight = 18
     sheet.range(_rc(_ROW_COL_HDRS, 1)).api.EntireRow.RowHeight = 18
-    # Freeze at B4: rows 1-3 (title + section headers + col headers) and col A always visible
-    sheet.range(_rc(_ROW_DATA_START, 2)).api.Select()
+    # Freeze at C4: rows 1-3 and cols A-B (data + filter) always visible
+    sheet.range(_rc(_ROW_DATA_START, 3)).api.Select()
     sheet.book.app.api.ActiveWindow.FreezePanes = True
 
 

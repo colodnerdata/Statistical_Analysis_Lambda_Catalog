@@ -28,6 +28,26 @@ DEFAULT_OUTPUT_CSV = ROOT_DIR / "Life Expectancy Predictions.csv"
 TARGET_COLUMN = "Life expectancy"
 
 
+def calculate_data_completeness_flags(
+    input_csv_path: Path,
+) -> tuple[bool, ...]:
+    """Return expected Full_Data flags matching the workbook Data_Completeness formula.
+
+    The Life Expectancy Data sheet computes ``Full_Data`` with
+    ``Data_Completeness(LifeExpectancyData[@[Life expectancy]:[Schooling]])``,
+    so the Python-side QC expectation is that the target and all predictor
+    columns parse as numeric on a given row.
+    """
+    original_headers, normalized_rows = _load_normalized_rows(input_csv_path)
+    _validate_required_headers(original_headers)
+
+    required_columns = [TARGET_COLUMN, *FEATURE_COLUMNS]
+    return tuple(
+        all(_parse_float(row.get(column)) is not None for column in required_columns)
+        for row in normalized_rows
+    )
+
+
 def _normalize_header(name: str) -> str:
     """Collapse internal whitespace in a CSV header name.
 

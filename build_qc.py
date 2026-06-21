@@ -11,6 +11,7 @@ from pathlib import Path
 
 import xlwings as xw
 
+from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH, get_analysis_results
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
@@ -28,6 +29,8 @@ from lambda_catalog.write_sheet_lambda_functions import (
 )
 from lambda_catalog.write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
+    FULL_DATA_HEADER,
+    SHEET_NAME as LIFE_EXPECTANCY_SHEET_NAME,
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
 )
@@ -58,6 +61,7 @@ def verify_test_sheets(
     vector_row_configs: list,
     observation_row_configs: list,
     regression_sheet_configs: list,
+    csv_path: Path,
     verbose: bool = False,
 ) -> None:
     """Compare Excel Calc columns against Python-computed expected values in all test sheets.
@@ -107,6 +111,37 @@ def verify_test_sheets(
     observation_df = mod.read_observation_df(workbook, observation_row_configs)
     _verbose_checkpoint(verbose, phase_start, "Verify: read obs done")
     tol = mod.TOLERANCE_DECIMALS
+
+    full_data_expected = calculate_data_completeness_flags(csv_path)
+    life_expectancy_sheet = workbook.sheets[LIFE_EXPECTANCY_SHEET_NAME]
+    life_expectancy_data = life_expectancy_sheet.used_range.value
+    if life_expectancy_data:
+        if isinstance(life_expectancy_data[0], list):
+            life_expectancy_rows = life_expectancy_data
+        else:
+            life_expectancy_rows = [life_expectancy_data]
+        life_expectancy_headers = [
+            str(header).strip() if header is not None else ""
+            for header in life_expectancy_rows[0]
+        ]
+        full_data_col_idx = life_expectancy_headers.index(FULL_DATA_HEADER)
+        for row_offset, expected in enumerate(full_data_expected, start=1):
+            row = (
+                life_expectancy_rows[row_offset]
+                if row_offset < len(life_expectancy_rows)
+                else []
+            )
+            actual = row[full_data_col_idx] if full_data_col_idx < len(row) else None
+            if actual in ("TRUE", "True", 1, 1.0):
+                actual = True
+            elif actual in ("FALSE", "False", 0, 0.0):
+                actual = False
+            if actual is not expected:
+                print(
+                    f"WARNING [Life Expectancy Data] row={row_offset + 1} stat='Full_Data': "
+                    f"expected={expected!r}, excel_calc={actual!r}",
+                    flush=True,
+                )
 
     for _, row in scalar_df.iterrows():
         fdd = row["first_digit_deviation"]
@@ -322,6 +357,7 @@ def build_qc_workbook(
                     vector_row_configs,
                     observation_row_configs,
                     regression_sheet_configs,
+                    csv_path,
                     verbose=verbose,
                 )
             finally:

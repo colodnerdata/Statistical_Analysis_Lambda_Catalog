@@ -16,9 +16,9 @@ Sheet layout
   Row 1          — Title "Univariate Analysis"
   Row 2          — Section headings: Data | Descriptive Statistics | Sturges | Scott | FD | Distribution Fitting
   Row 3          — Column sub-headers (table header for col A); pane freeze anchored here
-  Row 4+         — Data: FILTER formula spill (col A), stats (C–D), histogram bins (F–M), fitting (P–Z)
+  Row 4+         — Data: raw column reference spill (col A), stats (C–D), histogram bins (F–M), fitting (P–Z)
 
-  Col A          — Data: FILTER formula spill in A4 (no table; spill range referenced as $A$4#)
+  Col A          — Data: LifeExpectancyData[Life expectancy] spill in A4 (unfiltered; spill range = $A$4#)
   Col B          — thin gap (width 2); freeze pane left boundary
   Col C–D        — Descriptive Statistics (12 stat rows)
   Col E          — thin gap (width 2)
@@ -33,8 +33,9 @@ Sheet layout
 
 Sheet-scoped named ranges
 ─────────────────────────
-  UV_Data        — spill range of the FILTER formula ($A$4#)
-  UV_n           — IFERROR(COUNT($A$4#), 0) — robust when FILTER returns empty (#CALC!)
+  UV_Data        — spill range of the raw column formula ($A$4#, unfiltered)
+  UV_Include     — LifeExpectancyData[Full_Data] — the row-inclusion filter
+  UV_n           — IFERROR(COUNT(FILTER(UV_Data,UV_Include)), 0)
   UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
   UV_Scott_Edges,   UV_Scott_Counts
   UV_FD_Edges,      UV_FD_Counts
@@ -262,29 +263,36 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     """Register sheet-scoped named ranges used by formulas and charts."""
     sname = sheet.name
 
-    # UV_Data: spill range of the FILTER formula in A4; all formula refs use this name
+    # UV_Data: spill range of the raw column formula in A4; unfiltered — filter is UV_Include
     _drop_local_name(sheet, "UV_Data")
     sheet.api.Names.Add(
         Name="UV_Data",
         RefersTo=f"='{sname}'!${_col_letter(_C_A)}${_ROW_DATA_START}#",
     )
 
-    # UV_n: count of entries in the spill range; IFERROR handles #CALC! when FILTER is empty
+    # UV_Include: row-inclusion filter; passed into every LAMBDA instead of pre-filtering UV_Data
+    _drop_local_name(sheet, "UV_Include")
+    sheet.api.Names.Add(
+        Name="UV_Include",
+        RefersTo="=LifeExpectancyData[Full_Data]",
+    )
+
+    # UV_n: count of numeric included observations; used by GoF_BIC and chart range sizing
     _drop_local_name(sheet, "UV_n")
     sheet.api.Names.Add(
         Name="UV_n",
-        RefersTo=f"=IFERROR(COUNT('{sname}'!${_col_letter(_C_A)}${_ROW_DATA_START}#),0)",
+        RefersTo=f"=IFERROR(COUNT(FILTER('{sname}'!${_col_letter(_C_A)}${_ROW_DATA_START}#,UV_Include)),0)",
     )
 
-    # Chart series ranges: OFFSET-based, sized by calling the bin-count
-    # LAMBDAs directly inside the named-range formula.
+    # Chart series ranges: OFFSET-based, sized by n_histogram_bins with the include filter.
+    # FD must pass "FD" explicitly because filter is the 3rd arg (can't skip method).
     for name, col_ltr, start_row, size_formula in [
-        ("UV_Sturges_Edges",  _col_letter(_C_F), _ROW_HIST_START, "n_histogram_bins(UV_Data,\"Sturges\")"),
-        ("UV_Sturges_Counts", _col_letter(_C_G), _ROW_HIST_START, "n_histogram_bins(UV_Data,\"Sturges\")"),
-        ("UV_Scott_Edges",    _col_letter(_C_I), _ROW_HIST_START, "n_histogram_bins(UV_Data,\"Scott\")"),
-        ("UV_Scott_Counts",   _col_letter(_C_J), _ROW_HIST_START, "n_histogram_bins(UV_Data,\"Scott\")"),
-        ("UV_FD_Edges",       _col_letter(_C_L), _ROW_HIST_START, "n_histogram_bins(UV_Data)"),
-        ("UV_FD_Counts",      _col_letter(_C_M), _ROW_HIST_START, "n_histogram_bins(UV_Data)"),
+        ("UV_Sturges_Edges",  _col_letter(_C_F), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"Sturges",UV_Include)'),
+        ("UV_Sturges_Counts", _col_letter(_C_G), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"Sturges",UV_Include)'),
+        ("UV_Scott_Edges",    _col_letter(_C_I), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"Scott",UV_Include)'),
+        ("UV_Scott_Counts",   _col_letter(_C_J), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"Scott",UV_Include)'),
+        ("UV_FD_Edges",       _col_letter(_C_L), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"FD",UV_Include)'),
+        ("UV_FD_Counts",      _col_letter(_C_M), _ROW_HIST_START, 'n_histogram_bins(UV_Data,"FD",UV_Include)'),
     ]:
         _drop_local_name(sheet, name)
         sheet.api.Names.Add(
@@ -302,31 +310,32 @@ def _write_data_zone(sheet: xw.Sheet) -> None:
     _section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
     # Table header cell
     _val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
-    # FILTER formula auto-populates from the Life Expectancy Data sheet
+    # Raw column reference — filtering is done inside each LAMBDA via UV_Include
     _f(
         sheet,
         _ROW_DATA_START,
         _C_A,
-        "=IFERROR(FILTER(LifeExpectancyData[Life expectancy],LifeExpectancyData[Full_Data]),\"\")",
+        "=LifeExpectancyData[Life expectancy]",
     )
 
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────
 
-# Stat label, formula (UV_Data resolves to the FILTER spill range via named range)
+# Stat label, formula — native Excel functions wrap UV_Data in FILTER(UV_Data,UV_Include);
+# custom LAMBDAs receive UV_Include as their optional filter/Include argument.
 _STAT_ROWS: list[tuple[str, str]] = [
-    ("Mean",      "=AVERAGE(UV_Data)"),
-    ("Median",    "=MEDIAN(UV_Data)"),
-    ("Mode",      "=IFERROR(MODE.SNGL(UV_Data),\"N/A\")"),
-    ("Std Dev",   "=STDEV.S(UV_Data)"),
-    ("Variance",  "=VAR.S(UV_Data)"),
-    ("Min",       "=MIN(UV_Data)"),
-    ("Max",       "=MAX(UV_Data)"),
-    ("Range",     "=MAX(UV_Data)-MIN(UV_Data)"),
-    ("Skewness",  "=INDEX(Skewness(UV_Data),1)"),
-    ("Kurtosis",  "=INDEX(Kurtosis(UV_Data),1)"),
-    ("Count",     "=COUNT(UV_Data)"),
-    ("Missing",   "=Missing_Count(UV_Data)"),
+    ("Mean",      "=AVERAGE(FILTER(UV_Data,UV_Include))"),
+    ("Median",    "=MEDIAN(FILTER(UV_Data,UV_Include))"),
+    ("Mode",      "=IFERROR(MODE.SNGL(FILTER(UV_Data,UV_Include)),\"N/A\")"),
+    ("Std Dev",   "=STDEV.S(FILTER(UV_Data,UV_Include))"),
+    ("Variance",  "=VAR.S(FILTER(UV_Data,UV_Include))"),
+    ("Min",       "=MIN(FILTER(UV_Data,UV_Include))"),
+    ("Max",       "=MAX(FILTER(UV_Data,UV_Include))"),
+    ("Range",     "=MAX(FILTER(UV_Data,UV_Include))-MIN(FILTER(UV_Data,UV_Include))"),
+    ("Skewness",  "=INDEX(Skewness(UV_Data,UV_Include),1)"),
+    ("Kurtosis",  "=INDEX(Kurtosis(UV_Data,UV_Include),1)"),
+    ("Count",     "=COUNT(FILTER(UV_Data,UV_Include))"),
+    ("Missing",   "=Missing_Count(UV_Data,UV_Include)"),
 ]
 
 def _write_descriptive_stats(sheet: xw.Sheet) -> None:
@@ -367,15 +376,16 @@ def _write_histogram_table(
     _val(sheet, _ROW_COL_HDRS, col_count, "Count")
     _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_count)
 
-    # Spill formulas — omit method for FD since it is the default
-    bin_edges_formula = (
-        "=Bin_Edges(UV_Data)" if method == "FD"
-        else f"=Bin_Edges(UV_Data,\"{method}\")"
-    )
-    _f(sheet, _ROW_HIST_START, col_edge, bin_edges_formula)
+    # Row 3: bin-count display — "Bins" label + n_histogram_bins formula
+    _val(sheet, _ROW_SECTION_HDR, col_edge, "Bins")
+    _f(sheet, _ROW_SECTION_HDR, col_count, f'=n_histogram_bins(UV_Data,"{method}",UV_Include)')
+    sheet.range(_rc(_ROW_SECTION_HDR, col_count)).number_format = "0"
+
+    # Spill formulas — method must be explicit (can't skip it to reach the 3rd filter arg)
+    _f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,\"{method}\",UV_Include)")
     edge_spill_ref = f"{_col_letter(col_edge)}{_ROW_HIST_START}#"
     _f(sheet, _ROW_HIST_START, col_count,
-       f"=Bin_Counts(UV_Data,{edge_spill_ref})")
+       f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
 
     sheet.range(_rc(_ROW_HIST_START, col_edge)).number_format = "0.00"
     sheet.range(_rc(_ROW_HIST_START, col_count)).number_format = "0"
@@ -438,26 +448,26 @@ def _dist_rows(base_row: int) -> list[tuple]:
     dist_specs = [
         (
             "Normal",
-            "Mean",    "=AVERAGE(UV_Data)",
-            "Std Dev", "=STDEV.S(UV_Data)",
+            "Mean",    "=AVERAGE(FILTER(UV_Data,UV_Include))",
+            "Std Dev", "=STDEV.S(FILTER(UV_Data,UV_Include))",
             "",        "",
-            lambda r: f"=NLL_Normal(UV_Data,{_r(r)},{_t(r)})",
+            lambda r: f"=NLL_Normal(UV_Data,{_r(r)},{_t(r)},UV_Include)",
             2,
         ),
         (
             "Lognormal",
-            "μ_ln",  "=AVERAGE(LN(FILTER(UV_Data,ISNUMBER(UV_Data))))",
-            "σ_ln",  "=STDEV.S(LN(FILTER(UV_Data,ISNUMBER(UV_Data))))",
+            "μ_ln",  "=AVERAGE(LN(FILTER(UV_Data,(UV_Include)*(ISNUMBER(UV_Data)))))",
+            "σ_ln",  "=STDEV.S(LN(FILTER(UV_Data,(UV_Include)*(ISNUMBER(UV_Data)))))",
             "",      "",
-            lambda r: f"=NLL_Lognormal(UV_Data,{_r(r)},{_t(r)})",
+            lambda r: f"=NLL_Lognormal(UV_Data,{_r(r)},{_t(r)},UV_Include)",
             2,
         ),
         (
             "Exponential",
-            "Rate",  "=1/AVERAGE(UV_Data)",
+            "Rate",  "=1/AVERAGE(FILTER(UV_Data,UV_Include))",
             "",      "",
             "",      "",
-            lambda r: f"=NLL_Exponential(UV_Data,{_r(r)})",
+            lambda r: f"=NLL_Exponential(UV_Data,{_r(r)},UV_Include)",
             1,
         ),
         (
@@ -467,18 +477,18 @@ def _dist_rows(base_row: int) -> list[tuple]:
             # LN(0) → error → 1E+15.  Expanding the support by 0.1 % of the
             # data range gives boundary data points positive (tiny) density.
             "Triangular",
-            "Min",  "=MIN(UV_Data)-(MAX(UV_Data)-MIN(UV_Data))*0.001",
-            "Mode", "=IFERROR(MODE.SNGL(UV_Data),MEDIAN(UV_Data))",
-            "Max",  "=MAX(UV_Data)+(MAX(UV_Data)-MIN(UV_Data))*0.001",
-            lambda r: f"=NLL_Triangular(UV_Data,{_r(r)},{_t(r)},{_v(r)})",
+            "Min",  "=LET(d,FILTER(UV_Data,UV_Include),MIN(d)-(MAX(d)-MIN(d))*0.001)",
+            "Mode", "=IFERROR(MODE.SNGL(FILTER(UV_Data,UV_Include)),MEDIAN(FILTER(UV_Data,UV_Include)))",
+            "Max",  "=LET(d,FILTER(UV_Data,UV_Include),MAX(d)+(MAX(d)-MIN(d))*0.001)",
+            lambda r: f"=NLL_Triangular(UV_Data,{_r(r)},{_t(r)},{_v(r)},UV_Include)",
             3,
         ),
         (
             "BetaPERT",
-            "Min",  "=MIN(UV_Data)-(MAX(UV_Data)-MIN(UV_Data))*0.001",
-            "Mode", "=IFERROR(MODE.SNGL(UV_Data),MEDIAN(UV_Data))",
-            "Max",  "=MAX(UV_Data)+(MAX(UV_Data)-MIN(UV_Data))*0.001",
-            lambda r: f"=NLL_BetaPERT(UV_Data,{_r(r)},{_t(r)},{_v(r)})",
+            "Min",  "=LET(d,FILTER(UV_Data,UV_Include),MIN(d)-(MAX(d)-MIN(d))*0.001)",
+            "Mode", "=IFERROR(MODE.SNGL(FILTER(UV_Data,UV_Include)),MEDIAN(FILTER(UV_Data,UV_Include)))",
+            "Max",  "=LET(d,FILTER(UV_Data,UV_Include),MAX(d)+(MAX(d)-MIN(d))*0.001)",
+            lambda r: f"=NLL_BetaPERT(UV_Data,{_r(r)},{_t(r)},{_v(r)},UV_Include)",
             3,
         ),
         # Weibull: params come from Stage 2 grid-search MLE (see Zone 5)
@@ -489,7 +499,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "scale",
             f"=${_col_letter(_C_GS_S2 + _GS_C_BEST_P2)}${_ROW_GS_WB + _GS_R_BEST}",
             "",    "",
-            lambda r: f"=NLL_Weibull(UV_Data,{_r(r)},{_t(r)})",
+            lambda r: f"=NLL_Weibull(UV_Data,{_r(r)},{_t(r)},UV_Include)",
             2,
         ),
     ]
@@ -750,7 +760,7 @@ def _write_grid_stage(
 
     # Corner cell: NLL formula referencing the two Data Table input placeholders
     _f(sheet, hdr_row, c0,
-       f"=NLL_Weibull(UV_Data,{dt_row_ref},{dt_col_ref})")
+       f"=NLL_Weibull(UV_Data,{dt_row_ref},{dt_col_ref},UV_Include)")
     sheet.range(_rc(hdr_row, c0)).number_format = "0.00"
 
     # Param1 (shape) SEQUENCE — spills right across N cols
@@ -783,18 +793,17 @@ def _write_grid_stage(
         ),
     )
 
-    # Two-input Data Table: must call Table() on the FULL range (corner + headers + body)
-    # so that Excel can locate the corner formula and header sequences.
-    row_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_ROW))
-    col_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_COL))
-    full_table_range = sheet.range(
-        _rc(hdr_row, c0),
-        _rc(body_row_end, body_col_end),
-    )
-    full_table_range.api.Table(
-        RowInput=row_input_cell.api,
-        ColumnInput=col_input_cell.api,
-    )
+    # Two-input Data Table wiring is disabled — wire manually via the Excel UI.
+    # row_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_ROW))
+    # col_input_cell = sheet.range(_rc(aux_row, c0 + _GS_C_DT_COL))
+    # full_table_range = sheet.range(
+    #     _rc(hdr_row, c0),
+    #     _rc(body_row_end, body_col_end),
+    # )
+    # full_table_range.api.Table(
+    #     RowInput=row_input_cell.api,
+    #     ColumnInput=col_input_cell.api,
+    # )
 
     # Number format for the body
     body_range.number_format = "0.00"
@@ -846,7 +855,7 @@ def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
         p1_min      = 0.5,     # shape min (user can adjust)
         p1_max      = 10.0,    # shape max
         p2_min      = 0.1,     # scale min
-        p2_max      = "=IFERROR(2*AVERAGE(UV_Data),10)",  # data-driven scale max
+        p2_max      = "=IFERROR(2*AVERAGE(FILTER(UV_Data,UV_Include)),10)",  # data-driven scale max
         editable_bounds = True,
     )
 

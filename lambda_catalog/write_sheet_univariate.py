@@ -41,7 +41,6 @@ Sheet-scoped named ranges
 """
 from __future__ import annotations
 
-from typing import Any
 
 import xlwings as xw
 

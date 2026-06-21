@@ -89,18 +89,15 @@ class RegressionObservationVectorsTests(unittest.TestCase):
         # OLS with intercept: residuals sum to zero
         self.assertAlmostEqual(sum(self._obs.residuals), 0.0, places=8)
 
-    def test_predictions_plus_residuals_equal_actuals(self) -> None:
+    def test_predictions_plus_residuals_reconstruct_actuals(self) -> None:
         obs = self._obs
-        for pred, resid, yn in zip(obs.predictions, obs.residuals, obs.y_ranked):
-            pass  # y_ranked is sorted, not aligned — just verify individual consistency
-        # Verify residuals = actual - predicted via sum check
-        import numpy as np
-        predictions = list(obs.predictions)
-        residuals = list(obs.residuals)
-        # Sum of (pred + resid) should equal sum of y (the unranked actuals)
-        pred_plus_resid_sum = sum(p + r for p, r in zip(predictions, residuals))
-        y_ranked_sum = sum(obs.y_ranked)
-        self.assertAlmostEqual(pred_plus_resid_sum, y_ranked_sum, places=6)
+        # predictions and residuals are in observation order; y_ranked is sorted.
+        # Sorting (pred + resid) must equal y_ranked.
+        reconstructed = sorted(
+            p + r for p, r in zip(obs.predictions, obs.residuals)
+        )
+        for actual, computed in zip(obs.y_ranked, reconstructed):
+            self.assertAlmostEqual(actual, computed, places=10)
 
     def test_scaled_residuals_length_equals_n(self) -> None:
         self.assertEqual(len(self._obs.scaled_residuals), self._n)

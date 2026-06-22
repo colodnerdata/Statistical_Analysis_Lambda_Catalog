@@ -7,10 +7,13 @@ from typing import NoReturn
 try:
     import pywintypes  # type: ignore[import-untyped]
 except ImportError:  # pragma: no cover - non-Windows environments
+    class _ComError(OSError):
+        """Fallback Excel COM error type for non-Windows environments."""
+
     class _PyWinTypesFallback:
         """Fallback namespace for non-Windows environments."""
 
-        com_error = OSError
+        com_error = _ComError
 
     pywintypes = _PyWinTypesFallback()
 import xlwings as xw

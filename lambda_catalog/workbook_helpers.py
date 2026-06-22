@@ -15,7 +15,7 @@ except ImportError:  # pragma: no cover - non-Windows environments
 
         com_error = _ComError
 
-        def __getattr__(self, name: str) -> object:
+        def __getattr__(self, name: str) -> NoReturn:
             raise AttributeError(
                 f"pywintypes.{name} is unavailable outside Windows"
             )

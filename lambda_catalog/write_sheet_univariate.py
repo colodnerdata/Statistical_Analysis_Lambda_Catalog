@@ -502,7 +502,7 @@ def _write_fitting_table(sheet: xw.Sheet) -> None:
     # Highlight best-fit row (lowest AIC) with conditional formatting
     aic_col_letter = col_letter(_C_Z)
     aic_min_range  = f"${aic_col_letter}${_ROW_DIST_START}:${aic_col_letter}${last_row}"
-    formula = f"=${'$'}{aic_col_letter}{_ROW_DIST_START}=MIN({aic_min_range})"
+    formula = f"=${aic_col_letter}{_ROW_DIST_START}=MIN({aic_min_range})"
     row_range = sheet.range(rc(_ROW_DIST_START, _C_Q), rc(last_row, _C_AA))
     cf = row_range.api.FormatConditions.Add(Type=2, Formula1=formula)  # xlExpression=2
     cf.Interior.Color = 0xC6EFCE  # light green fill

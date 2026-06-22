@@ -14,21 +14,17 @@ import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH, get_analysis_results
+from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
     XL_CALCULATION_MANUAL,
     XL_CALCULATION_SEMIAUTOMATIC,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
-    load_lambda_definitions,
     sync_workbook_names,
 )
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
-from lambda_catalog.write_sheet_lambda_functions import (
-    load_catalog_entries,
-    load_regression_sheet_notes,
-    write_catalog_sheet,
-)
+from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
 from lambda_catalog.write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
     FULL_DATA_HEADER,
@@ -295,12 +291,8 @@ def build_qc_workbook(
         Counts of created versus updated workbook names.
     """
     _t = time.monotonic()
-    definitions = load_lambda_definitions(definitions_path)
-    _verbose_checkpoint(verbose, _t, "Prep: definitions loaded")
-    catalog_entries = load_catalog_entries(definitions_path)
+    document = load_catalog_document(definitions_path)
     _verbose_checkpoint(verbose, _t, "Prep: catalog loaded")
-    sheet_notes = load_regression_sheet_notes(definitions_path)
-    _verbose_checkpoint(verbose, _t, "Prep: sheet notes loaded")
     row_configs, vector_row_configs, observation_row_configs, regression_sheet_configs = get_analysis_results(
         csv_path, cache_path
     )
@@ -339,7 +331,7 @@ def build_qc_workbook(
                 if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                     workbook.sheets["Sheet1"].name = "LAMBDA_functions"
                 _verbose_checkpoint(verbose, _t, "Write: catalog start")
-                write_catalog_sheet(workbook, catalog_entries)
+                write_catalog_sheet(workbook, document.functions)
                 _verbose_checkpoint(verbose, _t, "Write: catalog done")
                 _verbose_checkpoint(verbose, _t, "Write: life exp start")
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows, verbose=verbose)
@@ -357,10 +349,10 @@ def build_qc_workbook(
                 write_version_history_sheet(workbook)
                 _verbose_checkpoint(verbose, _t, "Write: version history done")
                 _verbose_checkpoint(verbose, _t, "Write: regression start")
-                write_regression_output_sheet(workbook, sheet_notes)
+                write_regression_output_sheet(workbook, document.regression_sheet_notes)
                 _verbose_checkpoint(verbose, _t, "Write: regression done")
                 _verbose_checkpoint(verbose, _t, "Write: scalar start")
-                write_mlr_scalar_test_sheet(workbook, definitions, row_configs)
+                write_mlr_scalar_test_sheet(workbook, document.functions, row_configs)
                 _verbose_checkpoint(verbose, _t, "Write: scalar done")
                 _verbose_checkpoint(verbose, _t, "Write: vector start")
                 write_mlr_vector_outputs_test_sheet(workbook, vector_row_configs)
@@ -383,7 +375,7 @@ def build_qc_workbook(
     _t = time.monotonic()
     try:
         _verbose_checkpoint(verbose, _t, "Sync: start")
-        result = sync_workbook_names(workbook_path, definitions)
+        result = sync_workbook_names(workbook_path, document.functions)
         _verbose_checkpoint(verbose, _t, "Sync: done")
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "update", exc)

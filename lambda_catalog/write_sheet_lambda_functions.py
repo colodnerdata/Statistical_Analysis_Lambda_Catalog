@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import argparse
-import json
-from dataclasses import dataclass
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any
 
 import xlwings as xw
 
+from .catalog_schema import CatalogFunction, load_catalog_document
 from .workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
     XL_SRC_RANGE,
@@ -20,7 +19,7 @@ from .workbook_helpers import (
 )
 
 
-ROOT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 SHEET_NAME = "LAMBDA_functions"
 TABLE_NAME = "LAMBDAFunctionsCatalog"
@@ -35,225 +34,15 @@ TABLE_HEADERS = [
 COLUMN_WIDTHS = {"A": 18, "B": 72, "C": 30, "D": 15, "E": 34, "F": 66}
 
 
-@dataclass(frozen=True)
-class Argument:
-    """A single LAMBDA function argument with its display metadata.
-
-    Attributes
-    ----------
-    name : str
-        The argument identifier as used in the LAMBDA formula.
-    description : str
-        Human-readable description of what the argument represents.
-    optional : bool
-        If True, the argument is optional and is displayed in brackets.
-    """
-
-    name: str
-    description: str
-    optional: bool = False
-
-    def display_name(self) -> str:
-        """Return the argument name formatted for display in the catalog.
-
-        Returns
-        -------
-        str
-            The name wrapped in square brackets when optional, otherwise
-            the bare name.
-        """
-        return f"[{self.name}]" if self.optional else self.name
-
-
-@dataclass(frozen=True)
-class LambdaCatalogEntry:
-    """A single row of data for the LAMBDA_functions catalog sheet.
-
-    Attributes
-    ----------
-    name : str
-        The Excel defined name for this LAMBDA.
-    formula_display : str
-        Human-readable LAMBDA formula shown in the Definition column.
-    arguments : list[Argument]
-        Ordered list of arguments accepted by the function.
-    yields : str
-        Short description of the value the function returns.
-    description : str
-        Full description shown in the Description column.
-    plain_language_summary : str
-        Short, plain-English explanation shown in its own catalog column.
-    """
-
-    name: str
-    formula_display: str
-    arguments: list[Argument]
-    yields: str
-    description: str
-    plain_language_summary: str
-
-    def arguments_cell_text(self) -> str:
-        """Format all arguments as multi-line text for the Arguments cell.
-
-        Returns
-        -------
-        str
-            Each argument on its own line as ``name: description``, or an
-            empty string when the function takes no arguments.
-        """
-        if not self.arguments:
-            return ""
-
-        lines = [
-            f"{argument.display_name()}: {argument.description}"
-            for argument in self.arguments
-        ]
-        return "\n".join(lines)
-
-
-def _build_argument(argument_data: dict[str, Any]) -> Argument:
-    """Construct an Argument from a raw JSON argument dict.
-
-    Parameters
-    ----------
-    argument_data : dict[str, Any]
-        Dictionary with ``name``, ``description``, and optional ``optional``
-        keys, as found in lambda_functions.json.
-
-    Returns
-    -------
-    Argument
-        The constructed Argument instance.
-    """
-    return Argument(
-        name=str(argument_data["name"]),
-        description=str(argument_data["description"]),
-        optional=bool(argument_data.get("optional", False)),
-    )
-
-
-def _build_catalog_entry(function_data: dict[str, Any]) -> LambdaCatalogEntry:
-    """Construct a LambdaCatalogEntry from a raw JSON function dict.
-
-    Parameters
-    ----------
-    function_data : dict[str, Any]
-        Dictionary for one function entry from lambda_functions.json.
-
-    Returns
-    -------
-    LambdaCatalogEntry
-        The constructed catalog entry.
-
-    Raises
-    ------
-    ValueError
-        If ``plain_language_summary`` is missing or blank.
-    """
-    plain_language_summary = str(function_data.get("plain_language_summary", "")).strip()
-    if not plain_language_summary:
-        function_name = str(function_data.get("name", "<unknown>"))
-        raise ValueError(
-            f"Function {function_name!r} is missing a non-empty "
-            "'plain_language_summary' in lambda_functions.json."
-        )
-
-    return LambdaCatalogEntry(
-        name=str(function_data["name"]),
-        formula_display=str(function_data["formula_display"]),
-        arguments=[
-            _build_argument(argument_data)
-            for argument_data in function_data["arguments"]
-        ],
-        yields=str(function_data["yields"]),
-        description=str(function_data["description"]),
-        plain_language_summary=plain_language_summary,
-    )
-
-
-def load_catalog_entries(
-    definitions_path: Path, *, payload: dict | None = None
-) -> list[LambdaCatalogEntry]:
-    """Load and parse all catalog entries from the JSON definitions file.
-
-    Parameters
-    ----------
-    definitions_path : Path
-        Path to lambda_functions.json.
-    payload : dict or None, optional
-        Pre-parsed JSON payload. When supplied the file at ``definitions_path``
-        is not re-read, avoiding redundant I/O when the caller already has the
-        data.
-
-    Returns
-    -------
-    list[LambdaCatalogEntry]
-        Ordered list of catalog entries, one per function definition.
-
-    Raises
-    ------
-    ValueError
-        If the JSON does not contain a top-level ``functions`` array.
-    """
-    if payload is None:
-        with definitions_path.open("r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-
-    functions = payload.get("functions")
-    if not isinstance(functions, list):
-        raise ValueError("lambda_functions.json must contain a top-level 'functions' array.")
-
-    return [_build_catalog_entry(function_data) for function_data in functions]
-
-
-def load_regression_sheet_notes(
-    path: Path, *, payload: dict | None = None
-) -> dict[str, str]:
-    """Load the regression_sheet_notes mapping from the JSON catalog.
-
-    Parameters
-    ----------
-    path : Path
-        Path to lambda_functions.json.
-    payload : dict or None, optional
-        Pre-parsed JSON payload. When supplied the file at ``path`` is not
-        re-read, avoiding redundant I/O when the caller already has the data.
-
-    Returns
-    -------
-    dict[str, str]
-        Mapping of sheet label → plain-language note text.
-        Returns an empty dict if the key is absent.
-
-    Raises
-    ------
-    ValueError
-        If the ``regression_sheet_notes`` key exists but is not an object.
-    """
-    if payload is None:
-        with path.open("r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-    notes = payload.get("regression_sheet_notes", {})
-    if not isinstance(notes, dict):
-        raise ValueError("regression_sheet_notes in lambda_functions.json must be an object.")
-    for key, value in notes.items():
-        if not isinstance(key, str) or not isinstance(value, str):
-            raise ValueError(
-                f"regression_sheet_notes entry {key!r} must have string key and string value;"
-                f" got {type(value).__name__}."
-            )
-    return notes
-
-
-def write_catalog_sheet(workbook: xw.Book, entries: list[LambdaCatalogEntry]) -> None:
+def write_catalog_sheet(workbook: xw.Book, entries: Sequence[CatalogFunction]) -> None:
     """Write catalog entries to the LAMBDA_functions sheet as a formatted table.
 
     Parameters
     ----------
     workbook : xw.Book
         The open xlwings workbook to write into.
-    entries : list[LambdaCatalogEntry]
-        Catalog entries to populate the table rows.
+    entries : Sequence[CatalogFunction]
+        Catalog functions to populate the table rows.
     """
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
@@ -314,7 +103,8 @@ def write_lambda_catalog(
     int
         Number of catalog entries written to the sheet.
     """
-    entries = load_catalog_entries(definitions_path)
+    document = load_catalog_document(definitions_path)
+    entries = document.functions
     workbook_path = workbook_path.resolve()
 
     try:

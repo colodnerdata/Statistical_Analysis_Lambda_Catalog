@@ -1652,7 +1652,7 @@
       "plain_language_summary": "How many histogram bins the Freedman-Diaconis rule recommends."
     },
     {
-      "name": "num_histogram_bins",
+      "name": "n_histogram_bins",
       "number_format": "0",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    m, IF(ISOMITTED(method), \"FD\", method),\n    SWITCH(m,\n      \"Sturges\", CEILING(LOG(n, 2) + 1, 1),\n      \"Scott\",   LET(\n                   sd, STDEV.S(x),\n                   range_, MAX(x) - MIN(x),\n                   IF(sd = 0, 1, CEILING(range_ / (3.49 * sd * n ^ (-1/3)), 1))\n                 ),\n      LET(\n        iqr, QUARTILE.EXC(x, 3) - QUARTILE.EXC(x, 1),\n        range_, MAX(x) - MIN(x),\n        IF(iqr = 0,\n          CEILING(LOG(n, 2) + 1, 1),\n          CEILING(range_ / (2 * iqr * n ^ (-1/3)), 1))\n      )\n    )\n  ))",
       "arguments": [
@@ -1672,13 +1672,13 @@
         }
       ],
       "yields": "integer bin count k for the chosen method",
-      "description": "num_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = ⌈log₂(n) + 1⌉\n  Scott:   width = 3.49 × SD × n^(−1/3);  k = ⌈range / width⌉  (k=1 when SD=0)\n  FD:      width = 2 × IQR × n^(−1/3);   k = ⌈range / width⌉  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
+      "description": "n_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = ⌈log₂(n) + 1⌉\n  Scott:   width = 3.49 × SD × n^(−1/3);  k = ⌈range / width⌉  (k=1 when SD=0)\n  FD:      width = 2 × IQR × n^(−1/3);   k = ⌈range / width⌉  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
       "plain_language_summary": "How many histogram bins a chosen rule (default: Freedman-Diaconis) recommends for this data."
     },
     {
       "name": "Bin_Edges",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, num_histogram_bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k, 1, min_x + width, width)\n  ))",
+      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, n_histogram_bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k, 1, min_x + width, width)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1721,6 +1721,36 @@
       "yields": "k×1 column vector of bin frequencies",
       "description": "Bin_Counts uses Excel's FREQUENCY to count observations in each bin defined by the upper edges vector. TAKE trims the overflow element that FREQUENCY always appends, so the output length matches the edges length exactly.\n\nMatches Excel's half-open (lower, upper] convention: the first bin counts all values ≤ edges[1]; subsequent bins count values where edges[i-1] < x ≤ edges[i]. Enter as a spill formula in the column next to the edges output.",
       "plain_language_summary": "How many data values fall into each histogram bin."
+    },
+    {
+      "name": "Grid_Argmin",
+      "test_table": null,
+      "number_format": "General",
+      "formula_display": "=LAMBDA(grid,\n  LET(\n    value_count, COUNT(grid),\n    IF(\n      value_count = 0,\n      HSTACK(NA(), NA(), NA()),\n      LET(\n        min_value, MIN(grid),\n        flat_location, XMATCH(min_value, TOCOL(grid)),\n        column_count, COLUMNS(grid),\n        row_location, QUOTIENT(flat_location - 1, column_count) + 1,\n        column_location, MOD(flat_location - 1, column_count) + 1,\n        HSTACK(min_value, row_location, column_location)\n      )\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "grid",
+          "description": "rectangular numeric grid to search; for a two-input Data Table, pass the complete body range only"
+        }
+      ],
+      "yields": "1×3 row vector: minimum value, 1-based row location, and 1-based column location of the first minimum",
+      "description": "Grid_Argmin finds the minimum numeric value in a rectangular grid and returns that value together with its 1-based row and column locations. TOCOL scans the grid by row, XMATCH selects the first occurrence of the minimum, and QUOTIENT/MOD convert the flattened position back to grid coordinates. Returning one matched position avoids combining the row of one tied minimum with the column of another.\n\nFor a two-input Excel Data Table, pass only the Data Table body, excluding the parameter headings, parameter-value axes, and corner formula cell. The grid is expected to contain numeric results; an all-nonnumeric grid returns NA() in all three output positions.",
+      "plain_language_summary": "The smallest value in a grid and the row and column where its first occurrence appears."
+    },
+    {
+      "name": "Grid_Search_Optimum",
+      "test_table": null,
+      "number_format": "General",
+      "formula_display": "=LAMBDA(grid,\n  LET(\n    argmin, Grid_Argmin(grid),\n    row_location, INDEX(argmin, 1, 2),\n    column_location, INDEX(argmin, 1, 3),\n    best_column_parameter, OFFSET(grid, -1, column_location - 1, 1, 1),\n    best_row_parameter, OFFSET(grid, row_location - 1, -1, 1, 1),\n    VSTACK(best_column_parameter, best_row_parameter)\n  ))",
+      "arguments": [
+        {
+          "name": "grid",
+          "description": "complete body range of a two-input Data Table, with column-parameter values immediately above and row-parameter values immediately to the left"
+        }
+      ],
+      "yields": "2×1 column vector: optimal column-parameter value, then optimal row-parameter value",
+      "description": "Grid_Search_Optimum returns the two parameter values associated with the first minimum in a two-input Excel Data Table. It calls Grid_Argmin to determine the minimum's row and column internally, then uses OFFSET to retrieve the corresponding column-parameter value from the row immediately above the grid and the row-parameter value from the column immediately to its left.\n\nThe function is distribution-agnostic: for Weibull the outputs can represent shape and scale; for Beta they can represent alpha and beta. The supplied grid must be the full worksheet range of the Data Table body, not a single cell containing the TABLE array formula and not a detached calculated array.",
+      "plain_language_summary": "The two parameter values that produce the smallest result in a two-input Data Table."
     },
     {
       "name": "NLL_Normal",

@@ -15,6 +15,11 @@ except ImportError:  # pragma: no cover - non-Windows environments
 
         com_error = _ComError
 
+        def __getattr__(self, name: str) -> object:
+            raise AttributeError(
+                f"pywintypes.{name} is unavailable outside Windows"
+            )
+
     pywintypes = _PyWinTypesFallback()
 import xlwings as xw
 

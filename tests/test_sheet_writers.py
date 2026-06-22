@@ -116,6 +116,15 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
     assert [item.Name for item in sheet.book.api.Names.items] == ["UnrelatedName"]
     names = sheet.api.Names
     assert names.by_short_name("UV_Data").RefersTo == "='Univariate'!$A$4#"
+    for hist_name in (
+        "UV_Sturges_Edges",
+        "UV_Sturges_Counts",
+        "UV_Scott_Edges",
+        "UV_Scott_Counts",
+        "UV_FD_Edges",
+        "UV_FD_Counts",
+    ):
+        assert "num_histogram_bins(" in names.by_short_name(hist_name).RefersTo
     assert "$H$2" in names.by_short_name("UV_Sturges_Edges").RefersTo
     assert "$K$2" in names.by_short_name("UV_Scott_Edges").RefersTo
     assert "$N$2" in names.by_short_name("UV_FD_Edges").RefersTo

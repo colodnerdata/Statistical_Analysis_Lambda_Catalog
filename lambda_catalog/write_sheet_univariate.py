@@ -333,6 +333,7 @@ def _write_histogram_table(
     section_heading(sheet, _ROW_METHOD_HDR, col_edge, "Method")
     val(sheet, _ROW_METHOD_HDR, col_count, method)
     sheet.range(rc(_ROW_METHOD_HDR, col_count)).color = _HEADER
+    sheet.range(rc(_ROW_METHOD_HDR, col_count)).api.Font.Bold = True
 
     val(sheet, _ROW_COL_HDRS, col_edge,  "Upper Edge")
     val(sheet, _ROW_COL_HDRS, col_count, "Count")

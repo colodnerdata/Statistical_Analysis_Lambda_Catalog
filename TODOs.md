@@ -28,6 +28,7 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 **Descriptive statistics**
 - TODO: Implement `Descriptive_Stats(data, [include])` — returns a column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count. Reuse existing `Skewness` and `Kurtosis` LAMBDAs.
 - TODO: Implement `Missing_Count(data, [include])` — count of blank/non-numeric cells; surface prominently in the sheet.
+- TODO: Resolve `Missing_Count` handling for formula blanks (`""`). Excel formulas like `IF(...,"",...)` produce visually blank cells; the workbook `Missing_Count` LAMBDA currently uses `d<>""` to find the last active row, while `lambda_catalog.analyze_univariate.missing_count()` does not treat `""` as blank and can count trailing formula blanks as missing. Decide whether the LAMBDA should change or whether the Python oracle/tests should be updated to match the intended behavior.
 
 **Histogram binning**
 - TODO: Implement `Sturges_Bins(data, [include])` → bin count via `CEILING(LOG(n,2)+1, 1)`.

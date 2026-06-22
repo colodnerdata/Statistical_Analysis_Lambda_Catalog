@@ -1,11 +1,13 @@
 """Build and write the MLR_Scalar_Test worksheet for regression formula smoke tests."""
 from __future__ import annotations
 
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable
+from typing import TYPE_CHECKING
 
 import xlwings as xw
 
+from .catalog_schema import CatalogFunction
 from .make_test_sheet import (
     _ColumnSpec,
     _RowConfig,
@@ -91,7 +93,7 @@ def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
 
 def build_test_columns(
     test_table: str,
-    definitions: list,
+    definitions: Sequence[CatalogFunction],
 ) -> list[_ColumnSpec]:
     filtered = [d for d in definitions if d.test_table == test_table]
     fixed_columns: list[_ColumnSpec] = [
@@ -141,7 +143,7 @@ def build_mlr_row_configs(csv_path: Path) -> list[_RowConfig]:
 
 def write_mlr_scalar_test_sheet(
     workbook: xw.Book,
-    definitions: list,
+    definitions: Sequence[CatalogFunction],
     row_configs: list[_RowConfig],
 ) -> None:
     test_table = "MLR_Scalar_Test"

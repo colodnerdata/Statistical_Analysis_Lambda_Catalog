@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import argparse
-import json
 import subprocess
 import sys
 import time
@@ -10,21 +9,17 @@ from pathlib import Path
 
 import xlwings as xw
 
+from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
     XL_CALCULATION_MANUAL,
     XL_CALCULATION_SEMIAUTOMATIC,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
-    load_lambda_definitions,
     sync_workbook_names,
 )
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
-from lambda_catalog.write_sheet_lambda_functions import (
-    load_catalog_entries,
-    load_regression_sheet_notes,
-    write_catalog_sheet,
-)
+from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
 from lambda_catalog.write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
     load_life_expectancy_rows,
@@ -82,11 +77,7 @@ def build_production_workbook(
         Counts of created versus updated workbook names.
     """
     _t = time.monotonic()
-    with definitions_path.open("r", encoding="utf-8") as handle:
-        catalog_payload = json.load(handle)
-    definitions = load_lambda_definitions(definitions_path, payload=catalog_payload)
-    catalog_entries = load_catalog_entries(definitions_path, payload=catalog_payload)
-    sheet_notes = load_regression_sheet_notes(definitions_path, payload=catalog_payload)
+    document = load_catalog_document(definitions_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
@@ -127,13 +118,13 @@ def build_production_workbook(
                     _delete_sheet_if_present(workbook, qc_sheet)
                 if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                     workbook.sheets["Sheet1"].name = "LAMBDA_functions"
-                write_catalog_sheet(workbook, catalog_entries)
+                write_catalog_sheet(workbook, document.functions)
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
                 write_univariate_sheet(workbook)
                 write_regression_instructions_sheet(workbook)
                 write_diagnostic_guide_sheet(workbook)
                 write_version_history_sheet(workbook)
-                write_regression_output_sheet(workbook, sheet_notes)
+                write_regression_output_sheet(workbook, document.regression_sheet_notes)
                 app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
                 workbook.save(str(workbook_path))
             finally:
@@ -145,7 +136,7 @@ def build_production_workbook(
 
     _t = time.monotonic()
     try:
-        result = sync_workbook_names(workbook_path, definitions)
+        result = sync_workbook_names(workbook_path, document.functions)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "update", exc)
     except (PermissionError, OSError) as exc:

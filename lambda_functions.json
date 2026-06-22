@@ -1652,7 +1652,7 @@
       "plain_language_summary": "How many histogram bins the Freedman-Diaconis rule recommends."
     },
     {
-      "name": "n_histogram_bins",
+      "name": "num_histogram_bins",
       "number_format": "0",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    m, IF(ISOMITTED(method), \"FD\", method),\n    SWITCH(m,\n      \"Sturges\", CEILING(LOG(n, 2) + 1, 1),\n      \"Scott\",   LET(\n                   sd, STDEV.S(x),\n                   range_, MAX(x) - MIN(x),\n                   IF(sd = 0, 1, CEILING(range_ / (3.49 * sd * n ^ (-1/3)), 1))\n                 ),\n      LET(\n        iqr, QUARTILE.EXC(x, 3) - QUARTILE.EXC(x, 1),\n        range_, MAX(x) - MIN(x),\n        IF(iqr = 0,\n          CEILING(LOG(n, 2) + 1, 1),\n          CEILING(range_ / (2 * iqr * n ^ (-1/3)), 1))\n      )\n    )\n  ))",
       "arguments": [
@@ -1672,13 +1672,13 @@
         }
       ],
       "yields": "integer bin count k for the chosen method",
-      "description": "n_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = ⌈log₂(n) + 1⌉\n  Scott:   width = 3.49 × SD × n^(−1/3);  k = ⌈range / width⌉  (k=1 when SD=0)\n  FD:      width = 2 × IQR × n^(−1/3);   k = ⌈range / width⌉  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
+      "description": "num_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = ⌈log₂(n) + 1⌉\n  Scott:   width = 3.49 × SD × n^(−1/3);  k = ⌈range / width⌉  (k=1 when SD=0)\n  FD:      width = 2 × IQR × n^(−1/3);   k = ⌈range / width⌉  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
       "plain_language_summary": "How many histogram bins a chosen rule (default: Freedman-Diaconis) recommends for this data."
     },
     {
       "name": "Bin_Edges",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, n_histogram_bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k, 1, min_x + width, width)\n  ))",
+      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, num_histogram_bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k, 1, min_x + width, width)\n  ))",
       "arguments": [
         {
           "name": "data",

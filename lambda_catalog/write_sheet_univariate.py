@@ -49,8 +49,8 @@ import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
-    a1, bold, bold_row, border_box, col_letter, drop_local_name,
-    f, format_input, rc, section_heading, val,
+    a1, border_box, col_letter, drop_local_name,
+    f, rc, section_heading, val,
 )
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
@@ -239,17 +239,17 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     # Chart series ranges: OFFSET-based, sized by the method value stored in row 2.
     for name, col_ltr, start_row, size_formula in [
         ("UV_Sturges_Edges",  col_letter(_C_G), _ROW_HIST_START,
-         f'n_histogram_bins(UV_Data,${col_letter(_C_H)}${_ROW_METHOD_HDR},UV_Include)'),
+         f'num_histogram_bins(UV_Data,${col_letter(_C_H)}${_ROW_METHOD_HDR},UV_Include)'),
         ("UV_Sturges_Counts", col_letter(_C_H), _ROW_HIST_START,
-         f'n_histogram_bins(UV_Data,${col_letter(_C_H)}${_ROW_METHOD_HDR},UV_Include)'),
+         f'num_histogram_bins(UV_Data,${col_letter(_C_H)}${_ROW_METHOD_HDR},UV_Include)'),
         ("UV_Scott_Edges",    col_letter(_C_J), _ROW_HIST_START,
-         f'n_histogram_bins(UV_Data,${col_letter(_C_K)}${_ROW_METHOD_HDR},UV_Include)'),
+         f'num_histogram_bins(UV_Data,${col_letter(_C_K)}${_ROW_METHOD_HDR},UV_Include)'),
         ("UV_Scott_Counts",   col_letter(_C_K), _ROW_HIST_START,
-         f'n_histogram_bins(UV_Data,${col_letter(_C_K)}${_ROW_METHOD_HDR},UV_Include)'),
+         f'num_histogram_bins(UV_Data,${col_letter(_C_K)}${_ROW_METHOD_HDR},UV_Include)'),
         ("UV_FD_Edges",       col_letter(_C_M), _ROW_HIST_START,
-         f'n_histogram_bins(UV_Data,${col_letter(_C_N)}${_ROW_METHOD_HDR},UV_Include)'),
+         f'num_histogram_bins(UV_Data,${col_letter(_C_N)}${_ROW_METHOD_HDR},UV_Include)'),
         ("UV_FD_Counts",      col_letter(_C_N), _ROW_HIST_START,
-         f'n_histogram_bins(UV_Data,${col_letter(_C_N)}${_ROW_METHOD_HDR},UV_Include)'),
+         f'num_histogram_bins(UV_Data,${col_letter(_C_N)}${_ROW_METHOD_HDR},UV_Include)'),
     ]:
         _drop_wb_name(sheet, name)
         drop_local_name(sheet, name)
@@ -339,10 +339,10 @@ def _write_histogram_table(
     val(sheet, _ROW_COL_HDRS, col_count, "Count")
     _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_count)
 
-    # Row 3: bin-count display — "Bins" label + n_histogram_bins formula
+    # Row 3: bin-count display — "Bins" label + num_histogram_bins formula
     val(sheet, _ROW_SECTION_HDR, col_edge, "Bins:")
     method_cell = a1(_ROW_METHOD_HDR, col_count)
-    f(sheet, _ROW_SECTION_HDR, col_count, f"=n_histogram_bins(UV_Data,{method_cell},UV_Include)")
+    f(sheet, _ROW_SECTION_HDR, col_count, f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
     sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = "0"
 
     # Spill formulas — method must be explicit (can't skip it to reach the 3rd filter arg)

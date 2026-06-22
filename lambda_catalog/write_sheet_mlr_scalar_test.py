@@ -54,6 +54,7 @@ def _actual_formula(
         "y": "y",
         "x_s": "x_s" if use_let else x_s_name,
         "filter": "Regression_Sample_Include",
+        "include": "Regression_Sample_Include",
         "allow_intercept": "[@[Allow_Intercept]]",
     }
 

@@ -67,6 +67,10 @@ class MissingCountTests(unittest.TestCase):
         data = [1.0, None, 3.0, None, 5.0]
         self.assertEqual(missing_count(data), 2)
 
+    def test_text_value_counts_as_missing(self) -> None:
+        data = [1.0, "not numeric", 3.0]
+        self.assertEqual(missing_count(data), 1)
+
 
 # ── descriptive_stats ─────────────────────────────────────────────────────────
 

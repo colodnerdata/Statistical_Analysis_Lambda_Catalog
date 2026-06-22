@@ -7,7 +7,12 @@ from typing import NoReturn
 try:
     import pywintypes  # type: ignore[import-untyped]
 except ImportError:  # pragma: no cover - non-Windows environments
-    pywintypes = None
+    class _PyWinTypesFallback:
+        """Fallback namespace for non-Windows environments."""
+
+        com_error = OSError
+
+    pywintypes = _PyWinTypesFallback()
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT

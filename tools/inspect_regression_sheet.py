@@ -182,7 +182,9 @@ def read_regression_df(
         # Set toggles and prediction inputs, then recalculate
         _set_toggles(sheet, list(ps.predictor_names), allow_intercept)
         _set_pred_inputs(sheet, pi.pred_input_values)
-        workbook.app.calculate()
+        # Excel does not reliably track dependencies through the dynamic x_s
+        # worksheet name after toggle changes, so rebuild the dependency graph.
+        workbook.app.api.CalculateFullRebuild()
 
         # ── Scalars: Regression Statistics (column M) ─────────────────────
         scalar_specs: list[tuple[str, float, int, int]] = [
@@ -259,11 +261,9 @@ def read_regression_df(
         # ── Coefficients (columns M–R, rows 21 to 21+k) ──────────────────
         # Intercept models: Coefficients() spills k+1 rows (intercept first);
         # read all k+1 and compare directly against (Intercept, pred1..predk).
-        # No-intercept models: the sheet formula wraps with VSTACK("", ...) and
-        # Coefficients() itself emits a leading non-predictor row, so the spill
-        # is ("", extra, pred1..predk) = k+2 rows. Read k+2 and drop the first
-        # two to reach the actual predictor values.
-        n_coef_rows = k + 1 if allow_intercept else k + 2
+        # No-intercept models prepend one blank row so predictor rows align with
+        # intercept models. Drop that one display row before comparison.
+        n_coef_rows = k + 1
         coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Stats", "P_Values", "CI_Lower", "CI_Upper"]
         coef_col_indices = [_C_M, _C_N, _C_O, _C_P, _C_Q, _C_R]
         coef_exp_tuples = [
@@ -273,7 +273,7 @@ def read_regression_df(
 
         for stat_name, exp_tuple, col in zip(coef_stat_names, coef_exp_tuples, coef_col_indices):
             xl_vals_all = _read_col(sheet, _ROW_COEFF_DATA, col, n_coef_rows)
-            xl_vals = xl_vals_all if allow_intercept else xl_vals_all[2:]
+            xl_vals = xl_vals_all if allow_intercept else xl_vals_all[1:]
             for i, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
                 term = vectors.term_names[i]
                 diff, fdd_val = compare_values(exp_val, xl_val)

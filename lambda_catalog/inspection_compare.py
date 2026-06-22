@@ -29,6 +29,8 @@ def compare_values(
     actual: float | None,
 ) -> tuple[float | None, int | None]:
     """Return absolute difference and first-digit deviation for two values."""
-    if expected is None or actual is None:
+    if expected is None and actual is None:
         return None, None
+    if expected is None or actual is None:
+        return None, 0
     return abs(actual - expected), first_digit_deviation(expected, actual)

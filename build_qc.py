@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+from collections import Counter
 import importlib.util
 import io
 import subprocess
@@ -15,7 +16,8 @@ from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_f
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH, get_analysis_results
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
-    XL_CALCULATION_AUTOMATIC,
+    XL_CALCULATION_MANUAL,
+    XL_CALCULATION_SEMIAUTOMATIC,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
     load_lambda_definitions,
@@ -40,9 +42,12 @@ from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
+from lambda_catalog.write_sheet_univariate import write_univariate_sheet
+from lambda_catalog.write_sheet_version_history import write_version_history_sheet
 
 
 ROOT_DIR = Path(__file__).resolve().parent
+_MAX_REPORTED_QC_FAILURES = 200
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_QC.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
@@ -63,6 +68,14 @@ def _normalize_excel_bool(value):
     return value
 
 
+def _report_qc_failure(failures: list[str], message: str) -> None:
+    failures.append(message)
+    if len(failures) <= _MAX_REPORTED_QC_FAILURES:
+        print(f"ERROR {message}", flush=True)
+    elif len(failures) == _MAX_REPORTED_QC_FAILURES + 1:
+        print("ERROR Additional QC mismatches suppressed.", flush=True)
+
+
 def verify_test_sheets(
     workbook: xw.Book,
     scalar_row_configs: list,
@@ -77,7 +90,8 @@ def verify_test_sheets(
     Forces a full recalculation on the open workbook, then reads each sheet's
     Calc columns via inspect_test_sheets, compares them against expected values
     derived from the supplied analysis configs (not from the sheet's (Exp.) columns),
-    and warns (without raising) for every value that diverges within the tolerance band.
+    reports every value that diverges within the tolerance band, then raises one
+    summary error so a QC mismatch cannot produce a successful build.
 
     Parameters
     ----------
@@ -97,6 +111,7 @@ def verify_test_sheets(
         Per-config tuples from ``build_regression_sheet_qc_configs``; provides the
         Python-computed expected values for all Regression sheet output zones.
     """
+    failures: list[str] = []
     tool_path = ROOT_DIR / "tools" / "inspect_test_sheets.py"
     spec = importlib.util.spec_from_file_location("inspect_test_sheets", tool_path)
     if spec is None or spec.loader is None:
@@ -143,10 +158,10 @@ def verify_test_sheets(
                 row[full_data_col_idx] if full_data_col_idx < len(row) else None
             )
             if actual is not expected:
-                print(
-                    f"WARNING [Life Expectancy Data] row={row_offset + 1} stat='Full_Data': "
+                _report_qc_failure(
+                    failures,
+                    f"[Life Expectancy Data] row={row_offset + 1} stat='Full_Data': "
                     f"expected={expected!r}, excel_calc={actual!r}",
-                    flush=True,
                 )
 
     for _, row in scalar_df.iterrows():
@@ -155,13 +170,13 @@ def verify_test_sheets(
             k = row["k"]
             ai = row["allow_intercept"]
             stat = row["stat_name"]
-            print(
-                f"WARNING [MLR_Scalar_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
+            _report_qc_failure(
+                failures,
+                f"[MLR_Scalar_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
                 f"stat={stat!r}: Calc vs Python-expected mismatch — first digit of deviation at "
                 f"decimal place {fdd} (tolerance={tol}). "
                 f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
                 f"abs_diff={row['abs_diff']!r}",
-                flush=True,
             )
 
     for _, row in vector_df.iterrows():
@@ -171,22 +186,24 @@ def verify_test_sheets(
             ai = row["allow_intercept"]
             stat = row["stat_name"]
             term = row["term_name"]
-            print(
-                f"WARNING [MLR_Vector_Outputs_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
+            _report_qc_failure(
+                failures,
+                f"[MLR_Vector_Outputs_Test] k={k} intercept={'TRUE' if ai else 'FALSE'} "
                 f"stat={stat!r} term={term!r}: Calc vs Python-expected mismatch — first digit of deviation "
                 f"at decimal place {fdd} (tolerance={tol}). "
                 f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
                 f"abs_diff={row['abs_diff']!r}",
-                flush=True,
             )
 
     for _, row in observation_df.iterrows():
         fdd = row["first_digit_deviation"]
         if fdd is not None and fdd <= tol:
-            print(
-                f"WARNING [MLR_Observation_Test] k={row['k']} intercept={'TRUE' if row['allow_intercept'] else 'FALSE'} "
-                f"stat={row['stat_name']!r}: expected={row['expected']!r}, excel_calc={row['excel_calc']!r}",
-                flush=True,
+            _report_qc_failure(
+                failures,
+                f"[MLR_Observation_Test] k={row['k']} "
+                f"intercept={'TRUE' if row['allow_intercept'] else 'FALSE'} "
+                f"stat={row['stat_name']!r}: expected={row['expected']!r}, "
+                f"excel_calc={row['excel_calc']!r}",
             )
 
     # Phase 4: Regression sheet verification
@@ -216,12 +233,35 @@ def verify_test_sheets(
                 identity = " ".join(
                     f"{col}={row[col]!r}" for col in id_cols if col in row.index
                 )
-                print(
-                    f"WARNING [Regression/{section_key}] {identity}: "
+                _report_qc_failure(
+                    failures,
+                    f"[Regression/{section_key}] {identity}: "
                     f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
                     f"abs_diff={row['abs_diff']!r}, fdd={fdd}",
-                    flush=True,
                 )
+
+    # Phase 5: Univariate descriptive statistics and histogram verification.
+    uv_tool_path = ROOT_DIR / "tools" / "inspect_univariate_sheet.py"
+    uv_spec = importlib.util.spec_from_file_location("inspect_univariate_sheet", uv_tool_path)
+    if uv_spec is None or uv_spec.loader is None:
+        raise RuntimeError(f"Could not load inspect_univariate_sheet from {uv_tool_path}")
+    uv_mod = importlib.util.module_from_spec(uv_spec)
+    uv_spec.loader.exec_module(uv_mod)
+
+    _verbose_checkpoint(verbose, phase_start, "Verify: univariate start")
+    for failure in uv_mod.read_univariate_failures(workbook, csv_path):
+        _report_qc_failure(failures, failure)
+    _verbose_checkpoint(verbose, phase_start, "Verify: univariate done")
+
+    if failures:
+        category_counts = Counter(
+            message.split("]", 1)[0].removeprefix("[") for message in failures
+        )
+        summary = ", ".join(
+            f"{category}={count}" for category, count in sorted(category_counts.items())
+        )
+        print(f"ERROR QC mismatch totals: {summary}", flush=True)
+        raise RuntimeError(f"QC verification failed with {len(failures)} mismatch(es).")
 
 
 def build_qc_workbook(
@@ -232,7 +272,7 @@ def build_qc_workbook(
     validate_reopen: bool = False,
     verbose: bool = False,
 ) -> NameSyncResult:
-    """Build all 6 sheets, update the analysis cache, and verify test-sheet accuracy.
+    """Build production and QC sheets, update the cache, and verify accuracy.
 
     Parameters
     ----------
@@ -292,6 +332,7 @@ def build_qc_workbook(
                     sheet.delete()
 
             try:
+                app.api.Calculation = XL_CALCULATION_MANUAL
                 _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
                 for qc_sheet in _QC_SHEET_NAMES:
                     _delete_sheet_if_present(workbook, qc_sheet)
@@ -303,12 +344,18 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, _t, "Write: life exp start")
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows, verbose=verbose)
                 _verbose_checkpoint(verbose, _t, "Write: life exp done")
+                _verbose_checkpoint(verbose, _t, "Write: univariate start")
+                write_univariate_sheet(workbook)
+                _verbose_checkpoint(verbose, _t, "Write: univariate done")
                 _verbose_checkpoint(verbose, _t, "Write: regression instr start")
                 write_regression_instructions_sheet(workbook)
                 _verbose_checkpoint(verbose, _t, "Write: regression instr done")
                 _verbose_checkpoint(verbose, _t, "Write: diagnostic start")
                 write_diagnostic_guide_sheet(workbook)
                 _verbose_checkpoint(verbose, _t, "Write: diagnostic done")
+                _verbose_checkpoint(verbose, _t, "Write: version history start")
+                write_version_history_sheet(workbook)
+                _verbose_checkpoint(verbose, _t, "Write: version history done")
                 _verbose_checkpoint(verbose, _t, "Write: regression start")
                 write_regression_output_sheet(workbook, sheet_notes)
                 _verbose_checkpoint(verbose, _t, "Write: regression done")
@@ -321,7 +368,7 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, _t, "Write: observation start")
                 write_mlr_observation_test_sheet(workbook, observation_row_configs)
                 _verbose_checkpoint(verbose, _t, "Write: observation done")
-                app.api.Calculation = XL_CALCULATION_AUTOMATIC
+                app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
                 _verbose_checkpoint(verbose, _t, "Write: save start")
                 workbook.save(str(workbook_path))
                 _verbose_checkpoint(verbose, _t, "Write: save done")
@@ -487,11 +534,16 @@ def _run_main(args: argparse.Namespace) -> None:
     print(f"Workbook: {args.workbook.resolve()}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    print("Sheet updated: Univariate")
+    print("Sheet updated: Regression Instructions")
+    print("Sheet updated: Diagnostic Guide")
+    print("Sheet updated: Version History")
     print("Sheet updated: Regression")
     print("Sheet updated: MLR_Scalar_Test")
     print("Sheet updated: MLR_Vector_Outputs_Test")
     print("Sheet updated: MLR_Observation_Test")
     print("Sheet verified: Regression")
+    print("Sheet verified: Univariate")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

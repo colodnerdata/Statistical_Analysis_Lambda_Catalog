@@ -26,10 +26,14 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install dependencies
-        run: uv sync --all-groups
+        run: uv sync --all-groups --frozen
 
       - name: Run tests with coverage
-        run: uv run pytest --cov --cov-report=term-missing --cov-report=xml
+        run: uv run --frozen pytest --cov --cov-report=term-missing --cov-report=xml
+
+      - name: Run static checks
+        if: matrix.python-version == '3.12'
+        run: uv run --frozen pylint --errors-only lambda_catalog build_production.py build_qc.py tools
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'

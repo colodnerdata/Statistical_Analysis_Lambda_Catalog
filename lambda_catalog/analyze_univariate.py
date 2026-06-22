@@ -42,40 +42,48 @@ from scipy import stats as scipy_stats
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
-def _clean(data: Sequence[float | None]) -> np.ndarray:
-    """Return a 1-D float array with None/NaN entries removed."""
-    return np.array(
-        [x for x in data if x is not None and not (isinstance(x, float) and math.isnan(x))],
-        dtype=float,
+def _is_blank(value: object) -> bool:
+    """Return whether a value represents an empty spreadsheet cell."""
+    return value is None or (
+        isinstance(value, (float, np.floating)) and math.isnan(float(value))
     )
+
+
+def _is_numeric(value: object) -> bool:
+    """Match Excel ISNUMBER for the scalar values used by the QC oracle."""
+    return (
+        not isinstance(value, (bool, np.bool_))
+        and isinstance(value, (int, float, np.integer, np.floating))
+        and not _is_blank(value)
+    )
+
+
+def _clean(data: Sequence[object]) -> np.ndarray:
+    """Return numeric entries as a 1-D float array, excluding blanks and text."""
+    return np.array([x for x in data if _is_numeric(x)], dtype=float)
 
 
 # ── Descriptive statistics ────────────────────────────────────────────────────
 
-def missing_count(data: Sequence[float | None]) -> int:
-    """Count of None/NaN values (blank or non-numeric cells).
+def missing_count(data: Sequence[object]) -> int:
+    """Count blank or nonnumeric values within the active data range.
 
-    Counts from the start of the sequence to the last non-None entry, matching
+    Counts from the start of the sequence to the last nonblank entry, matching
     the LAMBDA's MATCH-based active-range heuristic.
     """
     items = list(data)
-    # Find last non-None index
+    # Text marks an active row even though it is counted as missing.
     last = -1
     for i, v in enumerate(items):
-        if v is not None and not (isinstance(v, float) and math.isnan(v)):
+        if not _is_blank(v):
             last = i
-        elif v is not None:
-            last = i   # non-None text/bad value still counts as "active row"
     if last < 0:
         return 0
     active = items[: last + 1]
-    return sum(
-        1 for v in active
-        if v is None or (isinstance(v, float) and math.isnan(v))
-    )
+    return sum(1 for value in active if not _is_numeric(value))
 
 
-def descriptive_stats(data: Sequence[float | None]) -> dict[str, float | int]:
+def descriptive_stats(data: Sequence[object]) -> dict[str, float | int]:
     """Compute the 12 summary statistics shown on the Univariate sheet.
 
     Uses scipy.stats for skewness and kurtosis so the reference is

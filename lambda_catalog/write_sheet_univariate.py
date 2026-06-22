@@ -14,13 +14,13 @@ shape distributions (Weibull, Gamma, Beta) is deferred to v2.1.
 Sheet layout
 ────────────
   Row 1          — Title "Univariate Analysis"
-  Row 2          — Method/zone headings: Sturges Method | Scott Method | Freedman-Diaconis Method | Distribution Fitting/Comparison
+  Row 2          — Method labels/values: Sturges | Scott | FD | Distribution Fitting/Comparison
   Row 3          — Section headings: Data | Filter | Descriptive Statistics | Bins; pane freeze anchored here
   Row 4          — Column sub-headers (table headers for histogram and fitting tables)
   Row 4+         — Data: raw column spill (col A), filter mask (col B), stats (D–E), histogram bins (G–N), fitting (Q–AA)
 
   Col A          — Data: LifeExpectancyData[Life expectancy] spill in A4 (unfiltered; spill range = $A$4#)
-  Col B          — Filter: MAP(A4#,Data_Completeness) per-row mask — local UV_Include source ($B$4#)
+  Col B          — Filter: Data_Completeness over the source table column — local UV_Include source ($B$4#)
   Col C          — thin gap (width 2); freeze pane left boundary
   Col D–E        — Descriptive Statistics (12 stat rows)
   Col F          — thin gap (width 2)
@@ -57,7 +57,7 @@ from .workbook_helpers import (
 
 # Zone 1: Data Input + Filter
 _C_A = 1    # data values
-_C_B = 2    # local filter mask (MAP(A4#,Data_Completeness))
+_C_B = 2    # local filter mask over the source table column
 
 # Zone 2: Descriptive Statistics
 _C_D = 4    # stat labels
@@ -119,7 +119,7 @@ _GS_C_DT_COL  = 3   # Data Table col-input placeholder (param2 substitute)
 
 # ── Row anchors ───────────────────────────────────────────────────────────────
 _ROW_TITLE        = 1   # "Univariate Analysis" + zone-level "Histograms" label
-_ROW_METHOD_HDR   = 2   # method/zone headings: "Sturges Method", "Scott Method", etc.
+_ROW_METHOD_HDR   = 2   # method labels and values for Sturges, Scott, and FD
 _ROW_SECTION_HDR  = 3   # section headings: "Data", "Descriptive Statistics"
 _ROW_COL_HDRS     = 4   # column sub-headers (histograms, fitting table)
 _ROW_DATA_START   = 4   # data values begin (col A)
@@ -211,6 +211,10 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     """Register sheet-scoped named ranges used by formulas and charts."""
     sname = sheet.name
 
+    # Remove obsolete workbook-scoped definitions before recreating local names.
+    for name in ("UV_Data", "UV_Include", "UV_n"):
+        _drop_wb_name(sheet, name)
+
     # UV_Data: spill range of the raw column formula in A4; unfiltered — filter is UV_Include
     drop_local_name(sheet, "UV_Data")
     sheet.api.Names.Add(
@@ -247,6 +251,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
         ("UV_FD_Counts",      col_letter(_C_N), _ROW_HIST_START,
          f'n_histogram_bins(UV_Data,${col_letter(_C_N)}${_ROW_METHOD_HDR},UV_Include)'),
     ]:
+        _drop_wb_name(sheet, name)
         drop_local_name(sheet, name)
         sheet.api.Names.Add(
             Name=name,
@@ -262,13 +267,18 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 def _write_data_zone(sheet: xw.Sheet) -> None:
     section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
     val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
-    f(sheet, _ROW_DATA_START, _C_A, "=LifeExpectancyData[Life expectancy]")
+    f(
+        sheet,
+        _ROW_DATA_START,
+        _C_A,
+        '=IF(LifeExpectancyData[Life expectancy]="","",LifeExpectancyData[Life expectancy])',
+    )
 
     # Filter column — local Data_Completeness mask; UV_Include is defined as $B$4#
     section_heading(sheet, _ROW_SECTION_HDR, _C_B, "Filter")
     val(sheet, _ROW_COL_HDRS, _C_B, "Include")
     f(sheet, _ROW_DATA_START, _C_B,
-       f"=MAP({col_letter(_C_A)}{_ROW_DATA_START}#,Data_Completeness)")
+       "=MAP(LifeExpectancyData[Life expectancy],Data_Completeness)")
 
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────
@@ -287,7 +297,7 @@ _STAT_ROWS: list[tuple[str, str]] = [
     ("Skewness",  "=INDEX(Skewness(UV_Data,UV_Include),1)"),
     ("Kurtosis",  "=INDEX(Kurtosis(UV_Data,UV_Include),1)"),
     ("Count",     "=COUNT(FILTER(UV_Data,UV_Include))"),
-    ("Missing",   "=Missing_Count(UV_Data,UV_Include)"),
+    ("Missing",   "=Missing_Count(UV_Data)"),
 ]
 
 def _write_descriptive_stats(sheet: xw.Sheet) -> None:
@@ -319,8 +329,8 @@ def _write_histogram_table(
     method: str,
 ) -> None:
     """Write one histogram bin table (edges + counts) for the given method."""
-    # Method heading at row 2, merged across the edge and count columns
-    section_heading(sheet, _ROW_METHOD_HDR, col_edge, "Method:")
+    # Row 2 keeps the label and method in separate cells for formula references.
+    section_heading(sheet, _ROW_METHOD_HDR, col_edge, "Method")
     val(sheet, _ROW_METHOD_HDR, col_count, method)
     sheet.range(rc(_ROW_METHOD_HDR, col_count)).color = _HEADER
 

@@ -4,7 +4,10 @@ from __future__ import annotations
 from pathlib import Path
 from typing import NoReturn
 
-import pywintypes  # type: ignore[import-untyped]
+try:
+    import pywintypes  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover - non-Windows environments
+    pywintypes = None
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT

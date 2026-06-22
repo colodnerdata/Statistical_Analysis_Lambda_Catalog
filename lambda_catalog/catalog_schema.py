@@ -294,9 +294,21 @@ def load_catalog_document(
                 raise ValueError(
                     f"Entry {index} ({name!r}) argument {arg_index} must be an object."
                 )
+            raw_arg_name = arg.get("name")
+            raw_arg_desc = arg.get("description")
+            if not isinstance(raw_arg_name, str) or not raw_arg_name.strip():
+                raise ValueError(
+                    f"Entry {index} ({name!r}) argument {arg_index} is missing a "
+                    "non-empty 'name'."
+                )
+            if not isinstance(raw_arg_desc, str) or not raw_arg_desc.strip():
+                raise ValueError(
+                    f"Entry {index} ({name!r}) argument {arg_index} "
+                    f"({raw_arg_name.strip()!r}) is missing a non-empty 'description'."
+                )
             arguments.append(CatalogArgument(
-                name=str(arg.get("name", "")).strip(),
-                description=str(arg.get("description", "")).strip(),
+                name=raw_arg_name.strip(),
+                description=raw_arg_desc.strip(),
                 optional=bool(arg.get("optional", False)),
             ))
 

@@ -288,6 +288,38 @@ class LoadCatalogDocumentArgumentTests(unittest.TestCase):
                 Path(), payload=_payload(_minimal_function(arguments=["not_a_dict"]))
             )
 
+    def test_missing_argument_name_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            load_catalog_document(
+                Path(),
+                payload=_payload(_minimal_function(arguments=[{"description": "No name."}])),
+            )
+
+    def test_blank_argument_name_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            load_catalog_document(
+                Path(),
+                payload=_payload(
+                    _minimal_function(arguments=[{"name": "  ", "description": "Blank name."}])
+                ),
+            )
+
+    def test_missing_argument_description_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            load_catalog_document(
+                Path(),
+                payload=_payload(_minimal_function(arguments=[{"name": "x"}])),
+            )
+
+    def test_blank_argument_description_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            load_catalog_document(
+                Path(),
+                payload=_payload(
+                    _minimal_function(arguments=[{"name": "x", "description": ""}])
+                ),
+            )
+
 
 class CatalogArgumentProjectionTests(unittest.TestCase):
     def test_display_name_required_arg(self) -> None:

@@ -34,6 +34,7 @@ Tests live in `tests/`. The current test files are:
 | `test_formula_parser.py` | LAMBDA formula → workbook.xml XML token translation |
 | `test_cache_serialization.py` | JSON serialization round-trips for `RegressionVectors` and `RegressionObservationVectors` |
 | `test_data_completeness_qc.py` | `calculate_data_completeness_flags` against the sample dataset |
+| `test_catalog_schema.py` | `CatalogDocument` loading, validation, duplicate rejection, `test_table` rules, projection methods |
 | `test_lambda_catalog_plain_language.py` | All 78 LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
 
 ### Coverage scope
@@ -42,6 +43,7 @@ The coverage configuration in `pyproject.toml` tracks only the modules that are 
 
 - `analyze_life_expectancy.py`
 - `analyze_univariate.py`
+- `catalog_schema.py`
 - `lambda_formula_parser.py`
 - `regression_shared.py`
 - `analysis_cache.py`
@@ -106,7 +108,8 @@ lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
 lambda_catalog/
-  workbook_builder.py        # shared core: LambdaDefinition, sync_workbook_names
+  catalog_schema.py          # typed document model: CatalogArgument, CatalogFunction, CatalogDocument, load_catalog_document()
+  workbook_builder.py        # shared core: sync_workbook_names, workbook XML patching
   analyze_life_expectancy.py # OLS engine: RegressionSummary, RegressionVectors, etc.
   analysis_cache.py          # disk cache keyed on CSV SHA-256 + schema version
   lambda_formula_parser.py   # converts display formulas to workbook XML syntax

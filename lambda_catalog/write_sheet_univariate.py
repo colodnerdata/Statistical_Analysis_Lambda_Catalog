@@ -775,10 +775,13 @@ def _write_grid_stage(
         rc(hdr_row, c0),
         rc(body_row_end, body_col_end),
     )
-    full_table_range.api.Table(
-        RowInput=sheet.range(rc(p1_row, c0 + _GS_C_INPUT)).api,
-        ColumnInput=sheet.range(rc(p2_row, c0 + _GS_C_INPUT)).api,
-    )
+    try:
+        full_table_range.api.Table(
+            RowInput=sheet.range(rc(p1_row, c0 + _GS_C_INPUT)).api,
+            ColumnInput=sheet.range(rc(p2_row, c0 + _GS_C_INPUT)).api,
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to wire two-input Data Table for stage {title!r}") from e
 
     body_range.number_format = "0.00"
 

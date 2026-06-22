@@ -797,7 +797,7 @@ def _write_grid_stage(
         sheet,
         p1_row,
         c0 + _GS_C_BEST,
-        f'=IFERROR(Grid_Search_Optimum({body_name}),VSTACK("—","—"))',
+        f"=IFERROR(Grid_Search_Optimum({body_name}),VSTACK(AVERAGE({min_p1_ref},{max_p1_ref}),AVERAGE({min_p2_ref},{max_p2_ref})))",
     )
 
     # Boundary guard: red fill when the optimum lies on a grid edge.

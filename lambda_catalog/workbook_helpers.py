@@ -17,7 +17,7 @@ except ImportError:  # pragma: no cover - non-Windows environments
 
         def __getattr__(self, name: str) -> NoReturn:
             raise AttributeError(
-                f"pywintypes.{name} is unavailable outside Windows"
+                f"pywintypes.{name} is unavailable (pywintypes not installed)"
             )
 
     pywintypes = _PyWinTypesFallback()

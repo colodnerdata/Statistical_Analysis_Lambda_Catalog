@@ -757,17 +757,20 @@ def _write_grid_stage(
         ),
     )
 
-    # Two-input Data Table wiring is disabled — wire manually via the Excel UI.
-    # row_input_cell = sheet.range(rc(aux_row, c0 + _GS_C_DT_ROW))
-    # col_input_cell = sheet.range(rc(aux_row, c0 + _GS_C_DT_COL))
-    # full_table_range = sheet.range(
-    #     rc(hdr_row, c0),
-    #     rc(body_row_end, body_col_end),
-    # )
-    # full_table_range.api.Table(
-    #     RowInput=row_input_cell.api,
-    #     ColumnInput=col_input_cell.api,
-    # )
+    # Two-input Data Table wiring.
+    row_input_cell = sheet.range(rc(aux_row, c0 + _GS_C_DT_ROW))
+    col_input_cell = sheet.range(rc(aux_row, c0 + _GS_C_DT_COL))
+    full_table_range = sheet.range(
+        rc(hdr_row, c0),
+        rc(body_row_end, body_col_end),
+    )
+    try:
+        full_table_range.api.Table(
+            RowInput=row_input_cell.api,
+            ColumnInput=col_input_cell.api,
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to wire two-input Data Table for stage {title!r}") from e
 
     # Number format for the body
     body_range.number_format = "0.00"

@@ -764,10 +764,13 @@ def _write_grid_stage(
         rc(hdr_row, c0),
         rc(body_row_end, body_col_end),
     )
-    full_table_range.api.Table(
-        RowInput=row_input_cell.api,
-        ColumnInput=col_input_cell.api,
-    )
+    try:
+        full_table_range.api.Table(
+            RowInput=row_input_cell.api,
+            ColumnInput=col_input_cell.api,
+        )
+    except Exception as e:
+        raise RuntimeError(f"Failed to wire two-input Data Table for stage {title!r}") from e
 
     # Number format for the body
     body_range.number_format = "0.00"

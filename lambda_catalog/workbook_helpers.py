@@ -4,7 +4,23 @@ from __future__ import annotations
 from pathlib import Path
 from typing import NoReturn
 
-import pywintypes  # type: ignore[import-untyped]
+try:
+    import pywintypes  # type: ignore[import-untyped]
+except ImportError:  # pragma: no cover - non-Windows environments
+    class _ComError(OSError):
+        """Fallback Excel COM error type for non-Windows environments."""
+
+    class _PyWinTypesFallback:
+        """Fallback namespace for non-Windows environments."""
+
+        com_error = _ComError
+
+        def __getattr__(self, name: str) -> NoReturn:
+            raise AttributeError(
+                f"pywintypes.{name} is unavailable (pywintypes not installed)"
+            )
+
+    pywintypes = _PyWinTypesFallback()
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT

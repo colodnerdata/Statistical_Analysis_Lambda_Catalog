@@ -38,8 +38,8 @@ Sheet layout
   Col AX         — thin gap between grid-search stages
   Col AY–BS      — Weibull Stage 2 controls and 20×20 Data Table
 
-  Grid-search rows 3–7 — stage title, compact controls, and Data Table headings
-  Grid-search rows 8–27 — 20×20 Data Table body
+  Grid-search rows 1–5 — stage titles, compact controls, and Data Table headings
+  Grid-search rows 6–25 — 20×20 Data Table bodies
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -49,8 +49,8 @@ Sheet-scoped named ranges
   UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
   UV_Scott_Edges,   UV_Scott_Counts
   UV_FD_Edges,      UV_FD_Counts
-  UV_WB_S1       — Stage 1 Weibull Data Table body (AD8:AW27)
-  UV_WB_S2       — Stage 2 Weibull Data Table body (AZ8:BS27)
+  UV_WB_S1       — Stage 1 Weibull Data Table body (AD6:AW25)
+  UV_WB_S2       — Stage 2 Weibull Data Table body (AZ6:BS25)
 """
 from __future__ import annotations
 
@@ -101,8 +101,8 @@ _GS_W     = _N_GRID + 1   # cols per stage = 21  (1 param2 col + N param1 cols)
 _GS_GAP_C = 1              # gap col between Stage 1 and Stage 2
 _C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col AY = 51
 
-# Weibull block row anchor (aligns with other section headers; = _ROW_SECTION_HDR = 3)
-_ROW_GS_WB   = 3
+# Weibull block row anchor (stage title row)
+_ROW_GS_WB   = 1
 
 # Within-stage row offsets from block row_start
 _GS_R_CONTROL_HDR = 1   # Min NLL label + parameter-table headers
@@ -113,12 +113,14 @@ _GS_R_BODY        = 5   # first Data Table body row
 
 # Fixed-area column offsets relative to stage col_start
 _GS_C_MINNLL = 0   # two-cell vertical Min NLL table
-_GS_C_SPACER = 1   # intentionally blank between fixed-area tables
-_GS_C_PARAM  = 2   # Parameter
-_GS_C_INPUT  = 3   # visible Data Table substitution cells
-_GS_C_MIN    = 4   # parameter range minimum
-_GS_C_MAX    = 5   # parameter range maximum
-_GS_C_BEST   = 6   # Grid_Search_Optimum spill anchor / result column
+_GS_C_N_GRID = 1   # two-cell vertical Rows/Columns table
+_GS_C_SPACER = 2   # intentionally blank between fixed-area tables
+_GS_C_PARAM  = 3   # Parameter
+_GS_C_INPUT  = 4   # visible Data Table substitution cells
+_GS_C_MIN    = 5   # parameter range minimum
+_GS_C_MAX    = 6   # parameter range maximum
+_GS_C_STEP   = 7   # endpoint-inclusive parameter step size
+_GS_C_BEST   = 8   # Grid_Search_Optimum spill anchor / result column
 
 # ── Row anchors ───────────────────────────────────────────────────────────────
 _ROW_TITLE        = 1   # "Univariate Analysis" + zone-level "Histograms" label
@@ -193,8 +195,9 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         for c in range(stage_start, stage_start + _N_GRID + 1):
             sheet.range(rc(1, c), rc(1, c)).column_width = 6
         sheet.range(rc(1, stage_start)).column_width = 12                  # Min NLL / row axis
+        sheet.range(rc(1, stage_start + _GS_C_N_GRID)).column_width = 14   # Rows/Columns
         sheet.range(rc(1, stage_start + _GS_C_PARAM)).column_width = 13   # Parameter
-        for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_BEST):
+        for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_STEP, _GS_C_BEST):
             sheet.range(rc(1, stage_start + dc)).column_width = 10
 
     # Gap col AX between Stage 1 and Stage 2.
@@ -596,23 +599,24 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 #
 # Layout within one stage block (row_start, col_start):
 #   row+0  : section heading merged across the full stage width
-#   row+1  : Min NLL label at col+0; blank col+1; headers at col+2…col+6
-#   row+2  : Min NLL value at col+0; shape row: Parameter | Input | Min | Max | Best
-#   row+3  : scale row:                    Parameter | Input | Min | Max | Best
+#   row+1  : Min NLL and Rows/Columns labels; blank col+2; parameter headers at col+3…col+8
+#   row+2  : control values; shape row: Parameter | Input | Min | Max | Step Size | Best
+#   row+3  : scale row:             Parameter | Input | Min | Max | Step Size | Best
 #   row+4  : Data Table corner at col+0; shape SEQUENCE spills across col+1…col+N
 #   row+5…+4+N : scale SEQUENCE at col+0; Data Table body at col+1…col+N
 #
 # Fixed-area tables:
 #   Min NLL table       — col+0, rows+1…+2; value uses TAKE(Grid_Argmin(...),,1)
-#   Parameter table     — cols+2…+6, rows+1…+3
-#   Blank spacer column — col+1, rows+1…+3
+#   Rows/Columns table  — col+1, rows+1…+2; generated value documents physical grid size
+#   Parameter table     — cols+3…+8, rows+1…+3
+#   Blank spacer column — col+2, rows+1…+3
 #   Best column         — Grid_Search_Optimum(...) spills from shape row to scale row
 #
 # The visible Input cells are the actual RowInput and ColumnInput cells supplied
 # to Excel's two-input Data Table object.  No hidden auxiliary row is required.
 #
-# Stage 1: col_start = _C_GS = 29 (AC); body = AD8:AW27
-# Stage 2: col_start = _C_GS_S2 = 51 (AY); body = AZ8:BS27
+# Stage 1: col_start = _C_GS = 29 (AC); body = AD6:AW25
+# Stage 2: col_start = _C_GS_S2 = 51 (AY); body = AZ6:BS25
 #
 # Named ranges registered here:
 #   UV_WB_S1 = Stage 1 Data Table body only
@@ -640,7 +644,7 @@ def _write_grid_stage(
 
     Returns absolute A1 references used by the refined Stage 2 search and by
     the distribution-fitting summary: best_p1, best_p2, min_p1, max_p1,
-    min_p2, max_p2, corner, p1_seq, and p2_seq.
+    min_p2, max_p2, step_p1, step_p2, n_grid, corner, p1_seq, and p2_seq.
     """
     sname = sheet.name
     n = _N_GRID
@@ -658,21 +662,25 @@ def _write_grid_stage(
     p2_row = r0 + _GS_R_P2
 
     # ── Fixed-area tables ────────────────────────────────────────────────────
-    # Left table: Min NLL label above its value.
+    # Left tables: Min NLL and the generated physical grid dimension.
     val(sheet, control_hdr_row, c0 + _GS_C_MINNLL, "Min NLL:")
+    val(sheet, control_hdr_row, c0 + _GS_C_N_GRID, "Rows/Columns")
     _subheader_row(
         sheet,
         control_hdr_row,
         c0 + _GS_C_MINNLL,
-        c0 + _GS_C_MINNLL,
+        c0 + _GS_C_N_GRID,
     )
+    val(sheet, p1_row, c0 + _GS_C_N_GRID, n)
+    n_grid_ref = _gs_a1(r0, c0, _GS_R_P1, _GS_C_N_GRID)
 
-    # Right table: Parameter | Input | Min | Max | Best.
+    # Right table: Parameter | Input | Min | Max | Step Size | Best.
     for dc, label in [
         (_GS_C_PARAM, "Parameter"),
         (_GS_C_INPUT, "Input"),
         (_GS_C_MIN, "Min"),
         (_GS_C_MAX, "Max"),
+        (_GS_C_STEP, "Step Size"),
         (_GS_C_BEST, "Best"),
     ]:
         val(sheet, control_hdr_row, c0 + dc, label)
@@ -710,6 +718,17 @@ def _write_grid_stage(
             sheet.range(rc(row, c0 + _GS_C_MIN)).color = _INPUT
             sheet.range(rc(row, c0 + _GS_C_MAX)).color = _INPUT
 
+    min_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _GS_C_MIN)
+    max_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _GS_C_MAX)
+    min_p2_ref = _gs_a1(r0, c0, _GS_R_P2, _GS_C_MIN)
+    max_p2_ref = _gs_a1(r0, c0, _GS_R_P2, _GS_C_MAX)
+    step_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _GS_C_STEP)
+    step_p2_ref = _gs_a1(r0, c0, _GS_R_P2, _GS_C_STEP)
+    f(sheet, p1_row, c0 + _GS_C_STEP,
+      f"=({max_p1_ref}-{min_p1_ref})/({n_grid_ref}-1)")
+    f(sheet, p2_row, c0 + _GS_C_STEP,
+      f"=({max_p2_ref}-{min_p2_ref})/({n_grid_ref}-1)")
+
     fixed_values = sheet.range(
         rc(p1_row, c0 + _GS_C_INPUT),
         rc(p2_row, c0 + _GS_C_BEST),
@@ -723,10 +742,6 @@ def _write_grid_stage(
     body_col_start = c0 + 1
     body_col_end = c0 + n
 
-    min_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _GS_C_MIN)
-    max_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _GS_C_MAX)
-    min_p2_ref = _gs_a1(r0, c0, _GS_R_P2, _GS_C_MIN)
-    max_p2_ref = _gs_a1(r0, c0, _GS_R_P2, _GS_C_MAX)
     corner_ref = _gs_a1(r0, c0, _GS_R_HDR, 0)
     p1_seq_ref = _gs_a1(r0, c0, _GS_R_HDR, 1)
     p2_seq_ref = _gs_a1(r0, c0, _GS_R_BODY, 0)
@@ -745,7 +760,7 @@ def _write_grid_stage(
         sheet,
         hdr_row,
         c0 + 1,
-        f"=SEQUENCE(1,{n},{min_p1_ref},({max_p1_ref}-{min_p1_ref})/({n}-1))",
+        f"=SEQUENCE(1,{n_grid_ref},{min_p1_ref},{step_p1_ref})",
     )
     sheet.range(rc(hdr_row, c0 + 1)).number_format = "0.0000"
 
@@ -754,7 +769,7 @@ def _write_grid_stage(
         sheet,
         body_row_start,
         c0,
-        f"=SEQUENCE({n},1,{min_p2_ref},({max_p2_ref}-{min_p2_ref})/({n}-1))",
+        f"=SEQUENCE({n_grid_ref},1,{min_p2_ref},{step_p2_ref})",
     )
     sheet.range(rc(body_row_start, c0)).number_format = "0.0000"
 
@@ -800,7 +815,7 @@ def _write_grid_stage(
         sheet,
         p1_row,
         c0 + _GS_C_BEST,
-        f"=IFERROR(Grid_Search_Optimum({body_name}),VSTACK(AVERAGE({min_p1_ref},{max_p1_ref}),AVERAGE({min_p2_ref},{max_p2_ref})))",
+        f"=Grid_Search_Optimum({body_name})",
     )
 
     # Boundary guard: red fill when the optimum lies on a grid edge.
@@ -813,7 +828,7 @@ def _write_grid_stage(
         cell_api = sheet.range(rc(row, c0 + _GS_C_BEST)).api
         cf = cell_api.FormatConditions.Add(
             Type=2,  # xlExpression
-            Formula1=f"=OR({location}=1,{location}={n})",
+            Formula1=f"=OR({location}=1,{location}={n_grid_ref})",
         )
         cf.Interior.Color = 0x0000FF   # red (BGR)
         cf.Font.Color = 0xFFFFFF       # white
@@ -843,6 +858,13 @@ def _write_grid_stage(
     border_box(
         sheet,
         control_hdr_row,
+        c0 + _GS_C_N_GRID,
+        p1_row,
+        c0 + _GS_C_N_GRID,
+    )
+    border_box(
+        sheet,
+        control_hdr_row,
         c0 + _GS_C_PARAM,
         p2_row,
         c0 + _GS_C_BEST,
@@ -856,6 +878,9 @@ def _write_grid_stage(
         "max_p1": _gs_a1(r0, c0, _GS_R_P1, _GS_C_MAX),
         "min_p2": _gs_a1(r0, c0, _GS_R_P2, _GS_C_MIN),
         "max_p2": _gs_a1(r0, c0, _GS_R_P2, _GS_C_MAX),
+        "step_p1": step_p1_ref,
+        "step_p2": step_p2_ref,
+        "n_grid": n_grid_ref,
         "corner": corner_ref,
         "p1_seq": p1_seq_ref,
         "p2_seq": p2_seq_ref,
@@ -864,8 +889,7 @@ def _write_grid_stage(
 
 def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
     """Write Stage 1 and Stage 2 Weibull grid-search MLE blocks side by side."""
-    n = _N_GRID
-    rs = _ROW_GS_WB   # row_start = 3
+    rs = _ROW_GS_WB   # row_start = 1
 
     # Stage 1 — user-editable bounds, initial wide search
     s1 = _write_grid_stage(
@@ -881,21 +905,17 @@ def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
         editable_bounds = True,
     )
 
-    # Stage 2 — bounds auto-computed as Stage 1 best ± one Stage-1 grid step
-    # Step = (max - min) / (N - 1) per axis; zoom centres on Stage 1 best param.
-    step_p1 = f"({s1['max_p1']}-{s1['min_p1']})/({n}-1)"
-    step_p2 = f"({s1['max_p2']}-{s1['min_p2']})/({n}-1)"
-
+    # Stage 2 — bounds auto-computed from visible Stage 1 Best and Step Size cells.
     _write_grid_stage(
         sheet,
         row_start   = rs,
         col_start   = _C_GS_S2,
         title       = "Weibull Grid-Search MLE  —  Stage 2  (refined)",
         body_name   = "UV_WB_S2",
-        p1_min      = f"=MAX(0.001,{s1['best_p1']}-{step_p1})",
-        p1_max      = f"={s1['best_p1']}+{step_p1}",
-        p2_min      = f"=MAX(0.001,{s1['best_p2']}-{step_p2})",
-        p2_max      = f"={s1['best_p2']}+{step_p2}",
+        p1_min      = f"=MAX(0.001,{s1['best_p1']}-{s1['step_p1']})",
+        p1_max      = f"={s1['best_p1']}+{s1['step_p1']}",
+        p2_min      = f"=MAX(0.001,{s1['best_p2']}-{s1['step_p2']})",
+        p2_max      = f"={s1['best_p2']}+{s1['step_p2']}",
         editable_bounds = False,
     )
 
@@ -953,11 +973,7 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _write_histograms(sheet)
     _write_fitting_table(sheet)
 
-    # Two-stage Weibull grid-search MLE (skipped silently on headless builds)
-    try:
-        _write_weibull_grid_search(sheet)
-    except Exception:
-        pass
+    _write_weibull_grid_search(sheet)
 
     # Charts (skipped silently if chart API raises; e.g. headless builds)
     try:

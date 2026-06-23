@@ -438,6 +438,34 @@ class RealCatalogIntegrationTests(unittest.TestCase):
             [f.name for f in doc_from_payload.functions],
         )
 
+    def test_grid_search_helpers_load_with_expected_contracts(self) -> None:
+        functions = {fn.name: fn for fn in self.document.functions}
+        self.assertIn("Grid_Argmin", functions)
+        self.assertIn("Grid_Search_Optimum", functions)
+        self.assertEqual(functions["Grid_Argmin"].argument_names, ("grid",))
+        self.assertEqual(functions["Grid_Search_Optimum"].argument_names, ("grid",))
+
+    def test_grid_search_optimum_uses_scalar_index_and_native_offset(self) -> None:
+        functions = {fn.name: fn for fn in self.document.functions}
+        display = functions["Grid_Search_Optimum"].formula_display.replace(" ", "")
+        self.assertIn("INDEX(argmin,1,2)", display)
+        self.assertIn("INDEX(argmin,1,3)", display)
+        self.assertNotIn("CHOOSECOLS", display)
+        self.assertIn("OFFSET(grid", display)
+
+        xml = functions["Grid_Search_Optimum"].workbook_xml_formula_from_display
+        self.assertIn("INDEX(_xlpm.argmin,1,2)", xml)
+        self.assertIn("INDEX(_xlpm.argmin,1,3)", xml)
+        self.assertIn("OFFSET(_xlpm.grid", xml)
+        self.assertNotIn("_xlfn.OFFSET", xml)
+        self.assertIn("_xlfn.VSTACK", xml)
+
+    def test_grid_argmin_dynamic_functions_receive_parser_prefixes(self) -> None:
+        functions = {fn.name: fn for fn in self.document.functions}
+        xml = functions["Grid_Argmin"].workbook_xml_formula_from_display
+        for function_name in ("LAMBDA", "LET", "HSTACK", "XMATCH", "TOCOL"):
+            self.assertIn(f"_xlfn.{function_name}", xml)
+
 
 if __name__ == "__main__":
     unittest.main()

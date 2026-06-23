@@ -12,8 +12,10 @@ from lambda_catalog.write_sheet_regression import (
 )
 from lambda_catalog.write_sheet_mlr_scalar_test import _actual_formula
 from lambda_catalog.write_sheet_univariate import (
+    _CHART_ANCHORS,
     _STAT_ROWS,
     _dist_rows,
+    inject_histogram_charts,
     _setup_local_names,
     _write_data_zone,
     _write_descriptive_stats,
@@ -21,6 +23,7 @@ from lambda_catalog.write_sheet_univariate import (
     _write_grid_stage,
     _write_histogram_table,
     _write_weibull_grid_search,
+    UNIVARIATE_SHEET_NAME,
 )
 from tests.recording_sheet import RecordingSheet
 
@@ -176,6 +179,52 @@ def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> No
     assert sheet.range((6, 29), (25, 29)).number_format == "0.0"
     assert sheet.range((6, 30), (25, 49)).number_format == "0.0E+00"
     assert sheet.cell(3, 29).number_format == "0.0E+00"
+
+
+def test_inject_histogram_charts_adds_three_charts_with_named_range_refs(tmp_path):
+    """inject_histogram_charts adds 3 charts referencing OFFSET-based named ranges."""
+    import zipfile
+
+    import openpyxl
+
+    wb = openpyxl.Workbook()
+    wb.active.title = UNIVARIATE_SHEET_NAME
+    workbook_path = tmp_path / "test.xlsx"
+    wb.save(str(workbook_path))
+
+    inject_histogram_charts(workbook_path)
+
+    with zipfile.ZipFile(workbook_path, "r") as zf:
+        names = set(zf.namelist())
+        chart_files = sorted(
+            n for n in names
+            if n.startswith("xl/charts/chart") and n.endswith(".xml")
+        )
+        assert len(chart_files) == 3, f"Expected 3 chart files, got {chart_files}"
+
+        all_chart_xml = "".join(zf.read(p).decode() for p in chart_files)
+        for named_range in (
+            f"{UNIVARIATE_SHEET_NAME}!UV_Sturges_Edges",
+            f"{UNIVARIATE_SHEET_NAME}!UV_Sturges_Counts",
+            f"{UNIVARIATE_SHEET_NAME}!UV_Scott_Edges",
+            f"{UNIVARIATE_SHEET_NAME}!UV_Scott_Counts",
+            f"{UNIVARIATE_SHEET_NAME}!UV_FD_Edges",
+            f"{UNIVARIATE_SHEET_NAME}!UV_FD_Counts",
+        ):
+            assert named_range in all_chart_xml, f"Missing named range ref: {named_range!r}"
+
+        drawing_files = sorted(
+            n for n in names
+            if n.startswith("xl/drawings/drawing") and n.endswith(".xml")
+        )
+        assert len(drawing_files) >= 1
+        drawing_xml = zf.read(drawing_files[-1]).decode()
+        for rid in ("rId1", "rId2", "rId3"):
+            assert rid in drawing_xml, f"Missing {rid} in drawing XML"
+
+        from_col, from_row, to_col, to_row = _CHART_ANCHORS[0]
+        assert f"<xdr:col>{from_col}</xdr:col>" in drawing_xml
+        assert f"<xdr:row>{from_row}</xdr:row>" in drawing_xml
 
 
 def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:

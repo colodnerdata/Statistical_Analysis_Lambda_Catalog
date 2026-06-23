@@ -674,9 +674,9 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
     """Attempt xlwings-based chart creation (fallback; replaced by inject_histogram_charts)."""
     sname = sheet.name
     for title_cell, edges_name, counts_name, row_start, row_end in [
-        ("H", "UV_Sturges_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 18),
-        ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 18),
-        ("N", "UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 18),
+        ("H", "UV_Sturges_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
+        ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
+        ("N", "UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
     ]:
         chart_range = sheet.range(rc(row_start, _C_Q), rc(row_end, _C_AA))
         _add_histogram_chart(
@@ -692,23 +692,36 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 
 
 def inject_histogram_charts(workbook_path: Path) -> None:
-    """Inject three histogram charts into the Univariate sheet using named range references.
+    """Inject three histogram BarCharts via zipfile/lxml patching.
 
-    Uses openpyxl to write BarCharts whose data series reference the OFFSET-based
-    named ranges (UV_Sturges_Edges/Counts, UV_Scott_Edges/Counts, UV_FD_Edges/Counts).
-    Call this after the workbook has been saved and closed by xlwings, before
-    Excel recalculates.
+    Copies the workbook zip verbatim, replacing only the Univariate sheet's drawing
+    and chart files.  All other content (Regression charts, chartUserShapes overlays,
+    VML drawings) is preserved byte-for-byte.  Call this after the workbook has been
+    saved and closed by xlwings.
     """
+    import io
+    import os
+    import tempfile
+    import zipfile
+
+    import lxml.etree as etree
     import openpyxl
     from openpyxl.chart import BarChart
     from openpyxl.chart.bar_chart import Series as BarSeries
-    from openpyxl.chart.data_source import NumDataSource, NumRef, AxDataSource, StrRef
+    from openpyxl.chart.data_source import AxDataSource, NumDataSource, NumRef, StrRef
     from openpyxl.chart.series import SeriesLabel
-    from openpyxl.chart.title import Title
     from openpyxl.chart.text import Text
-    from openpyxl.drawing.spreadsheet_drawing import TwoCellAnchor, AnchorMarker, AnchorClientData
+    from openpyxl.chart.title import Title
 
     sname = UNIVARIATE_SHEET_NAME
+
+    _NS_MAIN = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
+    _NS_RELS = "http://schemas.openxmlformats.org/package/2006/relationships"
+    _NS_CT   = "http://schemas.openxmlformats.org/package/2006/content-types"
+    _RT_CHART   = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/chart"
+    _RT_DRAWING = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/drawing"
+    _CT_CHART   = "application/vnd.openxmlformats-officedocument.drawingml.chart+xml"
+    _CT_DRAWING = "application/vnd.openxmlformats-officedocument.drawing+xml"
 
     chart_specs = [
         (
@@ -734,36 +747,255 @@ def inject_histogram_charts(workbook_path: Path) -> None:
         ),
     ]
 
-    wb = openpyxl.load_workbook(str(workbook_path))
-    ws = wb[sname]
-    ws._charts.clear()
-
-    for (from_col, from_row, to_col, to_row), title_ref, label_ref, edges_ref, counts_ref in chart_specs:
+    # ── 1. Generate chart XML from throwaway openpyxl workbooks ──────────────
+    def _chart_xml(title_ref: str, label_ref: str, edges_ref: str, counts_ref: str) -> bytes:
         chart = BarChart()
         chart.barDir = "col"
         chart.grouping = "clustered"
         chart.gapWidth = 150
-
         chart.title = Title(tx=Text(strRef=StrRef(f=title_ref)))
-
         ser = BarSeries(idx=0, order=0)
         ser.val = NumDataSource(numRef=NumRef(f=counts_ref))
         ser.cat = AxDataSource(numRef=NumRef(f=edges_ref))
         ser.title = SeriesLabel(strRef=StrRef(f=label_ref))
         chart.ser.append(ser)
-
         chart.x_axis.title = "Upper Edge"
         chart.y_axis.title = "Count"
         chart.legend = None
+        tmp_wb = openpyxl.Workbook()
+        tmp_wb.active.add_chart(chart, "A1")
+        buf = io.BytesIO()
+        tmp_wb.save(buf)
+        buf.seek(0)
+        with zipfile.ZipFile(buf, "r") as z:
+            return z.read("xl/charts/chart1.xml")
 
-        anchor = TwoCellAnchor()
-        anchor._from = AnchorMarker(col=from_col, colOff=0, row=from_row, rowOff=0)
-        anchor.to = AnchorMarker(col=to_col, colOff=0, row=to_row, rowOff=0)
-        anchor.clientData = AnchorClientData()
-        chart.anchor = anchor
-        ws._charts.append(chart)
+    new_chart_xmls = [_chart_xml(*spec[1:]) for spec in chart_specs]
 
-    wb.save(str(workbook_path))
+    # ── 2. Inspect the existing zip ───────────────────────────────────────────
+    with zipfile.ZipFile(workbook_path, "r") as zf:
+        all_names = {item.filename for item in zf.infolist()}
+
+        wb_root = etree.fromstring(zf.read("xl/workbook.xml"))
+        wb_rels = etree.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+
+        # Find Univariate sheet rId
+        uv_rid: str | None = None
+        for el in wb_root.findall(f"{{{_NS_MAIN}}}sheets/{{{_NS_MAIN}}}sheet"):
+            if el.get("name") == sname:
+                uv_rid = el.get(
+                    "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}id"
+                )
+                break
+        if uv_rid is None:
+            raise RuntimeError(f"Sheet {sname!r} not found in workbook.xml")
+
+        # Resolve sheet file path
+        uv_sheet_file: str | None = None
+        for rel in wb_rels.findall(f"{{{_NS_RELS}}}Relationship"):
+            if rel.get("Id") == uv_rid:
+                target = rel.get("Target", "")
+                if target.startswith("/"):
+                    uv_sheet_file = target.lstrip("/")
+                elif target.startswith("xl/"):
+                    uv_sheet_file = target
+                else:
+                    uv_sheet_file = f"xl/{target}"
+                break
+        if uv_sheet_file is None:
+            raise RuntimeError(f"No workbook rel for Univariate sheet (rId={uv_rid!r})")
+
+        sh_name = uv_sheet_file.rsplit("/", 1)[-1]
+        sh_rels_path = f"xl/worksheets/_rels/{sh_name}.rels"
+
+        # Find the drawing referenced by the sheet
+        uv_drawing_path: str | None = None
+        sh_rels_bytes: bytes | None = None
+        if sh_rels_path in all_names:
+            sh_rels_bytes = zf.read(sh_rels_path)
+            sh_rels_root = etree.fromstring(sh_rels_bytes)
+            for rel in sh_rels_root.findall(f"{{{_NS_RELS}}}Relationship"):
+                if rel.get("Type") == _RT_DRAWING:
+                    target = rel.get("Target", "")
+                    uv_drawing_path = "xl/drawings/" + target.rsplit("/", 1)[-1]
+                    break
+
+        # Find charts belonging to the old Univariate drawing
+        old_chart_paths: set[str] = set()
+        uv_drawing_rels_path: str | None = None
+        if uv_drawing_path:
+            drw_name = uv_drawing_path.rsplit("/", 1)[-1]
+            uv_drawing_rels_path = f"xl/drawings/_rels/{drw_name}.rels"
+            if uv_drawing_rels_path in all_names:
+                drw_rels = etree.fromstring(zf.read(uv_drawing_rels_path))
+                for rel in drw_rels.findall(f"{{{_NS_RELS}}}Relationship"):
+                    if rel.get("Type") == _RT_CHART:
+                        target = rel.get("Target", "")
+                        old_chart_paths.add("xl/charts/" + target.rsplit("/", 1)[-1])
+
+        # Max existing chart number (to pick non-colliding names for new charts)
+        max_chart = max(
+            (
+                int(n[len("xl/charts/chart"):-len(".xml")])
+                for n in all_names
+                if n.startswith("xl/charts/chart") and n.endswith(".xml")
+                and n[len("xl/charts/chart"):-len(".xml")].isdigit()
+            ),
+            default=0,
+        )
+
+        # If the sheet has no drawing yet, create one
+        need_new_drawing = uv_drawing_path is None
+        if need_new_drawing:
+            max_drw = max(
+                (
+                    int(n[len("xl/drawings/drawing"):-len(".xml")])
+                    for n in all_names
+                    if n.startswith("xl/drawings/drawing") and n.endswith(".xml")
+                    and n[len("xl/drawings/drawing"):-len(".xml")].isdigit()
+                ),
+                default=0,
+            )
+            uv_drawing_path = f"xl/drawings/drawing{max_drw + 1}.xml"
+            drw_name = uv_drawing_path.rsplit("/", 1)[-1]
+            uv_drawing_rels_path = f"xl/drawings/_rels/{drw_name}.rels"
+
+    new_chart_paths = [f"xl/charts/chart{max_chart + i + 1}.xml" for i in range(3)]
+
+    # ── 3. Build new drawing XML ──────────────────────────────────────────────
+    anchor_parts = []
+    for i, ((from_col, from_row, to_col, to_row), *_) in enumerate(chart_specs):
+        rid = f"rId{i + 1}"
+        anchor_parts.append(
+            f'<xdr:twoCellAnchor moveWithCells="0" sizeWithCells="0">'
+            f'<xdr:from><xdr:col>{from_col}</xdr:col><xdr:colOff>0</xdr:colOff>'
+            f'<xdr:row>{from_row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>'
+            f'<xdr:to><xdr:col>{to_col}</xdr:col><xdr:colOff>0</xdr:colOff>'
+            f'<xdr:row>{to_row}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>'
+            f'<xdr:graphicFrame macro="">'
+            f'<xdr:nvGraphicFramePr>'
+            f'<xdr:cNvPr id="{i + 2}" name="Chart {i + 1}"/>'
+            f'<xdr:cNvGraphicFramePr/>'
+            f'</xdr:nvGraphicFramePr>'
+            f'<xdr:xfrm><a:off x="0" y="0"/><a:ext cx="0" cy="0"/></xdr:xfrm>'
+            f'<a:graphic>'
+            f'<a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/chart">'
+            f'<c:chart xmlns:c="http://schemas.openxmlformats.org/drawingml/2006/chart"'
+            f' r:id="{rid}"/>'
+            f'</a:graphicData>'
+            f'</a:graphic>'
+            f'</xdr:graphicFrame>'
+            f'<xdr:clientData/>'
+            f'</xdr:twoCellAnchor>'
+        )
+    new_drawing_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<xdr:wsDr'
+        ' xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"'
+        ' xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"'
+        ' xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        + "".join(anchor_parts)
+        + "</xdr:wsDr>"
+    ).encode("UTF-8")
+
+    # ── 4. Build new drawing _rels XML ────────────────────────────────────────
+    rels_parts = [
+        f'<Relationship Id="rId{i + 1}"'
+        f' Type="{_RT_CHART}"'
+        f' Target="../charts/{cp.rsplit("/", 1)[-1]}"/>'
+        for i, cp in enumerate(new_chart_paths)
+    ]
+    new_drawing_rels_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + "".join(rels_parts)
+        + "</Relationships>"
+    ).encode("UTF-8")
+
+    # ── 5. Build updated sheet _rels when creating a new drawing file ─────────
+    new_sh_rels_xml: bytes | None = None
+    if need_new_drawing:
+        if sh_rels_bytes is not None:
+            sh_rels_root = etree.fromstring(sh_rels_bytes)
+        else:
+            sh_rels_root = etree.Element("Relationships")
+            sh_rels_root.set("xmlns", _NS_RELS)
+        existing_rids = [
+            int(r.get("Id", "rId0").replace("rId", "") or "0")
+            for r in sh_rels_root.findall(f"{{{_NS_RELS}}}Relationship")
+            if r.get("Id", "").replace("rId", "").isdigit()
+        ]
+        next_rid = max(existing_rids, default=0) + 1
+        drw_rel = etree.SubElement(sh_rels_root, f"{{{_NS_RELS}}}Relationship")
+        drw_rel.set("Id", f"rId{next_rid}")
+        drw_rel.set("Type", _RT_DRAWING)
+        drw_rel.set("Target", f"../drawings/{uv_drawing_path.rsplit('/', 1)[-1]}")
+        new_sh_rels_xml = (
+            '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+            + str(etree.tostring(sh_rels_root, encoding="unicode"))
+        ).encode("UTF-8")
+
+    # ── 6. Patch the zip ──────────────────────────────────────────────────────
+    skip_names = old_chart_paths | (
+        {uv_drawing_rels_path} if uv_drawing_rels_path else set()
+    )
+    if need_new_drawing and sh_rels_path in all_names:
+        skip_names.add(sh_rels_path)
+
+    temp_fd, temp_path_str = tempfile.mkstemp(suffix=".xlsx", dir=workbook_path.parent)
+    os.close(temp_fd)
+    temp_path = Path(temp_path_str)
+    temp_path.unlink(missing_ok=True)
+
+    try:
+        with (
+            zipfile.ZipFile(workbook_path, "r") as in_zip,
+            zipfile.ZipFile(temp_path, "w", compression=zipfile.ZIP_DEFLATED) as out_zip,
+        ):
+            for item in in_zip.infolist():
+                if item.filename in skip_names:
+                    continue
+
+                data = in_zip.read(item.filename)
+
+                if item.filename == uv_drawing_path:
+                    data = new_drawing_xml
+                elif item.filename == "[Content_Types].xml":
+                    ct = etree.fromstring(data)
+                    for ov in list(ct.findall(f"{{{_NS_CT}}}Override")):
+                        pn = (ov.get("PartName") or "").lstrip("/")
+                        if pn in old_chart_paths:
+                            ct.remove(ov)
+                    for cp in new_chart_paths:
+                        el = etree.SubElement(ct, f"{{{_NS_CT}}}Override")
+                        el.set("PartName", f"/{cp}")
+                        el.set("ContentType", _CT_CHART)
+                    if need_new_drawing:
+                        el = etree.SubElement(ct, f"{{{_NS_CT}}}Override")
+                        el.set("PartName", f"/{uv_drawing_path}")
+                        el.set("ContentType", _CT_DRAWING)
+                    data = (
+                        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+                        + str(etree.tostring(ct, encoding="unicode"))
+                    ).encode("UTF-8")
+
+                out_zip.writestr(item, data)
+
+            # Always written (rels file was removed from loop via skip_names):
+            assert uv_drawing_rels_path is not None
+            out_zip.writestr(uv_drawing_rels_path, new_drawing_rels_xml)
+            for chart_path, chart_xml in zip(new_chart_paths, new_chart_xmls):
+                out_zip.writestr(chart_path, chart_xml)
+
+            # Extra files needed only when the sheet had no drawing previously:
+            if need_new_drawing:
+                out_zip.writestr(uv_drawing_path, new_drawing_xml)
+                if new_sh_rels_xml is not None:
+                    out_zip.writestr(sh_rels_path, new_sh_rels_xml)
+
+        temp_path.replace(workbook_path)
+    finally:
+        temp_path.unlink(missing_ok=True)
 
 
 # ── Zone 5: two-parameter grid-search MLE ────────────────────────────────────

@@ -193,11 +193,19 @@ def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:
         "Parameter", "Input", "Min", "Max", "Step Size", "Best",
     ]
     assert sheet.cell(3, 32).value == "Shape (k)"
+    assert sheet.cell(29, 32).value == "Shape (α)"
+    assert sheet.cell(30, 32).value == "Rate (β)"
+    assert sheet.cell(55, 32).value == "Alpha (α)"
+    assert sheet.cell(56, 32).value == "Beta (β)"
     assert sheet.cell(4, 32).value == "Scale (λ)"
 
     names = sheet.api.Names
     assert names.by_short_name("UV_WB_S1").RefersTo == "='Univariate'!$AD$6:$AW$25"
     assert names.by_short_name("UV_WB_S2").RefersTo == "='Univariate'!$AZ$6:$BS$25"
+    assert names.by_short_name("UV_GAMMA_S1").RefersTo == "='Univariate'!$AD$32:$AW$51"
+    assert names.by_short_name("UV_GAMMA_S2").RefersTo == "='Univariate'!$AZ$32:$BS$51"
+    assert names.by_short_name("UV_BETA_S1").RefersTo == "='Univariate'!$AD$58:$AW$77"
+    assert names.by_short_name("UV_BETA_S2").RefersTo == "='Univariate'!$AZ$58:$BS$77"
 
 
 def test_weibull_grid_formulas_reference_visible_controls() -> None:
@@ -217,6 +225,10 @@ def test_weibull_grid_formulas_reference_visible_controls() -> None:
     assert sheet.cell(5, 29).api.Formula2 == (
         "=NLL_Weibull(UV_Data,$AG$3,$AG$4,UV_Include)"
     )
+    assert sheet.cell(31, 29).api.Formula2 == (
+        "=NLL_Gamma(UV_Data,$AG$29,$AG$30,UV_Include)"
+    )
+    assert "NLL_Beta(z,$AG$55,$AG$56)" in sheet.cell(57, 29).api.Formula2
 
     assert sheet.cell(3, 56).api.Formula2 == "=MAX(0.001,$AK$3-$AJ$3)"
     assert sheet.cell(3, 57).api.Formula2 == "=$AK$3+$AJ$3"
@@ -229,7 +241,7 @@ def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
 
     _write_weibull_grid_search(sheet)
 
-    assert sheet.tables == [
+    assert sheet.tables[:2] == [
         {
             "range": ((5, 29), (25, 49)),
             "row_input": ((3, 33),),
@@ -239,6 +251,28 @@ def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
             "range": ((5, 51), (25, 71)),
             "row_input": ((3, 55),),
             "column_input": ((4, 55),),
+        },
+    ]
+    assert sheet.tables[2:] == [
+        {
+            "range": ((31, 29), (51, 49)),
+            "row_input": ((29, 33),),
+            "column_input": ((30, 33),),
+        },
+        {
+            "range": ((31, 51), (51, 71)),
+            "row_input": ((29, 55),),
+            "column_input": ((30, 55),),
+        },
+        {
+            "range": ((57, 29), (77, 49)),
+            "row_input": ((55, 33),),
+            "column_input": ((56, 33),),
+        },
+        {
+            "range": ((57, 51), (77, 71)),
+            "row_input": ((55, 55),),
+            "column_input": ((56, 55),),
         },
     ]
 
@@ -264,10 +298,20 @@ def test_weibull_bounds_and_summary_reference_final_best_cells() -> None:
     _write_weibull_grid_search(sheet)
     rows = {name: row for row, name, *_ in _dist_rows(5)}
     weibull_row = next(item for item in _dist_rows(5) if item[1] == "Weibull")
+    gamma_row = next(item for item in _dist_rows(5) if item[1] == "Gamma")
+    beta_row = next(item for item in _dist_rows(5) if item[1] == "Beta")
 
     assert rows["Weibull"] == weibull_row[0]
     assert weibull_row[3] == "=$BG$3"
     assert weibull_row[5] == "=$BG$4"
+    assert rows["Gamma"] == gamma_row[0]
+    assert gamma_row[3] == "=$BG$29"
+    assert gamma_row[5] == "=$BG$30"
+    assert rows["Beta"] == beta_row[0]
+    assert beta_row[3] == "=$BG$55"
+    assert beta_row[5] == "=$BG$56"
+    assert "NLL_Beta" in beta_row[8]
+    assert "COUNT(d)*LN(scale_)" in beta_row[8]
     assert sheet.cell(3, 34).color == INPUT_COLOR
     assert sheet.cell(3, 35).color == INPUT_COLOR
     assert sheet.cell(3, 56).color is None
@@ -283,6 +327,9 @@ def test_grid_stage_returns_visible_step_and_count_references() -> None:
         col_start=29,
         title="Stage",
         body_name="UV_TEST",
+        p1_label="P1",
+        p2_label="P2",
+        nll_formula=lambda p1, p2: f"=NLL_Test({p1},{p2})",
         p1_min=0.5,
         p1_max=10.0,
         p2_min=0.1,

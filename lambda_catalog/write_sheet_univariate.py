@@ -8,9 +8,8 @@ MLE throughout.  For Normal, Lognormal, and Exponential the MLE estimators are
 closed-form (sample mean/SD on the raw or log-transformed data).  For
 Triangular and BetaPERT the likelihood is non-differentiable at the mode, so
 direct min/mode/max estimation is used — the result is a valid parameter set
-that the NLL formula evaluates against.  Weibull uses a two-stage, two-input
-Data Table grid search.  The grid-search layout and helper LAMBDAs are designed
-to be reusable for other two-parameter distributions such as Gamma and Beta.
+that the NLL formula evaluates against.  Weibull, Gamma, and Beta use two-stage,
+two-input Data Table grid searches.
 
 Sheet layout
 ────────────
@@ -34,12 +33,12 @@ Sheet layout
   Col P          — thin gap (width 2)
   Col Q–AA       — Distribution Fitting summary table
   Col AB         — thin gap before the grid-search section
-  Col AC–AW      — Weibull Stage 1 controls and 20×20 Data Table
+  Col AC–AW      — Stage 1 controls and 20×20 Data Table
   Col AX         — thin gap between grid-search stages
-  Col AY–BS      — Weibull Stage 2 controls and 20×20 Data Table
+  Col AY–BS      — Stage 2 controls and 20×20 Data Table
 
   Grid-search rows 1–5 — stage titles, compact controls, and Data Table headings
-  Grid-search rows 6–25 — 20×20 Data Table bodies
+  Grid-search rows 6–25 — 20×20 Data Table bodies, repeated per distribution
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -51,6 +50,8 @@ Sheet-scoped named ranges
   UV_FD_Edges,      UV_FD_Counts
   UV_WB_S1       — Stage 1 Weibull Data Table body (AD6:AW25)
   UV_WB_S2       — Stage 2 Weibull Data Table body (AZ6:BS25)
+  UV_GAMMA_S1/S2 — Stage 1/2 Gamma Data Table bodies
+  UV_BETA_S1/S2  — Stage 1/2 Beta Data Table bodies
 """
 from __future__ import annotations
 
@@ -94,22 +95,26 @@ _C_Y = 25   # k (param count)
 _C_Z = 26   # AIC
 _C_AA = 27   # BIC
 
-# Zone 5: Weibull Grid-Search MLE (cols AC onward)
+# Zone 5: two-parameter Grid-Search MLE (cols AC onward)
 _N_GRID   = 20             # grid points per axis per stage (20×20 = 400/stage)
 _C_GS     = 29             # col AC — first col of grid-search region (AB=28 is gap)
 _GS_W     = _N_GRID + 1   # cols per stage = 21  (1 param2 col + N param1 cols)
 _GS_GAP_C = 1              # gap col between Stage 1 and Stage 2
 _C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col AY = 51
 
-# Weibull block row anchor (stage title row)
-_ROW_GS_WB   = 1
-
 # Within-stage row offsets from block row_start
 _GS_R_CONTROL_HDR = 1   # Min NLL label + parameter-table headers
-_GS_R_P1          = 2   # column parameter row (Weibull shape)
-_GS_R_P2          = 3   # row parameter row (Weibull scale)
+_GS_R_P1          = 2   # column parameter row
+_GS_R_P2          = 3   # row parameter row
 _GS_R_HDR         = 4   # Data Table corner + column-parameter SEQUENCE
 _GS_R_BODY        = 5   # first Data Table body row
+
+# Grid-search block row anchors (stage title rows)
+_GS_BLOCK_H      = _GS_R_BODY + _N_GRID
+_GS_BLOCK_GAP_R  = 1
+_ROW_GS_WB       = 1
+_ROW_GS_GAMMA    = _ROW_GS_WB + _GS_BLOCK_H + _GS_BLOCK_GAP_R
+_ROW_GS_BETA     = _ROW_GS_GAMMA + _GS_BLOCK_H + _GS_BLOCK_GAP_R
 
 # Fixed-area column offsets relative to stage col_start
 _GS_C_MINNLL = 0   # two-cell vertical Min NLL table
@@ -140,10 +145,6 @@ _DATA_END  = _ROW_DATA_START + _DATA_ROWS - 1   # last data row = 2003
 _XL_COLUMN_CLUSTERED = 51   # xlColumnClustered
 _XL_CATEGORY         = 1    # horizontal axis type
 _XL_VALUE            = 2    # vertical axis type
-_CHART_WIDTH         = 280.0
-_CHART_HEIGHT        = 220.0
-_CHART_GAP_H         = 10.0
-_CHART_GAP_V         = 10.0
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
@@ -416,6 +417,29 @@ _FIT_NUMBER_FORMATS: dict[int, str] = {
 }
 
 
+def _final_grid_best_refs(row_start: int) -> tuple[str, str]:
+    """Return final-stage best column- and row-parameter cells for a grid block."""
+    best_col = col_letter(_C_GS_S2 + _GS_C_BEST)
+    return (
+        f"=${best_col}${row_start + _GS_R_P1}",
+        f"=${best_col}${row_start + _GS_R_P2}",
+    )
+
+
+def _nll_beta_rescaled_formula(alpha_ref: str, beta_ref: str) -> str:
+    """NLL_Beta on min/max-rescaled data, corrected back to original scale."""
+    return (
+        "=IFERROR(LET("
+        "d,FILTER(UV_Data,UV_Include),"
+        "range_,MAX(d)-MIN(d),"
+        "pad,range_*0.001,"
+        "scale_,range_+2*pad,"
+        "z,(d-MIN(d)+pad)/scale_,"
+        f"NLL_Beta(z,{alpha_ref},{beta_ref})+COUNT(d)*LN(scale_)"
+        "),1E+15)"
+    )
+
+
 def _dist_rows(base_row: int) -> list[tuple]:
     """Return distribution row specs.  base_row = row of first distribution."""
 
@@ -430,6 +454,10 @@ def _dist_rows(base_row: int) -> list[tuple]:
 
     def _n(row: int) -> str:
         return f"${col_letter(_C_Y)}${row}"
+
+    weibull_shape_ref, weibull_scale_ref = _final_grid_best_refs(_ROW_GS_WB)
+    gamma_shape_ref, gamma_rate_ref = _final_grid_best_refs(_ROW_GS_GAMMA)
+    beta_alpha_ref, beta_beta_ref = _final_grid_best_refs(_ROW_GS_BETA)
 
     rows: list[tuple] = []
     dist_specs = [
@@ -458,6 +486,28 @@ def _dist_rows(base_row: int) -> list[tuple]:
             1,
         ),
         (
+            # Params come from Stage 2 grid-search MLE (see Zone 5)
+            "Weibull",
+            "shape",
+            weibull_shape_ref,
+            "scale",
+            weibull_scale_ref,
+            "",    "",
+            lambda r: f"=NLL_Weibull(UV_Data,{_r(r)},{_t(r)},UV_Include)",
+            2,
+        ),
+        (
+            # Params come from Stage 2 grid-search MLE (see Zone 5)
+            "Gamma",
+            "shape",
+            gamma_shape_ref,
+            "rate",
+            gamma_rate_ref,
+            "",    "",
+            lambda r: f"=NLL_Gamma(UV_Data,{_r(r)},{_t(r)},UV_Include)",
+            2,
+        ),
+        (
             # NLL_Triangular and NLL_BetaPERT both have PDF = 0 at the boundary
             # points (x = min or x = max), which means any dataset where data
             # includes its own minimum or maximum (i.e. always) would produce
@@ -471,23 +521,23 @@ def _dist_rows(base_row: int) -> list[tuple]:
             3,
         ),
         (
+            # Params come from Stage 2 grid-search MLE on min/max-rescaled data.
+            "Beta",
+            "alpha",
+            beta_alpha_ref,
+            "beta",
+            beta_beta_ref,
+            "",    "",
+            lambda r: _nll_beta_rescaled_formula(_r(r), _t(r)),
+            2,
+        ),
+        (
             "BetaPERT",
             "Min",  "=LET(d,FILTER(UV_Data,UV_Include),MIN(d)-(MAX(d)-MIN(d))*0.001)",
             "Mode", "=IFERROR(MODE.SNGL(FILTER(UV_Data,UV_Include)),MEDIAN(FILTER(UV_Data,UV_Include)))",
             "Max",  "=LET(d,FILTER(UV_Data,UV_Include),MAX(d)+(MAX(d)-MIN(d))*0.001)",
             lambda r: f"=NLL_BetaPERT(UV_Data,{_r(r)},{_t(r)},{_v(r)},UV_Include)",
             3,
-        ),
-        # Weibull: params come from Stage 2 grid-search MLE (see Zone 5)
-        (
-            "Weibull",
-            "shape",
-            f"=${col_letter(_C_GS_S2 + _GS_C_BEST)}${_ROW_GS_WB + _GS_R_P1}",
-            "scale",
-            f"=${col_letter(_C_GS_S2 + _GS_C_BEST)}${_ROW_GS_WB + _GS_R_P2}",
-            "",    "",
-            lambda r: f"=NLL_Weibull(UV_Data,{_r(r)},{_t(r)},UV_Include)",
-            2,
         ),
     ]
 
@@ -548,36 +598,44 @@ def _add_histogram_chart(
     sheet: xw.Sheet,
     chart_left: float,
     chart_top: float,
-    title: str,
+    chart_width: float,
+    chart_height: float,
+    title_cell: str,
     edges_name: str,
     counts_name: str,
 ) -> None:
-    """Insert one column-chart histogram below the bin tables."""
+    """Insert one gapless column chart from the pre-binned histogram table."""
     sname = sheet.name
     chart_obj = sheet.charts.add(
         left=chart_left,
         top=chart_top,
-        width=_CHART_WIDTH,
-        height=_CHART_HEIGHT,
+        width=chart_width,
+        height=chart_height,
     )
     chart = chart_obj.chart
-    chart.chart_type = _XL_COLUMN_CLUSTERED
+    chart.api.ChartType = _XL_COLUMN_CLUSTERED
     chart.has_title = True
-    chart.chart_title.text = title
+    title_ref = f"'{sname}'!${title_cell}$2"
+    try:
+        chart.api.ChartTitle.Formula = f"={title_ref}"
+    except Exception:
+        chart.chart_title.text = f"={title_ref}"
 
     while chart.series_collection.count > 0:
         chart.series_collection(1).delete()
 
     series = chart.series_collection.new_series()
-    series.name      = title
     series.formula   = (
-        f"=SERIES(\"{title}\","
+        f"=SERIES({title_ref},"
         f"'{sname}'!{edges_name},"
         f"'{sname}'!{counts_name},"
         f"1)"
     )
 
-    series.api.GapWidth = 0
+    try:
+        series.api.GapWidth = 0
+    except Exception:
+        pass
 
     chart.axes(_XL_CATEGORY).has_title = True
     chart.axes(_XL_CATEGORY).axis_title.text = "Upper Edge"
@@ -588,44 +646,41 @@ def _add_histogram_chart(
 
 
 def _write_histogram_charts(sheet: xw.Sheet) -> None:
-    """Add three histogram charts below the bin tables."""
-    top_offset = (_ROW_HIST_START + 35) * 15.0
-
-    for i, (title, edges_name, counts_name, col) in enumerate([
-        ("Sturges",           "UV_Sturges_Edges", "UV_Sturges_Counts", _C_G),
-        ("Scott",             "UV_Scott_Edges",   "UV_Scott_Counts",   _C_J),
-        ("Freedman-Diaconis", "UV_FD_Edges",      "UV_FD_Counts",      _C_M),
-    ]):
-        left = sum(
-            sheet.range(rc(1, c)).column_width * 7.5
-            for c in range(1, col)
-        )
+    """Add three histogram charts in the Q:AA chart band."""
+    for title_cell, edges_name, counts_name, row_start, row_end in [
+        ("H", "UV_Sturges_Edges", "UV_Sturges_Counts", 14, 32),
+        ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   34, 42),
+        ("N", "UV_FD_Edges",      "UV_FD_Counts",      44, 52),
+    ]:
+        chart_range = sheet.range(rc(row_start, _C_Q), rc(row_end, _C_AA))
         _add_histogram_chart(
             sheet,
-            chart_left=left,
-            chart_top=top_offset,
-            title=title,
+            chart_left=chart_range.left,
+            chart_top=chart_range.top,
+            chart_width=chart_range.width,
+            chart_height=chart_range.height,
+            title_cell=title_cell,
             edges_name=edges_name,
             counts_name=counts_name,
         )
 
 
-# ── Zone 5: Weibull grid-search MLE ──────────────────────────────────────────
+# ── Zone 5: two-parameter grid-search MLE ────────────────────────────────────
 #
 # Layout within one stage block (row_start, col_start):
 #   row+0  : section heading merged across the full stage width
 #   row+1  : Min NLL and Rows/Columns labels; blank col+2; parameter headers at col+3…col+8
-#   row+2  : control values; shape row: Parameter | Input | Min | Max | Step Size | Best
-#   row+3  : scale row:             Parameter | Input | Min | Max | Step Size | Best
-#   row+4  : Data Table corner at col+0; shape SEQUENCE spills across col+1…col+N
-#   row+5…+4+N : scale SEQUENCE at col+0; Data Table body at col+1…col+N
+#   row+2  : control values; column parameter: Parameter | Input | Min | Max | Step Size | Best
+#   row+3  : row parameter:                      Parameter | Input | Min | Max | Step Size | Best
+#   row+4  : Data Table corner at col+0; column-parameter SEQUENCE spills across col+1…col+N
+#   row+5…+4+N : row-parameter SEQUENCE at col+0; Data Table body at col+1…col+N
 #
 # Fixed-area tables:
 #   Min NLL table       — col+0, rows+1…+2; value uses TAKE(Grid_Argmin(...),,1)
 #   Rows/Columns table  — col+1, rows+1…+2; generated value documents physical grid size
 #   Parameter table     — cols+3…+8, rows+1…+3
 #   Blank spacer column — col+2, rows+1…+3
-#   Best column         — Grid_Search_Optimum(...) spills from shape row to scale row
+#   Best column         — Grid_Search_Optimum(...) spills from column parameter to row parameter
 #
 # The visible Input cells are the actual RowInput and ColumnInput cells supplied
 # to Excel's two-input Data Table object.  No hidden auxiliary row is required.
@@ -634,8 +689,8 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 # Stage 2: col_start = _C_GS_S2 = 51 (AY); body = AZ6:BS25
 #
 # Named ranges registered here:
-#   UV_WB_S1 = Stage 1 Data Table body only
-#   UV_WB_S2 = Stage 2 Data Table body only
+#   *_S1 = Stage 1 Data Table body only
+#   *_S2 = Stage 2 Data Table body only
 
 
 def _gs_a1(row_start: int, col_start: int, dr: int, dc: int) -> str:
@@ -649,13 +704,16 @@ def _write_grid_stage(
     col_start: int,
     title: str,
     body_name: str,
+    p1_label: str,
+    p2_label: str,
+    nll_formula,
     p1_min,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     p1_max,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     p2_min,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     p2_max,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     editable_bounds: bool = True,
 ) -> dict:
-    """Write one 20×20 NLL grid-search stage for Weibull(shape, scale).
+    """Write one 20×20 NLL grid-search stage for a two-parameter fit.
 
     Returns absolute A1 references used by the refined Stage 2 search and by
     the distribution-fitting summary: best_p1, best_p2, min_p1, max_p1,
@@ -707,8 +765,8 @@ def _write_grid_stage(
         c0 + _GS_C_BEST,
     )
 
-    val(sheet, p1_row, c0 + _GS_C_PARAM, "Shape (k)")
-    val(sheet, p2_row, c0 + _GS_C_PARAM, "Scale (λ)")
+    val(sheet, p1_row, c0 + _GS_C_PARAM, p1_label)
+    val(sheet, p2_row, c0 + _GS_C_PARAM, p2_label)
 
     # The visible Input cells are the Data Table's substitution cells.
     val(sheet, p1_row, c0 + _GS_C_INPUT, 1.0)
@@ -767,7 +825,7 @@ def _write_grid_stage(
         sheet,
         hdr_row,
         c0,
-        f"=NLL_Weibull(UV_Data,{dt_row_ref},{dt_col_ref},UV_Include)",
+        nll_formula(dt_row_ref, dt_col_ref),
     )
     sheet.range(rc(hdr_row, c0)).number_format = _FMT_SCI_1DP
 
@@ -903,31 +961,45 @@ def _write_grid_stage(
     }
 
 
-def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
-    """Write Stage 1 and Stage 2 Weibull grid-search MLE blocks side by side."""
-    rs = _ROW_GS_WB   # row_start = 1
-
-    # Stage 1 — user-editable bounds, initial wide search
+def _write_two_stage_grid_search(
+    sheet: xw.Sheet,
+    row_start: int,
+    dist_name: str,
+    body_prefix: str,
+    p1_label: str,
+    p2_label: str,
+    nll_formula,
+    p1_min,
+    p1_max,
+    p2_min,
+    p2_max,
+) -> None:
+    """Write Stage 1 and Stage 2 grid-search blocks for one distribution."""
     s1 = _write_grid_stage(
         sheet,
-        row_start   = rs,
+        row_start   = row_start,
         col_start   = _C_GS,
-        title       = "Weibull Grid-Search MLE  —  Stage 1  (shape × scale)",
-        body_name   = "UV_WB_S1",
-        p1_min      = 0.5,     # shape min (user can adjust)
-        p1_max      = 10.0,    # shape max
-        p2_min      = 0.1,     # scale min
-        p2_max      = "=IFERROR(2*AVERAGE(FILTER(UV_Data,UV_Include)),10)",  # data-driven scale max
+        title       = f"{dist_name} Grid-Search MLE  —  Stage 1  ({p1_label} × {p2_label})",
+        body_name   = f"{body_prefix}_S1",
+        p1_label    = p1_label,
+        p2_label    = p2_label,
+        nll_formula = nll_formula,
+        p1_min      = p1_min,
+        p1_max      = p1_max,
+        p2_min      = p2_min,
+        p2_max      = p2_max,
         editable_bounds = True,
     )
 
-    # Stage 2 — bounds auto-computed from visible Stage 1 Best and Step Size cells.
     _write_grid_stage(
         sheet,
-        row_start   = rs,
+        row_start   = row_start,
         col_start   = _C_GS_S2,
-        title       = "Weibull Grid-Search MLE  —  Stage 2  (refined)",
-        body_name   = "UV_WB_S2",
+        title       = f"{dist_name} Grid-Search MLE  —  Stage 2  (refined)",
+        body_name   = f"{body_prefix}_S2",
+        p1_label    = p1_label,
+        p2_label    = p2_label,
+        nll_formula = nll_formula,
         p1_min      = f"=MAX(0.001,{s1['best_p1']}-{s1['step_p1']})",
         p1_max      = f"={s1['best_p1']}+{s1['step_p1']}",
         p2_min      = f"=MAX(0.001,{s1['best_p2']}-{s1['step_p2']})",
@@ -935,8 +1007,58 @@ def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
         editable_bounds = False,
     )
 
-    # Section heading label over the gap column between stages
-    val(sheet, rs, _C_GS + _GS_W, "")
+    # Section heading label over the gap column between stages.
+    val(sheet, row_start, _C_GS + _GS_W, "")
+
+
+def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
+    """Write two-stage grid-search MLE blocks for all two-parameter fits."""
+    _write_two_stage_grid_search(
+        sheet,
+        row_start   = _ROW_GS_WB,
+        dist_name   = "Weibull",
+        body_prefix = "UV_WB",
+        p1_label    = "Shape (k)",
+        p2_label    = "Scale (λ)",
+        nll_formula = lambda p1, p2: f"=NLL_Weibull(UV_Data,{p1},{p2},UV_Include)",
+        p1_min      = 0.5,
+        p1_max      = 10.0,
+        p2_min      = 0.1,
+        p2_max      = "=IFERROR(2*AVERAGE(FILTER(UV_Data,UV_Include)),10)",
+    )
+
+    _write_two_stage_grid_search(
+        sheet,
+        row_start   = _ROW_GS_GAMMA,
+        dist_name   = "Gamma",
+        body_prefix = "UV_GAMMA",
+        p1_label    = "Shape (α)",
+        p2_label    = "Rate (β)",
+        nll_formula = lambda p1, p2: f"=NLL_Gamma(UV_Data,{p1},{p2},UV_Include)",
+        p1_min      = 0.5,
+        p1_max      = 100.0,
+        p2_min      = 0.001,
+        p2_max      = 2.0,
+    )
+
+    _write_two_stage_grid_search(
+        sheet,
+        row_start   = _ROW_GS_BETA,
+        dist_name   = "Beta",
+        body_prefix = "UV_BETA",
+        p1_label    = "Alpha (α)",
+        p2_label    = "Beta (β)",
+        nll_formula = _nll_beta_rescaled_formula,
+        p1_min      = 0.2,
+        p1_max      = 50.0,
+        p2_min      = 0.2,
+        p2_max      = 50.0,
+    )
+
+
+def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
+    """Compatibility wrapper for the two-parameter grid-search section."""
+    _write_two_parameter_grid_search(sheet)
 
 
 # ── Row height and freeze ─────────────────────────────────────────────────────

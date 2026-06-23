@@ -687,6 +687,7 @@ def _write_grid_stage(
         c0 + _GS_C_N_GRID,
     )
     val(sheet, p1_row, c0 + _GS_C_N_GRID, n)
+    sheet.range(rc(p1_row, c0 + _GS_C_N_GRID)).number_format = _FMT_INT
     n_grid_ref = _gs_a1(r0, c0, _GS_R_P1, _GS_C_N_GRID)
 
     # Right table: Parameter | Input | Min | Max | Step Size | Best.
@@ -988,16 +989,8 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _write_histograms(sheet)
     _write_fitting_table(sheet)
 
-<<<<<<< HEAD
-    # Two-stage Weibull grid-search MLE (skipped silently on headless builds)
-    try:
-        _write_weibull_grid_search(sheet)
-    except Exception:
-        pass
-    _autofit_column_widths(sheet)
-=======
     _write_weibull_grid_search(sheet)
->>>>>>> 224a94f3077ad101d7889bc718a6c108a0906d24
+    _autofit_column_widths(sheet)
 
     # Charts (skipped silently if chart API raises; e.g. headless builds)
     try:

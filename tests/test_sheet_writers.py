@@ -16,12 +16,9 @@ from lambda_catalog.write_sheet_univariate import (
     _dist_rows,
     _setup_local_names,
     _write_data_zone,
-<<<<<<< HEAD
     _write_descriptive_stats,
     _write_fitting_table,
-=======
     _write_grid_stage,
->>>>>>> 224a94f3077ad101d7889bc718a6c108a0906d24
     _write_histogram_table,
     _write_weibull_grid_search,
 )
@@ -148,7 +145,6 @@ def test_missing_count_formula_uses_unfiltered_active_range() -> None:
     assert formulas["Missing"] == "=Missing_Count(UV_Data)"
 
 
-<<<<<<< HEAD
 def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> None:
     sheet = RecordingSheet()
 
@@ -173,13 +169,15 @@ def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> No
     assert sheet.cell(5, 26).number_format == "0.0"
 
     _write_weibull_grid_search(sheet)
-    assert sheet.range((5, 32), (6, 35)).number_format == "0.0"
-    assert sheet.cell(7, 29).number_format == "0.0E+00"
-    assert sheet.range((7, 30), (7, 49)).number_format == "0.0"
-    assert sheet.range((8, 29), (27, 29)).number_format == "0.0"
-    assert sheet.range((8, 30), (27, 49)).number_format == "0.0E+00"
+    assert sheet.cell(3, 30).number_format == "0"
+    assert sheet.range((3, 33), (4, 37)).number_format == "0.0"
     assert sheet.cell(5, 29).number_format == "0.0E+00"
-=======
+    assert sheet.range((5, 30), (5, 49)).number_format == "0.0"
+    assert sheet.range((6, 29), (25, 29)).number_format == "0.0"
+    assert sheet.range((6, 30), (25, 49)).number_format == "0.0E+00"
+    assert sheet.cell(3, 29).number_format == "0.0E+00"
+
+
 def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:
     sheet = RecordingSheet()
 
@@ -294,4 +292,3 @@ def test_grid_stage_returns_visible_step_and_count_references() -> None:
     assert refs["step_p1"] == "$AJ$3"
     assert refs["step_p2"] == "$AJ$4"
     assert refs["n_grid"] == "$AD$3"
->>>>>>> 224a94f3077ad101d7889bc718a6c108a0906d24

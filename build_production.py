@@ -12,6 +12,7 @@ import xlwings as xw
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
+    XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
     XL_CALCULATION_SEMIAUTOMATIC,
     _delete_sheet_if_present,
@@ -37,6 +38,24 @@ DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 _QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")
+
+
+def _recalculate_and_save(workbook_path: Path) -> None:
+    """Fully calculate Data Tables after name sync, then save semiautomatic mode."""
+    try:
+        with xw.App(visible=False, add_book=False) as app:
+            app.api.DisplayAlerts = False
+            app.api.AskToUpdateLinks = False
+            workbook = app.books.open(str(workbook_path))
+            try:
+                app.api.Calculation = XL_CALCULATION_AUTOMATIC
+                app.api.CalculateFullRebuild()
+                app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
+                workbook.save(str(workbook_path))
+            finally:
+                workbook.close()
+    except OPEN_WORKBOOK_ERRORS as exc:
+        raise_excel_access_error(workbook_path, "recalculate and save", exc)
 
 
 def _backup_unopenable_workbook(workbook_path: Path) -> Path:
@@ -143,6 +162,11 @@ def build_production_workbook(
         raise_excel_access_error(workbook_path, "update", exc)
     if verbose:
         print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
+
+    _t = time.monotonic()
+    _recalculate_and_save(workbook_path)
+    if verbose:
+        print(f"  Recalculate:    {time.monotonic() - _t:.1f}s", flush=True)
 
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)

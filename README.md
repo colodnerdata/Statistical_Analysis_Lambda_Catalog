@@ -136,6 +136,33 @@ These functions support exploratory analysis before model fitting. `Pearson_R`, 
 | `This_row(array)` | 1-to-n relative row indices |
 | `Exclude_row_n(array, n)` | Array with row n removed |
 
+### Grid-search helpers and Univariate Weibull fitting
+
+`Grid_Argmin(grid)` returns a horizontal three-value array:
+
+```text
+minimum value | 1-based row location | 1-based column location
+```
+
+Tied minima resolve to the first occurrence in row-major order. `Grid_Search_Optimum(grid)` uses those locations to return a vertical two-value array:
+
+```text
+best column-parameter value
+best row-parameter value
+```
+
+For `Grid_Search_Optimum`, `grid` must be the complete rectangular Data Table body. Column-parameter values must sit immediately above it, and row-parameter values immediately to its left.
+
+The **Univariate** sheet applies these helpers to a two-stage Weibull search. Shape is the column parameter and Scale is the row parameter. Each stage evaluates 20 values per axis—a 20×20 grid and 400 likelihood evaluations. The visible **Rows/Columns** value documents this generated physical size; manually changing it does not resize the Data Table.
+
+Each axis includes both endpoints. Its spacing is:
+
+```text
+Step Size = (Max - Min) / (Rows/Columns - 1)
+```
+
+Stage 2 centers its narrower range on the Stage 1 optimum and extends one Stage 1 step in each direction. A red Best cell warns when the optimum lands on the corresponding grid boundary.
+
 ## Sample data and Regression sheet
 
 `Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The **Regression** sheet uses this dataset to demonstrate a full multiple regression analysis.

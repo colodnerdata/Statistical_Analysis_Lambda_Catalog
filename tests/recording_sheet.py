@@ -56,11 +56,29 @@ class RecordingCondition:
 class RecordingFormatConditions:
     def __init__(self) -> None:
         self.items: list[RecordingCondition] = []
+        self.color_scales: list[Any] = []
 
     def Add(self, *, Type: int, Formula1: str) -> RecordingCondition:
         condition = RecordingCondition(Type=Type, Formula1=Formula1)
         self.items.append(condition)
         return condition
+
+    def Delete(self) -> None:
+        self.items.clear()
+        self.color_scales.clear()
+
+    def AddColorScale(self, count: int) -> Any:
+        criteria = {
+            index: SimpleNamespace(
+                Type=None,
+                Value=None,
+                FormatColor=SimpleNamespace(Color=None),
+            )
+            for index in range(1, count + 1)
+        }
+        scale = SimpleNamespace(ColorScaleCriteria=lambda index: criteria[index])
+        self.color_scales.append(scale)
+        return scale
 
 
 @dataclass
@@ -69,15 +87,25 @@ class RecordingRangeState:
     formula2: str | None = None
     color: Any = None
     number_format: str | None = None
+    column_width: float | None = None
 
 
 class RecordingRangeApi:
-    def __init__(self, state: RecordingRangeState) -> None:
+    def __init__(self, state: RecordingRangeState, sheet: "RecordingSheet", address: tuple[Any, ...]) -> None:
         self._state = state
+        self._sheet = sheet
+        self.address = address
         self._borders: dict[int, Any] = {}
         self.Font = SimpleNamespace(Bold=None, Color=None, Strikethrough=None)
         self.Interior = SimpleNamespace(Color=None)
         self.FormatConditions = RecordingFormatConditions()
+
+    def Table(self, *, RowInput: Any, ColumnInput: Any) -> None:
+        self._sheet.tables.append({
+            "range": self.address,
+            "row_input": RowInput.address,
+            "column_input": ColumnInput.address,
+        })
 
     def Borders(self, edge: int) -> Any:
         return self._borders.setdefault(
@@ -95,9 +123,14 @@ class RecordingRangeApi:
 
 
 class RecordingRange:
-    def __init__(self) -> None:
+    def __init__(self, sheet: "RecordingSheet", address: tuple[Any, ...]) -> None:
+        self._sheet = sheet
+        self.address = address
         self.state = RecordingRangeState()
-        self.api = RecordingRangeApi(self.state)
+        self.api = RecordingRangeApi(self.state, sheet, address)
+
+    def merge(self) -> None:
+        self._sheet.merges.append(self.address)
 
     @property
     def value(self) -> Any:
@@ -123,11 +156,21 @@ class RecordingRange:
     def number_format(self, value: str) -> None:
         self.state.number_format = value
 
+    @property
+    def column_width(self) -> float | None:
+        return self.state.column_width
+
+    @column_width.setter
+    def column_width(self, value: float) -> None:
+        self.state.column_width = value
+
 
 class RecordingSheet:
     def __init__(self, name: str = "Univariate", global_names: list[str] | None = None) -> None:
         self.name = name
         self.ranges: dict[tuple[Any, ...], RecordingRange] = {}
+        self.merges: list[tuple[Any, ...]] = []
+        self.tables: list[dict[str, Any]] = []
         self.api = SimpleNamespace(Names=RecordingNames(f"{name}!"))
         self.book = SimpleNamespace(
             api=SimpleNamespace(Names=RecordingNames(names=global_names))
@@ -136,7 +179,7 @@ class RecordingSheet:
     def range(self, *addresses: Any) -> RecordingRange:
         key = tuple(addresses)
         if key not in self.ranges:
-            self.ranges[key] = RecordingRange()
+            self.ranges[key] = RecordingRange(self, key)
         return self.ranges[key]
 
     def cell(self, row: int, col: int) -> RecordingRange:

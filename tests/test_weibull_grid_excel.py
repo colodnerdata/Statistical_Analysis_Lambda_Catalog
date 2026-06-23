@@ -22,7 +22,10 @@ pytestmark = pytest.mark.skipif(
 
 def _start_excel_or_skip() -> xw.App:
     try:
-        return xw.App(visible=False, add_book=False)
+        app = xw.App(visible=False, add_book=False)
+        app.api.DisplayAlerts = False
+        app.api.AskToUpdateLinks = False
+        return app
     except Exception as exc:  # pragma: no cover - depends on host Excel installation
         pytest.skip(f"Excel COM is unavailable: {exc}")
 

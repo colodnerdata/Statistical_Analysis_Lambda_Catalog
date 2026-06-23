@@ -55,6 +55,7 @@ Sheet-scoped named ranges
 """
 from __future__ import annotations
 
+from pathlib import Path
 
 import xlwings as xw
 
@@ -145,6 +146,20 @@ _DATA_END  = _ROW_DATA_START + _DATA_ROWS - 1   # last data row = 2003
 _XL_COLUMN_CLUSTERED = 51   # xlColumnClustered
 _XL_CATEGORY         = 1    # horizontal axis type
 _XL_VALUE            = 2    # vertical axis type
+
+# Chart title cells and anchor rows (0-indexed row = value - 1 for openpyxl anchors)
+_ROW_CHART1_TITLE = 14   # Q14 — Sturges histogram chart title
+_ROW_CHART2_TITLE = 34   # Q34 — Scott histogram chart title
+_ROW_CHART3_TITLE = 54   # Q54 — FD histogram chart title
+
+# TwoCellAnchor coordinates (0-indexed): charts occupy Q–AB, each 20 rows tall
+_CHART_FROM_COL  = 16   # column Q (0-indexed)
+_CHART_TO_COL    = 27   # column AB (0-indexed)
+_CHART_ANCHORS   = [
+    (_CHART_FROM_COL, _ROW_CHART1_TITLE - 1, _CHART_TO_COL, _ROW_CHART1_TITLE + 18),
+    (_CHART_FROM_COL, _ROW_CHART2_TITLE - 1, _CHART_TO_COL, _ROW_CHART2_TITLE + 18),
+    (_CHART_FROM_COL, _ROW_CHART3_TITLE - 1, _CHART_TO_COL, _ROW_CHART3_TITLE + 18),
+]
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
@@ -645,12 +660,23 @@ def _add_histogram_chart(
     chart.has_legend = False
 
 
+def _write_histogram_chart_title_cells(sheet: xw.Sheet) -> None:
+    """Write chart title formula cells at Q14, Q34, Q54 for the three histograms."""
+    for row, count_col in [
+        (_ROW_CHART1_TITLE, _C_H),
+        (_ROW_CHART2_TITLE, _C_K),
+        (_ROW_CHART3_TITLE, _C_N),
+    ]:
+        f(sheet, row, _C_Q, f'={col_letter(count_col)}{_ROW_METHOD_HDR}&" Method Histogram"')
+
+
 def _write_histogram_charts(sheet: xw.Sheet) -> None:
-    """Add three histogram charts in the Q:AA chart band."""
+    """Attempt xlwings-based chart creation (fallback; replaced by inject_histogram_charts)."""
+    sname = sheet.name
     for title_cell, edges_name, counts_name, row_start, row_end in [
-        ("H", "UV_Sturges_Edges", "UV_Sturges_Counts", 14, 32),
-        ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   34, 42),
-        ("N", "UV_FD_Edges",      "UV_FD_Counts",      44, 52),
+        ("H", "UV_Sturges_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 18),
+        ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 18),
+        ("N", "UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 18),
     ]:
         chart_range = sheet.range(rc(row_start, _C_Q), rc(row_end, _C_AA))
         _add_histogram_chart(
@@ -663,6 +689,81 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
             edges_name=edges_name,
             counts_name=counts_name,
         )
+
+
+def inject_histogram_charts(workbook_path: Path) -> None:
+    """Inject three histogram charts into the Univariate sheet using named range references.
+
+    Uses openpyxl to write BarCharts whose data series reference the OFFSET-based
+    named ranges (UV_Sturges_Edges/Counts, UV_Scott_Edges/Counts, UV_FD_Edges/Counts).
+    Call this after the workbook has been saved and closed by xlwings, before
+    Excel recalculates.
+    """
+    import openpyxl
+    from openpyxl.chart import BarChart
+    from openpyxl.chart.bar_chart import Series as BarSeries
+    from openpyxl.chart.data_source import NumDataSource, NumRef, AxDataSource, StrRef
+    from openpyxl.chart.series import SeriesLabel
+    from openpyxl.chart.title import Title
+    from openpyxl.chart.text import Text
+    from openpyxl.drawing.spreadsheet_drawing import TwoCellAnchor, AnchorMarker, AnchorClientData
+
+    sname = UNIVARIATE_SHEET_NAME
+
+    chart_specs = [
+        (
+            _CHART_ANCHORS[0],
+            f"{sname}!${col_letter(_C_Q)}${_ROW_CHART1_TITLE}",
+            f"{sname}!${col_letter(_C_H)}${_ROW_METHOD_HDR}",
+            f"{sname}!UV_Sturges_Edges",
+            f"{sname}!UV_Sturges_Counts",
+        ),
+        (
+            _CHART_ANCHORS[1],
+            f"{sname}!${col_letter(_C_Q)}${_ROW_CHART2_TITLE}",
+            f"{sname}!${col_letter(_C_K)}${_ROW_METHOD_HDR}",
+            f"{sname}!UV_Scott_Edges",
+            f"{sname}!UV_Scott_Counts",
+        ),
+        (
+            _CHART_ANCHORS[2],
+            f"{sname}!${col_letter(_C_Q)}${_ROW_CHART3_TITLE}",
+            f"{sname}!${col_letter(_C_N)}${_ROW_METHOD_HDR}",
+            f"{sname}!UV_FD_Edges",
+            f"{sname}!UV_FD_Counts",
+        ),
+    ]
+
+    wb = openpyxl.load_workbook(str(workbook_path))
+    ws = wb[sname]
+    ws._charts.clear()
+
+    for (from_col, from_row, to_col, to_row), title_ref, label_ref, edges_ref, counts_ref in chart_specs:
+        chart = BarChart()
+        chart.barDir = "col"
+        chart.grouping = "clustered"
+        chart.gapWidth = 150
+
+        chart.title = Title(tx=Text(strRef=StrRef(f=title_ref)))
+
+        ser = BarSeries(idx=0, order=0)
+        ser.val = NumDataSource(numRef=NumRef(f=counts_ref))
+        ser.cat = AxDataSource(numRef=NumRef(f=edges_ref))
+        ser.title = SeriesLabel(strRef=StrRef(f=label_ref))
+        chart.ser.append(ser)
+
+        chart.x_axis.title = "Upper Edge"
+        chart.y_axis.title = "Count"
+        chart.legend = None
+
+        anchor = TwoCellAnchor()
+        anchor._from = AnchorMarker(col=from_col, colOff=0, row=from_row, rowOff=0)
+        anchor.to = AnchorMarker(col=to_col, colOff=0, row=to_row, rowOff=0)
+        anchor.clientData = AnchorClientData()
+        chart.anchor = anchor
+        ws._charts.append(chart)
+
+    wb.save(str(workbook_path))
 
 
 # ── Zone 5: two-parameter grid-search MLE ────────────────────────────────────
@@ -1114,7 +1215,13 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _write_weibull_grid_search(sheet)
     _autofit_column_widths(sheet)
 
-    # Charts (skipped silently if chart API raises; e.g. headless builds)
+    # Chart title cells are written unconditionally; the actual chart objects
+    # are injected as a post-processing step via inject_histogram_charts().
+    _write_histogram_chart_title_cells(sheet)
+
+    # Attempt xlwings-based chart creation (may fail silently on some platforms).
+    # inject_histogram_charts() in the build script adds the definitive charts
+    # via openpyxl after this workbook is saved and closed.
     try:
         _write_histogram_charts(sheet)
     except Exception:

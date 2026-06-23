@@ -147,6 +147,10 @@ _CHART_GAP_V         = 10.0
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
+_FMT_INT = "0"
+_FMT_1DP = "0.0"
+_FMT_SCI_1DP = "0.0E+00"
+
 
 def _subheader_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
     sheet.range(rc(row, c1), rc(row, c2)).color = _SUBHDR
@@ -202,6 +206,15 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
 
     # Gap col AX between Stage 1 and Stage 2.
     sheet.range(rc(1, _C_GS + _GS_W), rc(1, _C_GS + _GS_W)).column_width = 2
+
+
+def _autofit_column_widths(sheet: xw.Sheet) -> None:
+    """Autofit all populated layout columns, then restore intentional gaps."""
+    last_col = _C_GS_S2 + _GS_W - 1
+    sheet.range(rc(_ROW_TITLE, _C_A), rc(_DATA_END, last_col)).columns.autofit()
+
+    for col in (3, 6, 9, 12, 15, 16, 28, _C_GS + _GS_W):
+        sheet.range(rc(1, col), rc(1, col)).column_width = 2
 
 
 # ── Sheet-scoped named range management ──────────────────────────────────────
@@ -281,12 +294,14 @@ def _write_data_zone(sheet: xw.Sheet) -> None:
         _C_A,
         '=IF(LifeExpectancyData[Life expectancy]="","",LifeExpectancyData[Life expectancy])',
     )
+    sheet.range(rc(_ROW_DATA_START, _C_A), rc(_DATA_END, _C_A)).number_format = _FMT_1DP
 
     # Filter column — local Data_Completeness mask; UV_Include is defined as $B$4#
     section_heading(sheet, _ROW_SECTION_HDR, _C_B, "Filter")
     val(sheet, _ROW_COL_HDRS, _C_B, "Include")
     f(sheet, _ROW_DATA_START, _C_B,
        "=MAP(LifeExpectancyData[Life expectancy],Data_Completeness)")
+    sheet.range(rc(_ROW_DATA_START, _C_B), rc(_DATA_END, _C_B)).number_format = _FMT_INT
 
 
 # ── Zone 2: descriptive statistics ───────────────────────────────────────────
@@ -321,7 +336,7 @@ def _write_descriptive_stats(sheet: xw.Sheet) -> None:
         val(sheet, row, _C_D, label)
         f(sheet, row, _C_E, formula)
         sheet.range(rc(row, _C_E)).number_format = (
-            "0" if label in ("Count", "Missing") else "0.0000"
+            _FMT_INT if label in ("Count", "Missing") else _FMT_1DP
         )
 
     last_row = _ROW_STATS_START + len(_STAT_ROWS) - 1
@@ -351,7 +366,7 @@ def _write_histogram_table(
     val(sheet, _ROW_SECTION_HDR, col_edge, "Bins:")
     method_cell = a1(_ROW_METHOD_HDR, col_count)
     f(sheet, _ROW_SECTION_HDR, col_count, f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
-    sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = "0"
+    sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = _FMT_INT
 
     # Spill formulas — method must be explicit (can't skip it to reach the 3rd filter arg)
     f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,{method_cell},UV_Include)")
@@ -359,8 +374,8 @@ def _write_histogram_table(
     f(sheet, _ROW_HIST_START, col_count,
        f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
 
-    sheet.range(rc(_ROW_HIST_START, col_edge)).number_format = "0.00"
-    sheet.range(rc(_ROW_HIST_START, col_count)).number_format = "0"
+    sheet.range(rc(_ROW_HIST_START, col_edge), rc(_DATA_END, col_edge)).number_format = _FMT_1DP
+    sheet.range(rc(_ROW_HIST_START, col_count), rc(_DATA_END, col_count)).number_format = _FMT_INT
 
 
 def _write_histograms(sheet: xw.Sheet) -> None:
@@ -391,13 +406,13 @@ _FIT_COL_HDRS = [
 ]
 
 _FIT_NUMBER_FORMATS: dict[int, str] = {
-    _C_S: "0.0000",
-    _C_U: "0.0000",
-    _C_W: "0.0000",
-    _C_X: "0.00",
-    _C_Y: "0",
-    _C_Z: "0.00",
-    _C_AA: "0.00",
+    _C_S: _FMT_1DP,
+    _C_U: _FMT_1DP,
+    _C_W: _FMT_1DP,
+    _C_X: _FMT_SCI_1DP,
+    _C_Y: _FMT_INT,
+    _C_Z: _FMT_1DP,
+    _C_AA: _FMT_1DP,
 }
 
 
@@ -672,6 +687,7 @@ def _write_grid_stage(
         c0 + _GS_C_N_GRID,
     )
     val(sheet, p1_row, c0 + _GS_C_N_GRID, n)
+    sheet.range(rc(p1_row, c0 + _GS_C_N_GRID)).number_format = _FMT_INT
     n_grid_ref = _gs_a1(r0, c0, _GS_R_P1, _GS_C_N_GRID)
 
     # Right table: Parameter | Input | Min | Max | Step Size | Best.
@@ -733,7 +749,7 @@ def _write_grid_stage(
         rc(p1_row, c0 + _GS_C_INPUT),
         rc(p2_row, c0 + _GS_C_BEST),
     )
-    fixed_values.number_format = "0.0000"
+    fixed_values.number_format = _FMT_1DP
 
     # ── Data Table axes and body ─────────────────────────────────────────────
     hdr_row = r0 + _GS_R_HDR
@@ -753,7 +769,7 @@ def _write_grid_stage(
         c0,
         f"=NLL_Weibull(UV_Data,{dt_row_ref},{dt_col_ref},UV_Include)",
     )
-    sheet.range(rc(hdr_row, c0)).number_format = "0.00"
+    sheet.range(rc(hdr_row, c0)).number_format = _FMT_SCI_1DP
 
     # Column parameter (shape) values immediately above the body.
     f(
@@ -762,7 +778,7 @@ def _write_grid_stage(
         c0 + 1,
         f"=SEQUENCE(1,{n_grid_ref},{min_p1_ref},{step_p1_ref})",
     )
-    sheet.range(rc(hdr_row, c0 + 1)).number_format = "0.0000"
+    sheet.range(rc(hdr_row, body_col_start), rc(hdr_row, body_col_end)).number_format = _FMT_1DP
 
     # Row parameter (scale) values immediately to the left of the body.
     f(
@@ -771,7 +787,7 @@ def _write_grid_stage(
         c0,
         f"=SEQUENCE({n_grid_ref},1,{min_p2_ref},{step_p2_ref})",
     )
-    sheet.range(rc(body_row_start, c0)).number_format = "0.0000"
+    sheet.range(rc(body_row_start, c0), rc(body_row_end, c0)).number_format = _FMT_1DP
 
     body_range = sheet.range(
         rc(body_row_start, body_col_start),
@@ -798,7 +814,7 @@ def _write_grid_stage(
     except Exception as e:
         raise RuntimeError(f"Failed to wire two-input Data Table for stage {title!r}") from e
 
-    body_range.number_format = "0.00"
+    body_range.number_format = _FMT_SCI_1DP
 
     # ── LAMBDA-driven outputs ────────────────────────────────────────────────
     # Min NLL is the first column returned by Grid_Argmin.
@@ -808,7 +824,7 @@ def _write_grid_stage(
         c0 + _GS_C_MINNLL,
         f'=IFERROR(TAKE(Grid_Argmin({body_name}),,1),"—")',
     )
-    sheet.range(rc(p1_row, c0 + _GS_C_MINNLL)).number_format = "0.00"
+    sheet.range(rc(p1_row, c0 + _GS_C_MINNLL)).number_format = _FMT_SCI_1DP
 
     # Best column-parameter and row-parameter values spill vertically.
     f(
@@ -974,6 +990,7 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _write_fitting_table(sheet)
 
     _write_weibull_grid_search(sheet)
+    _autofit_column_widths(sheet)
 
     # Charts (skipped silently if chart API raises; e.g. headless builds)
     try:

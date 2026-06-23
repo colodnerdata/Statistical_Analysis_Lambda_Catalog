@@ -16,6 +16,8 @@ from lambda_catalog.write_sheet_univariate import (
     _dist_rows,
     _setup_local_names,
     _write_data_zone,
+    _write_descriptive_stats,
+    _write_fitting_table,
     _write_grid_stage,
     _write_histogram_table,
     _write_weibull_grid_search,
@@ -141,6 +143,39 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
 def test_missing_count_formula_uses_unfiltered_active_range() -> None:
     formulas = dict(_STAT_ROWS)
     assert formulas["Missing"] == "=Missing_Count(UV_Data)"
+
+
+def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> None:
+    sheet = RecordingSheet()
+
+    _write_data_zone(sheet)
+    assert sheet.range((4, 1), (2003, 1)).number_format == "0.0"
+    assert sheet.range((4, 2), (2003, 2)).number_format == "0"
+
+    _write_descriptive_stats(sheet)
+    assert sheet.cell(4, 5).number_format == "0.0"
+    assert sheet.cell(14, 5).number_format == "0"
+    assert sheet.cell(15, 5).number_format == "0"
+
+    _write_histogram_table(sheet, 7, 8, "Sturges")
+    assert sheet.cell(3, 8).number_format == "0"
+    assert sheet.range((5, 7), (2003, 7)).number_format == "0.0"
+    assert sheet.range((5, 8), (2003, 8)).number_format == "0"
+
+    _write_fitting_table(sheet)
+    assert sheet.cell(5, 19).number_format == "0.0"
+    assert sheet.cell(5, 24).number_format == "0.0E+00"
+    assert sheet.cell(5, 25).number_format == "0"
+    assert sheet.cell(5, 26).number_format == "0.0"
+
+    _write_weibull_grid_search(sheet)
+    assert sheet.cell(3, 30).number_format == "0"
+    assert sheet.range((3, 33), (4, 37)).number_format == "0.0"
+    assert sheet.cell(5, 29).number_format == "0.0E+00"
+    assert sheet.range((5, 30), (5, 49)).number_format == "0.0"
+    assert sheet.range((6, 29), (25, 29)).number_format == "0.0"
+    assert sheet.range((6, 30), (25, 49)).number_format == "0.0E+00"
+    assert sheet.cell(3, 29).number_format == "0.0E+00"
 
 
 def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:

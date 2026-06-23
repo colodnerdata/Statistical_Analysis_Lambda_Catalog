@@ -303,6 +303,11 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 def _write_data_zone(sheet: xw.Sheet) -> None:
     section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
+    # Override section-heading color: A3 and the full A4:B1048576 range use INPUT_COLOR
+    # to signal that this is where users paste their own dataset.
+    sheet.range(rc(_ROW_SECTION_HDR, _C_A)).color = _INPUT
+    sheet.range(rc(_ROW_DATA_START, _C_A), rc(1048576, _C_B)).color = _INPUT
+
     val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
     f(
         sheet,
@@ -752,15 +757,14 @@ def inject_histogram_charts(workbook_path: Path) -> None:
         chart = BarChart()
         chart.barDir = "col"
         chart.grouping = "clustered"
-        chart.gapWidth = 150
-        chart.title = Title(tx=Text(strRef=StrRef(f=title_ref)))
+        chart.gapWidth = 0
+        chart.varyColors = False
+        chart.title = Title(tx=Text(strRef=StrRef(f=title_ref)), overlay=False)
         ser = BarSeries(idx=0, order=0)
         ser.val = NumDataSource(numRef=NumRef(f=counts_ref))
         ser.cat = AxDataSource(numRef=NumRef(f=edges_ref))
         ser.title = SeriesLabel(strRef=StrRef(f=label_ref))
         chart.ser.append(ser)
-        chart.x_axis.title = "Upper Edge"
-        chart.y_axis.title = "Count"
         chart.legend = None
         tmp_wb = openpyxl.Workbook()
         tmp_wb.active.add_chart(chart, "A1")
@@ -1447,17 +1451,9 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _write_weibull_grid_search(sheet)
     _autofit_column_widths(sheet)
 
-    # Chart title cells are written unconditionally; the actual chart objects
-    # are injected as a post-processing step via inject_histogram_charts().
+    # Chart title cells (Q14, Q34, Q54) are written here so the title formula
+    # references are in place when inject_histogram_charts() adds the charts.
     _write_histogram_chart_title_cells(sheet)
-
-    # Attempt xlwings-based chart creation (may fail silently on some platforms).
-    # inject_histogram_charts() in the build script adds the definitive charts
-    # via openpyxl after this workbook is saved and closed.
-    try:
-        _write_histogram_charts(sheet)
-    except Exception:
-        pass
 
     _finalize_sheet(sheet)
 

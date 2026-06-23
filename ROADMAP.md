@@ -309,16 +309,20 @@ legitimately claim MLE without Solver. The reframing: the wall was never "MLE wi
 Solver"; it was "MLE in closed form." Grid search clears the no-Solver bar for the entire
 two-parameter likelihood class.
 
-**Grid-search mechanics (Weibull, Gamma, Beta):**
+**Grid-search mechanics (implemented for Weibull; reusable for Gamma and Beta):**
 
-- Row header = parameter 1 candidates; column header = parameter 2 candidates (min, max,
-  bin count). One parameter → one-input Data Table; two → two-input Data Table.
-- Corner cell evaluates NLL; the Data Table fills the grid across all parameter
-  combinations with full live recalc.
-- `MIN` of the grid gives the best NLL; a flatten-and-locate step (e.g. `TOCOL`, then map
-  the matched position back to row/column via integer division and modulo against grid
-  width) recovers the fitted parameters. Prototype this 2D argmin lookup in isolation — it
-  is the one genuinely tricky cell.
+- Shape is the column parameter and Scale is the row parameter. Their visible Input cells
+  are the `RowInput` and `ColumnInput` substitution cells for Excel's two-input Data Table.
+- The corner cell evaluates NLL; column candidates sit immediately above the body and row
+  candidates immediately to its left. The sheet-scoped grid name covers the body only.
+- `Grid_Argmin(grid)` returns `minimum | 1-based row | 1-based column` horizontally and
+  resolves ties to the first row-major occurrence.
+- `Grid_Search_Optimum(grid)` returns the best column parameter followed by the best row
+  parameter vertically. It requires the physical axes to remain adjacent to the body.
+- **Rows/Columns** records the generated number of values per axis. A value of 20 creates a
+  20×20 grid (400 evaluations); editing the worksheet value does not resize the Data Table.
+- Both endpoints are included, so `Step Size = (Max-Min)/(Rows/Columns-1)`. Axis `SEQUENCE`
+  formulas consume the visible Step Size cells rather than repeating that calculation.
 
 **Multi-stage refinement (2, optionally 3 stages):** each stage is structurally identical
 — same dimensions, same NLL corner, same argmin lookup — differing only in the min/max

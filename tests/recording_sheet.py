@@ -87,6 +87,7 @@ class RecordingRangeState:
     formula2: str | None = None
     color: Any = None
     number_format: str | None = None
+    column_width: float | None = None
 
 
 class RecordingRangeApi:
@@ -154,6 +155,14 @@ class RecordingRange:
     @number_format.setter
     def number_format(self, value: str) -> None:
         self.state.number_format = value
+
+    @property
+    def column_width(self) -> float | None:
+        return self.state.column_width
+
+    @column_width.setter
+    def column_width(self, value: float) -> None:
+        self.state.column_width = value
 
 
 class RecordingSheet:

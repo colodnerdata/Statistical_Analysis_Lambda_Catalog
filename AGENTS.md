@@ -36,15 +36,18 @@ Zones 1–4 (cols A–Z) use the standard row layout:
 | 4 | Column sub-headers ("Upper Edge", "Count", "Distribution", …) | `_subheader_row` |
 | 5+ | Data / spill formulas | — |
 
-Zone 5 (cols AB–BR) holds the two-stage Weibull grid-search and uses a compact 3-row header starting at **row 1**. Each stage (`_write_grid_stage`) spans 21 columns (1 label col + 20 data cols):
+Zone 5 (cols AC–BS, with gap columns AB and AX) holds the two-stage Weibull grid-search. Each stage (`_write_grid_stage`) spans 21 columns (1 row-axis col + 20 Data Table body cols):
 
 | dr | Row | Contents |
 |---|---|---|
-| 0 | row 1 | zone title merged (c0:c0+2); `_HEADER` fill; "Min NLL:" at c0+3, value at c0+4 |
-| 1 | row 2 | "shape (k) range:" (c0); min/max (c0+1:c0+2); "Best shape:" (c0+3), value (c0+4); "Best scale:" (c0+5), value (c0+6) |
-| 2 | row 3 | "scale (λ) range:" (c0); min/max (c0+1:c0+2); row_offset (c0+3), col_offset (c0+4), dt_row_input (c0+5), dt_col_input (c0+6) |
-| 3 | row 4 | corner NLL cell (c0); param1 SEQUENCE → spills right across 20 cols |
-| 4–23 | rows 5–24 | param2 SEQUENCE (c0); Data Table body (c0+1:c0+20) |
+| 0 | row 1 | stage title merged across c0:c0+20 with `_HEADER` fill |
+| 1 | row 2 | `Min NLL` (c0), `Rows/Columns` (c0+1), blank spacer (c0+2), parameter headers (c0+3:c0+8) |
+| 2 | row 3 | Min NLL and grid-count values; Shape row: `Parameter | Input | Min | Max | Step Size | Best` |
+| 3 | row 4 | Scale row in the same six-column parameter table |
+| 4 | row 5 | corner NLL cell (c0); Shape SEQUENCE spills right across 20 columns |
+| 5–24 | rows 6–25 | Scale SEQUENCE (c0); Data Table body (c0+1:c0+20) |
+
+Stage 1 is `AC1:AW25` with named body `UV_WB_S1 = AD6:AW25`. Stage 2 is `AY1:BS25` with named body `UV_WB_S2 = AZ6:BS25`. The visible Shape and Scale Input cells are the Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` and documents the physical table size; editing it does not resize the Data Table.
 
 Row and column offsets are defined as `_GS_R_*` and `_GS_C_*` constants at the top of `write_sheet_univariate.py`. Never hard-code row or column positions inside `_write_grid_stage`.
 

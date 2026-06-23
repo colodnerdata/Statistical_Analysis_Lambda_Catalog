@@ -61,6 +61,8 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 **Design decisions to resolve before building**
 - TODO: Confirm fitting approach for closed-form-friendly distributions: method of moments (fully live, formula-transparent) vs. MLE (statistically principled). Document in module docstring.
 - TODO: Design three-zone sheet layout: (1) descriptive statistics + histogram, (2) distribution fitting grid-search tables, (3) fit comparison table + per-distribution Q-Q plots. Document before implementing.
+- TODO: Add support for more distribution families: Bernoulli, Binomial, Geometric, Negative Binomial, Hypergeometric, Poisson, Uniform, Chi-Square, Student-t.
+
 
 **Grid-search MLE (two-input Data Table)**
 - TODO: Two-input Data Table grid for Weibull, Gamma, and Beta: row headers = parameter 1 candidates, column headers = parameter 2 candidates, corner cell = NLL. Grid fills all combinations via native Excel recalculation.

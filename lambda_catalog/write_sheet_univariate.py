@@ -1127,7 +1127,10 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _autofit_column_widths(sheet)
 
     _write_histogram_chart_title_cells(sheet)
-    _write_histogram_charts(sheet)
+    try:
+        _write_histogram_charts(sheet)
+    except Exception:
+        pass
 
     _finalize_sheet(sheet)
 

@@ -1,4 +1,4 @@
-"""Shared helpers for inspector comparison and numeric coercion."""
+"""Shared helpers for QC inspector comparison: numeric coercion and deviation detection."""
 from __future__ import annotations
 
 from typing import Any

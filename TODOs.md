@@ -7,11 +7,11 @@ Chart `SERIES` formulas require explicit range references; the `#` spill operato
 Instead, define dynamically sized named ranges using the row count in `$M$8`. For example:
 
 ```excel
-QQPlotX = OFFSET($AE$2,1,0,$M$8,1)
-QQPlotY = OFFSET($AF$2,1,0,$M$8,1)
+RegChartQQX = OFFSET($AE$2,1,0,$M$8,1)
+RegChartQQY = OFFSET($AF$2,1,0,$M$8,1)
 ```
 
-These formulas define ranges beginning at `AE3` and `AF3`, respectively, and extending for exactly the number of rows specified in `M8`. All chart series names and column mappings are documented in CONTRIBUTING.md.
+These formulas define ranges beginning at `AE3` and `AF3`, respectively, and extending for exactly the number of rows specified in `M8`. All chart series names use the `RegChart` prefix and are documented in CONTRIBUTING.md.
 
 ---
 

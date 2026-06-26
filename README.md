@@ -8,7 +8,7 @@ Excel 365 LAMBDA functions that replicate and extend Analysis ToolPak regression
 2. Open it in Excel 365 (Windows or Mac).
 3. Enter your data in columns on any sheet, then call any function by name.
 
-All functions are defined as workbook-scoped names, so they work in any cell formula within the workbook. The **Regression** sheet provides a ready-to-use analysis interface: select your predictor and outcome columns, and it computes the full regression output automatically. The **LAMBDA_functions** sheet is a browsable catalog of every function with its full description and argument documentation.
+All functions are defined as workbook-scoped names, so they work in any cell formula within the workbook. The **Regression** sheet provides a ready-to-use analysis interface: select your predictor and outcome columns, and it computes the full regression output automatically. The **Univariate Analysis** sheet demonstrates descriptive statistics, histogram binning, and distribution fitting via grid-search MLE. The **LAMBDA_functions** sheet is a browsable catalog of every function with its full description and argument documentation.
 
 To use these functions in a different workbook, open both files in Excel at the same time. You can reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
 
@@ -165,13 +165,23 @@ Stage 2 centers its narrower range on the Stage 1 optimum and extends one Stage 
 
 ## Sample data and Regression sheet
 
-`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The **Regression** sheet uses this dataset to demonstrate a full multiple regression analysis.
+`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The workbook ships with seven sheets:
 
-The sheet is organized in four zones:
+- **LAMBDA_functions** — browsable catalog of all function definitions with signatures, descriptions, and plain-language summaries, filterable by category and subcategory.
+- **Life Expectancy Data** — the WHO dataset as a structured table.
+- **Univariate Analysis** — descriptive statistics, three side-by-side histogram binning methods (Sturges, Scott, Freedman-Diaconis), and two-stage Weibull grid-search distribution fitting via native Data Tables.
+- **Regression Instructions** — step-by-step guide for adapting the Regression sheet to a new dataset, including Name Manager updates and table setup.
+- **Diagnostic Guide** — interpretation guide for regression diagnostics with Tier 1/Tier 2 plot specifications, threshold reference table, and "Common Patterns & Next Steps" guidance.
+- **Version History** — changelog that travels with the workbook for non-git users.
+- **Regression** — full ToolPak-style multiple regression analysis interface (see below).
+
+### Regression sheet
+
+The **Regression** sheet uses the Life Expectancy dataset to demonstrate a full multiple regression analysis. It is organized in four zones:
 
 - **Cols A–J — Main analysis.** Prediction inputs, regression statistics, ANOVA (including `F_Stat` and `P_Value_F`), prediction interval for a new observation, and coefficient table.
 - **Predictor summary (below the coefficient table).** A per-predictor panel showing `Pearson_R`, `Spearman_R`, `Skewness`, `Kurtosis`, `VIF`, and `Tolerance` for every predictor — all filtered and recomputed whenever `Full_Data` changes.
 - **Cols L–X — Residual output.** One row per filtered observation: predicted values, residuals, LOOCV predictions, leverage, studentized residuals, Cook's distance, and ranked/scored variants.
-- **Diagnostic charts (col AC+).** Six XY scatter charts — Actual vs Predicted, Residuals vs Fitted, Normal Q-Q, Predicted vs LOOCV, Cook's Distance, and Residuals vs Top Predictor — that update automatically.
+- **Diagnostic charts (col AC+).** Six XY scatter charts — Residuals vs Fitted, Normal Q-Q, Actual vs Predicted, Scale-Location, Cook's Distance, and PRESS Residuals — that update automatically via OFFSET-based named ranges.
 
 `Correlation_Matrix(X_s, [Include])` returns a k×k pairwise correlation matrix and can be entered in any blank cell on the sheet.

@@ -1,4 +1,4 @@
-"""Lightweight shared regression metadata and result dataclasses."""
+"""Shared regression dataclasses used by analysis engines, cache, and sheet writers."""
 from __future__ import annotations
 
 from dataclasses import dataclass

@@ -1,4 +1,4 @@
-"""Shared xlwings helpers and error types for workbook sheet writers."""
+"""Shared xlwings helpers: error handling, cell formatting, sheet operations, and name management."""
 from __future__ import annotations
 
 from pathlib import Path

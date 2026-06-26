@@ -1,4 +1,4 @@
-"""Fit OLS regression on the Life Expectancy dataset and generate predictions."""
+"""Fit OLS regression on the Life Expectancy dataset and compute QC reference values."""
 from __future__ import annotations
 
 import argparse

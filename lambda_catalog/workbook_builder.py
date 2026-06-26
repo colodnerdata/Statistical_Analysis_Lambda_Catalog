@@ -1,4 +1,4 @@
-"""Name-syncing utilities and workbook helpers."""
+"""LAMBDA name-syncing via workbook.xml patching and workbook lifecycle helpers."""
 from __future__ import annotations
 
 import os

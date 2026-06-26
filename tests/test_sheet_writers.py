@@ -192,9 +192,9 @@ def test_histogram_chart_title_cells_reference_method_headers():
     f1 = sheet.ranges[((_ROW_CHART1_TITLE, _C_Q),)].state.formula2
     f2 = sheet.ranges[((_ROW_CHART2_TITLE, _C_Q),)].state.formula2
     f3 = sheet.ranges[((_ROW_CHART3_TITLE, _C_Q),)].state.formula2
-    assert f1 is not None and "H" in f1
-    assert f2 is not None and "K" in f2
-    assert f3 is not None and "N" in f3
+    assert f1 == '=H2&" Method Histogram"'
+    assert f2 == '=K2&" Method Histogram"'
+    assert f3 == '=N2&" Method Histogram"'
 
 
 def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:

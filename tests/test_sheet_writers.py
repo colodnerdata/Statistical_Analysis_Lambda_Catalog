@@ -178,6 +178,24 @@ def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> No
     assert sheet.cell(3, 29).number_format == "0.0E+00"
 
 
+def test_histogram_chart_title_cells_reference_method_headers():
+    """Chart title formula cells at Q14/Q34/Q54 reference the correct method header columns."""
+    from lambda_catalog.write_sheet_univariate import (
+        _write_histogram_chart_title_cells,
+        _ROW_CHART1_TITLE, _ROW_CHART2_TITLE, _ROW_CHART3_TITLE,
+        _C_Q,
+    )
+    sheet = RecordingSheet()
+    _write_histogram_chart_title_cells(sheet)
+    # f() writes via sheet.range(rc(row, col)) → key = ((row, col),)
+    f1 = sheet.ranges[((_ROW_CHART1_TITLE, _C_Q),)].state.formula2
+    f2 = sheet.ranges[((_ROW_CHART2_TITLE, _C_Q),)].state.formula2
+    f3 = sheet.ranges[((_ROW_CHART3_TITLE, _C_Q),)].state.formula2
+    assert f1 == '=H2&" Method Histogram"'
+    assert f2 == '=K2&" Method Histogram"'
+    assert f3 == '=N2&" Method Histogram"'
+
+
 def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:
     sheet = RecordingSheet()
 

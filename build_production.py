@@ -74,6 +74,7 @@ def build_production_workbook(
     csv_path: Path = DEFAULT_CSV_PATH,
     validate_reopen: bool = False,
     verbose: bool = False,
+    recalculate: bool = True,
 ) -> NameSyncResult:
     """Build the production sheets and sync the LAMBDA name manager.
 
@@ -89,6 +90,10 @@ def build_production_workbook(
         If True, reopens the workbook in Excel after patching to verify it.
     verbose : bool, optional
         If True, prints timing information for each build phase to stdout.
+    recalculate : bool, optional
+        If True (default), recalculates and saves as the final build step.
+        Pass False when the caller manages the recalculate step separately
+        (e.g. to allow a targeted retry without re-running the full build).
 
     Returns
     -------
@@ -163,13 +168,14 @@ def build_production_workbook(
     if verbose:
         print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
 
-    _t = time.monotonic()
-    _recalculate_and_save(workbook_path)
-    if verbose:
-        print(f"  Recalculate:    {time.monotonic() - _t:.1f}s", flush=True)
+    if recalculate:
+        _t = time.monotonic()
+        _recalculate_and_save(workbook_path)
+        if verbose:
+            print(f"  Recalculate:    {time.monotonic() - _t:.1f}s", flush=True)
 
-    if validate_reopen:
-        _validate_workbook_reopen(workbook_path)
+        if validate_reopen:
+            _validate_workbook_reopen(workbook_path)
 
     return result
 
@@ -217,32 +223,61 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _retry_on_open(action_label: str, fn) -> None:
+    """Call fn(); if it raises 'likely open in Excel', prompt and retry just fn()."""
+    while True:
+        try:
+            fn()
+            return
+        except RuntimeError as exc:
+            if "likely open in Excel" not in str(exc):
+                raise
+            if not sys.stdin.isatty():
+                raise
+            input(
+                f"\n{action_label} — close it in Excel "
+                "and press Enter to retry (or Ctrl+C to cancel): "
+            )
+
+
 def main() -> None:
     """Build the production workbook and print a short sync summary for interactive use."""
     args = parse_args()
-    while True:
-        try:
-            result = build_production_workbook(
-                workbook_path=args.workbook,
-                definitions_path=args.definitions,
-                csv_path=args.csv,
-                validate_reopen=args.validate_reopen,
-                verbose=args.verbose,
-            )
-            break
-        except RuntimeError as exc:
-            if "likely open in Excel" in str(exc):
-                if not sys.stdin.isatty():
-                    raise
-                prompt = (
-                    f"\n{args.workbook.name} is open in Excel — close it "
-                    "and press Enter to retry (or Ctrl+C to cancel): "
-                )
-                input(prompt)
-            else:
-                raise
+    workbook_path = args.workbook.resolve()
 
-    print(f"Workbook: {args.workbook.resolve()}")
+    # Phase 1: write all sheets + sync names + inject charts.
+    # If the workbook is open in Excel at this point the entire write must be retried.
+    result: NameSyncResult | None = None
+
+    def _run_build() -> None:
+        nonlocal result
+        result = build_production_workbook(
+            workbook_path=workbook_path,
+            definitions_path=args.definitions,
+            csv_path=args.csv,
+            validate_reopen=False,  # handled below after recalculate
+            verbose=args.verbose,
+            recalculate=False,      # handled separately so only this step retries
+        )
+
+    _retry_on_open(f"{args.workbook.name} is open in Excel", _run_build)
+    assert result is not None
+
+    # Phase 2: recalculate Data Tables and save.
+    # This is a quick step; if the workbook is open in Excel now (e.g. the user
+    # opened it to inspect progress), only this step is retried — not the full build.
+    _t = time.monotonic()
+    _retry_on_open(
+        f"{args.workbook.name} is open in Excel",
+        lambda: _recalculate_and_save(workbook_path),
+    )
+    if args.verbose:
+        print(f"  Recalculate:    {time.monotonic() - _t:.1f}s", flush=True)
+
+    if args.validate_reopen:
+        _validate_workbook_reopen(workbook_path)
+
+    print(f"Workbook: {workbook_path}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
     print("Sheet updated: Univariate Analysis")
@@ -255,7 +290,7 @@ def main() -> None:
     if args.validate_reopen:
         print("Reopen validation: passed")
 
-    subprocess.Popen(["cmd", "/c", "start", "", str(args.workbook.resolve())])
+    subprocess.Popen(["cmd", "/c", "start", "", str(workbook_path)])
 
 
 if __name__ == "__main__":

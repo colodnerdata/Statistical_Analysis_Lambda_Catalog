@@ -55,7 +55,6 @@ Sheet-scoped named ranges
 """
 from __future__ import annotations
 
-
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
@@ -145,6 +144,11 @@ _DATA_END  = _ROW_DATA_START + _DATA_ROWS - 1   # last data row = 2003
 _XL_COLUMN_CLUSTERED = 51   # xlColumnClustered
 _XL_CATEGORY         = 1    # horizontal axis type
 _XL_VALUE            = 2    # vertical axis type
+
+# Chart title cells — row where chart title formula and chart block begin
+_ROW_CHART1_TITLE = 14   # Q14 — Sturges histogram chart title
+_ROW_CHART2_TITLE = 34   # Q34 — Scott histogram chart title
+_ROW_CHART3_TITLE = 54   # Q54 — FD histogram chart title
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
@@ -288,6 +292,11 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 def _write_data_zone(sheet: xw.Sheet) -> None:
     section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
+    # Override section-heading color: A3 and the A4:B(_DATA_END) input block use INPUT_COLOR
+    # to signal that this is where users paste their own dataset.
+    sheet.range(rc(_ROW_SECTION_HDR, _C_A)).color = _INPUT
+    sheet.range(rc(_ROW_DATA_START, _C_A), rc(_DATA_END, _C_B)).color = _INPUT
+
     val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
     f(
         sheet,
@@ -606,51 +615,52 @@ def _add_histogram_chart(
 ) -> None:
     """Insert one gapless column chart from the pre-binned histogram table."""
     sname = sheet.name
-    chart_obj = sheet.charts.add(
-        left=chart_left,
-        top=chart_top,
-        width=chart_width,
-        height=chart_height,
-    )
-    chart = chart_obj.chart
-    chart.api.ChartType = _XL_COLUMN_CLUSTERED
-    chart.has_title = True
-    title_ref = f"'{sname}'!${title_cell}$2"
-    try:
-        chart.api.ChartTitle.Formula = f"={title_ref}"
-    except Exception:
-        chart.chart_title.text = f"={title_ref}"
+    co = sheet.api.ChartObjects().Add(chart_left, chart_top, chart_width, chart_height)
+    chart = co.Chart
 
-    while chart.series_collection.count > 0:
-        chart.series_collection(1).delete()
+    while chart.SeriesCollection().Count > 0:
+        chart.SeriesCollection(1).Delete()
 
-    series = chart.series_collection.new_series()
-    series.formula   = (
-        f"=SERIES({title_ref},"
-        f"'{sname}'!{edges_name},"
-        f"'{sname}'!{counts_name},"
-        f"1)"
-    )
+    chart.ChartType = _XL_COLUMN_CLUSTERED
+    chart.ChartGroups(1).GapWidth = 0
 
-    try:
-        series.api.GapWidth = 0
-    except Exception:
-        pass
+    series = chart.SeriesCollection().NewSeries()
+    series.XValues = f"='{sname}'!{edges_name}"
+    series.Values  = f"='{sname}'!{counts_name}"
 
-    chart.axes(_XL_CATEGORY).has_title = True
-    chart.axes(_XL_CATEGORY).axis_title.text = "Upper Edge"
-    chart.axes(_XL_VALUE).has_title = True
-    chart.axes(_XL_VALUE).axis_title.text = "Count"
+    chart.HasLegend = False
+    chart.HasTitle = True
+    title_row = {
+        "UV_Sturges_Edges": _ROW_CHART1_TITLE,
+        "UV_Scott_Edges": _ROW_CHART2_TITLE,
+        "UV_FD_Edges": _ROW_CHART3_TITLE,
+    }[edges_name]
+    chart.ChartTitle.Formula = f"='{sname}'!$Q${title_row}"
+    x_axis = chart.Axes(_XL_CATEGORY)
+    x_axis.HasTitle = True
+    x_axis.AxisTitle.Text = "Upper Edge"
+    y_axis = chart.Axes(_XL_VALUE)
+    y_axis.HasTitle = True
+    y_axis.AxisTitle.Text = "Count"
 
-    chart.has_legend = False
+
+def _write_histogram_chart_title_cells(sheet: xw.Sheet) -> None:
+    """Write chart title formula cells at Q14, Q34, Q54 for the three histograms."""
+    for row, count_col in [
+        (_ROW_CHART1_TITLE, _C_H),
+        (_ROW_CHART2_TITLE, _C_K),
+        (_ROW_CHART3_TITLE, _C_N),
+    ]:
+        f(sheet, row, _C_Q, f'={col_letter(count_col)}{_ROW_METHOD_HDR}&" Method Histogram"')
 
 
 def _write_histogram_charts(sheet: xw.Sheet) -> None:
-    """Add three histogram charts in the Q:AA chart band."""
+    """Insert three gapless column charts for Sturges, Scott, and FD histogram tables."""
+    sname = sheet.name
     for title_cell, edges_name, counts_name, row_start, row_end in [
-        ("H", "UV_Sturges_Edges", "UV_Sturges_Counts", 14, 32),
-        ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   34, 42),
-        ("N", "UV_FD_Edges",      "UV_FD_Counts",      44, 52),
+        ("H", "UV_Sturges_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
+        ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
+        ("N", "UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
     ]:
         chart_range = sheet.range(rc(row_start, _C_Q), rc(row_end, _C_AA))
         _add_histogram_chart(
@@ -663,6 +673,8 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
             edges_name=edges_name,
             counts_name=counts_name,
         )
+
+
 
 
 # ── Zone 5: two-parameter grid-search MLE ────────────────────────────────────
@@ -1114,7 +1126,7 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _write_weibull_grid_search(sheet)
     _autofit_column_widths(sheet)
 
-    # Charts (skipped silently if chart API raises; e.g. headless builds)
+    _write_histogram_chart_title_cells(sheet)
     try:
         _write_histogram_charts(sheet)
     except Exception:

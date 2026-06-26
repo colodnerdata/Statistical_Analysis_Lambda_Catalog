@@ -182,6 +182,6 @@ The **Regression** sheet uses the Life Expectancy dataset to demonstrate a full 
 - **Cols A–J — Main analysis.** Prediction inputs, regression statistics, ANOVA (including `F_Stat` and `P_Value_F`), prediction interval for a new observation, and coefficient table.
 - **Predictor summary (below the coefficient table).** A per-predictor panel showing `Pearson_R`, `Spearman_R`, `Skewness`, `Kurtosis`, `VIF`, and `Tolerance` for every predictor — all filtered and recomputed whenever `Full_Data` changes.
 - **Cols L–X — Residual output.** One row per filtered observation: predicted values, residuals, LOOCV predictions, leverage, studentized residuals, Cook's distance, and ranked/scored variants.
-- **Diagnostic charts (col AC+).** Six XY scatter charts — Residuals vs Fitted, Normal Q-Q, Actual vs Predicted, Scale-Location, Cook's Distance, and PRESS Residuals — that update automatically via OFFSET-based named ranges.
+- **Diagnostic charts (col AC+).** Seven charts — Residuals vs Fitted, Normal Q-Q, Actual vs Predicted, Scale-Location (scatter), Cook's Distance, PRESS Residuals (bar), and Studentized Residuals vs Leverage (scatter) — that update automatically via OFFSET-based named ranges.
 
 `Correlation_Matrix(X_s, [Include])` returns a k×k pairwise correlation matrix and can be entered in any blank cell on the sheet.

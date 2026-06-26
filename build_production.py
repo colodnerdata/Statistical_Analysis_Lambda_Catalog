@@ -29,7 +29,7 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
-from lambda_catalog.write_sheet_univariate import inject_histogram_charts, write_univariate_sheet
+from lambda_catalog.write_sheet_univariate import write_univariate_sheet
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
 
 
@@ -167,11 +167,6 @@ def build_production_workbook(
         raise_excel_access_error(workbook_path, "update", exc)
     if verbose:
         print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
-
-    _t = time.monotonic()
-    inject_histogram_charts(workbook_path)
-    if verbose:
-        print(f"  Inject charts:  {time.monotonic() - _t:.1f}s", flush=True)
 
     if recalculate:
         _t = time.monotonic()

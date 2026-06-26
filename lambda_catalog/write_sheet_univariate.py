@@ -292,10 +292,10 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
 def _write_data_zone(sheet: xw.Sheet) -> None:
     section_heading(sheet, _ROW_SECTION_HDR, _C_A, "Data")
-    # Override section-heading color: A3 and the full A4:B1048576 range use INPUT_COLOR
+    # Override section-heading color: A3 and the A4:B(_DATA_END) input block use INPUT_COLOR
     # to signal that this is where users paste their own dataset.
     sheet.range(rc(_ROW_SECTION_HDR, _C_A)).color = _INPUT
-    sheet.range(rc(_ROW_DATA_START, _C_A), rc(1048576, _C_B)).color = _INPUT
+    sheet.range(rc(_ROW_DATA_START, _C_A), rc(_DATA_END, _C_B)).color = _INPUT
 
     val(sheet, _ROW_COL_HDRS, _C_A, "Life expectancy")
     f(

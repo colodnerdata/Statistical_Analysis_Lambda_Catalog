@@ -630,8 +630,12 @@ def _add_histogram_chart(
 
     chart.HasLegend = False
     chart.HasTitle = True
-    chart.ChartTitle.Text = f"='{sname}'!{title_cell}{_ROW_METHOD_HDR}"
-
+    title_row = {
+        "UV_Sturges_Edges": _ROW_CHART1_TITLE,
+        "UV_Scott_Edges": _ROW_CHART2_TITLE,
+        "UV_FD_Edges": _ROW_CHART3_TITLE,
+    }[edges_name]
+    chart.ChartTitle.Formula = f"='{sname}'!$Q${title_row}"
     x_axis = chart.Axes(_XL_CATEGORY)
     x_axis.HasTitle = True
     x_axis.AxisTitle.Text = "Upper Edge"

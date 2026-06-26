@@ -21,7 +21,6 @@ from lambda_catalog.write_sheet_univariate import (
     _write_grid_stage,
     _write_histogram_table,
     _write_weibull_grid_search,
-    UNIVARIATE_SHEET_NAME,
 )
 from tests.recording_sheet import RecordingSheet
 

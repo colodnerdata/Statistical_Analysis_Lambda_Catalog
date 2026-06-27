@@ -1,7 +1,9 @@
 """Shared cell-formatting constants for all workbook sheet writers.
 
 All sheet writers import their color constants from here so the palette
-stays consistent across every sheet in Lambda_Library.xlsx.
+stays consistent across every sheet in Lambda_Library.xlsx. Includes
+both cell-fill colors (HEADER, SUBHDR, INPUT) and conditional-formatting
+colors (CF_LIGHT_RED_FILL, CF_DARK_RED_TEXT, CF_YELLOW_FILL, CF_DARK_YELLOW_TEXT).
 """
 from __future__ import annotations
 

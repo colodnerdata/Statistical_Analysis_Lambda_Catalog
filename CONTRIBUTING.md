@@ -8,7 +8,7 @@ Requires Python 3.10+, [uv](https://github.com/astral-sh/uv). Building the Excel
 uv sync
 ```
 
-This installs the `lambda_catalog` package in editable mode along with all dependencies: `lxml`, `numpy`, `pywin32`, `statsmodels`, `xlwings`, plus dev tools (`pytest`, `pytest-cov`, `pylint`).
+This installs the `lambda_catalog` package in editable mode along with all dependencies: `lxml`, `numpy`, `pandas`, `pywin32` (Windows only), `scipy`, `statsmodels`, `xlwings`, plus dev tools (`pytest`, `pytest-cov`, `pylint`).
 
 ## Running tests
 
@@ -35,7 +35,12 @@ Tests live in `tests/`. The current test files are:
 | `test_cache_serialization.py` | JSON serialization round-trips for `RegressionVectors` and `RegressionObservationVectors` |
 | `test_data_completeness_qc.py` | `calculate_data_completeness_flags` against the sample dataset |
 | `test_catalog_schema.py` | `CatalogDocument` loading, validation, duplicate rejection, `test_table` rules, projection methods |
-| `test_lambda_catalog_plain_language.py` | All 78 LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
+| `test_lambda_catalog_plain_language.py` | All LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
+| `test_sheet_writers.py` | Sheet writer integration (conditional formatting, named ranges) |
+| `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
+| `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
+| `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
+| `test_qc_configs.py` | QC config generation, cross-consistency between scalar/vector/observation configs, regression sheet diagnostics, cache round-trips |
 
 ### Coverage scope
 
@@ -48,7 +53,7 @@ The coverage configuration in `pyproject.toml` tracks only the modules that are 
 - `regression_shared.py`
 - `analysis_cache.py`
 
-The `write_sheet_*.py` modules, `workbook_builder.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the QC build instead (see below).
+The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the QC build instead (see below).
 
 ### CI
 
@@ -64,10 +69,14 @@ There are two separate build scripts with distinct purposes.
 python build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes three sheets:
+Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes seven sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions
 - **Life Expectancy Data** — WHO dataset as a structured table
+- **Univariate Analysis** — descriptive statistics, histogram binning, and Weibull grid-search fitting
+- **Regression Instructions** — step-by-step guide for adapting the sheet to new datasets
+- **Diagnostic Guide** — interpretation guide for regression diagnostics
+- **Version History** — changelog that travels with the workbook
 - **Regression** — ToolPak-style analysis interface
 
 No test sheets, no OLS analysis, no cache dependency.
@@ -85,7 +94,7 @@ python build_production.py --verbose           # print per-phase timing
 python build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all six sheets (the three above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all ten sheets (the seven above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
 
 The verification step forces Excel to recalculate all test formulas, reads the Calc columns, compares them against Python-computed expected values, and prints a `WARNING` line for any value that diverges beyond the tolerance band. No warnings means the LAMBDA implementations agree with statsmodels.
 
@@ -108,21 +117,32 @@ lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
 lambda_catalog/
-  catalog_schema.py          # typed document model: CatalogArgument, CatalogFunction, CatalogDocument, load_catalog_document()
+  catalog_schema.py          # typed document model: CatalogArgument, CatalogFunction, CatalogDocument
+  regression_shared.py       # shared regression dataclasses: RegressionSummary, RegressionVectors, etc.
+  sheet_styles.py            # shared cell-formatting constants (colors, conditional formatting)
   workbook_builder.py        # shared core: sync_workbook_names, workbook XML patching
-  analyze_life_expectancy.py # OLS engine: RegressionSummary, RegressionVectors, etc.
+  workbook_helpers.py        # shared xlwings utilities and cell formatting helpers
+  analyze_life_expectancy.py # OLS engine: calculate_regression_summary, vectors, observations
+  analyze_regression_sheet.py # full Regression sheet QC oracle (predictor summary, residuals, prediction interval)
+  analyze_univariate.py      # univariate analysis: NLL functions, MLE estimators, binning, GoF
   analysis_cache.py          # disk cache keyed on CSV SHA-256 + schema version
   lambda_formula_parser.py   # converts display formulas to workbook XML syntax
+  inspection_compare.py      # numeric comparison helpers for QC value verification
   make_test_sheet.py         # shared helpers for Excel ListObject test tables
-  workbook_helpers.py        # shared xlwings utilities
   write_sheet_lambda_functions.py
   write_sheet_life_expectancy_data.py
+  write_sheet_univariate.py
+  write_sheet_regression_instructions.py
+  write_sheet_diagnostic_guide.py
+  write_sheet_version_history.py
   write_sheet_regression.py
   write_sheet_mlr_scalar_test.py
   write_sheet_mlr_vector_outputs_test.py
   write_sheet_mlr_observation_test.py
 tools/
-  inspect_test_sheets.py     # standalone comparison tool (also used by build_qc.py)
+  inspect_test_sheets.py     # scalar/vector/observation test sheet comparison (used by build_qc.py)
+  inspect_regression_sheet.py # Regression sheet QC comparison (used by build_qc.py)
+  inspect_univariate_sheet.py # Univariate sheet QC comparison (used by build_qc.py)
   inspect_xlsx.py            # workbook inspection utility
   check_lengths.py           # print Name Manager comment lengths
 ```
@@ -172,6 +192,10 @@ All cell colors are defined once in `lambda_catalog/sheet_styles.py` and importe
 | `HEADER_COLOR` | `(202, 237, 251)` | Zone / section headings — light blue, used on every sheet |
 | `SUBHDR_COLOR` | `(220, 230, 241)` | Column sub-header rows within a zone |
 | `INPUT_COLOR`  | `(251, 226, 213)` | User-editable input cells — light orange |
+| `CF_LIGHT_RED_FILL` | `(255, 199, 206)` | Conditional formatting — failed significance / diagnostic flag |
+| `CF_DARK_RED_TEXT` | `(156, 0, 6)` | Conditional formatting — text color for red-flagged cells |
+| `CF_YELLOW_FILL` | `(255, 235, 156)` | Conditional formatting — borderline diagnostic flag |
+| `CF_DARK_YELLOW_TEXT` | `(156, 101, 0)` | Conditional formatting — text color for yellow-flagged cells |
 
 Import pattern:
 
@@ -195,33 +219,33 @@ Instead, all chart series reference **worksheet-scoped named ranges** defined vi
 
 ```python
 sheet.api.Names.Add(
-    Name="FittedY",
+    Name="RegChartFitY",
     RefersTo=f"=OFFSET('{sname}'!$Y$2,1,0,'{sname}'!$M$8,1)",
 )
 ```
 
 This starts one row below the column header (row 2) and extends exactly `$M$8` rows — the number of filtered observations.
 
-**Naming convention** — names identify the data, not the chart that uses them:
+**Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from formula-helper names (`All_Xs`, `pred_input`, etc.):
 
 | Name | Column | Contents |
 |---|---|---|
-| `QQPlotX` | AE | Normal Scores Ranked (QQ theoretical axis) |
-| `QQPlotY` | AF | Studentized Residuals Ranked (QQ actual axis) |
-| `FittedY` | Y | Predicted Y — shared by multiple charts |
-| `ResidData` | Z | Residuals |
-| `ActualY` | X | Actual Y |
-| `ScaleLocData` | AG | Scale-Location |
-| `CooksDistData` | AD | Cook's Distance |
-| `LeverageData` | AB | Hat Diagonal |
-| `StudResidData` | AC | Studentized Residuals |
-| `PRESSResidData` | AH | PRESS Residual |
+| `RegChartQQX` | AE | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AF | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | Y | Predicted Y — shared by multiple charts |
+| `RegChartResid` | Z | Residuals |
+| `RegChartActY` | X | Actual Y |
+| `RegChartScaleLoc` | AG | Scale-Location |
+| `RegChartCookDist` | AD | Cook's Distance |
+| `RegChartLeverage` | AB | Hat Diagonal |
+| `RegChartStudResid` | AC | Studentized Residuals |
+| `RegChartPRESSResid` | AH | PRESS Residual |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 
 ```excel
-Series X values: ='Regression'!FittedY
-Series Y values: ='Regression'!ResidData
+Series X values: ='Regression'!RegChartFitY
+Series Y values: ='Regression'!RegChartResid
 ```
 
 In code, use the `_name_ref` helper in `_write_diagnostic_charts`:
@@ -231,4 +255,4 @@ def _name_ref(local_name: str) -> str:
     return f"='{sname}'!{local_name}"
 ```
 
-When adding a new diagnostic column or chart, add the corresponding named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
+When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.

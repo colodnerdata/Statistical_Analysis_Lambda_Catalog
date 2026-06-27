@@ -1,4 +1,4 @@
-"""Disk cache for OLS analysis results, keyed on CSV file content hash."""
+"""Disk cache for OLS analysis results, keyed on CSV SHA-256 hash and schema version."""
 from __future__ import annotations
 
 import hashlib

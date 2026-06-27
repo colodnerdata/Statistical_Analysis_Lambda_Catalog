@@ -1,4 +1,4 @@
-"""Build Lambda_Library.xlsx: LAMBDA_functions, Life Expectancy Data, Univariate Analysis, and Regression."""
+"""Build Lambda_Library.xlsx with all production sheets and LAMBDA name sync."""
 from __future__ import annotations
 
 import argparse

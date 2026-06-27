@@ -1,4 +1,4 @@
-# AGENTS.md — Project context for Codex
+# AGENTS.md — Project context for AI agents
 
 ## Cell styling
 

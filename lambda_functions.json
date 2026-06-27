@@ -1957,7 +1957,7 @@
         },
         {
           "name": "minimum",
-          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from data_min",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from the padded support minimum (data_min − pad)",
           "optional": true
         }
       ],

@@ -387,7 +387,9 @@ def _cdf_hstack_formula(edge_spill_ref: str) -> str:
     return (
         "=LET("
         f"edges,{edge_spill_ref},"
+        "filt,FILTER(UV_Data,UV_Include),"
         "lower,Bin_Lower_Edges(UV_Data,edges,UV_Include),"
+        "dmin,MIN(filt),drange,MAX(filt)-dmin,"
         "HSTACK("
         f"CDF_Normal(edges,${t1}${r},${t2}${r},lower),"
         f"CDF_Lognormal(edges,${t1}${r+1},${t2}${r+1},lower),"
@@ -395,9 +397,7 @@ def _cdf_hstack_formula(edge_spill_ref: str) -> str:
         f"CDF_Weibull(edges,${t1}${r+3},${t2}${r+3},lower),"
         f"CDF_Gamma(edges,${t1}${r+4},${t2}${r+4},lower),"
         f"CDF_Triangular(edges,${t1}${r+5},${t2}${r+5},${t3}${r+5},lower),"
-        f"CDF_Beta(edges,${t1}${r+6},${t2}${r+6},"
-        "MIN(FILTER(UV_Data,UV_Include)),"
-        "MAX(FILTER(UV_Data,UV_Include))-MIN(FILTER(UV_Data,UV_Include)),lower),"
+        f"CDF_Beta(edges,${t1}${r+6},${t2}${r+6},dmin,drange,lower),"
         f"CDF_BetaPERT(edges,${t1}${r+7},${t2}${r+7},${t3}${r+7},lower)"
         "))"
     )
@@ -708,7 +708,6 @@ def _add_histogram_chart(
     chart_top: float,
     chart_width: float,
     chart_height: float,
-    title_cell: str,
     edges_name: str,
     counts_name: str,
 ) -> None:
@@ -769,7 +768,6 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
             chart_top=chart_range.top,
             chart_width=chart_range.width,
             chart_height=chart_range.height,
-            title_cell="",
             edges_name=edges_name,
             counts_name=counts_name,
         )

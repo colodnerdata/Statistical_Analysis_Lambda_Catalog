@@ -199,6 +199,8 @@ def bin_counts(data: Sequence[float | None], edges: np.ndarray) -> np.ndarray:
 
 def bin_midpoints(data: Sequence[float | None], edges: np.ndarray) -> np.ndarray:
     """Return the midpoint of each histogram bin."""
+    if len(edges) == 0:
+        raise ValueError("edges must be non-empty")
     x = _clean(data)
     k = len(edges)
     width = (float(np.max(x)) - float(np.min(x))) / k
@@ -211,6 +213,8 @@ def bin_lower_edges(data: Sequence[float | None], edges: np.ndarray) -> np.ndarr
     First bin lower edge is data minimum; subsequent bins use the previous
     upper edge.
     """
+    if len(edges) == 0:
+        raise ValueError("edges must be non-empty")
     x = _clean(data)
     bins = np.asarray(edges, dtype=float)
     if len(bins) == 1:

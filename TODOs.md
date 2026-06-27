@@ -26,11 +26,11 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 ### LAMBDA functions
 
 **Missing-value semantics**
-- TODO: Resolve `Missing_Count` handling for formula blanks (`""`). Excel formulas like `IF(...,"",...)` produce visually blank cells; the workbook `Missing_Count` LAMBDA currently uses `d<>""` to find the last active row, while `lambda_catalog.analyze_univariate.missing_count()` does not treat `""` as blank and can count trailing formula blanks as missing. Decide whether the LAMBDA should change or whether the Python oracle/tests should be updated to match the intended behavior.
+- DONE: Resolved `Missing_Count` handling for formula blanks (`""`). Python oracle `_is_blank()` updated to treat `""` as blank, aligning with the LAMBDA's `d<>""` heuristic.
 
 **Goodness-of-fit statistics**
-- TODO: Implement `GoF_AndersonDarling(data, dist_cdf, [include])` — handle bounded-support distributions (Beta, Triangular, BetaPERT) at support edges explicitly.
-- TODO: Implement `GoF_KS(data, dist_cdf, [include])` — Kolmogorov-Smirnov statistic.
+- DONE: Implemented `GoF_AndersonDarling(data, dist_cdf, [include])` — with epsilon clamping for bounded-support distributions.
+- DONE: Implemented `GoF_KS(data, dist_cdf, [include])` — Kolmogorov-Smirnov statistic.
 
 **CDF/PDF functions (histogram overlay curves)**
 - TODO: Implement `PDF_Normal`, `PDF_Lognormal`, `PDF_Exponential`, `PDF_Weibull`, `PDF_Gamma`, `PDF_Triangular`, `PDF_Beta`, `PDF_BetaPERT` — evaluated at bin midpoints.
@@ -38,7 +38,7 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 ### Sheet writer (`write_sheet_univariate.py`)
 
 **Fit comparison table**
-- TODO: Add Anderson-Darling and K-S columns to the fit comparison table (depends on `GoF_AndersonDarling` and `GoF_KS` LAMBDAs).
+- DONE: Added Anderson-Darling and K-S columns to the fit comparison table, with per-distribution CDF formulas (inline for Triangular, Beta, BetaPERT; built-in Excel CDF functions for the rest).
 
 **Q-Q plots and histogram overlays**
 - TODO: Per-distribution Q-Q plots (8 charts) using OFFSET-based named ranges.

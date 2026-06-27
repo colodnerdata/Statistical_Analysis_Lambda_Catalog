@@ -2011,6 +2011,52 @@
       "yields": "BIC = k·ln(n) + 2·NLL as a scalar",
       "description": "GoF_BIC computes the Bayesian Information Criterion: BIC = k·ln(n) + 2·NLL. Lower BIC indicates a better model. BIC penalises extra parameters more strongly than AIC (penalty grows with log(n) rather than 2), favouring simpler distributions in larger samples.\n\nCompare AIC and BIC together: if they agree, the best-fit distribution is clear; if they disagree, AIC is selecting a more complex distribution and BIC is selecting a simpler one. The difference is informative about how much the extra parameters contribute to fit.",
       "plain_language_summary": "A model-comparison score that penalises extra parameters more strongly as sample size grows."
+    },
+    {
+      "name": "GoF_AndersonDarling",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(data, dist_cdf, [include],\n  LET(\n    inc, IF(ISOMITTED(include), ISNUMBER(data), include),\n    d, FILTER(data, inc),\n    f, FILTER(dist_cdf, inc),\n    n, ROWS(d),\n    IF(n = 0, NA(),\n    LET(\n      fs, SORTBY(f, d),\n      eps, 1E-10,\n      fc, IF(fs < eps, eps, IF(fs > 1 - eps, 1 - eps, fs)),\n      i, SEQUENCE(n),\n      fc_rev, SORTBY(fc, i, -1),\n      -n - SUMPRODUCT((2 * i - 1) * (LN(fc) + LN(1 - fc_rev))) / n\n    ))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range"
+        },
+        {
+          "name": "dist_cdf",
+          "description": "CDF values evaluated at each data point under the fitted distribution (same size as data; e.g. NORM.DIST(data, mean, sd, TRUE))"
+        },
+        {
+          "name": "include",
+          "description": "optional boolean array — TRUE keeps the row, FALSE excludes it; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "Anderson-Darling A² statistic as a scalar (lower = better fit)",
+      "description": "GoF_AndersonDarling computes the Anderson-Darling goodness-of-fit statistic: A² = −n − (1/n) Σᵢ (2i−1)·[ln F(X₍ᵢ₎) + ln(1 − F(X₍ₙ₊₁₋ᵢ₎))]. CDF values are sorted by data internally. An epsilon clamp (1E-10) prevents ln(0) for bounded-support distributions (Beta, Triangular, BetaPERT) whose CDF can reach exactly 0 or 1 at support edges.\n\nA-D is more sensitive to tail deviations than K-S, making it better at detecting departures in the extremes. Lower A² indicates a better fit. Compare alongside AIC, BIC, and K-S in the fit comparison table.",
+      "plain_language_summary": "How much the fitted distribution's tails deviate from the observed data — lower means a better fit."
+    },
+    {
+      "name": "GoF_KS",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(data, dist_cdf, [include],\n  LET(\n    inc, IF(ISOMITTED(include), ISNUMBER(data), include),\n    d, FILTER(data, inc),\n    f, FILTER(dist_cdf, inc),\n    n, ROWS(d),\n    IF(n = 0, NA(),\n    LET(\n      fs, SORTBY(f, d),\n      i, SEQUENCE(n),\n      d_plus, MAX(i / n - fs),\n      d_minus, MAX(fs - (i - 1) / n),\n      MAX(d_plus, d_minus)\n    ))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column data range"
+        },
+        {
+          "name": "dist_cdf",
+          "description": "CDF values evaluated at each data point under the fitted distribution (same size as data; e.g. NORM.DIST(data, mean, sd, TRUE))"
+        },
+        {
+          "name": "include",
+          "description": "optional boolean array — TRUE keeps the row, FALSE excludes it; defaults to ISNUMBER(data)",
+          "optional": true
+        }
+      ],
+      "yields": "Kolmogorov-Smirnov D statistic as a scalar in [0, 1] (lower = better fit)",
+      "description": "GoF_KS computes the Kolmogorov-Smirnov goodness-of-fit statistic: D = max(D⁺, D⁻) where D⁺ = maxᵢ(i/n − F(X₍ᵢ₎)) and D⁻ = maxᵢ(F(X₍ᵢ₎) − (i−1)/n). This is the maximum vertical distance between the empirical CDF and the fitted CDF.\n\nK-S is sensitive to the single largest deviation between the empirical and fitted distributions, making it complementary to A-D (which weights tails more heavily). Lower D indicates a better fit. D is bounded on [0, 1]; values near 0 mean the fitted CDF closely tracks the empirical CDF.",
+      "plain_language_summary": "The largest gap between the observed and fitted cumulative distributions — lower means a closer fit."
     }
   ],
   "regression_sheet_notes": {

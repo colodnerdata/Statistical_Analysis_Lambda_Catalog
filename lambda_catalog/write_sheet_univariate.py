@@ -17,7 +17,7 @@ Sheet layout
   Row 2          — Method labels/values: Sturges | Scott | FD | Distribution Fitting/Comparison
   Row 3          — Section headings: Data | Filter | Descriptive Statistics | Bins; pane freeze anchored here
   Row 4          — Column sub-headers (table headers for histogram and fitting tables)
-  Row 4+         — Data: raw column spill (col A), filter mask (col B), stats (D–E), histogram bins (G–N), fitting (Q–AA)
+  Row 4+         — Data: raw column spill (col A), filter mask (col B), stats (D–E), histogram bins (G–N), fitting (Q–AC)
 
   Col A          — Data: LifeExpectancyData[Life expectancy] spill in A4 (unfiltered; spill range = $A$4#)
   Col B          — Filter: Data_Completeness over the source table column — local UV_Include source ($B$4#)
@@ -31,11 +31,11 @@ Sheet layout
   Col M–N        — Freedman-Diaconis histogram table
   Col O          — thin gap (width 2)
   Col P          — thin gap (width 2)
-  Col Q–AA       — Distribution Fitting summary table
-  Col AB         — thin gap before the grid-search section
-  Col AC–AW      — Stage 1 controls and 20×20 Data Table
-  Col AX         — thin gap between grid-search stages
-  Col AY–BS      — Stage 2 controls and 20×20 Data Table
+  Col Q–AC       — Distribution Fitting summary table (incl. A-D & K-S)
+  Col AD         — thin gap before the grid-search section
+  Col AE–AY      — Stage 1 controls and 20×20 Data Table
+  Col AZ         — thin gap between grid-search stages
+  Col BA–BU      — Stage 2 controls and 20×20 Data Table
 
   Grid-search rows 1–5 — stage titles, compact controls, and Data Table headings
   Grid-search rows 6–25 — 20×20 Data Table bodies, repeated per distribution
@@ -48,8 +48,8 @@ Sheet-scoped named ranges
   UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
   UV_Scott_Edges,   UV_Scott_Counts
   UV_FD_Edges,      UV_FD_Counts
-  UV_WB_S1       — Stage 1 Weibull Data Table body (AD6:AW25)
-  UV_WB_S2       — Stage 2 Weibull Data Table body (AZ6:BS25)
+  UV_WB_S1       — Stage 1 Weibull Data Table body (AF6:AY25)
+  UV_WB_S2       — Stage 2 Weibull Data Table body (BB6:BU25)
   UV_GAMMA_S1/S2 — Stage 1/2 Gamma Data Table bodies
   UV_BETA_S1/S2  — Stage 1/2 Beta Data Table bodies
 """
@@ -93,13 +93,15 @@ _C_X = 24   # NLL
 _C_Y = 25   # k (param count)
 _C_Z = 26   # AIC
 _C_AA = 27   # BIC
+_C_AB = 28   # Anderson-Darling
+_C_AC = 29   # Kolmogorov-Smirnov
 
-# Zone 5: two-parameter Grid-Search MLE (cols AC onward)
+# Zone 5: two-parameter Grid-Search MLE (cols AE onward)
 _N_GRID   = 20             # grid points per axis per stage (20×20 = 400/stage)
-_C_GS     = 29             # col AC — first col of grid-search region (AB=28 is gap)
+_C_GS     = 31             # col AE — first col of grid-search region (AD=30 is gap)
 _GS_W     = _N_GRID + 1   # cols per stage = 21  (1 param2 col + N param1 cols)
 _GS_GAP_C = 1              # gap col between Stage 1 and Stage 2
-_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col AY = 51
+_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col BA = 53
 
 # Within-stage row offsets from block row_start
 _GS_R_CONTROL_HDR = 1   # Min NLL label + parameter-table headers
@@ -154,6 +156,7 @@ UNIVARIATE_SHEET_NAME = "Univariate"
 
 _FMT_INT = "0"
 _FMT_1DP = "0.0"
+_FMT_4DP = "0.0000"
 _FMT_SCI_1DP = "0.0E+00"
 
 
@@ -193,13 +196,15 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         _C_Y: 6,     # k
         _C_Z: 12,    # AIC
         _C_AA: 12,   # BIC
-        28:   2,     # gap (AB) before grid-search section
+        _C_AB: 12,   # A-D
+        _C_AC: 12,   # K-S
+        30:   2,     # gap (AD) before grid-search section
     }
     for col, w in widths.items():
         sheet.range(rc(1, col), rc(1, col)).column_width = w
 
     # Grid-search stages: compact fixed-area controls above narrow Data Tables.
-    # Stage 1: AC–AW; gap AX; Stage 2: AY–BS.
+    # Stage 1: AE–AY; gap AZ; Stage 2: BA–BU.
     for stage_start in (_C_GS, _C_GS_S2):
         for c in range(stage_start, stage_start + _N_GRID + 1):
             sheet.range(rc(1, c), rc(1, c)).column_width = 6
@@ -209,7 +214,7 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_STEP, _GS_C_BEST):
             sheet.range(rc(1, stage_start + dc)).column_width = 10
 
-    # Gap col AX between Stage 1 and Stage 2.
+    # Gap col AZ between Stage 1 and Stage 2.
     sheet.range(rc(1, _C_GS + _GS_W), rc(1, _C_GS + _GS_W)).column_width = 2
 
 
@@ -218,7 +223,7 @@ def _autofit_column_widths(sheet: xw.Sheet) -> None:
     last_col = _C_GS_S2 + _GS_W - 1
     sheet.range(rc(_ROW_TITLE, _C_A), rc(_DATA_END, last_col)).columns.autofit()
 
-    for col in (3, 6, 9, 12, 15, 16, 28, _C_GS + _GS_W):
+    for col in (3, 6, 9, 12, 15, 16, 30, _C_GS + _GS_W):
         sheet.range(rc(1, col), rc(1, col)).column_width = 2
 
 
@@ -413,6 +418,8 @@ _FIT_COL_HDRS = [
     (_C_Y, "k"),
     (_C_Z, "AIC"),
     (_C_AA, "BIC"),
+    (_C_AB, "A-D"),
+    (_C_AC, "K-S"),
 ]
 
 _FIT_NUMBER_FORMATS: dict[int, str] = {
@@ -423,6 +430,8 @@ _FIT_NUMBER_FORMATS: dict[int, str] = {
     _C_Y: _FMT_INT,
     _C_Z: _FMT_1DP,
     _C_AA: _FMT_1DP,
+    _C_AB: _FMT_4DP,
+    _C_AC: _FMT_4DP,
 }
 
 
@@ -477,6 +486,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "",        "",
             lambda r: f"=NLL_Normal(UV_Data,{_r(r)},{_t(r)},UV_Include)",
             2,
+            lambda r: f"NORM.DIST(UV_Data,{_r(r)},{_t(r)},TRUE)",
         ),
         (
             "Lognormal",
@@ -485,6 +495,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "",      "",
             lambda r: f"=NLL_Lognormal(UV_Data,{_r(r)},{_t(r)},UV_Include)",
             2,
+            lambda r: f"LOGNORM.DIST(UV_Data,{_r(r)},{_t(r)},TRUE)",
         ),
         (
             "Exponential",
@@ -493,6 +504,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "",      "",
             lambda r: f"=NLL_Exponential(UV_Data,{_r(r)},UV_Include)",
             1,
+            lambda r: f"EXPON.DIST(UV_Data,{_r(r)},TRUE)",
         ),
         (
             # Params come from Stage 2 grid-search MLE (see Zone 5)
@@ -504,6 +516,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "",    "",
             lambda r: f"=NLL_Weibull(UV_Data,{_r(r)},{_t(r)},UV_Include)",
             2,
+            lambda r: f"WEIBULL.DIST(UV_Data,{_r(r)},{_t(r)},TRUE)",
         ),
         (
             # Params come from Stage 2 grid-search MLE (see Zone 5)
@@ -515,6 +528,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "",    "",
             lambda r: f"=NLL_Gamma(UV_Data,{_r(r)},{_t(r)},UV_Include)",
             2,
+            lambda r: f"GAMMA.DIST(UV_Data,{_r(r)},1/{_t(r)},TRUE)",
         ),
         (
             # NLL_Triangular and NLL_BetaPERT both have PDF = 0 at the boundary
@@ -528,6 +542,13 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "Max",  "=LET(d,FILTER(UV_Data,UV_Include),MAX(d)+(MAX(d)-MIN(d))*0.001)",
             lambda r: f"=NLL_Triangular(UV_Data,{_r(r)},{_t(r)},{_v(r)},UV_Include)",
             3,
+            lambda r: (
+                f"IFERROR(IF(UV_Data<{_r(r)},0,"
+                f"IF(UV_Data<{_t(r)},"
+                f"(UV_Data-{_r(r)})^2/(({_v(r)}-{_r(r)})*({_t(r)}-{_r(r)})+1E-30),"
+                f"IF(UV_Data<={_v(r)},"
+                f"1-(({_v(r)}-UV_Data)^2/(({_v(r)}-{_r(r)})*({_v(r)}-{_t(r)})+1E-30)),1))),0.5)"
+            ),
         ),
         (
             # Params come from Stage 2 grid-search MLE on min/max-rescaled data.
@@ -539,6 +560,13 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "",    "",
             lambda r: _nll_beta_rescaled_formula(_r(r), _t(r)),
             2,
+            lambda r: (
+                f"LET(d,UV_Data,mn,MIN(FILTER(d,UV_Include)),"
+                f"range_,MAX(FILTER(d,UV_Include))-mn,"
+                f"pad,MAX(range_*0.001,1E-30),scale_,range_+2*pad,"
+                f"z,(d-mn+pad)/scale_,"
+                f"IFERROR(BETA.DIST(z,{_r(r)},{_t(r)},TRUE),0.5))"
+            ),
         ),
         (
             "BetaPERT",
@@ -547,12 +575,19 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "Max",  "=LET(d,FILTER(UV_Data,UV_Include),MAX(d)+(MAX(d)-MIN(d))*0.001)",
             lambda r: f"=NLL_BetaPERT(UV_Data,{_r(r)},{_t(r)},{_v(r)},UV_Include)",
             3,
+            lambda r: (
+                f"LET(mn,{_r(r)},md,{_t(r)},mx,{_v(r)},"
+                f"mu,(mn+4*md+mx)/6,"
+                f"a1,(mu-mn)*(2*md-mn-mx)/(((md-mu)*(mx-mn))+1E-30),"
+                f"a2,a1*(mx-mu)/(mu-mn+1E-30),"
+                f"BETA.DIST((UV_Data-mn)/(mx-mn+1E-30),a1,a2,TRUE))"
+            ),
         ),
     ]
 
-    for i, (name, l1, f1, l2, f2, l3, f3, nll_fn, k) in enumerate(dist_specs):
+    for i, (name, l1, f1, l2, f2, l3, f3, nll_fn, k, cdf_fn) in enumerate(dist_specs):
         row = base_row + i
-        rows.append((row, name, l1, f1, l2, f2, l3, f3, nll_fn(row), k))
+        rows.append((row, name, l1, f1, l2, f2, l3, f3, nll_fn(row), k, cdf_fn(row)))
 
     return rows
 
@@ -560,14 +595,14 @@ def _dist_rows(base_row: int) -> list[tuple]:
 def _write_fitting_table(sheet: xw.Sheet) -> None:
     # Zone heading at row 2, merged across all fitting columns
     section_heading(sheet, _ROW_METHOD_HDR, _C_Q, "Distribution Fitting/Comparison")
-    sheet.range(rc(_ROW_METHOD_HDR, _C_Q), rc(_ROW_METHOD_HDR, _C_AA)).merge()
+    sheet.range(rc(_ROW_METHOD_HDR, _C_Q), rc(_ROW_METHOD_HDR, _C_AC)).merge()
 
     for col, label in _FIT_COL_HDRS:
         val(sheet, _ROW_COL_HDRS, col, label)
-    _subheader_row(sheet, _ROW_COL_HDRS, _C_Q, _C_AA)
+    _subheader_row(sheet, _ROW_COL_HDRS, _C_Q, _C_AC)
 
     dist_data = _dist_rows(_ROW_DIST_START)
-    for row, name, l1, f1, l2, f2, l3, f3, nll_f, k in dist_data:
+    for row, name, l1, f1, l2, f2, l3, f3, nll_f, k, cdf_expr in dist_data:
         val(sheet, row, _C_Q, name)
         val(sheet, row, _C_R, l1)
         if f1:
@@ -583,19 +618,23 @@ def _write_fitting_table(sheet: xw.Sheet) -> None:
         f(sheet, row, _C_Z, f"=GoF_AIC(${col_letter(_C_X)}${row},${col_letter(_C_Y)}${row})")
         f(sheet, row, _C_AA,
            f"=GoF_BIC(${col_letter(_C_X)}${row},${col_letter(_C_Y)}${row},UV_n)")
+        f(sheet, row, _C_AB,
+           f"=GoF_AndersonDarling(UV_Data,{cdf_expr},UV_Include)")
+        f(sheet, row, _C_AC,
+           f"=GoF_KS(UV_Data,{cdf_expr},UV_Include)")
 
         for col, fmt in _FIT_NUMBER_FORMATS.items():
             sheet.range(rc(row, col)).number_format = fmt
 
     # Border around the table (col headers through last data row)
     last_row = _ROW_DIST_START + len(dist_data) - 1
-    border_box(sheet, _ROW_COL_HDRS, _C_Q, last_row, _C_AA)
+    border_box(sheet, _ROW_COL_HDRS, _C_Q, last_row, _C_AC)
 
     # Highlight best-fit row (lowest AIC) with conditional formatting
     aic_col_letter = col_letter(_C_Z)
     aic_min_range  = f"${aic_col_letter}${_ROW_DIST_START}:${aic_col_letter}${last_row}"
     formula = f"=${aic_col_letter}{_ROW_DIST_START}=MIN({aic_min_range})"
-    row_range = sheet.range(rc(_ROW_DIST_START, _C_Q), rc(last_row, _C_AA))
+    row_range = sheet.range(rc(_ROW_DIST_START, _C_Q), rc(last_row, _C_AC))
     cf = row_range.api.FormatConditions.Add(Type=2, Formula1=formula)  # xlExpression=2
     cf.Interior.Color = 0xC6EFCE  # light green fill
     cf.Font.Color     = 0x276228  # dark green text
@@ -662,7 +701,7 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
         ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
         ("N", "UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
     ]:
-        chart_range = sheet.range(rc(row_start, _C_Q), rc(row_end, _C_AA))
+        chart_range = sheet.range(rc(row_start, _C_Q), rc(row_end, _C_AC))
         _add_histogram_chart(
             sheet,
             chart_left=chart_range.left,
@@ -697,8 +736,8 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 # The visible Input cells are the actual RowInput and ColumnInput cells supplied
 # to Excel's two-input Data Table object.  No hidden auxiliary row is required.
 #
-# Stage 1: col_start = _C_GS = 29 (AC); body = AD6:AW25
-# Stage 2: col_start = _C_GS_S2 = 51 (AY); body = AZ6:BS25
+# Stage 1: col_start = _C_GS = 31 (AE); body = AF6:AY25
+# Stage 2: col_start = _C_GS_S2 = 53 (BA); body = BB6:BU25
 #
 # Named ranges registered here:
 #   *_S1 = Stage 1 Data Table body only

@@ -44,7 +44,7 @@ from scipy import stats as scipy_stats
 
 def _is_blank(value: object) -> bool:
     """Return whether a value represents an empty spreadsheet cell."""
-    return value is None or (
+    return value is None or value == "" or (
         isinstance(value, (float, np.floating)) and math.isnan(float(value))
     )
 
@@ -401,3 +401,45 @@ def gof_aic(nll: float, k: int) -> float:
 def gof_bic(nll: float, k: int, n: int) -> float:
     """BIC = k·ln(n) + 2·NLL."""
     return k * math.log(n) + 2.0 * nll
+
+
+def _numeric_mask(data: Sequence[object]) -> np.ndarray:
+    """Boolean mask: True where data is numeric (not blank/text)."""
+    return np.array([_is_numeric(x) for x in data])
+
+
+def gof_anderson_darling(
+    data: Sequence[float | None], cdf_values: Sequence[float]
+) -> float:
+    """Anderson-Darling statistic: A² = -n - (1/n) Σ (2i-1)[ln F_i + ln(1-F_{n+1-i})]."""
+    mask = _numeric_mask(data)
+    x = np.asarray(data, dtype=object)[mask].astype(float)
+    cdf = np.asarray(cdf_values, dtype=float)[mask]
+    n = len(x)
+    if n == 0:
+        return float("nan")
+    sort_idx = np.argsort(x)
+    F = cdf[sort_idx]
+    eps = 1e-10
+    F = np.clip(F, eps, 1.0 - eps)
+    i = np.arange(1, n + 1)
+    S = np.sum((2 * i - 1) * (np.log(F) + np.log(1.0 - F[::-1])))
+    return float(-n - S / n)
+
+
+def gof_ks(
+    data: Sequence[float | None], cdf_values: Sequence[float]
+) -> float:
+    """Kolmogorov-Smirnov statistic: D = max(D⁺, D⁻)."""
+    mask = _numeric_mask(data)
+    x = np.asarray(data, dtype=object)[mask].astype(float)
+    cdf = np.asarray(cdf_values, dtype=float)[mask]
+    n = len(x)
+    if n == 0:
+        return float("nan")
+    sort_idx = np.argsort(x)
+    F = cdf[sort_idx]
+    i = np.arange(1, n + 1)
+    d_plus = np.max(i / n - F)
+    d_minus = np.max(F - (i - 1) / n)
+    return float(max(d_plus, d_minus))

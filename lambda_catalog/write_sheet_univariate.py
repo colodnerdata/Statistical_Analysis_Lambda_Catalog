@@ -14,31 +14,28 @@ two-input Data Table grid searches.
 Sheet layout
 ────────────
   Row 1          — Title "Univariate Analysis"
-  Row 2          — Method labels/values: Sturges | Scott | FD | Distribution Fitting/Comparison
-  Row 3          — Section headings: Data | Filter | Descriptive Statistics | Bins; pane freeze anchored here
-  Row 4          — Column sub-headers (table headers for histogram and fitting tables)
-  Row 4+         — Data: raw column spill (col A), filter mask (col B), stats (D–E), histogram bins (G–N), fitting (Q–AC)
+  Row 2          — Distribution Fitting/Comparison heading (G:S) | Method labels for histograms
+  Row 3          — Section headings: Data | Filter | Descriptive Statistics | Bins; pane freeze
+  Row 4          — Column sub-headers
 
-  Col A          — Data: LifeExpectancyData[Life expectancy] spill in A4 (unfiltered; spill range = $A$4#)
-  Col B          — Filter: Data_Completeness over the source table column — local UV_Include source ($B$4#)
+  Col A          — Data: LifeExpectancyData[Life expectancy] spill in A4
+  Col B          — Filter: Data_Completeness mask ($B$4#)
   Col C          — thin gap (width 2); freeze pane left boundary
   Col D–E        — Descriptive Statistics (12 stat rows)
   Col F          — thin gap (width 2)
-  Col G–H        — Sturges histogram table (edge | count)
-  Col I          — thin gap (width 2)
-  Col J–K        — Scott histogram table
-  Col L          — thin gap (width 2)
-  Col M–N        — Freedman-Diaconis histogram table
-  Col O          — thin gap (width 2)
-  Col P          — thin gap (width 2)
-  Col Q–AC       — Distribution Fitting summary table (incl. A-D & K-S)
-  Col AD         — thin gap before the grid-search section
-  Col AE–AY      — Stage 1 controls and 20×20 Data Table
-  Col AZ         — thin gap between grid-search stages
-  Col BA–BU      — Stage 2 controls and 20×20 Data Table
+  Col G–S        — Distribution Fitting summary table (Name,θ₁/₂/₃ labels+values,NLL,k,AIC,BIC,A-D,K-S)
+  Col T          — thin gap (width 2)
+  Col U–AD       — Sturges histogram (10 cols: Edge,Count,Normal…BetaPERT CDF probabilities)
+  Col AE         — thin gap (width 2)
+  Col AF–AO      — Scott histogram (10 cols)
+  Col AP         — thin gap (width 2)
+  Col AQ–AZ      — Freedman-Diaconis histogram (10 cols)
+  Col BA         — thin gap (width 2)
+  Col BB–BV      — Stage 1 controls and 20×20 Data Table
+  Col BW         — thin gap between grid-search stages
+  Col BX–CR      — Stage 2 controls and 20×20 Data Table
 
-  Grid-search rows 1–5 — stage titles, compact controls, and Data Table headings
-  Grid-search rows 6–25 — 20×20 Data Table bodies, repeated per distribution
+  Charts anchored at G14, G34, G54 — spanning G:S under the fitting table
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -48,8 +45,7 @@ Sheet-scoped named ranges
   UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
   UV_Scott_Edges,   UV_Scott_Counts
   UV_FD_Edges,      UV_FD_Counts
-  UV_WB_S1       — Stage 1 Weibull Data Table body (AF6:AY25)
-  UV_WB_S2       — Stage 2 Weibull Data Table body (BB6:BU25)
+  UV_WB_S1/S2   — Stage 1/2 Weibull Data Table bodies
   UV_GAMMA_S1/S2 — Stage 1/2 Gamma Data Table bodies
   UV_BETA_S1/S2  — Stage 1/2 Beta Data Table bodies
 """
@@ -73,35 +69,54 @@ _C_B = 2    # local filter mask over the source table column
 _C_D = 4    # stat labels
 _C_E = 5    # stat values
 
-# Zone 3: Histogram Tables
-_C_G = 7    # Sturges edges
-_C_H = 8    # Sturges counts
-_C_J = 10   # Scott edges
-_C_K = 11   # Scott counts
-_C_M = 13   # FD edges
-_C_N = 14   # FD counts
+# Zone 3: Distribution Fitting (G:S = cols 7-19)
+_C_DIST_NAME = 7    # G — distribution name
+_C_T1_LBL    = 8    # H — θ₁ label
+_C_T1_VAL    = 9    # I — θ₁ value
+_C_T2_LBL    = 10   # J — θ₂ label
+_C_T2_VAL    = 11   # K — θ₂ value
+_C_T3_LBL    = 12   # L — θ₃ label
+_C_T3_VAL    = 13   # M — θ₃ value
+_C_NLL       = 14   # N — NLL
+_C_K_PARAM   = 15   # O — k (param count)
+_C_AIC       = 16   # P — AIC
+_C_BIC       = 17   # Q — BIC
+_C_AD        = 18   # R — A-D
+_C_KS        = 19   # S — K-S
 
-# Zone 4: Distribution Fitting
-_C_Q = 17   # distribution name
-_C_R = 18   # θ₁ label
-_C_S = 19   # θ₁ value
-_C_T = 20   # θ₂ label
-_C_U = 21   # θ₂ value
-_C_V = 22   # θ₃ label
-_C_W = 23   # θ₃ value
-_C_X = 24   # NLL
-_C_Y = 25   # k (param count)
-_C_Z = 26   # AIC
-_C_AA = 27   # BIC
-_C_AB = 28   # Anderson-Darling
-_C_AC = 29   # Kolmogorov-Smirnov
+_C_FIT_FIRST = _C_DIST_NAME   # first fitting column
+_C_FIT_LAST  = _C_KS          # last fitting column
 
-# Zone 5: two-parameter Grid-Search MLE (cols AE onward)
+# Zone 4: Histogram Tables (10 cols each, with gap cols between)
+_HIST_W = 10   # columns per histogram block
+
+_C_STUR  = 21   # U — first col of Sturges block (U:AD = 21-30)
+_C_SCOTT = 32   # AF — first col of Scott block (AF:AO = 32-41)
+_C_FD    = 43   # AQ — first col of FD block (AQ:AZ = 43-52)
+
+# Within each 10-col histogram block (offsets from block start)
+_HB_EDGE = 0   # Upper Edge
+_HB_COUNT = 1  # Count
+_HB_NORM = 2   # Normal CDF prob
+_HB_LOGN = 3   # Lognormal CDF prob
+_HB_EXP  = 4   # Exponential CDF prob
+_HB_WB   = 5   # Weibull CDF prob
+_HB_GAM  = 6   # Gamma CDF prob
+_HB_TRI  = 7   # Triangular CDF prob
+_HB_BETA = 8   # Beta CDF prob
+_HB_PERT = 9   # BetaPERT CDF prob
+
+_HIST_CDF_HEADERS = [
+    "Normal", "Lognormal", "Exponential", "Weibull",
+    "Gamma", "Triangular", "Beta", "BetaPERT",
+]
+
+# Zone 5: two-parameter Grid-Search MLE (starts at BB = col 54)
 _N_GRID   = 20             # grid points per axis per stage (20×20 = 400/stage)
-_C_GS     = 31             # col AE — first col of grid-search region (AD=30 is gap)
+_C_GS     = 54             # col BB — first col of grid-search region (BA=53 is gap)
 _GS_W     = _N_GRID + 1   # cols per stage = 21  (1 param2 col + N param1 cols)
 _GS_GAP_C = 1              # gap col between Stage 1 and Stage 2
-_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col BA = 53
+_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col BX = 76
 
 # Within-stage row offsets from block row_start
 _GS_R_CONTROL_HDR = 1   # Min NLL label + parameter-table headers
@@ -148,9 +163,9 @@ _XL_CATEGORY         = 1    # horizontal axis type
 _XL_VALUE            = 2    # vertical axis type
 
 # Chart title cells — row where chart title formula and chart block begin
-_ROW_CHART1_TITLE = 14   # Q14 — Sturges histogram chart title
-_ROW_CHART2_TITLE = 34   # Q34 — Scott histogram chart title
-_ROW_CHART3_TITLE = 54   # Q54 — FD histogram chart title
+_ROW_CHART1_TITLE = 14   # G14 — Sturges histogram chart title
+_ROW_CHART2_TITLE = 34   # G34 — Scott histogram chart title
+_ROW_CHART3_TITLE = 54   # G54 — FD histogram chart title
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
@@ -169,42 +184,41 @@ def _subheader_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
 
 def _set_column_widths(sheet: xw.Sheet) -> None:
     widths = {
-        _C_A: 14,    # data
-        _C_B: 10,    # filter mask
-        3:    2,     # gap (C) between filter and stats
-        _C_D: 16,    # stat labels
-        _C_E: 12,    # stat values
-        6:    2,     # gap
-        _C_G: 12,    # Sturges edge
-        _C_H: 10,    # Sturges count
-        9:    2,     # gap
-        _C_J: 12,    # Scott edge
-        _C_K: 10,    # Scott count
-        12:   2,     # gap
-        _C_M: 12,    # FD edge
-        _C_N: 10,    # FD count
-        15:   2,     # gap
-        16:   2,     # gap
-        _C_Q: 14,    # distribution name
-        _C_R: 10,    # θ₁ label
-        _C_S: 12,    # θ₁ value
-        _C_T: 10,    # θ₂ label
-        _C_U: 12,    # θ₂ value
-        _C_V: 10,    # θ₃ label
-        _C_W: 12,    # θ₃ value
-        _C_X: 12,    # NLL
-        _C_Y: 6,     # k
-        _C_Z: 12,    # AIC
-        _C_AA: 12,   # BIC
-        _C_AB: 12,   # A-D
-        _C_AC: 12,   # K-S
-        30:   2,     # gap (AD) before grid-search section
+        _C_A: 14,         # data
+        _C_B: 10,         # filter mask
+        3:    2,          # gap (C) between filter and stats
+        _C_D: 16,         # stat labels
+        _C_E: 12,         # stat values
+        6:    2,          # gap (F)
+        _C_DIST_NAME: 14, # distribution name (G)
+        _C_T1_LBL: 10,   # θ₁ label (H)
+        _C_T1_VAL: 12,   # θ₁ value (I)
+        _C_T2_LBL: 10,   # θ₂ label (J)
+        _C_T2_VAL: 12,   # θ₂ value (K)
+        _C_T3_LBL: 10,   # θ₃ label (L)
+        _C_T3_VAL: 12,   # θ₃ value (M)
+        _C_NLL: 12,      # NLL (N)
+        _C_K_PARAM: 6,   # k (O)
+        _C_AIC: 12,      # AIC (P)
+        _C_BIC: 12,      # BIC (Q)
+        _C_AD: 12,       # A-D (R)
+        _C_KS: 12,       # K-S (S)
+        20:   2,          # gap (T)
     }
     for col, w in widths.items():
         sheet.range(rc(1, col), rc(1, col)).column_width = w
 
+    # Histogram blocks: 10 cols each with gap cols between/after
+    for block_start in (_C_STUR, _C_SCOTT, _C_FD):
+        sheet.range(rc(1, block_start + _HB_EDGE), rc(1, block_start + _HB_EDGE)).column_width = 12
+        sheet.range(rc(1, block_start + _HB_COUNT), rc(1, block_start + _HB_COUNT)).column_width = 10
+        for offset in range(_HB_NORM, _HIST_W):
+            sheet.range(rc(1, block_start + offset), rc(1, block_start + offset)).column_width = 12
+        gap_col = block_start + _HIST_W
+        sheet.range(rc(1, gap_col), rc(1, gap_col)).column_width = 2
+
     # Grid-search stages: compact fixed-area controls above narrow Data Tables.
-    # Stage 1: AE–AY; gap AZ; Stage 2: BA–BU.
+    # Stage 1: BB–BV; gap BW; Stage 2: BX–CR.
     for stage_start in (_C_GS, _C_GS_S2):
         for c in range(stage_start, stage_start + _N_GRID + 1):
             sheet.range(rc(1, c), rc(1, c)).column_width = 6
@@ -214,7 +228,7 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_STEP, _GS_C_BEST):
             sheet.range(rc(1, stage_start + dc)).column_width = 10
 
-    # Gap col AZ between Stage 1 and Stage 2.
+    # Gap col BW between Stage 1 and Stage 2.
     sheet.range(rc(1, _C_GS + _GS_W), rc(1, _C_GS + _GS_W)).column_width = 2
 
 
@@ -223,7 +237,11 @@ def _autofit_column_widths(sheet: xw.Sheet) -> None:
     last_col = _C_GS_S2 + _GS_W - 1
     sheet.range(rc(_ROW_TITLE, _C_A), rc(_DATA_END, last_col)).columns.autofit()
 
-    for col in (3, 6, 9, 12, 15, 16, 30, _C_GS + _GS_W):
+    gap_cols = [3, 6, 20]  # C, F, T
+    for block_start in (_C_STUR, _C_SCOTT, _C_FD):
+        gap_cols.append(block_start + _HIST_W)  # AE, AP, BA
+    gap_cols.append(_C_GS + _GS_W)  # BW
+    for col in gap_cols:
         sheet.range(rc(1, col), rc(1, col)).column_width = 2
 
 
@@ -269,18 +287,18 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
     # Chart series ranges: OFFSET-based, sized by the method value stored in row 2.
     for name, col_ltr, start_row, size_formula in [
-        ("UV_Sturges_Edges",  col_letter(_C_G), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_H)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_Sturges_Counts", col_letter(_C_H), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_H)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_Scott_Edges",    col_letter(_C_J), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_K)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_Scott_Counts",   col_letter(_C_K), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_K)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_FD_Edges",       col_letter(_C_M), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_N)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_FD_Counts",      col_letter(_C_N), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_N)}${_ROW_METHOD_HDR},UV_Include)'),
+        ("UV_Sturges_Edges",  col_letter(_C_STUR + _HB_EDGE), _ROW_HIST_START,
+         f'num_histogram_bins(UV_Data,${col_letter(_C_STUR + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
+        ("UV_Sturges_Counts", col_letter(_C_STUR + _HB_COUNT), _ROW_HIST_START,
+         f'num_histogram_bins(UV_Data,${col_letter(_C_STUR + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
+        ("UV_Scott_Edges",    col_letter(_C_SCOTT + _HB_EDGE), _ROW_HIST_START,
+         f'num_histogram_bins(UV_Data,${col_letter(_C_SCOTT + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
+        ("UV_Scott_Counts",   col_letter(_C_SCOTT + _HB_COUNT), _ROW_HIST_START,
+         f'num_histogram_bins(UV_Data,${col_letter(_C_SCOTT + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
+        ("UV_FD_Edges",       col_letter(_C_FD + _HB_EDGE), _ROW_HIST_START,
+         f'num_histogram_bins(UV_Data,${col_letter(_C_FD + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
+        ("UV_FD_Counts",      col_letter(_C_FD + _HB_COUNT), _ROW_HIST_START,
+         f'num_histogram_bins(UV_Data,${col_letter(_C_FD + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
     ]:
         _drop_wb_name(sheet, name)
         drop_local_name(sheet, name)
@@ -358,80 +376,121 @@ def _write_descriptive_stats(sheet: xw.Sheet) -> None:
     border_box(sheet, _ROW_SECTION_HDR, _C_D, last_row, _C_E)
 
 
-# ── Zone 3: histogram tables ──────────────────────────────────────────────────
+# ── Zone 4: histogram tables (10-col blocks with CDF probabilities) ──────────
+
+def _cdf_hstack_formula(edge_spill_ref: str) -> str:
+    """Build the HSTACK spill formula that populates 8 CDF probability columns."""
+    t1 = col_letter(_C_T1_VAL)  # I — θ₁ value
+    t2 = col_letter(_C_T2_VAL)  # K — θ₂ value
+    t3 = col_letter(_C_T3_VAL)  # M — θ₃ value
+    r = _ROW_DIST_START
+    return (
+        "=LET("
+        f"edges,{edge_spill_ref},"
+        "lower,Bin_Lower_Edges(UV_Data,edges,UV_Include),"
+        "HSTACK("
+        f"CDF_Normal(edges,${t1}${r},${t2}${r},lower),"
+        f"CDF_Lognormal(edges,${t1}${r+1},${t2}${r+1},lower),"
+        f"CDF_Exponential(edges,${t1}${r+2},lower),"
+        f"CDF_Weibull(edges,${t1}${r+3},${t2}${r+3},lower),"
+        f"CDF_Gamma(edges,${t1}${r+4},${t2}${r+4},lower),"
+        f"CDF_Triangular(edges,${t1}${r+5},${t2}${r+5},${t3}${r+5},lower),"
+        f"CDF_Beta(edges,${t1}${r+6},${t2}${r+6},"
+        "MIN(FILTER(UV_Data,UV_Include)),"
+        "MAX(FILTER(UV_Data,UV_Include))-MIN(FILTER(UV_Data,UV_Include)),lower),"
+        f"CDF_BetaPERT(edges,${t1}${r+7},${t2}${r+7},${t3}${r+7},lower)"
+        "))"
+    )
+
 
 def _write_histogram_table(
     sheet: xw.Sheet,
-    col_edge: int,
-    col_count: int,
+    col_start: int,
     method: str,
 ) -> None:
-    """Write one histogram bin table (edges + counts) for the given method."""
-    # Row 2 keeps the label and method in separate cells for formula references.
+    """Write one 10-column histogram block (edges, counts, 8 CDF probabilities)."""
+    col_edge = col_start + _HB_EDGE
+    col_count = col_start + _HB_COUNT
+    col_cdf_first = col_start + _HB_NORM
+    col_last = col_start + _HIST_W - 1
+
+    # Row 2: method label and value
     section_heading(sheet, _ROW_METHOD_HDR, col_edge, "Method")
     val(sheet, _ROW_METHOD_HDR, col_count, method)
     sheet.range(rc(_ROW_METHOD_HDR, col_count)).color = _HEADER
     sheet.range(rc(_ROW_METHOD_HDR, col_count)).api.Font.Bold = True
 
-    val(sheet, _ROW_COL_HDRS, col_edge,  "Upper Edge")
+    # Row 4: column headers
+    val(sheet, _ROW_COL_HDRS, col_edge, "Upper Edge")
     val(sheet, _ROW_COL_HDRS, col_count, "Count")
-    _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_count)
+    for i, hdr in enumerate(_HIST_CDF_HEADERS):
+        val(sheet, _ROW_COL_HDRS, col_cdf_first + i, hdr)
+    _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_last)
 
-    # Row 3: bin-count display — "Bins" label + num_histogram_bins formula
+    # Row 3: bin-count display
     val(sheet, _ROW_SECTION_HDR, col_edge, "Bins:")
     method_cell = a1(_ROW_METHOD_HDR, col_count)
-    f(sheet, _ROW_SECTION_HDR, col_count, f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
+    f(sheet, _ROW_SECTION_HDR, col_count,
+      f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
     sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = _FMT_INT
 
-    # Spill formulas — method must be explicit (can't skip it to reach the 3rd filter arg)
+    # Edge and count spill formulas
     f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,{method_cell},UV_Include)")
     edge_spill_ref = f"{col_letter(col_edge)}{_ROW_HIST_START}#"
     f(sheet, _ROW_HIST_START, col_count,
-       f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
+      f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
 
+    # CDF probability columns — single HSTACK spill formula at col_cdf_first
+    f(sheet, _ROW_HIST_START, col_cdf_first, _cdf_hstack_formula(edge_spill_ref))
+
+    # Number formats
     sheet.range(rc(_ROW_HIST_START, col_edge), rc(_DATA_END, col_edge)).number_format = _FMT_1DP
     sheet.range(rc(_ROW_HIST_START, col_count), rc(_DATA_END, col_count)).number_format = _FMT_INT
+    sheet.range(
+        rc(_ROW_HIST_START, col_cdf_first), rc(_DATA_END, col_last)
+    ).number_format = _FMT_4DP
 
 
 def _write_histograms(sheet: xw.Sheet) -> None:
-    # Zone super-heading in title row, merged across all three histogram tables
-    section_heading(sheet, _ROW_TITLE, _C_G, "Histograms")
-    sheet.range(rc(_ROW_TITLE, _C_G), rc(_ROW_TITLE, _C_N)).merge()
+    # Zone super-heading in title row, merged across all three histogram blocks
+    section_heading(sheet, _ROW_TITLE, _C_STUR, "Histograms")
+    sheet.range(
+        rc(_ROW_TITLE, _C_STUR), rc(_ROW_TITLE, _C_FD + _HIST_W - 1)
+    ).merge()
 
-    # Each table writes its own method heading at _ROW_METHOD_HDR (row 2)
-    _write_histogram_table(sheet, _C_G, _C_H, "Sturges")
-    _write_histogram_table(sheet, _C_J, _C_K, "Scott")
-    _write_histogram_table(sheet, _C_M, _C_N, "FD")
+    _write_histogram_table(sheet, _C_STUR, "Sturges")
+    _write_histogram_table(sheet, _C_SCOTT, "Scott")
+    _write_histogram_table(sheet, _C_FD, "FD")
 
 
-# ── Zone 4: distribution fitting summary table ────────────────────────────────
+# ── Zone 3: distribution fitting summary table ────────────────────────────────
 
 _FIT_COL_HDRS = [
-    (_C_Q, "Distribution"),
-    (_C_R, "θ₁"),
-    (_C_S, "Value"),
-    (_C_T, "θ₂"),
-    (_C_U, "Value"),
-    (_C_V, "θ₃"),
-    (_C_W, "Value"),
-    (_C_X, "NLL"),
-    (_C_Y, "k"),
-    (_C_Z, "AIC"),
-    (_C_AA, "BIC"),
-    (_C_AB, "A-D"),
-    (_C_AC, "K-S"),
+    (_C_DIST_NAME, "Distribution"),
+    (_C_T1_LBL, "θ₁"),
+    (_C_T1_VAL, "Value"),
+    (_C_T2_LBL, "θ₂"),
+    (_C_T2_VAL, "Value"),
+    (_C_T3_LBL, "θ₃"),
+    (_C_T3_VAL, "Value"),
+    (_C_NLL, "NLL"),
+    (_C_K_PARAM, "k"),
+    (_C_AIC, "AIC"),
+    (_C_BIC, "BIC"),
+    (_C_AD, "A-D"),
+    (_C_KS, "K-S"),
 ]
 
 _FIT_NUMBER_FORMATS: dict[int, str] = {
-    _C_S: _FMT_1DP,
-    _C_U: _FMT_1DP,
-    _C_W: _FMT_1DP,
-    _C_X: _FMT_SCI_1DP,
-    _C_Y: _FMT_INT,
-    _C_Z: _FMT_1DP,
-    _C_AA: _FMT_1DP,
-    _C_AB: _FMT_4DP,
-    _C_AC: _FMT_4DP,
+    _C_T1_VAL: _FMT_1DP,
+    _C_T2_VAL: _FMT_1DP,
+    _C_T3_VAL: _FMT_1DP,
+    _C_NLL: _FMT_SCI_1DP,
+    _C_K_PARAM: _FMT_INT,
+    _C_AIC: _FMT_1DP,
+    _C_BIC: _FMT_1DP,
+    _C_AD: _FMT_4DP,
+    _C_KS: _FMT_4DP,
 }
 
 
@@ -462,16 +521,16 @@ def _dist_rows(base_row: int) -> list[tuple]:
     """Return distribution row specs.  base_row = row of first distribution."""
 
     def _r(row: int) -> str:
-        return f"${col_letter(_C_S)}${row}"
+        return f"${col_letter(_C_T1_VAL)}${row}"
 
     def _t(row: int) -> str:
-        return f"${col_letter(_C_U)}${row}"
+        return f"${col_letter(_C_T2_VAL)}${row}"
 
     def _v(row: int) -> str:
-        return f"${col_letter(_C_W)}${row}"
+        return f"${col_letter(_C_T3_VAL)}${row}"
 
     def _n(row: int) -> str:
-        return f"${col_letter(_C_Y)}${row}"
+        return f"${col_letter(_C_K_PARAM)}${row}"
 
     weibull_shape_ref, weibull_scale_ref = _final_grid_best_refs(_ROW_GS_WB)
     gamma_shape_ref, gamma_rate_ref = _final_grid_best_refs(_ROW_GS_GAMMA)
@@ -594,47 +653,48 @@ def _dist_rows(base_row: int) -> list[tuple]:
 
 def _write_fitting_table(sheet: xw.Sheet) -> None:
     # Zone heading at row 2, merged across all fitting columns
-    section_heading(sheet, _ROW_METHOD_HDR, _C_Q, "Distribution Fitting/Comparison")
-    sheet.range(rc(_ROW_METHOD_HDR, _C_Q), rc(_ROW_METHOD_HDR, _C_AC)).merge()
+    section_heading(sheet, _ROW_METHOD_HDR, _C_FIT_FIRST, "Distribution Fitting/Comparison")
+    sheet.range(rc(_ROW_METHOD_HDR, _C_FIT_FIRST), rc(_ROW_METHOD_HDR, _C_FIT_LAST)).merge()
 
     for col, label in _FIT_COL_HDRS:
         val(sheet, _ROW_COL_HDRS, col, label)
-    _subheader_row(sheet, _ROW_COL_HDRS, _C_Q, _C_AC)
+    _subheader_row(sheet, _ROW_COL_HDRS, _C_FIT_FIRST, _C_FIT_LAST)
 
     dist_data = _dist_rows(_ROW_DIST_START)
     for row, name, l1, f1, l2, f2, l3, f3, nll_f, k, cdf_expr in dist_data:
-        val(sheet, row, _C_Q, name)
-        val(sheet, row, _C_R, l1)
+        val(sheet, row, _C_DIST_NAME, name)
+        val(sheet, row, _C_T1_LBL, l1)
         if f1:
-            f(sheet, row, _C_S, f1)
-        val(sheet, row, _C_T, l2)
+            f(sheet, row, _C_T1_VAL, f1)
+        val(sheet, row, _C_T2_LBL, l2)
         if f2:
-            f(sheet, row, _C_U, f2)
-        val(sheet, row, _C_V, l3)
+            f(sheet, row, _C_T2_VAL, f2)
+        val(sheet, row, _C_T3_LBL, l3)
         if f3:
-            f(sheet, row, _C_W, f3)
-        f(sheet, row, _C_X, nll_f)
-        val(sheet, row, _C_Y, k)
-        f(sheet, row, _C_Z, f"=GoF_AIC(${col_letter(_C_X)}${row},${col_letter(_C_Y)}${row})")
-        f(sheet, row, _C_AA,
-           f"=GoF_BIC(${col_letter(_C_X)}${row},${col_letter(_C_Y)}${row},UV_n)")
-        f(sheet, row, _C_AB,
-           f"=GoF_AndersonDarling(UV_Data,{cdf_expr},UV_Include)")
-        f(sheet, row, _C_AC,
-           f"=GoF_KS(UV_Data,{cdf_expr},UV_Include)")
+            f(sheet, row, _C_T3_VAL, f3)
+        f(sheet, row, _C_NLL, nll_f)
+        val(sheet, row, _C_K_PARAM, k)
+        f(sheet, row, _C_AIC,
+          f"=GoF_AIC(${col_letter(_C_NLL)}${row},${col_letter(_C_K_PARAM)}${row})")
+        f(sheet, row, _C_BIC,
+          f"=GoF_BIC(${col_letter(_C_NLL)}${row},${col_letter(_C_K_PARAM)}${row},UV_n)")
+        f(sheet, row, _C_AD,
+          f"=GoF_AndersonDarling(UV_Data,{cdf_expr},UV_Include)")
+        f(sheet, row, _C_KS,
+          f"=GoF_KS(UV_Data,{cdf_expr},UV_Include)")
 
         for col, fmt in _FIT_NUMBER_FORMATS.items():
             sheet.range(rc(row, col)).number_format = fmt
 
     # Border around the table (col headers through last data row)
     last_row = _ROW_DIST_START + len(dist_data) - 1
-    border_box(sheet, _ROW_COL_HDRS, _C_Q, last_row, _C_AC)
+    border_box(sheet, _ROW_COL_HDRS, _C_FIT_FIRST, last_row, _C_FIT_LAST)
 
     # Highlight best-fit row (lowest AIC) with conditional formatting
-    aic_col_letter = col_letter(_C_Z)
-    aic_min_range  = f"${aic_col_letter}${_ROW_DIST_START}:${aic_col_letter}${last_row}"
+    aic_col_letter = col_letter(_C_AIC)
+    aic_min_range = f"${aic_col_letter}${_ROW_DIST_START}:${aic_col_letter}${last_row}"
     formula = f"=${aic_col_letter}{_ROW_DIST_START}=MIN({aic_min_range})"
-    row_range = sheet.range(rc(_ROW_DIST_START, _C_Q), rc(last_row, _C_AC))
+    row_range = sheet.range(rc(_ROW_DIST_START, _C_FIT_FIRST), rc(last_row, _C_FIT_LAST))
     cf = row_range.api.FormatConditions.Add(Type=2, Formula1=formula)  # xlExpression=2
     cf.Interior.Color = 0xC6EFCE  # light green fill
     cf.Font.Color     = 0x276228  # dark green text
@@ -674,7 +734,7 @@ def _add_histogram_chart(
         "UV_Scott_Edges": _ROW_CHART2_TITLE,
         "UV_FD_Edges": _ROW_CHART3_TITLE,
     }[edges_name]
-    chart.ChartTitle.Formula = f"='{sname}'!$Q${title_row}"
+    chart.ChartTitle.Formula = f"='{sname}'!${col_letter(_C_FIT_FIRST)}${title_row}"
     x_axis = chart.Axes(_XL_CATEGORY)
     x_axis.HasTitle = True
     x_axis.AxisTitle.Text = "Upper Edge"
@@ -684,31 +744,32 @@ def _add_histogram_chart(
 
 
 def _write_histogram_chart_title_cells(sheet: xw.Sheet) -> None:
-    """Write chart title formula cells at Q14, Q34, Q54 for the three histograms."""
-    for row, count_col in [
-        (_ROW_CHART1_TITLE, _C_H),
-        (_ROW_CHART2_TITLE, _C_K),
-        (_ROW_CHART3_TITLE, _C_N),
+    """Write chart title formula cells at G14, G34, G54 for the three histograms."""
+    for row, block_start in [
+        (_ROW_CHART1_TITLE, _C_STUR),
+        (_ROW_CHART2_TITLE, _C_SCOTT),
+        (_ROW_CHART3_TITLE, _C_FD),
     ]:
-        f(sheet, row, _C_Q, f'={col_letter(count_col)}{_ROW_METHOD_HDR}&" Method Histogram"')
+        count_col = block_start + _HB_COUNT
+        f(sheet, row, _C_FIT_FIRST,
+          f'={col_letter(count_col)}{_ROW_METHOD_HDR}&" Method Histogram"')
 
 
 def _write_histogram_charts(sheet: xw.Sheet) -> None:
     """Insert three gapless column charts for Sturges, Scott, and FD histogram tables."""
-    sname = sheet.name
-    for title_cell, edges_name, counts_name, row_start, row_end in [
-        ("H", "UV_Sturges_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
-        ("K", "UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
-        ("N", "UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
+    for edges_name, counts_name, row_start, row_end in [
+        ("UV_Sturges_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
+        ("UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
+        ("UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
     ]:
-        chart_range = sheet.range(rc(row_start, _C_Q), rc(row_end, _C_AC))
+        chart_range = sheet.range(rc(row_start, _C_FIT_FIRST), rc(row_end, _C_FIT_LAST))
         _add_histogram_chart(
             sheet,
             chart_left=chart_range.left,
             chart_top=chart_range.top,
             chart_width=chart_range.width,
             chart_height=chart_range.height,
-            title_cell=title_cell,
+            title_cell="",
             edges_name=edges_name,
             counts_name=counts_name,
         )
@@ -736,8 +797,8 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 # The visible Input cells are the actual RowInput and ColumnInput cells supplied
 # to Excel's two-input Data Table object.  No hidden auxiliary row is required.
 #
-# Stage 1: col_start = _C_GS = 31 (AE); body = AF6:AY25
-# Stage 2: col_start = _C_GS_S2 = 53 (BA); body = BB6:BU25
+# Stage 1: col_start = _C_GS = 54 (BB); body = BC6:BV25
+# Stage 2: col_start = _C_GS_S2 = 76 (BX); body = BY6:CR25
 #
 # Named ranges registered here:
 #   *_S1 = Stage 1 Data Table body only

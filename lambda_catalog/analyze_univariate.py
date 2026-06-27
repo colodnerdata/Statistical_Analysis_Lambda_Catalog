@@ -197,6 +197,146 @@ def bin_counts(data: Sequence[float | None], edges: np.ndarray) -> np.ndarray:
     return np.array(counts, dtype=int)
 
 
+def bin_midpoints(data: Sequence[float | None], edges: np.ndarray) -> np.ndarray:
+    """Return the midpoint of each histogram bin."""
+    x = _clean(data)
+    k = len(edges)
+    width = (float(np.max(x)) - float(np.min(x))) / k
+    return np.asarray(edges, dtype=float) - width / 2.0
+
+
+def bin_lower_edges(data: Sequence[float | None], edges: np.ndarray) -> np.ndarray:
+    """Return the lower edge of each histogram bin.
+
+    First bin lower edge is data minimum; subsequent bins use the previous
+    upper edge.
+    """
+    x = _clean(data)
+    bins = np.asarray(edges, dtype=float)
+    if len(bins) == 1:
+        return np.array([float(np.min(x))])
+    return np.concatenate([[float(np.min(x))], bins[:-1]])
+
+
+# ── CDF functions ────────────────────────────────────────────────────────────
+# CDF(maximum) − CDF(minimum).  When minimum is None, CDF(maximum) alone.
+# These are the independent scipy oracles for the Excel CDF LAMBDAs.
+
+def cdf_normal(
+    maximum: float, mean: float, sd: float, minimum: float | None = None
+) -> float:
+    """CDF difference for Normal(mean, sd)."""
+    cdf_max = float(scipy_stats.norm.cdf(maximum, loc=mean, scale=sd))
+    cdf_min = 0.0 if minimum is None else float(scipy_stats.norm.cdf(minimum, loc=mean, scale=sd))
+    return cdf_max - cdf_min
+
+
+def cdf_lognormal(
+    maximum: float, meanlog: float, sdlog: float, minimum: float | None = None
+) -> float:
+    """CDF difference for Lognormal(meanlog, sdlog)."""
+    cdf_max = float(scipy_stats.lognorm.cdf(maximum, s=sdlog, scale=math.exp(meanlog)))
+    cdf_min = 0.0 if minimum is None else float(
+        scipy_stats.lognorm.cdf(minimum, s=sdlog, scale=math.exp(meanlog))
+    )
+    return cdf_max - cdf_min
+
+
+def cdf_exponential(
+    maximum: float, rate: float, minimum: float | None = None
+) -> float:
+    """CDF difference for Exponential(rate).  rate = 1/mean."""
+    cdf_max = float(scipy_stats.expon.cdf(maximum, scale=1.0 / rate))
+    cdf_min = 0.0 if minimum is None else float(scipy_stats.expon.cdf(minimum, scale=1.0 / rate))
+    return cdf_max - cdf_min
+
+
+def cdf_weibull(
+    maximum: float, shape: float, scale: float, minimum: float | None = None
+) -> float:
+    """CDF difference for Weibull(shape, scale)."""
+    cdf_max = float(scipy_stats.weibull_min.cdf(maximum, c=shape, scale=scale))
+    cdf_min = 0.0 if minimum is None else float(
+        scipy_stats.weibull_min.cdf(minimum, c=shape, scale=scale)
+    )
+    return cdf_max - cdf_min
+
+
+def cdf_gamma(
+    maximum: float, shape: float, rate: float, minimum: float | None = None
+) -> float:
+    """CDF difference for Gamma(shape, rate).  rate = 1/scale."""
+    cdf_max = float(scipy_stats.gamma.cdf(maximum, a=shape, scale=1.0 / rate))
+    cdf_min = 0.0 if minimum is None else float(
+        scipy_stats.gamma.cdf(minimum, a=shape, scale=1.0 / rate)
+    )
+    return cdf_max - cdf_min
+
+
+def cdf_triangular(
+    maximum: float,
+    min_val: float,
+    mode_val: float,
+    max_val: float,
+    minimum: float | None = None,
+) -> float:
+    """CDF difference for Triangular(min_val, mode_val, max_val)."""
+    data_range = max_val - min_val
+    if data_range <= 0:
+        return 0.0
+    c = (mode_val - min_val) / data_range
+    cdf_max = float(scipy_stats.triang.cdf(maximum, c=c, loc=min_val, scale=data_range))
+    cdf_min = 0.0 if minimum is None else float(
+        scipy_stats.triang.cdf(minimum, c=c, loc=min_val, scale=data_range)
+    )
+    return cdf_max - cdf_min
+
+
+def cdf_beta(
+    maximum: float,
+    alpha_param: float,
+    beta_param: float,
+    data_min: float,
+    data_range: float,
+    minimum: float | None = None,
+) -> float:
+    """CDF difference for rescaled Beta(alpha, beta).
+
+    Rescales x to [0, 1] using the same padding as NLL_Beta.
+    """
+    pad = max(data_range * 0.001, 1e-30)
+    scale_ = data_range + 2.0 * pad
+    z_max = (maximum - data_min + pad) / scale_
+    cdf_max = float(scipy_stats.beta.cdf(z_max, a=alpha_param, b=beta_param))
+    if minimum is None:
+        return cdf_max
+    z_min = (minimum - data_min + pad) / scale_
+    cdf_min = float(scipy_stats.beta.cdf(z_min, a=alpha_param, b=beta_param))
+    return cdf_max - cdf_min
+
+
+def cdf_betapert(
+    maximum: float,
+    min_val: float,
+    mode_val: float,
+    max_val: float,
+    minimum: float | None = None,
+) -> float:
+    """CDF difference for BetaPERT(min_val, mode_val, max_val)."""
+    data_range = max_val - min_val
+    if data_range <= 0:
+        return 0.0
+    alpha_p = 1.0 + 4.0 * (mode_val - min_val) / data_range
+    beta_p = 1.0 + 4.0 * (max_val - mode_val) / data_range
+    z_max = (maximum - min_val) / data_range
+    cdf_max = float(scipy_stats.beta.cdf(z_max, a=alpha_p, b=beta_p))
+    if minimum is None:
+        return cdf_max
+    z_min = (minimum - min_val) / data_range
+    cdf_min = float(scipy_stats.beta.cdf(z_min, a=alpha_p, b=beta_p))
+    return cdf_max - cdf_min
+
+
 # ── Negative log-likelihood functions ────────────────────────────────────────
 # NLL = -Σ log f(xᵢ | params).  All use scipy's logpdf, which is the
 # independent reference the LAMBDA formulas are validated against.

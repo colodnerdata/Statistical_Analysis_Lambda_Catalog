@@ -102,19 +102,19 @@ series.XValues = f"='{sheet.name}'!NamedRangeEdges"
 series.Values  = f"='{sheet.name}'!NamedRangeCounts"
 ```
 
-### Chart titles — use `.Formula`, not `.Text`
+### Chart titles — `.Text` for static, `.Formula` for cell-linked
 
-`.Text` sets a literal string. `.Formula` links to a cell so the title updates dynamically:
+`.Text` sets a literal string and is correct for fixed titles (e.g., the Regression diagnostic charts use `chart.ChartTitle.Text = title`). `.Formula` links the title to a worksheet cell so it updates dynamically — use it when the title depends on data:
 
 ```python
-# Wrong — static string that won't update:
-chart.ChartTitle.Text = "='Sheet'!H2"
+# Static title (fixed label):
+chart.ChartTitle.Text = "Residuals vs. Fitted"
 
-# Right — live cell reference:
+# Dynamic title (linked to a formula cell):
 chart.ChartTitle.Formula = "='Sheet'!$Q$14"
 ```
 
-When the title needs to be computed (e.g., concatenating a method name with " Histogram"), write the formula into a dedicated cell first, then point the chart title's `.Formula` at that cell.
+When a dynamic title needs to be computed (e.g., concatenating a method name with " Histogram"), write the formula into a dedicated cell first, then point the chart title's `.Formula` at that cell. Do **not** pass a formula string to `.Text` — it will be rendered as literal text, not evaluated.
 
 ### Histogram-specific formatting
 
@@ -140,7 +140,7 @@ except Exception:
 
 ### Separate chart title cells from chart insertion
 
-Write formula cells for chart titles (e.g., `Q14`, `Q34`, `Q54`) **outside** the try/except guard. These cells are pure data writes via xlwings — they always work, even headless. Only the `ChartObjects().Add(...)` call needs the guard. This also makes the title formulas testable in CI.
+Write formula cells for chart titles (e.g., `Q14`, `Q34`, `Q54`) **outside** the try/except guard. These are standard cell writes (not COM chart API calls), so they can be exercised in unit tests via the `RecordingSheet` mock without Excel. Only the `ChartObjects().Add(...)` call needs the guard. This separation keeps chart title formulas testable in CI even though actual chart insertion is not.
 
 ### Build-phase retry separation
 

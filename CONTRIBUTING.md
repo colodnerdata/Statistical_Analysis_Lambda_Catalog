@@ -39,6 +39,8 @@ Tests live in `tests/`. The current test files are:
 | `test_sheet_writers.py` | Sheet writer integration (conditional formatting, named ranges) |
 | `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
 | `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
+| `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
+| `test_qc_configs.py` | QC config generation, cross-consistency between scalar/vector/observation configs, regression sheet diagnostics, cache round-trips |
 
 ### Coverage scope
 

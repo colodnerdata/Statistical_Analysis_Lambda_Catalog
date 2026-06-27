@@ -2015,7 +2015,7 @@
     {
       "name": "GoF_AndersonDarling",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(data, dist_cdf, [include],\n  LET(\n    inc, IF(ISOMITTED(include), ISNUMBER(data), include),\n    d, FILTER(data, inc),\n    f, FILTER(dist_cdf, inc),\n    n, ROWS(d),\n    fs, SORTBY(f, d),\n    eps, 1E-10,\n    fc, IF(fs < eps, eps, IF(fs > 1 - eps, 1 - eps, fs)),\n    i, SEQUENCE(n),\n    fc_rev, SORTBY(fc, i, -1),\n    -n - SUMPRODUCT((2 * i - 1) * (LN(fc) + LN(1 - fc_rev))) / n\n  ))",
+      "formula_display": "=LAMBDA(data, dist_cdf, [include],\n  LET(\n    inc, IF(ISOMITTED(include), ISNUMBER(data), include),\n    d, FILTER(data, inc),\n    f, FILTER(dist_cdf, inc),\n    n, ROWS(d),\n    IF(n = 0, NA(),\n    LET(\n      fs, SORTBY(f, d),\n      eps, 1E-10,\n      fc, IF(fs < eps, eps, IF(fs > 1 - eps, 1 - eps, fs)),\n      i, SEQUENCE(n),\n      fc_rev, SORTBY(fc, i, -1),\n      -n - SUMPRODUCT((2 * i - 1) * (LN(fc) + LN(1 - fc_rev))) / n\n    ))\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -2038,7 +2038,7 @@
     {
       "name": "GoF_KS",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(data, dist_cdf, [include],\n  LET(\n    inc, IF(ISOMITTED(include), ISNUMBER(data), include),\n    d, FILTER(data, inc),\n    f, FILTER(dist_cdf, inc),\n    n, ROWS(d),\n    fs, SORTBY(f, d),\n    i, SEQUENCE(n),\n    d_plus, MAX(i / n - fs),\n    d_minus, MAX(fs - (i - 1) / n),\n    MAX(d_plus, d_minus)\n  ))",
+      "formula_display": "=LAMBDA(data, dist_cdf, [include],\n  LET(\n    inc, IF(ISOMITTED(include), ISNUMBER(data), include),\n    d, FILTER(data, inc),\n    f, FILTER(dist_cdf, inc),\n    n, ROWS(d),\n    IF(n = 0, NA(),\n    LET(\n      fs, SORTBY(f, d),\n      i, SEQUENCE(n),\n      d_plus, MAX(i / n - fs),\n      d_minus, MAX(fs - (i - 1) / n),\n      MAX(d_plus, d_minus)\n    ))\n  ))",
       "arguments": [
         {
           "name": "data",

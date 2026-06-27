@@ -543,11 +543,11 @@ def _dist_rows(base_row: int) -> list[tuple]:
             lambda r: f"=NLL_Triangular(UV_Data,{_r(r)},{_t(r)},{_v(r)},UV_Include)",
             3,
             lambda r: (
-                f"IF(UV_Data<{_r(r)},0,"
+                f"IFERROR(IF(UV_Data<{_r(r)},0,"
                 f"IF(UV_Data<{_t(r)},"
-                f"(UV_Data-{_r(r)})^2/(({_v(r)}-{_r(r)})*({_t(r)}-{_r(r)})),"
+                f"(UV_Data-{_r(r)})^2/(({_v(r)}-{_r(r)})*({_t(r)}-{_r(r)})+1E-30),"
                 f"IF(UV_Data<={_v(r)},"
-                f"1-(({_v(r)}-UV_Data)^2/(({_v(r)}-{_r(r)})*({_v(r)}-{_t(r)}))),1)))"
+                f"1-(({_v(r)}-UV_Data)^2/(({_v(r)}-{_r(r)})*({_v(r)}-{_t(r)})+1E-30)),1))),0.5)"
             ),
         ),
         (
@@ -561,10 +561,11 @@ def _dist_rows(base_row: int) -> list[tuple]:
             lambda r: _nll_beta_rescaled_formula(_r(r), _t(r)),
             2,
             lambda r: (
-                f"LET(d,UV_Data,range_,MAX(FILTER(d,UV_Include))-MIN(FILTER(d,UV_Include)),"
-                f"pad,range_*0.001,scale_,range_+2*pad,"
-                f"z,(d-MIN(FILTER(d,UV_Include))+pad)/scale_,"
-                f"BETA.DIST(z,{_r(r)},{_t(r)},TRUE))"
+                f"LET(d,UV_Data,mn,MIN(FILTER(d,UV_Include)),"
+                f"range_,MAX(FILTER(d,UV_Include))-mn,"
+                f"pad,MAX(range_*0.001,1E-30),scale_,range_+2*pad,"
+                f"z,(d-mn+pad)/scale_,"
+                f"IFERROR(BETA.DIST(z,{_r(r)},{_t(r)},TRUE),0.5))"
             ),
         ),
         (

@@ -38,7 +38,7 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 ### Sheet writer (`write_sheet_univariate.py`)
 
 **Fit comparison table**
-- TODO: Add Anderson-Darling and K-S columns to the fit comparison table (depends on `GoF_AndersonDarling` and `GoF_KS` LAMBDAs).
+- DONE: Added Anderson-Darling and K-S columns to the fit comparison table, with per-distribution CDF formulas (inline for Triangular, Beta, BetaPERT; built-in Excel CDF functions for the rest).
 
 **Q-Q plots and histogram overlays**
 - TODO: Per-distribution Q-Q plots (8 charts) using OFFSET-based named ranges.

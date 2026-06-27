@@ -445,11 +445,11 @@ class TestPredictorSummaryIndependent(unittest.TestCase):
     """Verify Pearson_R, Spearman_R, Skewness, Kurtosis, VIF, Tolerance."""
 
     def setUp(self) -> None:
-        np.random.seed(42)
+        rng = np.random.default_rng(42)
         n = 25
-        x1 = np.linspace(1, 10, n) + np.random.normal(0, 0.5, n)
-        x2 = np.linspace(0, 5, n) + np.random.normal(0, 0.3, n)
-        y = 3.0 + 1.5 * x1 - 0.8 * x2 + np.random.normal(0, 1.0, n)
+        x1 = np.linspace(1, 10, n) + rng.normal(0, 0.5, n)
+        x2 = np.linspace(0, 5, n) + rng.normal(0, 0.3, n)
+        y = 3.0 + 1.5 * x1 - 0.8 * x2 + rng.normal(0, 1.0, n)
         self.rows = [_make_row(y[i], x1[i], x2[i]) for i in range(n)]
         self.k = 2
         self._tmp = tempfile.TemporaryDirectory()
@@ -519,11 +519,11 @@ class TestFullResidualsIndependent(unittest.TestCase):
     """Verify hat diagonal, studentized residuals, Cook's distance, LOOCV."""
 
     def setUp(self) -> None:
-        np.random.seed(99)
+        rng = np.random.default_rng(99)
         n = 20
         x1 = np.linspace(1, 8, n)
         x2 = np.sin(x1) + 1.0
-        y = 2.0 + 1.2 * x1 + 0.5 * x2 + np.random.normal(0, 0.8, n)
+        y = 2.0 + 1.2 * x1 + 0.5 * x2 + rng.normal(0, 0.8, n)
         self.rows = [_make_row(y[i], x1[i], x2[i]) for i in range(n)]
         self.n = n
         self.k = 2
@@ -627,11 +627,11 @@ class TestPredictionIntervalIndependent(unittest.TestCase):
     """Verify prediction interval components via independent computation."""
 
     def setUp(self) -> None:
-        np.random.seed(123)
+        rng = np.random.default_rng(123)
         n = 15
         x1 = np.linspace(2, 10, n)
-        x2 = np.random.uniform(1, 5, n)
-        y = 1.0 + 2.0 * x1 - 0.5 * x2 + np.random.normal(0, 1.5, n)
+        x2 = rng.uniform(1, 5, n)
+        y = 1.0 + 2.0 * x1 - 0.5 * x2 + rng.normal(0, 1.5, n)
         self.rows = [_make_row(y[i], x1[i], x2[i]) for i in range(n)]
         self.k = 2
         self._tmp = tempfile.TemporaryDirectory()
@@ -699,12 +699,12 @@ class TestCorrelationMatrixIndependent(unittest.TestCase):
     """Verify pairwise predictor correlation via independent numpy computation."""
 
     def setUp(self) -> None:
-        np.random.seed(7)
+        rng = np.random.default_rng(7)
         n = 30
         x1 = np.linspace(1, 10, n)
-        x2 = x1 * 0.5 + np.random.normal(0, 1, n)
-        x3 = np.random.uniform(0, 5, n)
-        y = 2.0 + x1 - 0.3 * x2 + 0.5 * x3 + np.random.normal(0, 1, n)
+        x2 = x1 * 0.5 + rng.normal(0, 1, n)
+        x3 = rng.uniform(0, 5, n)
+        y = 2.0 + x1 - 0.3 * x2 + 0.5 * x3 + rng.normal(0, 1, n)
         self.rows = [_make_row(y[i], x1[i], x2[i], x3[i]) for i in range(n)]
         self.k = 3
         self._tmp = tempfile.TemporaryDirectory()
@@ -782,10 +782,10 @@ class TestDurbinWatsonManual(unittest.TestCase):
     """Verify DW statistic against its definition: sum(diff(e)^2)/sum(e^2)."""
 
     def test_durbin_watson(self) -> None:
-        np.random.seed(55)
+        rng = np.random.default_rng(55)
         n = 20
         x = np.linspace(1, 10, n)
-        y = 2.0 + 3.0 * x + np.random.normal(0, 2, n)
+        y = 2.0 + 3.0 * x + rng.normal(0, 2, n)
         rows = [_make_row(y[i], x[i]) for i in range(n)]
         with tempfile.TemporaryDirectory() as tmp:
             csv_path = Path(tmp) / "dw.csv"

@@ -12,19 +12,12 @@ import json
 import math
 import tempfile
 import unittest
-from dataclasses import asdict
 from pathlib import Path
-
-import numpy as np
-from scipy import stats as sp_stats
 
 from lambda_catalog.analyze_life_expectancy import (
     DEFAULT_INPUT_CSV,
     FEATURE_COLUMNS,
-    TARGET_COLUMN,
-    calculate_regression_observation_vectors,
     calculate_regression_summary,
-    calculate_regression_vectors,
 )
 from lambda_catalog.analyze_regression_sheet import (
     REGRESSION_QC_CONFIGS,
@@ -40,20 +33,6 @@ from lambda_catalog.analysis_cache import (
     _serialize_regression_sheet_configs,
     _serialize_vector_configs,
     get_analysis_results,
-)
-from lambda_catalog.inspection_compare import (
-    compare_values,
-    first_digit_deviation,
-    to_float_or_none,
-)
-from lambda_catalog.regression_shared import (
-    RegressionFullResiduals,
-    RegressionObservationVectors,
-    RegressionPredictionInterval,
-    RegressionPredictorSummary,
-    RegressionSheetResults,
-    RegressionSummary,
-    RegressionVectors,
 )
 from lambda_catalog.write_sheet_mlr_observation_test import build_mlr_observation_row_configs
 from lambda_catalog.write_sheet_mlr_scalar_test import (

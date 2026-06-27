@@ -68,6 +68,25 @@ def _backup_unopenable_workbook(workbook_path: Path) -> Path:
     return backup_path
 
 
+def _create_empty_workbook(workbook_path: Path) -> None:
+    """Create a minimal workbook file so names can be synced before sheet writes."""
+    try:
+        with xw.App(visible=False, add_book=False) as app:
+            app.api.DisplayAlerts = False
+            app.api.AskToUpdateLinks = False
+            workbook = app.books.add()
+            try:
+                for sheet in list(workbook.sheets)[1:]:
+                    sheet.delete()
+                if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
+                    workbook.sheets["Sheet1"].name = "LAMBDA_functions"
+                workbook.save(str(workbook_path))
+            finally:
+                workbook.close()
+    except OPEN_WORKBOOK_ERRORS as exc:
+        raise_excel_access_error(workbook_path, "create", exc)
+
+
 def build_production_workbook(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
@@ -108,6 +127,20 @@ def build_production_workbook(
 
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
+
+    if not workbook_exists:
+        _create_empty_workbook(workbook_path)
+        workbook_exists = True
+
+    _t = time.monotonic()
+    try:
+        result = sync_workbook_names(workbook_path, document.functions)
+    except OPEN_WORKBOOK_ERRORS as exc:
+        raise_excel_access_error(workbook_path, "update", exc)
+    except (PermissionError, OSError) as exc:
+        raise_excel_access_error(workbook_path, "update", exc)
+    if verbose:
+        print(f"  Pre-sync names: {time.monotonic() - _t:.1f}s", flush=True)
 
     _t = time.monotonic()
     try:
@@ -160,7 +193,7 @@ def build_production_workbook(
 
     _t = time.monotonic()
     try:
-        result = sync_workbook_names(workbook_path, document.functions)
+        sync_workbook_names(workbook_path, document.functions)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "update", exc)
     except (PermissionError, OSError) as exc:

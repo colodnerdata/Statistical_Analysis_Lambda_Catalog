@@ -145,6 +145,16 @@ def test_missing_count_formula_uses_unfiltered_active_range() -> None:
     assert formulas["Missing"] == "=Missing_Count(UV_Data)"
 
 
+def test_betapert_gof_cdf_uses_valid_let_names() -> None:
+    betapert = next(row for row in _dist_rows(5) if row[1] == "BetaPERT")
+    cdf_expr = betapert[-1]
+
+    assert "a1," not in cdf_expr
+    assert "a2," not in cdf_expr
+    assert "alpha_p," in cdf_expr
+    assert "beta_p," in cdf_expr
+
+
 def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> None:
     sheet = RecordingSheet()
 

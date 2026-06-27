@@ -578,9 +578,9 @@ def _dist_rows(base_row: int) -> list[tuple]:
             lambda r: (
                 f"LET(mn,{_r(r)},md,{_t(r)},mx,{_v(r)},"
                 f"mu,(mn+4*md+mx)/6,"
-                f"a1,(mu-mn)*(2*md-mn-mx)/(((md-mu)*(mx-mn))+1E-30),"
-                f"a2,a1*(mx-mu)/(mu-mn+1E-30),"
-                f"BETA.DIST((UV_Data-mn)/(mx-mn+1E-30),a1,a2,TRUE))"
+                f"alpha_p,(mu-mn)*(2*md-mn-mx)/(((md-mu)*(mx-mn))+1E-30),"
+                f"beta_p,alpha_p*(mx-mu)/(mu-mn+1E-30),"
+                f"BETA.DIST((UV_Data-mn)/(mx-mn+1E-30),alpha_p,beta_p,TRUE))"
             ),
         ),
     ]

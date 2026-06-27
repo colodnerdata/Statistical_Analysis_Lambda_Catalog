@@ -5,13 +5,17 @@ import unittest
 
 import numpy as np
 
+from scipy import stats as scipy_stats
+
 from lambda_catalog.analyze_univariate import (
     bin_counts,
     bin_edges,
     descriptive_stats,
     fd_bins,
     gof_aic,
+    gof_anderson_darling,
     gof_bic,
+    gof_ks,
     missing_count,
     mle_exponential,
     mle_gamma,
@@ -70,6 +74,15 @@ class MissingCountTests(unittest.TestCase):
     def test_text_value_counts_as_missing(self) -> None:
         data = [1.0, "not numeric", 3.0]
         self.assertEqual(missing_count(data), 1)
+
+    def test_trailing_empty_strings_ignored(self) -> None:
+        self.assertEqual(missing_count([1.0, 2.0, "", ""]), 0)
+
+    def test_interior_empty_string_counted(self) -> None:
+        self.assertEqual(missing_count([1.0, "", 3.0]), 1)
+
+    def test_all_empty_strings(self) -> None:
+        self.assertEqual(missing_count(["", ""]), 0)
 
 
 # ── descriptive_stats ─────────────────────────────────────────────────────────
@@ -310,6 +323,74 @@ class GoFTests(unittest.TestCase):
     def test_bic_penalises_more_params(self) -> None:
         # Same NLL, more parameters → higher BIC
         self.assertLess(gof_bic(50.0, 2, 100), gof_bic(50.0, 4, 100))
+
+    # ── Anderson-Darling ──
+
+    def test_ad_finite_for_good_fit(self) -> None:
+        data = _normal_data(200)
+        mu, sd = float(np.mean(data)), float(np.std(data, ddof=1))
+        cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
+        ad = gof_anderson_darling(data, cdf)
+        self.assertTrue(math.isfinite(ad))
+
+    def test_ad_worse_for_bad_fit(self) -> None:
+        data = _normal_data(200)
+        mu, sd = float(np.mean(data)), float(np.std(data, ddof=1))
+        good_cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
+        bad_cdf = [float(scipy_stats.norm.cdf(x, 0.0, 1.0)) for x in data]
+        self.assertLess(
+            gof_anderson_darling(data, good_cdf),
+            gof_anderson_darling(data, bad_cdf),
+        )
+
+    def test_ad_matches_scipy(self) -> None:
+        # scipy.stats.anderson standardizes with ddof=1
+        data = _normal_data(200)
+        mu = float(np.mean(data))
+        sd = float(np.std(data, ddof=1))
+        cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
+        ad = gof_anderson_darling(data, cdf)
+        scipy_ad = scipy_stats.anderson(data, dist="norm").statistic
+        self.assertAlmostEqual(ad, scipy_ad, places=6)
+
+    def test_ad_bounded_support_no_crash(self) -> None:
+        data = [0.0, 0.25, 0.5, 0.75, 1.0]
+        cdf = [0.0, 0.25, 0.5, 0.75, 1.0]
+        ad = gof_anderson_darling(data, cdf)
+        self.assertTrue(math.isfinite(ad))
+
+    # ── Kolmogorov-Smirnov ──
+
+    def test_ks_perfect_empirical_cdf(self) -> None:
+        # When F(x_i) = i/n, D⁺ = 0 but D⁻ = 1/n (empirical CDF step gap)
+        n = 100
+        data = list(range(1, n + 1))
+        cdf = [i / n for i in range(1, n + 1)]
+        ks = gof_ks(data, cdf)
+        self.assertAlmostEqual(ks, 1.0 / n, places=10)
+
+    def test_ks_bounded_01(self) -> None:
+        data = _normal_data(100)
+        mu, sd = float(np.mean(data)), float(np.std(data, ddof=1))
+        cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
+        ks = gof_ks(data, cdf)
+        self.assertGreaterEqual(ks, 0.0)
+        self.assertLessEqual(ks, 1.0)
+
+    def test_ks_worse_for_bad_fit(self) -> None:
+        data = _normal_data(200)
+        mu, sd = float(np.mean(data)), float(np.std(data, ddof=1))
+        good_cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
+        bad_cdf = [float(scipy_stats.norm.cdf(x, 0.0, 1.0)) for x in data]
+        self.assertLess(gof_ks(data, good_cdf), gof_ks(data, bad_cdf))
+
+    def test_ks_matches_scipy(self) -> None:
+        data = _normal_data(200)
+        mu, sd = float(np.mean(data)), float(np.std(data, ddof=1))
+        scipy_ks = scipy_stats.kstest(data, "norm", args=(mu, sd)).statistic
+        cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
+        ks = gof_ks(data, cdf)
+        self.assertAlmostEqual(ks, scipy_ks, places=10)
 
 
 if __name__ == "__main__":

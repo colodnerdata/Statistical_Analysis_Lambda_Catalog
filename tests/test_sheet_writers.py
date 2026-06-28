@@ -356,3 +356,19 @@ def test_grid_stage_returns_visible_step_and_count_references() -> None:
     assert refs["step_p1"] == "$AJ$3"
     assert refs["step_p2"] == "$AJ$4"
     assert refs["n_grid"] == "$AD$3"
+
+
+def test_betapert_cdf_expr_uses_valid_let_variable_names() -> None:
+    """BetaPERT CDF must not use `a1`/`a2` as LET names — they are A1-style cell refs."""
+    betapert_row = next(item for item in _dist_rows(5) if item[1] == "BetaPERT")
+    cdf_expr = betapert_row[10]
+
+    assert "alpha_param" in cdf_expr
+    assert "beta_param" in cdf_expr
+    # a1 / a2 must not appear as LET variable definitions
+    assert "a1," not in cdf_expr
+    assert ",a1," not in cdf_expr
+    assert "a2," not in cdf_expr
+    assert ",a2," not in cdf_expr
+    # parentheses must balance
+    assert cdf_expr.count("(") == cdf_expr.count(")")

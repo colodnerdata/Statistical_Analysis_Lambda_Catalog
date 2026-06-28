@@ -1968,7 +1968,7 @@
     {
       "name": "CDF_BetaPERT",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(maximum, min_val, mode_val, max_val, [minimum],\n  LET(\n    mu, (min_val + 4 * mode_val + max_val) / 6,\n    a1, (mu - min_val) * (2 * mode_val - min_val - max_val) / ((mode_val - mu) * (max_val - min_val) + 1E-30),\n    a2, a1 * (max_val - mu) / (mu - min_val + 1E-30),\n    z_max, (maximum - min_val) / (max_val - min_val + 1E-30),\n    cdf_max, BETA.DIST(z_max, a1, a2, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0,\n      LET(z_min, (minimum - min_val) / (max_val - min_val + 1E-30),\n        BETA.DIST(z_min, a1, a2, TRUE))),\n    cdf_max - cdf_min\n  ))",
+      "formula_display": "=LAMBDA(maximum, min_val, mode_val, max_val, [minimum],\n  LET(\n    mu, (min_val + 4 * mode_val + max_val) / 6,\n    alpha_param, (mu - min_val) * (2 * mode_val - min_val - max_val) / ((mode_val - mu) * (max_val - min_val) + 1E-30),\n    beta_param, alpha_param * (max_val - mu) / (mu - min_val + 1E-30),\n    z_max, (maximum - min_val) / (max_val - min_val + 1E-30),\n    cdf_max, BETA.DIST(z_max, alpha_param, beta_param, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0,\n      LET(z_min, (minimum - min_val) / (max_val - min_val + 1E-30),\n        BETA.DIST(z_min, alpha_param, beta_param, TRUE))),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
           "name": "maximum",

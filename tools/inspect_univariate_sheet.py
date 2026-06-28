@@ -22,12 +22,11 @@ from lambda_catalog.write_sheet_univariate import (
     UNIVARIATE_SHEET_NAME,
     _C_D,
     _C_E,
-    _C_G,
-    _C_H,
-    _C_J,
-    _C_K,
-    _C_M,
-    _C_N,
+    _C_FD,
+    _C_SCOTT,
+    _C_STUR,
+    _HB_COUNT,
+    _HB_EDGE,
     _ROW_HIST_START,
     _ROW_SECTION_HDR,
     _ROW_STATS_START,
@@ -51,9 +50,9 @@ _STAT_SPECS = (
     ("Missing", "missing_count"),
 )
 _HISTOGRAM_SPECS = (
-    ("Sturges", _C_G, _C_H, sturges_bins),
-    ("Scott", _C_J, _C_K, scott_bins),
-    ("FD", _C_M, _C_N, fd_bins),
+    ("Sturges", _C_STUR + _HB_EDGE, _C_STUR + _HB_COUNT, sturges_bins),
+    ("Scott", _C_SCOTT + _HB_EDGE, _C_SCOTT + _HB_COUNT, scott_bins),
+    ("FD", _C_FD + _HB_EDGE, _C_FD + _HB_COUNT, fd_bins),
 )
 
 

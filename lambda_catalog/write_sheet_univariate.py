@@ -733,8 +733,7 @@ def _add_histogram_chart(
         "UV_Scott_Edges": _ROW_CHART2_TITLE,
         "UV_FD_Edges": _ROW_CHART3_TITLE,
     }[edges_name]
-    title_col = title_cell or col_letter(_C_FIT_FIRST)
-    chart.ChartTitle.Formula = f"='{sname}'!${title_col}${title_row}"
+    chart.ChartTitle.Formula = f"='{sname}'!${col_letter(_C_FIT_FIRST)}${title_row}"
     x_axis = chart.Axes(_XL_CATEGORY)
     x_axis.HasTitle = True
     x_axis.AxisTitle.Text = "Upper Edge"

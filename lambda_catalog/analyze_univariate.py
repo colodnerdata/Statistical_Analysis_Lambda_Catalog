@@ -203,6 +203,8 @@ def bin_midpoints(data: Sequence[float | None], edges: np.ndarray) -> np.ndarray
         raise ValueError("edges must be non-empty")
     x = _clean(data)
     k = len(edges)
+    if k == 0:
+        raise ValueError("edges must be non-empty")
     width = (float(np.max(x)) - float(np.min(x))) / k
     return np.asarray(edges, dtype=float) - width / 2.0
 

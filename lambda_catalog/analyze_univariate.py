@@ -217,6 +217,8 @@ def bin_lower_edges(data: Sequence[float | None], edges: np.ndarray) -> np.ndarr
         raise ValueError("edges must be non-empty")
     x = _clean(data)
     bins = np.asarray(edges, dtype=float)
+    if len(bins) == 0:
+        raise ValueError("edges must be non-empty")
     if len(bins) == 1:
         return np.array([float(np.min(x))])
     return np.concatenate([[float(np.min(x))], bins[:-1]])

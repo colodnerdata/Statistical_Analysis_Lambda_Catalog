@@ -383,7 +383,18 @@ def _cdf_hstack_formula(edge_spill_ref: str) -> str:
     t1 = col_letter(_C_T1_VAL)  # I — θ₁ value
     t2 = col_letter(_C_T2_VAL)  # K — θ₂ value
     t3 = col_letter(_C_T3_VAL)  # M — θ₃ value
-    r = _ROW_DIST_START
+
+    fit_rows = {name: row for row, name, *_ in _dist_rows(_ROW_DIST_START)}
+
+    r_norm = fit_rows["Normal"]
+    r_logn = fit_rows["Lognormal"]
+    r_exp = fit_rows["Exponential"]
+    r_wb = fit_rows["Weibull"]
+    r_gam = fit_rows["Gamma"]
+    r_tri = fit_rows["Triangular"]
+    r_beta = fit_rows["Beta"]
+    r_pert = fit_rows["BetaPERT"]
+
     return (
         "=LET("
         f"edges,{edge_spill_ref},"
@@ -391,14 +402,14 @@ def _cdf_hstack_formula(edge_spill_ref: str) -> str:
         "lower,Bin_Lower_Edges(UV_Data,edges,UV_Include),"
         "dmin,MIN(filt),drange,MAX(filt)-dmin,"
         "HSTACK("
-        f"CDF_Normal(edges,${t1}${r},${t2}${r},lower),"
-        f"CDF_Lognormal(edges,${t1}${r+1},${t2}${r+1},lower),"
-        f"CDF_Exponential(edges,${t1}${r+2},lower),"
-        f"CDF_Weibull(edges,${t1}${r+3},${t2}${r+3},lower),"
-        f"CDF_Gamma(edges,${t1}${r+4},${t2}${r+4},lower),"
-        f"CDF_Triangular(edges,${t1}${r+5},${t2}${r+5},${t3}${r+5},lower),"
-        f"CDF_Beta(edges,${t1}${r+6},${t2}${r+6},dmin,drange,lower),"
-        f"CDF_BetaPERT(edges,${t1}${r+7},${t2}${r+7},${t3}${r+7},lower)"
+        f"CDF_Normal(edges,${t1}${r_norm},${t2}${r_norm},lower),"
+        f"CDF_Lognormal(edges,${t1}${r_logn},${t2}${r_logn},lower),"
+        f"CDF_Exponential(edges,${t1}${r_exp},lower),"
+        f"CDF_Weibull(edges,${t1}${r_wb},${t2}${r_wb},lower),"
+        f"CDF_Gamma(edges,${t1}${r_gam},${t2}${r_gam},lower),"
+        f"CDF_Triangular(edges,${t1}${r_tri},${t2}${r_tri},${t3}${r_tri},lower),"
+        f"CDF_Beta(edges,${t1}${r_beta},${t2}${r_beta},dmin,drange,lower),"
+        f"CDF_BetaPERT(edges,${t1}${r_pert},${t2}${r_pert},${t3}${r_pert},lower)"
         "))"
     )
 

@@ -33,6 +33,7 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 - DONE: Implemented `GoF_KS(data, dist_cdf, [include])` — Kolmogorov-Smirnov statistic.
 
 **CDF/PDF functions (histogram overlay curves)**
+- DONE: Implemented `CDF_Normal`, `CDF_Lognormal`, `CDF_Exponential`, `CDF_Weibull`, `CDF_Gamma`, `CDF_Triangular`, `CDF_Beta`, `CDF_BetaPERT` — each returns the interval probability `CDF(max) − CDF(min)`.
 - TODO: Implement `PDF_Normal`, `PDF_Lognormal`, `PDF_Exponential`, `PDF_Weibull`, `PDF_Gamma`, `PDF_Triangular`, `PDF_Beta`, `PDF_BetaPERT` — evaluated at bin midpoints.
 
 ### Sheet writer (`write_sheet_univariate.py`)
@@ -49,15 +50,24 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 
 ---
 
-## v3.0 — Weighted regression (WLS)
+## v3.0 — Resampling & Simulation
+
+- TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples, alpha, [include])` — bootstrap confidence interval for an arbitrary statistic passed as a LAMBDA. Evaluate whether `RANDARRAY`-based resampling is viable or whether a pre-drawn random table is needed.
+- TODO: Implement `MC_Percentile(dist_params, n_samples, percentile)` — Monte Carlo draw from a fitted distribution; complements v2.0 fitting.
+- TODO: Implement `PERT_Sample(min, mode, max, n_samples)` — BetaPERT sampling for cost/schedule risk analysis.
+- TODO: Design sheet layout (bootstrap section + Monte Carlo section; may share one sheet). Implement `write_sheet_simulation.py`.
+
+---
+
+## v4.0+ — Future (sequence TBD)
+
+### Weighted regression (WLS)
 
 - TODO: Thread a `[weights]` argument through the core regression LAMBDAs (`Coefficients`, `Predictions`, `Residuals`, `Hat_diagonal`, `Cooks_Distance`, etc.). WLS closes the loop opened by v1's Scale-Location diagnostic.
 - TODO: Update the Regression sheet to expose a weights column selector.
 - TODO: Update the Diagnostic Guide to describe which diagnostics change interpretation under WLS.
 
----
-
-## v4.0 — Bivariate / Two-sample
+### Bivariate / Two-sample
 
 - TODO: Implement `T_Test_OneSample(data, mu0, alpha, [include])` → test statistic, p-value, CI.
 - TODO: Implement `T_Test_TwoSample(data1, data2, alpha, equal_var, [include1], [include2])` — equal-variance, Welch, and paired variants via `equal_var` flag.
@@ -65,26 +75,13 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 - TODO: Implement `Covariance_Matrix(data, [include])` — complement to the existing `Correlation_Matrix`.
 - TODO: Design two-sample sheet layout: inputs, test selector, F-test assumption check, output (test statistic, df, p-value, CI, effect size). Implement `write_sheet_two_sample.py`.
 
----
-
-## v5.0 — Multi-group means (ANOVA)
+### Multi-group means (ANOVA)
 
 - TODO: Implement one-way ANOVA as regression on group dummies, reusing the existing SS/MS/F machinery. Frame explicitly as "ANOVA is regression" — group means, SS decomposition, and F-test should match the MLR output exactly.
 - TODO: Add post-hoc comparisons (Tukey HSD or Bonferroni) as an optional output section.
 
----
-
-## v6.0 — Time series
+### Time series
 
 - TODO: Implement `Moving_Average(data, window, [include])`.
 - TODO: Implement `Exponential_Smoothing(data, alpha_smooth, [include])` — note: use `alpha_smooth` to distinguish from the significance-level `alpha`.
 - TODO: Implement `write_sheet_time_series.py` with forecast output, error metrics (MAE, RMSE, MAPE), and an actual vs. smoothed series chart.
-
----
-
-## v7.0 — Resampling & Simulation
-
-- TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples, alpha, [include])` — bootstrap confidence interval for an arbitrary statistic passed as a LAMBDA. Evaluate whether `RANDARRAY`-based resampling is viable or whether a pre-drawn random table is needed.
-- TODO: Implement `MC_Percentile(dist_params, n_samples, percentile)` — Monte Carlo draw from a fitted distribution; complements v2.0 fitting.
-- TODO: Implement `PERT_Sample(min, mode, max, n_samples)` — BetaPERT sampling for cost/schedule risk analysis.
-- TODO: Design sheet layout (bootstrap section + Monte Carlo section; may share one sheet). Implement `write_sheet_simulation.py`.

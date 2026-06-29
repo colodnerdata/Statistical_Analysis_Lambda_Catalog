@@ -48,6 +48,8 @@ These functions return a single number summarizing the regression.
 | `SS_Regression(X_s, Y, [Allow_Intercept], [Include])` | Model sum of squares |
 | `SS_Residual(X_s, Y, [Allow_Intercept], [Include])` | Residual (error) sum of squares |
 | `SS_Total(Y, [Allow_Intercept], [Include])` | Total sum of squares |
+| `MS_Regression(X_s, Y, [Allow_Intercept], [Include])` | Mean square for the model (SS_Regression / df_Regression) |
+| `MS_Residual(X_s, Y, [Allow_Intercept], [Include])` | Mean square for residual error (SS_Residual / df_Residual) |
 | `PRESS(X_s, Y, [Allow_Intercept], [Include])` | Leave-one-out cross-validation error sum |
 | `Durbin_Watson(X_s, Y, [Allow_Intercept], [Include])` | Serial autocorrelation test for residuals (2 = no autocorrelation) |
 | `AIC(X_s, Y, [Allow_Intercept], [Include])` | Akaike Information Criterion |
@@ -69,6 +71,7 @@ These functions return one value per coefficient (intercept first when included,
 | `CI_Upper(X_s, Y, [Allow_Intercept], [Include], [Alpha])` | Upper confidence interval bounds (default 95%) |
 | `Partial_R2(X_s, Y, [Allow_Intercept], [Include])` | Partial R² per coefficient |
 | `Partial_Correlation(X_s, Y, [Allow_Intercept], [Include])` | Partial correlation per coefficient |
+| `Beta_Weights(X_s, Y, [Allow_Intercept], [Include])` | k×1 vector of standardized coefficients (Beta weights) — intercept excluded |
 
 ### Multicollinearity — k×1 vector
 
@@ -135,6 +138,8 @@ These functions support exploratory analysis before model fitting. `Pearson_R`, 
 | `LOO_prediction(X_s, Y, n, [Allow_Intercept], [Include])` | Leave-one-out prediction for a single observation n |
 | `This_row(array)` | 1-to-n relative row indices |
 | `Exclude_row_n(array, n)` | Array with row n removed |
+| `Dependent_Var(Y, [Include])` | Filtered dependent variable vector |
+| `Data_Completeness(predictor_row)` | TRUE if every cell in a row is numeric, FALSE if any value is blank, text, or error |
 
 ### Grid-search helpers and Univariate Weibull fitting
 
@@ -185,3 +190,68 @@ The **Regression** sheet uses the Life Expectancy dataset to demonstrate a full 
 - **Diagnostic charts (col AC+).** Seven charts — Residuals vs Fitted, Normal Q-Q, Actual vs Predicted, Scale-Location (scatter), Cook's Distance, PRESS Residuals (bar), and Studentized Residuals vs Leverage (scatter) — that update automatically via OFFSET-based named ranges.
 
 `Correlation_Matrix(X_s, [Include])` returns a k×k pairwise correlation matrix and can be entered in any blank cell on the sheet.
+
+## Univariate Analysis functions
+
+These functions power the **Univariate Analysis** sheet and can be used independently on any column of data.
+
+### Descriptive statistics
+
+| Function | Returns |
+|---|---|
+| `Missing_Count(data, [filter])` | Count of non-numeric (blank or text) cells in the active rows |
+| `Descriptive_Stats(data, [filter])` | 12×1 column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count |
+
+### Histogram binning
+
+| Function | Returns |
+|---|---|
+| `Sturges_Bins(data, [filter])` | Integer bin count via Sturges' rule |
+| `Scott_Bins(data, [filter])` | Integer bin count via Scott's normal reference rule |
+| `FD_Bins(data, [filter])` | Integer bin count via the Freedman-Diaconis rule |
+| `num_histogram_bins(data, [method], [filter])` | Integer bin count for the chosen method (1 = Sturges, 2 = Scott, 3 = FD) |
+| `Bin_Edges(data, [method], [filter])` | k×1 column vector of upper bin edges, evenly spaced from min to max |
+| `Bin_Lower_Edges(data, edges, [filter])` | k×1 column vector of lower bin edges |
+| `Bin_Midpoints(data, edges, [filter])` | k×1 column vector of bin midpoints |
+| `Bin_Counts(data, edges, [filter])` | k×1 column vector of bin frequencies |
+
+### CDF functions (for distribution fitting and GoF)
+
+Each CDF function returns the probability of the interval `(minimum, maximum]`. When `minimum` is omitted it defaults to the distribution's lower bound.
+
+| Function | Signature | Distribution |
+|---|---|---|
+| `CDF_Normal` | `(maximum, mean, sd, [minimum])` | Normal |
+| `CDF_Lognormal` | `(maximum, meanlog, sdlog, [minimum])` | Lognormal |
+| `CDF_Exponential` | `(maximum, rate, [minimum])` | Exponential |
+| `CDF_Weibull` | `(maximum, shape, scale, [minimum])` | Weibull |
+| `CDF_Gamma` | `(maximum, shape, rate, [minimum])` | Gamma |
+| `CDF_Triangular` | `(maximum, min_val, mode, max_val, [minimum])` | Triangular |
+| `CDF_Beta` | `(maximum, alpha, beta, [minimum])` | Beta (on [0, 1]) |
+| `CDF_BetaPERT` | `(maximum, min_val, mode, max_val, [minimum])` | BetaPERT |
+
+### NLL functions (for grid-search MLE)
+
+Each NLL function returns the negative log-likelihood for the given distribution and parameters. Invalid parameter combinations (e.g., non-positive scale) return `1E+15` so the grid-search `MIN` stays finite.
+
+| Function | Signature |
+|---|---|
+| `NLL_Normal` | `(data, mean, sd, [filter])` |
+| `NLL_Lognormal` | `(data, meanlog, sdlog, [filter])` |
+| `NLL_Exponential` | `(data, rate, [filter])` |
+| `NLL_Weibull` | `(data, shape, scale, [filter])` |
+| `NLL_Gamma` | `(data, shape, rate, [filter])` |
+| `NLL_Triangular` | `(data, min_val, mode, max_val, [filter])` |
+| `NLL_Beta` | `(data, alpha, beta, [filter])` |
+| `NLL_BetaPERT` | `(data, min_val, mode, max_val, [filter])` |
+
+### Goodness-of-fit functions
+
+| Function | Signature | Returns |
+|---|---|---|
+| `GoF_AIC` | `(nll, k)` | AIC = 2k + 2·NLL |
+| `GoF_BIC` | `(nll, k, n)` | BIC = k·ln(n) + 2·NLL |
+| `GoF_AndersonDarling` | `(data, dist_cdf, [include])` | Anderson-Darling A² statistic (lower = better fit) |
+| `GoF_KS` | `(data, dist_cdf, [include])` | Kolmogorov-Smirnov D statistic in [0, 1] (lower = better fit) |
+
+`GoF_AndersonDarling` and `GoF_KS` accept any of the `CDF_*` functions (partially applied via LAMBDA) as the `dist_cdf` argument.

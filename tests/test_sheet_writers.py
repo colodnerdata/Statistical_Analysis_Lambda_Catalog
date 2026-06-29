@@ -105,7 +105,8 @@ def test_histogram_writer_records_method_cell_formulas() -> None:
     assert sheet.cell(3, 22).api.Formula2 == "=num_histogram_bins(UV_Data,V2,UV_Include)"
     assert sheet.cell(5, 21).api.Formula2 == "=Bin_Edges(UV_Data,V2,UV_Include)"
     assert sheet.cell(5, 22).api.Formula2 == "=Bin_Counts(UV_Data,U5#,UV_Include)"
-    cdf_formulas = [sheet.cell(5, col).api.Formula2 for col in range(23, 31)]
+    cdf_cols = [21 + offset for offset, _, _, distribution in _HIST_COLUMNS if distribution]
+    cdf_formulas = [sheet.cell(5, col).api.Formula2 for col in cdf_cols]
     assert all(formula and formula.startswith("=LET(edges,U5#") for formula in cdf_formulas)
     assert all("HSTACK" not in formula for formula in cdf_formulas if formula)
     assert "CDF_Normal(edges,$I$5,$K$5,lower)" in sheet.cell(5, 23).api.Formula2

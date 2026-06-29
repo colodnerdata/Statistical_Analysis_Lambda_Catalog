@@ -13,6 +13,7 @@ from lambda_catalog.write_sheet_regression import (
 from lambda_catalog.write_sheet_mlr_scalar_test import _actual_formula
 from lambda_catalog.write_sheet_univariate import (
     _C_FIT_FIRST,
+    _HIST_COLUMNS,
     _STAT_ROWS,
     _dist_rows,
     _setup_local_names,
@@ -104,20 +105,25 @@ def test_histogram_writer_records_method_cell_formulas() -> None:
     assert sheet.cell(3, 22).api.Formula2 == "=num_histogram_bins(UV_Data,V2,UV_Include)"
     assert sheet.cell(5, 21).api.Formula2 == "=Bin_Edges(UV_Data,V2,UV_Include)"
     assert sheet.cell(5, 22).api.Formula2 == "=Bin_Counts(UV_Data,U5#,UV_Include)"
+    cdf_formulas = [sheet.cell(5, col).api.Formula2 for col in range(23, 31)]
+    assert all(formula and formula.startswith("=LET(edges,U5#") for formula in cdf_formulas)
+    assert all("HSTACK" not in formula for formula in cdf_formulas if formula)
+    assert "CDF_Normal(edges,$I$5,$K$5,lower)" in sheet.cell(5, 23).api.Formula2
+    assert "CDF_BetaPERT(edges,$I$12,$K$12,$M$12,lower)" in sheet.cell(5, 30).api.Formula2
 
 
 def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None:
+    histogram_names = [
+        f"{prefix}_{suffix}"
+        for prefix in ("UV_Sturges", "UV_Scott", "UV_FD")
+        for _, _, suffix, _ in _HIST_COLUMNS
+    ]
     sheet = RecordingSheet(
         global_names=[
             "UV_Data",
             "UV_Include",
             "UV_n",
-            "UV_Sturges_Edges",
-            "UV_Sturges_Counts",
-            "UV_Scott_Edges",
-            "UV_Scott_Counts",
-            "UV_FD_Edges",
-            "UV_FD_Counts",
+            *histogram_names,
             "UnrelatedName",
         ]
     )
@@ -127,18 +133,18 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
     assert [item.Name for item in sheet.book.api.Names.items] == ["UnrelatedName"]
     names = sheet.api.Names
     assert names.by_short_name("UV_Data").RefersTo == "='Univariate'!$A$4#"
-    for hist_name in (
-        "UV_Sturges_Edges",
-        "UV_Sturges_Counts",
-        "UV_Scott_Edges",
-        "UV_Scott_Counts",
-        "UV_FD_Edges",
-        "UV_FD_Counts",
-    ):
-        assert "num_histogram_bins(" in names.by_short_name(hist_name).RefersTo
+    for hist_name in histogram_names:
+        refers_to = names.by_short_name(hist_name).RefersTo
+        assert refers_to.startswith("=OFFSET('Univariate'!$")
+        assert ",1,0,MAX(IFERROR(num_histogram_bins(" in refers_to
+        assert refers_to.endswith(",1),1),1)")
     assert "$V$2" in names.by_short_name("UV_Sturges_Edges").RefersTo
     assert "$AG$2" in names.by_short_name("UV_Scott_Edges").RefersTo
     assert "$AR$2" in names.by_short_name("UV_FD_Edges").RefersTo
+    assert names.by_short_name("UV_Sturges_Normal_CDF").RefersTo == (
+        "=OFFSET('Univariate'!$W$4,1,0,"
+        "MAX(IFERROR(num_histogram_bins(UV_Data,'Univariate'!$V$2,UV_Include),1),1),1)"
+    )
 
 
 def test_missing_count_formula_uses_unfiltered_active_range() -> None:

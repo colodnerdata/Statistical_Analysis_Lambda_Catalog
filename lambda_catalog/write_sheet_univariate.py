@@ -42,9 +42,7 @@ Sheet-scoped named ranges
   UV_Data        — spill range of the raw column formula ($A$4#, unfiltered)
   UV_Include     — local filter mask spill ($B$4#) — Data_Completeness applied per row
   UV_n           — IFERROR(COUNT(FILTER(UV_Data,UV_Include)), 0)
-  UV_Sturges_Edges, UV_Sturges_Counts — OFFSET-based chart series ranges
-  UV_Scott_Edges,   UV_Scott_Counts
-  UV_FD_Edges,      UV_FD_Counts
+  UV_Sturges_*, UV_Scott_*, UV_FD_* — OFFSET-based histogram column ranges
   UV_WB_S1/S2   — Stage 1/2 Weibull Data Table bodies
   UV_GAMMA_S1/S2 — Stage 1/2 Gamma Data Table bodies
   UV_BETA_S1/S2  — Stage 1/2 Beta Data Table bodies
@@ -106,9 +104,23 @@ _HB_TRI  = 7   # Triangular CDF prob
 _HB_BETA = 8   # Beta CDF prob
 _HB_PERT = 9   # BetaPERT CDF prob
 
-_HIST_CDF_HEADERS = [
-    "Normal", "Lognormal", "Exponential", "Weibull",
-    "Gamma", "Triangular", "Beta", "BetaPERT",
+_HIST_COLUMNS = [
+    (_HB_EDGE, "Upper Edge", "Edges", ""),
+    (_HB_COUNT, "Count", "Counts", ""),
+    (_HB_NORM, "Normal", "Normal_CDF", "Normal"),
+    (_HB_LOGN, "Lognormal", "Lognormal_CDF", "Lognormal"),
+    (_HB_EXP, "Exponential", "Exponential_CDF", "Exponential"),
+    (_HB_WB, "Weibull", "Weibull_CDF", "Weibull"),
+    (_HB_GAM, "Gamma", "Gamma_CDF", "Gamma"),
+    (_HB_TRI, "Triangular", "Triangular_CDF", "Triangular"),
+    (_HB_BETA, "Beta", "Beta_CDF", "Beta"),
+    (_HB_PERT, "BetaPERT", "BetaPERT_CDF", "BetaPERT"),
+]
+
+_HIST_BLOCKS = [
+    ("UV_Sturges", _C_STUR),
+    ("UV_Scott", _C_SCOTT),
+    ("UV_FD", _C_FD),
 ]
 
 # Zone 5: two-parameter Grid-Search MLE (starts at BB = col 54)
@@ -261,7 +273,11 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     sname = sheet.name
 
     # Remove obsolete workbook-scoped definitions before recreating local names.
-    for name in ("UV_Data", "UV_Include", "UV_n"):
+    local_names = ["UV_Data", "UV_Include", "UV_n"]
+    for prefix, _ in _HIST_BLOCKS:
+        local_names.extend(f"{prefix}_{suffix}" for _, _, suffix, _ in _HIST_COLUMNS)
+
+    for name in local_names:
         _drop_wb_name(sheet, name)
 
     # UV_Data: spill range of the raw column formula in A4; unfiltered — filter is UV_Include
@@ -285,30 +301,80 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
         RefersTo=f"=IFERROR(COUNT(FILTER('{sname}'!${col_letter(_C_A)}${_ROW_DATA_START}#,UV_Include)),0)",
     )
 
-    # Chart series ranges: OFFSET-based, sized by the method value stored in row 2.
-    for name, col_ltr, start_row, size_formula in [
-        ("UV_Sturges_Edges",  col_letter(_C_STUR + _HB_EDGE), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_STUR + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_Sturges_Counts", col_letter(_C_STUR + _HB_COUNT), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_STUR + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_Scott_Edges",    col_letter(_C_SCOTT + _HB_EDGE), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_SCOTT + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_Scott_Counts",   col_letter(_C_SCOTT + _HB_COUNT), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_SCOTT + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_FD_Edges",       col_letter(_C_FD + _HB_EDGE), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_FD + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
-        ("UV_FD_Counts",      col_letter(_C_FD + _HB_COUNT), _ROW_HIST_START,
-         f'num_histogram_bins(UV_Data,${col_letter(_C_FD + _HB_COUNT)}${_ROW_METHOD_HDR},UV_Include)'),
-    ]:
-        _drop_wb_name(sheet, name)
-        drop_local_name(sheet, name)
-        sheet.api.Names.Add(
-            Name=name,
-            RefersTo=(
-                f"=OFFSET('{sname}'!${col_ltr}${start_row},"
-                f"0,0,{size_formula},1)"
-            ),
-        )
+    # Histogram column ranges: OFFSET-based, anchored at the header row like
+    # Regression chart ranges, and sized by the method value stored in row 2.
+    for prefix, block_start in _HIST_BLOCKS:
+        method_ref = f"'{sname}'!${col_letter(block_start + _HB_COUNT)}${_ROW_METHOD_HDR}"
+        size_formula = f"num_histogram_bins(UV_Data,{method_ref},UV_Include)"
+        for offset, _, suffix, _ in _HIST_COLUMNS:
+            name = f"{prefix}_{suffix}"
+            col_ltr = col_letter(block_start + offset)
+            _drop_wb_name(sheet, name)
+            drop_local_name(sheet, name)
+            sheet.api.Names.Add(
+                Name=name,
+                RefersTo=(
+                    f"=OFFSET('{sname}'!${col_ltr}${_ROW_COL_HDRS},"
+                    f"1,0,MAX(IFERROR({size_formula},1),1),1)"
+                ),
+            )
+
+
+def _dist_fit_rows_by_name() -> dict[str, int]:
+    return {name: row for row, name, *_ in _dist_rows(_ROW_DIST_START)}
+
+
+def _cdf_column_formula(edge_spill_ref: str, distribution: str) -> str:
+    """Build a single-column spill formula for one histogram CDF probability."""
+    t1 = col_letter(_C_T1_VAL)  # I — θ₁ value
+    t2 = col_letter(_C_T2_VAL)  # K — θ₂ value
+    t3 = col_letter(_C_T3_VAL)  # M — θ₃ value
+
+    fit_rows = _dist_fit_rows_by_name()
+
+    expressions = {
+        "Normal": (
+            f"CDF_Normal(edges,${t1}${fit_rows['Normal']},"
+            f"${t2}${fit_rows['Normal']},lower)"
+        ),
+        "Lognormal": (
+            f"CDF_Lognormal(edges,${t1}${fit_rows['Lognormal']},"
+            f"${t2}${fit_rows['Lognormal']},lower)"
+        ),
+        "Exponential": (
+            f"CDF_Exponential(edges,${t1}${fit_rows['Exponential']},lower)"
+        ),
+        "Weibull": (
+            f"CDF_Weibull(edges,${t1}${fit_rows['Weibull']},"
+            f"${t2}${fit_rows['Weibull']},lower)"
+        ),
+        "Gamma": (
+            f"CDF_Gamma(edges,${t1}${fit_rows['Gamma']},"
+            f"${t2}${fit_rows['Gamma']},lower)"
+        ),
+        "Triangular": (
+            f"CDF_Triangular(edges,${t1}${fit_rows['Triangular']},"
+            f"${t2}${fit_rows['Triangular']},${t3}${fit_rows['Triangular']},lower)"
+        ),
+        "Beta": (
+            f"CDF_Beta(edges,${t1}${fit_rows['Beta']},"
+            f"${t2}${fit_rows['Beta']},dmin,drange,lower)"
+        ),
+        "BetaPERT": (
+            f"CDF_BetaPERT(edges,${t1}${fit_rows['BetaPERT']},"
+            f"${t2}${fit_rows['BetaPERT']},${t3}${fit_rows['BetaPERT']},lower)"
+        ),
+    }
+
+    return (
+        "=LET("
+        f"edges,{edge_spill_ref},"
+        "filt,FILTER(UV_Data,UV_Include),"
+        "lower,Bin_Lower_Edges(UV_Data,edges,UV_Include),"
+        "dmin,MIN(filt),drange,MAX(filt)-dmin,"
+        f"{expressions[distribution]}"
+        ")"
+    )
 
 
 # ── Zone 1: data input column ─────────────────────────────────────────────────
@@ -378,42 +444,6 @@ def _write_descriptive_stats(sheet: xw.Sheet) -> None:
 
 # ── Zone 4: histogram tables (10-col blocks with CDF probabilities) ──────────
 
-def _cdf_hstack_formula(edge_spill_ref: str) -> str:
-    """Build the HSTACK spill formula that populates 8 CDF probability columns."""
-    t1 = col_letter(_C_T1_VAL)  # I — θ₁ value
-    t2 = col_letter(_C_T2_VAL)  # K — θ₂ value
-    t3 = col_letter(_C_T3_VAL)  # M — θ₃ value
-
-    fit_rows = {name: row for row, name, *_ in _dist_rows(_ROW_DIST_START)}
-
-    r_norm = fit_rows["Normal"]
-    r_logn = fit_rows["Lognormal"]
-    r_exp = fit_rows["Exponential"]
-    r_wb = fit_rows["Weibull"]
-    r_gam = fit_rows["Gamma"]
-    r_tri = fit_rows["Triangular"]
-    r_beta = fit_rows["Beta"]
-    r_pert = fit_rows["BetaPERT"]
-
-    return (
-        "=LET("
-        f"edges,{edge_spill_ref},"
-        "filt,FILTER(UV_Data,UV_Include),"
-        "lower,Bin_Lower_Edges(UV_Data,edges,UV_Include),"
-        "dmin,MIN(filt),drange,MAX(filt)-dmin,"
-        "HSTACK("
-        f"CDF_Normal(edges,${t1}${r_norm},${t2}${r_norm},lower),"
-        f"CDF_Lognormal(edges,${t1}${r_logn},${t2}${r_logn},lower),"
-        f"CDF_Exponential(edges,${t1}${r_exp},lower),"
-        f"CDF_Weibull(edges,${t1}${r_wb},${t2}${r_wb},lower),"
-        f"CDF_Gamma(edges,${t1}${r_gam},${t2}${r_gam},lower),"
-        f"CDF_Triangular(edges,${t1}${r_tri},${t2}${r_tri},${t3}${r_tri},lower),"
-        f"CDF_Beta(edges,${t1}${r_beta},${t2}${r_beta},dmin,drange,lower),"
-        f"CDF_BetaPERT(edges,${t1}${r_pert},${t2}${r_pert},${t3}${r_pert},lower)"
-        "))"
-    )
-
-
 def _write_histogram_table(
     sheet: xw.Sheet,
     col_start: int,
@@ -432,10 +462,8 @@ def _write_histogram_table(
     sheet.range(rc(_ROW_METHOD_HDR, col_count)).api.Font.Bold = True
 
     # Row 4: column headers
-    val(sheet, _ROW_COL_HDRS, col_edge, "Upper Edge")
-    val(sheet, _ROW_COL_HDRS, col_count, "Count")
-    for i, hdr in enumerate(_HIST_CDF_HEADERS):
-        val(sheet, _ROW_COL_HDRS, col_cdf_first + i, hdr)
+    for offset, header, _, _ in _HIST_COLUMNS:
+        val(sheet, _ROW_COL_HDRS, col_start + offset, header)
     _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_last)
 
     # Row 3: bin-count display
@@ -451,8 +479,16 @@ def _write_histogram_table(
     f(sheet, _ROW_HIST_START, col_count,
       f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
 
-    # CDF probability columns — single HSTACK spill formula at col_cdf_first
-    f(sheet, _ROW_HIST_START, col_cdf_first, _cdf_hstack_formula(edge_spill_ref))
+    # CDF probability columns — one spill formula per column.
+    for offset, _, _, distribution in _HIST_COLUMNS:
+        if not distribution:
+            continue
+        f(
+            sheet,
+            _ROW_HIST_START,
+            col_start + offset,
+            _cdf_column_formula(edge_spill_ref, distribution),
+        )
 
     # Number formats
     sheet.range(rc(_ROW_HIST_START, col_edge), rc(_DATA_END, col_edge)).number_format = _FMT_1DP

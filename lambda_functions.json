@@ -1678,7 +1678,7 @@
     {
       "name": "Bin_Edges",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, n_histogram_bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k + 1, 1, min_x, width)\n  ))",
+      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, num_histogram_bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k + 1, 1, min_x, width)\n  ))",
       "arguments": [
         {
           "name": "data",

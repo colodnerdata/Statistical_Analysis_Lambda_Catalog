@@ -211,9 +211,9 @@ These functions power the **Univariate Analysis** sheet and can be used independ
 | `FD_Bins(data, [filter])` | Integer bin count via the Freedman-Diaconis rule |
 | `num_histogram_bins(data, [method], [filter])` | Integer bin count for the chosen method (`"Sturges"`, `"Scott"`, or `"FD"`; defaults to `"FD"` when omitted) |
 | `Bin_Edges(data, [method], [filter])` | k×1 column vector of upper bin edges, evenly spaced from min to max |
-| `Bin_Lower_Edges(data, edges, [filter])` | k×1 column vector of lower bin edges |
-| `Bin_Midpoints(data, edges, [filter])` | k×1 column vector of bin midpoints |
-| `Bin_Counts(data, edges, [filter])` | k×1 column vector of bin frequencies |
+| `Bin_Lower_Edges(data, upper_edges, [filter])` | k×1 column vector of lower bin edges, given the upper edges from `Bin_Edges` |
+| `Bin_Midpoints(data, upper_edges, [filter])` | k×1 column vector of bin midpoints, given the upper edges from `Bin_Edges` |
+| `Bin_Counts(data, upper_edges, [filter])` | k×1 column vector of bin frequencies, given the upper edges from `Bin_Edges` |
 
 ### CDF functions (for distribution fitting and GoF)
 

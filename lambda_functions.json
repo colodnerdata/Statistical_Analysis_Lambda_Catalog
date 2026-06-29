@@ -2339,7 +2339,7 @@
         }
       ],
       "yields": "Anderson-Darling A\u00b2 statistic as a scalar (lower = better fit)",
-      "description": "GoF_AndersonDarling computes the Anderson-Darling goodness-of-fit statistic: A\u00b2 = \u2212n \u2212 (1/n) \u03a3\u1d62 (2i\u22121)\u00b7[ln F(X\u208d\u1d62\u208e) + ln(1 \u2212 F(X\u208d\u2099\u208a\u2081\u208b\u1d62\u208e))]. CDF values are sorted by data internally. An epsilon clamp (1E-10) prevents ln(0) for bounded-support distributions (Beta, Triangular, BetaPERT) whose CDF can reach exactly 0 or 1 at support edges.\n\nA-D is more sensitive to tail deviations than K-S, making it better at detecting departures in the extremes. Lower A\u00b2 indicates a better fit. Compare alongside AIC, BIC, and K-S in the fit comparison table.",
+      "description": "GoF_Anderson_Darling computes the Anderson-Darling goodness-of-fit statistic: A\u00b2 = \u2212n \u2212 (1/n) \u03a3\u1d62 (2i\u22121)\u00b7[ln F(X\u208d\u1d62\u208e) + ln(1 \u2212 F(X\u208d\u2099\u208a\u2081\u208b\u1d62\u208e))]. CDF values are sorted by data internally. An epsilon clamp (1E-10) prevents ln(0) for bounded-support distributions (Beta, Triangular, BetaPERT) whose CDF can reach exactly 0 or 1 at support edges.\n\nA-D is more sensitive to tail deviations than K-S, making it better at detecting departures in the extremes. Lower A\u00b2 indicates a better fit. Compare alongside AIC, BIC, and K-S in the fit comparison table.",
       "plain_language_summary": "Anderson-Darling A\u00b2 = \u2212n \u2212 (1/n)\u00b7\u03a3(2i\u22121)[ln F(x\u1d62) + ln(1\u2212F(x_{n+1\u2212i}))] (lower = better fit)."
     },
     {

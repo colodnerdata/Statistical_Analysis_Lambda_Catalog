@@ -382,8 +382,9 @@ def _cdf_column_formula(
         ),
     }
 
-    # Beta needs dmin/drange for data-range rescaling; reference the already-computed
-    # Descriptive Statistics cells to avoid repeating FILTER(UV_Data,UV_Include).
+    # Beta needs dmin/drange for data-range rescaling.  Rather than computing
+    # FILTER(UV_Data,UV_Include) inline again, reference the Descriptive Statistics
+    # cells (Min and Range) that were already computed in the stats zone.
     if distribution == "Beta":
         stat_col = col_letter(_C_E)
         min_ref   = f"${stat_col}${_ROW_STAT_MIN}"    # e.g. $E$9

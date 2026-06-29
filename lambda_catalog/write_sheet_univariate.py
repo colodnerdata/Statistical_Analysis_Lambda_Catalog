@@ -25,15 +25,15 @@ Sheet layout
   Col F          — thin gap (width 2)
   Col G–S        — Distribution Fitting summary table (Name,θ₁/₂/₃ labels+values,NLL,k,AIC,BIC,A-D,K-S)
   Col T          — thin gap (width 2)
-  Col U–AD       — Sturges histogram (10 cols: Edge,Count,Normal…BetaPERT CDF probabilities)
-  Col AE         — thin gap (width 2)
-  Col AF–AO      — Scott histogram (10 cols)
-  Col AP         — thin gap (width 2)
-  Col AQ–AZ      — Freedman-Diaconis histogram (10 cols)
-  Col BA         — thin gap (width 2)
-  Col BB–BV      — Stage 1 controls and 20×20 Data Table
-  Col BW         — thin gap between grid-search stages
-  Col BX–CR      — Stage 2 controls and 20×20 Data Table
+  Col U–AE       — Sturges histogram (11 cols: Lower Edges,Upper Edges,Count,Normal…BetaPERT CDF probabilities)
+  Col AF         — thin gap (width 2)
+  Col AG–AQ      — Scott histogram (11 cols)
+  Col AR         — thin gap (width 2)
+  Col AS–BC      — Freedman-Diaconis histogram (11 cols)
+  Col BD         — thin gap (width 2)
+  Col BE–BY      — Stage 1 controls and 20×20 Data Table
+  Col BZ         — thin gap between grid-search stages
+  Col CA–CU      — Stage 2 controls and 20×20 Data Table
 
   Charts anchored at G14, G34, G54 — spanning G:S under the fitting table
 
@@ -85,36 +85,38 @@ _C_KS        = 19   # S — K-S
 _C_FIT_FIRST = _C_DIST_NAME   # first fitting column
 _C_FIT_LAST  = _C_KS          # last fitting column
 
-# Zone 4: Histogram Tables (10 cols each, with gap cols between)
-_HIST_W = 10   # columns per histogram block
+# Zone 4: Histogram Tables (11 cols each, with gap cols between)
+_HIST_W = 11   # columns per histogram block
 
-_C_STUR  = 21   # U — first col of Sturges block (U:AD = 21-30)
-_C_SCOTT = 32   # AF — first col of Scott block (AF:AO = 32-41)
-_C_FD    = 43   # AQ — first col of FD block (AQ:AZ = 43-52)
+_C_STUR  = 21   # U  — first col of Sturges block (U:AE = 21-31)
+_C_SCOTT = 33   # AG — first col of Scott block (AG:AQ = 33-43)
+_C_FD    = 45   # AS — first col of FD block (AS:BC = 45-55)
 
-# Within each 10-col histogram block (offsets from block start)
-_HB_EDGE = 0   # Upper Edge
-_HB_COUNT = 1  # Count
-_HB_NORM = 2   # Normal CDF prob
-_HB_LOGN = 3   # Lognormal CDF prob
-_HB_EXP  = 4   # Exponential CDF prob
-_HB_WB   = 5   # Weibull CDF prob
-_HB_GAM  = 6   # Gamma CDF prob
-_HB_TRI  = 7   # Triangular CDF prob
-_HB_BETA = 8   # Beta CDF prob
-_HB_PERT = 9   # BetaPERT CDF prob
+# Within each 11-col histogram block (offsets from block start)
+_HB_LOWER = 0   # Lower Edges (pre-computed once per block; referenced by all CDF columns)
+_HB_EDGE  = 1   # Upper Edges
+_HB_COUNT = 2   # Count
+_HB_NORM  = 3   # Normal CDF prob
+_HB_LOGN  = 4   # Lognormal CDF prob
+_HB_EXP   = 5   # Exponential CDF prob
+_HB_WB    = 6   # Weibull CDF prob
+_HB_GAM   = 7   # Gamma CDF prob
+_HB_TRI   = 8   # Triangular CDF prob
+_HB_BETA  = 9   # Beta CDF prob
+_HB_PERT  = 10  # BetaPERT CDF prob
 
 _HIST_COLUMNS = [
-    (_HB_EDGE, "Upper Edge", "Edges", ""),
+    (_HB_LOWER, "Lower Edges", "Lower_Edges", ""),
+    (_HB_EDGE,  "Upper Edges", "Edges", ""),
     (_HB_COUNT, "Count", "Counts", ""),
-    (_HB_NORM, "Normal", "Normal_CDF", "Normal"),
-    (_HB_LOGN, "Lognormal", "Lognormal_CDF", "Lognormal"),
-    (_HB_EXP, "Exponential", "Exponential_CDF", "Exponential"),
-    (_HB_WB, "Weibull", "Weibull_CDF", "Weibull"),
-    (_HB_GAM, "Gamma", "Gamma_CDF", "Gamma"),
-    (_HB_TRI, "Triangular", "Triangular_CDF", "Triangular"),
-    (_HB_BETA, "Beta", "Beta_CDF", "Beta"),
-    (_HB_PERT, "BetaPERT", "BetaPERT_CDF", "BetaPERT"),
+    (_HB_NORM,  "Normal", "Normal_CDF", "Normal"),
+    (_HB_LOGN,  "Lognormal", "Lognormal_CDF", "Lognormal"),
+    (_HB_EXP,   "Exponential", "Exponential_CDF", "Exponential"),
+    (_HB_WB,    "Weibull", "Weibull_CDF", "Weibull"),
+    (_HB_GAM,   "Gamma", "Gamma_CDF", "Gamma"),
+    (_HB_TRI,   "Triangular", "Triangular_CDF", "Triangular"),
+    (_HB_BETA,  "Beta", "Beta_CDF", "Beta"),
+    (_HB_PERT,  "BetaPERT", "BetaPERT_CDF", "BetaPERT"),
 ]
 
 _HIST_BLOCKS = [
@@ -123,12 +125,12 @@ _HIST_BLOCKS = [
     ("UV_FD", _C_FD),
 ]
 
-# Zone 5: two-parameter Grid-Search MLE (starts at BB = col 54)
+# Zone 5: two-parameter Grid-Search MLE (starts at BE = col 57)
 _N_GRID   = 20             # grid points per axis per stage (20×20 = 400/stage)
-_C_GS     = 54             # col BB — first col of grid-search region (BA=53 is gap)
+_C_GS     = 57             # col BE — first col of grid-search region (BD=56 is gap)
 _GS_W     = _N_GRID + 1   # cols per stage = 21  (1 param2 col + N param1 cols)
 _GS_GAP_C = 1              # gap col between Stage 1 and Stage 2
-_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col BX = 76
+_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col CA = 79
 
 # Within-stage row offsets from block row_start
 _GS_R_CONTROL_HDR = 1   # Min NLL label + parameter-table headers
@@ -220,8 +222,9 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
     for col, w in widths.items():
         sheet.range(rc(1, col), rc(1, col)).column_width = w
 
-    # Histogram blocks: 10 cols each with gap cols between/after
+    # Histogram blocks: 11 cols each with gap cols between/after
     for block_start in (_C_STUR, _C_SCOTT, _C_FD):
+        sheet.range(rc(1, block_start + _HB_LOWER), rc(1, block_start + _HB_LOWER)).column_width = 12
         sheet.range(rc(1, block_start + _HB_EDGE), rc(1, block_start + _HB_EDGE)).column_width = 12
         sheet.range(rc(1, block_start + _HB_COUNT), rc(1, block_start + _HB_COUNT)).column_width = 10
         for offset in range(_HB_NORM, _HIST_W):
@@ -230,7 +233,7 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         sheet.range(rc(1, gap_col), rc(1, gap_col)).column_width = 2
 
     # Grid-search stages: compact fixed-area controls above narrow Data Tables.
-    # Stage 1: BB–BV; gap BW; Stage 2: BX–CR.
+    # Stage 1: BE–BY; gap BZ; Stage 2: CA–CU.
     for stage_start in (_C_GS, _C_GS_S2):
         for c in range(stage_start, stage_start + _N_GRID + 1):
             sheet.range(rc(1, c), rc(1, c)).column_width = 6
@@ -240,7 +243,7 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_STEP, _GS_C_BEST):
             sheet.range(rc(1, stage_start + dc)).column_width = 10
 
-    # Gap col BW between Stage 1 and Stage 2.
+    # Gap col BZ between Stage 1 and Stage 2.
     sheet.range(rc(1, _C_GS + _GS_W), rc(1, _C_GS + _GS_W)).column_width = 2
 
 
@@ -251,8 +254,8 @@ def _autofit_column_widths(sheet: xw.Sheet) -> None:
 
     gap_cols = [3, 6, 20]  # C, F, T
     for block_start in (_C_STUR, _C_SCOTT, _C_FD):
-        gap_cols.append(block_start + _HIST_W)  # AE, AP, BA
-    gap_cols.append(_C_GS + _GS_W)  # BW
+        gap_cols.append(block_start + _HIST_W)  # AF, AR, BD
+    gap_cols.append(_C_GS + _GS_W)  # BZ
     for col in gap_cols:
         sheet.range(rc(1, col), rc(1, col)).column_width = 2
 
@@ -324,8 +327,21 @@ def _dist_fit_rows_by_name() -> dict[str, int]:
     return {name: row for row, name, *_ in _dist_rows(_ROW_DIST_START)}
 
 
-def _cdf_column_formula(edge_spill_ref: str, distribution: str) -> str:
-    """Build a single-column spill formula for one histogram CDF probability."""
+def _cdf_column_formula(
+    edge_spill_ref: str,
+    lower_spill_ref: str,
+    distribution: str,
+) -> str:
+    """Build a single-column spill formula for one histogram CDF probability.
+
+    Both edge_spill_ref (upper edges) and lower_spill_ref (lower edges) are
+    already computed on the sheet — each is a spill reference to the relevant
+    histogram column.  The CDF formula simply references them, so no FILTER or
+    Bin_Lower_Edges computation is repeated across the 8 CDF columns in a block.
+
+    Beta additionally references the already-computed Min ($E$9) and Range ($E$11)
+    stat cells for the data-range rescaling it requires.
+    """
     t1 = col_letter(_C_T1_VAL)  # I — θ₁ value
     t2 = col_letter(_C_T2_VAL)  # K — θ₂ value
     t3 = col_letter(_C_T3_VAL)  # M — θ₃ value
@@ -366,12 +382,21 @@ def _cdf_column_formula(edge_spill_ref: str, distribution: str) -> str:
         ),
     }
 
+    # Beta needs dmin/drange for data-range rescaling; reference the already-computed
+    # Descriptive Statistics cells to avoid repeating FILTER(UV_Data,UV_Include).
+    if distribution == "Beta":
+        stat_col = col_letter(_C_E)
+        min_ref   = f"${stat_col}${_ROW_STAT_MIN}"    # e.g. $E$9
+        range_ref = f"${stat_col}${_ROW_STAT_RANGE}"  # e.g. $E$11
+        beta_vars = f"dmin,{min_ref},drange,{range_ref},"
+    else:
+        beta_vars = ""
+
     return (
         "=LET("
         f"edges,{edge_spill_ref},"
-        "filt,FILTER(UV_Data,UV_Include),"
-        "lower,Bin_Lower_Edges(UV_Data,edges,UV_Include),"
-        "dmin,MIN(filt),drange,MAX(filt)-dmin,"
+        f"lower,{lower_spill_ref},"
+        f"{beta_vars}"
         f"{expressions[distribution]}"
         ")"
     )
@@ -422,6 +447,10 @@ _STAT_ROWS: list[tuple[str, str]] = [
     ("Missing",   "=Missing_Count(UV_Data)"),
 ]
 
+# Row positions of stat cells referenced by CDF formulas (avoid repeating FILTER calls)
+_ROW_STAT_MIN   = _ROW_STATS_START + next(i for i, (n, _) in enumerate(_STAT_ROWS) if n == "Min")
+_ROW_STAT_RANGE = _ROW_STATS_START + next(i for i, (n, _) in enumerate(_STAT_ROWS) if n == "Range")
+
 def _write_descriptive_stats(sheet: xw.Sheet) -> None:
     section_heading(sheet, _ROW_SECTION_HDR, _C_D, "Descriptive Statistics")
 
@@ -442,14 +471,15 @@ def _write_descriptive_stats(sheet: xw.Sheet) -> None:
     border_box(sheet, _ROW_SECTION_HDR, _C_D, last_row, _C_E)
 
 
-# ── Zone 4: histogram tables (10-col blocks with CDF probabilities) ──────────
+# ── Zone 4: histogram tables (11-col blocks with CDF probabilities) ──────────
 
 def _write_histogram_table(
     sheet: xw.Sheet,
     col_start: int,
     method: str,
 ) -> None:
-    """Write one 10-column histogram block (edges, counts, 8 CDF probabilities)."""
+    """Write one 11-column histogram block (lower edges, upper edges, counts, 8 CDF probabilities)."""
+    col_lower = col_start + _HB_LOWER
     col_edge = col_start + _HB_EDGE
     col_count = col_start + _HB_COUNT
     col_cdf_first = col_start + _HB_NORM
@@ -464,7 +494,7 @@ def _write_histogram_table(
     # Row 4: column headers
     for offset, header, _, _ in _HIST_COLUMNS:
         val(sheet, _ROW_COL_HDRS, col_start + offset, header)
-    _subheader_row(sheet, _ROW_COL_HDRS, col_edge, col_last)
+    _subheader_row(sheet, _ROW_COL_HDRS, col_lower, col_last)
 
     # Row 3: bin-count display
     val(sheet, _ROW_SECTION_HDR, col_edge, "Bins:")
@@ -473,11 +503,17 @@ def _write_histogram_table(
       f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
     sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = _FMT_INT
 
-    # Edge and count spill formulas
+    # Upper-edge and count spill formulas
     f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,{method_cell},UV_Include)")
     edge_spill_ref = f"{col_letter(col_edge)}{_ROW_HIST_START}#"
     f(sheet, _ROW_HIST_START, col_count,
       f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
+
+    # Lower-edges spill formula — computed once per block so all CDF columns can
+    # reference it directly instead of each recomputing FILTER/Bin_Lower_Edges.
+    f(sheet, _ROW_HIST_START, col_lower,
+      f"=Bin_Lower_Edges(UV_Data,{edge_spill_ref},UV_Include)")
+    lower_spill_ref = f"{col_letter(col_lower)}{_ROW_HIST_START}#"
 
     # CDF probability columns — one spill formula per column.
     for offset, _, _, distribution in _HIST_COLUMNS:
@@ -487,10 +523,11 @@ def _write_histogram_table(
             sheet,
             _ROW_HIST_START,
             col_start + offset,
-            _cdf_column_formula(edge_spill_ref, distribution),
+            _cdf_column_formula(edge_spill_ref, lower_spill_ref, distribution),
         )
 
     # Number formats
+    sheet.range(rc(_ROW_HIST_START, col_lower), rc(_DATA_END, col_lower)).number_format = _FMT_1DP
     sheet.range(rc(_ROW_HIST_START, col_edge), rc(_DATA_END, col_edge)).number_format = _FMT_1DP
     sheet.range(rc(_ROW_HIST_START, col_count), rc(_DATA_END, col_count)).number_format = _FMT_INT
     sheet.range(
@@ -783,7 +820,7 @@ def _add_histogram_chart(
     chart.ChartTitle.Formula = f"='{sname}'!${col_letter(_C_FIT_FIRST)}${title_row}"
     x_axis = chart.Axes(_XL_CATEGORY)
     x_axis.HasTitle = True
-    x_axis.AxisTitle.Text = "Upper Edge"
+    x_axis.AxisTitle.Text = "Upper Edges"
     y_axis = chart.Axes(_XL_VALUE)
     y_axis.HasTitle = True
     y_axis.AxisTitle.Text = "Count"
@@ -842,8 +879,8 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 # The visible Input cells are the actual RowInput and ColumnInput cells supplied
 # to Excel's two-input Data Table object.  No hidden auxiliary row is required.
 #
-# Stage 1: col_start = _C_GS = 54 (BB); body = BC6:BV25
-# Stage 2: col_start = _C_GS_S2 = 76 (BX); body = BY6:CR25
+# Stage 1: col_start = _C_GS = 57 (BE); body = BF6:BY25
+# Stage 2: col_start = _C_GS_S2 = 79 (CA); body = CB6:CU25
 #
 # Named ranges registered here:
 #   *_S1 = Stage 1 Data Table body only

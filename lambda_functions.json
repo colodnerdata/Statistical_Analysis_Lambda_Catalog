@@ -2362,7 +2362,7 @@
         }
       ],
       "yields": "Kolmogorov-Smirnov D statistic as a scalar in [0, 1] (lower = better fit)",
-      "description": "GoF_KS computes the Kolmogorov-Smirnov goodness-of-fit statistic: D = max(D\u207a, D\u207b) where D\u207a = max\u1d62(i/n \u2212 F(X\u208d\u1d62\u208e)) and D\u207b = max\u1d62(F(X\u208d\u1d62\u208e) \u2212 (i\u22121)/n). This is the maximum vertical distance between the empirical CDF and the fitted CDF.\n\nK-S is sensitive to the single largest deviation between the empirical and fitted distributions, making it complementary to A-D (which weights tails more heavily). Lower D indicates a better fit. D is bounded on [0, 1]; values near 0 mean the fitted CDF closely tracks the empirical CDF.",
+      "description": "GoF_Kolmogorov_Smirnov computes the Kolmogorov-Smirnov goodness-of-fit statistic: D = max(D\u207a, D\u207b) where D\u207a = max\u1d62(i/n \u2212 F(X\u208d\u1d62\u208e)) and D\u207b = max\u1d62(F(X\u208d\u1d62\u208e) \u2212 (i\u22121)/n). This is the maximum vertical distance between the empirical CDF and the fitted CDF.\n\nK-S is sensitive to the single largest deviation between the empirical and fitted distributions, making it complementary to A-D (which weights tails more heavily). Lower D indicates a better fit. D is bounded on [0, 1]; values near 0 mean the fitted CDF closely tracks the empirical CDF.",
       "plain_language_summary": "Kolmogorov-Smirnov D = max|F_n(x\u1d62) \u2212 F(x\u1d62)| (lower = better fit)."
     }
   ],

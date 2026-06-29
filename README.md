@@ -210,10 +210,11 @@ These functions power the **Univariate Analysis** sheet and can be used independ
 | `Scott_Bins(data, [filter])` | Integer bin count via Scott's normal reference rule |
 | `FD_Bins(data, [filter])` | Integer bin count via the Freedman-Diaconis rule |
 | `num_histogram_bins(data, [method], [filter])` | Integer bin count for the chosen method (`"Sturges"`, `"Scott"`, or `"FD"`; defaults to `"FD"` when omitted) |
-| `Bin_Edges(data, [method], [filter])` | k×1 column vector of upper bin edges, evenly spaced from min to max |
-| `Bin_Lower_Edges(data, upper_edges, [filter])` | k×1 column vector of lower bin edges, given the upper edges from `Bin_Edges` |
-| `Bin_Midpoints(data, upper_edges, [filter])` | k×1 column vector of bin midpoints, given the upper edges from `Bin_Edges` |
-| `Bin_Counts(data, upper_edges, [filter])` | k×1 column vector of bin frequencies, given the upper edges from `Bin_Edges` |
+| `Bin_Edges(data, [method], [filter])` | k+1 × 1 column vector of full bin boundaries — the data minimum followed by k evenly-spaced upper edges |
+| `Upper_Bin_Edges(data, [method], [filter])` | k × 1 upper bin edges (`DROP(Bin_Edges, 1)`) |
+| `Bin_Lower_Edges(data, [method], [filter])` | k × 1 lower bin edges (`DROP(Bin_Edges, -1)`) |
+| `Bin_Midpoints(data, [method], [filter])` | k × 1 bin midpoints — average of consecutive boundaries from `Bin_Edges` |
+| `Bin_Counts(data, [method], [filter])` | k × 1 bin frequencies |
 
 ### CDF functions (for distribution fitting and GoF)
 

@@ -107,7 +107,7 @@ _HB_PERT  = 10  # BetaPERT CDF prob
 
 _HIST_COLUMNS = [
     (_HB_LOWER, "Lower Edges", "Lower_Edges", ""),
-    (_HB_EDGE,  "Upper Edges", "Edges", ""),
+    (_HB_EDGE,  "Upper Edges", "Upper_Edges", ""),
     (_HB_COUNT, "Count", "Counts", ""),
     (_HB_NORM,  "Normal", "Normal_CDF", "Normal"),
     (_HB_LOGN,  "Lognormal", "Lognormal_CDF", "Lognormal"),
@@ -504,16 +504,16 @@ def _write_histogram_table(
       f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
     sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = _FMT_INT
 
-    # Upper-edge and count spill formulas
-    f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,{method_cell},UV_Include)")
+    # Upper-edge, count, and lower-edge spill formulas.
+    # Each function takes (data, method, filter) and derives its own edges from
+    # Bin_Edges internally. The resulting spill ranges are still referenced by
+    # the CDF columns below to avoid recomputing edges eight times per block.
+    f(sheet, _ROW_HIST_START, col_edge, f"=Upper_Bin_Edges(UV_Data,{method_cell},UV_Include)")
     edge_spill_ref = f"{col_letter(col_edge)}{_ROW_HIST_START}#"
     f(sheet, _ROW_HIST_START, col_count,
-      f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
-
-    # Lower-edges spill formula — computed once per block so all CDF columns can
-    # reference it directly instead of each recomputing FILTER/Bin_Lower_Edges.
+      f"=Bin_Counts(UV_Data,{method_cell},UV_Include)")
     f(sheet, _ROW_HIST_START, col_lower,
-      f"=Bin_Lower_Edges(UV_Data,{edge_spill_ref},UV_Include)")
+      f"=Bin_Lower_Edges(UV_Data,{method_cell},UV_Include)")
     lower_spill_ref = f"{col_letter(col_lower)}{_ROW_HIST_START}#"
 
     # CDF probability columns — one spill formula per column.

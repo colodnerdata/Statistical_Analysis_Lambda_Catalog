@@ -26,11 +26,11 @@ Suggested alias names:
 | Alias | Canonical |
 |---|---|
 | `R2` | `R_squared` |
-| `AR2` | `Adjusted_R2` |
-| `MULTR` | `Multiple_R` |
-| `SER` | `SE_Regression` |
+| `ADJ_R2` | `Adjusted_R2` |
+| `MULT_R` | `Multiple_R` |
+| `SE_REG` | `SE_Regression` |
 | `DW` | `Durbin_Watson` |
-| `QQR` | `QQ_Correlation` |
+| `QQ_CORR` | `QQ_Correlation` |
 | `DFR` | `DF_Regression` |
 | `DFE` | `DF_Residual` |
 | `DFT` | `DF_Total` |
@@ -39,21 +39,21 @@ Suggested alias names:
 | `SST` | `SS_Total` |
 | `MSR` | `MS_Regression` |
 | `MSE` | `MS_Residual` |
-| `PF` | `P_Value_F` |
+| `P_VAL_F` | `P_Value_F` |
 
 **Regression — coefficient vectors**
 
 | Alias | Canonical |
 |---|---|
 | `COEF` | `Coefficients` |
-| `SEC` | `SE_Coefficients` |
+| `SE_COEF` | `SE_Coefficients` |
 | `TSTAT` | `T_Stats` |
-| `PVAL` | `P_Values` |
-| `CIL` | `CI_Lower` |
-| `CIU` | `CI_Upper` |
-| `PR2` | `Partial_R2` |
-| `PCOR` | `Partial_Correlation` |
-| `BW` | `Beta_Weights` |
+| `PVALS` | `P_Values` |
+| `CI_LOW` | `CI_Lower` |
+| `CI_UP` | `CI_Upper` |
+| `P_R2` | `Partial_R2` |
+| `P_COR` | `Partial_Correlation` |
+| `BETA_W` | `Beta_Weights` |
 
 **Regression — observation vectors**
 
@@ -63,7 +63,7 @@ Suggested alias names:
 | `RESID` | `Residuals` |
 | `STDR` | `Studentized_Residuals` |
 | `LEV` | `Hat_diagonal` |
-| `CD` | `Cooks_Distance` |
+| `COOK_D` | `Cooks_Distance` |
 | `LOOCV` | `LOOCV_prediction` |
 | `PI` | `Prediction_Interval` |
 
@@ -71,9 +71,9 @@ Suggested alias names:
 
 | Alias | Canonical |
 |---|---|
-| `CCF` | `Complete_Cases_Filter` |
+| `COMPLETE` | `Complete_Cases_Filter` |
 | `CORMAT` | `Correlation_Matrix` |
-| `DM` | `Design_Matrix` |
+| `DESIGN` | `Design_Matrix` |
 
 **Univariate — descriptive**
 
@@ -90,22 +90,22 @@ Suggested alias names:
 | `EDGES` | `Bin_Edges` |
 | `UEDGES` | `Upper_Bin_Edges` |
 | `LEDGES` | `Bin_Lower_Edges` |
-| `MIDS` | `Bin_Midpoints` |
-| `BCNT` | `Bin_Counts` |
+| `BIN_MIDS` | `Bin_Midpoints` |
+| `BIN_FREQS` | `Bin_Counts` |
 
 **Univariate — goodness-of-fit**
 
 | Alias | Canonical |
 |---|---|
-| `GAD` | `GoF_Anderson_Darling` |
-| `GKS` | `GoF_Kolmogorov_Smirnov` |
+| `GOF_AD` | `GoF_Anderson_Darling` |
+| `GOF_KS` | `GoF_Kolmogorov_Smirnov` |
 
 **Grid-search helpers**
 
 | Alias | Canonical |
 |---|---|
-| `GMIN` | `Grid_Argmin` |
-| `GSO` | `Grid_Search_Optimum` |
+| `GS_MIN` | `Grid_Argmin` |
+| `GS_OPT` | `Grid_Search_Optimum` |
 
 ---
 
@@ -119,21 +119,10 @@ Suggested alias names:
 
 ### LAMBDA functions
 
-**Missing-value semantics**
-- DONE: Resolved `Missing_Count` handling for formula blanks (`""`). Python oracle `_is_blank()` updated to treat `""` as blank, aligning with the LAMBDA's `d<>""` heuristic.
-
-**Goodness-of-fit statistics**
-- DONE: Implemented `GoF_Anderson_Darling(data, dist_cdf, [include])` — with epsilon clamping for bounded-support distributions.
-- DONE: Implemented `GoF_Kolmogorov_Smirnov(data, dist_cdf, [include])` — Kolmogorov-Smirnov statistic.
-
 **CDF/PDF functions (histogram overlay curves)**
-- DONE: Implemented `CDF_Normal`, `CDF_Lognormal`, `CDF_Exponential`, `CDF_Weibull`, `CDF_Gamma`, `CDF_Triangular`, `CDF_Beta`, `CDF_BetaPERT` — each returns the interval probability `CDF(max) − CDF(min)`.
 - TODO: Implement `PDF_Normal`, `PDF_Lognormal`, `PDF_Exponential`, `PDF_Weibull`, `PDF_Gamma`, `PDF_Triangular`, `PDF_Beta`, `PDF_BetaPERT` — evaluated at bin midpoints.
 
 ### Sheet writer (`write_sheet_univariate.py`)
-
-**Fit comparison table**
-- DONE: Added Anderson-Darling and K-S columns to the fit comparison table, with per-distribution CDF formulas (inline for Triangular, Beta, BetaPERT; built-in Excel CDF functions for the rest).
 
 **Q-Q plots and histogram overlays**
 - TODO: Per-distribution Q-Q plots (8 charts) using OFFSET-based named ranges.
@@ -153,7 +142,7 @@ Suggested alias names:
 
 ---
 
-## v4.0+ — Future (sequence TBD)
+## v4.0 — Future (sequence TBD)
 
 ### Weighted regression (WLS)
 

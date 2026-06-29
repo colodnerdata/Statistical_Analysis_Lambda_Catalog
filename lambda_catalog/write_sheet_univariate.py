@@ -814,9 +814,9 @@ def _add_histogram_chart(
     chart.HasLegend = False
     chart.HasTitle = True
     title_row = {
-        "UV_Sturges_Edges": _ROW_CHART1_TITLE,
-        "UV_Scott_Edges": _ROW_CHART2_TITLE,
-        "UV_FD_Edges": _ROW_CHART3_TITLE,
+        "UV_Sturges_Upper_Edges": _ROW_CHART1_TITLE,
+        "UV_Scott_Upper_Edges": _ROW_CHART2_TITLE,
+        "UV_FD_Upper_Edges": _ROW_CHART3_TITLE,
     }[edges_name]
     chart.ChartTitle.Formula = f"='{sname}'!${col_letter(_C_FIT_FIRST)}${title_row}"
     x_axis = chart.Axes(_XL_CATEGORY)
@@ -842,9 +842,9 @@ def _write_histogram_chart_title_cells(sheet: xw.Sheet) -> None:
 def _write_histogram_charts(sheet: xw.Sheet) -> None:
     """Insert three gapless column charts for Sturges, Scott, and FD histogram tables."""
     for edges_name, counts_name, row_start, row_end in [
-        ("UV_Sturges_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
-        ("UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
-        ("UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
+        ("UV_Sturges_Upper_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
+        ("UV_Scott_Upper_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
+        ("UV_FD_Upper_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
     ]:
         chart_range = sheet.range(rc(row_start, _C_FIT_FIRST), rc(row_end, _C_FIT_LAST))
         _add_histogram_chart(

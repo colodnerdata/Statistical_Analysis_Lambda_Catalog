@@ -114,9 +114,11 @@ def test_histogram_writer_records_method_cell_formulas() -> None:
 
 
 def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None:
+    from lambda_catalog.write_sheet_univariate import _HIST_BLOCKS
+
     histogram_names = [
         f"{prefix}_{suffix}"
-        for prefix in ("UV_Sturges", "UV_Scott", "UV_FD")
+        for prefix, _ in _HIST_BLOCKS
         for _, _, suffix, _ in _HIST_COLUMNS
     ]
     sheet = RecordingSheet(

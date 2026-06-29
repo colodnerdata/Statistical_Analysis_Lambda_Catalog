@@ -12,6 +12,7 @@ from lambda_catalog.write_sheet_regression import (
 )
 from lambda_catalog.write_sheet_mlr_scalar_test import _actual_formula
 from lambda_catalog.write_sheet_univariate import (
+    _C_FIT_FIRST,
     _STAT_ROWS,
     _dist_rows,
     _setup_local_names,
@@ -93,16 +94,16 @@ def test_expression_format_records_formula_and_font_options() -> None:
 def test_histogram_writer_records_method_cell_formulas() -> None:
     sheet = RecordingSheet()
 
-    _write_histogram_table(sheet, 7, 8, "Sturges")
+    _write_histogram_table(sheet, 21, "Sturges")
 
-    assert sheet.cell(2, 7).value == "Method"
-    assert sheet.cell(2, 7).color == HEADER_COLOR
-    assert sheet.cell(2, 8).value == "Sturges"
-    assert sheet.cell(2, 8).color == HEADER_COLOR
-    assert sheet.cell(3, 7).value == "Bins:"
-    assert sheet.cell(3, 8).api.Formula2 == "=num_histogram_bins(UV_Data,H2,UV_Include)"
-    assert sheet.cell(5, 7).api.Formula2 == "=Bin_Edges(UV_Data,H2,UV_Include)"
-    assert sheet.cell(5, 8).api.Formula2 == "=Bin_Counts(UV_Data,G5#,UV_Include)"
+    assert sheet.cell(2, 21).value == "Method"
+    assert sheet.cell(2, 21).color == HEADER_COLOR
+    assert sheet.cell(2, 22).value == "Sturges"
+    assert sheet.cell(2, 22).color == HEADER_COLOR
+    assert sheet.cell(3, 21).value == "Bins:"
+    assert sheet.cell(3, 22).api.Formula2 == "=num_histogram_bins(UV_Data,V2,UV_Include)"
+    assert sheet.cell(5, 21).api.Formula2 == "=Bin_Edges(UV_Data,V2,UV_Include)"
+    assert sheet.cell(5, 22).api.Formula2 == "=Bin_Counts(UV_Data,U5#,UV_Include)"
 
 
 def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None:
@@ -135,9 +136,9 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
         "UV_FD_Counts",
     ):
         assert "num_histogram_bins(" in names.by_short_name(hist_name).RefersTo
-    assert "$H$2" in names.by_short_name("UV_Sturges_Edges").RefersTo
-    assert "$K$2" in names.by_short_name("UV_Scott_Edges").RefersTo
-    assert "$N$2" in names.by_short_name("UV_FD_Edges").RefersTo
+    assert "$V$2" in names.by_short_name("UV_Sturges_Edges").RefersTo
+    assert "$AG$2" in names.by_short_name("UV_Scott_Edges").RefersTo
+    assert "$AR$2" in names.by_short_name("UV_FD_Edges").RefersTo
 
 
 def test_missing_count_formula_uses_unfiltered_active_range() -> None:
@@ -157,43 +158,41 @@ def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> No
     assert sheet.cell(14, 5).number_format == "0"
     assert sheet.cell(15, 5).number_format == "0"
 
-    _write_histogram_table(sheet, 7, 8, "Sturges")
-    assert sheet.cell(3, 8).number_format == "0"
-    assert sheet.range((5, 7), (2003, 7)).number_format == "0.0"
-    assert sheet.range((5, 8), (2003, 8)).number_format == "0"
+    _write_histogram_table(sheet, 21, "Sturges")
+    assert sheet.cell(3, 22).number_format == "0"
+    assert sheet.range((5, 21), (2003, 21)).number_format == "0.0"
+    assert sheet.range((5, 22), (2003, 22)).number_format == "0"
 
     _write_fitting_table(sheet)
-    assert sheet.cell(5, 19).number_format == "0.0"
-    assert sheet.cell(5, 24).number_format == "0.0E+00"
-    assert sheet.cell(5, 25).number_format == "0"
-    assert sheet.cell(5, 26).number_format == "0.0"
+    assert sheet.cell(5, 9).number_format == "0.0"
+    assert sheet.cell(5, 14).number_format == "0.0E+00"
+    assert sheet.cell(5, 15).number_format == "0"
+    assert sheet.cell(5, 16).number_format == "0.0"
 
     _write_weibull_grid_search(sheet)
-    assert sheet.cell(3, 32).number_format == "0"
-    assert sheet.range((3, 35), (4, 39)).number_format == "0.0"
-    assert sheet.cell(5, 31).number_format == "0.0E+00"
-    assert sheet.range((5, 32), (5, 51)).number_format == "0.0"
-    assert sheet.range((6, 31), (25, 31)).number_format == "0.0"
-    assert sheet.range((6, 32), (25, 51)).number_format == "0.0E+00"
-    assert sheet.cell(3, 31).number_format == "0.0E+00"
+    assert sheet.cell(3, 55).number_format == "0"
+    assert sheet.range((3, 58), (4, 62)).number_format == "0.0"
+    assert sheet.cell(5, 54).number_format == "0.0E+00"
+    assert sheet.range((5, 55), (5, 74)).number_format == "0.0"
+    assert sheet.range((6, 54), (25, 54)).number_format == "0.0"
+    assert sheet.range((6, 55), (25, 74)).number_format == "0.0E+00"
+    assert sheet.cell(3, 54).number_format == "0.0E+00"
 
 
 def test_histogram_chart_title_cells_reference_method_headers():
-    """Chart title formula cells at Q14/Q34/Q54 reference the correct method header columns."""
+    """Chart title formula cells at G14/G34/G54 reference the correct method header columns."""
     from lambda_catalog.write_sheet_univariate import (
         _write_histogram_chart_title_cells,
         _ROW_CHART1_TITLE, _ROW_CHART2_TITLE, _ROW_CHART3_TITLE,
-        _C_Q,
     )
     sheet = RecordingSheet()
     _write_histogram_chart_title_cells(sheet)
-    # f() writes via sheet.range(rc(row, col)) → key = ((row, col),)
-    f1 = sheet.ranges[((_ROW_CHART1_TITLE, _C_Q),)].state.formula2
-    f2 = sheet.ranges[((_ROW_CHART2_TITLE, _C_Q),)].state.formula2
-    f3 = sheet.ranges[((_ROW_CHART3_TITLE, _C_Q),)].state.formula2
-    assert f1 == '=H2&" Method Histogram"'
-    assert f2 == '=K2&" Method Histogram"'
-    assert f3 == '=N2&" Method Histogram"'
+    f1 = sheet.ranges[((_ROW_CHART1_TITLE, _C_FIT_FIRST),)].state.formula2
+    f2 = sheet.ranges[((_ROW_CHART2_TITLE, _C_FIT_FIRST),)].state.formula2
+    f3 = sheet.ranges[((_ROW_CHART3_TITLE, _C_FIT_FIRST),)].state.formula2
+    assert f1 == '=V2&" Method Histogram"'
+    assert f2 == '=AG2&" Method Histogram"'
+    assert f3 == '=AR2&" Method Histogram"'
 
 
 def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:
@@ -201,29 +200,29 @@ def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:
 
     _write_weibull_grid_search(sheet)
 
-    assert ((1, 31), (1, 51)) in sheet.merges
-    assert ((1, 53), (1, 73)) in sheet.merges
-    assert sheet.cell(2, 31).value == "Min NLL:"
-    assert sheet.cell(2, 32).value == "Rows/Columns"
-    assert sheet.cell(3, 32).value == 20
-    assert sheet.cell(2, 33).value is None
-    assert [sheet.cell(2, col).value for col in range(34, 40)] == [
+    assert ((1, 54), (1, 74)) in sheet.merges
+    assert ((1, 76), (1, 96)) in sheet.merges
+    assert sheet.cell(2, 54).value == "Min NLL:"
+    assert sheet.cell(2, 55).value == "Rows/Columns"
+    assert sheet.cell(3, 55).value == 20
+    assert sheet.cell(2, 56).value is None
+    assert [sheet.cell(2, col).value for col in range(57, 63)] == [
         "Parameter", "Input", "Min", "Max", "Step Size", "Best",
     ]
-    assert sheet.cell(3, 34).value == "Shape (k)"
-    assert sheet.cell(29, 34).value == "Shape (α)"
-    assert sheet.cell(30, 34).value == "Rate (β)"
-    assert sheet.cell(55, 34).value == "Alpha (α)"
-    assert sheet.cell(56, 34).value == "Beta (β)"
-    assert sheet.cell(4, 34).value == "Scale (λ)"
+    assert sheet.cell(3, 57).value == "Shape (k)"
+    assert sheet.cell(29, 57).value == "Shape (α)"
+    assert sheet.cell(30, 57).value == "Rate (β)"
+    assert sheet.cell(55, 57).value == "Alpha (α)"
+    assert sheet.cell(56, 57).value == "Beta (β)"
+    assert sheet.cell(4, 57).value == "Scale (λ)"
 
     names = sheet.api.Names
-    assert names.by_short_name("UV_WB_S1").RefersTo == "='Univariate'!$AF$6:$AY$25"
-    assert names.by_short_name("UV_WB_S2").RefersTo == "='Univariate'!$BB$6:$BU$25"
-    assert names.by_short_name("UV_GAMMA_S1").RefersTo == "='Univariate'!$AF$32:$AY$51"
-    assert names.by_short_name("UV_GAMMA_S2").RefersTo == "='Univariate'!$BB$32:$BU$51"
-    assert names.by_short_name("UV_BETA_S1").RefersTo == "='Univariate'!$AF$58:$AY$77"
-    assert names.by_short_name("UV_BETA_S2").RefersTo == "='Univariate'!$BB$58:$BU$77"
+    assert names.by_short_name("UV_WB_S1").RefersTo == "='Univariate'!$BC$6:$BV$25"
+    assert names.by_short_name("UV_WB_S2").RefersTo == "='Univariate'!$BY$6:$CR$25"
+    assert names.by_short_name("UV_GAMMA_S1").RefersTo == "='Univariate'!$BC$32:$BV$51"
+    assert names.by_short_name("UV_GAMMA_S2").RefersTo == "='Univariate'!$BY$32:$CR$51"
+    assert names.by_short_name("UV_BETA_S1").RefersTo == "='Univariate'!$BC$58:$BV$77"
+    assert names.by_short_name("UV_BETA_S2").RefersTo == "='Univariate'!$BY$58:$CR$77"
 
 
 def test_weibull_grid_formulas_reference_visible_controls() -> None:
@@ -231,27 +230,27 @@ def test_weibull_grid_formulas_reference_visible_controls() -> None:
 
     _write_weibull_grid_search(sheet)
 
-    assert sheet.cell(3, 38).api.Formula2 == "=($AK$3-$AJ$3)/($AF$3-1)"
-    assert sheet.cell(4, 38).api.Formula2 == "=($AK$4-$AJ$4)/($AF$3-1)"
-    assert sheet.cell(5, 32).api.Formula2 == "=SEQUENCE(1,$AF$3,$AJ$3,$AL$3)"
-    assert sheet.cell(6, 31).api.Formula2 == "=SEQUENCE($AF$3,1,$AJ$4,$AL$4)"
-    assert sheet.cell(3, 31).api.Formula2 == (
+    assert sheet.cell(3, 61).api.Formula2 == "=($BH$3-$BG$3)/($BC$3-1)"
+    assert sheet.cell(4, 61).api.Formula2 == "=($BH$4-$BG$4)/($BC$3-1)"
+    assert sheet.cell(5, 55).api.Formula2 == "=SEQUENCE(1,$BC$3,$BG$3,$BI$3)"
+    assert sheet.cell(6, 54).api.Formula2 == "=SEQUENCE($BC$3,1,$BG$4,$BI$4)"
+    assert sheet.cell(3, 54).api.Formula2 == (
         '=IFERROR(TAKE(Grid_Argmin(UV_WB_S1),,1),"—")'
     )
-    assert sheet.cell(3, 39).api.Formula2 == "=Grid_Search_Optimum(UV_WB_S1)"
-    assert sheet.cell(4, 39).api.Formula2 is None
-    assert sheet.cell(5, 31).api.Formula2 == (
-        "=NLL_Weibull(UV_Data,$AI$3,$AI$4,UV_Include)"
+    assert sheet.cell(3, 62).api.Formula2 == "=Grid_Search_Optimum(UV_WB_S1)"
+    assert sheet.cell(4, 62).api.Formula2 is None
+    assert sheet.cell(5, 54).api.Formula2 == (
+        "=NLL_Weibull(UV_Data,$BF$3,$BF$4,UV_Include)"
     )
-    assert sheet.cell(31, 31).api.Formula2 == (
-        "=NLL_Gamma(UV_Data,$AI$29,$AI$30,UV_Include)"
+    assert sheet.cell(31, 54).api.Formula2 == (
+        "=NLL_Gamma(UV_Data,$BF$29,$BF$30,UV_Include)"
     )
-    assert "NLL_Beta(z,$AI$55,$AI$56)" in sheet.cell(57, 31).api.Formula2
+    assert "NLL_Beta(z,$BF$55,$BF$56)" in sheet.cell(57, 54).api.Formula2
 
-    assert sheet.cell(3, 58).api.Formula2 == "=MAX(0.001,$AM$3-$AL$3)"
-    assert sheet.cell(3, 59).api.Formula2 == "=$AM$3+$AL$3"
-    assert sheet.cell(4, 58).api.Formula2 == "=MAX(0.001,$AM$4-$AL$4)"
-    assert sheet.cell(4, 59).api.Formula2 == "=$AM$4+$AL$4"
+    assert sheet.cell(3, 81).api.Formula2 == "=MAX(0.001,$BJ$3-$BI$3)"
+    assert sheet.cell(3, 82).api.Formula2 == "=$BJ$3+$BI$3"
+    assert sheet.cell(4, 81).api.Formula2 == "=MAX(0.001,$BJ$4-$BI$4)"
+    assert sheet.cell(4, 82).api.Formula2 == "=$BJ$4+$BI$4"
 
 
 def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
@@ -261,53 +260,53 @@ def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
 
     assert sheet.tables[:2] == [
         {
-            "range": ((5, 31), (25, 51)),
-            "row_input": ((3, 35),),
-            "column_input": ((4, 35),),
+            "range": ((5, 54), (25, 74)),
+            "row_input": ((3, 58),),
+            "column_input": ((4, 58),),
         },
         {
-            "range": ((5, 53), (25, 73)),
-            "row_input": ((3, 57),),
-            "column_input": ((4, 57),),
+            "range": ((5, 76), (25, 96)),
+            "row_input": ((3, 80),),
+            "column_input": ((4, 80),),
         },
     ]
     assert sheet.tables[2:] == [
         {
-            "range": ((31, 31), (51, 51)),
-            "row_input": ((29, 35),),
-            "column_input": ((30, 35),),
+            "range": ((31, 54), (51, 74)),
+            "row_input": ((29, 58),),
+            "column_input": ((30, 58),),
         },
         {
-            "range": ((31, 53), (51, 73)),
-            "row_input": ((29, 57),),
-            "column_input": ((30, 57),),
+            "range": ((31, 76), (51, 96)),
+            "row_input": ((29, 80),),
+            "column_input": ((30, 80),),
         },
         {
-            "range": ((57, 31), (77, 51)),
-            "row_input": ((55, 35),),
-            "column_input": ((56, 35),),
+            "range": ((57, 54), (77, 74)),
+            "row_input": ((55, 58),),
+            "column_input": ((56, 58),),
         },
         {
-            "range": ((57, 53), (77, 73)),
-            "row_input": ((55, 57),),
-            "column_input": ((56, 57),),
+            "range": ((57, 76), (77, 96)),
+            "row_input": ((55, 80),),
+            "column_input": ((56, 80),),
         },
     ]
 
     for address in (
-        ((2, 31), (3, 31)),
-        ((2, 32), (3, 32)),
-        ((2, 34), (4, 39)),
-        ((5, 31), (25, 51)),
+        ((2, 54), (3, 54)),
+        ((2, 55), (3, 55)),
+        ((2, 57), (4, 62)),
+        ((5, 54), (25, 74)),
     ):
         assert set(sheet.range(*address).api._borders) == {7, 8, 9, 10}
-    assert sheet.range((2, 33), (4, 33)).api._borders == {}
+    assert sheet.range((2, 56), (4, 56)).api._borders == {}
 
-    shape_rule = sheet.cell(3, 39).api.FormatConditions.items[0].Formula1
-    scale_rule = sheet.cell(4, 39).api.FormatConditions.items[0].Formula1
-    assert shape_rule == "=OR(INDEX(Grid_Argmin(UV_WB_S1),1,3)=1,INDEX(Grid_Argmin(UV_WB_S1),1,3)=$AF$3)"
-    assert scale_rule == "=OR(INDEX(Grid_Argmin(UV_WB_S1),1,2)=1,INDEX(Grid_Argmin(UV_WB_S1),1,2)=$AF$3)"
-    assert len(sheet.range((6, 32), (25, 51)).api.FormatConditions.color_scales) == 1
+    shape_rule = sheet.cell(3, 62).api.FormatConditions.items[0].Formula1
+    scale_rule = sheet.cell(4, 62).api.FormatConditions.items[0].Formula1
+    assert shape_rule == "=OR(INDEX(Grid_Argmin(UV_WB_S1),1,3)=1,INDEX(Grid_Argmin(UV_WB_S1),1,3)=$BC$3)"
+    assert scale_rule == "=OR(INDEX(Grid_Argmin(UV_WB_S1),1,2)=1,INDEX(Grid_Argmin(UV_WB_S1),1,2)=$BC$3)"
+    assert len(sheet.range((6, 55), (25, 74)).api.FormatConditions.color_scales) == 1
 
 
 def test_weibull_bounds_and_summary_reference_final_best_cells() -> None:
@@ -320,20 +319,20 @@ def test_weibull_bounds_and_summary_reference_final_best_cells() -> None:
     beta_row = next(item for item in _dist_rows(5) if item[1] == "Beta")
 
     assert rows["Weibull"] == weibull_row[0]
-    assert weibull_row[3] == "=$BI$3"
-    assert weibull_row[5] == "=$BI$4"
+    assert weibull_row[3] == "=$CF$3"
+    assert weibull_row[5] == "=$CF$4"
     assert rows["Gamma"] == gamma_row[0]
-    assert gamma_row[3] == "=$BI$29"
-    assert gamma_row[5] == "=$BI$30"
+    assert gamma_row[3] == "=$CF$29"
+    assert gamma_row[5] == "=$CF$30"
     assert rows["Beta"] == beta_row[0]
-    assert beta_row[3] == "=$BI$55"
-    assert beta_row[5] == "=$BI$56"
+    assert beta_row[3] == "=$CF$55"
+    assert beta_row[5] == "=$CF$56"
     assert "NLL_Beta" in beta_row[8]
     assert "COUNT(d)*LN(scale_)" in beta_row[8]
-    assert sheet.cell(3, 36).color == INPUT_COLOR
-    assert sheet.cell(3, 37).color == INPUT_COLOR
-    assert sheet.cell(3, 58).color is None
-    assert sheet.cell(3, 60).color is None
+    assert sheet.cell(3, 59).color == INPUT_COLOR
+    assert sheet.cell(3, 60).color == INPUT_COLOR
+    assert sheet.cell(3, 81).color is None
+    assert sheet.cell(3, 83).color is None
 
 
 def test_grid_stage_returns_visible_step_and_count_references() -> None:
@@ -357,3 +356,19 @@ def test_grid_stage_returns_visible_step_and_count_references() -> None:
     assert refs["step_p1"] == "$AJ$3"
     assert refs["step_p2"] == "$AJ$4"
     assert refs["n_grid"] == "$AD$3"
+
+
+def test_betapert_cdf_expr_uses_valid_let_variable_names() -> None:
+    """BetaPERT CDF must not use `a1`/`a2` as LET names — they are A1-style cell refs."""
+    betapert_row = next(item for item in _dist_rows(5) if item[1] == "BetaPERT")
+    cdf_expr = betapert_row[10]
+
+    assert "alpha_param" in cdf_expr
+    assert "beta_param" in cdf_expr
+    # a1 / a2 must not appear as LET variable definitions
+    assert "a1," not in cdf_expr
+    assert ",a1," not in cdf_expr
+    assert "a2," not in cdf_expr
+    assert ",a2," not in cdf_expr
+    # parentheses must balance
+    assert cdf_expr.count("(") == cdf_expr.count(")")

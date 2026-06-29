@@ -10,6 +10,16 @@ from scipy import stats as scipy_stats
 from lambda_catalog.analyze_univariate import (
     bin_counts,
     bin_edges,
+    bin_lower_edges,
+    bin_midpoints,
+    cdf_beta,
+    cdf_betapert,
+    cdf_exponential,
+    cdf_gamma,
+    cdf_lognormal,
+    cdf_normal,
+    cdf_triangular,
+    cdf_weibull,
     descriptive_stats,
     fd_bins,
     gof_aic,
@@ -391,6 +401,221 @@ class GoFTests(unittest.TestCase):
         cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
         ks = gof_ks(data, cdf)
         self.assertAlmostEqual(ks, scipy_ks, places=10)
+
+
+# ── bin_midpoints ────────────────────────────────────────────────────────────
+
+class BinMidpointsTests(unittest.TestCase):
+    def test_midpoints_lie_between_edges(self) -> None:
+        data = _uniform()
+        edges = bin_edges(data, "Sturges")
+        mids = bin_midpoints(data, edges)
+        self.assertEqual(len(mids), len(edges))
+        width = (max(data) - min(data)) / len(edges)
+        for mid, edge in zip(mids, edges):
+            self.assertAlmostEqual(mid, edge - width / 2.0, places=10)
+
+    def test_single_bin(self) -> None:
+        data = [1.0, 2.0, 3.0, 4.0, 5.0]
+        edges = np.array([5.0])
+        mids = bin_midpoints(data, edges)
+        self.assertEqual(len(mids), 1)
+        self.assertAlmostEqual(float(mids[0]), 5.0 - (5.0 - 1.0) / 2.0, places=10)
+
+
+# ── bin_lower_edges ──────────────────────────────────────────────────────────
+
+class BinLowerEdgesTests(unittest.TestCase):
+    def test_first_lower_edge_is_data_min(self) -> None:
+        data = _uniform()
+        edges = bin_edges(data, "Sturges")
+        lowers = bin_lower_edges(data, edges)
+        self.assertAlmostEqual(float(lowers[0]), min(data), places=10)
+
+    def test_subsequent_lower_edges_are_previous_upper(self) -> None:
+        data = _uniform()
+        edges = bin_edges(data, "Sturges")
+        lowers = bin_lower_edges(data, edges)
+        for i in range(1, len(edges)):
+            self.assertAlmostEqual(float(lowers[i]), float(edges[i - 1]), places=10)
+
+    def test_length_matches_edges(self) -> None:
+        data = _uniform()
+        edges = bin_edges(data, "Scott")
+        lowers = bin_lower_edges(data, edges)
+        self.assertEqual(len(lowers), len(edges))
+
+    def test_single_bin(self) -> None:
+        data = [3.0, 3.0, 3.0, 5.0]
+        edges = np.array([5.0])
+        lowers = bin_lower_edges(data, edges)
+        self.assertEqual(len(lowers), 1)
+        self.assertAlmostEqual(float(lowers[0]), 3.0, places=10)
+
+
+# ── CDF functions ────────────────────────────────────────────────────────────
+
+class CDFTests(unittest.TestCase):
+    """Validate CDF bin-probability functions against scipy.stats."""
+
+    def test_cdf_normal_matches_scipy(self) -> None:
+        mu, sd = 5.0, 2.0
+        result = cdf_normal(10.0, mu, sd)
+        expected = float(scipy_stats.norm.cdf(10.0, mu, sd))
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_normal_interval(self) -> None:
+        mu, sd = 5.0, 2.0
+        result = cdf_normal(7.0, mu, sd, minimum=3.0)
+        expected = float(scipy_stats.norm.cdf(7.0, mu, sd) - scipy_stats.norm.cdf(3.0, mu, sd))
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_lognormal_matches_scipy(self) -> None:
+        meanlog, sdlog = 1.5, 0.5
+        result = cdf_lognormal(10.0, meanlog, sdlog)
+        expected = float(scipy_stats.lognorm.cdf(10.0, s=sdlog, scale=np.exp(meanlog)))
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_lognormal_interval(self) -> None:
+        meanlog, sdlog = 1.5, 0.5
+        result = cdf_lognormal(8.0, meanlog, sdlog, minimum=2.0)
+        expected = float(
+            scipy_stats.lognorm.cdf(8.0, s=sdlog, scale=np.exp(meanlog))
+            - scipy_stats.lognorm.cdf(2.0, s=sdlog, scale=np.exp(meanlog))
+        )
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_exponential_matches_scipy(self) -> None:
+        rate = 0.5
+        result = cdf_exponential(4.0, rate)
+        expected = float(scipy_stats.expon.cdf(4.0, scale=1.0 / rate))
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_exponential_interval(self) -> None:
+        rate = 0.5
+        result = cdf_exponential(4.0, rate, minimum=1.0)
+        expected = float(
+            scipy_stats.expon.cdf(4.0, scale=1.0 / rate)
+            - scipy_stats.expon.cdf(1.0, scale=1.0 / rate)
+        )
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_weibull_matches_scipy(self) -> None:
+        shape, scale = 2.0, 5.0
+        result = cdf_weibull(6.0, shape, scale)
+        expected = float(scipy_stats.weibull_min.cdf(6.0, shape, scale=scale))
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_weibull_interval(self) -> None:
+        shape, scale = 2.0, 5.0
+        result = cdf_weibull(8.0, shape, scale, minimum=2.0)
+        expected = float(
+            scipy_stats.weibull_min.cdf(8.0, shape, scale=scale)
+            - scipy_stats.weibull_min.cdf(2.0, shape, scale=scale)
+        )
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_gamma_matches_scipy(self) -> None:
+        shape, rate = 3.0, 0.5
+        result = cdf_gamma(6.0, shape, rate)
+        expected = float(scipy_stats.gamma.cdf(6.0, shape, scale=1.0 / rate))
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_gamma_interval(self) -> None:
+        shape, rate = 3.0, 0.5
+        result = cdf_gamma(10.0, shape, rate, minimum=2.0)
+        expected = float(
+            scipy_stats.gamma.cdf(10.0, shape, scale=1.0 / rate)
+            - scipy_stats.gamma.cdf(2.0, shape, scale=1.0 / rate)
+        )
+        self.assertAlmostEqual(result, expected, places=10)
+
+    def test_cdf_triangular_matches_scipy(self) -> None:
+        a, c, b = 1.0, 4.0, 9.0
+        loc, scale = a, b - a
+        shape = (c - a) / (b - a)
+        result = cdf_triangular(6.0, a, c, b)
+        expected = float(scipy_stats.triang.cdf(6.0, shape, loc=loc, scale=scale))
+        self.assertAlmostEqual(result, expected, places=8)
+
+    def test_cdf_triangular_interval(self) -> None:
+        a, c, b = 1.0, 4.0, 9.0
+        loc, scale = a, b - a
+        shape = (c - a) / (b - a)
+        result = cdf_triangular(7.0, a, c, b, minimum=3.0)
+        expected = float(
+            scipy_stats.triang.cdf(7.0, shape, loc=loc, scale=scale)
+            - scipy_stats.triang.cdf(3.0, shape, loc=loc, scale=scale)
+        )
+        self.assertAlmostEqual(result, expected, places=8)
+
+    def test_cdf_beta_matches_scipy(self) -> None:
+        data = _normal_data(100, mu=5.0, sigma=1.5)
+        alpha, beta_p = 2.0, 5.0
+        data_min = min(data)
+        data_range = max(data) - min(data)
+        pad = data_range * 0.001
+        scale_ = data_range + 2 * pad
+        x = 6.0
+        z = (x - data_min + pad) / scale_
+        result = cdf_beta(x, alpha, beta_p, data_min, data_range)
+        expected = float(scipy_stats.beta.cdf(z, alpha, beta_p))
+        self.assertAlmostEqual(result, expected, places=8)
+
+    def test_cdf_beta_interval(self) -> None:
+        data = _normal_data(100, mu=5.0, sigma=1.5)
+        alpha, beta_p = 2.0, 5.0
+        data_min = min(data)
+        data_range = max(data) - min(data)
+        pad = data_range * 0.001
+        scale_ = data_range + 2 * pad
+        x_lo, x_hi = 4.0, 7.0
+        z_lo = (x_lo - data_min + pad) / scale_
+        z_hi = (x_hi - data_min + pad) / scale_
+        result = cdf_beta(x_hi, alpha, beta_p, data_min, data_range, minimum=x_lo)
+        expected = float(
+            scipy_stats.beta.cdf(z_hi, alpha, beta_p)
+            - scipy_stats.beta.cdf(z_lo, alpha, beta_p)
+        )
+        self.assertAlmostEqual(result, expected, places=8)
+
+    def test_cdf_betapert_matches_manual(self) -> None:
+        mn, md, mx = 1.0, 4.0, 9.0
+        mu = (mn + 4 * md + mx) / 6.0
+        a1 = (mu - mn) * (2 * md - mn - mx) / ((md - mu) * (mx - mn))
+        a2 = a1 * (mx - mu) / (mu - mn)
+        x = 5.0
+        z = (x - mn) / (mx - mn)
+        result = cdf_betapert(x, mn, md, mx)
+        expected = float(scipy_stats.beta.cdf(z, a1, a2))
+        self.assertAlmostEqual(result, expected, places=8)
+
+    def test_cdf_betapert_interval(self) -> None:
+        mn, md, mx = 1.0, 4.0, 9.0
+        mu = (mn + 4 * md + mx) / 6.0
+        a1 = (mu - mn) * (2 * md - mn - mx) / ((md - mu) * (mx - mn))
+        a2 = a1 * (mx - mu) / (mu - mn)
+        x_lo, x_hi = 3.0, 7.0
+        z_lo = (x_lo - mn) / (mx - mn)
+        z_hi = (x_hi - mn) / (mx - mn)
+        result = cdf_betapert(x_hi, mn, md, mx, minimum=x_lo)
+        expected = float(
+            scipy_stats.beta.cdf(z_hi, a1, a2)
+            - scipy_stats.beta.cdf(z_lo, a1, a2)
+        )
+        self.assertAlmostEqual(result, expected, places=8)
+
+    def test_cdf_probabilities_sum_approximately_one(self) -> None:
+        """Bin probabilities from a CDF should sum close to 1 over all bins."""
+        data = _normal_data(200)
+        mu, sd = float(np.mean(data)), float(np.std(data, ddof=1))
+        edges = bin_edges(data, "Sturges")
+        lowers = bin_lower_edges(data, edges)
+        total = sum(
+            cdf_normal(float(hi), mu, sd, minimum=float(lo))
+            for hi, lo in zip(edges, lowers)
+        )
+        self.assertAlmostEqual(total, 1.0, places=1)
 
 
 if __name__ == "__main__":

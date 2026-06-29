@@ -1723,6 +1723,280 @@
       "plain_language_summary": "How many data values fall into each histogram bin."
     },
     {
+      "name": "Bin_Midpoints",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, edges, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    width, (MAX(x) - MIN(x)) / ROWS(edges),\n    edges - width / 2\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column numeric data range"
+        },
+        {
+          "name": "edges",
+          "description": "column vector of upper bin edges (from Bin_Edges or custom)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of bin midpoints",
+      "description": "Bin_Midpoints returns the midpoint of each histogram bin by subtracting half the bin width from each upper edge. The bin width is computed as (max − min) / k where k is the number of bins (ROWS of edges). All bins are assumed to be equal width, which holds for edges produced by Bin_Edges.\n\nUse midpoints as the X-coordinate when overlaying fitted distribution curves on a histogram chart.",
+      "plain_language_summary": "The centre of each histogram bin — use as the X-axis value for distribution overlay curves."
+    },
+    {
+      "name": "Bin_Lower_Edges",
+      "number_format": "0.00",
+      "formula_display": "=LAMBDA(data, edges, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    k, ROWS(edges),\n    IF(k = 1, MIN(x), VSTACK(MIN(x), TAKE(edges, k - 1)))\n  ))",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "single-column numeric data range"
+        },
+        {
+          "name": "edges",
+          "description": "column vector of upper bin edges (from Bin_Edges or custom)"
+        },
+        {
+          "name": "filter",
+          "description": "optional boolean array",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of lower bin edges",
+      "description": "Bin_Lower_Edges returns the lower edge of each histogram bin. The first bin's lower edge is the data minimum; subsequent bins use the previous upper edge. The output pairs with the upper edges to define each bin's interval for CDF probability calculations.\n\nPass the result as the minimum argument to a CDF function (e.g. CDF_Normal) alongside the upper edges as the maximum argument to compute the probability of each bin.",
+      "plain_language_summary": "The lower boundary of each histogram bin — data minimum for bin 1, then each previous upper edge."
+    },
+    {
+      "name": "CDF_Normal",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(maximum, mean, sd, [minimum],\n  LET(\n    cdf_max, NORM.DIST(maximum, mean, sd, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, NORM.DIST(minimum, mean, sd, TRUE)),\n    cdf_max - cdf_min\n  ))",
+      "arguments": [
+        {
+          "name": "maximum",
+          "description": "upper bound of the interval (scalar or array)"
+        },
+        {
+          "name": "mean",
+          "description": "distribution mean μ"
+        },
+        {
+          "name": "sd",
+          "description": "distribution standard deviation σ (must be > 0)"
+        },
+        {
+          "name": "minimum",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from −∞",
+          "optional": true
+        }
+      ],
+      "yields": "CDF(maximum) − CDF(minimum) for Normal(mean, sd); probability of the interval",
+      "description": "CDF_Normal returns the probability that a Normal(mean, sd) random variable falls in the interval (minimum, maximum]. When minimum is omitted the result is the cumulative probability from −∞ to maximum.\n\nAccepts arrays for maximum and minimum, spilling element-wise. Use with Bin_Edges as maximum and Bin_Lower_Edges as minimum to compute the expected proportion of each histogram bin under the fitted Normal distribution.",
+      "plain_language_summary": "The probability that a Normal variable falls between minimum and maximum."
+    },
+    {
+      "name": "CDF_Lognormal",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(maximum, meanlog, sdlog, [minimum],\n  LET(\n    cdf_max, LOGNORM.DIST(maximum, meanlog, sdlog, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, LOGNORM.DIST(minimum, meanlog, sdlog, TRUE)),\n    cdf_max - cdf_min\n  ))",
+      "arguments": [
+        {
+          "name": "maximum",
+          "description": "upper bound of the interval (scalar or array)"
+        },
+        {
+          "name": "meanlog",
+          "description": "mean of ln(x)"
+        },
+        {
+          "name": "sdlog",
+          "description": "standard deviation of ln(x) (must be > 0)"
+        },
+        {
+          "name": "minimum",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from 0",
+          "optional": true
+        }
+      ],
+      "yields": "CDF(maximum) − CDF(minimum) for Lognormal(meanlog, sdlog); probability of the interval",
+      "description": "CDF_Lognormal returns the probability that a Lognormal(meanlog, sdlog) random variable falls in the interval (minimum, maximum]. When minimum is omitted the result is the cumulative probability from 0 to maximum.\n\nAccepts arrays for maximum and minimum, spilling element-wise.",
+      "plain_language_summary": "The probability that a Lognormal variable falls between minimum and maximum."
+    },
+    {
+      "name": "CDF_Exponential",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(maximum, rate, [minimum],\n  LET(\n    cdf_max, EXPON.DIST(maximum, rate, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, EXPON.DIST(minimum, rate, TRUE)),\n    cdf_max - cdf_min\n  ))",
+      "arguments": [
+        {
+          "name": "maximum",
+          "description": "upper bound of the interval (scalar or array)"
+        },
+        {
+          "name": "rate",
+          "description": "rate parameter λ = 1/mean"
+        },
+        {
+          "name": "minimum",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from 0",
+          "optional": true
+        }
+      ],
+      "yields": "CDF(maximum) − CDF(minimum) for Exponential(rate); probability of the interval",
+      "description": "CDF_Exponential returns the probability that an Exponential(rate) random variable falls in the interval (minimum, maximum]. When minimum is omitted the result is the cumulative probability from 0 to maximum.\n\nAccepts arrays for maximum and minimum, spilling element-wise.",
+      "plain_language_summary": "The probability that an Exponential variable falls between minimum and maximum."
+    },
+    {
+      "name": "CDF_Weibull",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(maximum, shape, scale, [minimum],\n  LET(\n    cdf_max, WEIBULL.DIST(maximum, shape, scale, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, WEIBULL.DIST(minimum, shape, scale, TRUE)),\n    cdf_max - cdf_min\n  ))",
+      "arguments": [
+        {
+          "name": "maximum",
+          "description": "upper bound of the interval (scalar or array)"
+        },
+        {
+          "name": "shape",
+          "description": "shape parameter k (must be > 0)"
+        },
+        {
+          "name": "scale",
+          "description": "scale parameter λ (must be > 0)"
+        },
+        {
+          "name": "minimum",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from 0",
+          "optional": true
+        }
+      ],
+      "yields": "CDF(maximum) − CDF(minimum) for Weibull(shape, scale); probability of the interval",
+      "description": "CDF_Weibull returns the probability that a Weibull(shape, scale) random variable falls in the interval (minimum, maximum]. When minimum is omitted the result is the cumulative probability from 0 to maximum.\n\nAccepts arrays for maximum and minimum, spilling element-wise.",
+      "plain_language_summary": "The probability that a Weibull variable falls between minimum and maximum."
+    },
+    {
+      "name": "CDF_Gamma",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(maximum, shape, rate, [minimum],\n  LET(\n    cdf_max, GAMMA.DIST(maximum, shape, 1 / rate, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, GAMMA.DIST(minimum, shape, 1 / rate, TRUE)),\n    cdf_max - cdf_min\n  ))",
+      "arguments": [
+        {
+          "name": "maximum",
+          "description": "upper bound of the interval (scalar or array)"
+        },
+        {
+          "name": "shape",
+          "description": "shape parameter α (must be > 0)"
+        },
+        {
+          "name": "rate",
+          "description": "rate parameter β = 1/scale (must be > 0)"
+        },
+        {
+          "name": "minimum",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from 0",
+          "optional": true
+        }
+      ],
+      "yields": "CDF(maximum) − CDF(minimum) for Gamma(shape, rate); probability of the interval",
+      "description": "CDF_Gamma returns the probability that a Gamma(shape, rate) random variable falls in the interval (minimum, maximum]. GAMMA.DIST takes scale = 1/rate, matching the rate parameterisation used by NLL_Gamma.\n\nAccepts arrays for maximum and minimum, spilling element-wise.",
+      "plain_language_summary": "The probability that a Gamma variable falls between minimum and maximum."
+    },
+    {
+      "name": "CDF_Triangular",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(maximum, min_val, mode_val, max_val, [minimum],\n  LET(\n    cdf_at, LAMBDA(x,\n      IFERROR(IF(x < min_val, 0,\n        IF(x < mode_val,\n          (x - min_val)^2 / ((max_val - min_val) * (mode_val - min_val) + 1E-30),\n          IF(x <= max_val,\n            1 - (max_val - x)^2 / ((max_val - min_val) * (max_val - mode_val) + 1E-30),\n            1))), 0.5)),\n    cdf_max, MAP(maximum, cdf_at),\n    cdf_min, IF(ISOMITTED(minimum), 0, MAP(minimum, cdf_at)),\n    cdf_max - cdf_min\n  ))",
+      "arguments": [
+        {
+          "name": "maximum",
+          "description": "upper bound of the interval (scalar or array)"
+        },
+        {
+          "name": "min_val",
+          "description": "distribution minimum a"
+        },
+        {
+          "name": "mode_val",
+          "description": "distribution mode c (must satisfy a < c < b)"
+        },
+        {
+          "name": "max_val",
+          "description": "distribution maximum b"
+        },
+        {
+          "name": "minimum",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from min_val",
+          "optional": true
+        }
+      ],
+      "yields": "CDF(maximum) − CDF(minimum) for Triangular(min_val, mode_val, max_val); probability of the interval",
+      "description": "CDF_Triangular returns the probability that a Triangular(a, c, b) random variable falls in the interval (minimum, maximum]. Uses the piecewise closed-form CDF since Excel has no built-in Triangular CDF. MAP applies the nested CDF LAMBDA element-wise so the function works with array inputs.\n\nThe epsilon guard (1E-30) prevents division by zero for degenerate parameters. IFERROR maps any remaining errors to 0.5.",
+      "plain_language_summary": "The probability that a Triangular variable falls between minimum and maximum."
+    },
+    {
+      "name": "CDF_Beta",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(maximum, alpha, beta, data_min, data_range, [minimum],\n  LET(\n    pad, MAX(data_range * 0.001, 1E-30),\n    scale_, data_range + 2 * pad,\n    z_max, (maximum - data_min + pad) / scale_,\n    cdf_max, IFERROR(BETA.DIST(z_max, alpha, beta, TRUE), 0.5),\n    cdf_min, IF(ISOMITTED(minimum), 0,\n      LET(z_min, (minimum - data_min + pad) / scale_,\n        IFERROR(BETA.DIST(z_min, alpha, beta, TRUE), 0.5))),\n    cdf_max - cdf_min\n  ))",
+      "arguments": [
+        {
+          "name": "maximum",
+          "description": "upper bound of the interval (scalar or array, on the original data scale)"
+        },
+        {
+          "name": "alpha",
+          "description": "Beta shape parameter α (must be > 0)"
+        },
+        {
+          "name": "beta",
+          "description": "Beta shape parameter β (must be > 0)"
+        },
+        {
+          "name": "data_min",
+          "description": "minimum of the fitted data (used for rescaling to [0,1])"
+        },
+        {
+          "name": "data_range",
+          "description": "max − min of the fitted data (used for rescaling to [0,1])"
+        },
+        {
+          "name": "minimum",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from the padded support minimum (data_min − pad)",
+          "optional": true
+        }
+      ],
+      "yields": "CDF(maximum) − CDF(minimum) for rescaled Beta(alpha, beta); probability of the interval",
+      "description": "CDF_Beta returns the probability that a Beta(alpha, beta) random variable (rescaled from [0,1] to the original data range) falls in the interval (minimum, maximum]. Rescaling uses the same 0.1 % padding as NLL_Beta to keep boundary data points interior to the support.\n\nTakes data_min and data_range rather than the full data array to avoid redundant computation when called repeatedly (e.g. once per histogram bin).",
+      "plain_language_summary": "The probability that a rescaled Beta variable falls between minimum and maximum."
+    },
+    {
+      "name": "CDF_BetaPERT",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(maximum, min_val, mode_val, max_val, [minimum],\n  LET(\n    mu, (min_val + 4 * mode_val + max_val) / 6,\n    alpha_param, (mu - min_val) * (2 * mode_val - min_val - max_val) / ((mode_val - mu) * (max_val - min_val) + 1E-30),\n    beta_param, alpha_param * (max_val - mu) / (mu - min_val + 1E-30),\n    z_max, (maximum - min_val) / (max_val - min_val + 1E-30),\n    cdf_max, BETA.DIST(z_max, alpha_param, beta_param, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0,\n      LET(z_min, (minimum - min_val) / (max_val - min_val + 1E-30),\n        BETA.DIST(z_min, alpha_param, beta_param, TRUE))),\n    cdf_max - cdf_min\n  ))",
+      "arguments": [
+        {
+          "name": "maximum",
+          "description": "upper bound of the interval (scalar or array)"
+        },
+        {
+          "name": "min_val",
+          "description": "distribution minimum"
+        },
+        {
+          "name": "mode_val",
+          "description": "distribution mode (most likely value)"
+        },
+        {
+          "name": "max_val",
+          "description": "distribution maximum"
+        },
+        {
+          "name": "minimum",
+          "description": "lower bound of the interval; when omitted, returns CDF(maximum) from min_val",
+          "optional": true
+        }
+      ],
+      "yields": "CDF(maximum) − CDF(minimum) for BetaPERT(min_val, mode_val, max_val); probability of the interval",
+      "description": "CDF_BetaPERT returns the probability that a BetaPERT(min, mode, max) random variable falls in the interval (minimum, maximum]. The PERT reparameterisation computes α₁ and α₂ from the PERT mean μ = (min + 4·mode + max) / 6, then evaluates BETA.DIST on the [0,1]-rescaled value.\n\nEpsilon guards (1E-30) prevent division by zero for degenerate parameters.",
+      "plain_language_summary": "The probability that a BetaPERT variable falls between minimum and maximum."
+    },
+    {
       "name": "Grid_Argmin",
       "test_table": null,
       "number_format": "General",

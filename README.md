@@ -252,7 +252,7 @@ Each NLL function returns the negative log-likelihood for the given distribution
 |---|---|---|
 | `GoF_AIC` | `(nll, k)` | AIC = 2k + 2·NLL |
 | `GoF_BIC` | `(nll, k, n)` | BIC = k·ln(n) + 2·NLL |
-| `GoF_AndersonDarling` | `(data, dist_cdf, [include])` | Anderson-Darling A² statistic (lower = better fit) |
-| `GoF_KS` | `(data, dist_cdf, [include])` | Kolmogorov-Smirnov D statistic in [0, 1] (lower = better fit) |
+| `GoF_Anderson_Darling` | `(data, dist_cdf, [include])` | A² = −n − (1/n)·Σᵢ(2i−1)[ln F(xᵢ) + ln(1−F(x_{n+1−i}))] (lower = better fit) |
+| `GoF_Kolmogorov_Smirnov` | `(data, dist_cdf, [include])` | D = max\|F_n(xᵢ) − F(xᵢ)\| (lower = better fit) |
 
-`GoF_AndersonDarling` and `GoF_KS` accept any of the `CDF_*` functions (partially applied via LAMBDA) as the `dist_cdf` argument.
+`GoF_Anderson_Darling` and `GoF_Kolmogorov_Smirnov` accept any of the `CDF_*` functions (partially applied via LAMBDA) as the `dist_cdf` argument.

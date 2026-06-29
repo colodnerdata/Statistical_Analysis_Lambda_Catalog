@@ -764,9 +764,9 @@ def _write_fitting_table(sheet: xw.Sheet) -> None:
         f(sheet, row, _C_BIC,
           f"=GoF_BIC(${col_letter(_C_NLL)}${row},${col_letter(_C_K_PARAM)}${row},UV_n)")
         f(sheet, row, _C_AD,
-          f"=GoF_AndersonDarling(UV_Data,{cdf_expr},UV_Include)")
+          f"=GoF_Anderson_Darling(UV_Data,{cdf_expr},UV_Include)")
         f(sheet, row, _C_KS,
-          f"=GoF_KS(UV_Data,{cdf_expr},UV_Include)")
+          f"=GoF_Kolmogorov_Smirnov(UV_Data,{cdf_expr},UV_Include)")
 
         for col, fmt in _FIT_NUMBER_FORMATS.items():
             sheet.range(rc(row, col)).number_format = fmt

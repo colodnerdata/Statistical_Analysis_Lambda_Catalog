@@ -29,8 +29,8 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 - DONE: Resolved `Missing_Count` handling for formula blanks (`""`). Python oracle `_is_blank()` updated to treat `""` as blank, aligning with the LAMBDA's `d<>""` heuristic.
 
 **Goodness-of-fit statistics**
-- DONE: Implemented `GoF_AndersonDarling(data, dist_cdf, [include])` — with epsilon clamping for bounded-support distributions.
-- DONE: Implemented `GoF_KS(data, dist_cdf, [include])` — Kolmogorov-Smirnov statistic.
+- DONE: Implemented `GoF_Anderson_Darling(data, dist_cdf, [include])` — with epsilon clamping for bounded-support distributions.
+- DONE: Implemented `GoF_Kolmogorov_Smirnov(data, dist_cdf, [include])` — Kolmogorov-Smirnov statistic.
 
 **CDF/PDF functions (histogram overlay curves)**
 - DONE: Implemented `CDF_Normal`, `CDF_Lognormal`, `CDF_Exponential`, `CDF_Weibull`, `CDF_Gamma`, `CDF_Triangular`, `CDF_Beta`, `CDF_BetaPERT` — each returns the interval probability `CDF(max) − CDF(min)`.

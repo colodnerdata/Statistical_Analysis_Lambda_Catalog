@@ -15,6 +15,100 @@ These formulas define ranges beginning at `AE3` and `AF3`, respectively, and ext
 
 ---
 
+## Alias layer
+
+Design/planning item — see ROADMAP.md for the architectural rationale. Aliases are thin ALL-CAPS wrappers whose entire body is a single call to the canonical function; the canonical function remains the single source of truth. Implement only after the canonical library is stable.
+
+Suggested alias names:
+
+**Regression — scalar outputs**
+
+| Alias | Canonical |
+|---|---|
+| `R2` | `R_squared` |
+| `AR2` | `Adjusted_R2` |
+| `MULTR` | `Multiple_R` |
+| `SER` | `SE_Regression` |
+| `DW` | `Durbin_Watson` |
+| `QQR` | `QQ_Correlation` |
+| `DFR` | `DF_Regression` |
+| `DFE` | `DF_Residual` |
+| `DFT` | `DF_Total` |
+| `SSR` | `SS_Regression` |
+| `SSE` | `SS_Residual` |
+| `SST` | `SS_Total` |
+| `MSR` | `MS_Regression` |
+| `MSE` | `MS_Residual` |
+| `PF` | `P_Value_F` |
+
+**Regression — coefficient vectors**
+
+| Alias | Canonical |
+|---|---|
+| `COEF` | `Coefficients` |
+| `SEC` | `SE_Coefficients` |
+| `TSTAT` | `T_Stats` |
+| `PVAL` | `P_Values` |
+| `CIL` | `CI_Lower` |
+| `CIU` | `CI_Upper` |
+| `PR2` | `Partial_R2` |
+| `PCOR` | `Partial_Correlation` |
+| `BW` | `Beta_Weights` |
+
+**Regression — observation vectors**
+
+| Alias | Canonical |
+|---|---|
+| `PRED` | `Predictions` |
+| `RESID` | `Residuals` |
+| `STDR` | `Studentized_Residuals` |
+| `LEV` | `Hat_diagonal` |
+| `CD` | `Cooks_Distance` |
+| `LOOCV` | `LOOCV_prediction` |
+| `PI` | `Prediction_Interval` |
+
+**Regression — utilities**
+
+| Alias | Canonical |
+|---|---|
+| `CCF` | `Complete_Cases_Filter` |
+| `CORMAT` | `Correlation_Matrix` |
+| `DM` | `Design_Matrix` |
+
+**Univariate — descriptive**
+
+| Alias | Canonical |
+|---|---|
+| `DSTAT` | `Descriptive_Stats` |
+| `NMISS` | `Missing_Count` |
+
+**Univariate — histogram binning**
+
+| Alias | Canonical |
+|---|---|
+| `NBINS` | `num_histogram_bins` |
+| `EDGES` | `Bin_Edges` |
+| `UEDGES` | `Upper_Bin_Edges` |
+| `LEDGES` | `Bin_Lower_Edges` |
+| `MIDS` | `Bin_Midpoints` |
+| `BCNT` | `Bin_Counts` |
+
+**Univariate — goodness-of-fit**
+
+| Alias | Canonical |
+|---|---|
+| `GAD` | `GoF_Anderson_Darling` |
+| `GKS` | `GoF_Kolmogorov_Smirnov` |
+
+**Grid-search helpers**
+
+| Alias | Canonical |
+|---|---|
+| `GMIN` | `Grid_Argmin` |
+| `GSO` | `Grid_Search_Optimum` |
+
+---
+
 ## v1.x — Regression sheet
 
 - TODO: Add reference lines to the Cook's Distance, PRESS Residuals, and Leverage vs. Studentized charts. Format thematically similar to the conditional formatting in the table (yellow = mild, red = strong). Use minimalist helper columns (2 anchor points using max/min of the relevant threshold; place them beneath the chart area).

@@ -107,7 +107,7 @@ _HB_PERT  = 10  # BetaPERT CDF prob
 
 _HIST_COLUMNS = [
     (_HB_LOWER, "Lower Edges", "Lower_Edges", ""),
-    (_HB_EDGE,  "Upper Edges", "Edges", ""),
+    (_HB_EDGE,  "Upper Edges", "Upper_Edges", ""),
     (_HB_COUNT, "Count", "Counts", ""),
     (_HB_NORM,  "Normal", "Normal_CDF", "Normal"),
     (_HB_LOGN,  "Lognormal", "Lognormal_CDF", "Lognormal"),
@@ -504,16 +504,16 @@ def _write_histogram_table(
       f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
     sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = _FMT_INT
 
-    # Upper-edge and count spill formulas
-    f(sheet, _ROW_HIST_START, col_edge, f"=Bin_Edges(UV_Data,{method_cell},UV_Include)")
+    # Upper-edge, count, and lower-edge spill formulas.
+    # Each function takes (data, method, filter) and derives its own edges from
+    # Bin_Edges internally. The resulting spill ranges are still referenced by
+    # the CDF columns below to avoid recomputing edges eight times per block.
+    f(sheet, _ROW_HIST_START, col_edge, f"=Upper_Bin_Edges(UV_Data,{method_cell},UV_Include)")
     edge_spill_ref = f"{col_letter(col_edge)}{_ROW_HIST_START}#"
     f(sheet, _ROW_HIST_START, col_count,
-      f"=Bin_Counts(UV_Data,{edge_spill_ref},UV_Include)")
-
-    # Lower-edges spill formula — computed once per block so all CDF columns can
-    # reference it directly instead of each recomputing FILTER/Bin_Lower_Edges.
+      f"=Bin_Counts(UV_Data,{method_cell},UV_Include)")
     f(sheet, _ROW_HIST_START, col_lower,
-      f"=Bin_Lower_Edges(UV_Data,{edge_spill_ref},UV_Include)")
+      f"=Bin_Lower_Edges(UV_Data,{method_cell},UV_Include)")
     lower_spill_ref = f"{col_letter(col_lower)}{_ROW_HIST_START}#"
 
     # CDF probability columns — one spill formula per column.
@@ -764,9 +764,9 @@ def _write_fitting_table(sheet: xw.Sheet) -> None:
         f(sheet, row, _C_BIC,
           f"=GoF_BIC(${col_letter(_C_NLL)}${row},${col_letter(_C_K_PARAM)}${row},UV_n)")
         f(sheet, row, _C_AD,
-          f"=GoF_AndersonDarling(UV_Data,{cdf_expr},UV_Include)")
+          f"=GoF_Anderson_Darling(UV_Data,{cdf_expr},UV_Include)")
         f(sheet, row, _C_KS,
-          f"=GoF_KS(UV_Data,{cdf_expr},UV_Include)")
+          f"=GoF_Kolmogorov_Smirnov(UV_Data,{cdf_expr},UV_Include)")
 
         for col, fmt in _FIT_NUMBER_FORMATS.items():
             sheet.range(rc(row, col)).number_format = fmt
@@ -814,9 +814,9 @@ def _add_histogram_chart(
     chart.HasLegend = False
     chart.HasTitle = True
     title_row = {
-        "UV_Sturges_Edges": _ROW_CHART1_TITLE,
-        "UV_Scott_Edges": _ROW_CHART2_TITLE,
-        "UV_FD_Edges": _ROW_CHART3_TITLE,
+        "UV_Sturges_Upper_Edges": _ROW_CHART1_TITLE,
+        "UV_Scott_Upper_Edges": _ROW_CHART2_TITLE,
+        "UV_FD_Upper_Edges": _ROW_CHART3_TITLE,
     }[edges_name]
     chart.ChartTitle.Formula = f"='{sname}'!${col_letter(_C_FIT_FIRST)}${title_row}"
     x_axis = chart.Axes(_XL_CATEGORY)
@@ -842,9 +842,9 @@ def _write_histogram_chart_title_cells(sheet: xw.Sheet) -> None:
 def _write_histogram_charts(sheet: xw.Sheet) -> None:
     """Insert three gapless column charts for Sturges, Scott, and FD histogram tables."""
     for edges_name, counts_name, row_start, row_end in [
-        ("UV_Sturges_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
-        ("UV_Scott_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
-        ("UV_FD_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
+        ("UV_Sturges_Upper_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
+        ("UV_Scott_Upper_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
+        ("UV_FD_Upper_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
     ]:
         chart_range = sheet.range(rc(row_start, _C_FIT_FIRST), rc(row_end, _C_FIT_LAST))
         _add_histogram_chart(

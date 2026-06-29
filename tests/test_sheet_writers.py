@@ -103,9 +103,9 @@ def test_histogram_writer_records_method_cell_formulas() -> None:
     assert sheet.cell(2, 23).color == HEADER_COLOR
     assert sheet.cell(3, 22).value == "Bins:"
     assert sheet.cell(3, 23).api.Formula2 == "=num_histogram_bins(UV_Data,W2,UV_Include)"
-    assert sheet.cell(5, 22).api.Formula2 == "=Bin_Edges(UV_Data,W2,UV_Include)"
-    assert sheet.cell(5, 23).api.Formula2 == "=Bin_Counts(UV_Data,V5#,UV_Include)"
-    assert sheet.cell(5, 21).api.Formula2 == "=Bin_Lower_Edges(UV_Data,V5#,UV_Include)"
+    assert sheet.cell(5, 22).api.Formula2 == "=Upper_Bin_Edges(UV_Data,W2,UV_Include)"
+    assert sheet.cell(5, 23).api.Formula2 == "=Bin_Counts(UV_Data,W2,UV_Include)"
+    assert sheet.cell(5, 21).api.Formula2 == "=Bin_Lower_Edges(UV_Data,W2,UV_Include)"
     cdf_cols = [21 + offset for offset, _, _, distribution in _HIST_COLUMNS if distribution]
     cdf_formulas = [sheet.cell(5, col).api.Formula2 for col in cdf_cols]
     assert all(formula and formula.startswith("=LET(edges,V5#,lower,U5#") for formula in cdf_formulas)
@@ -142,9 +142,9 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
         assert refers_to.startswith("=OFFSET('Univariate'!$")
         assert ",1,0,MAX(IFERROR(num_histogram_bins(" in refers_to
         assert refers_to.endswith(",1),1),1)")
-    assert "$W$2" in names.by_short_name("UV_Sturges_Edges").RefersTo
-    assert "$AI$2" in names.by_short_name("UV_Scott_Edges").RefersTo
-    assert "$AU$2" in names.by_short_name("UV_FD_Edges").RefersTo
+    assert "$W$2" in names.by_short_name("UV_Sturges_Upper_Edges").RefersTo
+    assert "$AI$2" in names.by_short_name("UV_Scott_Upper_Edges").RefersTo
+    assert "$AU$2" in names.by_short_name("UV_FD_Upper_Edges").RefersTo
     assert names.by_short_name("UV_Sturges_Normal_CDF").RefersTo == (
         "=OFFSET('Univariate'!$X$4,1,0,"
         "MAX(IFERROR(num_histogram_bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"

@@ -1672,7 +1672,7 @@
         }
       ],
       "yields": "integer bin count k for the chosen method",
-      "description": "n_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = \u2308log\u2082(n) + 1\u2309\n  Scott:   width = 3.49 \u00d7 SD \u00d7 n^(\u22121/3);  k = \u2308range / width\u2309  (k=1 when SD=0)\n  FD:      width = 2 \u00d7 IQR \u00d7 n^(\u22121/3);   k = \u2308range / width\u2309  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
+      "description": "num_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = \u2308log\u2082(n) + 1\u2309\n  Scott:   width = 3.49 \u00d7 SD \u00d7 n^(\u22121/3);  k = \u2308range / width\u2309  (k=1 when SD=0)\n  FD:      width = 2 \u00d7 IQR \u00d7 n^(\u22121/3);   k = \u2308range / width\u2309  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
       "plain_language_summary": "How many histogram bins a chosen rule (default: Freedman-Diaconis) recommends for this data."
     },
     {

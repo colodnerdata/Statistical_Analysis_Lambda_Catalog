@@ -47,15 +47,15 @@ _C_P = 16   # diagnostics values / ANOVA F / coeff p-value
 _C_Q = 17   # ANOVA Sig F / coeff CI lower
 _C_R = 18   # coeff CI upper
 _C_U = 21   # prediction interval values + prediction input values
-_C_X = 24   # Y (filtered dependent var)
-_C_Y = 25   # Predicted Y
-_C_Z = 26   # Residuals
-_C_AA = 27  # LOOCV residual
-_C_AB = 28  # Hat Diagonal
-_C_AC = 29  # Studentized Residuals
-_C_AD = 30  # Cook's Distance
-_C_AE = 31  # Normal Scores Ranked
-_C_AF = 32  # Studentized Residuals Ranked
+_C_Y = 25   # Y (filtered dependent var)
+_C_Z = 26   # Predicted Y
+_C_AA = 27  # Residuals
+_C_AB = 28  # LOOCV residual
+_C_AC = 29  # Hat Diagonal
+_C_AD = 30  # Studentized Residuals
+_C_AE = 31  # Cook's Distance
+_C_AF = 32  # Normal Scores Ranked
+_C_AG = 33  # Studentized Residuals Ranked
 
 # ── Row positions (1-based) ───────────────────────────────────────────────────
 _ROW_ALLOW_INTERCEPT = 2
@@ -310,7 +310,7 @@ def read_regression_df(
                 "first_digit_deviation": fdd_val,
             })
 
-        # ── Residual Output (columns X–AF, rows 3 to 3+n-1) ──────────────
+        # ── Residual Output (columns Y–AG, rows 3 to 3+n-1) ──────────────
         resid_stat_names = [
             "Dependent_Var", "Predictions", "Residuals", "LOOCV_Residual",
             "Hat_Diagonal", "Studentized_Residuals", "Cooks_Distance",
@@ -321,8 +321,8 @@ def read_regression_df(
             fr.hat_diagonal, fr.studentized_residuals, fr.cooks_distance,
             fr.normal_scores_ranked, fr.studentized_residuals_ranked,
         ]
-        # Block: columns X(24) through AF(32) = 9 columns, n rows
-        block = _read_block(sheet, _ROW_RESID_FIRST, _C_X, _C_AF, n)
+        # Block: columns Y(25) through AG(33) = 9 columns, n rows
+        block = _read_block(sheet, _ROW_RESID_FIRST, _C_Y, _C_AG, n)
         for row_idx, xl_row in enumerate(block):
             for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
                 exp_val: float | None = float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None

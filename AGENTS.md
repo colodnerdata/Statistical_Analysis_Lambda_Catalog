@@ -138,6 +138,22 @@ except Exception:
     pass
 ```
 
+### Never draw reference lines as shapes — use a real data series
+
+Do not use `chart.Shapes.AddLine(...)` (or any drawn shape) to fake a reference line like `y=x` on a scatter chart. A shape is positioned in fixed plot-area pixel coordinates (`plot_area.InsideLeft/Top/Width/Height`) computed at creation time — it silently goes wrong the moment the chart is resized, moved, or its axis scaling changes, since the shape never moves with the data.
+
+Instead, add a real data series and point both `XValues` and `Values` at the *same* named range/column:
+
+```python
+series = chart.SeriesCollection().NewSeries()
+series.XValues = name_ref   # e.g. ='Sheet'!RegChartFitY
+series.Values = name_ref    # same range — guarantees every point sits on y=x
+series.Name = "Identity"
+series.ChartType = _XL_XY_SCATTER_LINES_NO_MARKERS
+```
+
+Because every plotted point is `(v, v)`, it lands exactly on the identity line regardless of axis min/max, chart size, or position — no pixel math, no drift. See `_add_identity_line` in `write_sheet_regression.py`.
+
 ### Separate chart title cells from chart insertion
 
 Write formula cells for chart titles (e.g., `Q14`, `Q34`, `Q54`) **outside** the try/except guard. These are standard cell writes (not COM chart API calls), so they can be exercised in unit tests via the `RecordingSheet` mock without Excel. Only the `ChartObjects().Add(...)` call needs the guard. This separation keeps chart title formulas testable in CI even though actual chart insertion is not.

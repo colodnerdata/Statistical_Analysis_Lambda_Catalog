@@ -95,6 +95,7 @@ _C_AI = 35  # PRESS Residual
 
 # ── Chart constants ───────────────────────────────────────────────────────────
 _XL_XY_SCATTER = -4169       # Excel xlXYScatter
+_XL_XY_SCATTER_LINES_NO_MARKERS = 75  # Excel xlXYScatterLinesNoMarkers
 _XL_COLUMN_CLUSTERED = 51    # Excel xlColumnClustered
 _XL_CATEGORY = 1             # horizontal axis
 _XL_VALUE = 2                # vertical axis
@@ -894,18 +895,22 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
         y_axis.MinimumScale = common_min
         y_axis.MaximumScale = common_max
 
-    def _add_identity_line(chart: Any) -> None:
-        """Draw a dotted y=x line inside the chart plot area without adding a data series."""
-        plot_area = chart.PlotArea
-        line = chart.Shapes.AddLine(
-            plot_area.InsideLeft,
-            plot_area.InsideTop + plot_area.InsideHeight,
-            plot_area.InsideLeft + plot_area.InsideWidth,
-            plot_area.InsideTop,
-        )
-        line.Line.ForeColor.RGB = excel_color((120, 120, 120))
-        line.Line.DashStyle = 3  # msoLineRoundDot
-        line.Line.Weight = 1.25
+    def _add_identity_line(chart: Any, name_ref: str) -> None:
+        """Add a dotted y=x reference series using one column for both axes.
+
+        Pointing XValues and Values at the same named range guarantees every
+        plotted point sits exactly on the identity line — a real data series
+        stays correct if the chart is resized, moved, or the axis scaling
+        changes, unlike a shape drawn at fixed plot-area pixel coordinates.
+        """
+        series = chart.SeriesCollection().NewSeries()
+        series.XValues = name_ref
+        series.Values = name_ref
+        series.Name = "Identity"
+        series.ChartType = _XL_XY_SCATTER_LINES_NO_MARKERS
+        series.Format.Line.ForeColor.RGB = excel_color((120, 120, 120))
+        series.Format.Line.DashStyle = 3  # msoLineRoundDot
+        series.Format.Line.Weight = 1.25
 
     for title, chart_type, x_addr, y_addr, x_label, y_label, grid_row, grid_col in chart_specs:
         left, top = _pos(grid_row, grid_col)
@@ -961,10 +966,10 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
         if title == "Normal Q-Q":
             _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartQQX", "RegChartQQY")
-            _add_identity_line(chart)
+            _add_identity_line(chart, x_addr)
         if title == "Actual vs. Predicted":
             _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartFitY", "RegChartActY")
-            _add_identity_line(chart)
+            _add_identity_line(chart, x_addr)
 
 
 # ── Public entry point ────────────────────────────────────────────────────────

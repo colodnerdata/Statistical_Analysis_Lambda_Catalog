@@ -7,8 +7,14 @@ from lambda_catalog.sheet_styles import (
 )
 from lambda_catalog.workbook_helpers import add_expression_format, excel_color
 from lambda_catalog.write_sheet_regression import (
+    _C_P,
+    _C_Q,
+    _C_X,
+    _C_Y,
     _setup_local_names as _setup_regression_names,
     _write_prediction_interval,
+    _write_regression_outputs_header,
+    _write_residuals,
 )
 from lambda_catalog.write_sheet_mlr_scalar_test import _actual_formula
 from lambda_catalog.write_sheet_univariate import (
@@ -55,6 +61,33 @@ def test_prediction_interval_binds_selected_inputs_in_the_cell_formula() -> None
     assert formula.startswith("=LET(pred_input,VSTACK($V$12,")
     assert "FILTER($V$13:$V$30" in formula
     assert "Prediction_Interval(x_s(),y,pred_input" in formula
+
+
+def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_regression_outputs_header(sheet)
+
+    assert sheet.cell(2, _C_P).value == "Predicted Variable"
+    assert sheet.cell(2, _C_P).api.Font.Bold is True
+    assert sheet.cell(2, _C_Q).api.Formula2 == "=OFFSET(y,-1,0,1,1)"
+
+
+def test_write_residuals_writes_row_identifier_header_and_falls_back_on_error() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_residuals(sheet)
+
+    assert sheet.cell(2, _C_X).api.Formula2 == (
+        '=IFERROR(OFFSET(data_identifiers,-1,0,1,1),"Observation")'
+    )
+    assert sheet.cell(3, _C_X).api.Formula2 == (
+        '=IFERROR(FILTER(data_identifiers,Regression_Sample_Include),'
+        'LAMBDA(obs,"Observation "&obs)(SEQUENCE($M$8)))'
+    )
+    # The diagnostics columns shift one slot right of the identifiers column.
+    assert sheet.cell(2, _C_Y).value == "Y"
+    assert sheet.cell(3, _C_Y).api.Formula2 == "=Dependent_Var(y,Regression_Sample_Include)"
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:

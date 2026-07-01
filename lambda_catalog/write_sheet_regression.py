@@ -759,8 +759,9 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     """Residual diagnostic table — row identifiers + 11 diagnostics columns starting at _C_X."""
     section_heading(sheet, 1, _C_X, "RESIDUAL OUTPUT")
 
-    # X2: dynamic header pulled from the data_identifiers named range.
-    f(sheet, 2, _C_X, "=OFFSET(data_identifiers,-1,0,1,1)")
+    # X2: dynamic header pulled from the data_identifiers named range, falling
+    # back to a generic label when the optional named range is unset/invalid.
+    f(sheet, 2, _C_X, '=IFERROR(OFFSET(data_identifiers,-1,0,1,1),"Observation")')
 
     for col, header in zip(
         [_C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE, _C_AF, _C_AG, _C_AH, _C_AI],

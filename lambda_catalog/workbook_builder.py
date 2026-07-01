@@ -137,6 +137,8 @@ def sync_workbook_names(
                             defined_names, f"{{{WORKBOOK_NS}}}definedName"
                         )
                         name_element.set("name", definition.name)
+                        if definition.notes:
+                            name_element.set("comment", definition.notes)
                         name_element.text = definition.workbook_xml_formula_from_display
 
                     xml_body = str(etree.tostring(workbook_root, encoding="unicode"))

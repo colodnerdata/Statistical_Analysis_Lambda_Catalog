@@ -18,7 +18,8 @@
       ],
       "yields": "n — count of rows used in the regression as a scalar integer",
       "description": "n (number of observations) is the count of data points available to the model after any filtering is applied. It is the fundamental sample size that drives all degrees-of-freedom calculations.\n\nReturns ROWS(FILTER(Y, filt_arg)). X_s is not required because row count is fully determined by Y.",
-      "plain_language_summary": "How many rows of data the model is using."
+      "plain_language_summary": "How many rows of data the model is using.",
+      "notes": "Count of rows used in the regression after optional filtering. The fundamental sample size n driving all degrees-of-freedom and model-comparison calculations."
     },
     {
       "name": "DF_Regression",
@@ -33,7 +34,8 @@
       ],
       "yields": "df_regression (k, number of predictors) as a scalar integer",
       "description": "df_regression is the number of degrees of freedom attributable to the regression model — equal to k, the number of predictor columns. The intercept term (if any) is not counted here; it is accounted for implicitly in df_total.\n\nReturns COLUMNS(X_s). Include and Allow_Intercept do not affect this value.",
-      "plain_language_summary": "How many predictor slots the model is trying to fit."
+      "plain_language_summary": "How many predictor slots the model is trying to fit.",
+      "notes": "Degrees of freedom for regression = number of predictors k (= COLUMNS(X_s)). Used as the numerator df in the F-test."
     },
     {
       "name": "DF_Total",
@@ -58,7 +60,8 @@
       ],
       "yields": "df_total (n-1 with intercept, n without) as a scalar integer",
       "description": "df_total is the total degrees of freedom for the sum of squares. When an intercept is fit (default), one df is spent estimating the grand mean, giving n - 1. When the model is forced through the origin (Allow_Intercept = FALSE), no df is spent on the mean, giving n. df_total partitions into df_regression + df_residual.\n\nCalls Observations() for n, then returns IF(allow_arg, n-1, n).",
-      "plain_language_summary": "The total amount of independent information in the outcome column."
+      "plain_language_summary": "The total amount of independent information in the outcome column.",
+      "notes": "Total degrees of freedom = n − 1 with intercept or n without. Partitions into DF_Regression + DF_Residual."
     },
     {
       "name": "R_squared",
@@ -87,7 +90,8 @@
       ],
       "yields": "R² (coefficient of determination) as a scalar in [0, 1]",
       "description": "R² (coefficient of determination) is the proportion of variance in Y explained by the regression model. It equals SS_regression / SS_total, ranges from 0 (no explanatory power) to 1 (perfect fit), and is the square of Multiple R.\n\nReturns INDEX(LINEST(...), 3, 1) directly. R_squared is the base statistic from which Multiple_R and Adjusted_R2 are derived.",
-      "plain_language_summary": "How much of the outcome's movement the model explains."
+      "plain_language_summary": "How much of the outcome's movement the model explains.",
+      "notes": "Proportion of Y’s variance explained by the model (SS_Regression / SS_Total). Ranges [0, 1]; higher is better."
     },
     {
       "name": "DF_Residual",
@@ -116,7 +120,8 @@
       ],
       "yields": "df_residual (n-k-1 with intercept, n-k without) as a scalar integer",
       "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as DF_Total(...) - DF_Regression(...), inheriting the Allow_Intercept correction from DF_Total.",
-      "plain_language_summary": "How much data is left to estimate random error after fitting the model."
+      "plain_language_summary": "How much data is left to estimate random error after fitting the model.",
+      "notes": "Residual degrees of freedom = DF_Total − DF_Regression. Denominator df in the F-test and the penalty term in Adjusted R²."
     },
     {
       "name": "Multiple_R",
@@ -145,7 +150,8 @@
       ],
       "yields": "Multiple R (correlation coefficient) as a scalar in [0, 1]",
       "description": "Multiple R is the Pearson correlation between the observed values of Y and the values predicted by the regression model. It ranges from 0 (no linear relationship) to 1 (perfect linear fit) and is the square root of R².\n\nComputed as SQRT(R_squared(...)).",
-      "plain_language_summary": "How closely the model's predictions track the real outcome values."
+      "plain_language_summary": "How closely the model's predictions track the real outcome values.",
+      "notes": "Correlation between observed and fitted Y values = √R². Ranges [0, 1]. Square to recover R_squared."
     },
     {
       "name": "Adjusted_R2",
@@ -174,7 +180,8 @@
       ],
       "yields": "Adjusted R² as a scalar, typically in [0, 1] but can be negative",
       "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_squared(...)) * DF_Total(...) / DF_Residual(...), inheriting the Allow_Intercept correction from both df functions.",
-      "plain_language_summary": "R-squared adjusted so extra predictors do not get free credit."
+      "plain_language_summary": "R-squared adjusted so extra predictors do not get free credit.",
+      "notes": "R² penalised for model complexity: 1 − (1 − R²)·df_total/df_residual. Can be negative when the model fits worse than the mean."
     },
     {
       "name": "SS_Total",
@@ -199,7 +206,8 @@
       ],
       "yields": "SS_total (total sum of squares) as a scalar",
       "description": "SS_total is the total variation in Y before any predictors are added. With an intercept it equals the sum of squared deviations from the mean — DEVSQ(Y). Without an intercept it equals the raw sum of squares — SUMSQ(Y). It is the denominator in the R² formula and partitions into SS_regression + SS_residual.\n\nReturns DEVSQ(filtered_Y) when Allow_Intercept is TRUE, SUMSQ(filtered_Y) when FALSE. Does not require X_s.",
-      "plain_language_summary": "All of the variation in Y before the model explains any of it."
+      "plain_language_summary": "All of the variation in Y before the model explains any of it.",
+      "notes": "Total variation in Y before fitting (DEVSQ(Y) with intercept, SUMSQ(Y) without). Denominator of the R² formula."
     },
     {
       "name": "SS_Residual",
@@ -228,7 +236,8 @@
       ],
       "yields": "SS_residual (residual/error sum of squares) as a scalar",
       "description": "SS_residual (also called SS_error) is the variation in Y left unexplained by the regression model — the sum of squared differences between observed and fitted values. It equals SS_total × (1 - R²) and shrinks as the model improves.\n\nComputed as SS_Total(...) * (1 - R_squared(...)).",
-      "plain_language_summary": "The part of Y's variation the model still misses."
+      "plain_language_summary": "The part of Y's variation the model still misses.",
+      "notes": "Unexplained variation in Y = SS_Total × (1 − R²). Shrinks as model fit improves."
     },
     {
       "name": "SS_Regression",
@@ -257,7 +266,8 @@
       ],
       "yields": "SS_regression (explained/model sum of squares) as a scalar",
       "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_squared(...).",
-      "plain_language_summary": "The part of Y's variation the model successfully explains."
+      "plain_language_summary": "The part of Y's variation the model successfully explains.",
+      "notes": "Explained variation in Y = SS_Total × R². Grows as model fit improves."
     },
     {
       "name": "MS_Regression",
@@ -286,7 +296,8 @@
       ],
       "yields": "mean square for regression (MS_regression = SS_regression / df_regression) as a scalar",
       "description": "MS_Regression is the mean square for the regression model: SS_Regression divided by df_Regression. It is the numerator of the overall F-statistic and represents the average explained variation per predictor degree of freedom.",
-      "plain_language_summary": "Average explained variation per model degree of freedom."
+      "plain_language_summary": "Average explained variation per model degree of freedom.",
+      "notes": "Mean square for regression = SS_Regression / df_Regression. Numerator of the overall F-statistic."
     },
     {
       "name": "MS_Residual",
@@ -315,7 +326,8 @@
       ],
       "yields": "mean square for residual error (MS_residual = SS_residual / df_residual) as a scalar",
       "description": "MS_Residual is the mean square for residual error: SS_Residual divided by df_Residual. It equals SE_Regression² and is the denominator of the overall F-statistic. It represents the average unexplained variation per residual degree of freedom.",
-      "plain_language_summary": "Average unexplained variation per residual degree of freedom."
+      "plain_language_summary": "Average unexplained variation per residual degree of freedom.",
+      "notes": "Mean square residual = SS_Residual / df_Residual = SE_Regression². Denominator of the F-statistic."
     },
     {
       "name": "SE_Regression",
@@ -344,7 +356,8 @@
       ],
       "yields": "SE_regression (standard error of the regression) as a scalar",
       "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / DF_Residual(...)).",
-      "plain_language_summary": "The typical size of the model's prediction mistakes, in Y units."
+      "plain_language_summary": "The typical size of the model's prediction mistakes, in Y units.",
+      "notes": "Standard error of the regression (root MSE = √(SS_Residual / df_residual)). Typical prediction error in Y units."
     },
     {
       "name": "PRESS",
@@ -373,7 +386,8 @@
       ],
       "yields": "PRESS (Prediction Residual Error Sum of Squares) as a scalar",
       "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nLeverage is obtained from Hat_diagonal, which delegates the matrix inversion to Gram_Inverse. Then SUMSQ(e / (1 − h)) gives PRESS as a scalar.",
-      "plain_language_summary": "How well the model predicts rows it did not get to train on."
+      "plain_language_summary": "How well the model predicts rows it did not get to train on.",
+      "notes": "Leave-one-out cross-validation sum of squares = Σ(eᵢ/(1−hᵢ))². Lower values mean better out-of-sample predictions."
     },
     {
       "name": "AIC",
@@ -402,7 +416,8 @@
       ],
       "yields": "Akaike Information Criterion (AIC) scalar",
       "description": "AIC = n·ln(SSR/n) + 2p, where p = number of regression parameters (predictors + intercept when Allow_Intercept is TRUE). Smaller values indicate better-fitting models; compare across models on the same dataset.",
-      "plain_language_summary": "A score for comparing models that rewards fit but penalizes extra complexity."
+      "plain_language_summary": "A score for comparing models that rewards fit but penalizes extra complexity.",
+      "notes": "Akaike Information Criterion = n·ln(SSR/n) + 2p. Lower = better. Use to compare models fitted to the same dataset."
     },
     {
       "name": "BIC",
@@ -431,7 +446,8 @@
       ],
       "yields": "Bayesian Information Criterion (BIC) scalar",
       "description": "BIC = n·ln(SSR/n) + p·ln(n), where p = number of regression parameters. Applies a heavier penalty than AIC for additional parameters, favouring sparser models in large samples.",
-      "plain_language_summary": "A model-comparison score that penalizes extra complexity more strongly than AIC."
+      "plain_language_summary": "A model-comparison score that penalizes extra complexity more strongly than AIC.",
+      "notes": "Bayesian Information Criterion = n·ln(SSR/n) + p·ln(n). Penalises model complexity more strongly than AIC."
     },
     {
       "name": "AICc",
@@ -460,7 +476,8 @@
       ],
       "yields": "Corrected Akaike Information Criterion (AICc) scalar",
       "description": "AICc = AIC + 2p(p+1)/(n−p−1). The small-sample correction reduces upward bias in AIC when n/p < 40. Converges to AIC as n → ∞.",
-      "plain_language_summary": "AIC with an extra small-sample penalty."
+      "plain_language_summary": "AIC with an extra small-sample penalty.",
+      "notes": "AIC with a small-sample correction (+2p(p+1)/(n−p−1)). Preferred when n/p < 40; converges to AIC as n → ∞."
     },
     {
       "name": "Durbin_Watson",
@@ -489,7 +506,8 @@
       ],
       "yields": "Durbin-Watson statistic as a scalar",
       "description": "DW = Σ(eₜ − eₜ₋₁)² / Σeₜ², testing for first-order serial correlation in residuals. Values near 2 indicate no autocorrelation; values below ~1.5 suggest positive autocorrelation, values above ~2.5 suggest negative autocorrelation.\n\nComputed as SUM((DROP(e,1) − DROP(e,−1))²) / SUM(e²), where DROP(e,1) removes the first residual (giving e₂..eₙ) and DROP(e,−1) removes the last (giving e₁..eₙ₋₁), so consecutive differences are formed without OFFSET or index arithmetic.",
-      "plain_language_summary": "Whether nearby residuals tend to move together instead of staying independent."
+      "plain_language_summary": "Whether nearby residuals tend to move together instead of staying independent.",
+      "notes": "Test statistic for first-order serial autocorrelation in residuals. Values near 2 = no autocorrelation; < 1.5 or > 2.5 flag problems."
     },
     {
       "name": "QQ_Correlation",
@@ -518,7 +536,8 @@
       ],
       "yields": "Filliben Q-Q correlation coefficient (normality statistic) scalar",
       "description": "CORREL(Scaled_Residuals_Ranked, Normal_Scores) — the Filliben approximation to the Shapiro-Wilk statistic. Values near 1 indicate approximately normal residuals; values below ~0.99 suggest non-normality. The Q-Q plot is the corresponding visual: plot Normal_Scores (x) vs Scaled_Residuals_Ranked (y) and look for alignment with the identity line.",
-      "plain_language_summary": "How close the residual distribution is to a normal bell shape."
+      "plain_language_summary": "How close the residual distribution is to a normal bell shape.",
+      "notes": "Filliben Q-Q correlation between ranked scaled residuals and normal quantiles. Values near 1 indicate approximately normal residuals."
     },
     {
       "name": "Coefficients",
@@ -547,7 +566,8 @@
       ],
       "yields": "vertical array of fitted OLS coefficients — intercept first (when included), then predictors in input order",
       "description": "Returns a vertical spill array of the fitted OLS regression coefficients. When Allow_Intercept is TRUE the intercept is the first element, followed by the coefficients for each column of X_s in input order. When Allow_Intercept is FALSE the output contains only the k predictor coefficients.\n\nUses LINEST with stats=FALSE (row 1 only), then reverses and optionally prepends the intercept to match X_s column order.",
-      "plain_language_summary": "The fitted intercept and predictor weights used to make predictions."
+      "plain_language_summary": "The fitted intercept and predictor weights used to make predictions.",
+      "notes": "Fitted OLS coefficients as a column vector: intercept first (when included), then each predictor in X_s column order."
     },
     {
       "name": "SE_Coefficients",
@@ -576,7 +596,8 @@
       ],
       "yields": "vertical array of standard errors of the OLS coefficients — same order as Coefficients",
       "description": "Returns a vertical spill array of the standard errors of the fitted OLS coefficients, in the same order as Coefficients (intercept first when included).\n\nUses LINEST with stats=TRUE and extracts row 2 (the standard error row), then applies the same reversal as Coefficients.",
-      "plain_language_summary": "How uncertain each fitted coefficient is."
+      "plain_language_summary": "How uncertain each fitted coefficient is.",
+      "notes": "Standard errors of the OLS coefficients, same order as Coefficients. Smaller values = more precise estimates."
     },
     {
       "name": "T_Stats",
@@ -605,7 +626,8 @@
       ],
       "yields": "vertical array of t-statistics for each coefficient (coefficient / standard error)",
       "description": "Returns a vertical spill array of t-statistics for each OLS coefficient. Each element equals the corresponding Coefficients value divided by its SE_Coefficients value.\n\nComputed as Coefficients(...) / SE_Coefficients(...).",
-      "plain_language_summary": "Each coefficient measured in standard-error units."
+      "plain_language_summary": "Each coefficient measured in standard-error units.",
+      "notes": "t-statistics = Coefficients / SE_Coefficients. Measures each coefficient in standard-error units. Same order as Coefficients."
     },
     {
       "name": "P_Values",
@@ -634,7 +656,8 @@
       ],
       "yields": "vertical array of two-tailed p-values for each coefficient",
       "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Stats(...)), DF_Residual(...)).",
-      "plain_language_summary": "How surprising each coefficient would be if its true effect were zero."
+      "plain_language_summary": "How surprising each coefficient would be if its true effect were zero.",
+      "notes": "Two-tailed p-values per coefficient testing H₀: true effect = 0. Same order as Coefficients. Values < alpha are significant."
     },
     {
       "name": "CI_Lower",
@@ -668,7 +691,8 @@
       ],
       "yields": "vertical array of lower confidence interval bounds for each coefficient",
       "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) - T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...).",
-      "plain_language_summary": "The low end of the likely range for each coefficient."
+      "plain_language_summary": "The low end of the likely range for each coefficient.",
+      "notes": "Lower confidence-interval bounds per coefficient. Default Alpha = 0.05 gives 95% CIs. Same order as Coefficients."
     },
     {
       "name": "CI_Upper",
@@ -702,7 +726,8 @@
       ],
       "yields": "vertical array of upper confidence interval bounds for each coefficient",
       "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...).",
-      "plain_language_summary": "The high end of the likely range for each coefficient."
+      "plain_language_summary": "The high end of the likely range for each coefficient.",
+      "notes": "Upper confidence-interval bounds per coefficient. Default Alpha = 0.05 gives 95% CIs. Same order as Coefficients."
     },
     {
       "name": "Partial_R2",
@@ -731,7 +756,8 @@
       ],
       "yields": "vertical array of partial R² values — same order as Coefficients (intercept first when included)",
       "description": "Partial R² for coefficient j = t²ⱼ / (t²ⱼ + df_residual), the proportion of residual variance explained by predictor j after controlling for all other predictors. Equivalently, it is the squared partial correlation between Y and Xⱼ given all other Xₛ.\n\nComputed as T_Stats² / (T_Stats² + DF_Residual), element-wise. The intercept row is included (row 1) for consistency with T_Stats and P_Values.",
-      "plain_language_summary": "How much unique explanatory value each predictor adds after controlling for the rest."
+      "plain_language_summary": "How much unique explanatory value each predictor adds after controlling for the rest.",
+      "notes": "Unique proportion of residual variance explained by each predictor after controlling for all others. Range [0, 1]."
     },
     {
       "name": "Partial_Correlation",
@@ -760,7 +786,8 @@
       ],
       "yields": "vertical array of partial correlation coefficients — same order as Coefficients (intercept first when included)",
       "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R2) × sign(t).\n\nComputed as T_Stats / SQRT(T_Stats² + DF_Residual), element-wise. Ranges from −1 to +1.",
-      "plain_language_summary": "The predictor-outcome relationship left over after accounting for the other predictors."
+      "plain_language_summary": "The predictor-outcome relationship left over after accounting for the other predictors.",
+      "notes": "Sign-preserving partial correlation between Y and each predictor after removing all other predictor effects. Range [−1, 1]."
     },
     {
       "name": "Beta_Weights",
@@ -789,7 +816,8 @@
       ],
       "yields": "k×1 column vector of standardized coefficients (Beta weights), one per predictor — intercept row excluded",
       "description": "Standardized (Beta) coefficient for predictor j = b_j × std(X_j) / std(Y). Expresses each coefficient in standard-deviation units, making predictors with different scales directly comparable in magnitude. Always returns k values (one per predictor); the intercept has no meaningful standardized counterpart and is excluded.\n\nComputed as Coefficients × column-wise STDEV(X) / STDEV(Y), using filtered rows. Mirrors the output of VIF and Tolerance in returning k rows without an intercept entry.",
-      "plain_language_summary": "Coefficients rescaled so predictors on different units can be compared fairly."
+      "plain_language_summary": "Coefficients rescaled so predictors on different units can be compared fairly.",
+      "notes": "Standardised coefficients in SD units for comparing predictors measured on different scales. k rows; no intercept row."
     },
     {
       "name": "VIF",
@@ -814,7 +842,8 @@
       ],
       "yields": "k×1 column vector of VIF values, one per predictor (does not include an intercept row)",
       "description": "Variance Inflation Factor for each predictor Xⱼ = 1 / (1 − R²ⱼ), where R²ⱼ is the R² from regressing Xⱼ on all other predictors. VIF measures how much the variance of coefficient j is inflated by multicollinearity. VIF = 1 means no collinearity; VIF > 10 (or > 5 by stricter convention) signals a problem.\n\nAuxiliary regressions always include an intercept regardless of the main model's Allow_Intercept setting (standard convention). When k = 1 the function returns 1 (no collinearity possible with a single predictor). Uses MAKEARRAY + FILTER to iterate over column indices without VBA or helper columns.",
-      "plain_language_summary": "How much overlap with other predictors is inflating each coefficient's instability."
+      "plain_language_summary": "How much overlap with other predictors is inflating each coefficient's instability.",
+      "notes": "Variance Inflation Factor per predictor = 1/(1−R²ⱼ). VIF = 1: no collinearity. VIF > 5: review. VIF > 10: problem."
     },
     {
       "name": "Tolerance",
@@ -839,7 +868,8 @@
       ],
       "yields": "k×1 column vector of Tolerance values (= 1/VIF), one per predictor",
       "description": "Tolerance = 1 − R²ⱼ = 1 / VIF, where R²ⱼ is the coefficient of determination from regressing Xⱼ on all other predictors. Values below 0.1 (VIF > 10) conventionally flag severe multicollinearity; values below 0.2 (VIF > 5) flag moderate concern.\n\nComputed as 1 / VIF(...), forwarding all arguments.",
-      "plain_language_summary": "How much unique information a predictor still has after overlap with the others."
+      "plain_language_summary": "How much unique information a predictor still has after overlap with the others.",
+      "notes": "1/VIF per predictor. Fraction of unique variance not shared with other predictors. < 0.2: review; < 0.1: strong collinearity."
     },
     {
       "name": "Prediction_Interval",
@@ -877,7 +907,8 @@
       ],
       "yields": "6-element vertical array: [Point Estimate, SE Prediction, t Critical, Lower bound, Upper bound, Confidence Level]",
       "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using Gram_Inverse(X_design) and MMULT.",
-      "plain_language_summary": "A predicted outcome plus the range a new real-world observation is likely to fall in."
+      "plain_language_summary": "A predicted outcome plus the range a new real-world observation is likely to fall in.",
+      "notes": "6-element vector: point estimate, SE_prediction, t-critical, lower PI bound, upper PI bound, confidence level."
     },
     {
       "name": "Observation_Num",
@@ -897,7 +928,8 @@
       ],
       "yields": "1..n observation index as a spilled vector",
       "description": "Spills 1..n, where n is the number of filtered observations.",
-      "plain_language_summary": "A simple 1-to-n row counter for the filtered data."
+      "plain_language_summary": "A simple 1-to-n row counter for the filtered data.",
+      "notes": "Sequence 1..n for the filtered dataset. Use as an observation index axis on diagnostic scatter plots."
     },
     {
       "name": "Rank_Fraction",
@@ -917,7 +949,8 @@
       ],
       "yields": "empirical-CDF fractions as a spilled vector, in original data order",
       "description": "Empirical CDF: fraction of filtered observations with value <= each observation. Equivalent to SUMPRODUCT((filtered<=v)*1)/n for each v. Output is in original data order.",
-      "plain_language_summary": "Each row's percentile-style position within the filtered outcome values."
+      "plain_language_summary": "Each row's percentile-style position within the filtered outcome values.",
+      "notes": "Empirical CDF fractions for filtered Y in original data order. Each value is the row’s percentile within the filtered outcome."
     },
     {
       "name": "Y_Ranked",
@@ -937,7 +970,8 @@
       ],
       "yields": "sorted filtered Y values as a spilled vector",
       "description": "Useful for empirical distribution/probability plots of the response variable.",
-      "plain_language_summary": "The filtered outcome values sorted from low to high."
+      "plain_language_summary": "The filtered outcome values sorted from low to high.",
+      "notes": "Filtered Y values sorted from low to high. Paired with Normal_Scores to build a Y-variable Q-Q plot."
     },
     {
       "name": "Dependent_Var",
@@ -957,7 +991,8 @@
       ],
       "yields": "filtered dependent variable vector (all rows when Include is omitted)",
       "description": "Returns the dependent-variable vector used by residual and diagnostic outputs.",
-      "plain_language_summary": "The filtered outcome column in the order the model uses it."
+      "plain_language_summary": "The filtered outcome column in the order the model uses it.",
+      "notes": "Filtered Y column in the order the model uses it. Companion to Predictions and Residuals for scatter plots."
     },
     {
       "name": "Normal_Scores",
@@ -977,7 +1012,8 @@
       ],
       "yields": "theoretical standard-normal scores as a spilled vector",
       "description": "Intended for normal probability plot x-values.",
-      "plain_language_summary": "The bell-curve quantiles used to build a Q-Q plot."
+      "plain_language_summary": "The bell-curve quantiles used to build a Q-Q plot.",
+      "notes": "Theoretical standard-normal quantiles (Blom approximation) for each filtered row. Use as x-axis values on a Q-Q plot."
     },
     {
       "name": "Design_Matrix",
@@ -1002,7 +1038,8 @@
       ],
       "yields": "filtered numeric design matrix as spilled array",
       "description": "Returns the matrix used for prediction: with intercept, a leading column of 1s followed by filtered X columns; without intercept, filtered X columns only. Factor encoding is intentionally deferred.",
-      "plain_language_summary": "The cleaned predictor matrix the regression actually fits."
+      "plain_language_summary": "The cleaned predictor matrix the regression actually fits.",
+      "notes": "Filtered predictor matrix with a leading column of 1s when intercept is included. The X matrix used internally by the regression."
     },
     {
       "name": "Gram_Inverse",
@@ -1015,7 +1052,8 @@
       ],
       "yields": "p×p matrix — the inverse of the Gram matrix (X'X)⁻¹",
       "description": "Returns (X'X)⁻¹ for a design matrix X. Single point of inversion used by Hat_diagonal, PRESS, LOOCV_prediction, and Prediction_Interval — any future stability upgrade (e.g., Tikhonov regularisation) only needs to be made here.\n\nPass the output of Design_Matrix — already filtered and intercept-augmented — directly as X.",
-      "plain_language_summary": "The matrix inverse the regression uses for leverage, intervals, and influence math."
+      "plain_language_summary": "The matrix inverse the regression uses for leverage, intervals, and influence math.",
+      "notes": "Inverse of the Gram matrix (X’X)⁻¹. Central to leverage, prediction intervals, and LOOCV calculations. Pass Design_Matrix output."
     },
     {
       "name": "Predictions",
@@ -1044,7 +1082,8 @@
       ],
       "yields": "fitted Y values as a spilled vector",
       "description": "Computes X_design * beta using MMULT.",
-      "plain_language_summary": "The model's fitted Y values for each row."
+      "plain_language_summary": "The model's fitted Y values for each row.",
+      "notes": "Model-fitted ŷ values (X·β) for each filtered row. Subtract from Y to get Residuals."
     },
     {
       "name": "Residuals",
@@ -1073,7 +1112,8 @@
       ],
       "yields": "raw residuals as a spilled vector",
       "description": "Residuals are Y - fitted Y.",
-      "plain_language_summary": "How far each actual Y value is above or below its fitted value."
+      "plain_language_summary": "How far each actual Y value is above or below its fitted value.",
+      "notes": "Raw residuals = Y − ŷ for each filtered row. Starting point for all diagnostic plots."
     },
     {
       "name": "Scaled_Residuals",
@@ -1102,7 +1142,8 @@
       ],
       "yields": "residual divided by SE_Regression as a spilled vector",
       "description": "Residual divided by SE_Regression. This is not Excel Analysis ToolPak 'Standard Residuals' and is not leverage-adjusted/studentized.",
-      "plain_language_summary": "Residuals converted to a common error scale."
+      "plain_language_summary": "Residuals converted to a common error scale.",
+      "notes": "Residuals divided by SE_Regression. Not leverage-adjusted; contrast with Studentized_Residuals for outlier detection."
     },
     {
       "name": "This_row",
@@ -1117,7 +1158,8 @@
       ],
       "yields": "1..n column vector of relative row numbers",
       "description": "Returns a 1-based integer sequence 1, 2, …, n where n = ROWS(array). The row numbers are relative to the top of the supplied array, so they are stable regardless of where the array sits on the sheet or whether it has been pre-filtered by the caller.\n\nDesigned to be passed to CHOOSEROWS or used as a comparison mask inside FILTER; see Exclude_row_n for the canonical usage.",
-      "plain_language_summary": "Relative row numbers for the current spilled array."
+      "plain_language_summary": "Relative row numbers for the current spilled array.",
+      "notes": "Relative row numbers 1..n for the current spilled array. Pass to CHOOSEROWS or use as a mask inside FILTER."
     },
     {
       "name": "Exclude_row_n",
@@ -1136,7 +1178,8 @@
       ],
       "yields": "array with row n removed; NA() if n is out of bounds",
       "description": "Returns the input array with exactly one row removed. Positive n selects from the top (1 = first row); negative n selects from the bottom (−1 = last row, −2 = second-to-last, …). Returns NA() when the resolved index is less than 1 or greater than ROWS(array).\n\nImplemented as CHOOSEROWS(array, FILTER(SEQUENCE(total_rows), SEQUENCE(total_rows) <> n_abs)): SEQUENCE produces the full index 1..n, FILTER removes the target index, and CHOOSEROWS reassembles the array without that row.",
-      "plain_language_summary": "The same array with one chosen row removed."
+      "plain_language_summary": "The same array with one chosen row removed.",
+      "notes": "Array with one row removed. Positive n counts from top, negative from bottom. Returns NA() when n is out of bounds."
     },
     {
       "name": "LOO_prediction",
@@ -1169,7 +1212,8 @@
       ],
       "yields": "scalar LOO prediction for observation n — the fitted value from a model trained on all rows except n, evaluated at row n of X_s",
       "description": "Applies the filter once in the outer scope to produce X_filt and Y_filt, then delegates to inner LAMBDAs without re-passing the filter. Exclude_row_n removes observation n from both X and Y; Coefficients fits OLS on the remaining n−1 rows; Design_Matrix builds the single-row design vector for row n (with or without intercept column); MMULT computes the dot product.\n\nNote: for n LOO predictions at once use LOOCV_prediction, which avoids n separate OLS fits via the hat-matrix shortcut.",
-      "plain_language_summary": "One leave-one-out prediction for the requested row."
+      "plain_language_summary": "One leave-one-out prediction for the requested row.",
+      "notes": "Single leave-one-out prediction for row n by refitting on n−1 rows. For all rows at once use LOOCV_prediction."
     },
     {
       "name": "LOOCV_prediction",
@@ -1198,7 +1242,8 @@
       ],
       "yields": "n-element spill vector of LOO predictions for every filtered observation",
       "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal from Hat_diagonal.\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS.",
-      "plain_language_summary": "Each row's prediction from a model refit without that row."
+      "plain_language_summary": "Each row's prediction from a model refit without that row.",
+      "notes": "All n leave-one-out predictions at once using the hat-matrix shortcut ŷ₋ᵢ = ŷᵢ − hᵢeᵢ/(1−hᵢ). No n separate refits needed."
     },
     {
       "name": "Hat_diagonal",
@@ -1223,7 +1268,8 @@
       ],
       "yields": "n-element hat-matrix diagonal (leverage values) as spilled vector",
       "description": "Returns h_i = x_iᵀ(XᵀX)⁻¹x_i for each observation. Values range from p/n (minimum leverage, uniform design) to 1. Observations with h_i > 2p/n are conventionally flagged as high-leverage. Used internally by Studentized_Residuals, Cooks_Distance, PRESS, and LOOCV_prediction; exposed here for direct inspection. Inversion is delegated to Gram_Inverse.",
-      "plain_language_summary": "Each row's leverage, meaning how unusual its predictor values are."
+      "plain_language_summary": "Each row's leverage, meaning how unusual its predictor values are.",
+      "notes": "Leverage hᵢ = xᵢ’(X’X)⁻¹xᵢ per row. Rows with hᵢ > 2p/n have high leverage; used by Cook’s Distance and PRESS."
     },
     {
       "name": "Studentized_Residuals",
@@ -1252,7 +1298,8 @@
       ],
       "yields": "n-element vector of internally studentized residuals",
       "description": "r_i = e_i / (s√(1−h_i)), the leverage-adjusted scaled residual. Unlike Scaled_Residuals (which divides by s only), studentized residuals have equal variance under the normal model and are more sensitive to outliers in high-leverage regions. Values beyond ±2 or ±3 indicate potential outliers.",
-      "plain_language_summary": "Residuals adjusted for both model error and leverage."
+      "plain_language_summary": "Residuals adjusted for both model error and leverage.",
+      "notes": "Internally studentized residuals rᵢ = eᵢ / (s√(1−hᵢ)). Leverage-adjusted. Values beyond ±2 flag outliers; ±3 are probable outliers."
     },
     {
       "name": "Studentized_Residuals_Ranked",
@@ -1281,7 +1328,8 @@
       ],
       "yields": "sorted studentized residuals as spilled vector",
       "description": "Ascending sort of Studentized_Residuals. Paired with Normal_Scores gives a leverage-corrected Q-Q plot; paired with Percentile gives a cumulative distribution plot.",
-      "plain_language_summary": "Studentized residuals sorted from smallest to largest."
+      "plain_language_summary": "Studentized residuals sorted from smallest to largest.",
+      "notes": "Studentized residuals sorted ascending. Paired with Normal_Scores for a leverage-corrected Q-Q residual plot."
     },
     {
       "name": "Cooks_Distance",
@@ -1310,7 +1358,8 @@
       ],
       "yields": "n-element vector of Cook’s distances",
       "description": "D_i = r_i² · h_i / ((1−h_i)·p) where r_i is the internally studentized residual, h_i the hat-matrix diagonal, and p the number of regression parameters. Combines outlier signal (r_i) with leverage (h_i) into a single influence measure. Observations with D_i > 4/n or D_i > 1 are conventionally flagged as influential.",
-      "plain_language_summary": "How much one row can pull the fitted model around."
+      "plain_language_summary": "How much one row can pull the fitted model around.",
+      "notes": "Influence measure Dᵢ = rᵢ²·hᵢ / ((1−hᵢ)·p). Combines outlier size and leverage. Values > 4/n or > 1 flag influential rows."
     },
     {
       "name": "Scaled_Residuals_Ranked",
@@ -1339,7 +1388,8 @@
       ],
       "yields": "sorted scaled residuals as spilled vector",
       "description": "Sorted Scaled_Residuals, intended for plotting against Normal_Scores.",
-      "plain_language_summary": "Scaled residuals sorted from smallest to largest."
+      "plain_language_summary": "Scaled residuals sorted from smallest to largest.",
+      "notes": "Scaled residuals sorted ascending. Paired with Normal_Scores for a standard Q-Q residual plot."
     },
     {
       "name": "Col_Select",
@@ -1358,7 +1408,8 @@
       ],
       "yields": "array of the selected columns in the specified order",
       "description": "Wraps CHOOSECOLS to give column selection a named, self-documenting form. The output is a calculated array with the same row count as the source table, valid as X_s in any library function.\n\nPrimary use: define a named range — e.g. X_Predictors = Col_Select(LifeData, {3,7,9}) — then pass that name as X_s. Non-contiguous column sets are fully supported. Combine with Complete_Cases_Filter to drop rows that have missing or non-numeric values in the chosen columns.",
-      "plain_language_summary": "A helper that picks specific columns from a larger table."
+      "plain_language_summary": "A helper that picks specific columns from a larger table.",
+      "notes": "Named wrapper for CHOOSECOLS: picks non-contiguous predictor columns by index. Returns an array suitable for X_s."
     },
     {
       "name": "Complete_Cases_Filter",
@@ -1378,7 +1429,8 @@
       ],
       "yields": "boolean column vector — TRUE for rows where every included column is numeric",
       "description": "Produces a ready-made Include argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))",
-      "plain_language_summary": "A TRUE/FALSE mask that keeps only rows with usable numeric data."
+      "plain_language_summary": "A TRUE/FALSE mask that keeps only rows with usable numeric data.",
+      "notes": "Boolean vector TRUE where every included column is numeric. Pass as the Include argument to exclude incomplete rows."
     },
     {
       "name": "Data_Completeness",
@@ -1393,7 +1445,8 @@
       ],
       "yields": "TRUE if every cell in predictor_row is numeric, FALSE if any value is blank, text, or an error",
       "description": "Data_Completeness tests whether a single data row has usable numeric values in every predictor column. It applies ISNUMBER to each cell in predictor_row and reduces the results with AND, returning TRUE only when no cell is blank, text, or an error.\n\nDesigned to be entered as a calculated table column formula — e.g. =Data_Completeness(Table[@[First]:[Last]]) — so that every row carries its own TRUE/FALSE completeness flag. That column can then be used directly as the Regression_Sample_Include argument to any regression library function, restricting the model to rows with complete predictor data.\n\nContrast with Complete_Cases_Filter, which operates on full column ranges and returns a boolean vector for all rows at once.",
-      "plain_language_summary": "Returns TRUE when every predictor value in the row is a usable number."
+      "plain_language_summary": "Returns TRUE when every predictor value in the row is a usable number.",
+      "notes": "Returns TRUE when every predictor cell in one table row is numeric. Use as a calculated table column and pass as Include."
     },
     {
       "name": "Pearson_R",
@@ -1416,7 +1469,8 @@
       ],
       "yields": "k×1 column vector of Pearson correlations between each predictor and Y",
       "description": "Pearson_R computes the linear (Pearson product-moment) correlation between each column of X_s and Y after applying the optional Include argument. When X_s has a single column the result is a scalar; when X_s has k columns it spills as a k×1 column vector.\n\nA Pearson_R close to ±1 indicates a strong linear association. Comparing Pearson_R with Spearman_R on the same data reveals nonlinearity: a large gap (Spearman > Pearson in magnitude) suggests a monotonic but curved relationship that may warrant a log or polynomial transformation.",
-      "plain_language_summary": "The straight-line relationship between each predictor and the outcome."
+      "plain_language_summary": "The straight-line relationship between each predictor and the outcome.",
+      "notes": "Linear (Pearson) correlations between each X_s column and Y. Returns a k×1 vector. Compare with Spearman_R to detect nonlinearity."
     },
     {
       "name": "Spearman_R",
@@ -1439,7 +1493,8 @@
       ],
       "yields": "k×1 column vector of Spearman rank correlations between each predictor and Y",
       "description": "Spearman_R computes the rank (Spearman) correlation between each column of xf and yf. For each predictor column, rows are kept where both that column and yf are numeric (and pass the optional Include). Ties receive average ranks via a MAP-based helper (avoids RANK.AVG on dynamic arrays). Returns a k×1 vector when xf has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit.",
-      "plain_language_summary": "The rank-order relationship between each predictor and the outcome."
+      "plain_language_summary": "The rank-order relationship between each predictor and the outcome.",
+      "notes": "Rank (Spearman) correlations between each X_s column and Y. Detects monotonic but curved relationships. Returns a k×1 vector."
     },
     {
       "name": "Skewness",
@@ -1458,7 +1513,8 @@
       ],
       "yields": "k×1 column vector of sample skewness values (one per column of X_s)",
       "description": "Skewness returns the sample skewness (Fisher-Pearson standardized third moment) for each column of X_s after filtering. Uses Excel's SKEW function, which divides by (n-1)(n-2).\n\nInterpretation: 0 = symmetric; positive = right tail (mean > median, common in counts and incomes); negative = left tail. |Skewness| > 1 typically signals that a log or square-root transformation would linearize relationships and stabilize regression residual variance. Compare with Kurtosis for a fuller picture of distributional shape.",
-      "plain_language_summary": "Whether a variable has a longer tail on one side than the other."
+      "plain_language_summary": "Whether a variable has a longer tail on one side than the other.",
+      "notes": "Sample skewness per X_s column after filtering. 0 = symmetric; > 1 = long right tail; < −1 = long left tail."
     },
     {
       "name": "Kurtosis",
@@ -1477,7 +1533,8 @@
       ],
       "yields": "k×1 column vector of excess kurtosis values (one per column of X_s)",
       "description": "Kurtosis returns the excess kurtosis for each filtered column of X_s. Uses Excel's KURT function (Fisher's excess kurtosis: kurtosis − 3, so a normal distribution returns 0).\n\nPositive excess kurtosis (leptokurtic) indicates heavier tails and more extreme outliers than a normal distribution. Negative (platykurtic) indicates lighter tails. High kurtosis in a predictor or in regression residuals signals that OLS standard errors may be unreliable, and that robust standard errors or a different distributional assumption may be warranted.",
-      "plain_language_summary": "Whether a variable has unusually heavy tails or outliers."
+      "plain_language_summary": "Whether a variable has unusually heavy tails or outliers.",
+      "notes": "Excess kurtosis per X_s column. 0 = normal-distributed tails; positive = heavier tails with more frequent extremes."
     },
     {
       "name": "F_Stat",
@@ -1506,7 +1563,8 @@
       ],
       "yields": "F-statistic for the overall regression model as a scalar",
       "description": "F_Stat returns the F-statistic for the omnibus test of the null hypothesis that all regression coefficients are simultaneously zero. It equals (MS_Regression / MS_Residual) = (SS_Regression / df_regression) / (SS_Residual / df_residual).\n\nA large F-statistic (and correspondingly small P_Value_F) means the model explains significantly more variance than would be expected by chance. Note that a significant F does not guarantee that every individual predictor is significant — individual t-statistics (T_Stats) address that question. F_Stat appears in the ANOVA table on the Regression sheet; this function exposes it as a named reference for use in other formulas.",
-      "plain_language_summary": "Whether the model, taken as a whole, explains more than random noise would."
+      "plain_language_summary": "Whether the model, taken as a whole, explains more than random noise would.",
+      "notes": "Overall F-statistic = MS_Regression / MS_Residual. Tests whether the model explains significantly more variance than random noise."
     },
     {
       "name": "P_Value_F",
@@ -1535,7 +1593,8 @@
       ],
       "yields": "p-value for the overall F-test (right-tail probability of the F distribution)",
       "description": "P_Value_F returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Stat under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Stat, df_regression, df_residual).\n\nConventionally, P_Value_F < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use.",
-      "plain_language_summary": "How surprising the overall F-statistic would be if the model had no real signal."
+      "plain_language_summary": "How surprising the overall F-statistic would be if the model had no real signal.",
+      "notes": "Right-tail p-value for the overall F-test. Values < 0.05 indicate the model as a whole is statistically significant."
     },
     {
       "name": "Correlation_Matrix",
@@ -1554,7 +1613,8 @@
       ],
       "yields": "k×k symmetric matrix of pairwise Pearson correlations (diagonal = 1)",
       "description": "Correlation_Matrix returns the k×k Pearson correlation matrix for all columns of X_s after filtering. Each cell [r, c] equals CORREL(column r, column c). The diagonal is always 1. The matrix is symmetric. Enter as a single formula and let it spill.\n\nUse this to screen for multicollinearity before fitting a model: pairs with |r| > 0.7 are candidates for VIF investigation. High off-diagonal correlations indicate redundant predictors whose coefficients will be unstable and hard to interpret. For formal post-fit diagnostics, use VIF and Tolerance instead.",
-      "plain_language_summary": "The pairwise correlations among all predictor columns."
+      "plain_language_summary": "The pairwise correlations among all predictor columns.",
+      "notes": "k×k symmetric Pearson correlation matrix among all X_s columns. Use to screen for multicollinearity before fitting."
     },
     {
       "name": "Missing_Count",
@@ -1573,7 +1633,8 @@
       ],
       "yields": "count of non-numeric (blank or text) cells within the active rows of the data range",
       "description": "Missing_Count counts cells that are present in the active data range but not numeric. The active range is determined from the first row down to the last non-empty row (using MATCH to find the last non-empty entry), so trailing blanks beyond the user's data do not inflate the count.\n\nReturns 0 when no active rows exist. A non-zero result signals that some cells the user likely intended as data values were blank or contained text and were silently excluded from statistical calculations.",
-      "plain_language_summary": "How many cells in the data column are blank or non-numeric."
+      "plain_language_summary": "How many cells in the data column are blank or non-numeric.",
+      "notes": "Count of non-numeric (blank or text) cells in the active data range up to the last non-empty row. Returns 0 when data is clean."
     },
     {
       "name": "Descriptive_Stats",
@@ -1592,7 +1653,8 @@
       ],
       "yields": "12×1 column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count",
       "description": "Descriptive_Stats returns a 12-element column vector of summary statistics for a single data column. When no filter is supplied, non-numeric cells are automatically excluded via ISNUMBER. Mode returns NA() when no unique mode exists. Skewness and kurtosis reuse the existing Skewness and Kurtosis LAMBDAs (Excel SKEW and KURT bias-correction formulas).\n\nUse INDEX to extract individual values: INDEX(Descriptive_Stats(data), 1) = mean, INDEX(..., 4) = SD, etc. Or enter as a single spill formula to populate all 12 rows at once.",
-      "plain_language_summary": "All 12 standard summary statistics for a data column, returned as a column vector."
+      "plain_language_summary": "All 12 standard summary statistics for a data column, returned as a column vector.",
+      "notes": "12×1 column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count."
     },
     {
       "name": "Sturges_Bins",
@@ -1611,7 +1673,8 @@
       ],
       "yields": "integer bin count via Sturges' rule",
       "description": "Sturges_Bins returns the bin count k = ⌈log₂(n) + 1⌉, where n is the count of numeric values after filtering. Sturges' rule works well for roughly symmetric, unimodal data with moderate sample sizes (50–200 observations). It tends to undersmooth (too few bins) for skewed or heavy-tailed data.\n\nUsed by Bin_Edges to generate upper bin edges for the Sturges histogram column chart.",
-      "plain_language_summary": "How many histogram bins Sturges' rule recommends for this data."
+      "plain_language_summary": "How many histogram bins Sturges' rule recommends for this data.",
+      "notes": "Bin count k = ⌈log₂(n)+1⌉ (Sturges’ rule). Reliable for roughly symmetric data with 50–200 observations."
     },
     {
       "name": "Scott_Bins",
@@ -1630,7 +1693,8 @@
       ],
       "yields": "integer bin count via Scott's normal reference rule",
       "description": "Scott_Bins computes the bin width h = 3.49 × σ × n^(−1/3) that minimises mean integrated squared error assuming the data are normally distributed, then returns k = ⌈range / h⌉.\n\nScott's rule is more adaptive than Sturges for larger samples and performs well when the data are approximately normal. For strongly skewed or multimodal data, Freedman-Diaconis is more appropriate.",
-      "plain_language_summary": "How many histogram bins Scott's normal-reference rule recommends."
+      "plain_language_summary": "How many histogram bins Scott's normal-reference rule recommends.",
+      "notes": "Bin count from Scott’s normal-reference rule: width = 3.49·σ·n^(−1/3). Optimal when data are approximately normal."
     },
     {
       "name": "FD_Bins",
@@ -1649,7 +1713,8 @@
       ],
       "yields": "integer bin count via the Freedman-Diaconis rule",
       "description": "FD_Bins computes the bin width h = 2 × IQR × n^(−1/3) where IQR is the interquartile range (QUARTILE.EXC), then returns k = ⌈range / h⌉.\n\nFreedman-Diaconis is robust to outliers because it uses the IQR rather than the standard deviation. It is the preferred rule for skewed or heavy-tailed distributions and for large samples where the shape deviates from normality.",
-      "plain_language_summary": "How many histogram bins the Freedman-Diaconis rule recommends."
+      "plain_language_summary": "How many histogram bins the Freedman-Diaconis rule recommends.",
+      "notes": "Bin count from Freedman-Diaconis rule: width = 2·IQR·n^(−1/3). Robust to outliers; preferred for skewed data."
     },
     {
       "name": "num_histogram_bins",
@@ -1673,7 +1738,8 @@
       ],
       "yields": "integer bin count k for the chosen method",
       "description": "num_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = ⌈log₂(n) + 1⌉\n  Scott:   width = 3.49 × SD × n^(−1/3);  k = ⌈range / width⌉  (k=1 when SD=0)\n  FD:      width = 2 × IQR × n^(−1/3);   k = ⌈range / width⌉  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
-      "plain_language_summary": "How many histogram bins a chosen rule (default: Freedman-Diaconis) recommends for this data."
+      "plain_language_summary": "How many histogram bins a chosen rule (default: Freedman-Diaconis) recommends for this data.",
+      "notes": "Bin count by chosen rule (\"Sturges\", \"Scott\", or default \"FD\"). Used internally by Bin_Edges; call directly to inspect the count."
     },
     {
       "name": "Bin_Edges",
@@ -1697,7 +1763,8 @@
       ],
       "yields": "k+1 × 1 column vector of bin boundaries — the minimum of the data followed by k evenly-spaced upper edges",
       "description": "Bin_Edges returns the complete set of k+1 bin boundaries as a column vector, starting at the data minimum and ending at the data maximum. The vector is computed as SEQUENCE(k+1, 1, min, width), so every boundary is evenly spaced by width = (max - min) / k. Upper_Bin_Edges, Bin_Lower_Edges, Bin_Midpoints, and Bin_Counts all derive from this vector.",
-      "plain_language_summary": "The complete list of k+1 bin boundary values from min to max."
+      "plain_language_summary": "The complete list of k+1 bin boundary values from min to max.",
+      "notes": "k+1 evenly-spaced bin boundaries from data minimum to maximum. The master boundary vector; all other Bin_* functions derive from it."
     },
     {
       "name": "Upper_Bin_Edges",
@@ -1724,7 +1791,8 @@
       ],
       "yields": "k × 1 column vector of upper bin edges (the k+1 boundary vector with the first element dropped)",
       "description": "Upper_Bin_Edges returns the k upper bin edges derived from Bin_Edges by dropping the first boundary (the data minimum). Each edge is the right endpoint of the corresponding bin. Bins are half-open intervals (lower, upper], matching Excel's FREQUENCY convention.",
-      "plain_language_summary": "The k upper boundary values of the histogram bins."
+      "plain_language_summary": "The k upper boundary values of the histogram bins.",
+      "notes": "k upper bin boundaries (Bin_Edges without the first element). Compatible with Excel’s FREQUENCY function convention."
     },
     {
       "name": "Bin_Counts",
@@ -1749,7 +1817,8 @@
       ],
       "yields": "k × 1 column vector of bin frequencies",
       "description": "Bin_Counts returns the number of observations in each bin, using Excel's FREQUENCY function applied to the upper edges from Upper_Bin_Edges.",
-      "plain_language_summary": "How many data values fall into each histogram bin."
+      "plain_language_summary": "How many data values fall into each histogram bin.",
+      "notes": "Counts of observations in each of k bins using Excel FREQUENCY on Upper_Bin_Edges. Returns a k×1 column vector."
     },
     {
       "name": "Bin_Midpoints",
@@ -1774,7 +1843,8 @@
       ],
       "yields": "k × 1 column vector of bin midpoints",
       "description": "Bin_Midpoints returns the midpoint of each bin, computed as the average of consecutive boundaries from Bin_Edges: (upper_edge + lower_edge) / 2. Bin_Edges is called once via LET to avoid recomputation.",
-      "plain_language_summary": "The centre of each histogram bin — use as the X-axis value for distribution overlay curves."
+      "plain_language_summary": "The centre of each histogram bin — use as the X-axis value for distribution overlay curves.",
+      "notes": "k bin centre values = (lower + upper) / 2. Use as x-axis values when overlaying fitted distribution PDF curves."
     },
     {
       "name": "Bin_Lower_Edges",
@@ -1799,7 +1869,8 @@
       ],
       "yields": "k × 1 column vector of lower bin edges (the k+1 boundary vector with the last element dropped)",
       "description": "Bin_Lower_Edges returns the k lower bin edges derived from Bin_Edges by dropping the last boundary (the data maximum). The first lower edge is the data minimum.",
-      "plain_language_summary": "The lower boundary of each histogram bin — data minimum for bin 1, then each previous upper edge."
+      "plain_language_summary": "The lower boundary of each histogram bin — data minimum for bin 1, then each previous upper edge.",
+      "notes": "k lower bin boundaries (Bin_Edges without the last element). First element = data minimum."
     },
     {
       "name": "CDF_Normal",
@@ -1826,7 +1897,8 @@
       ],
       "yields": "CDF(maximum) − CDF(minimum) for Normal(mean, sd); probability of the interval",
       "description": "CDF_Normal returns the probability that a Normal(mean, sd) random variable falls in the interval (minimum, maximum]. When minimum is omitted the result is the cumulative probability from −∞ to maximum.\n\nAccepts arrays for maximum and minimum, spilling element-wise. Use with Bin_Edges as maximum and Bin_Lower_Edges as minimum to compute the expected proportion of each histogram bin under the fitted Normal distribution.",
-      "plain_language_summary": "The probability that a Normal variable falls between minimum and maximum."
+      "plain_language_summary": "The probability that a Normal variable falls between minimum and maximum.",
+      "notes": "P(minimum < X ≤ maximum) for Normal(mean, sd). Omit minimum for P(X ≤ maximum). Accepts arrays; use with Bin_Edges for histogram overlay."
     },
     {
       "name": "CDF_Lognormal",
@@ -1853,7 +1925,8 @@
       ],
       "yields": "CDF(maximum) − CDF(minimum) for Lognormal(meanlog, sdlog); probability of the interval",
       "description": "CDF_Lognormal returns the probability that a Lognormal(meanlog, sdlog) random variable falls in the interval (minimum, maximum]. When minimum is omitted the result is the cumulative probability from 0 to maximum.\n\nAccepts arrays for maximum and minimum, spilling element-wise.",
-      "plain_language_summary": "The probability that a Lognormal variable falls between minimum and maximum."
+      "plain_language_summary": "The probability that a Lognormal variable falls between minimum and maximum.",
+      "notes": "P(minimum < X ≤ maximum) for Lognormal(meanlog, sdlog). Data must be positive. Accepts arrays for element-wise calculation."
     },
     {
       "name": "CDF_Exponential",
@@ -1876,7 +1949,8 @@
       ],
       "yields": "CDF(maximum) − CDF(minimum) for Exponential(rate); probability of the interval",
       "description": "CDF_Exponential returns the probability that an Exponential(rate) random variable falls in the interval (minimum, maximum]. When minimum is omitted the result is the cumulative probability from 0 to maximum.\n\nAccepts arrays for maximum and minimum, spilling element-wise.",
-      "plain_language_summary": "The probability that an Exponential variable falls between minimum and maximum."
+      "plain_language_summary": "The probability that an Exponential variable falls between minimum and maximum.",
+      "notes": "P(minimum < X ≤ maximum) for Exponential(rate = 1/mean). Data must be ≥ 0. Accepts arrays for element-wise calculation."
     },
     {
       "name": "CDF_Weibull",
@@ -1903,7 +1977,8 @@
       ],
       "yields": "CDF(maximum) − CDF(minimum) for Weibull(shape, scale); probability of the interval",
       "description": "CDF_Weibull returns the probability that a Weibull(shape, scale) random variable falls in the interval (minimum, maximum]. When minimum is omitted the result is the cumulative probability from 0 to maximum.\n\nAccepts arrays for maximum and minimum, spilling element-wise.",
-      "plain_language_summary": "The probability that a Weibull variable falls between minimum and maximum."
+      "plain_language_summary": "The probability that a Weibull variable falls between minimum and maximum.",
+      "notes": "P(minimum < X ≤ maximum) for Weibull(shape, scale). Data must be > 0. Accepts arrays for element-wise calculation."
     },
     {
       "name": "CDF_Gamma",
@@ -1930,7 +2005,8 @@
       ],
       "yields": "CDF(maximum) − CDF(minimum) for Gamma(shape, rate); probability of the interval",
       "description": "CDF_Gamma returns the probability that a Gamma(shape, rate) random variable falls in the interval (minimum, maximum]. GAMMA.DIST takes scale = 1/rate, matching the rate parameterisation used by NLL_Gamma.\n\nAccepts arrays for maximum and minimum, spilling element-wise.",
-      "plain_language_summary": "The probability that a Gamma variable falls between minimum and maximum."
+      "plain_language_summary": "The probability that a Gamma variable falls between minimum and maximum.",
+      "notes": "P(minimum < X ≤ maximum) for Gamma(shape, rate = 1/scale). Data must be > 0. Accepts arrays for element-wise calculation."
     },
     {
       "name": "CDF_Triangular",
@@ -1961,7 +2037,8 @@
       ],
       "yields": "CDF(maximum) − CDF(minimum) for Triangular(min_val, mode_val, max_val); probability of the interval",
       "description": "CDF_Triangular returns the probability that a Triangular(a, c, b) random variable falls in the interval (minimum, maximum]. Uses the piecewise closed-form CDF since Excel has no built-in Triangular CDF. MAP applies the nested CDF LAMBDA element-wise so the function works with array inputs.\n\nThe epsilon guard (1E-30) prevents division by zero for degenerate parameters. IFERROR maps any remaining errors to 0.5.",
-      "plain_language_summary": "The probability that a Triangular variable falls between minimum and maximum."
+      "plain_language_summary": "The probability that a Triangular variable falls between minimum and maximum.",
+      "notes": "P(minimum < X ≤ maximum) for Triangular(min_val, mode_val, max_val). No Excel built-in; uses closed-form piecewise CDF."
     },
     {
       "name": "CDF_Beta",
@@ -1996,7 +2073,8 @@
       ],
       "yields": "CDF(maximum) − CDF(minimum) for rescaled Beta(alpha, beta); probability of the interval",
       "description": "CDF_Beta returns the probability that a Beta(alpha, beta) random variable (rescaled from [0,1] to the original data range) falls in the interval (minimum, maximum]. Rescaling uses the same 0.1 % padding as NLL_Beta to keep boundary data points interior to the support.\n\nTakes data_min and data_range rather than the full data array to avoid redundant computation when called repeatedly (e.g. once per histogram bin).",
-      "plain_language_summary": "The probability that a rescaled Beta variable falls between minimum and maximum."
+      "plain_language_summary": "The probability that a rescaled Beta variable falls between minimum and maximum.",
+      "notes": "P(minimum < X ≤ maximum) for Beta(alpha, beta) rescaled to the original data range using data_min and data_range."
     },
     {
       "name": "CDF_BetaPERT",
@@ -2027,7 +2105,8 @@
       ],
       "yields": "CDF(maximum) − CDF(minimum) for BetaPERT(min_val, mode_val, max_val); probability of the interval",
       "description": "CDF_BetaPERT returns the probability that a BetaPERT(min, mode, max) random variable falls in the interval (minimum, maximum]. The PERT reparameterisation computes α₁ and α₂ from the PERT mean μ = (min + 4·mode + max) / 6, then evaluates BETA.DIST on the [0,1]-rescaled value.\n\nEpsilon guards (1E-30) prevent division by zero for degenerate parameters.",
-      "plain_language_summary": "The probability that a BetaPERT variable falls between minimum and maximum."
+      "plain_language_summary": "The probability that a BetaPERT variable falls between minimum and maximum.",
+      "notes": "P(minimum < X ≤ maximum) for BetaPERT(min, mode, max). PERT parameters are auto-derived from three-point estimates."
     },
     {
       "name": "Grid_Argmin",
@@ -2042,7 +2121,8 @@
       ],
       "yields": "1×3 row vector: minimum value, 1-based row location, and 1-based column location of the first minimum",
       "description": "Grid_Argmin finds the minimum numeric value in a rectangular grid and returns that value together with its 1-based row and column locations. TOCOL scans the grid by row, XMATCH selects the first occurrence of the minimum, and QUOTIENT/MOD convert the flattened position back to grid coordinates. Returning one matched position avoids combining the row of one tied minimum with the column of another.\n\nFor a two-input Excel Data Table, pass only the Data Table body, excluding the parameter headings, parameter-value axes, and corner formula cell. The grid is expected to contain numeric results; an all-nonnumeric grid returns NA() in all three output positions.",
-      "plain_language_summary": "The smallest value in a grid and the row and column where its first occurrence appears."
+      "plain_language_summary": "The smallest value in a grid and the row and column where its first occurrence appears.",
+      "notes": "Minimum value in a grid plus its 1-based row and column. Pass the body of a two-input Data Table to locate MLE parameter estimates."
     },
     {
       "name": "Grid_Search_Optimum",
@@ -2057,7 +2137,8 @@
       ],
       "yields": "2×1 column vector: optimal column-parameter value, then optimal row-parameter value",
       "description": "Grid_Search_Optimum returns the two parameter values associated with the first minimum in a two-input Excel Data Table. It calls Grid_Argmin to determine the minimum's row and column internally, then uses OFFSET to retrieve the corresponding column-parameter value from the row immediately above the grid and the row-parameter value from the column immediately to its left.\n\nThe function is distribution-agnostic: for Weibull the outputs can represent shape and scale; for Beta they can represent alpha and beta. The supplied grid must be the full worksheet range of the Data Table body, not a single cell containing the TABLE array formula and not a detached calculated array.",
-      "plain_language_summary": "The two parameter values that produce the smallest result in a two-input Data Table."
+      "plain_language_summary": "The two parameter values that produce the smallest result in a two-input Data Table.",
+      "notes": "The two parameter values (column then row) at the minimum of a two-input Data Table. Use after NLL grid search to extract optimal parameters."
     },
     {
       "name": "NLL_Normal",
@@ -2084,7 +2165,8 @@
       ],
       "yields": "negative log-likelihood for Normal(mean, sd) given data; returns 1E+15 for invalid parameter combinations",
       "description": "NLL_Normal computes −Σ ln f(xᵢ | μ, σ) where f is the Normal PDF evaluated via NORM.DIST. The IFERROR sentinel maps overflow or invalid regions (sd ≤ 0, or non-positive PDF values) to 1E+15, keeping MIN and grid-search argmin robust. Minimising NLL over (μ, σ) gives the MLE; for the Normal distribution the MLE is the sample mean and sample standard deviation.\n\nThe filter defaults to ISNUMBER(data) so blank cells in the input range are automatically excluded. Pass this value to GoF_AIC and GoF_BIC with k = 2.",
-      "plain_language_summary": "How unlikely the Normal distribution is to have generated this data at the given parameters."
+      "plain_language_summary": "How unlikely the Normal distribution is to have generated this data at the given parameters.",
+      "notes": "Negative log-likelihood for Normal(mean, sd). Minimise to fit by MLE. Closed-form MLE: mean = AVERAGE, sd = STDEV.S."
     },
     {
       "name": "NLL_Lognormal",
@@ -2111,7 +2193,8 @@
       ],
       "yields": "negative log-likelihood for Lognormal(meanlog, sdlog) given data; returns 1E+15 for invalid parameter combinations",
       "description": "NLL_Lognormal evaluates −Σ ln f(xᵢ | μ_ln, σ_ln) using Excel's LOGNORM.DIST PDF. The IFERROR sentinel maps overflow or invalid regions (non-positive data or sdlog ≤ 0) to 1E+15, keeping MIN and grid-search argmin robust. The MLE closed form is: μ_ln = AVERAGE(LN(data)), σ_ln = STDEV.S(LN(data)).\n\nLognormal fits well when data is right-skewed and multiplicative (incomes, sizes, concentrations). Pass to GoF_AIC and GoF_BIC with k = 2.",
-      "plain_language_summary": "How unlikely the Lognormal distribution is to have generated this data at the given parameters."
+      "plain_language_summary": "How unlikely the Lognormal distribution is to have generated this data at the given parameters.",
+      "notes": "Negative log-likelihood for Lognormal(meanlog, sdlog). Data must be positive. MLE: meanlog = AVERAGE(LN(data)), sdlog = STDEV.S(LN(data))."
     },
     {
       "name": "NLL_Exponential",
@@ -2134,7 +2217,8 @@
       ],
       "yields": "negative log-likelihood for Exponential(rate) given data; returns 1E+15 for invalid parameter combinations",
       "description": "NLL_Exponential evaluates −Σ ln f(xᵢ | λ) = −n·ln(λ) + λ·Σxᵢ via EXPON.DIST. The IFERROR sentinel maps invalid regions (rate ≤ 0, or data violating the ≥ 0 support) to 1E+15, keeping MIN and grid-search argmin robust. The MLE closed form is: rate = 1/AVERAGE(data).\n\nExponential fits well for memoryless waiting times, inter-arrival times, and time-to-failure data. Pass to GoF_AIC and GoF_BIC with k = 1.",
-      "plain_language_summary": "How unlikely the Exponential distribution is to have generated this data at the given rate."
+      "plain_language_summary": "How unlikely the Exponential distribution is to have generated this data at the given rate.",
+      "notes": "Negative log-likelihood for Exponential(rate = 1/mean). Data must be ≥ 0. Closed-form MLE: rate = 1/AVERAGE(data)."
     },
     {
       "name": "NLL_Weibull",
@@ -2161,7 +2245,8 @@
       ],
       "yields": "negative log-likelihood for Weibull(shape, scale) given data; returns 1E+15 for invalid parameter combinations",
       "description": "NLL_Weibull evaluates −Σ ln f(xᵢ | k, λ) using WEIBULL.DIST. The IFERROR sentinel maps overflow or invalid regions (shape → 0, or data violating support) to 1E+15, keeping MIN and grid-search argmin robust.\n\nWeibull is the standard model for failure times and wind speeds. No closed-form MLE exists; fit using a two-input Data Table grid-search (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
-      "plain_language_summary": "How unlikely the Weibull distribution is to have generated this data at the given shape and scale."
+      "plain_language_summary": "How unlikely the Weibull distribution is to have generated this data at the given shape and scale.",
+      "notes": "Negative log-likelihood for Weibull(shape, scale). Data must be > 0. No closed-form MLE; fit using a two-input Data Table grid search."
     },
     {
       "name": "NLL_Gamma",
@@ -2188,7 +2273,8 @@
       ],
       "yields": "negative log-likelihood for Gamma(shape, rate) given data; returns 1E+15 for invalid parameter combinations",
       "description": "NLL_Gamma evaluates −Σ ln f(xᵢ | α, β) via GAMMA.DIST, converting rate to scale internally (scale = 1/rate). IFERROR maps overflow near shape → 0 to a large sentinel.\n\nGamma fits well for right-skewed positive data (insurance claims, rainfall, queuing times). No closed-form MLE; fit using grid-search Data Table (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
-      "plain_language_summary": "How unlikely the Gamma distribution is to have generated this data at the given shape and rate."
+      "plain_language_summary": "How unlikely the Gamma distribution is to have generated this data at the given shape and rate.",
+      "notes": "Negative log-likelihood for Gamma(shape, rate = 1/scale). Data must be > 0. No closed-form MLE; fit using a grid-search Data Table."
     },
     {
       "name": "NLL_Triangular",
@@ -2219,7 +2305,8 @@
       ],
       "yields": "negative log-likelihood for Triangular(min, mode, max) given data; returns 1E+15 for invalid parameters",
       "description": "NLL_Triangular implements the triangular PDF directly: 2(x − min) / (range × (mode − min)) on [min, mode] and 2(max − x) / (range × (max − mode)) on (mode, max]. The likelihood is non-differentiable at the mode, so MLE is non-standard; the conventional approach is to set min = data min, mode = data mode, max = data max.\n\nTriangular is common in project risk and cost estimation (three-point estimates). Pass to GoF_AIC and GoF_BIC with k = 3.",
-      "plain_language_summary": "How unlikely the Triangular distribution is to have generated this data at the given bounds."
+      "plain_language_summary": "How unlikely the Triangular distribution is to have generated this data at the given bounds.",
+      "notes": "Negative log-likelihood for Triangular(min, mode, max). Conventional MLE: set min, mode, max to the data min, mode, and max."
     },
     {
       "name": "NLL_Beta",
@@ -2246,7 +2333,8 @@
       ],
       "yields": "negative log-likelihood for Beta(α, β) given data on (0,1); returns 1E+15 for boundary or invalid values",
       "description": "NLL_Beta evaluates −Σ ln f(xᵢ | α, β) via BETA.DIST. Values exactly at 0 or 1 cause BETA.DIST to return errors; the IFERROR sentinel catches these and maps the entire NLL to 1E+15, making the cell visible as an overflow region in grid-search heatmaps.\n\nBeta fits proportions and rates bounded on [0, 1] (e.g. efficiencies, fractions). Data must be rescaled to (0, 1) before fitting. No closed-form MLE; fit using grid-search Data Table (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
-      "plain_language_summary": "How unlikely the Beta distribution is to have generated this (0,1)-bounded data at the given shape parameters."
+      "plain_language_summary": "How unlikely the Beta distribution is to have generated this (0,1)-bounded data at the given shape parameters.",
+      "notes": "Negative log-likelihood for Beta(alpha, beta). Data must be strictly on (0, 1). No closed-form MLE; use a grid-search Data Table."
     },
     {
       "name": "NLL_BetaPERT",
@@ -2277,7 +2365,8 @@
       ],
       "yields": "negative log-likelihood for BetaPERT(min, mode, max) given data; returns 1E+15 for invalid parameters",
       "description": "NLL_BetaPERT reparameterises the Beta distribution using the PERT convention: α = 1 + 4·(mode − min)/(max − min), β = 1 + 4·(max − mode)/(max − min). Data are rescaled to z = (x − min)/(max − min); the Jacobian correction log(1/(max − min)) converts the Beta log-likelihood back to the original data scale.\n\nBetaPERT is the standard distribution for three-point cost and schedule estimates. Parameters are estimated directly from min, mode, max; no optimisation is needed. Pass to GoF_AIC and GoF_BIC with k = 3.",
-      "plain_language_summary": "How unlikely the BetaPERT distribution is to have generated this data at the given three-point bounds."
+      "plain_language_summary": "How unlikely the BetaPERT distribution is to have generated this data at the given three-point bounds.",
+      "notes": "Negative log-likelihood for BetaPERT(min, mode, max). Parameters come from three-point estimates; no optimisation needed."
     },
     {
       "name": "GoF_AIC",
@@ -2295,7 +2384,8 @@
       ],
       "yields": "AIC = 2k + 2·NLL as a scalar",
       "description": "GoF_AIC computes the Akaike Information Criterion: AIC = 2k + 2·NLL. Lower AIC indicates a better balance of fit quality and model complexity. AIC is comparable across all distributions fitted to the same dataset — the distribution with the lowest AIC is the best-fitting model under this criterion.\n\nAIC does not penalise extra parameters as strongly as BIC, so it may favour more complex distributions (larger k) when sample sizes are large. For small samples, use AICc instead (not implemented here — add a correction term 2k(k+1)/(n−k−1) if n/k < 40).",
-      "plain_language_summary": "A model-comparison score that balances fit quality against the number of parameters."
+      "plain_language_summary": "A model-comparison score that balances fit quality against the number of parameters.",
+      "notes": "AIC = 2k + 2·NLL for distribution comparison. k = number of free parameters. Lower = better. Compare across distributions on same data."
     },
     {
       "name": "GoF_BIC",
@@ -2317,7 +2407,8 @@
       ],
       "yields": "BIC = k·ln(n) + 2·NLL as a scalar",
       "description": "GoF_BIC computes the Bayesian Information Criterion: BIC = k·ln(n) + 2·NLL. Lower BIC indicates a better model. BIC penalises extra parameters more strongly than AIC (penalty grows with log(n) rather than 2), favouring simpler distributions in larger samples.\n\nCompare AIC and BIC together: if they agree, the best-fit distribution is clear; if they disagree, AIC is selecting a more complex distribution and BIC is selecting a simpler one. The difference is informative about how much the extra parameters contribute to fit.",
-      "plain_language_summary": "A model-comparison score that penalises extra parameters more strongly as sample size grows."
+      "plain_language_summary": "A model-comparison score that penalises extra parameters more strongly as sample size grows.",
+      "notes": "BIC = k·ln(n) + 2·NLL. Penalises extra parameters more than AIC (penalty scales with log n). Lower = better."
     },
     {
       "name": "GoF_Anderson_Darling",
@@ -2340,7 +2431,8 @@
       ],
       "yields": "Anderson-Darling A² statistic as a scalar (lower = better fit)",
       "description": "GoF_Anderson_Darling computes the Anderson-Darling goodness-of-fit statistic: A² = −n − (1/n) Σᵢ (2i−1)·[ln F(X₍ᵢ₎) + ln(1 − F(X₍ₙ₊₁₋ᵢ₎))]. CDF values are sorted by data internally. An epsilon clamp (1E-10) prevents ln(0) for bounded-support distributions (Beta, Triangular, BetaPERT) whose CDF can reach exactly 0 or 1 at support edges.\n\nA-D is more sensitive to tail deviations than K-S, making it better at detecting departures in the extremes. Lower A² indicates a better fit. Compare alongside AIC, BIC, and K-S in the fit comparison table.",
-      "plain_language_summary": "Anderson-Darling A² = −n − (1/n)·Σ(2i−1)[ln F(xᵢ) + ln(1−F(x_{n+1−i}))] (lower = better fit)."
+      "plain_language_summary": "Anderson-Darling A² = −n − (1/n)·Σ(2i−1)[ln F(xᵢ) + ln(1−F(x_{n+1−i}))] (lower = better fit).",
+      "notes": "Anderson-Darling A² goodness-of-fit. More sensitive to tail deviations than K-S. Lower = better. Compare with AIC, BIC, and K-S."
     },
     {
       "name": "GoF_Kolmogorov_Smirnov",
@@ -2363,61 +2455,8 @@
       ],
       "yields": "Kolmogorov-Smirnov D statistic as a scalar in [0, 1] (lower = better fit)",
       "description": "GoF_Kolmogorov_Smirnov computes the Kolmogorov-Smirnov goodness-of-fit statistic: D = max(D⁺, D⁻) where D⁺ = maxᵢ(i/n − F(X₍ᵢ₎)) and D⁻ = maxᵢ(F(X₍ᵢ₎) − (i−1)/n). This is the maximum vertical distance between the empirical CDF and the fitted CDF.\n\nK-S is sensitive to the single largest deviation between the empirical and fitted distributions, making it complementary to A-D (which weights tails more heavily). Lower D indicates a better fit. D is bounded on [0, 1]; values near 0 mean the fitted CDF closely tracks the empirical CDF.",
-      "plain_language_summary": "Kolmogorov-Smirnov D = max|F_n(xᵢ) − F(xᵢ)| (lower = better fit)."
-    },
-    {
-      "name": "Dummy_Levels",
-      "category": "Data Transformation",
-      "subcategory": "Categorical & Model Construction",
-      "number_format": "General",
-      "formula_display": "=LAMBDA(category, [reference], [include],\n    LET(\n        inc,         IF(ISOMITTED(include), TRUE, include),\n        x,           TOCOL(category, 0),\n        x_inc,       FILTER(x, (x<>\"\") * inc),\n        All_Levels,  SORT(UNIQUE(x_inc)),\n        ref,         IF(ISOMITTED(reference), INDEX(All_Levels, 1), reference),\n        ref_exists,  ISNUMBER(MATCH(ref, All_Levels, 0)),\n        Levels,      FILTER(All_Levels, All_Levels <> ref),\n        IF(ref_exists, TRANSPOSE(Levels), \"ERROR: reference level not found in included sample\")\n    )\n)",
-      "arguments": [
-        {
-          "name": "category",
-          "description": "single-column categorical data range",
-          "optional": false
-        },
-        {
-          "name": "reference",
-          "description": "the level to drop (treatment coding); when omitted, the first sorted level is dropped",
-          "optional": true
-        },
-        {
-          "name": "include",
-          "description": "boolean mask — TRUE keeps the row; when omitted all non-blank rows are used",
-          "optional": true
-        }
-      ],
-      "yields": "1 × k horizontal vector of retained category labels (sorted, reference level removed)",
-      "description": "Dummy_Levels returns the set of category labels that will become dummy columns after treatment coding. It sorts all levels present in the included sample, drops the reference level, and returns the remainder as a horizontal row vector.\n\nWhen reference is omitted, the first sorted level is used as the reference (alphabetically first). When reference is supplied, it is validated against the included sample; if not found, returns an error string rather than silently dropping the wrong column.\n\nUse Dummy_Levels as a header row above Dummy_Code to label dummy columns, or to inspect which levels the model will contain before fitting.",
-      "plain_language_summary": "The k category labels that become dummy columns (sorted, reference level removed)."
-    },
-    {
-      "name": "Dummy_Code",
-      "category": "Data Transformation",
-      "subcategory": "Categorical & Model Construction",
-      "number_format": "General",
-      "formula_display": "=LAMBDA(category, [reference], [include],\n    LET(\n        inc,         IF(ISOMITTED(include), TRUE, include),\n        x,           TOCOL(category, 0),\n        x_inc,       FILTER(x, (x<>\"\") * inc),\n        All_Levels,  SORT(UNIQUE(x_inc)),\n        ref,         IF(ISOMITTED(reference), INDEX(All_Levels, 1), reference),\n        ref_exists,  ISNUMBER(MATCH(ref, All_Levels, 0)),\n        Levels,      FILTER(All_Levels, All_Levels <> ref),\n        k,           ROWS(Levels),\n        row_active,  (x<>\"\") * inc,\n        Matrix,      MAKEARRAY(\n                         ROWS(x), k,\n                         LAMBDA(r, c,\n                             IF(\n                                 INDEX(row_active, r),\n                                 --(INDEX(x, r) = INDEX(Levels, c)),\n                                 \"\"\n                             )\n                         )\n                     ),\n        IF(ref_exists, Matrix, \"ERROR: reference level not found in included sample\")\n    )\n)",
-      "arguments": [
-        {
-          "name": "category",
-          "description": "single-column categorical data range",
-          "optional": false
-        },
-        {
-          "name": "reference",
-          "description": "the level to drop (treatment coding); when omitted, the first sorted level is dropped",
-          "optional": true
-        },
-        {
-          "name": "include",
-          "description": "boolean mask — TRUE keeps the row; when omitted all non-blank rows are used",
-          "optional": true
-        }
-      ],
-      "yields": "n × k matrix of 0/1 dummy indicators aligned to every source row; excluded rows return \"\" in all columns",
-      "description": "Dummy_Code returns a treatment-coded dummy matrix for a categorical variable. For each included row, the value is compared to each retained level and encoded as 1 (match) or 0 (no match). Excluded rows (include = FALSE or blank category value) return \"\" across all k columns so the spilled array stays row-aligned with the source data.\n\nThe reference level is dropped to avoid perfect multicollinearity when the design includes an intercept. Reference-level validation is enforced: if the supplied reference does not appear in the included sample, the function returns an error string rather than silently failing to drop a column — an invalid reference reintroduces the exact collinearity the function exists to prevent.\n\nPair with Dummy_Levels to get the matching column headers. Pass the output directly to HSTACK to assemble a multi-predictor design for Coefficients, Prediction_Interval, and related functions.",
-      "plain_language_summary": "Treatment-coded dummy matrix for a categorical predictor, with excluded rows as blank and the reference level dropped."
+      "plain_language_summary": "Kolmogorov-Smirnov D = max|F_n(xᵢ) − F(xᵢ)| (lower = better fit).",
+      "notes": "Kolmogorov-Smirnov D = max|F_n(xᵢ) − F(xᵢ)|. Maximum deviation between empirical and fitted CDFs. Lower = better."
     }
   ],
   "regression_sheet_notes": {

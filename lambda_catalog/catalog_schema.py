@@ -69,6 +69,10 @@ class CatalogFunction:
         Tag identifying which test sheet this function belongs to.
     number_format : str
         Excel number format string for test result cells.
+    notes : str
+        Tooltip text (max 255 characters) written to the workbook's defined-name
+        ``comment`` attribute, shown by Excel in Name Manager and formula-bar
+        autocomplete.
     """
 
     name: str
@@ -79,6 +83,7 @@ class CatalogFunction:
     plain_language_summary: str
     test_table: str | None
     number_format: str
+    notes: str
 
     @property
     def argument_names(self) -> tuple[str, ...]:
@@ -323,6 +328,14 @@ def load_catalog_document(
         raw_number_format = item.get("number_format", "General")
         number_format = str(raw_number_format).strip() if raw_number_format else "General"
 
+        raw_notes = item.get("notes", "")
+        notes = str(raw_notes).strip() if raw_notes else ""
+        if notes and len(notes) > 255:
+            raise ValueError(
+                f"Entry {index} ({name!r}) 'notes' is {len(notes)} characters; "
+                "limit is 255."
+            )
+
         seen_names.add(name)
         functions.append(CatalogFunction(
             name=name,
@@ -333,6 +346,7 @@ def load_catalog_document(
             plain_language_summary=plain_language_summary,
             test_table=test_table,
             number_format=number_format,
+            notes=notes,
         ))
 
     notes_raw = payload.get("regression_sheet_notes", {})

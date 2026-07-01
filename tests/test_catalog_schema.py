@@ -397,6 +397,18 @@ class CatalogFunctionProjectionTests(unittest.TestCase):
         self.assertIn("\n\n", cf.name_manager_comment)
         self.assertNotIn("\n\n", cf.arguments_cell_text())
 
+    def test_notes_field_round_trips_through_loader(self) -> None:
+        cf = self._make_function(notes="A 255-character-or-shorter tooltip.")
+        self.assertEqual(cf.notes, "A 255-character-or-shorter tooltip.")
+
+    def test_notes_missing_defaults_to_empty_string(self) -> None:
+        cf = self._make_function()
+        self.assertEqual(cf.notes, "")
+
+    def test_notes_over_255_chars_raises_value_error(self) -> None:
+        with self.assertRaises(ValueError):
+            self._make_function(notes="x" * 256)
+
 
 class RealCatalogIntegrationTests(unittest.TestCase):
     """Smoke tests that load the actual lambda_functions.json on disk."""

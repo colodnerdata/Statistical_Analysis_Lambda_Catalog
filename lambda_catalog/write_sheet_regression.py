@@ -427,7 +427,8 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     #   (All_Xs)              → all n header names as a column vector
     #   (All_Xs, Ind_Var_Include) → only headers whose toggle is TRUE
     # TAKE(Include, n) trims the filter range to exactly n rows.
-    # IFERROR fallback returns the first header when all toggles are off.
+    # No IFERROR fallback: when every toggle is FALSE, FILTER propagates
+    # Excel's natural #CALC! rather than fabricating a first-predictor result.
     drop_local_name(sheet, "Coefficient_Name_Col")
     sheet.api.Names.Add(
         Name="Coefficient_Name_Col",
@@ -438,7 +439,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
             "headers,TRANSPOSE(OFFSET(All_Xs,-1,0,1,n)),"
             "IF(ISOMITTED(Include),"
             "headers,"
-            "IFERROR(FILTER(headers,TAKE(Include,n)),TAKE(headers,1))"
+            "FILTER(headers,TAKE(Include,n))"
             ")"
             "))"
         ),
@@ -456,16 +457,25 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     # x_s(): dynamic — only predictors toggled TRUE in col B via Ind_Var_Include.
     # A zero-argument LAMBDA forces Excel to resolve the selected columns at call
     # time instead of caching the range when the worksheet name is created.
+    # No IFERROR fallback: when zero predictors are selected, FILTER propagates
+    # Excel's natural #CALC! instead of silently substituting the first predictor.
     drop_local_name(sheet, "x_s")
     sheet.api.Names.Add(
         Name="x_s",
         RefersTo=(
-            "=LAMBDA(IFERROR("
+            "=LAMBDA("
             "TRANSPOSE(FILTER(TRANSPOSE(All_Xs),"
-            "TAKE(Ind_Var_Include,COLUMNS(All_Xs)))),"
-            "TAKE(All_Xs,,1)"
-            "))"
+            "TAKE(Ind_Var_Include,COLUMNS(All_Xs)))))"
         ),
+    )
+
+    # Zero_Predictors_Selected(): TRUE when every predictor toggle in
+    # Ind_Var_Include is FALSE. Shared condition so it isn't duplicated
+    # ad hoc across every cell that needs the zero-predictor branch.
+    drop_local_name(sheet, "Zero_Predictors_Selected")
+    sheet.api.Names.Add(
+        Name="Zero_Predictors_Selected",
+        RefersTo="=LAMBDA(COUNTIF(TAKE(Ind_Var_Include,COLUMNS(All_Xs)),TRUE)=0)",
     )
 
     drop_local_name(sheet, "fil")   # remove legacy name if present
@@ -489,6 +499,43 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     sheet.api.Names.Add(
         Name="alpha",
         RefersTo=f"={sname}!$M$12",
+    )
+
+    # ── Intercept-only closed-form helpers ──────────────────────────────────
+    # Used by _write_coefficients and _write_prediction_interval when
+    # Zero_Predictors_Selected() is TRUE and Allow_Intercept is TRUE: an
+    # intercept-only OLS model (Y = b0 + error) is still statistically
+    # well-defined even though FILTER(...,TAKE(Ind_Var_Include,...)) has
+    # nothing to select. Bypasses x_s()/Coefficients()/Prediction_Interval()
+    # entirely since Excel cannot represent a valid zero-column array.
+    drop_local_name(sheet, "Intercept_Only_N")
+    sheet.api.Names.Add(
+        Name="Intercept_Only_N",
+        RefersTo="=LAMBDA(COUNT(FILTER(y,Regression_Sample_Include)))",
+    )
+
+    drop_local_name(sheet, "Intercept_Only_Point")
+    sheet.api.Names.Add(
+        Name="Intercept_Only_Point",
+        RefersTo="=LAMBDA(AVERAGE(FILTER(y,Regression_Sample_Include)))",
+    )
+
+    drop_local_name(sheet, "Intercept_Only_S")
+    sheet.api.Names.Add(
+        Name="Intercept_Only_S",
+        RefersTo="=LAMBDA(STDEV.S(FILTER(y,Regression_Sample_Include)))",
+    )
+
+    drop_local_name(sheet, "Intercept_Only_SE")
+    sheet.api.Names.Add(
+        Name="Intercept_Only_SE",
+        RefersTo="=LAMBDA(Intercept_Only_S()/SQRT(Intercept_Only_N()))",
+    )
+
+    drop_local_name(sheet, "Intercept_Only_DF")
+    sheet.api.Names.Add(
+        Name="Intercept_Only_DF",
+        RefersTo="=LAMBDA(Intercept_Only_N()-1)",
     )
 
     drop_local_name(sheet, "pred_input")  # remove the legacy cached-range name
@@ -673,31 +720,54 @@ def _write_coefficients(sheet: xw.Sheet, k: int) -> None:
         val(sheet, 20, col, header)
     bold_row(sheet, 20, _C_L, _C_S)
 
-    # Spill row labels aligned to selected predictors
+    # Spill row labels aligned to selected predictors. Zero_Predictors_Selected()
+    # branch computes a real intercept-only model (label "Intercept") instead of
+    # fabricating a result for an unselected variable; NA() when nothing is fit.
     f(
         sheet,
         21,
         _C_L,
-        '=IF(Allow_Intercept,'
+        '=IF(Zero_Predictors_Selected(),'
+        'IF(Allow_Intercept,"Intercept",NA()),'
+        'IF(Allow_Intercept,'
         'VSTACK("Intercept",Coefficient_Name_Col(All_Xs,Ind_Var_Include)),'
-        'VSTACK("",Coefficient_Name_Col(All_Xs,Ind_Var_Include)))',
+        'VSTACK("",Coefficient_Name_Col(All_Xs,Ind_Var_Include))))',
     )
 
-    # Spill anchors at row 21 — pad with blank top row when intercept is disabled
+    # Spill anchors at row 21 — pad with blank top row when intercept is disabled;
+    # zero-predictor branch uses the closed-form intercept-only statistic, or
+    # NA() when there is nothing to fit (no intercept, no predictors).
     f(sheet, 21, _C_M,
-       '=IF(Allow_Intercept,Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include)))')
+       '=IF(Zero_Predictors_Selected(),'
+       'IF(Allow_Intercept,Intercept_Only_Point(),NA()),'
+       'IF(Allow_Intercept,Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_N,
-       '=IF(Allow_Intercept,SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include)))')
+       '=IF(Zero_Predictors_Selected(),'
+       'IF(Allow_Intercept,Intercept_Only_SE(),NA()),'
+       'IF(Allow_Intercept,SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_O,
-       '=IF(Allow_Intercept,T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include)))')
+       '=IF(Zero_Predictors_Selected(),'
+       'IF(Allow_Intercept,Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
+       'IF(Allow_Intercept,T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_P,
-       '=IF(Allow_Intercept,P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include)))')
+       '=IF(Zero_Predictors_Selected(),'
+       'IF(Allow_Intercept,T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
+       'IF(Allow_Intercept,P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_Q,
-       '=IF(Allow_Intercept,CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include)))')
+       '=IF(Zero_Predictors_Selected(),'
+       'IF(Allow_Intercept,Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
+       'IF(Allow_Intercept,CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_R,
-       '=IF(Allow_Intercept,CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include)))')
+       '=IF(Zero_Predictors_Selected(),'
+       'IF(Allow_Intercept,Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
+       'IF(Allow_Intercept,CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
-    f(sheet, 21, _C_S, '=VSTACK("",Beta_Weights(x_s(),y,Allow_Intercept,Regression_Sample_Include))')
+    # No predictor exists to standardize in the zero-predictor branch, so render
+    # blank (not an error) when Allow_Intercept is TRUE; NA() when nothing is fit.
+    f(sheet, 21, _C_S,
+       '=IF(Zero_Predictors_Selected(),'
+       'IF(Allow_Intercept,"",NA()),'
+       'VSTACK("",Beta_Weights(x_s(),y,Allow_Intercept,Regression_Sample_Include)))')
 
     last_coef_row = 21 + k
     for col in [_C_M, _C_N, _C_O, _C_Q, _C_R, _C_S]:
@@ -719,14 +789,24 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         (8, "Confidence Level"),
     ]:
         val(sheet, row, _C_U, label)
+    # Zero_Predictors_Selected() branch computes the closed-form single-mean
+    # prediction interval instead of feeding a fabricated first-predictor
+    # input into Prediction_Interval(); NA() when there is nothing to fit.
     f(
         sheet,
         3,
         _C_V,
-        "=LET(pred_input,VSTACK($V$12,"
-        "IFERROR(FILTER($V$13:$V$30,TAKE(Ind_Var_Include,COLUMNS(All_Xs))),$V$13)),"
+        "=IF(Zero_Predictors_Selected(),"
+        "IF(Allow_Intercept,"
+        "LET(point,Intercept_Only_Point(),"
+        "se_pred,Intercept_Only_S()*SQRT(1+1/Intercept_Only_N()),"
+        "t_crit,T.INV.2T(alpha,Intercept_Only_DF()),"
+        "VSTACK(point,se_pred,t_crit,point-t_crit*se_pred,point+t_crit*se_pred,1-alpha)),"
+        "NA()),"
+        "LET(pred_input,VSTACK($V$12,"
+        "FILTER($V$13:$V$30,TAKE(Ind_Var_Include,COLUMNS(All_Xs)))),"
         "Prediction_Interval(x_s(),y,pred_input,Allow_Intercept,"
-        "Regression_Sample_Include,alpha))",
+        "Regression_Sample_Include,alpha)))",
     )
     sheet.range(rc(3, _C_V), rc(8, _C_V)).number_format = "0.0000"
     border_box(sheet, 1, _C_U, 8, _C_V)

@@ -87,9 +87,22 @@ _ROWS: list[tuple[int, str, str | None]] = [
         "body",
     ),
     (11, "", None),
-    (12, "Optional — point prediction:", "heading"),
+    (12, "Optional — row identifiers:", "heading"),
     (
         13,
+        (
+            'Update data_identifiers (the "Refers To" field) to a single column in the same table '
+            "containing a label for each row (e.g., a name, ID, or date). It must span exactly the "
+            "same rows as All_Xs. These labels appear in the Residual Output section so you can trace "
+            "flagged observations back to the records they came from. If left unset or the FILTER "
+            'fails, rows are labeled generically as "Observation 1", "Observation 2", etc.'
+        ),
+        "body",
+    ),
+    (14, "", None),
+    (15, "Optional — point prediction:", "heading"),
+    (
+        16,
         (
             "To generate a point prediction and prediction interval, enter a value for each "
             "independent variable in the orange cells in column V under the PREDICTION INPUTS heading. "

@@ -508,16 +508,19 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     # well-defined even though FILTER(...,TAKE(Ind_Var_Include,...)) has
     # nothing to select. Bypasses x_s()/Coefficients()/Prediction_Interval()
     # entirely since Excel cannot represent a valid zero-column array.
+    # Intercept_Only_N uses COUNTIF (not FILTER) so it never errors, even
+    # when Regression_Sample_Include has zero TRUE rows — callers guard on
+    # its value before invoking the FILTER/STDEV.S-based helpers below.
     drop_local_name(sheet, "Intercept_Only_N")
     sheet.api.Names.Add(
         Name="Intercept_Only_N",
-        RefersTo="=LAMBDA(COUNT(FILTER(y,Regression_Sample_Include)))",
+        RefersTo="=LAMBDA(COUNTIF(Regression_Sample_Include,TRUE))",
     )
 
     drop_local_name(sheet, "Intercept_Only_Point")
     sheet.api.Names.Add(
         Name="Intercept_Only_Point",
-        RefersTo="=LAMBDA(AVERAGE(FILTER(y,Regression_Sample_Include)))",
+        RefersTo="=LAMBDA(AVERAGEIF(Regression_Sample_Include,TRUE,y))",
     )
 
     drop_local_name(sheet, "Intercept_Only_S")
@@ -728,7 +731,7 @@ def _write_coefficients(sheet: xw.Sheet, k: int) -> None:
         21,
         _C_L,
         '=IF(Zero_Predictors_Selected(),'
-        'IF(Allow_Intercept,"Intercept",NA()),'
+        'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA()),'
         'IF(Allow_Intercept,'
         'VSTACK("Intercept",Coefficient_Name_Col(All_Xs,Ind_Var_Include)),'
         'VSTACK("",Coefficient_Name_Col(All_Xs,Ind_Var_Include))))',
@@ -736,30 +739,32 @@ def _write_coefficients(sheet: xw.Sheet, k: int) -> None:
 
     # Spill anchors at row 21 — pad with blank top row when intercept is disabled;
     # zero-predictor branch uses the closed-form intercept-only statistic, or
-    # NA() when there is nothing to fit (no intercept, no predictors).
+    # NA() when there is nothing to fit. The mean (M) only needs one observation;
+    # SE/t/p/CI (N-R) need at least two to estimate variance, so they're guarded
+    # separately rather than sharing the N>=1 check used for the mean.
     f(sheet, 21, _C_M,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(Allow_Intercept,Intercept_Only_Point(),NA()),'
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA()),'
        'IF(Allow_Intercept,Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_N,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(Allow_Intercept,Intercept_Only_SE(),NA()),'
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_O,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(Allow_Intercept,Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_P,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(Allow_Intercept,T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
        'IF(Allow_Intercept,P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_Q,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(Allow_Intercept,Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_R,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(Allow_Intercept,Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     # No predictor exists to standardize in the zero-predictor branch, so render
@@ -797,7 +802,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         3,
         _C_V,
         "=IF(Zero_Predictors_Selected(),"
-        "IF(Allow_Intercept,"
+        "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),"
         "LET(point,Intercept_Only_Point(),"
         "se_pred,Intercept_Only_S()*SQRT(1+1/Intercept_Only_N()),"
         "t_crit,T.INV.2T(alpha,Intercept_Only_DF()),"

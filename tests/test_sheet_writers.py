@@ -9,6 +9,7 @@ from lambda_catalog.workbook_helpers import add_expression_format, excel_color
 from lambda_catalog.write_sheet_regression import (
     _C_L,
     _C_M,
+    _C_N,
     _C_P,
     _C_Q,
     _C_S,
@@ -68,6 +69,16 @@ def test_x_s_and_coefficient_name_col_no_longer_fall_back_to_first_predictor() -
     assert "TAKE(headers,1)" not in coefficient_name_col_formula
 
 
+def test_intercept_only_n_does_not_depend_on_filter() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _setup_regression_names(sheet)
+
+    intercept_only_n_formula = sheet.api.Names.by_short_name("Intercept_Only_N").RefersTo
+    assert "FILTER" not in intercept_only_n_formula
+    assert "COUNTIF(Regression_Sample_Include,TRUE)" in intercept_only_n_formula
+
+
 def test_prediction_interval_binds_selected_inputs_in_the_cell_formula() -> None:
     sheet = RecordingSheet(name="Regression")
 
@@ -89,10 +100,13 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     label_formula = sheet.cell(21, _C_L).api.Formula2
     assert label_formula.startswith("=IF(Zero_Predictors_Selected(),")
-    assert 'IF(Allow_Intercept,"Intercept",NA())' in label_formula
+    assert 'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA())' in label_formula
 
     coefficient_formula = sheet.cell(21, _C_M).api.Formula2
-    assert "Intercept_Only_Point()" in coefficient_formula
+    assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
+
+    se_formula = sheet.cell(21, _C_N).api.Formula2
+    assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
 
     beta_formula = sheet.cell(21, _C_S).api.Formula2
     assert 'IF(Allow_Intercept,"",NA())' in beta_formula

@@ -69,6 +69,10 @@ class CatalogFunction:
         Tag identifying which test sheet this function belongs to.
     number_format : str
         Excel number format string for test result cells.
+    notes : str
+        Tooltip text (max 255 characters) written to the workbook's defined-name
+        ``comment`` attribute, shown by Excel in Name Manager and formula-bar
+        autocomplete.
     """
 
     name: str

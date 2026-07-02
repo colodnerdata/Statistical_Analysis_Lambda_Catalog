@@ -174,6 +174,51 @@ _ROWS: list[tuple[int, str, str | None]] = [
         ),
         "body",
     ),
+    (23, "", None),
+    (24, "Worked example — Status (Developed / Developing) in the Life Expectancy Data:", "heading"),
+    (
+        25,
+        (
+            "The Life Expectancy Data table's Status column labels each country-year Developed or "
+            "Developing and is the dataset's one categorical variable. Before coding it, move the "
+            "Full_Data column out of the predictor block so the numeric predictors end at the "
+            "table's right edge: right-click the Full_Data header → Cut, then right-click the "
+            "Life expectancy header → Insert Cut Cells. A TRUE/FALSE mask column cannot sit inside "
+            "the All_Xs span, and every named range that references the table by column name "
+            "(y, Regression_Sample_Include, data_identifiers) follows the move automatically."
+        ),
+        "body",
+    ),
+    (
+        26,
+        (
+            "Then, in the header row of the first empty column to the right of the table, enter "
+            "Dummy_Levels; in the first data row directly beneath it, enter Dummy_Code, reusing "
+            "Full_Data as the include mask:\n\n"
+            '=Dummy_Levels(LifeExpectancyData[Status], "Developed")\n'
+            '=Dummy_Code(LifeExpectancyData[Status], "Developed", LifeExpectancyData[Full_Data])\n\n'
+            "Developed sorts first, so it would be the default reference anyway; it is passed "
+            "explicitly here to make the choice visible. With two levels and one dropped, a single "
+            "label spills — Developing — above a single indicator column: 1 for Developing rows, "
+            '0 for Developed rows, and "" where Full_Data is FALSE.'
+        ),
+        "body",
+    ),
+    (
+        27,
+        (
+            "Finally, update All_Xs in the Name Manager to span from Adult Mortality through the "
+            "new Developing column. Because the range now extends one column past the table's "
+            "edge, use a regular reference rather than a structured one — with the column move "
+            "above, that is:\n\n"
+            "='Life Expectancy Data'!$F$2:$X$2939\n\n"
+            "Developing then appears with its own toggle in the MODEL SELECTION zone like any "
+            "other predictor, and its coefficient estimates how much life expectancy differs for "
+            "developing countries relative to developed ones, holding the other predictors "
+            "constant."
+        ),
+        "body",
+    ),
 ]
 
 

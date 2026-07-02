@@ -114,6 +114,66 @@ _ROWS: list[tuple[int, str, str | None]] = [
         ),
         "body",
     ),
+    (17, "", None),
+    (18, "Optional — categorical predictors (factor / dummy coding):", "heading"),
+    (
+        19,
+        (
+            "The regression functions require numeric predictors, so a categorical variable "
+            "(e.g., Region or Treatment_Group) cannot be included in All_Xs directly. To analyze "
+            "a categorical variable as a factor in the regression, transform it into dummy "
+            "variables — one 0/1 indicator column per category level — using the built-in "
+            "Dummy_Levels and Dummy_Code functions. Dummy_Levels returns the labels of the levels "
+            "that become columns; Dummy_Code returns the matching matrix of 1s and 0s, "
+            "with one row per row of your data."
+        ),
+        "body",
+    ),
+    (
+        20,
+        (
+            "Place the dummy columns in the first empty columns to the right of your data table, "
+            "leaving no gap, so that All_Xs can span your numeric predictor columns and the dummy "
+            "columns as one contiguous block. In the header row, enter Dummy_Levels to spill the "
+            "retained level labels; in the first data row directly beneath it, enter Dummy_Code "
+            "to spill the indicator matrix:\n\n"
+            "=Dummy_Levels(YourTable[Category_Column])\n"
+            "=Dummy_Code(YourTable[Category_Column])\n\n"
+            "If Excel automatically expands the table to absorb the new column, press Ctrl+Z once "
+            "to undo the expansion — spilled arrays cannot be placed inside a structured table."
+        ),
+        "body",
+    ),
+    (
+        21,
+        (
+            "Both functions sort the category levels and drop one reference level. By default the "
+            "reference is the first level in sort order; to choose it yourself, pass it as the "
+            "second argument, e.g. =Dummy_Code(YourTable[Region], \"West\"). One level must always "
+            "be dropped when the model includes an intercept: with every level present, the dummy "
+            "columns would sum to 1 in every row and duplicate the intercept column, making the "
+            "fit impossible (perfect multicollinearity). Each dummy coefficient is then read as "
+            "the average difference in the dependent variable between that level and the reference "
+            "level, holding the other predictors constant. If the reference you name does not "
+            "appear in the data, both functions return an error message rather than silently "
+            "keeping the redundant column."
+        ),
+        "body",
+    ),
+    (
+        22,
+        (
+            "Finally, open the Name Manager and extend All_Xs to include the new dummy columns. "
+            "The predictor names shown in the MODEL SELECTION and PREDICTOR SUMMARY zones are read "
+            "from the header row directly above All_Xs, which is why the Dummy_Levels labels belong "
+            "in that row. Rows whose category cell is blank spill \"\" across every dummy column, so "
+            "a Data_Completeness-based Regression_Sample_Include mask (see above) excludes those "
+            "rows automatically. You can also pass the same include mask as the third argument to "
+            "both functions to blank out excluded rows explicitly:\n\n"
+            '=Dummy_Code(YourTable[Region], "West", YourTable[Include])'
+        ),
+        "body",
+    ),
 ]
 
 

@@ -2457,6 +2457,62 @@
       "description": "GoF_Kolmogorov_Smirnov computes the Kolmogorov-Smirnov goodness-of-fit statistic: D = max(D⁺, D⁻) where D⁺ = maxᵢ(i/n − F(X₍ᵢ₎)) and D⁻ = maxᵢ(F(X₍ᵢ₎) − (i−1)/n). This is the maximum vertical distance between the empirical CDF and the fitted CDF.\n\nK-S is sensitive to the single largest deviation between the empirical and fitted distributions, making it complementary to A-D (which weights tails more heavily). Lower D indicates a better fit. D is bounded on [0, 1]; values near 0 mean the fitted CDF closely tracks the empirical CDF.",
       "plain_language_summary": "Kolmogorov-Smirnov D = max|F_n(xᵢ) − F(xᵢ)| (lower = better fit).",
       "notes": "Kolmogorov-Smirnov D = max|F_n(xᵢ) − F(xᵢ)|. Maximum deviation between empirical and fitted CDFs. Lower = better."
+    },
+    {
+      "name": "Dummy_Levels",
+      "category": "Data Transformation",
+      "subcategory": "Categorical & Model Construction",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(category, [reference], [include],\n    LET(\n        inc,         IF(ISOMITTED(include), TRUE, include),\n        x,           TOCOL(category, 0),\n        x_inc,       FILTER(x, (x<>\"\") * inc),\n        All_Levels,  SORT(UNIQUE(x_inc)),\n        ref,         IF(ISOMITTED(reference), INDEX(All_Levels, 1), reference),\n        ref_exists,  ISNUMBER(MATCH(ref, All_Levels, 0)),\n        Levels,      FILTER(All_Levels, All_Levels <> ref),\n        IF(ref_exists, TRANSPOSE(Levels), \"ERROR: reference level not found in included sample\")\n    )\n)",
+      "arguments": [
+        {
+          "name": "category",
+          "description": "single-column categorical data range",
+          "optional": false
+        },
+        {
+          "name": "reference",
+          "description": "the level to drop (treatment coding); when omitted, the first sorted level is dropped",
+          "optional": true
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted all non-blank rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "1 × k horizontal vector of retained category labels (sorted, reference level removed)",
+      "description": "Dummy_Levels returns the set of category labels that will become dummy columns after treatment coding. It sorts all levels present in the included sample, drops the reference level, and returns the remainder as a horizontal row vector.\n\nWhen reference is omitted, the first sorted level is used as the reference (alphabetically first). When reference is supplied, it is validated against the included sample; if not found, returns an error string rather than silently dropping the wrong column.\n\nUse Dummy_Levels as a header row above Dummy_Code to label dummy columns, or to inspect which levels the model will contain before fitting.",
+      "plain_language_summary": "The k category labels that become dummy columns (sorted, reference level removed).",
+      "notes": "Retained category labels after treatment coding: sorted levels from the included sample with the reference level dropped. Use as a header row above the Dummy_Code matrix."
+    },
+    {
+      "name": "Dummy_Code",
+      "category": "Data Transformation",
+      "subcategory": "Categorical & Model Construction",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(category, [reference], [include],\n    LET(\n        inc,         IF(ISOMITTED(include), TRUE, include),\n        x,           TOCOL(category, 0),\n        x_inc,       FILTER(x, (x<>\"\") * inc),\n        All_Levels,  SORT(UNIQUE(x_inc)),\n        ref,         IF(ISOMITTED(reference), INDEX(All_Levels, 1), reference),\n        ref_exists,  ISNUMBER(MATCH(ref, All_Levels, 0)),\n        Levels,      FILTER(All_Levels, All_Levels <> ref),\n        k,           ROWS(Levels),\n        row_active,  (x<>\"\") * inc,\n        Matrix,      MAKEARRAY(\n                         ROWS(x), k,\n                         LAMBDA(r, c,\n                             IF(\n                                 INDEX(row_active, r),\n                                 --(INDEX(x, r) = INDEX(Levels, c)),\n                                 \"\"\n                             )\n                         )\n                     ),\n        IF(ref_exists, Matrix, \"ERROR: reference level not found in included sample\")\n    )\n)",
+      "arguments": [
+        {
+          "name": "category",
+          "description": "single-column categorical data range",
+          "optional": false
+        },
+        {
+          "name": "reference",
+          "description": "the level to drop (treatment coding); when omitted, the first sorted level is dropped",
+          "optional": true
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted all non-blank rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × k matrix of 0/1 dummy indicators aligned to every source row; excluded rows return \"\" in all columns",
+      "description": "Dummy_Code returns a treatment-coded dummy matrix for a categorical variable. For each included row, the value is compared to each retained level and encoded as 1 (match) or 0 (no match). Excluded rows (include = FALSE or blank category value) return \"\" across all k columns so the spilled array stays row-aligned with the source data.\n\nThe reference level is dropped to avoid perfect multicollinearity when the design includes an intercept. Reference-level validation is enforced: if the supplied reference does not appear in the included sample, the function returns an error string rather than silently failing to drop a column — an invalid reference reintroduces the exact collinearity the function exists to prevent.\n\nPair with Dummy_Levels to get the matching column headers. Pass the output directly to HSTACK to assemble a multi-predictor design for Coefficients, Prediction_Interval, and related functions.",
+      "plain_language_summary": "Treatment-coded dummy matrix for a categorical predictor, with excluded rows as blank and the reference level dropped.",
+      "notes": "Treatment-coded 0/1 dummy matrix for a categorical predictor, row-aligned to the source data. The reference level is dropped to avoid collinearity with the intercept; excluded rows return \"\" in every column."
     }
   ],
   "regression_sheet_notes": {

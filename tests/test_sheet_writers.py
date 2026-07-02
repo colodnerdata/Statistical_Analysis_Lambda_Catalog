@@ -7,11 +7,16 @@ from lambda_catalog.sheet_styles import (
 )
 from lambda_catalog.workbook_helpers import add_expression_format, excel_color
 from lambda_catalog.write_sheet_regression import (
+    _C_L,
+    _C_M,
+    _C_N,
     _C_P,
     _C_Q,
+    _C_S,
     _C_X,
     _C_Y,
     _setup_local_names as _setup_regression_names,
+    _write_coefficients,
     _write_prediction_interval,
     _write_regression_outputs_header,
     _write_residuals,
@@ -48,7 +53,30 @@ def test_regression_predictor_name_preserves_a_multicolumn_range() -> None:
     x_s_formula = sheet.api.Names.by_short_name("x_s").RefersTo
     assert x_s_formula.startswith("=LAMBDA(")
     assert "TRANSPOSE(FILTER(TRANSPOSE(All_Xs)" in x_s_formula
-    assert "TAKE(All_Xs,,1)" in x_s_formula
+
+
+def test_x_s_and_coefficient_name_col_no_longer_fall_back_to_first_predictor() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _setup_regression_names(sheet)
+
+    x_s_formula = sheet.api.Names.by_short_name("x_s").RefersTo
+    assert "IFERROR" not in x_s_formula
+    assert "TAKE(All_Xs,,1)" not in x_s_formula
+
+    coefficient_name_col_formula = sheet.api.Names.by_short_name("Coefficient_Name_Col").RefersTo
+    assert "IFERROR" not in coefficient_name_col_formula
+    assert "TAKE(headers,1)" not in coefficient_name_col_formula
+
+
+def test_intercept_only_n_does_not_depend_on_filter() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _setup_regression_names(sheet)
+
+    intercept_only_n_formula = sheet.api.Names.by_short_name("Intercept_Only_N").RefersTo
+    assert "FILTER" not in intercept_only_n_formula
+    assert "COUNTIF(Regression_Sample_Include,TRUE)" in intercept_only_n_formula
 
 
 def test_prediction_interval_binds_selected_inputs_in_the_cell_formula() -> None:
@@ -58,9 +86,30 @@ def test_prediction_interval_binds_selected_inputs_in_the_cell_formula() -> None
 
     formula = sheet.cell(3, 22).api.Formula2
     assert formula is not None
-    assert formula.startswith("=LET(pred_input,VSTACK($V$12,")
-    assert "FILTER($V$13:$V$30" in formula
+    assert formula.startswith("=IF(Zero_Predictors_Selected(),")
+    assert "IFERROR" not in formula
+    assert "LET(pred_input,VSTACK($V$12,FILTER($V$13:$V$30" in formula
     assert "Prediction_Interval(x_s(),y,pred_input" in formula
+    assert "Intercept_Only_Point()" in formula
+
+
+def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_coefficients(sheet, k=18)
+
+    label_formula = sheet.cell(21, _C_L).api.Formula2
+    assert label_formula.startswith("=IF(Zero_Predictors_Selected(),")
+    assert 'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA())' in label_formula
+
+    coefficient_formula = sheet.cell(21, _C_M).api.Formula2
+    assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
+
+    se_formula = sheet.cell(21, _C_N).api.Formula2
+    assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
+
+    beta_formula = sheet.cell(21, _C_S).api.Formula2
+    assert 'IF(Allow_Intercept,"",NA())' in beta_formula
 
 
 def test_regression_outputs_header_writes_predicted_variable_readout() -> None:

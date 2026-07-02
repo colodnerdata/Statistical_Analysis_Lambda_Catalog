@@ -1,3 +1,5 @@
+# pylint: disable=import-outside-toplevel,missing-class-docstring,missing-function-docstring
+# pylint: disable=missing-module-docstring,reimported
 from __future__ import annotations
 
 import math
@@ -112,11 +114,11 @@ class DescriptiveStatsTests(unittest.TestCase):
 
     def test_mean(self) -> None:
         result = descriptive_stats(self.data)
-        self.assertAlmostEqual(result["mean"], np.mean(self.data), places=10)
+        self.assertAlmostEqual(float(result["mean"]), float(np.mean(self.data)), places=10)
 
     def test_sd_uses_ddof1(self) -> None:
         result = descriptive_stats(self.data)
-        self.assertAlmostEqual(result["sd"], np.std(self.data, ddof=1), places=10)
+        self.assertAlmostEqual(float(result["sd"]), float(np.std(self.data, ddof=1)), places=10)
 
     def test_mode_with_unique_mode(self) -> None:
         result = descriptive_stats(self.data)

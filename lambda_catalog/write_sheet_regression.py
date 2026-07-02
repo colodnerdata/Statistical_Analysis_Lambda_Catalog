@@ -23,6 +23,7 @@ Layout (five horizontal zones):
   Col X–AI       — Residual Output: heading + row identifiers (data_identifiers) in X;
                    11 diagnostics columns (Y–AI), spills downward from row 3
 """
+# pylint: disable=too-many-lines
 from __future__ import annotations
 
 from typing import Any
@@ -113,7 +114,7 @@ def _named_range_column_count(sheet: xw.Sheet, name: str) -> int:
             f"Could not determine the column count of "
             f"sheet-scoped name {name!r} on sheet {sheet.name!r}."
         ) from exc
-    
+
 # ── Visual formatting helpers ─────────────────────────────────────────────────
 
 
@@ -126,7 +127,7 @@ def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
     cell_api = sheet.range(rc(row, col)).api
     try:
         cell_api.ClearComments()
-    except Exception:
+    except Exception:  # pylint: disable=broad-exception-caught
         pass
     cell_api.AddComment(text)
     cell_api.Comment.Visible = False
@@ -656,8 +657,18 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     section_heading(sheet, 3, _C_O, "DIAGNOSTICS")
     for row, label, formula in [
         (4,  "PRESS",          "=PRESS(x_s(),y,Allow_Intercept,Regression_Sample_Include)"),
-        (5,  "PRESS R²",  "=1-PRESS(x_s(),y,Allow_Intercept,Regression_Sample_Include)/SS_Total(y,Allow_Intercept,Regression_Sample_Include)"),
-        (6,  "Mean Leverage",  "=(DF_Regression(x_s())+IF(Allow_Intercept,1,0))/Observations(y,Regression_Sample_Include)"),
+        (
+            5,
+            "PRESS R²",
+            "=1-PRESS(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+            "/SS_Total(y,Allow_Intercept,Regression_Sample_Include)",
+        ),
+        (
+            6,
+            "Mean Leverage",
+            "=(DF_Regression(x_s())+IF(Allow_Intercept,1,0))"
+            "/Observations(y,Regression_Sample_Include)",
+        ),
         (7,  "AIC",            "=AIC(x_s(),y,Allow_Intercept,Regression_Sample_Include)"),
         (8,  "BIC",            "=BIC(x_s(),y,Allow_Intercept,Regression_Sample_Include)"),
         (9,  "AICc",           "=AICc(x_s(),y,Allow_Intercept,Regression_Sample_Include)"),
@@ -745,27 +756,36 @@ def _write_coefficients(sheet: xw.Sheet, k: int) -> None:
     f(sheet, 21, _C_M,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA()),'
-       'IF(Allow_Intercept,Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
+       'IF(Allow_Intercept,Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),'
+       'VSTACK("",Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_N,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
+       'IF(Allow_Intercept,SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include),'
+       'VSTACK("",SE_Coefficients(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_O,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
+       'IF(Allow_Intercept,T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include),'
+       'VSTACK("",T_Stats(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_P,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
-       'IF(Allow_Intercept,P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
+       'T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
+       'IF(Allow_Intercept,P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include),'
+       'VSTACK("",P_Values(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_Q,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
+       'Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
+       'IF(Allow_Intercept,CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include),'
+       'VSTACK("",CI_Lower(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     f(sheet, 21, _C_R,
        '=IF(Zero_Predictors_Selected(),'
-       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include),VSTACK("",CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
+       'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
+       'Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
+       'IF(Allow_Intercept,CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include),'
+       'VSTACK("",CI_Upper(x_s(),y,Allow_Intercept,Regression_Sample_Include))))')
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     # No predictor exists to standardize in the zero-predictor branch, so render
     # blank (not an error) when Allow_Intercept is TRUE; NA() when nothing is fit.
@@ -872,20 +892,31 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     f(sheet, 3, _C_Y,  "=Dependent_Var(y,Regression_Sample_Include)")
     f(sheet, 3, _C_Z,  "=Predictions(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
     f(sheet, 3, _C_AA, "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
-    f(sheet, 3, _C_AB, "=Dependent_Var(y,Regression_Sample_Include)-LOOCV_prediction(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
+    f(
+        sheet, 3, _C_AB,
+        "=Dependent_Var(y,Regression_Sample_Include)"
+        "-LOOCV_prediction(x_s(),y,Allow_Intercept,Regression_Sample_Include)",
+    )
     f(sheet, 3, _C_AC, "=Hat_diagonal(x_s(),Allow_Intercept,Regression_Sample_Include)")
     f(sheet, 3, _C_AD, "=Studentized_Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
     f(sheet, 3, _C_AE, "=Cooks_Distance(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
     f(sheet, 3, _C_AF, "=SORT(Normal_Scores(y,Regression_Sample_Include))")
     f(sheet, 3, _C_AG, "=Studentized_Residuals_Ranked(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
-    f(sheet, 3, _C_AH, "=SQRT(ABS(Studentized_Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)))")
+    f(
+        sheet, 3, _C_AH,
+        "=SQRT(ABS(Studentized_Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)))",
+    )
     # PRESS Residual: e_i / (1 - h_i) — large values flag high-influence observations.
-    f(sheet, 3, _C_AI, "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)/(1-Hat_diagonal(x_s(),Allow_Intercept,Regression_Sample_Include))")
+    f(
+        sheet, 3, _C_AI,
+        "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+        "/(1-Hat_diagonal(x_s(),Allow_Intercept,Regression_Sample_Include))",
+    )
     sheet.range(f"{col_letter(_C_Z)}:{col_letter(_C_AI)}").number_format = "0.0000"
 
 
-def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
+def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
     start_left = sheet.range(a1(1, _C_AI + 1)).left
     start_top = sheet.range("A3").top
@@ -1051,10 +1082,16 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:
 
         if title == "Normal Q-Q":
             _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartQQX", "RegChartQQY")
-            _add_identity_line(chart, x_addr)
+            if x_addr is None:
+                raise AssertionError("Normal Q-Q chart requires an x-axis range")
+            identity_ref: str = x_addr
+            _add_identity_line(chart, identity_ref)
         if title == "Actual vs. Predicted":
             _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartFitY", "RegChartActY")
-            _add_identity_line(chart, x_addr)
+            if x_addr is None:
+                raise AssertionError("Actual vs. Predicted chart requires an x-axis range")
+            identity_ref = x_addr
+            _add_identity_line(chart, identity_ref)
 
 
 # ── Public entry point ────────────────────────────────────────────────────────
@@ -1115,7 +1152,7 @@ def write_regression_output_sheet(
 
     # Column widths (U = prediction labels, V = prediction values;
     # X = row identifiers, diagnostics start at Y)
-    for col_letter, width in {
+    for column_letter, width in {
         "A": 28, "B": 14,
         "C": 2,   # thin gap
         "D": 28, "E": 8, "F": 10, "G": 10, "H": 8, "I": 8, "J": 10,
@@ -1128,7 +1165,7 @@ def write_regression_output_sheet(
         "Y": 10, "Z": 9, "AA": 10, "AB": 9, "AC": 9, "AD": 12, "AE": 9, "AF": 14,
         "AG": 17, "AH": 14, "AI": 15,  # Scale-Location / PRESS Residual
     }.items():
-        sheet.range(f"{col_letter}:{col_letter}").column_width = width
+        sheet.range(f"{column_letter}:{column_letter}").column_width = width
 
     # Charts must be positioned after column widths are set so that
     # sheet.range("AI1").left reflects the final column layout.

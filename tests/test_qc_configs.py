@@ -6,6 +6,7 @@ internally consistent, cross-consistent between config types, and survive
 cache round-trips. Since Excel is unavailable in CI, this validates the
 Python-side QC oracle rather than the LAMBDA formulas themselves.
 """
+# pylint: disable=import-outside-toplevel,missing-function-docstring,too-many-public-methods,unused-variable
 from __future__ import annotations
 
 import json
@@ -13,6 +14,7 @@ import math
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any, ClassVar
 
 from lambda_catalog.analyze_life_expectancy import (
     DEFAULT_INPUT_CSV,
@@ -61,6 +63,8 @@ _SKIP_MSG = "Life Expectancy CSV not found"
 @unittest.skipUnless(_has_csv(), _SKIP_MSG)
 class TestScalarConfigs(unittest.TestCase):
     """Verify build_mlr_row_configs produces correct scalar expected values."""
+
+    configs: ClassVar[list[Any]]
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -180,6 +184,8 @@ class TestScalarConfigs(unittest.TestCase):
 class TestVectorConfigs(unittest.TestCase):
     """Verify build_mlr_vector_row_configs outputs."""
 
+    configs: ClassVar[list[Any]]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.configs = build_mlr_vector_row_configs(_CSV)
@@ -241,6 +247,8 @@ class TestVectorConfigs(unittest.TestCase):
 @unittest.skipUnless(_has_csv(), _SKIP_MSG)
 class TestObservationConfigs(unittest.TestCase):
     """Verify build_mlr_observation_row_configs outputs."""
+
+    configs: ClassVar[list[Any]]
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -306,6 +314,10 @@ class TestObservationConfigs(unittest.TestCase):
 class TestCrossConsistency(unittest.TestCase):
     """Verify scalar, vector, and observation configs agree for same (k, intercept)."""
 
+    scalar_configs: ClassVar[list[Any]]
+    vector_configs: ClassVar[list[Any]]
+    obs_configs: ClassVar[list[Any]]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.scalar_configs = build_mlr_row_configs(_CSV)
@@ -354,6 +366,9 @@ class TestCrossConsistency(unittest.TestCase):
 @unittest.skipUnless(_has_csv(), _SKIP_MSG)
 class TestRegressionSheetConfigs(unittest.TestCase):
     """Verify regression sheet QC configs are complete and self-consistent."""
+
+    configs: ClassVar[list[Any]]
+    named_configs: ClassVar[list[Any]]
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -514,6 +529,10 @@ class TestRegressionSheetConfigs(unittest.TestCase):
 @unittest.skipUnless(_has_csv(), _SKIP_MSG)
 class TestCacheRoundTrip(unittest.TestCase):
     """Verify that QC configs survive JSON serialization/deserialization."""
+
+    vector_configs: ClassVar[list[Any]]
+    obs_configs: ClassVar[list[Any]]
+    reg_configs: ClassVar[list[Any]]
 
     @classmethod
     def setUpClass(cls) -> None:

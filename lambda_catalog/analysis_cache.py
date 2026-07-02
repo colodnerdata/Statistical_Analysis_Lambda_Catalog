@@ -81,7 +81,12 @@ def _deserialize_observation_configs(
 ) -> list[tuple[int, bool, RegressionObservationVectors]]:
     result = []
     for item in data:
-        vectors = RegressionObservationVectors(**{k: tuple(v) for k, v in item.items() if k not in {"k", "allow_intercept"}})
+        vector_fields = {
+            k: tuple(v)
+            for k, v in item.items()
+            if k not in {"k", "allow_intercept"}
+        }
+        vectors = RegressionObservationVectors(**vector_fields)
         result.append((item["k"], item["allow_intercept"], vectors))
     return result
 

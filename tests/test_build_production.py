@@ -1,8 +1,10 @@
 """Tests for the production build driver that do not require Excel."""
+# pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
 from pathlib import Path
 from types import SimpleNamespace
+from typing import cast
 
 import build_production
 from lambda_catalog.workbook_builder import (
@@ -151,7 +153,7 @@ def test_main_skips_data_table_recalculation_when_requested(
 
     build_production.main()
 
-    build_call = next(value for name, value in calls if name == "build")
+    build_call = cast(dict[str, object], next(value for name, value in calls if name == "build"))
     assert build_call["recalculate"] is False
     assert "  Recalculate:    skipped" in capsys.readouterr().out
     assert not any(name == "recalculate" for name, _ in calls)

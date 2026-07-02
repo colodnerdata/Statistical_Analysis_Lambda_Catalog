@@ -5,6 +5,7 @@ import argparse
 import subprocess
 import sys
 import time
+from collections.abc import Callable
 from pathlib import Path
 
 import xlwings as xw
@@ -12,7 +13,6 @@ import xlwings as xw
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
-    XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
     XL_CALCULATION_SEMIAUTOMATIC,
     _delete_sheet_if_present,
@@ -38,24 +38,59 @@ DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 _QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")
+_RPC_FAILURE_PHRASES = (
+    "remote procedure call failed",
+    "rpc server is unavailable",
+)
+
+
+def _is_rpc_failure(exc: BaseException) -> bool:
+    """Return True when Excel's COM server disappeared mid-call."""
+    message = str(exc).lower()
+    return any(phrase in message for phrase in _RPC_FAILURE_PHRASES)
+
+
+def _close_workbook_quietly(workbook: xw.Book | None) -> None:
+    """Best-effort close; Excel may already be gone after an RPC failure."""
+    if workbook is None:
+        return
+    try:
+        workbook.close()
+    except OPEN_WORKBOOK_ERRORS:
+        pass
+
+
+def _quit_app_quietly(app: xw.App | None) -> None:
+    """Best-effort quit; cleanup must not mask the original Excel error."""
+    if app is None:
+        return
+    try:
+        app.quit()
+    except OPEN_WORKBOOK_ERRORS:
+        pass
 
 
 def _recalculate_and_save(workbook_path: Path) -> None:
     """Fully calculate Data Tables after name sync, then save semiautomatic mode."""
+    app: xw.App | None = None
+    workbook: xw.Book | None = None
     try:
-        with xw.App(visible=False, add_book=False) as app:
-            app.api.DisplayAlerts = False
-            app.api.AskToUpdateLinks = False
-            workbook = app.books.open(str(workbook_path))
-            try:
-                app.api.Calculation = XL_CALCULATION_AUTOMATIC
-                app.api.CalculateFullRebuild()
-                app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
-                workbook.save(str(workbook_path))
-            finally:
-                workbook.close()
+        app = xw.App(visible=False, add_book=False)
+        app.api.DisplayAlerts = False
+        app.api.AskToUpdateLinks = False
+
+        workbook = app.books.open(str(workbook_path))
+        try:
+            app.api.Calculation = XL_CALCULATION_MANUAL
+            app.api.CalculateFullRebuild()
+            app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
+            workbook.save(str(workbook_path))
+        finally:
+            _close_workbook_quietly(workbook)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "recalculate and save", exc)
+    finally:
+        _quit_app_quietly(app)
 
 
 def _backup_unopenable_workbook(workbook_path: Path) -> Path:
@@ -220,16 +255,42 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print timing information for each build phase.",
     )
+    parser.add_argument(
+        "--skip-data-table-calculations",
+        action="store_true",
+        help=(
+            "Skip the final Excel CalculateFullRebuild phase that evaluates "
+            "Data Tables. The workbook is still written, names are synced, "
+            "and formulas/Data Tables can calculate later in Excel."
+        ),
+    )
     return parser.parse_args()
 
 
-def _retry_on_open(action_label: str, fn) -> None:
+def _retry_on_open(
+    action_label: str,
+    fn: Callable[[], None],
+    *,
+    retry_rpc: bool = False,
+    max_rpc_retries: int = 1,
+) -> None:
     """Call fn(); if it raises 'likely open in Excel', prompt and retry just fn()."""
+    rpc_retries = 0
     while True:
         try:
             fn()
             return
         except RuntimeError as exc:
+            if retry_rpc and _is_rpc_failure(exc) and rpc_retries < max_rpc_retries:
+                rpc_retries += 1
+                print(
+                    "\nExcel's COM session dropped during recalculation; "
+                    "retrying in a fresh Excel instance...",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                time.sleep(2)
+                continue
             if "likely open in Excel" not in str(exc):
                 raise
             if not sys.stdin.isatty():
@@ -266,13 +327,18 @@ def main() -> None:
     # Phase 2: recalculate Data Tables and save.
     # This is a quick step; if the workbook is open in Excel now (e.g. the user
     # opened it to inspect progress), only this step is retried — not the full build.
-    _t = time.monotonic()
-    _retry_on_open(
-        f"{args.workbook.name} is open in Excel",
-        lambda: _recalculate_and_save(workbook_path),
-    )
-    if args.verbose:
-        print(f"  Recalculate:    {time.monotonic() - _t:.1f}s", flush=True)
+    if args.skip_data_table_calculations:
+        if args.verbose:
+            print("  Recalculate:    skipped", flush=True)
+    else:
+        _t = time.monotonic()
+        _retry_on_open(
+            f"{args.workbook.name} is open in Excel",
+            lambda: _recalculate_and_save(workbook_path),
+            retry_rpc=True,
+        )
+        if args.verbose:
+            print(f"  Recalculate:    {time.monotonic() - _t:.1f}s", flush=True)
 
     if args.validate_reopen:
         _validate_workbook_reopen(workbook_path)

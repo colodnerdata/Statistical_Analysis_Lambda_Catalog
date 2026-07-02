@@ -119,7 +119,10 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
 
     assert sheet.cell(2, _C_P).value == "Predicted Variable"
     assert sheet.cell(2, _C_P).api.Font.Bold is True
+    assert sheet.cell(2, _C_P).color == HEADER_COLOR
     assert sheet.cell(2, _C_Q).api.Formula2 == "=OFFSET(y,-1,0,1,1)"
+    assert sheet.cell(2, _C_Q).api.Font.Bold is True
+    assert sheet.cell(2, _C_Q).color == HEADER_COLOR
 
 
 def test_write_residuals_writes_row_identifier_header_and_falls_back_on_error() -> None:

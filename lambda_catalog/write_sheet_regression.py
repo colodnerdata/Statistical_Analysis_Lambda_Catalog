@@ -629,8 +629,8 @@ def _write_predictor_summary(sheet: xw.Sheet, k: int) -> None:
 
 def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
     section_heading(sheet, 1, _C_L, "REGRESSION OUTPUTS")
-    val(sheet, 2, _C_P, "Predicted Variable")
-    bold(sheet, 2, _C_P)
+    section_heading(sheet, 2, _C_P, "Predicted Variable")
+    section_heading(sheet, 2, _C_Q, "")
     f(sheet, 2, _C_Q, "=OFFSET(y,-1,0,1,1)")
 
 

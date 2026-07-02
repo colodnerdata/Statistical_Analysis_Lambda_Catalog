@@ -370,6 +370,8 @@ def nll_exponential(data: Sequence[float | None], rate: float) -> float:
 
 def nll_weibull(data: Sequence[float | None], shape: float, scale: float) -> float:
     """NLL for Weibull(shape, scale) via scipy.stats.weibull_min."""
+    if shape <= 0.0 or scale <= 0.0:
+        return 1e15
     x = _clean(data)
     log_pdf = scipy_stats.weibull_min.logpdf(x, c=shape, scale=scale)
     if not np.all(np.isfinite(log_pdf)):

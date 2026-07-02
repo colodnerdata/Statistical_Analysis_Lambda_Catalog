@@ -289,7 +289,8 @@ def _retry_on_open(
                     file=sys.stderr,
                     flush=True,
                 )
-                time.sleep(2)
+                if sys.stdin.isatty():
+                    time.sleep(2)
                 continue
             if "likely open in Excel" not in str(exc):
                 raise

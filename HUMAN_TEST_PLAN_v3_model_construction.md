@@ -17,23 +17,23 @@ levels (2000–2015, first-sort reference `2000`), Country has 133 levels.
 
 No edits. The build ships this spec:
 
-| Variable | Role | Include | Type | Reference |
-|---|---|---|---|---|
-| Country | Identifier | — | — | |
-| Year | Predictor | TRUE | Categorical | |
-| Status | Predictor | TRUE | Categorical | |
-| Life expectancy | Response | — | — | |
-| Adult Mortality | Predictor | TRUE | Continuous | |
-| GDP | Predictor | TRUE | Continuous | |
-| Schooling | Predictor | TRUE | Continuous | |
-| (all other numerics) | Predictor | FALSE | Continuous | |
-| Full_Data | Filter | — | — | |
+| Variable | Role | Include | Type | Reference | Order | Transform |
+|---|---|---|---|---|---|---|
+| Country | Identifier | — | — | | | None |
+| Year | Predictor | TRUE | Categorical | | | None |
+| Status | Predictor | TRUE | Categorical | | | None |
+| Life expectancy | Response | — | — | | | None |
+| Adult Mortality | Predictor | TRUE | Continuous | | | None |
+| GDP | Predictor | TRUE | Continuous | | | None |
+| Schooling | Predictor | TRUE | Continuous | | | None |
+| (all other numerics) | Predictor | FALSE | Continuous | | | None |
+| Full_Data | Filter | — | — | | | None |
 
 **Expect:** k = 19 · rows = 2938 · response = `Life expectancy` · responses = 1 ·
 included rows = 1649. Header strip reads, in spec order: `Year: 2001` … `Year: 2015`
 (15 columns), `Status: Developing`, `Adult Mortality`, `GDP`, `Schooling`. Levels
-column: Year = 16, Status = 2, blank elsewhere. C–F gray on every non-Predictor row.
-First filtered label = `Afghanistan|2015`.
+column: Year = 16, Status = 2, blank elsewhere. C–H gray on every non-Predictor row.
+First filtered label = `Afghanistan`.
 
 ## T1 — Reproduce v1: full continuous set, y, filter (simplest behavior)
 

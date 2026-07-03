@@ -452,9 +452,9 @@ class RealCatalogIntegrationTests(unittest.TestCase):
 
     def test_grid_search_helpers_load_with_expected_contracts(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}
-        self.assertIn("Grid_Argmin", functions)
+        self.assertIn("Grid_Argument_Minimum", functions)
         self.assertIn("Grid_Search_Optimum", functions)
-        self.assertEqual(functions["Grid_Argmin"].argument_names, ("grid",))
+        self.assertEqual(functions["Grid_Argument_Minimum"].argument_names, ("grid",))
         self.assertEqual(functions["Grid_Search_Optimum"].argument_names, ("grid",))
 
     def test_grid_search_optimum_uses_scalar_index_and_native_offset(self) -> None:
@@ -474,7 +474,7 @@ class RealCatalogIntegrationTests(unittest.TestCase):
 
     def test_grid_argmin_dynamic_functions_receive_parser_prefixes(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}
-        xml = functions["Grid_Argmin"].workbook_xml_formula_from_display
+        xml = functions["Grid_Argument_Minimum"].workbook_xml_formula_from_display
         for function_name in ("LAMBDA", "LET", "HSTACK", "XMATCH", "TOCOL"):
             self.assertIn(f"_xlfn.{function_name}", xml)
 

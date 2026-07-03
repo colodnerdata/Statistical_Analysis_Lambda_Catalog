@@ -17,7 +17,7 @@ _CALC_START_COL = 2
 _TOTAL_COLS = 9
 
 _STATS: list[tuple[str, str, int, str]] = [
-    ("Observation_Num",        "Observation_Num",        0, "0"),
+    ("Observation_Number",        "Observation_Number",        0, "0"),
     ("Rank_Fraction",          "Rank_Fraction",          4, "0.0000"),
     ("Y_Ranked",               "Y_Ranked",               3, "0.000"),
     ("Normal_Scores",          "Normal_Scores",          3, "0.000"),
@@ -40,7 +40,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 
 def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
     allow_arg = "TRUE" if allow_intercept else "FALSE"
-    if func_name in {"Observation_Num", "Rank_Fraction", "Y_Ranked", "Normal_Scores"}:
+    if func_name in {"Observation_Number", "Rank_Fraction", "Y_Ranked", "Normal_Scores"}:
         return f"={func_name}(y,Regression_Sample_Include)"
     return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},Regression_Sample_Include))"
 

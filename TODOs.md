@@ -25,21 +25,21 @@ Suggested alias names:
 
 | Alias | Canonical |
 |---|---|
-| `R2` | `R_squared` |
-| `ADJ_R2` | `Adjusted_R2` |
+| `R2` | `R_Squared` |
+| `ADJ_R2` | `Adjusted_R_Squared` |
 | `MULT_R` | `Multiple_R` |
 | `SE_REG` | `SE_Regression` |
 | `DW` | `Durbin_Watson` |
 | `QQ_CORR` | `QQ_Correlation` |
-| `DFR` | `DF_Regression` |
-| `DFE` | `DF_Residual` |
-| `DFT` | `DF_Total` |
+| `DFR` | `Regression_Degrees_Of_Freedom` |
+| `DFE` | `Residual_Degrees_Of_Freedom` |
+| `DFT` | `Total_Degrees_Of_Freedom` |
 | `SSR` | `SS_Regression` |
 | `SSE` | `SS_Residual` |
 | `SST` | `SS_Total` |
 | `MSR` | `MS_Regression` |
 | `MSE` | `MS_Residual` |
-| `P_VAL_F` | `P_Value_F` |
+| `P_VAL_F` | `F_Statistic_P_Value` |
 
 **Regression — coefficient vectors**
 
@@ -47,11 +47,11 @@ Suggested alias names:
 |---|---|
 | `COEF` | `Coefficients` |
 | `SE_COEF` | `SE_Coefficients` |
-| `TSTAT` | `T_Stats` |
+| `TSTAT` | `T_Statistics` |
 | `PVALS` | `P_Values` |
-| `CI_LOW` | `CI_Lower` |
-| `CI_UP` | `CI_Upper` |
-| `P_R2` | `Partial_R2` |
+| `CI_LOW` | `Confidence_Interval_Lower` |
+| `CI_UP` | `Confidence_Interval_Upper` |
+| `P_R2` | `Partial_R_Squared` |
 | `P_COR` | `Partial_Correlation` |
 | `BETA_W` | `Beta_Weights` |
 
@@ -62,9 +62,9 @@ Suggested alias names:
 | `PRED` | `Predictions` |
 | `RESID` | `Residuals` |
 | `STDR` | `Studentized_Residuals` |
-| `LEV` | `Hat_diagonal` |
+| `LEV` | `Hat_Diagonal` |
 | `COOK_D` | `Cooks_Distance` |
-| `LOOCV` | `LOOCV_prediction` |
+| `LOOCV` | `LOOCV_Prediction` |
 | `PI` | `Prediction_Interval` |
 
 **Regression — utilities**
@@ -79,14 +79,14 @@ Suggested alias names:
 
 | Alias | Canonical |
 |---|---|
-| `DSTAT` | `Descriptive_Stats` |
+| `DSTAT` | `Descriptive_Statistics` |
 | `NMISS` | `Missing_Count` |
 
 **Univariate — histogram binning**
 
 | Alias | Canonical |
 |---|---|
-| `NBINS` | `num_histogram_bins` |
+| `NBINS` | `Number_Of_Histogram_Bins` |
 | `EDGES` | `Bin_Edges` |
 | `UEDGES` | `Upper_Bin_Edges` |
 | `LEDGES` | `Bin_Lower_Edges` |
@@ -104,7 +104,7 @@ Suggested alias names:
 
 | Alias | Canonical |
 |---|---|
-| `GS_MIN` | `Grid_Argmin` |
+| `GS_MIN` | `Grid_Argument_Minimum` |
 | `GS_OPT` | `Grid_Search_Optimum` |
 
 ---
@@ -146,7 +146,7 @@ Suggested alias names:
 
 ### Weighted regression (WLS)
 
-- TODO: Thread a `[weights]` argument through the core regression LAMBDAs (`Coefficients`, `Predictions`, `Residuals`, `Hat_diagonal`, `Cooks_Distance`, etc.). WLS closes the loop opened by v1's Scale-Location diagnostic.
+- TODO: Thread a `[weights]` argument through the core regression LAMBDAs (`Coefficients`, `Predictions`, `Residuals`, `Hat_Diagonal`, `Cooks_Distance`, etc.). WLS closes the loop opened by v1's Scale-Location diagnostic.
 - TODO: Update the Regression sheet to expose a weights column selector.
 - TODO: Update the Diagnostic Guide to describe which diagnostics change interpretation under WLS.
 

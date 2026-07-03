@@ -23,6 +23,22 @@ Each release maintains a changelog. For distribution to non-git users (e.g. cost
 estimators), a "Version History" sheet inside the workbook mirrors the changelog so the
 history travels with the file.
 
+**Version ladder (current plan):**
+
+| Version | Milestone | Status |
+|---|---|---|
+| v1.0 | Multivariate OLS / MLR | Shipped |
+| v2.0 | Univariate (descriptives, histograms, distribution fitting) | Near complete — engine and sheet built; MoM-vs-MLE decision and QC outstanding |
+| v3.0 | Specification-Driven Regression (roles: Continuous / Categorical / Fixed Effects) | Planned — MAJOR (breaks Regression sheet structure and `x_s()` semantics) |
+| v4.0 | Resampling & Simulation (bootstrap, Monte Carlo) | Planned |
+| v5.0+ | Two-sample, ANOVA, time series, additional roles (Weight, Cluster, Time) | Open |
+
+Univariate keeps the v2.0 slot: its engine is already implemented (all 8 CDF/NLL
+distribution functions, the grid-search optimizer, all three binning methods and their
+`Bin_*` helpers, and all four goodness-of-fit measures) and its sheet writer is wired
+into `build_production.py`. Specification-Driven Regression is greenfield by comparison,
+so the near-finished milestone ships first.
+
 ---
 
 ## Naming Convention
@@ -49,6 +65,8 @@ Rules:
 against an explicit rule. No retroactive rename is planned for v1.0 names unless a
 broader breaking-change pass is already underway — folding a pure cosmetic rename into
 an unrelated MAJOR bump avoids spending two breaking changes on what could be one.
+**The v3.0 MAJOR bump is that opportunity** — decide during v3.0 planning whether to
+fold the rename pass in or explicitly decline it.
 
 ### Alias layer (future, optional)
 
@@ -78,10 +96,6 @@ the `LAMBDA_functions` sheet. This taxonomy is **purely functional — it does n
 version.** Version is a property of the library's release history (tracked in the
 changelog and Version History sheet); category is a property of what the function *does*,
 and a function's category should not change just because it shipped in a later release.
-Mixing the two into one column would force functions usable across versions (e.g. a
-centering or scaling transform usable in both MLR and univariate prep) into an arbitrary
-single version-tag, which is the wrong axis for a "show me all grouping transformations"
-filter.
 
 Subcategories are scoped *within* a category — each category defines its own
 subcategory list rather than sharing one flat list across categories, so a category can
@@ -89,16 +103,16 @@ grow its own subdivisions independently as it fills up.
 
 | Category | Subcategories |
 |---|---|
-| **Model Construction** | MLR Core · Coefficient Inference · Prediction |
+| **Model Construction** | MLR Core · Coefficient Inference · Prediction · Specification & Design Matrix |
 | **Diagnostics** | Residual · Influence & Leverage · Multicollinearity · Cross-Validation · Information Criteria |
 | **Data Transformation** | Sample Construction & Diagnostics · Location & Scale · Group & Panel · Categorical & Model Construction · Longitudinal & Panel-Time |
 | **Distribution Fitting** | Descriptive · Histogram Binning · Parameter Estimation · Goodness-of-Fit |
 | **Resampling & Simulation** | Bootstrap · Monte Carlo |
 
-The **Data Transformation** subcategories mirror this roadmap's own implementation
-phases for that category, wherever that catalog is planned in detail — the sheet filter
-and the build-order phases should always describe the same grouping, so reorganizing one
-should be reflected in the other.
+*Change from prior revision:* **Specification & Design Matrix** added under Model
+Construction to house the v3.0 constructor functions (see below). The Data
+Transformation subcategories are unchanged; those functions now serve double duty as
+constructor internals and standalone user-callable transforms.
 
 This table is the source of truth for the controlled vocabulary; `category` and
 `subcategory` values in `lambda_functions.json` should be drawn only from this list,
@@ -106,156 +120,28 @@ not invented ad hoc per function.
 
 ---
 
-## v1.0 — Multivariate (OLS / MLR)
+## v1.0 — Multivariate (OLS / MLR) — SHIPPED
 
-The complete OLS package and the first stable release. This is the multivariate capstone;
-later versions fill in the conceptual foundations beneath it and then climb past OLS.
+The complete OLS package and the first stable release.
 
-**Status:** all gate items complete — ready to tag v1.0.0.
+**Engine:** full model-fit and ANOVA statistics, coefficient inference (SE, t, p, CIs,
+partial R²/correlation), multicollinearity (VIF, Tolerance, correlation matrix),
+residual and influence diagnostics (residuals, studentized residuals, hat diagonal,
+Cook's distance, Q-Q machinery, Durbin-Watson), cross-validation (PRESS, LOOCV),
+information criteria (AIC, AICc, BIC), distributional exploration (skewness, kurtosis,
+Pearson/Spearman), and prediction. `Include` argument supports stratified OLS natively.
 
-**Gate items (completed):**
+**Sheet:** five-zone Regression sheet (model inputs · predictor summary · regression
+outputs · prediction · residual output), Diagnostic Guide sheet, Regression Instructions
+sheet, Version History sheet, seven pre-built diagnostic charts, conditional formatting
+on out-of-bounds diagnostics, QC via `analyze_regression_sheet.py` across six
+configurations (sparse/medium/full predictor sets × intercept/no-intercept).
 
-- ✅ Diagnostic guide sheet — Tier 1 and Tier 2 plot specifications, threshold reference
-  table, and "Common Patterns & Next Steps" interpretation guidance.
-- ✅ Helper columns on the Regression sheet:
-  - Scale-Location: `=SQRT(ABS([Studentized Residuals]))`
-  - PRESS residual index: `=[Residuals]/(1-[Hat Diagonal])`
-- ✅ Standardized coefficients (Beta weights), added to the Coefficients section.
-- ✅ Conditional formatting to highlight diagnostics that fall out of bounds for the given
-  alpha or rule-of-thumb threshold (VIF, PRESS R², QQ Correlation, hat diagonal,
-  studentized residuals, Cook's distance, Scale-Location, PRESS residual,
-  coefficient p-values, Significance F).
-- ✅ Prediction-with-filtering validation — `Prediction_Interval` and prediction inputs
-  confirmed correct when independent variables are toggled; `Ind_Var_Include`, optional
-  `Coefficient_Name_Col` include mask, and `X_new` construction all validated.
-- ✅ QC flow — `analyze_regression_sheet.py` computes Python reference values and compares
-  against sheet output across six configurations (sparse / medium / full predictor sets ×
-  intercept / no-intercept).
-
-**Gate items (all complete — ready to tag v1.0.0):**
-
-- ✅ Default diagnostic charts — placed to the right of the Residual Output section.
-  The four Tier 1 and Tier 2 charts that the Diagnostic Guide references should be
-  pre-built in the sheet so users see them immediately without manual chart creation:
-  Residuals vs. Fitted, Normal Q-Q, Actual vs. Predicted, Scale-Location,
-  Cook's Distance, Leverage vs. Studentized, and PRESS Residuals. Charts should
-  recalculate live with the spill data from the residual columns.
-- ✅ Version History sheet — a workbook-level sheet (per the versioning convention stated
-  above) that mirrors the changelog so version history travels with the distributed file.
-  Entries should include version number, release date, and summary of changes. Written
-  by `write_sheet_version_history.py`, called from `build_production.py`.
-- ✅ Conditional formatting on Prediction Inputs variable names — strikethrough on the
-  name in column U for any predictor whose toggle in column B is FALSE. Rule must cover
-  the full `All_Xs` range dynamically so it remains correct when the user swaps to a
-  dataset with more or fewer independent variables. The formula should reference the
-  `Ind_Var_Include` named range (trimmed to `n` rows via `TAKE`) so no hard-coded row
-  count is needed.
-
-**Additional items completed beyond the original gate list:**
-
-- ✅ Regression Instructions sheet — step-by-step guide for adapting the sheet to a new
-  dataset, including Name Manager updates and table setup.
-- ✅ Number formatting applied uniformly across all output zones: 2 dp for predictor
-  summary; 4 dp for statistics, diagnostics, coefficients, prediction interval/inputs, and
-  residual columns; scientific notation (2 sig digits) for p-values and Significance F;
-  1 dp for SS/MS/F; integers for df and Observations.
-- ✅ Word wrap on header row 2 across all zones.
-- ✅ Prediction interval refactored to a single spill formula
-  (`=Prediction_Interval(...)` in V3) rather than six individual `INDEX(...)` calls.
-- ✅ Diagnostic guide heading and subheading highlights span the correct column widths
-  (4 columns for Tier 1, Tier 2, and Diagnostic Threshold sections; 3 for Common
-  Patterns & Next Steps).
-
-**Engine (all implemented):** full model-fit and ANOVA statistics, coefficient
-inference (SE, t, p, CIs, partial R²/correlation), multicollinearity (VIF, Tolerance,
-correlation matrix), residual and influence diagnostics (residuals, studentized residuals,
-hat diagonal, Cook's distance, Q-Q machinery, Durbin-Watson), cross-validation (PRESS,
-LOOCV), information criteria (AIC, AICc, BIC), distributional exploration (skewness,
-kurtosis, Pearson/Spearman), and prediction. Include argument supports stratified OLS
-natively.
-
----
-
-## Data Transformation
-
-Cross-cutting infrastructure, not tied to a single version — these functions are meant to
-be usable wherever a model needs a prepared column, whether that's MLR predictors today or
-univariate/distribution-fitting inputs in v2.0 and beyond. Tracked here as its own
-catalog, separate from the version ladder, because tagging it to one version would be
-arbitrary (see *Function Categories*, above).
-
-Row-aligned transforms accept an optional `include` mask (`1`/`TRUE` keeps the row,
-`0`/`FALSE` excludes it). When `include` is omitted, those functions construct a default
-mask from the required inputs. Excluded rows return `""` so spilled arrays stay aligned with the source rows —
-`""` was chosen deliberately over `NA()` because it round-trips cleanly through
-`ISNUMBER`-based keep logic elsewhere in the library (`ISNUMBER("")` is `FALSE`, so a
-downstream mask built on `ISNUMBER` correctly re-excludes it) without erroring inside
-`SUM`/`AVERAGE` the way a propagated error value would.
-
-**Note on naming:** these functions are new, so they're written directly against the
-Naming Convention above (no abbreviations) rather than needing a retrofit.
-
-### Sample Construction & Diagnostics — *subcategory*
-
-- `Numeric_Complete_Cases(data)` — listwise-deletion sample mask; `1` when every value in
-  a row is numeric.
-- `Is_Balanced_Panel(group, time, [include])` — `TRUE` only when every included group has
-  exactly one observation for every included time period.
-- `Fixed_Effects_Convergence_Check(x, group1, group2, [include])` — largest absolute
-  remaining group mean across two fixed-effect dimensions; near zero indicates
-  convergence after `Absorb_Two_Way_Fixed_Effects`.
-
-### Location & Scale — *subcategory*
-
-- `Center(x, [include])` — grand-mean centering, \(x_i - \bar{x}\).
-- `Zscore(x, [include])` — standardization via `STDEV.S`, \((x_i - \bar{x}) / s_x\).
-- `Minmax_Scale(x, [include])` — scales to \([0, 1]\).
-- `Winsorize(x, [lower_p], [upper_p], [include])` — caps values outside selected
-  percentiles (default 1st/99th). Remains an explicit modeling decision, never an
-  automatic preprocessing step.
-- `Ln_Positive(x, [include])` — natural log, restricted to strictly positive numeric
-  values; returns `""` rather than a worksheet error for zero, negative, or non-numeric
-  input.
-
-### Group & Panel — *subcategory*
-
-- `Group_Mean(x, group, [include])` — matching group mean on every included row.
-- `Demean_By(x, group, [include])` — one-way within transformation, \(x_{ig} - \bar{x}_g\).
-- `Zscore_By(x, group, [include])` — within-group standardization.
-- `Decompose_By(x, group, [include])` — returns the between-group mean and within-group
-  deviation as two columns, exposing \(x_{ig} = \bar{x}_g + (x_{ig} - \bar{x}_g)\).
-- `Demean_Two_Way_Balanced(x, group1, group2, [include])` — direct two-way demeaning,
-  exact only for a balanced panel; check with `Is_Balanced_Panel` first.
-- `Absorb_Two_Way_Fixed_Effects(x, group1, group2, [include], [passes])` — iterative
-  alternating-projection demeaning for unbalanced panels. Convergence is not verified
-  internally; always pair with `Fixed_Effects_Convergence_Check`.
-
-### Categorical & Model Construction — *subcategory*
-
-- `Dummy_Levels(category, [reference], [include])` — retained categorical levels as a
-  horizontal header row.
-- `Dummy_Code(category, [reference], [include])` — dummy-coded matrix. Use a reference
-  level (treatment coding) when the design includes an intercept; full one-hot coding
-  plus an intercept causes perfect multicollinearity. **Reference-level validation
-  (confirming the requested reference actually exists in the included sample) is
-  required at implementation, not deferred** — an invalid reference silently fails to
-  drop a column and reintroduces the exact collinearity the function exists to prevent.
-- `Interact(x1, x2)` — elementwise product \(x_1 x_2\); broadcasts across dummy-coded
-  matrices to produce one interaction column per retained level.
-- `Model_Matrix(X, [add_intercept])` — optionally prepends an intercept column.
-  Intentionally not variadic — predictors are assembled explicitly with `HSTACK` so the
-  specification stays visible and auditable.
-
-### Longitudinal & Panel-Time — *subcategory*
-
-- `Lag_By(x, group, time, [periods], [include])` — prior-period value within the same
-  group, keyed on `group`/`time`, not on physical row order.
-- `Difference_By(x, group, time, [periods], [include])` — within-group time difference,
-  \(\Delta_k x_{it} = x_{it} - x_{i,t-k}\).
-
----
+(Full v1.0 gate history retained in git history of this file.)
 
 ## v2.0 — Univariate
+
+*(Retains its original v2.0 slot — see version ladder. Engine and sheet already built.)*
 
 The foundation layer. A single input column drives three coordinated sections, telling one
 story: **describe** the data, **visualize** its shape, then **formalize** that shape with a
@@ -378,56 +264,99 @@ formula-transparent; resolve before building.
 
 ---
 
-## v3.0 — Resampling & Simulation
+## v3.0 — Specification-Driven Regression
 
-Bootstrap confidence intervals and Monte Carlo simulation. Validated as worthwhile
-differentiators by their presence in Pyrcz's Excel demos and squarely in cost-estimation
-territory (three-point estimates, MCS, risk analysis). These do not depend on the
-two-sample or ANOVA work, so they come early. Bootstrap and Monte Carlo pair naturally and
-may share a single sheet.
+**The central idea:** factor (categorical) and panel (fixed-effects) regression are not
+new estimators — they are OLS on a transformed design matrix. Rather than telling the
+user to manipulate their dataset into MLR form by hand, or building per-workflow staging
+sheets, the Regression sheet's control block becomes a **declarative model
+specification**, and `x_s()` is promoted from a column filter into a **model-matrix
+constructor** that reads the spec and emits the numeric design matrix. Because every
+engine function already consumes `x_s()`, the entire engine inherits factor and panel
+capability without a single signature change.
 
----
+> **Supersession note (recorded per the open-decisions convention):** this design
+> replaces two earlier plans —
+>
+> 1. *Separate Factor Regression and Panel Regression sheets* with on-sheet staging
+>    bands. The role column makes one spec-driven sheet handle all three cases; separate
+>    sheets would be three copies of one mechanism. Factor and panel become documented
+>    walkthroughs in the Regression Instructions sheet (see *Demonstration walkthroughs*
+>    below), not sheets.
+> 2. *The WLS-as-optional-`[Weights]`-argument vs. parallel-function-set decision.*
+>    Re-litigated as a **`Weight` role value on the specification** — see *Future
+>    roles*, below. The dedicated WLS Regression sheet plan is likewise superseded;
+>    WLS-specific output relabeling happens on the one Regression sheet, keyed off the
+>    active roles.
 
-## v4.0+ — Future (sequence TBD)
+### The specification block (columns A–D)
 
-Deliberately left loose. Candidate milestones, roughly in conceptual order:
+| Col | Contents | UX |
+|---|---|---|
+| A | Predictor label | Unchanged from v1 |
+| B | Include toggle (TRUE/FALSE) | Unchanged from v1 (orange input) |
+| C | **Predictor Type** | Data-validation dropdown: `Continuous` · `Categorical` · `Fixed Effects`. **Pre-filled to `Continuous` by the build** — no cell is ever blank. A blank cell silently defaulting would be silent reinterpretation; a visible pre-filled default the user can change is not. |
+| D | **Reference Level** | Orange input, meaningful only for Categorical rows. Blank = default reference, which is **the first level in sort order** (confirmed default — deterministic and explainable in one sentence, matching R's convention). Conditional formatting: grayed out when C is not `Categorical`; red when the entered level does not exist in the included sample. |
 
-- **Bivariate / two-sample** — t-tests (one-sample, two-sample equal variance, Welch
-  unequal variance, paired), F-test for variance equality feeding a recommendation on which
-  t-test to use, and Covariance to complement the existing Correlation. (Pyrcz's
-  "difference in means" / "difference in variances" demos map here.)
-- **Multi-group means (ANOVA)** — one-way ANOVA, implemented as regression on group
-  dummies, reusing the existing SS/MS/F machinery. A natural hinge showing ANOVA *is*
-  regression.
-- **Time series** — Moving Average, Exponential Smoothing.
-- **Weighted regression (WLS)** — its own milestone. Extends the OLS engine to non-constant
-  error variance; closes the loop opened by v1's Scale-Location diagnostic (v1 detects
-  heteroscedasticity, WLS addresses it). Likely threads a weights argument through the core
-  regression functions with WLS-aware diagnostics.
-- **Fourier analysis** — to be added later.
-- **Decision analysis** — possible long-tail addition (loss functions), cost/risk oriented.
+`All_Xs` keeps its current meaning — the raw, contiguous predictor range — but is now
+allowed to contain text columns (e.g. Status, Country), since nothing numeric is
+demanded of it until construction time.
 
----
+### Role semantics
 
-## Analysis ToolPak Parity Reference
+Named for **treatment, not measurement type** — the literature distinction that matters.
+Status and Country are both categorical variables; what differs is their role in the
+model. (The closest existing precedent is Stata's factor-variable notation: `c.gdp`,
+`i.status`, `absorb(country)`. This is the spreadsheet-native version of that varlist.)
 
-The ToolPak ships 19 tools. Tracking which are covered, planned, or intentionally skipped.
+| Role | Constructor behavior | Coefficients |
+|---|---|---|
+| `Continuous` | Column passes through numerically, untouched | One, reported |
+| `Categorical` | Dummy-coded against the reference level; one column per non-reference level | One per non-reference level, reported with level-qualified names ("Status: Developing") |
+| `Fixed Effects` | Enters **no** column — instead the entire constructed block *and Y* are demeaned by its groups | None, deliberately |
 
-**Covered or exceeded (v1):** Regression (with diagnostics, influence measures, cross-validation, information criteria, and prediction), Correlation, partial descriptive stats.
+**The asymmetry to keep in view:** Continuous and Categorical are column-local
+operations; Fixed Effects is global. Marking GDP continuous affects one output column;
+marking Country FE transforms every column of the design matrix and the response.
 
-**Planned:** Descriptive Statistics + Histogram + Rank/Percentile (v2); t-tests, F-test,
-Covariance (future two-sample); one-way ANOVA (future); Moving Average + Exponential
-Smoothing (future time series).
+### Constructor pipeline (`x_s()` and `y_s()`)
 
-**Intentionally skipped:**
+1. Partition included spec rows by role.
+2. Build the raw numeric block — Continuous columns as-is, Categorical columns
+   dummy-coded via the Data Transformation primitives.
+3. If any FE rows exist, demean the entire block **and Y** by those groups: one FE
+   variable → `Demean_By`; two → `Absorb_Two_Way_Fixed_Effects`; three or more →
+   visible error (no engine support).
+4. Emit the design matrix as `x_s()` and the transformed response as **`y_s()`** — a
+   new constructed named LAMBDA, parallel to `x_s()`. The moment FE is a role, the
+   dependent variable is a constructed object too; raw Y is no longer what the engine
+   should see.
 
-- **z-Test (two-sample for means)** — assumes known population variance; rarely applicable.
-- **Fourier Analysis** — engineering/signal domain; out of scope (may add later).
-- **Two-factor ANOVA** — complexity vs. demand.
-- **Random Number Generation / Sampling** — largely redundant with native Excel functions.
+One code path constructs both the training block and `X_new` for prediction — one
+source of truth for encoding.
 
-**Why the library exists (ToolPak flaws it fixes):** ToolPak output is static (pasted
-values that never update when inputs change), opaque (no formula trace), one-sheet-at-a-time
-with manual reruns, locked behind a modal dialog, and diagnostically dated (no VIF, Cook's
-distance, leverage, studentized residuals, PRESS, AIC/BIC, or cross-validation). The Lambda
-Library is live, transparent, auditable, reusable, and diagnostically modern.
+### Degrees of freedom — automatic, not manual
+
+Absorbed df is computable from the spec: Σ over FE variables of (group count − 1). The
+df correction that would have been a manual input cell under the staging-sheet design
+becomes automatic and auditable. Without it, coefficients on demeaned data are correct
+but **every SE, t, p, CI, MS_Residual, and information criterion is wrong** — the
+absorbed effects consumed df the engine doesn't know about
+(df_residual = n − k − Σ(Gᵢ − 1) for absorbed FE, alongside the intercept adjustment).
+
+> **Open decision — df plumbing:** how absorbed df reaches the inference functions.
+> Options: (a) thread an optional `[DF_Absorbed]` argument through the inference chain
+> (`DF_Residual`, `MS_Residual`, `SE_Regression`, `SE_Coefficients`, `T_Stats`,
+> `P_Values`, `CI_Lower`/`CI_Upper`, `F_Stat`, `P_Value_F`, `AIC`/`AICc`/`BIC`,
+> `Prediction_Interval`, studentized/Cook's chain) — additive, so MINOR-compatible in
+> principle, though it lands inside a MAJOR anyway; or (b) a small set of wrapper
+> functions. Current lean: **(a)**, consistent with the one-source-of-truth principle
+> and the rejection of parallel function sets.
+
+### Model Spec status block — the transparency price, paid visibly
+
+Construction inside a LAMBDA means the user can no longer *see* the design matrix by
+scrolling. The replacement is a fixed-height block at the top of the outputs zone
+answering "what model did I actually specify?":
+
+- Constructed column count (k of the actual des

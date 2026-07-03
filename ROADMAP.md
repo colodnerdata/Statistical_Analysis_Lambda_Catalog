@@ -346,7 +346,7 @@ columns*. This settles the architecture of the former role-aware-completeness op
 item by construction; only the auto-completeness LAMBDA remains to build, and the
 hard-coded `Data_Completeness(...[Life expectancy]:[Schooling])` span dies with it.
 
-### The specification block (columns A–F)
+### The specification block (columns A–H)
 
 The spec spans **every column of the source table**, one row per column:
 
@@ -357,13 +357,22 @@ The spec spans **every column of the source table**, one row per column:
 | C | Include toggle | Orange input; meaningful only when Role = Predictor |
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
-| F | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
-| G *(optional)* | **Design Columns** | Computed: Continuous Predictor → 1, Categorical Predictor → L−1, everything else → 0. Audit identity **ΣG = COLUMNS(x_s())**. Lean: include it. |
+| F | **Order** *(reserved, not implemented v3.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v3.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment on row 3 marks it reserved; no validation yet (no fixed domain). |
+| G | **Transform** *(reserved, not implemented v3.0)* | Input, dropdown. Will apply a transform (e.g. `Log`) to a Continuous Response or Predictor. v3.0 dropdown list is `None` only; build pre-fills `None`. Cell comment on row 3 marks it reserved. |
+| H | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
+| I *(optional)* | **Design Columns** | Computed: Continuous Predictor → 1, Categorical Predictor → L−1, everything else → 0. Audit identity **ΣI = COLUMNS(x_s())**. Lean: include it. |
 
-**Cascading relevance:** C–F gray out (conditional formatting) whenever Role ≠
+**Reserved-column policy (F, G).** Neither column is read by any v3.0 formula —
+confirmed by construction, not by convention: `X_s()`, `Constructed_Column_Names()`,
+`Row_Labels()`, and `Sample_Include()` must not reference `Spec_Order` or
+`Spec_Transform`. The columns exist purely so the *sheet layout* absorbs the future
+feature now; wiring them in a later release is additive (a formula change), not a
+second column-insertion breaking the sheet a second time.
+
+**Cascading relevance:** C–H gray out (conditional formatting) whenever Role ≠
 Predictor — the same pattern as Reference-only-for-Categorical, applied one level up.
 
-**Display derives, never feeds.** Columns F and G must not be inputs to the
+**Display derives, never feeds.** Columns H and I must not be inputs to the
 constructor. Both the cells and `x_s()` call the same mask-aware primitive
 (`Dummy_Levels`); the cells display what the constructor will do. Letting the engine
 read a display column would make it load-bearing. One source of truth is the
@@ -431,7 +440,7 @@ actually specify?":
 
 - **Response in effect** (derived), and the Response-count validation: exactly one,
   error at zero or two-plus
-- Constructed column count k — reconcilable against the ΣG audit identity
+- Constructed column count k — reconcilable against the ΣI audit identity
 - Level-qualified constructed column names
 - **Included row count** after the effective mask (auto-completeness AND Filters),
   with the active Filter columns listed
@@ -452,7 +461,8 @@ data estimates ≈ 0 and wastes a df — not catastrophic — so silently forcin
 
 ### Zone changes on the Regression sheet (breaking — hence MAJOR)
 
-- **Spec block:** A–B → A–F (Role, Include, Type, Reference, Levels), spanning all
+- **Spec block:** A–B → A–H (Role, Include, Type, Reference, Order, Transform,
+  Levels — Order/Transform reserved, unread by any v3.0 formula), spanning all
   table columns, with cascading-relevance CF.
 - **Predictor summary changes referent:** Pearson/Spearman/Skewness/Kurtosis/VIF/
   Tolerance run on the **constructed** columns — more correct anyway (VIF on the
@@ -466,7 +476,7 @@ data estimates ≈ 0 and wastes a df — not catastrophic — so silently forcin
   row labels. *(v3.1: residuals are within-model residuals under FE — Diagnostic
   Guide gains a paragraph.)*
 
-**Layout principle check (fixed-width left, fixed-height top):** the A–F spec block
+**Layout principle check (fixed-width left, fixed-height top):** the A–H spec block
 is fixed-width; the status block fixed-height; the constructed matrix never appears
 on the sheet. Note the estimator choice is load-bearing: LSDV would spill a
 data-dependent number of columns; the within transformation (v3.1) replaces them
@@ -493,6 +503,14 @@ Working list; canonical names per the Naming Convention:
 - **Panel walkthrough** *(v3.1)*: Country (and optionally Year) flipped from
   Identifier to Fixed Effects — directly addressing the panel structure already
   identified as violating OLS independence.
+
+**Superseded, not reused.** `Dummy_Levels` and `Dummy_Code` already exist as catalog
+functions (added independently of this sheet's build) but are not yet referenced by
+any sheet writer. **Decision made: drop both and rebuild from scratch** rather than
+amend or defensively wrap — see the resolved decision below. `X_s()` depends on the
+rebuilt `Dummy_Levels`; `Dummy_Code` is rebuilt to the same standard for standalone
+free-form use even though `X_s()` does not call it directly (it encodes inline via
+broadcast, per the level-vector split).
 
 ### Open items (recorded, not resolved)
 
@@ -593,15 +611,24 @@ Naming Convention above (no abbreviations) rather than needing a retrofit.
 
 ### Categorical & Model Construction — *subcategory*
 
-- `Dummy_Levels(category, [reference], [include])` — retained categorical levels as a
-  horizontal header row. Backs the v3.0 prediction-input validation lists.
-- `Dummy_Code(category, [reference], [include])` — dummy-coded matrix. Use a reference
+- `Dummy_Levels(category, [reference], [include])` — **rebuilt for v3.0** (an earlier
+  version existed as a catalog function with string-based error returns; dropped and
+  replaced rather than amended — see the v3.0 rebuild PR). Signals failure via a real
+  Excel error (`NA()`), never a descriptive string, so every downstream
+  `IFERROR`/`ISNA` guard works without special-casing. Retained categorical levels as
+  a horizontal header row; backs the v3.0 prediction-input validation lists and is
+  the hard dependency of `X_s()`'s level-vector split.
+- `Dummy_Code(category, [reference], [include])` — **rebuilt for v3.0** alongside
+  `Dummy_Levels`, calling it internally for level determination (one source of truth,
+  same NA()-based error contract). Dummy-coded matrix. Use a reference
   level (treatment coding) when the design includes an intercept; full one-hot coding
   plus an intercept causes perfect multicollinearity. **Reference-level validation
   (confirming the requested reference actually exists in the included sample) is
-  required at implementation, not deferred** — an invalid reference silently fails to
-  drop a column and reintroduces the exact collinearity the function exists to prevent.
-  **v3.0 constructor internal** for Categorical roles.
+  required at implementation, not deferred** — an invalid reference must error
+  (`NA()`), never silently fail to drop a column and reintroduce the exact
+  collinearity the function exists to prevent. Standalone; `X_s()` does not call it
+  directly (it encodes inline via broadcast) but is held to the same standard.
+  **v3.0 constructor internal** for Categorical roles, via `Dummy_Levels`.
 - `Dummy_Column(category, level, [include])` — single indicator column per explicit
   call (see v3.0 catalog additions).
 - `Interact(x1, x2)` — elementwise product \(x_1 x_2\); broadcasts across dummy-coded

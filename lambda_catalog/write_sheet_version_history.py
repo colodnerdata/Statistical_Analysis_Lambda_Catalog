@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import xlwings as xw
 
-from .sheet_styles import HEADER_COLOR as _HEADER_COLOR
+from .sheet_styles import HEADER_COLOR as _HEADER_COLOR, SUBHDR_COLOR as _SUBHDR_COLOR
 from .workbook_helpers import get_or_create_sheet, reset_generated_sheet
 
 
 SHEET_NAME = "Version History"
-_TABLE_HEADER_COLOR = (217, 225, 242)
+_TABLE_HEADER_COLOR = _SUBHDR_COLOR
 
 _VERSIONS = [
     {
@@ -24,6 +24,35 @@ _VERSIONS = [
             "(skewness, kurtosis, Pearson/Spearman), and prediction with confidence "
             "intervals. Ships with Regression sheet, Diagnostic Guide, Regression "
             "Instructions, pre-built diagnostic charts, and this Version History."
+        ),
+    },
+    {
+        "version": "2.0.0",
+        "date": "2026-06-29",
+        "summary": (
+            "Univariate Analysis release. Adds a live Univariate sheet with descriptive "
+            "statistics, missing-count handling, Sturges/Scott/Freedman-Diaconis "
+            "histogram binning, dynamic histogram charts, lower/upper edge and midpoint "
+            "helpers, eight CDF and NLL distribution families (Normal, Lognormal, "
+            "Exponential, Weibull, Gamma, Triangular, Beta, BetaPERT), goodness-of-fit "
+            "ranking with AIC, BIC, Anderson-Darling, and Kolmogorov-Smirnov, and "
+            "two-stage native Data Table grid-search fitting for Weibull, Gamma, and "
+            "Beta. Also establishes the shared sheet-style palette and the xlwings COM "
+            "chart-writing pattern used by generated worksheets."
+        ),
+    },
+    {
+        "version": "2.1.0",
+        "date": "2026-07-03",
+        "summary": (
+            "Post-v2 workbook hardening and regression usability update. Adds Name "
+            "Manager notes to catalog functions, a predicted-variable readout and row "
+            "identifiers on the Regression sheet, LOOCV_Residual as an observation-level "
+            "diagnostic, stronger intercept-only and undersized-sample guards, explicit "
+            "error handling instead of silent first-predictor fallbacks, a chart data "
+            "series for the identity line, and safer production-build retry/RPC handling. "
+            "Includes categorical helper groundwork and documentation while leaving the "
+            "full specification-driven regression sheet for the v3.0 milestone."
         ),
     },
 ]

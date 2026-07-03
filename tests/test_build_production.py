@@ -6,6 +6,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
+import pytest
+
 import build_production
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
@@ -73,6 +75,61 @@ class _FakeApp:
         self.quit_called = True
 
 
+class _FakeSheet:
+    def __init__(self, name: str) -> None:
+        self.name = name
+        self.deleted = False
+
+    def delete(self) -> None:
+        self.deleted = True
+
+
+class _FakeSheetCollection:
+    def __init__(self) -> None:
+        self.items = [_FakeSheet("Sheet1")]
+
+    def __iter__(self):
+        return iter(self.items)
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return next(sheet for sheet in self.items if sheet.name == key)
+        return self.items[key]
+
+
+class _CleanupFailingBook:
+    def __init__(self) -> None:
+        self.sheets = _FakeSheetCollection()
+
+    def save(self, path: str) -> None:
+        raise AssertionError("save should not be reached")
+
+    def close(self) -> None:
+        raise OSError("cleanup close masked the original error")
+
+
+class _BuildBooks:
+    def __init__(self, book: _CleanupFailingBook) -> None:
+        self.book = book
+
+    def add(self) -> _CleanupFailingBook:
+        return self.book
+
+    def open(self, path: str) -> _CleanupFailingBook:
+        raise AssertionError("new workbook path should not be opened")
+
+
+class _CleanupFailingApp:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, object]] = []
+        self.api = _FakeApi(self.events)
+        self.book = _CleanupFailingBook()
+        self.books = _BuildBooks(self.book)
+
+    def quit(self) -> None:
+        raise OSError("cleanup quit masked the original error")
+
+
 def test_recalculate_uses_full_rebuild_without_automatic_mode(monkeypatch) -> None:
     app = _FakeApp()
     monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
@@ -95,6 +152,60 @@ def test_recalculate_uses_full_rebuild_without_automatic_mode(monkeypatch) -> No
     assert app.book.saved_paths == [str(workbook_path)]
     assert app.book.closed is True
     assert app.quit_called is True
+
+
+def test_build_preserves_original_write_error_when_cleanup_fails(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    app = _CleanupFailingApp()
+    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+    monkeypatch.setattr(
+        build_production,
+        "load_catalog_document",
+        lambda _: SimpleNamespace(functions=(), regression_sheet_notes={}),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "load_life_expectancy_rows",
+        lambda _: ([], []),
+    )
+    for writer_name in [
+        "write_catalog_sheet",
+        "write_life_expectancy_sheet",
+        "write_univariate_sheet",
+        "write_regression_instructions_sheet",
+        "write_diagnostic_guide_sheet",
+        "write_version_history_sheet",
+    ]:
+        monkeypatch.setattr(build_production, writer_name, lambda *_, **__: None)
+
+    def fail_regression_write(*_, **__) -> None:
+        raise OSError("remote procedure call failed while writing Formula2")
+
+    monkeypatch.setattr(
+        build_production,
+        "write_regression_output_sheet",
+        fail_regression_write,
+    )
+    monkeypatch.setattr(
+        build_production,
+        "sync_workbook_names",
+        lambda *_, **__: pytest.fail("sync should not be reached"),
+    )
+
+    with pytest.raises(RuntimeError) as exc_info:
+        build_production.build_production_workbook(
+            workbook_path=tmp_path / "Example.xlsx",
+            definitions_path=tmp_path / "lambda_functions.json",
+            csv_path=tmp_path / "life_expectancy.csv",
+            recalculate=False,
+        )
+
+    message = str(exc_info.value)
+    assert "remote procedure call failed while writing Formula2" in message
+    assert "cleanup close masked" not in message
+    assert "cleanup quit masked" not in message
 
 
 def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:

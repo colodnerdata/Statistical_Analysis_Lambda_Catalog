@@ -189,8 +189,8 @@ def read_regression_df(
         # ── Scalars: Regression Statistics (column M) ─────────────────────
         scalar_specs: list[tuple[str, float, int, int]] = [
             ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_M),
-            ("R_squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_M),
-            ("Adjusted_R2",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_M),
+            ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_M),
+            ("Adjusted_R_Squared",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_M),
             ("SE_Regression", summary.se_regression, _ROW_SE_REG,     _C_M),
             ("Observations",  float(summary.observations), _ROW_OBS,  _C_M),
         ]
@@ -213,15 +213,15 @@ def read_regression_df(
 
         # ANOVA
         scalar_specs += [
-            ("DF_Regression",  float(summary.df_regression), _ROW_ANOVA_REG, _C_M),
+            ("Regression_Degrees_Of_Freedom",  float(summary.df_regression), _ROW_ANOVA_REG, _C_M),
             ("SS_Regression",  summary.ss_regression,        _ROW_ANOVA_REG, _C_N),
             ("MS_Regression",  ms_reg,                       _ROW_ANOVA_REG, _C_O),
-            ("F_Stat",         summary.f_stat,               _ROW_ANOVA_REG, _C_P),
-            ("P_Value_F",      summary.p_value_f,            _ROW_ANOVA_REG, _C_Q),
-            ("DF_Residual",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_M),
+            ("F_Statistic",         summary.f_stat,               _ROW_ANOVA_REG, _C_P),
+            ("F_Statistic_P_Value",      summary.p_value_f,            _ROW_ANOVA_REG, _C_Q),
+            ("Residual_Degrees_Of_Freedom",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_M),
             ("SS_Residual",    summary.ss_residual,          _ROW_ANOVA_RES, _C_N),
             ("MS_Residual",    ms_res,                       _ROW_ANOVA_RES, _C_O),
-            ("DF_Total",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_M),
+            ("Total_Degrees_Of_Freedom",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_M),
             ("SS_Total",       summary.ss_total,             _ROW_ANOVA_TOT, _C_N),
         ]
 
@@ -264,7 +264,7 @@ def read_regression_df(
         # No-intercept models prepend one blank row so predictor rows align with
         # intercept models. Drop that one display row before comparison.
         n_coef_rows = k + 1
-        coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Stats", "P_Values", "CI_Lower", "CI_Upper"]
+        coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Statistics", "P_Values", "Confidence_Interval_Lower", "Confidence_Interval_Upper"]
         coef_col_indices = [_C_M, _C_N, _C_O, _C_P, _C_Q, _C_R]
         coef_exp_tuples = [
             vectors.coefficients, vectors.std_errors, vectors.t_stats,
@@ -312,7 +312,7 @@ def read_regression_df(
 
         # ── Residual Output (columns Y–AG, rows 3 to 3+n-1) ──────────────
         resid_stat_names = [
-            "Dependent_Var", "Predictions", "Residuals", "LOOCV_Residual",
+            "Dependent_Variable", "Predictions", "Residuals", "LOOCV_Residual",
             "Hat_Diagonal", "Studentized_Residuals", "Cooks_Distance",
             "Normal_Scores_Ranked", "Studentized_Residuals_Ranked",
         ]

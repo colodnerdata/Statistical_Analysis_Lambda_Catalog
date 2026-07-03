@@ -452,9 +452,9 @@ class RealCatalogIntegrationTests(unittest.TestCase):
 
     def test_grid_search_helpers_load_with_expected_contracts(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}
-        self.assertIn("Grid_Argmin", functions)
+        self.assertIn("Grid_Argument_Minimum", functions)
         self.assertIn("Grid_Search_Optimum", functions)
-        self.assertEqual(functions["Grid_Argmin"].argument_names, ("grid",))
+        self.assertEqual(functions["Grid_Argument_Minimum"].argument_names, ("grid",))
         self.assertEqual(functions["Grid_Search_Optimum"].argument_names, ("grid",))
 
     def test_grid_search_optimum_uses_scalar_index_and_native_offset(self) -> None:
@@ -474,9 +474,29 @@ class RealCatalogIntegrationTests(unittest.TestCase):
 
     def test_grid_argmin_dynamic_functions_receive_parser_prefixes(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}
-        xml = functions["Grid_Argmin"].workbook_xml_formula_from_display
+        xml = functions["Grid_Argument_Minimum"].workbook_xml_formula_from_display
         for function_name in ("LAMBDA", "LET", "HSTACK", "XMATCH", "TOCOL"):
             self.assertIn(f"_xlfn.{function_name}", xml)
+
+    def test_loocv_residual_is_cataloged_and_used_by_press(self) -> None:
+        functions = {fn.name: fn for fn in self.document.functions}
+        self.assertIn("LOOCV_Residual", functions)
+        self.assertEqual(
+            functions["LOOCV_Residual"].argument_names,
+            ("X_s", "Y", "Allow_Intercept", "Include"),
+        )
+        self.assertIn(
+            "Residuals(X_s, Y, allow_arg, filt_arg)",
+            functions["LOOCV_Residual"].formula_display,
+        )
+        self.assertIn(
+            "Hat_Diagonal(X_s, allow_arg, filt_arg)",
+            functions["LOOCV_Residual"].formula_display,
+        )
+        self.assertIn(
+            "SUMSQ(LOOCV_Residual(X_s, Y, allow_arg, filt_arg))",
+            functions["PRESS"].formula_display,
+        )
 
 
 if __name__ == "__main__":

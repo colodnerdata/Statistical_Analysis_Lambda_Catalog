@@ -35,9 +35,9 @@ def test_grid_helpers_evaluate_known_grid_and_row_major_tie(tmp_path: Path) -> N
     definitions = load_catalog_document(DEFINITIONS_PATH).functions
     helpers = [
         fn for fn in definitions
-        if fn.name in {"Grid_Argmin", "Grid_Search_Optimum"}
+        if fn.name in {"Grid_Argument_Minimum", "Grid_Search_Optimum"}
     ]
-    assert {fn.name for fn in helpers} == {"Grid_Argmin", "Grid_Search_Optimum"}
+    assert {fn.name for fn in helpers} == {"Grid_Argument_Minimum", "Grid_Search_Optimum"}
 
     app = _start_excel_or_skip()
     try:
@@ -50,7 +50,7 @@ def test_grid_helpers_evaluate_known_grid_and_row_major_tie(tmp_path: Path) -> N
         sheet.range("B1:D1").value = [[10, 20, 30]]
         sheet.range("A2:A3").value = [[100], [200]]
         sheet.range("B2:D3").value = [[5, 1, 3], [4, 2, 6]]
-        sheet.range("F1").api.Formula2 = "=Grid_Argmin(B2:D3)"
+        sheet.range("F1").api.Formula2 = "=Grid_Argument_Minimum(B2:D3)"
         sheet.range("J1").api.Formula2 = "=Grid_Search_Optimum(B2:D3)"
         app.api.CalculateFullRebuild()
 

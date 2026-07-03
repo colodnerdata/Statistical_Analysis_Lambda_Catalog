@@ -308,7 +308,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     # Regression chart ranges, and sized by the method value stored in row 2.
     for prefix, block_start in _HIST_BLOCKS:
         method_ref = f"'{sname}'!${col_letter(block_start + _HB_COUNT)}${_ROW_METHOD_HDR}"
-        size_formula = f"num_histogram_bins(UV_Data,{method_ref},UV_Include)"
+        size_formula = f"Number_Of_Histogram_Bins(UV_Data,{method_ref},UV_Include)"
         for offset, _, suffix, _ in _HIST_COLUMNS:
             name = f"{prefix}_{suffix}"
             col_ltr = col_letter(block_start + offset)
@@ -501,7 +501,7 @@ def _write_histogram_table(
     val(sheet, _ROW_SECTION_HDR, col_edge, "Bins:")
     method_cell = a1(_ROW_METHOD_HDR, col_count)
     f(sheet, _ROW_SECTION_HDR, col_count,
-      f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
+      f"=Number_Of_Histogram_Bins(UV_Data,{method_cell},UV_Include)")
     sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = _FMT_INT
 
     # Upper-edge, count, and lower-edge spill formulas.
@@ -871,7 +871,7 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 #   row+5…+4+N : row-parameter SEQUENCE at col+0; Data Table body at col+1…col+N
 #
 # Fixed-area tables:
-#   Min NLL table       — col+0, rows+1…+2; value uses TAKE(Grid_Argmin(...),,1)
+#   Min NLL table       — col+0, rows+1…+2; value uses TAKE(Grid_Argument_Minimum(...),,1)
 #   Rows/Columns table  — col+1, rows+1…+2; generated value documents physical grid size
 #   Parameter table     — cols+3…+8, rows+1…+3
 #   Blank spacer column — col+2, rows+1…+3
@@ -1070,12 +1070,12 @@ def _write_grid_stage(
     body_range.number_format = _FMT_SCI_1DP
 
     # ── LAMBDA-driven outputs ────────────────────────────────────────────────
-    # Min NLL is the first column returned by Grid_Argmin.
+    # Min NLL is the first column returned by Grid_Argument_Minimum.
     f(
         sheet,
         p1_row,
         c0 + _GS_C_MINNLL,
-        f'=IFERROR(TAKE(Grid_Argmin({body_name}),,1),"—")',
+        f'=IFERROR(TAKE(Grid_Argument_Minimum({body_name}),,1),"—")',
     )
     sheet.range(rc(p1_row, c0 + _GS_C_MINNLL)).number_format = _FMT_SCI_1DP
 
@@ -1093,7 +1093,7 @@ def _write_grid_stage(
         (p2_row, 2),  # row location controls the row parameter
     ]
     for row, argmin_col in boundary_specs:
-        location = f"INDEX(Grid_Argmin({body_name}),1,{argmin_col})"
+        location = f"INDEX(Grid_Argument_Minimum({body_name}),1,{argmin_col})"
         cell_api = sheet.range(rc(row, c0 + _GS_C_BEST)).api
         cf = cell_api.FormatConditions.Add(
             Type=2,  # xlExpression

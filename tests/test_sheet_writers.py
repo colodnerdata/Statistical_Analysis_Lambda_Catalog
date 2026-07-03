@@ -18,6 +18,10 @@ from lambda_catalog.write_sheet_regression import (
     _C_P,
     _C_Q,
     _C_S,
+    _C_AA,
+    _C_AB,
+    _C_AC,
+    _C_AI,
     _C_X,
     _C_Y,
     _setup_local_names as _setup_regression_names,
@@ -152,7 +156,19 @@ def test_write_residuals_writes_row_identifier_header_and_falls_back_on_error() 
     )
     # The diagnostics columns shift one slot right of the identifiers column.
     assert sheet.cell(2, _C_Y).value == "Y"
-    assert sheet.cell(3, _C_Y).api.Formula2 == "=Dependent_Var(y,Regression_Sample_Include)"
+    assert sheet.cell(3, _C_Y).api.Formula2 == "=Dependent_Variable(y,Regression_Sample_Include)"
+    assert sheet.cell(3, _C_AA).api.Formula2 == (
+        "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+    )
+    assert sheet.cell(3, _C_AC).api.Formula2 == (
+        "=Hat_Diagonal(x_s(),Allow_Intercept,Regression_Sample_Include)"
+    )
+    assert sheet.cell(3, _C_AB).api.Formula2 == (
+        "=LOOCV_Residual(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+    )
+    assert sheet.cell(3, _C_AI).api.Formula2 == (
+        "=LOOCV_Residual(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+    )
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:
@@ -200,7 +216,7 @@ def test_histogram_writer_records_method_cell_formulas() -> None:
     assert sheet.cell(2, 23).value == "Sturges"
     assert sheet.cell(2, 23).color == HEADER_COLOR
     assert sheet.cell(3, 22).value == "Bins:"
-    assert sheet.cell(3, 23).api.Formula2 == "=num_histogram_bins(UV_Data,W2,UV_Include)"
+    assert sheet.cell(3, 23).api.Formula2 == "=Number_Of_Histogram_Bins(UV_Data,W2,UV_Include)"
     assert sheet.cell(5, 22).api.Formula2 == "=Upper_Bin_Edges(UV_Data,W2,UV_Include)"
     assert sheet.cell(5, 23).api.Formula2 == "=Bin_Counts(UV_Data,W2,UV_Include)"
     assert sheet.cell(5, 21).api.Formula2 == "=Bin_Lower_Edges(UV_Data,W2,UV_Include)"
@@ -238,14 +254,14 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
     for hist_name in histogram_names:
         refers_to = names.by_short_name(hist_name).RefersTo
         assert refers_to.startswith("=OFFSET('Univariate'!$")
-        assert ",1,0,MAX(IFERROR(num_histogram_bins(" in refers_to
+        assert ",1,0,MAX(IFERROR(Number_Of_Histogram_Bins(" in refers_to
         assert refers_to.endswith(",1),1),1)")
     assert "$W$2" in names.by_short_name("UV_Sturges_Upper_Edges").RefersTo
     assert "$AI$2" in names.by_short_name("UV_Scott_Upper_Edges").RefersTo
     assert "$AU$2" in names.by_short_name("UV_FD_Upper_Edges").RefersTo
     assert names.by_short_name("UV_Sturges_Normal_CDF").RefersTo == (
         "=OFFSET('Univariate'!$X$4,1,0,"
-        "MAX(IFERROR(num_histogram_bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
+        "MAX(IFERROR(Number_Of_Histogram_Bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
     )
 
 
@@ -344,7 +360,7 @@ def test_weibull_grid_formulas_reference_visible_controls() -> None:
     assert sheet.cell(5, 58).api.Formula2 == "=SEQUENCE(1,$BF$3,$BJ$3,$BL$3)"
     assert sheet.cell(6, 57).api.Formula2 == "=SEQUENCE($BF$3,1,$BJ$4,$BL$4)"
     assert sheet.cell(3, 57).api.Formula2 == (
-        '=IFERROR(TAKE(Grid_Argmin(UV_WB_S1),,1),"—")'
+        '=IFERROR(TAKE(Grid_Argument_Minimum(UV_WB_S1),,1),"—")'
     )
     assert sheet.cell(3, 65).api.Formula2 == "=Grid_Search_Optimum(UV_WB_S1)"
     assert sheet.cell(4, 65).api.Formula2 is None
@@ -413,8 +429,8 @@ def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
 
     shape_rule = sheet.cell(3, 65).api.FormatConditions.items[0].Formula1
     scale_rule = sheet.cell(4, 65).api.FormatConditions.items[0].Formula1
-    assert shape_rule == "=OR(INDEX(Grid_Argmin(UV_WB_S1),1,3)=1,INDEX(Grid_Argmin(UV_WB_S1),1,3)=$BF$3)"
-    assert scale_rule == "=OR(INDEX(Grid_Argmin(UV_WB_S1),1,2)=1,INDEX(Grid_Argmin(UV_WB_S1),1,2)=$BF$3)"
+    assert shape_rule == "=OR(INDEX(Grid_Argument_Minimum(UV_WB_S1),1,3)=1,INDEX(Grid_Argument_Minimum(UV_WB_S1),1,3)=$BF$3)"
+    assert scale_rule == "=OR(INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)=1,INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)=$BF$3)"
     assert len(sheet.range((6, 58), (25, 77)).api.FormatConditions.color_scales) == 1
 
 

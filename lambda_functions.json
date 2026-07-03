@@ -22,7 +22,7 @@
       "notes": "Count of rows used in the regression after optional filtering. The fundamental sample size n driving all degrees-of-freedom and model-comparison calculations."
     },
     {
-      "name": "DF_Regression",
+      "name": "Regression_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
       "formula_display": "=LAMBDA(X_s,\n  COLUMNS(X_s))",
@@ -38,7 +38,7 @@
       "notes": "Degrees of freedom for regression = number of predictors k (= COLUMNS(X_s)). Used as the numerator df in the F-test."
     },
     {
-      "name": "DF_Total",
+      "name": "Total_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    n,         Observations(Y, filt_arg),\n    IF(allow_arg, n - 1, n)\n  ))",
@@ -61,10 +61,10 @@
       "yields": "df_total (n-1 with intercept, n without) as a scalar integer",
       "description": "df_total is the total degrees of freedom for the sum of squares. When an intercept is fit (default), one df is spent estimating the grand mean, giving n - 1. When the model is forced through the origin (Allow_Intercept = FALSE), no df is spent on the mean, giving n. df_total partitions into df_regression + df_residual.\n\nCalls Observations() for n, then returns IF(allow_arg, n-1, n).",
       "plain_language_summary": "The total amount of independent information in the outcome column.",
-      "notes": "Total degrees of freedom = n − 1 with intercept or n without. Partitions into DF_Regression + DF_Residual."
+      "notes": "Total degrees of freedom = n − 1 with intercept or n without. Partitions into Regression_Degrees_Of_Freedom + Residual_Degrees_Of_Freedom."
     },
     {
-      "name": "R_squared",
+      "name": "R_Squared",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 3, 1)\n  ))",
@@ -89,15 +89,15 @@
         }
       ],
       "yields": "R² (coefficient of determination) as a scalar in [0, 1]",
-      "description": "R² (coefficient of determination) is the proportion of variance in Y explained by the regression model. It equals SS_regression / SS_total, ranges from 0 (no explanatory power) to 1 (perfect fit), and is the square of Multiple R.\n\nReturns INDEX(LINEST(...), 3, 1) directly. R_squared is the base statistic from which Multiple_R and Adjusted_R2 are derived.",
+      "description": "R² (coefficient of determination) is the proportion of variance in Y explained by the regression model. It equals SS_regression / SS_total, ranges from 0 (no explanatory power) to 1 (perfect fit), and is the square of Multiple R.\n\nReturns INDEX(LINEST(...), 3, 1) directly. R_Squared is the base statistic from which Multiple_R and Adjusted_R_Squared are derived.",
       "plain_language_summary": "How much of the outcome's movement the model explains.",
       "notes": "Proportion of Y’s variance explained by the model (SS_Regression / SS_Total). Ranges [0, 1]; higher is better."
     },
     {
-      "name": "DF_Residual",
+      "name": "Residual_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    DF_Total(Y, allow_arg, filt_arg) - DF_Regression(X_s)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    Total_Degrees_Of_Freedom(Y, allow_arg, filt_arg) - Regression_Degrees_Of_Freedom(X_s)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -119,15 +119,15 @@
         }
       ],
       "yields": "df_residual (n-k-1 with intercept, n-k without) as a scalar integer",
-      "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as DF_Total(...) - DF_Regression(...), inheriting the Allow_Intercept correction from DF_Total.",
+      "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as Total_Degrees_Of_Freedom(...) - Regression_Degrees_Of_Freedom(...), inheriting the Allow_Intercept correction from Total_Degrees_Of_Freedom.",
       "plain_language_summary": "How much data is left to estimate random error after fitting the model.",
-      "notes": "Residual degrees of freedom = DF_Total − DF_Regression. Denominator df in the F-test and the penalty term in Adjusted R²."
+      "notes": "Residual degrees of freedom = Total_Degrees_Of_Freedom − Regression_Degrees_Of_Freedom. Denominator df in the F-test and the penalty term in Adjusted R²."
     },
     {
       "name": "Multiple_R",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SQRT(R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SQRT(R_Squared(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -149,15 +149,15 @@
         }
       ],
       "yields": "Multiple R (correlation coefficient) as a scalar in [0, 1]",
-      "description": "Multiple R is the Pearson correlation between the observed values of Y and the values predicted by the regression model. It ranges from 0 (no linear relationship) to 1 (perfect linear fit) and is the square root of R².\n\nComputed as SQRT(R_squared(...)).",
+      "description": "Multiple R is the Pearson correlation between the observed values of Y and the values predicted by the regression model. It ranges from 0 (no linear relationship) to 1 (perfect linear fit) and is the square root of R².\n\nComputed as SQRT(R_Squared(...)).",
       "plain_language_summary": "How closely the model's predictions track the real outcome values.",
-      "notes": "Correlation between observed and fitted Y values = √R². Ranges [0, 1]. Square to recover R_squared."
+      "notes": "Correlation between observed and fitted Y values = √R². Ranges [0, 1]. Square to recover R_Squared."
     },
     {
-      "name": "Adjusted_R2",
+      "name": "Adjusted_R_Squared",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    1 - (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n      * DF_Total(Y, allow_arg, filt_arg)\n      / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    1 - (1 - R_Squared(X_s, Y, allow_arg, filt_arg))\n      * Total_Degrees_Of_Freedom(Y, allow_arg, filt_arg)\n      / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -179,7 +179,7 @@
         }
       ],
       "yields": "Adjusted R² as a scalar, typically in [0, 1] but can be negative",
-      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_squared(...)) * DF_Total(...) / DF_Residual(...), inheriting the Allow_Intercept correction from both df functions.",
+      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_Squared(...)) * Total_Degrees_Of_Freedom(...) / Residual_Degrees_Of_Freedom(...), inheriting the Allow_Intercept correction from both df functions.",
       "plain_language_summary": "R-squared adjusted so extra predictors do not get free credit.",
       "notes": "R² penalised for model complexity: 1 − (1 − R²)·df_total/df_residual. Can be negative when the model fits worse than the mean."
     },
@@ -213,7 +213,7 @@
       "name": "SS_Residual",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Total(Y, allow_arg, filt_arg) * (1 - R_squared(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Total(Y, allow_arg, filt_arg) * (1 - R_Squared(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -235,7 +235,7 @@
         }
       ],
       "yields": "SS_residual (residual/error sum of squares) as a scalar",
-      "description": "SS_residual (also called SS_error) is the variation in Y left unexplained by the regression model — the sum of squared differences between observed and fitted values. It equals SS_total × (1 - R²) and shrinks as the model improves.\n\nComputed as SS_Total(...) * (1 - R_squared(...)).",
+      "description": "SS_residual (also called SS_error) is the variation in Y left unexplained by the regression model — the sum of squared differences between observed and fitted values. It equals SS_total × (1 - R²) and shrinks as the model improves.\n\nComputed as SS_Total(...) * (1 - R_Squared(...)).",
       "plain_language_summary": "The part of Y's variation the model still misses.",
       "notes": "Unexplained variation in Y = SS_Total × (1 − R²). Shrinks as model fit improves."
     },
@@ -243,7 +243,7 @@
       "name": "SS_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Total(Y, allow_arg, filt_arg) * R_squared(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Total(Y, allow_arg, filt_arg) * R_Squared(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -265,7 +265,7 @@
         }
       ],
       "yields": "SS_regression (explained/model sum of squares) as a scalar",
-      "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_squared(...).",
+      "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_Squared(...).",
       "plain_language_summary": "The part of Y's variation the model successfully explains.",
       "notes": "Explained variation in Y = SS_Total × R². Grows as model fit improves."
     },
@@ -273,7 +273,7 @@
       "name": "MS_Regression",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / Regression_Degrees_Of_Freedom(X_s)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -303,7 +303,7 @@
       "name": "MS_Residual",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -333,7 +333,7 @@
       "name": "SE_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SQRT(SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SQRT(SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -355,7 +355,7 @@
         }
       ],
       "yields": "SE_regression (standard error of the regression) as a scalar",
-      "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / DF_Residual(...)).",
+      "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / Residual_Degrees_Of_Freedom(...)).",
       "plain_language_summary": "The typical size of the model's prediction mistakes, in Y units.",
       "notes": "Standard error of the regression (root MSE = √(SS_Residual / df_residual)). Typical prediction error in Y units."
     },
@@ -363,7 +363,7 @@
       "name": "PRESS",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    SUMSQ(e / (1 - h))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SUMSQ(LOOCV_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -385,7 +385,7 @@
         }
       ],
       "yields": "PRESS (Prediction Residual Error Sum of Squares) as a scalar",
-      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nLeverage is obtained from Hat_diagonal, which delegates the matrix inversion to Gram_Inverse. Then SUMSQ(e / (1 − h)) gives PRESS as a scalar.",
+      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nComputed as SUMSQ(LOOCV_Residual(...)), where LOOCV_Residual returns eᵢ / (1 − hᵢ) using Residuals() and Hat_Diagonal()."
       "plain_language_summary": "How well the model predicts rows it did not get to train on.",
       "notes": "Leave-one-out cross-validation sum of squares = Σ(eᵢ/(1−hᵢ))². Lower values mean better out-of-sample predictions."
     },
@@ -393,7 +393,7 @@
       "name": "AIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + 2 * p\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + 2 * p\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -423,7 +423,7 @@
       "name": "BIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + p * LN(n)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + p * LN(n)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -453,7 +453,7 @@
       "name": "AICc",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   DF_Regression(X_s) + IF(allow_arg, 1, 0),\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0),\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -600,7 +600,7 @@
       "notes": "Standard errors of the OLS coefficients, same order as Coefficients. Smaller values = more precise estimates."
     },
     {
-      "name": "T_Stats",
+      "name": "T_Statistics",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    Coefficients(X_s, Y, allow_arg, filt_arg) / SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
@@ -633,7 +633,7 @@
       "name": "P_Values",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.00E+00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    T.DIST.2T(ABS(T_Stats(X_s, Y, allow_arg, filt_arg)), DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    T.DIST.2T(ABS(T_Statistics(X_s, Y, allow_arg, filt_arg)), Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -655,15 +655,15 @@
         }
       ],
       "yields": "vertical array of two-tailed p-values for each coefficient",
-      "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Stats(...)), DF_Residual(...)).",
+      "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Statistics(...)), Residual_Degrees_Of_Freedom(...)).",
       "plain_language_summary": "How surprising each coefficient would be if its true effect were zero.",
       "notes": "Two-tailed p-values per coefficient testing H₀: true effect = 0. Same order as Coefficients. Values < alpha are significant."
     },
     {
-      "name": "CI_Lower",
+      "name": "Confidence_Interval_Lower",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -690,15 +690,15 @@
         }
       ],
       "yields": "vertical array of lower confidence interval bounds for each coefficient",
-      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) - T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...).",
+      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) - T.INV.2T(Alpha, Residual_Degrees_Of_Freedom(...)) * SE_Coefficients(...).",
       "plain_language_summary": "The low end of the likely range for each coefficient.",
       "notes": "Lower confidence-interval bounds per coefficient. Default Alpha = 0.05 gives 95% CIs. Same order as Coefficients."
     },
     {
-      "name": "CI_Upper",
+      "name": "Confidence_Interval_Upper",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, DF_Residual(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -725,15 +725,15 @@
         }
       ],
       "yields": "vertical array of upper confidence interval bounds for each coefficient",
-      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, DF_Residual(...)) * SE_Coefficients(...).",
+      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, Residual_Degrees_Of_Freedom(...)) * SE_Coefficients(...).",
       "plain_language_summary": "The high end of the likely range for each coefficient.",
       "notes": "Upper confidence-interval bounds per coefficient. Default Alpha = 0.05 gives 95% CIs. Same order as Coefficients."
     },
     {
-      "name": "Partial_R2",
+      "name": "Partial_R_Squared",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    t,         T_Stats(X_s, Y, allow_arg, filt_arg),\n    df,        DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t^2 / (t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    t,         T_Statistics(X_s, Y, allow_arg, filt_arg),\n    df,        Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg),\n    t^2 / (t^2 + df)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -755,7 +755,7 @@
         }
       ],
       "yields": "vertical array of partial R² values — same order as Coefficients (intercept first when included)",
-      "description": "Partial R² for coefficient j = t²ⱼ / (t²ⱼ + df_residual), the proportion of residual variance explained by predictor j after controlling for all other predictors. Equivalently, it is the squared partial correlation between Y and Xⱼ given all other Xₛ.\n\nComputed as T_Stats² / (T_Stats² + DF_Residual), element-wise. The intercept row is included (row 1) for consistency with T_Stats and P_Values.",
+      "description": "Partial R² for coefficient j = t²ⱼ / (t²ⱼ + df_residual), the proportion of residual variance explained by predictor j after controlling for all other predictors. Equivalently, it is the squared partial correlation between Y and Xⱼ given all other Xₛ.\n\nComputed as T_Statistics² / (T_Statistics² + Residual_Degrees_Of_Freedom), element-wise. The intercept row is included (row 1) for consistency with T_Statistics and P_Values.",
       "plain_language_summary": "How much unique explanatory value each predictor adds after controlling for the rest.",
       "notes": "Unique proportion of residual variance explained by each predictor after controlling for all others. Range [0, 1]."
     },
@@ -763,7 +763,7 @@
       "name": "Partial_Correlation",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    t,         T_Stats(X_s, Y, allow_arg, filt_arg),\n    df,        DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t / SQRT(t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    t,         T_Statistics(X_s, Y, allow_arg, filt_arg),\n    df,        Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg),\n    t / SQRT(t^2 + df)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -785,7 +785,7 @@
         }
       ],
       "yields": "vertical array of partial correlation coefficients — same order as Coefficients (intercept first when included)",
-      "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R2) × sign(t).\n\nComputed as T_Stats / SQRT(T_Stats² + DF_Residual), element-wise. Ranges from −1 to +1.",
+      "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R_Squared) × sign(t).\n\nComputed as T_Statistics / SQRT(T_Statistics² + Residual_Degrees_Of_Freedom), element-wise. Ranges from −1 to +1.",
       "plain_language_summary": "The predictor-outcome relationship left over after accounting for the other predictors.",
       "notes": "Sign-preserving partial correlation between Y and each predictor after removing all other predictor effects. Range [−1, 1]."
     },
@@ -823,7 +823,7 @@
       "name": "VIF",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(X_s),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_squared(\n            CHOOSECOLS(X_s, FILTER(col_idx, col_idx <> j)),\n            CHOOSECOLS(X_s, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(X_s),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_Squared(\n            CHOOSECOLS(X_s, FILTER(col_idx, col_idx <> j)),\n            CHOOSECOLS(X_s, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -875,7 +875,7 @@
       "name": "Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Include], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            DF_Residual(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Include], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -911,7 +911,7 @@
       "notes": "6-element vector: point estimate, SE_prediction, t-critical, lower PI bound, upper PI bound, confidence level."
     },
     {
-      "name": "Observation_Num",
+      "name": "Observation_Number",
       "test_table": "MLR_Observation_Test",
       "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Include],\n  SEQUENCE(ROWS(FILTER(Y, IF(ISOMITTED(Include), TRUE, Include))))\n)",
@@ -974,7 +974,7 @@
       "notes": "Filtered Y values sorted from low to high. Paired with Normal_Scores to build a Y-variable Q-Q plot."
     },
     {
-      "name": "Dependent_Var",
+      "name": "Dependent_Variable",
       "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(Y, [Include],\n  FILTER(Y, IF(ISOMITTED(Include), TRUE, Include))\n)",
@@ -1051,7 +1051,7 @@
         }
       ],
       "yields": "p×p matrix — the inverse of the Gram matrix (X'X)⁻¹",
-      "description": "Returns (X'X)⁻¹ for a design matrix X. Single point of inversion used by Hat_diagonal, PRESS, LOOCV_prediction, and Prediction_Interval — any future stability upgrade (e.g., Tikhonov regularisation) only needs to be made here.\n\nPass the output of Design_Matrix — already filtered and intercept-augmented — directly as X.",
+      "description": "Returns (X'X)⁻¹ for a design matrix X. Single point of inversion used by Hat_Diagonal, PRESS, LOOCV_Prediction, and Prediction_Interval — any future stability upgrade (e.g., Tikhonov regularisation) only needs to be made here.\n\nPass the output of Design_Matrix — already filtered and intercept-augmented — directly as X.",
       "plain_language_summary": "The matrix inverse the regression uses for leverage, intervals, and influence math.",
       "notes": "Inverse of the Gram matrix (X’X)⁻¹. Central to leverage, prediction intervals, and LOOCV calculations. Pass Design_Matrix output."
     },
@@ -1146,7 +1146,7 @@
       "notes": "Residuals divided by SE_Regression. Not leverage-adjusted; contrast with Studentized_Residuals for outlier detection."
     },
     {
-      "name": "This_row",
+      "name": "This_Row",
       "test_table": null,
       "number_format": "0",
       "formula_display": "=LAMBDA(array,\n  SEQUENCE(ROWS(array))\n)",
@@ -1157,12 +1157,12 @@
         }
       ],
       "yields": "1..n column vector of relative row numbers",
-      "description": "Returns a 1-based integer sequence 1, 2, …, n where n = ROWS(array). The row numbers are relative to the top of the supplied array, so they are stable regardless of where the array sits on the sheet or whether it has been pre-filtered by the caller.\n\nDesigned to be passed to CHOOSEROWS or used as a comparison mask inside FILTER; see Exclude_row_n for the canonical usage.",
+      "description": "Returns a 1-based integer sequence 1, 2, …, n where n = ROWS(array). The row numbers are relative to the top of the supplied array, so they are stable regardless of where the array sits on the sheet or whether it has been pre-filtered by the caller.\n\nDesigned to be passed to CHOOSEROWS or used as a comparison mask inside FILTER; see Exclude_Row_N for the canonical usage.",
       "plain_language_summary": "Relative row numbers for the current spilled array.",
       "notes": "Relative row numbers 1..n for the current spilled array. Pass to CHOOSEROWS or use as a mask inside FILTER."
     },
     {
-      "name": "Exclude_row_n",
+      "name": "Exclude_Row_N",
       "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(array, n,\n  LET(\n    total_rows, ROWS(array),\n    n_abs,      IF(n < 0, total_rows + n + 1, n),\n    IF(\n      OR(n_abs < 1, n_abs > total_rows),\n      NA(),\n      LET(\n        rows, SEQUENCE(total_rows),\n        CHOOSEROWS(array, FILTER(rows, rows <> n_abs))\n      )\n    )\n  )\n)",
@@ -1182,10 +1182,10 @@
       "notes": "Array with one row removed. Positive n counts from top, negative from bottom. Returns NA() when n is out of bounds."
     },
     {
-      "name": "LOO_prediction",
+      "name": "Leave_One_Out_Prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_row_n(X_filt, n),\n    Y_loo,     Exclude_row_n(Y_filt, n),\n    x_n,       Design_Matrix(CHOOSEROWS(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_Row_N(X_filt, n),\n    Y_loo,     Exclude_Row_N(Y_filt, n),\n    x_n,       Design_Matrix(CHOOSEROWS(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
       "arguments": [
         {
           "name": "X_s",
@@ -1211,15 +1211,15 @@
         }
       ],
       "yields": "scalar LOO prediction for observation n — the fitted value from a model trained on all rows except n, evaluated at row n of X_s",
-      "description": "Applies the filter once in the outer scope to produce X_filt and Y_filt, then delegates to inner LAMBDAs without re-passing the filter. Exclude_row_n removes observation n from both X and Y; Coefficients fits OLS on the remaining n−1 rows; Design_Matrix builds the single-row design vector for row n (with or without intercept column); MMULT computes the dot product.\n\nNote: for n LOO predictions at once use LOOCV_prediction, which avoids n separate OLS fits via the hat-matrix shortcut.",
+      "description": "Applies the filter once in the outer scope to produce X_filt and Y_filt, then delegates to inner LAMBDAs without re-passing the filter. Exclude_Row_N removes observation n from both X and Y; Coefficients fits OLS on the remaining n−1 rows; Design_Matrix builds the single-row design vector for row n (with or without intercept column); MMULT computes the dot product.\n\nNote: for n LOO predictions at once use LOOCV_Prediction, which avoids n separate OLS fits via the hat-matrix shortcut.",
       "plain_language_summary": "One leave-one-out prediction for the requested row.",
-      "notes": "Single leave-one-out prediction for row n by refitting on n−1 rows. For all rows at once use LOOCV_prediction."
+      "notes": "Single leave-one-out prediction for row n by refitting on n−1 rows. For all rows at once use LOOCV_Prediction."
     },
     {
-      "name": "LOOCV_prediction",
+      "name": "LOOCV_Prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    yhat,      Predictions(X_s, Y, allow_arg, filt_arg),\n    e,         FILTER(Y, filt_arg) - yhat,\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    yhat - h * e / (1 - h)\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    yhat,      Predictions(X_s, Y, allow_arg, filt_arg),\n    e,         FILTER(Y, filt_arg) - yhat,\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    yhat - h * e / (1 - h)\n  )\n)",
       "arguments": [
         {
           "name": "X_s",
@@ -1241,12 +1241,42 @@
         }
       ],
       "yields": "n-element spill vector of LOO predictions for every filtered observation",
-      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal from Hat_diagonal.\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS.",
+      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal from Hat_Diagonal.\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), which is exposed directly by LOOCV_Residual; SUMSQ(LOOCV_Residual(...)) = PRESS.",
       "plain_language_summary": "Each row's prediction from a model refit without that row.",
       "notes": "All n leave-one-out predictions at once using the hat-matrix shortcut ŷ₋ᵢ = ŷᵢ − hᵢeᵢ/(1−hᵢ). No n separate refits needed."
     },
     {
-      "name": "Hat_diagonal",
+      "name": "LOOCV_Residual",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    e / (1 - h)\n  )\n)",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n-element spill vector of leave-one-out residuals for every filtered observation",
+      "description": "Returns the leave-one-out cross-validation residual for every observation simultaneously. The shortcut formula is e_i / (1 - h_i), where e_i is the ordinary OLS residual and h_i is the hat-matrix diagonal from Hat_Diagonal. Squaring and summing this vector gives PRESS.",
+      "plain_language_summary": "Each row's prediction error when that row is left out of the fit.",
+      "notes": "Leave-one-out residuals e_i/(1-h_i). SUMSQ of this spilled vector equals PRESS."
+    },
+    {
+      "name": "Hat_Diagonal",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
       "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   Gram_Inverse(X_design),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
@@ -1267,7 +1297,7 @@
         }
       ],
       "yields": "n-element hat-matrix diagonal (leverage values) as spilled vector",
-      "description": "Returns h_i = x_iᵀ(XᵀX)⁻¹x_i for each observation. Values range from p/n (minimum leverage, uniform design) to 1. Observations with h_i > 2p/n are conventionally flagged as high-leverage. Used internally by Studentized_Residuals, Cooks_Distance, PRESS, and LOOCV_prediction; exposed here for direct inspection. Inversion is delegated to Gram_Inverse.",
+      "description": "Returns h_i = x_iᵀ(XᵀX)⁻¹x_i for each observation. Values range from p/n (minimum leverage, uniform design) to 1. Observations with h_i > 2p/n are conventionally flagged as high-leverage. Used internally by Studentized_Residuals, Cooks_Distance, PRESS, and LOOCV_Prediction; exposed here for direct inspection. Inversion is delegated to Gram_Inverse.",
       "plain_language_summary": "Each row's leverage, meaning how unusual its predictor values are.",
       "notes": "Leverage hᵢ = xᵢ’(X’X)⁻¹xᵢ per row. Rows with hᵢ > 2p/n have high leverage; used by Cook’s Distance and PRESS."
     },
@@ -1275,7 +1305,7 @@
       "name": "Studentized_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    e / (se * SQRT(1 - h))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    e / (se * SQRT(1 - h))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1335,7 +1365,7 @@
       "name": "Cooks_Distance",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    r,         Studentized_Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_diagonal(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(Design_Matrix(X_s, allow_arg, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    r,         Studentized_Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(Design_Matrix(X_s, allow_arg, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1392,7 +1422,7 @@
       "notes": "Scaled residuals sorted ascending. Paired with Normal_Scores for a standard Q-Q residual plot."
     },
     {
-      "name": "Col_Select",
+      "name": "Column_Select",
       "test_table": null,
       "number_format": "General",
       "formula_display": "=LAMBDA(table, col_nums,\n  CHOOSECOLS(table, col_nums)\n)",
@@ -1407,7 +1437,7 @@
         }
       ],
       "yields": "array of the selected columns in the specified order",
-      "description": "Wraps CHOOSECOLS to give column selection a named, self-documenting form. The output is a calculated array with the same row count as the source table, valid as X_s in any library function.\n\nPrimary use: define a named range — e.g. X_Predictors = Col_Select(LifeData, {3,7,9}) — then pass that name as X_s. Non-contiguous column sets are fully supported. Combine with Complete_Cases_Filter to drop rows that have missing or non-numeric values in the chosen columns.",
+      "description": "Wraps CHOOSECOLS to give column selection a named, self-documenting form. The output is a calculated array with the same row count as the source table, valid as X_s in any library function.\n\nPrimary use: define a named range — e.g. X_Predictors = Column_Select(LifeData, {3,7,9}) — then pass that name as X_s. Non-contiguous column sets are fully supported. Combine with Complete_Cases_Filter to drop rows that have missing or non-numeric values in the chosen columns.",
       "plain_language_summary": "A helper that picks specific columns from a larger table.",
       "notes": "Named wrapper for CHOOSECOLS: picks non-contiguous predictor columns by index. Returns an array suitable for X_s."
     },
@@ -1419,7 +1449,7 @@
       "arguments": [
         {
           "name": "X_s",
-          "description": "column range of predictors (single or multi-column), or a Col_Select result"
+          "description": "column range of predictors (single or multi-column), or a Column_Select result"
         },
         {
           "name": "Y",
@@ -1428,7 +1458,7 @@
         }
       ],
       "yields": "boolean column vector — TRUE for rows where every included column is numeric",
-      "description": "Produces a ready-made Include argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))",
+      "description": "Produces a ready-made Include argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_Squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))",
       "plain_language_summary": "A TRUE/FALSE mask that keeps only rows with usable numeric data.",
       "notes": "Boolean vector TRUE where every included column is numeric. Pass as the Include argument to exclude incomplete rows."
     },
@@ -1537,10 +1567,10 @@
       "notes": "Excess kurtosis per X_s column. 0 = normal-distributed tails; positive = heavier tails with more frequent extremes."
     },
     {
-      "name": "F_Stat",
+      "name": "F_Statistic",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / DF_Regression(X_s) /\n    (SS_Residual(X_s, Y, allow_arg, filt_arg) / DF_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / Regression_Degrees_Of_Freedom(X_s) /\n    (SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1562,15 +1592,15 @@
         }
       ],
       "yields": "F-statistic for the overall regression model as a scalar",
-      "description": "F_Stat returns the F-statistic for the omnibus test of the null hypothesis that all regression coefficients are simultaneously zero. It equals (MS_Regression / MS_Residual) = (SS_Regression / df_regression) / (SS_Residual / df_residual).\n\nA large F-statistic (and correspondingly small P_Value_F) means the model explains significantly more variance than would be expected by chance. Note that a significant F does not guarantee that every individual predictor is significant — individual t-statistics (T_Stats) address that question. F_Stat appears in the ANOVA table on the Regression sheet; this function exposes it as a named reference for use in other formulas.",
+      "description": "F_Statistic returns the F-statistic for the omnibus test of the null hypothesis that all regression coefficients are simultaneously zero. It equals (MS_Regression / MS_Residual) = (SS_Regression / df_regression) / (SS_Residual / df_residual).\n\nA large F-statistic (and correspondingly small F_Statistic_P_Value) means the model explains significantly more variance than would be expected by chance. Note that a significant F does not guarantee that every individual predictor is significant — individual t-statistics (T_Statistics) address that question. F_Statistic appears in the ANOVA table on the Regression sheet; this function exposes it as a named reference for use in other formulas.",
       "plain_language_summary": "Whether the model, taken as a whole, explains more than random noise would.",
       "notes": "Overall F-statistic = MS_Regression / MS_Residual. Tests whether the model explains significantly more variance than random noise."
     },
     {
-      "name": "P_Value_F",
+      "name": "F_Statistic_P_Value",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    F.DIST.RT(\n      F_Stat(X_s, Y, allow_arg, filt_arg),\n      DF_Regression(X_s),\n      DF_Residual(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    F.DIST.RT(\n      F_Statistic(X_s, Y, allow_arg, filt_arg),\n      Regression_Degrees_Of_Freedom(X_s),\n      Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1592,7 +1622,7 @@
         }
       ],
       "yields": "p-value for the overall F-test (right-tail probability of the F distribution)",
-      "description": "P_Value_F returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Stat under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Stat, df_regression, df_residual).\n\nConventionally, P_Value_F < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use.",
+      "description": "F_Statistic_P_Value returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Statistic under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Statistic, df_regression, df_residual).\n\nConventionally, F_Statistic_P_Value < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use.",
       "plain_language_summary": "How surprising the overall F-statistic would be if the model had no real signal.",
       "notes": "Right-tail p-value for the overall F-test. Values < 0.05 indicate the model as a whole is statistically significant."
     },
@@ -1637,7 +1667,7 @@
       "notes": "Count of non-numeric (blank or text) cells in the active data range up to the last non-empty row. Returns 0 when data is clean."
     },
     {
-      "name": "Descriptive_Stats",
+      "name": "Descriptive_Statistics",
       "number_format": "0.0000",
       "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    skew_val, INDEX(Skewness(data, filt_arg), 1),\n    kurt_val, INDEX(Kurtosis(data, filt_arg), 1),\n    VSTACK(\n      AVERAGE(x),\n      MEDIAN(x),\n      IFERROR(MODE.SNGL(x), NA()),\n      STDEV.S(x),\n      VAR.S(x),\n      MIN(x),\n      MAX(x),\n      MAX(x) - MIN(x),\n      skew_val,\n      kurt_val,\n      n,\n      Missing_Count(data, IF(ISOMITTED(filter), TRUE, filter))\n    )\n  ))",
       "arguments": [
@@ -1652,7 +1682,7 @@
         }
       ],
       "yields": "12×1 column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count",
-      "description": "Descriptive_Stats returns a 12-element column vector of summary statistics for a single data column. When no filter is supplied, non-numeric cells are automatically excluded via ISNUMBER. Mode returns NA() when no unique mode exists. Skewness and kurtosis reuse the existing Skewness and Kurtosis LAMBDAs (Excel SKEW and KURT bias-correction formulas).\n\nUse INDEX to extract individual values: INDEX(Descriptive_Stats(data), 1) = mean, INDEX(..., 4) = SD, etc. Or enter as a single spill formula to populate all 12 rows at once.",
+      "description": "Descriptive_Statistics returns a 12-element column vector of summary statistics for a single data column. When no filter is supplied, non-numeric cells are automatically excluded via ISNUMBER. Mode returns NA() when no unique mode exists. Skewness and kurtosis reuse the existing Skewness and Kurtosis LAMBDAs (Excel SKEW and KURT bias-correction formulas).\n\nUse INDEX to extract individual values: INDEX(Descriptive_Statistics(data), 1) = mean, INDEX(..., 4) = SD, etc. Or enter as a single spill formula to populate all 12 rows at once.",
       "plain_language_summary": "All 12 standard summary statistics for a data column, returned as a column vector.",
       "notes": "12×1 column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count."
     },
@@ -1697,7 +1727,7 @@
       "notes": "Bin count from Scott’s normal-reference rule: width = 3.49·σ·n^(−1/3). Optimal when data are approximately normal."
     },
     {
-      "name": "FD_Bins",
+      "name": "Freedman_Diaconis_Bins",
       "number_format": "0",
       "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    iqr, QUARTILE.EXC(x, 3) - QUARTILE.EXC(x, 1),\n    width, 2 * iqr * n ^ (-1/3),\n    range_, MAX(x) - MIN(x),\n    IF(iqr = 0, Sturges_Bins(data, filt_arg), CEILING(range_ / width, 1))\n  ))",
       "arguments": [
@@ -1712,12 +1742,12 @@
         }
       ],
       "yields": "integer bin count via the Freedman-Diaconis rule",
-      "description": "FD_Bins computes the bin width h = 2 × IQR × n^(−1/3) where IQR is the interquartile range (QUARTILE.EXC), then returns k = ⌈range / h⌉.\n\nFreedman-Diaconis is robust to outliers because it uses the IQR rather than the standard deviation. It is the preferred rule for skewed or heavy-tailed distributions and for large samples where the shape deviates from normality.",
+      "description": "Freedman_Diaconis_Bins computes the bin width h = 2 × IQR × n^(−1/3) where IQR is the interquartile range (QUARTILE.EXC), then returns k = ⌈range / h⌉.\n\nFreedman-Diaconis is robust to outliers because it uses the IQR rather than the standard deviation. It is the preferred rule for skewed or heavy-tailed distributions and for large samples where the shape deviates from normality.",
       "plain_language_summary": "How many histogram bins the Freedman-Diaconis rule recommends.",
       "notes": "Bin count from Freedman-Diaconis rule: width = 2·IQR·n^(−1/3). Robust to outliers; preferred for skewed data."
     },
     {
-      "name": "num_histogram_bins",
+      "name": "Number_Of_Histogram_Bins",
       "number_format": "0",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    m, IF(ISOMITTED(method), \"FD\", method),\n    SWITCH(m,\n      \"Sturges\", CEILING(LOG(n, 2) + 1, 1),\n      \"Scott\",   LET(\n                   sd, STDEV.S(x),\n                   range_, MAX(x) - MIN(x),\n                   IF(sd = 0, 1, CEILING(range_ / (3.49 * sd * n ^ (-1/3)), 1))\n                 ),\n      LET(\n        iqr, QUARTILE.EXC(x, 3) - QUARTILE.EXC(x, 1),\n        range_, MAX(x) - MIN(x),\n        IF(iqr = 0,\n          CEILING(LOG(n, 2) + 1, 1),\n          CEILING(range_ / (2 * iqr * n ^ (-1/3)), 1))\n      )\n    )\n  ))",
       "arguments": [
@@ -1737,14 +1767,14 @@
         }
       ],
       "yields": "integer bin count k for the chosen method",
-      "description": "num_histogram_bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = ⌈log₂(n) + 1⌉\n  Scott:   width = 3.49 × SD × n^(−1/3);  k = ⌈range / width⌉  (k=1 when SD=0)\n  FD:      width = 2 × IQR × n^(−1/3);   k = ⌈range / width⌉  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
+      "description": "Number_Of_Histogram_Bins returns the recommended number of histogram bins k using the specified rule, defaulting to Freedman-Diaconis when method is omitted.\n\nAll three methods are computed inline without calling other named LAMBDAs:\n  Sturges: k = ⌈log₂(n) + 1⌉\n  Scott:   width = 3.49 × SD × n^(−1/3);  k = ⌈range / width⌉  (k=1 when SD=0)\n  FD:      width = 2 × IQR × n^(−1/3);   k = ⌈range / width⌉  (falls back to Sturges when IQR=0)\n\nUsed internally by Bin_Edges. Can also be called directly to get the bin count for a specific rule.",
       "plain_language_summary": "How many histogram bins a chosen rule (default: Freedman-Diaconis) recommends for this data.",
       "notes": "Bin count by chosen rule (\"Sturges\", \"Scott\", or default \"FD\"). Used internally by Bin_Edges; call directly to inspect the count."
     },
     {
       "name": "Bin_Edges",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, num_histogram_bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k + 1, 1, min_x, width)\n  ))",
+      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, Number_Of_Histogram_Bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k + 1, 1, min_x, width)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -2109,7 +2139,7 @@
       "notes": "P(minimum < X ≤ maximum) for BetaPERT(min, mode, max). PERT parameters are auto-derived from three-point estimates."
     },
     {
-      "name": "Grid_Argmin",
+      "name": "Grid_Argument_Minimum",
       "test_table": null,
       "number_format": "General",
       "formula_display": "=LAMBDA(grid,\n  LET(\n    value_count, COUNT(grid),\n    IF(\n      value_count = 0,\n      HSTACK(NA(), NA(), NA()),\n      LET(\n        min_value, MIN(grid),\n        flat_location, XMATCH(min_value, TOCOL(grid)),\n        column_count, COLUMNS(grid),\n        row_location, QUOTIENT(flat_location - 1, column_count) + 1,\n        column_location, MOD(flat_location - 1, column_count) + 1,\n        HSTACK(min_value, row_location, column_location)\n      )\n    )\n  ))",
@@ -2120,7 +2150,7 @@
         }
       ],
       "yields": "1×3 row vector: minimum value, 1-based row location, and 1-based column location of the first minimum",
-      "description": "Grid_Argmin finds the minimum numeric value in a rectangular grid and returns that value together with its 1-based row and column locations. TOCOL scans the grid by row, XMATCH selects the first occurrence of the minimum, and QUOTIENT/MOD convert the flattened position back to grid coordinates. Returning one matched position avoids combining the row of one tied minimum with the column of another.\n\nFor a two-input Excel Data Table, pass only the Data Table body, excluding the parameter headings, parameter-value axes, and corner formula cell. The grid is expected to contain numeric results; an all-nonnumeric grid returns NA() in all three output positions.",
+      "description": "Grid_Argument_Minimum finds the minimum numeric value in a rectangular grid and returns that value together with its 1-based row and column locations. TOCOL scans the grid by row, XMATCH selects the first occurrence of the minimum, and QUOTIENT/MOD convert the flattened position back to grid coordinates. Returning one matched position avoids combining the row of one tied minimum with the column of another.\n\nFor a two-input Excel Data Table, pass only the Data Table body, excluding the parameter headings, parameter-value axes, and corner formula cell. The grid is expected to contain numeric results; an all-nonnumeric grid returns NA() in all three output positions.",
       "plain_language_summary": "The smallest value in a grid and the row and column where its first occurrence appears.",
       "notes": "Minimum value in a grid plus its 1-based row and column. Pass the body of a two-input Data Table to locate MLE parameter estimates."
     },
@@ -2128,7 +2158,7 @@
       "name": "Grid_Search_Optimum",
       "test_table": null,
       "number_format": "General",
-      "formula_display": "=LAMBDA(grid,\n  LET(\n    argmin, Grid_Argmin(grid),\n    row_location, INDEX(argmin, 1, 2),\n    column_location, INDEX(argmin, 1, 3),\n    best_column_parameter, OFFSET(grid, -1, column_location - 1, 1, 1),\n    best_row_parameter, OFFSET(grid, row_location - 1, -1, 1, 1),\n    VSTACK(best_column_parameter, best_row_parameter)\n  ))",
+      "formula_display": "=LAMBDA(grid,\n  LET(\n    argmin, Grid_Argument_Minimum(grid),\n    row_location, INDEX(argmin, 1, 2),\n    column_location, INDEX(argmin, 1, 3),\n    best_column_parameter, OFFSET(grid, -1, column_location - 1, 1, 1),\n    best_row_parameter, OFFSET(grid, row_location - 1, -1, 1, 1),\n    VSTACK(best_column_parameter, best_row_parameter)\n  ))",
       "arguments": [
         {
           "name": "grid",
@@ -2136,7 +2166,7 @@
         }
       ],
       "yields": "2×1 column vector: optimal column-parameter value, then optimal row-parameter value",
-      "description": "Grid_Search_Optimum returns the two parameter values associated with the first minimum in a two-input Excel Data Table. It calls Grid_Argmin to determine the minimum's row and column internally, then uses OFFSET to retrieve the corresponding column-parameter value from the row immediately above the grid and the row-parameter value from the column immediately to its left.\n\nThe function is distribution-agnostic: for Weibull the outputs can represent shape and scale; for Beta they can represent alpha and beta. The supplied grid must be the full worksheet range of the Data Table body, not a single cell containing the TABLE array formula and not a detached calculated array.",
+      "description": "Grid_Search_Optimum returns the two parameter values associated with the first minimum in a two-input Excel Data Table. It calls Grid_Argument_Minimum to determine the minimum's row and column internally, then uses OFFSET to retrieve the corresponding column-parameter value from the row immediately above the grid and the row-parameter value from the column immediately to its left.\n\nThe function is distribution-agnostic: for Weibull the outputs can represent shape and scale; for Beta they can represent alpha and beta. The supplied grid must be the full worksheet range of the Data Table body, not a single cell containing the TABLE array formula and not a detached calculated array.",
       "plain_language_summary": "The two parameter values that produce the smallest result in a two-input Data Table.",
       "notes": "The two parameter values (column then row) at the minimum of a two-input Data Table. Use after NLL grid search to extract optimal parameters."
     },

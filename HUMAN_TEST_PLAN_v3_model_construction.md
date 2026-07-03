@@ -184,13 +184,6 @@ structural bug, not a data issue.
 
 ## Known caveat to verify and accept (or escalate)
 
-**Blank categorical values pass the filter.** The mask demands numeric y and
-numeric included *continuous* predictors only; a Categorical Predictor cell that is
-blank imposes no condition, and a blank encodes 0 against every retained level —
-i.e., it is silently classified as the *reference level*. The WHO Status/Country/
-Year columns have no blanks, so no current test exposes it; reproduce by blanking
-one Status cell in a Full_Data-complete row and observing the row survive the
-filter with reference-level encoding. If this is unacceptable, the fix is extending
-`Sample_Include()` with a non-blank condition on included Categorical Predictors —
-one more branch in the REDUCE — and it should be raised as a design decision rather
-than patched silently (ROADMAP open item 5, auto-completeness, is the home for it).
+**Blank categorical values should fail the completeness mask.** Per ROADMAP, the effective mask requires numeric y + numeric included *continuous* predictors **and** non-blank values for included Categorical Predictors.
+Reproduce by blanking one Status cell in a Full_Data-complete row and verify the row is excluded (mask FALSE) and does not encode as the reference level.
+If the row remains included, treat it as a bug in `Sample_Include()` / role-aware completeness rather than acceptable behavior.

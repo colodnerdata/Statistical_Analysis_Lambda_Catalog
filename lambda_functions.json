@@ -363,7 +363,7 @@
       "name": "PRESS",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    SUMSQ(e / (1 - h))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SUMSQ(LOOCV_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1241,9 +1241,39 @@
         }
       ],
       "yields": "n-element spill vector of LOO predictions for every filtered observation",
-      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal from Hat_Diagonal.\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), so SUMSQ(LOOCV_residuals) = PRESS.",
+      "description": "Returns the leave-one-out predicted value for every observation simultaneously, without fitting n separate models. Uses the Sherman-Morrison-Woodbury update: ŷ_{−i}(xᵢ) = ŷᵢ − hᵢ eᵢ / (1 − hᵢ), where ŷᵢ = Predictions, eᵢ = Y − ŷᵢ, and hᵢ is the hat-matrix diagonal from Hat_Diagonal.\n\nThe LOOCV residual for each row equals eᵢ / (1 − hᵢ), which is exposed directly by LOOCV_Residual; SUMSQ(LOOCV_Residual(...)) = PRESS.",
       "plain_language_summary": "Each row's prediction from a model refit without that row.",
       "notes": "All n leave-one-out predictions at once using the hat-matrix shortcut ŷ₋ᵢ = ŷᵢ − hᵢeᵢ/(1−hᵢ). No n separate refits needed."
+    },
+    {
+      "name": "LOOCV_Residual",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    e / (1 - h)\n  )\n)",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n-element spill vector of leave-one-out residuals for every filtered observation",
+      "description": "Returns the leave-one-out cross-validation residual for every observation simultaneously. The shortcut formula is e_i / (1 - h_i), where e_i is the ordinary OLS residual and h_i is the hat-matrix diagonal from Hat_Diagonal. Squaring and summing this vector gives PRESS.",
+      "plain_language_summary": "Each row's prediction error when that row is left out of the fit.",
+      "notes": "Leave-one-out residuals e_i/(1-h_i). SUMSQ of this spilled vector equals PRESS."
     },
     {
       "name": "Hat_Diagonal",

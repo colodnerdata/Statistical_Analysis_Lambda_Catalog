@@ -478,6 +478,26 @@ class RealCatalogIntegrationTests(unittest.TestCase):
         for function_name in ("LAMBDA", "LET", "HSTACK", "XMATCH", "TOCOL"):
             self.assertIn(f"_xlfn.{function_name}", xml)
 
+    def test_loocv_residual_is_cataloged_and_used_by_press(self) -> None:
+        functions = {fn.name: fn for fn in self.document.functions}
+        self.assertIn("LOOCV_Residual", functions)
+        self.assertEqual(
+            functions["LOOCV_Residual"].argument_names,
+            ("X_s", "Y", "Allow_Intercept", "Include"),
+        )
+        self.assertIn(
+            "Residuals(X_s, Y, allow_arg, filt_arg)",
+            functions["LOOCV_Residual"].formula_display,
+        )
+        self.assertIn(
+            "Hat_Diagonal(X_s, allow_arg, filt_arg)",
+            functions["LOOCV_Residual"].formula_display,
+        )
+        self.assertIn(
+            "SUMSQ(LOOCV_Residual(X_s, Y, allow_arg, filt_arg))",
+            functions["PRESS"].formula_display,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

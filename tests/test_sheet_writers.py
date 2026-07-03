@@ -18,6 +18,10 @@ from lambda_catalog.write_sheet_regression import (
     _C_P,
     _C_Q,
     _C_S,
+    _C_AA,
+    _C_AB,
+    _C_AC,
+    _C_AI,
     _C_X,
     _C_Y,
     _setup_local_names as _setup_regression_names,
@@ -153,6 +157,18 @@ def test_write_residuals_writes_row_identifier_header_and_falls_back_on_error() 
     # The diagnostics columns shift one slot right of the identifiers column.
     assert sheet.cell(2, _C_Y).value == "Y"
     assert sheet.cell(3, _C_Y).api.Formula2 == "=Dependent_Variable(y,Regression_Sample_Include)"
+    assert sheet.cell(3, _C_AA).api.Formula2 == (
+        "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+    )
+    assert sheet.cell(3, _C_AC).api.Formula2 == (
+        "=Hat_Diagonal(x_s(),Allow_Intercept,Regression_Sample_Include)"
+    )
+    assert sheet.cell(3, _C_AB).api.Formula2 == (
+        "=LOOCV_Residual(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+    )
+    assert sheet.cell(3, _C_AI).api.Formula2 == (
+        "=LOOCV_Residual(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+    )
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:

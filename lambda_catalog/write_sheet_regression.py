@@ -891,13 +891,9 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # Spill anchors — each spills n rows downward
     f(sheet, 3, _C_Y,  "=Dependent_Variable(y,Regression_Sample_Include)")
     f(sheet, 3, _C_Z,  "=Predictions(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
-    f(sheet, 3, _C_AA, "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
-    f(
-        sheet, 3, _C_AB,
-        "=Dependent_Variable(y,Regression_Sample_Include)"
-        "-LOOCV_Prediction(x_s(),y,Allow_Intercept,Regression_Sample_Include)",
-    )
     f(sheet, 3, _C_AC, "=Hat_Diagonal(x_s(),Allow_Intercept,Regression_Sample_Include)")
+    f(sheet, 3, _C_AA, "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
+    f(sheet, 3, _C_AB, "=LOOCV_Residual(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
     f(sheet, 3, _C_AD, "=Studentized_Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
     f(sheet, 3, _C_AE, "=Cooks_Distance(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
     f(sheet, 3, _C_AF, "=SORT(Normal_Scores(y,Regression_Sample_Include))")
@@ -907,12 +903,8 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         sheet, 3, _C_AH,
         "=SQRT(ABS(Studentized_Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)))",
     )
-    # PRESS Residual: e_i / (1 - h_i) — large values flag high-influence observations.
-    f(
-        sheet, 3, _C_AI,
-        "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
-        "/(1-Hat_Diagonal(x_s(),Allow_Intercept,Regression_Sample_Include))",
-    )
+    # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
+    f(sheet, 3, _C_AI, "=LOOCV_Residual(x_s(),y,Allow_Intercept,Regression_Sample_Include)")
     sheet.range(f"{col_letter(_C_Z)}:{col_letter(_C_AI)}").number_format = "0.0000"
 
 

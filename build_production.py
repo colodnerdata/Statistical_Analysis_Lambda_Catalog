@@ -145,51 +145,54 @@ def build_production_workbook(
     workbook_exists = workbook_path.exists()
 
     _t = time.monotonic()
+    app: xw.App | None = None
+    workbook: xw.Book | None = None
     try:
-        with xw.App(visible=True, add_book=False) as app:
-            workbook = None
-            rebuilt_from_scratch = False
-            if workbook_exists:
+        app = xw.App(visible=True, add_book=False)
+        rebuilt_from_scratch = False
+        if workbook_exists:
+            try:
+                workbook = app.books.open(str(workbook_path))
+            except OPEN_WORKBOOK_ERRORS as exc:
+                message = str(exc).lower()
+                if "open method of workbooks class failed" not in message:
+                    raise
                 try:
-                    workbook = app.books.open(str(workbook_path))
-                except OPEN_WORKBOOK_ERRORS as exc:
-                    message = str(exc).lower()
-                    if "open method of workbooks class failed" not in message:
-                        raise
-                    try:
-                        _backup_unopenable_workbook(workbook_path)
-                    except OSError as backup_exc:
-                        raise_excel_access_error(workbook_path, "open", backup_exc)
-                    workbook = app.books.add()
-                    rebuilt_from_scratch = True
-            else:
+                    _backup_unopenable_workbook(workbook_path)
+                except OSError as backup_exc:
+                    raise_excel_access_error(workbook_path, "open", backup_exc)
                 workbook = app.books.add()
                 rebuilt_from_scratch = True
+        else:
+            workbook = app.books.add()
+            rebuilt_from_scratch = True
 
-            if rebuilt_from_scratch:
-                for sheet in list(workbook.sheets)[1:]:
-                    sheet.delete()
+        if rebuilt_from_scratch:
+            for sheet in list(workbook.sheets)[1:]:
+                sheet.delete()
 
-            try:
-                app.api.Calculation = XL_CALCULATION_MANUAL
-                _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
-                for qc_sheet in _QC_SHEET_NAMES:
-                    _delete_sheet_if_present(workbook, qc_sheet)
-                if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
-                    workbook.sheets["Sheet1"].name = "LAMBDA_functions"
-                write_catalog_sheet(workbook, document.functions)
-                write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
-                write_univariate_sheet(workbook)
-                write_regression_instructions_sheet(workbook)
-                write_diagnostic_guide_sheet(workbook)
-                write_version_history_sheet(workbook)
-                write_regression_output_sheet(workbook, document.regression_sheet_notes)
-                app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
-                workbook.save(str(workbook_path))
-            finally:
-                workbook.close()
+        try:
+            app.api.Calculation = XL_CALCULATION_MANUAL
+            _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
+            for qc_sheet in _QC_SHEET_NAMES:
+                _delete_sheet_if_present(workbook, qc_sheet)
+            if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
+                workbook.sheets["Sheet1"].name = "LAMBDA_functions"
+            write_catalog_sheet(workbook, document.functions)
+            write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
+            write_univariate_sheet(workbook)
+            write_regression_instructions_sheet(workbook)
+            write_diagnostic_guide_sheet(workbook)
+            write_version_history_sheet(workbook)
+            write_regression_output_sheet(workbook, document.regression_sheet_notes)
+            app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
+            workbook.save(str(workbook_path))
+        finally:
+            _close_workbook_quietly(workbook)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "open or save", exc)
+    finally:
+        _quit_app_quietly(app)
     if verbose:
         print(f"  Write sheets:   {time.monotonic() - _t:.1f}s", flush=True)
 

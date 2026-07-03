@@ -385,7 +385,7 @@
         }
       ],
       "yields": "PRESS (Prediction Residual Error Sum of Squares) as a scalar",
-      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nComputed as SUMSQ(LOOCV_Residual(...)), where LOOCV_Residual returns eᵢ / (1 − hᵢ) using Residuals() and Hat_Diagonal()."
+      "description": "PRESS is the leave-one-out cross-validation (LOOCV) sum of squared prediction errors. For each observation i the model is refitted on all other observations and evaluated at x_i; the shortcut formula avoids n separate refits by computing Σ(eᵢ / (1 − hᵢ))² where eᵢ are the OLS residuals and hᵢ are the hat-matrix diagonal (leverage) values.\n\nComputed as SUMSQ(LOOCV_Residual(...)), where LOOCV_Residual returns eᵢ / (1 − hᵢ) using Residuals() and Hat_Diagonal().",
       "plain_language_summary": "How well the model predicts rows it did not get to train on.",
       "notes": "Leave-one-out cross-validation sum of squares = Σ(eᵢ/(1−hᵢ))². Lower values mean better out-of-sample predictions."
     },

@@ -353,10 +353,201 @@ absorbed effects consumed df the engine doesn't know about
 > functions. Current lean: **(a)**, consistent with the one-source-of-truth principle
 > and the rejection of parallel function sets.
 
-### Model Spec status block — the transparency price, paid visibly
-
-Construction inside a LAMBDA means the user can no longer *see* the design matrix by
+#Model Spec status block — the transparency price, paid visibly
+Construction inside a LAMBDA means the user can no longer see the design matrix by
 scrolling. The replacement is a fixed-height block at the top of the outputs zone
 answering "what model did I actually specify?":
-
-- Constructed column count (k of the actual des
+Constructed column count (k of the actual design matrix)
+Level-qualified constructed column names
+References in effect for each Categorical variable (surfaced even when defaulted —
+a defaulted reference is never silent)
+Active FE variables, their group counts, and absorbed df
+Intercept status
+Error state — a single visible cell flagging illegal specifications:
+Fixed Effects active while Allow_Intercept is TRUE (see below)
+More than two Fixed Effects variables
+Continuous role on a non-numeric column
+Invalid reference level
+Full one-hot Categorical (no reference) with intercept on — perfect collinearity
+Intercept × FE interaction — flag, don't force. An intercept on demeaned data is
+not mathematically catastrophic (it estimates ≈ 0 and wastes a df), so silently forcing
+Allow_Intercept to FALSE would be exactly the silent reinterpretation the library
+forbids. The status block flags red and instructs; the user flips the toggle.
+Zone changes on the Regression sheet (breaking — hence MAJOR)
+Spec block widens A–B → A–D (Type and Reference columns).
+Predictor summary changes referent: Pearson/Spearman/Skewness/Kurtosis/VIF/
+Tolerance run on the constructed columns, not raw All_Xs columns (which may be
+text). This is more correct anyway — VIF on the actual design matrix, dummy columns
+included, is the multicollinearity actually faced. Block height = constructed width.
+Coefficient zone: Coefficient_Name_Col becomes role-aware; table height is a
+computed property of the spec (one Categorical row can yield several coefficient
+rows; an FE row yields none), no longer the count of TRUE toggles.
+Prediction inputs: user types raw values (GDP = 5000, Status = "Developing");
+categorical inputs validated against Dummy_Levels; the constructor encodes X_new
+through the same code path as training data.
+Residual output: unchanged in structure; note that residuals are residuals of the
+within model when FE is active — the Diagnostic Guide gains a paragraph on reading
+them.
+Layout principle check (fixed-width left, fixed-height top): the spec block A–D is
+fixed-width; the status block is fixed-height; the constructed matrix never appears on
+the sheet (it lives inside x_s()), so the sheet gains no new variable-width objects.
+The declarative design strengthens the layout principle rather than straining it —
+and note the estimator choice is load-bearing here: LSDV (country dummies) would have
+spilled a data-dependent number of columns; the within transformation replaces them
+with the same k columns transformed. The statistical decision and the layout principle
+point at the same answer.
+New catalog functions (Specification & Design Matrix subcategory)
+Working list; canonical names per the Naming Convention:
+The promoted x_s() / y_s() sheet-scoped constructors (sheet-scoped, as today)
+Constructed_Column_Names(...) — level-qualified name vector for the coefficient
+zone and status block
+Absorbed_Degrees_Of_Freedom(...) — Σ(Gᵢ − 1) from the spec
+Dummy_Column(category, level, [include]) — one indicator column per explicit call;
+complements Dummy_Code (which spills variable width) for contexts where
+one-call-one-column auditability is wanted
+Spec-validation helpers backing the status block error states
+Demonstration walkthroughs (Instructions sheet, WHO data)
+The WHO dataset's documented flaws become the demos:
+Factor walkthrough: Status as a two-level Categorical — demonstrating the pooled
+vs. by-Status coefficient flip (the Simpson's Paradox risk already identified).
+Panel walkthrough: Country (and optionally Year) as Fixed Effects — directly
+addressing the panel structure already identified as violating OLS independence.
+Open items (recorded, not resolved)
+df plumbing — optional argument vs. wrappers (lean: optional argument).
+FE prediction — the within model deliberately never estimates group intercepts,
+so predicting for a specific group requires recovering its fixed effect
+(α̂ᵢ = ȳᵢ − x̄ᵢ′β̂), implying a group-selection dropdown and recovery machinery in the
+prediction zone. Real machinery; scoped but not designed. Fallback if deferred:
+prediction zone displays "within-model prediction (group effect not included)" with
+a visible caveat rather than a wrong number presented as right.
+Fold the naming-convention rename pass into the v3.0 MAJOR bump?
+Durbin-Watson under FE — panel residuals have serial structure DW was not
+designed for; decide whether to relabel, caveat, or suppress when FE is active.
+Dataset bundling (carried forward) — whether the workbook ships permanently
+bundled with the WHO dataset or data-agnostic; still gates the named-range rename.
+Future roles (v5.0+ candidates)
+The Predictor Type column is extensible by design — these are role values, not new
+mechanisms:
+Weight — WLS. Supersedes the earlier standalone WLS milestone and its
+sheet/argument-threading debate. Marking a column Weight routes it into
+weighted-least-squares construction; WLS-aware relabeling of OLS-specific outputs
+happens on the one Regression sheet. Three-stage scope carried forward: user-supplied
+weights → variance-driver-derived weights → FGLS.
+Cluster — clustered standard errors. The honest endgame for panel inference
+(FE fixes the mean structure; clustering fixes the error structure). Substantial
+engine work; explicitly out of v3.0 scope.
+Time — designates the time index, feeding Lag_By / Difference_By and any
+future serial-correlation diagnostics.
+Constraint to respect when adding any role: at most one Weight column, at most one
+Time column; the status block validates.
+Data Transformation
+Cross-cutting infrastructure, not tied to a single version. These functions serve
+double duty: internals of the v3.0 constructor, and standalone user-callable
+transforms for free-form work on the data sheet. Tracked as its own catalog, separate
+from the version ladder (see Function Categories).
+Row-aligned transforms accept an optional include mask (1/TRUE keeps the row,
+0/FALSE excludes it). When include is omitted, those functions construct a default
+mask from the required inputs. Excluded rows return "" so spilled arrays stay aligned
+with the source rows — "" was chosen deliberately over NA() because it round-trips
+cleanly through ISNUMBER-based keep logic elsewhere in the library (ISNUMBER("") is
+FALSE, so a downstream mask built on ISNUMBER correctly re-excludes it) without
+erroring inside SUM/AVERAGE the way a propagated error value would.
+Note on naming: these functions are new, so they're written directly against the
+Naming Convention above (no abbreviations) rather than needing a retrofit.
+Sample Construction & Diagnostics — subcategory
+Numeric_Complete_Cases(data) — listwise-deletion sample mask; 1 when every value in
+a row is numeric.
+Is_Balanced_Panel(group, time, [include]) — TRUE only when every included group has
+exactly one observation for every included time period.
+Fixed_Effects_Convergence_Check(x, group1, group2, [include]) — largest absolute
+remaining group mean across two fixed-effect dimensions; near zero indicates
+convergence after Absorb_Two_Way_Fixed_Effects. Surfaced in the v3.0 status block
+whenever two FE variables are active.
+Location & Scale — subcategory
+Center(x, [include]) — grand-mean centering, (x_i - \bar{x}).
+Zscore(x, [include]) — standardization via STDEV.S, ((x_i - \bar{x}) / s_x).
+Minmax_Scale(x, [include]) — scales to ([0, 1]).
+Winsorize(x, [lower_p], [upper_p], [include]) — caps values outside selected
+percentiles (default 1st/99th). Remains an explicit modeling decision, never an
+automatic preprocessing step.
+Ln_Positive(x, [include]) — natural log, restricted to strictly positive numeric
+values; returns "" rather than a worksheet error for zero, negative, or non-numeric
+input.
+Group & Panel — subcategory
+Group_Mean(x, group, [include]) — matching group mean on every included row.
+Demean_By(x, group, [include]) — one-way within transformation, (x_{ig} - \bar{x}_g).
+v3.0 constructor internal for a single FE variable.
+Zscore_By(x, group, [include]) — within-group standardization.
+Decompose_By(x, group, [include]) — returns the between-group mean and within-group
+deviation as two columns, exposing (x_{ig} = \bar{x}g + (x{ig} - \bar{x}_g)).
+Demean_Two_Way_Balanced(x, group1, group2, [include]) — direct two-way demeaning,
+exact only for a balanced panel; check with Is_Balanced_Panel first.
+Absorb_Two_Way_Fixed_Effects(x, group1, group2, [include], [passes]) — iterative
+alternating-projection demeaning for unbalanced panels. Convergence is not verified
+internally; always pair with Fixed_Effects_Convergence_Check. v3.0 constructor
+internal for two FE variables.
+Categorical & Model Construction — subcategory
+Dummy_Levels(category, [reference], [include]) — retained categorical levels as a
+horizontal header row. Backs the v3.0 prediction-input validation lists.
+Dummy_Code(category, [reference], [include]) — dummy-coded matrix. Use a reference
+level (treatment coding) when the design includes an intercept; full one-hot coding
+plus an intercept causes perfect multicollinearity. Reference-level validation
+(confirming the requested reference actually exists in the included sample) is
+required at implementation, not deferred — an invalid reference silently fails to
+drop a column and reintroduces the exact collinearity the function exists to prevent.
+v3.0 constructor internal for Categorical roles.
+Dummy_Column(category, level, [include]) — single indicator column per explicit
+call (see v3.0 catalog additions).
+Interact(x1, x2) — elementwise product (x_1 x_2); broadcasts across dummy-coded
+matrices to produce one interaction column per retained level.
+Model_Matrix(X, [add_intercept]) — optionally prepends an intercept column.
+Intentionally not variadic — predictors are assembled explicitly with HSTACK so the
+specification stays visible and auditable.
+Longitudinal & Panel-Time — subcategory
+Lag_By(x, group, time, [periods], [include]) — prior-period value within the same
+group, keyed on group/time, not on physical row order.
+Difference_By(x, group, time, [periods], [include]) — within-group time difference,
+(\Delta_k x_{it} = x_{it} - x_{i,t-k}).
+v4.0 — Resampling & Simulation
+Bootstrap confidence intervals and Monte Carlo simulation. Validated as worthwhile
+differentiators by their presence in Pyrcz's Excel demos and squarely in cost-estimation
+territory (three-point estimates, MCS, risk analysis). These do not depend on the
+two-sample or ANOVA work, so they come early. Bootstrap and Monte Carlo pair naturally and
+may share a single sheet.
+v5.0+ — Future (sequence TBD)
+Deliberately left loose. Candidate milestones, roughly in conceptual order:
+Bivariate / two-sample — t-tests (one-sample, two-sample equal variance, Welch
+unequal variance, paired), F-test for variance equality feeding a recommendation on which
+t-test to use, and Covariance to complement the existing Correlation. (Pyrcz's
+"difference in means" / "difference in variances" demos map here.)
+Multi-group means (ANOVA) — one-way ANOVA, implemented as regression on group
+dummies, reusing the existing SS/MS/F machinery. A natural hinge showing ANOVA is
+regression — and, post-v3.0, expressible as a spec with one Categorical predictor.
+Future specification roles — Weight (WLS), Cluster (clustered SEs), Time
+(see Future roles, above).
+Time series — Moving Average, Exponential Smoothing.
+Fourier analysis — to be added later.
+Decision analysis — possible long-tail addition (loss functions), cost/risk oriented.
+(Removed from this list relative to the prior revision: the standalone WLS milestone
+and dedicated WLS Regression sheet — superseded by the Weight role; see v3.0
+supersession note.)
+Analysis ToolPak Parity Reference
+The ToolPak ships 19 tools. Tracking which are covered, planned, or intentionally skipped.
+Covered or exceeded (v1): Regression (with diagnostics, influence measures,
+cross-validation, information criteria, and prediction), Correlation, partial descriptive
+stats. v3.0 will exceed further: categorical predictors and fixed-effects panel
+regression, which the ToolPak has never offered.
+Planned: Descriptive Statistics + Histogram + Rank/Percentile (v3); t-tests, F-test,
+Covariance (future two-sample); one-way ANOVA (future); Moving Average + Exponential
+Smoothing (future time series).
+Intentionally skipped:
+z-Test (two-sample for means) — assumes known population variance; rarely applicable.
+Fourier Analysis — engineering/signal domain; out of scope (may add later).
+Two-factor ANOVA — complexity vs. demand. (Note: post-v3.0, two-way fixed effects
+via the spec covers adjacent territory; revisit whether this skip still holds.)
+Random Number Generation / Sampling — largely redundant with native Excel functions.
+Why the library exists (ToolPak flaws it fixes): ToolPak output is static (pasted
+values that never update when inputs change), opaque (no formula trace), one-sheet-at-a-time
+with manual reruns, locked behind a modal dialog, and diagnostically dated (no VIF, Cook's
+distance, leverage, studentized residuals, PRESS, AIC/BIC, or cross-validation). The Lambda
+Library is live, transparent, auditable, reusable, and diagnostically modern.

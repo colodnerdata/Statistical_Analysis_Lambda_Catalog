@@ -663,7 +663,7 @@ cross-validation, information criteria, and prediction), Correlation, partial de
 stats. **v3.0 will exceed further:** categorical predictors and fixed-effects panel
 regression, which the ToolPak has never offered.
 
-**Planned:** Descriptive Statistics + Histogram + Rank/Percentile (v3); t-tests, F-test,
+**Planned:** Descriptive Statistics + Histogram + Rank/Percentile (v2.0); t-tests, F-test,
 Covariance (future two-sample); one-way ANOVA (future); Moving Average + Exponential
 Smoothing (future time series).
 

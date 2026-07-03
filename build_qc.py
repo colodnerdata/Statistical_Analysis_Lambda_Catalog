@@ -40,6 +40,7 @@ from lambda_catalog.write_sheet_dummy_test import (
     read_dummy_check_failures,
     write_dummy_test_sheet,
 )
+from lambda_catalog.write_sheet_model_construction import write_model_construction_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
@@ -366,6 +367,9 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, _t, "Write: regression start")
                 write_regression_output_sheet(workbook, document.regression_sheet_notes)
                 _verbose_checkpoint(verbose, _t, "Write: regression done")
+                _verbose_checkpoint(verbose, _t, "Write: model construction start")
+                write_model_construction_sheet(workbook)
+                _verbose_checkpoint(verbose, _t, "Write: model construction done")
                 _verbose_checkpoint(verbose, _t, "Write: scalar start")
                 write_mlr_scalar_test_sheet(workbook, document.functions, row_configs)
                 _verbose_checkpoint(verbose, _t, "Write: scalar done")
@@ -549,6 +553,7 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
+    print("Sheet updated: Model Construction")
     print("Sheet updated: MLR_Scalar_Test")
     print("Sheet updated: MLR_Vector_Outputs_Test")
     print("Sheet updated: MLR_Observation_Test")

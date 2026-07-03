@@ -61,6 +61,17 @@ def test_signatures_unchanged() -> None:
         assert required == ["category"], fn.name
 
 
+def test_empty_string_reference_means_default() -> None:
+    # A provided "" behaves exactly like an omitted reference (use the first
+    # sorted level) — the Model Construction sheet passes blank Reference
+    # cells straight through, and "" must mean "default", not "invalid".
+    assert 'IF(ISOMITTED(reference), "", reference)' in _DUMMY_LEVELS.formula_display
+    assert (
+        'IF(ref_raw = "", IFERROR(INDEX(All_Levels, 1, 1), NA()), ref_raw)'
+        in _DUMMY_LEVELS.formula_display
+    )
+
+
 def test_dummy_code_delegates_level_determination() -> None:
     # One source of truth: Dummy_Code must call Dummy_Levels with pass-through
     # arguments rather than re-deriving the level set.
@@ -106,6 +117,14 @@ def test_mirror_levels_clean_binary_default_reference() -> None:
     # Levels {Developed, Developing}; default reference = first sorted level.
     assert dummy_levels_reference(CATEGORY_VALUES) == ["Developing"]
     assert EXPECTED_DEFAULT_LEVELS == ["Developing"]
+
+
+def test_mirror_levels_empty_string_reference_defaults() -> None:
+    # "" and None request the same default reference.
+    assert dummy_levels_reference(CATEGORY_VALUES, "") == ["Developing"]
+    assert dummy_code_reference(CATEGORY_VALUES, "") == dummy_code_reference(
+        CATEGORY_VALUES
+    )
 
 
 def test_mirror_levels_explicit_valid_reference() -> None:

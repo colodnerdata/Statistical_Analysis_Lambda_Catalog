@@ -76,6 +76,7 @@ import xlwings as xw
 from .sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_LIGHT_RED_FILL,
+    MUTED_TEXT_COLOR,
 )
 from .workbook_helpers import (
     add_expression_format,
@@ -174,8 +175,6 @@ _TRANSFORM_VALIDATION_LIST = _DEFAULT_TRANSFORM
 _XL_VALIDATE_LIST = 3
 _XL_VALID_ALERT_STOP = 1
 _XL_BETWEEN = 1
-_GRAY_FONT = (150, 150, 150)
-
 _RESERVED_NOTE = "Reserved for a future release — not yet used by any formula."
 
 
@@ -253,7 +252,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         "HSTACK(acc,col),"
         "LET("
         "d,INDEX(refs,j),"
-        "r,IF(d=\"\",\"\",d),"
+        "r,IF(LEN(d&\"\")=0,\"\",d),"
         "lv,Dummy_Levels(col,r,Sample_Include()),"
         "IF(ISNA(lv),acc,HSTACK(acc,--(col=lv)))"
         ")"
@@ -287,7 +286,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         "LET("
         "col,INDEX(Source_Data,0,j),"
         "d,INDEX(refs,j),"
-        "r,IF(d=\"\",\"\",d),"
+        "r,IF(LEN(d&\"\")=0,\"\",d),"
         "lv,Dummy_Levels(col,r,Sample_Include()),"
         "IF(ISNA(lv),acc,HSTACK(acc,h&\": \"&lv))"
         ")"
@@ -395,7 +394,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         sheet,
         f"$C${_FIRST_DATA_ROW}:$H${_LAST_DATA_ROW}",
         f'=$B{_FIRST_DATA_ROW}<>"Predictor"',
-        font_color=_GRAY_FONT,
+        font_color=MUTED_TEXT_COLOR,
     )
 
     # Degeneracy flag: red H when an INCLUDED Categorical Predictor has

@@ -17,6 +17,7 @@ from lambda_catalog.sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_LIGHT_RED_FILL,
     INPUT_COLOR,
+    MUTED_TEXT_COLOR,
 )
 from lambda_catalog.workbook_helpers import excel_color
 from lambda_catalog.write_sheet_model_construction import (
@@ -128,7 +129,7 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     assert "IF(ISNA(lv),acc,HSTACK(acc,--(col=lv)))" in x_s
     # Empty E-cell normalization: INDEX reads a blank cell as 0; "" is the
     # "use the default" sentinel Dummy_Levels expects.
-    assert 'r,IF(d="","",d)' in x_s
+    assert 'r,IF(LEN(d&"")=0,"",d)' in x_s
     # No FILTER anywhere — level filtering is Dummy_Levels' job, and a
     # LET-bound FILTER would evaluate eagerly on empty results.
     assert "FILTER(" not in x_s
@@ -278,7 +279,7 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
 
     gray = sheet.range(f"$C$3:$H${_LAST_DATA_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in gray] == ['=$B3<>"Predictor"']
-    assert gray[0].Font.Color == excel_color((150, 150, 150))
+    assert gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
 
     degenerate = sheet.range(f"$H$3:$H${_LAST_DATA_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in degenerate] == [

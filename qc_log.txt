@@ -1,17 +1,17 @@
 python build_qc.py --verbose
   Prep: catalog loaded            0.0s
   Prep: analysis loaded           0.0s
-  Prep: csv loaded                0.0s
-  Prep total                      0.0s
-  Prep: drop names start          0.0s
+  Prep: csv loaded                0.1s
+  Prep total                      0.1s
+  Prep: drop names start          0.1s
   Prep: drop names done           0.1s
   Write: app start                0.0s
-  Write: app ready                0.3s
-  Write: open workbook            0.4s
-  Write: workbook opened          0.6s
-  Write: catalog start            0.8s
-  Write: catalog done             3.7s
-  Write: life exp start           3.7s
+  Write: app ready                0.4s
+  Write: open workbook            0.5s
+  Write: workbook opened          0.7s
+  Write: catalog start            1.0s
+  Write: catalog done             4.5s
+  Write: life exp start           4.5s
   LifeExp: get/create start       0.0s
   LifeExp: get/create done        0.0s
   LifeExp: reset start            0.0s
@@ -31,66 +31,66 @@ python build_qc.py --verbose
   LifeExp: width done             0.2s
   LifeExp: freeze start           0.2s
   LifeExp: freeze done            0.2s
-  Write: life exp done            3.9s
-  Write: univariate start         3.9s
-  Write: univariate done         18.6s
-  Write: regression instr start   18.6s
-  Write: regression instr done   18.7s
-  Write: diagnostic start        18.7s
-  Write: diagnostic done         19.3s
-  Write: version history start   19.3s
-  Write: version history done    19.4s
-  Write: regression start        19.4s
-  Write: regression done         22.0s
-  Write: model construction start   22.0s
-  Write: model construction done   23.1s
-  Write: scalar start            23.1s
-  Write: scalar done             23.9s
-  Write: vector start            23.9s
-  Write: vector done             24.8s
-  Write: observation start       24.8s
-  Write: observation done        25.2s
-  Write: dummy test start        25.2s
-  Write: dummy test done         25.7s
-  Write: save start              25.7s
-  Write: save done              107.6s
-  Write sheets:   107.8s
+  Write: life exp done            4.7s
+  Write: univariate start         4.7s
+  Write: univariate done         22.5s
+  Write: regression instr start   22.5s
+  Write: regression instr done   22.6s
+  Write: diagnostic start        22.6s
+  Write: diagnostic done         23.3s
+  Write: version history start   23.3s
+  Write: version history done    23.4s
+  Write: regression start        23.4s
+  Write: regression done         26.6s
+  Write: model construction start   26.6s
+  Write: model construction done   28.0s
+  Write: scalar start            28.0s
+  Write: scalar done             28.8s
+  Write: vector start            28.8s
+  Write: vector done             29.9s
+  Write: observation start       29.9s
+  Write: observation done        30.4s
+  Write: dummy test start        30.4s
+  Write: dummy test done         31.0s
+  Write: save start              31.0s
+  Write: save done              116.4s
+  Write sheets:   116.5s
   Sync: start                     0.0s
   Sync: done                      0.1s
   Sync names:     0.1s
   Verify: app start               0.0s
   Verify: app ready               0.3s
   Verify: open workbook           0.4s
-  Verify: workbook opened         0.6s
+  Verify: workbook opened         0.7s
   Verify: calculate start         0.0s
   Calc: Life Expectancy Data start    0.0s
   Calc: Life Expectancy Data done    0.0s
   Calc: MLR_Scalar_Test start     0.0s
   Calc: MLR_Scalar_Test done      0.2s
   Calc: MLR_Vector_Outputs_T start    0.2s
-  Calc: MLR_Vector_Outputs_T done    1.4s
-  Calc: MLR_Observation_Test start    1.4s
-  Calc: MLR_Observation_Test done    1.7s
-  Calc: Regression start          1.7s
-  Calc: Regression done           8.3s
-  Calc: Univariate start          8.3s
-  Calc: Univariate done          73.7s
-  Calc: Dummy_Test start         73.7s
-  Calc: Dummy_Test done          73.7s
-  Verify: calculate done         73.7s
-  Verify: read scalar start      73.7s
-  Verify: read scalar done       73.7s
-  Verify: read vector start      73.7s
-  Verify: read vector done       73.7s
-  Verify: read obs start         73.7s
-  Verify: read obs done          74.0s
-  Verify: regression start       75.1s
-  Verify: regression done        98.3s
-  Verify: univariate start       99.1s
-  Verify: univariate done        99.3s
-  Verify: dummy test start       99.3s
-  Verify: dummy test done        99.3s
-  Verify:         100.2s
+  Calc: MLR_Vector_Outputs_T done    1.5s
+  Calc: MLR_Observation_Test start    1.5s
+  Calc: MLR_Observation_Test done    1.8s
+  Calc: Regression start          1.8s
+  Calc: Regression done           8.7s
+  Calc: Univariate start          8.7s
+  Calc: Univariate done          76.6s
+  Calc: Dummy_Test start         76.6s
+  Calc: Dummy_Test done          76.6s
+  Verify: calculate done         76.6s
+  Verify: read scalar start      76.6s
+  Verify: read scalar done       76.6s
+  Verify: read vector start      76.6s
+  Verify: read vector done       76.6s
+  Verify: read obs start         76.6s
+  Verify: read obs done          77.0s
+  Verify: regression start       78.0s
+  Verify: regression done       101.8s
+  Verify: univariate start      102.6s
+  Verify: univariate done       102.8s
+  Verify: dummy test start      102.8s
+  Verify: dummy test done       102.8s
+  Verify:         103.8s
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_QC.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data

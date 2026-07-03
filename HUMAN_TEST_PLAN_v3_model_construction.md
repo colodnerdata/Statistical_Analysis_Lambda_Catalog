@@ -3,7 +3,7 @@
 Execute in order — each test is a small delta on the previous spec state, simplest
 to most complex. Format: the spec values you would enter, then the expected
 observations. Rows not listed are unchanged from the previous test. Reference
-numbers below were computed directly from `Life_Expectancy_Data.csv` and the
+numbers below were computed directly from `sample_data/Life Expectancy Data.csv` and the
 `Full_Data` completeness definition, so mismatches indicate implementation bugs,
 not stale expectations.
 

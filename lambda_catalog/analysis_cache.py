@@ -20,7 +20,7 @@ from .regression_shared import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
-_CACHE_SCHEMA_VERSION = 11
+_CACHE_SCHEMA_VERSION = 12
 
 
 def _csv_fingerprint(csv_path: Path) -> str:

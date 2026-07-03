@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import xlwings as xw
 
 from .regression_shared import FEATURE_COLUMNS
-from .workbook_helpers import drop_local_name, reset_column_groups
+from .workbook_helpers import col_letter, drop_local_name, reset_column_groups
 
 if TYPE_CHECKING:
     from .regression_shared import RegressionObservationVectors
@@ -15,6 +15,7 @@ if TYPE_CHECKING:
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 _CALC_START_COL = 2
 _TOTAL_COLS = 9
+_Y_ONLY_FUNCS = frozenset({"Observation_Number", "Rank_Fraction", "Y_Ranked", "Normal_Scores"})
 
 _STATS: list[tuple[str, str, int, str]] = [
     ("Observation_Number",        "Observation_Number",        0, "0"),
@@ -40,9 +41,30 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 
 def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
     allow_arg = "TRUE" if allow_intercept else "FALSE"
-    if func_name in {"Observation_Number", "Rank_Fraction", "Y_Ranked", "Normal_Scores"}:
+    if func_name in _Y_ONLY_FUNCS:
         return f"={func_name}(y,Regression_Sample_Include)"
     return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},Regression_Sample_Include))"
+
+
+def _spill_ref_formula(row: int, col: int) -> str:
+    return f"=${col_letter(col)}${row}#"
+
+
+def _section_formula(
+    k: int,
+    allow_intercept: bool,
+    func_name: str,
+    row: int,
+    col: int,
+    y_only_anchor_rows: dict[str, int],
+) -> str:
+    if func_name in _Y_ONLY_FUNCS and func_name in y_only_anchor_rows:
+        return _spill_ref_formula(y_only_anchor_rows[func_name], col)
+
+    formula = _calc_formula(k, allow_intercept, func_name)
+    if func_name in _Y_ONLY_FUNCS:
+        y_only_anchor_rows[func_name] = row
+    return formula
 
 
 def build_mlr_observation_row_configs(csv_path: Path) -> list[tuple[int, bool, RegressionObservationVectors]]:
@@ -74,6 +96,7 @@ def write_mlr_observation_test_sheet(
         sheet.range((1, _CALC_START_COL + i)).value = display_name
 
     row = 2
+    y_only_anchor_rows: dict[str, int] = {}
     for k, allow_intercept, vectors in row_configs:
         n = len(vectors.observation_num)
         predictors = ", ".join(FEATURE_COLUMNS[:k])
@@ -84,7 +107,15 @@ def write_mlr_observation_test_sheet(
 
         for i, (_, fn_name, _, num_fmt) in enumerate(_STATS):
             calc_col = _CALC_START_COL + i
-            sheet.range((row, calc_col)).api.Formula2 = _calc_formula(k, allow_intercept, fn_name)
+            formula = _section_formula(
+                k,
+                allow_intercept,
+                fn_name,
+                row,
+                calc_col,
+                y_only_anchor_rows,
+            )
+            sheet.range((row, calc_col)).api.Formula2 = formula
             sheet.range((row, calc_col)).api.NumberFormat = num_fmt
 
         row += n + 1

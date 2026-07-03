@@ -11,6 +11,7 @@ from lambda_catalog.sheet_styles import (
     INPUT_COLOR,
 )
 from lambda_catalog.workbook_helpers import add_expression_format, excel_color
+from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
 from lambda_catalog.write_sheet_regression import (
     _C_L,
     _C_M,
@@ -58,6 +59,21 @@ def _formula(sheet: RecordingSheet, row: int, col: int) -> str:
 def test_scalar_formula_maps_include_to_the_sheet_filter() -> None:
     formula = _actual_formula("Observations", ("Y", "Include"))
     assert formula == "=Observations(y, Regression_Sample_Include)"
+
+
+def test_observation_y_only_formulas_reuse_first_spill() -> None:
+    anchors: dict[str, int] = {}
+
+    first = _section_formula(1, True, "Rank_Fraction", 3, 3, anchors)
+    second = _section_formula(5, False, "Rank_Fraction", 158, 3, anchors)
+    prediction = _section_formula(5, False, "Predictions", 158, 6, anchors)
+
+    assert first == "=Rank_Fraction(y,Regression_Sample_Include)"
+    assert second == "=$C$3#"
+    assert prediction == (
+        "=LET(x_s,OFFSET(y,0,1,ROWS(y),5),"
+        "Predictions(x_s,y,FALSE,Regression_Sample_Include))"
+    )
 
 
 def test_regression_predictor_name_preserves_a_multicolumn_range() -> None:
@@ -180,9 +196,7 @@ def test_univariate_filter_reads_blanks_from_the_source_table() -> None:
         '=IF(LifeExpectancyData[Life expectancy]="","",'
         "LifeExpectancyData[Life expectancy])"
     )
-    assert sheet.cell(4, 2).api.Formula2 == (
-        "=MAP(LifeExpectancyData[Life expectancy],Data_Completeness)"
-    )
+    assert sheet.cell(4, 2).api.Formula2 == "=ISNUMBER(LifeExpectancyData[Life expectancy])"
 
 
 def test_expression_format_records_formula_and_font_options() -> None:

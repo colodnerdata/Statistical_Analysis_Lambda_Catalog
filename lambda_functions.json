@@ -1774,7 +1774,7 @@
     {
       "name": "Bin_Edges",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, Number_Of_Histogram_Bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k + 1, 1, min_x, width)\n  ))",
+      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, Number_Of_Histogram_Bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    VSTACK(SEQUENCE(k, 1, min_x, width), max_x)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1792,7 +1792,7 @@
         }
       ],
       "yields": "k+1 × 1 column vector of bin boundaries — the minimum of the data followed by k evenly-spaced upper edges",
-      "description": "Bin_Edges returns the complete set of k+1 bin boundaries as a column vector, starting at the data minimum and ending at the data maximum. The vector is computed as SEQUENCE(k+1, 1, min, width), so every boundary is evenly spaced by width = (max - min) / k. Upper_Bin_Edges, Bin_Lower_Edges, Bin_Midpoints, and Bin_Counts all derive from this vector.",
+      "description": "Bin_Edges returns the complete set of k+1 bin boundaries as a column vector, starting at the data minimum and ending at the exact data maximum. Intermediate boundaries are spaced by width = (max - min) / k. Upper_Bin_Edges, Bin_Lower_Edges, Bin_Midpoints, and Bin_Counts all derive from this vector.",
       "plain_language_summary": "The complete list of k+1 bin boundary values from min to max.",
       "notes": "k+1 evenly-spaced bin boundaries from data minimum to maximum. The master boundary vector; all other Bin_* functions derive from it."
     },

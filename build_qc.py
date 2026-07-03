@@ -21,6 +21,7 @@ from lambda_catalog.workbook_builder import (
     XL_CALCULATION_SEMIAUTOMATIC,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
+    drop_workbook_names,
     sync_workbook_names,
 )
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
@@ -58,6 +59,15 @@ _QC_SHEET_NAMES = (
     "MLR_Observation_Test",
     "Dummy_Test",
 )
+_VERIFY_CALC_SHEET_NAMES = (
+    LIFE_EXPECTANCY_SHEET_NAME,
+    "MLR_Scalar_Test",
+    "MLR_Vector_Outputs_Test",
+    "MLR_Observation_Test",
+    "Regression",
+    "Univariate",
+    "Dummy_Test",
+)
 
 
 def _verbose_checkpoint(verbose: bool, start_time: float, label: str) -> None:
@@ -80,6 +90,21 @@ def _report_qc_failure(failures: list[str], message: str) -> None:
         print(f"ERROR {message}", flush=True)
     elif len(failures) == _MAX_REPORTED_QC_FAILURES + 1:
         print("ERROR Additional QC mismatches suppressed.", flush=True)
+
+
+def _calculate_verification_sheets(
+    workbook: xw.Book,
+    verbose: bool,
+    phase_start: float,
+) -> None:
+    _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
+    workbook.app.api.Calculation = XL_CALCULATION_MANUAL
+    for sheet_name in _VERIFY_CALC_SHEET_NAMES:
+        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
+        workbook.sheets[sheet_name].api.Calculate()
+        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
+    workbook.app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
+    _verbose_checkpoint(verbose, phase_start, "Verify: calculate done")
 
 
 def verify_test_sheets(
@@ -126,9 +151,7 @@ def verify_test_sheets(
     spec.loader.exec_module(mod)
 
     phase_start = time.monotonic()
-    _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
-    workbook.app.calculate()
-    _verbose_checkpoint(verbose, phase_start, "Verify: calculate done")
+    _calculate_verification_sheets(workbook, verbose, phase_start)
 
     _verbose_checkpoint(verbose, phase_start, "Verify: read scalar start")
     scalar_df = mod.read_scalar_df(workbook, scalar_row_configs)
@@ -319,6 +342,23 @@ def build_qc_workbook(
 
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
+
+    # Existing QC workbooks contain workbook-scoped LAMBDA names. Remove them
+    # before Excel opens the file so formula entry cannot trigger expensive
+    # dynamic-array calculations while the sheets are being rebuilt. The names
+    # are synced back after the workbook is saved.
+    if workbook_exists:
+        try:
+            _verbose_checkpoint(verbose, _t, "Prep: drop names start")
+            drop_workbook_names(
+                workbook_path,
+                (definition.name for definition in document.functions),
+            )
+            _verbose_checkpoint(verbose, _t, "Prep: drop names done")
+        except OPEN_WORKBOOK_ERRORS as exc:
+            raise_excel_access_error(workbook_path, "update", exc)
+        except (PermissionError, OSError) as exc:
+            raise_excel_access_error(workbook_path, "update", exc)
 
     # Phase 1: Write all sheets and save
     _t = time.monotonic()

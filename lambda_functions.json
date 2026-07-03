@@ -1774,7 +1774,7 @@
     {
       "name": "Bin_Edges",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, Number_Of_Histogram_Bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    SEQUENCE(k + 1, 1, min_x, width)\n  ))",
+      "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, Number_Of_Histogram_Bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    VSTACK(SEQUENCE(k, 1, min_x, width), max_x)\n  ))",
       "arguments": [
         {
           "name": "data",
@@ -1792,7 +1792,7 @@
         }
       ],
       "yields": "k+1 × 1 column vector of bin boundaries — the minimum of the data followed by k evenly-spaced upper edges",
-      "description": "Bin_Edges returns the complete set of k+1 bin boundaries as a column vector, starting at the data minimum and ending at the data maximum. The vector is computed as SEQUENCE(k+1, 1, min, width), so every boundary is evenly spaced by width = (max - min) / k. Upper_Bin_Edges, Bin_Lower_Edges, Bin_Midpoints, and Bin_Counts all derive from this vector.",
+      "description": "Bin_Edges returns the complete set of k+1 bin boundaries as a column vector, starting at the data minimum and ending at the exact data maximum. Intermediate boundaries are spaced by width = (max - min) / k. Upper_Bin_Edges, Bin_Lower_Edges, Bin_Midpoints, and Bin_Counts all derive from this vector.",
       "plain_language_summary": "The complete list of k+1 bin boundary values from min to max.",
       "notes": "k+1 evenly-spaced bin boundaries from data minimum to maximum. The master boundary vector; all other Bin_* functions derive from it."
     },
@@ -2494,7 +2494,7 @@
       "category": "Data Transformation",
       "subcategory": "Categorical & Model Construction",
       "number_format": "General",
-      "formula_display": "=LAMBDA(category, [reference], [include],\n    LET(\n        inc,        IF(ISOMITTED(include), TRUE, include),\n        x,          TOCOL(IF(category = \"\", \"\", category), 0),\n        active,     (x<>\"\") * inc,\n        x_active,   FILTER(x, active, NA()),\n        All_Levels, IFERROR(TOROW(SORT(UNIQUE(x_active))), NA()),\n        ref_given,  NOT(ISOMITTED(reference)),\n        ref,        IF(ref_given, reference, IFERROR(INDEX(All_Levels, 1, 1), NA())),\n        ref_ok,     IFERROR(ISNUMBER(MATCH(ref, All_Levels, 0)), FALSE),\n        IF(OR(ISNA(All_Levels), NOT(ref_ok)),\n           NA(),\n           IFERROR(FILTER(All_Levels, All_Levels <> ref), NA())\n        )\n    )\n)",
+      "formula_display": "=LAMBDA(category, [reference], [include],\n    LET(\n        inc,        IF(ISOMITTED(include), TRUE, include),\n        x,          TOCOL(IF(category = \"\", \"\", category), 0),\n        active,     (x<>\"\") * inc,\n        x_active,   FILTER(x, active, NA()),\n        All_Levels, IFERROR(TOROW(SORT(UNIQUE(x_active))), NA()),\n        ref_raw,    IF(ISOMITTED(reference), \"\", reference),\n        ref,        IF(ref_raw = \"\", IFERROR(INDEX(All_Levels, 1, 1), NA()), ref_raw),\n        ref_ok,     IFERROR(ISNUMBER(MATCH(ref, All_Levels, 0)), FALSE),\n        IF(OR(ISNA(All_Levels), NOT(ref_ok)),\n           NA(),\n           IFERROR(FILTER(All_Levels, All_Levels <> ref), NA())\n        )\n    )\n)",
       "arguments": [
         {
           "name": "category",
@@ -2503,7 +2503,7 @@
         },
         {
           "name": "reference",
-          "description": "the level to drop (treatment coding); when omitted, the first sorted level is dropped",
+          "description": "the level to drop (treatment coding); when omitted or \"\", the first sorted level is dropped",
           "optional": true
         },
         {
@@ -2513,7 +2513,7 @@
         }
       ],
       "yields": "1 × k horizontal vector of retained category labels (sorted, reference level removed); #N/A on degenerate input",
-      "description": "Dummy_Levels returns the set of category labels that will become dummy columns after treatment coding. It sorts all levels present in the included sample, drops the reference level, and returns the remainder as a horizontal row vector.\n\nWhen reference is omitted, the first sorted level is used as the reference (alphabetically first). When reference is supplied, it is validated against the included sample; if not found, the function returns #N/A rather than silently failing to drop a column.\n\nUse Dummy_Levels as a header row above Dummy_Code to label dummy columns, or to inspect which levels the model will contain before fitting.\n\nTruly empty cells are normalized to \"\" before the row mask is applied, so a blank category cell is excluded rather than coerced to a spurious numeric-zero level; genuine 0 values pass through untouched.\n\nFailure is signaled by type, not by text: degenerate inputs return a genuine Excel error (#N/A via NA()) that every downstream IFERROR/ISNA guard can catch, never a descriptive string that would silently participate in array math. The three failure conditions — an included sample with no non-blank category values, a reference level not present in the included sample, and a sample containing only one level (nothing left to code after the reference is dropped) — all return #N/A. The human-readable explanation is carried by the consuming sheet's conditional formatting, not by the return value.",
+      "description": "Dummy_Levels returns the set of category labels that will become dummy columns after treatment coding. It sorts all levels present in the included sample, drops the reference level, and returns the remainder as a horizontal row vector.\n\nWhen reference is omitted or given as an empty string \"\", the first sorted level is used as the reference (alphabetically first) — so a blank reference cell passed straight through means \"use the default\". When any other reference is supplied, it is validated against the included sample; if not found, the function returns #N/A rather than silently failing to drop a column.\n\nUse Dummy_Levels as a header row above Dummy_Code to label dummy columns, or to inspect which levels the model will contain before fitting.\n\nTruly empty cells are normalized to \"\" before the row mask is applied, so a blank category cell is excluded rather than coerced to a spurious numeric-zero level; genuine 0 values pass through untouched.\n\nFailure is signaled by type, not by text: degenerate inputs return a genuine Excel error (#N/A via NA()) that every downstream IFERROR/ISNA guard can catch, never a descriptive string that would silently participate in array math. The three failure conditions — an included sample with no non-blank category values, a reference level not present in the included sample, and a sample containing only one level (nothing left to code after the reference is dropped) — all return #N/A. The human-readable explanation is carried by the consuming sheet's conditional formatting, not by the return value.",
       "plain_language_summary": "The k category labels that become dummy columns (sorted, reference level removed).",
       "notes": "Retained category labels after treatment coding: sorted levels from the included sample with the reference level dropped. Use as a header row above the Dummy_Code matrix. Returns #N/A (a real Excel error, catchable by ISNA/IFERROR) on degenerate input."
     },
@@ -2532,7 +2532,7 @@
         },
         {
           "name": "reference",
-          "description": "the level to drop (treatment coding); when omitted, the first sorted level is dropped",
+          "description": "the level to drop (treatment coding); when omitted or \"\", the first sorted level is dropped",
           "optional": true
         },
         {

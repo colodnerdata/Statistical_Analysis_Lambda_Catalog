@@ -54,7 +54,9 @@ def dummy_levels_reference(
     """Pure-Python mirror of the Dummy_Levels LAMBDA.
 
     Returns the retained level labels (sorted, reference dropped), or None to
-    represent the #N/A failure value.
+    represent the #N/A failure value. A reference of None or "" means "use
+    the default" (the first sorted level) — the "" path is how a blank
+    reference cell passed straight through requests the default.
     """
     if include is None:
         include = [True] * len(category)
@@ -64,7 +66,7 @@ def dummy_levels_reference(
     levels = sorted({value for value, keep in zip(category, active) if keep})
     if not levels:
         return None
-    ref = levels[0] if reference is None else reference
+    ref = levels[0] if reference in (None, "") else reference
     if ref not in levels:
         return None
     retained = [level for level in levels if level != ref]
@@ -119,6 +121,13 @@ CHECK_CASES: list[tuple[str, str]] = [
     (
         "levels_default_reference",
         f'=TEXTJOIN("|", FALSE, Dummy_Levels({_CAT}))'
+        f'="{"|".join(EXPECTED_DEFAULT_LEVELS)}"',
+    ),
+    (
+        # "" behaves exactly like an omitted reference (use the default) —
+        # the Model Construction sheet passes blank Reference cells through.
+        "levels_empty_string_reference_defaults",
+        f'=TEXTJOIN("|", FALSE, Dummy_Levels({_CAT}, ""))'
         f'="{"|".join(EXPECTED_DEFAULT_LEVELS)}"',
     ),
     (

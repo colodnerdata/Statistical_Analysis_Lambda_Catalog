@@ -27,6 +27,7 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
     write_life_expectancy_sheet,
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
+from lambda_catalog.write_sheet_model_construction import write_model_construction_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
@@ -185,6 +186,7 @@ def build_production_workbook(
             write_diagnostic_guide_sheet(workbook)
             write_version_history_sheet(workbook)
             write_regression_output_sheet(workbook, document.regression_sheet_notes)
+            write_model_construction_sheet(workbook)
             app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
             workbook.save(str(workbook_path))
         finally:
@@ -355,6 +357,7 @@ def main() -> None:
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
+    print("Sheet updated: Model Construction")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

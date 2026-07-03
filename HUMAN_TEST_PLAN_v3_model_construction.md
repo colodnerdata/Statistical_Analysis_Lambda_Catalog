@@ -102,7 +102,7 @@ Add a helper column to the LifeExpectancyData table:
 Include TRUE, Categorical, Reference blank. Year: Identifier.
 
 **Expect:** included rows = **1407** (Full_Data AND Is_Developing) · Levels(Status)
-collapses from 2 → **1** — computed over the *masked* sample — and the F cell turns
+collapses from 2 → **1** — computed over the *masked* sample — and the H cell turns
 **red** (included, categorical, L ≤ 1) · Status contributes **zero** columns (k
 drops by 1 relative to the same spec unstratified) while every other output still
 computes: visible degradation, not a hard error, not silent omission. Filtered label

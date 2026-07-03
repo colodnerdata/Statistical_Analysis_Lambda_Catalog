@@ -73,10 +73,7 @@ pattern inverts. Clear the cell → reverts to `Status: Developing`.
 
 Type `Developped` (typo) into Status's Reference cell.
 
-**Expect:** E cell turns red (invalid-reference CF). Constructor behavior per spec:
-the typo'd reference matches no level, so *no* level is dropped — full one-hot
-plus intercept = the dummy trap the red flag exists to prevent. Verify the red
-appears; then fix the cell.
+**Expect:** E cell turns red (invalid-reference CF). Constructor behavior per spec: the typo'd reference matches no level, so the constructor should return a real Excel error (e.g., `#N/A`) that downstream `IFERROR`/`ISNA` guards can catch — not proceed with full one-hot coding. Verify the red appears and the error/fallback state is visible; then fix the cell.
 
 ## T6 — Numeric-valued categorical
 

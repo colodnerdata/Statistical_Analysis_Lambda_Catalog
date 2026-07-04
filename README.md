@@ -170,7 +170,7 @@ Stage 2 centers its narrower range on the Stage 1 optimum and extends one Stage 
 
 ## Sample data and Regression sheet
 
-`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The workbook ships with seven sheets:
+`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The workbook ships with eight sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions with signatures, descriptions, and plain-language summaries, filterable by category and subcategory.
 - **Life Expectancy Data** — the WHO dataset as a structured table.
@@ -179,6 +179,7 @@ Stage 2 centers its narrower range on the Stage 1 optimum and extends one Stage 
 - **Diagnostic Guide** — interpretation guide for regression diagnostics with Tier 1/Tier 2 plot specifications, threshold reference table, and "Common Patterns & Next Steps" guidance.
 - **Version History** — changelog that travels with the workbook for non-git users.
 - **Regression** — full ToolPak-style multiple regression analysis interface (see below).
+- **Model Construction** — declarative model specification: assign each table column a Role (Response / Predictor / Identifier / Filter / Omit) and each predictor a Type (Continuous / Categorical, with reference-level control), and the sheet derives the row mask, row labels, and the constructed design matrix `X_s()` with level-qualified column names.
 
 ### Regression sheet
 

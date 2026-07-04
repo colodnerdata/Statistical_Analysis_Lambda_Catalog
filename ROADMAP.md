@@ -29,7 +29,7 @@ history travels with the file.
 |---|---|---|
 | v1.0 | Multivariate OLS / MLR | Shipped |
 | v2.0 | Univariate (descriptives, histograms, distribution fitting) | Near complete — engine and sheet built; MoM-vs-MLE decision and QC outstanding |
-| v3.0 | Specification-Driven Regression (roles: Continuous / Categorical / Fixed Effects) | Planned — MAJOR (breaks Regression sheet structure and `x_s()` semantics) |
+| v3.0 | Specification-Driven Regression (roles: Continuous / Categorical / Fixed Effects) | Shipped — MAJOR (Model Construction sheet, NA()-based `Dummy_Levels`/`Dummy_Code`, QC analyzer); Fixed Effects deferred per the v3.0-vs-v3.1 release scoping below |
 | v4.0 | Resampling & Simulation (bootstrap, Monte Carlo) | Planned |
 | v5.0+ | Two-sample, ANOVA, time series, additional roles (Weight, Cluster, Time) | Open |
 

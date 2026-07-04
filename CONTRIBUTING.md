@@ -39,6 +39,7 @@ Tests live in `tests/`. The current test files are:
 | `test_lambda_catalog_plain_language.py` | All LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
 | `test_sheet_writers.py` | Sheet writer integration (conditional formatting, named ranges) |
 | `test_model_construction_writer.py` | Model Construction sheet writer: sheet-scoped name definitions and order, T0 default-spec prefill, dropdowns, conditional formats, `X_s`/`Constructed_Column_Names` twin invariants |
+| `test_analyze_model_construction.py` | Model Construction QC analyzer: default-spec expectations pinned against the sample CSV (mask size, k, level-qualified names), the stratified-Filter degeneracy case, and the observed-vs-expected comparison layer |
 | `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
 | `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
 | `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
@@ -80,7 +81,7 @@ Produces `Lambda_Library.xlsx` — the distributable artifact committed to the r
 - **Diagnostic Guide** — interpretation guide for regression diagnostics
 - **Version History** — changelog that travels with the workbook
 - **Regression** — ToolPak-style analysis interface
-- **Model Construction** — declarative variable-specification block and the sheet-scoped names (`Source_Data`, `Spec_*`, `Sample_Include`, `Response_Column`, `X_s`, `Constructed_Column_Names`) that assemble the design matrix from it
+- **Model Construction** — declarative variable-specification block and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode this sheet's cell addresses and are defined in `write_sheet_model_construction.py`; the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `X_s`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Model Construction"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
 
 No test sheets, no OLS analysis, no cache dependency.
 

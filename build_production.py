@@ -186,7 +186,9 @@ def build_production_workbook(
             write_diagnostic_guide_sheet(workbook)
             write_version_history_sheet(workbook)
             write_regression_output_sheet(workbook, document.regression_sheet_notes)
-            write_model_construction_sheet(workbook)
+            write_model_construction_sheet(
+                workbook, document.functions_for_sheet("Model Construction")
+            )
             app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
             workbook.save(str(workbook_path))
         finally:
@@ -200,7 +202,7 @@ def build_production_workbook(
 
     _t = time.monotonic()
     try:
-        result = sync_workbook_names(workbook_path, document.functions)
+        result = sync_workbook_names(workbook_path, document.workbook_functions)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "update", exc)
     except (PermissionError, OSError) as exc:

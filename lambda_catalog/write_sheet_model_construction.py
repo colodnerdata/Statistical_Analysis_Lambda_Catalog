@@ -9,10 +9,25 @@ Two-axis specification (ROADMAP: v3.0 — Specification-Driven Regression):
 Right of the spec block, after a narrow gap column I (which also visually
 reserves the future Design Columns audit column):
 
-    J             K
-    Row Labels    Included
+    J             K        L     M           N            O     P           Q →
+    Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered X_s
     (=Row_Labels() spill at J3; =Sample_Include() spill at K3 — both
-     full-height, never internally filtered)
+     full-height, never internally filtered. M/N/P/Q are the FILTERED
+     display zones: the only place on the sheet where Sample_Include()
+     row-filters anything. P repeats the filtered labels so the matrix
+     reads side-by-side without scrolling back to M.)
+
+Row 1, from column J rightward, holds the bold audit cells as
+label/value pairs (values on the non-narrow columns K/N/Q/S/U):
+
+    k = COLUMNS(X_s()) · rows = ROWS(X_s()) · response = <derived name> ·
+    responses = <count of Role="Response"> (red CF when <> 1) ·
+    included rows = SUMPRODUCT(N(Sample_Include()))
+
+Row 2 above Q carries the =Constructed_Column_Names() header strip
+(level-qualified names, horizontal). Every spill formula in the filtered
+zones wraps IFERROR(..., "(empty model)") so an empty model degrades to a
+documented string, never a raw #CALC! leak.
 
 The spec spans EVERY column of the LifeExpectancyData table (23 rows:
 [Country]..[Schooling] plus [Full_Data]). Two axes:
@@ -74,16 +89,22 @@ to fix level sets; nothing here ever row-filters. With the real mask live,
 the T0 mask-dependent values are real on the sheet: k = 19 (15 Year
 dummies), SUMPRODUCT(N(Sample_Include())) = 1649.
 
-Not here (deliberately, per release scoping): the filtered display/audit
-zones (filtered matrix, header strip, row-1 audit cells) — those land in
-the next PR, which is also why row 1 of columns J/K stays empty.
+Not here (deliberately, per release scoping): the QC analyzer
+(analyze_model_construction.py) and the Version History / CHANGELOG bump
+to v3.0 — those land in the final wiring PR.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from pathlib import Path
 
 import xlwings as xw
 
+from .catalog_schema import CatalogFunction, load_catalog_document
+from .lambda_formula_parser import (
+    _normalize_user_formula,
+    _strip_non_string_whitespace,
+)
 from .sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_LIGHT_RED_FILL,
@@ -92,6 +113,7 @@ from .sheet_styles import (
 from .workbook_helpers import (
     add_expression_format,
     bold_row,
+    col_letter,
     drop_local_name,
     f,
     format_input,
@@ -104,6 +126,10 @@ from .workbook_helpers import (
 )
 
 SHEET_NAME = "Model Construction"
+
+# The catalog file backing this sheet's constructor closures (scope
+# "Model Construction"). Used when a caller does not pass them in explicitly.
+_DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.json"
 
 # Every LifeExpectancyData column, in table order (incl. the computed
 # Full_Data completeness column — the spec spans the whole table).
@@ -160,6 +186,40 @@ _C_ROW_LABELS = 10
 _C_INCLUDED = 11
 _GAP_COLUMN_WIDTH = 2
 
+# Filtered display zone: the ONLY place Sample_Include() row-filters
+# anything (everything left of L honors the full-height contract). L and
+# O are narrow visual breaks; P repeats the filtered labels so the matrix
+# reads side-by-side without scrolling back to M.
+_C_BREAK_LEFT = 12
+_C_FILTERED_LABELS = 13
+_C_FILTERED_Y = 14
+_C_BREAK_MID = 15
+_C_MATRIX_LABELS = 16
+_C_MATRIX_START = 17
+
+# Row-1 audit strip: label/value pairs marching right from column J,
+# values placed on the non-narrow columns (K, N, Q, S, U) so no number
+# lands on a width-2 break column.
+_AUDIT_ROW = 1
+_AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
+    (_C_ROW_LABELS, _C_INCLUDED),          # k
+    (_C_FILTERED_LABELS, _C_FILTERED_Y),   # rows
+    (_C_MATRIX_LABELS, _C_MATRIX_START),   # response
+    (_C_MATRIX_START + 1, _C_MATRIX_START + 2),  # responses (red CF <> 1)
+    (_C_MATRIX_START + 3, _C_MATRIX_START + 4),  # included rows
+)
+
+_EMPTY_MODEL_FALLBACK = '"(empty model)"'
+
+# The derived response name, shared by the audit strip and the filtered-y
+# header: the header of the first Role="Response" spec row, "(none)" when
+# no row carries the role. XMATCH position over the TAKE-trimmed roles is
+# the same lookup Response_Column() uses for its data column.
+_RESPONSE_NAME_FORMULA = (
+    'IFERROR(INDEX(TOROW(Header_Names),'
+    'XMATCH("Response",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
+)
+
 # Dropdown validations cover the repo's standard 16000-row input band so a
 # retargeted dataset with more columns inherits them without a rebuild.
 _VALIDATION_LAST_ROW = 16000
@@ -197,8 +257,26 @@ _XL_BETWEEN = 1
 _RESERVED_NOTE = "Reserved for a future release — not yet used by any formula."
 
 
-def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
-    """Register local names in dependency order (Excel resolves at Add time)."""
+def _set_sheet_scoped_names(
+    sheet: xw.Sheet, closures: Sequence[CatalogFunction]
+) -> None:
+    """Register this sheet's local names in dependency order.
+
+    Two groups, installed in order so Excel resolves each reference against
+    the names already added:
+
+    1. **Wiring** (defined here) — the ``Source_Data``/``Header_Names``
+       dataset-retarget point and the ``Spec_*`` column ranges. These hardcode
+       *this sheet's* cell addresses and the source table, so they live with
+       the sheet layout rather than in the portable catalog.
+    2. **Constructor closures** (``closures``) — the zero-arg LAMBDAs
+       ``Sample_Include``/``Response_Column``/``Row_Labels``/``X_s``/
+       ``Constructed_Column_Names``, sourced from ``lambda_functions.json``
+       (scope ``"Model Construction"``) so their definitions live in one
+       declarative place and appear on the LAMBDA_functions catalog sheet.
+       Passed in document order, which is dependency order (``Sample_Include``
+       before ``X_s``, etc.).
+    """
     sname = f"'{sheet.name}'"
 
     local_names: dict[str, str] = {
@@ -218,162 +296,26 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         "Spec_Transform": f"={sname}!$G$3:$G${_VALIDATION_LAST_ROW}",
     }
 
-    # ── Sample_Include(): the derived row mask ───────────────────────────
-    # Per-row AND as a REDUCE product of indicator vectors over spec rows:
-    #   Filter columns        — truthy: N(IFERROR(N(col)=1,FALSE)) passes
-    #                           TRUE and 1 only (FALSE/0/blank/text/errors
-    #                           multiply in a 0).
-    #   Response / included   — completeness: N(ISNUMBER(col)).
-    #   Continuous Predictors
-    #   Everything else       — acc passthrough (Categorical Predictors
-    #                           deliberately impose no completeness — the
-    #                           known caveat in the human test plan;
-    #                           Identifier/Omit impose nothing).
-    # Multiplication over {0,1} IS logical AND; the ones seed and the final
-    # prod=1 keep it a full-height boolean column with no per-row BYROW.
-    local_names["Sample_Include"] = (
-        "=LAMBDA("
-        "LET("
-        "n_c,COLUMNS(Source_Data),"
-        "rl,TAKE(Spec_Role,n_c),"
-        "inc,TAKE(Spec_Include,n_c),"
-        "typ,TAKE(Spec_Type,n_c),"
-        "seed,SEQUENCE(ROWS(Source_Data),1,1,0),"
-        "prod,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,"
-        "LET(col,INDEX(Source_Data,0,j),"
-        "IF(INDEX(rl,j)=\"Filter\",acc*N(IFERROR(N(col)=1,FALSE)),"
-        "IF(OR(INDEX(rl,j)=\"Response\","
-        "AND(INDEX(rl,j)=\"Predictor\",INDEX(inc,j)=TRUE,"
-        "INDEX(typ,j)=\"Continuous\")),"
-        "acc*N(ISNUMBER(col)),"
-        "acc))"
-        ")"
-        ")),"
-        "prod=1"
-        ")"
-        ")"
-    )
-
-    # ── Response_Column(): the derived y ─────────────────────────────────
-    # First Role = "Response" match; #N/A when none (consumers IFERROR).
-    # Exactly-one validation belongs to the future audit row, not here.
-    local_names["Response_Column"] = (
-        "=LAMBDA("
-        "LET("
-        "n_c,COLUMNS(Source_Data),"
-        "rl,TAKE(Spec_Role,n_c),"
-        "INDEX(Source_Data,0,XMATCH(\"Response\",rl))"
-        ")"
-        ")"
-    )
-
-    # ── Row_Labels(): the derived observation labels ─────────────────────
-    # Type dispatch on whether any Identifier columns exist:
-    #   none — positional labels "Obs. 1", "Obs. 2", ...
-    #   some — per-row TEXTJOIN of ALL Identifier columns in table order,
-    #          "|"-separated, ignore_empty=FALSE so field positions stay
-    #          aligned when an identifier cell is blank.
-    # Dispatch is structural, not data-dependent: no Identifier role means
-    # positional labels. ids LET-binds a FILTER wrapped by IFERROR(...,NA())
-    # so the all-FALSE case is still safe. Full-height always (the row-mask
-    # contract).
-    local_names["Row_Labels"] = (
-        "=LAMBDA("
-        "LET("
-        "n_c,COLUMNS(Source_Data),"
-        "rl,TAKE(Spec_Role,n_c),"
-        "ids,IFERROR(TRANSPOSE(FILTER(TRANSPOSE(Source_Data),"
-        "rl=\"Identifier\")),NA()),"
-        "IF(SUM(--(rl=\"Identifier\"))=0,"
-        "\"Obs. \"&SEQUENCE(ROWS(Source_Data)),"
-        "BYROW(ids,LAMBDA(r,TEXTJOIN(\"|\",FALSE,r)))"
-        ")"
-        ")"
-        ")"
-    )
-
-    # ── X_s(): the spec-order REDUCE constructor ─────────────────────────
-    # Iteration predicate: Role = "Predictor" AND Include = TRUE (the
-    # two-axis change — everything else is v1-identical mechanics).
-    #   seed        — full-height zeros sentinel; DROPped at the end.
-    #   Continuous  — full-height raw passthrough.
-    #   Categorical — Dummy_Levels is bound ONCE and its #N/A is the single
-    #                 skip signal: degenerate level set and invalid
-    #                 reference both surface as ISNA(lv) → acc passthrough.
-    #                 d normalizes an empty E-cell (INDEX reads it as 0)
-    #                 to "", which Dummy_Levels treats as "use the default"
-    #                 (first level in sort order). lv already excludes the
-    #                 reference, so --(col = lv) broadcasts the n×1 column
-    #                 against the 1×(L−1) row into the 0/1 block directly —
-    #                 no FILTER, so no eager-empty-FILTER hazard in LET.
-    #   Mask        — read ONLY to fix level sets; output is always
-    #                 full-height (the X_s row-mask contract).
-    local_names["X_s"] = (
-        "=LAMBDA("
-        "LET("
-        "n_c,COLUMNS(Source_Data),"
-        "rl,TAKE(Spec_Role,n_c),"
-        "inc,TAKE(Spec_Include,n_c),"
-        "typ,TAKE(Spec_Type,n_c),"
-        "refs,TAKE(Spec_Reference,n_c),"
-        "seed,SEQUENCE(ROWS(Source_Data),1,0,0),"
-        "built,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,"
-        "IF(OR(INDEX(rl,j)<>\"Predictor\",INDEX(inc,j)<>TRUE),acc,"
-        "LET(col,INDEX(Source_Data,0,j),"
-        "IF(INDEX(typ,j)<>\"Categorical\","
-        "HSTACK(acc,col),"
-        "LET("
-        "d,INDEX(refs,j),"
-        "r,IF(LEN(d&\"\")=0,\"\",d),"
-        "lv,Dummy_Levels(col,r,Sample_Include()),"
-        "IF(ISNA(lv),acc,HSTACK(acc,--(col=lv)))"
-        ")"
-        ")"
-        ")"
-        ")"
-        ")),"
-        "DROP(built,,1)"
-        ")"
-        ")"
-    )
-
-    # ── Constructed_Column_Names(): structural twin of X_s() ─────────────
-    # Same iteration, same predicate, same skip conditions — twinning is
-    # what guarantees name/column alignment (widths must always agree).
-    # Emits a ROW for the header strip. Seed is a 1×1 sentinel, dropped.
-    local_names["Constructed_Column_Names"] = (
-        "=LAMBDA("
-        "LET("
-        "n_c,COLUMNS(Source_Data),"
-        "rl,TAKE(Spec_Role,n_c),"
-        "inc,TAKE(Spec_Include,n_c),"
-        "typ,TAKE(Spec_Type,n_c),"
-        "refs,TAKE(Spec_Reference,n_c),"
-        "hdrs,TOROW(Header_Names),"
-        "built,REDUCE(\"\",SEQUENCE(n_c),LAMBDA(acc,j,"
-        "IF(OR(INDEX(rl,j)<>\"Predictor\",INDEX(inc,j)<>TRUE),acc,"
-        "LET(h,INDEX(hdrs,1,j),"
-        "IF(INDEX(typ,j)<>\"Categorical\","
-        "HSTACK(acc,h),"
-        "LET("
-        "col,INDEX(Source_Data,0,j),"
-        "d,INDEX(refs,j),"
-        "r,IF(LEN(d&\"\")=0,\"\",d),"
-        "lv,Dummy_Levels(col,r,Sample_Include()),"
-        "IF(ISNA(lv),acc,HSTACK(acc,h&\": \"&lv))"
-        ")"
-        ")"
-        ")"
-        ")"
-        ")),"
-        "DROP(built,,1)"
-        ")"
-        ")"
-    )
-
+    # Wiring first: Excel resolves each name against the ones already added,
+    # and the constructor closures below reference Source_Data / Spec_*.
     for name, refers_to in local_names.items():
         drop_local_name(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
+
+    # Constructor closures (Sample_Include, Response_Column, Row_Labels, X_s,
+    # Constructed_Column_Names) come from lambda_functions.json, in document
+    # (= dependency) order. Their full rationale — the REDUCE-product mask, the
+    # (col+0) Filter coercion that avoids N()'s implicit intersection, the
+    # once-bound Dummy_Levels skip, the X_s / Constructed_Column_Names twin —
+    # lives in each entry's catalog description. Compact the display formula to
+    # a single line for the defined name's RefersTo (no-op on already-compact
+    # strings; safe if the JSON is later pretty-printed).
+    for closure in closures:
+        refers_to = "=" + _strip_non_string_whitespace(
+            _normalize_user_formula(closure.formula_display)
+        )
+        drop_local_name(sheet, closure.name)
+        sheet.api.Names.Add(Name=closure.name, RefersTo=refers_to)
 
 
 def _add_list_validation(sheet: xw.Sheet, col: int, formula: str) -> None:
@@ -506,7 +448,8 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
 def _write_row_zones(sheet: xw.Sheet) -> None:
     """The J/K derived-row zone: full-height label and mask spills.
 
-    Row 1 of J/K stays empty — the next PR's audit cells land there.
+    Row 1 of J/K is not written here — _write_audit_row owns the audit
+    strip that occupies it.
     """
     sheet.range(rc(1, _C_GAP)).column_width = _GAP_COLUMN_WIDTH
 
@@ -518,16 +461,126 @@ def _write_row_zones(sheet: xw.Sheet) -> None:
     f(sheet, _FIRST_DATA_ROW, _C_INCLUDED, "=Sample_Include()")
 
 
-def write_model_construction_sheet(workbook: xw.Book) -> xw.Sheet:
-    """Create or rebuild the Model Construction sheet."""
+def _write_audit_row(sheet: xw.Sheet) -> None:
+    """Row-1 audit strip: bold label/value pairs from column J rightward.
+
+    Values live in their own cells (not concatenated into the labels) so
+    the QC analyzer can assert the numbers directly. The X_s()-derived
+    cells wrap IFERROR — an empty model makes DROP(built,,1) error, and
+    the audit strip must degrade to the documented string, never leak a
+    raw #CALC!. The two SUMPRODUCT counts are total functions over
+    full-height inputs and cannot error, so they stay unwrapped.
+    """
+    audit_cells: tuple[tuple[str, str], ...] = (
+        ("k", f"=IFERROR(COLUMNS(X_s()),{_EMPTY_MODEL_FALLBACK})"),
+        ("rows", f"=IFERROR(ROWS(X_s()),{_EMPTY_MODEL_FALLBACK})"),
+        ("response", f"={_RESPONSE_NAME_FORMULA}"),
+        (
+            "responses",
+            '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response"))',
+        ),
+        ("included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+    )
+    for (label_col, value_col), (label, formula) in zip(
+        _AUDIT_PAIRS, audit_cells
+    ):
+        val(sheet, _AUDIT_ROW, label_col, label)
+        f(sheet, _AUDIT_ROW, value_col, formula)
+        bold_row(sheet, _AUDIT_ROW, label_col, value_col)
+
+    # The model must declare exactly one Response — flag the count red
+    # otherwise (zero and multiple are both spec errors the filtered
+    # zones can only partially absorb).
+    responses_col = col_letter(_AUDIT_PAIRS[3][1])
+    add_expression_format(
+        sheet,
+        f"${responses_col}${_AUDIT_ROW}",
+        f"=N(${responses_col}${_AUDIT_ROW})<>1",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+
+def _write_filtered_zones(sheet: xw.Sheet) -> None:
+    """The M/N and P/Q→ filtered display zones.
+
+    The only row-filtering on the sheet: FILTER(<full-height name>(),
+    Sample_Include()). Every spill wraps IFERROR(..., "(empty model)") —
+    an empty model (no included predictors, or a mask that excludes
+    everything) degrades to the documented string.
+    """
+    for break_col in (_C_BREAK_LEFT, _C_BREAK_MID):
+        sheet.range(rc(1, break_col)).column_width = _GAP_COLUMN_WIDTH
+
+    bold_row(sheet, _HEADER_ROW, _C_FILTERED_LABELS, _C_MATRIX_START)
+    val(sheet, _HEADER_ROW, _C_FILTERED_LABELS, "Row Labels")
+    # N header carries the derived response name ("y: Life expectancy")
+    # so the filtered-y column is self-describing under response swaps.
+    f(
+        sheet,
+        _HEADER_ROW,
+        _C_FILTERED_Y,
+        f'="y: "&{_RESPONSE_NAME_FORMULA}',
+    )
+    val(sheet, _HEADER_ROW, _C_MATRIX_LABELS, "Row Labels")
+    # Header strip above the matrix: the structural twin guarantees this
+    # spills exactly COLUMNS(X_s()) level-qualified names.
+    f(
+        sheet,
+        _HEADER_ROW,
+        _C_MATRIX_START,
+        f"=IFERROR(Constructed_Column_Names(),{_EMPTY_MODEL_FALLBACK})",
+    )
+
+    filtered_spills: tuple[tuple[int, str], ...] = (
+        (_C_FILTERED_LABELS, "Row_Labels()"),
+        (_C_FILTERED_Y, "Response_Column()"),
+        (_C_MATRIX_LABELS, "Row_Labels()"),
+        (_C_MATRIX_START, "X_s()"),
+    )
+    for col, source in filtered_spills:
+        f(
+            sheet,
+            _FIRST_DATA_ROW,
+            col,
+            (
+                f"=IFERROR(FILTER({source},Sample_Include()),"
+                f"{_EMPTY_MODEL_FALLBACK})"
+            ),
+        )
+
+
+def write_model_construction_sheet(
+    workbook: xw.Book,
+    closures: Sequence[CatalogFunction] | None = None,
+) -> xw.Sheet:
+    """Create or rebuild the Model Construction sheet.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open workbook to write into.
+    closures : Sequence[CatalogFunction] or None, optional
+        The sheet-scoped constructor functions (scope ``"Model Construction"``),
+        in dependency order. When None, they are loaded from
+        ``lambda_functions.json`` — so a standalone rebuild works without the
+        caller threading the catalog through.
+    """
+    if closures is None:
+        closures = load_catalog_document(_DEFINITIONS_PATH).functions_for_sheet(
+            SHEET_NAME
+        )
+
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
 
     section_heading(sheet, 1, _C_LABEL, "Model Construction")
 
-    _set_sheet_scoped_names(sheet)
+    _set_sheet_scoped_names(sheet, closures)
     _write_spec_block(sheet)
     _write_row_zones(sheet)
+    _write_audit_row(sheet)
+    _write_filtered_zones(sheet)
 
     # Reserved-column notes are COM comment calls; keep them out of the
     # RecordingSheet-testable spec block.

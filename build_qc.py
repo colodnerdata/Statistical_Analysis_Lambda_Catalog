@@ -13,6 +13,7 @@ from pathlib import Path
 import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
+from lambda_catalog.analyze_model_construction import read_model_construction_failures
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH, get_analysis_results
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
@@ -67,6 +68,7 @@ _VERIFY_CALC_SHEET_NAMES = (
     "Regression",
     "Univariate",
     "Dummy_Test",
+    "Model Construction",
 )
 
 
@@ -288,6 +290,14 @@ def verify_test_sheets(
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: dummy test done")
 
+    # Phase 7: Model Construction sheet verification. Runs last — its second
+    # pass temporarily mutates the data table (reverted, and the workbook is
+    # closed without saving), so no later phase may read the workbook.
+    _verbose_checkpoint(verbose, phase_start, "Verify: model constr start")
+    for failure in read_model_construction_failures(workbook, csv_path):
+        _report_qc_failure(failures, failure)
+    _verbose_checkpoint(verbose, phase_start, "Verify: model constr done")
+
     if failures:
         category_counts = Counter(
             message.split("]", 1)[0].removeprefix("[") for message in failures
@@ -352,7 +362,7 @@ def build_qc_workbook(
             _verbose_checkpoint(verbose, _t, "Prep: drop names start")
             drop_workbook_names(
                 workbook_path,
-                (definition.name for definition in document.functions),
+                (definition.name for definition in document.workbook_functions),
             )
             _verbose_checkpoint(verbose, _t, "Prep: drop names done")
         except OPEN_WORKBOOK_ERRORS as exc:
@@ -408,7 +418,9 @@ def build_qc_workbook(
                 write_regression_output_sheet(workbook, document.regression_sheet_notes)
                 _verbose_checkpoint(verbose, _t, "Write: regression done")
                 _verbose_checkpoint(verbose, _t, "Write: model construction start")
-                write_model_construction_sheet(workbook)
+                write_model_construction_sheet(
+                    workbook, document.functions_for_sheet("Model Construction")
+                )
                 _verbose_checkpoint(verbose, _t, "Write: model construction done")
                 _verbose_checkpoint(verbose, _t, "Write: scalar start")
                 write_mlr_scalar_test_sheet(workbook, document.functions, row_configs)
@@ -437,7 +449,7 @@ def build_qc_workbook(
     _t = time.monotonic()
     try:
         _verbose_checkpoint(verbose, _t, "Sync: start")
-        result = sync_workbook_names(workbook_path, document.functions)
+        result = sync_workbook_names(workbook_path, document.workbook_functions)
         _verbose_checkpoint(verbose, _t, "Sync: done")
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "update", exc)
@@ -601,6 +613,7 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet verified: Regression")
     print("Sheet verified: Univariate")
     print("Sheet verified: Dummy_Test")
+    print("Sheet verified: Model Construction")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

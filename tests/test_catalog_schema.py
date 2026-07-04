@@ -67,6 +67,36 @@ class LoadCatalogDocumentValidDocumentTests(unittest.TestCase):
         doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
         self.assertEqual(doc.functions[0].number_format, "General")
 
+    def test_scope_defaults_to_workbook(self) -> None:
+        doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
+        self.assertEqual(doc.functions[0].scope, "workbook")
+
+    def test_scope_parsed_when_present(self) -> None:
+        fn = _minimal_function(scope="Model Construction")
+        doc = load_catalog_document(Path(), payload=_payload(fn))
+        self.assertEqual(doc.functions[0].scope, "Model Construction")
+
+    def test_blank_scope_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            load_catalog_document(Path(), payload=_payload(_minimal_function(scope="  ")))
+
+    def test_non_string_scope_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            load_catalog_document(Path(), payload=_payload(_minimal_function(scope=3)))
+
+    def test_workbook_functions_and_functions_for_sheet_partition(self) -> None:
+        payload = _payload(
+            _minimal_function(name="Portable"),
+            _minimal_function(name="Local_A", scope="Model Construction"),
+            _minimal_function(name="Local_B", scope="Model Construction"),
+        )
+        doc = load_catalog_document(Path(), payload=payload)
+        self.assertEqual([f.name for f in doc.workbook_functions], ["Portable"])
+        self.assertEqual(
+            [f.name for f in doc.functions_for_sheet("Model Construction")],
+            ["Local_A", "Local_B"],
+        )
+
     def test_test_table_defaults_to_none(self) -> None:
         doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
         self.assertIsNone(doc.functions[0].test_table)
@@ -449,6 +479,25 @@ class RealCatalogIntegrationTests(unittest.TestCase):
             [f.name for f in doc_from_file.functions],
             [f.name for f in doc_from_payload.functions],
         )
+
+    def test_model_construction_closures_are_sheet_scoped(self) -> None:
+        closures = self.document.functions_for_sheet("Model Construction")
+        self.assertEqual(
+            [f.name for f in closures],
+            [
+                "Sample_Include",
+                "Response_Column",
+                "Row_Labels",
+                "X_s",
+                "Constructed_Column_Names",
+            ],
+        )
+        # Sheet-scoped closures must never be synced as workbook names — a
+        # workbook-scoped X_s would carry Model-Construction-relative refs into
+        # the global namespace.
+        workbook_names = {f.name for f in self.document.workbook_functions}
+        for closure in closures:
+            self.assertNotIn(closure.name, workbook_names)
 
     def test_grid_search_helpers_load_with_expected_contracts(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}

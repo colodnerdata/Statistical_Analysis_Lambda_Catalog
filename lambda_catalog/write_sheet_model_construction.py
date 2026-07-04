@@ -6,6 +6,14 @@ Two-axis specification (ROADMAP: v3.0 — Specification-Driven Regression):
     Variable  Role   Include  Type  Reference Level  Order    Transform  Levels
     (spill)   (drop) (input)  (drop)(input)          (rsvd.)  (rsvd.)    (disp.)
 
+Right of the spec block, after a narrow gap column I (which also visually
+reserves the future Design Columns audit column):
+
+    J             K
+    Row Labels    Included
+    (=Row_Labels() spill at J3; =Sample_Include() spill at K3 — both
+     full-height, never internally filtered)
+
 The spec spans EVERY column of the LifeExpectancyData table (23 rows:
 [Country]..[Schooling] plus [Full_Data]). Two axes:
 
@@ -22,12 +30,15 @@ so the grid shape is final, but no formula reads them yet.
 The role system dissolves the v1 Regression sheet's three hard-wired names
 into declarations, all late-bound zero-argument LAMBDAs on this sheet:
     y                          → Response_Column(): the Role = "Response" row
-    Regression_Sample_Include  → Sample_Include(): currently a full-height
-                                 TRUE stub — the Filter-role AND (and role-
-                                 aware completeness) lands in the next PR as
-                                 a single RefersTo replacement; every consumer
-                                 formula below is already written in its
-                                 final form against the stub
+    Regression_Sample_Include  → Sample_Include(): per-row AND computed as a
+                                 REDUCE product of indicator vectors — every
+                                 Role = Filter column truthy (TRUE/1 pass;
+                                 FALSE/0/blank/text fail), the Response
+                                 numeric, every included Continuous Predictor
+                                 numeric. Categorical Predictors impose no
+                                 completeness condition (known caveat — see
+                                 the human test plan); Identifier/Omit
+                                 impose nothing
     All_Xs                     → Source_Data: one name wrapping the table
                                  reference (the dataset-retarget point;
                                  structured refs can't be parameterized
@@ -55,17 +66,17 @@ Default configuration (the human test plan's T0 state):
     Life expectancy  → Response               (derived y)
     Adult Mortality, GDP, Schooling → Predictor/Continuous/TRUE
     remaining numerics → Predictor/Continuous/FALSE (candidates)
-    Full_Data        → Filter                 (mask; inert until the real
-                                               Sample_Include lands)
-Full-height contract: ROWS(X_s()) = 2938 always — the constructor reads the
-mask ONLY to fix level sets; it never row-filters. T0 audit values that
-depend on the real mask (k = 19 with 15 Year dummies, included rows = 1649)
-arrive with the next PR; this PR's acceptance is shape and skip behavior.
+    Full_Data        → Filter                 (ANDed into Sample_Include()
+                                               with role-aware completeness)
+Full-height contract: ROWS(X_s()) = ROWS(Row_Labels()) =
+ROWS(Sample_Include()) = 2938 always — the constructor reads the mask ONLY
+to fix level sets; nothing here ever row-filters. With the real mask live,
+the T0 mask-dependent values are real on the sheet: k = 19 (15 Year
+dummies), SUMPRODUCT(N(Sample_Include())) = 1649.
 
-Not here (deliberately, per release scoping): the display/audit zones
-(filtered matrix, header strip, audit cells) — the sheet-scoped names are
-the product of this PR; X_s() and Constructed_Column_Names() are callable
-from any cell on this sheet.
+Not here (deliberately, per release scoping): the filtered display/audit
+zones (filtered matrix, header strip, row-1 audit cells) — those land in
+the next PR, which is also why row 1 of columns J/K stays empty.
 """
 from __future__ import annotations
 
@@ -141,6 +152,14 @@ _LAST_DATA_ROW = _FIRST_DATA_ROW + _N_VARIABLES - 1  # 25
     _C_LEVELS,
 ) = range(1, 9)
 
+# Derived-row zone right of the spec block. I is a narrow gap (and the
+# visual reservation for the future Design Columns audit column); J and K
+# hold the full-height Row_Labels() / Sample_Include() spills.
+_C_GAP = 9
+_C_ROW_LABELS = 10
+_C_INCLUDED = 11
+_GAP_COLUMN_WIDTH = 2
+
 # Dropdown validations cover the repo's standard 16000-row input band so a
 # retargeted dataset with more columns inherits them without a rebuild.
 _VALIDATION_LAST_ROW = 16000
@@ -199,12 +218,40 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         "Spec_Transform": f"={sname}!$G$3:$G${_VALIDATION_LAST_ROW}",
     }
 
-    # ── Sample_Include(): the derived row mask (stub) ────────────────────
-    # Full-height TRUE for now. The Filter-role AND / role-aware
-    # completeness definition replaces this single RefersTo in the next PR;
-    # every consumer below already calls it in its final form.
+    # ── Sample_Include(): the derived row mask ───────────────────────────
+    # Per-row AND as a REDUCE product of indicator vectors over spec rows:
+    #   Filter columns        — truthy: N(IFERROR(N(col)=1,FALSE)) passes
+    #                           TRUE and 1 only (FALSE/0/blank/text/errors
+    #                           multiply in a 0).
+    #   Response / included   — completeness: N(ISNUMBER(col)).
+    #   Continuous Predictors
+    #   Everything else       — acc passthrough (Categorical Predictors
+    #                           deliberately impose no completeness — the
+    #                           known caveat in the human test plan;
+    #                           Identifier/Omit impose nothing).
+    # Multiplication over {0,1} IS logical AND; the ones seed and the final
+    # prod=1 keep it a full-height boolean column with no per-row BYROW.
     local_names["Sample_Include"] = (
-        "=LAMBDA(SEQUENCE(ROWS(Source_Data),1,1,0)=1)"
+        "=LAMBDA("
+        "LET("
+        "n_c,COLUMNS(Source_Data),"
+        "rl,TAKE(Spec_Role,n_c),"
+        "inc,TAKE(Spec_Include,n_c),"
+        "typ,TAKE(Spec_Type,n_c),"
+        "seed,SEQUENCE(ROWS(Source_Data),1,1,0),"
+        "prod,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,"
+        "LET(col,INDEX(Source_Data,0,j),"
+        "IF(INDEX(rl,j)=\"Filter\",acc*N(IFERROR(N(col)=1,FALSE)),"
+        "IF(OR(INDEX(rl,j)=\"Response\","
+        "AND(INDEX(rl,j)=\"Predictor\",INDEX(inc,j)=TRUE,"
+        "INDEX(typ,j)=\"Continuous\")),"
+        "acc*N(ISNUMBER(col)),"
+        "acc))"
+        ")"
+        ")),"
+        "prod=1"
+        ")"
+        ")"
     )
 
     # ── Response_Column(): the derived y ─────────────────────────────────
@@ -216,6 +263,31 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         "n_c,COLUMNS(Source_Data),"
         "rl,TAKE(Spec_Role,n_c),"
         "INDEX(Source_Data,0,XMATCH(\"Response\",rl))"
+        ")"
+        ")"
+    )
+
+    # ── Row_Labels(): the derived observation labels ─────────────────────
+    # Type dispatch on whether any Identifier columns exist:
+    #   none — positional labels "Obs. 1", "Obs. 2", ...
+    #   some — per-row TEXTJOIN of ALL Identifier columns in table order,
+    #          "|"-separated, ignore_empty=FALSE so field positions stay
+    #          aligned when an identifier cell is blank.
+    # Dispatch is structural, not data-dependent: no Identifier role means
+    # positional labels. ids LET-binds a FILTER wrapped by IFERROR(...,NA())
+    # so the all-FALSE case is still safe. Full-height always (the row-mask
+    # contract).
+    local_names["Row_Labels"] = (
+        "=LAMBDA("
+        "LET("
+        "n_c,COLUMNS(Source_Data),"
+        "rl,TAKE(Spec_Role,n_c),"
+        "ids,IFERROR(TRANSPOSE(FILTER(TRANSPOSE(Source_Data),"
+        "rl=\"Identifier\")),NA()),"
+        "IF(SUM(--(rl=\"Identifier\"))=0,"
+        "\"Obs. \"&SEQUENCE(ROWS(Source_Data)),"
+        "BYROW(ids,LAMBDA(r,TEXTJOIN(\"|\",FALSE,r)))"
+        ")"
         ")"
         ")"
     )
@@ -431,6 +503,21 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     )
 
 
+def _write_row_zones(sheet: xw.Sheet) -> None:
+    """The J/K derived-row zone: full-height label and mask spills.
+
+    Row 1 of J/K stays empty — the next PR's audit cells land there.
+    """
+    sheet.range(rc(1, _C_GAP)).column_width = _GAP_COLUMN_WIDTH
+
+    bold_row(sheet, _HEADER_ROW, _C_ROW_LABELS, _C_INCLUDED)
+    val(sheet, _HEADER_ROW, _C_ROW_LABELS, "Row Labels")
+    val(sheet, _HEADER_ROW, _C_INCLUDED, "Included")
+
+    f(sheet, _FIRST_DATA_ROW, _C_ROW_LABELS, "=Row_Labels()")
+    f(sheet, _FIRST_DATA_ROW, _C_INCLUDED, "=Sample_Include()")
+
+
 def write_model_construction_sheet(workbook: xw.Book) -> xw.Sheet:
     """Create or rebuild the Model Construction sheet."""
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
@@ -440,6 +527,7 @@ def write_model_construction_sheet(workbook: xw.Book) -> xw.Sheet:
 
     _set_sheet_scoped_names(sheet)
     _write_spec_block(sheet)
+    _write_row_zones(sheet)
 
     # Reserved-column notes are COM comment calls; keep them out of the
     # RecordingSheet-testable spec block.

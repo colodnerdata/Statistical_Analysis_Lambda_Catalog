@@ -28,6 +28,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _N_VARIABLES,
     _VARIABLES,
     _set_sheet_scoped_names,
+    _write_row_zones,
     _write_spec_block,
     SHEET_NAME,
 )
@@ -46,6 +47,7 @@ _EXPECTED_NAME_ORDER = [
     "Spec_Transform",
     "Sample_Include",
     "Response_Column",
+    "Row_Labels",
     "X_s",
     "Constructed_Column_Names",
 ]
@@ -89,6 +91,7 @@ def test_only_the_retarget_names_reference_the_table_directly() -> None:
         assert "LifeExpectancyData" not in _refers_to(sheet, name), name
 
     _write_spec_block(_as_xw_sheet(sheet))
+    _write_row_zones(_as_xw_sheet(sheet))
     for formula in _all_written_formulas(sheet):
         assert "LifeExpectancyData" not in formula, formula
 
@@ -109,14 +112,65 @@ def test_spec_ranges_cover_the_standard_input_band() -> None:
         )
 
 
-def test_sample_include_is_the_full_height_true_stub() -> None:
-    # PR-2 stub: the Filter-role definition replaces this one RefersTo in
-    # the next PR; every consumer already calls Sample_Include() as final.
+def test_sample_include_is_the_reduce_product_mask() -> None:
     sheet = _named_sheet()
+    mask = _refers_to(sheet, "Sample_Include")
 
-    assert _refers_to(sheet, "Sample_Include") == (
-        "=LAMBDA(SEQUENCE(ROWS(Source_Data),1,1,0)=1)"
-    )
+    assert mask.startswith("=LAMBDA(LET(")
+    # Filter columns: truthy — TRUE and 1 pass, FALSE/0/blank/text fail.
+    assert 'IF(INDEX(rl,j)="Filter",acc*N(IFERROR(N(col)=1,FALSE))' in mask
+    # Completeness: the Response and every included Continuous Predictor.
+    assert (
+        'IF(OR(INDEX(rl,j)="Response",'
+        'AND(INDEX(rl,j)="Predictor",INDEX(inc,j)=TRUE,'
+        'INDEX(typ,j)="Continuous")),acc*N(ISNUMBER(col)),acc)'
+    ) in mask
+    # Full-height ones seed; product over {0,1} is the AND, no per-row loop.
+    assert "seed,SEQUENCE(ROWS(Source_Data),1,1,0)" in mask
+    assert "BYROW(" not in mask
+    assert mask.endswith("prod=1))")
+    # Reads the model axes only — never the reserved columns.
+    for reserved in ("Spec_Order", "Spec_Transform"):
+        assert reserved not in mask
+
+
+def test_row_labels_dispatches_on_identifier_presence() -> None:
+    sheet = _named_sheet()
+    labels = _refers_to(sheet, "Row_Labels")
+
+    assert labels.startswith("=LAMBDA(LET(")
+    # The LET-bound FILTER is wrapped in IFERROR so the all-FALSE case is
+    # still safe at binding time.
+    assert (
+        'ids,IFERROR(TRANSPOSE(FILTER(TRANSPOSE(Source_Data),'
+        'rl="Identifier")),NA())'
+    ) in labels
+    assert 'IF(SUM(--(rl="Identifier"))=0,' in labels
+    # No Identifier columns: positional fallback, full height.
+    assert '"Obs. "&SEQUENCE(ROWS(Source_Data))' in labels
+    # ignore_empty=FALSE keeps field positions aligned across rows.
+    assert 'BYROW(ids,LAMBDA(r,TEXTJOIN("|",FALSE,r)))' in labels
+
+
+def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_row_zones(_as_xw_sheet(sheet))
+
+    # I: narrow gap, visually reserving the future Design Columns column.
+    assert sheet.range((1, 9)).column_width == 2
+
+    # J/K headers on the spec-header row, bold like the A–H headers.
+    assert sheet.cell(2, 10).value == "Row Labels"
+    assert sheet.cell(2, 11).value == "Included"
+    assert sheet.range((2, 10), (2, 11)).api.Font.Bold is True
+
+    # Full-height spills at row 3; row 1 stays empty for the next PR's
+    # audit cells.
+    assert sheet.cell(3, 10).api.Formula2 == "=Row_Labels()"
+    assert sheet.cell(3, 11).api.Formula2 == "=Sample_Include()"
+    for col in (10, 11):
+        assert sheet.cell(1, col).value is None
+        assert sheet.cell(1, col).api.Formula2 is None
 
 
 def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
@@ -159,6 +213,7 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
 def test_reserved_spec_names_are_defined_but_read_by_nothing() -> None:
     sheet = _named_sheet()
     _write_spec_block(_as_xw_sheet(sheet))
+    _write_row_zones(_as_xw_sheet(sheet))
 
     for reserved in ("Spec_Order", "Spec_Transform"):
         readers = [
@@ -189,6 +244,7 @@ def test_reserved_spec_names_are_not_referenced_repo_wide() -> None:
 def test_every_name_and_formula_string_is_balanced() -> None:
     sheet = _named_sheet()
     _write_spec_block(_as_xw_sheet(sheet))
+    _write_row_zones(_as_xw_sheet(sheet))
 
     strings = [item.RefersTo for item in sheet.api.Names.items]
     strings.extend(_all_written_formulas(sheet))

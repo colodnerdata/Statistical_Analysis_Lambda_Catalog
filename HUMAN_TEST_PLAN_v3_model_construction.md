@@ -211,7 +211,7 @@ trap the reference-drop exists to prevent).
 Reference `2000` — numeric sort, not text sort; if `Year: 2013` is missing or the
 ordering is weird, numeric/text coercion is broken.
 
-- [Error - Year:2001 - Year 2014, but then instead of Year: 2015, '(empty model)'] Pass
+- [X] Pass
 
 ## T7 — Identifier labeling variants
 
@@ -228,7 +228,7 @@ filtered column would start at that observation number, not `Obs. 1`).
 
 **Restore:** B3 → `Identifier`, B4 → `Identifier` (labels `Afghanistan|2015`).
 
-- [ ] Pass
+- [X] Pass
 
 ## T8 — Filter composition (declarative stratification)
 
@@ -257,7 +257,7 @@ Visible degradation, not a hard error, not silent omission. (Optional inspect:
 Country levels within the stratum = 114 — set B3 → Predictor/Categorical, read H3,
 then restore B3 → Identifier.)
 
-- [ ] Pass
+- [X] Pass
 
 ## T9 — Filter semantics edge
 
@@ -274,7 +274,7 @@ then restore B3 → Identifier.)
 
 **Restore:** B25 → `Filter` (U1 = 1649).
 
-- [ ] Pass
+- [X] Pass
 
 ## T10 — Response swap (derived y)
 
@@ -299,7 +299,7 @@ then restore B3 → Identifier.)
 
 Do **not** restore yet — T11 continues from this state.
 
-- [ ] Pass
+- [X] Pass
 
 ## T11 — Response-count validation
 
@@ -325,7 +325,7 @@ Responses).
 
 **Restore:** B19 → `Predictor`, C19 → `TRUE`, C6 → `FALSE` (S1 = 1; K1 = 4).
 
-- [ ] Pass
+- [X] Pass
 
 ## T12 — Levels display is live and mask-aware (no model change)
 
@@ -351,7 +351,7 @@ with `Country: …` names — the visible-count-as-warning behavior.
 **Restore:** C3 → `FALSE`, B3 → `Identifier`, D3 → `Continuous` (labels
 `Afghanistan|2015`).
 
-- [ ] Pass
+- [X] Pass
 
 ## T13 — Extreme stratification degeneracy
 
@@ -378,7 +378,7 @@ formula `=--([@Year]=2015)`. Then:
 
 **Restore:** B27 → `Omit`, B4 → `Identifier`.
 
-- [ ] Pass
+- [X] Pass
 
 ## T14 — Empty model
 

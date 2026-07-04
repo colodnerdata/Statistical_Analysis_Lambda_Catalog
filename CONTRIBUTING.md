@@ -81,7 +81,7 @@ Produces `Lambda_Library.xlsx` — the distributable artifact committed to the r
 - **Diagnostic Guide** — interpretation guide for regression diagnostics
 - **Version History** — changelog that travels with the workbook
 - **Regression** — ToolPak-style analysis interface
-- **Model Construction** — declarative variable-specification block and the sheet-scoped names (`Source_Data`, `Spec_*`, `Sample_Include`, `Response_Column`, `X_s`, `Constructed_Column_Names`) that assemble the design matrix from it
+- **Model Construction** — declarative variable-specification block and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode this sheet's cell addresses and are defined in `write_sheet_model_construction.py`; the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `X_s`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Model Construction"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
 
 No test sheets, no OLS analysis, no cache dependency.
 

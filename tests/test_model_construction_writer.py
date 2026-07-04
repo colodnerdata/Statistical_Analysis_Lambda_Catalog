@@ -13,6 +13,7 @@ from typing import cast
 
 import xlwings as xw
 
+from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_LIGHT_RED_FILL,
@@ -67,9 +68,15 @@ def _as_xw_sheet(sheet: RecordingSheet) -> xw.Sheet:
     return cast(xw.Sheet, sheet)
 
 
+def _model_construction_closures():
+    """The sheet-scoped constructor functions as the build installs them."""
+    document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
+    return document.functions_for_sheet(SHEET_NAME)
+
+
 def _named_sheet() -> RecordingSheet:
     sheet = RecordingSheet(name=SHEET_NAME)
-    _set_sheet_scoped_names(_as_xw_sheet(sheet))
+    _set_sheet_scoped_names(_as_xw_sheet(sheet), _model_construction_closures())
     return sheet
 
 

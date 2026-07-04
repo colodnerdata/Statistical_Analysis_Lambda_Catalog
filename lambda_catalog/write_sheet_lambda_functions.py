@@ -25,13 +25,26 @@ SHEET_NAME = "LAMBDA_functions"
 TABLE_NAME = "LAMBDAFunctionsCatalog"
 TABLE_HEADERS = [
     "Function Name",
+    "Scope",
     "Definition",
     "Arguments",
     "Yields",
     "Plain-Language Summary",
     "Description",
 ]
-COLUMN_WIDTHS = {"A": 18, "B": 72, "C": 30, "D": 15, "E": 34, "F": 66}
+COLUMN_WIDTHS = {"A": 18, "B": 18, "C": 72, "D": 30, "E": 15, "F": 34, "G": 66}
+_LAST_COLUMN = "G"
+
+
+def _scope_label(scope: str) -> str:
+    """Render a function's scope for the catalog: 'Workbook' or the sheet name.
+
+    Workbook-scoped functions are portable defined names; a sheet name means
+    the function is a sheet-scoped closure that only resolves on that sheet
+    (e.g. the Model Construction constructors), so browsers are not misled
+    into calling it from elsewhere.
+    """
+    return "Workbook" if scope == "workbook" else scope
 
 
 def write_catalog_sheet(workbook: xw.Book, entries: Sequence[CatalogFunction]) -> None:
@@ -53,17 +66,20 @@ def write_catalog_sheet(workbook: xw.Book, entries: Sequence[CatalogFunction]) -
 
     last_data_row = len(entries) + 1
     if entries:
-        sheet.range(f"B2:B{last_data_row}").api.NumberFormat = "@"
+        # Definition (column C) is forced to text so long LAMBDA strings are
+        # never coerced or truncated by Excel's numeric parsing.
+        sheet.range(f"C2:C{last_data_row}").api.NumberFormat = "@"
 
     for row_offset, entry in enumerate(entries, start=2):
         sheet.range((row_offset, 1)).value = entry.name
-        sheet.range((row_offset, 2)).value = entry.formula_display
-        sheet.range((row_offset, 3)).value = entry.arguments_cell_text()
-        sheet.range((row_offset, 4)).value = entry.yields
-        sheet.range((row_offset, 5)).value = entry.plain_language_summary
-        sheet.range((row_offset, 6)).value = entry.description
+        sheet.range((row_offset, 2)).value = _scope_label(entry.scope)
+        sheet.range((row_offset, 3)).value = entry.formula_display
+        sheet.range((row_offset, 4)).value = entry.arguments_cell_text()
+        sheet.range((row_offset, 5)).value = entry.yields
+        sheet.range((row_offset, 6)).value = entry.plain_language_summary
+        sheet.range((row_offset, 7)).value = entry.description
 
-    table_range = sheet.range(f"A1:F{last_data_row}")
+    table_range = sheet.range(f"A1:{_LAST_COLUMN}{last_data_row}")
     table = sheet.api.ListObjects.Add(
         SourceType=XL_SRC_RANGE,
         Source=table_range.api,
@@ -77,8 +93,8 @@ def write_catalog_sheet(workbook: xw.Book, entries: Sequence[CatalogFunction]) -
     for col_letter, width in COLUMN_WIDTHS.items():
         sheet.range(f"{col_letter}:{col_letter}").column_width = width
 
-    sheet.range(f"A1:F{last_data_row}").api.WrapText = True
-    sheet.range(f"A2:F{last_data_row}").api.EntireRow.AutoFit()
+    sheet.range(f"A1:{_LAST_COLUMN}{last_data_row}").api.WrapText = True
+    sheet.range(f"A2:{_LAST_COLUMN}{last_data_row}").api.EntireRow.AutoFit()
 
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0

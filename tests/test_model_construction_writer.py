@@ -134,7 +134,11 @@ def test_sample_include_is_the_reduce_product_mask() -> None:
 
     assert mask.startswith("=LAMBDA(LET(")
     # Filter columns: truthy — TRUE and 1 pass, FALSE/0/blank/text fail.
-    assert 'IF(INDEX(rl,j)="Filter",acc*N(IFERROR(N(col)=1,FALSE))' in mask
+    # Coercion is (col+0), NOT N(col): col is a bare range reference, and N()
+    # of a bare reference implicit-intersects it to a scalar, silently voiding
+    # the Filter (the 2482-vs-1649 mask bug). Arithmetic broadcasts instead.
+    assert 'IF(INDEX(rl,j)="Filter",acc*--(IFERROR((col+0)=1,FALSE))' in mask
+    assert "N(IFERROR(N(col)" not in mask
     # Completeness: the Response and every included Continuous Predictor.
     assert (
         'IF(OR(INDEX(rl,j)="Response",'

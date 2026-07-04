@@ -270,7 +270,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 
     # ── Sample_Include(): the derived row mask ───────────────────────────
     # Per-row AND as a REDUCE product of indicator vectors over spec rows:
-    #   Filter columns        — truthy: N(IFERROR(N(col)=1,FALSE)) passes
+    #   Filter columns        — truthy: --(IFERROR((col+0)=1,FALSE)) passes
     #                           TRUE and 1 only (FALSE/0/blank/text/errors
     #                           multiply in a 0).
     #   Response / included   — completeness: N(ISNUMBER(col)).
@@ -281,6 +281,17 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     #                           Identifier/Omit impose nothing).
     # Multiplication over {0,1} IS logical AND; the ones seed and the final
     # prod=1 keep it a full-height boolean column with no per-row BYROW.
+    #
+    # Load-bearing detail — the Filter test coerces with (col+0), NOT N(col).
+    # col is INDEX(Source_Data,0,j), a bare RANGE REFERENCE, and N() of a bare
+    # reference implicit-intersects: it crushes the whole column to a single
+    # value (row 1). Because the shipped Full_Data row 1 (Afghanistan 2015) is
+    # TRUE, N(col)=1 collapsed to the scalar 1, so acc*1 was a no-op and the
+    # Filter silently dropped out — the mask fell through to completeness-only
+    # (2482 instead of 1649 on the T0 default spec). Arithmetic (col+0)
+    # broadcasts element-wise over a reference, so the truthiness vector is
+    # full-height. (The completeness branch was never affected: ISNUMBER(col)
+    # builds a computed array first, and N() of a computed array broadcasts.)
     local_names["Sample_Include"] = (
         "=LAMBDA("
         "LET("
@@ -291,7 +302,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         "seed,SEQUENCE(ROWS(Source_Data),1,1,0),"
         "prod,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,"
         "LET(col,INDEX(Source_Data,0,j),"
-        "IF(INDEX(rl,j)=\"Filter\",acc*N(IFERROR(N(col)=1,FALSE)),"
+        "IF(INDEX(rl,j)=\"Filter\",acc*--(IFERROR((col+0)=1,FALSE)),"
         "IF(OR(INDEX(rl,j)=\"Response\","
         "AND(INDEX(rl,j)=\"Predictor\",INDEX(inc,j)=TRUE,"
         "INDEX(typ,j)=\"Continuous\")),"

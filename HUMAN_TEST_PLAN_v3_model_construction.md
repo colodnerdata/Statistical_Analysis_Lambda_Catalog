@@ -83,7 +83,7 @@ Output cells:
 | y header | N2 | `y: Life expectancy` |
 | first filtered label | M3 | `Afghanistan` |
 
-- [ ] Pass
+- [X] Pass
 
 ## T1 — Reproduce v1: full continuous set, y, filter (simplest behavior)
 
@@ -108,7 +108,7 @@ Output cells:
 
 This is exactly v1's `x_s`/`y`/`Regression_Sample_Include`.
 
-- [ ] Pass
+- [X] Pass
 
 ## T2 — Continuous subset
 
@@ -129,7 +129,7 @@ This is exactly v1's `x_s`/`y`/`Regression_Sample_Include`.
 | header strip | Q2→ | `Adult Mortality`, `GDP`, `Schooling` (spec order) |
 | included rows | U1 | 1649 (completeness is spec-driven, but every Full_Data row is complete anyway) |
 
-- [ ] Pass
+- [X] Pass
 
 ## T3 — First categorical (binary)
 
@@ -155,7 +155,7 @@ This is exactly v1's `x_s`/`y`/`Regression_Sample_Include`.
 Reference defaulted to `Developed` (first in sort order — surfaced by omission in
 the column name).
 
-- [ ] Pass
+- [X] Pass
 
 ## T4 — Reference override
 
@@ -168,7 +168,7 @@ the column name).
 | strip column | Q2 | flips to `Status: Developed`; 0/1 pattern inverts; k stays 4 |
 | after clearing E5 | Q2 | reverts to `Status: Developing` |
 
-- [ ] Pass
+- [X] Pass
 
 ## T5 — Invalid reference (visible failure)
 
@@ -186,7 +186,7 @@ the column name).
 Visible degradation, not a hard error, not silent full one-hot (the collinearity
 trap the reference-drop exists to prevent).
 
-- [ ] Pass
+- [X - but needed to wait for a recalculate for conditional formatting to kick in; not responsive] Pass
 
 ## T6 — Numeric-valued categorical
 
@@ -211,7 +211,7 @@ trap the reference-drop exists to prevent).
 Reference `2000` — numeric sort, not text sort; if `Year: 2013` is missing or the
 ordering is weird, numeric/text coercion is broken.
 
-- [ ] Pass
+- [Error - Year:2001 - Year 2014, but then instead of Year: 2015, '(empty model)'] Pass
 
 ## T7 — Identifier labeling variants
 

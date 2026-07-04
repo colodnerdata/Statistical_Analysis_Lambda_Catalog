@@ -13,6 +13,7 @@ from pathlib import Path
 import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
+from lambda_catalog.analyze_model_construction import read_model_construction_failures
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH, get_analysis_results
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
@@ -67,6 +68,7 @@ _VERIFY_CALC_SHEET_NAMES = (
     "Regression",
     "Univariate",
     "Dummy_Test",
+    "Model Construction",
 )
 
 
@@ -287,6 +289,14 @@ def verify_test_sheets(
     for failure in read_dummy_check_failures(workbook):
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: dummy test done")
+
+    # Phase 7: Model Construction sheet verification. Runs last — its second
+    # pass temporarily mutates the data table (reverted, and the workbook is
+    # closed without saving), so no later phase may read the workbook.
+    _verbose_checkpoint(verbose, phase_start, "Verify: model constr start")
+    for failure in read_model_construction_failures(workbook, csv_path):
+        _report_qc_failure(failures, failure)
+    _verbose_checkpoint(verbose, phase_start, "Verify: model constr done")
 
     if failures:
         category_counts = Counter(
@@ -601,6 +611,7 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet verified: Regression")
     print("Sheet verified: Univariate")
     print("Sheet verified: Dummy_Test")
+    print("Sheet verified: Model Construction")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

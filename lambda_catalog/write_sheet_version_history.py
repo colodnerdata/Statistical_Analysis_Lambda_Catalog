@@ -55,6 +55,27 @@ _VERSIONS = [
             "full specification-driven regression sheet for the v3.0 milestone."
         ),
     },
+    {
+        "version": "3.0.0",
+        "date": "2026-07-04",
+        "summary": (
+            "Specification-Driven Regression release. Adds the Model Construction "
+            "sheet: a declarative variable-specification block (Role, Include, Type, "
+            "Reference Level, with reserved Order and Transform columns) spanning "
+            "every column of the source table, sheet-scoped constructor names "
+            "(Source_Data as the dataset-retarget point, Sample_Include, "
+            "Response_Column, Row_Labels, X_s, and its structural twin "
+            "Constructed_Column_Names), and filtered display zones with a row-1 "
+            "audit strip (k, rows, response, responses, included rows). Categorical "
+            "predictors are reference-dropped via the rebuilt Dummy_Levels/"
+            "Dummy_Code, which now signal failure with a real #N/A error instead of "
+            "text; degenerate or invalid-reference categoricals contribute zero "
+            "columns and are flagged red rather than erroring the sheet. The QC "
+            "build gains a Model Construction analyzer asserting the default-spec "
+            "audit values, the X_s/Constructed_Column_Names twin widths, the "
+            "full-height row-mask contract, and a stratified-Filter degeneracy case."
+        ),
+    },
 ]
 
 

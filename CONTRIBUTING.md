@@ -35,8 +35,10 @@ Tests live in `tests/`. The current test files are:
 | `test_cache_serialization.py` | JSON serialization round-trips for `RegressionVectors` and `RegressionObservationVectors` |
 | `test_data_completeness_qc.py` | `calculate_data_completeness_flags` against the sample dataset |
 | `test_catalog_schema.py` | `CatalogDocument` loading, validation, duplicate rejection, `test_table` rules, projection methods |
+| `test_dummy_functions.py` | `Dummy_Levels`/`Dummy_Code` NA()-based error contract: formula statics, parser translation, and the pure-Python mirrors behind the `Dummy_Test` QC sheet |
 | `test_lambda_catalog_plain_language.py` | All LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
 | `test_sheet_writers.py` | Sheet writer integration (conditional formatting, named ranges) |
+| `test_model_construction_writer.py` | Model Construction sheet writer: sheet-scoped name definitions and order, T0 default-spec prefill, dropdowns, conditional formats, `X_s`/`Constructed_Column_Names` twin invariants |
 | `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
 | `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
 | `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
@@ -69,7 +71,7 @@ There are two separate build scripts with distinct purposes.
 python build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes seven sheets:
+Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes eight sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions
 - **Life Expectancy Data** — WHO dataset as a structured table
@@ -78,6 +80,7 @@ Produces `Lambda_Library.xlsx` — the distributable artifact committed to the r
 - **Diagnostic Guide** — interpretation guide for regression diagnostics
 - **Version History** — changelog that travels with the workbook
 - **Regression** — ToolPak-style analysis interface
+- **Model Construction** — declarative variable-specification block and the sheet-scoped names (`Source_Data`, `Spec_*`, `Sample_Include`, `Response_Column`, `X_s`, `Constructed_Column_Names`) that assemble the design matrix from it
 
 No test sheets, no OLS analysis, no cache dependency.
 
@@ -94,7 +97,9 @@ python build_production.py --verbose           # print per-phase timing
 python build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all ten sheets (the seven above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all twelve sheets (the eight above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+
+The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 
 The verification step forces Excel to recalculate all test formulas, reads the Calc columns, compares them against Python-computed expected values, and prints a `WARNING` line for any value that diverges beyond the tolerance band. No warnings means the LAMBDA implementations agree with statsmodels.
 
@@ -136,9 +141,11 @@ lambda_catalog/
   write_sheet_diagnostic_guide.py
   write_sheet_version_history.py
   write_sheet_regression.py
+  write_sheet_model_construction.py
   write_sheet_mlr_scalar_test.py
   write_sheet_mlr_vector_outputs_test.py
   write_sheet_mlr_observation_test.py
+  write_sheet_dummy_test.py
 tools/
   inspect_test_sheets.py     # scalar/vector/observation test sheet comparison (used by build_qc.py)
   inspect_regression_sheet.py # Regression sheet QC comparison (used by build_qc.py)

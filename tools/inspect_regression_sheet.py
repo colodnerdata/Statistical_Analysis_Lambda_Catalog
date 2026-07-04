@@ -46,7 +46,8 @@ _C_O = 15   # ANOVA MS / coeff t-stat
 _C_P = 16   # diagnostics values / ANOVA F / coeff p-value
 _C_Q = 17   # ANOVA Sig F / coeff CI lower
 _C_R = 18   # coeff CI upper
-_C_U = 21   # prediction interval values + prediction input values
+_C_U = 21   # prediction interval labels + prediction input labels
+_C_V = 22   # prediction interval values + prediction input values
 _C_Y = 25   # Y (filtered dependent var)
 _C_Z = 26   # Predicted Y
 _C_AA = 27  # Residuals
@@ -114,15 +115,16 @@ def _set_toggles(
 
 def _set_pred_inputs(
     sheet: xw.Sheet,
+    feature_columns: list[str],
     pred_input_values: tuple[float, ...],
 ) -> None:
-    """Write training-data column means to U13:U(12+k) for the prediction interval."""
-    k = len(pred_input_values)
-    for i, val in enumerate(pred_input_values):
-        sheet.range(_ROW_PRED_INPUT_FIRST + i, _C_U).value = val
-    # Clear any leftover values from a longer prior config
-    for row in range(_ROW_PRED_INPUT_FIRST + k, _ROW_PRED_INPUT_FIRST + len(FEATURE_COLUMNS)):
-        sheet.range(row, _C_U).value = 0.0
+    """Write prediction inputs to V13:V30, aligned to the full predictor list."""
+    pred_input_by_name = dict(zip(feature_columns, pred_input_values))
+    for row in range(_ROW_PRED_INPUT_FIRST, _ROW_PRED_INPUT_FIRST + len(FEATURE_COLUMNS)):
+        sheet.range(row, _C_V).value = 0.0
+    for i, name in enumerate(FEATURE_COLUMNS):
+        if name in pred_input_by_name:
+            sheet.range(_ROW_PRED_INPUT_FIRST + i, _C_V).value = pred_input_by_name[name]
 
 
 def _read_cell(sheet: xw.Sheet, row: int, col: int) -> float | None:
@@ -181,16 +183,17 @@ def read_regression_df(
 
         # Set toggles and prediction inputs, then recalculate
         _set_toggles(sheet, list(ps.predictor_names), allow_intercept)
-        _set_pred_inputs(sheet, pi.pred_input_values)
-        # Excel does not reliably track dependencies through the dynamic x_s
-        # worksheet name after toggle changes, so rebuild the dependency graph.
-        workbook.app.api.CalculateFullRebuild()
+        _set_pred_inputs(sheet, list(ps.predictor_names), pi.pred_input_values)
+        # Recalculate only the Regression sheet after changing the visible
+        # inputs. A full dependency-graph rebuild here pulls in the entire
+        # workbook for every QC config and can take several minutes.
+        sheet.api.Calculate()
 
         # ── Scalars: Regression Statistics (column M) ─────────────────────
         scalar_specs: list[tuple[str, float, int, int]] = [
             ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_M),
-            ("R_squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_M),
-            ("Adjusted_R2",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_M),
+            ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_M),
+            ("Adjusted_R_Squared",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_M),
             ("SE_Regression", summary.se_regression, _ROW_SE_REG,     _C_M),
             ("Observations",  float(summary.observations), _ROW_OBS,  _C_M),
         ]
@@ -213,15 +216,15 @@ def read_regression_df(
 
         # ANOVA
         scalar_specs += [
-            ("DF_Regression",  float(summary.df_regression), _ROW_ANOVA_REG, _C_M),
+            ("Regression_Degrees_Of_Freedom",  float(summary.df_regression), _ROW_ANOVA_REG, _C_M),
             ("SS_Regression",  summary.ss_regression,        _ROW_ANOVA_REG, _C_N),
             ("MS_Regression",  ms_reg,                       _ROW_ANOVA_REG, _C_O),
-            ("F_Stat",         summary.f_stat,               _ROW_ANOVA_REG, _C_P),
-            ("P_Value_F",      summary.p_value_f,            _ROW_ANOVA_REG, _C_Q),
-            ("DF_Residual",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_M),
+            ("F_Statistic",         summary.f_stat,               _ROW_ANOVA_REG, _C_P),
+            ("F_Statistic_P_Value",      summary.p_value_f,            _ROW_ANOVA_REG, _C_Q),
+            ("Residual_Degrees_Of_Freedom",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_M),
             ("SS_Residual",    summary.ss_residual,          _ROW_ANOVA_RES, _C_N),
             ("MS_Residual",    ms_res,                       _ROW_ANOVA_RES, _C_O),
-            ("DF_Total",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_M),
+            ("Total_Degrees_Of_Freedom",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_M),
             ("SS_Total",       summary.ss_total,             _ROW_ANOVA_TOT, _C_N),
         ]
 
@@ -264,7 +267,7 @@ def read_regression_df(
         # No-intercept models prepend one blank row so predictor rows align with
         # intercept models. Drop that one display row before comparison.
         n_coef_rows = k + 1
-        coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Stats", "P_Values", "CI_Lower", "CI_Upper"]
+        coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Statistics", "P_Values", "Confidence_Interval_Lower", "Confidence_Interval_Upper"]
         coef_col_indices = [_C_M, _C_N, _C_O, _C_P, _C_Q, _C_R]
         coef_exp_tuples = [
             vectors.coefficients, vectors.std_errors, vectors.t_stats,
@@ -288,7 +291,7 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-        # ── Prediction Interval (column U, rows 3–8) ─────────────────────
+        # ── Prediction Interval (column V, rows 3–8) ─────────────────────
         pi_specs: list[tuple[str, float]] = [
             ("Point_Estimate",  pi.point_estimate),
             ("SE_Prediction",   pi.se_prediction),
@@ -297,7 +300,7 @@ def read_regression_df(
             ("Upper",           pi.upper),
             ("Confidence_Level",pi.confidence_level),
         ]
-        pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_U, 6)
+        pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_V, 6)
         for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
             diff, fdd_val = compare_values(exp_val, xl_val)
             pi_rows.append({
@@ -312,7 +315,7 @@ def read_regression_df(
 
         # ── Residual Output (columns Y–AG, rows 3 to 3+n-1) ──────────────
         resid_stat_names = [
-            "Dependent_Var", "Predictions", "Residuals", "LOOCV_Residual",
+            "Dependent_Variable", "Predictions", "Residuals", "LOOCV_Residual",
             "Hat_Diagonal", "Studentized_Residuals", "Cooks_Distance",
             "Normal_Scores_Ranked", "Studentized_Residuals_Ranked",
         ]

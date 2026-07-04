@@ -17,10 +17,10 @@ def test_catalog_entries_include_plain_language_summaries() -> None:
 
     by_name = {f.name: f for f in document.functions}
     assert (
-        by_name["R_squared"].plain_language_summary
+        by_name["R_Squared"].plain_language_summary
         == "How much of the outcome's movement the model explains."
     )
     assert (
-        by_name["Hat_diagonal"].plain_language_summary
+        by_name["Hat_Diagonal"].plain_language_summary
         == "Each row's leverage, meaning how unusual its predictor values are."
     )

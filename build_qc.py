@@ -21,6 +21,7 @@ from lambda_catalog.workbook_builder import (
     XL_CALCULATION_SEMIAUTOMATIC,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
+    drop_workbook_names,
     sync_workbook_names,
 )
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
@@ -36,6 +37,11 @@ from lambda_catalog.write_sheet_mlr_observation_test import write_mlr_observatio
 from lambda_catalog.write_sheet_mlr_scalar_test import write_mlr_scalar_test_sheet
 from lambda_catalog.write_sheet_mlr_vector_outputs_test import write_mlr_vector_outputs_test_sheet
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
+from lambda_catalog.write_sheet_dummy_test import (
+    read_dummy_check_failures,
+    write_dummy_test_sheet,
+)
+from lambda_catalog.write_sheet_model_construction import write_model_construction_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
@@ -47,7 +53,21 @@ _MAX_REPORTED_QC_FAILURES = 200
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_QC.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
-_QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")
+_QC_SHEET_NAMES = (
+    "MLR_Scalar_Test",
+    "MLR_Vector_Outputs_Test",
+    "MLR_Observation_Test",
+    "Dummy_Test",
+)
+_VERIFY_CALC_SHEET_NAMES = (
+    LIFE_EXPECTANCY_SHEET_NAME,
+    "MLR_Scalar_Test",
+    "MLR_Vector_Outputs_Test",
+    "MLR_Observation_Test",
+    "Regression",
+    "Univariate",
+    "Dummy_Test",
+)
 
 
 def _verbose_checkpoint(verbose: bool, start_time: float, label: str) -> None:
@@ -70,6 +90,21 @@ def _report_qc_failure(failures: list[str], message: str) -> None:
         print(f"ERROR {message}", flush=True)
     elif len(failures) == _MAX_REPORTED_QC_FAILURES + 1:
         print("ERROR Additional QC mismatches suppressed.", flush=True)
+
+
+def _calculate_verification_sheets(
+    workbook: xw.Book,
+    verbose: bool,
+    phase_start: float,
+) -> None:
+    _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
+    workbook.app.api.Calculation = XL_CALCULATION_MANUAL
+    for sheet_name in _VERIFY_CALC_SHEET_NAMES:
+        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
+        workbook.sheets[sheet_name].api.Calculate()
+        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
+    workbook.app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
+    _verbose_checkpoint(verbose, phase_start, "Verify: calculate done")
 
 
 def verify_test_sheets(
@@ -116,9 +151,7 @@ def verify_test_sheets(
     spec.loader.exec_module(mod)
 
     phase_start = time.monotonic()
-    _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
-    workbook.app.calculate()
-    _verbose_checkpoint(verbose, phase_start, "Verify: calculate done")
+    _calculate_verification_sheets(workbook, verbose, phase_start)
 
     _verbose_checkpoint(verbose, phase_start, "Verify: read scalar start")
     scalar_df = mod.read_scalar_df(workbook, scalar_row_configs)
@@ -249,6 +282,12 @@ def verify_test_sheets(
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: univariate done")
 
+    # Phase 6: Dummy_Levels / Dummy_Code error-contract checks.
+    _verbose_checkpoint(verbose, phase_start, "Verify: dummy test start")
+    for failure in read_dummy_check_failures(workbook):
+        _report_qc_failure(failures, failure)
+    _verbose_checkpoint(verbose, phase_start, "Verify: dummy test done")
+
     if failures:
         category_counts = Counter(
             message.split("]", 1)[0].removeprefix("[") for message in failures
@@ -304,6 +343,23 @@ def build_qc_workbook(
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
 
+    # Existing QC workbooks contain workbook-scoped LAMBDA names. Remove them
+    # before Excel opens the file so formula entry cannot trigger expensive
+    # dynamic-array calculations while the sheets are being rebuilt. The names
+    # are synced back after the workbook is saved.
+    if workbook_exists:
+        try:
+            _verbose_checkpoint(verbose, _t, "Prep: drop names start")
+            drop_workbook_names(
+                workbook_path,
+                (definition.name for definition in document.functions),
+            )
+            _verbose_checkpoint(verbose, _t, "Prep: drop names done")
+        except OPEN_WORKBOOK_ERRORS as exc:
+            raise_excel_access_error(workbook_path, "update", exc)
+        except (PermissionError, OSError) as exc:
+            raise_excel_access_error(workbook_path, "update", exc)
+
     # Phase 1: Write all sheets and save
     _t = time.monotonic()
     try:
@@ -351,6 +407,9 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, _t, "Write: regression start")
                 write_regression_output_sheet(workbook, document.regression_sheet_notes)
                 _verbose_checkpoint(verbose, _t, "Write: regression done")
+                _verbose_checkpoint(verbose, _t, "Write: model construction start")
+                write_model_construction_sheet(workbook)
+                _verbose_checkpoint(verbose, _t, "Write: model construction done")
                 _verbose_checkpoint(verbose, _t, "Write: scalar start")
                 write_mlr_scalar_test_sheet(workbook, document.functions, row_configs)
                 _verbose_checkpoint(verbose, _t, "Write: scalar done")
@@ -360,6 +419,9 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, _t, "Write: observation start")
                 write_mlr_observation_test_sheet(workbook, observation_row_configs)
                 _verbose_checkpoint(verbose, _t, "Write: observation done")
+                _verbose_checkpoint(verbose, _t, "Write: dummy test start")
+                write_dummy_test_sheet(workbook)
+                _verbose_checkpoint(verbose, _t, "Write: dummy test done")
                 app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
                 _verbose_checkpoint(verbose, _t, "Write: save start")
                 workbook.save(str(workbook_path))
@@ -531,11 +593,14 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
+    print("Sheet updated: Model Construction")
     print("Sheet updated: MLR_Scalar_Test")
     print("Sheet updated: MLR_Vector_Outputs_Test")
     print("Sheet updated: MLR_Observation_Test")
+    print("Sheet updated: Dummy_Test")
     print("Sheet verified: Regression")
     print("Sheet verified: Univariate")
+    print("Sheet verified: Dummy_Test")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

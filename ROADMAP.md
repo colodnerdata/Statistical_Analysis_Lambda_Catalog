@@ -65,8 +65,20 @@ Rules:
 against an explicit rule. No retroactive rename is planned for v1.0 names unless a
 broader breaking-change pass is already underway — folding a pure cosmetic rename into
 an unrelated MAJOR bump avoids spending two breaking changes on what could be one.
-**The v3.0 MAJOR bump is that opportunity** — decide during v3.0 planning whether to
-fold the rename pass in or explicitly decline it.
+**Decision made: the rename pass ships inside the v3.0 MAJOR bump** — the full
+rename table lives in the v3.0 implementation TODO (AUTOCODER_TODO document).
+
+**Sign-off record (v3.0 rename pass, 2026-07-03).** The rename table's DECIDE rows
+were resolved as follows, and these exceptions are now part of the convention:
+
+- **Retained initialisms/abbreviations** — words in their own right, never expanded:
+  `AIC`, `AICc`, `BIC`, `VIF`, `PRESS`, `CDF`, `NLL`, `LOOCV`, `PERT`, `R`
+  (Pearson/Spearman R), `QQ` (as in `QQ_Correlation`), `GoF` (the `GoF_*` family),
+  and the classical ANOVA-table shorthands **`MS`, `SS`, `SE`** (`MS_Residual`,
+  `SS_Total`, `SE_Regression`, `SE_Coefficients`, etc. keep their names).
+- `CDF_BetaPERT` / `NLL_BetaPERT` — kept (no underscore inserted).
+- `P_Value_F` → `F_Statistic_P_Value` (pairs with `F_Stat` → `F_Statistic`).
+- `Grid_Argmin` → `Grid_Argument_Minimum` (spelled out per the convention).
 
 ### Alias layer (future, optional)
 
@@ -201,7 +213,7 @@ two-parameter likelihood class.
   are the `RowInput` and `ColumnInput` substitution cells for Excel's two-input Data Table.
 - The corner cell evaluates NLL; column candidates sit immediately above the body and row
   candidates immediately to its left. The sheet-scoped grid name covers the body only.
-- `Grid_Argmin(grid)` returns `minimum | 1-based row | 1-based column` horizontally and
+- `Grid_Argument_Minimum(grid)` returns `minimum | 1-based row | 1-based column` horizontally and
   resolves ties to the first row-major occurrence.
 - `Grid_Search_Optimum(grid)` returns the best column parameter followed by the best row
   parameter vertically. It requires the physical axes to remain adjacent to the body.
@@ -268,297 +280,390 @@ formula-transparent; resolve before building.
 
 **The central idea:** factor (categorical) and panel (fixed-effects) regression are not
 new estimators — they are OLS on a transformed design matrix. Rather than telling the
-user to manipulate their dataset into MLR form by hand, or building per-workflow staging
-sheets, the Regression sheet's control block becomes a **declarative model
-specification**, and `x_s()` is promoted from a column filter into a **model-matrix
-constructor** that reads the spec and emits the numeric design matrix. Because every
-engine function already consumes `x_s()`, the entire engine inherits factor and panel
-capability without a single signature change.
+user to manipulate their dataset into MLR form by hand, the sheet's control block
+becomes a **declarative model specification spanning the entire source table**, and
+`x_s()` is promoted from a column filter into a **model-matrix constructor** that reads
+the spec and emits the numeric design matrix. Because every engine function already
+consumes `x_s()`, the entire engine inherits the new capability without a signature
+change.
 
-> **Supersession note (recorded per the open-decisions convention):** this design
-> replaces two earlier plans —
+The specification dissolves all three of the v1 sheet's hard-wired range names into
+declarations: `y` (hard-wired) → the row whose Role is Response; `All_Xs` (hard-wired
+span) → the table reference; `Regression_Sample_Include` (hard-wired to `[Full_Data]`)
+→ the column(s) whose Role is Filter. After v3.0 there is nothing left to hard-wire —
+the spec block plus one source-table reference *is* the model.
+
+> **Supersession notes (recorded per the open-decisions convention):**
 >
 > 1. *Separate Factor Regression and Panel Regression sheets* with on-sheet staging
->    bands. The role column makes one spec-driven sheet handle all three cases; separate
->    sheets would be three copies of one mechanism. Factor and panel become documented
->    walkthroughs in the Regression Instructions sheet (see *Demonstration walkthroughs*
->    below), not sheets.
-> 2. *The WLS-as-optional-`[Weights]`-argument vs. parallel-function-set decision.*
->    Re-litigated as a **`Weight` role value on the specification** — see *Future
->    roles*, below. The dedicated WLS Regression sheet plan is likewise superseded;
->    WLS-specific output relabeling happens on the one Regression sheet, keyed off the
->    active roles.
+>    bands — replaced by the one spec-driven sheet; factor and panel become documented
+>    walkthroughs in the Regression Instructions sheet.
+> 2. *The WLS-as-optional-`[Weights]`-argument vs. parallel-function-set decision* —
+>    re-litigated as a **`Weight` value on the Role axis** (see *Future roles*). The
+>    dedicated WLS Regression sheet plan is likewise superseded.
+> 3. *The single-axis "Predictor Type" design* (one column holding Continuous /
+>    Categorical / Fixed Effects) — superseded by the **two-axis taxonomy** below.
+>    Fixed Effects was never a predictor type: it contributes no columns and no
+>    coefficients. It moves to the Role axis (v3.1), the Type axis becomes permanently
+>    Continuous/Categorical, and all future growth happens on Role.
 
-### The specification block (columns A–D)
+### The two-axis taxonomy
+
+| Axis | v3.0 values | Future values | Meaning |
+|---|---|---|---|
+| **Variable Role** | Response · Predictor · Identifier · Filter · Omit | Fixed Effects, Weight, Time (v3.1+) | What the column *is* in the model |
+| **Predictor Type** | Continuous · Categorical | *(closed — never grows)* | How a Predictor *enters the design matrix* — meaningful only when Role = Predictor |
+
+Literature precedent: this is essentially the tidymodels `recipes` role system
+(outcome / predictor / ID) plus Stata's factor-variable notation on the Type axis.
+
+**Role semantics (v3.0):**
+
+- **Response** — the dependent variable. Derived, not hard-wired: `y` becomes "the
+  column whose Role is Response" (`XMATCH` over the Role range). Swapping the
+  dependent variable is a dropdown change — cost vs. log-cost vs. cost-per-unit
+  against the same table is a workflow feature, not plumbing. Validation: **exactly
+  one** Response (status-block error at zero or two-plus).
+- **Predictor** — candidate model input; the only Role for which Include, Type,
+  Reference, and Levels are meaningful (cascading relevance, below).
+- **Identifier** — labeling columns (Country, Year): available to the residual-output
+  zone for row labeling; never enter the design matrix.
+- **Filter** — supplies the row mask. **Zero-or-more, ANDed:** no Filter columns →
+  all rows included; multiple → logical AND, which is declarative stratification
+  (e.g. `Full_Data` AND a hand-built "Developing only" flag). AND-composition is a
+  documented semantic, so it passes the visible-failure test. Filter columns hold
+  boolean / 0-1 values; blanks are FALSE.
+- **Omit** — dataset semantics, set once: "never a candidate for anything" (helper
+  columns, notes). Distinct from Include, which is *model-iteration state* flipped
+  constantly ("candidate, currently out of this run"). Collapsing them would destroy
+  the record of what a column *is* every time a toggle experiment runs. Cost of
+  keeping both: one dropdown value.
+
+**The effective row mask** composes two layers: *automatic role-aware completeness*
+(numeric required for Continuous Predictors and the Response; non-blank for
+Categorical Predictors; ignored for Identifier/Filter/Omit) **AND** *declared Filter
+columns*. This settles the architecture of the former role-aware-completeness open
+item by construction; only the auto-completeness LAMBDA remains to build, and the
+hard-coded `Data_Completeness(...[Life expectancy]:[Schooling])` span dies with it.
+
+### The specification block (columns A–H)
+
+The spec spans **every column of the source table**, one row per column:
 
 | Col | Contents | UX |
 |---|---|---|
-| A | Predictor label | Unchanged from v1 |
-| B | Include toggle (TRUE/FALSE) | Unchanged from v1 (orange input) |
-| C | **Predictor Type** | Data-validation dropdown: `Continuous` · `Categorical` · `Fixed Effects`. **Pre-filled to `Continuous` by the build** — no cell is ever blank. A blank cell silently defaulting would be silent reinterpretation; a visible pre-filled default the user can change is not. |
-| D | **Reference Level** | Orange input, meaningful only for Categorical rows. Blank = default reference, which is **the first level in sort order** (confirmed default — deterministic and explainable in one sentence, matching R's convention). Conditional formatting: grayed out when C is not `Categorical`; red when the entered level does not exist in the included sample. |
+| A | Variable name | Spills from the table's header row |
+| B | **Role** | Dropdown: `Response` · `Predictor` · `Identifier` · `Filter` · `Omit`. Pre-filled by the build — no blank cells. Role precedes Include because it is the larger declaration. |
+| C | Include toggle | Orange input; meaningful only when Role = Predictor |
+| D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
+| E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
+| F | **Order** *(reserved, not implemented v3.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v3.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment on row 3 marks it reserved; no validation yet (no fixed domain). |
+| G | **Transform** *(reserved, not implemented v3.0)* | Input, dropdown. Will apply a transform (e.g. `Log`) to a Continuous Response or Predictor. v3.0 dropdown list is `None` only; build pre-fills `None`. Cell comment on row 3 marks it reserved. |
+| H | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
+| I *(optional)* | **Design Columns** | Computed: Continuous Predictor → 1, Categorical Predictor → L−1, everything else → 0. Audit identity **ΣI = COLUMNS(x_s())**. Lean: include it. |
 
-`All_Xs` keeps its current meaning — the raw, contiguous predictor range — but is now
-allowed to contain text columns (e.g. Status, Country), since nothing numeric is
-demanded of it until construction time.
+**Reserved-column policy (F, G).** Neither column is read by any v3.0 formula —
+confirmed by construction, not by convention: `X_s()`, `Constructed_Column_Names()`,
+`Row_Labels()`, and `Sample_Include()` must not reference `Spec_Order` or
+`Spec_Transform`. The columns exist purely so the *sheet layout* absorbs the future
+feature now; wiring them in a later release is additive (a formula change), not a
+second column-insertion breaking the sheet a second time.
 
-### Role semantics
+**Cascading relevance:** C–H gray out (conditional formatting) whenever Role ≠
+Predictor — the same pattern as Reference-only-for-Categorical, applied one level up.
 
-Named for **treatment, not measurement type** — the literature distinction that matters.
-Status and Country are both categorical variables; what differs is their role in the
-model. (The closest existing precedent is Stata's factor-variable notation: `c.gdp`,
-`i.status`, `absorb(country)`. This is the spreadsheet-native version of that varlist.)
+**Display derives, never feeds.** Columns H and I must not be inputs to the
+constructor. Both the cells and `x_s()` call the same mask-aware primitive
+(`Dummy_Levels`); the cells display what the constructor will do. Letting the engine
+read a display column would make it load-bearing. One source of truth is the
+*function*. (This is also what settled the `Dummy_Code` design: the level-vector
+split is required — it makes display and constructor provably consistent, and gives
+prediction the training level set.)
 
-| Role | Constructor behavior | Coefficients |
-|---|---|---|
-| `Continuous` | Column passes through numerically, untouched | One, reported |
-| `Categorical` | Dummy-coded against the reference level; one column per non-reference level | One per non-reference level, reported with level-qualified names ("Status: Developing") |
-| `Fixed Effects` | Enters **no** column — instead the entire constructed block *and Y* are demeaned by its groups | None, deliberately |
+### Release scoping: v3.0 vs v3.1
 
-**The asymmetry to keep in view:** Continuous and Categorical are column-local
-operations; Fixed Effects is global. Marking GDP continuous affects one output column;
-marking Country FE transforms every column of the design matrix and the response.
+**v3.0 ships the five Roles above with Continuous + Categorical Predictors — `x_s()`
+alone, the Response consumed raw.** Anything that demeans or constructs a transformed
+response is **v3.1**: the Fixed Effects Role, `y_s()`, absorbed df and its plumbing,
+FE prediction. v3.0's constructor is purely column-local; the one global operation —
+demeaning — gets its own release. Identifier's v3.1 dividend: Country and Year are
+already declared, so panel setup is changing two Role dropdowns.
 
-### Constructor pipeline (`x_s()` and `y_s()`)
+### Constructor design (`x_s()`) — decisions settled
 
-1. Partition included spec rows by role.
-2. Build the raw numeric block — Continuous columns as-is, Categorical columns
-   dummy-coded via the Data Transformation primitives.
-3. If any FE rows exist, demean the entire block **and Y** by those groups: one FE
-   variable → `Demean_By`; two → `Absorb_Two_Way_Fixed_Effects`; three or more →
-   visible error (no engine support).
-4. Emit the design matrix as `x_s()` and the transformed response as **`y_s()`** — a
-   new constructed named LAMBDA, parallel to `x_s()`. The moment FE is a role, the
-   dependent variable is a constructed object too; raw Y is no longer what the engine
-   should see.
+1. **Spec-order assembly (settled).** `x_s()` iterates spec rows top to bottom and
+   stacks each contribution in that order, so the coefficient table reads in spec
+   order. Mechanism: `REDUCE` over spec-row indices, `HSTACK` from a full-height
+   sentinel seed column, `DROP` the sentinel at the end. Iteration predicate: Role =
+   Predictor AND Include = TRUE.
+2. **Level-vector split (settled).** *Determine the levels* (mask-aware
+   `SORT(UNIQUE(...))` via `Dummy_Levels`) is separate from *encode against a level
+   vector* (the broadcast `--(category = retained_levels)`). Training and prediction
+   call the same encoder with the same training level vector — an unseen level at
+   prediction time encodes as all-zeros, the correct behavior.
+3. **Intercept coupling (settled — flag, don't switch).** v3.0 supports reference
+   coding (L−1 columns), correct with the intercept on. No-intercept with a
+   Categorical included is *flagged* — CF on `Allow_Intercept` plus a cell comment —
+   never silently switched to one-hot. Full one-hot is deferred (v3.0.x candidate).
 
-One code path constructs both the training block and `X_new` for prediction — one
-source of truth for encoding.
+**The `x_s()` row-mask contract:** the constructor reads the effective mask *only* to
+fix Categorical level sets; it always emits **full-height** columns and leaves row
+filtering to the engine functions, exactly as v1 does. Filtering rows inside `x_s()`
+would double-filter against the engine's own mask application.
 
-### Degrees of freedom — automatic, not manual
+**Derived names (all late-bound zero-argument LAMBDAs, replacing hard-wired ranges):**
+the Response column (`XMATCH("Response", Role range)` → `INDEX` into the source
+table), the effective mask (auto-completeness AND Filter columns), and
+`Constructed_Column_Names` (the structural twin of `x_s()` — same iteration, same
+skip conditions, so names and columns cannot disagree; QC asserts their widths
+match). Source-table indirection: structured references cannot be parameterized by
+another name without volatile `INDIRECT`, so a single sheet-scoped `Source_Data`
+name wrapping the table reference is the retargeting point — dataset changeover is
+a one-name edit.
 
-Absorbed df is computable from the spec: Σ over FE variables of (group count − 1). The
-df correction that would have been a manual input cell under the staging-sheet design
-becomes automatic and auditable. Without it, coefficients on demeaned data are correct
-but **every SE, t, p, CI, MS_Residual, and information criterion is wrong** — the
-absorbed effects consumed df the engine doesn't know about
-(df_residual = n − k − Σ(Gᵢ − 1) for absorbed FE, alongside the intercept adjustment).
+### Degrees of freedom — automatic, not manual *(v3.1)*
 
-> **Open decision — df plumbing:** how absorbed df reaches the inference functions.
-> Options: (a) thread an optional `[DF_Absorbed]` argument through the inference chain
-> (`DF_Residual`, `MS_Residual`, `SE_Regression`, `SE_Coefficients`, `T_Stats`,
-> `P_Values`, `CI_Lower`/`CI_Upper`, `F_Stat`, `P_Value_F`, `AIC`/`AICc`/`BIC`,
-> `Prediction_Interval`, studentized/Cook's chain) — additive, so MINOR-compatible in
-> principle, though it lands inside a MAJOR anyway; or (b) a small set of wrapper
-> functions. Current lean: **(a)**, consistent with the one-source-of-truth principle
-> and the rejection of parallel function sets.
+Absorbed df is computable from the spec: Σ over Fixed Effects variables of
+(group count − 1). Without the correction, coefficients on demeaned data are correct
+but **every SE, t, p, CI, MS_Residual, and information criterion is wrong**
+(df_residual = n − k − Σ(Gᵢ − 1), alongside the intercept adjustment).
+
+> **Open decision — df plumbing:** optional `[DF_Absorbed]` argument threaded through
+> the inference chain vs. a wrapper set. Current lean: the optional argument,
+> consistent with one-source-of-truth and the rejection of parallel function sets.
 
 ### Model Spec status block — the transparency price, paid visibly
 
 Construction inside a LAMBDA means the user can no longer *see* the design matrix by
-scrolling. The replacement is a fixed-height block at the top of the outputs zone
-answering "what model did I actually specify?":
+scrolling. The replacement is a fixed-height block answering "what model did I
+actually specify?":
 
-- Constructed column count (k of the actual design matrix)
+- **Response in effect** (derived), and the Response-count validation: exactly one,
+  error at zero or two-plus
+- Constructed column count k — reconcilable against the ΣI audit identity
 - Level-qualified constructed column names
-- References in effect for each Categorical variable (surfaced even when defaulted —
-  a defaulted reference is never silent)
-- Active FE variables, their group counts, and absorbed df
-- Intercept status
-- Error state — a single visible cell flagging illegal specifications:
-  - Fixed Effects active while Allow_Intercept is TRUE (see below)
-  - More than two Fixed Effects variables
-  - Continuous role on a non-numeric column
-  - Invalid reference level
-  - Full one-hot Categorical (no reference) with intercept on — perfect collinearity
-- Intercept × FE interaction — flag, don't force. An intercept on demeaned data is
-  not mathematically catastrophic (it estimates ≈ 0 and wastes a df), so silently
-  forcing Allow_Intercept to FALSE would be exactly the silent reinterpretation the
-  library forbids. The status block flags red and instructs; the user flips the toggle.
+- **Included row count** after the effective mask (auto-completeness AND Filters),
+  with the active Filter columns listed
+- **Degenerate Categorical Predictors** (L ≤ 1 in the analysis sample): listed by
+  name; the constructor contributes zero columns so the rest of the model still
+  computes — visible degradation (red F cell + status line), not a hard error, not
+  silent omission
+- References in effect for each Categorical (surfaced even when defaulted)
+- Intercept status; *(v3.1)* active FE variables, group counts, absorbed df
+- **Error state** — a single visible cell flagging illegal specs: zero or multiple
+  Response rows; invalid reference level; `Continuous` on a non-numeric column;
+  no-intercept with a Categorical included (CF flag + cell comment, not a hard
+  error); *(v3.1)* more than two FE variables
+
+**Intercept × FE interaction (v3.1) — flag, don't force.** An intercept on demeaned
+data estimates ≈ 0 and wastes a df — not catastrophic — so silently forcing
+`Allow_Intercept` FALSE would be silent reinterpretation. Flag red and instruct.
 
 ### Zone changes on the Regression sheet (breaking — hence MAJOR)
 
-- Spec block widens A–B → A–D (Type and Reference columns).
-- Predictor summary changes referent: Pearson/Spearman/Skewness/Kurtosis/VIF/
-  Tolerance run on the constructed columns, not raw `All_Xs` columns (which may be
-  text). This is more correct anyway — VIF on the actual design matrix, dummy columns
-  included, is the multicollinearity actually faced. Block height = constructed width.
+- **Spec block:** A–B → A–H (Role, Include, Type, Reference, Order, Transform,
+  Levels — Order/Transform reserved, unread by any v3.0 formula), spanning all
+  table columns, with cascading-relevance CF.
+- **Predictor summary changes referent:** Pearson/Spearman/Skewness/Kurtosis/VIF/
+  Tolerance run on the **constructed** columns — more correct anyway (VIF on the
+  actual design matrix, dummies included). Block height = constructed width.
   *Caveat:* per-column VIF is technically valid for dummy columns but can be inflated
-  by construction when a Categorical predictor has many levels. Generalized VIF
-  (GVIF; Fox & Monette 1992), computed over all dummies from a single Categorical as
-  a block, avoids this artifact — decide between per-column VIF and GVIF at
-  implementation time and document the choice in the Diagnostic Guide.
-- Coefficient zone: `Coefficient_Name_Col` becomes role-aware; table height is a
-  computed property of the spec (one Categorical row can yield several coefficient
-  rows; an FE row yields none), no longer the count of TRUE toggles.
-- Prediction inputs: user types raw values (GDP = 5000, Status = "Developing");
-  categorical inputs validated against `Dummy_Levels`; the constructor encodes `X_new`
-  through the same code path as training data.
-- Residual output: unchanged in structure; note that residuals are residuals of the
-  *within* model when FE is active — the Diagnostic Guide gains a paragraph on reading
-  them.
-- Layout principle check (fixed-width left, fixed-height top): the spec block A–D is
-  fixed-width; the status block is fixed-height; the constructed matrix never appears
-  on the sheet (it lives inside `x_s()`), so the sheet gains no new variable-width
-  objects. The declarative design strengthens the layout principle rather than straining
-  it — and note the estimator choice is load-bearing here: LSDV (country dummies) would
-  have spilled a data-dependent number of columns; the within transformation replaces
-  them with the same k columns transformed. The statistical decision and the layout
-  principle point at the same answer.
+  by construction when a Categorical predictor has many levels — the dummies from the
+  same category share a linear constraint. Generalized VIF (GVIF; Fox & Monette 1992),
+  computed over all dummies from a single Categorical as a block, avoids this artifact —
+  decide between per-column VIF and GVIF at implementation time and document the choice
+  in the Diagnostic Guide.
+- **Coefficient zone:** names become level-qualified via the constructor twin; table
+  height is a computed property of the spec.
+- **Prediction inputs:** raw values (GDP = 5000, Status = "Developing"), Categorical
+  inputs validated against `Dummy_Levels`, encoded through the same code path as
+  training.
+- **Residual output:** structure unchanged; Identifier columns become available as
+  row labels. *(v3.1: residuals are within-model residuals under FE — Diagnostic
+  Guide gains a paragraph.)*
+
+**Layout principle check (fixed-width left, fixed-height top):** the A–H spec block
+is fixed-width; the status block fixed-height; the constructed matrix never appears
+on the sheet. Note the estimator choice is load-bearing: LSDV would spill a
+data-dependent number of columns; the within transformation (v3.1) replaces them
+with the same k columns transformed.
 
 ### New catalog functions (Specification & Design Matrix subcategory)
 
 Working list; canonical names per the Naming Convention:
 
-- The promoted `x_s()` / `y_s()` sheet-scoped constructors (sheet-scoped, as today)
-- `Constructed_Column_Names(...)` — level-qualified name vector for the coefficient
-  zone and status block
-- `Absorbed_Degrees_Of_Freedom(...)` — Σ(Gᵢ − 1) from the spec
-- `Dummy_Column(category, level, [include])` — one indicator column per explicit call;
-  complements `Dummy_Code` (which spills variable width) for contexts where
-  one-call-one-column auditability is wanted
-- Spec-validation helpers backing the status block error states
+- Sheet-scoped constructors: `x_s()`, `Constructed_Column_Names()`, the derived
+  Response and effective-mask LAMBDAs, and *(v3.1)* `y_s()`
+- `Role_Aware_Complete_Cases(...)` — the automatic completeness layer of the
+  effective mask (successor to the hard-coded `Full_Data` formula)
+- `Absorbed_Degrees_Of_Freedom(...)` *(v3.1)* — Σ(Gᵢ − 1) from the spec
+- `Dummy_Column(category, level, [include])` — one indicator column per explicit
+  call; complements `Dummy_Code`
+- Spec-validation helpers backing the status-block error states
 
 ### Demonstration walkthroughs (Instructions sheet, WHO data)
 
-The WHO dataset's documented flaws become the demos:
+- **Factor walkthrough:** Status as a Categorical Predictor — the pooled vs.
+  by-Status coefficient flip (the documented Simpson's Paradox risk), with the
+  stratified comparison driven by a Filter column.
+- **Panel walkthrough** *(v3.1)*: Country (and optionally Year) flipped from
+  Identifier to Fixed Effects — directly addressing the panel structure already
+  identified as violating OLS independence.
 
-- **Factor walkthrough:** Status as a two-level Categorical — demonstrating the pooled
-  vs. by-Status coefficient flip (the Simpson's Paradox risk already identified).
-- **Panel walkthrough:** Country (and optionally Year) as Fixed Effects — directly
-  addressing the panel structure already identified as violating OLS independence.
+**Superseded, not reused.** `Dummy_Levels` and `Dummy_Code` already exist as catalog
+functions (added independently of this sheet's build) but are not yet referenced by
+any sheet writer. **Decision made: drop both and rebuild from scratch** rather than
+amend or defensively wrap — see the resolved decision below. `X_s()` depends on the
+rebuilt `Dummy_Levels`; `Dummy_Code` is rebuilt to the same standard for standalone
+free-form use even though `X_s()` does not call it directly (it encodes inline via
+broadcast, per the level-vector split).
 
 ### Open items (recorded, not resolved)
 
-- **df plumbing** — optional argument vs. wrappers (lean: optional argument).
-- **FE prediction** — the within model deliberately never estimates group intercepts,
-  so predicting for a specific group requires recovering its fixed effect
-  (α̂ᵢ = ȳᵢ − x̄ᵢ′β̂), implying a group-selection dropdown and recovery machinery in the
-  prediction zone. Real machinery; scoped but not designed. Fallback if deferred:
-  prediction zone displays "within-model prediction (group effect not included)" with
-  a visible caveat rather than a wrong number presented as right.
-- **Fold the naming-convention rename pass into the v3.0 MAJOR bump?**
-- **Durbin-Watson under FE** — panel residuals have serial structure DW was not
-  designed for; decide whether to relabel, caveat, or suppress when FE is active.
-- **Dataset bundling** (carried forward) — whether the workbook ships permanently
-  bundled with the WHO dataset or data-agnostic; still gates the named-range rename.
-- **VIF vs. GVIF for Categorical predictors** — see Zone changes note above.
+1. **df plumbing** *(v3.1)* — optional argument vs. wrappers (lean: optional
+   argument).
+2. **FE prediction** *(v3.1)* — recovering group effects (α̂ᵢ = ȳᵢ − x̄ᵢ′β̂) implies a
+   group-selection dropdown and recovery machinery. Fallback if deferred: display
+   "within-model prediction (group effect not included)" with a visible caveat.
+3. **Durbin-Watson under FE** *(v3.1)* — relabel, caveat, or suppress.
+4. **Dataset bundling** (carried forward) — bundled WHO vs. data-agnostic. The
+   `Source_Data` indirection reduces changeover to a one-name edit, which
+   strengthens the data-agnostic option; the named-range rename it gated is
+   partially subsumed by the v3.0 name changeover itself.
+5. **Auto-completeness implementation** — the architecture is settled (effective
+   mask = role-aware completeness AND Filters); `Role_Aware_Complete_Cases`
+   itself remains to build. Interim: a completeness column declared as a Filter
+   (the `Full_Data` pattern) is a valid manual substitute.
+6. **VIF vs. GVIF for Categorical predictors** — see Predictor Summary note above.
+   Decide at implementation time; document in the Diagnostic Guide.
 
-### Future roles (v5.0+ candidates)
+---
 
-The Predictor Type column is extensible by design — these are role values, not new
-mechanisms:
+## Future roles (Role-axis values, v3.1+)
 
-- **Weight** — WLS. Supersedes the earlier standalone WLS milestone and its
-  sheet/argument-threading debate. Marking a column Weight routes it into
-  weighted-least-squares construction; WLS-aware relabeling of OLS-specific outputs
-  happens on the one Regression sheet. Three-stage scope carried forward: user-supplied
+The Variable Role axis is extensible by design — these are **Role values, not new
+mechanisms**, and the Predictor Type axis never grows:
+
+- **`Fixed Effects`** *(v3.1)* — the panel role: enters no column; the entire design
+  matrix and the Response are demeaned by its groups (one FE variable → `Demean_By`;
+  two → `Absorb_Two_Way_Fixed_Effects`; three+ → visible error). Brings `y_s()`,
+  absorbed df, and the within-model output relabeling.
+- **`Weight`** — WLS. Supersedes the standalone WLS milestone and its
+  argument-threading debate. Three-stage scope carried forward: user-supplied
   weights → variance-driver-derived weights → FGLS.
-- **Cluster** — clustered standard errors. The honest endgame for panel inference
-  (FE fixes the mean structure; clustering fixes the error structure). Substantial
-  engine work; explicitly out of v3.0 scope.
-- **Time** — designates the time index, feeding `Lag_By` / `Difference_By` and any
+- **`Time`** — designates the time index, feeding `Lag_By` / `Difference_By` and
   future serial-correlation diagnostics.
+- **`Cluster`** *(later candidate)* — clustered standard errors, the honest endgame
+  for panel inference. Substantial engine work; out of scope until after FE ships.
 
-Constraint to respect when adding any role: at most one Weight column, at most one
-Time column; the status block validates.
+Cardinality constraints when added: at most one `Weight`, at most one `Time`; the
+status block validates (same pattern as exactly-one-Response).
 
 ---
 
 ## Data Transformation
 
 Cross-cutting infrastructure, not tied to a single version. These functions serve
-double duty: internals of the v3.0 constructor, and standalone user-callable
+**double duty**: internals of the v3.0 constructor, and standalone user-callable
 transforms for free-form work on the data sheet. Tracked as its own catalog, separate
-from the version ladder (see Function Categories).
+from the version ladder (see *Function Categories*).
 
-Row-aligned transforms accept an optional include mask (1/TRUE keeps the row,
-0/FALSE excludes it). When include is omitted, those functions construct a default
-mask from the required inputs. Excluded rows return `""` so spilled arrays stay
-aligned with the source rows — `""` was chosen deliberately over `NA()` because it
-round-trips cleanly through ISNUMBER-based keep logic elsewhere in the library
-(`ISNUMBER("")` is FALSE, so a downstream mask built on ISNUMBER correctly
-re-excludes it) without erroring inside SUM/AVERAGE the way a propagated error value
-would.
+Row-aligned transforms accept an optional `include` mask (`1`/`TRUE` keeps the row,
+`0`/`FALSE` excludes it). When `include` is omitted, those functions construct a default
+mask from the required inputs. Excluded rows return `""` so spilled arrays stay aligned
+with the source rows — `""` was chosen deliberately over `NA()` because it round-trips
+cleanly through `ISNUMBER`-based keep logic elsewhere in the library (`ISNUMBER("")` is
+`FALSE`, so a downstream mask built on `ISNUMBER` correctly re-excludes it) without
+erroring inside `SUM`/`AVERAGE` the way a propagated error value would.
 
-*Note on naming:* these functions are new, so they're written directly against the
+**Note on naming:** these functions are new, so they're written directly against the
 Naming Convention above (no abbreviations) rather than needing a retrofit.
 
-### Sample Construction & Diagnostics
+### Sample Construction & Diagnostics — *subcategory*
 
-- `Numeric_Complete_Cases(data)` — listwise-deletion sample mask; 1 when every value
-  in a row is numeric.
-- `Is_Balanced_Panel(group, time, [include])` — TRUE only when every included group
-  has exactly one observation for every included time period.
+- `Numeric_Complete_Cases(data)` — listwise-deletion sample mask; `1` when every value in
+  a row is numeric.
+- `Is_Balanced_Panel(group, time, [include])` — `TRUE` only when every included group has
+  exactly one observation for every included time period.
 - `Fixed_Effects_Convergence_Check(x, group1, group2, [include])` — largest absolute
   remaining group mean across two fixed-effect dimensions; near zero indicates
-  convergence after `Absorb_Two_Way_Fixed_Effects`. Surfaced in the v3.0 status block
-  whenever two FE variables are active.
+  convergence after `Absorb_Two_Way_Fixed_Effects`. Surfaced in the status block
+  whenever two Fixed Effects variables are active (v3.1).
 
-### Location & Scale
+### Location & Scale — *subcategory*
 
-- `Center(x, [include])` — grand-mean centering, (xᵢ − x̄).
-- `Zscore(x, [include])` — standardization via STDEV.S, ((xᵢ − x̄) / sₓ).
-- `Minmax_Scale(x, [include])` — scales to [0, 1].
+- `Center(x, [include])` — grand-mean centering, \(x_i - \bar{x}\).
+- `Zscore(x, [include])` — standardization via `STDEV.S`, \((x_i - \bar{x}) / s_x\).
+- `Minmax_Scale(x, [include])` — scales to \([0, 1]\).
 - `Winsorize(x, [lower_p], [upper_p], [include])` — caps values outside selected
   percentiles (default 1st/99th). Remains an explicit modeling decision, never an
   automatic preprocessing step.
 - `Ln_Positive(x, [include])` — natural log, restricted to strictly positive numeric
-  values; returns `""` rather than a worksheet error for zero, negative, or
-  non-numeric input.
+  values; returns `""` rather than a worksheet error for zero, negative, or non-numeric
+  input.
 
-### Group & Panel
+### Group & Panel — *subcategory*
 
 - `Group_Mean(x, group, [include])` — matching group mean on every included row.
-- `Demean_By(x, group, [include])` — one-way within transformation, (x̃ᵢg = xᵢg − x̄g).
-  v3.0 constructor internal for a single FE variable.
+- `Demean_By(x, group, [include])` — one-way within transformation, \(x_{ig} - \bar{x}_g\).
+  **v3.1 constructor internal** for a single Fixed Effects variable.
 - `Zscore_By(x, group, [include])` — within-group standardization.
 - `Decompose_By(x, group, [include])` — returns the between-group mean and within-group
-  deviation as two columns, exposing (xᵢg = x̄g + (xᵢg − x̄g)).
+  deviation as two columns, exposing \(x_{ig} = \bar{x}_g + (x_{ig} - \bar{x}_g)\).
 - `Demean_Two_Way_Balanced(x, group1, group2, [include])` — direct two-way demeaning,
   exact only for a balanced panel; check with `Is_Balanced_Panel` first.
 - `Absorb_Two_Way_Fixed_Effects(x, group1, group2, [include], [passes])` — iterative
   alternating-projection demeaning for unbalanced panels. Convergence is not verified
-  internally; always pair with `Fixed_Effects_Convergence_Check`. v3.0 constructor
-  internal for two FE variables.
+  internally; always pair with `Fixed_Effects_Convergence_Check`. **v3.1 constructor
+  internal** for two Fixed Effects variables.
 
-### Categorical & Model Construction
+### Categorical & Model Construction — *subcategory*
 
-- `Dummy_Levels(category, [reference], [include])` — retained categorical levels as a
-  horizontal header row. Backs the v3.0 prediction-input validation lists.
-- `Dummy_Code(category, [reference], [include])` — dummy-coded matrix. Use a reference
+- `Dummy_Levels(category, [reference], [include])` — **rebuilt for v3.0** (an earlier
+  version existed as a catalog function with string-based error returns; dropped and
+  replaced rather than amended — see the v3.0 rebuild PR). Signals failure via a real
+  Excel error (`NA()`), never a descriptive string, so every downstream
+  `IFERROR`/`ISNA` guard works without special-casing. Retained categorical levels as
+  a horizontal header row; backs the v3.0 prediction-input validation lists and is
+  the hard dependency of `X_s()`'s level-vector split.
+- `Dummy_Code(category, [reference], [include])` — **rebuilt for v3.0** alongside
+  `Dummy_Levels`, calling it internally for level determination (one source of truth,
+  same NA()-based error contract). Dummy-coded matrix. Use a reference
   level (treatment coding) when the design includes an intercept; full one-hot coding
-  plus an intercept causes perfect multicollinearity. Reference-level validation
+  plus an intercept causes perfect multicollinearity. **Reference-level validation
   (confirming the requested reference actually exists in the included sample) is
-  required at implementation, not deferred — an invalid reference silently fails to
-  drop a column and reintroduces the exact collinearity the function exists to prevent.
-  v3.0 constructor internal for Categorical roles.
+  required at implementation, not deferred** — an invalid reference must error
+  (`NA()`), never silently fail to drop a column and reintroduce the exact
+  collinearity the function exists to prevent. Standalone; `X_s()` does not call it
+  directly (it encodes inline via broadcast) but is held to the same standard.
+  **v3.0 constructor internal** for Categorical roles, via `Dummy_Levels`.
 - `Dummy_Column(category, level, [include])` — single indicator column per explicit
   call (see v3.0 catalog additions).
-- `Interact(x1, x2)` — elementwise product (x₁ · x₂); when either argument is a
-  dummy-coded matrix, broadcasts across its columns to produce one interaction column
-  per retained level (continuous × category) or one per retained level-pair
-  (category × category).
+- `Interact(x1, x2)` — elementwise product \(x_1 x_2\); broadcasts across dummy-coded
+  matrices to produce one interaction column per retained level (continuous × category)
+  or one per retained level-pair ((k₁−1)×(k₂−1) columns for category × category).
 - `Model_Matrix(X, [add_intercept])` — optionally prepends an intercept column.
-  Intentionally not variadic — predictors are assembled explicitly with HSTACK so the
+  Intentionally not variadic — predictors are assembled explicitly with `HSTACK` so the
   specification stays visible and auditable.
 
-### Longitudinal & Panel-Time
+### Longitudinal & Panel-Time — *subcategory*
 
 - `Lag_By(x, group, time, [periods], [include])` — prior-period value within the same
-  group, keyed on group/time, not on physical row order.
+  group, keyed on `group`/`time`, not on physical row order.
 - `Difference_By(x, group, time, [periods], [include])` — within-group time difference,
-  (Δₖxᵢₜ = xᵢₜ − xᵢ,ₜ₋ₖ).
+  \(\Delta_k x_{it} = x_{it} - x_{i,t-k}\).
 
 ---
 
 ## v4.0 — Resampling & Simulation
 
+
+
 Bootstrap confidence intervals and Monte Carlo simulation. Validated as worthwhile
-differentiators by their presence in Pyrcz's Excel demos and squarely in
-cost-estimation territory (three-point estimates, MCS, risk analysis). These do not
-depend on the two-sample or ANOVA work, so they come early. Bootstrap and Monte Carlo
-pair naturally and may share a single sheet.
+differentiators by their presence in Pyrcz's Excel demos and squarely in cost-estimation
+territory (three-point estimates, MCS, risk analysis). These do not depend on the
+two-sample or ANOVA work, so they come early. Bootstrap and Monte Carlo pair naturally and
+may share a single sheet.
 
 ---
 
@@ -567,50 +672,47 @@ pair naturally and may share a single sheet.
 Deliberately left loose. Candidate milestones, roughly in conceptual order:
 
 - **Bivariate / two-sample** — t-tests (one-sample, two-sample equal variance, Welch
-  unequal variance, paired), F-test for variance equality feeding a recommendation on
-  which t-test to use, and Covariance to complement the existing Correlation. (Pyrcz's
+  unequal variance, paired), F-test for variance equality feeding a recommendation on which
+  t-test to use, and Covariance to complement the existing Correlation. (Pyrcz's
   "difference in means" / "difference in variances" demos map here.)
 - **Multi-group means (ANOVA)** — one-way ANOVA, implemented as regression on group
-  dummies, reusing the existing SS/MS/F machinery. A natural hinge showing ANOVA is
+  dummies, reusing the existing SS/MS/F machinery. A natural hinge showing ANOVA *is*
   regression — and, post-v3.0, expressible as a spec with one Categorical predictor.
-- **Future specification roles** — Weight (WLS), Cluster (clustered SEs), Time
-  (see Future roles, above).
+- **Future specification roles** — `Weight` (WLS), `Cluster` (clustered SEs), `Time`
+  (see *Future roles*, above).
 - **Time series** — Moving Average, Exponential Smoothing.
 - **Fourier analysis** — to be added later.
-- **Decision analysis** — possible long-tail addition (loss functions), cost/risk
-  oriented.
+- **Decision analysis** — possible long-tail addition (loss functions), cost/risk oriented.
 
 *(Removed from this list relative to the prior revision: the standalone WLS milestone
-and dedicated WLS Regression sheet — superseded by the Weight role; see v3.0
+and dedicated WLS Regression sheet — superseded by the `Weight` role; see v3.0
 supersession note.)*
 
 ---
 
 ## Analysis ToolPak Parity Reference
 
-The ToolPak ships 19 tools. Tracking which are covered, planned, or intentionally
-skipped.
+The ToolPak ships 19 tools. Tracking which are covered, planned, or intentionally skipped.
 
 **Covered or exceeded (v1):** Regression (with diagnostics, influence measures,
-cross-validation, information criteria, and prediction), Correlation, partial
-descriptive stats. v3.0 will exceed further: categorical predictors and fixed-effects
-panel regression, which the ToolPak has never offered.
+cross-validation, information criteria, and prediction), Correlation, partial descriptive
+stats. **v3.0 will exceed further:** categorical predictors and fixed-effects panel
+regression, which the ToolPak has never offered.
 
-**Planned:** Descriptive Statistics + Histogram + Rank/Percentile (v2); t-tests,
-F-test, Covariance (future two-sample); one-way ANOVA (future); Moving Average +
-Exponential Smoothing (future time series).
+**Planned:** Descriptive Statistics + Histogram + Rank/Percentile (v2.0); t-tests, F-test,
+Covariance (future two-sample); one-way ANOVA (future); Moving Average + Exponential
+Smoothing (future time series).
 
 **Intentionally skipped:**
 
-- z-Test (two-sample for means) — assumes known population variance; rarely applicable.
-- Fourier Analysis — engineering/signal domain; out of scope (may add later).
-- Two-factor ANOVA — complexity vs. demand. (Note: post-v3.0, two-way fixed effects
-  via the spec covers adjacent territory; revisit whether this skip still holds.)
-- Random Number Generation / Sampling — largely redundant with native Excel functions.
+- **z-Test (two-sample for means)** — assumes known population variance; rarely applicable.
+- **Fourier Analysis** — engineering/signal domain; out of scope (may add later).
+- **Two-factor ANOVA** — complexity vs. demand. *(Note: post-v3.0, two-way fixed effects
+  via the spec covers adjacent territory; revisit whether this skip still holds.)*
+- **Random Number Generation / Sampling** — largely redundant with native Excel functions.
 
 **Why the library exists (ToolPak flaws it fixes):** ToolPak output is static (pasted
-values that never update when inputs change), opaque (no formula trace),
-one-sheet-at-a-time with manual reruns, locked behind a modal dialog, and
-diagnostically dated (no VIF, Cook's distance, leverage, studentized residuals, PRESS,
-AIC/BIC, or cross-validation). The Lambda Library is live, transparent, auditable,
-reusable, and diagnostically modern.
+values that never update when inputs change), opaque (no formula trace), one-sheet-at-a-time
+with manual reruns, locked behind a modal dialog, and diagnostically dated (no VIF, Cook's
+distance, leverage, studentized residuals, PRESS, AIC/BIC, or cross-validation). The Lambda
+Library is live, transparent, auditable, reusable, and diagnostically modern.

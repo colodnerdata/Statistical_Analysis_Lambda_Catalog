@@ -220,8 +220,9 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 
     # ── Sample_Include(): the derived row mask ───────────────────────────
     # Per-row AND as a REDUCE product of indicator vectors over spec rows:
-    #   Filter columns        — truthy: N(N(col)=1) passes TRUE and 1 only
-    #                           (FALSE/0/blank/text multiply in a 0).
+    #   Filter columns        — truthy: N(IFERROR(N(col)=1,FALSE)) passes
+    #                           TRUE and 1 only (FALSE/0/blank/text/errors
+    #                           multiply in a 0).
     #   Response / included   — completeness: N(ISNUMBER(col)).
     #   Continuous Predictors
     #   Everything else       — acc passthrough (Categorical Predictors
@@ -240,7 +241,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         "seed,SEQUENCE(ROWS(Source_Data),1,1,0),"
         "prod,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,"
         "LET(col,INDEX(Source_Data,0,j),"
-        "IF(INDEX(rl,j)=\"Filter\",acc*N(N(col)=1),"
+        "IF(INDEX(rl,j)=\"Filter\",acc*N(IFERROR(N(col)=1,FALSE)),"
         "IF(OR(INDEX(rl,j)=\"Response\","
         "AND(INDEX(rl,j)=\"Predictor\",INDEX(inc,j)=TRUE,"
         "INDEX(typ,j)=\"Continuous\")),"
@@ -272,10 +273,10 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
     #   some — per-row TEXTJOIN of ALL Identifier columns in table order,
     #          "|"-separated, ignore_empty=FALSE so field positions stay
     #          aligned when an identifier cell is blank.
-    # ids LET-binds a FILTER, which is safe here (unlike in X_s) because
-    # IFERROR(...,NA()) wraps it at binding time — the all-FALSE case is
-    # caught into the scalar NA() that ISNA(TAKE(ids,1,1)) then dispatches
-    # on. Full-height always (the row-mask contract).
+    # Dispatch is structural, not data-dependent: no Identifier role means
+    # positional labels. ids LET-binds a FILTER wrapped by IFERROR(...,NA())
+    # so the all-FALSE case is still safe. Full-height always (the row-mask
+    # contract).
     local_names["Row_Labels"] = (
         "=LAMBDA("
         "LET("
@@ -283,7 +284,7 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         "rl,TAKE(Spec_Role,n_c),"
         "ids,IFERROR(TRANSPOSE(FILTER(TRANSPOSE(Source_Data),"
         "rl=\"Identifier\")),NA()),"
-        "IF(ISNA(TAKE(ids,1,1)),"
+        "IF(SUM(--(rl=\"Identifier\"))=0,"
         "\"Obs. \"&SEQUENCE(ROWS(Source_Data)),"
         "BYROW(ids,LAMBDA(r,TEXTJOIN(\"|\",FALSE,r)))"
         ")"

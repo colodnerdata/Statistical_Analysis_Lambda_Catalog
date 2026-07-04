@@ -118,7 +118,7 @@ def test_sample_include_is_the_reduce_product_mask() -> None:
 
     assert mask.startswith("=LAMBDA(LET(")
     # Filter columns: truthy — TRUE and 1 pass, FALSE/0/blank/text fail.
-    assert 'IF(INDEX(rl,j)="Filter",acc*N(N(col)=1)' in mask
+    assert 'IF(INDEX(rl,j)="Filter",acc*N(IFERROR(N(col)=1,FALSE))' in mask
     # Completeness: the Response and every included Continuous Predictor.
     assert (
         'IF(OR(INDEX(rl,j)="Response",'
@@ -139,13 +139,13 @@ def test_row_labels_dispatches_on_identifier_presence() -> None:
     labels = _refers_to(sheet, "Row_Labels")
 
     assert labels.startswith("=LAMBDA(LET(")
-    # The LET-bound FILTER is safe only because IFERROR catches the
-    # all-FALSE case into a scalar NA() at binding time.
+    # The LET-bound FILTER is wrapped in IFERROR so the all-FALSE case is
+    # still safe at binding time.
     assert (
         'ids,IFERROR(TRANSPOSE(FILTER(TRANSPOSE(Source_Data),'
         'rl="Identifier")),NA())'
     ) in labels
-    assert "IF(ISNA(TAKE(ids,1,1))," in labels
+    assert 'IF(SUM(--(rl="Identifier"))=0,' in labels
     # No Identifier columns: positional fallback, full height.
     assert '"Obs. "&SEQUENCE(ROWS(Source_Data))' in labels
     # ignore_empty=FALSE keeps field positions aligned across rows.

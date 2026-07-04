@@ -207,7 +207,11 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     assert x_s.startswith("=LAMBDA(LET(")
     assert x_s.count("Dummy_Levels(") == 1
     assert 'lv,Dummy_Levels(col,r,Sample_Include())' in x_s
-    assert "IF(ISNA(lv),acc,HSTACK(acc,--(col=lv)))" in x_s
+    # Scalar skip guard: ISNA(INDEX(lv,1,1)), NOT ISNA(lv). lv is a 1x(L-1)
+    # row; an array condition in front of a wider HSTACK branch broadcasts to
+    # #N/A (the T6 header-strip bug). INDEX(lv,1,1) makes the test scalar.
+    assert "IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,--(col=lv)))" in x_s
+    assert "IF(ISNA(lv)," not in x_s
     # Empty E-cell normalization: INDEX reads a blank cell as 0; "" is the
     # "use the default" sentinel Dummy_Levels expects.
     assert 'r,IF(LEN(d&"")=0,"",d)' in x_s
@@ -231,7 +235,9 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     assert predicate in names
     assert 'lv,Dummy_Levels(col,r,Sample_Include())' in names
     assert names.count("Dummy_Levels(") == 1
-    assert "IF(ISNA(lv),acc," in names
+    # Same scalar skip guard as X_s (the twin must match).
+    assert "IF(ISNA(INDEX(lv,1,1)),acc," in names
+    assert "IF(ISNA(lv)," not in names
     # Level-qualified headers: "Status: Developing", "Year: 2001", ...
     assert 'HSTACK(acc,h&": "&lv)' in names
     assert names.endswith("DROP(built,,1)))")

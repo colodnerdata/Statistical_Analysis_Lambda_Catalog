@@ -9,10 +9,25 @@ Two-axis specification (ROADMAP: v3.0 — Specification-Driven Regression):
 Right of the spec block, after a narrow gap column I (which also visually
 reserves the future Design Columns audit column):
 
-    J             K
-    Row Labels    Included
+    J             K        L     M           N            O     P           Q →
+    Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered X_s
     (=Row_Labels() spill at J3; =Sample_Include() spill at K3 — both
-     full-height, never internally filtered)
+     full-height, never internally filtered. M/N/P/Q are the FILTERED
+     display zones: the only place on the sheet where Sample_Include()
+     row-filters anything. P repeats the filtered labels so the matrix
+     reads side-by-side without scrolling back to M.)
+
+Row 1, from column J rightward, holds the bold audit cells as
+label/value pairs (values on the non-narrow columns K/N/Q/S/U):
+
+    k = COLUMNS(X_s()) · rows = ROWS(X_s()) · response = <derived name> ·
+    responses = <count of Role="Response"> (red CF when <> 1) ·
+    included rows = SUMPRODUCT(N(Sample_Include()))
+
+Row 2 above Q carries the =Constructed_Column_Names() header strip
+(level-qualified names, horizontal). Every spill formula in the filtered
+zones wraps IFERROR(..., "(empty model)") so an empty model degrades to a
+documented string, never a raw #CALC! leak.
 
 The spec spans EVERY column of the LifeExpectancyData table (23 rows:
 [Country]..[Schooling] plus [Full_Data]). Two axes:
@@ -74,9 +89,9 @@ to fix level sets; nothing here ever row-filters. With the real mask live,
 the T0 mask-dependent values are real on the sheet: k = 19 (15 Year
 dummies), SUMPRODUCT(N(Sample_Include())) = 1649.
 
-Not here (deliberately, per release scoping): the filtered display/audit
-zones (filtered matrix, header strip, row-1 audit cells) — those land in
-the next PR, which is also why row 1 of columns J/K stays empty.
+Not here (deliberately, per release scoping): the QC analyzer
+(analyze_model_construction.py) and the Version History / CHANGELOG bump
+to v3.0 — those land in the final wiring PR.
 """
 from __future__ import annotations
 
@@ -92,6 +107,7 @@ from .sheet_styles import (
 from .workbook_helpers import (
     add_expression_format,
     bold_row,
+    col_letter,
     drop_local_name,
     f,
     format_input,
@@ -159,6 +175,40 @@ _C_GAP = 9
 _C_ROW_LABELS = 10
 _C_INCLUDED = 11
 _GAP_COLUMN_WIDTH = 2
+
+# Filtered display zone: the ONLY place Sample_Include() row-filters
+# anything (everything left of L honors the full-height contract). L and
+# O are narrow visual breaks; P repeats the filtered labels so the matrix
+# reads side-by-side without scrolling back to M.
+_C_BREAK_LEFT = 12
+_C_FILTERED_LABELS = 13
+_C_FILTERED_Y = 14
+_C_BREAK_MID = 15
+_C_MATRIX_LABELS = 16
+_C_MATRIX_START = 17
+
+# Row-1 audit strip: label/value pairs marching right from column J,
+# values placed on the non-narrow columns (K, N, Q, S, U) so no number
+# lands on a width-2 break column.
+_AUDIT_ROW = 1
+_AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
+    (_C_ROW_LABELS, _C_INCLUDED),          # k
+    (_C_FILTERED_LABELS, _C_FILTERED_Y),   # rows
+    (_C_MATRIX_LABELS, _C_MATRIX_START),   # response
+    (_C_MATRIX_START + 1, _C_MATRIX_START + 2),  # responses (red CF <> 1)
+    (_C_MATRIX_START + 3, _C_MATRIX_START + 4),  # included rows
+)
+
+_EMPTY_MODEL_FALLBACK = '"(empty model)"'
+
+# The derived response name, shared by the audit strip and the filtered-y
+# header: the header of the first Role="Response" spec row, "(none)" when
+# no row carries the role. XMATCH position over the TAKE-trimmed roles is
+# the same lookup Response_Column() uses for its data column.
+_RESPONSE_NAME_FORMULA = (
+    'IFERROR(INDEX(TOROW(Header_Names),'
+    'XMATCH("Response",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
+)
 
 # Dropdown validations cover the repo's standard 16000-row input band so a
 # retargeted dataset with more columns inherits them without a rebuild.
@@ -506,7 +556,8 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
 def _write_row_zones(sheet: xw.Sheet) -> None:
     """The J/K derived-row zone: full-height label and mask spills.
 
-    Row 1 of J/K stays empty — the next PR's audit cells land there.
+    Row 1 of J/K is not written here — _write_audit_row owns the audit
+    strip that occupies it.
     """
     sheet.range(rc(1, _C_GAP)).column_width = _GAP_COLUMN_WIDTH
 
@@ -516,6 +567,95 @@ def _write_row_zones(sheet: xw.Sheet) -> None:
 
     f(sheet, _FIRST_DATA_ROW, _C_ROW_LABELS, "=Row_Labels()")
     f(sheet, _FIRST_DATA_ROW, _C_INCLUDED, "=Sample_Include()")
+
+
+def _write_audit_row(sheet: xw.Sheet) -> None:
+    """Row-1 audit strip: bold label/value pairs from column J rightward.
+
+    Values live in their own cells (not concatenated into the labels) so
+    the QC analyzer can assert the numbers directly. The X_s()-derived
+    cells wrap IFERROR — an empty model makes DROP(built,,1) error, and
+    the audit strip must degrade to the documented string, never leak a
+    raw #CALC!. The two SUMPRODUCT counts are total functions over
+    full-height inputs and cannot error, so they stay unwrapped.
+    """
+    audit_cells: tuple[tuple[str, str], ...] = (
+        ("k", f"=IFERROR(COLUMNS(X_s()),{_EMPTY_MODEL_FALLBACK})"),
+        ("rows", f"=IFERROR(ROWS(X_s()),{_EMPTY_MODEL_FALLBACK})"),
+        ("response", f"={_RESPONSE_NAME_FORMULA}"),
+        (
+            "responses",
+            '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response"))',
+        ),
+        ("included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+    )
+    for (label_col, value_col), (label, formula) in zip(
+        _AUDIT_PAIRS, audit_cells
+    ):
+        val(sheet, _AUDIT_ROW, label_col, label)
+        f(sheet, _AUDIT_ROW, value_col, formula)
+        bold_row(sheet, _AUDIT_ROW, label_col, value_col)
+
+    # The model must declare exactly one Response — flag the count red
+    # otherwise (zero and multiple are both spec errors the filtered
+    # zones can only partially absorb).
+    responses_col = col_letter(_AUDIT_PAIRS[3][1])
+    add_expression_format(
+        sheet,
+        f"${responses_col}${_AUDIT_ROW}",
+        f"=N(${responses_col}${_AUDIT_ROW})<>1",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+
+def _write_filtered_zones(sheet: xw.Sheet) -> None:
+    """The M/N and P/Q→ filtered display zones.
+
+    The only row-filtering on the sheet: FILTER(<full-height name>(),
+    Sample_Include()). Every spill wraps IFERROR(..., "(empty model)") —
+    an empty model (no included predictors, or a mask that excludes
+    everything) degrades to the documented string.
+    """
+    for break_col in (_C_BREAK_LEFT, _C_BREAK_MID):
+        sheet.range(rc(1, break_col)).column_width = _GAP_COLUMN_WIDTH
+
+    bold_row(sheet, _HEADER_ROW, _C_FILTERED_LABELS, _C_MATRIX_START)
+    val(sheet, _HEADER_ROW, _C_FILTERED_LABELS, "Row Labels")
+    # N header carries the derived response name ("y: Life expectancy")
+    # so the filtered-y column is self-describing under response swaps.
+    f(
+        sheet,
+        _HEADER_ROW,
+        _C_FILTERED_Y,
+        f'="y: "&{_RESPONSE_NAME_FORMULA}',
+    )
+    val(sheet, _HEADER_ROW, _C_MATRIX_LABELS, "Row Labels")
+    # Header strip above the matrix: the structural twin guarantees this
+    # spills exactly COLUMNS(X_s()) level-qualified names.
+    f(
+        sheet,
+        _HEADER_ROW,
+        _C_MATRIX_START,
+        f"=IFERROR(Constructed_Column_Names(),{_EMPTY_MODEL_FALLBACK})",
+    )
+
+    filtered_spills: tuple[tuple[int, str], ...] = (
+        (_C_FILTERED_LABELS, "Row_Labels()"),
+        (_C_FILTERED_Y, "Response_Column()"),
+        (_C_MATRIX_LABELS, "Row_Labels()"),
+        (_C_MATRIX_START, "X_s()"),
+    )
+    for col, source in filtered_spills:
+        f(
+            sheet,
+            _FIRST_DATA_ROW,
+            col,
+            (
+                f"=IFERROR(FILTER({source},Sample_Include()),"
+                f"{_EMPTY_MODEL_FALLBACK})"
+            ),
+        )
 
 
 def write_model_construction_sheet(workbook: xw.Book) -> xw.Sheet:
@@ -528,6 +668,8 @@ def write_model_construction_sheet(workbook: xw.Book) -> xw.Sheet:
     _set_sheet_scoped_names(sheet)
     _write_spec_block(sheet)
     _write_row_zones(sheet)
+    _write_audit_row(sheet)
+    _write_filtered_zones(sheet)
 
     # Reserved-column notes are COM comment calls; keep them out of the
     # RecordingSheet-testable spec block.

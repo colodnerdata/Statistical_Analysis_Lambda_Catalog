@@ -21,6 +21,14 @@ from lambda_catalog.sheet_styles import (
 )
 from lambda_catalog.workbook_helpers import excel_color
 from lambda_catalog.write_sheet_model_construction import (
+    _AUDIT_PAIRS,
+    _AUDIT_ROW,
+    _C_BREAK_LEFT,
+    _C_BREAK_MID,
+    _C_FILTERED_LABELS,
+    _C_FILTERED_Y,
+    _C_MATRIX_LABELS,
+    _C_MATRIX_START,
     _DEFAULT_SPEC,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
@@ -28,6 +36,8 @@ from lambda_catalog.write_sheet_model_construction import (
     _N_VARIABLES,
     _VARIABLES,
     _set_sheet_scoped_names,
+    _write_audit_row,
+    _write_filtered_zones,
     _write_row_zones,
     _write_spec_block,
     SHEET_NAME,
@@ -75,6 +85,13 @@ def _all_written_formulas(sheet: RecordingSheet) -> list[str]:
     ]
 
 
+def _write_all_zones(sheet: RecordingSheet) -> None:
+    _write_spec_block(_as_xw_sheet(sheet))
+    _write_row_zones(_as_xw_sheet(sheet))
+    _write_audit_row(_as_xw_sheet(sheet))
+    _write_filtered_zones(_as_xw_sheet(sheet))
+
+
 def test_names_are_created_in_dependency_order() -> None:
     sheet = _named_sheet()
 
@@ -90,8 +107,7 @@ def test_only_the_retarget_names_reference_the_table_directly() -> None:
     for name in _EXPECTED_NAME_ORDER[2:]:
         assert "LifeExpectancyData" not in _refers_to(sheet, name), name
 
-    _write_spec_block(_as_xw_sheet(sheet))
-    _write_row_zones(_as_xw_sheet(sheet))
+    _write_all_zones(sheet)
     for formula in _all_written_formulas(sheet):
         assert "LifeExpectancyData" not in formula, formula
 
@@ -164,8 +180,8 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
     assert sheet.cell(2, 11).value == "Included"
     assert sheet.range((2, 10), (2, 11)).api.Font.Bold is True
 
-    # Full-height spills at row 3; row 1 stays empty for the next PR's
-    # audit cells.
+    # Full-height spills at row 3; row 1 belongs to _write_audit_row, so
+    # this writer must leave it untouched.
     assert sheet.cell(3, 10).api.Formula2 == "=Row_Labels()"
     assert sheet.cell(3, 11).api.Formula2 == "=Sample_Include()"
     for col in (10, 11):
@@ -212,8 +228,7 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
 
 def test_reserved_spec_names_are_defined_but_read_by_nothing() -> None:
     sheet = _named_sheet()
-    _write_spec_block(_as_xw_sheet(sheet))
-    _write_row_zones(_as_xw_sheet(sheet))
+    _write_all_zones(sheet)
 
     for reserved in ("Spec_Order", "Spec_Transform"):
         readers = [
@@ -243,8 +258,7 @@ def test_reserved_spec_names_are_not_referenced_repo_wide() -> None:
 
 def test_every_name_and_formula_string_is_balanced() -> None:
     sheet = _named_sheet()
-    _write_spec_block(_as_xw_sheet(sheet))
-    _write_row_zones(_as_xw_sheet(sheet))
+    _write_all_zones(sheet)
 
     strings = [item.RefersTo for item in sheet.api.Names.items]
     strings.extend(_all_written_formulas(sheet))
@@ -354,3 +368,85 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     ]
     assert invalid[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert invalid[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+
+_RESPONSE_NAME = (
+    'IFERROR(INDEX(TOROW(Header_Names),'
+    'XMATCH("Response",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
+)
+
+
+def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_audit_row(_as_xw_sheet(sheet))
+
+    expected = [
+        (10, 11, "k", '=IFERROR(COLUMNS(X_s()),"(empty model)")'),
+        (13, 14, "rows", '=IFERROR(ROWS(X_s()),"(empty model)")'),
+        (16, 17, "response", f"={_RESPONSE_NAME}"),
+        (
+            18,
+            19,
+            "responses",
+            '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response"))',
+        ),
+        (20, 21, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+    ]
+    assert list(_AUDIT_PAIRS) == [(lc, vc) for lc, vc, _, _ in expected]
+    assert _AUDIT_ROW == 1
+    for label_col, value_col, label, formula in expected:
+        # No audit cell may land on a width-2 break column (L=12, O=15).
+        assert label_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
+        assert value_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
+        assert sheet.cell(1, label_col).value == label
+        assert sheet.cell(1, value_col).api.Formula2 == formula
+        assert (
+            sheet.range((1, label_col), (1, value_col)).api.Font.Bold is True
+        )
+
+    # Exactly-one-Response validation: red CF on the responses count cell.
+    conditions = sheet.range("$S$1").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ["=N($S$1)<>1"]
+    assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+
+def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_filtered_zones(_as_xw_sheet(sheet))
+
+    # L and O: narrow visual breaks, same width as the I gap.
+    assert sheet.range((1, _C_BREAK_LEFT)).column_width == 2
+    assert sheet.range((1, _C_BREAK_MID)).column_width == 2
+
+    # Row-2 headers: static labels over the two Row Labels columns, the
+    # derived response name over filtered y, the twin strip over the
+    # matrix. All bold like the spec headers.
+    assert sheet.cell(2, _C_FILTERED_LABELS).value == "Row Labels"
+    assert sheet.cell(2, _C_MATRIX_LABELS).value == "Row Labels"
+    assert sheet.cell(2, _C_FILTERED_Y).api.Formula2 == (
+        f'="y: "&{_RESPONSE_NAME}'
+    )
+    assert sheet.cell(2, _C_MATRIX_START).api.Formula2 == (
+        '=IFERROR(Constructed_Column_Names(),"(empty model)")'
+    )
+    assert (
+        sheet.range(
+            (2, _C_FILTERED_LABELS), (2, _C_MATRIX_START)
+        ).api.Font.Bold
+        is True
+    )
+
+    # Row-3 spills: the ONLY row-filtering on the sheet, every one
+    # wrapped so an empty model degrades to the documented string
+    # instead of leaking a raw #CALC!.
+    expected_spills = {
+        _C_FILTERED_LABELS: "Row_Labels()",
+        _C_FILTERED_Y: "Response_Column()",
+        _C_MATRIX_LABELS: "Row_Labels()",
+        _C_MATRIX_START: "X_s()",
+    }
+    for col, source in expected_spills.items():
+        assert sheet.cell(3, col).api.Formula2 == (
+            f'=IFERROR(FILTER({source},Sample_Include()),"(empty model)")'
+        ), source

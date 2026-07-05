@@ -53,15 +53,15 @@ _C_X = 24   # ANOVA Sig F / coeff CI lower
 _C_Y = 25   # coeff CI upper
 _C_AB = 28  # prediction interval labels + prediction input labels
 _C_AC = 29  # prediction interval values + prediction input values
-_C_AF = 32  # Y (filtered dependent var)
-_C_AG = 33  # Predicted Y
-_C_AH = 34  # Residuals
-_C_AI = 35  # LOOCV residual
-_C_AJ = 36  # Hat Diagonal
-_C_AK = 37  # Studentized Residuals
-_C_AL = 38  # Cook's Distance
-_C_AM = 39  # Normal Scores Ranked
-_C_AN = 40  # Studentized Residuals Ranked
+_C_AG = 33  # Y (filtered dependent var)
+_C_AH = 34  # Predicted Y
+_C_AI = 35  # Residuals
+_C_AJ = 36  # LOOCV residual
+_C_AK = 37  # Hat Diagonal
+_C_AL = 38  # Studentized Residuals
+_C_AM = 39  # Cook's Distance
+_C_AN = 40  # Normal Scores Ranked
+_C_AO = 41  # Studentized Residuals Ranked
 
 # ── Row positions (1-based) ───────────────────────────────────────────────────
 _ROW_SUMMARY_FIRST = 3   # K3 spills constructed names; L3–Q3 spill the stats
@@ -329,7 +329,7 @@ def read_regression_df(
                 "first_digit_deviation": fdd_val,
             })
 
-        # ── Residual Output (columns AF–AN, rows 3 to 3+n-1) ──────────────
+        # ── Residual Output (columns AG–AO, rows 3 to 3+n-1) ──────────────
         resid_stat_names = [
             "Dependent_Variable", "Predictions", "Residuals", "LOOCV_Residual",
             "Hat_Diagonal", "Studentized_Residuals", "Cooks_Distance",
@@ -340,8 +340,8 @@ def read_regression_df(
             fr.hat_diagonal, fr.studentized_residuals, fr.cooks_distance,
             fr.normal_scores_ranked, fr.studentized_residuals_ranked,
         ]
-        # Block: columns AF(32) through AN(40) = 9 columns, n rows
-        block = _read_block(sheet, _ROW_RESID_FIRST, _C_AF, _C_AN, n)
+        # Block: columns AG(33) through AO(41) = 9 columns, n rows
+        block = _read_block(sheet, _ROW_RESID_FIRST, _C_AG, _C_AO, n)
         for row_idx, xl_row in enumerate(block):
             for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
                 exp_val: float | None = float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None

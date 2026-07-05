@@ -23,8 +23,8 @@ own display of the same facts:
     MC header strip names        → K3 spill contents (vertical)
     MC audit response            → X2 Predicted Variable readout
     MC audit included rows       → T8 Observations cell
-    MC first filtered label      → AE3 (first residual-output row label)
-    MC filtered zone heights     → AE3 spill height
+    MC first filtered label      → AF3 (first residual-output row label)
+    MC filtered zone heights     → AF3 spill height
 
 The full-height contract, filtered-y column, y-header, and responses-count
 assertions are dropped: the Regression sheet displays none of them, and the
@@ -77,7 +77,7 @@ from .write_sheet_model_construction import (
 )
 from .write_sheet_regression import (
     REGRESSION_SHEET_NAME,
-    _C_AE,
+    _C_AF,
     _C_K,
     _C_S,
     _C_T,
@@ -90,7 +90,7 @@ _QC_PREFIX = "[Regression Spec]"
 # write_sheet_regression.py's section writers).
 _ROW_RESPONSE_READOUT = 2   # X2 = derived response name
 _ROW_NAMES_SPILL = 3        # K3 = TRANSPOSE(Constructed_Column_Names())
-_ROW_RESID_FIRST = 3        # AE3 = FILTER(Row_Labels(), Sample_Include())
+_ROW_RESID_FIRST = 3        # AF3 = FILTER(Row_Labels(), Sample_Include())
 _ROW_OBSERVATIONS = 8       # T8 = Observations(...)
 _ROW_COEFF_FIRST = 21       # S21 = coefficient label spill (k+1 with intercept)
 
@@ -139,7 +139,7 @@ def read_observed_spec_values(
     }
 
     resid_labels = _read_column(
-        sheet, _C_AE, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
+        sheet, _C_AF, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
     )
 
     return RegressionSpecObserved(

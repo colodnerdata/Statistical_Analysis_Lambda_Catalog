@@ -27,7 +27,7 @@ from lambda_catalog.analyze_model_construction import (
     load_source_rows,
 )
 from lambda_catalog.workbook_helpers import col_letter
-from lambda_catalog.write_sheet_regression import _C_AE, _C_K, _C_S, _C_T, _C_X
+from lambda_catalog.write_sheet_regression import _C_AF, _C_K, _C_S, _C_T, _C_X
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
@@ -52,8 +52,8 @@ def test_reads_anchor_to_the_documented_regression_cells() -> None:
     assert (col_letter(_C_T), _ROW_OBSERVATIONS) == ("T", 8)
     # X2 = Predicted Variable readout
     assert (col_letter(_C_X), _ROW_RESPONSE_READOUT) == ("X", 2)
-    # AE3 = FILTER(Row_Labels(), Sample_Include()) spill
-    assert (col_letter(_C_AE), _ROW_RESID_FIRST) == ("AE", 3)
+    # AF3 = FILTER(Row_Labels(), Sample_Include()) spill
+    assert (col_letter(_C_AF), _ROW_RESID_FIRST) == ("AF", 3)
 
 
 def test_expectations_delegate_to_the_shared_calculator() -> None:

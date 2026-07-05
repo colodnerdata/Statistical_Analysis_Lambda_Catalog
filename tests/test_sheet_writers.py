@@ -21,12 +21,12 @@ from lambda_catalog.write_sheet_regression import (
     _C_Z,
     _C_AC,
     _C_AD,
-    _C_AE,
     _C_AF,
-    _C_AH,
+    _C_AG,
     _C_AI,
     _C_AJ,
-    _C_AP,
+    _C_AK,
+    _C_AQ,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
     _setup_local_names as _setup_regression_names,
@@ -116,11 +116,11 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
 
     fit_y = sheet.api.Names.by_short_name("RegChartFitY").RefersTo
     assert fit_y == (
-        "=OFFSET('Regression'!$AG$2,1,0,"
+        "=OFFSET('Regression'!$AH$2,1,0,"
         "MAX(IFERROR('Regression'!$T$8,1),1),1)"
     )
     press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
-    assert "$AP$2" in press
+    assert "$AQ$2" in press
 
 
 def test_intercept_only_n_does_not_depend_on_filter() -> None:
@@ -222,25 +222,25 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
 
     # Static header; Row_Labels() supplies its own per-row content and
     # no-Identifier fallback, so only an all-FALSE mask is absorbed here.
-    assert sheet.cell(2, _C_AE).value == "Observation"
-    assert sheet.cell(3, _C_AE).api.Formula2 == (
+    assert sheet.cell(2, _C_AF).value == "Observation"
+    assert sheet.cell(3, _C_AF).api.Formula2 == (
         "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
-    assert sheet.cell(2, _C_AF).value == "Y"
-    assert sheet.cell(3, _C_AF).api.Formula2 == (
+    assert sheet.cell(2, _C_AG).value == "Y"
+    assert sheet.cell(3, _C_AG).api.Formula2 == (
         "=Dependent_Variable(Response_Column(),Sample_Include())"
     )
-    assert sheet.cell(3, _C_AH).api.Formula2 == (
+    assert sheet.cell(3, _C_AI).api.Formula2 == (
         "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AJ).api.Formula2 == (
+    assert sheet.cell(3, _C_AK).api.Formula2 == (
         "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AI).api.Formula2 == (
+    assert sheet.cell(3, _C_AJ).api.Formula2 == (
         "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AP).api.Formula2 == (
+    assert sheet.cell(3, _C_AQ).api.Formula2 == (
         "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
 

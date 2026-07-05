@@ -27,7 +27,6 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
     write_life_expectancy_sheet,
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
-from lambda_catalog.write_sheet_model_construction import write_model_construction_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
@@ -175,6 +174,10 @@ def build_production_workbook(
         try:
             app.api.Calculation = XL_CALCULATION_MANUAL
             _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
+            # v3.0 changeover: the spec block moved onto the Regression sheet,
+            # so a carried-forward Model Construction sheet is stale and gets
+            # dropped.
+            _delete_sheet_if_present(workbook, "Model Construction")
             for qc_sheet in _QC_SHEET_NAMES:
                 _delete_sheet_if_present(workbook, qc_sheet)
             if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
@@ -185,9 +188,10 @@ def build_production_workbook(
             write_regression_instructions_sheet(workbook)
             write_diagnostic_guide_sheet(workbook)
             write_version_history_sheet(workbook)
-            write_regression_output_sheet(workbook, document.regression_sheet_notes)
-            write_model_construction_sheet(
-                workbook, document.functions_for_sheet("Model Construction")
+            write_regression_output_sheet(
+                workbook,
+                document.regression_sheet_notes,
+                document.functions_for_sheet("Regression"),
             )
             app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
             workbook.save(str(workbook_path))
@@ -359,7 +363,6 @@ def main() -> None:
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
-    print("Sheet updated: Model Construction")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

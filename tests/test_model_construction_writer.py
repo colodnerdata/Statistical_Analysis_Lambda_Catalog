@@ -33,6 +33,8 @@ from lambda_catalog.write_sheet_model_construction import (
     _DEFAULT_SPEC,
     _C_INCLUDE,
     _C_LABEL,
+    _C_REF_IN_USE,
+    _CLOSURE_SCOPE,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
     _HEADER_ROW,
@@ -53,6 +55,7 @@ from tests.recording_sheet import RecordingSheet
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
 _EXPECTED_NAME_ORDER = [
+    "Source_Table",
     "Source_Data",
     "Header_Names",
     "Spec_Role",
@@ -75,9 +78,13 @@ def _as_xw_sheet(sheet: RecordingSheet) -> xw.Sheet:
 
 
 def _model_construction_closures():
-    """The sheet-scoped constructor functions as the build installs them."""
+    """The sheet-scoped constructor functions as a standalone rebuild installs them.
+
+    The closures moved to scope "Regression" with the v3.0 changeover; this
+    module keeps installing the same set when its sheet is rebuilt standalone.
+    """
     document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
-    return document.functions_for_sheet(SHEET_NAME)
+    return document.functions_for_sheet(_CLOSURE_SCOPE)
 
 
 def _named_sheet() -> RecordingSheet:
@@ -112,12 +119,16 @@ def test_names_are_created_in_dependency_order() -> None:
     assert local_name_order == _EXPECTED_NAME_ORDER
 
 
-def test_only_the_retarget_names_reference_the_table_directly() -> None:
+def test_only_the_retarget_name_references_the_table_directly() -> None:
     sheet = _named_sheet()
 
-    assert _refers_to(sheet, "Source_Data") == "=LifeExpectancyData[#Data]"
-    assert _refers_to(sheet, "Header_Names") == "=LifeExpectancyData[#Headers]"
-    for name in _EXPECTED_NAME_ORDER[2:]:
+    # Source_Table is THE dataset-retarget point — a changeover is a one-name
+    # edit. The body and header row derive from it via non-volatile DROP/TAKE
+    # (OFFSET would be re-evaluated on every Data Table substitution pass).
+    assert _refers_to(sheet, "Source_Table") == "=LifeExpectancyData[#All]"
+    assert _refers_to(sheet, "Source_Data") == "=DROP(Source_Table,1)"
+    assert _refers_to(sheet, "Header_Names") == "=TAKE(Source_Table,1)"
+    for name in _EXPECTED_NAME_ORDER[1:]:
         assert "LifeExpectancyData" not in _refers_to(sheet, name), name
 
     _write_all_zones(sheet)
@@ -189,19 +200,19 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_row_zones(_as_xw_sheet(sheet))
 
-    # I: narrow gap, visually reserving the future Design Columns column.
-    assert sheet.range((1, 9)).column_width == 2
+    # J: narrow gap, visually reserving the future Design Columns column.
+    assert sheet.range((1, 10)).column_width == 2
 
-    # J/K headers on the spec-header row, bold like the A–H headers.
-    assert sheet.cell(_HEADER_ROW, 10).value == "Row Labels"
-    assert sheet.cell(_HEADER_ROW, 11).value == "Included"
-    assert sheet.range((_HEADER_ROW, 10), (_HEADER_ROW, 11)).api.Font.Bold is True
+    # K/L headers on the spec-header row, bold like the A–I headers.
+    assert sheet.cell(_HEADER_ROW, 11).value == "Row Labels"
+    assert sheet.cell(_HEADER_ROW, 12).value == "Included"
+    assert sheet.range((_HEADER_ROW, 11), (_HEADER_ROW, 12)).api.Font.Bold is True
 
     # Full-height spills at the first data row; row 1 belongs to
     # _write_audit_row, so this writer must leave it untouched.
-    assert sheet.cell(_FIRST_DATA_ROW, 10).api.Formula2 == "=Row_Labels()"
-    assert sheet.cell(_FIRST_DATA_ROW, 11).api.Formula2 == "=Sample_Include()"
-    for col in (10, 11):
+    assert sheet.cell(_FIRST_DATA_ROW, 11).api.Formula2 == "=Row_Labels()"
+    assert sheet.cell(_FIRST_DATA_ROW, 12).api.Formula2 == "=Sample_Include()"
+    for col in (11, 12):
         assert sheet.cell(1, col).value is None
         assert sheet.cell(1, col).api.Formula2 is None
 
@@ -338,6 +349,32 @@ def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:
     assert 'x,IF(col="","",col)' in formula  # blank normalization mirrored
 
 
+def test_reference_in_use_echoes_e_or_shows_the_sorted_default() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_block(_as_xw_sheet(sheet))
+
+    r = _FIRST_DATA_ROW
+    formula = cast(str, sheet.cell(r, _C_REF_IN_USE).api.Formula2)
+    # Same relevance guard as the Levels display: Categorical Predictors only.
+    assert formula.startswith(
+        f'=IF(OR($B{r}<>"Predictor (x)",$D{r}<>"Categorical"),"",'
+    )
+    # An explicit E is echoed verbatim (E's invalid-reference CF carries the
+    # error signal); blank E falls through to the default.
+    assert f'IF($E{r}<>"",$E{r},' in formula
+    # The default mirrors Dummy_Levels: first sorted level over the
+    # mask-included sample, with the same blank normalization. NOT a
+    # Dummy_Levels call — that returns the retained levels, i.e. everything
+    # EXCEPT the reference.
+    assert "INDEX(SORT(UNIQUE(FILTER(" in formula
+    assert "Dummy_Levels" not in formula
+    assert "Sample_Include()" in formula
+    assert f"ROW()-{_FIRST_DATA_ROW - 1}" in formula
+    assert 'x,IF(col="","",col)' in formula
+    # Empty masked sample degrades to blank (H shows 0 and flags red there).
+    assert formula.endswith(',""))))')
+
+
 def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
@@ -374,7 +411,7 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
 
     r = _FIRST_DATA_ROW
     off = _FIRST_DATA_ROW - 1
-    gray = sheet.range(f"$C${r}:$H${_LAST_DATA_ROW}").api.FormatConditions.items
+    gray = sheet.range(f"$C${r}:$I${_LAST_DATA_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in gray] == [f'=$B{r}<>"Predictor (x)"']
     assert gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
 
@@ -457,21 +494,21 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
     _write_audit_row(_as_xw_sheet(sheet))
 
     expected = [
-        (10, 11, "k", '=IFERROR(COLUMNS(X_s()),"(empty model)")'),
-        (13, 14, "rows", '=IFERROR(ROWS(X_s()),"(empty model)")'),
-        (16, 17, "response", f"={_RESPONSE_NAME}"),
+        (11, 12, "k", '=IFERROR(COLUMNS(X_s()),"(empty model)")'),
+        (14, 15, "rows", '=IFERROR(ROWS(X_s()),"(empty model)")'),
+        (17, 18, "response", f"={_RESPONSE_NAME}"),
         (
-            18,
             19,
+            20,
             "responses",
             '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response (y)"))',
         ),
-        (20, 21, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+        (21, 22, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
     ]
     assert list(_AUDIT_PAIRS) == [(lc, vc) for lc, vc, _, _ in expected]
     assert _AUDIT_ROW == 1
     for label_col, value_col, label, formula in expected:
-        # No audit cell may land on a width-2 break column (L=12, O=15).
+        # No audit cell may land on a width-2 break column (M=13, P=16).
         assert label_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
         assert value_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
         assert sheet.cell(1, label_col).value == label
@@ -481,8 +518,8 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
         )
 
     # Exactly-one-Response validation: red CF on the responses count cell.
-    conditions = sheet.range("$S$1").api.FormatConditions.items
-    assert [c.Formula1 for c in conditions] == ["=N($S$1)<>1"]
+    conditions = sheet.range("$T$1").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ["=N($T$1)<>1"]
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
@@ -491,7 +528,7 @@ def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_filtered_zones(_as_xw_sheet(sheet))
 
-    # L and O: narrow visual breaks, same width as the I gap.
+    # M and P: narrow visual breaks, same width as the J gap.
     assert sheet.range((1, _C_BREAK_LEFT)).column_width == 2
     assert sheet.range((1, _C_BREAK_MID)).column_width == 2
 

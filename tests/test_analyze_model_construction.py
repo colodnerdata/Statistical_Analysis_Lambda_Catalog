@@ -84,6 +84,9 @@ def test_t0_expectations_pin_the_csv_derived_values(rows, t0_expected) -> None:
     assert t0_expected.first_filtered_label == "Afghanistan"
     assert t0_expected.first_filtered_response == 65
     assert t0_expected.level_counts == {"Year": 16, "Status": 2}
+    # References in effect, surfaced even when defaulted: first sorted
+    # masked level (numbers before text, so Year -> 2000).
+    assert t0_expected.references_in_use == {"Year": 2000, "Status": "Developed"}
     assert t0_expected.degenerate_categoricals == ()
     assert len(rows) == t0_expected.total_rows
 
@@ -113,6 +116,9 @@ def test_stratifying_filter_degenerates_status(rows) -> None:
     assert expected.included_rows == 1407
     assert expected.degenerate_categoricals == ("Status",)
     assert expected.level_counts == {"Year": 16, "Status": 1}
+    # Inside the stratified mask the only Status level left IS the default
+    # reference — the display still shows it while H=1 flags degeneracy.
+    assert expected.references_in_use == {"Year": 2000, "Status": "Developing"}
     # Status is skipped, not errored: zero contributed columns, everything
     # else still constructed — 15 Year dummies + 3 continuous.
     assert expected.k == 18
@@ -138,6 +144,9 @@ def test_invalid_reference_degenerates_the_predictor(rows) -> None:
     expected = calculate_model_construction_expectations(spec, rows)
     assert "Status" in expected.degenerate_categoricals
     assert expected.k == 18
+    # The display echoes the explicit (invalid) E verbatim; E's red CF is
+    # what carries the error signal on the sheet.
+    assert expected.references_in_use["Status"] == "Nonexistent Level"
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +197,10 @@ def _observed_matching(expected) -> ModelConstructionObserved:
         header_strip=expected.constructed_column_names,
         level_cells={
             name: float(count) for name, count in expected.level_counts.items()
+        },
+        reference_cells={
+            name: float(ref) if isinstance(ref, int) else ref
+            for name, ref in expected.references_in_use.items()
         },
         row_labels_height=expected.total_rows,
         mask_height=expected.total_rows,

@@ -13,7 +13,7 @@ from pathlib import Path
 import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
-from lambda_catalog.analyze_model_construction import read_model_construction_failures
+from lambda_catalog.analyze_regression_spec_block import read_regression_spec_block_failures
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH, get_analysis_results
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
@@ -42,7 +42,6 @@ from lambda_catalog.write_sheet_dummy_test import (
     read_dummy_check_failures,
     write_dummy_test_sheet,
 )
-from lambda_catalog.write_sheet_model_construction import write_model_construction_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
@@ -68,7 +67,6 @@ _VERIFY_CALC_SHEET_NAMES = (
     "Regression",
     "Univariate",
     "Dummy_Test",
-    "Model Construction",
 )
 
 
@@ -237,7 +235,18 @@ def verify_test_sheets(
                 f"excel_calc={row['excel_calc']!r}",
             )
 
-    # Phase 4: Regression sheet verification
+    # Phase 4: Regression spec-block verification — the only live-Excel
+    # coverage of the categorical constructor path (the six configurations
+    # below switch Year/Status OFF). Must run BEFORE the configuration pass,
+    # which mutates the spec's Include cells; the degenerate-Filter sub-pass
+    # mutates the data table but reverts itself, and the verify phase closes
+    # the workbook without saving as a backstop.
+    _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
+    for failure in read_regression_spec_block_failures(workbook, csv_path):
+        _report_qc_failure(failures, failure)
+    _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block done")
+
+    # Phase 5: Regression sheet verification (six v1 configurations)
     reg_tool_path = ROOT_DIR / "tools" / "inspect_regression_sheet.py"
     reg_spec = importlib.util.spec_from_file_location("inspect_regression_sheet", reg_tool_path)
     if reg_spec is None or reg_spec.loader is None:
@@ -271,7 +280,7 @@ def verify_test_sheets(
                     f"abs_diff={row['abs_diff']!r}, fdd={fdd}",
                 )
 
-    # Phase 5: Univariate descriptive statistics and histogram verification.
+    # Phase 6: Univariate descriptive statistics and histogram verification.
     uv_tool_path = ROOT_DIR / "tools" / "inspect_univariate_sheet.py"
     uv_spec = importlib.util.spec_from_file_location("inspect_univariate_sheet", uv_tool_path)
     if uv_spec is None or uv_spec.loader is None:
@@ -284,19 +293,11 @@ def verify_test_sheets(
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: univariate done")
 
-    # Phase 6: Dummy_Levels / Dummy_Code error-contract checks.
+    # Phase 7: Dummy_Levels / Dummy_Code error-contract checks.
     _verbose_checkpoint(verbose, phase_start, "Verify: dummy test start")
     for failure in read_dummy_check_failures(workbook):
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: dummy test done")
-
-    # Phase 7: Model Construction sheet verification. Runs last — its second
-    # pass temporarily mutates the data table (reverted, and the workbook is
-    # closed without saving), so no later phase may read the workbook.
-    _verbose_checkpoint(verbose, phase_start, "Verify: model constr start")
-    for failure in read_model_construction_failures(workbook, csv_path):
-        _report_qc_failure(failures, failure)
-    _verbose_checkpoint(verbose, phase_start, "Verify: model constr done")
 
     if failures:
         category_counts = Counter(
@@ -392,6 +393,10 @@ def build_qc_workbook(
             try:
                 app.api.Calculation = XL_CALCULATION_MANUAL
                 _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
+                # v3.0 changeover: the spec block moved onto the Regression
+                # sheet, so a carried-forward Model Construction sheet is
+                # stale and gets dropped.
+                _delete_sheet_if_present(workbook, "Model Construction")
                 for qc_sheet in _QC_SHEET_NAMES:
                     _delete_sheet_if_present(workbook, qc_sheet)
                 if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
@@ -415,13 +420,12 @@ def build_qc_workbook(
                 write_version_history_sheet(workbook)
                 _verbose_checkpoint(verbose, _t, "Write: version history done")
                 _verbose_checkpoint(verbose, _t, "Write: regression start")
-                write_regression_output_sheet(workbook, document.regression_sheet_notes)
-                _verbose_checkpoint(verbose, _t, "Write: regression done")
-                _verbose_checkpoint(verbose, _t, "Write: model construction start")
-                write_model_construction_sheet(
-                    workbook, document.functions_for_sheet("Model Construction")
+                write_regression_output_sheet(
+                    workbook,
+                    document.regression_sheet_notes,
+                    document.functions_for_sheet("Regression"),
                 )
-                _verbose_checkpoint(verbose, _t, "Write: model construction done")
+                _verbose_checkpoint(verbose, _t, "Write: regression done")
                 _verbose_checkpoint(verbose, _t, "Write: scalar start")
                 write_mlr_scalar_test_sheet(workbook, document.functions, row_configs)
                 _verbose_checkpoint(verbose, _t, "Write: scalar done")
@@ -605,7 +609,6 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
-    print("Sheet updated: Model Construction")
     print("Sheet updated: MLR_Scalar_Test")
     print("Sheet updated: MLR_Vector_Outputs_Test")
     print("Sheet updated: MLR_Observation_Test")
@@ -613,7 +616,6 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet verified: Regression")
     print("Sheet verified: Univariate")
     print("Sheet verified: Dummy_Test")
-    print("Sheet verified: Model Construction")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

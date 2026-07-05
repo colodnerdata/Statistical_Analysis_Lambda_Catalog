@@ -1,8 +1,8 @@
 """Inspect the Regression worksheet against Python-computed expected values.
 
-Sets B-column predictor toggles for each QC configuration, forces
-recalculation, reads every output zone, and compares against cached
-Python expected values.
+Sets the spec block's Include toggles (column C) and the Allow_Intercept
+control (C2) for each QC configuration, forces recalculation, reads every
+output zone, and compares against cached Python expected values.
 
 Usage:
     python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx
@@ -18,13 +18,19 @@ from typing import Any
 import pandas as pd  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
 import xlwings as xw
 
-from lambda_catalog.analyze_life_expectancy import DEFAULT_INPUT_CSV, FEATURE_COLUMNS
+from lambda_catalog.analyze_life_expectancy import DEFAULT_INPUT_CSV
 from lambda_catalog.analyze_regression_sheet import (
     RegressionSheetResults,
     build_regression_sheet_qc_configs,
 )
 from lambda_catalog.inspection_compare import compare_values, to_float_or_none
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
+from lambda_catalog.write_sheet_model_construction import (
+    _C_INCLUDE as _C_SPEC_INCLUDE,
+    _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
+    _INTERCEPT_ROW,
+    _VARIABLES,
+)
 from lambda_catalog.write_sheet_regression import REGRESSION_SHEET_NAME
 
 # ── Tolerance (shared with inspect_test_sheets.py) ───────────────────────────
@@ -32,36 +38,33 @@ _D = 3
 TOLERANCE_DECIMALS = _D * 2  # 6
 
 # ── Column indices (1-based, must match write_sheet_regression.py constants) ─
-_C_B = 2    # "In linear model?" toggles; B2 = Allow_Intercept
-_C_D = 4    # predictor names (predictor summary)
-_C_E = 5    # Pearson R
-_C_F = 6    # Spearman R
-_C_G = 7    # Skewness
-_C_H = 8    # Kurtosis
-_C_I = 9    # VIF
-_C_J = 10   # Tolerance
-_C_M = 13   # regression stat values / ANOVA df + coeff values
-_C_N = 14   # ANOVA SS / coeff SE
-_C_O = 15   # ANOVA MS / coeff t-stat
-_C_P = 16   # diagnostics values / ANOVA F / coeff p-value
-_C_Q = 17   # ANOVA Sig F / coeff CI lower
-_C_R = 18   # coeff CI upper
-_C_U = 21   # prediction interval labels + prediction input labels
-_C_V = 22   # prediction interval values + prediction input values
-_C_Y = 25   # Y (filtered dependent var)
-_C_Z = 26   # Predicted Y
-_C_AA = 27  # Residuals
-_C_AB = 28  # LOOCV residual
-_C_AC = 29  # Hat Diagonal
-_C_AD = 30  # Studentized Residuals
-_C_AE = 31  # Cook's Distance
-_C_AF = 32  # Normal Scores Ranked
-_C_AG = 33  # Studentized Residuals Ranked
+_C_K = 11   # constructed column names (predictor summary)
+_C_L = 12   # Pearson R
+_C_M = 13   # Spearman R
+_C_N = 14   # Skewness
+_C_O = 15   # Kurtosis
+_C_P = 16   # VIF
+_C_Q = 17   # Tolerance
+_C_T = 20   # regression stat values / ANOVA df + coeff values
+_C_U = 21   # ANOVA SS / coeff SE
+_C_V = 22   # ANOVA MS / coeff t-stat
+_C_W = 23   # diagnostics values / ANOVA F / coeff p-value
+_C_X = 24   # ANOVA Sig F / coeff CI lower
+_C_Y = 25   # coeff CI upper
+_C_AB = 28  # prediction interval labels + prediction input labels
+_C_AC = 29  # prediction interval values + prediction input values
+_C_AG = 33  # Y (filtered dependent var)
+_C_AH = 34  # Predicted Y
+_C_AI = 35  # Residuals
+_C_AJ = 36  # LOOCV residual
+_C_AK = 37  # Hat Diagonal
+_C_AL = 38  # Studentized Residuals
+_C_AM = 39  # Cook's Distance
+_C_AN = 40  # Normal Scores Ranked
+_C_AO = 41  # Studentized Residuals Ranked
 
 # ── Row positions (1-based) ───────────────────────────────────────────────────
-_ROW_ALLOW_INTERCEPT = 2
-_ROW_PREDICTOR_FIRST = 3     # B3 = first predictor toggle; A3 spills predictor names
-_ROW_PREDICTOR_LAST = 20     # B20 = last predictor toggle (18 predictors: rows 3–20)
+_ROW_SUMMARY_FIRST = 3   # K3 spills constructed names; L3–Q3 spill the stats
 
 _ROW_MULTIPLE_R = 4
 _ROW_R_SQUARED = 5
@@ -81,14 +84,15 @@ _ROW_ANOVA_REG = 15
 _ROW_ANOVA_RES = 16
 _ROW_ANOVA_TOT = 17
 
-_ROW_COEFF_DATA = 21   # L21 spills coefficients (k+1 rows)
-_ROW_PI_POINT = 3      # U3 = point estimate
+_ROW_COEFF_DATA = 21   # S21 spills coefficient labels (k+1 rows)
+_ROW_PI_POINT = 3      # AC3 = point estimate
 _ROW_PI_SE = 4
 _ROW_PI_T = 5
 _ROW_PI_LOWER = 6
 _ROW_PI_UPPER = 7
 _ROW_PI_CONF = 8
-_ROW_PRED_INPUT_FIRST = 13  # U13 = first user-editable predictor value
+_ROW_PRED_INPUT_FIRST = 13  # AC13 = first user-editable predictor value
+_ROW_PRED_INPUT_LAST = 62   # end of the guarded prefill band
 
 _ROW_RESID_FIRST = 3   # residual output starts at row 3
 
@@ -100,31 +104,43 @@ _DF_COEF = ["config_name", "allow_intercept", "term_name", "stat_name", "expecte
 _DF_RESID = ["config_name", "allow_intercept", "row_idx", "stat_name", "expected", "excel_calc", "abs_diff", "first_digit_deviation"]
 
 
-def _set_toggles(
+def _set_spec_includes(
     sheet: xw.Sheet,
     feature_columns: list[str],
     allow_intercept: bool,
 ) -> None:
-    """Write B2 (Allow_Intercept) and B3:B20 (per-predictor on/off)."""
-    sheet.range(_ROW_ALLOW_INTERCEPT, _C_B).value = allow_intercept
+    """Write C2 (Allow_Intercept) and the spec block's Include toggles.
+
+    Every spec row's Include cell is set: TRUE for the config's predictors,
+    FALSE otherwise. Include is meaningful only for Role=Predictor rows, so
+    the FALSE written to Response/Identifier/Filter rows is inert; the FALSE
+    written to the default spec's Categorical predictors (Year, Status)
+    removes them, leaving the all-continuous design the expected values
+    were computed for.
+    """
+    sheet.range(_INTERCEPT_ROW, _C_SPEC_INCLUDE).value = allow_intercept
     selected = set(feature_columns)
-    for i, name in enumerate(FEATURE_COLUMNS):
-        row = _ROW_PREDICTOR_FIRST + i
-        sheet.range(row, _C_B).value = name in selected
+    for i, name in enumerate(_VARIABLES):
+        row = _SPEC_FIRST_DATA_ROW + i
+        sheet.range(row, _C_SPEC_INCLUDE).value = name in selected
 
 
 def _set_pred_inputs(
     sheet: xw.Sheet,
-    feature_columns: list[str],
     pred_input_values: tuple[float, ...],
 ) -> None:
-    """Write prediction inputs to V13:V30, aligned to the full predictor list."""
-    pred_input_by_name = dict(zip(feature_columns, pred_input_values))
-    for row in range(_ROW_PRED_INPUT_FIRST, _ROW_PRED_INPUT_FIRST + len(FEATURE_COLUMNS)):
-        sheet.range(row, _C_V).value = 0.0
-    for i, name in enumerate(FEATURE_COLUMNS):
-        if name in pred_input_by_name:
-            sheet.range(_ROW_PRED_INPUT_FIRST + i, _C_V).value = pred_input_by_name[name]
+    """Write prediction inputs to AC13.., one per constructed column.
+
+    The constructed columns are the selected predictors in table order —
+    identical to the config's column order — so values are written
+    positionally. The rest of the guarded prefill band is cleared so a
+    previous config's values cannot linger.
+    """
+    sheet.range(
+        (_ROW_PRED_INPUT_FIRST, _C_AC), (_ROW_PRED_INPUT_LAST, _C_AC)
+    ).clear_contents()
+    for i, value in enumerate(pred_input_values):
+        sheet.range(_ROW_PRED_INPUT_FIRST + i, _C_AC).value = value
 
 
 def _read_cell(sheet: xw.Sheet, row: int, col: int) -> float | None:
@@ -160,7 +176,7 @@ def read_regression_df(
     workbook: xw.Book,
     regression_sheet_configs: list[tuple[str, bool, RegressionSheetResults]],
 ) -> dict[str, pd.DataFrame]:
-    """Set toggles, read all zones, and compare against expected values.
+    """Set spec toggles, read all zones, and compare against expected values.
 
     Returns a dict with keys 'scalars', 'predictors', 'coefficients',
     'residuals', 'prediction_interval', each mapping to a comparison DataFrame.
@@ -181,51 +197,51 @@ def read_regression_df(
         k = len(ps.predictor_names)
         n = summary.observations
 
-        # Set toggles and prediction inputs, then recalculate
-        _set_toggles(sheet, list(ps.predictor_names), allow_intercept)
-        _set_pred_inputs(sheet, list(ps.predictor_names), pi.pred_input_values)
+        # Set spec toggles and prediction inputs, then recalculate
+        _set_spec_includes(sheet, list(ps.predictor_names), allow_intercept)
+        _set_pred_inputs(sheet, pi.pred_input_values)
         # Recalculate only the Regression sheet after changing the visible
         # inputs. A full dependency-graph rebuild here pulls in the entire
         # workbook for every QC config and can take several minutes.
         sheet.api.Calculate()
 
-        # ── Scalars: Regression Statistics (column M) ─────────────────────
+        # ── Scalars: Regression Statistics (column T) ─────────────────────
         scalar_specs: list[tuple[str, float, int, int]] = [
-            ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_M),
-            ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_M),
-            ("Adjusted_R_Squared",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_M),
-            ("SE_Regression", summary.se_regression, _ROW_SE_REG,     _C_M),
-            ("Observations",  float(summary.observations), _ROW_OBS,  _C_M),
+            ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_T),
+            ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_T),
+            ("Adjusted_R_Squared",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_T),
+            ("SE_Regression", summary.se_regression, _ROW_SE_REG,     _C_T),
+            ("Observations",  float(summary.observations), _ROW_OBS,  _C_T),
         ]
 
-        # Diagnostics (column P)
+        # Diagnostics (column W)
         press_r2 = 1.0 - summary.press / summary.ss_total
         mean_lev = (summary.df_regression + (1 if allow_intercept else 0)) / summary.observations
         ms_reg = summary.ss_regression / summary.df_regression
         ms_res = summary.ss_residual / summary.df_residual
 
         scalar_specs += [
-            ("PRESS",         summary.press,     _ROW_PRESS,    _C_P),
-            ("PRESS_R2",      press_r2,          _ROW_PRESS_R2, _C_P),
-            ("Mean_Leverage", mean_lev,          _ROW_MEAN_LEV, _C_P),
-            ("AIC",           summary.aic,       _ROW_AIC,      _C_P),
-            ("BIC",           summary.bic,       _ROW_BIC,      _C_P),
-            ("AICc",          summary.aicc,      _ROW_AICC,     _C_P),
-            ("QQ_Correlation",summary.qq_correlation, _ROW_QQ_CORR, _C_P),
+            ("PRESS",         summary.press,     _ROW_PRESS,    _C_W),
+            ("PRESS_R2",      press_r2,          _ROW_PRESS_R2, _C_W),
+            ("Mean_Leverage", mean_lev,          _ROW_MEAN_LEV, _C_W),
+            ("AIC",           summary.aic,       _ROW_AIC,      _C_W),
+            ("BIC",           summary.bic,       _ROW_BIC,      _C_W),
+            ("AICc",          summary.aicc,      _ROW_AICC,     _C_W),
+            ("QQ_Correlation",summary.qq_correlation, _ROW_QQ_CORR, _C_W),
         ]
 
         # ANOVA
         scalar_specs += [
-            ("Regression_Degrees_Of_Freedom",  float(summary.df_regression), _ROW_ANOVA_REG, _C_M),
-            ("SS_Regression",  summary.ss_regression,        _ROW_ANOVA_REG, _C_N),
-            ("MS_Regression",  ms_reg,                       _ROW_ANOVA_REG, _C_O),
-            ("F_Statistic",         summary.f_stat,               _ROW_ANOVA_REG, _C_P),
-            ("F_Statistic_P_Value",      summary.p_value_f,            _ROW_ANOVA_REG, _C_Q),
-            ("Residual_Degrees_Of_Freedom",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_M),
-            ("SS_Residual",    summary.ss_residual,          _ROW_ANOVA_RES, _C_N),
-            ("MS_Residual",    ms_res,                       _ROW_ANOVA_RES, _C_O),
-            ("Total_Degrees_Of_Freedom",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_M),
-            ("SS_Total",       summary.ss_total,             _ROW_ANOVA_TOT, _C_N),
+            ("Regression_Degrees_Of_Freedom",  float(summary.df_regression), _ROW_ANOVA_REG, _C_T),
+            ("SS_Regression",  summary.ss_regression,        _ROW_ANOVA_REG, _C_U),
+            ("MS_Regression",  ms_reg,                       _ROW_ANOVA_REG, _C_V),
+            ("F_Statistic",         summary.f_stat,               _ROW_ANOVA_REG, _C_W),
+            ("F_Statistic_P_Value",      summary.p_value_f,            _ROW_ANOVA_REG, _C_X),
+            ("Residual_Degrees_Of_Freedom",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_T),
+            ("SS_Residual",    summary.ss_residual,          _ROW_ANOVA_RES, _C_U),
+            ("MS_Residual",    ms_res,                       _ROW_ANOVA_RES, _C_V),
+            ("Total_Degrees_Of_Freedom",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_T),
+            ("SS_Total",       summary.ss_total,             _ROW_ANOVA_TOT, _C_U),
         ]
 
         for stat_name, exp_val, row, col in scalar_specs:
@@ -241,13 +257,13 @@ def read_regression_df(
                 "first_digit_deviation": fdd_val,
             })
 
-        # ── Predictor Summary (columns E–J, rows 3 to 3+k-1) ─────────────
+        # ── Predictor Summary (columns L–Q, rows 3 to 3+k-1) ─────────────
         pred_stat_names = ["Pearson_R", "Spearman_R", "Skewness", "Kurtosis", "VIF", "Tolerance"]
         pred_exp_tuples = [ps.pearson_r, ps.spearman_r, ps.skewness, ps.kurtosis, ps.vif, ps.tolerance]
-        pred_col_indices = [_C_E, _C_F, _C_G, _C_H, _C_I, _C_J]
+        pred_col_indices = [_C_L, _C_M, _C_N, _C_O, _C_P, _C_Q]
 
         for stat_name, exp_tuple, col in zip(pred_stat_names, pred_exp_tuples, pred_col_indices):
-            xl_vals = _read_col(sheet, _ROW_PREDICTOR_FIRST, col, k)
+            xl_vals = _read_col(sheet, _ROW_SUMMARY_FIRST, col, k)
             for j, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
                 diff, fdd_val = compare_values(exp_val, xl_val)
                 predictor_rows.append({
@@ -261,14 +277,14 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-        # ── Coefficients (columns M–R, rows 21 to 21+k) ──────────────────
+        # ── Coefficients (columns T–Y, rows 21 to 21+k) ──────────────────
         # Intercept models: Coefficients() spills k+1 rows (intercept first);
         # read all k+1 and compare directly against (Intercept, pred1..predk).
         # No-intercept models prepend one blank row so predictor rows align with
         # intercept models. Drop that one display row before comparison.
         n_coef_rows = k + 1
         coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Statistics", "P_Values", "Confidence_Interval_Lower", "Confidence_Interval_Upper"]
-        coef_col_indices = [_C_M, _C_N, _C_O, _C_P, _C_Q, _C_R]
+        coef_col_indices = [_C_T, _C_U, _C_V, _C_W, _C_X, _C_Y]
         coef_exp_tuples = [
             vectors.coefficients, vectors.std_errors, vectors.t_stats,
             vectors.p_values, vectors.ci_lower, vectors.ci_upper,
@@ -291,7 +307,7 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-        # ── Prediction Interval (column V, rows 3–8) ─────────────────────
+        # ── Prediction Interval (column AC, rows 3–8) ─────────────────────
         pi_specs: list[tuple[str, float]] = [
             ("Point_Estimate",  pi.point_estimate),
             ("SE_Prediction",   pi.se_prediction),
@@ -300,7 +316,7 @@ def read_regression_df(
             ("Upper",           pi.upper),
             ("Confidence_Level",pi.confidence_level),
         ]
-        pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_V, 6)
+        pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AC, 6)
         for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
             diff, fdd_val = compare_values(exp_val, xl_val)
             pi_rows.append({
@@ -313,7 +329,7 @@ def read_regression_df(
                 "first_digit_deviation": fdd_val,
             })
 
-        # ── Residual Output (columns Y–AG, rows 3 to 3+n-1) ──────────────
+        # ── Residual Output (columns AG–AO, rows 3 to 3+n-1) ──────────────
         resid_stat_names = [
             "Dependent_Variable", "Predictions", "Residuals", "LOOCV_Residual",
             "Hat_Diagonal", "Studentized_Residuals", "Cooks_Distance",
@@ -324,8 +340,8 @@ def read_regression_df(
             fr.hat_diagonal, fr.studentized_residuals, fr.cooks_distance,
             fr.normal_scores_ranked, fr.studentized_residuals_ranked,
         ]
-        # Block: columns Y(25) through AG(33) = 9 columns, n rows
-        block = _read_block(sheet, _ROW_RESID_FIRST, _C_Y, _C_AG, n)
+        # Block: columns AG(33) through AO(41) = 9 columns, n rows
+        block = _read_block(sheet, _ROW_RESID_FIRST, _C_AG, _C_AO, n)
         for row_idx, xl_row in enumerate(block):
             for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
                 exp_val: float | None = float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None

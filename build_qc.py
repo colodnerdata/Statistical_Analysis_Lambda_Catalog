@@ -13,6 +13,7 @@ from pathlib import Path
 import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
+from lambda_catalog.analyze_regression_spec_block import read_regression_spec_block_failures
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH, get_analysis_results
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
@@ -234,7 +235,18 @@ def verify_test_sheets(
                 f"excel_calc={row['excel_calc']!r}",
             )
 
-    # Phase 4: Regression sheet verification
+    # Phase 4: Regression spec-block verification — the only live-Excel
+    # coverage of the categorical constructor path (the six configurations
+    # below switch Year/Status OFF). Must run BEFORE the configuration pass,
+    # which mutates the spec's Include cells; the degenerate-Filter sub-pass
+    # mutates the data table but reverts itself, and the verify phase closes
+    # the workbook without saving as a backstop.
+    _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
+    for failure in read_regression_spec_block_failures(workbook, csv_path):
+        _report_qc_failure(failures, failure)
+    _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block done")
+
+    # Phase 5: Regression sheet verification (six v1 configurations)
     reg_tool_path = ROOT_DIR / "tools" / "inspect_regression_sheet.py"
     reg_spec = importlib.util.spec_from_file_location("inspect_regression_sheet", reg_tool_path)
     if reg_spec is None or reg_spec.loader is None:
@@ -268,7 +280,7 @@ def verify_test_sheets(
                     f"abs_diff={row['abs_diff']!r}, fdd={fdd}",
                 )
 
-    # Phase 5: Univariate descriptive statistics and histogram verification.
+    # Phase 6: Univariate descriptive statistics and histogram verification.
     uv_tool_path = ROOT_DIR / "tools" / "inspect_univariate_sheet.py"
     uv_spec = importlib.util.spec_from_file_location("inspect_univariate_sheet", uv_tool_path)
     if uv_spec is None or uv_spec.loader is None:
@@ -281,7 +293,7 @@ def verify_test_sheets(
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: univariate done")
 
-    # Phase 6: Dummy_Levels / Dummy_Code error-contract checks.
+    # Phase 7: Dummy_Levels / Dummy_Code error-contract checks.
     _verbose_checkpoint(verbose, phase_start, "Verify: dummy test start")
     for failure in read_dummy_check_failures(workbook):
         _report_qc_failure(failures, failure)

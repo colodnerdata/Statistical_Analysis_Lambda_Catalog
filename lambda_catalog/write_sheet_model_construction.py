@@ -21,7 +21,7 @@ Row 1, from column J rightward, holds the bold audit cells as
 label/value pairs (values on the non-narrow columns K/N/Q/S/U):
 
     k = COLUMNS(X_s()) · rows = ROWS(X_s()) · response = <derived name> ·
-    responses = <count of Role="Response"> (red CF when <> 1) ·
+    responses = <count of Role="Response (y)"> (red CF when <> 1) ·
     included rows = SUMPRODUCT(N(Sample_Include()))
 
 Row 3 above Q carries the =Constructed_Column_Names() header strip

@@ -55,6 +55,7 @@ from tests.recording_sheet import RecordingSheet
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
 _EXPECTED_NAME_ORDER = [
+    "Source_Table",
     "Source_Data",
     "Header_Names",
     "Spec_Role",
@@ -118,12 +119,16 @@ def test_names_are_created_in_dependency_order() -> None:
     assert local_name_order == _EXPECTED_NAME_ORDER
 
 
-def test_only_the_retarget_names_reference_the_table_directly() -> None:
+def test_only_the_retarget_name_references_the_table_directly() -> None:
     sheet = _named_sheet()
 
-    assert _refers_to(sheet, "Source_Data") == "=LifeExpectancyData[#Data]"
-    assert _refers_to(sheet, "Header_Names") == "=LifeExpectancyData[#Headers]"
-    for name in _EXPECTED_NAME_ORDER[2:]:
+    # Source_Table is THE dataset-retarget point — a changeover is a one-name
+    # edit. The body and header row derive from it via non-volatile DROP/TAKE
+    # (OFFSET would be re-evaluated on every Data Table substitution pass).
+    assert _refers_to(sheet, "Source_Table") == "=LifeExpectancyData[#All]"
+    assert _refers_to(sheet, "Source_Data") == "=DROP(Source_Table,1)"
+    assert _refers_to(sheet, "Header_Names") == "=TAKE(Source_Table,1)"
+    for name in _EXPECTED_NAME_ORDER[1:]:
         assert "LifeExpectancyData" not in _refers_to(sheet, name), name
 
     _write_all_zones(sheet)

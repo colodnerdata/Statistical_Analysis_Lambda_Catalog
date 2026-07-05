@@ -64,10 +64,11 @@ into declarations, all late-bound zero-argument LAMBDAs on this sheet:
                                  completeness condition (known caveat — see
                                  the human test plan); Identifier/Omit
                                  impose nothing
-    All_Xs                     → Source_Data: one name wrapping the table
-                                 reference (the dataset-retarget point;
-                                 structured refs can't be parameterized
-                                 without volatile INDIRECT)
+    All_Xs                     → Source_Data, derived (with Header_Names) from
+                                 Source_Table — the ONE name wrapping the
+                                 table reference, so a dataset changeover is
+                                 a one-name edit (structured refs can't be
+                                 parameterized without volatile INDIRECT)
 
 Constructor decisions (all settled — see ROADMAP):
 1. Spec-order assembly — REDUCE over spec rows, HSTACK from a full-height
@@ -301,26 +302,31 @@ def _set_sheet_scoped_names(
     Two groups, installed in order so Excel resolves each reference against
     the names already added:
 
-    1. **Wiring** (defined here) — the ``Source_Data``/``Header_Names``
-       dataset-retarget point and the ``Spec_*`` column ranges. These hardcode
-       *this sheet's* cell addresses and the source table, so they live with
-       the sheet layout rather than in the portable catalog.
+    1. **Wiring** (defined here) — the ``Source_Table`` dataset-retarget
+       point (the only name that references the table; ``Source_Data`` and
+       ``Header_Names`` derive from it) and the ``Spec_*`` column ranges.
+       These hardcode *this sheet's* cell addresses and the source table, so
+       they live with the sheet layout rather than in the portable catalog.
     2. **Constructor closures** (``closures``) — the zero-arg LAMBDAs
        ``Sample_Include``/``Response_Column``/``Row_Labels``/``X_s``/
        ``Constructed_Column_Names``, sourced from ``lambda_functions.json``
-       (scope ``"Model Construction"``) so their definitions live in one
-       declarative place and appear on the LAMBDA_functions catalog sheet.
-       Passed in document order, which is dependency order (``Sample_Include``
-       before ``X_s``, etc.).
+       (scope ``"Regression"``) so their definitions live in one declarative
+       place and appear on the LAMBDA_functions catalog sheet. Passed in
+       document order, which is dependency order (``Sample_Include`` before
+       ``X_s``, etc.).
     """
     sname = f"'{sheet.name}'"
 
     local_names: dict[str, str] = {
         # ── Source-table indirection: THE dataset-retarget point ─────────
-        # Everything below references Source_Data / Header_Names, never the
-        # table name directly, so a dataset changeover is a two-name edit.
-        "Source_Data": "=LifeExpectancyData[#Data]",
-        "Header_Names": "=LifeExpectancyData[#Headers]",
+        # Source_Table is the only name that references the table; the data
+        # body and header row derive from it, so a dataset changeover is a
+        # ONE-name edit. DROP/TAKE (not OFFSET) keep the derivations
+        # non-volatile — a volatile Header_Names would be re-evaluated on
+        # every Data Table substitution pass during workbook calculation.
+        "Source_Table": "=LifeExpectancyData[#All]",
+        "Source_Data": "=DROP(Source_Table,1)",
+        "Header_Names": "=TAKE(Source_Table,1)",
         # ── Spec ranges (local columns B–G; TAKE-trimmed at use) ─────────
         "Spec_Role": f"={sname}!$B${_FIRST_DATA_ROW}:$B${_VALIDATION_LAST_ROW}",
         "Spec_Include": f"={sname}!$C${_FIRST_DATA_ROW}:$C${_VALIDATION_LAST_ROW}",

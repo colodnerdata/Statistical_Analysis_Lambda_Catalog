@@ -33,7 +33,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
         (
             "To analyze your own dataset, copy the Regression sheet into your workbook "
             "(right-click the tab → Move or Copy). This carries over all workbook-scoped "
-            "LAMBDA functions as well as the sheet-scoped named ranges used by the Regression sheet."
+            "LAMBDA functions as well as the sheet-scoped names the Regression sheet uses."
         ),
         "body",
     ),
@@ -45,72 +45,112 @@ _ROWS: list[tuple[int, str, str | None]] = [
         ),
         "body",
     ),
+    (4, "", None),
+    (5, "Point the sheet at your data (one edit):", "heading"),
     (
-        4,
+        6,
         (
-            "Next, update the named ranges that point to your data. Open the Name Manager "
-            "from Formulas → Name Manager. You will see the named ranges and the "
-            "workbook-scoped LAMBDA functions listed there."
+            "Open the Name Manager (Formulas → Name Manager) and update Source_Table "
+            '(the "Refers To" field) to your table, including its header row — for '
+            "example =MyTable[#All]. Everything else derives from this one name: the "
+            "header row, the data body, and the variable list in the MODEL SPECIFICATION "
+            "block all update automatically."
         ),
         "body",
     ),
-    (5, "", None),
-    (6, "Required Name Range Updates:", "heading"),
-    (
-        7,
-        (
-            'In the Name Manager, update All_Xs (the “Refers To” field) to span '
-            "all potential independent variable columns in your dataset."
-        ),
-        "body",
-    ),
+    (7, "", None),
     (
         8,
+        "Define your model in the MODEL SPECIFICATION block (columns A–G):",
+        "heading",
+    ),
+    (
+        9,
         (
-            "Update y to refer to your dependent variable column. "
-            "It must span exactly the same rows as All_Xs."
+            "The Variable column fills itself from your table's headers — one "
+            "specification row per column. For each row, choose a Role:\n"
+            "Response (y) — the dependent variable; declare exactly one.\n"
+            "Predictor (x) — a candidate model input; the Include toggle turns it on "
+            "or off for the current model run.\n"
+            "Identifier (Row Label) — labeling columns such as names, IDs, or dates; "
+            "they appear as row labels in the RESIDUAL OUTPUT section (multiple "
+            'Identifier columns are joined with "|").\n'
+            "Filter — a TRUE/FALSE or 1/0 column; only rows where every Filter column "
+            "is truthy enter the regression. Declare several Filter columns to "
+            "stratify — they are ANDed together.\n"
+            "Omit — never used for anything; helper columns and notes."
         ),
         "body",
     ),
-    (9, "Optional — sample include mask:", "heading"),
     (
         10,
         (
-            'Update Regression_Sample_Include (the “Refers To” field) to a column in the same table '
-            "containing TRUE or FALSE for each row. A recommended approach is to add a completeness "
-            "column using the Data_Completeness function:\n\n"
-            "=Data_Completeness(YourTable[@[First_Predictor]:[Last_Predictor]])\n\n"
-            "Replace First_Predictor and Last_Predictor with your first and last predictor column names. "
-            "This returns TRUE only when every predictor value in the row is numeric, "
-            "automatically excluding rows with blanks or non-numeric values from the regression."
+            "For each included Predictor, set its Type. Continuous predictors enter "
+            "the design matrix as-is. Categorical predictors are dummy-coded "
+            "automatically: each level except the reference level becomes a 0/1 "
+            'column with a level-qualified name (e.g. "Status: Developing"). The '
+            "reference level defaults to the first level in sort order; type a level "
+            "into Reference Level to override it (the cell turns red if that level "
+            "does not exist in the analysis sample). The Levels and Reference In Use "
+            "columns display what the model will do: the distinct level count in the "
+            "analysis sample, and the reference actually in effect. A categorical "
+            "with one level (or an invalid reference) is flagged red and contributes "
+            "no columns — the rest of the model still computes."
         ),
         "body",
     ),
-    (11, "", None),
-    (12, "Optional — row identifiers:", "heading"),
     (
-        13,
+        11,
         (
-            'Update data_identifiers (the "Refers To" field) to a single column in the same table '
-            "containing a label for each row (e.g., a name, ID, or date). It must span exactly the "
-            "same rows as All_Xs. These labels appear in the Residual Output section so you can trace "
-            "flagged observations back to the records they came from. If left unset or the FILTER "
-            'fails, rows are labeled generically as "Observation 1", "Observation 2", etc.'
+            "If your table has more columns than the shipped dataset, fill in Role, "
+            "Include, and Type for the extra specification rows — the dropdowns are "
+            "available all the way down. A row with a blank Role is ignored. The "
+            "Order and Transform columns are placeholders for a future version and "
+            "are not read by any formula; they are hidden on the sheet."
         ),
         "body",
     ),
-    (14, "", None),
-    (15, "Optional — point prediction:", "heading"),
+    (12, "", None),
+    (13, "Intercept:", "heading"),
     (
-        16,
+        14,
         (
-            "To generate a point prediction and prediction interval, enter a value for each "
-            "independent variable in the orange cells in column V under the PREDICTION INPUTS heading. "
-            "Results appear automatically in the PREDICTION OUTPUTS box above. "
-            "By default, these inputs are set to the mean of each independent variable in the data, "
-            "so the SE prediction equals the SE of the regression.\n\n"
-            "If you are making a prediction using the regression, overwrite these defaults "
-            "with the values of the independent variables for your scenario."
+            "The Intercept toggle sits at the top of the Include column (C2). Leave "
+            "it TRUE for models with Categorical predictors: reference-level dummy "
+            "coding relies on the intercept to carry the baseline, and the toggle "
+            "flags red if it is FALSE while a Categorical predictor is included."
+        ),
+        "body",
+    ),
+    (15, "", None),
+    (16, "Which rows are used:", "heading"),
+    (
+        17,
+        (
+            "The analysis sample is derived automatically — a row is included when "
+            "the Response is numeric, every included Continuous predictor is "
+            "numeric, and every Filter column is truthy. There is nothing to "
+            "configure beyond the Roles. Note that Categorical predictors impose no "
+            "completeness requirement: rows with a blank category still enter the "
+            "sample (all of that variable's dummies are blank there) unless a "
+            "Filter excludes them."
+        ),
+        "body",
+    ),
+    (18, "", None),
+    (19, "Optional — point prediction:", "heading"),
+    (
+        20,
+        (
+            "Enter a value for each design-matrix column in the orange cells under "
+            "PREDICTION INPUTS (column AC) — one row per constructed column, "
+            "including one per dummy (use 1 for the scenario's level, 0 for its "
+            "siblings). The Training Mean column beside the inputs shows each "
+            "column's mean over the analysis sample, which is also the prefilled "
+            "default — so the untouched prediction is at the data's center and the "
+            "SE prediction equals the SE of the regression. Results appear in the "
+            "PREDICTION OUTPUTS box above; the confidence level is controlled by "
+            "the Alpha cell (T12) in REGRESSION OUTPUTS."
         ),
         "body",
     ),

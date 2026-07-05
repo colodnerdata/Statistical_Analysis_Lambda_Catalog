@@ -1191,7 +1191,8 @@ def write_regression_output_sheet(
     # Column widths (A–I = spec block; AB = prediction labels, AC = values;
     # AE = row identifiers, diagnostics start at AF)
     for column_letter, width in {
-        "A": 28, "B": 20, "C": 9, "D": 11, "E": 15, "F": 6, "G": 10,
+        "A": 28, "B": 20, "C": 9, "D": 11, "E": 15,
+        "F": 0, "G": 0,  # reserved Order/Transform slots — hidden until wired
         "H": 7, "I": 16,
         "J": 2,   # thin gap
         "K": 28, "L": 8, "M": 10, "N": 10, "O": 8, "P": 8, "Q": 10,

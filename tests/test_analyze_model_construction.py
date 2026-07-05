@@ -67,7 +67,7 @@ def test_default_spec_mirrors_the_writer_prefill() -> None:
                 var_type,
             )
         else:
-            assert (variable.role, variable.include) == ("Predictor", False)
+            assert (variable.role, variable.include) == ("Predictor (x)", False)
         assert variable.reference == ""
 
 

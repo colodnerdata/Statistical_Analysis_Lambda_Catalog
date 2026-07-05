@@ -24,16 +24,26 @@ label/value pairs (values on the non-narrow columns K/N/Q/S/U):
     responses = <count of Role="Response"> (red CF when <> 1) ·
     included rows = SUMPRODUCT(N(Sample_Include()))
 
-Row 2 above Q carries the =Constructed_Column_Names() header strip
+Row 3 above Q carries the =Constructed_Column_Names() header strip
 (level-qualified names, horizontal). Every spill formula in the filtered
 zones wraps IFERROR(..., "(empty model)") so an empty model degrades to a
 documented string, never a raw #CALC! leak.
 
+Row 2 is a model-level control row above the spec table: A2 labels
+"Intercept" and C2 is the Allow_Intercept toggle, sitting at the top of the
+C/Include boolean column (mirroring the v1 Regression sheet's A2/B2
+control). It has no v3.0 consumer yet — the engine will read it. Because of
+this control row the spec headers move to row 3 and the 23 variable rows to
+4–26; the row-1 audit strip is unaffected.
+
 The spec spans EVERY column of the LifeExpectancyData table (23 rows:
 [Country]..[Schooling] plus [Full_Data]). Two axes:
 
-    Variable Role  — Response | Predictor | Identifier | Filter | Omit
-                     (what the column IS; future: Fixed Effects/Weight/Time)
+    Variable Role  — Response (y) | Predictor (x) | Identifier (Row Label) |
+                     Filter | Omit
+                     (what the column IS; future: Fixed Effects/Weight/Time.
+                      The parenthetical glosses are part of the stored token —
+                      see the _ROLE_* constants)
     Predictor Type — Continuous | Categorical
                      (how a Predictor ENTERS; meaningful only when
                       Role = Predictor; this axis never grows)
@@ -112,6 +122,7 @@ from .sheet_styles import (
 )
 from .workbook_helpers import (
     add_expression_format,
+    bold,
     bold_row,
     col_letter,
     drop_local_name,
@@ -160,9 +171,16 @@ _VARIABLES: list[str] = [
 ]
 _N_VARIABLES = len(_VARIABLES)  # 23
 
-_HEADER_ROW = 2
-_FIRST_DATA_ROW = 3
-_LAST_DATA_ROW = _FIRST_DATA_ROW + _N_VARIABLES - 1  # 25
+# Row 2 is the model-level Intercept control (label A2, toggle C2 — aligned
+# to the C/Include boolean column). The spec table sits one row below it:
+# headers on row 3, the 23 variable rows on 4–26.
+_INTERCEPT_ROW = 2
+_HEADER_ROW = 3
+_FIRST_DATA_ROW = 4
+_LAST_DATA_ROW = _FIRST_DATA_ROW + _N_VARIABLES - 1  # 26
+# Sheet row _FIRST_DATA_ROW maps to Source_Data column 1, so a row-indexed
+# formula recovers its column via INDEX(Source_Data,0,ROW()-_ROW_TO_COL_OFFSET).
+_ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 
 # Spec-block columns (1-based). Role precedes Include: the larger
 # declaration comes first (dataset semantics before iteration state).
@@ -211,13 +229,25 @@ _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
 
 _EMPTY_MODEL_FALLBACK = '"(empty model)"'
 
+# Role tokens — the exact strings stored in column B and compared by every
+# role-driven formula, here and in the catalog closures (Sample_Include,
+# Response_Column, Row_Labels, X_s, Constructed_Column_Names in
+# lambda_functions.json). The parenthetical glosses are part of the stored
+# value, not display-only: renaming a token means updating the JSON
+# closures in lockstep.
+_ROLE_RESPONSE = "Response (y)"
+_ROLE_PREDICTOR = "Predictor (x)"
+_ROLE_IDENTIFIER = "Identifier (Row Label)"
+_ROLE_FILTER = "Filter"
+_ROLE_OMIT = "Omit"
+
 # The derived response name, shared by the audit strip and the filtered-y
-# header: the header of the first Role="Response" spec row, "(none)" when
+# header: the header of the first Role=Response spec row, "(none)" when
 # no row carries the role. XMATCH position over the TAKE-trimmed roles is
 # the same lookup Response_Column() uses for its data column.
 _RESPONSE_NAME_FORMULA = (
     'IFERROR(INDEX(TOROW(Header_Names),'
-    'XMATCH("Response",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
+    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
 )
 
 # Dropdown validations cover the repo's standard 16000-row input band so a
@@ -227,12 +257,6 @@ _VALIDATION_LAST_ROW = 16000
 # Default spec: variable -> (role, include, type). Reference (E) starts
 # blank everywhere so the first-in-sort-order default is what gets
 # exercised; type an explicit level into E to exercise the override path.
-_ROLE_RESPONSE = "Response"
-_ROLE_PREDICTOR = "Predictor"
-_ROLE_IDENTIFIER = "Identifier"
-_ROLE_FILTER = "Filter"
-_ROLE_OMIT = "Omit"
-
 _DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "Country": (_ROLE_IDENTIFIER, False, "Continuous"),
     "Year": (_ROLE_PREDICTOR, True, "Categorical"),
@@ -247,7 +271,9 @@ _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
 
 _DEFAULT_TRANSFORM = "None"
 
-_ROLE_VALIDATION_LIST = "Response,Predictor,Identifier,Filter,Omit"
+_ROLE_VALIDATION_LIST = ",".join(
+    (_ROLE_RESPONSE, _ROLE_PREDICTOR, _ROLE_IDENTIFIER, _ROLE_FILTER, _ROLE_OMIT)
+)
 _INCLUDE_VALIDATION_LIST = "TRUE,FALSE"
 _TYPE_VALIDATION_LIST = "Continuous,Categorical"
 _TRANSFORM_VALIDATION_LIST = _DEFAULT_TRANSFORM
@@ -286,14 +312,20 @@ def _set_sheet_scoped_names(
         "Source_Data": "=LifeExpectancyData[#Data]",
         "Header_Names": "=LifeExpectancyData[#Headers]",
         # ── Spec ranges (local columns B–G; TAKE-trimmed at use) ─────────
-        "Spec_Role": f"={sname}!$B$3:$B${_VALIDATION_LAST_ROW}",
-        "Spec_Include": f"={sname}!$C$3:$C${_VALIDATION_LAST_ROW}",
-        "Spec_Type": f"={sname}!$D$3:$D${_VALIDATION_LAST_ROW}",
-        "Spec_Reference": f"={sname}!$E$3:$E${_VALIDATION_LAST_ROW}",
+        "Spec_Role": f"={sname}!$B${_FIRST_DATA_ROW}:$B${_VALIDATION_LAST_ROW}",
+        "Spec_Include": f"={sname}!$C${_FIRST_DATA_ROW}:$C${_VALIDATION_LAST_ROW}",
+        "Spec_Type": f"={sname}!$D${_FIRST_DATA_ROW}:$D${_VALIDATION_LAST_ROW}",
+        "Spec_Reference": f"={sname}!$E${_FIRST_DATA_ROW}:$E${_VALIDATION_LAST_ROW}",
         # Reserved axes: named now so the grid shape is final, read by
         # nothing until the Order/Transform release.
-        "Spec_Order": f"={sname}!$F$3:$F${_VALIDATION_LAST_ROW}",
-        "Spec_Transform": f"={sname}!$G$3:$G${_VALIDATION_LAST_ROW}",
+        "Spec_Order": f"={sname}!$F${_FIRST_DATA_ROW}:$F${_VALIDATION_LAST_ROW}",
+        "Spec_Transform": f"={sname}!$G${_FIRST_DATA_ROW}:$G${_VALIDATION_LAST_ROW}",
+        # Model-level Intercept toggle (row-2 control): a single boolean cell
+        # in the C/Include column. No v3.0 formula reads it yet — the engine
+        # will, exactly as the v1 Regression sheet's Allow_Intercept did.
+        "Allow_Intercept": (
+            f"={sname}!${col_letter(_C_INCLUDE)}${_INTERCEPT_ROW}"
+        ),
     }
 
     # Wiring first: Excel resolves each name against the ones already added,
@@ -390,8 +422,8 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
             row,
             _C_LEVELS,
             (
-                f'=IF(OR($B{row}<>"Predictor",$D{row}<>"Categorical"),"",'
-                f"LET(col,INDEX(Source_Data,0,ROW()-2),"
+                f'=IF(OR($B{row}<>"{_ROLE_PREDICTOR}",$D{row}<>"Categorical"),"",'
+                f"LET(col,INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
                 f'x,IF(col="","",col),'
                 f'IFERROR(ROWS(UNIQUE(FILTER(x,(x<>"")*Sample_Include()))),0)))'
             ),
@@ -407,7 +439,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         f"$C${_FIRST_DATA_ROW}:$H${_LAST_DATA_ROW}",
-        f'=$B{_FIRST_DATA_ROW}<>"Predictor"',
+        f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
         font_color=MUTED_TEXT_COLOR,
     )
 
@@ -418,7 +450,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         sheet,
         f"$H${_FIRST_DATA_ROW}:$H${_LAST_DATA_ROW}",
         (
-            f'=AND($B{_FIRST_DATA_ROW}="Predictor",'
+            f'=AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
             f"$C{_FIRST_DATA_ROW}=TRUE,"
             f'$D{_FIRST_DATA_ROW}="Categorical",'
             f"N($H{_FIRST_DATA_ROW})<=1)"
@@ -437,11 +469,78 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         f"$E${_FIRST_DATA_ROW}:$E${_LAST_DATA_ROW}",
         (
             f'=AND($E{_FIRST_DATA_ROW}<>"",'
-            f"ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-2),"
+            f"ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
             f"$E{_FIRST_DATA_ROW},Sample_Include())))"
         ),
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
+    )
+
+
+def _write_intercept_control(sheet: xw.Sheet) -> None:
+    """Row-2 model-level Intercept toggle (the ``Allow_Intercept`` cell).
+
+    Mirrors the v1 Regression sheet's A2 label / boolean-column toggle, here
+    aligned to column C so the toggle sits at the top of the Include column,
+    one row above the per-variable Include toggles. No v3.0 formula consumes
+    it yet — it restores the visible control and declares the intercept with
+    the rest of the spec for the future engine to read.
+
+    Conditional formatting encodes the reference-coding coupling
+    (ROADMAP: "Intercept coupling — flag, don't switch"): treatment coding
+    drops one level and relies on the intercept to carry the baseline, so an
+    included Categorical predictor makes the intercept effectively required.
+
+    * **Gray** whenever an included Categorical predictor is present — the
+      toggle is required-here and reads as locked-on even while (correctly)
+      TRUE.
+    * **Red** when the toggle is nonetheless set FALSE in that state — the
+      invalid combination, flagged not forced. Added first with StopIfTrue so
+      it outranks the gray rule on the same cell.
+    """
+    val(sheet, _INTERCEPT_ROW, _C_LABEL, "Intercept")
+    bold(sheet, _INTERCEPT_ROW, _C_LABEL)
+    val(sheet, _INTERCEPT_ROW, _C_INCLUDE, True)
+    format_input(sheet, _INTERCEPT_ROW, _C_INCLUDE)
+
+    # TRUE/FALSE dropdown on the single toggle cell (the spec block's Include
+    # validation covers only rows _FIRST_DATA_ROW onward, not this row).
+    cell = sheet.range(
+        rc(_INTERCEPT_ROW, _C_INCLUDE), rc(_INTERCEPT_ROW, _C_INCLUDE)
+    ).api
+    cell.Validation.Delete()
+    cell.Validation.Add(
+        Type=_XL_VALIDATE_LIST,
+        AlertStyle=_XL_VALID_ALERT_STOP,
+        Operator=_XL_BETWEEN,
+        Formula1=_INCLUDE_VALIDATION_LIST,
+    )
+    cell.Validation.IgnoreBlank = True
+
+    toggle = f"${col_letter(_C_INCLUDE)}${_INTERCEPT_ROW}"  # $C$2
+    # At least one included Categorical predictor anywhere in the spec.
+    cat_included = (
+        "SUMPRODUCT("
+        f'N(TAKE(Spec_Role,COLUMNS(Source_Data))="{_ROLE_PREDICTOR}"),'
+        "N(TAKE(Spec_Include,COLUMNS(Source_Data))=TRUE),"
+        'N(TAKE(Spec_Type,COLUMNS(Source_Data))="Categorical"))>0'
+    )
+    # Red first (StopIfTrue → outranks gray on this cell): FALSE while a
+    # Categorical needs the intercept.
+    add_expression_format(
+        sheet,
+        toggle,
+        f"=AND({toggle}=FALSE,{cat_included})",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+        stop_if_true=True,
+    )
+    # Gray: required-here signal, applies even while the toggle is still TRUE.
+    add_expression_format(
+        sheet,
+        toggle,
+        f"={cat_included}",
+        font_color=MUTED_TEXT_COLOR,
     )
 
 
@@ -477,7 +576,8 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
         ("response", f"={_RESPONSE_NAME_FORMULA}"),
         (
             "responses",
-            '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response"))',
+            "=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))"
+            f'="{_ROLE_RESPONSE}"))',
         ),
         ("included rows", "=SUMPRODUCT(N(Sample_Include()))"),
     )
@@ -578,6 +678,7 @@ def write_model_construction_sheet(
 
     _set_sheet_scoped_names(sheet, closures)
     _write_spec_block(sheet)
+    _write_intercept_control(sheet)
     _write_row_zones(sheet)
     _write_audit_row(sheet)
     _write_filtered_zones(sheet)

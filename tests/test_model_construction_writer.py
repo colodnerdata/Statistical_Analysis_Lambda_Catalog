@@ -31,14 +31,19 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_MATRIX_LABELS,
     _C_MATRIX_START,
     _DEFAULT_SPEC,
+    _C_INCLUDE,
+    _C_LABEL,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
+    _HEADER_ROW,
+    _INTERCEPT_ROW,
     _LAST_DATA_ROW,
     _N_VARIABLES,
     _VARIABLES,
     _set_sheet_scoped_names,
     _write_audit_row,
     _write_filtered_zones,
+    _write_intercept_control,
     _write_row_zones,
     _write_spec_block,
     SHEET_NAME,
@@ -56,6 +61,7 @@ _EXPECTED_NAME_ORDER = [
     "Spec_Reference",
     "Spec_Order",
     "Spec_Transform",
+    "Allow_Intercept",
     "Sample_Include",
     "Response_Column",
     "Row_Labels",
@@ -131,7 +137,7 @@ def test_spec_ranges_cover_the_standard_input_band() -> None:
         ("Spec_Transform", "G"),
     ):
         assert _refers_to(sheet, name) == (
-            f"='{SHEET_NAME}'!${column}$3:${column}$16000"
+            f"='{SHEET_NAME}'!${column}${_FIRST_DATA_ROW}:${column}$16000"
         )
 
 
@@ -148,8 +154,8 @@ def test_sample_include_is_the_reduce_product_mask() -> None:
     assert "N(IFERROR(N(col)" not in mask
     # Completeness: the Response and every included Continuous Predictor.
     assert (
-        'IF(OR(INDEX(rl,j)="Response",'
-        'AND(INDEX(rl,j)="Predictor",INDEX(inc,j)=TRUE,'
+        'IF(OR(INDEX(rl,j)="Response (y)",'
+        'AND(INDEX(rl,j)="Predictor (x)",INDEX(inc,j)=TRUE,'
         'INDEX(typ,j)="Continuous")),acc*N(ISNUMBER(col)),acc)'
     ) in mask
     # Full-height ones seed; product over {0,1} is the AND, no per-row loop.
@@ -170,9 +176,9 @@ def test_row_labels_dispatches_on_identifier_presence() -> None:
     # still safe at binding time.
     assert (
         'ids,IFERROR(TRANSPOSE(FILTER(TRANSPOSE(Source_Data),'
-        'rl="Identifier")),NA())'
+        'rl="Identifier (Row Label)")),NA())'
     ) in labels
-    assert 'IF(SUM(--(rl="Identifier"))=0,' in labels
+    assert 'IF(SUM(--(rl="Identifier (Row Label)"))=0,' in labels
     # No Identifier columns: positional fallback, full height.
     assert '"Obs. "&SEQUENCE(ROWS(Source_Data))' in labels
     # ignore_empty=FALSE keeps field positions aligned across rows.
@@ -187,14 +193,14 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
     assert sheet.range((1, 9)).column_width == 2
 
     # J/K headers on the spec-header row, bold like the A–H headers.
-    assert sheet.cell(2, 10).value == "Row Labels"
-    assert sheet.cell(2, 11).value == "Included"
-    assert sheet.range((2, 10), (2, 11)).api.Font.Bold is True
+    assert sheet.cell(_HEADER_ROW, 10).value == "Row Labels"
+    assert sheet.cell(_HEADER_ROW, 11).value == "Included"
+    assert sheet.range((_HEADER_ROW, 10), (_HEADER_ROW, 11)).api.Font.Bold is True
 
-    # Full-height spills at row 3; row 1 belongs to _write_audit_row, so
-    # this writer must leave it untouched.
-    assert sheet.cell(3, 10).api.Formula2 == "=Row_Labels()"
-    assert sheet.cell(3, 11).api.Formula2 == "=Sample_Include()"
+    # Full-height spills at the first data row; row 1 belongs to
+    # _write_audit_row, so this writer must leave it untouched.
+    assert sheet.cell(_FIRST_DATA_ROW, 10).api.Formula2 == "=Row_Labels()"
+    assert sheet.cell(_FIRST_DATA_ROW, 11).api.Formula2 == "=Sample_Include()"
     for col in (10, 11):
         assert sheet.cell(1, col).value is None
         assert sheet.cell(1, col).api.Formula2 is None
@@ -230,7 +236,7 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
 
     # Identical iteration predicate and skip conditions — twinning is what
     # guarantees the header strip width always matches COLUMNS(X_s()).
-    predicate = 'IF(OR(INDEX(rl,j)<>"Predictor",INDEX(inc,j)<>TRUE),acc,'
+    predicate = 'IF(OR(INDEX(rl,j)<>"Predictor (x)",INDEX(inc,j)<>TRUE),acc,'
     assert predicate in x_s
     assert predicate in names
     assert 'lv,Dummy_Levels(col,r,Sample_Include())' in names
@@ -304,12 +310,12 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
 
     # Spot-check the named T0 roles.
     by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(_VARIABLES)}
-    assert sheet.cell(by_variable["Country"], 2).value == "Identifier"
-    assert sheet.cell(by_variable["Life expectancy"], 2).value == "Response"
+    assert sheet.cell(by_variable["Country"], 2).value == "Identifier (Row Label)"
+    assert sheet.cell(by_variable["Life expectancy"], 2).value == "Response (y)"
     assert sheet.cell(by_variable["Full_Data"], 2).value == "Filter"
     for categorical in ("Year", "Status"):
         row = by_variable[categorical]
-        assert sheet.cell(row, 2).value == "Predictor"
+        assert sheet.cell(row, 2).value == "Predictor (x)"
         assert sheet.cell(row, 3).value is True
         assert sheet.cell(row, 4).value == "Categorical"
 
@@ -322,12 +328,13 @@ def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:
     # Must display L itself (1 for degenerate columns, which Dummy_Levels
     # signals as #N/A instead), so it counts UNIQUE directly.
     assert formula.startswith(
-        f'=IF(OR($B{_FIRST_DATA_ROW}<>"Predictor",$D{_FIRST_DATA_ROW}<>"Categorical"),"",'
+        f'=IF(OR($B{_FIRST_DATA_ROW}<>"Predictor (x)",$D{_FIRST_DATA_ROW}<>"Categorical"),"",'
     )
     assert "ROWS(UNIQUE(FILTER(" in formula
     assert "Dummy_Levels" not in formula
     assert "Sample_Include()" in formula
-    assert "ROW()-2" in formula  # sheet row 3 → Source_Data column 1
+    # First data row → Source_Data column 1.
+    assert f"ROW()-{_FIRST_DATA_ROW - 1}" in formula
     assert 'x,IF(col="","",col)' in formula  # blank normalization mirrored
 
 
@@ -340,17 +347,18 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
         for key, rng in sheet.ranges.items()
         if rng.api.Validation.rules
     }
+    r = _FIRST_DATA_ROW
     assert set(validated) == {
-        ((3, 2), (16000, 2)),  # B Role
-        ((3, 3), (16000, 3)),  # C Include
-        ((3, 4), (16000, 4)),  # D Type
-        ((3, 7), (16000, 7)),  # G Transform (reserved; only "None" valid)
+        ((r, 2), (16000, 2)),  # B Role
+        ((r, 3), (16000, 3)),  # C Include
+        ((r, 4), (16000, 4)),  # D Type
+        ((r, 7), (16000, 7)),  # G Transform (reserved; only "None" valid)
     }
     formulas = {
         key[0][1]: validation.rules[0]["Formula1"]
         for key, validation in validated.items()
     }
-    assert formulas[2] == "Response,Predictor,Identifier,Filter,Omit"
+    assert formulas[2] == "Response (y),Predictor (x),Identifier (Row Label),Filter,Omit"
     assert formulas[3] == "TRUE,FALSE"
     assert formulas[4] == "Continuous,Categorical"
     assert formulas[7] == "None"
@@ -364,13 +372,15 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
 
-    gray = sheet.range(f"$C$3:$H${_LAST_DATA_ROW}").api.FormatConditions.items
-    assert [c.Formula1 for c in gray] == ['=$B3<>"Predictor"']
+    r = _FIRST_DATA_ROW
+    off = _FIRST_DATA_ROW - 1
+    gray = sheet.range(f"$C${r}:$H${_LAST_DATA_ROW}").api.FormatConditions.items
+    assert [c.Formula1 for c in gray] == [f'=$B{r}<>"Predictor (x)"']
     assert gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
 
-    degenerate = sheet.range(f"$H$3:$H${_LAST_DATA_ROW}").api.FormatConditions.items
+    degenerate = sheet.range(f"$H${r}:$H${_LAST_DATA_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in degenerate] == [
-        '=AND($B3="Predictor",$C3=TRUE,$D3="Categorical",N($H3)<=1)'
+        f'=AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Categorical",N($H{r})<=1)'
     ]
     assert degenerate[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert degenerate[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
@@ -378,18 +388,67 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     # Invalid reference: the constructor's exact skip condition, tested
     # directly — a membership test against Dummy_Levels' output would
     # false-positive on the default reference itself.
-    invalid = sheet.range(f"$E$3:$E${_LAST_DATA_ROW}").api.FormatConditions.items
+    invalid = sheet.range(f"$E${r}:$E${_LAST_DATA_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in invalid] == [
-        '=AND($E3<>"",ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-2),'
-        "$E3,Sample_Include())))"
+        f'=AND($E{r}<>"",ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-{off}),'
+        f"$E{r},Sample_Include())))"
     ]
     assert invalid[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert invalid[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
+_CAT_INCLUDED = (
+    "SUMPRODUCT("
+    'N(TAKE(Spec_Role,COLUMNS(Source_Data))="Predictor (x)"),'
+    "N(TAKE(Spec_Include,COLUMNS(Source_Data))=TRUE),"
+    'N(TAKE(Spec_Type,COLUMNS(Source_Data))="Categorical"))>0'
+)
+
+
+def test_allow_intercept_names_the_row2_toggle_cell() -> None:
+    sheet = _named_sheet()
+    assert _refers_to(sheet, "Allow_Intercept") == f"='{SHEET_NAME}'!$C$2"
+
+
+def test_intercept_control_is_a_toggle_with_coupling_cf() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_intercept_control(_as_xw_sheet(sheet))
+
+    # A2 label (bold), C2 toggle prefilled TRUE with input styling.
+    assert sheet.cell(_INTERCEPT_ROW, _C_LABEL).value == "Intercept"
+    assert sheet.cell(_INTERCEPT_ROW, _C_LABEL).api.Font.Bold is True
+    toggle_cell = sheet.cell(_INTERCEPT_ROW, _C_INCLUDE)
+    assert toggle_cell.value is True
+    assert toggle_cell.color == INPUT_COLOR
+
+    # TRUE/FALSE dropdown on the single toggle cell.
+    validation = sheet.range(
+        (_INTERCEPT_ROW, _C_INCLUDE), (_INTERCEPT_ROW, _C_INCLUDE)
+    ).api.Validation
+    assert validation.delete_count == 1
+    assert validation.rules[0]["Type"] == 3  # xlValidateList
+    assert validation.rules[0]["Formula1"] == "TRUE,FALSE"
+    assert validation.IgnoreBlank is True
+
+    # Coupling CF, on C2: red (toggle FALSE while an included Categorical
+    # needs the intercept) added first with StopIfTrue so it outranks the
+    # gray "required-here" rule; gray applies whenever a Categorical is in.
+    conditions = sheet.range("$C$2").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == [
+        f"=AND($C$2=FALSE,{_CAT_INCLUDED})",
+        f"={_CAT_INCLUDED}",
+    ]
+    red, gray = conditions
+    assert red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert red.Font.Color == excel_color(CF_DARK_RED_TEXT)
+    assert red.StopIfTrue is True
+    assert gray.Font.Color == excel_color(MUTED_TEXT_COLOR)
+    assert gray.StopIfTrue is False
+
+
 _RESPONSE_NAME = (
     'IFERROR(INDEX(TOROW(Header_Names),'
-    'XMATCH("Response",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
+    'XMATCH("Response (y)",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
 )
 
 
@@ -405,7 +464,7 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
             18,
             19,
             "responses",
-            '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response"))',
+            '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response (y)"))',
         ),
         (20, 21, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
     ]
@@ -436,25 +495,25 @@ def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
     assert sheet.range((1, _C_BREAK_LEFT)).column_width == 2
     assert sheet.range((1, _C_BREAK_MID)).column_width == 2
 
-    # Row-2 headers: static labels over the two Row Labels columns, the
+    # Header-row labels: static labels over the two Row Labels columns, the
     # derived response name over filtered y, the twin strip over the
     # matrix. All bold like the spec headers.
-    assert sheet.cell(2, _C_FILTERED_LABELS).value == "Row Labels"
-    assert sheet.cell(2, _C_MATRIX_LABELS).value == "Row Labels"
-    assert sheet.cell(2, _C_FILTERED_Y).api.Formula2 == (
+    assert sheet.cell(_HEADER_ROW, _C_FILTERED_LABELS).value == "Row Labels"
+    assert sheet.cell(_HEADER_ROW, _C_MATRIX_LABELS).value == "Row Labels"
+    assert sheet.cell(_HEADER_ROW, _C_FILTERED_Y).api.Formula2 == (
         f'="y: "&{_RESPONSE_NAME}'
     )
-    assert sheet.cell(2, _C_MATRIX_START).api.Formula2 == (
+    assert sheet.cell(_HEADER_ROW, _C_MATRIX_START).api.Formula2 == (
         '=IFERROR(Constructed_Column_Names(),"(empty model)")'
     )
     assert (
         sheet.range(
-            (2, _C_FILTERED_LABELS), (2, _C_MATRIX_START)
+            (_HEADER_ROW, _C_FILTERED_LABELS), (_HEADER_ROW, _C_MATRIX_START)
         ).api.Font.Bold
         is True
     )
 
-    # Row-3 spills: the ONLY row-filtering on the sheet, every one
+    # First-data-row spills: the ONLY row-filtering on the sheet, every one
     # wrapped so an empty model degrades to the documented string
     # instead of leaking a raw #CALC!.
     expected_spills = {
@@ -464,6 +523,6 @@ def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
         _C_MATRIX_START: "X_s()",
     }
     for col, source in expected_spills.items():
-        assert sheet.cell(3, col).api.Formula2 == (
+        assert sheet.cell(_FIRST_DATA_ROW, col).api.Formula2 == (
             f'=IFERROR(FILTER({source},Sample_Include()),"(empty model)")'
         ), source

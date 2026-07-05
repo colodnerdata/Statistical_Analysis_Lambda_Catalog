@@ -19,15 +19,20 @@ from lambda_catalog.write_sheet_regression import (
     _C_W,
     _C_X,
     _C_Z,
+    _C_AC,
+    _C_AD,
     _C_AE,
     _C_AF,
     _C_AH,
     _C_AI,
     _C_AJ,
     _C_AP,
+    _PRED_INPUT_FIRST_ROW,
+    _PRED_INPUT_LAST_ROW,
     _setup_local_names as _setup_regression_names,
     _write_coefficients,
     _write_prediction_interval,
+    _write_prediction_inputs,
     _write_regression_outputs_header,
     _write_residuals,
 )
@@ -144,6 +149,31 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     assert "LET(pred_input,VSTACK($AC$12,TAKE($AC$13:$AC$62,COLUMNS(X_s())))" in formula
     assert "Prediction_Interval(X_s(),Response_Column(),pred_input" in formula
     assert "Intercept_Only_Point()" in formula
+
+
+def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_prediction_inputs(_as_xw_sheet(sheet))
+
+    # The Training Mean spill is the ONE X_s() evaluation for the whole
+    # prefill band; it owns column AD downward so it can never collide with
+    # another spill when the source data or spec changes.
+    assert sheet.cell(11, _C_AD).value == "Training Mean"
+    means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AD)
+    assert means == (
+        "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
+        'LAMBDA(c,AVERAGE(c)))),"")'
+    )
+
+    # Perf tripwire: X_s() is a full design-matrix construction on every
+    # call, so no prefill cell may invoke it — 50 cells × 2 calls made the
+    # workbook's first full calculation take ~20 minutes.
+    for row in (_PRED_INPUT_FIRST_ROW, _PRED_INPUT_LAST_ROW):
+        prefill = _formula(sheet, row, _C_AC)
+        assert "X_s()" not in prefill
+        assert f"INDEX($AD${_PRED_INPUT_FIRST_ROW}#" in prefill
+        assert f"IFERROR(ROWS($AD${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
 
 
 def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:

@@ -19,9 +19,11 @@ Layout (five horizontal zones — v3.0 changeover):
                    Alpha input (T12), ANOVA Table (rows 13–17, S–X),
                    Coefficients (rows 19+, S–Y), Beta Weights (Z)
   Col AA         — thin gap (width 2)
-  Col AB–AC      — Prediction Outputs: Prediction Interval (AB1:AC8, boxed),
-                   Prediction Inputs (AB10+, one row per constructed column)
-  Col AD         — thin gap (width 2)
+  Col AB–AD      — Prediction Outputs: Prediction Interval (AB1:AC8, boxed),
+                   Prediction Inputs (AB10+, one row per constructed column),
+                   Training Mean spill (AD13 — the single X_s() evaluation
+                   the orange AC prefills INDEX into; owns column AD downward
+                   so it can never collide with another spill)
   Col AE–AP      — Residual Output: heading + Row_Labels() identifiers in AE;
                    11 diagnostics columns (AF–AP), spills downward from row 3
 
@@ -112,9 +114,12 @@ _C_Z = 26   # Beta Weights
 _C_AA = 27  # thin gap
 _C_AB = 28  # prediction interval labels / prediction input labels
 _C_AC = 29  # prediction interval values / prediction input values
+_C_AD = 30  # Training Mean — the per-constructed-column means spill (AD13).
+            # The spill owns column AD downward, so it can never collide with
+            # another spill when the source data or spec changes; it doubles
+            # as the visual break before the Residual Output zone.
 
 # Zone 5: Residual Output
-_C_AD = 30  # thin gap
 _C_AE = 31  # section heading anchor / Row_Labels() identifiers
 _C_AF = 32  # Y (actual dependent variable)
 _C_AG = 33  # Predicted Y
@@ -130,8 +135,6 @@ _C_AP = 42  # PRESS Residual
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
-# Prediction-input prefill formulas guard on COLUMNS(X_s()) so rows beyond the
-# live width render blank.
 _PRED_INPUT_FIRST_ROW = 13
 _PRED_INPUT_LAST_ROW = 62
 _FORMAT_BAND_LAST_ROW = 62
@@ -823,7 +826,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     section_heading(sheet, 10, _C_AB, "PREDICTION INPUTS")
     val(sheet, 11, _C_AB, "Predictor")
     val(sheet, 11, _C_AC, "Prediction Value")
-    bold_row(sheet, 11, _C_AB, _C_AC)
+    bold_row(sheet, 11, _C_AB, _C_AD)
 
     # Row 12: intercept (auto-set, still orange to show it's a value)
     val(sheet, 12, _C_AB, "Intercept")
@@ -833,10 +836,34 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # AB13: spill formula — level-qualified names, one per constructed column
     f(sheet, _PRED_INPUT_FIRST_ROW, _C_AB, "=TRANSPOSE(Constructed_Column_Names())")
 
-    # AC13:AC62 — mean of each constructed column over the included rows,
-    # individually overridable. Each row guards on its position against the
-    # live constructed width so rows beyond COLUMNS(X_s()) render blank
-    # (the width is spec-dependent — 19 on the default WHO spec).
+    # AD13: the Training Mean column — per-column means of the filtered design
+    # matrix, computed with a SINGLE X_s() evaluation. X_s() is a full
+    # design-matrix construction on every call (Excel does not cache LAMBDA
+    # results), so this spill is the one place the means are computed; the
+    # orange prefill cells INDEX into it. The earlier design — every prefill
+    # cell calling X_s() twice (width guard + column mean) — made the
+    # workbook's first full calculation pathological (~20 minutes at the save
+    # step). The spill owns column AD downward (residuals start at AE), so a
+    # wider dataset or spec can never make it collide with another spill.
+    # Degrades to "" on an empty model, which the prefill guard reads as a
+    # one-row spill holding a blank.
+    val(sheet, 11, _C_AD, "Training Mean")
+    means_anchor = f"$AD${_PRED_INPUT_FIRST_ROW}"
+    f(
+        sheet,
+        _PRED_INPUT_FIRST_ROW,
+        _C_AD,
+        (
+            "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
+            'LAMBDA(c,AVERAGE(c)))),"")'
+        ),
+    )
+
+    # AC13:AC62 — the Training Mean of each constructed column, individually
+    # overridable. Each row guards on its position against the means-spill
+    # height so rows beyond the live constructed width render blank (the
+    # width is spec-dependent — 19 on the default WHO spec). Cheap spill
+    # references only: no prefill cell may call X_s() itself.
     offset = _PRED_INPUT_FIRST_ROW - 1
     for row in range(_PRED_INPUT_FIRST_ROW, _PRED_INPUT_LAST_ROW + 1):
         f(
@@ -844,17 +871,21 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
             row,
             _C_AC,
             (
-                f"=IF(ROW()-{offset}<=IFERROR(COLUMNS(X_s()),0),"
-                f"AVERAGE(FILTER(INDEX(X_s(),0,ROW()-{offset}),Sample_Include())),"
+                f"=IF(ROW()-{offset}<=IFERROR(ROWS({means_anchor}#),0),"
+                f"INDEX({means_anchor}#,ROW()-{offset}),"
                 '"")'
             ),
         )
 
-    # Orange for all user-editable prediction value cells
+    # Orange for all user-editable prediction value cells (the Training Mean
+    # column is computed display, not input)
     _input_range(sheet, _PRED_INPUT_FIRST_ROW, _C_AC, _PRED_INPUT_LAST_ROW, _C_AC)
     sheet.range(
         rc(_PRED_INPUT_FIRST_ROW, _C_AC), rc(_PRED_INPUT_LAST_ROW, _C_AC)
     ).number_format = "0.0000"
+    # Column-wide: the means spill height is spec-dependent and the column
+    # holds nothing else.
+    sheet.range(f"{col_letter(_C_AD)}:{col_letter(_C_AD)}").number_format = "0.0000"
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
@@ -1148,8 +1179,7 @@ def write_regression_output_sheet(
         "R": 2,   # thin gap
         "S": 22, "T": 12, "U": 12, "V": 14, "W": 10, "X": 13, "Y": 10, "Z": 12,
         "AA": 2,  # thin gap
-        "AB": 20, "AC": 14,  # prediction labels / values
-        "AD": 2,  # thin gap
+        "AB": 20, "AC": 14, "AD": 13,  # prediction labels / values / means
         "AE": 16,  # row identifiers (Row_Labels)
         "AF": 10, "AG": 9, "AH": 10, "AI": 9, "AJ": 9, "AK": 12, "AL": 9,
         "AM": 14, "AN": 17, "AO": 14, "AP": 15,

@@ -67,6 +67,7 @@ from .write_sheet_model_construction import (
     _RESERVED_NOTE,
     _RESPONSE_NAME_FORMULA,
     _C_ORDER as _C_SPEC_ORDER,
+    _C_REF_IN_USE as _C_SPEC_REF_IN_USE,
     _C_TRANSFORM as _C_SPEC_TRANSFORM,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
     _set_sheet_scoped_names as _set_spec_scoped_names,
@@ -139,6 +140,23 @@ _C_AQ = 43  # PRESS Residual
 _PRED_INPUT_FIRST_ROW = 13
 _PRED_INPUT_LAST_ROW = 62
 _FORMAT_BAND_LAST_ROW = 62
+
+# Column outline groups, one per zone — the thin gap columns stay ungrouped
+# so each zone collapses independently. Cleared and re-applied on every
+# rebuild (Cells.Clear does NOT remove outline levels, so re-grouping
+# without ClearOutline would deepen the outline each build).
+_COLUMN_GROUPS: tuple[tuple[int, int], ...] = (
+    (_C_A, _C_SPEC_REF_IN_USE),  # A:I  — Model Specification
+    (_C_K, _C_Q),                # K:Q  — Predictor Summary
+    (_C_S, _C_Z),                # S:Z  — Regression Outputs
+    (_C_AB, _C_AD),              # AB:AD — Prediction Outputs
+    (_C_AF, _C_AQ),              # AF:AQ — Residual Output
+)
+
+# Row 2 (Intercept control + zone sub-headers) autosizes tall under the
+# wrapped headers (60 px in practice); pin it. Excel row heights are in
+# points: 22.5 pt = 30 px at 96 DPI.
+_ROW2_HEIGHT_POINTS = 22.5
 
 # ── Chart constants ───────────────────────────────────────────────────────────
 _XL_XY_SCATTER = -4169       # Excel xlXYScatter
@@ -1149,6 +1167,9 @@ def write_regression_output_sheet(
     for idx in range(sheet.api.ChartObjects().Count, 0, -1):
         sheet.api.ChartObjects(idx).Delete()
     sheet.api.Cells.Clear()
+    # Cells.Clear does not touch outline levels — drop any grouping from a
+    # previous build before the zone groups are re-applied below.
+    sheet.api.Cells.ClearOutline()
     sheet.activate()
 
     _setup_local_names(sheet, closures)
@@ -1188,6 +1209,15 @@ def write_regression_output_sheet(
         "AN": 14, "AO": 17, "AP": 14, "AQ": 15,
     }.items():
         sheet.range(f"{column_letter}:{column_letter}").column_width = width
+
+    # Zone column groups — collapsible outline per zone for navigation.
+    for first_col, last_col in _COLUMN_GROUPS:
+        sheet.api.Columns(
+            f"{col_letter(first_col)}:{col_letter(last_col)}"
+        ).Group()
+
+    # Pin the sub-header row height (wrapped headers autosize it to 60 px).
+    sheet.api.Rows(2).RowHeight = _ROW2_HEIGHT_POINTS
 
     # Charts must be positioned after column widths are set so that
     # sheet.range("AR1").left reflects the final column layout.

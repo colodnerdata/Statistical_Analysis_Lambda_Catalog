@@ -153,10 +153,6 @@ _COLUMN_GROUPS: tuple[tuple[int, int], ...] = (
     (_C_AF, _C_AQ),              # AF:AQ — Residual Output
 )
 
-# Row 2 (Intercept control + zone sub-headers) autosizes tall under the
-# wrapped headers (60 px in practice); pin it. Excel row heights are in
-# points: 22.5 pt = 30 px at 96 DPI.
-_ROW2_HEIGHT_POINTS = 22.5
 
 # ── Chart constants ───────────────────────────────────────────────────────────
 _XL_XY_SCATTER = -4169       # Excel xlXYScatter
@@ -1216,8 +1212,10 @@ def write_regression_output_sheet(
             f"{col_letter(first_col)}:{col_letter(last_col)}"
         ).Group()
 
-    # Pin the sub-header row height (wrapped headers autosize it to 60 px).
-    sheet.api.Rows(2).RowHeight = _ROW2_HEIGHT_POINTS
+    # Size the sub-header row to its wrapped contents (two lines for the
+    # longer residual headers). Must run after the column widths above,
+    # since wrap points — and therefore the fitted height — depend on them.
+    sheet.api.Rows(2).AutoFit()
 
     # Charts must be positioned after column widths are set so that
     # sheet.range("AR1").left reflects the final column layout.

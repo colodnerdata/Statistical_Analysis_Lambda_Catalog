@@ -163,7 +163,11 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
     monkeypatch.setattr(
         build_production,
         "load_catalog_document",
-        lambda _: SimpleNamespace(functions=(), regression_sheet_notes={}),
+        lambda _: SimpleNamespace(
+            functions=(),
+            regression_sheet_notes={},
+            functions_for_sheet=lambda _sheet: (),
+        ),
     )
     monkeypatch.setattr(
         build_production,

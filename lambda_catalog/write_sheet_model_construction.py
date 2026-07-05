@@ -138,8 +138,16 @@ from .workbook_helpers import (
 
 SHEET_NAME = "Model Construction"
 
-# The catalog file backing this sheet's constructor closures (scope
-# "Model Construction"). Used when a caller does not pass them in explicitly.
+# The constructor closures moved to the Regression sheet with the v3.0
+# changeover (scope "Regression" in lambda_functions.json) — the spec block
+# now lives there and this sheet is no longer part of the production build.
+# A standalone rebuild of this sheet still works: the closures are generic
+# over the sheet they're registered on, so they are loaded by this scope and
+# installed sheet-scoped here exactly as before.
+_CLOSURE_SCOPE = "Regression"
+
+# The catalog file backing the constructor closures. Used when a caller does
+# not pass them in explicitly.
 _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.json"
 
 # Every LifeExpectancyData column, in table order (incl. the computed
@@ -693,7 +701,7 @@ def write_model_construction_sheet(
     """
     if closures is None:
         closures = load_catalog_document(_DEFINITIONS_PATH).functions_for_sheet(
-            SHEET_NAME
+            _CLOSURE_SCOPE
         )
 
     sheet = get_or_create_sheet(workbook, SHEET_NAME)

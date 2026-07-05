@@ -34,6 +34,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_INCLUDE,
     _C_LABEL,
     _C_REF_IN_USE,
+    _CLOSURE_SCOPE,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
     _HEADER_ROW,
@@ -76,9 +77,13 @@ def _as_xw_sheet(sheet: RecordingSheet) -> xw.Sheet:
 
 
 def _model_construction_closures():
-    """The sheet-scoped constructor functions as the build installs them."""
+    """The sheet-scoped constructor functions as a standalone rebuild installs them.
+
+    The closures moved to scope "Regression" with the v3.0 changeover; this
+    module keeps installing the same set when its sheet is rebuilt standalone.
+    """
     document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
-    return document.functions_for_sheet(SHEET_NAME)
+    return document.functions_for_sheet(_CLOSURE_SCOPE)
 
 
 def _named_sheet() -> RecordingSheet:

@@ -13,18 +13,18 @@ from lambda_catalog.sheet_styles import (
 from lambda_catalog.workbook_helpers import add_expression_format, excel_color
 from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
 from lambda_catalog.write_sheet_regression import (
-    _C_L,
-    _C_M,
-    _C_N,
-    _C_P,
-    _C_Q,
     _C_S,
-    _C_AA,
-    _C_AB,
-    _C_AC,
-    _C_AI,
+    _C_T,
+    _C_U,
+    _C_W,
     _C_X,
-    _C_Y,
+    _C_Z,
+    _C_AE,
+    _C_AF,
+    _C_AH,
+    _C_AI,
+    _C_AJ,
+    _C_AP,
     _setup_local_names as _setup_regression_names,
     _write_coefficients,
     _write_prediction_interval,
@@ -76,30 +76,46 @@ def test_observation_y_only_formulas_reuse_first_spill() -> None:
     )
 
 
-def test_regression_predictor_name_preserves_a_multicolumn_range() -> None:
+def test_regression_names_register_spec_wiring_and_constructors() -> None:
     sheet = RecordingSheet(name="Regression")
 
     _setup_regression_names(_as_xw_sheet(sheet))
 
-    local_name_order = [item.Name.split("!", 1)[-1] for item in sheet.api.Names.items]
-    assert local_name_order.index("Ind_Var_Include") < local_name_order.index("x_s")
-    x_s_formula = sheet.api.Names.by_short_name("x_s").RefersTo
-    assert x_s_formula.startswith("=LAMBDA(")
-    assert "TRANSPOSE(FILTER(TRANSPOSE(All_Xs)" in x_s_formula
+    names = [item.Name.split("!", 1)[-1] for item in sheet.api.Names.items]
+    # Spec wiring precedes the closures, which precede the Regression-only names.
+    assert names.index("Spec_Include") < names.index("Sample_Include")
+    assert names.index("Sample_Include") < names.index("X_s")
+    assert names.index("X_s") < names.index("Zero_Predictors_Selected")
+    # The v1 hard-wired names are gone.
+    for legacy in ("All_Xs", "Coefficient_Name_Col", "Ind_Var_Include", "y",
+                   "Regression_Sample_Include", "data_identifiers"):
+        assert legacy not in names, legacy
+
+    x_s_formula = sheet.api.Names.by_short_name("X_s").RefersTo
+    assert x_s_formula.startswith("=LAMBDA(LET(")
+    assert "Dummy_Levels(" in x_s_formula
+
+    zero_formula = sheet.api.Names.by_short_name("Zero_Predictors_Selected").RefersTo
+    assert zero_formula == "=LAMBDA(IFERROR(COLUMNS(X_s()),0)=0)"
+
+    assert sheet.api.Names.by_short_name("Allow_Intercept").RefersTo == (
+        "='Regression'!$C$2"
+    )
+    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$T$12"
 
 
-def test_x_s_and_coefficient_name_col_no_longer_fall_back_to_first_predictor() -> None:
+def test_regression_chart_names_size_to_the_observation_cell() -> None:
     sheet = RecordingSheet(name="Regression")
 
     _setup_regression_names(_as_xw_sheet(sheet))
 
-    x_s_formula = sheet.api.Names.by_short_name("x_s").RefersTo
-    assert "IFERROR" not in x_s_formula
-    assert "TAKE(All_Xs,,1)" not in x_s_formula
-
-    coefficient_name_col_formula = sheet.api.Names.by_short_name("Coefficient_Name_Col").RefersTo
-    assert "IFERROR" not in coefficient_name_col_formula
-    assert "TAKE(headers,1)" not in coefficient_name_col_formula
+    fit_y = sheet.api.Names.by_short_name("RegChartFitY").RefersTo
+    assert fit_y == (
+        "=OFFSET('Regression'!$AG$2,1,0,"
+        "MAX(IFERROR('Regression'!$T$8,1),1),1)"
+    )
+    press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
+    assert "$AP$2" in press
 
 
 def test_intercept_only_n_does_not_depend_on_filter() -> None:
@@ -109,39 +125,46 @@ def test_intercept_only_n_does_not_depend_on_filter() -> None:
 
     intercept_only_n_formula = sheet.api.Names.by_short_name("Intercept_Only_N").RefersTo
     assert "FILTER" not in intercept_only_n_formula
-    assert "COUNTIF(Regression_Sample_Include,TRUE)" in intercept_only_n_formula
+    # SUMPRODUCT over the computed mask: COUNTIF needs a range reference and
+    # Sample_Include() is an array; SUMPRODUCT never errors on an empty mask.
+    assert "SUMPRODUCT(N(Sample_Include()))" in intercept_only_n_formula
 
 
-def test_prediction_interval_binds_selected_inputs_in_the_cell_formula() -> None:
+def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> None:
     sheet = RecordingSheet(name="Regression")
 
     _write_prediction_interval(_as_xw_sheet(sheet))
 
-    formula = sheet.cell(3, 22).api.Formula2
+    formula = sheet.cell(3, 29).api.Formula2
     assert formula is not None
     assert formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert "IFERROR" not in formula
-    assert "LET(pred_input,VSTACK($V$12,FILTER($V$13:$V$30" in formula
-    assert "Prediction_Interval(x_s(),y,pred_input" in formula
+    # Inputs correspond 1:1 to constructed columns — TAKE exactly k rows,
+    # no Include-filter needed.
+    assert "LET(pred_input,VSTACK($AC$12,TAKE($AC$13:$AC$62,COLUMNS(X_s())))" in formula
+    assert "Prediction_Interval(X_s(),Response_Column(),pred_input" in formula
     assert "Intercept_Only_Point()" in formula
 
 
 def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
     sheet = RecordingSheet(name="Regression")
 
-    _write_coefficients(_as_xw_sheet(sheet), k=18)
+    _write_coefficients(_as_xw_sheet(sheet))
 
-    label_formula = _formula(sheet, 21, _C_L)
+    label_formula = _formula(sheet, 21, _C_S)
     assert label_formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert 'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA())' in label_formula
+    # Level-qualified names come from the constructor twin (a row vector).
+    assert 'VSTACK("Intercept",TRANSPOSE(Constructed_Column_Names()))' in label_formula
 
-    coefficient_formula = _formula(sheet, 21, _C_M)
+    coefficient_formula = _formula(sheet, 21, _C_T)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
+    assert "Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include())" in coefficient_formula
 
-    se_formula = _formula(sheet, 21, _C_N)
+    se_formula = _formula(sheet, 21, _C_U)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
 
-    beta_formula = _formula(sheet, 21, _C_S)
+    beta_formula = _formula(sheet, 21, _C_Z)
     assert 'IF(Allow_Intercept,"",NA())' in beta_formula
 
 
@@ -150,40 +173,45 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
 
     _write_regression_outputs_header(_as_xw_sheet(sheet))
 
-    assert sheet.cell(2, _C_P).value == "Predicted Variable"
-    assert sheet.cell(2, _C_P).api.Font.Bold is True
-    assert sheet.cell(2, _C_P).color == HEADER_COLOR
-    assert sheet.cell(2, _C_Q).api.Formula2 == "=OFFSET(y,-1,0,1,1)"
-    assert sheet.cell(2, _C_Q).api.Font.Bold is True
-    assert sheet.cell(2, _C_Q).color == HEADER_COLOR
+    assert sheet.cell(2, _C_W).value == "Predicted Variable"
+    assert sheet.cell(2, _C_W).api.Font.Bold is True
+    assert sheet.cell(2, _C_W).color == HEADER_COLOR
+    # Derived response name — the header of the Role=Response spec row.
+    readout = sheet.cell(2, _C_X).api.Formula2
+    assert readout is not None
+    assert readout.startswith("=IFERROR(INDEX(TOROW(Header_Names),")
+    assert 'XMATCH("Response (y)"' in readout
+    assert sheet.cell(2, _C_X).api.Font.Bold is True
+    assert sheet.cell(2, _C_X).color == HEADER_COLOR
 
 
-def test_write_residuals_writes_row_identifier_header_and_falls_back_on_error() -> None:
+def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     sheet = RecordingSheet(name="Regression")
 
     _write_residuals(_as_xw_sheet(sheet))
 
-    assert sheet.cell(2, _C_X).api.Formula2 == (
-        '=IFERROR(OFFSET(data_identifiers,-1,0,1,1),"Observation")'
-    )
-    assert sheet.cell(3, _C_X).api.Formula2 == (
-        '=IFERROR(FILTER(data_identifiers,Regression_Sample_Include),'
-        'LAMBDA(obs,"Observation "&obs)(SEQUENCE($M$8)))'
+    # Static header; Row_Labels() supplies its own per-row content and
+    # no-Identifier fallback, so only an all-FALSE mask is absorbed here.
+    assert sheet.cell(2, _C_AE).value == "Observation"
+    assert sheet.cell(3, _C_AE).api.Formula2 == (
+        "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
-    assert sheet.cell(2, _C_Y).value == "Y"
-    assert sheet.cell(3, _C_Y).api.Formula2 == "=Dependent_Variable(y,Regression_Sample_Include)"
-    assert sheet.cell(3, _C_AA).api.Formula2 == (
-        "=Residuals(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+    assert sheet.cell(2, _C_AF).value == "Y"
+    assert sheet.cell(3, _C_AF).api.Formula2 == (
+        "=Dependent_Variable(Response_Column(),Sample_Include())"
     )
-    assert sheet.cell(3, _C_AC).api.Formula2 == (
-        "=Hat_Diagonal(x_s(),Allow_Intercept,Regression_Sample_Include)"
+    assert sheet.cell(3, _C_AH).api.Formula2 == (
+        "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AB).api.Formula2 == (
-        "=LOOCV_Residual(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+    assert sheet.cell(3, _C_AJ).api.Formula2 == (
+        "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())"
     )
     assert sheet.cell(3, _C_AI).api.Formula2 == (
-        "=LOOCV_Residual(x_s(),y,Allow_Intercept,Regression_Sample_Include)"
+        "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+    )
+    assert sheet.cell(3, _C_AP).api.Formula2 == (
+        "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
 
 

@@ -2,29 +2,29 @@
 
 Two-axis specification (ROADMAP: v3.0 — Specification-Driven Regression):
 
-    A         B      C        D     E                F        G          H
-    Variable  Role   Include  Type  Reference Level  Order    Transform  Levels
-    (spill)   (drop) (input)  (drop)(input)          (rsvd.)  (rsvd.)    (disp.)
+    A         B      C        D     E                F        G          H       I
+    Variable  Role   Include  Type  Reference Level  Order    Transform  Levels  Reference In Use
+    (spill)   (drop) (input)  (drop)(input)          (rsvd.)  (rsvd.)    (disp.) (disp.)
 
-Right of the spec block, after a narrow gap column I (which also visually
+Right of the spec block, after a narrow gap column J (which also visually
 reserves the future Design Columns audit column):
 
-    J             K        L     M           N            O     P           Q →
+    K             L        M     N           O            P     Q           R →
     Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered X_s
-    (=Row_Labels() spill at J3; =Sample_Include() spill at K3 — both
-     full-height, never internally filtered. M/N/P/Q are the FILTERED
+    (=Row_Labels() spill at K4; =Sample_Include() spill at L4 — both
+     full-height, never internally filtered. N/O/Q/R are the FILTERED
      display zones: the only place on the sheet where Sample_Include()
-     row-filters anything. P repeats the filtered labels so the matrix
-     reads side-by-side without scrolling back to M.)
+     row-filters anything. Q repeats the filtered labels so the matrix
+     reads side-by-side without scrolling back to N.)
 
-Row 1, from column J rightward, holds the bold audit cells as
-label/value pairs (values on the non-narrow columns K/N/Q/S/U):
+Row 1, from column K rightward, holds the bold audit cells as
+label/value pairs (values on the non-narrow columns L/O/R/T/V):
 
     k = COLUMNS(X_s()) · rows = ROWS(X_s()) · response = <derived name> ·
     responses = <count of Role="Response (y)"> (red CF when <> 1) ·
     included rows = SUMPRODUCT(N(Sample_Include()))
 
-Row 3 above Q carries the =Constructed_Column_Names() header strip
+Row 3 above R carries the =Constructed_Column_Names() header strip
 (level-qualified names, horizontal). Every spill formula in the filtered
 zones wraps IFERROR(..., "(empty model)") so an empty model degrades to a
 documented string, never a raw #CALC! leak.
@@ -184,7 +184,8 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 
 # Spec-block columns (1-based). Role precedes Include: the larger
 # declaration comes first (dataset semantics before iteration state).
-# F/G are the reserved Order/Transform slots; H is the computed display.
+# F/G are the reserved Order/Transform slots; H and I are the computed
+# displays (Levels count, Reference In Use).
 (
     _C_LABEL,
     _C_ROLE,
@@ -194,29 +195,30 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
     _C_ORDER,
     _C_TRANSFORM,
     _C_LEVELS,
-) = range(1, 9)
+    _C_REF_IN_USE,
+) = range(1, 10)
 
-# Derived-row zone right of the spec block. I is a narrow gap (and the
-# visual reservation for the future Design Columns audit column); J and K
+# Derived-row zone right of the spec block. J is a narrow gap (and the
+# visual reservation for the future Design Columns audit column); K and L
 # hold the full-height Row_Labels() / Sample_Include() spills.
-_C_GAP = 9
-_C_ROW_LABELS = 10
-_C_INCLUDED = 11
+_C_GAP = 10
+_C_ROW_LABELS = 11
+_C_INCLUDED = 12
 _GAP_COLUMN_WIDTH = 2
 
 # Filtered display zone: the ONLY place Sample_Include() row-filters
-# anything (everything left of L honors the full-height contract). L and
-# O are narrow visual breaks; P repeats the filtered labels so the matrix
-# reads side-by-side without scrolling back to M.
-_C_BREAK_LEFT = 12
-_C_FILTERED_LABELS = 13
-_C_FILTERED_Y = 14
-_C_BREAK_MID = 15
-_C_MATRIX_LABELS = 16
-_C_MATRIX_START = 17
+# anything (everything left of M honors the full-height contract). M and
+# P are narrow visual breaks; Q repeats the filtered labels so the matrix
+# reads side-by-side without scrolling back to N.
+_C_BREAK_LEFT = 13
+_C_FILTERED_LABELS = 14
+_C_FILTERED_Y = 15
+_C_BREAK_MID = 16
+_C_MATRIX_LABELS = 17
+_C_MATRIX_START = 18
 
-# Row-1 audit strip: label/value pairs marching right from column J,
-# values placed on the non-narrow columns (K, N, Q, S, U) so no number
+# Row-1 audit strip: label/value pairs marching right from column K,
+# values placed on the non-narrow columns (L, O, R, T, V) so no number
 # lands on a width-2 break column.
 _AUDIT_ROW = 1
 _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
@@ -376,7 +378,7 @@ def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
 
 def _write_spec_block(sheet: xw.Sheet) -> None:
     """The A–H specification block: headers, defaults, dropdowns, CF."""
-    bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_LEVELS)
+    bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_REF_IN_USE)
     for col, header in (
         (_C_LABEL, "Variable"),
         (_C_ROLE, "Role"),
@@ -386,6 +388,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         (_C_ORDER, "Order"),
         (_C_TRANSFORM, "Transform"),
         (_C_LEVELS, "Levels"),
+        (_C_REF_IN_USE, "Reference In Use"),
     ):
         val(sheet, _HEADER_ROW, col, header)
 
@@ -429,16 +432,38 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
             ),
         )
 
+        # I: Reference In Use display — the level the constructor will
+        # actually drop, surfaced even when defaulted. A nonblank E is
+        # echoed verbatim (E's invalid-reference CF carries the error
+        # signal); a blank E shows Dummy_Levels' own default, the first
+        # sorted level over the mask-included sample, with the same blank
+        # normalization mirrored inline. Deliberately NOT a Dummy_Levels
+        # call: the function returns the RETAINED levels, which is exactly
+        # the set the reference has been dropped from. IFERROR → "" covers
+        # the empty-masked-sample edge (H shows 0 and flags red there).
+        f(
+            sheet,
+            row,
+            _C_REF_IN_USE,
+            (
+                f'=IF(OR($B{row}<>"{_ROLE_PREDICTOR}",$D{row}<>"Categorical"),"",'
+                f'IF($E{row}<>"",$E{row},'
+                f"LET(col,INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
+                f'x,IF(col="","",col),'
+                f'IFERROR(INDEX(SORT(UNIQUE(FILTER(x,(x<>"")*Sample_Include()))),1,1),""))))'
+            ),
+        )
+
     _add_list_validation(sheet, _C_ROLE, _ROLE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_INCLUDE, _INCLUDE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_TYPE, _TYPE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_TRANSFORM, _TRANSFORM_VALIDATION_LIST)
 
-    # Cascading relevance: C–H gray out whenever Role ≠ Predictor — the
+    # Cascading relevance: C–I gray out whenever Role ≠ Predictor — the
     # Reference-only-for-Categorical pattern applied one level up.
     add_expression_format(
         sheet,
-        f"$C${_FIRST_DATA_ROW}:$H${_LAST_DATA_ROW}",
+        f"$C${_FIRST_DATA_ROW}:$I${_LAST_DATA_ROW}",
         f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
         font_color=MUTED_TEXT_COLOR,
     )
@@ -545,9 +570,9 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
 
 
 def _write_row_zones(sheet: xw.Sheet) -> None:
-    """The J/K derived-row zone: full-height label and mask spills.
+    """The K/L derived-row zone: full-height label and mask spills.
 
-    Row 1 of J/K is not written here — _write_audit_row owns the audit
+    Row 1 of K/L is not written here — _write_audit_row owns the audit
     strip that occupies it.
     """
     sheet.range(rc(1, _C_GAP)).column_width = _GAP_COLUMN_WIDTH
@@ -561,7 +586,7 @@ def _write_row_zones(sheet: xw.Sheet) -> None:
 
 
 def _write_audit_row(sheet: xw.Sheet) -> None:
-    """Row-1 audit strip: bold label/value pairs from column J rightward.
+    """Row-1 audit strip: bold label/value pairs from column K rightward.
 
     Values live in their own cells (not concatenated into the labels) so
     the QC analyzer can assert the numbers directly. The X_s()-derived
@@ -602,7 +627,7 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
 
 
 def _write_filtered_zones(sheet: xw.Sheet) -> None:
-    """The M/N and P/Q→ filtered display zones.
+    """The N/O and Q/R→ filtered display zones.
 
     The only row-filtering on the sheet: FILTER(<full-height name>(),
     Sample_Include()). Every spill wraps IFERROR(..., "(empty model)") —
@@ -689,7 +714,7 @@ def write_model_construction_sheet(
     _set_note(sheet, _FIRST_DATA_ROW, _C_TRANSFORM, _RESERVED_NOTE)
 
     sheet.range(
-        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_LEVELS)
+        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_REF_IN_USE)
     ).columns.autofit()
     return sheet
 

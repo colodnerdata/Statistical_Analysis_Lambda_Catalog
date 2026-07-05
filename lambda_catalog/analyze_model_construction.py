@@ -15,9 +15,9 @@ Two verification passes run against the open QC workbook:
 
 1. **Default spec (T0)** — the build's shipped spec, untouched: audit strip
    (k, rows, response, responses, included rows), the header-strip /
-   ``X_s()`` twin tripwire, the Levels display cells, the full-height
-   contract on the J/K spills, and the filtered zones' heights and first
-   values.
+   ``X_s()`` twin tripwire, the Levels and Reference In Use display cells,
+   the full-height contract on the K/L spills, and the filtered zones'
+   heights and first values.
 2. **Degenerate-Categorical via a Filter column** (the human test plan's T8
    mechanism, driven from the T0 base state): an ``Is_Developing`` column is
    added to the data table and declared as a Filter, which collapses Status
@@ -51,6 +51,7 @@ from .write_sheet_model_construction import (
     _C_LEVELS,
     _C_MATRIX_LABELS,
     _C_MATRIX_START,
+    _C_REF_IN_USE,
     _C_ROLE,
     _C_ROW_LABELS,
     _DEFAULT_SPEC,
@@ -144,6 +145,10 @@ class ModelConstructionExpectations:
     # Masked distinct level count per Predictor+Categorical spec row — the
     # sheet's Levels display column (H), including 1 for a degenerate column.
     level_counts: dict[str, int]
+    # Reference level in effect per Predictor+Categorical spec row — the
+    # sheet's Reference In Use display column (I): the explicit E value when
+    # given, else the first sorted masked level, else "" (empty sample).
+    references_in_use: dict[str, object]
     # Included Categorical Predictors contributing zero columns (degenerate
     # level set or invalid reference): the ISNA-skip variables.
     degenerate_categoricals: tuple[str, ...]
@@ -230,19 +235,29 @@ def calculate_model_construction_expectations(
 
     constructed: list[str] = []
     level_counts: dict[str, int] = {}
+    references_in_use: dict[str, object] = {}
     degenerate: list[str] = []
     for variable in spec:
         is_categorical_predictor = (
             variable.role == _ROLE_PREDICTOR and variable.var_type == "Categorical"
         )
         if is_categorical_predictor:
-            level_counts[variable.name] = len(
-                {
-                    row[variable.name]
-                    for row, included in zip(rows, mask)
-                    if included and not _is_blank(row[variable.name])
-                }
-            )
+            masked_values = {
+                row[variable.name]
+                for row, included in zip(rows, mask)
+                if included and not _is_blank(row[variable.name])
+            }
+            level_counts[variable.name] = len(masked_values)
+            # Mirror the Reference In Use display (I): echo an explicit E
+            # verbatim; otherwise Dummy_Levels' default — the first sorted
+            # masked level (numbers before text, matching Excel SORT).
+            if variable.reference != "":
+                references_in_use[variable.name] = variable.reference
+            else:
+                levels = sorted(
+                    masked_values, key=lambda v: (isinstance(v, str), v)
+                )
+                references_in_use[variable.name] = levels[0] if levels else ""
         if variable.role != _ROLE_PREDICTOR or not variable.include:
             continue
         if variable.var_type != "Categorical":
@@ -288,6 +303,7 @@ def calculate_model_construction_expectations(
         first_filtered_label=first_label,
         first_filtered_response=first_response,
         level_counts=level_counts,
+        references_in_use=references_in_use,
         degenerate_categoricals=tuple(degenerate),
     )
 
@@ -307,6 +323,7 @@ class ModelConstructionObserved:
     audit_included: object
     header_strip: tuple[object, ...]
     level_cells: dict[str, object]
+    reference_cells: dict[str, object]
     row_labels_height: int
     mask_height: int
     mask_true_count: int
@@ -371,6 +388,10 @@ def read_observed_values(
         variable: sheet.range((_FIRST_DATA_ROW + offset, _C_LEVELS)).value
         for offset, variable in enumerate(_VARIABLES)
     }
+    reference_cells = {
+        variable: sheet.range((_FIRST_DATA_ROW + offset, _C_REF_IN_USE)).value
+        for offset, variable in enumerate(_VARIABLES)
+    }
 
     column_extent = total_rows + _READ_MARGIN
     row_labels = _read_column(sheet, _C_ROW_LABELS, _FIRST_DATA_ROW, column_extent)
@@ -399,6 +420,7 @@ def read_observed_values(
         audit_included=audit[4],
         header_strip=header_strip,
         level_cells=level_cells,
+        reference_cells=reference_cells,
         row_labels_height=_contiguous_height(row_labels),
         mask_height=len([v for v in mask if not _is_blank(v)]),
         mask_true_count=len([v for v in mask if v is True]),
@@ -458,6 +480,16 @@ def compare_observed_to_expected(
 
     for variable, count in expected.level_counts.items():
         check(f"Levels display for {variable}", count, observed.level_cells[variable])
+
+    for variable, reference in expected.references_in_use.items():
+        # Blank-normalize both sides: an Excel formula returning "" may read
+        # back as None through COM, and the expected empty-sample value is "".
+        observed_reference = observed.reference_cells[variable]
+        check(
+            f"Reference In Use display for {variable}",
+            "" if _is_blank(reference) else reference,
+            "" if _is_blank(observed_reference) else observed_reference,
+        )
 
     check("Row_Labels() full height", expected.total_rows, observed.row_labels_height)
     check("Sample_Include() full height", expected.total_rows, observed.mask_height)

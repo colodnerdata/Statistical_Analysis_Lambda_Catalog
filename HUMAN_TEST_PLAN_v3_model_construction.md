@@ -9,6 +9,14 @@ Reference numbers were computed directly from
 (`Data_Completeness` over `[Life expectancy]:[Schooling]`), so mismatches indicate
 implementation bugs, not stale expectations.
 
+**Layout note (Sequence structural-axis release):** the spec block has since
+gained column H (`Sequence` flag) and column I (`Base Period Δ`, reserved), so
+the `Levels` and `Reference In Use` displays moved to **J** and **K**, and every
+derived zone right of the spec block shifted two columns right (audit strip
+starts at M1; filtered zones at P/S). Cell addresses below reflect the layout at
+the time this plan was written — read `Levels` at J instead of H, and shift any
+address in column K or rightward by two columns.
+
 **Baseline facts:** 2,938 data rows; `Full_Data` TRUE on 1,649; within those 1,649:
 Status has 2 levels (`Developed`, `Developing` — 242 / 1,407 rows), Year has 16
 levels (2000–2015, first-sort reference `2000`), Country has 133 levels (193 in the

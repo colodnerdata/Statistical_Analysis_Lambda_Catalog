@@ -403,15 +403,27 @@ the spec block plus one source-table reference *is* the model.
 >    coefficients. It moves to the Role axis (v2.1), the Type axis becomes permanently
 >    Continuous/Categorical, and all future growth happens on Role.
 
-### The two-axis taxonomy
+### The taxonomy: two model axes plus a structural axis
 
-| Axis | v2.0 values | Future values | Meaning |
+| Axis | Values | Future values | Meaning |
 |---|---|---|---|
 | **Variable Role** | Response · Predictor · Identifier · Filter · Omit | Fixed Effects, Weight, Time (v2.1+) | What the column *is* in the model |
 | **Predictor Type** | Continuous · Categorical | *(closed — never grows)* | How a Predictor *enters the design matrix* — meaningful only when Role = Predictor |
+| **Sequence** *(structural, post-v2.0)* | TRUE · blank | *(flag — never grows)* | Which column *orders* the data, for lag/difference/serial-correlation features |
 
 Literature precedent: this is essentially the tidymodels `recipes` role system
 (outcome / predictor / ID) plus Stata's factor-variable notation on the Type axis.
+
+**The Sequence structural axis** is deliberately NOT a Role value and NOT a
+Predictor Type — it annotates *structure*, orthogonal to what a column is in
+the model: a column can be Role = Predictor, Type = Continuous AND
+Sequence = TRUE simultaneously (the escalation-index case), and an
+Identifier like Year is a typical sequence axis. Cardinality is
+**zero-or-one**: zero flags is a valid spec (non-panel data); two-plus is a
+visible status-line error (same pattern as exactly-one-Response, with a >1
+threshold). No constructor formula reads the flag yet — it exists so the
+lag/difference/serial-correlation features land on a declared axis. Not to
+be confused with the reserved Order column (F), which is term-ordering.
 
 **Role semantics (v2.0):**
 
@@ -442,7 +454,7 @@ columns*. This settles the architecture of the former role-aware-completeness op
 item by construction; only the auto-completeness LAMBDA remains to build, and the
 hard-coded `Data_Completeness(...[Life expectancy]:[Schooling])` span dies with it.
 
-### The specification block (columns A–H)
+### The specification block (columns A–K)
 
 The spec spans **every column of the source table**, one row per column:
 
@@ -453,22 +465,29 @@ The spec spans **every column of the source table**, one row per column:
 | C | Include toggle | Orange input; meaningful only when Role = Predictor |
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
-| F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment on row 3 marks it reserved; no validation yet (no fixed domain). |
-| G | **Transform** *(reserved, not implemented v2.0)* | Input, dropdown. Will apply a transform (e.g. `Log`) to a Continuous Response or Predictor. v2.0 dropdown list is `None` only; build pre-fills `None`. Cell comment on row 3 marks it reserved. |
-| H | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
-| I *(optional)* | **Design Columns** | Computed: Continuous Predictor → 1, Categorical Predictor → L−1, everything else → 0. Audit identity **ΣI = COLUMNS(x_s())**. Lean: include it. |
+| F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
+| G | **Transform** *(reserved, not implemented v2.0)* | Input, dropdown. Will apply a transform (e.g. `Log`) to a Continuous Response or Predictor. v2.0 dropdown list is `None` only; build pre-fills `None`. Cell comment marks it reserved. |
+| H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank; pre-filled blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer only — no constructor consumes it yet. |
+| I | **Base Period Δ** *(reserved, not implemented — Sequence companion)* | Labeled cell band; **computed-with-override — implemented in the base-period release**. Cell comment marks it reserved; inert (read by nothing). |
+| J | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
+| K | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. *(Deviation from the earlier draft of this table, recorded: the shipped v2.0 sheet implemented this display here instead of the optional Design Columns audit column; the Σ(design columns) = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot.)* |
 
-**Reserved-column policy (F, G).** Neither column is read by any v2.0 formula —
-confirmed by construction, not by convention: `X_s()`, `Constructed_Column_Names()`,
-`Row_Labels()`, and `Sample_Include()` must not reference `Spec_Order` or
-`Spec_Transform`. The columns exist purely so the *sheet layout* absorbs the future
-feature now; wiring them in a later release is additive (a formula change), not a
-second column-insertion breaking the sheet a second time.
+**Reserved-column policy (F, G, I).** None of these columns is read by any
+formula — confirmed by construction, not by convention: `X_s()`,
+`Constructed_Column_Names()`, `Row_Labels()`, and `Sample_Include()` must not
+reference `Spec_Order`, `Spec_Transform`, or `Spec_Base_Period_Delta` (and may
+not reference `Spec_Sequence` either — that name is consumed only by the
+zero-or-one validation). The columns exist purely so the *sheet layout*
+absorbs the future feature now; wiring them in a later release is additive (a
+formula change), not a second column-insertion breaking the sheet a second time.
 
-**Cascading relevance:** C–H gray out (conditional formatting) whenever Role ≠
-Predictor — the same pattern as Reference-only-for-Categorical, applied one level up.
+**Cascading relevance:** C–G and J–K gray out (conditional formatting)
+whenever Role ≠ Predictor — the same pattern as
+Reference-only-for-Categorical, applied one level up. H–I key on the
+**Sequence flag itself**, not on Role: they gray on every row that is not the
+sequence axis, because Sequence is structural and Role-independent.
 
-**Display derives, never feeds.** Columns H and I must not be inputs to the
+**Display derives, never feeds.** Columns J and K must not be inputs to the
 constructor. Both the cells and `x_s()` call the same mask-aware primitive
 (`Dummy_Levels`); the cells display what the constructor will do. Letting the engine
 read a display column would make it load-bearing. One source of truth is the
@@ -536,7 +555,8 @@ actually specify?":
 
 - **Response in effect** (derived), and the Response-count validation: exactly one,
   error at zero or two-plus
-- Constructed column count k — reconcilable against the ΣI audit identity
+- Constructed column count k — reconcilable against the Σ(design columns)
+  audit identity
 - Level-qualified constructed column names
 - **Included row count** after the effective mask (auto-completeness AND Filters),
   with the active Filter columns listed
@@ -558,9 +578,10 @@ data estimates ≈ 0 and wastes a df — not catastrophic — so silently forcin
 
 ### Zone changes on the Regression sheet (breaking — hence MAJOR)
 
-- **Spec block:** A–B → A–H (Role, Include, Type, Reference, Order, Transform,
-  Levels — Order/Transform reserved, unread by any v2.0 formula), spanning all
-  table columns, with cascading-relevance CF.
+- **Spec block:** A–B → A–K (Role, Include, Type, Reference, Order, Transform,
+  Sequence, Base Period Δ, Levels, Reference In Use — Order/Transform/Base
+  Period Δ reserved, unread by any formula; Sequence added post-v2.0 as the
+  structural axis), spanning all table columns, with cascading-relevance CF.
 - **Predictor summary changes referent:** Pearson/Spearman/Skewness/Kurtosis/VIF/
   Tolerance run on the **constructed** columns — more correct anyway (VIF on the
   actual design matrix, dummies included). Block height = constructed width.
@@ -573,7 +594,7 @@ data estimates ≈ 0 and wastes a df — not catastrophic — so silently forcin
   row labels. *(v2.1: residuals are within-model residuals under FE — Diagnostic
   Guide gains a paragraph.)*
 
-**Layout principle check (fixed-width left, fixed-height top):** the A–H spec block
+**Layout principle check (fixed-width left, fixed-height top):** the A–K spec block
 is fixed-width; the status block fixed-height; the constructed matrix never appears
 on the sheet. Note the estimator choice is load-bearing: LSDV would spill a
 data-dependent number of columns; the within transformation (v2.1) replaces them

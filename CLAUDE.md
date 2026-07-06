@@ -65,16 +65,16 @@ Zone 6 (cols CW–DF, gap column CV) holds the Q-Q plot data: Hazen plotting pos
 
 ### Regression sheet heading hierarchy
 
-Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY", "REGRESSION OUTPUTS", "PREDICTION OUTPUTS", "RESIDUAL OUTPUT"). Lower section headings appear at the relevant data rows within each zone. The MODEL SPECIFICATION zone (A–I) is the shared spec block imported from `write_sheet_model_construction.py` (headers row 3, spec rows 4–26, Intercept control A2/C2); every other zone keeps headers on row 2 with spills from row 3. Every `_C_*` column constant in `write_sheet_regression.py` matches its actual column letter (`_C_K` is column K).
+Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY", "REGRESSION OUTPUTS", "PREDICTION OUTPUTS", "RESIDUAL OUTPUT"). Lower section headings appear at the relevant data rows within each zone. The MODEL SPECIFICATION zone (A–K) is the shared spec block imported from `write_sheet_model_construction.py` (headers row 3, spec rows 4–26, Intercept control A2/C2, Sequence status line H2; H = Sequence structural flag, I = reserved Base Period Δ, J/K = Levels / Reference In Use displays); every other zone keeps headers on row 2 with spills from row 3. Every `_C_*` column constant in `write_sheet_regression.py` matches its actual column letter (`_C_M` is column M).
 
 ### Regression chart named ranges
 
-Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns degrades recalculation performance. All chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$T$8`:
+Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns degrades recalculation performance. All chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$V$8`:
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AH$2,1,0,MAX(IFERROR('{sname}'!$T$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AJ$2,1,0,MAX(IFERROR('{sname}'!$V$8,1),1),1)",
 )
 ```
 
@@ -89,16 +89,16 @@ All OFFSET-based named ranges used by diagnostic charts carry the `RegChart` pre
 
 | Name | Column | Contents |
 |---|---|---|
-| `RegChartQQX` | AN | Normal Scores Ranked (QQ theoretical axis) |
-| `RegChartQQY` | AO | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | AH | Predicted Y — shared by multiple charts |
-| `RegChartResid` | AI | Residuals |
-| `RegChartActY` | AG | Actual Y |
-| `RegChartScaleLoc` | AP | Scale-Location |
-| `RegChartCookDist` | AM | Cook's Distance |
-| `RegChartLeverage` | AK | Hat Diagonal |
-| `RegChartStudResid` | AL | Studentized Residuals |
-| `RegChartPRESSResid` | AQ | PRESS Residual |
+| `RegChartQQX` | AP | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AQ | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | AJ | Predicted Y — shared by multiple charts |
+| `RegChartResid` | AK | Residuals |
+| `RegChartActY` | AI | Actual Y |
+| `RegChartScaleLoc` | AR | Scale-Location |
+| `RegChartCookDist` | AO | Cook's Distance |
+| `RegChartLeverage` | AM | Hat Diagonal |
+| `RegChartStudResid` | AN | Studentized Residuals |
+| `RegChartPRESSResid` | AS | PRESS Residual |
 
 When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
 

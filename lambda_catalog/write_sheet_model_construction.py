@@ -1,28 +1,30 @@
 """Build the Model Construction worksheet — v3.0 declarative specification block.
 
-Two-axis specification (ROADMAP: v3.0 — Specification-Driven Regression):
+Two-axis specification plus the Sequence structural axis (ROADMAP: v3.0 —
+Specification-Driven Regression; Sequence added post-v2.0):
 
-    A         B      C        D     E                F        G          H       I
-    Variable  Role   Include  Type  Reference Level  Order    Transform  Levels  Reference In Use
-    (spill)   (drop) (input)  (drop)(input)          (rsvd.)  (rsvd.)    (disp.) (disp.)
+    A        B      C       D     E               F       G         H        I             J      K
+    Variable Role   Include Type  Reference Level Order   Transform Sequence Base Period Δ Levels Reference In Use
+    (spill)  (drop) (input) (drop)(input)         (rsvd.) (rsvd.)   (flag)   (rsvd.)       (disp.)(disp.)
 
-Right of the spec block, after a narrow gap column J (which also visually
+Right of the spec block, after a narrow gap column L (which also visually
 reserves the future Design Columns audit column):
 
-    K             L        M     N           O            P     Q           R →
+    M             N        O     P           Q            R     S           T →
     Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered X_s
-    (=Row_Labels() spill at K4; =Sample_Include() spill at L4 — both
-     full-height, never internally filtered. N/O/Q/R are the FILTERED
+    (=Row_Labels() spill at M4; =Sample_Include() spill at N4 — both
+     full-height, never internally filtered. P/Q/S/T are the FILTERED
      display zones: the only place on the sheet where Sample_Include()
-     row-filters anything. Q repeats the filtered labels so the matrix
-     reads side-by-side without scrolling back to N.)
+     row-filters anything. S repeats the filtered labels so the matrix
+     reads side-by-side without scrolling back to P.)
 
-Row 1, from column K rightward, holds the bold audit cells as
-label/value pairs (values on the non-narrow columns L/O/R/T/V):
+Row 1, from column M rightward, holds the bold audit cells as
+label/value pairs (values on the non-narrow columns N/Q/T/V/X/Z):
 
     k = COLUMNS(X_s()) · rows = ROWS(X_s()) · response = <derived name> ·
     responses = <count of Role="Response (y)"> (red CF when <> 1) ·
-    included rows = SUMPRODUCT(N(Sample_Include()))
+    included rows = SUMPRODUCT(N(Sample_Include())) ·
+    sequence flags = <count of Sequence=TRUE> (red CF when > 1)
 
 Row 3 above R carries the =Constructed_Column_Names() header strip
 (level-qualified names, horizontal). Every spill formula in the filtered
@@ -47,10 +49,23 @@ The spec spans EVERY column of the LifeExpectancyData table (23 rows:
     Predictor Type — Continuous | Categorical
                      (how a Predictor ENTERS; meaningful only when
                       Role = Predictor; this axis never grows)
+    Sequence       — TRUE | blank (structural axis, column H)
+                     (which column ORDERS the data for lag/difference/
+                      serial-correlation features. Deliberately NOT a Role
+                      value and NOT a Predictor Type — a column can be
+                      Role = Predictor, Type = Continuous AND Sequence = TRUE
+                      simultaneously. At most one flag: two-plus is a
+                      status-line error (H2, same pattern as the
+                      exactly-one-Response audit); zero is valid (non-panel
+                      data). Not to be confused with the reserved Order
+                      column F, which is term-ordering.)
 
 Columns F (Order) and G (Transform) are reserved for a future release: they
 are styled as inputs and carry sheet-scoped names (Spec_Order, Spec_Transform)
-so the grid shape is final, but no formula reads them yet.
+so the grid shape is final, but no formula reads them yet. Column I
+(Base Period Δ) is Sequence's reserved companion — computed-with-override,
+implemented in the base-period release; it is labeled and named
+(Spec_Base_Period_Delta) but inert this release.
 
 The role system dissolves the v1 Regression sheet's three hard-wired names
 into declarations, all late-bound zero-argument LAMBDAs on this sheet:
@@ -193,8 +208,9 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 
 # Spec-block columns (1-based). Role precedes Include: the larger
 # declaration comes first (dataset semantics before iteration state).
-# F/G are the reserved Order/Transform slots; H and I are the computed
-# displays (Levels count, Reference In Use).
+# F/G are the reserved Order/Transform slots; H is the Sequence structural
+# flag with I as its reserved Base Period Δ companion; J and K are the
+# computed displays (Levels count, Reference In Use).
 (
     _C_LABEL,
     _C_ROLE,
@@ -203,31 +219,33 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
     _C_REFERENCE,
     _C_ORDER,
     _C_TRANSFORM,
+    _C_SEQUENCE,
+    _C_BASE_PERIOD,
     _C_LEVELS,
     _C_REF_IN_USE,
-) = range(1, 10)
+) = range(1, 12)
 
-# Derived-row zone right of the spec block. J is a narrow gap (and the
-# visual reservation for the future Design Columns audit column); K and L
+# Derived-row zone right of the spec block. L is a narrow gap (and the
+# visual reservation for the future Design Columns audit column); M and N
 # hold the full-height Row_Labels() / Sample_Include() spills.
-_C_GAP = 10
-_C_ROW_LABELS = 11
-_C_INCLUDED = 12
+_C_GAP = 12
+_C_ROW_LABELS = 13
+_C_INCLUDED = 14
 _GAP_COLUMN_WIDTH = 2
 
 # Filtered display zone: the ONLY place Sample_Include() row-filters
-# anything (everything left of M honors the full-height contract). M and
-# P are narrow visual breaks; Q repeats the filtered labels so the matrix
-# reads side-by-side without scrolling back to N.
-_C_BREAK_LEFT = 13
-_C_FILTERED_LABELS = 14
-_C_FILTERED_Y = 15
-_C_BREAK_MID = 16
-_C_MATRIX_LABELS = 17
-_C_MATRIX_START = 18
+# anything (everything left of O honors the full-height contract). O and
+# R are narrow visual breaks; S repeats the filtered labels so the matrix
+# reads side-by-side without scrolling back to P.
+_C_BREAK_LEFT = 15
+_C_FILTERED_LABELS = 16
+_C_FILTERED_Y = 17
+_C_BREAK_MID = 18
+_C_MATRIX_LABELS = 19
+_C_MATRIX_START = 20
 
-# Row-1 audit strip: label/value pairs marching right from column K,
-# values placed on the non-narrow columns (L, O, R, T, V) so no number
+# Row-1 audit strip: label/value pairs marching right from column M,
+# values placed on the non-narrow columns (N, Q, T, V, X, Z) so no number
 # lands on a width-2 break column.
 _AUDIT_ROW = 1
 _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
@@ -236,6 +254,7 @@ _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
     (_C_MATRIX_LABELS, _C_MATRIX_START),   # response
     (_C_MATRIX_START + 1, _C_MATRIX_START + 2),  # responses (red CF <> 1)
     (_C_MATRIX_START + 3, _C_MATRIX_START + 4),  # included rows
+    (_C_MATRIX_START + 5, _C_MATRIX_START + 6),  # sequence flags (red CF > 1)
 )
 
 _EMPTY_MODEL_FALLBACK = '"(empty model)"'
@@ -288,10 +307,32 @@ _ROLE_VALIDATION_LIST = ",".join(
 _INCLUDE_VALIDATION_LIST = "TRUE,FALSE"
 _TYPE_VALIDATION_LIST = "Continuous,Categorical"
 _TRANSFORM_VALIDATION_LIST = _DEFAULT_TRANSFORM
+# Sequence flag: TRUE or blank (IgnoreBlank keeps blank legal).
+_SEQUENCE_VALIDATION_LIST = "TRUE"
 _XL_VALIDATE_LIST = 3
 _XL_VALID_ALERT_STOP = 1
 _XL_BETWEEN = 1
 _RESERVED_NOTE = "Reserved for a future release — not yet used by any formula."
+_SEQUENCE_NOTE = (
+    "Sequence structural axis: mark AT MOST ONE variable TRUE as the "
+    "ordering axis for lag/difference/serial-correlation features. "
+    "Independent of Role and Predictor Type — a Predictor can also be the "
+    "sequence axis. Zero flags is valid (non-panel data); two or more is a "
+    "spec error shown in the status line above this column. Distinct from "
+    "the reserved Order column (F), which is term-ordering."
+)
+_BASE_PERIOD_NOTE = (
+    "Base Period Δ — computed-with-override; implemented in the base-period "
+    "release. Not yet read by any formula."
+)
+
+# Count of Sequence flags across the live spec rows — the zero-or-one
+# validation shared by the H2 status line, the audit strip, and the
+# multi-flag conditional format (same TAKE-trimmed idiom as the
+# responses count).
+_SEQUENCE_FLAG_COUNT_FORMULA = (
+    "SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))"
+)
 
 
 def _set_sheet_scoped_names(
@@ -327,7 +368,7 @@ def _set_sheet_scoped_names(
         "Source_Table": "=LifeExpectancyData[#All]",
         "Source_Data": "=DROP(Source_Table,1)",
         "Header_Names": "=TAKE(Source_Table,1)",
-        # ── Spec ranges (local columns B–G; TAKE-trimmed at use) ─────────
+        # ── Spec ranges (local columns B–I; TAKE-trimmed at use) ─────────
         "Spec_Role": f"={sname}!$B${_FIRST_DATA_ROW}:$B${_VALIDATION_LAST_ROW}",
         "Spec_Include": f"={sname}!$C${_FIRST_DATA_ROW}:$C${_VALIDATION_LAST_ROW}",
         "Spec_Type": f"={sname}!$D${_FIRST_DATA_ROW}:$D${_VALIDATION_LAST_ROW}",
@@ -336,6 +377,14 @@ def _set_sheet_scoped_names(
         # nothing until the Order/Transform release.
         "Spec_Order": f"={sname}!$F${_FIRST_DATA_ROW}:$F${_VALIDATION_LAST_ROW}",
         "Spec_Transform": f"={sname}!$G${_FIRST_DATA_ROW}:$G${_VALIDATION_LAST_ROW}",
+        # Sequence structural axis (live: read by the zero-or-one status
+        # validation and its conditional formats, not by any constructor);
+        # Base Period Δ is its reserved companion, read by nothing until
+        # the base-period release.
+        "Spec_Sequence": f"={sname}!$H${_FIRST_DATA_ROW}:$H${_VALIDATION_LAST_ROW}",
+        "Spec_Base_Period_Delta": (
+            f"={sname}!$I${_FIRST_DATA_ROW}:$I${_VALIDATION_LAST_ROW}"
+        ),
         # Model-level Intercept toggle (row-2 control): a single boolean cell
         # in the C/Include column. No v3.0 formula reads it yet — the engine
         # will, exactly as the v1 Regression sheet's Allow_Intercept did.
@@ -391,7 +440,7 @@ def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
 
 
 def _write_spec_block(sheet: xw.Sheet) -> None:
-    """The A–H specification block: headers, defaults, dropdowns, CF."""
+    """The A–K specification block: headers, defaults, dropdowns, CF."""
     bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_REF_IN_USE)
     for col, header in (
         (_C_LABEL, "Variable"),
@@ -401,6 +450,8 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         (_C_REFERENCE, "Reference Level"),
         (_C_ORDER, "Order"),
         (_C_TRANSFORM, "Transform"),
+        (_C_SEQUENCE, "Sequence"),
+        (_C_BASE_PERIOD, "Base Period Δ"),
         (_C_LEVELS, "Levels"),
         (_C_REF_IN_USE, "Reference In Use"),
     ):
@@ -425,8 +476,12 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         format_input(sheet, row, _C_ORDER)
         val(sheet, row, _C_TRANSFORM, _DEFAULT_TRANSFORM)
         format_input(sheet, row, _C_TRANSFORM)
+        # H (Sequence) starts blank everywhere: zero flags is a valid spec
+        # (non-panel data). I (Base Period Δ) is inert this release — the
+        # labeled cell band stays untouched until the base-period release.
+        format_input(sheet, row, _C_SEQUENCE)
 
-        # H: Levels display — Categorical Predictors only; the raw distinct
+        # J: Levels display — Categorical Predictors only; the raw distinct
         # level count L over the mask-included rows, with Dummy_Levels'
         # blank normalization mirrored inline. Deliberately NOT a
         # Dummy_Levels call: the display must show L (including 1 for a
@@ -446,7 +501,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
             ),
         )
 
-        # I: Reference In Use display — the level the constructor will
+        # K: Reference In Use display — the level the constructor will
         # actually drop, surfaced even when defaulted. A nonblank E is
         # echoed verbatim (E's invalid-reference CF carries the error
         # signal); a blank E shows Dummy_Levels' own default, the first
@@ -454,7 +509,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         # normalization mirrored inline. Deliberately NOT a Dummy_Levels
         # call: the function returns the RETAINED levels, which is exactly
         # the set the reference has been dropped from. IFERROR → "" covers
-        # the empty-masked-sample edge (H shows 0 and flags red there).
+        # the empty-masked-sample edge (J shows 0 and flags red there).
         f(
             sheet,
             row,
@@ -472,27 +527,59 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     _add_list_validation(sheet, _C_INCLUDE, _INCLUDE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_TYPE, _TYPE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_TRANSFORM, _TRANSFORM_VALIDATION_LIST)
+    _add_list_validation(sheet, _C_SEQUENCE, _SEQUENCE_VALIDATION_LIST)
 
-    # Cascading relevance: C–I gray out whenever Role ≠ Predictor — the
-    # Reference-only-for-Categorical pattern applied one level up.
+    # Cascading relevance, Role-keyed: the per-Predictor inputs (C–G) and
+    # the Categorical displays (J–K) gray out whenever Role ≠ Predictor —
+    # the Reference-only-for-Categorical pattern applied one level up.
+    # H–I are deliberately excluded: Sequence is a structural axis, not a
+    # Role property (an Identifier like Year is a typical sequence axis).
+    for role_keyed_band in (
+        f"$C${_FIRST_DATA_ROW}:$G${_LAST_DATA_ROW}",
+        f"$J${_FIRST_DATA_ROW}:$K${_LAST_DATA_ROW}",
+    ):
+        add_expression_format(
+            sheet,
+            role_keyed_band,
+            f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
+            font_color=MUTED_TEXT_COLOR,
+        )
+
+    # Cascading relevance, Sequence-keyed: H–I gray out on every row that
+    # is not the sequence axis — Base Period Δ is meaningful only for the
+    # flagged row, and the flag itself keys on its own value, not on Role.
     add_expression_format(
         sheet,
-        f"$C${_FIRST_DATA_ROW}:$I${_LAST_DATA_ROW}",
-        f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
+        f"$H${_FIRST_DATA_ROW}:$I${_LAST_DATA_ROW}",
+        f"=$H{_FIRST_DATA_ROW}<>TRUE",
         font_color=MUTED_TEXT_COLOR,
     )
 
-    # Degeneracy flag: red H when an INCLUDED Categorical Predictor has
-    # L <= 1 — the constructor contributes zero columns for it (visible
-    # degradation, not silent omission). N() coerces "" to 0.
+    # Multi-flag error: red on every flagged Sequence cell when two-plus
+    # rows are marked — points at the offending rows while the H2 status
+    # line states the error.
     add_expression_format(
         sheet,
         f"$H${_FIRST_DATA_ROW}:$H${_LAST_DATA_ROW}",
         (
+            f"=AND($H{_FIRST_DATA_ROW}=TRUE,"
+            f"{_SEQUENCE_FLAG_COUNT_FORMULA}>1)"
+        ),
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # Degeneracy flag: red J when an INCLUDED Categorical Predictor has
+    # L <= 1 — the constructor contributes zero columns for it (visible
+    # degradation, not silent omission). N() coerces "" to 0.
+    add_expression_format(
+        sheet,
+        f"$J${_FIRST_DATA_ROW}:$J${_LAST_DATA_ROW}",
+        (
             f'=AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
             f"$C{_FIRST_DATA_ROW}=TRUE,"
             f'$D{_FIRST_DATA_ROW}="Categorical",'
-            f"N($H{_FIRST_DATA_ROW})<=1)"
+            f"N($J{_FIRST_DATA_ROW})<=1)"
         ),
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
@@ -511,6 +598,39 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
             f"ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
             f"$E{_FIRST_DATA_ROW},Sample_Include())))"
         ),
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    _write_sequence_status(sheet)
+
+
+def _write_sequence_status(sheet: xw.Sheet) -> None:
+    """Row-2 status line above the Sequence column (the H2 cell).
+
+    Zero-or-one Sequence flags is the legal range: zero is a valid spec
+    (non-panel data), one designates the ordering axis, two-plus is a spec
+    error. Same pattern as the exactly-one-Response audit: a visible
+    status cell that renders blank while the spec is legal and a red error
+    line when it is not (the message overflows rightward across the empty
+    row-2 display-column cells). Per-cell red CF on the flagged H cells
+    (added in _write_spec_block) points at the offending rows.
+    """
+    status_cell = f"${col_letter(_C_SEQUENCE)}${_INTERCEPT_ROW}"  # $H$2
+    f(
+        sheet,
+        _INTERCEPT_ROW,
+        _C_SEQUENCE,
+        (
+            f"=IF({_SEQUENCE_FLAG_COUNT_FORMULA}>1,"
+            '"ERROR: multiple Sequence flags (mark at most one variable)","")'
+        ),
+    )
+    bold(sheet, _INTERCEPT_ROW, _C_SEQUENCE)
+    add_expression_format(
+        sheet,
+        status_cell,
+        f'={status_cell}<>""',
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -584,9 +704,9 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
 
 
 def _write_row_zones(sheet: xw.Sheet) -> None:
-    """The K/L derived-row zone: full-height label and mask spills.
+    """The M/N derived-row zone: full-height label and mask spills.
 
-    Row 1 of K/L is not written here — _write_audit_row owns the audit
+    Row 1 of M/N is not written here — _write_audit_row owns the audit
     strip that occupies it.
     """
     sheet.range(rc(1, _C_GAP)).column_width = _GAP_COLUMN_WIDTH
@@ -619,6 +739,7 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
             f'="{_ROLE_RESPONSE}"))',
         ),
         ("included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+        ("sequence flags", f"={_SEQUENCE_FLAG_COUNT_FORMULA}"),
     )
     for (label_col, value_col), (label, formula) in zip(
         _AUDIT_PAIRS, audit_cells
@@ -639,9 +760,20 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
         font_color=CF_DARK_RED_TEXT,
     )
 
+    # Zero-or-one Sequence flags — red only at two-plus (zero is a valid
+    # non-panel spec, so <>1 would be the wrong test here).
+    sequence_col = col_letter(_AUDIT_PAIRS[5][1])
+    add_expression_format(
+        sheet,
+        f"${sequence_col}${_AUDIT_ROW}",
+        f"=N(${sequence_col}${_AUDIT_ROW})>1",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
 
 def _write_filtered_zones(sheet: xw.Sheet) -> None:
-    """The N/O and Q/R→ filtered display zones.
+    """The P/Q and S/T→ filtered display zones.
 
     The only row-filtering on the sheet: FILTER(<full-height name>(),
     Sample_Include()). Every spill wraps IFERROR(..., "(empty model)") —
@@ -653,7 +785,7 @@ def _write_filtered_zones(sheet: xw.Sheet) -> None:
 
     bold_row(sheet, _HEADER_ROW, _C_FILTERED_LABELS, _C_MATRIX_START)
     val(sheet, _HEADER_ROW, _C_FILTERED_LABELS, "Row Labels")
-    # N header carries the derived response name ("y: Life expectancy")
+    # Q header carries the derived response name ("y: Life expectancy")
     # so the filtered-y column is self-describing under response swaps.
     f(
         sheet,
@@ -722,10 +854,12 @@ def write_model_construction_sheet(
     _write_audit_row(sheet)
     _write_filtered_zones(sheet)
 
-    # Reserved-column notes are COM comment calls; keep them out of the
-    # RecordingSheet-testable spec block.
+    # Reserved-column and Sequence notes are COM comment calls; keep them
+    # out of the RecordingSheet-testable spec block.
     _set_note(sheet, _FIRST_DATA_ROW, _C_ORDER, _RESERVED_NOTE)
     _set_note(sheet, _FIRST_DATA_ROW, _C_TRANSFORM, _RESERVED_NOTE)
+    _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE, _SEQUENCE_NOTE)
+    _set_note(sheet, _FIRST_DATA_ROW, _C_BASE_PERIOD, _BASE_PERIOD_NOTE)
 
     sheet.range(
         (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_REF_IN_USE)

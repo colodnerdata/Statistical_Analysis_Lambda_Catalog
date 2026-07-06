@@ -31,9 +31,12 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_MATRIX_LABELS,
     _C_MATRIX_START,
     _DEFAULT_SPEC,
+    _C_BASE_PERIOD,
     _C_INCLUDE,
     _C_LABEL,
+    _C_LEVELS,
     _C_REF_IN_USE,
+    _C_SEQUENCE,
     _CLOSURE_SCOPE,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
@@ -64,6 +67,8 @@ _EXPECTED_NAME_ORDER = [
     "Spec_Reference",
     "Spec_Order",
     "Spec_Transform",
+    "Spec_Sequence",
+    "Spec_Base_Period_Delta",
     "Allow_Intercept",
     "Sample_Include",
     "Response_Column",
@@ -146,6 +151,8 @@ def test_spec_ranges_cover_the_standard_input_band() -> None:
         ("Spec_Reference", "E"),
         ("Spec_Order", "F"),
         ("Spec_Transform", "G"),
+        ("Spec_Sequence", "H"),
+        ("Spec_Base_Period_Delta", "I"),
     ):
         assert _refers_to(sheet, name) == (
             f"='{SHEET_NAME}'!${column}${_FIRST_DATA_ROW}:${column}$16000"
@@ -173,9 +180,15 @@ def test_sample_include_is_the_reduce_product_mask() -> None:
     assert "seed,SEQUENCE(ROWS(Source_Data),1,1,0)" in mask
     assert "BYROW(" not in mask
     assert mask.endswith("prod=1))")
-    # Reads the model axes only — never the reserved columns.
-    for reserved in ("Spec_Order", "Spec_Transform"):
-        assert reserved not in mask
+    # Reads the model axes only — never the reserved columns or the
+    # Sequence structural axis (which no constructor may consume).
+    for non_model_axis in (
+        "Spec_Order",
+        "Spec_Transform",
+        "Spec_Sequence",
+        "Spec_Base_Period_Delta",
+    ):
+        assert non_model_axis not in mask
 
 
 def test_row_labels_dispatches_on_identifier_presence() -> None:
@@ -200,19 +213,19 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_row_zones(_as_xw_sheet(sheet))
 
-    # J: narrow gap, visually reserving the future Design Columns column.
-    assert sheet.range((1, 10)).column_width == 2
+    # L: narrow gap, visually reserving the future Design Columns column.
+    assert sheet.range((1, 12)).column_width == 2
 
-    # K/L headers on the spec-header row, bold like the A–I headers.
-    assert sheet.cell(_HEADER_ROW, 11).value == "Row Labels"
-    assert sheet.cell(_HEADER_ROW, 12).value == "Included"
-    assert sheet.range((_HEADER_ROW, 11), (_HEADER_ROW, 12)).api.Font.Bold is True
+    # M/N headers on the spec-header row, bold like the A–K headers.
+    assert sheet.cell(_HEADER_ROW, 13).value == "Row Labels"
+    assert sheet.cell(_HEADER_ROW, 14).value == "Included"
+    assert sheet.range((_HEADER_ROW, 13), (_HEADER_ROW, 14)).api.Font.Bold is True
 
     # Full-height spills at the first data row; row 1 belongs to
     # _write_audit_row, so this writer must leave it untouched.
-    assert sheet.cell(_FIRST_DATA_ROW, 11).api.Formula2 == "=Row_Labels()"
-    assert sheet.cell(_FIRST_DATA_ROW, 12).api.Formula2 == "=Sample_Include()"
-    for col in (11, 12):
+    assert sheet.cell(_FIRST_DATA_ROW, 13).api.Formula2 == "=Row_Labels()"
+    assert sheet.cell(_FIRST_DATA_ROW, 14).api.Formula2 == "=Sample_Include()"
+    for col in (13, 14):
         assert sheet.cell(1, col).value is None
         assert sheet.cell(1, col).api.Formula2 is None
 
@@ -264,7 +277,7 @@ def test_reserved_spec_names_are_defined_but_read_by_nothing() -> None:
     sheet = _named_sheet()
     _write_all_zones(sheet)
 
-    for reserved in ("Spec_Order", "Spec_Transform"):
+    for reserved in ("Spec_Order", "Spec_Transform", "Spec_Base_Period_Delta"):
         readers = [
             item.Name
             for item in sheet.api.Names.items
@@ -274,6 +287,20 @@ def test_reserved_spec_names_are_defined_but_read_by_nothing() -> None:
         assert readers == [], reserved
         for formula in _all_written_formulas(sheet):
             assert reserved not in formula, (reserved, formula)
+
+
+def test_sequence_name_is_read_only_by_the_validation_layer() -> None:
+    # Spec_Sequence is live — but only for the zero-or-one validation (the
+    # H2 status line and the audit count). No constructor closure may
+    # consume it: Sequence is a structural annotation, not a model axis.
+    sheet = _named_sheet()
+    readers = [
+        item.Name
+        for item in sheet.api.Names.items
+        if "Spec_Sequence" in item.RefersTo
+        and item.Name.split("!", 1)[-1] != "Spec_Sequence"
+    ]
+    assert readers == []
 
 
 def test_reserved_spec_names_are_not_referenced_repo_wide() -> None:
@@ -288,6 +315,7 @@ def test_reserved_spec_names_are_not_referenced_repo_wide() -> None:
         text = path.read_text(encoding="utf-8")
         assert "Spec_Order" not in text, path.name
         assert "Spec_Transform" not in text, path.name
+        assert "Spec_Base_Period_Delta" not in text, path.name
 
 
 def test_every_name_and_formula_string_is_balanced() -> None:
@@ -316,7 +344,12 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         assert sheet.cell(row, 5).value is None, variable  # E blank → default
         assert sheet.cell(row, 6).value is None, variable  # F reserved, blank
         assert sheet.cell(row, 7).value == "None", variable  # G reserved
-        for col in range(2, 8):
+        # H (Sequence) pre-fills blank: zero flags is a valid non-panel spec.
+        assert sheet.cell(row, 8).value is None, variable
+        # I (Base Period Δ) is inert this release: no value, no styling.
+        assert sheet.cell(row, 9).value is None, variable
+        assert sheet.cell(row, 9).color is None, variable
+        for col in range(2, 9):
             assert sheet.cell(row, col).color == INPUT_COLOR, (variable, col)
 
     # Spot-check the named T0 roles.
@@ -335,7 +368,7 @@ def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
 
-    formula = cast(str, sheet.cell(_FIRST_DATA_ROW, 8).api.Formula2)
+    formula = cast(str, sheet.cell(_FIRST_DATA_ROW, _C_LEVELS).api.Formula2)
     # Must display L itself (1 for degenerate columns, which Dummy_Levels
     # signals as #N/A instead), so it counts UNIQUE directly.
     assert formula.startswith(
@@ -390,6 +423,7 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
         ((r, 3), (16000, 3)),  # C Include
         ((r, 4), (16000, 4)),  # D Type
         ((r, 7), (16000, 7)),  # G Transform (reserved; only "None" valid)
+        ((r, 8), (16000, 8)),  # H Sequence (TRUE or blank)
     }
     formulas = {
         key[0][1]: validation.rules[0]["Formula1"]
@@ -399,6 +433,7 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
     assert formulas[3] == "TRUE,FALSE"
     assert formulas[4] == "Continuous,Categorical"
     assert formulas[7] == "None"
+    assert formulas[8] == "TRUE"
     for validation in validated.values():
         assert validation.delete_count == 1
         assert validation.rules[0]["Type"] == 3  # xlValidateList
@@ -411,13 +446,34 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
 
     r = _FIRST_DATA_ROW
     off = _FIRST_DATA_ROW - 1
-    gray = sheet.range(f"$C${r}:$I${_LAST_DATA_ROW}").api.FormatConditions.items
-    assert [c.Formula1 for c in gray] == [f'=$B{r}<>"Predictor (x)"']
-    assert gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
+    # Role-keyed relevance: the per-Predictor inputs (C–G) and the
+    # Categorical displays (J–K); H–I are deliberately NOT in these bands.
+    for band in (
+        f"$C${r}:$G${_LAST_DATA_ROW}",
+        f"$J${r}:$K${_LAST_DATA_ROW}",
+    ):
+        gray = sheet.range(band).api.FormatConditions.items
+        assert [c.Formula1 for c in gray] == [f'=$B{r}<>"Predictor (x)"'], band
+        assert gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
 
-    degenerate = sheet.range(f"$H${r}:$H${_LAST_DATA_ROW}").api.FormatConditions.items
+    # Sequence-keyed relevance: H–I gray on rows that are not the sequence
+    # axis — keyed on the flag itself, not on Role.
+    seq_gray = sheet.range(f"$H${r}:$I${_LAST_DATA_ROW}").api.FormatConditions.items
+    assert [c.Formula1 for c in seq_gray] == [f"=$H{r}<>TRUE"]
+    assert seq_gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
+
+    # Multi-flag error: red on every flagged H cell at two-plus flags.
+    multi = sheet.range(f"$H${r}:$H${_LAST_DATA_ROW}").api.FormatConditions.items
+    assert [c.Formula1 for c in multi] == [
+        f"=AND($H{r}=TRUE,"
+        "SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))>1)"
+    ]
+    assert multi[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert multi[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+    degenerate = sheet.range(f"$J${r}:$J${_LAST_DATA_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in degenerate] == [
-        f'=AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Categorical",N($H{r})<=1)'
+        f'=AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Categorical",N($J{r})<=1)'
     ]
     assert degenerate[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert degenerate[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
@@ -432,6 +488,26 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     ]
     assert invalid[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert invalid[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+
+def test_sequence_status_line_validates_zero_or_one_flags() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_block(_as_xw_sheet(sheet))
+
+    # H2: blank while the spec carries zero-or-one flags, a red error line
+    # at two-plus — the exactly-one-Response pattern with a >1 threshold
+    # (zero flags is a valid non-panel spec).
+    status = sheet.cell(_INTERCEPT_ROW, _C_SEQUENCE)
+    assert status.api.Formula2 == (
+        "=IF(SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))>1,"
+        '"ERROR: multiple Sequence flags (mark at most one variable)","")'
+    )
+    assert status.api.Font.Bold is True
+
+    conditions = sheet.range("$H$2").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ['=$H$2<>""']
+    assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
 _CAT_INCLUDED = (
@@ -494,21 +570,27 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
     _write_audit_row(_as_xw_sheet(sheet))
 
     expected = [
-        (11, 12, "k", '=IFERROR(COLUMNS(X_s()),"(empty model)")'),
-        (14, 15, "rows", '=IFERROR(ROWS(X_s()),"(empty model)")'),
-        (17, 18, "response", f"={_RESPONSE_NAME}"),
+        (13, 14, "k", '=IFERROR(COLUMNS(X_s()),"(empty model)")'),
+        (16, 17, "rows", '=IFERROR(ROWS(X_s()),"(empty model)")'),
+        (19, 20, "response", f"={_RESPONSE_NAME}"),
         (
-            19,
-            20,
+            21,
+            22,
             "responses",
             '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response (y)"))',
         ),
-        (21, 22, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+        (23, 24, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+        (
+            25,
+            26,
+            "sequence flags",
+            "=SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))",
+        ),
     ]
     assert list(_AUDIT_PAIRS) == [(lc, vc) for lc, vc, _, _ in expected]
     assert _AUDIT_ROW == 1
     for label_col, value_col, label, formula in expected:
-        # No audit cell may land on a width-2 break column (M=13, P=16).
+        # No audit cell may land on a width-2 break column (O=15, R=18).
         assert label_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
         assert value_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
         assert sheet.cell(1, label_col).value == label
@@ -518,17 +600,23 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
         )
 
     # Exactly-one-Response validation: red CF on the responses count cell.
-    conditions = sheet.range("$T$1").api.FormatConditions.items
-    assert [c.Formula1 for c in conditions] == ["=N($T$1)<>1"]
+    conditions = sheet.range("$V$1").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ["=N($V$1)<>1"]
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+    # Zero-or-one-Sequence validation: red CF only at two-plus flags.
+    seq_conditions = sheet.range("$Z$1").api.FormatConditions.items
+    assert [c.Formula1 for c in seq_conditions] == ["=N($Z$1)>1"]
+    assert seq_conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert seq_conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
 def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_filtered_zones(_as_xw_sheet(sheet))
 
-    # M and P: narrow visual breaks, same width as the J gap.
+    # O and R: narrow visual breaks, same width as the L gap.
     assert sheet.range((1, _C_BREAK_LEFT)).column_width == 2
     assert sheet.range((1, _C_BREAK_MID)).column_width == 2
 

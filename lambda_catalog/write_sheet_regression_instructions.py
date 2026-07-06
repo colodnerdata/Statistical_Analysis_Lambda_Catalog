@@ -61,7 +61,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
     (7, "", None),
     (
         8,
-        "Define your model in the MODEL SPECIFICATION block (columns A–G):",
+        "Define your model in the MODEL SPECIFICATION block (columns A–K):",
         "heading",
     ),
     (
@@ -106,7 +106,13 @@ _ROWS: list[tuple[int, str, str | None]] = [
             "Include, and Type for the extra specification rows — the dropdowns are "
             "available all the way down. A row with a blank Role is ignored. The "
             "Order and Transform columns are placeholders for a future version and "
-            "are not read by any formula; they are hidden on the sheet."
+            "are not read by any formula; they are hidden on the sheet. The Sequence "
+            "column marks at most one variable as the ordering axis for future "
+            "lag/difference/serial-correlation features — it is independent of Role "
+            "and Type (a Predictor can also be the sequence axis). Leave it blank "
+            "for non-panel data; marking two or more rows shows a red error in the "
+            "status cell above the column. Base Period Δ is Sequence's companion, "
+            "arriving in the base-period release; it is not read by any formula yet."
         ),
         "body",
     ),

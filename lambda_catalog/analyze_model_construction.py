@@ -14,7 +14,7 @@ expectation.
 Two verification passes run against the open QC workbook:
 
 1. **Default spec (T0)** — the build's shipped spec, untouched: audit strip
-   (k, rows, response, responses, included rows), the header-strip /
+   (k, rows, response, responses, included rows, sequence flags), the header-strip /
    ``X_s()`` twin tripwire, the Levels and Reference In Use display cells,
    the full-height contract on the K/L spills, and the filtered zones'
    heights and first values.
@@ -321,6 +321,7 @@ class ModelConstructionObserved:
     audit_response: object
     audit_responses: object
     audit_included: object
+    audit_sequence_flags: object
     header_strip: tuple[object, ...]
     level_cells: dict[str, object]
     reference_cells: dict[str, object]
@@ -418,6 +419,7 @@ def read_observed_values(
         audit_response=audit[2],
         audit_responses=audit[3],
         audit_included=audit[4],
+        audit_sequence_flags=audit[5],
         header_strip=header_strip,
         level_cells=level_cells,
         reference_cells=reference_cells,
@@ -464,6 +466,9 @@ def compare_observed_to_expected(
     check("audit response", expected.response_name, observed.audit_response)
     check("audit responses", expected.responses_count, observed.audit_responses)
     check("audit included rows", expected.included_rows, observed.audit_included)
+    # Neither QC spec state sets a Sequence flag, so the zero-or-one audit
+    # count must read 0 (the build pre-fills the H column blank).
+    check("audit sequence flags", 0, observed.audit_sequence_flags)
 
     # Twin tripwire: the header strip is Constructed_Column_Names() and the
     # audit k is COLUMNS(X_s()) — their widths must always agree.

@@ -11,20 +11,22 @@ Reference In Use displays) would have no live-Excel verification at all.
 This is the Model Construction verifier ported to the Regression sheet. The
 expectation side is reused verbatim (``analyze_model_construction``'s
 calculator is pure Python and sheet-agnostic), and the spec block occupies
-identical coordinates on both sheets (columns A–I; intercept row 2, headers
+identical coordinates on both sheets (columns A–K; intercept row 2, headers
 row 3, spec rows 4–26 — the writers are shared), so the Levels / Reference
 In Use reads port unchanged. Only the assertions against the Model
 Construction sheet's display zones are remapped onto the Regression sheet's
 own display of the same facts:
 
-    MC audit k / twin tripwire   → K3 constructed-names spill width, and the
-                                   S21 coefficient-label spill (k+1 rows with
+    MC audit k / twin tripwire   → M3 constructed-names spill width, and the
+                                   U21 coefficient-label spill (k+1 rows with
                                    the default intercept ON)
-    MC header strip names        → K3 spill contents (vertical)
-    MC audit response            → X2 Predicted Variable readout
-    MC audit included rows       → T8 Observations cell
-    MC first filtered label      → AF3 (first residual-output row label)
-    MC filtered zone heights     → AF3 spill height
+    MC header strip names        → M3 spill contents (vertical)
+    MC audit response            → Z2 Predicted Variable readout
+    MC audit included rows       → V8 Observations cell
+    MC first filtered label      → AH3 (first residual-output row label)
+    MC filtered zone heights     → AH3 spill height
+    MC audit sequence flags      → H2 Sequence status line (blank while the
+                                   spec carries zero-or-one flags)
 
 The full-height contract, filtered-y column, y-header, and responses-count
 assertions are dropped: the Regression sheet displays none of them, and the
@@ -71,28 +73,30 @@ from .write_sheet_model_construction import (
     _C_LEVELS,
     _C_REF_IN_USE,
     _C_ROLE,
+    _C_SEQUENCE,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
+    _INTERCEPT_ROW as _SEQUENCE_STATUS_ROW,
     _ROLE_FILTER,
     _VARIABLES,
 )
 from .write_sheet_regression import (
     REGRESSION_SHEET_NAME,
-    _C_AF,
-    _C_K,
-    _C_S,
-    _C_T,
-    _C_X,
+    _C_AH,
+    _C_M,
+    _C_U,
+    _C_V,
+    _C_Z,
 )
 
 _QC_PREFIX = "[Regression Spec]"
 
 # Row anchors on the Regression sheet (1-based; must match
 # write_sheet_regression.py's section writers).
-_ROW_RESPONSE_READOUT = 2   # X2 = derived response name
-_ROW_NAMES_SPILL = 3        # K3 = TRANSPOSE(Constructed_Column_Names())
-_ROW_RESID_FIRST = 3        # AF3 = FILTER(Row_Labels(), Sample_Include())
-_ROW_OBSERVATIONS = 8       # T8 = Observations(...)
-_ROW_COEFF_FIRST = 21       # S21 = coefficient label spill (k+1 with intercept)
+_ROW_RESPONSE_READOUT = 2   # Z2 = derived response name
+_ROW_NAMES_SPILL = 3        # M3 = TRANSPOSE(Constructed_Column_Names())
+_ROW_RESID_FIRST = 3        # AH3 = FILTER(Row_Labels(), Sample_Include())
+_ROW_OBSERVATIONS = 8       # V8 = Observations(...)
+_ROW_COEFF_FIRST = 21       # U21 = coefficient label spill (k+1 with intercept)
 
 
 @dataclass(frozen=True)
@@ -107,6 +111,7 @@ class RegressionSpecObserved:
     reference_cells: dict[str, object]
     resid_labels_height: int
     first_resid_label: object
+    sequence_status: object
 
 
 def read_observed_spec_values(
@@ -119,12 +124,12 @@ def read_observed_spec_values(
     shows up as a height/width mismatch instead of being clipped.
     """
     names = _read_column(
-        sheet, _C_K, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
+        sheet, _C_M, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
     )
     constructed_names = tuple(names[: _contiguous_height(names)])
 
     coeff_labels = _read_column(
-        sheet, _C_S, _ROW_COEFF_FIRST, k_bound + 1 + _READ_MARGIN
+        sheet, _C_U, _ROW_COEFF_FIRST, k_bound + 1 + _READ_MARGIN
     )
 
     level_cells = {
@@ -139,18 +144,21 @@ def read_observed_spec_values(
     }
 
     resid_labels = _read_column(
-        sheet, _C_AF, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
+        sheet, _C_AH, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
     )
 
     return RegressionSpecObserved(
         constructed_names=constructed_names,
         coeff_label_height=_contiguous_height(coeff_labels),
-        response_readout=sheet.range((_ROW_RESPONSE_READOUT, _C_X)).value,
-        observations_cell=sheet.range((_ROW_OBSERVATIONS, _C_T)).value,
+        response_readout=sheet.range((_ROW_RESPONSE_READOUT, _C_Z)).value,
+        observations_cell=sheet.range((_ROW_OBSERVATIONS, _C_V)).value,
         level_cells=level_cells,
         reference_cells=reference_cells,
         resid_labels_height=_contiguous_height(resid_labels),
         first_resid_label=resid_labels[0] if resid_labels else None,
+        sequence_status=sheet.range(
+            (_SEQUENCE_STATUS_ROW, _C_SEQUENCE)
+        ).value,
     )
 
 
@@ -169,15 +177,15 @@ def compare_spec_observed_to_expected(
                 f"expected={expected_value!r}, excel_calc={actual_value!r}"
             )
 
-    # The constructor twin, displayed: the K3 spill IS
+    # The constructor twin, displayed: the M3 spill IS
     # Constructed_Column_Names(), so content equality pins both the width
     # (k) and the level-qualified names in one assertion.
     check(
-        "constructed names (K spill)",
+        "constructed names (M spill)",
         expected.constructed_column_names,
         observed.constructed_names,
     )
-    # Twin tripwire against the engine side: the S21 coefficient-label spill
+    # Twin tripwire against the engine side: the U21 coefficient-label spill
     # is VSTACK("Intercept", names...) under the shipped intercept-ON
     # default, so its height must be exactly k+1.
     check(
@@ -215,6 +223,14 @@ def compare_spec_observed_to_expected(
         "first residual label",
         expected.first_filtered_label,
         observed.first_resid_label,
+    )
+
+    # The Sequence status line (H2): both QC spec states carry zero flags,
+    # so the zero-or-one validation must render blank, not an error.
+    check(
+        "sequence status line blank",
+        "",
+        "" if _is_blank(observed.sequence_status) else observed.sequence_status,
     )
 
     return failures

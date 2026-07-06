@@ -227,6 +227,95 @@ def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:
     assert "retrying in a fresh Excel instance" in capsys.readouterr().err
 
 
+class _RecordingBook:
+    def __init__(self) -> None:
+        self.sheets = _FakeSheetCollection()
+        self.saved_paths: list[str] = []
+        self.closed = False
+
+    def save(self, path: str) -> None:
+        self.saved_paths.append(path)
+
+    def close(self) -> None:
+        self.closed = True
+
+
+class _RecordingBooks:
+    def __init__(self, book: _RecordingBook) -> None:
+        self.book = book
+
+    def add(self) -> _RecordingBook:
+        return self.book
+
+    def open(self, path: str) -> _RecordingBook:
+        raise AssertionError("new workbook path should not be opened")
+
+
+class _RecordingApp:
+    def __init__(self) -> None:
+        self.events: list[tuple[str, object]] = []
+        self.api = _FakeApi(self.events)
+        self.book = _RecordingBook()
+        self.books = _RecordingBooks(self.book)
+        self.quit_called = False
+
+    def quit(self) -> None:
+        self.quit_called = True
+
+
+def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> None:
+    app = _RecordingApp()
+    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+    monkeypatch.setattr(
+        build_production,
+        "load_catalog_document",
+        lambda _: SimpleNamespace(
+            functions=(),
+            workbook_functions=(),
+            regression_sheet_notes={},
+            functions_for_sheet=lambda _sheet: (),
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "load_life_expectancy_rows",
+        lambda _: ([], []),
+    )
+
+    writer_calls: list[str] = []
+    for writer_name in [
+        "write_catalog_sheet",
+        "write_life_expectancy_sheet",
+        "write_univariate_sheet",
+        "write_regression_instructions_sheet",
+        "write_diagnostic_guide_sheet",
+        "write_version_history_sheet",
+        "write_regression_output_sheet",
+    ]:
+        monkeypatch.setattr(
+            build_production,
+            writer_name,
+            lambda *_, _name=writer_name, **__: writer_calls.append(_name),
+        )
+    monkeypatch.setattr(
+        build_production,
+        "sync_workbook_names",
+        lambda *_, **__: NameSyncResult(created=0, updated=0),
+    )
+
+    build_production.build_production_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=False,
+        skip_univariate=True,
+    )
+
+    assert "write_univariate_sheet" not in writer_calls
+    assert "write_regression_output_sheet" in writer_calls
+    assert app.book.saved_paths == [str(tmp_path / "Example.xlsx")]
+
+
 def test_main_skips_data_table_recalculation_when_requested(
     monkeypatch,
     capsys,
@@ -243,6 +332,7 @@ def test_main_skips_data_table_recalculation_when_requested(
             csv=Path("life_expectancy.csv"),
             validate_reopen=False,
             verbose=True,
+            skip_univariate=False,
             skip_data_table_calculations=True,
         ),
     )

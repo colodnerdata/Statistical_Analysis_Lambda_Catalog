@@ -110,6 +110,7 @@ def build_production_workbook(
     validate_reopen: bool = False,
     verbose: bool = False,
     recalculate: bool = True,
+    skip_univariate: bool = False,
 ) -> NameSyncResult:
     """Build the production sheets and sync the LAMBDA name manager.
 
@@ -129,6 +130,10 @@ def build_production_workbook(
         If True (default), recalculates and saves as the final build step.
         Pass False when the caller manages the recalculate step separately
         (e.g. to allow a targeted retry without re-running the full build).
+    skip_univariate : bool, optional
+        If True, skips writing the Univariate Analysis sheet. An existing
+        Univariate Analysis sheet is left untouched; on a from-scratch build
+        the sheet is simply absent.
 
     Returns
     -------
@@ -184,7 +189,8 @@ def build_production_workbook(
                 workbook.sheets["Sheet1"].name = "LAMBDA_functions"
             write_catalog_sheet(workbook, document.functions)
             write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
-            write_univariate_sheet(workbook)
+            if not skip_univariate:
+                write_univariate_sheet(workbook)
             write_regression_instructions_sheet(workbook)
             write_diagnostic_guide_sheet(workbook)
             write_version_history_sheet(workbook)
@@ -233,7 +239,7 @@ def parse_args() -> argparse.Namespace:
     -------
     argparse.Namespace
         Parsed arguments with workbook, definitions, csv, validate_reopen,
-        and verbose attributes.
+        verbose, skip_univariate, and skip_data_table_calculations attributes.
     """
     parser = argparse.ArgumentParser(
         description="Build Lambda_Library.xlsx from lambda_functions.json."
@@ -265,6 +271,15 @@ def parse_args() -> argparse.Namespace:
         "--verbose",
         action="store_true",
         help="Print timing information for each build phase.",
+    )
+    parser.add_argument(
+        "--skip-univariate",
+        action="store_true",
+        help=(
+            "Skip writing the Univariate Analysis sheet to speed up iteration "
+            "on other sheets (e.g. Regression). An existing Univariate "
+            "Analysis sheet is left as-is; a from-scratch build omits it."
+        ),
     )
     parser.add_argument(
         "--skip-data-table-calculations",
@@ -331,6 +346,7 @@ def main() -> None:
             validate_reopen=False,  # handled below after recalculate
             verbose=args.verbose,
             recalculate=False,      # handled separately so only this step retries
+            skip_univariate=args.skip_univariate,
         )
 
     _retry_on_open(f"{args.workbook.name} is open in Excel", _run_build)
@@ -358,7 +374,10 @@ def main() -> None:
     print(f"Workbook: {workbook_path}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
-    print("Sheet updated: Univariate Analysis")
+    if args.skip_univariate:
+        print("Sheet skipped: Univariate Analysis")
+    else:
+        print("Sheet updated: Univariate Analysis")
     print("Sheet updated: Regression Instructions")
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")

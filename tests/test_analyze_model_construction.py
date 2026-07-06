@@ -194,6 +194,9 @@ def _observed_matching(expected) -> ModelConstructionObserved:
         audit_response=expected.response_name,
         audit_responses=float(expected.responses_count),
         audit_included=float(expected.included_rows),
+        # The shipped spec pre-fills the Sequence column blank, so the
+        # zero-or-one audit count always reads 0 in the QC states.
+        audit_sequence_flags=0.0,
         header_strip=expected.constructed_column_names,
         level_cells={
             name: float(count) for name, count in expected.level_counts.items()

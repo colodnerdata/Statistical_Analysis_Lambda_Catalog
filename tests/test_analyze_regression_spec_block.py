@@ -27,7 +27,11 @@ from lambda_catalog.analyze_model_construction import (
     load_source_rows,
 )
 from lambda_catalog.workbook_helpers import col_letter
-from lambda_catalog.write_sheet_regression import _C_AF, _C_K, _C_S, _C_T, _C_X
+from lambda_catalog.write_sheet_model_construction import (
+    _C_SEQUENCE,
+    _INTERCEPT_ROW,
+)
+from lambda_catalog.write_sheet_regression import _C_AH, _C_M, _C_U, _C_V, _C_Z
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
@@ -44,16 +48,18 @@ def _t0_expected():
 # ---------------------------------------------------------------------------
 
 def test_reads_anchor_to_the_documented_regression_cells() -> None:
-    # K3 = TRANSPOSE(Constructed_Column_Names()) spill
-    assert (col_letter(_C_K), _ROW_NAMES_SPILL) == ("K", 3)
-    # S21 = coefficient label spill (k+1 rows with the default intercept ON)
-    assert (col_letter(_C_S), _ROW_COEFF_FIRST) == ("S", 21)
-    # T8 = Observations cell
-    assert (col_letter(_C_T), _ROW_OBSERVATIONS) == ("T", 8)
-    # X2 = Predicted Variable readout
-    assert (col_letter(_C_X), _ROW_RESPONSE_READOUT) == ("X", 2)
-    # AF3 = FILTER(Row_Labels(), Sample_Include()) spill
-    assert (col_letter(_C_AF), _ROW_RESID_FIRST) == ("AF", 3)
+    # M3 = TRANSPOSE(Constructed_Column_Names()) spill
+    assert (col_letter(_C_M), _ROW_NAMES_SPILL) == ("M", 3)
+    # U21 = coefficient label spill (k+1 rows with the default intercept ON)
+    assert (col_letter(_C_U), _ROW_COEFF_FIRST) == ("U", 21)
+    # V8 = Observations cell
+    assert (col_letter(_C_V), _ROW_OBSERVATIONS) == ("V", 8)
+    # Z2 = Predicted Variable readout
+    assert (col_letter(_C_Z), _ROW_RESPONSE_READOUT) == ("Z", 2)
+    # AH3 = FILTER(Row_Labels(), Sample_Include()) spill
+    assert (col_letter(_C_AH), _ROW_RESID_FIRST) == ("AH", 3)
+    # H2 = Sequence status line (shared spec-block coordinates)
+    assert (col_letter(_C_SEQUENCE), _INTERCEPT_ROW) == ("H", 2)
 
 
 def test_expectations_delegate_to_the_shared_calculator() -> None:
@@ -89,6 +95,10 @@ def _observed_matching(expected) -> RegressionSpecObserved:
         },
         resid_labels_height=expected.included_rows,
         first_resid_label=expected.first_filtered_label,
+        # A legal spec (zero-or-one flags) renders the status line blank;
+        # COM reads an Excel "" back as None, which the comparison
+        # blank-normalizes.
+        sequence_status=None,
     )
 
 

@@ -13,20 +13,20 @@ from lambda_catalog.sheet_styles import (
 from lambda_catalog.workbook_helpers import add_expression_format, excel_color
 from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
 from lambda_catalog.write_sheet_regression import (
-    _C_S,
-    _C_T,
     _C_U,
+    _C_V,
     _C_W,
-    _C_X,
+    _C_Y,
     _C_Z,
-    _C_AC,
-    _C_AD,
+    _C_AB,
+    _C_AE,
     _C_AF,
-    _C_AG,
+    _C_AH,
     _C_AI,
-    _C_AJ,
     _C_AK,
-    _C_AQ,
+    _C_AL,
+    _C_AM,
+    _C_AS,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
     _setup_local_names as _setup_regression_names,
@@ -107,7 +107,7 @@ def test_regression_names_register_spec_wiring_and_constructors() -> None:
     assert sheet.api.Names.by_short_name("Allow_Intercept").RefersTo == (
         "='Regression'!$C$2"
     )
-    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$T$12"
+    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$V$12"
 
 
 def test_regression_chart_names_size_to_the_observation_cell() -> None:
@@ -117,11 +117,11 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
 
     fit_y = sheet.api.Names.by_short_name("RegChartFitY").RefersTo
     assert fit_y == (
-        "=OFFSET('Regression'!$AH$2,1,0,"
-        "MAX(IFERROR('Regression'!$T$8,1),1),1)"
+        "=OFFSET('Regression'!$AJ$2,1,0,"
+        "MAX(IFERROR('Regression'!$V$8,1),1),1)"
     )
     press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
-    assert "$AQ$2" in press
+    assert "$AS$2" in press
     assert {
         name: sheet.api.Names.by_short_name(name).Comment
         for name in (
@@ -170,13 +170,13 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
 
     _write_prediction_interval(_as_xw_sheet(sheet))
 
-    formula = sheet.cell(3, 29).api.Formula2
+    formula = sheet.cell(3, 31).api.Formula2
     assert formula is not None
     assert formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert "IFERROR" not in formula
     # Inputs correspond 1:1 to constructed columns — TAKE exactly k rows,
     # no Include-filter needed.
-    assert "LET(pred_input,VSTACK($AC$12,TAKE($AC$13:$AC$62,COLUMNS(X_s())))" in formula
+    assert "LET(pred_input,VSTACK($AE$12,TAKE($AE$13:$AE$62,COLUMNS(X_s())))" in formula
     assert "Prediction_Interval(X_s(),Response_Column(),pred_input" in formula
     assert "Intercept_Only_Point()" in formula
 
@@ -187,10 +187,10 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     _write_prediction_inputs(_as_xw_sheet(sheet))
 
     # The Training Mean spill is the ONE X_s() evaluation for the whole
-    # prefill band; it owns column AD downward so it can never collide with
+    # prefill band; it owns column AF downward so it can never collide with
     # another spill when the source data or spec changes.
-    assert sheet.cell(11, _C_AD).value == "Training Mean"
-    means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AD)
+    assert sheet.cell(11, _C_AF).value == "Training Mean"
+    means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AF)
     assert means == (
         "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
         'LAMBDA(c,AVERAGE(c)))),"")'
@@ -200,10 +200,10 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # call, so no prefill cell may invoke it — 50 cells × 2 calls made the
     # workbook's first full calculation take ~20 minutes.
     for row in (_PRED_INPUT_FIRST_ROW, _PRED_INPUT_LAST_ROW):
-        prefill = _formula(sheet, row, _C_AC)
+        prefill = _formula(sheet, row, _C_AE)
         assert "X_s()" not in prefill
-        assert f"INDEX($AD${_PRED_INPUT_FIRST_ROW}#" in prefill
-        assert f"IFERROR(ROWS($AD${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
+        assert f"INDEX($AF${_PRED_INPUT_FIRST_ROW}#" in prefill
+        assert f"IFERROR(ROWS($AF${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
 
 
 def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
@@ -211,20 +211,20 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     _write_coefficients(_as_xw_sheet(sheet))
 
-    label_formula = _formula(sheet, 21, _C_S)
+    label_formula = _formula(sheet, 21, _C_U)
     assert label_formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert 'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA())' in label_formula
     # Level-qualified names come from the constructor twin (a row vector).
     assert 'VSTACK("Intercept",TRANSPOSE(Constructed_Column_Names()))' in label_formula
 
-    coefficient_formula = _formula(sheet, 21, _C_T)
+    coefficient_formula = _formula(sheet, 21, _C_V)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
     assert "Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include())" in coefficient_formula
 
-    se_formula = _formula(sheet, 21, _C_U)
+    se_formula = _formula(sheet, 21, _C_W)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
 
-    beta_formula = _formula(sheet, 21, _C_Z)
+    beta_formula = _formula(sheet, 21, _C_AB)
     assert 'IF(Allow_Intercept,"",NA())' in beta_formula
 
 
@@ -233,16 +233,16 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
 
     _write_regression_outputs_header(_as_xw_sheet(sheet))
 
-    assert sheet.cell(2, _C_W).value == "Predicted Variable"
-    assert sheet.cell(2, _C_W).api.Font.Bold is True
-    assert sheet.cell(2, _C_W).color == HEADER_COLOR
+    assert sheet.cell(2, _C_Y).value == "Predicted Variable"
+    assert sheet.cell(2, _C_Y).api.Font.Bold is True
+    assert sheet.cell(2, _C_Y).color == HEADER_COLOR
     # Derived response name — the header of the Role=Response spec row.
-    readout = sheet.cell(2, _C_X).api.Formula2
+    readout = sheet.cell(2, _C_Z).api.Formula2
     assert readout is not None
     assert readout.startswith("=IFERROR(INDEX(TOROW(Header_Names),")
     assert 'XMATCH("Response (y)"' in readout
-    assert sheet.cell(2, _C_X).api.Font.Bold is True
-    assert sheet.cell(2, _C_X).color == HEADER_COLOR
+    assert sheet.cell(2, _C_Z).api.Font.Bold is True
+    assert sheet.cell(2, _C_Z).color == HEADER_COLOR
 
 
 def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
@@ -252,25 +252,25 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
 
     # Static header; Row_Labels() supplies its own per-row content and
     # no-Identifier fallback, so only an all-FALSE mask is absorbed here.
-    assert sheet.cell(2, _C_AF).value == "Observation"
-    assert sheet.cell(3, _C_AF).api.Formula2 == (
+    assert sheet.cell(2, _C_AH).value == "Observation"
+    assert sheet.cell(3, _C_AH).api.Formula2 == (
         "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
-    assert sheet.cell(2, _C_AG).value == "Y"
-    assert sheet.cell(3, _C_AG).api.Formula2 == (
+    assert sheet.cell(2, _C_AI).value == "Y"
+    assert sheet.cell(3, _C_AI).api.Formula2 == (
         "=Dependent_Variable(Response_Column(),Sample_Include())"
     )
-    assert sheet.cell(3, _C_AI).api.Formula2 == (
+    assert sheet.cell(3, _C_AK).api.Formula2 == (
         "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AK).api.Formula2 == (
+    assert sheet.cell(3, _C_AM).api.Formula2 == (
         "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AJ).api.Formula2 == (
+    assert sheet.cell(3, _C_AL).api.Formula2 == (
         "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AQ).api.Formula2 == (
+    assert sheet.cell(3, _C_AS).api.Formula2 == (
         "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
 

@@ -34,8 +34,12 @@ Sheet layout
   Col BE–BY      — Stage 1 controls and 20×20 Data Table
   Col BZ         — thin gap between grid-search stages
   Col CA–CU      — Stage 2 controls and 20×20 Data Table
+  Col CV         — thin gap (width 2)
+  Col CW–DF      — Q-Q plot data (P, sorted Sample, 8 theoretical-quantile columns)
 
-  Charts anchored at G14, G34, G54 — spanning G:S under the fitting table
+  Charts anchored in the G:S band under the fitting table:
+    G14, G34, G54          — histogram combo charts (count bars + 8 fitted overlay lines)
+    G74, G94, …, G214      — eight per-distribution Q-Q plots
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -43,6 +47,9 @@ Sheet-scoped named ranges
   UV_Include     — local filter mask spill ($B$4#)
   UV_n           — IFERROR(COUNT(FILTER(UV_Data,UV_Include)), 0)
   UV_Sturges_*, UV_Scott_*, UV_FD_* — OFFSET-based histogram column ranges
+  UV_*_<Dist>_Expected — histogram CDF-delta column × Count stat cell (expected
+                   counts); feeds the fitted-distribution overlay line series
+  UV_QQ_Sample, UV_QQ_<Dist> — OFFSET-based Q-Q chart column ranges
   UV_WB_S1/S2   — Stage 1/2 Weibull Data Table bodies
   UV_GAMMA_S1/S2 — Stage 1/2 Gamma Data Table bodies
   UV_BETA_S1/S2  — Stage 1/2 Beta Data Table bodies
@@ -54,7 +61,7 @@ import xlwings as xw
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
     a1, border_box, col_letter, drop_local_name,
-    f, rc, section_heading, val,
+    excel_color, f, rc, section_heading, val,
 )
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
@@ -157,6 +164,26 @@ _GS_C_MAX    = 6   # parameter range maximum
 _GS_C_STEP   = 7   # endpoint-inclusive parameter step size
 _GS_C_BEST   = 8   # Grid_Search_Optimum spill anchor / result column
 
+# Zone 6: Q-Q plot data (CV = 100 is a gap col; CW–DF = 101-110)
+_C_QQ = _C_GS_S2 + _GS_W + 1   # 101 (CW)
+_QQ_W = 10   # P, Sample, 8 theoretical-quantile columns
+
+# Within the Q-Q block: (offset, header, name suffix, distribution)
+_QQ_P      = 0   # Hazen plotting positions (i - 0.5)/n
+_QQ_SAMPLE = 1   # sorted included sample values (Y axis of every Q-Q chart)
+_QQ_COLUMNS = [
+    (_QQ_P,      "P", "P", ""),
+    (_QQ_SAMPLE, "Sample", "Sample", ""),
+    (2,  "Normal", "Normal", "Normal"),
+    (3,  "Lognormal", "Lognormal", "Lognormal"),
+    (4,  "Exponential", "Exponential", "Exponential"),
+    (5,  "Weibull", "Weibull", "Weibull"),
+    (6,  "Gamma", "Gamma", "Gamma"),
+    (7,  "Triangular", "Triangular", "Triangular"),
+    (8,  "Beta", "Beta", "Beta"),
+    (9,  "BetaPERT", "BetaPERT", "BetaPERT"),
+]
+
 # ── Row anchors ───────────────────────────────────────────────────────────────
 _ROW_TITLE        = 1   # "Univariate Analysis" + zone-level "Histograms" label
 _ROW_METHOD_HDR   = 2   # method labels and values for Sturges, Scott, and FD
@@ -172,14 +199,24 @@ _DATA_ROWS = 2000
 _DATA_END  = _ROW_DATA_START + _DATA_ROWS - 1   # last data row = 2003
 
 # ── Chart constants ───────────────────────────────────────────────────────────
-_XL_COLUMN_CLUSTERED = 51   # xlColumnClustered
+_XL_COLUMN_CLUSTERED = 51      # xlColumnClustered
+_XL_LINE             = 4       # xlLine — overlay series in the histogram combo charts
+_XL_XY_SCATTER       = -4169   # xlXYScatter — Q-Q plots
+_XL_XY_SCATTER_LINES_NO_MARKERS = 75   # identity reference series on Q-Q plots
 _XL_CATEGORY         = 1    # horizontal axis type
 _XL_VALUE            = 2    # vertical axis type
+_XL_LEGEND_BOTTOM    = -4107   # xlLegendPositionBottom
+_XL_MARKER_NONE      = -4142   # xlMarkerStyleNone
 
 # Chart title cells — row where chart title formula and chart block begin
 _ROW_CHART1_TITLE = 14   # G14 — Sturges histogram chart title
 _ROW_CHART2_TITLE = 34   # G34 — Scott histogram chart title
 _ROW_CHART3_TITLE = 54   # G54 — FD histogram chart title
+
+# Q-Q plot charts stack below the FD histogram chart in the same G:S band,
+# one 20-row block per distribution (G74, G94, …, G214).
+_ROW_QQ_CHART_START = _ROW_CHART3_TITLE + 20   # 74
+_QQ_CHART_ROWS      = 20
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
@@ -246,16 +283,22 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
     # Gap col BZ between Stage 1 and Stage 2.
     sheet.range(rc(1, _C_GS + _GS_W), rc(1, _C_GS + _GS_W)).column_width = 2
 
+    # Q-Q plot data block (gap col CV before it).
+    sheet.range(rc(1, _C_QQ - 1), rc(1, _C_QQ - 1)).column_width = 2
+    for offset in range(_QQ_W):
+        sheet.range(rc(1, _C_QQ + offset), rc(1, _C_QQ + offset)).column_width = 12
+
 
 def _autofit_column_widths(sheet: xw.Sheet) -> None:
     """Autofit all populated layout columns, then restore intentional gaps."""
-    last_col = _C_GS_S2 + _GS_W - 1
+    last_col = _C_QQ + _QQ_W - 1
     sheet.range(rc(_ROW_TITLE, _C_A), rc(_DATA_END, last_col)).columns.autofit()
 
     gap_cols = [3, 6, 20]  # C, F, T
     for block_start in (_C_STUR, _C_SCOTT, _C_FD):
         gap_cols.append(block_start + _HIST_W)  # AF, AR, BD
     gap_cols.append(_C_GS + _GS_W)  # BZ
+    gap_cols.append(_C_QQ - 1)      # CV
     for col in gap_cols:
         sheet.range(rc(1, col), rc(1, col)).column_width = 2
 
@@ -279,6 +322,14 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     local_names = ["UV_Data", "UV_Include", "UV_n"]
     for prefix, _ in _HIST_BLOCKS:
         local_names.extend(f"{prefix}_{suffix}" for _, _, suffix, _ in _HIST_COLUMNS)
+        local_names.extend(
+            f"{prefix}_{distribution}_Expected"
+            for _, _, _, distribution in _HIST_COLUMNS
+            if distribution
+        )
+    local_names.extend(
+        f"UV_QQ_{suffix}" for _, _, suffix, _ in _QQ_COLUMNS if suffix != "P"
+    )
 
     for name in local_names:
         _drop_wb_name(sheet, name)
@@ -326,7 +377,7 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
                 "bar values (bin counts)"
             ),
         }
-        for offset, _, suffix, _ in _HIST_COLUMNS:
+        for offset, _, suffix, distribution in _HIST_COLUMNS:
             name = f"{prefix}_{suffix}"
             col_ltr = col_letter(block_start + offset)
             _drop_wb_name(sheet, name)
@@ -340,6 +391,49 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
             )
             if suffix in chart_comments:
                 nm.Comment = chart_comments[suffix]
+
+            if not distribution:
+                continue
+
+            # Expected-count named formula: the CDF-delta column (per-bin
+            # probability mass) scaled by the Count stat cell.  This puts the
+            # fitted-distribution overlay line series on the same count axis
+            # as the histogram bars.
+            expected_name = f"{prefix}_{distribution}_Expected"
+            drop_local_name(sheet, expected_name)
+            count_ref = f"'{sname}'!${col_letter(_C_E)}${_ROW_STAT_COUNT}"
+            nm = sheet.api.Names.Add(
+                Name=expected_name,
+                RefersTo=(
+                    f"=OFFSET('{sname}'!${col_ltr}${_ROW_COL_HDRS},"
+                    f"1,0,MAX(IFERROR({size_formula},1),1),1)*{count_ref}"
+                ),
+            )
+            nm.Comment = (
+                f"{method_labels[prefix]} Method histogram chart: {distribution} "
+                "overlay line (expected counts = bin probability × n)"
+            )
+
+    # Q-Q chart column ranges: OFFSET-based, anchored at the header row and
+    # sized by the Count stat cell (one point per included observation).
+    qq_size = f"MAX(IFERROR('{sname}'!${col_letter(_C_E)}${_ROW_STAT_COUNT},1),1)"
+    for offset, _, suffix, distribution in _QQ_COLUMNS:
+        if suffix == "P":
+            continue   # plotting positions are an intermediate, never charted
+        name = f"UV_QQ_{suffix}"
+        col_ltr = col_letter(_C_QQ + offset)
+        drop_local_name(sheet, name)
+        nm = sheet.api.Names.Add(
+            Name=name,
+            RefersTo=(
+                f"=OFFSET('{sname}'!${col_ltr}${_ROW_COL_HDRS},1,0,{qq_size},1)"
+            ),
+        )
+        nm.Comment = (
+            f"{distribution} Q-Q plot: theoretical quantiles (X axis)"
+            if distribution
+            else "Q-Q plots: sorted sample values (Y axis, shared by all eight charts)"
+        )
 
 
 def _dist_fit_rows_by_name() -> dict[str, int]:
@@ -466,9 +560,11 @@ _STAT_ROWS: list[tuple[str, str]] = [
     ("Missing",   "=Missing_Count(UV_Data)"),
 ]
 
-# Row positions of stat cells referenced by CDF formulas (avoid repeating FILTER calls)
+# Row positions of stat cells referenced by CDF/quantile formulas and chart
+# named ranges (avoid repeating FILTER calls)
 _ROW_STAT_MIN   = _ROW_STATS_START + next(i for i, (n, _) in enumerate(_STAT_ROWS) if n == "Min")
 _ROW_STAT_RANGE = _ROW_STATS_START + next(i for i, (n, _) in enumerate(_STAT_ROWS) if n == "Range")
+_ROW_STAT_COUNT = _ROW_STATS_START + next(i for i, (n, _) in enumerate(_STAT_ROWS) if n == "Count")
 
 def _write_descriptive_stats(sheet: xw.Sheet) -> None:
     section_heading(sheet, _ROW_SECTION_HDR, _C_D, "Descriptive Statistics")
@@ -564,6 +660,107 @@ def _write_histograms(sheet: xw.Sheet) -> None:
     _write_histogram_table(sheet, _C_STUR, "Sturges")
     _write_histogram_table(sheet, _C_SCOTT, "Scott")
     _write_histogram_table(sheet, _C_FD, "FD")
+
+
+# ── Zone 6: Q-Q plot data ─────────────────────────────────────────────────────
+
+def _qq_column_formula(p_spill_ref: str, distribution: str) -> str:
+    """Build a single-column spill formula of theoretical quantiles.
+
+    Evaluates the fitted distribution's inverse CDF at the plotting positions
+    in p_spill_ref, referencing the same fit-table parameter cells the CDF
+    columns use.  Native inverse functions (NORM.INV, LOGNORM.INV, GAMMA.INV,
+    BETA.INV) where Excel has them; closed-form inverses for Exponential,
+    Weibull, and Triangular.
+
+    Beta inverts the same 0.1 %-padded data-range rescaling CDF_Beta applies,
+    reading the Min ($E$9) and Range ($E$11) stat cells; BetaPERT applies the
+    same PERT reparameterization as its A-D/K-S formulas before BETA.INV.
+    """
+    t1 = col_letter(_C_T1_VAL)  # I — θ₁ value
+    t2 = col_letter(_C_T2_VAL)  # K — θ₂ value
+    t3 = col_letter(_C_T3_VAL)  # M — θ₃ value
+
+    fit_rows = _dist_fit_rows_by_name()
+    r = fit_rows[distribution]
+
+    stat_col = col_letter(_C_E)
+    min_ref   = f"${stat_col}${_ROW_STAT_MIN}"    # e.g. $E$9
+    range_ref = f"${stat_col}${_ROW_STAT_RANGE}"  # e.g. $E$11
+
+    # (extra LET variables, quantile expression) per distribution
+    expressions = {
+        "Normal": ("", f"NORM.INV(p_,${t1}${r},${t2}${r})"),
+        "Lognormal": ("", f"LOGNORM.INV(p_,${t1}${r},${t2}${r})"),
+        "Exponential": ("", f"-LN(1-p_)/${t1}${r}"),
+        "Weibull": ("", f"${t2}${r}*(-LN(1-p_))^(1/${t1}${r})"),
+        "Gamma": ("", f"GAMMA.INV(p_,${t1}${r},1/${t2}${r})"),
+        "Triangular": (
+            f"mn,${t1}${r},md,${t2}${r},mx,${t3}${r},",
+            "IF(p_<(md-mn)/(mx-mn),"
+            "mn+SQRT(p_*(mx-mn)*(md-mn)),"
+            "mx-SQRT((1-p_)*(mx-mn)*(mx-md)))",
+        ),
+        "Beta": (
+            f"mn,{min_ref},range_,{range_ref},pad,range_*0.001,scale_,range_+2*pad,",
+            f"BETA.INV(p_,${t1}${r},${t2}${r})*scale_+mn-pad",
+        ),
+        # λ=4 PERT mapping — algebraically identical to the μ-based
+        # reparameterization but with no removable 0/0 singularity at a
+        # symmetric mode (md = (mn+mx)/2), where the μ form degenerates to
+        # α = β = 0 and BETA.INV returns #NUM!.
+        "BetaPERT": (
+            f"mn,${t1}${r},md,${t2}${r},mx,${t3}${r},"
+            "alpha_param,1+4*(md-mn)/(mx-mn+1E-30),"
+            "beta_param,1+4*(mx-md)/(mx-mn+1E-30),",
+            "BETA.INV(p_,alpha_param,beta_param)*(mx-mn)+mn",
+        ),
+    }
+
+    extra_vars, expr = expressions[distribution]
+    return f"=LET(p_,{p_spill_ref},{extra_vars}{expr})"
+
+
+def _write_qq_data(sheet: xw.Sheet) -> None:
+    """Write plotting positions, sorted sample, and 8 theoretical-quantile columns."""
+    col_p = _C_QQ + _QQ_P
+    col_sample = _C_QQ + _QQ_SAMPLE
+    col_last = _C_QQ + _QQ_W - 1
+
+    section_heading(sheet, _ROW_TITLE, _C_QQ, "Q-Q Plot Data")
+    sheet.range(rc(_ROW_TITLE, _C_QQ), rc(_ROW_TITLE, col_last)).merge()
+
+    for offset, header, _, _ in _QQ_COLUMNS:
+        val(sheet, _ROW_COL_HDRS, _C_QQ + offset, header)
+    _subheader_row(sheet, _ROW_COL_HDRS, _C_QQ, col_last)
+
+    # Hazen plotting positions (i - 0.5)/n — the convention QQ_Correlation and
+    # Normal_Scores already use in the regression Q-Q machinery.  Guarded for
+    # the empty-data case: SEQUENCE(0) would spill #CALC! and cascade into
+    # every quantile column; NA() instead makes the charts skip the points.
+    f(sheet, _ROW_HIST_START, col_p,
+      "=LET(n_,UV_n,IF(n_<=0,NA(),(SEQUENCE(n_)-0.5)/n_))")
+    p_spill_ref = f"${col_letter(col_p)}${_ROW_HIST_START}#"
+
+    f(sheet, _ROW_HIST_START, col_sample, "=SORT(FILTER(UV_Data,UV_Include))")
+
+    for offset, _, _, distribution in _QQ_COLUMNS:
+        if not distribution:
+            continue
+        f(
+            sheet,
+            _ROW_HIST_START,
+            _C_QQ + offset,
+            _qq_column_formula(p_spill_ref, distribution),
+        )
+
+    # Spills run one row past _DATA_END when every data row is included
+    # (2000 values from row 5), so format through _DATA_END + 1.
+    last_spill_row = _DATA_END + 1
+    sheet.range(rc(_ROW_HIST_START, col_p), rc(last_spill_row, col_p)).number_format = _FMT_4DP
+    sheet.range(
+        rc(_ROW_HIST_START, col_sample), rc(last_spill_row, col_last)
+    ).number_format = _FMT_1DP
 
 
 # ── Zone 3: distribution fitting summary table ────────────────────────────────
@@ -737,11 +934,12 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "Max",  "=LET(d,FILTER(UV_Data,UV_Include),MAX(d)+(MAX(d)-MIN(d))*0.001)",
             lambda r: f"=NLL_BetaPERT(UV_Data,{_r(r)},{_t(r)},{_v(r)},UV_Include)",
             3,
+            # λ=4 PERT mapping (same as NLL_BetaPERT) — the μ-based form is
+            # 0/0 at a symmetric mode and degenerates to α = β = 0.
             lambda r: (
                 f"LET(mn,{_r(r)},md,{_t(r)},mx,{_v(r)},"
-                f"mu,(mn+4*md+mx)/6,"
-                f"alpha_param,(mu-mn)*(2*md-mn-mx)/(((md-mu)*(mx-mn))+1E-30),"
-                f"beta_param,alpha_param*(mx-mu)/(mu-mn+1E-30),"
+                f"alpha_param,1+4*(md-mn)/(mx-mn+1E-30),"
+                f"beta_param,1+4*(mx-md)/(mx-mn+1E-30),"
                 f"BETA.DIST((UV_Data-mn)/(mx-mn+1E-30),alpha_param,beta_param,TRUE))"
             ),
         ),
@@ -811,10 +1009,10 @@ def _add_histogram_chart(
     chart_top: float,
     chart_width: float,
     chart_height: float,
-    edges_name: str,
-    counts_name: str,
+    prefix: str,
 ) -> None:
-    """Insert one gapless column chart from the pre-binned histogram table."""
+    """Insert one histogram combo chart: gapless count bars plus one smoothed,
+    markerless overlay line per fitted distribution (expected counts)."""
     sname = sheet.name
     co = sheet.api.ChartObjects().Add(chart_left, chart_top, chart_width, chart_height)
     chart = co.Chart
@@ -825,17 +1023,33 @@ def _add_histogram_chart(
     chart.ChartType = _XL_COLUMN_CLUSTERED
     chart.ChartGroups(1).GapWidth = 0
 
+    edges_ref = f"='{sname}'!{prefix}_Upper_Edges"
     series = chart.SeriesCollection().NewSeries()
-    series.XValues = f"='{sname}'!{edges_name}"
-    series.Values  = f"='{sname}'!{counts_name}"
+    series.XValues = edges_ref
+    series.Values  = f"='{sname}'!{prefix}_Counts"
+    series.Name    = "Count"
 
-    chart.HasLegend = False
+    # Fitted-distribution overlays sourced from the *_Expected named formulas
+    # (per-bin probability mass × n), so they share the bars' count axis.
+    for _, _, _, distribution in _HIST_COLUMNS:
+        if not distribution:
+            continue
+        line = chart.SeriesCollection().NewSeries()
+        line.ChartType = _XL_LINE
+        line.XValues = edges_ref
+        line.Values = f"='{sname}'!{prefix}_{distribution}_Expected"
+        line.Name = distribution
+        line.Smooth = True
+        line.MarkerStyle = _XL_MARKER_NONE
+
+    chart.HasLegend = True
+    chart.Legend.Position = _XL_LEGEND_BOTTOM
     chart.HasTitle = True
     title_row = {
-        "UV_Sturges_Upper_Edges": _ROW_CHART1_TITLE,
-        "UV_Scott_Upper_Edges": _ROW_CHART2_TITLE,
-        "UV_FD_Upper_Edges": _ROW_CHART3_TITLE,
-    }[edges_name]
+        "UV_Sturges": _ROW_CHART1_TITLE,
+        "UV_Scott": _ROW_CHART2_TITLE,
+        "UV_FD": _ROW_CHART3_TITLE,
+    }[prefix]
     chart.ChartTitle.Formula = f"='{sname}'!${col_letter(_C_FIT_FIRST)}${title_row}"
     x_axis = chart.Axes(_XL_CATEGORY)
     x_axis.HasTitle = True
@@ -858,11 +1072,11 @@ def _write_histogram_chart_title_cells(sheet: xw.Sheet) -> None:
 
 
 def _write_histogram_charts(sheet: xw.Sheet) -> None:
-    """Insert three gapless column charts for Sturges, Scott, and FD histogram tables."""
-    for edges_name, counts_name, row_start, row_end in [
-        ("UV_Sturges_Upper_Edges", "UV_Sturges_Counts", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
-        ("UV_Scott_Upper_Edges",   "UV_Scott_Counts",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
-        ("UV_FD_Upper_Edges",      "UV_FD_Counts",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
+    """Insert three histogram combo charts for the Sturges, Scott, and FD tables."""
+    for prefix, row_start, row_end in [
+        ("UV_Sturges", _ROW_CHART1_TITLE, _ROW_CHART1_TITLE + 19),
+        ("UV_Scott",   _ROW_CHART2_TITLE, _ROW_CHART2_TITLE + 19),
+        ("UV_FD",      _ROW_CHART3_TITLE, _ROW_CHART3_TITLE + 19),
     ]:
         chart_range = sheet.range(rc(row_start, _C_FIT_FIRST), rc(row_end, _C_FIT_LAST))
         _add_histogram_chart(
@@ -871,9 +1085,88 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
             chart_top=chart_range.top,
             chart_width=chart_range.width,
             chart_height=chart_range.height,
-            edges_name=edges_name,
-            counts_name=counts_name,
+            prefix=prefix,
         )
+
+
+def _set_equal_qq_axis_scale(sheet: xw.Sheet, x_axis, y_axis, x_name: str) -> None:
+    """Set equal min/max scales on both axes so the identity series reads as 45°.
+
+    Same pattern as the Regression sheet's Normal Q-Q chart. Guarded per chart:
+    the two-parameter quantile columns depend on Data Table grid-search output,
+    which may not evaluate during a manual-calculation build — in that case the
+    axes are left auto-scaling rather than failing the remaining charts.
+    """
+    sname = sheet.name
+    try:
+        common_min = float(
+            sheet.api.Evaluate(f"=MIN('{sname}'!{x_name},'{sname}'!UV_QQ_Sample)")
+        )
+        common_max = float(
+            sheet.api.Evaluate(f"=MAX('{sname}'!{x_name},'{sname}'!UV_QQ_Sample)")
+        )
+    except Exception:
+        return
+
+    if common_max <= common_min:
+        return
+
+    x_axis.MinimumScale = common_min
+    x_axis.MaximumScale = common_max
+    y_axis.MinimumScale = common_min
+    y_axis.MaximumScale = common_max
+
+
+def _write_qq_charts(sheet: xw.Sheet) -> None:
+    """Insert eight per-distribution Q-Q scatter charts below the histogram charts."""
+    sname = sheet.name
+    distributions = [d for _, _, _, d in _QQ_COLUMNS if d]
+    for i, distribution in enumerate(distributions):
+        row_start = _ROW_QQ_CHART_START + i * _QQ_CHART_ROWS
+        chart_range = sheet.range(
+            rc(row_start, _C_FIT_FIRST),
+            rc(row_start + _QQ_CHART_ROWS - 1, _C_FIT_LAST),
+        )
+        co = sheet.api.ChartObjects().Add(
+            chart_range.left, chart_range.top, chart_range.width, chart_range.height
+        )
+        chart = co.Chart
+
+        while chart.SeriesCollection().Count > 0:
+            chart.SeriesCollection(1).Delete()
+
+        chart.ChartType = _XL_XY_SCATTER
+
+        theoretical_ref = f"='{sname}'!UV_QQ_{distribution}"
+        series = chart.SeriesCollection().NewSeries()
+        series.XValues = theoretical_ref
+        series.Values = f"='{sname}'!UV_QQ_Sample"
+        series.Name = distribution
+        series.MarkerSize = 4
+
+        # y = x reference as a real data series (never a drawn shape): pointing
+        # both axes at the theoretical-quantile range guarantees every point
+        # sits on the identity line across the chart's X extent.
+        identity = chart.SeriesCollection().NewSeries()
+        identity.XValues = theoretical_ref
+        identity.Values = theoretical_ref
+        identity.Name = "Identity"
+        identity.ChartType = _XL_XY_SCATTER_LINES_NO_MARKERS
+        identity.Format.Line.ForeColor.RGB = excel_color((120, 120, 120))
+        identity.Format.Line.DashStyle = 3  # msoLineRoundDot
+        identity.Format.Line.Weight = 1.25
+
+        chart.HasLegend = False
+        chart.HasTitle = True
+        chart.ChartTitle.Text = f"{distribution} Q-Q Plot"
+        x_axis = chart.Axes(_XL_CATEGORY)
+        x_axis.HasTitle = True
+        x_axis.AxisTitle.Text = "Theoretical Quantiles"
+        y_axis = chart.Axes(_XL_VALUE)
+        y_axis.HasTitle = True
+        y_axis.AxisTitle.Text = "Sample Quantiles"
+
+        _set_equal_qq_axis_scale(sheet, x_axis, y_axis, f"UV_QQ_{distribution}")
 
 
 
@@ -1323,6 +1616,7 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _write_descriptive_stats(sheet)
     _write_histograms(sheet)
     _write_fitting_table(sheet)
+    _write_qq_data(sheet)
 
     _write_weibull_grid_search(sheet)
     _autofit_column_widths(sheet)
@@ -1330,6 +1624,10 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
     _write_histogram_chart_title_cells(sheet)
     try:
         _write_histogram_charts(sheet)
+    except Exception:
+        pass
+    try:
+        _write_qq_charts(sheet)
     except Exception:
         pass
 

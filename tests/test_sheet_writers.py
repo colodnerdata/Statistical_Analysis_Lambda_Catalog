@@ -48,6 +48,7 @@ from lambda_catalog.write_sheet_univariate import (
     _write_fitting_table,
     _write_grid_stage,
     _write_histogram_table,
+    _write_qq_data,
     _write_weibull_grid_search,
 )
 from tests.recording_sheet import RecordingSheet
@@ -383,6 +384,92 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
         "MAX(IFERROR(Number_Of_Histogram_Bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
     )
     assert getattr(names.by_short_name("UV_Sturges_Normal_CDF"), "Comment", None) is None
+
+
+def test_local_name_setup_creates_expected_count_overlay_names() -> None:
+    sheet = RecordingSheet()
+
+    _setup_local_names(_as_xw_sheet(sheet))
+
+    names = sheet.api.Names
+    expected = names.by_short_name("UV_Sturges_Normal_Expected")
+    assert expected.RefersTo == (
+        "=OFFSET('Univariate'!$X$4,1,0,"
+        "MAX(IFERROR(Number_Of_Histogram_Bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
+        "*'Univariate'!$E$14"
+    )
+    assert expected.Comment == (
+        "Sturges Method histogram chart: Normal overlay line "
+        "(expected counts = bin probability × n)"
+    )
+    for prefix in ("UV_Sturges", "UV_Scott", "UV_FD"):
+        for _, _, _, distribution in _HIST_COLUMNS:
+            if not distribution:
+                continue
+            refers_to = names.by_short_name(f"{prefix}_{distribution}_Expected").RefersTo
+            assert refers_to.startswith("=OFFSET('Univariate'!$")
+            assert refers_to.endswith("*'Univariate'!$E$14")
+
+
+def test_local_name_setup_creates_qq_chart_ranges() -> None:
+    sheet = RecordingSheet()
+
+    _setup_local_names(_as_xw_sheet(sheet))
+
+    names = sheet.api.Names
+    sample = names.by_short_name("UV_QQ_Sample")
+    assert sample.RefersTo == (
+        "=OFFSET('Univariate'!$CX$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
+    )
+    assert sample.Comment == (
+        "Q-Q plots: sorted sample values (Y axis, shared by all eight charts)"
+    )
+    normal = names.by_short_name("UV_QQ_Normal")
+    assert normal.RefersTo == (
+        "=OFFSET('Univariate'!$CY$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
+    )
+    assert normal.Comment == "Normal Q-Q plot: theoretical quantiles (X axis)"
+    assert names.by_short_name("UV_QQ_BetaPERT").RefersTo == (
+        "=OFFSET('Univariate'!$DF$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
+    )
+    # The plotting-position column is an intermediate and never charted.
+    assert all(item.Name.split("!", 1)[-1] != "UV_QQ_P" for item in names.items)
+
+
+def test_qq_data_zone_formulas_reference_fit_table_parameters() -> None:
+    sheet = RecordingSheet()
+
+    _write_qq_data(_as_xw_sheet(sheet))
+
+    assert sheet.cell(1, 101).value == "Q-Q Plot Data"
+    assert ((1, 101), (1, 110)) in sheet.merges
+    assert sheet.cell(4, 101).value == "P"
+    assert sheet.cell(4, 102).value == "Sample"
+    assert sheet.cell(4, 110).value == "BetaPERT"
+
+    assert _formula(sheet, 5, 101) == "=LET(n_,UV_n,IF(n_<=0,NA(),(SEQUENCE(n_)-0.5)/n_))"
+    assert _formula(sheet, 5, 102) == "=SORT(FILTER(UV_Data,UV_Include))"
+    assert _formula(sheet, 5, 103) == "=LET(p_,$CW$5#,NORM.INV(p_,$I$5,$K$5))"
+    assert _formula(sheet, 5, 104) == "=LET(p_,$CW$5#,LOGNORM.INV(p_,$I$6,$K$6))"
+    assert _formula(sheet, 5, 105) == "=LET(p_,$CW$5#,-LN(1-p_)/$I$7)"
+    assert _formula(sheet, 5, 106) == "=LET(p_,$CW$5#,$K$8*(-LN(1-p_))^(1/$I$8))"
+    assert _formula(sheet, 5, 107) == "=LET(p_,$CW$5#,GAMMA.INV(p_,$I$9,1/$K$9))"
+    triangular = _formula(sheet, 5, 108)
+    assert triangular.startswith("=LET(p_,$CW$5#,mn,$I$10,md,$K$10,mx,$M$10,")
+    assert "mn+SQRT(p_*(mx-mn)*(md-mn))" in triangular
+    assert "mx-SQRT((1-p_)*(mx-mn)*(mx-md))" in triangular
+    beta = _formula(sheet, 5, 109)
+    assert "mn,$E$9,range_,$E$11" in beta
+    assert "BETA.INV(p_,$I$11,$K$11)*scale_+mn-pad" in beta
+    betapert = _formula(sheet, 5, 110)
+    assert "mn,$I$12,md,$K$12,mx,$M$12" in betapert
+    # λ=4 PERT mapping — the μ-based form is 0/0 at a symmetric mode
+    assert "alpha_param,1+4*(md-mn)/(mx-mn+1E-30)" in betapert
+    assert "beta_param,1+4*(mx-md)/(mx-mn+1E-30)" in betapert
+    assert "BETA.INV(p_,alpha_param,beta_param)*(mx-mn)+mn" in betapert
+
+    assert sheet.range((5, 101), (2004, 101)).number_format == "0.0000"
+    assert sheet.range((5, 102), (2004, 110)).number_format == "0.0"
 
 
 def test_missing_count_formula_uses_unfiltered_active_range() -> None:

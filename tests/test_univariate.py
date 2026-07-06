@@ -620,5 +620,95 @@ class CDFTests(unittest.TestCase):
         self.assertAlmostEqual(total, 1.0, places=1)
 
 
+# ── Q-Q quantile formulas ────────────────────────────────────────────────────
+
+class QuantileFormulaTests(unittest.TestCase):
+    """Validate the inverse-CDF math baked into the Q-Q plot sheet formulas.
+
+    Each test reimplements the Excel expression built by
+    write_sheet_univariate._qq_column_formula in Python and checks it against
+    scipy.ppf (or round-trips it through the CDF oracle for the rescaled
+    Beta / BetaPERT cases).  Native inverses (NORM.INV, LOGNORM.INV,
+    GAMMA.INV) are Excel built-ins and need no oracle here.
+    """
+
+    def setUp(self) -> None:
+        self.p = np.linspace(0.005, 0.995, 25)
+
+    def test_exponential_closed_form_matches_scipy(self) -> None:
+        rate = 0.7
+        excel = -np.log(1.0 - self.p) / rate
+        oracle = scipy_stats.expon.ppf(self.p, scale=1.0 / rate)
+        np.testing.assert_allclose(excel, oracle, rtol=1e-12)
+
+    def test_weibull_closed_form_matches_scipy(self) -> None:
+        shape, scale = 1.8, 4.2
+        excel = scale * (-np.log(1.0 - self.p)) ** (1.0 / shape)
+        oracle = scipy_stats.weibull_min.ppf(self.p, shape, scale=scale)
+        np.testing.assert_allclose(excel, oracle, rtol=1e-12)
+
+    def test_triangular_piecewise_inverse_matches_scipy(self) -> None:
+        mn, md, mx = 1.0, 4.0, 9.0
+        fc = (md - mn) / (mx - mn)
+        excel = np.where(
+            self.p < fc,
+            mn + np.sqrt(self.p * (mx - mn) * (md - mn)),
+            mx - np.sqrt((1.0 - self.p) * (mx - mn) * (mx - md)),
+        )
+        oracle = scipy_stats.triang.ppf(self.p, c=fc, loc=mn, scale=mx - mn)
+        np.testing.assert_allclose(excel, oracle, rtol=1e-10)
+
+    def test_beta_inverse_undoes_padded_rescaling(self) -> None:
+        # x = BETA.INV(p)·scale_ + min − pad must invert the z-mapping of
+        # cdf_beta, so cdf_beta(x) round-trips back to p.
+        data = _normal_data(100, mu=5.0, sigma=1.5)
+        alpha_param, beta_param = 2.0, 5.0
+        data_min = min(data)
+        data_range = max(data) - min(data)
+        pad = data_range * 0.001
+        scale_ = data_range + 2.0 * pad
+        excel = (
+            scipy_stats.beta.ppf(self.p, alpha_param, beta_param) * scale_
+            + data_min
+            - pad
+        )
+        recovered = [
+            cdf_beta(float(x), alpha_param, beta_param, data_min, data_range)
+            for x in excel
+        ]
+        np.testing.assert_allclose(recovered, self.p, atol=1e-10)
+
+    def test_betapert_lambda4_mapping_round_trips(self) -> None:
+        # The sheet formula uses the λ=4 PERT mapping (same as the oracle and
+        # NLL_BetaPERT); the μ-based alternative was rejected because it is
+        # 0/0 at a symmetric mode.  Round-trip through cdf_betapert at an
+        # asymmetric AND a symmetric mode — the symmetric case is exactly
+        # where the μ form would have produced α = β = 0 and #NUM!.
+        for mn, md, mx in ((1.0, 4.0, 9.0), (1.0, 5.0, 9.0)):
+            alpha_param = 1.0 + 4.0 * (md - mn) / (mx - mn)
+            beta_param = 1.0 + 4.0 * (mx - md) / (mx - mn)
+            excel = scipy_stats.beta.ppf(self.p, alpha_param, beta_param) * (mx - mn) + mn
+            recovered = [cdf_betapert(float(x), mn, md, mx) for x in excel]
+            np.testing.assert_allclose(recovered, self.p, atol=1e-10)
+
+    def test_betapert_mu_form_equals_lambda4_form_when_asymmetric(self) -> None:
+        # Documents why swapping forms is behavior-preserving away from the
+        # singularity: the two parameterizations are algebraically identical.
+        mn, md, mx = 1.0, 4.0, 9.0
+        mu = (mn + 4.0 * md + mx) / 6.0
+        alpha_mu = (mu - mn) * (2.0 * md - mn - mx) / ((md - mu) * (mx - mn))
+        beta_mu = alpha_mu * (mx - mu) / (mu - mn)
+        self.assertAlmostEqual(alpha_mu, 1.0 + 4.0 * (md - mn) / (mx - mn), places=12)
+        self.assertAlmostEqual(beta_mu, 1.0 + 4.0 * (mx - md) / (mx - mn), places=12)
+
+    def test_hazen_positions_are_strictly_interior(self) -> None:
+        # (i − 0.5)/n never reaches 0 or 1, so every inverse CDF above is
+        # evaluated strictly inside its domain.
+        for n in (1, 2, 50, 2000):
+            positions = (np.arange(1, n + 1) - 0.5) / n
+            self.assertGreater(float(positions.min()), 0.0)
+            self.assertLess(float(positions.max()), 1.0)
+
+
 if __name__ == "__main__":
     unittest.main()

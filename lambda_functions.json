@@ -2109,7 +2109,7 @@
     {
       "name": "CDF_BetaPERT",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(maximum, min_val, mode_val, max_val, [minimum],\n  LET(\n    mu, (min_val + 4 * mode_val + max_val) / 6,\n    alpha_param, (mu - min_val) * (2 * mode_val - min_val - max_val) / ((mode_val - mu) * (max_val - min_val) + 1E-30),\n    beta_param, alpha_param * (max_val - mu) / (mu - min_val + 1E-30),\n    z_max, (maximum - min_val) / (max_val - min_val + 1E-30),\n    cdf_max, BETA.DIST(z_max, alpha_param, beta_param, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0,\n      LET(z_min, (minimum - min_val) / (max_val - min_val + 1E-30),\n        BETA.DIST(z_min, alpha_param, beta_param, TRUE))),\n    cdf_max - cdf_min\n  ))",
+      "formula_display": "=LAMBDA(maximum, min_val, mode_val, max_val, [minimum],\n  LET(\n    range_, max_val - min_val + 1E-30,\n    alpha_param, 1 + 4 * (mode_val - min_val) / range_,\n    beta_param, 1 + 4 * (max_val - mode_val) / range_,\n    z_max, (maximum - min_val) / range_,\n    cdf_max, BETA.DIST(z_max, alpha_param, beta_param, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0,\n      LET(z_min, (minimum - min_val) / range_,\n        BETA.DIST(z_min, alpha_param, beta_param, TRUE))),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
           "name": "maximum",
@@ -2134,7 +2134,7 @@
         }
       ],
       "yields": "CDF(maximum) − CDF(minimum) for BetaPERT(min_val, mode_val, max_val); probability of the interval",
-      "description": "CDF_BetaPERT returns the probability that a BetaPERT(min, mode, max) random variable falls in the interval (minimum, maximum]. The PERT reparameterisation computes α₁ and α₂ from the PERT mean μ = (min + 4·mode + max) / 6, then evaluates BETA.DIST on the [0,1]-rescaled value.\n\nEpsilon guards (1E-30) prevent division by zero for degenerate parameters.",
+      "description": "CDF_BetaPERT returns the probability that a BetaPERT(min, mode, max) random variable falls in the interval (minimum, maximum]. The λ=4 PERT mapping α = 1 + 4·(mode − min)/range and β = 1 + 4·(max − mode)/range (the same parameterisation as NLL_BetaPERT) is evaluated via BETA.DIST on the [0,1]-rescaled value. This form is algebraically identical to the μ-based reparameterisation but has no 0/0 singularity at a symmetric mode (mode = (min + max)/2), where the μ form degenerates to α = β = 0.\n\nEpsilon guards (1E-30) prevent division by zero for degenerate parameters.",
       "plain_language_summary": "The probability that a BetaPERT variable falls between minimum and maximum.",
       "notes": "P(minimum < X ≤ maximum) for BetaPERT(min, mode, max). PERT parameters are auto-derived from three-point estimates."
     },

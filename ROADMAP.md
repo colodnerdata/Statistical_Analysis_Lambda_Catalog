@@ -52,7 +52,7 @@ flag.
 | Version | Milestone | Breaking? | Status |
 |---|---|---|---|
 | v1.0 | Multivariate OLS / MLR | — (baseline) | Shipped |
-| v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. Per-distribution Q-Q plots and histogram distribution-overlay series outstanding (TODOs.md). PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries; overlays become combo chart line series over those columns |
+| v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries. The two post-release leftovers (per-distribution Q-Q plots and combo-chart overlay lines built on those CDF-delta columns) are now implemented and ship with the next workbook build |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
 | v2.1 | Fixed Effects (Role axis) — **one-way only** | No | Planned — panel regression, `y_s()`, absorbed df. One FE variable only; two-way absorption is its own post-v2.1 milestone (see v2.5+). Non-breaking: the absorbed-df correction is an optional `[DF_Absorbed]` argument defaulting to 0 (decision recorded under v2.1), so no-FE models are unchanged |
@@ -315,9 +315,13 @@ fit by direct min/mode/max estimation rather than grid-search MLE.
 - Kolmogorov-Smirnov statistic
 - Q-Q correlation (reuses existing regression Q-Q machinery)
 
-Plus a per-distribution Q-Q plot for visual fit assessment. *(Not yet built — the
-per-distribution Q-Q plots and the histogram distribution-overlay series are the two
-v1.1 deliverables that did not ship; both are tracked in TODOs.md.)*
+Plus a per-distribution Q-Q plot for visual fit assessment. *(Built post-release:
+the per-distribution Q-Q plots and the histogram distribution-overlay series — the
+two v1.1 deliverables that did not ship on 2026-06-29 — are now implemented in
+`write_sheet_univariate.py` and ship with the next workbook build. The Q-Q data zone
+(cols CW–DF) holds Hazen plotting positions, the sorted sample, and eight
+theoretical-quantile columns; eight XY scatter charts with identity-line data series
+stack under the histogram charts.)*
 
 **Histogram overlays — PDF functions dropped as unnecessary.** The original plan
 called for `PDF_*` LAMBDAs evaluated at bin midpoints to draw fitted curves over the
@@ -328,13 +332,15 @@ functions. That delta is the bin's probability mass (the PDF integrated exactly 
 the bin, which is more faithful to the histogram than a midpoint PDF evaluation), so no PDF
 functions are needed and none will be implemented.
 
-The overlay is instead delivered by converting each histogram chart into a **combo
-chart**: the existing column series (counts, gap width 0) plus one line series per
-distribution sourced from the histogram table's CDF-delta columns — lines with **no
-markers**, likely with smoothing (`Smooth = True`) so the fitted shapes read as
-curves. Implementation detail to settle: the CDF-delta columns are probabilities
-while the bars are counts, so the line series need either scaling to expected counts
-(probability × N) to share the count axis, or a secondary axis.
+The overlay is instead delivered (implemented, ships with the next workbook build)
+by converting each histogram chart into a **combo chart**: the existing column
+series (counts, gap width 0) plus one line series per distribution sourced from the
+histogram table's CDF-delta columns — smoothed lines (`Smooth = True`) with **no
+markers** so the fitted shapes read as curves. The probabilities-vs-counts axis
+question was settled as **expected counts on the shared count axis**: each line
+series references a `UV_<method>_<Dist>_Expected` named formula that multiplies the
+OFFSET-sized CDF-delta column by the Count stat cell (probability × n), rather than
+introducing a secondary axis.
 
 **Open question — dynamically hiding the worst-fit / error columns.** Ideally the
 overlay would show only the credible fits: columns for distributions with the worst

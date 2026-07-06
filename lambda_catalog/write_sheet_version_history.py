@@ -20,7 +20,7 @@ _VERSIONS = [
     {
         "version": "1.0.0",
         "date": "2026-06-16",
-        "breaking": "— (baseline)",
+        "breaking": "No",
         "summary": (
             "Initial release — complete OLS/MLR engine with full model-fit and ANOVA "
             "statistics, coefficient inference (SE, t, p, CIs, partial R²/correlation), "

@@ -360,10 +360,29 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
     assert "$W$2" in names.by_short_name("UV_Sturges_Upper_Edges").RefersTo
     assert "$AI$2" in names.by_short_name("UV_Scott_Upper_Edges").RefersTo
     assert "$AU$2" in names.by_short_name("UV_FD_Upper_Edges").RefersTo
+    assert names.by_short_name("UV_Sturges_Upper_Edges").Comment == (
+        "Sturges Method histogram chart: category (X) axis bin edges"
+    )
+    assert names.by_short_name("UV_Sturges_Counts").Comment == (
+        "Sturges Method histogram chart: bar values (bin counts)"
+    )
+    assert names.by_short_name("UV_Scott_Upper_Edges").Comment == (
+        "Scott Method histogram chart: category (X) axis bin edges"
+    )
+    assert names.by_short_name("UV_Scott_Counts").Comment == (
+        "Scott Method histogram chart: bar values (bin counts)"
+    )
+    assert names.by_short_name("UV_FD_Upper_Edges").Comment == (
+        "Freedman-Diaconis Method histogram chart: category (X) axis bin edges"
+    )
+    assert names.by_short_name("UV_FD_Counts").Comment == (
+        "Freedman-Diaconis Method histogram chart: bar values (bin counts)"
+    )
     assert names.by_short_name("UV_Sturges_Normal_CDF").RefersTo == (
         "=OFFSET('Univariate'!$X$4,1,0,"
         "MAX(IFERROR(Number_Of_Histogram_Bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
     )
+    assert getattr(names.by_short_name("UV_Sturges_Normal_CDF"), "Comment", None) is None
 
 
 def test_missing_count_formula_uses_unfiltered_active_range() -> None:

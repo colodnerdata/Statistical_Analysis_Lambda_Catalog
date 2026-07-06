@@ -470,7 +470,7 @@ The spec spans **every column of the source table**, one row per column:
 | H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank; pre-filled blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer only — no constructor consumes it yet. |
 | I | **Base Period Δ** *(reserved, not implemented — Sequence companion)* | Labeled cell band; **computed-with-override — implemented in the base-period release**. Cell comment marks it reserved; inert (read by nothing). |
 | J | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
-| K | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. *(Deviation from the earlier draft of this table, recorded: the shipped v2.0 sheet implemented this display here instead of the optional Design Columns audit column; the ΣI = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot.)* |
+| K | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. *(Deviation from the earlier draft of this table, recorded: the shipped v2.0 sheet implemented this display here instead of the optional Design Columns audit column; the Σ(design columns) = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot.)* |
 
 **Reserved-column policy (F, G, I).** None of these columns is read by any
 formula — confirmed by construction, not by convention: `X_s()`,
@@ -488,7 +488,7 @@ Reference-only-for-Categorical, applied one level up. H–I key on the
 sequence axis, because Sequence is structural and Role-independent.
 
 **Display derives, never feeds.** Columns J and K must not be inputs to the
-constructor.
+constructor. Both the cells and `x_s()` call the same mask-aware primitive
 (`Dummy_Levels`); the cells display what the constructor will do. Letting the engine
 read a display column would make it load-bearing. One source of truth is the
 *function*. (This is also what settled the `Dummy_Code` design: the level-vector
@@ -555,7 +555,8 @@ actually specify?":
 
 - **Response in effect** (derived), and the Response-count validation: exactly one,
   error at zero or two-plus
-- Constructed column count k — reconcilable against the ΣI audit identity
+- Constructed column count k — reconcilable against the Σ(design columns)
+  audit identity
 - Level-qualified constructed column names
 - **Included row count** after the effective mask (auto-completeness AND Filters),
   with the active Filter columns listed
@@ -593,7 +594,7 @@ data estimates ≈ 0 and wastes a df — not catastrophic — so silently forcin
   row labels. *(v2.1: residuals are within-model residuals under FE — Diagnostic
   Guide gains a paragraph.)*
 
-**Layout principle check (fixed-width left, fixed-height top):** the A–H spec block
+**Layout principle check (fixed-width left, fixed-height top):** the A–K spec block
 is fixed-width; the status block fixed-height; the constructed matrix never appears
 on the sheet. Note the estimator choice is load-bearing: LSDV would spill a
 data-dependent number of columns; the within transformation (v2.1) replaces them

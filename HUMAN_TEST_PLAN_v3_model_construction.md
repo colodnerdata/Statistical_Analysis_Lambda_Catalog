@@ -411,7 +411,7 @@ formula `=--([@Year]=2015)`. Then:
 
 Verify the T0 Expected block again before continuing.
 
-- [ ] Pass
+- [X] Pass
 
 ## T15 — Full-height vs filtered contract
 
@@ -427,7 +427,7 @@ Verify the T0 Expected block again before continuing.
 | filtered matrix | Q3→↓ | 1649 × 19 |
 | rows audit | N1 | 2938 — always; the constructor never row-filters (the row-mask contract); only the display zones do |
 
-- [ ] Pass
+- [X] Pass
 
 ## T16 — Twin alignment tripwire
 
@@ -439,7 +439,7 @@ the K1 audit cell, always. If they ever disagree, the `X_s` /
 `Constructed_Column_Names` twins have drifted — a structural bug, not a data
 issue.
 
-- [ ] Pass
+- [X] Pass
 
 ---
 
@@ -469,7 +469,7 @@ with a non-blank condition for included Categorical Predictors in a follow-up).
 
 | Field | |
 |---|---|
-| Executed by | |
-| Date | |
-| Workbook build | |
-| Result | PASS / FAIL |
+| Executed by | Stephen Colodner |
+| Date | 7/5/26 |
+| Workbook build | 2.0 |
+| Result | PASS |

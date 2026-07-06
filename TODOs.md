@@ -115,7 +115,7 @@ Suggested alias names:
 
 ---
 
-## v2.0 — Univariate
+## v1.1 — Univariate (shipped; leftovers)
 
 ### LAMBDA functions
 
@@ -133,7 +133,104 @@ Suggested alias names:
 
 ---
 
-## v3.0 — Resampling & Simulation
+## v2.0 — Specification-Driven Regression (shipped; leftovers)
+
+Human test plan fully executed and signed off PASS 2026-07-05 (T0–T16). One open
+decision remains from it:
+
+- TODO: Resolve the blank-categorical caveat — `Sample_Include()`'s role-aware
+  completeness layer requires numeric Response and numeric included Continuous
+  Predictors, but Categorical Predictors impose no non-blank condition; a blank
+  category value encodes as all-zero dummies (indistinguishable from the reference
+  level). Run the caveat verification step in `HUMAN_TEST_PLAN_v3_model_construction.md`
+  and record the decision: accept as documented behavior, or extend `Sample_Include()`
+  with a non-blank condition for included Categorical Predictors. Interim workaround:
+  a completeness column declared as a Filter.
+
+---
+
+## v2.1 — Fixed Effects (one-way only)
+
+Two-way FE is deliberately deferred until this framework is finished — see the
+v2.5+ section.
+
+### Engine
+
+- TODO: Implement `y_s()` — the demeaned-Response constructor (new function, not a
+  replacement wired into existing no-FE call sites).
+- TODO: Thread the optional `[DF_Absorbed]` argument (default 0) through the df /
+  MS-residual / t-critical inference chain; no-FE models must compute identically.
+- TODO: Implement `Demean_By(x, group, [include])` and `Group_Mean(x, group, [include])`
+  (constructor internals, also user-callable).
+- TODO: Implement `Absorbed_Degrees_Of_Freedom(...)` — Σ(Gᵢ − 1) from the spec.
+- TODO: Implement `Is_Balanced_Panel(group, time, [include])` (one-way/panel diagnostic).
+
+### Sheet
+
+- TODO: Restructure the prediction zone into the general group-mean form
+  ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂ with the whole sample as the degenerate G = 1 group
+  (v2.0 shipped the standard `Prediction_Interval` form, so this is a rebuild, not an
+  activation — see the ROADMAP post-ship correction).
+- TODO: Surface BOTH intervals — mean-response CI and new-observation PI (three lines:
+  point · CI low/high · PI low/high).
+- TODO: FE group selection dropdown sourced from the observed level list; ȳᵢ / x̄ᵢ / Tᵢ
+  via AVERAGEIFS/COUNTIFS respecting the Include/Filter mask.
+- TODO: Status block — active FE variable, group count, absorbed df; visible error when
+  more than one FE variable is declared; intercept × FE red flag (flag, don't force).
+- TODO: Relabel within-model residual outputs; Diagnostic Guide paragraph on residuals
+  under FE.
+
+### Open decisions
+
+- TODO: Durbin-Watson under FE — relabel, caveat, or suppress.
+- TODO: Categorical × FE prediction encoding — x_new and x̄ᵢ formed in constructed
+  design-matrix space (largely subsumed by v2.0 categorical prediction; recorded so the
+  encoding step is not forgotten).
+
+---
+
+## v2.2 — Transforms & the standalone transform library
+
+### Transform wiring (spec column G)
+
+- TODO: `Transform` dropdown gains `Log`; wire `X_s()` / `Constructed_Column_Names()` /
+  prediction to read column G.
+- TODO: Unit-space fit statistics (R², Adjusted R², RMSE at minimum) — resolve the
+  one-LAMBDA-per-combination vs. `Unit_Space_*` dispatcher decision BEFORE implementing
+  (sets the pattern for every future transform).
+- TODO: Unit-space section on the Regression sheet — SWITCH on column G, one headline
+  comparable statistic (the cell v2.3 Model Comparison will reference).
+- TODO: Prediction back-transformation — decide naive `EXP()` with documented caveat
+  vs. Duan smearing estimator (a statistical decision, not an implementation detail).
+
+### Standalone Data Transformation functions (specs in ROADMAP.md)
+
+- TODO: Location & Scale — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Ln_Positive`.
+- TODO: Group & Panel — `Zscore_By`, `Decompose_By` (`Demean_By`/`Group_Mean` arrive at
+  v2.1; two-way functions follow the two-way FE milestone).
+- TODO: Longitudinal — `Lag_By`, `Difference_By`.
+- TODO: Sample construction — `Numeric_Complete_Cases`.
+- TODO: Categorical & model construction — `Dummy_Column`, `Interact`, `Model_Matrix`.
+
+---
+
+## v2.3 — Model Comparison Sheet
+
+- TODO: Resolve the spec-string function name (`Regression_Model_Spec_String` vs.
+  `Regression_Spec_Label` vs. `Model_Formula_String`) and the argument type (lean:
+  anchor-cell reference, not sheet-name text — avoids volatile `INDIRECT`).
+- TODO: Implement the spec-string LAMBDA with header-signature validation (`NA()` on
+  non-Regression targets).
+- TODO: Sheet layout — model registry (hyperlinks), GoF table referencing the v2.2
+  unit-space headline cells, shared prediction inputs (Comparison sheet is the source;
+  Regression sheets pull via XLOOKUP), prediction results table.
+- TODO: Formalize `Comparison_Anchor` sheet-scoped named ranges (interface contract —
+  becomes part of the public interface, a versioning commitment).
+- TODO: Decide the mismatched-predictor-set fallback (XLOOKUP `[if_not_found]`).
+
+---
+
+## v2.4 — Resampling & Simulation
 
 - TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples, alpha, [include])` — bootstrap confidence interval for an arbitrary statistic passed as a LAMBDA. Evaluate whether `RANDARRAY`-based resampling is viable or whether a pre-drawn random table is needed.
 - TODO: Implement `MC_Percentile(dist_params, n_samples, percentile)` — Monte Carlo draw from a fitted distribution; complements v2.0 fitting.
@@ -142,13 +239,30 @@ Suggested alias names:
 
 ---
 
-## v4.0 — Future (sequence TBD)
+## v2.5+ — Future (sequence TBD)
 
-### Weighted regression (WLS)
+### Two-way Fixed Effects (first candidate after v2.1)
 
-- TODO: Thread a `[weights]` argument through the core regression LAMBDAs (`Coefficients`, `Predictions`, `Residuals`, `Hat_Diagonal`, `Cooks_Distance`, etc.). WLS closes the loop opened by v1's Scale-Location diagnostic.
-- TODO: Update the Regression sheet to expose a weights column selector.
-- TODO: Update the Diagnostic Guide to describe which diagnostics change interpretation under WLS.
+- TODO: Implement `Absorb_Two_Way_Fixed_Effects(x, group1, group2, [include], [passes])`
+  (alternating-projection demeaning for unbalanced panels).
+- TODO: Implement `Demean_Two_Way_Balanced(x, group1, group2, [include])` and the
+  two-way `Is_Balanced_Panel` check.
+- TODO: Implement `Fixed_Effects_Convergence_Check(x, group1, group2, [include])`;
+  surface in the status block whenever two FE variables are active.
+- TODO: Lift the v2.1 one-FE-variable status-block error; resolve the two-way
+  prediction question (group intercepts are not recoverable as simple group means).
+
+### Weighted regression — superseded by the `Weight` Role
+
+The standalone WLS milestone and its `[weights]`-argument-vs-parallel-function-set
+debate are superseded by a **`Weight` value on the Role axis** (see ROADMAP *Future
+roles*). Three-stage scope carried forward: user-supplied weights →
+variance-driver-derived weights → FGLS.
+
+- TODO: Implement the `Weight` Role (at most one; status-block validation) and thread
+  weights through the engine per the Role-axis design.
+- TODO: Update the Diagnostic Guide to describe which diagnostics change interpretation
+  under WLS. (WLS closes the loop opened by v1's Scale-Location diagnostic.)
 
 ### Bivariate / Two-sample
 

@@ -130,15 +130,20 @@ Suggested alias names:
 
 ### Sheet writer (`write_sheet_univariate.py`)
 
-**Q-Q plots and histogram overlays**
-- TODO: Per-distribution Q-Q plots (8 charts) using OFFSET-based named ranges.
-- TODO: Histogram overlays as **combo charts**: keep the existing column series
-  (counts, gap width 0) and add one line series per distribution sourced from the
-  histogram table's CDF-delta columns — no markers, likely smoothed
-  (`series.Smooth = True`). No PDF functions involved (see above). Settle at
-  implementation: the CDF-delta columns are probabilities while the bars are counts,
-  so either scale the line series to expected counts (probability × N) to share the
-  count axis, or put them on a secondary axis.
+**Q-Q plots and histogram overlays — DONE (ships with the next workbook build)**
+- ~~Per-distribution Q-Q plots (8 charts) using OFFSET-based named ranges~~ — done.
+  Zone 6 (cols CW–DF) holds Hazen plotting positions `(i−0.5)/n` (the same
+  convention as `QQ_Correlation`/`Normal_Scores`), the sorted sample, and eight
+  theoretical-quantile columns (native `NORM.INV`/`LOGNORM.INV`/`GAMMA.INV`/
+  `BETA.INV` plus closed-form inverses for Exponential, Weibull, and Triangular,
+  validated against scipy in `tests/test_univariate.py`). Eight XY scatter charts
+  stack under the histogram charts at G74–G233, each with an identity-line data
+  series, fed by OFFSET-based `UV_QQ_*` named ranges.
+- ~~Histogram overlays as combo charts~~ — done. Each histogram chart keeps its
+  gapless count bars and adds one smoothed, markerless line series per
+  distribution. The axis question was settled as **expected counts on the shared
+  count axis** (not a secondary axis): `UV_<method>_<Dist>_Expected` named
+  formulas multiply the CDF-delta column by the Count stat cell ($E$14).
 - TODO: Investigate suppressing worst-fit / N/A-error distributions from the combo
   charts. Best outcome would be dynamically hiding those columns — hidden columns
   drop out of charts automatically (`PlotVisibleOnly` default) — but it is unclear

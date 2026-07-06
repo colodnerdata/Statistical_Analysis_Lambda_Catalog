@@ -42,7 +42,7 @@ Zones 1–4 (cols A–Z) use the standard row layout:
 | 4 | Column sub-headers ("Upper Edge", "Count", "Distribution", …) | `_subheader_row` |
 | 5+ | Data / spill formulas | — |
 
-Zone 5 (cols AC–BS, with gap columns AB and AX) holds the two-stage Weibull grid-search. Each stage (`_write_grid_stage`) spans 21 columns (1 row-axis col + 20 Data Table body cols):
+Zone 5 (cols BE–CU, with gap columns BD and BZ) holds the two-stage grid searches — three vertically stacked two-stage blocks (Weibull rows 1–25, Gamma rows 27–51, Beta rows 53–77). Each stage (`_write_grid_stage`) spans 21 columns (1 row-axis col + 20 Data Table body cols):
 
 | dr | Row | Contents |
 |---|---|---|
@@ -53,9 +53,11 @@ Zone 5 (cols AC–BS, with gap columns AB and AX) holds the two-stage Weibull gr
 | 4 | row 5 | corner NLL cell (c0); Shape SEQUENCE spills right across 20 columns |
 | 5–24 | rows 6–25 | Scale SEQUENCE (c0); Data Table body (c0+1:c0+20) |
 
-Stage 1 is `AC1:AW25` with named body `UV_WB_S1 = AD6:AW25`. Stage 2 is `AY1:BS25` with named body `UV_WB_S2 = AZ6:BS25`. The visible Shape and Scale Input cells are the Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` and documents the physical table size; editing it does not resize the Data Table.
+For the Weibull block, Stage 1 is `BE1:BY25` with named body `UV_WB_S1 = BF6:BY25` and Stage 2 is `CA1:CU25` with named body `UV_WB_S2 = CB6:CU25`; the Gamma and Beta blocks follow the same pattern at their row anchors with `UV_GAMMA_S1/S2` and `UV_BETA_S1/S2` bodies. The visible Shape and Scale Input cells are the Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` and documents the physical table size; editing it does not resize the Data Table.
 
 Row and column offsets are defined as `_GS_R_*` and `_GS_C_*` constants at the top of `write_sheet_univariate.py`. Never hard-code row or column positions inside `_write_grid_stage`.
+
+Zone 6 (cols CW–DF, gap column CV) holds the Q-Q plot data: Hazen plotting positions `P`, the sorted `Sample` column, and eight theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the G:S band under the fitting table — histogram combo charts at G14/G34/G54 (count bars + one smoothed `UV_<method>_<Dist>_Expected` overlay line per distribution) and eight per-distribution Q-Q scatter charts stacked from G74, 20 rows each, fed by the OFFSET-based `UV_QQ_*` named ranges.
 
 ### Regression sheet heading hierarchy
 

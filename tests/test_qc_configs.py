@@ -6,6 +6,7 @@ internally consistent, cross-consistent between config types, and survive
 cache round-trips. Since Excel is unavailable in CI, this validates the
 Python-side QC oracle rather than the LAMBDA formulas themselves.
 """
+# pylint: disable=import-outside-toplevel,missing-function-docstring,too-many-public-methods,unused-variable
 from __future__ import annotations
 
 import json
@@ -13,6 +14,7 @@ import math
 import tempfile
 import unittest
 from pathlib import Path
+from typing import Any, ClassVar
 
 from lambda_catalog.analyze_life_expectancy import (
     DEFAULT_INPUT_CSV,
@@ -62,6 +64,8 @@ _SKIP_MSG = "Life Expectancy CSV not found"
 class TestScalarConfigs(unittest.TestCase):
     """Verify build_mlr_row_configs produces correct scalar expected values."""
 
+    configs: ClassVar[list[Any]]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.configs = build_mlr_row_configs(_CSV)
@@ -76,10 +80,10 @@ class TestScalarConfigs(unittest.TestCase):
 
     def test_expected_values_map_keys(self) -> None:
         expected_keys = {
-            "Observations", "DF_Regression", "DF_Total", "R_squared",
-            "DF_Residual", "Multiple_R", "Adjusted_R2", "SS_Total",
+            "Observations", "Regression_Degrees_Of_Freedom", "Total_Degrees_Of_Freedom", "R_Squared",
+            "Residual_Degrees_Of_Freedom", "Multiple_R", "Adjusted_R_Squared", "SS_Total",
             "SS_Residual", "SS_Regression", "SE_Regression", "PRESS",
-            "Durbin_Watson", "F_Stat", "P_Value_F", "AIC", "BIC",
+            "Durbin_Watson", "F_Statistic", "F_Statistic_P_Value", "AIC", "BIC",
             "AICc", "QQ_Correlation",
         }
         for _, expected in self.configs:
@@ -106,14 +110,14 @@ class TestScalarConfigs(unittest.TestCase):
     def test_r_squared_bounds(self) -> None:
         for row_vals, expected in self.configs:
             if row_vals["Allow_Intercept"]:
-                self.assertGreaterEqual(expected["R_squared"], 0.0)
-                self.assertLessEqual(expected["R_squared"], 1.0)
+                self.assertGreaterEqual(expected["R_Squared"], 0.0)
+                self.assertLessEqual(expected["R_Squared"], 1.0)
 
     def test_multiple_r_is_sqrt_r2(self) -> None:
         for row_vals, expected in self.configs:
             self.assertAlmostEqual(
                 expected["Multiple_R"],
-                math.sqrt(max(expected["R_squared"], 0.0)),
+                math.sqrt(max(expected["R_Squared"], 0.0)),
                 places=10,
             )
 
@@ -121,7 +125,7 @@ class TestScalarConfigs(unittest.TestCase):
         for row_vals, expected in self.configs:
             if row_vals["Allow_Intercept"]:
                 self.assertEqual(
-                    expected["DF_Total"],
+                    expected["Total_Degrees_Of_Freedom"],
                     expected["Observations"] - 1,
                 )
 
@@ -129,7 +133,7 @@ class TestScalarConfigs(unittest.TestCase):
         for row_vals, expected in self.configs:
             if not row_vals["Allow_Intercept"]:
                 self.assertEqual(
-                    expected["DF_Total"],
+                    expected["Total_Degrees_Of_Freedom"],
                     expected["Observations"],
                 )
 
@@ -138,18 +142,18 @@ class TestScalarConfigs(unittest.TestCase):
             k = row_vals["ind_vars"]
             n = expected["Observations"]
             df_resid = n - k - (1 if row_vals["Allow_Intercept"] else 0)
-            self.assertEqual(expected["DF_Residual"], df_resid)
+            self.assertEqual(expected["Residual_Degrees_Of_Freedom"], df_resid)
 
     def test_se_regression_squared_equals_mse(self) -> None:
         for row_vals, expected in self.configs:
-            mse = expected["SS_Residual"] / expected["DF_Residual"]
+            mse = expected["SS_Residual"] / expected["Residual_Degrees_Of_Freedom"]
             self.assertAlmostEqual(expected["SE_Regression"] ** 2, mse, places=8)
 
     def test_f_stat_from_mean_squares(self) -> None:
         for row_vals, expected in self.configs:
-            ms_reg = expected["SS_Regression"] / expected["DF_Regression"]
-            ms_res = expected["SS_Residual"] / expected["DF_Residual"]
-            self.assertAlmostEqual(expected["F_Stat"], ms_reg / ms_res, places=8)
+            ms_reg = expected["SS_Regression"] / expected["Regression_Degrees_Of_Freedom"]
+            ms_res = expected["SS_Residual"] / expected["Residual_Degrees_Of_Freedom"]
+            self.assertAlmostEqual(expected["F_Statistic"], ms_reg / ms_res, places=8)
 
     def test_durbin_watson_range(self) -> None:
         for _, expected in self.configs:
@@ -163,7 +167,7 @@ class TestScalarConfigs(unittest.TestCase):
     def test_aic_bic_aicc_formulas(self) -> None:
         for row_vals, expected in self.configs:
             n = expected["Observations"]
-            p = expected["DF_Regression"] + (1 if row_vals["Allow_Intercept"] else 0)
+            p = expected["Regression_Degrees_Of_Freedom"] + (1 if row_vals["Allow_Intercept"] else 0)
             log_term = n * math.log(expected["SS_Residual"] / n)
             aic = log_term + 2.0 * p
             bic = log_term + p * math.log(n)
@@ -179,6 +183,8 @@ class TestScalarConfigs(unittest.TestCase):
 @unittest.skipUnless(_has_csv(), _SKIP_MSG)
 class TestVectorConfigs(unittest.TestCase):
     """Verify build_mlr_vector_row_configs outputs."""
+
+    configs: ClassVar[list[Any]]
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -241,6 +247,8 @@ class TestVectorConfigs(unittest.TestCase):
 @unittest.skipUnless(_has_csv(), _SKIP_MSG)
 class TestObservationConfigs(unittest.TestCase):
     """Verify build_mlr_observation_row_configs outputs."""
+
+    configs: ClassVar[list[Any]]
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -306,6 +314,10 @@ class TestObservationConfigs(unittest.TestCase):
 class TestCrossConsistency(unittest.TestCase):
     """Verify scalar, vector, and observation configs agree for same (k, intercept)."""
 
+    scalar_configs: ClassVar[list[Any]]
+    vector_configs: ClassVar[list[Any]]
+    obs_configs: ClassVar[list[Any]]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.scalar_configs = build_mlr_row_configs(_CSV)
@@ -331,7 +343,7 @@ class TestCrossConsistency(unittest.TestCase):
     def test_coefficient_count_matches_df_regression(self) -> None:
         scalar_lookup = self._scalar_lookup()
         for k, allow_intercept, vectors in self.vector_configs:
-            expected_df_reg = scalar_lookup[(k, allow_intercept)]["DF_Regression"]
+            expected_df_reg = scalar_lookup[(k, allow_intercept)]["Regression_Degrees_Of_Freedom"]
             self.assertEqual(expected_df_reg, k)
             expected_terms = k + (1 if allow_intercept else 0)
             self.assertEqual(
@@ -354,6 +366,9 @@ class TestCrossConsistency(unittest.TestCase):
 @unittest.skipUnless(_has_csv(), _SKIP_MSG)
 class TestRegressionSheetConfigs(unittest.TestCase):
     """Verify regression sheet QC configs are complete and self-consistent."""
+
+    configs: ClassVar[list[Any]]
+    named_configs: ClassVar[list[Any]]
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -515,6 +530,10 @@ class TestRegressionSheetConfigs(unittest.TestCase):
 class TestCacheRoundTrip(unittest.TestCase):
     """Verify that QC configs survive JSON serialization/deserialization."""
 
+    vector_configs: ClassVar[list[Any]]
+    obs_configs: ClassVar[list[Any]]
+    reg_configs: ClassVar[list[Any]]
+
     @classmethod
     def setUpClass(cls) -> None:
         cls.vector_configs = build_mlr_vector_row_configs(_CSV)
@@ -617,7 +636,7 @@ class TestExpectedValuesMap(unittest.TestCase):
         )
         mapping = _expected_values_map(summary)
         self.assertEqual(mapping["Observations"], summary.observations)
-        self.assertEqual(mapping["R_squared"], summary.r_squared)
+        self.assertEqual(mapping["R_Squared"], summary.r_squared)
         self.assertEqual(mapping["SS_Total"], summary.ss_total)
         self.assertEqual(mapping["PRESS"], summary.press)
         self.assertEqual(mapping["AIC"], summary.aic)

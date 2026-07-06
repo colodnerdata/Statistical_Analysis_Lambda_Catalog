@@ -81,6 +81,27 @@ class RecordingFormatConditions:
         return scale
 
 
+class RecordingValidation:
+    def __init__(self) -> None:
+        self.rules: list[dict[str, Any]] = []
+        self.delete_count = 0
+        self.IgnoreBlank: bool | None = None
+
+    def Delete(self) -> None:
+        self.delete_count += 1
+        self.rules.clear()
+
+    def Add(self, *, Type: int, AlertStyle: int, Operator: int, Formula1: str) -> None:
+        self.rules.append(
+            {
+                "Type": Type,
+                "AlertStyle": AlertStyle,
+                "Operator": Operator,
+                "Formula1": Formula1,
+            }
+        )
+
+
 @dataclass
 class RecordingRangeState:
     value: Any = None
@@ -99,6 +120,7 @@ class RecordingRangeApi:
         self.Font = SimpleNamespace(Bold=None, Color=None, Strikethrough=None)
         self.Interior = SimpleNamespace(Color=None)
         self.FormatConditions = RecordingFormatConditions()
+        self.Validation = RecordingValidation()
 
     def Table(self, *, RowInput: Any, ColumnInput: Any) -> None:
         self._sheet.tables.append({

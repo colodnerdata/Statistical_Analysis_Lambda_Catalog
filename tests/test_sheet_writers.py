@@ -1,4 +1,9 @@
 """Tests for workbook-writing logic that do not require a live Excel process."""
+# pylint: disable=import-outside-toplevel,missing-function-docstring,protected-access
+from typing import cast
+
+import xlwings as xw
+
 from lambda_catalog.sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_LIGHT_RED_FILL,
@@ -6,13 +11,28 @@ from lambda_catalog.sheet_styles import (
     INPUT_COLOR,
 )
 from lambda_catalog.workbook_helpers import add_expression_format, excel_color
+from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
 from lambda_catalog.write_sheet_regression import (
-    _C_P,
-    _C_Q,
+    _C_S,
+    _C_T,
+    _C_U,
+    _C_W,
     _C_X,
-    _C_Y,
+    _C_Z,
+    _C_AC,
+    _C_AD,
+    _C_AF,
+    _C_AG,
+    _C_AI,
+    _C_AJ,
+    _C_AK,
+    _C_AQ,
+    _PRED_INPUT_FIRST_ROW,
+    _PRED_INPUT_LAST_ROW,
     _setup_local_names as _setup_regression_names,
+    _write_coefficients,
     _write_prediction_interval,
+    _write_prediction_inputs,
     _write_regression_outputs_header,
     _write_residuals,
 )
@@ -33,82 +53,244 @@ from lambda_catalog.write_sheet_univariate import (
 from tests.recording_sheet import RecordingSheet
 
 
+def _as_xw_sheet(sheet: RecordingSheet) -> xw.Sheet:
+    return cast(xw.Sheet, sheet)
+
+
+def _formula(sheet: RecordingSheet, row: int, col: int) -> str:
+    return cast(str, sheet.cell(row, col).api.Formula2)
+
+
 def test_scalar_formula_maps_include_to_the_sheet_filter() -> None:
     formula = _actual_formula("Observations", ("Y", "Include"))
     assert formula == "=Observations(y, Regression_Sample_Include)"
 
 
-def test_regression_predictor_name_preserves_a_multicolumn_range() -> None:
+def test_observation_y_only_formulas_reuse_first_spill() -> None:
+    anchors: dict[str, int] = {}
+
+    first = _section_formula(1, True, "Rank_Fraction", 3, 3, anchors)
+    second = _section_formula(5, False, "Rank_Fraction", 158, 3, anchors)
+    prediction = _section_formula(5, False, "Predictions", 158, 6, anchors)
+
+    assert first == "=Rank_Fraction(y,Regression_Sample_Include)"
+    assert second == "=$C$3#"
+    assert prediction == (
+        "=LET(x_s,OFFSET(y,0,1,ROWS(y),5),"
+        "Predictions(x_s,y,FALSE,Regression_Sample_Include))"
+    )
+
+
+def test_regression_names_register_spec_wiring_and_constructors() -> None:
     sheet = RecordingSheet(name="Regression")
 
-    _setup_regression_names(sheet)
+    _setup_regression_names(_as_xw_sheet(sheet))
 
-    local_name_order = [item.Name.split("!", 1)[-1] for item in sheet.api.Names.items]
-    assert local_name_order.index("Ind_Var_Include") < local_name_order.index("x_s")
-    x_s_formula = sheet.api.Names.by_short_name("x_s").RefersTo
-    assert x_s_formula.startswith("=LAMBDA(")
-    assert "TRANSPOSE(FILTER(TRANSPOSE(All_Xs)" in x_s_formula
-    assert "TAKE(All_Xs,,1)" in x_s_formula
+    names = [item.Name.split("!", 1)[-1] for item in sheet.api.Names.items]
+    # Spec wiring precedes the closures, which precede the Regression-only names.
+    assert names.index("Spec_Include") < names.index("Sample_Include")
+    assert names.index("Sample_Include") < names.index("X_s")
+    assert names.index("X_s") < names.index("Zero_Predictors_Selected")
+    # The v1 hard-wired names are gone.
+    for legacy in ("All_Xs", "Coefficient_Name_Col", "Ind_Var_Include", "y",
+                   "Regression_Sample_Include", "data_identifiers"):
+        assert legacy not in names, legacy
+
+    x_s_formula = sheet.api.Names.by_short_name("X_s").RefersTo
+    assert x_s_formula.startswith("=LAMBDA(LET(")
+    assert "Dummy_Levels(" in x_s_formula
+
+    zero_formula = sheet.api.Names.by_short_name("Zero_Predictors_Selected").RefersTo
+    assert zero_formula == "=LAMBDA(IFERROR(COLUMNS(X_s()),0)=0)"
+
+    assert sheet.api.Names.by_short_name("Allow_Intercept").RefersTo == (
+        "='Regression'!$C$2"
+    )
+    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$T$12"
 
 
-def test_prediction_interval_binds_selected_inputs_in_the_cell_formula() -> None:
+def test_regression_chart_names_size_to_the_observation_cell() -> None:
     sheet = RecordingSheet(name="Regression")
 
-    _write_prediction_interval(sheet)
+    _setup_regression_names(_as_xw_sheet(sheet))
 
-    formula = sheet.cell(3, 22).api.Formula2
+    fit_y = sheet.api.Names.by_short_name("RegChartFitY").RefersTo
+    assert fit_y == (
+        "=OFFSET('Regression'!$AH$2,1,0,"
+        "MAX(IFERROR('Regression'!$T$8,1),1),1)"
+    )
+    press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
+    assert "$AQ$2" in press
+    assert {
+        name: sheet.api.Names.by_short_name(name).Comment
+        for name in (
+            "RegChartQQX",
+            "RegChartQQY",
+            "RegChartFitY",
+            "RegChartResid",
+            "RegChartActY",
+            "RegChartScaleLoc",
+            "RegChartCookDist",
+            "RegChartLeverage",
+            "RegChartStudResid",
+            "RegChartPRESSResid",
+        )
+    } == {
+        "RegChartQQX": "Normal Q-Q chart: X values (theoretical quantiles, Normal Scores Ranked)",
+        "RegChartQQY": "Normal Q-Q chart: Y values (Studentized Residuals Ranked)",
+        "RegChartFitY": (
+            "Predicted Y: X values for the Residuals vs. Fitted, Actual vs. Predicted, "
+            "and Scale-Location charts"
+        ),
+        "RegChartResid": "Residuals vs. Fitted chart: Y values (Residuals)",
+        "RegChartActY": "Actual vs. Predicted chart: Y values (Actual Y)",
+        "RegChartScaleLoc": "Scale-Location chart: Y values (sqrt of abs Studentized Residual)",
+        "RegChartCookDist": "Cook's Distance chart: bar values",
+        "RegChartLeverage": "Studentized Residuals vs. Leverage chart: X values (Hat Diagonal)",
+        "RegChartStudResid": "Studentized Residuals vs. Leverage chart: Y values",
+        "RegChartPRESSResid": "PRESS Residuals chart: bar values",
+    }
+
+
+def test_intercept_only_n_does_not_depend_on_filter() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _setup_regression_names(_as_xw_sheet(sheet))
+
+    intercept_only_n_formula = sheet.api.Names.by_short_name("Intercept_Only_N").RefersTo
+    assert "FILTER" not in intercept_only_n_formula
+    # SUMPRODUCT over the computed mask: COUNTIF needs a range reference and
+    # Sample_Include() is an array; SUMPRODUCT never errors on an empty mask.
+    assert "SUMPRODUCT(N(Sample_Include()))" in intercept_only_n_formula
+
+
+def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_prediction_interval(_as_xw_sheet(sheet))
+
+    formula = sheet.cell(3, 29).api.Formula2
     assert formula is not None
-    assert formula.startswith("=LET(pred_input,VSTACK($V$12,")
-    assert "FILTER($V$13:$V$30" in formula
-    assert "Prediction_Interval(x_s(),y,pred_input" in formula
+    assert formula.startswith("=IF(Zero_Predictors_Selected(),")
+    assert "IFERROR" not in formula
+    # Inputs correspond 1:1 to constructed columns — TAKE exactly k rows,
+    # no Include-filter needed.
+    assert "LET(pred_input,VSTACK($AC$12,TAKE($AC$13:$AC$62,COLUMNS(X_s())))" in formula
+    assert "Prediction_Interval(X_s(),Response_Column(),pred_input" in formula
+    assert "Intercept_Only_Point()" in formula
+
+
+def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_prediction_inputs(_as_xw_sheet(sheet))
+
+    # The Training Mean spill is the ONE X_s() evaluation for the whole
+    # prefill band; it owns column AD downward so it can never collide with
+    # another spill when the source data or spec changes.
+    assert sheet.cell(11, _C_AD).value == "Training Mean"
+    means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AD)
+    assert means == (
+        "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
+        'LAMBDA(c,AVERAGE(c)))),"")'
+    )
+
+    # Perf tripwire: X_s() is a full design-matrix construction on every
+    # call, so no prefill cell may invoke it — 50 cells × 2 calls made the
+    # workbook's first full calculation take ~20 minutes.
+    for row in (_PRED_INPUT_FIRST_ROW, _PRED_INPUT_LAST_ROW):
+        prefill = _formula(sheet, row, _C_AC)
+        assert "X_s()" not in prefill
+        assert f"INDEX($AD${_PRED_INPUT_FIRST_ROW}#" in prefill
+        assert f"IFERROR(ROWS($AD${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
+
+
+def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_coefficients(_as_xw_sheet(sheet))
+
+    label_formula = _formula(sheet, 21, _C_S)
+    assert label_formula.startswith("=IF(Zero_Predictors_Selected(),")
+    assert 'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA())' in label_formula
+    # Level-qualified names come from the constructor twin (a row vector).
+    assert 'VSTACK("Intercept",TRANSPOSE(Constructed_Column_Names()))' in label_formula
+
+    coefficient_formula = _formula(sheet, 21, _C_T)
+    assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
+    assert "Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include())" in coefficient_formula
+
+    se_formula = _formula(sheet, 21, _C_U)
+    assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
+
+    beta_formula = _formula(sheet, 21, _C_Z)
+    assert 'IF(Allow_Intercept,"",NA())' in beta_formula
 
 
 def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
     sheet = RecordingSheet(name="Regression")
 
-    _write_regression_outputs_header(sheet)
+    _write_regression_outputs_header(_as_xw_sheet(sheet))
 
-    assert sheet.cell(2, _C_P).value == "Predicted Variable"
-    assert sheet.cell(2, _C_P).api.Font.Bold is True
-    assert sheet.cell(2, _C_Q).api.Formula2 == "=OFFSET(y,-1,0,1,1)"
+    assert sheet.cell(2, _C_W).value == "Predicted Variable"
+    assert sheet.cell(2, _C_W).api.Font.Bold is True
+    assert sheet.cell(2, _C_W).color == HEADER_COLOR
+    # Derived response name — the header of the Role=Response spec row.
+    readout = sheet.cell(2, _C_X).api.Formula2
+    assert readout is not None
+    assert readout.startswith("=IFERROR(INDEX(TOROW(Header_Names),")
+    assert 'XMATCH("Response (y)"' in readout
+    assert sheet.cell(2, _C_X).api.Font.Bold is True
+    assert sheet.cell(2, _C_X).color == HEADER_COLOR
 
 
-def test_write_residuals_writes_row_identifier_header_and_falls_back_on_error() -> None:
+def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     sheet = RecordingSheet(name="Regression")
 
-    _write_residuals(sheet)
+    _write_residuals(_as_xw_sheet(sheet))
 
-    assert sheet.cell(2, _C_X).api.Formula2 == (
-        '=IFERROR(OFFSET(data_identifiers,-1,0,1,1),"Observation")'
-    )
-    assert sheet.cell(3, _C_X).api.Formula2 == (
-        '=IFERROR(FILTER(data_identifiers,Regression_Sample_Include),'
-        'LAMBDA(obs,"Observation "&obs)(SEQUENCE($M$8)))'
+    # Static header; Row_Labels() supplies its own per-row content and
+    # no-Identifier fallback, so only an all-FALSE mask is absorbed here.
+    assert sheet.cell(2, _C_AF).value == "Observation"
+    assert sheet.cell(3, _C_AF).api.Formula2 == (
+        "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
-    assert sheet.cell(2, _C_Y).value == "Y"
-    assert sheet.cell(3, _C_Y).api.Formula2 == "=Dependent_Var(y,Regression_Sample_Include)"
+    assert sheet.cell(2, _C_AG).value == "Y"
+    assert sheet.cell(3, _C_AG).api.Formula2 == (
+        "=Dependent_Variable(Response_Column(),Sample_Include())"
+    )
+    assert sheet.cell(3, _C_AI).api.Formula2 == (
+        "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+    )
+    assert sheet.cell(3, _C_AK).api.Formula2 == (
+        "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())"
+    )
+    assert sheet.cell(3, _C_AJ).api.Formula2 == (
+        "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+    )
+    assert sheet.cell(3, _C_AQ).api.Formula2 == (
+        "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+    )
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:
     sheet = RecordingSheet()
 
-    _write_data_zone(sheet)
+    _write_data_zone(_as_xw_sheet(sheet))
 
     assert sheet.cell(4, 1).api.Formula2 == (
         '=IF(LifeExpectancyData[Life expectancy]="","",'
         "LifeExpectancyData[Life expectancy])"
     )
-    assert sheet.cell(4, 2).api.Formula2 == (
-        "=MAP(LifeExpectancyData[Life expectancy],Data_Completeness)"
-    )
+    assert sheet.cell(4, 2).api.Formula2 == "=ISNUMBER(LifeExpectancyData[Life expectancy])"
 
 
 def test_expression_format_records_formula_and_font_options() -> None:
     sheet = RecordingSheet()
 
     condition = add_expression_format(
-        sheet,
+        _as_xw_sheet(sheet),
         "AB3:AB10",
         "=AB3>2*$P$6",
         fill=CF_LIGHT_RED_FILL,
@@ -128,14 +310,14 @@ def test_expression_format_records_formula_and_font_options() -> None:
 def test_histogram_writer_records_method_cell_formulas() -> None:
     sheet = RecordingSheet()
 
-    _write_histogram_table(sheet, 21, "Sturges")
+    _write_histogram_table(_as_xw_sheet(sheet), 21, "Sturges")
 
     assert sheet.cell(2, 22).value == "Method"
     assert sheet.cell(2, 22).color == HEADER_COLOR
     assert sheet.cell(2, 23).value == "Sturges"
     assert sheet.cell(2, 23).color == HEADER_COLOR
     assert sheet.cell(3, 22).value == "Bins:"
-    assert sheet.cell(3, 23).api.Formula2 == "=num_histogram_bins(UV_Data,W2,UV_Include)"
+    assert sheet.cell(3, 23).api.Formula2 == "=Number_Of_Histogram_Bins(UV_Data,W2,UV_Include)"
     assert sheet.cell(5, 22).api.Formula2 == "=Upper_Bin_Edges(UV_Data,W2,UV_Include)"
     assert sheet.cell(5, 23).api.Formula2 == "=Bin_Counts(UV_Data,W2,UV_Include)"
     assert sheet.cell(5, 21).api.Formula2 == "=Bin_Lower_Edges(UV_Data,W2,UV_Include)"
@@ -143,8 +325,8 @@ def test_histogram_writer_records_method_cell_formulas() -> None:
     cdf_formulas = [sheet.cell(5, col).api.Formula2 for col in cdf_cols]
     assert all(formula and formula.startswith("=LET(edges,V5#,lower,U5#") for formula in cdf_formulas)
     assert all("HSTACK" not in formula for formula in cdf_formulas if formula)
-    assert "CDF_Normal(edges,$I$5,$K$5,lower)" in sheet.cell(5, 24).api.Formula2
-    assert "CDF_BetaPERT(edges,$I$12,$K$12,$M$12,lower)" in sheet.cell(5, 31).api.Formula2
+    assert "CDF_Normal(edges,$I$5,$K$5,lower)" in _formula(sheet, 5, 24)
+    assert "CDF_BetaPERT(edges,$I$12,$K$12,$M$12,lower)" in _formula(sheet, 5, 31)
 
 
 def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None:
@@ -165,7 +347,7 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
         ]
     )
 
-    _setup_local_names(sheet)
+    _setup_local_names(_as_xw_sheet(sheet))
 
     assert [item.Name for item in sheet.book.api.Names.items] == ["UnrelatedName"]
     names = sheet.api.Names
@@ -173,15 +355,34 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
     for hist_name in histogram_names:
         refers_to = names.by_short_name(hist_name).RefersTo
         assert refers_to.startswith("=OFFSET('Univariate'!$")
-        assert ",1,0,MAX(IFERROR(num_histogram_bins(" in refers_to
+        assert ",1,0,MAX(IFERROR(Number_Of_Histogram_Bins(" in refers_to
         assert refers_to.endswith(",1),1),1)")
     assert "$W$2" in names.by_short_name("UV_Sturges_Upper_Edges").RefersTo
     assert "$AI$2" in names.by_short_name("UV_Scott_Upper_Edges").RefersTo
     assert "$AU$2" in names.by_short_name("UV_FD_Upper_Edges").RefersTo
+    assert names.by_short_name("UV_Sturges_Upper_Edges").Comment == (
+        "Sturges Method histogram chart: category (X) axis bin edges"
+    )
+    assert names.by_short_name("UV_Sturges_Counts").Comment == (
+        "Sturges Method histogram chart: bar values (bin counts)"
+    )
+    assert names.by_short_name("UV_Scott_Upper_Edges").Comment == (
+        "Scott Method histogram chart: category (X) axis bin edges"
+    )
+    assert names.by_short_name("UV_Scott_Counts").Comment == (
+        "Scott Method histogram chart: bar values (bin counts)"
+    )
+    assert names.by_short_name("UV_FD_Upper_Edges").Comment == (
+        "Freedman-Diaconis Method histogram chart: category (X) axis bin edges"
+    )
+    assert names.by_short_name("UV_FD_Counts").Comment == (
+        "Freedman-Diaconis Method histogram chart: bar values (bin counts)"
+    )
     assert names.by_short_name("UV_Sturges_Normal_CDF").RefersTo == (
         "=OFFSET('Univariate'!$X$4,1,0,"
-        "MAX(IFERROR(num_histogram_bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
+        "MAX(IFERROR(Number_Of_Histogram_Bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
     )
+    assert getattr(names.by_short_name("UV_Sturges_Normal_CDF"), "Comment", None) is None
 
 
 def test_missing_count_formula_uses_unfiltered_active_range() -> None:
@@ -192,28 +393,28 @@ def test_missing_count_formula_uses_unfiltered_active_range() -> None:
 def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> None:
     sheet = RecordingSheet()
 
-    _write_data_zone(sheet)
+    _write_data_zone(_as_xw_sheet(sheet))
     assert sheet.range((4, 1), (2003, 1)).number_format == "0.0"
     assert sheet.range((4, 2), (2003, 2)).number_format == "0"
 
-    _write_descriptive_stats(sheet)
+    _write_descriptive_stats(_as_xw_sheet(sheet))
     assert sheet.cell(4, 5).number_format == "0.0"
     assert sheet.cell(14, 5).number_format == "0"
     assert sheet.cell(15, 5).number_format == "0"
 
-    _write_histogram_table(sheet, 21, "Sturges")
+    _write_histogram_table(_as_xw_sheet(sheet), 21, "Sturges")
     assert sheet.cell(3, 23).number_format == "0"
     assert sheet.range((5, 21), (2003, 21)).number_format == "0.0"
     assert sheet.range((5, 22), (2003, 22)).number_format == "0.0"
     assert sheet.range((5, 23), (2003, 23)).number_format == "0"
 
-    _write_fitting_table(sheet)
+    _write_fitting_table(_as_xw_sheet(sheet))
     assert sheet.cell(5, 9).number_format == "0.0"
     assert sheet.cell(5, 14).number_format == "0.0E+00"
     assert sheet.cell(5, 15).number_format == "0"
     assert sheet.cell(5, 16).number_format == "0.0"
 
-    _write_weibull_grid_search(sheet)
+    _write_weibull_grid_search(_as_xw_sheet(sheet))
     assert sheet.cell(3, 58).number_format == "0"
     assert sheet.range((3, 61), (4, 65)).number_format == "0.0"
     assert sheet.cell(5, 57).number_format == "0.0E+00"
@@ -230,7 +431,7 @@ def test_histogram_chart_title_cells_reference_method_headers():
         _ROW_CHART1_TITLE, _ROW_CHART2_TITLE, _ROW_CHART3_TITLE,
     )
     sheet = RecordingSheet()
-    _write_histogram_chart_title_cells(sheet)
+    _write_histogram_chart_title_cells(_as_xw_sheet(sheet))
     f1 = sheet.ranges[((_ROW_CHART1_TITLE, _C_FIT_FIRST),)].state.formula2
     f2 = sheet.ranges[((_ROW_CHART2_TITLE, _C_FIT_FIRST),)].state.formula2
     f3 = sheet.ranges[((_ROW_CHART3_TITLE, _C_FIT_FIRST),)].state.formula2
@@ -242,7 +443,7 @@ def test_histogram_chart_title_cells_reference_method_headers():
 def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:
     sheet = RecordingSheet()
 
-    _write_weibull_grid_search(sheet)
+    _write_weibull_grid_search(_as_xw_sheet(sheet))
 
     assert ((1, 57), (1, 77)) in sheet.merges
     assert ((1, 79), (1, 99)) in sheet.merges
@@ -272,14 +473,14 @@ def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:
 def test_weibull_grid_formulas_reference_visible_controls() -> None:
     sheet = RecordingSheet()
 
-    _write_weibull_grid_search(sheet)
+    _write_weibull_grid_search(_as_xw_sheet(sheet))
 
     assert sheet.cell(3, 64).api.Formula2 == "=($BK$3-$BJ$3)/($BF$3-1)"
     assert sheet.cell(4, 64).api.Formula2 == "=($BK$4-$BJ$4)/($BF$3-1)"
     assert sheet.cell(5, 58).api.Formula2 == "=SEQUENCE(1,$BF$3,$BJ$3,$BL$3)"
     assert sheet.cell(6, 57).api.Formula2 == "=SEQUENCE($BF$3,1,$BJ$4,$BL$4)"
     assert sheet.cell(3, 57).api.Formula2 == (
-        '=IFERROR(TAKE(Grid_Argmin(UV_WB_S1),,1),"—")'
+        '=IFERROR(TAKE(Grid_Argument_Minimum(UV_WB_S1),,1),"—")'
     )
     assert sheet.cell(3, 65).api.Formula2 == "=Grid_Search_Optimum(UV_WB_S1)"
     assert sheet.cell(4, 65).api.Formula2 is None
@@ -289,7 +490,7 @@ def test_weibull_grid_formulas_reference_visible_controls() -> None:
     assert sheet.cell(31, 57).api.Formula2 == (
         "=NLL_Gamma(UV_Data,$BI$29,$BI$30,UV_Include)"
     )
-    assert "NLL_Beta(z,$BI$55,$BI$56)" in sheet.cell(57, 57).api.Formula2
+    assert "NLL_Beta(z,$BI$55,$BI$56)" in _formula(sheet, 57, 57)
 
     assert sheet.cell(3, 84).api.Formula2 == "=MAX(0.001,$BM$3-$BL$3)"
     assert sheet.cell(3, 85).api.Formula2 == "=$BM$3+$BL$3"
@@ -300,7 +501,7 @@ def test_weibull_grid_formulas_reference_visible_controls() -> None:
 def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
     sheet = RecordingSheet()
 
-    _write_weibull_grid_search(sheet)
+    _write_weibull_grid_search(_as_xw_sheet(sheet))
 
     assert sheet.tables[:2] == [
         {
@@ -348,15 +549,15 @@ def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
 
     shape_rule = sheet.cell(3, 65).api.FormatConditions.items[0].Formula1
     scale_rule = sheet.cell(4, 65).api.FormatConditions.items[0].Formula1
-    assert shape_rule == "=OR(INDEX(Grid_Argmin(UV_WB_S1),1,3)=1,INDEX(Grid_Argmin(UV_WB_S1),1,3)=$BF$3)"
-    assert scale_rule == "=OR(INDEX(Grid_Argmin(UV_WB_S1),1,2)=1,INDEX(Grid_Argmin(UV_WB_S1),1,2)=$BF$3)"
+    assert shape_rule == "=OR(INDEX(Grid_Argument_Minimum(UV_WB_S1),1,3)=1,INDEX(Grid_Argument_Minimum(UV_WB_S1),1,3)=$BF$3)"
+    assert scale_rule == "=OR(INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)=1,INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)=$BF$3)"
     assert len(sheet.range((6, 58), (25, 77)).api.FormatConditions.color_scales) == 1
 
 
 def test_weibull_bounds_and_summary_reference_final_best_cells() -> None:
     sheet = RecordingSheet()
 
-    _write_weibull_grid_search(sheet)
+    _write_weibull_grid_search(_as_xw_sheet(sheet))
     rows = {name: row for row, name, *_ in _dist_rows(5)}
     weibull_row = next(item for item in _dist_rows(5) if item[1] == "Weibull")
     gamma_row = next(item for item in _dist_rows(5) if item[1] == "Gamma")
@@ -383,7 +584,7 @@ def test_grid_stage_returns_visible_step_and_count_references() -> None:
     sheet = RecordingSheet()
 
     refs = _write_grid_stage(
-        sheet,
+        _as_xw_sheet(sheet),
         row_start=1,
         col_start=29,
         title="Stage",

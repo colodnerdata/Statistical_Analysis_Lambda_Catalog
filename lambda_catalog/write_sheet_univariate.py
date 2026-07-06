@@ -19,7 +19,7 @@ Sheet layout
   Row 4          — Column sub-headers
 
   Col A          — Data: LifeExpectancyData[Life expectancy] spill in A4
-  Col B          — Filter: Data_Completeness mask ($B$4#)
+  Col B          — Filter: numeric-data mask ($B$4#)
   Col C          — thin gap (width 2); freeze pane left boundary
   Col D–E        — Descriptive Statistics (12 stat rows)
   Col F          — thin gap (width 2)
@@ -40,7 +40,7 @@ Sheet layout
 Sheet-scoped named ranges
 ─────────────────────────
   UV_Data        — spill range of the raw column formula ($A$4#, unfiltered)
-  UV_Include     — local filter mask spill ($B$4#) — Data_Completeness applied per row
+  UV_Include     — local filter mask spill ($B$4#)
   UV_n           — IFERROR(COUNT(FILTER(UV_Data,UV_Include)), 0)
   UV_Sturges_*, UV_Scott_*, UV_FD_* — OFFSET-based histogram column ranges
   UV_WB_S1/S2   — Stage 1/2 Weibull Data Table bodies
@@ -306,21 +306,40 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
     # Histogram column ranges: OFFSET-based, anchored at the header row like
     # Regression chart ranges, and sized by the method value stored in row 2.
+    # Upper_Edges and Counts feed the histogram chart SERIES formulas, so they
+    # get a Name Manager comment saying which chart they belong to.
+    method_labels = {
+        "UV_Sturges": "Sturges",
+        "UV_Scott": "Scott",
+        "UV_FD": "Freedman-Diaconis",
+    }
     for prefix, block_start in _HIST_BLOCKS:
         method_ref = f"'{sname}'!${col_letter(block_start + _HB_COUNT)}${_ROW_METHOD_HDR}"
-        size_formula = f"num_histogram_bins(UV_Data,{method_ref},UV_Include)"
+        size_formula = f"Number_Of_Histogram_Bins(UV_Data,{method_ref},UV_Include)"
+        chart_comments = {
+            "Upper_Edges": (
+                f"{method_labels[prefix]} Method histogram chart: "
+                "category (X) axis bin edges"
+            ),
+            "Counts": (
+                f"{method_labels[prefix]} Method histogram chart: "
+                "bar values (bin counts)"
+            ),
+        }
         for offset, _, suffix, _ in _HIST_COLUMNS:
             name = f"{prefix}_{suffix}"
             col_ltr = col_letter(block_start + offset)
             _drop_wb_name(sheet, name)
             drop_local_name(sheet, name)
-            sheet.api.Names.Add(
+            nm = sheet.api.Names.Add(
                 Name=name,
                 RefersTo=(
                     f"=OFFSET('{sname}'!${col_ltr}${_ROW_COL_HDRS},"
                     f"1,0,MAX(IFERROR({size_formula},1),1),1)"
                 ),
             )
+            if suffix in chart_comments:
+                nm.Comment = chart_comments[suffix]
 
 
 def _dist_fit_rows_by_name() -> dict[str, int]:
@@ -421,11 +440,10 @@ def _write_data_zone(sheet: xw.Sheet) -> None:
     )
     sheet.range(rc(_ROW_DATA_START, _C_A), rc(_DATA_END, _C_A)).number_format = _FMT_1DP
 
-    # Filter column — local Data_Completeness mask; UV_Include is defined as $B$4#
+    # Filter column — local numeric mask; UV_Include is defined as $B$4#
     section_heading(sheet, _ROW_SECTION_HDR, _C_B, "Filter")
     val(sheet, _ROW_COL_HDRS, _C_B, "Include")
-    f(sheet, _ROW_DATA_START, _C_B,
-       "=MAP(LifeExpectancyData[Life expectancy],Data_Completeness)")
+    f(sheet, _ROW_DATA_START, _C_B, "=ISNUMBER(LifeExpectancyData[Life expectancy])")
     sheet.range(rc(_ROW_DATA_START, _C_B), rc(_DATA_END, _C_B)).number_format = _FMT_INT
 
 
@@ -501,7 +519,7 @@ def _write_histogram_table(
     val(sheet, _ROW_SECTION_HDR, col_edge, "Bins:")
     method_cell = a1(_ROW_METHOD_HDR, col_count)
     f(sheet, _ROW_SECTION_HDR, col_count,
-      f"=num_histogram_bins(UV_Data,{method_cell},UV_Include)")
+      f"=Number_Of_Histogram_Bins(UV_Data,{method_cell},UV_Include)")
     sheet.range(rc(_ROW_SECTION_HDR, col_count)).number_format = _FMT_INT
 
     # Upper-edge, count, and lower-edge spill formulas.
@@ -871,7 +889,7 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
 #   row+5…+4+N : row-parameter SEQUENCE at col+0; Data Table body at col+1…col+N
 #
 # Fixed-area tables:
-#   Min NLL table       — col+0, rows+1…+2; value uses TAKE(Grid_Argmin(...),,1)
+#   Min NLL table       — col+0, rows+1…+2; value uses TAKE(Grid_Argument_Minimum(...),,1)
 #   Rows/Columns table  — col+1, rows+1…+2; generated value documents physical grid size
 #   Parameter table     — cols+3…+8, rows+1…+3
 #   Blank spacer column — col+2, rows+1…+3
@@ -1070,12 +1088,12 @@ def _write_grid_stage(
     body_range.number_format = _FMT_SCI_1DP
 
     # ── LAMBDA-driven outputs ────────────────────────────────────────────────
-    # Min NLL is the first column returned by Grid_Argmin.
+    # Min NLL is the first column returned by Grid_Argument_Minimum.
     f(
         sheet,
         p1_row,
         c0 + _GS_C_MINNLL,
-        f'=IFERROR(TAKE(Grid_Argmin({body_name}),,1),"—")',
+        f'=IFERROR(TAKE(Grid_Argument_Minimum({body_name}),,1),"—")',
     )
     sheet.range(rc(p1_row, c0 + _GS_C_MINNLL)).number_format = _FMT_SCI_1DP
 
@@ -1093,7 +1111,7 @@ def _write_grid_stage(
         (p2_row, 2),  # row location controls the row parameter
     ]
     for row, argmin_col in boundary_specs:
-        location = f"INDEX(Grid_Argmin({body_name}),1,{argmin_col})"
+        location = f"INDEX(Grid_Argument_Minimum({body_name}),1,{argmin_col})"
         cell_api = sheet.range(rc(row, c0 + _GS_C_BEST)).api
         cf = cell_api.FormatConditions.Add(
             Type=2,  # xlExpression

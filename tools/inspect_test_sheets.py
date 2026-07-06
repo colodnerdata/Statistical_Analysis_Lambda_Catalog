@@ -30,10 +30,10 @@ TOLERANCE_DECIMALS = _D * 2  # 6 decimal places
 _STATS = [
     "Coefficients",
     "SE_Coefficients",
-    "T_Stats",
+    "T_Statistics",
     "P_Values",
-    "CI_Lower",
-    "CI_Upper",
+    "Confidence_Interval_Lower",
+    "Confidence_Interval_Upper",
 ]
 # RegressionVectors field names in the same order as _STATS
 _STAT_FIELDS = [
@@ -57,7 +57,7 @@ _DF_VECTOR_COLS = [
 ]
 _DF_OBS_COLS = ["k", "allow_intercept", "row_idx", "stat_name", "expected", "excel_calc", "abs_diff", "first_digit_deviation"]
 _OBS_STATS = [
-    "Observation_Num",
+    "Observation_Number",
     "Rank_Fraction",
     "Y_Ranked",
     "Normal_Scores",

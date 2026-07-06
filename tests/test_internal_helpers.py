@@ -1,4 +1,5 @@
 """Tests for private helpers in analyze_life_expectancy."""
+# pylint: disable=missing-class-docstring,missing-function-docstring
 from __future__ import annotations
 
 import unittest
@@ -21,7 +22,9 @@ class ParseFloatTests(unittest.TestCase):
         self.assertEqual(_parse_float("42"), 42.0)
 
     def test_valid_float_string(self) -> None:
-        self.assertAlmostEqual(_parse_float("3.14"), 3.14)
+        result = _parse_float("3.14")
+        assert result is not None
+        self.assertAlmostEqual(result, 3.14)
 
     def test_none_input_returns_none(self) -> None:
         self.assertIsNone(_parse_float(None))
@@ -36,13 +39,19 @@ class ParseFloatTests(unittest.TestCase):
         self.assertIsNone(_parse_float("not_a_number"))
 
     def test_whitespace_padded_float(self) -> None:
-        self.assertAlmostEqual(_parse_float("  2.5  "), 2.5)
+        result = _parse_float("  2.5  ")
+        assert result is not None
+        self.assertAlmostEqual(result, 2.5)
 
     def test_negative_value(self) -> None:
-        self.assertAlmostEqual(_parse_float("-7.0"), -7.0)
+        result = _parse_float("-7.0")
+        assert result is not None
+        self.assertAlmostEqual(result, -7.0)
 
     def test_scientific_notation(self) -> None:
-        self.assertAlmostEqual(_parse_float("1.5e3"), 1500.0)
+        result = _parse_float("1.5e3")
+        assert result is not None
+        self.assertAlmostEqual(result, 1500.0)
 
 
 class NormalizeHeaderTests(unittest.TestCase):
@@ -95,6 +104,7 @@ class PredictSingleRowTests(unittest.TestCase):
     def test_simple_dot_product_no_intercept(self) -> None:
         coefficients = np.array([2.0, 3.0])
         result = _predict_single_row(coefficients, [1.0, 1.0], False)
+        assert result is not None
         self.assertAlmostEqual(result, 5.0)
 
     def test_dot_product_with_intercept(self) -> None:
@@ -102,11 +112,13 @@ class PredictSingleRowTests(unittest.TestCase):
         # prediction = 1.0*1 + 2.0*3 = 7.0
         coefficients = np.array([1.0, 2.0])
         result = _predict_single_row(coefficients, [3.0], True)
+        assert result is not None
         self.assertAlmostEqual(result, 7.0)
 
     def test_zero_features_give_intercept_only(self) -> None:
         coefficients = np.array([5.0, 2.0, 3.0])
         result = _predict_single_row(coefficients, [0.0, 0.0], True)
+        assert result is not None
         self.assertAlmostEqual(result, 5.0)
 
 

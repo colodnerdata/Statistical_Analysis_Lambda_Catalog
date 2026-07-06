@@ -38,12 +38,12 @@ These functions return a single number summarizing the regression.
 | Function | Returns |
 |---|---|
 | `Observations(Y, [Include])` | Number of observations (n) |
-| `DF_Regression(X_s)` | Degrees of freedom for the model (k predictors) |
-| `DF_Residual(X_s, Y, [Allow_Intercept], [Include])` | Degrees of freedom for residuals (n − k − 1) |
-| `DF_Total(Y, [Allow_Intercept], [Include])` | Total degrees of freedom (n − 1) |
-| `R_squared(X_s, Y, [Allow_Intercept], [Include])` | R² — proportion of variance explained, 0 to 1 |
+| `Regression_Degrees_Of_Freedom(X_s)` | Degrees of freedom for the model (k predictors) |
+| `Residual_Degrees_Of_Freedom(X_s, Y, [Allow_Intercept], [Include])` | Degrees of freedom for residuals (n − k − 1) |
+| `Total_Degrees_Of_Freedom(Y, [Allow_Intercept], [Include])` | Total degrees of freedom (n − 1) |
+| `R_Squared(X_s, Y, [Allow_Intercept], [Include])` | R² — proportion of variance explained, 0 to 1 |
 | `Multiple_R(X_s, Y, [Allow_Intercept], [Include])` | √R² — multiple correlation coefficient |
-| `Adjusted_R2(X_s, Y, [Allow_Intercept], [Include])` | R² penalized for number of predictors |
+| `Adjusted_R_Squared(X_s, Y, [Allow_Intercept], [Include])` | R² penalized for number of predictors |
 | `SE_Regression(X_s, Y, [Allow_Intercept], [Include])` | Standard error of the regression |
 | `SS_Regression(X_s, Y, [Allow_Intercept], [Include])` | Model sum of squares |
 | `SS_Residual(X_s, Y, [Allow_Intercept], [Include])` | Residual (error) sum of squares |
@@ -65,11 +65,11 @@ These functions return one value per coefficient (intercept first when included,
 |---|---|
 | `Coefficients(X_s, Y, [Allow_Intercept], [Include])` | OLS coefficient estimates |
 | `SE_Coefficients(X_s, Y, [Allow_Intercept], [Include])` | Standard errors of the coefficients |
-| `T_Stats(X_s, Y, [Allow_Intercept], [Include])` | t-statistics (coefficient / standard error) |
+| `T_Statistics(X_s, Y, [Allow_Intercept], [Include])` | t-statistics (coefficient / standard error) |
 | `P_Values(X_s, Y, [Allow_Intercept], [Include])` | Two-tailed p-values |
-| `CI_Lower(X_s, Y, [Allow_Intercept], [Include], [Alpha])` | Lower confidence interval bounds (default 95%) |
-| `CI_Upper(X_s, Y, [Allow_Intercept], [Include], [Alpha])` | Upper confidence interval bounds (default 95%) |
-| `Partial_R2(X_s, Y, [Allow_Intercept], [Include])` | Partial R² per coefficient |
+| `Confidence_Interval_Lower(X_s, Y, [Allow_Intercept], [Include], [Alpha])` | Lower confidence interval bounds (default 95%) |
+| `Confidence_Interval_Upper(X_s, Y, [Allow_Intercept], [Include], [Alpha])` | Upper confidence interval bounds (default 95%) |
+| `Partial_R_Squared(X_s, Y, [Allow_Intercept], [Include])` | Partial R² per coefficient |
 | `Partial_Correlation(X_s, Y, [Allow_Intercept], [Include])` | Partial correlation per coefficient |
 | `Beta_Weights(X_s, Y, [Allow_Intercept], [Include])` | k×1 vector of standardized coefficients (Beta weights) — intercept excluded |
 
@@ -94,10 +94,10 @@ These functions return one value per observation in the filtered dataset, spille
 | `Scaled_Residuals_Ranked(X_s, Y, [Allow_Intercept], [Include])` | Scaled residuals sorted ascending |
 | `Studentized_Residuals(X_s, Y, [Allow_Intercept], [Include])` | Internally studentized residuals |
 | `Studentized_Residuals_Ranked(X_s, Y, [Allow_Intercept], [Include])` | Studentized residuals sorted ascending |
-| `Hat_diagonal(X_s, [Allow_Intercept], [Include])` | Leverage values (diagonal of the hat matrix) |
+| `Hat_Diagonal(X_s, [Allow_Intercept], [Include])` | Leverage values (diagonal of the hat matrix) |
 | `Cooks_Distance(X_s, Y, [Allow_Intercept], [Include])` | Cook's distance per observation |
-| `LOOCV_prediction(X_s, Y, [Allow_Intercept], [Include])` | Leave-one-out predicted value per observation |
-| `Observation_Num(Y, [Include])` | Sequential row indices 1 through n |
+| `LOOCV_Prediction(X_s, Y, [Allow_Intercept], [Include])` | Leave-one-out predicted value per observation |
+| `Observation_Number(Y, [Include])` | Sequential row indices 1 through n |
 | `Rank_Fraction(Y, [Include])` | Empirical CDF fractions in original data order |
 | `Y_Ranked(Y, [Include])` | Sorted filtered outcome values |
 | `Normal_Scores(Y, [Include])` | Theoretical standard-normal quantiles |
@@ -112,8 +112,8 @@ These functions return the overall F-test results for the regression model.
 
 | Function | Returns |
 |---|---|
-| `F_Stat(X_s, Y, [Allow_Intercept], [Include])` | F-statistic for overall model significance |
-| `P_Value_F(X_s, Y, [Allow_Intercept], [Include])` | p-value for the overall F-test |
+| `F_Statistic(X_s, Y, [Allow_Intercept], [Include])` | F-statistic for overall model significance |
+| `F_Statistic_P_Value(X_s, Y, [Allow_Intercept], [Include])` | p-value for the overall F-test |
 
 ### Descriptive and correlation functions
 
@@ -132,18 +132,18 @@ These functions support exploratory analysis before model fitting. `Pearson_R`, 
 | Function | Returns |
 |---|---|
 | `Design_Matrix(X_s, [Allow_Intercept], [Include])` | Filtered numeric design matrix as a spilled array |
-| `Gram_Inverse(X)` | Inverse of the Gram matrix (X'X)⁻¹ — used internally by `Hat_diagonal`, `PRESS`, `LOOCV_prediction`, and `Prediction_Interval` |
+| `Gram_Inverse(X)` | Inverse of the Gram matrix (X'X)⁻¹ — used internally by `Hat_Diagonal`, `PRESS`, `LOOCV_Prediction`, and `Prediction_Interval` |
 | `Complete_Cases_Filter(X_s, [Y])` | Boolean column — TRUE for rows with no missing values |
-| `Col_Select(table, col_nums)` | Selected columns from an array in the specified order |
-| `LOO_prediction(X_s, Y, n, [Allow_Intercept], [Include])` | Leave-one-out prediction for a single observation n |
-| `This_row(array)` | 1-to-n relative row indices |
-| `Exclude_row_n(array, n)` | Array with row n removed |
-| `Dependent_Var(Y, [Include])` | Filtered dependent variable vector |
+| `Column_Select(table, col_nums)` | Selected columns from an array in the specified order |
+| `Leave_One_Out_Prediction(X_s, Y, n, [Allow_Intercept], [Include])` | Leave-one-out prediction for a single observation n |
+| `This_Row(array)` | 1-to-n relative row indices |
+| `Exclude_Row_N(array, n)` | Array with row n removed |
+| `Dependent_Variable(Y, [Include])` | Filtered dependent variable vector |
 | `Data_Completeness(predictor_row)` | TRUE if every cell in a row is numeric, FALSE if any value is blank, text, or error |
 
 ### Grid-search helpers and Univariate Weibull fitting
 
-`Grid_Argmin(grid)` returns a horizontal three-value array:
+`Grid_Argument_Minimum(grid)` returns a horizontal three-value array:
 
 ```text
 minimum value | 1-based row location | 1-based column location
@@ -170,7 +170,7 @@ Stage 2 centers its narrower range on the Stage 1 optimum and extends one Stage 
 
 ## Sample data and Regression sheet
 
-`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The workbook ships with seven sheets:
+`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The workbook ships with eight sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions with signatures, descriptions, and plain-language summaries, filterable by category and subcategory.
 - **Life Expectancy Data** — the WHO dataset as a structured table.
@@ -179,12 +179,13 @@ Stage 2 centers its narrower range on the Stage 1 optimum and extends one Stage 
 - **Diagnostic Guide** — interpretation guide for regression diagnostics with Tier 1/Tier 2 plot specifications, threshold reference table, and "Common Patterns & Next Steps" guidance.
 - **Version History** — changelog that travels with the workbook for non-git users.
 - **Regression** — full ToolPak-style multiple regression analysis interface (see below).
+- **Model Construction** — declarative model specification: assign each table column a Role (Response / Predictor / Identifier / Filter / Omit) and each predictor a Type (Continuous / Categorical, with reference-level control), and the sheet derives the row mask, row labels, and the constructed design matrix `X_s()` with level-qualified column names.
 
 ### Regression sheet
 
 The **Regression** sheet uses the Life Expectancy dataset to demonstrate a full multiple regression analysis. It is organized in four zones:
 
-- **Cols A–J — Main analysis.** Prediction inputs, regression statistics, ANOVA (including `F_Stat` and `P_Value_F`), prediction interval for a new observation, and coefficient table.
+- **Cols A–J — Main analysis.** Prediction inputs, regression statistics, ANOVA (including `F_Statistic` and `F_Statistic_P_Value`), prediction interval for a new observation, and coefficient table.
 - **Predictor summary (below the coefficient table).** A per-predictor panel showing `Pearson_R`, `Spearman_R`, `Skewness`, `Kurtosis`, `VIF`, and `Tolerance` for every predictor — all filtered and recomputed whenever `Full_Data` changes.
 - **Cols L–X — Residual output.** One row per filtered observation: predicted values, residuals, LOOCV predictions, leverage, studentized residuals, Cook's distance, and ranked/scored variants.
 - **Diagnostic charts (col AC+).** Seven charts — Residuals vs Fitted, Normal Q-Q, Actual vs Predicted, Scale-Location (scatter), Cook's Distance, PRESS Residuals (bar), and Studentized Residuals vs Leverage (scatter) — that update automatically via OFFSET-based named ranges.
@@ -200,7 +201,7 @@ These functions power the **Univariate Analysis** sheet and can be used independ
 | Function | Returns |
 |---|---|
 | `Missing_Count(data, [filter])` | Count of non-numeric (blank or text) cells in the active rows |
-| `Descriptive_Stats(data, [filter])` | 12×1 column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count |
+| `Descriptive_Statistics(data, [filter])` | 12×1 column vector: mean, median, mode, SD, variance, min, max, range, skewness, kurtosis, count, missing count |
 
 ### Histogram binning
 
@@ -208,8 +209,8 @@ These functions power the **Univariate Analysis** sheet and can be used independ
 |---|---|
 | `Sturges_Bins(data, [filter])` | Integer bin count via Sturges' rule |
 | `Scott_Bins(data, [filter])` | Integer bin count via Scott's normal reference rule |
-| `FD_Bins(data, [filter])` | Integer bin count via the Freedman-Diaconis rule |
-| `num_histogram_bins(data, [method], [filter])` | Integer bin count for the chosen method (`"Sturges"`, `"Scott"`, or `"FD"`; defaults to `"FD"` when omitted) |
+| `Freedman_Diaconis_Bins(data, [filter])` | Integer bin count via the Freedman-Diaconis rule |
+| `Number_Of_Histogram_Bins(data, [method], [filter])` | Integer bin count for the chosen method (`"Sturges"`, `"Scott"`, or `"FD"`; defaults to `"FD"` when omitted) |
 | `Bin_Edges(data, [method], [filter])` | k+1 × 1 column vector of full bin boundaries — the data minimum followed by k evenly-spaced upper edges |
 | `Upper_Bin_Edges(data, [method], [filter])` | k × 1 upper bin edges (`DROP(Bin_Edges, 1)`) |
 | `Bin_Lower_Edges(data, [method], [filter])` | k × 1 lower bin edges (`DROP(Bin_Edges, -1)`) |

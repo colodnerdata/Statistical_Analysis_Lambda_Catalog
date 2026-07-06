@@ -67,6 +67,36 @@ class LoadCatalogDocumentValidDocumentTests(unittest.TestCase):
         doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
         self.assertEqual(doc.functions[0].number_format, "General")
 
+    def test_scope_defaults_to_workbook(self) -> None:
+        doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
+        self.assertEqual(doc.functions[0].scope, "workbook")
+
+    def test_scope_parsed_when_present(self) -> None:
+        fn = _minimal_function(scope="Model Construction")
+        doc = load_catalog_document(Path(), payload=_payload(fn))
+        self.assertEqual(doc.functions[0].scope, "Model Construction")
+
+    def test_blank_scope_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            load_catalog_document(Path(), payload=_payload(_minimal_function(scope="  ")))
+
+    def test_non_string_scope_rejected(self) -> None:
+        with self.assertRaises(ValueError):
+            load_catalog_document(Path(), payload=_payload(_minimal_function(scope=3)))
+
+    def test_workbook_functions_and_functions_for_sheet_partition(self) -> None:
+        payload = _payload(
+            _minimal_function(name="Portable"),
+            _minimal_function(name="Local_A", scope="Model Construction"),
+            _minimal_function(name="Local_B", scope="Model Construction"),
+        )
+        doc = load_catalog_document(Path(), payload=payload)
+        self.assertEqual([f.name for f in doc.workbook_functions], ["Portable"])
+        self.assertEqual(
+            [f.name for f in doc.functions_for_sheet("Model Construction")],
+            ["Local_A", "Local_B"],
+        )
+
     def test_test_table_defaults_to_none(self) -> None:
         doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
         self.assertIsNone(doc.functions[0].test_table)
@@ -450,11 +480,32 @@ class RealCatalogIntegrationTests(unittest.TestCase):
             [f.name for f in doc_from_payload.functions],
         )
 
+    def test_model_construction_closures_are_sheet_scoped(self) -> None:
+        # v3.0 changeover: the constructor closures are registered on the
+        # Regression sheet (the spec block moved there).
+        closures = self.document.functions_for_sheet("Regression")
+        self.assertEqual(
+            [f.name for f in closures],
+            [
+                "Sample_Include",
+                "Response_Column",
+                "Row_Labels",
+                "X_s",
+                "Constructed_Column_Names",
+            ],
+        )
+        # Sheet-scoped closures must never be synced as workbook names — a
+        # workbook-scoped X_s would carry Model-Construction-relative refs into
+        # the global namespace.
+        workbook_names = {f.name for f in self.document.workbook_functions}
+        for closure in closures:
+            self.assertNotIn(closure.name, workbook_names)
+
     def test_grid_search_helpers_load_with_expected_contracts(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}
-        self.assertIn("Grid_Argmin", functions)
+        self.assertIn("Grid_Argument_Minimum", functions)
         self.assertIn("Grid_Search_Optimum", functions)
-        self.assertEqual(functions["Grid_Argmin"].argument_names, ("grid",))
+        self.assertEqual(functions["Grid_Argument_Minimum"].argument_names, ("grid",))
         self.assertEqual(functions["Grid_Search_Optimum"].argument_names, ("grid",))
 
     def test_grid_search_optimum_uses_scalar_index_and_native_offset(self) -> None:
@@ -474,9 +525,29 @@ class RealCatalogIntegrationTests(unittest.TestCase):
 
     def test_grid_argmin_dynamic_functions_receive_parser_prefixes(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}
-        xml = functions["Grid_Argmin"].workbook_xml_formula_from_display
+        xml = functions["Grid_Argument_Minimum"].workbook_xml_formula_from_display
         for function_name in ("LAMBDA", "LET", "HSTACK", "XMATCH", "TOCOL"):
             self.assertIn(f"_xlfn.{function_name}", xml)
+
+    def test_loocv_residual_is_cataloged_and_used_by_press(self) -> None:
+        functions = {fn.name: fn for fn in self.document.functions}
+        self.assertIn("LOOCV_Residual", functions)
+        self.assertEqual(
+            functions["LOOCV_Residual"].argument_names,
+            ("X_s", "Y", "Allow_Intercept", "Include"),
+        )
+        self.assertIn(
+            "Residuals(X_s, Y, allow_arg, filt_arg)",
+            functions["LOOCV_Residual"].formula_display,
+        )
+        self.assertIn(
+            "Hat_Diagonal(X_s, allow_arg, filt_arg)",
+            functions["LOOCV_Residual"].formula_display,
+        )
+        self.assertIn(
+            "SUMSQ(LOOCV_Residual(X_s, Y, allow_arg, filt_arg))",
+            functions["PRESS"].formula_display,
+        )
 
 
 if __name__ == "__main__":

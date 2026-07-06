@@ -20,7 +20,7 @@ from .regression_shared import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
-_CACHE_SCHEMA_VERSION = 11
+_CACHE_SCHEMA_VERSION = 12
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -81,7 +81,12 @@ def _deserialize_observation_configs(
 ) -> list[tuple[int, bool, RegressionObservationVectors]]:
     result = []
     for item in data:
-        vectors = RegressionObservationVectors(**{k: tuple(v) for k, v in item.items() if k not in {"k", "allow_intercept"}})
+        vector_fields = {
+            k: tuple(v)
+            for k, v in item.items()
+            if k not in {"k", "allow_intercept"}
+        }
+        vectors = RegressionObservationVectors(**vector_fields)
         result.append((item["k"], item["allow_intercept"], vectors))
     return result
 

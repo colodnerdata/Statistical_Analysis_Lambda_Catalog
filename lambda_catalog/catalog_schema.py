@@ -73,6 +73,12 @@ class CatalogFunction:
         Tooltip text (max 255 characters) written to the workbook's defined-name
         ``comment`` attribute, shown by Excel in Name Manager and formula-bar
         autocomplete.
+    scope : str
+        Where the name lives. ``"workbook"`` (the default) means a portable,
+        workbook-scoped defined name synced into workbook.xml. Any other value
+        is a worksheet name: the function is a sheet-scoped closure installed on
+        that sheet (e.g. the Model Construction constructor names), excluded from
+        the workbook-scope sync and labelled by its owning sheet in the catalog.
     """
 
     name: str
@@ -84,6 +90,7 @@ class CatalogFunction:
     test_table: str | None
     number_format: str
     notes: str
+    scope: str = "workbook"
 
     @property
     def argument_names(self) -> tuple[str, ...]:
@@ -153,6 +160,20 @@ class CatalogDocument:
 
     functions: tuple[CatalogFunction, ...]
     regression_sheet_notes: dict[str, str]
+
+    @property
+    def workbook_functions(self) -> tuple[CatalogFunction, ...]:
+        """Functions synced as portable workbook-scoped defined names."""
+        return tuple(fn for fn in self.functions if fn.scope == "workbook")
+
+    def functions_for_sheet(self, sheet_name: str) -> tuple[CatalogFunction, ...]:
+        """Sheet-scoped closures owned by ``sheet_name``, in document order.
+
+        Document order is dependency order for the installer (Excel resolves
+        each name against the ones already added), so callers install these
+        exactly as returned.
+        """
+        return tuple(fn for fn in self.functions if fn.scope == sheet_name)
 
 
 def _looks_like_a1_reference(value: str) -> bool:
@@ -336,6 +357,14 @@ def load_catalog_document(
                 "limit is 255."
             )
 
+        raw_scope = item.get("scope", "workbook")
+        if not isinstance(raw_scope, str) or not raw_scope.strip():
+            raise ValueError(
+                f"Entry {index} ({name!r}) 'scope' must be a non-empty string "
+                "('workbook' or a worksheet name)."
+            )
+        scope = raw_scope.strip()
+
         seen_names.add(name)
         functions.append(CatalogFunction(
             name=name,
@@ -347,6 +376,7 @@ def load_catalog_document(
             test_table=test_table,
             number_format=number_format,
             notes=notes,
+            scope=scope,
         ))
 
     notes_raw = payload.get("regression_sheet_notes", {})

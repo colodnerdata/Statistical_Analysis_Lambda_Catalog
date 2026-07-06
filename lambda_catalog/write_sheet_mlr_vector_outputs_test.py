@@ -21,17 +21,17 @@ _TERM_COL = 1
 _CALC_START_COL = 2
 _TOTAL_COLS = 12  # 1 (term) + 8 (_STATS) + 3 (_K_STATS)
 
-_CI_FUNCS = frozenset({"CI_Lower", "CI_Upper"})
+_CI_FUNCS = frozenset({"Confidence_Interval_Lower", "Confidence_Interval_Upper"})
 
 _D = 3
 _STATS: list[tuple[str, str, int, str]] = [
     ("Coefficients",      "Coefficients",      _D, f"0.{'0' * _D}"),
     ("SE_Coefficients",   "SE_Coefficients",   _D, f"0.{'0' * _D}"),
-    ("T_Stats",           "T_Stats",           _D, f"0.{'0' * _D}"),
+    ("T_Statistics",           "T_Statistics",           _D, f"0.{'0' * _D}"),
     ("P_Values",          "P_Values",          _D, f"0.{'0' * _D}E+00"),
-    ("CI_Lower",          "CI_Lower",          _D, f"0.{'0' * _D}"),
-    ("CI_Upper",          "CI_Upper",          _D, f"0.{'0' * _D}"),
-    ("Partial_R2",        "Partial_R2",        _D, f"0.{'0' * _D}"),
+    ("Confidence_Interval_Lower",          "Confidence_Interval_Lower",          _D, f"0.{'0' * _D}"),
+    ("Confidence_Interval_Upper",          "Confidence_Interval_Upper",          _D, f"0.{'0' * _D}"),
+    ("Partial_R_Squared",        "Partial_R_Squared",        _D, f"0.{'0' * _D}"),
     ("Partial_Corr",      "Partial_Correlation", _D, f"0.{'0' * _D}"),
 ]
 

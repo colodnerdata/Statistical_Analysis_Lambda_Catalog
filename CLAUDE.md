@@ -1,4 +1,4 @@
-# AGENTS.md — Project context for AI agents
+# CLAUDE.md — Project context for Claude Code
 
 ## Cell styling
 

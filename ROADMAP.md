@@ -487,8 +487,8 @@ Reference-only-for-Categorical, applied one level up. H–I key on the
 **Sequence flag itself**, not on Role: they gray on every row that is not the
 sequence axis, because Sequence is structural and Role-independent.
 
-**Display derives, never feeds.** Columns H and I must not be inputs to the
-constructor. Both the cells and `x_s()` call the same mask-aware primitive
+**Display derives, never feeds.** Columns J and K must not be inputs to the
+constructor.
 (`Dummy_Levels`); the cells display what the constructor will do. Letting the engine
 read a display column would make it load-bearing. One source of truth is the
 *function*. (This is also what settled the `Dummy_Code` design: the level-vector

@@ -4,14 +4,14 @@
 
 Chart `SERIES` formulas require explicit range references; the `#` spill operator is not reliably supported in chart series formulas. However, referencing all 1,048,576 rows can significantly degrade performance or crash Excel when the populated dataset is much smaller.
 
-Instead, define dynamically sized named ranges using the row count in `$M$8`. For example:
+Instead, define dynamically sized named ranges using the row count in `$T$8`. For example:
 
 ```excel
-RegChartQQX = OFFSET($AE$2,1,0,$M$8,1)
-RegChartQQY = OFFSET($AF$2,1,0,$M$8,1)
+RegChartQQX = OFFSET($AN$2,1,0,MAX(IFERROR($T$8,1),1),1)
+RegChartQQY = OFFSET($AO$2,1,0,MAX(IFERROR($T$8,1),1),1)
 ```
 
-These formulas define ranges beginning at `AE3` and `AF3`, respectively, and extending for exactly the number of rows specified in `M8`. All chart series names use the `RegChart` prefix and are documented in CONTRIBUTING.md.
+These formulas define ranges beginning at `AN3` and `AO3`, respectively, and extending for exactly the number of rows specified in `$T$8`. All chart series names use the `RegChart` prefix and are documented in CONTRIBUTING.md.
 
 ---
 

@@ -221,33 +221,33 @@ Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COL
 
 ### Chart series data ranges
 
-Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$Y$3:$Y$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
+Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AH$3:$AH$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
 
-Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$M$8`:
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$T$8`:
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$Y$2,1,0,'{sname}'!$M$8,1)",
+    RefersTo=f"=OFFSET('{sname}'!$AH$2,1,0,MAX(IFERROR('{sname}'!$T$8,1),1),1)",
 )
 ```
 
-This starts one row below the column header (row 2) and extends exactly `$M$8` rows — the number of filtered observations.
+This starts one row below the column header (row 2) and extends exactly `$T$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$T$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
-**Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from formula-helper names (`All_Xs`, `pred_input`, etc.):
+**Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names:
 
 | Name | Column | Contents |
 |---|---|---|
-| `RegChartQQX` | AE | Normal Scores Ranked (QQ theoretical axis) |
-| `RegChartQQY` | AF | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | Y | Predicted Y — shared by multiple charts |
-| `RegChartResid` | Z | Residuals |
-| `RegChartActY` | X | Actual Y |
-| `RegChartScaleLoc` | AG | Scale-Location |
-| `RegChartCookDist` | AD | Cook's Distance |
-| `RegChartLeverage` | AB | Hat Diagonal |
-| `RegChartStudResid` | AC | Studentized Residuals |
-| `RegChartPRESSResid` | AH | PRESS Residual |
+| `RegChartQQX` | AN | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AO | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | AH | Predicted Y — shared by multiple charts |
+| `RegChartResid` | AI | Residuals |
+| `RegChartActY` | AG | Actual Y |
+| `RegChartScaleLoc` | AP | Scale-Location |
+| `RegChartCookDist` | AM | Cook's Distance |
+| `RegChartLeverage` | AK | Hat Diagonal |
+| `RegChartStudResid` | AL | Studentized Residuals |
+| `RegChartPRESSResid` | AQ | PRESS Residual |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 

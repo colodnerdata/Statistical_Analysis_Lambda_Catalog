@@ -57,5 +57,4 @@ Presentations/
 # Claude local/project assistant files
 .claude/
 .claude.json
-CLAUDE.md
 CLAUDE.local.md

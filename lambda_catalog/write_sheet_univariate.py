@@ -306,21 +306,40 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
     # Histogram column ranges: OFFSET-based, anchored at the header row like
     # Regression chart ranges, and sized by the method value stored in row 2.
+    # Upper_Edges and Counts feed the histogram chart SERIES formulas, so they
+    # get a Name Manager comment saying which chart they belong to.
+    method_labels = {
+        "UV_Sturges": "Sturges",
+        "UV_Scott": "Scott",
+        "UV_FD": "Freedman-Diaconis",
+    }
     for prefix, block_start in _HIST_BLOCKS:
         method_ref = f"'{sname}'!${col_letter(block_start + _HB_COUNT)}${_ROW_METHOD_HDR}"
         size_formula = f"Number_Of_Histogram_Bins(UV_Data,{method_ref},UV_Include)"
+        chart_comments = {
+            "Upper_Edges": (
+                f"{method_labels[prefix]} Method histogram chart: "
+                "category (X) axis bin edges"
+            ),
+            "Counts": (
+                f"{method_labels[prefix]} Method histogram chart: "
+                "bar values (bin counts)"
+            ),
+        }
         for offset, _, suffix, _ in _HIST_COLUMNS:
             name = f"{prefix}_{suffix}"
             col_ltr = col_letter(block_start + offset)
             _drop_wb_name(sheet, name)
             drop_local_name(sheet, name)
-            sheet.api.Names.Add(
+            nm = sheet.api.Names.Add(
                 Name=name,
                 RefersTo=(
                     f"=OFFSET('{sname}'!${col_ltr}${_ROW_COL_HDRS},"
                     f"1,0,MAX(IFERROR({size_formula},1),1),1)"
                 ),
             )
+            if suffix in chart_comments:
+                nm.Comment = chart_comments[suffix]
 
 
 def _dist_fit_rows_by_name() -> dict[str, int]:

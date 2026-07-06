@@ -557,23 +557,36 @@ def _setup_local_names(
     # These worksheet-scoped names feed chart SERIES formulas as
     # ='Regression'!<Name>, avoiding full-column references that degrade
     # performance and avoiding the unsupported # spill operator in chart formulas.
-    for _name, _col_ltr in [
-        ("RegChartQQX", col_letter(_C_AN)),        # Normal Scores Ranked
-        ("RegChartQQY", col_letter(_C_AO)),        # Studentized Residuals Ranked
-        ("RegChartFitY", col_letter(_C_AH)),       # Predicted Y (shared)
-        ("RegChartResid", col_letter(_C_AI)),      # Residuals
-        ("RegChartActY", col_letter(_C_AG)),       # Actual Y
-        ("RegChartScaleLoc", col_letter(_C_AP)),   # Scale-Location
-        ("RegChartCookDist", col_letter(_C_AM)),   # Cook's Distance
-        ("RegChartLeverage", col_letter(_C_AK)),   # Hat Diagonal
-        ("RegChartStudResid", col_letter(_C_AL)),  # Studentized Residuals
-        ("RegChartPRESSResid", col_letter(_C_AQ)), # PRESS Residual
+    # The third element becomes the Name Manager comment so a user browsing
+    # names can tell which chart each range feeds.
+    for _name, _col_ltr, _comment in [
+        ("RegChartQQX", col_letter(_C_AN),
+         "Normal Q-Q chart: X values (theoretical quantiles, Normal Scores Ranked)"),
+        ("RegChartQQY", col_letter(_C_AO),
+         "Normal Q-Q chart: Y values (Studentized Residuals Ranked)"),
+        ("RegChartFitY", col_letter(_C_AH),
+         "Predicted Y: X values for the Residuals vs. Fitted, Actual vs. Predicted, and Scale-Location charts"),
+        ("RegChartResid", col_letter(_C_AI),
+         "Residuals vs. Fitted chart: Y values (Residuals)"),
+        ("RegChartActY", col_letter(_C_AG),
+         "Actual vs. Predicted chart: Y values (Actual Y)"),
+        ("RegChartScaleLoc", col_letter(_C_AP),
+         "Scale-Location chart: Y values (sqrt of abs Studentized Residual)"),
+        ("RegChartCookDist", col_letter(_C_AM),
+         "Cook's Distance chart: bar values"),
+        ("RegChartLeverage", col_letter(_C_AK),
+         "Studentized Residuals vs. Leverage chart: X values (Hat Diagonal)"),
+        ("RegChartStudResid", col_letter(_C_AL),
+         "Studentized Residuals vs. Leverage chart: Y values"),
+        ("RegChartPRESSResid", col_letter(_C_AQ),
+         "PRESS Residuals chart: bar values"),
     ]:
         drop_local_name(sheet, _name)
-        sheet.api.Names.Add(
+        _nm = sheet.api.Names.Add(
             Name=_name,
             RefersTo=f"=OFFSET('{sname}'!${_col_ltr}$2,1,0,MAX(IFERROR('{sname}'!$T$8,1),1),1)",
         )
+        _nm.Comment = _comment
 
 
 # ── Section writers ───────────────────────────────────────────────────────────

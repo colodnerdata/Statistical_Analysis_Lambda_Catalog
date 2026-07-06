@@ -11,7 +11,7 @@ RegChartQQX = OFFSET($AN$2,1,0,MAX(IFERROR($T$8,1),1),1)
 RegChartQQY = OFFSET($AO$2,1,0,MAX(IFERROR($T$8,1),1),1)
 ```
 
-These formulas define ranges beginning at `AN3` and `AO3`, respectively, and extending for exactly the number of rows specified in `T8`. All chart series names use the `RegChart` prefix and are documented in CONTRIBUTING.md.
+These formulas define ranges beginning at `AN3` and `AO3`, respectively, and extending for exactly the number of rows specified in `$T$8`. All chart series names use the `RegChart` prefix and are documented in CONTRIBUTING.md.
 
 ---
 

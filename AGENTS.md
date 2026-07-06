@@ -6,9 +6,13 @@ All cell colors are defined once in `lambda_catalog/sheet_styles.py` and importe
 
 | Constant | RGB | Usage |
 |---|---|---|
-| `HEADER_COLOR` | `(202, 237, 251)` | Zone / section headings — same light blue across all sheets |
+| `HEADER_COLOR` | `(202, 237, 251)` | Zone / section headings — light blue, used on every sheet |
 | `SUBHDR_COLOR` | `(220, 230, 241)` | Column sub-header rows within a zone |
-| `INPUT_COLOR`  | `(251, 226, 213)` | User-editable input cells (light orange) |
+| `INPUT_COLOR`  | `(251, 226, 213)` | User-editable input cells — light orange |
+| `CF_LIGHT_RED_FILL` | `(255, 199, 206)` | Conditional formatting — failed significance / diagnostic flag |
+| `CF_DARK_RED_TEXT` | `(156, 0, 6)` | Conditional formatting — text color for red-flagged cells |
+| `CF_YELLOW_FILL` | `(255, 235, 156)` | Conditional formatting — borderline diagnostic flag |
+| `CF_DARK_YELLOW_TEXT` | `(156, 101, 0)` | Conditional formatting — text color for yellow-flagged cells |
 
 Import pattern in a sheet writer:
 
@@ -18,9 +22,11 @@ from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR
 
 The `as _NAME` alias keeps local helper functions (`_section_heading`, `_subheader_row`, etc.) unchanged.
 
+Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COLOR` in `write_sheet_diagnostic_guide.py`) remain as local constants in the relevant file.
+
 ### Section heading style
 
-A section heading is bold text + `HEADER_COLOR` fill. No custom font size — the sheet title uses 14 pt, all other headings use the default size.
+A **section heading** is bold text with `HEADER_COLOR` fill at the default font size. The sheet title ("Univariate Analysis") is 14 pt bold with no fill — that is the only cell with a custom font size.
 
 `write_sheet_regression.py` and `write_sheet_univariate.py` each define a private `_section_heading(sheet, row, col, label)` that applies this style. Use those helpers; do not apply the style inline.
 
@@ -53,26 +59,44 @@ Row and column offsets are defined as `_GS_R_*` and `_GS_C_*` constants at the t
 
 ### Regression sheet heading hierarchy
 
-Row 1 holds the top-level zone labels ("MODEL SELECTION", "PREDICTOR SUMMARY", "REGRESSION OUTPUTS", "PREDICTION OUTPUTS", "RESIDUAL OUTPUT"). Lower section headings appear at the relevant data rows within each zone.
+Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY", "REGRESSION OUTPUTS", "PREDICTION OUTPUTS", "RESIDUAL OUTPUT"). Lower section headings appear at the relevant data rows within each zone. The MODEL SPECIFICATION zone (A–I) is the shared spec block imported from `write_sheet_model_construction.py` (headers row 3, spec rows 4–26, Intercept control A2/C2); every other zone keeps headers on row 2 with spills from row 3. Every `_C_*` column constant in `write_sheet_regression.py` matches its actual column letter (`_C_K` is column K).
 
 ### Regression chart named ranges
 
-All OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix. This distinguishes them from formula-helper names (`All_Xs`, `pred_input`, etc.). The full set:
+Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns degrades recalculation performance. All chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$T$8`:
+
+```python
+sheet.api.Names.Add(
+    Name="RegChartFitY",
+    RefersTo=f"=OFFSET('{sname}'!$AH$2,1,0,MAX(IFERROR('{sname}'!$T$8,1),1),1)",
+)
+```
+
+All `RegChart`-prefixed names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer. Use the `_name_ref` helper:
+
+```python
+def _name_ref(local_name: str) -> str:
+    return f"='{sname}'!{local_name}"
+```
+
+All OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix. This distinguishes them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names. The full set:
 
 | Name | Column | Contents |
 |---|---|---|
-| `RegChartQQX` | AE | Normal Scores Ranked (QQ theoretical axis) |
-| `RegChartQQY` | AF | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | Y | Predicted Y — shared by multiple charts |
-| `RegChartResid` | Z | Residuals |
-| `RegChartActY` | X | Actual Y |
-| `RegChartScaleLoc` | AG | Scale-Location |
-| `RegChartCookDist` | AD | Cook's Distance |
-| `RegChartLeverage` | AB | Hat Diagonal |
-| `RegChartStudResid` | AC | Studentized Residuals |
-| `RegChartPRESSResid` | AH | PRESS Residual |
+| `RegChartQQX` | AN | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AO | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | AH | Predicted Y — shared by multiple charts |
+| `RegChartResid` | AI | Residuals |
+| `RegChartActY` | AG | Actual Y |
+| `RegChartScaleLoc` | AP | Scale-Location |
+| `RegChartCookDist` | AM | Cook's Distance |
+| `RegChartLeverage` | AK | Hat Diagonal |
+| `RegChartStudResid` | AL | Studentized Residuals |
+| `RegChartPRESSResid` | AQ | PRESS Residual |
 
-## Charts — patterns and pitfalls (lessons from PR #67)
+When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
+
+## Charts — patterns and pitfalls
 
 ### Use xlwings COM API for all chart creation — never openpyxl
 
@@ -104,7 +128,7 @@ series.Values  = f"='{sheet.name}'!NamedRangeCounts"
 
 ### Chart titles — `.Text` for static, `.Formula` for cell-linked
 
-`.Text` sets a literal string and is correct for fixed titles (e.g., the Regression diagnostic charts use `chart.ChartTitle.Text = title`). `.Formula` links the title to a worksheet cell so it updates dynamically — use it when the title depends on data:
+`.Text` sets a literal string and is correct for fixed titles. `.Formula` links the title to a worksheet cell so it updates dynamically:
 
 ```python
 # Static title (fixed label):
@@ -125,7 +149,7 @@ When a dynamic title needs to be computed (e.g., concatenating a method name wit
 
 ### Chart positioning
 
-Define chart positions via xlwings `sheet.range(...)` to get `.left`, `.top`, `.width`, `.height` in points. This ties chart placement to the cell grid so charts stay aligned if column widths change. See `_write_histogram_charts` for the pattern.
+Define chart positions via xlwings `sheet.range(...)` to get `.left`, `.top`, `.width`, `.height` in points. This ties chart placement to the cell grid so charts stay aligned if column widths change.
 
 ### Guard chart creation with try/except
 
@@ -140,9 +164,9 @@ except Exception:
 
 ### Never draw reference lines as shapes — use a real data series
 
-Do not use `chart.Shapes.AddLine(...)` (or any drawn shape) to fake a reference line like `y=x` on a scatter chart. A shape is positioned in fixed plot-area pixel coordinates (`plot_area.InsideLeft/Top/Width/Height`) computed at creation time — it silently goes wrong the moment the chart is resized, moved, or its axis scaling changes, since the shape never moves with the data.
+Do not use `chart.Shapes.AddLine(...)` to fake a reference line like `y=x`. A shape is positioned in fixed plot-area pixel coordinates computed at creation time and silently goes wrong when the chart is resized, moved, or its axis scaling changes.
 
-Instead, add a real data series and point both `XValues` and `Values` at the *same* named range/column:
+Instead, add a real data series pointing both `XValues` and `Values` at the same named range:
 
 ```python
 series = chart.SeriesCollection().NewSeries()
@@ -152,11 +176,11 @@ series.Name = "Identity"
 series.ChartType = _XL_XY_SCATTER_LINES_NO_MARKERS
 ```
 
-Because every plotted point is `(v, v)`, it lands exactly on the identity line regardless of axis min/max, chart size, or position — no pixel math, no drift. See `_add_identity_line` in `write_sheet_regression.py`.
+See `_add_identity_line` in `write_sheet_regression.py`.
 
 ### Separate chart title cells from chart insertion
 
-Write formula cells for chart titles (e.g., `Q14`, `Q34`, `Q54`) **outside** the try/except guard. These are standard cell writes (not COM chart API calls), so they can be exercised in unit tests via the `RecordingSheet` mock without Excel. Only the `ChartObjects().Add(...)` call needs the guard. This separation keeps chart title formulas testable in CI even though actual chart insertion is not.
+Write formula cells for chart titles (e.g., `Q14`, `Q34`, `Q54`) **outside** the try/except guard. These are standard cell writes (not COM chart API calls), so they can be exercised in unit tests via the `RecordingSheet` mock without Excel. Only the `ChartObjects().Add(...)` call needs the guard.
 
 ### Build-phase retry separation
 

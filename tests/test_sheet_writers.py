@@ -447,7 +447,7 @@ def test_qq_data_zone_formulas_reference_fit_table_parameters() -> None:
     assert sheet.cell(4, 102).value == "Sample"
     assert sheet.cell(4, 110).value == "BetaPERT"
 
-    assert _formula(sheet, 5, 101) == "=LET(n_,UV_n,(SEQUENCE(n_)-0.5)/n_)"
+    assert _formula(sheet, 5, 101) == "=LET(n_,UV_n,IF(n_<=0,NA(),(SEQUENCE(n_)-0.5)/n_))"
     assert _formula(sheet, 5, 102) == "=SORT(FILTER(UV_Data,UV_Include))"
     assert _formula(sheet, 5, 103) == "=LET(p_,$CW$5#,NORM.INV(p_,$I$5,$K$5))"
     assert _formula(sheet, 5, 104) == "=LET(p_,$CW$5#,LOGNORM.INV(p_,$I$6,$K$6))"
@@ -463,6 +463,9 @@ def test_qq_data_zone_formulas_reference_fit_table_parameters() -> None:
     assert "BETA.INV(p_,$I$11,$K$11)*scale_+mn-pad" in beta
     betapert = _formula(sheet, 5, 110)
     assert "mn,$I$12,md,$K$12,mx,$M$12" in betapert
+    # λ=4 PERT mapping — the μ-based form is 0/0 at a symmetric mode
+    assert "alpha_param,1+4*(md-mn)/(mx-mn+1E-30)" in betapert
+    assert "beta_param,1+4*(mx-md)/(mx-mn+1E-30)" in betapert
     assert "BETA.INV(p_,alpha_param,beta_param)*(mx-mn)+mn" in betapert
 
     assert sheet.range((5, 101), (2004, 101)).number_format == "0.0000"

@@ -705,11 +705,14 @@ def _qq_column_formula(p_spill_ref: str, distribution: str) -> str:
             f"mn,{min_ref},range_,{range_ref},pad,range_*0.001,scale_,range_+2*pad,",
             f"BETA.INV(p_,${t1}${r},${t2}${r})*scale_+mn-pad",
         ),
+        # λ=4 PERT mapping — algebraically identical to the μ-based
+        # reparameterization but with no removable 0/0 singularity at a
+        # symmetric mode (md = (mn+mx)/2), where the μ form degenerates to
+        # α = β = 0 and BETA.INV returns #NUM!.
         "BetaPERT": (
             f"mn,${t1}${r},md,${t2}${r},mx,${t3}${r},"
-            "mu,(mn+4*md+mx)/6,"
-            "alpha_param,(mu-mn)*(2*md-mn-mx)/(((md-mu)*(mx-mn))+1E-30),"
-            "beta_param,alpha_param*(mx-mu)/(mu-mn+1E-30),",
+            "alpha_param,1+4*(md-mn)/(mx-mn+1E-30),"
+            "beta_param,1+4*(mx-md)/(mx-mn+1E-30),",
             "BETA.INV(p_,alpha_param,beta_param)*(mx-mn)+mn",
         ),
     }
@@ -732,8 +735,11 @@ def _write_qq_data(sheet: xw.Sheet) -> None:
     _subheader_row(sheet, _ROW_COL_HDRS, _C_QQ, col_last)
 
     # Hazen plotting positions (i - 0.5)/n — the convention QQ_Correlation and
-    # Normal_Scores already use in the regression Q-Q machinery.
-    f(sheet, _ROW_HIST_START, col_p, "=LET(n_,UV_n,(SEQUENCE(n_)-0.5)/n_)")
+    # Normal_Scores already use in the regression Q-Q machinery.  Guarded for
+    # the empty-data case: SEQUENCE(0) would spill #CALC! and cascade into
+    # every quantile column; NA() instead makes the charts skip the points.
+    f(sheet, _ROW_HIST_START, col_p,
+      "=LET(n_,UV_n,IF(n_<=0,NA(),(SEQUENCE(n_)-0.5)/n_))")
     p_spill_ref = f"${col_letter(col_p)}${_ROW_HIST_START}#"
 
     f(sheet, _ROW_HIST_START, col_sample, "=SORT(FILTER(UV_Data,UV_Include))")
@@ -928,11 +934,12 @@ def _dist_rows(base_row: int) -> list[tuple]:
             "Max",  "=LET(d,FILTER(UV_Data,UV_Include),MAX(d)+(MAX(d)-MIN(d))*0.001)",
             lambda r: f"=NLL_BetaPERT(UV_Data,{_r(r)},{_t(r)},{_v(r)},UV_Include)",
             3,
+            # λ=4 PERT mapping (same as NLL_BetaPERT) — the μ-based form is
+            # 0/0 at a symmetric mode and degenerates to α = β = 0.
             lambda r: (
                 f"LET(mn,{_r(r)},md,{_t(r)},mx,{_v(r)},"
-                f"mu,(mn+4*md+mx)/6,"
-                f"alpha_param,(mu-mn)*(2*md-mn-mx)/(((md-mu)*(mx-mn))+1E-30),"
-                f"beta_param,alpha_param*(mx-mu)/(mu-mn+1E-30),"
+                f"alpha_param,1+4*(md-mn)/(mx-mn+1E-30),"
+                f"beta_param,1+4*(mx-md)/(mx-mn+1E-30),"
                 f"BETA.DIST((UV_Data-mn)/(mx-mn+1E-30),alpha_param,beta_param,TRUE))"
             ),
         ),

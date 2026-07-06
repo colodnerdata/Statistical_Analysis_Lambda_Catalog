@@ -678,17 +678,28 @@ class QuantileFormulaTests(unittest.TestCase):
         ]
         np.testing.assert_allclose(recovered, self.p, atol=1e-10)
 
-    def test_betapert_mu_reparameterization_round_trips(self) -> None:
-        # The sheet formula derives α, β from the PERT mean μ; the oracle uses
-        # the equivalent 1 + 4(mode−min)/range form — round-tripping through
-        # cdf_betapert proves the two parameterizations agree.
+    def test_betapert_lambda4_mapping_round_trips(self) -> None:
+        # The sheet formula uses the λ=4 PERT mapping (same as the oracle and
+        # NLL_BetaPERT); the μ-based alternative was rejected because it is
+        # 0/0 at a symmetric mode.  Round-trip through cdf_betapert at an
+        # asymmetric AND a symmetric mode — the symmetric case is exactly
+        # where the μ form would have produced α = β = 0 and #NUM!.
+        for mn, md, mx in ((1.0, 4.0, 9.0), (1.0, 5.0, 9.0)):
+            alpha_param = 1.0 + 4.0 * (md - mn) / (mx - mn)
+            beta_param = 1.0 + 4.0 * (mx - md) / (mx - mn)
+            excel = scipy_stats.beta.ppf(self.p, alpha_param, beta_param) * (mx - mn) + mn
+            recovered = [cdf_betapert(float(x), mn, md, mx) for x in excel]
+            np.testing.assert_allclose(recovered, self.p, atol=1e-10)
+
+    def test_betapert_mu_form_equals_lambda4_form_when_asymmetric(self) -> None:
+        # Documents why swapping forms is behavior-preserving away from the
+        # singularity: the two parameterizations are algebraically identical.
         mn, md, mx = 1.0, 4.0, 9.0
         mu = (mn + 4.0 * md + mx) / 6.0
-        alpha_param = (mu - mn) * (2.0 * md - mn - mx) / (((md - mu) * (mx - mn)) + 1e-30)
-        beta_param = alpha_param * (mx - mu) / (mu - mn + 1e-30)
-        excel = scipy_stats.beta.ppf(self.p, alpha_param, beta_param) * (mx - mn) + mn
-        recovered = [cdf_betapert(float(x), mn, md, mx) for x in excel]
-        np.testing.assert_allclose(recovered, self.p, atol=1e-10)
+        alpha_mu = (mu - mn) * (2.0 * md - mn - mx) / ((md - mu) * (mx - mn))
+        beta_mu = alpha_mu * (mx - mu) / (mu - mn)
+        self.assertAlmostEqual(alpha_mu, 1.0 + 4.0 * (md - mn) / (mx - mn), places=12)
+        self.assertAlmostEqual(beta_mu, 1.0 + 4.0 * (mx - md) / (mx - mn), places=12)
 
     def test_hazen_positions_are_strictly_interior(self) -> None:
         # (i − 0.5)/n never reaches 0 or 1, so every inverse CDF above is

@@ -1138,8 +1138,8 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
         col_first, col_last = _QQ_CHART_BANDS[grid_col]
         row_start = _ROW_QQ_CHART_START + grid_row * _QQ_CHART_ROWS
         chart_range = sheet.range(
-            rc(row_start, _C_FIT_FIRST),
-            rc(row_start + _QQ_CHART_ROWS - 1, _C_QQ_PLOT_AREA_END),
+            rc(row_start, col_first),
+            rc(row_start + _QQ_CHART_ROWS - 1, col_last),
         )
         co = sheet.api.ChartObjects().Add(
             chart_range.left, chart_range.top, chart_range.width, chart_range.height

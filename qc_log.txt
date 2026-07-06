@@ -9,9 +9,9 @@ python build_qc.py --verbose
   Write: app ready                0.3s
   Write: open workbook            0.4s
   Write: workbook opened          0.6s
-  Write: catalog start            0.8s
-  Write: catalog done             4.3s
-  Write: life exp start           4.3s
+  Write: catalog start            0.9s
+  Write: catalog done             4.4s
+  Write: life exp start           4.4s
   LifeExp: get/create start       0.0s
   LifeExp: get/create done        0.0s
   LifeExp: reset start            0.0s
@@ -31,30 +31,28 @@ python build_qc.py --verbose
   LifeExp: width done             0.2s
   LifeExp: freeze start           0.2s
   LifeExp: freeze done            0.2s
-  Write: life exp done            4.5s
-  Write: univariate start         4.5s
-  Write: univariate done         18.8s
-  Write: regression instr start   18.8s
-  Write: regression instr done   18.9s
-  Write: diagnostic start        18.9s
-  Write: diagnostic done         19.5s
-  Write: version history start   19.5s
-  Write: version history done    19.6s
-  Write: regression start        19.6s
-  Write: regression done         22.2s
-  Write: model construction start   22.2s
-  Write: model construction done   23.5s
-  Write: scalar start            23.5s
-  Write: scalar done             24.2s
-  Write: vector start            24.2s
-  Write: vector done             25.2s
-  Write: observation start       25.2s
-  Write: observation done        25.6s
-  Write: dummy test start        25.6s
-  Write: dummy test done         26.0s
-  Write: save start              26.0s
-  Write: save done              168.9s
-  Write sheets:   169.0s
+  Write: life exp done            4.6s
+  Write: univariate start         4.6s
+  Write: univariate done         15.4s
+  Write: regression instr start   15.4s
+  Write: regression instr done   15.5s
+  Write: diagnostic start        15.5s
+  Write: diagnostic done         16.2s
+  Write: version history start   16.2s
+  Write: version history done    16.3s
+  Write: regression start        16.3s
+  Write: regression done         22.0s
+  Write: scalar start            22.0s
+  Write: scalar done             22.7s
+  Write: vector start            22.7s
+  Write: vector done             23.3s
+  Write: observation start       23.3s
+  Write: observation done        23.6s
+  Write: dummy test start        23.6s
+  Write: dummy test done         23.9s
+  Write: save start              23.9s
+  Write: save done              708.9s
+  Write sheets:   709.1s
   Sync: start                     0.0s
   Sync: done                      0.1s
   Sync names:     0.1s
@@ -72,28 +70,42 @@ python build_qc.py --verbose
   Calc: MLR_Observation_Test start    1.4s
   Calc: MLR_Observation_Test done    1.7s
   Calc: Regression start          1.7s
-  Calc: Regression done           8.2s
-  Calc: Univariate start          8.3s
-  Calc: Univariate done          73.6s
-  Calc: Dummy_Test start         73.6s
-  Calc: Dummy_Test done          73.6s
-  Calc: Model Construction start   73.6s
-  Calc: Model Construction done   73.7s
-  Verify: calculate done         73.7s
-  Verify: read scalar start      73.7s
-  Verify: read scalar done       73.7s
-  Verify: read vector start      73.7s
-  Verify: read vector done       73.7s
-  Verify: read obs start         73.7s
-  Verify: read obs done          74.0s
-  Verify: regression start       75.0s
-  Verify: regression done        98.1s
-  Verify: univariate start       98.9s
-  Verify: univariate done        99.0s
-  Verify: dummy test start       99.0s
-  Verify: dummy test done        99.1s
-  Verify: model constr start     99.1s
-ERROR [Model Construction] [default spec] check='header strip names': expected=('Year: 2001', 'Year: 2002', 'Year: 2003', 'Year: 2004', 'Year: 2005', 'Year: 2006', 'Year: 2007', 'Year: 2008', 'Year: 2009', 'Year: 2010', 'Year: 2011', 'Year: 2012', 'Year: 2013', 'Year: 2014', 'Year: 2015', 'Status: Developing', 'Adult Mortality', 'GDP', 'Schooling'), excel_calc=('Year: 2001', 'Year: 2002', 'Year: 2003', 'Year: 2004', 'Year: 2005', 'Year: 2006', 'Year: 2007', 'Year: 2008', 'Year: 2009', 'Year: 2010', 'Year: 2011', 'Year: 2012', 'Year: 2013', 'Year: 2014', '(empty model)', 'Status: Developing', 'Adult Mortality', 'GDP', 'Schooling')
-ERROR [Model Construction] [Is_Developing filter] check='header strip names': expected=('Year: 2001', 'Year: 2002', 'Year: 2003', 'Year: 2004', 'Year: 2005', 'Year: 2006', 'Year: 2007', 'Year: 2008', 'Year: 2009', 'Year: 2010', 'Year: 2011', 'Year: 2012', 'Year: 2013', 'Year: 2014', 'Year: 2015', 'Adult Mortality', 'GDP', 'Schooling'), excel_calc=('Year: 2001', 'Year: 2002', 'Year: 2003', 'Year: 2004', 'Year: 2005', 'Year: 2006', 'Year: 2007', 'Year: 2008', 'Year: 2009', 'Year: 2010', 'Year: 2011', 'Year: 2012', 'Year: 2013', 'Year: 2014', '(empty model)', 'Adult Mortality', 'GDP', 'Schooling')
-  Verify: model constr done      99.5s
-ERROR QC mismatch totals: Model Construction=2
+  Calc: Regression done           8.0s
+  Calc: Univariate start          8.0s
+  Calc: Univariate done          73.3s
+  Calc: Dummy_Test start         73.3s
+  Calc: Dummy_Test done          73.4s
+  Verify: calculate done         73.4s
+  Verify: read scalar start      73.4s
+  Verify: read scalar done       73.4s
+  Verify: read vector start      73.4s
+  Verify: read vector done       73.4s
+  Verify: read obs start         73.4s
+  Verify: read obs done          73.7s
+  Verify: reg spec block start   74.7s
+  Verify: reg spec block done    85.8s
+  Verify: regression start       85.8s
+  Verify: regression done       109.7s
+  Verify: univariate start      110.5s
+  Verify: univariate done       110.7s
+  Verify: dummy test start      110.7s
+  Verify: dummy test done       110.7s
+  Verify:         111.7s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_QC.xlsx
+Sheet updated: LAMBDA_functions
+Sheet updated: Life Expectancy Data
+Sheet updated: Univariate
+Sheet updated: Regression Instructions
+Sheet updated: Diagnostic Guide
+Sheet updated: Version History
+Sheet updated: Regression
+Sheet updated: MLR_Scalar_Test
+Sheet updated: MLR_Vector_Outputs_Test
+Sheet updated: MLR_Observation_Test
+Sheet updated: Dummy_Test
+Sheet verified: Regression
+Sheet verified: Univariate
+Sheet verified: Dummy_Test
+Created names: 96
+Updated names: 0
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\qc_log.txt

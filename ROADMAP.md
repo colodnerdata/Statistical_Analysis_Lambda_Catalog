@@ -879,9 +879,9 @@ covering the four combinations a single Log transform produces:
 | Response | Predictor(s) | Function (example: R²) |
 |---|---|---|
 | Level | Level | *(no new function — existing `R_Squared` already is the unit-space value)* |
-| Log | Level | `Log_Level_Unit_Space_R_Square` |
-| Level | Log | `Level_Log_Unit_Space_R_Square` |
-| Log | Log | `Log_Log_Unit_Space_R_Square` |
+| Log | Level | `Log_Level_Unit_Space_R_Squared` |
+| Level | Log | `Level_Log_Unit_Space_R_Squared` |
+| Log | Log | `Log_Log_Unit_Space_R_Squared` |
 
 > **Open decision — one LAMBDA per combination vs. a dispatch function.** Four
 > combinations for one transform is manageable, but this is combinatorial: N transform

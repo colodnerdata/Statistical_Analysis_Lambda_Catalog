@@ -1082,6 +1082,34 @@ def _write_histogram_charts(sheet: xw.Sheet) -> None:
         )
 
 
+def _set_equal_qq_axis_scale(sheet: xw.Sheet, x_axis, y_axis, x_name: str) -> None:
+    """Set equal min/max scales on both axes so the identity series reads as 45°.
+
+    Same pattern as the Regression sheet's Normal Q-Q chart. Guarded per chart:
+    the two-parameter quantile columns depend on Data Table grid-search output,
+    which may not evaluate during a manual-calculation build — in that case the
+    axes are left auto-scaling rather than failing the remaining charts.
+    """
+    sname = sheet.name
+    try:
+        common_min = float(
+            sheet.api.Evaluate(f"=MIN('{sname}'!{x_name},'{sname}'!UV_QQ_Sample)")
+        )
+        common_max = float(
+            sheet.api.Evaluate(f"=MAX('{sname}'!{x_name},'{sname}'!UV_QQ_Sample)")
+        )
+    except Exception:
+        return
+
+    if common_max <= common_min:
+        return
+
+    x_axis.MinimumScale = common_min
+    x_axis.MaximumScale = common_max
+    y_axis.MinimumScale = common_min
+    y_axis.MaximumScale = common_max
+
+
 def _write_qq_charts(sheet: xw.Sheet) -> None:
     """Insert eight per-distribution Q-Q scatter charts below the histogram charts."""
     sname = sheet.name
@@ -1130,6 +1158,8 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
         y_axis = chart.Axes(_XL_VALUE)
         y_axis.HasTitle = True
         y_axis.AxisTitle.Text = "Sample Quantiles"
+
+        _set_equal_qq_axis_scale(sheet, x_axis, y_axis, f"UV_QQ_{distribution}")
 
 
 

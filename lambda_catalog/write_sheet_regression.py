@@ -724,7 +724,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         3,
         _C_V,
         "=LET(pred_input,VSTACK($V$12,"
-        "IFERROR(FILTER($V$13:$V$30,TAKE(Ind_Var_Include,COLUMNS(All_Xs))),$V$13)),"
+        "IFERROR(FILTER(OFFSET($V$12, 1,0,COLUMNS(All_Xs),1),TAKE(Ind_Var_Include,COLUMNS(All_Xs))),$V$13)),"
         "Prediction_Interval(x_s(),y,pred_input,Allow_Intercept,"
         "Regression_Sample_Include,alpha))",
     )

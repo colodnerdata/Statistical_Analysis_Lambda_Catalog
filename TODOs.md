@@ -119,14 +119,33 @@ Suggested alias names:
 
 ### LAMBDA functions
 
-**CDF/PDF functions (histogram overlay curves)**
-- TODO: Implement `PDF_Normal`, `PDF_Lognormal`, `PDF_Exponential`, `PDF_Weibull`, `PDF_Gamma`, `PDF_Triangular`, `PDF_Beta`, `PDF_BetaPERT` — evaluated at bin midpoints.
+**PDF functions — DROPPED (unnecessary, will not be implemented)**
+- ~~Implement `PDF_Normal` … `PDF_BetaPERT` evaluated at bin midpoints~~ — superseded.
+  The histogram tables already compute per-bin densities as **CDF deltas between the
+  bin boundaries** (`CDF(upper edge) − CDF(lower edge)`, the 8 `CDF_*` probability
+  columns in each histogram block). That delta is the bin's density integrated
+  exactly over the bin — more faithful to the histogram than a midpoint PDF
+  evaluation — so no PDF LAMBDAs are needed. See ROADMAP.md § v1.1 Distribution
+  fitting for the full rationale.
 
 ### Sheet writer (`write_sheet_univariate.py`)
 
 **Q-Q plots and histogram overlays**
 - TODO: Per-distribution Q-Q plots (8 charts) using OFFSET-based named ranges.
-- TODO: Histogram overlay: fitted PDF curve on each histogram using bin midpoints as X values (depends on PDF LAMBDAs).
+- TODO: Histogram overlays as **combo charts**: keep the existing column series
+  (counts, gap width 0) and add one line series per distribution sourced from the
+  histogram table's CDF-delta columns — no markers, likely smoothed
+  (`series.Smooth = True`). No PDF functions involved (see above). Settle at
+  implementation: the CDF-delta columns are probabilities while the bars are counts,
+  so either scale the line series to expected counts (probability × N) to share the
+  count axis, or put them on a secondary axis.
+- TODO: Investigate suppressing worst-fit / N/A-error distributions from the combo
+  charts. Best outcome would be dynamically hiding those columns — hidden columns
+  drop out of charts automatically (`PlotVisibleOnly` default) — but it is unclear
+  whether column hiding can be driven from cell values without VBA (manual hiding
+  works; data-driven hiding may be VBA-only, which the library forbids). No-VBA
+  fallback to evaluate: emit `NA()` across a suppressed distribution's column, since
+  line charts skip `#N/A` points — same chart effect without hiding.
 
 **Additional distributions (long-term)**
 - TODO: Add support for more distribution families: Bernoulli, Binomial, Geometric, Negative Binomial, Hypergeometric, Poisson, Uniform, Chi-Square, Student-t.

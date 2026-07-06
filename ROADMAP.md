@@ -52,7 +52,7 @@ flag.
 | Version | Milestone | Breaking? | Status |
 |---|---|---|---|
 | v1.0 | Multivariate OLS / MLR | — (baseline) | Shipped |
-| v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. Per-distribution Q-Q plots and PDF overlay curves outstanding (TODOs.md) |
+| v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. Per-distribution Q-Q plots and histogram distribution-overlay series outstanding (TODOs.md). PDF functions dropped as unnecessary — the histogram tables already compute per-bin densities as CDF deltas between bin boundaries; overlays become combo-chart line series over those columns |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
 | v2.1 | Fixed Effects (Role axis) — **one-way only** | No | Planned — panel regression, `y_s()`, absorbed df. One FE variable only; two-way absorption is its own post-v2.1 milestone (see v2.5+). Non-breaking: the absorbed-df correction is an optional `[DF_Absorbed]` argument defaulting to 0 (decision recorded under v2.1), so no-FE models are unchanged |
@@ -316,8 +316,36 @@ fit by direct min/mode/max estimation rather than grid-search MLE.
 - Q-Q correlation (reuses existing regression Q-Q machinery)
 
 Plus a per-distribution Q-Q plot for visual fit assessment. *(Not yet built — the
-per-distribution Q-Q plots and the PDF histogram-overlay curves are the two v1.1
-deliverables that did not ship; both are tracked in TODOs.md.)*
+per-distribution Q-Q plots and the histogram distribution-overlay series are the two
+v1.1 deliverables that did not ship; both are tracked in TODOs.md.)*
+
+**Histogram overlays — PDF functions dropped as unnecessary.** The original plan
+called for `PDF_*` LAMBDAs evaluated at bin midpoints to draw fitted curves over the
+histograms. That is redundant: each histogram block already computes, for all 8
+distributions, the per-bin probability as the **CDF delta between the bin
+boundaries** — `CDF(upper edge) − CDF(lower edge)` via the existing `CDF_*`
+functions. That delta *is* the bin's density (integrated exactly over the bin, which
+is more faithful to the histogram than a midpoint PDF evaluation), so no PDF
+functions are needed and none will be implemented.
+
+The overlay is instead delivered by converting each histogram chart into a **combo
+chart**: the existing column series (counts, gap width 0) plus one line series per
+distribution sourced from the histogram table's CDF-delta columns — lines with **no
+markers**, likely with smoothing (`Smooth = True`) so the fitted shapes read as
+curves. Implementation detail to settle: the CDF-delta columns are probabilities
+while the bars are counts, so the line series need either scaling to expected counts
+(probability × N) to share the count axis, or a secondary axis.
+
+**Open question — dynamically hiding the worst-fit / error columns.** Ideally the
+overlay would show only the credible fits: columns for distributions with the worst
+GoF ranking or N/A errors would be hidden, and since Excel charts plot only visible
+cells by default (`PlotVisibleOnly`), hidden columns would drop out of the combo
+chart automatically — the desired behavior. It is not yet known whether column
+hiding can be driven dynamically from cell values without VBA (manual hiding works
+but is a hand step; data-driven hiding may be VBA-only, which the library forbids).
+A candidate no-VBA alternative: have the series formula emit `NA()` across a
+suppressed distribution's column, since line charts skip `#N/A` points — same chart
+effect, no hiding. To be investigated at implementation (tracked in TODOs.md).
 
 **Implementation note:** Triangular, Beta, and BetaPERT are bounded-support; the others are
 unbounded or semi-bounded. AIC/BIC compare cleanly across all (likelihood-based), but

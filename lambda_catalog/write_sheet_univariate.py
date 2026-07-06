@@ -91,6 +91,7 @@ _C_KS        = 19   # S — K-S
 
 _C_FIT_FIRST = _C_DIST_NAME   # first fitting column
 _C_FIT_LAST  = _C_KS          # last fitting column
+_C_QQ_PLOT_AREA_END = _C_K_PARAM   # Sets boundary for Q-Q plots to keep them more square.
 
 # Zone 4: Histogram Tables (11 cols each, with gap cols between)
 _HIST_W = 11   # columns per histogram block
@@ -1125,7 +1126,7 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
         row_start = _ROW_QQ_CHART_START + i * _QQ_CHART_ROWS
         chart_range = sheet.range(
             rc(row_start, _C_FIT_FIRST),
-            rc(row_start + _QQ_CHART_ROWS - 1, _C_FIT_LAST),
+            rc(row_start + _QQ_CHART_ROWS - 1, _C_QQ_PLOT_AREA_END),
         )
         co = sheet.api.ChartObjects().Add(
             chart_range.left, chart_range.top, chart_range.width, chart_range.height

@@ -1,5 +1,9 @@
 # CLAUDE.md — Project context for Claude Code
 
+## PR workflow
+
+**Reply to PR comments after committing fixes.** When a review comment (Copilot or human) leads to a fix, push the fix and then reply to that comment explaining what was changed and why. This is how the repo owner spots addressed comments and resolves the threads.
+
 ## Cell styling
 
 All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples in a sheet writer.

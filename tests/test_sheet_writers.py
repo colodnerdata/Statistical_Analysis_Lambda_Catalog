@@ -121,6 +121,35 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
     )
     press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
     assert "$AQ$2" in press
+    assert {
+        name: sheet.api.Names.by_short_name(name).Comment
+        for name in (
+            "RegChartQQX",
+            "RegChartQQY",
+            "RegChartFitY",
+            "RegChartResid",
+            "RegChartActY",
+            "RegChartScaleLoc",
+            "RegChartCookDist",
+            "RegChartLeverage",
+            "RegChartStudResid",
+            "RegChartPRESSResid",
+        )
+    } == {
+        "RegChartQQX": "Normal Q-Q chart: X values (theoretical quantiles, Normal Scores Ranked)",
+        "RegChartQQY": "Normal Q-Q chart: Y values (Studentized Residuals Ranked)",
+        "RegChartFitY": (
+            "Predicted Y: X values for the Residuals vs. Fitted, Actual vs. Predicted, "
+            "and Scale-Location charts"
+        ),
+        "RegChartResid": "Residuals vs. Fitted chart: Y values (Residuals)",
+        "RegChartActY": "Actual vs. Predicted chart: Y values (Actual Y)",
+        "RegChartScaleLoc": "Scale-Location chart: Y values (sqrt of abs Studentized Residual)",
+        "RegChartCookDist": "Cook's Distance chart: bar values",
+        "RegChartLeverage": "Studentized Residuals vs. Leverage chart: X values (Hat Diagonal)",
+        "RegChartStudResid": "Studentized Residuals vs. Leverage chart: Y values",
+        "RegChartPRESSResid": "PRESS Residuals chart: bar values",
+    }
 
 
 def test_intercept_only_n_does_not_depend_on_filter() -> None:

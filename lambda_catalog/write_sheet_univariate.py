@@ -37,9 +37,10 @@ Sheet layout
   Col CV         — thin gap (width 2)
   Col CW–DF      — Q-Q plot data (P, sorted Sample, 8 theoretical-quantile columns)
 
-  Charts anchored in the G:S band under the fitting table:
+  Charts anchored under the fitting table:
     G14, G34, G54          — histogram combo charts (count bars + 8 fitted overlay lines)
-    G74, G94, …, G214      — eight per-distribution Q-Q plots
+    rows 74-153            — eight per-distribution Q-Q plots in a 4×2 grid
+                             (left chart G:O, right chart P:T per row)
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -214,10 +215,15 @@ _ROW_CHART1_TITLE = 14   # G14 — Sturges histogram chart title
 _ROW_CHART2_TITLE = 34   # G34 — Scott histogram chart title
 _ROW_CHART3_TITLE = 54   # G54 — FD histogram chart title
 
-# Q-Q plot charts stack below the FD histogram chart in the same G:S band,
-# one 20-row block per distribution (G74, G94, …, G214).
+# Q-Q plot charts sit in a 4×2 grid below the FD histogram chart: four rows
+# of two charts, the left chart spanning cols G:O and the right cols P:T
+# (rows 74-93, 94-113, 114-133, 134-153).
 _ROW_QQ_CHART_START = _ROW_CHART3_TITLE + 20   # 74
 _QQ_CHART_ROWS      = 20
+_QQ_CHART_BANDS = (
+    (7, 15),    # G:O — left chart of each pair
+    (16, 20),   # P:T — right chart of each pair
+)
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
@@ -1119,11 +1125,18 @@ def _set_equal_qq_axis_scale(sheet: xw.Sheet, x_axis, y_axis, x_name: str) -> No
 
 
 def _write_qq_charts(sheet: xw.Sheet) -> None:
-    """Insert eight per-distribution Q-Q scatter charts below the histogram charts."""
+    """Insert eight Q-Q scatter charts in a 4×2 grid below the histogram charts.
+
+    Charts fill row-major in fit-table order: Normal | Lognormal on the first
+    row, Exponential | Weibull on the second, and so on — left charts span
+    G:O and right charts P:T (_QQ_CHART_BANDS).
+    """
     sname = sheet.name
     distributions = [d for _, _, _, d in _QQ_COLUMNS if d]
     for i, distribution in enumerate(distributions):
-        row_start = _ROW_QQ_CHART_START + i * _QQ_CHART_ROWS
+        grid_row, grid_col = divmod(i, len(_QQ_CHART_BANDS))
+        col_first, col_last = _QQ_CHART_BANDS[grid_col]
+        row_start = _ROW_QQ_CHART_START + grid_row * _QQ_CHART_ROWS
         chart_range = sheet.range(
             rc(row_start, _C_FIT_FIRST),
             rc(row_start + _QQ_CHART_ROWS - 1, _C_QQ_PLOT_AREA_END),

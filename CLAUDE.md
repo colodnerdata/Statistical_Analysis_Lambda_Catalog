@@ -61,7 +61,7 @@ For the Weibull block, Stage 1 is `BE1:BY25` with named body `UV_WB_S1 = BF6:BY2
 
 Row and column offsets are defined as `_GS_R_*` and `_GS_C_*` constants at the top of `write_sheet_univariate.py`. Never hard-code row or column positions inside `_write_grid_stage`.
 
-Zone 6 (cols CW–DF, gap column CV) holds the Q-Q plot data: Hazen plotting positions `P`, the sorted `Sample` column, and eight theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the G:S band under the fitting table — histogram combo charts at G14/G34/G54 (count bars + one smoothed `UV_<method>_<Dist>_Expected` overlay line per distribution) and eight per-distribution Q-Q scatter charts stacked from G74, 20 rows each, fed by the OFFSET-based `UV_QQ_*` named ranges.
+Zone 6 (cols CW–DF, gap column CV) holds the Q-Q plot data: Hazen plotting positions `P`, the sorted `Sample` column, and eight theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts at G14/G34/G54 (count bars + one smoothed `UV_<method>_<Dist>_Expected` overlay line per distribution) and eight per-distribution Q-Q scatter charts in a 4×2 grid from row 74 (20 rows per chart row; left chart spans G:O, right chart P:T), fed by the OFFSET-based `UV_QQ_*` named ranges.
 
 ### Regression sheet heading hierarchy
 

@@ -52,7 +52,7 @@ flag.
 | Version | Milestone | Breaking? | Status |
 |---|---|---|---|
 | v1.0 | Multivariate OLS / MLR | — (baseline) | Shipped |
-| v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. Per-distribution Q-Q plots and histogram distribution-overlay series outstanding (TODOs.md). PDF functions dropped as unnecessary — the histogram tables already compute per-bin densities as CDF deltas between bin boundaries; overlays become combo-chart line series over those columns |
+| v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. Per-distribution Q-Q plots and histogram distribution-overlay series outstanding (TODOs.md). PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries; overlays become combo chart line series over those columns |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
 | v2.1 | Fixed Effects (Role axis) — **one-way only** | No | Planned — panel regression, `y_s()`, absorbed df. One FE variable only; two-way absorption is its own post-v2.1 milestone (see v2.5+). Non-breaking: the absorbed-df correction is an optional `[DF_Absorbed]` argument defaulting to 0 (decision recorded under v2.1), so no-FE models are unchanged |
@@ -324,8 +324,8 @@ called for `PDF_*` LAMBDAs evaluated at bin midpoints to draw fitted curves over
 histograms. That is redundant: each histogram block already computes, for all 8
 distributions, the per-bin probability as the **CDF delta between the bin
 boundaries** — `CDF(upper edge) − CDF(lower edge)` via the existing `CDF_*`
-functions. That delta *is* the bin's density (integrated exactly over the bin, which
-is more faithful to the histogram than a midpoint PDF evaluation), so no PDF
+functions. That delta is the bin's probability mass (the PDF integrated exactly over
+the bin, which is more faithful to the histogram than a midpoint PDF evaluation), so no PDF
 functions are needed and none will be implemented.
 
 The overlay is instead delivered by converting each histogram chart into a **combo

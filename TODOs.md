@@ -121,10 +121,10 @@ Suggested alias names:
 
 **PDF functions — DROPPED (unnecessary, will not be implemented)**
 - ~~Implement `PDF_Normal` … `PDF_BetaPERT` evaluated at bin midpoints~~ — superseded.
-  The histogram tables already compute per-bin densities as **CDF deltas between the
+  The histogram tables already compute per-bin probabilities as **CDF deltas between the
   bin boundaries** (`CDF(upper edge) − CDF(lower edge)`, the 8 `CDF_*` probability
-  columns in each histogram block). That delta is the bin's density integrated
-  exactly over the bin — more faithful to the histogram than a midpoint PDF
+  columns in each histogram block). That delta is the bin's probability mass (the PDF
+  integrated exactly over the bin) — more faithful to the histogram than a midpoint PDF
   evaluation — so no PDF LAMBDAs are needed. See ROADMAP.md § v1.1 Distribution
   fitting for the full rationale.
 

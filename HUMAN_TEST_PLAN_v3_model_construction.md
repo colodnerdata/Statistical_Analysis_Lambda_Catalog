@@ -470,6 +470,6 @@ with a non-blank condition for included Categorical Predictors in a follow-up).
 | Field | |
 |---|---|
 | Executed by | Stephen Colodner |
-| Date | 7/5/26 |
+| Date | 2026-07-05 |
 | Workbook build | 2.0 |
 | Result | PASS |

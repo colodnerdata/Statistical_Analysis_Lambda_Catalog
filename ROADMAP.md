@@ -889,7 +889,7 @@ covering the four combinations a single Log transform produces:
 > Box-Cox) is added. That tension sits directly against the "one canonical name, one
 > LAMBDA" principle only if each combination stays a separate function — an alternative
 > is a single dispatcher, e.g.
-> `Unit_Space_R_Square(model, response_transform, predictor_transform)`, that internally
+> `Unit_Space_R_Squared(model, response_transform, predictor_transform)`, that internally
 > `SWITCH`es on the transform arguments. The dispatcher is more scalable and still
 > auditable (the SWITCH branches are visible in one place) but is a bigger departure
 > from the current per-statistic-per-shape naming style used everywhere else in the

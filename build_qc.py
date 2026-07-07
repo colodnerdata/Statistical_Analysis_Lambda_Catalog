@@ -184,7 +184,7 @@ def verify_test_sheets(
         df = reg_dfs[section_key]
         for _, row in df.iterrows():
             fdd = row["first_digit_deviation"]
-            if fdd is not None and fdd <= 6:
+            if fdd is not None and fdd <= reg_mod.TOLERANCE_DECIMALS:
                 identity = " ".join(
                     f"{col}={row[col]!r}" for col in id_cols if col in row.index
                 )

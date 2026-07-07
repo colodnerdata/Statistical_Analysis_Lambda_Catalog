@@ -46,7 +46,7 @@ Zones 1–4 (cols A–Z) use the standard row layout:
 | 4 | Column sub-headers ("Upper Edge", "Count", "Distribution", …) | `_subheader_row` |
 | 5+ | Data / spill formulas | — |
 
-Zone 5 holds the two-stage Weibull grid-search. Each stage (`_write_grid_stage`) spans 21 columns (1 row-axis col + 20 Data Table body cols):
+Zone 5 holds the two-stage grid searches (Weibull / Gamma / Beta, vertically stacked). Each stage (`_write_grid_stage`) spans 21 columns (1 row-axis col + 20 Data Table body cols):
 
 | dr | Row | Contents |
 |---|---|---|

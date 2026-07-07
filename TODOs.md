@@ -215,10 +215,10 @@ v2.5+ section.
   `n/a — no fixed effects`; Sequence + FE → BFN active, DW `n/a — FE active`.
   FE detection keys on the count of Role="Fixed Effects" spec rows — forward
   wiring, since the role is not in the dropdown until the v2.1 FE engine ships.
-  **Grouping-key resolver (follow-up release):** the BFN cell's group argument
-  routes through `Serial_Correlation_Group()` — the single retargeting point
-  for which dimension partitions residuals — never `Fixed_Effects_Column()`
-  directly. The resolver's SWITCH carries a dormant, unreachable Cluster
+  **Grouping-key resolver — DONE (resolver release, after BFN):** the BFN
+  cell's group argument routes through `Serial_Correlation_Group()` — the
+  single retargeting point for which dimension partitions residuals — never
+  `Fixed_Effects_Column()` directly. The resolver's SWITCH carries a dormant, unreachable Cluster
   branch (returns `n/a — Cluster grouping RESERVED — v2.6+`; the reserved-
   spec-column pattern), so the v2.6+ Cluster role retargets the key by
   editing the resolver alone; no grouping role → the `none` sentinel

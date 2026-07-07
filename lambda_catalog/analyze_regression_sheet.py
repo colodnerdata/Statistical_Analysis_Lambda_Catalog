@@ -120,7 +120,11 @@ def calculate_regression_results_from_matrix(
     log_term = float(n * np.log(ss_residual / n))
     aic = log_term + 2.0 * p_design
     bic = log_term + p_design * float(np.log(n))
-    aicc = aic + 2.0 * p_design * (p_design + 1) / (n - p_design - 1)
+    aicc = (
+        aic + 2.0 * p_design * (p_design + 1) / (n - p_design - 1)
+        if n > p_design + 1
+        else float("nan")
+    )
     scaled_residuals_sorted = np.sort(e / se_regression)
     qq_scores = _scipy_stats.norm.ppf((np.arange(1, n + 1) - 0.5) / n)
     qq_correlation, _ = _scipy_stats.pearsonr(scaled_residuals_sorted, qq_scores)

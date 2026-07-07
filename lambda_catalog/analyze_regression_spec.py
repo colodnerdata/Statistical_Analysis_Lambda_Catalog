@@ -4,8 +4,6 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
-
 import numpy as np
 
 from .analyze_life_expectancy import DEFAULT_INPUT_CSV

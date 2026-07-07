@@ -295,6 +295,13 @@ _ROLE_PREDICTOR = "Predictor (x)"
 _ROLE_IDENTIFIER = "Identifier (Row Label)"
 _ROLE_FILTER = "Filter"
 _ROLE_OMIT = "Omit"
+# The v2.1 panel role (ROADMAP Role-axis values). Forward wiring only: the
+# token is read by the Fixed_Effects_Column() accessor and the FE-count guard
+# on the Regression diagnostics (BFN panel Durbin-Watson trigger matrix), but
+# it is deliberately NOT in the Role dropdown yet — the design-matrix engine
+# does not absorb fixed effects until the v2.1 release, and offering the role
+# before then would let a spec claim FE while silently fitting pooled OLS.
+_ROLE_FIXED_EFFECTS = "Fixed Effects"
 
 # The derived response name, shared by the audit strip and the filtered-y
 # header: the header of the first Role=Response spec row, "(none)" when
@@ -387,6 +394,17 @@ _BASE_PERIOD_NOTE = (
 # responses count).
 _SEQUENCE_FLAG_COUNT_FORMULA = (
     "SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))"
+)
+
+# Count of Role="Fixed Effects" spec rows — the FE-active detector behind the
+# Regression sheet's serial-correlation trigger matrix (plain DW vs. the BFN
+# panel DW). Always 0 until the v2.1 Fixed Effects role ships (the token is
+# not in the Role dropdown), which keeps the shipped workbook in the
+# DW-active / BFN-token state. Same TAKE-trimmed idiom as the responses and
+# sequence-flag counts.
+_FIXED_EFFECTS_COUNT_FORMULA = (
+    "SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))"
+    f'="{_ROLE_FIXED_EFFECTS}"))'
 )
 
 # ── Sequence Spacing block (base-period release) ────────────────────────────

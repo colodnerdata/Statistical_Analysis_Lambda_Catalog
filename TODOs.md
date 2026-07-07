@@ -206,7 +206,19 @@ v2.5+ section.
 
 ### Open decisions
 
-- TODO: Durbin-Watson under FE — relabel, caveat, or suppress.
+- ~~TODO: Durbin-Watson under FE — relabel, caveat, or suppress.~~ **DONE (BFN
+  release):** resolved as "second cell + mutual gating", not relabel/suppress.
+  `BFN_Panel_Durbin_Watson` (Bhargava–Franzini–Narendranathan 1982) computes the
+  within-group panel DW built on `Difference_By` (numerator NA→0 masked locally;
+  denominator over all û²), surfaced at Regression X12/Y12. Trigger matrix: no
+  Sequence → both cells token; Sequence + no FE → DW active, BFN
+  `n/a — no fixed effects`; Sequence + FE → BFN active, DW `n/a — FE active`.
+  FE detection keys on the count of Role="Fixed Effects" spec rows — forward
+  wiring, since the role is not in the dropdown until the v2.1 FE engine ships.
+- TODO: BFN critical values — the statistic ships with an interpretation-caveat
+  note only (near 2 ⇒ no first-order autocorrelation). Its significance bounds
+  depend on N and T (Bhargava et al. 1982 tables); do NOT present standard DW
+  bounds next to it. Surfacing BFN bounds on the sheet is the recorded open item.
 - TODO: Categorical × FE prediction encoding — x_new and x̄ᵢ formed in constructed
   design-matrix space (largely subsumed by v2.0 categorical prediction; recorded so the
   encoding step is not forgotten).

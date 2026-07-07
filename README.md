@@ -53,6 +53,7 @@ These functions return a single number summarizing the regression.
 | `PRESS(X_s, Y, [Allow_Intercept], [Include])` | Leave-one-out cross-validation error sum |
 | `Durbin_Watson(X_s, Y, [Allow_Intercept], [Include])` | Serial autocorrelation test for residuals in physical row order (2 = no autocorrelation) |
 | `Durbin_Watson_By(X_s, Y, seq, [Allow_Intercept], [Include])` | Durbin-Watson computed along a declared Sequence axis (`SORTBY` residuals on `seq`), so the statistic does not depend on row order |
+| `BFN_Panel_Durbin_Watson(X_s, Y, group, seq, [delta], [Allow_Intercept], [Include])` | Bhargava–Franzini–Narendranathan panel Durbin-Watson: residual differences restricted to within-group `(group, seq−Δ)` pairs via `Difference_By`, so group seams and panel gaps contribute nothing. Near 2 = no autocorrelation, with N,T-dependent critical values (standard DW bounds do not apply) |
 | `AIC(X_s, Y, [Allow_Intercept], [Include])` | Akaike Information Criterion |
 | `AICc(X_s, Y, [Allow_Intercept], [Include])` | Corrected AIC (for small samples) |
 | `BIC(X_s, Y, [Allow_Intercept], [Include])` | Bayesian Information Criterion |

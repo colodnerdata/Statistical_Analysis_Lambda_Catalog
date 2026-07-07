@@ -539,9 +539,52 @@
         }
       ],
       "yields": "Durbin-Watson statistic as a scalar, computed along seq order rather than row order",
-      "description": "Durbin_Watson_By is the sequence-aware Durbin-Watson statistic: DW = Σ(eₜ − eₜ₋₁)² / Σeₜ², but with the residuals ordered by a declared sequence axis instead of trusting physical row order.\n\nWhy this exists: the ordinary Durbin_Watson differences residuals in the order the rows happen to sit in the sheet. That is only meaningful if row adjacency IS the hypothesized serial axis. On arbitrarily sorted data — e.g. rows sorted by GDP — it silently assumes row order = time order and, under a meaningful non-time sort with mild misspecification, reports strong spurious autocorrelation. This function removes that hazard: it computes residuals, sorts them ascending by seq (SORTBY, all internal — the sort never spills to the sheet), and only then forms consecutive differences.\n\nThe result is invariant to how the source rows are physically ordered: shuffling the data and recomputing gives the identical statistic, because adjacency is defined by seq, not by row position. seq should uniquely order the observations of a single series (a proper time index); on a pooled panel where seq repeats across groups (many countries sharing a Year), adjacency along seq alone is not the within-group serial axis — that group-aware case is the separate Durbin-Watson-under-fixed-effects work, not this function.\n\nOutput is always a scalar; the DROP/SORTBY array work stays inside the LAMBDA so no helper column or spill is exposed.",
+      "description": "Durbin_Watson_By is the sequence-aware Durbin-Watson statistic: DW = Σ(eₜ − eₜ₋₁)² / Σeₜ², but with the residuals ordered by a declared sequence axis instead of trusting physical row order.\n\nWhy this exists: the ordinary Durbin_Watson differences residuals in the order the rows happen to sit in the sheet. That is only meaningful if row adjacency IS the hypothesized serial axis. On arbitrarily sorted data — e.g. rows sorted by GDP — it silently assumes row order = time order and, under a meaningful non-time sort with mild misspecification, reports strong spurious autocorrelation. This function removes that hazard: it computes residuals, sorts them ascending by seq (SORTBY, all internal — the sort never spills to the sheet), and only then forms consecutive differences.\n\nThe result is invariant to how the source rows are physically ordered: shuffling the data and recomputing gives the identical statistic, because adjacency is defined by seq, not by row position. seq should uniquely order the observations of a single series (a proper time index); on a pooled panel where seq repeats across groups (many countries sharing a Year), adjacency along seq alone is not the within-group serial axis — that group-aware, seam-safe case is BFN_Panel_Durbin_Watson, not this function.\n\nOutput is always a scalar; the DROP/SORTBY array work stays inside the LAMBDA so no helper column or spill is exposed.",
       "plain_language_summary": "The Durbin-Watson autocorrelation check, but measured along a declared time/order column instead of the accidental row order.",
       "notes": "Sequence-aware Durbin-Watson: sorts residuals by seq before differencing, so the statistic is invariant to physical row order. Use when a Sequence axis is declared; ordinary Durbin_Watson trusts row order. Scalar output, no spill."
+    },
+    {
+      "name": "BFN_Panel_Durbin_Watson",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, group, seq, [delta], [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    step,      IF(ISOMITTED(delta), Base_Period_Delta(), delta),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    g_f,       FILTER(group, filt_arg),\n    t_f,       FILTER(seq, filt_arg),\n    d,         Difference_By(e, g_f, t_f, step),\n    n_terms,   SUMPRODUCT(N(ISNUMBER(d))),\n    IF(n_terms = 0, NA(),\n      SUMPRODUCT(IFERROR(d, 0)^2) / SUMPRODUCT(e^2))\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "group",
+          "description": "single-column panel-unit identifiers (the Fixed Effects variable, e.g. Country) — residual differences never cross a group boundary"
+        },
+        {
+          "name": "seq",
+          "description": "single-column numeric time index (the declared Sequence column, e.g. Year) — the within-group lookup key, not the row order"
+        },
+        {
+          "name": "delta",
+          "description": "base period Δ: differences pair û(i,t) with û(i,t−delta) by exact time value; when omitted, the spec's Base Period Δ (Base_Period_Delta()) is used — never a silent 1",
+          "optional": true
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "Bhargava–Franzini–Narendranathan panel Durbin-Watson statistic as a scalar: Σᵢ Σₜ (û(i,t) − û(i,t−Δ))² / Σᵢ Σₜ û(i,t)², with differencing restricted to within-group (group, seq−Δ) pairs",
+      "description": "BFN_Panel_Durbin_Watson is the Bhargava–Franzini–Narendranathan (1982) panel form of the Durbin-Watson statistic: BFN = Σᵢ Σₜ₌₂ (û(i,t) − û(i,t−Δ))² / Σᵢ Σₜ û(i,t)², where the numerator differences residuals only within a panel unit.\n\nWhy this exists: under fixed effects, ordinary Durbin-Watson is invalid twice over — the residuals are within-demeaned, and a panel has no single ordering. Naive row-adjacent differencing manufactures correlation at every group seam (unit A's last period sits next to unit B's first), and even the sequence-sorted Durbin_Watson_By still differences across units that share a time value. BFN restricts the numerator's differencing to within-group pairs, so seams contribute nothing by construction.\n\nThe within-group differencing is delegated to Difference_By (one source of truth): the prior residual is the exact-match (group, seq − Δ) lookup, never row arithmetic, so the statistic is invariant to physical row order — permuting whole group blocks leaves it unchanged. Difference_By returns #N/A at each group's first period and across panel gaps (a punched-out year contributes no fabricated difference); the IFERROR(…, 0) mask in the numerator zeroes exactly those terms, locally and visibly, per the consumer-owns-masking rule. The denominator sums every residual's square — first periods and gap rows still count there, as the BFN definition requires. A filtered-in row whose group is blank or whose seq is not numeric is a data defect and surfaces as a visible error rather than being silently dropped.\n\nThe mask never turns an error STATE into a number: when not a single difference is computable — every group a singleton, or Δ unresolved (no Base Period Δ declared and delta omitted, so step is #N/A and every lookup misses) — the all-#N/A difference column would otherwise mask to an all-zero numerator and display BFN = 0, a fake strong-negative-autocorrelation reading. The n_terms guard returns a genuine #N/A instead: zero computable differences is an error state, not a statistic.\n\nInterpretation caveat: read it like Durbin-Watson — near 2 means no first-order autocorrelation in the within residuals — but do NOT apply the standard DW significance bounds. BFN has its own critical values that depend on both N (units) and T (periods); Bhargava, Franzini & Narendranathan (1982) tabulate them. Surfacing those bounds on the sheet is a recorded open item.\n\nOutput is always a scalar; residual computation, filtering, and differencing stay inside the LAMBDA so no helper column or spill is exposed.",
+      "plain_language_summary": "The panel version of the Durbin-Watson autocorrelation check — residual changes are measured within each group (country) only, so group boundaries never fake a correlation.",
+      "notes": "Bhargava–Franzini–Narendranathan panel DW: differences residuals within (group, seq−Δ) pairs via Difference_By, NA→0 masked locally; denominator sums all e². Near 2 = no autocorrelation; N,T-dependent critical values — standard DW bounds do not apply."
     },
     {
       "name": "QQ_Correlation",
@@ -2750,6 +2793,20 @@
       "notes": "Derived ordering axis for the Regression sheet: the data column of the Sequence-flagged spec row (column H). #N/A when none is flagged. Feeds Durbin_Watson_By and future serial-correlation diagnostics."
     },
     {
+      "name": "Fixed_Effects_Column",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),INDEX(Source_Data,0,XMATCH(\"Fixed Effects\",TAKE(Spec_Role,n_c),0))))",
+      "arguments": [],
+      "yields": "The single Role=Fixed Effects data column (the panel-unit identifier), full height; #N/A when no row carries the role.",
+      "description": "Sheet-scoped accessor for the panel-unit (grouping) variable on the Regression sheet. Returns the data column of the first spec row whose Role is \"Fixed Effects\", via exact-match XMATCH over the TAKE-trimmed Spec_Role vector — the Role-axis sibling of Response_Column (Role=Response) and the structural counterpart of Sequence_Column (the H flag). Full-height by the same row-mask contract as the other sheet closures.\n\nIt is the group input for the seam-safe panel serial-correlation diagnostic (BFN_Panel_Durbin_Watson), keeping the panel unit a single canonical name rather than an inline XMATCH repeated at every call site. When no row carries the Fixed Effects role, XMATCH does not match and the accessor is #N/A — the caller's gate (the FE-variable count) shows the not-applicable token before this is ever evaluated. When two or more rows carry the role (two-way absorption, out of scope until its own milestone) it resolves the first, and callers gate on the count instead of computing.\n\nForward wiring for the v2.1 Fixed Effects release: the \"Fixed Effects\" Role token is not yet offered by the Role dropdown because the design-matrix engine does not absorb it yet — the accessor and the diagnostics gated on it activate when the role ships. Spec_Role is TAKE-trimmed to COLUMNS(Source_Data) so cells below the live spec rows are never scanned.",
+      "plain_language_summary": "The column marked as the Fixed Effects (panel unit) variable in the spec — e.g. Country in a Country/Year panel.",
+      "notes": "Derived panel-unit column for the Regression sheet: the data column of the first Role=\"Fixed Effects\" spec row. #N/A when none is declared. Feeds BFN_Panel_Durbin_Watson; forward wiring for the v2.1 Fixed Effects role."
+    },
+    {
       "name": "Sequence_Deltas",
       "test_table": null,
       "category": "Model Construction",
@@ -2811,7 +2868,8 @@
     "BIC": "Another model-comparison score like AIC, but it penalizes extra predictors more strongly.",
     "AICc": "AIC with an extra correction for small samples.",
     "QQ Correlation": "A numeric check of how close the residuals are to a normal bell shape. Values closer to 1 are better.",
-    "Durbin-Watson": "A check for serial correlation — whether residuals next to each other in the declared Sequence order tend to move together. Values near 2 mean no autocorrelation; below ~1.5 suggests positive, above ~2.5 negative. Requires exactly one Sequence axis to be flagged; with none the cell reads 'n/a — requires Sequence' (plain row order is not a meaningful time axis), and with two or more it reads 'n/a — multiple Sequence flags' (the spec error the status line above column H reports).",
+    "Durbin-Watson": "A check for serial correlation — whether residuals next to each other in the declared Sequence order tend to move together. Values near 2 mean no autocorrelation; below ~1.5 suggests positive, above ~2.5 negative. Requires exactly one Sequence axis to be flagged; with none the cell reads 'n/a — requires Sequence' (plain row order is not a meaningful time axis), and with two or more it reads 'n/a — multiple Sequence flags' (the spec error the status line above column H reports). With a Fixed Effects variable declared it reads 'n/a — FE active': the single-series statistic is invalid on within-demeaned panel residuals, and the BFN Panel Durbin-Watson cell below takes over.",
+    "BFN Panel Durbin-Watson": "The panel (fixed-effects) form of the serial-correlation check, after Bhargava–Franzini–Narendranathan (1982): residual changes are measured within each panel unit only, never across the boundary between two units, so group seams cannot fake a correlation. Read it like Durbin-Watson — near 2 means no first-order autocorrelation in the within residuals — but do NOT judge it against the standard Durbin-Watson significance bounds: BFN has its own critical values that depend on the number of units (N) and periods (T). Surfacing those bounds here is a recorded open item. Active only when both a Sequence axis and a Fixed Effects variable are declared; otherwise the cell shows which ingredient is missing.",
     "Alpha": "The cutoff for statistical significance. At 0.05, results with p-values below 0.05 are treated as statistically significant.",
     "df": "The number of independent data points available to estimate each part of the model — total rows minus one for each estimated parameter.",
     "SS": "The total variation attributed to that source — regression, residual, or total. The raw material from which MS and F are calculated.",

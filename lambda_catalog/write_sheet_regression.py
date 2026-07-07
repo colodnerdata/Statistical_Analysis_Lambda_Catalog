@@ -19,7 +19,8 @@ Sequence structural axis):
                    computed on the CONSTRUCTED design matrix (dummies included)
   Col T          — thin gap (width 2)
   Col U–AB       — Regression Outputs: Predicted Variable readout (Y2:Z2),
-                   Statistics (U–V rows 3–8), Diagnostics (X–Y rows 3–10),
+                   Statistics (U–V rows 3–8), Diagnostics (X–Y rows 3–12;
+                   the serial-correlation pair DW/BFN at rows 11–12),
                    Alpha input (V12), ANOVA Table (rows 13–17, U–Z),
                    Coefficients (rows 19+, U–AA), Beta Weights (AB)
   Col AC         — thin gap (width 2)
@@ -69,6 +70,7 @@ from .workbook_helpers import (
 )
 from .write_sheet_model_construction import (
     _BASE_PERIOD_NOTE,
+    _FIXED_EFFECTS_COUNT_FORMULA,
     _RESERVED_NOTE,
     _RESPONSE_NAME_FORMULA,
     _SEQUENCE_FLAG_COUNT_FORMULA,
@@ -214,6 +216,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (9, _C_X, "AICc"),
         (10, _C_X, "QQ Correlation"),
         (11, _C_X, "Durbin-Watson"),
+        (12, _C_X, "BFN Panel Durbin-Watson"),
         (12, _C_U, "Alpha"),
         (14, _C_V, "df"),
         (14, _C_W, "SS"),
@@ -673,7 +676,7 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
 
 
 def _write_diagnostics(sheet: xw.Sheet) -> None:
-    """Cols X–Y, rows 3–11."""
+    """Cols X–Y, rows 3–12."""
     section_heading(sheet, 3, _C_X, "DIAGNOSTICS")
     for row, label, formula in [
         (4,  "PRESS",          "=PRESS(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"),
@@ -698,16 +701,27 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         f(sheet, row, _C_Y, formula)
     sheet.range(rc(4, _C_Y), rc(10, _C_Y)).number_format = "0.0000"
 
+    # Serial-correlation trigger matrix — two fixed cells (X11/Y11 plain DW,
+    # X12/Y12 BFN panel DW), each SELF-GUARDING: every state a cell can show is
+    # visible in that cell's own formula, never dispatched from a shared
+    # selector cell — the audit-friendly form. Off-spec states show an explicit
+    # not-applicable token (never NA(), which is reserved for genuine errors,
+    # and friendlier than "" to a future Model-Comparison XLOOKUP):
+    #
+    #   no Sequence axis          → both cells "n/a — requires Sequence"
+    #   Sequence + no FE variable → DW computes, BFN "n/a — no fixed effects"
+    #   Sequence + FE variable    → BFN computes, DW "n/a — FE active"
+    #
     # Durbin-Watson is gated on EXACTLY ONE declared Sequence axis: differencing
     # residuals in physical row order silently assumes row order = time order,
     # which reports spurious autocorrelation under any meaningful non-time sort.
-    # Both off-spec states show an explicit not-applicable token (never NA(),
-    # which is reserved for genuine errors, and friendlier than "" to a future
-    # Model-Comparison XLOOKUP) rather than a misleading number: zero flags →
-    # "requires Sequence"; two-plus flags is the spec error the H2 status line
-    # already reports, and computing on Sequence_Column()'s first match would be
-    # ambiguous → "multiple Sequence flags". With exactly one, Durbin_Watson_By
-    # sorts residuals by Sequence_Column() before differencing — all array work
+    # Zero flags → "requires Sequence"; two-plus flags is the spec error the H2
+    # status line already reports, and computing on Sequence_Column()'s first
+    # match would be ambiguous → "multiple Sequence flags". Under fixed effects
+    # the single-series statistic is invalid twice over (within-demeaned
+    # residuals; no single panel ordering) → "FE active", and the BFN cell
+    # below takes over. With exactly one flag and no FE, Durbin_Watson_By sorts
+    # residuals by Sequence_Column() before differencing — all array work
     # internal, scalar out, no spill.
     val(sheet, 11, _C_X, "Durbin-Watson")
     f(
@@ -715,13 +729,43 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         11,
         _C_Y,
         f"=LET(seq_flags,{_SEQUENCE_FLAG_COUNT_FORMULA},"
+        f"fe_vars,{_FIXED_EFFECTS_COUNT_FORMULA},"
         'IF(seq_flags=0,"n/a — requires Sequence",'
         'IF(seq_flags>1,"n/a — multiple Sequence flags",'
+        'IF(fe_vars>0,"n/a — FE active",'
         "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
-        "Allow_Intercept,Sample_Include()))))",
+        "Allow_Intercept,Sample_Include())))))",
     )
     sheet.range(rc(11, _C_Y), rc(11, _C_Y)).number_format = "0.000"
-    border_box(sheet, 3, _C_X, 11, _C_Y)
+
+    # BFN panel Durbin-Watson (Bhargava–Franzini–Narendranathan 1982): the
+    # within-group form for panels under fixed effects. Differencing is
+    # restricted to within-group (group, seq−Δ) pairs via Difference_By inside
+    # the LAMBDA, so group seams contribute nothing by construction. Active
+    # only when a Sequence axis AND a Fixed Effects variable are declared;
+    # multiple FE variables (two-way absorption, out of scope) show a token
+    # rather than computing on an arbitrary first match. Interpretation reads
+    # like DW (near 2 ⇒ no first-order autocorrelation), but its critical
+    # values depend on N and T — surfacing those bounds is a recorded open
+    # item, and the standard DW bounds must not be presented next to it (the
+    # cell note carries that caveat).
+    val(sheet, 12, _C_X, "BFN Panel Durbin-Watson")
+    f(
+        sheet,
+        12,
+        _C_Y,
+        f"=LET(seq_flags,{_SEQUENCE_FLAG_COUNT_FORMULA},"
+        f"fe_vars,{_FIXED_EFFECTS_COUNT_FORMULA},"
+        'IF(seq_flags=0,"n/a — requires Sequence",'
+        'IF(seq_flags>1,"n/a — multiple Sequence flags",'
+        'IF(fe_vars=0,"n/a — no fixed effects",'
+        'IF(fe_vars>1,"n/a — multiple FE variables",'
+        "BFN_Panel_Durbin_Watson(X_s(),Response_Column(),"
+        "Fixed_Effects_Column(),Sequence_Column(),Base_Period_Delta(),"
+        "Allow_Intercept,Sample_Include()))))))",
+    )
+    sheet.range(rc(12, _C_Y), rc(12, _C_Y)).number_format = "0.000"
+    border_box(sheet, 3, _C_X, 12, _C_Y)
 
 
 def _write_alpha(sheet: xw.Sheet) -> None:

@@ -699,15 +699,25 @@ broadcast, per the level-vector split).
 
 ### Open items (recorded, not resolved)
 
-1. **Durbin-Watson under FE** *(v2.1)* — relabel, caveat, or suppress. (Related to the
-   iid caveat above.) *Partially advanced by the DW-gate release:* the Regression
-   sheet's Durbin-Watson cell now requires a declared Sequence axis and differences
-   residuals along it (`Durbin_Watson_By` sorts by `Sequence_Column()` before
-   differencing), removing the physical-row-order hazard. Still open for FE/panel
-   data: on a pooled panel where the Sequence axis repeats across groups (many
-   countries sharing a Year), adjacency along `seq` alone is not the *within-group*
-   serial axis — the group-aware (seam-safe, à la `Sequence_Deltas`) DW is the
-   remaining work here.
+1. **Durbin-Watson under FE** *(v2.1)* — **RESOLVED by the BFN release as "second
+   cell + mutual gating"** (neither relabel nor suppress). (Related to the iid caveat
+   above.) The DW-gate release had already removed the physical-row-order hazard
+   (`Durbin_Watson_By` sorts by `Sequence_Column()` before differencing); the BFN
+   release adds the group-aware panel statistic: `BFN_Panel_Durbin_Watson`
+   (Bhargava–Franzini–Narendranathan 1982), BFN = Σᵢ Σₜ₌₂ (û(i,t) − û(i,t−Δ))² ÷
+   Σᵢ Σₜ û(i,t)², with the numerator's differencing restricted to within-group
+   (group, seq−Δ) pairs via `Difference_By` (one source of truth — first periods and
+   panel gaps contribute no term, seams cannot manufacture correlation, and the
+   statistic is invariant to permuting group blocks). Two fixed diagnostic cells,
+   each self-guarding: no Sequence → both `n/a — requires Sequence`; Sequence + no
+   FE → DW active, BFN `n/a — no fixed effects`; Sequence + FE → BFN active, DW
+   `n/a — FE active`. FE detection counts Role="Fixed Effects" spec rows — forward
+   wiring that activates when the v2.1 FE role lands in the dropdown. **Remaining
+   open sub-item: BFN critical values.** The cell ships with an interpretation
+   caveat only (near 2 ⇒ no first-order autocorrelation in the within residuals);
+   its significance bounds are N,T-dependent (Bhargava et al. 1982 tables) and the
+   standard DW bounds must not be presented next to it — surfacing proper BFN
+   bounds is the recorded open item.
 2. **Categorical × FE prediction encoding** *(v2.1)* — when non-FE categorical
    predictors coexist with fixed effects, x_new and x̄ᵢ must be formed in the
    *constructed* design-matrix space (dummies encoded through the same `Dummy_Code`

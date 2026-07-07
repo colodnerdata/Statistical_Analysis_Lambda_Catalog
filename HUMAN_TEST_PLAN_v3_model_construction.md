@@ -113,7 +113,8 @@ live at T0. **No Filter is declared**, so the mask is completeness-only.
 | header strip | Q2→ | `Year: 2001` … `Year: 2015` (15 cols), `Status: Developing`, `Adult Mortality`, `GDP`, `Schooling` |
 | Levels | J4 / J5 | 16 / 2, blank elsewhere |
 | Base Period Δ | Year row, col I | 1 (Year's within-country spacing) |
-| Durbin-Watson | Regression diagnostics | a number computed along Year, not the `n/a — requires Sequence` token |
+| Durbin-Watson | Regression diagnostics (Y11) | a number computed along Year, not the `n/a — requires Sequence` token |
+| BFN Panel Durbin-Watson | Regression diagnostics (Y12) | `n/a — no fixed effects` (Sequence declared, no Role="Fixed Effects" row — the role ships with the v2.1 FE engine). Clearing Year's H flag flips BOTH cells to `n/a — requires Sequence` |
 | gray cascade | C–H | gray on every non-Predictor row |
 | y header | N2 | `y: Life expectancy` |
 | first filtered label | M3 | `Afghanistan` |

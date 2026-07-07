@@ -120,6 +120,16 @@ def difference_by(x, group, seq, delta, include=None):
     return out
 
 
+_SEP = chr(31)  # CHAR(31), the multi-identifier group-key join separator
+
+
+def _group_is_blank(g) -> bool:
+    """Mirror of the emptiness check: a key that is only CHAR(31) separators
+    (every Identifier field blank on the row) counts as no group, so
+    unidentified rows never form a spurious group."""
+    return isinstance(g, str) and g.replace(_SEP, "") == ""
+
+
 def sequence_deltas(group, seq):
     """Mirror of Sequence_Deltas: seam-safe within-group consecutive spacings.
 
@@ -127,12 +137,14 @@ def sequence_deltas(group, seq):
     a group (seams dropped by construction) and the diff is positive
     (duplicates dropped). Pooled column-wise diffs over raw row order are
     exactly what this exists to forbid — on Country/Year panel data they
-    manufacture large negative seam deltas at every country boundary.
+    manufacture large negative seam deltas at every country boundary. Rows
+    whose composite group key is delimiter-only (all identifiers blank) are
+    excluded, matching the SUBSTITUTE guard in the formula.
     """
     rows = sorted(
         (g, t)
         for g, t in zip(group, seq)
-        if g != "" and isinstance(t, (int, float))
+        if not _group_is_blank(g) and isinstance(t, (int, float))
     )
     deltas = []
     for (g_prev, t_prev), (g_cur, t_cur) in zip(rows, rows[1:]):
@@ -435,10 +447,34 @@ def test_spectrum_formula_is_seam_safe_not_a_pooled_columnwise_diff() -> None:
     assert "SORTBY(t_f,g_f,1,t_f,1)" in gaps
     assert "same,DROP(g_s,1)=DROP(g_s,-1)" in gaps
     assert "FILTER(d,same*(d>0),NA())" in gaps
+    # The emptiness check strips the CHAR(31) join separators, so a row whose
+    # identifier fields are ALL blank (a delimiter-only composite key) is
+    # excluded rather than forming a spurious group.
+    assert 'ISNUMBER(t_v)*(SUBSTITUTE(g_v,CHAR(31),"")<>"")' in gaps
 
     candidate = _compact(formulas["Base_Period_Delta_Candidate"])
     assert "IFERROR(MODE.SNGL(d),MIN(d))" in candidate
     assert "IF(COUNT(d)=0,NA()" in candidate
+
+
+def test_all_blank_identifier_rows_do_not_form_a_spurious_group() -> None:
+    # Multi-identifier panel: two rows fully identified as ("A","X") and two
+    # rows with BOTH identifiers blank, which TEXTJOIN(...,FALSE,...) joins
+    # into a delimiter-only key (CHAR(31)). Without the SUBSTITUTE guard the
+    # delimiter-only key reads as non-empty and the two unidentified rows
+    # would contribute a spurious spacing; with it they are excluded, so
+    # only the ("A","X") group's single spacing survives.
+    group = [f"A{_SEP}X", f"A{_SEP}X", _SEP, _SEP]
+    seq = [2000, 2001, 2005, 2006]
+    deltas = sequence_deltas(group, seq)
+    assert delta_spectrum(deltas) == {1: 1}
+
+    # A partially-identified row keeps its identity (only the separator is
+    # stripped for the emptiness test, never the real key), so it still
+    # groups distinctly from a fully-identified one.
+    group_partial = [f"A{_SEP}", f"A{_SEP}", f"A{_SEP}X"]
+    seq_partial = [2000, 2001, 2002]
+    assert delta_spectrum(sequence_deltas(group_partial, seq_partial)) == {1: 1}
 
 
 def main() -> None:  # pragma: no cover - standalone runner

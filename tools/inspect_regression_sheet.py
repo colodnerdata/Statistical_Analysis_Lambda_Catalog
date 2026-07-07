@@ -139,9 +139,16 @@ def _apply_extra_columns(
 def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
     """Write C2 and the full visible spec block for one QC case."""
     sheet.range(_INTERCEPT_ROW, _C_SPEC_INCLUDE).value = expected.case.allow_intercept
-    max_rows = max(30, len(expected.case.spec) + 3)
-    for offset in range(max_rows):
-        row = _SPEC_FIRST_DATA_ROW + offset
+
+    # Clear only the spec rows (plus one blank row) so we don't wipe the
+    # Sequence Spacing block that lives under the spec on the Regression sheet.
+    from lambda_catalog.write_sheet_model_construction import _LAST_DATA_ROW as _SPEC_LAST_DATA_ROW
+
+    last_row = max(
+        _SPEC_LAST_DATA_ROW + 1,
+        _SPEC_FIRST_DATA_ROW + len(expected.case.spec) - 1,
+    )
+    for row in range(_SPEC_FIRST_DATA_ROW, last_row + 1):
         for col in (
             _C_SPEC_ROLE,
             _C_SPEC_INCLUDE,

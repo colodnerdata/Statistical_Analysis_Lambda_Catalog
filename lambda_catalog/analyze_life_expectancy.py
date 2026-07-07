@@ -290,6 +290,7 @@ def calculate_regression_summary(
     input_csv_path: Path = DEFAULT_INPUT_CSV,
     include_intercept: bool = True,
     feature_columns: list[str] | None = None,
+    filter_columns: list[str] | None = None,
 ) -> RegressionSummary:
     """Fit OLS and return regression metrics without writing any output files.
 
@@ -301,6 +302,11 @@ def calculate_regression_summary(
         If True, fit a model with an intercept term.
     feature_columns : list[str] or None, optional
         Predictor columns to include. Defaults to FEATURE_COLUMNS.
+    filter_columns : list[str] or None, optional
+        Columns that must be non-null for a row to be included. Defaults to
+        the full ``FEATURE_COLUMNS`` (the ``Full_Data`` completeness rule the
+        MLR test sheets bind to). Pass the model's own ``feature_columns`` for
+        the spec-driven completeness the Regression sheet now uses.
 
     Returns
     -------
@@ -308,12 +314,13 @@ def calculate_regression_summary(
         Scalar regression metrics matching the workbook LAMBDA outputs.
     """
     columns = feature_columns if feature_columns is not None else FEATURE_COLUMNS
+    filter_cols = filter_columns if filter_columns is not None else FEATURE_COLUMNS
     input_path = input_csv_path.resolve()
     original_headers, normalized_rows = _load_normalized_rows(input_path)
     _validate_required_headers(original_headers, columns)
 
     x_train, y_train, _, _ = _build_training_arrays(
-        normalized_rows, include_intercept, columns, filter_columns=FEATURE_COLUMNS
+        normalized_rows, include_intercept, columns, filter_columns=filter_cols
     )
     model = _fit_ols_model(x_train, y_train, include_intercept)
 
@@ -388,6 +395,7 @@ def calculate_regression_vectors(
     include_intercept: bool = True,
     feature_columns: list[str] | None = None,
     alpha: float = 0.05,
+    filter_columns: list[str] | None = None,
 ) -> RegressionVectors:
     """Fit OLS and return per-coefficient statistics without writing any output files.
 
@@ -401,6 +409,10 @@ def calculate_regression_vectors(
         Predictor columns to include. Defaults to FEATURE_COLUMNS.
     alpha : float, optional
         Significance level for confidence intervals. Default 0.05 yields 95% CIs.
+    filter_columns : list[str] or None, optional
+        Columns that must be non-null for a row to be included. Defaults to the
+        full ``FEATURE_COLUMNS`` (Full_Data). Pass the model's own
+        ``feature_columns`` for the Regression sheet's spec-driven completeness.
 
     Returns
     -------
@@ -408,12 +420,13 @@ def calculate_regression_vectors(
         Per-coefficient statistics matching the workbook vector LAMBDA outputs.
     """
     columns = feature_columns if feature_columns is not None else FEATURE_COLUMNS
+    filter_cols = filter_columns if filter_columns is not None else FEATURE_COLUMNS
     input_path = input_csv_path.resolve()
     original_headers, normalized_rows = _load_normalized_rows(input_path)
     _validate_required_headers(original_headers, columns)
 
     x_train, y_train, _, _ = _build_training_arrays(
-        normalized_rows, include_intercept, columns, filter_columns=FEATURE_COLUMNS
+        normalized_rows, include_intercept, columns, filter_columns=filter_cols
     )
     model = _fit_ols_model(x_train, y_train, include_intercept)
     ci = model.conf_int(alpha=alpha)

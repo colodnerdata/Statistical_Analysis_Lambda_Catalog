@@ -79,8 +79,13 @@ def calculate_regression_sheet_results(
     original_headers, normalized_rows = _load_normalized_rows(input_path)
     _validate_required_headers(original_headers, columns)
 
+    # Spec-driven completeness: the Regression sheet no longer carries the
+    # Full_Data all-features filter, so a row is included when the response and
+    # the model's OWN predictors are numeric — never dropped for a missing value
+    # in a predictor the model excludes. filter_columns = the model's columns
+    # (not FEATURE_COLUMNS) matches the sheet's Sample_Include().
     x_train, y_train, _, _ = _build_training_arrays(
-        normalized_rows, include_intercept, columns, filter_columns=FEATURE_COLUMNS
+        normalized_rows, include_intercept, columns, filter_columns=columns
     )
     model = _fit_ols_model(x_train, y_train, include_intercept)
     n = len(y_train)
@@ -95,11 +100,15 @@ def calculate_regression_sheet_results(
     h = np.sum(z * x_train, axis=1)
     e = np.asarray(model.resid, dtype=np.float64)
 
-    # ── Group 1: Scalar summary ───────────────────────────────────────────────
-    summary = calculate_regression_summary(input_csv_path, include_intercept, columns)
+    # ── Group 1: Scalar summary (same spec-driven completeness) ───────────────
+    summary = calculate_regression_summary(
+        input_csv_path, include_intercept, columns, filter_columns=columns
+    )
 
     # ── Group 2: Coefficient vectors ─────────────────────────────────────────
-    vectors = calculate_regression_vectors(input_csv_path, include_intercept, columns, alpha)
+    vectors = calculate_regression_vectors(
+        input_csv_path, include_intercept, columns, alpha, filter_columns=columns
+    )
 
     # ── Group 3: Predictor summary ────────────────────────────────────────────
     pearson_r_vals: list[float] = []

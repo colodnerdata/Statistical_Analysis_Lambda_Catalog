@@ -422,12 +422,14 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         for col in range(2, 10):
             assert sheet.cell(row, col).color == INPUT_COLOR, (variable, col)
 
-    # Spot-check the named T0 roles — the shipped spec demonstrates every
-    # Role: Identifier, Response, Filter, Omit, and Predictor.
+    # Spot-check the named T0 roles — the shipped spec demonstrates Identifier,
+    # Response, Predictor, and Omit. Full_Data ships as Omit (not Filter): its
+    # all-features completeness flag is redundant with the built-in mask and
+    # over-filters, so it is not the default Filter.
     by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(_VARIABLES)}
     assert sheet.cell(by_variable["Country"], 2).value == "Identifier (Row Label)"
     assert sheet.cell(by_variable["Life expectancy"], 2).value == "Response (y)"
-    assert sheet.cell(by_variable["Full_Data"], 2).value == "Filter"
+    assert sheet.cell(by_variable["Full_Data"], 2).value == "Omit"
     assert sheet.cell(by_variable["Population"], 2).value == "Omit"
     for categorical in ("Year", "Status"):
         row = by_variable[categorical]

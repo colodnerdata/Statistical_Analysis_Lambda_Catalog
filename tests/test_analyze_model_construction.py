@@ -79,7 +79,10 @@ def test_default_spec_mirrors_the_writer_prefill() -> None:
 
 def test_t0_expectations_pin_the_csv_derived_values(rows, t0_expected) -> None:
     assert t0_expected.total_rows == 2938
-    assert t0_expected.included_rows == 1649
+    # Full_Data ships as Omit (not Filter), so the mask is completeness-only on
+    # the response and the model's three continuous predictors — 2482 rows, vs
+    # 1649 under the old all-features Full_Data filter (which over-filtered).
+    assert t0_expected.included_rows == 2482
     assert t0_expected.k == 19
     # Year is the shipped Sequence axis; Population's Omit role leaves k
     # unchanged (Omit contributes no column, same as a not-included row).
@@ -118,7 +121,10 @@ def test_stratifying_filter_degenerates_status(rows) -> None:
     ]
     expected = calculate_model_construction_expectations(spec, mutated)
 
-    assert expected.included_rows == 1407
+    # Full_Data ships as Omit, so the only Filter is Is_Developing: the mask is
+    # completeness-on-the-model's-predictors AND Status = Developing → 2034
+    # (was 1407 when Full_Data's all-features filter was also ANDed in).
+    assert expected.included_rows == 2034
     assert expected.degenerate_categoricals == ("Status",)
     assert expected.level_counts == {"Year": 16, "Status": 1}
     # Inside the stratified mask the only Status level left IS the default

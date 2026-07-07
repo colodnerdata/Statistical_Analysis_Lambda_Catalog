@@ -125,14 +125,18 @@ Default configuration (the human test plan's T0 state):
     Status           → Predictor/Categorical/TRUE
     Life expectancy  → Response               (derived y)
     Adult Mortality, GDP, Schooling → Predictor/Continuous/TRUE
+    Population        → Omit                   (deliberate exclusion demo)
     remaining numerics → Predictor/Continuous/FALSE (candidates)
-    Full_Data        → Filter                 (ANDed into Sample_Include()
-                                               with role-aware completeness)
+    Full_Data        → Omit                    (its all-features completeness
+                                               flag is redundant with the mask's
+                                               built-in completeness and
+                                               over-filters; no default Filter)
 Full-height contract: ROWS(X_s()) = ROWS(Row_Labels()) =
 ROWS(Sample_Include()) = 2938 always — the constructor reads the mask ONLY
 to fix level sets; nothing here ever row-filters. With the real mask live,
 the T0 mask-dependent values are real on the sheet: k = 19 (15 Year
-dummies), SUMPRODUCT(N(Sample_Include())) = 1649.
+dummies), and SUMPRODUCT(N(Sample_Include())) = 2482 (completeness-only on
+the response and the three continuous predictors, no Full_Data over-filter).
 
 Not here (deliberately, per release scoping): the QC analyzer
 (analyze_model_construction.py) and the Version History / CHANGELOG bump
@@ -308,14 +312,22 @@ _VALIDATION_LAST_ROW = 16000
 # Default spec: variable -> (role, include, type). Reference (E) starts
 # blank everywhere so the first-in-sort-order default is what gets
 # exercised; type an explicit level into E to exercise the override path.
-# The shipped T0 spec is a live demonstration of the full feature set: every
-# Role is exercised (Response, Predictor, Identifier, Filter, Omit), both
-# Types (Continuous, Categorical), and — via _DEFAULT_SEQUENCE_VARIABLES
-# below — the structural Sequence axis with its Base Period Δ companion.
-# Population is shipped as an explicit Omit (WHO population figures are
-# notoriously incomplete/inconsistent) so the Omit role and its graying are
-# demonstrated; because Omit contributes no column and imposes no mask
-# condition, it leaves the fitted model identical to a plain excluded row.
+# The shipped T0 spec demonstrates the Role axis (Response, Predictor,
+# Identifier, Omit), both Types (Continuous, Categorical), and — via
+# _DEFAULT_SEQUENCE_VARIABLES below — the structural Sequence axis with its
+# Base Period Δ companion. Population is shipped as an explicit Omit (WHO
+# population figures are notoriously incomplete/inconsistent) so the Omit role
+# and its graying are demonstrated; Omit contributes no column and imposes no
+# mask condition, leaving the fitted model identical to a plain excluded row.
+#
+# Full_Data ships as Omit, NOT Filter: the Full_Data completeness column
+# demands EVERY numeric feature be present, which is (a) redundant with the
+# built-in completeness the mask already applies to the response and the
+# model's included continuous predictors, and (b) an over-filter — it drops
+# rows missing a sparse predictor the model does not even use. With no Filter
+# declared, the shipped model includes every row complete on its OWN columns
+# (2482, vs 1649 under Full_Data). The Filter role is exercised in the human
+# test plan via a purpose-built filter column, not the completeness flag.
 _DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "Country": (_ROLE_IDENTIFIER, False, "Continuous"),
     "Year": (_ROLE_PREDICTOR, True, "Categorical"),
@@ -325,7 +337,7 @@ _DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "Population": (_ROLE_OMIT, False, "Continuous"),
     "GDP": (_ROLE_PREDICTOR, True, "Continuous"),
     "Schooling": (_ROLE_PREDICTOR, True, "Continuous"),
-    "Full_Data": (_ROLE_FILTER, False, "Continuous"),
+    "Full_Data": (_ROLE_OMIT, False, "Continuous"),
 }
 _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
 

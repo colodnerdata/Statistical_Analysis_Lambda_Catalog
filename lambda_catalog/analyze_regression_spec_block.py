@@ -225,8 +225,9 @@ def compare_spec_observed_to_expected(
         observed.first_resid_label,
     )
 
-    # The Sequence status line (H2): both QC spec states carry zero flags,
-    # so the zero-or-one validation must render blank, not an error.
+    # The Sequence status line (H2) errors only at two-plus flags. The shipped
+    # spec carries exactly one (Year), which is valid, so the zero-or-one
+    # validation must still render blank, not an error.
     check(
         "sequence status line blank",
         "",

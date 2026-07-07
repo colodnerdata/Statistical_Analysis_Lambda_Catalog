@@ -492,6 +492,7 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 "Row_Labels",
                 "X_s",
                 "Constructed_Column_Names",
+                "Sequence_Column",
                 "Sequence_Deltas",
                 "Base_Period_Delta_Candidate",
                 "Sequence_Delta_Spectrum",

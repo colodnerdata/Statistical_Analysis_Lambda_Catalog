@@ -32,6 +32,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_FILTERED_Y,
     _C_MATRIX_LABELS,
     _C_MATRIX_START,
+    _DEFAULT_SEQUENCE_VARIABLES,
     _DEFAULT_SPEC,
     _C_BASE_PERIOD,
     _C_INCLUDE,
@@ -89,6 +90,7 @@ _EXPECTED_NAME_ORDER = [
     "Row_Labels",
     "X_s",
     "Constructed_Column_Names",
+    "Sequence_Column",
     "Sequence_Deltas",
     "Base_Period_Delta_Candidate",
     "Sequence_Delta_Spectrum",
@@ -309,11 +311,12 @@ def test_reserved_spec_names_are_defined_but_read_by_nothing() -> None:
             assert reserved not in formula, (reserved, formula)
 
 
-def test_sequence_name_is_read_only_by_validation_and_base_period_layer() -> None:
+def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
     # Spec_Sequence is live for the zero-or-one validation (H2 status line,
-    # audit count) and — since the base-period release — for the sequence-
-    # spacing layer (Sequence_Deltas). No CONSTRUCTOR closure may consume
-    # it: Sequence is a structural annotation, not a model axis.
+    # audit count), the sequence-spacing layer (Sequence_Deltas), and — since
+    # the DW-gate release — the serial-correlation accessor (Sequence_Column,
+    # which feeds Durbin_Watson_By). No design-matrix CONSTRUCTOR closure may
+    # consume it: Sequence orders the data, it does not enter the model matrix.
     sheet = _named_sheet()
     readers = sorted(
         item.Name.split("!", 1)[-1]
@@ -321,7 +324,7 @@ def test_sequence_name_is_read_only_by_validation_and_base_period_layer() -> Non
         if "Spec_Sequence" in item.RefersTo
         and item.Name.split("!", 1)[-1] != "Spec_Sequence"
     )
-    assert readers == ["Sequence_Deltas"]
+    assert readers == ["Sequence_Column", "Sequence_Deltas"]
     for constructor in (
         "Sample_Include",
         "Response_Column",
@@ -404,8 +407,10 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         assert sheet.cell(row, 5).value is None, variable  # E blank → default
         assert sheet.cell(row, 6).value is None, variable  # F reserved, blank
         assert sheet.cell(row, 7).value == "None", variable  # G reserved
-        # H (Sequence) pre-fills blank: zero flags is a valid non-panel spec.
-        assert sheet.cell(row, 8).value is None, variable
+        # H (Sequence): TRUE on the shipped ordering axis (Year), blank
+        # elsewhere. Zero-or-one flags is the legal range.
+        expected_sequence = True if variable in _DEFAULT_SEQUENCE_VARIABLES else None
+        assert sheet.cell(row, 8).value is expected_sequence, variable
         # I (Base Period Δ) is computed-with-override: pre-filled with the
         # candidate formula (blank off the flagged row via the scalar $H
         # test, so the candidate stays lazy), input-styled so a typed
@@ -417,16 +422,22 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         for col in range(2, 10):
             assert sheet.cell(row, col).color == INPUT_COLOR, (variable, col)
 
-    # Spot-check the named T0 roles.
+    # Spot-check the named T0 roles — the shipped spec demonstrates Identifier,
+    # Response, Predictor, and Omit. Full_Data ships as Omit (not Filter): its
+    # all-features completeness flag is redundant with the built-in mask and
+    # over-filters, so it is not the default Filter.
     by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(_VARIABLES)}
     assert sheet.cell(by_variable["Country"], 2).value == "Identifier (Row Label)"
     assert sheet.cell(by_variable["Life expectancy"], 2).value == "Response (y)"
-    assert sheet.cell(by_variable["Full_Data"], 2).value == "Filter"
+    assert sheet.cell(by_variable["Full_Data"], 2).value == "Omit"
+    assert sheet.cell(by_variable["Population"], 2).value == "Omit"
     for categorical in ("Year", "Status"):
         row = by_variable[categorical]
         assert sheet.cell(row, 2).value == "Predictor (x)"
         assert sheet.cell(row, 3).value is True
         assert sheet.cell(row, 4).value == "Categorical"
+    # Year is additionally flagged as the Sequence (ordering) axis.
+    assert sheet.cell(by_variable["Year"], _C_SEQUENCE).value is True
 
 
 def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:

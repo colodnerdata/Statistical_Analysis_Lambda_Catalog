@@ -10,12 +10,13 @@ from lambda_catalog.sheet_styles import (
     HEADER_COLOR,
     INPUT_COLOR,
 )
-from lambda_catalog.workbook_helpers import add_expression_format, excel_color
+from lambda_catalog.workbook_helpers import add_expression_format, excel_color, rc
 from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
 from lambda_catalog.write_sheet_regression import (
     _C_U,
     _C_V,
     _C_W,
+    _C_X,
     _C_Y,
     _C_Z,
     _C_AB,
@@ -31,6 +32,7 @@ from lambda_catalog.write_sheet_regression import (
     _PRED_INPUT_LAST_ROW,
     _setup_local_names as _setup_regression_names,
     _write_coefficients,
+    _write_diagnostics,
     _write_prediction_interval,
     _write_prediction_inputs,
     _write_regression_outputs_header,
@@ -273,6 +275,31 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     assert sheet.cell(3, _C_AS).api.Formula2 == (
         "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
+
+
+def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_diagnostics(_as_xw_sheet(sheet))
+
+    assert sheet.cell(11, _C_X).value == "Durbin-Watson"
+    dw_formula = cast(str, sheet.cell(11, _C_Y).api.Formula2)
+    # Both off-spec states show an explicit text token, never NA() or "".
+    assert '"n/a — requires Sequence"' in dw_formula      # zero flags
+    assert '"n/a — multiple Sequence flags"' in dw_formula  # two-plus flags
+    assert "NA()" not in dw_formula
+    # Gate keys on the Sequence-flag count over the live spec rows, evaluated
+    # once via LET, and requires EXACTLY one flag before computing.
+    assert "SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))" in dw_formula
+    assert "IF(seq_flags=0," in dw_formula
+    assert "IF(seq_flags>1," in dw_formula
+    # With exactly one flag, DW is computed along the declared axis, not row order.
+    assert (
+        "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
+        "Allow_Intercept,Sample_Include())"
+    ) in dw_formula
+    # Scalar numeric cell (the token is text and ignores the format).
+    assert sheet.range(rc(11, _C_Y), rc(11, _C_Y)).number_format == "0.000"
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:

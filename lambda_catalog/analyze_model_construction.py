@@ -54,6 +54,7 @@ from .write_sheet_model_construction import (
     _C_REF_IN_USE,
     _C_ROLE,
     _C_ROW_LABELS,
+    _DEFAULT_SEQUENCE_VARIABLES,
     _DEFAULT_SPEC,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
@@ -86,13 +87,14 @@ _READ_MARGIN = 3
 
 @dataclass(frozen=True)
 class SpecVariable:
-    """One spec row: the Role/Include/Type/Reference declaration for a column."""
+    """One spec row: the Role/Include/Type/Reference/Sequence declaration."""
 
     name: str
     role: str
     include: bool
     var_type: str
     reference: str = ""
+    sequence: bool = False
 
 
 def build_default_spec() -> list[SpecVariable]:
@@ -105,7 +107,15 @@ def build_default_spec() -> list[SpecVariable]:
     spec: list[SpecVariable] = []
     for variable in _VARIABLES:
         role, include, var_type = _DEFAULT_SPEC.get(variable, _FALLBACK_SPEC)
-        spec.append(SpecVariable(variable, role, include, var_type))
+        spec.append(
+            SpecVariable(
+                variable,
+                role,
+                include,
+                var_type,
+                sequence=variable in _DEFAULT_SEQUENCE_VARIABLES,
+            )
+        )
     return spec
 
 
@@ -137,6 +147,10 @@ class ModelConstructionExpectations:
     total_rows: int
     included_rows: int
     k: int
+    # Count of Sequence-flagged spec rows — the zero-or-one audit value the
+    # H2 status line guards. Derived from the spec so the expectation tracks
+    # whatever the shipped spec flags (Year in the T0 default).
+    sequence_flags: int
     constructed_column_names: tuple[str, ...]
     response_name: str
     responses_count: int
@@ -297,6 +311,7 @@ def calculate_model_construction_expectations(
         total_rows=len(rows),
         included_rows=included_rows,
         k=len(constructed),
+        sequence_flags=sum(1 for v in spec if v.sequence),
         constructed_column_names=tuple(constructed),
         response_name=response_name,
         responses_count=len(response_names),
@@ -466,9 +481,9 @@ def compare_observed_to_expected(
     check("audit response", expected.response_name, observed.audit_response)
     check("audit responses", expected.responses_count, observed.audit_responses)
     check("audit included rows", expected.included_rows, observed.audit_included)
-    # Neither QC spec state sets a Sequence flag, so the zero-or-one audit
-    # count must read 0 (the build pre-fills the H column blank).
-    check("audit sequence flags", 0, observed.audit_sequence_flags)
+    # Zero-or-one audit count, derived from the spec: the shipped T0 spec
+    # flags Year, so this reads 1 (a QC config that clears H would read 0).
+    check("audit sequence flags", expected.sequence_flags, observed.audit_sequence_flags)
 
     # Twin tripwire: the header strip is Constructed_Column_Names() and the
     # audit k is COLUMNS(X_s()) — their widths must always agree.

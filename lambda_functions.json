@@ -510,6 +510,40 @@
       "notes": "Test statistic for first-order serial autocorrelation in residuals. Values near 2 = no autocorrelation; < 1.5 or > 2.5 flag problems."
     },
     {
+      "name": "Durbin_Watson_By",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, seq, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    ord,       FILTER(seq, filt_arg),\n    es,        SORTBY(e, ord, 1),\n    SUM((DROP(es, 1) - DROP(es, -1))^2) / SUM(es^2)\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column)"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range"
+        },
+        {
+          "name": "seq",
+          "description": "single-column ordering axis (the declared Sequence column, e.g. Year) — residuals are sorted by this before differencing, so the result does not depend on physical row order"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "optional": true
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "Durbin-Watson statistic as a scalar, computed along seq order rather than row order",
+      "description": "Durbin_Watson_By is the sequence-aware Durbin-Watson statistic: DW = Σ(eₜ − eₜ₋₁)² / Σeₜ², but with the residuals ordered by a declared sequence axis instead of trusting physical row order.\n\nWhy this exists: the ordinary Durbin_Watson differences residuals in the order the rows happen to sit in the sheet. That is only meaningful if row adjacency IS the hypothesized serial axis. On arbitrarily sorted data — e.g. rows sorted by GDP — it silently assumes row order = time order and, under a meaningful non-time sort with mild misspecification, reports strong spurious autocorrelation. This function removes that hazard: it computes residuals, sorts them ascending by seq (SORTBY, all internal — the sort never spills to the sheet), and only then forms consecutive differences.\n\nThe result is invariant to how the source rows are physically ordered: shuffling the data and recomputing gives the identical statistic, because adjacency is defined by seq, not by row position. seq should uniquely order the observations of a single series (a proper time index); on a pooled panel where seq repeats across groups (many countries sharing a Year), adjacency along seq alone is not the within-group serial axis — that group-aware case is the separate Durbin-Watson-under-fixed-effects work, not this function.\n\nOutput is always a scalar; the DROP/SORTBY array work stays inside the LAMBDA so no helper column or spill is exposed.",
+      "plain_language_summary": "The Durbin-Watson autocorrelation check, but measured along a declared time/order column instead of the accidental row order.",
+      "notes": "Sequence-aware Durbin-Watson: sorts residuals by seq before differencing, so the statistic is invariant to physical row order. Use when a Sequence axis is declared; ordinary Durbin_Watson trusts row order. Scalar output, no spill."
+    },
+    {
       "name": "QQ_Correlation",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
@@ -2702,6 +2736,20 @@
       "notes": "Header strip for the Model Construction design matrix: level-qualified names ('Status: Developing', 'Year: 2001'). Structural twin of X_s — width always equals COLUMNS(X_s())."
     },
     {
+      "name": "Sequence_Column",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),INDEX(Source_Data,0,XMATCH(TRUE,TAKE(Spec_Sequence,n_c),0))))",
+      "arguments": [],
+      "yields": "The single Sequence-flagged data column, full height; #N/A when no variable is flagged as the Sequence axis.",
+      "description": "Sheet-scoped accessor for the declared ordering axis on the Regression sheet. Returns the data column of the variable whose Sequence flag (spec column H) is TRUE, via XMATCH over the TAKE-trimmed Spec_Sequence vector — the structural sibling of Response_Column (which does the same for Role=Response). Full-height by the same row-mask contract as the other sheet closures.\n\nIt is the seq input for sequence-aware serial-correlation diagnostics (Durbin_Watson_By), keeping the axis a single canonical name rather than an inline XMATCH repeated at every call site. When no variable is flagged as the Sequence axis, XMATCH does not match and the accessor is #N/A — the caller's gate (the zero-or-one Sequence-flag count) shows the not-applicable token before this is ever evaluated. When two or more are flagged (a spec error surfaced at the H2 status line) it resolves the first flagged column. Spec_Sequence is TAKE-trimmed to COLUMNS(Source_Data) so cells below the live spec rows, including the Sequence Spacing block, are never scanned.",
+      "plain_language_summary": "The column marked as the Sequence (ordering) axis in the spec — whichever variable has its Sequence flag set.",
+      "notes": "Derived ordering axis for the Regression sheet: the data column of the Sequence-flagged spec row (column H). #N/A when none is flagged. Feeds Durbin_Watson_By and future serial-correlation diagnostics."
+    },
+    {
       "name": "Sequence_Deltas",
       "test_table": null,
       "category": "Model Construction",
@@ -2763,6 +2811,7 @@
     "BIC": "Another model-comparison score like AIC, but it penalizes extra predictors more strongly.",
     "AICc": "AIC with an extra correction for small samples.",
     "QQ Correlation": "A numeric check of how close the residuals are to a normal bell shape. Values closer to 1 are better.",
+    "Durbin-Watson": "A check for serial correlation — whether residuals next to each other in the declared Sequence order tend to move together. Values near 2 mean no autocorrelation; below ~1.5 suggests positive, above ~2.5 negative. Requires exactly one Sequence axis to be flagged; with none the cell reads 'n/a — requires Sequence' (plain row order is not a meaningful time axis), and with two or more it reads 'n/a — multiple Sequence flags' (the spec error the status line above column H reports).",
     "Alpha": "The cutoff for statistical significance. At 0.05, results with p-values below 0.05 are treated as statistically significant.",
     "df": "The number of independent data points available to estimate each part of the model — total rows minus one for each estimated parameter.",
     "SS": "The total variation attributed to that source — regression, residual, or total. The raw material from which MS and F are calculated.",

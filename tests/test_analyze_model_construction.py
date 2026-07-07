@@ -23,6 +23,7 @@ from lambda_catalog.analyze_model_construction import (
     load_source_rows,
 )
 from lambda_catalog.write_sheet_model_construction import (
+    _DEFAULT_SEQUENCE_VARIABLES,
     _DEFAULT_SPEC,
     _ROLE_FILTER,
     _ROLE_OMIT,
@@ -69,6 +70,7 @@ def test_default_spec_mirrors_the_writer_prefill() -> None:
         else:
             assert (variable.role, variable.include) == ("Predictor (x)", False)
         assert variable.reference == ""
+        assert variable.sequence == (variable.name in _DEFAULT_SEQUENCE_VARIABLES)
 
 
 # ---------------------------------------------------------------------------
@@ -77,8 +79,14 @@ def test_default_spec_mirrors_the_writer_prefill() -> None:
 
 def test_t0_expectations_pin_the_csv_derived_values(rows, t0_expected) -> None:
     assert t0_expected.total_rows == 2938
-    assert t0_expected.included_rows == 1649
+    # Full_Data ships as Omit (not Filter), so the mask is completeness-only on
+    # the response and the model's three continuous predictors — 2482 rows, vs
+    # 1649 under the old all-features Full_Data filter (which over-filtered).
+    assert t0_expected.included_rows == 2482
     assert t0_expected.k == 19
+    # Year is the shipped Sequence axis; Population's Omit role leaves k
+    # unchanged (Omit contributes no column, same as a not-included row).
+    assert t0_expected.sequence_flags == 1
     assert t0_expected.response_name == "Life expectancy"
     assert t0_expected.responses_count == 1
     assert t0_expected.first_filtered_label == "Afghanistan"
@@ -113,7 +121,10 @@ def test_stratifying_filter_degenerates_status(rows) -> None:
     ]
     expected = calculate_model_construction_expectations(spec, mutated)
 
-    assert expected.included_rows == 1407
+    # Full_Data ships as Omit, so the only Filter is Is_Developing: the mask is
+    # completeness-on-the-model's-predictors AND Status = Developing → 2034
+    # (was 1407 when Full_Data's all-features filter was also ANDed in).
+    assert expected.included_rows == 2034
     assert expected.degenerate_categoricals == ("Status",)
     assert expected.level_counts == {"Year": 16, "Status": 1}
     # Inside the stratified mask the only Status level left IS the default
@@ -194,9 +205,9 @@ def _observed_matching(expected) -> ModelConstructionObserved:
         audit_response=expected.response_name,
         audit_responses=float(expected.responses_count),
         audit_included=float(expected.included_rows),
-        # The shipped spec pre-fills the Sequence column blank, so the
-        # zero-or-one audit count always reads 0 in the QC states.
-        audit_sequence_flags=0.0,
+        # The shipped spec flags Year as the Sequence axis, so the zero-or-one
+        # audit count reads 1; a correct sheet reads back this expected count.
+        audit_sequence_flags=float(expected.sequence_flags),
         header_strip=expected.constructed_column_names,
         level_cells={
             name: float(count) for name, count in expected.level_counts.items()

@@ -801,6 +801,117 @@ class TestDurbinWatsonManual(unittest.TestCase):
         self.assertAlmostEqual(summary.durbin_watson, dw, places=10)
 
 
+# ── Durbin-Watson along a declared Sequence axis (Durbin_Watson_By) ──────────
+
+
+def _dw(e: np.ndarray) -> float:
+    """Durbin-Watson on residuals in the order given."""
+    return float(np.sum(np.diff(e) ** 2) / np.sum(e**2))
+
+
+def _dw_along_seq(e: np.ndarray, seq: np.ndarray) -> float:
+    """The Durbin_Watson_By algorithm: sort residuals ascending by seq, then DW.
+
+    Mirrors the LAMBDA's SORTBY(e, seq, 1) — the sort defines adjacency, so the
+    physical order of the incoming (e, seq) pairs never reaches the difference.
+    """
+    order = np.argsort(seq, kind="stable")
+    return _dw(e[order])
+
+
+class TestDurbinWatsonAlongSequence(unittest.TestCase):
+    """Durbin_Watson_By must be invariant to physical row order.
+
+    Acceptance: on a WHO country series indexed by Year (Sequence = Year), the
+    sequence-aware statistic is identical whether the source rows are shuffled
+    or not, while the ordinary row-order statistic is not — which is exactly why
+    the Regression sheet gates plain Durbin-Watson behind a declared Sequence
+    axis.
+    """
+
+    def _who_country_series(self):
+        """A single WHO country's rows (Year unique) — target, one predictor, Year.
+
+        Returns (y, x, year) as numpy arrays, or None when the CSV is absent so
+        the test can skip in a CSV-less environment (same pattern as the QC
+        config tests).
+        """
+        from lambda_catalog.analyze_life_expectancy import DEFAULT_INPUT_CSV
+
+        if not DEFAULT_INPUT_CSV.exists():
+            return None
+
+        predictor = "Adult Mortality"
+        with DEFAULT_INPUT_CSV.open("r", encoding="utf-8-sig", newline="") as handle:
+            reader = csv.DictReader(handle)
+            headers = {h.strip(): h for h in (reader.fieldnames or [])}
+            by_country: dict[str, list[tuple[float, float, float]]] = {}
+            for raw in reader:
+                row = {key: raw[orig] for key, orig in headers.items()}
+                try:
+                    y = float(row[TARGET_COLUMN])
+                    x = float(row[predictor])
+                    year = float(row["Year"])
+                except (KeyError, ValueError):
+                    continue
+                by_country.setdefault(row["Country"], []).append((y, x, year))
+
+        # Pick the country with the most complete rows and strictly unique years,
+        # so Year is a genuine total order for the series.
+        best = None
+        for rows in by_country.values():
+            years = [r[2] for r in rows]
+            if len(years) == len(set(years)) and len(rows) >= 12:
+                if best is None or len(rows) > len(best):
+                    best = rows
+        if best is None:
+            return None
+
+        arr = np.array(best, dtype=np.float64)
+        return arr[:, 0], arr[:, 1], arr[:, 2]
+
+    def test_sequence_sorted_dw_is_shuffle_invariant(self) -> None:
+        series = self._who_country_series()
+        if series is None:
+            self.skipTest("Life Expectancy CSV not found or no suitable country series")
+        y, x, year = series
+
+        # Fit in the natural CSV order, independently of project code.
+        design = np.column_stack([np.ones(len(y)), x])
+        beta = np.linalg.lstsq(design, y, rcond=None)[0]
+        e = y - design @ beta
+
+        # A deterministic shuffle of the same observations.
+        perm = np.random.default_rng(20240607).permutation(len(y))
+        e_shuffled, year_shuffled = e[perm], year[perm]
+
+        dw_natural = _dw_along_seq(e, year)
+        dw_shuffled = _dw_along_seq(e_shuffled, year_shuffled)
+
+        # The acceptance assertion: identical along Year regardless of row order.
+        self.assertAlmostEqual(dw_natural, dw_shuffled, places=12)
+
+        # And it equals DW of the residuals put in true Year order — the thing
+        # the statistic is meant to measure.
+        e_year_sorted = e[np.argsort(year, kind="stable")]
+        self.assertAlmostEqual(dw_natural, _dw(e_year_sorted), places=12)
+
+    def test_row_order_dw_is_not_shuffle_invariant(self) -> None:
+        # The contrast that motivates the gate: plain row-order DW moves under a
+        # shuffle, so trusting physical row order is a real hazard.
+        series = self._who_country_series()
+        if series is None:
+            self.skipTest("Life Expectancy CSV not found or no suitable country series")
+        y, x, year = series
+
+        design = np.column_stack([np.ones(len(y)), x])
+        beta = np.linalg.lstsq(design, y, rcond=None)[0]
+        e = y - design @ beta
+
+        perm = np.random.default_rng(1).permutation(len(y))
+        self.assertNotAlmostEqual(_dw(e), _dw(e[perm]), places=6)
+
+
 # ── PRESS manual formula ───────────────────────────────────────────────────
 
 class TestPRESSManual(unittest.TestCase):

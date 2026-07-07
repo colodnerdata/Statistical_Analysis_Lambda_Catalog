@@ -51,7 +51,8 @@ These functions return a single number summarizing the regression.
 | `MS_Regression(X_s, Y, [Allow_Intercept], [Include])` | Mean square for the model (SS_Regression / df_Regression) |
 | `MS_Residual(X_s, Y, [Allow_Intercept], [Include])` | Mean square for residual error (SS_Residual / df_Residual) |
 | `PRESS(X_s, Y, [Allow_Intercept], [Include])` | Leave-one-out cross-validation error sum |
-| `Durbin_Watson(X_s, Y, [Allow_Intercept], [Include])` | Serial autocorrelation test for residuals (2 = no autocorrelation) |
+| `Durbin_Watson(X_s, Y, [Allow_Intercept], [Include])` | Serial autocorrelation test for residuals in physical row order (2 = no autocorrelation) |
+| `Durbin_Watson_By(X_s, Y, seq, [Allow_Intercept], [Include])` | Durbin-Watson computed along a declared Sequence axis (`SORTBY` residuals on `seq`), so the statistic does not depend on row order |
 | `AIC(X_s, Y, [Allow_Intercept], [Include])` | Akaike Information Criterion |
 | `AICc(X_s, Y, [Allow_Intercept], [Include])` | Corrected AIC (for small samples) |
 | `BIC(X_s, Y, [Allow_Intercept], [Include])` | Bayesian Information Criterion |

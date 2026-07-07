@@ -284,15 +284,21 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
 
     assert sheet.cell(11, _C_X).value == "Durbin-Watson"
     dw_formula = cast(str, sheet.cell(11, _C_Y).api.Formula2)
-    # Both off-spec states show an explicit text token, never NA() or "".
+    # All off-spec states show an explicit text token, never NA() or "".
     assert '"n/a — requires Sequence"' in dw_formula      # zero flags
     assert '"n/a — multiple Sequence flags"' in dw_formula  # two-plus flags
+    assert '"n/a — FE active"' in dw_formula              # panel: BFN takes over
     assert "NA()" not in dw_formula
-    # Gate keys on the Sequence-flag count over the live spec rows, evaluated
-    # once via LET, and requires EXACTLY one flag before computing.
+    # Gate keys on the Sequence-flag and FE-variable counts over the live spec
+    # rows, evaluated once via LET; requires EXACTLY one flag and NO Fixed
+    # Effects variable before computing the single-series statistic.
     assert "SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))" in dw_formula
+    assert (
+        'SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))'
+    ) in dw_formula
     assert "IF(seq_flags=0," in dw_formula
     assert "IF(seq_flags>1," in dw_formula
+    assert "IF(fe_vars>0," in dw_formula
     # With exactly one flag, DW is computed along the declared axis, not row order.
     assert (
         "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
@@ -300,6 +306,41 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
     ) in dw_formula
     # Scalar numeric cell (the token is text and ignores the format).
     assert sheet.range(rc(11, _C_Y), rc(11, _C_Y)).number_format == "0.000"
+
+
+def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
+    # The second cell of the serial-correlation trigger matrix. Self-guarding:
+    # every state it can show is visible in its own formula — it is NOT
+    # dispatched from the DW cell or a shared selector.
+    sheet = RecordingSheet(name="Regression")
+
+    _write_diagnostics(_as_xw_sheet(sheet))
+
+    assert sheet.cell(12, _C_X).value == "BFN Panel Durbin-Watson"
+    bfn_formula = cast(str, sheet.cell(12, _C_Y).api.Formula2)
+    # The four trigger-matrix states, each an explicit token (never NA()/""):
+    assert '"n/a — requires Sequence"' in bfn_formula       # no Sequence axis
+    assert '"n/a — multiple Sequence flags"' in bfn_formula  # spec error
+    assert '"n/a — no fixed effects"' in bfn_formula        # Sequence, no FE
+    assert '"n/a — multiple FE variables"' in bfn_formula   # two-way: out of scope
+    assert "NA()" not in bfn_formula
+    # Guards key on the same LET-bound counts as the DW cell above.
+    assert "SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))" in bfn_formula
+    assert (
+        'SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))'
+    ) in bfn_formula
+    assert "IF(seq_flags=0," in bfn_formula
+    assert "IF(seq_flags>1," in bfn_formula
+    assert "IF(fe_vars=0," in bfn_formula
+    assert "IF(fe_vars>1," in bfn_formula
+    # Active state: the panel statistic on the derived FE group and Sequence
+    # axis, with the spec's visible Base Period Δ — scalar out, no spill.
+    assert (
+        "BFN_Panel_Durbin_Watson(X_s(),Response_Column(),"
+        "Fixed_Effects_Column(),Sequence_Column(),Base_Period_Delta(),"
+        "Allow_Intercept,Sample_Include())"
+    ) in bfn_formula
+    assert sheet.range(rc(12, _C_Y), rc(12, _C_Y)).number_format == "0.000"
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:

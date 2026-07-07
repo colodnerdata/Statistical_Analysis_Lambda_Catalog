@@ -333,13 +333,17 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
     assert "IF(seq_flags>1," in bfn_formula
     assert "IF(fe_vars=0," in bfn_formula
     assert "IF(fe_vars>1," in bfn_formula
-    # Active state: the panel statistic on the derived FE group and Sequence
-    # axis, with the spec's visible Base Period Δ — scalar out, no spill.
+    # Active state: the panel statistic on the resolved grouping key and
+    # Sequence axis, with the spec's visible Base Period Δ — scalar out, no
+    # spill. The group argument routes through Serial_Correlation_Group()
+    # (the grouping-key resolver, the single retargeting point), never the
+    # FE column accessor directly.
     assert (
         "BFN_Panel_Durbin_Watson(X_s(),Response_Column(),"
-        "Fixed_Effects_Column(),Sequence_Column(),Base_Period_Delta(),"
+        "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
         "Allow_Intercept,Sample_Include())"
     ) in bfn_formula
+    assert "Fixed_Effects_Column()" not in bfn_formula
     assert sheet.range(rc(12, _C_Y), rc(12, _C_Y)).number_format == "0.000"
 
 

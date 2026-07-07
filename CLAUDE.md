@@ -65,7 +65,7 @@ Zone 6 (cols CW–DF, gap column CV) holds the Q-Q plot data: Hazen plotting pos
 
 ### Regression sheet heading hierarchy
 
-Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY", "REGRESSION OUTPUTS", "PREDICTION OUTPUTS", "RESIDUAL OUTPUT"). Lower section headings appear at the relevant data rows within each zone. The MODEL SPECIFICATION zone (A–K) is the shared spec block imported from `write_sheet_model_construction.py` (headers row 3, spec rows 4–26, Intercept control A2/C2, Sequence status line H2; H = Sequence structural flag, I = reserved Base Period Δ, J/K = Levels / Reference In Use displays); every other zone keeps headers on row 2 with spills from row 3. Every `_C_*` column constant in `write_sheet_regression.py` matches its actual column letter (`_C_M` is column M).
+Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY", "REGRESSION OUTPUTS", "PREDICTION OUTPUTS", "RESIDUAL OUTPUT"). Lower section headings appear at the relevant data rows within each zone. The MODEL SPECIFICATION zone (A–K) is the shared spec block imported from `write_sheet_model_construction.py` (headers row 3, spec rows 4–26, Intercept control A2/C2, Sequence status line H2; H = Sequence structural flag, I = Base Period Δ (live: candidate formula with typed override), J/K = Levels / Reference In Use displays; Sequence Spacing block rows 28–34 — Δ candidate/in-use, verdict lines, delta spectrum at J/K); every other zone keeps headers on row 2 with spills from row 3. Every `_C_*` column constant in `write_sheet_regression.py` matches its actual column letter (`_C_M` is column M).
 
 ### Regression chart named ranges
 

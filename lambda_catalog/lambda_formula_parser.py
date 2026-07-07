@@ -385,13 +385,16 @@ def _split_lambda_signature(formula: str) -> tuple[list[str], str]:
     -------
     tuple[list[str], str]
         A 2-tuple of (parameters, body) where parameters is the list of
-        parameter tokens and body is the final expression.
+        parameter tokens and body is the final expression. A single-argument
+        ``LAMBDA(body)`` is a valid zero-parameter lambda (Excel semantics —
+        the catalog's zero-argument accessors like ``Base_Period_Delta()``
+        rely on this), so parameters may be empty.
 
     Raises
     ------
     ValueError
-        If the formula does not start with ``LAMBDA(...)`` or contains
-        fewer than one parameter and a body.
+        If the formula does not start with ``LAMBDA(...)`` or has an
+        empty body.
     """
     if not formula.startswith("LAMBDA(") or not formula.endswith(")"):
         raise ValueError(f"Expected formula to start with LAMBDA(...): {formula}")
@@ -426,10 +429,8 @@ def _split_lambda_signature(formula: str) -> tuple[list[str], str]:
         index += 1
 
     parts.append("".join(current).strip())
-    if len(parts) < 2:
-        raise ValueError(
-            f"LAMBDA formula must contain at least one parameter and a body: {formula}"
-        )
+    if not parts[-1]:
+        raise ValueError(f"LAMBDA formula must contain a body: {formula}")
 
     return parts[:-1], parts[-1]
 

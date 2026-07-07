@@ -492,6 +492,9 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 "Row_Labels",
                 "X_s",
                 "Constructed_Column_Names",
+                "Sequence_Deltas",
+                "Base_Period_Delta_Candidate",
+                "Sequence_Delta_Spectrum",
             ],
         )
         # Sheet-scoped closures must never be synced as workbook names — a

@@ -413,9 +413,7 @@ token. Visible failure is the design philosophy.
 **4. `LOOCV_Residual` (new function, pair to `LOOCV_Prediction`).** v1.0 shipped
 `LOOCV_Prediction(X_s, Y, n, [Allow_Intercept], [Include])` — the leave-one-out
 predicted value for a single observation. v1.2 adds `LOOCV_Residual(X_s, Y,
-[Allow_Intercept], [Include])` (catalog entry at `lambda_functions.json` line
-1326) returning the leave-one-out residual vector `eᵢ / (1 − hᵢ)` in a single
-call, which makes `PRESS = SUMSQ(LOOCV_Residual(...))` an obvious idiom and
+[Allow_Intercept], [Include])` (catalog entry in `lambda_functions.json`) returning the leave-one-out residual vector `eᵢ / (1 − hᵢ)` in a single call, which makes `PRESS = SUMSQ(LOOCV_Residual(...))` an obvious idiom and
 unifies the LOOCV machinery under the Sherman-Morrison-Woodbury update that
 `LOOCV_Prediction` was already using internally.
 

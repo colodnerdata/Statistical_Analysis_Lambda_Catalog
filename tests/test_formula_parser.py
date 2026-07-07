@@ -87,9 +87,17 @@ class SplitLambdaSignatureTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             _split_lambda_signature("SUM(A1:A10)")
 
-    def test_raises_when_no_body(self) -> None:
+    def test_single_argument_is_a_zero_parameter_lambda(self) -> None:
+        # Excel semantics: LAMBDA(body) is a valid zero-parameter lambda,
+        # called as Name(). The catalog's zero-argument workbook accessors
+        # (Base_Period_Delta) rely on this surviving the workbook.xml sync.
+        params, body = _split_lambda_signature("LAMBDA(x)")
+        self.assertEqual(params, [])
+        self.assertEqual(body, "x")
+
+    def test_raises_when_body_is_empty(self) -> None:
         with self.assertRaises(ValueError):
-            _split_lambda_signature("LAMBDA(x)")
+            _split_lambda_signature("LAMBDA(a,)")
 
 
 class SplitTopLevelArgumentsTests(unittest.TestCase):
@@ -151,6 +159,21 @@ class ToWorkbookXmlFormulaTests(unittest.TestCase):
     def test_optional_parameter_uses_xlop_prefix(self) -> None:
         result = to_workbook_xml_formula("LAMBDA(x,[y],x)")
         self.assertIn("_xlop.y", result)
+
+    def test_zero_parameter_lambda_translates(self) -> None:
+        result = to_workbook_xml_formula("LAMBDA(LET(n,COUNT(A:A),n))")
+        self.assertEqual(result, "_xlfn.LAMBDA(_xlfn.LET(_xlpm.n,COUNT(A:A),_xlpm.n))")
+
+    def test_sheet_qualified_name_reference_passes_through(self) -> None:
+        # Workbook-scoped accessors may reference sheet-scoped names with an
+        # explicit sheet prefix; the quoted prefix must survive untouched.
+        result = to_workbook_xml_formula(
+            "LAMBDA(XMATCH(TRUE,'Regression'!Spec_Sequence,0))"
+        )
+        self.assertEqual(
+            result,
+            "_xlfn.LAMBDA(_xlfn.XMATCH(TRUE,'Regression'!Spec_Sequence,0))",
+        )
 
 
 class ToWorkbookXmlFormulaFromDisplayTests(unittest.TestCase):

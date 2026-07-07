@@ -2547,6 +2547,91 @@
       "notes": "Treatment-coded 0/1 dummy matrix, row-aligned to the source data. Levels come from Dummy_Levels (one source of truth); the reference level is dropped to avoid collinearity with the intercept; excluded rows return \"\". Returns #N/A on degenerate input."
     },
     {
+      "name": "Base_Period_Delta",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Longitudinal & Panel-Time",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(\n    LET(\n        n_c,      COLUMNS('Regression'!Source_Data),\n        position, XMATCH(TRUE, TAKE('Regression'!Spec_Sequence, n_c), 0),\n        value,    INDEX(TAKE('Regression'!Spec_Base_Period_Delta, n_c), position),\n        IF(ISNUMBER(value), value, NA())\n    )\n)",
+      "arguments": [],
+      "yields": "The base period Δ in effect — the numeric value of spec cell I on the Sequence-flagged row of the Regression sheet; #N/A when no Sequence axis is flagged or the cell holds no number.",
+      "description": "Base_Period_Delta returns the base period Δ currently in effect for the workbook's sequence axis: the value of the Base Period Δ spec cell (column I) on the row whose Sequence flag (column H) is TRUE on the Regression sheet. That cell is computed-with-override — the build pre-fills it with Base_Period_Delta_Candidate() (the MODE of within-group consecutive spacings), and a user-typed number replaces the formula to override. Either way, this accessor reads whatever the cell shows, so the Δ that drives Lag_By and Difference_By defaults is always the Δ visible in the spec.\n\nΔ is never silently assumed to be 1. When no variable is flagged as the Sequence axis, or the flagged row's I cell holds no number, the function returns #N/A — and an omitted-delta Lag_By/Difference_By call therefore returns #N/A everywhere rather than fabricating single-step differences. This is the same visible-default-with-override pattern as the categorical reference level (blank E cell → surfaced default in K).\n\nThe reference is sheet-qualified ('Regression'!Spec_Sequence / 'Regression'!Spec_Base_Period_Delta) because a workbook-scoped name cannot resolve sheet-scoped names unqualified; both bands are TAKE-trimmed to COLUMNS(Source_Data) so cells below the live spec rows (including the Sequence Spacing block) are never scanned. In a workbook without a Regression sheet the accessor is inert (#REF!/# N/A), which only matters for omitted-delta calls — an explicit delta argument never evaluates it.",
+      "plain_language_summary": "The gap between consecutive time periods (Δ) currently set in the model spec — what Lag_By and Difference_By use when you don't pass one.",
+      "notes": "The base period Δ in effect: spec column I on the Sequence-flagged row of the Regression sheet (candidate formula or typed override). #N/A when no Sequence axis is flagged or the cell is not numeric. Default for Lag_By / Difference_By."
+    },
+    {
+      "name": "Lag_By",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Longitudinal & Panel-Time",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(x, group, seq, [delta], [include],\n    LET(\n        x_v,  TOCOL(IF(x = \"\", \"\", x), 0),\n        g_v,  TOCOL(IF(group = \"\", \"\", group), 0),\n        t_v,  TOCOL(IF(seq = \"\", \"\", seq), 0),\n        step, IF(ISOMITTED(delta), Base_Period_Delta(), delta),\n        inc,  IF(ISOMITTED(include), (g_v <> \"\") * ISNUMBER(t_v), include * 1),\n        sep,  CHAR(31),\n        source_keys, IF(inc * ISNUMBER(t_v) * (x_v <> \"\"), g_v & sep & t_v, \"\"),\n        prior, XLOOKUP(g_v & sep & (t_v - step), source_keys, x_v, NA(), 0),\n        IF(inc, IF(ISNUMBER(t_v), prior, NA()), \"\")\n    )\n)",
+      "arguments": [
+        {
+          "name": "x",
+          "description": "single-column data range to lag"
+        },
+        {
+          "name": "group",
+          "description": "single-column group identifiers (e.g. Country) — lags never cross a group boundary"
+        },
+        {
+          "name": "seq",
+          "description": "single-column numeric time index (e.g. Year) — the lookup key, not the row order"
+        },
+        {
+          "name": "delta",
+          "description": "base period Δ: the lag looks up seq − delta exactly; when omitted, the spec's Base Period Δ (Base_Period_Delta()) is used — never a silent 1",
+          "optional": true
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted, rows with a non-blank group and numeric seq are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to x: the value of x at (group, seq − Δ); #N/A when that exact prior period does not exist; \"\" on excluded rows.",
+      "description": "Lag_By returns the prior-period value of x within the same group: for each included row, the value of x on the row whose group matches and whose seq equals exactly seq − Δ.\n\nThe lookup is by time value, not row position — by construction, not convention: the implementation is an exact-match XLOOKUP of composite (group, seq − Δ) keys, never OFFSET or row arithmetic. If the literal period seq − Δ is absent within the group (a gap in the panel), the result is #N/A. It never falls back to \"the previous available row\", because that would silently splice a multi-period jump into a series that claims to be a one-Δ lag. A group's first observed period has no seq − Δ row and is #N/A for the same reason.\n\nΔ is computed-and-displayed-with-override, never silently assumed: an omitted delta resolves through Base_Period_Delta() — the visible Base Period Δ spec cell (column I of the Sequence-flagged row) — and when no sequence axis or Δ is declared, every included row returns #N/A rather than guessing Δ = 1.\n\nRows failing the include mask return \"\" so the spilled column stays row-aligned with the source (the standard row-aligned-transform contract). Excluded rows are also removed from the lookup source, so a lag never reads through an excluded observation. Blank x values are normalized to \"\" and never served as lag values (the lookup misses → #N/A). The composite key joins group and seq with CHAR(31), so ordinary text groups cannot collide; duplicate (group, seq) pairs are a data defect — the first occurrence wins. seq should be an integer period index (Year, or YEAR*12+MONTH for monthly data); raw calendar serial dates make seq − Δ land between real dates — see the Sequence Spacing block's calendar-signature guidance.",
+      "plain_language_summary": "The previous period's value of a column within the same group — matched by actual time value, so gaps give #N/A instead of grabbing the wrong row.",
+      "notes": "Prior-period value within the group: exact-match lookup of (group, seq − Δ). Gap or first period → #N/A, never the previous available row. Omitted delta reads the spec's Base Period Δ (never a silent 1). Excluded rows return \"\"."
+    },
+    {
+      "name": "Difference_By",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Longitudinal & Panel-Time",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(x, group, seq, [delta], [include],\n    LET(\n        x_v,  TOCOL(IF(x = \"\", \"\", x), 0),\n        g_v,  TOCOL(IF(group = \"\", \"\", group), 0),\n        t_v,  TOCOL(IF(seq = \"\", \"\", seq), 0),\n        step, IF(ISOMITTED(delta), Base_Period_Delta(), delta),\n        inc,  IF(ISOMITTED(include), (g_v <> \"\") * ISNUMBER(t_v), include * 1),\n        prior, Lag_By(x, group, seq, step, inc),\n        IF(inc, IF(ISNUMBER(x_v) * ISNUMBER(prior), x_v - prior, NA()), \"\")\n    )\n)",
+      "arguments": [
+        {
+          "name": "x",
+          "description": "single-column numeric data range to difference"
+        },
+        {
+          "name": "group",
+          "description": "single-column group identifiers (e.g. Country) — differences never cross a group boundary"
+        },
+        {
+          "name": "seq",
+          "description": "single-column numeric time index (e.g. Year) — the lookup key, not the row order"
+        },
+        {
+          "name": "delta",
+          "description": "base period Δ: Δx(t) = x(t) − x(t − delta) by exact time value; when omitted, the spec's Base Period Δ (Base_Period_Delta()) is used — never a silent 1",
+          "optional": true
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted, rows with a non-blank group and numeric seq are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to x: Δx(i,t) = x(i,t) − x(i,t−Δ); #N/A when the difference is not computable (first period, gap, or a non-numeric value); \"\" on excluded rows.",
+      "description": "Difference_By returns the within-group time difference Δx(i,t) = x(i,t) − x(i, t−Δ), where Δ is the base period. Three semantic commitments, in order of how expensively they fail when violated:\n\n(A) Each group's first period returns #N/A — never a fabricated 0. A zero would enter a design matrix silently as a real observation; #N/A is caught by every downstream ISNUMBER/IFERROR mask.\n\n(B) \"Prior period\" means the literal time value t − Δ. If t − Δ is absent within the group (a gap), the result is #N/A. The function never falls back to the previous available row: that would inject a spurious multi-period jump and present it as a one-Δ change. Lookup is by time value, not row position, by construction — the prior value comes from Lag_By's exact-match XLOOKUP of (group, seq − Δ) composite keys, not from OFFSET/row arithmetic — so the result is invariant to how the rows happen to be sorted.\n\n(C) Δ is computed-and-displayed-with-override, never silently assumed to be 1. An omitted delta resolves through Base_Period_Delta() — the visible Base Period Δ spec cell — and returns #N/A everywhere when no sequence axis or Δ is declared. Same pattern as the categorical reference level.\n\nThe prior value is delegated to Lag_By (one source of truth for the pair lookup, as Dummy_Code delegates to Dummy_Levels). A row whose own x, or whose t−Δ partner's x, is blank or non-numeric yields #N/A: an incomputable difference on an included row is a visible #N/A observation, not a silently dropped one — which is why the default include mask requires only a non-blank group and numeric seq, deliberately NOT numeric x. Rows failing the include mask return \"\" so the spilled column stays row-aligned with the source.",
+      "plain_language_summary": "The change in a column since the group's previous time period — #N/A at each group's first period and across gaps, so no fake zeros or multi-year jumps sneak into a model.",
+      "notes": "Within-group difference x(t) − x(t−Δ) by exact time value. First period or gap → #N/A (never 0, never the previous available row). Omitted delta reads the spec's Base Period Δ (never a silent 1). Excluded rows return \"\"."
+    },
+    {
       "name": "Sample_Include",
       "test_table": null,
       "category": "Model Construction",
@@ -2615,6 +2700,48 @@
       "description": "Sheet-scoped header strip for the Model Construction sheet: the structural twin of X_s. Same iteration, same Predictor-AND-Include predicate, same Dummy_Levels skip conditions, emitting a name per contributed column — the bare header for a Continuous predictor, 'Header: level' for each retained Categorical level. Twinning guarantees the header width always equals COLUMNS(X_s()); QC asserts the two never diverge. The degenerate skip tests ISNA(INDEX(lv,1,1)), a scalar: lv is a 1x(L-1) row, and an array ISNA condition in front of a wider HSTACK branch broadcasts to #N/A, so the guard must be scalarized.",
       "plain_language_summary": "The column headings for the design matrix — like 'Status: Developing' or 'Year: 2001', one per X_s column.",
       "notes": "Header strip for the Model Construction design matrix: level-qualified names ('Status: Developing', 'Year: 2001'). Structural twin of X_s — width always equals COLUMNS(X_s())."
+    },
+    {
+      "name": "Sequence_Deltas",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(\n    LET(\n        n_c,     COLUMNS(Source_Data),\n        s_pos,   XMATCH(TRUE, TAKE(Spec_Sequence, n_c), 0),\n        t_raw,   INDEX(Source_Data, 0, s_pos),\n        t_v,     IF(t_raw = \"\", \"\", t_raw),\n        rl,      TAKE(Spec_Role, n_c),\n        id_mask, (rl = \"Identifier (Row Label)\") * (SEQUENCE(n_c) <> s_pos),\n        g_v,     IF(SUM(id_mask) = 0,\n            EXPAND(\"(all)\", ROWS(t_v), 1, \"(all)\"),\n            BYROW(CHOOSECOLS(Source_Data, TOROW(FILTER(SEQUENCE(n_c), id_mask))),\n                LAMBDA(r, TEXTJOIN(CHAR(31), FALSE, IF(r = \"\", \"\", r))))),\n        ok,      ISNUMBER(t_v) * (SUBSTITUTE(g_v, CHAR(31), \"\") <> \"\"),\n        g_f,     FILTER(g_v, ok, NA()),\n        t_f,     FILTER(t_v, ok, NA()),\n        g_s,     SORTBY(g_f, g_f, 1, t_f, 1),\n        t_s,     SORTBY(t_f, g_f, 1, t_f, 1),\n        d,       DROP(t_s, 1) - DROP(t_s, -1),\n        same,    DROP(g_s, 1) = DROP(g_s, -1),\n        IFERROR(FILTER(d, same * (d > 0), NA()), NA())\n    )\n)",
+      "arguments": [],
+      "yields": "Column of all within-group consecutive positive spacings of the Sequence-flagged column (the raw material of the delta spectrum); #N/A when no Sequence axis is flagged or no group has two observations.",
+      "description": "Sequence_Deltas returns every within-group consecutive spacing of the sequence axis: for each group, the differences between successive observed values of the Sequence-flagged column, pooled across groups into one column. It is the raw material for the Base Period Δ candidate (its MODE) and the delta spectrum display.\n\nSeam-safety is the point of the implementation: rows are sorted by (group, seq) and consecutive diffs are kept only where the sorted neighbors share a group, so group seams can never contaminate the spacings. A pooled column-wise diff over the raw row order is forbidden — on Country/Year panel data it would manufacture large negative seam deltas at every country boundary. Zero spacings (duplicate (group, seq) pairs) are also dropped: the spectrum describes the time grid, and duplicates are a data defect surfaced elsewhere.\n\nGroups are keyed by the Identifier-role columns, excluding the sequence column itself (a Year flagged as both Identifier and Sequence must not group by itself), joined with CHAR(31) when there are several. With no Identifier columns the whole sample is one group. A row whose Identifier fields are ALL blank produces a delimiter-only join key, which the emptiness check strips (SUBSTITUTE off the CHAR(31) separators) so unidentified rows never form a spurious group. The spectrum deliberately ignores Sample_Include(): the time grid is dataset structure, while the mask is model-iteration state — a filtered model must not make the data look gappier than it is.\n\nAll spec-band reads are TAKE-trimmed to COLUMNS(Source_Data), so the Sequence Spacing block below the spec rows is never scanned.",
+      "plain_language_summary": "All the observed gaps between consecutive time periods within each group — e.g. all 1s for a complete yearly panel, with a 2 appearing where a year is missing.",
+      "notes": "Within-group consecutive spacings of the Sequence-flagged column, seam-safe (sorted per group; seams and duplicates dropped). Feeds the Base Period Δ candidate (MODE) and the delta spectrum. #N/A when no axis is flagged."
+    },
+    {
+      "name": "Base_Period_Delta_Candidate",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(\n    LET(\n        d, Sequence_Deltas(),\n        IF(COUNT(d) = 0, NA(), IFERROR(MODE.SNGL(d), MIN(d)))\n    )\n)",
+      "arguments": [],
+      "yields": "The computed Base Period Δ candidate: MODE of the within-group spacings, falling back to their MIN when no spacing repeats; #N/A when there are no spacings at all.",
+      "description": "Base_Period_Delta_Candidate computes the natural base period of the declared sequence axis: the MODE.SNGL of Sequence_Deltas() — the most common within-group consecutive spacing. For a complete yearly panel that is 1; for a decadal survey it is 10. The build writes this candidate into spec cell I of the Sequence-flagged row, where a user-typed number overrides it (computed-with-override, the reference-level pattern).\n\nWhen MODE.SNGL returns #N/A because every spacing is distinct, there is no natural base period; the candidate falls back to the MIN of the positive spacings (the finest grid the data could support) and the Sequence Spacing block surfaces an explicit override prompt (\"no repeated spacing — set Δ\"). When there are no within-group spacings at all — no sequence axis flagged, or every group has a single observation — the candidate is #N/A and cell I displays blank, awaiting a typed Δ.\n\nThe candidate never quantizes calendar spacings: monthly serial dates produce a spectrum clustered at 28–31 and a MODE of 31, which is a wrong Δ for eleven months of the year. That situation is surfaced (calendar-signature guidance recommending an integer period index upstream), not papered over with a scalar.",
+      "plain_language_summary": "The suggested time step for the data — the most common gap between consecutive periods within a group (1 for yearly data).",
+      "notes": "Computed Base Period Δ candidate: MODE.SNGL of Sequence_Deltas(), MIN fallback when no spacing repeats (override prompt fires), #N/A when there are no spacings. Pre-fills spec cell I on the Sequence-flagged row; typing a number overrides."
+    },
+    {
+      "name": "Sequence_Delta_Spectrum",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(\n    LET(\n        d, Sequence_Deltas(),\n        u, SORT(UNIQUE(d)),\n        IF(COUNT(d) = 0, NA(), HSTACK(u, BYROW(u, LAMBDA(v, SUM(--(d = v))))))\n    )\n)",
+      "arguments": [],
+      "yields": "Two-column array — each distinct within-group spacing with its count, ascending (the delta spectrum); #N/A when there are no spacings.",
+      "description": "Sequence_Delta_Spectrum tabulates the delta spectrum: every distinct within-group consecutive spacing of the sequence axis alongside how many times it occurs, sorted ascending. It is the display behind the Sequence Spacing block's Delta/Count table and the evidence base for its verdict flags.\n\nReading it: a complete yearly panel shows the single row {1, n−G}. A punched-out year adds a {2, 1} row — the Regularity flag fires, but 2 is still on the Δ = 1 grid so the Off-grid flag stays quiet. First-of-month calendar serials show the signature cluster {28, 29, 30, 31} — Regularity and Off-grid both fire and the calendar-signature guidance recommends an integer period index (YEAR, or YEAR*12 + MONTH) upstream instead of quantizing day counts to a scalar Δ.\n\nReturns #N/A when there are no within-group spacings (no Sequence axis flagged, or every group is a single observation); the consuming cells wrap IFERROR to degrade to a quiet blank.",
+      "plain_language_summary": "A little table of every gap size found between consecutive time periods and how often each occurs — all 1s means an evenly spaced panel.",
+      "notes": "The delta spectrum: distinct within-group spacings of the sequence axis with counts, ascending. Drives the Sequence Spacing block's Delta/Count display and verdict flags. #N/A when no spacings exist."
     }
   ],
   "regression_sheet_notes": {

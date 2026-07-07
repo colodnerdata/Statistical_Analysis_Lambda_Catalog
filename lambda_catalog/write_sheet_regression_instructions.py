@@ -111,8 +111,15 @@ _ROWS: list[tuple[int, str, str | None]] = [
             "lag/difference/serial-correlation features — it is independent of Role "
             "and Type (a Predictor can also be the sequence axis). Leave it blank "
             "for non-panel data; marking two or more rows shows a red error in the "
-            "status cell above the column. Base Period Δ is Sequence's companion, "
-            "arriving in the base-period release; it is not read by any formula yet."
+            "status cell above the column. Base Period Δ is Sequence's companion: "
+            "on the flagged row it shows the computed candidate spacing (the "
+            "most common gap between consecutive periods within a group); type "
+            "a number over it to override. Lag_By and Difference_By read that "
+            "cell when their [delta] argument is omitted — never a silent 1. "
+            "The Sequence Spacing block under the spec shows the spacing "
+            "spectrum and warns about gaps, off-grid spacings, and "
+            "calendar-date axes (prefer an integer period index like YEAR "
+            "over raw dates)."
         ),
         "body",
     ),

@@ -232,7 +232,14 @@ v2.5+ section.
 - TODO: Location & Scale — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Ln_Positive`.
 - TODO: Group & Panel — `Zscore_By`, `Decompose_By` (`Demean_By`/`Group_Mean` arrive at
   v2.1; two-way functions follow the two-way FE milestone).
-- TODO: Longitudinal — `Lag_By`, `Difference_By`.
+- ~~Longitudinal — `Lag_By`, `Difference_By`~~ — **DONE (shipped early, base-period
+  release)** with the gap-aware t−Δ semantics: exact-match lookup of
+  (group, seq−Δ) pairs, `NA()` at first periods and gaps, `[delta]` defaulting
+  to the spec's Base Period Δ cell via `Base_Period_Delta()` (never a silent 1).
+  The same release wired spec column I (candidate + override) and the Sequence
+  Spacing block (delta spectrum, Regularity/Off-grid flags, calendar-signature
+  guidance). Verification: `tests/test_difference_by_verification.py`; human
+  test plan T17–T19.
 - TODO: Sample construction — `Numeric_Complete_Cases`.
 - TODO: Categorical & model construction — `Dummy_Column`, `Interact`, `Model_Matrix`.
 

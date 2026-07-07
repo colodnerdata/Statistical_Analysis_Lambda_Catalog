@@ -467,19 +467,21 @@ The spec spans **every column of the source table**, one row per column:
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
 | G | **Transform** *(reserved, not implemented v2.0)* | Input, dropdown. Will apply a transform (e.g. `Log`) to a Continuous Response or Predictor. v2.0 dropdown list is `None` only; build pre-fills `None`. Cell comment marks it reserved. |
-| H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank; pre-filled blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer only — no constructor consumes it yet. |
-| I | **Base Period Δ** *(reserved, not implemented — Sequence companion)* | Labeled cell band; **computed-with-override — implemented in the base-period release**. Cell comment marks it reserved; inert (read by nothing). |
+| H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank; pre-filled blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer and — since the base-period release — by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`); no constructor consumes it. |
+| I | **Base Period Δ** *(live — base-period release; Sequence companion)* | **Computed-with-override**, the reference-level pattern: pre-filled with a formula showing `Base_Period_Delta_Candidate()` (MODE of within-group consecutive spacings, MIN fallback when no spacing repeats) on the Sequence-flagged row, blank elsewhere; typing a number overrides. Read only by the base-period layer — the `Base_Period_Delta()` accessor (the omitted-`[delta]` default of `Lag_By`/`Difference_By`) and the Sequence Spacing block's Δ-in-use display (yellow CF when overridden). The block (rows 28–34 under the spec) also shows the delta spectrum and verdicts: Regularity (any spacing ≠ Δ), Off-grid (spacing not a whole multiple of Δ), the no-natural-base-period override prompt, and calendar-signature guidance (~28–31/90–92/365–366 clusters → recommend an integer period index upstream; day counts are never quantized to a scalar Δ). |
 | J | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
 | K | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. *(Deviation from the earlier draft of this table, recorded: the shipped v2.0 sheet implemented this display here instead of the optional Design Columns audit column; the Σ(design columns) = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot.)* |
 
-**Reserved-column policy (F, G, I).** None of these columns is read by any
+**Reserved-column policy (F, G).** Neither reserved column is read by any
 formula — confirmed by construction, not by convention: `X_s()`,
 `Constructed_Column_Names()`, `Row_Labels()`, and `Sample_Include()` must not
-reference `Spec_Order`, `Spec_Transform`, or `Spec_Base_Period_Delta` (and may
-not reference `Spec_Sequence` either — that name is consumed only by the
-zero-or-one validation). The columns exist purely so the *sheet layout*
-absorbs the future feature now; wiring them in a later release is additive (a
-formula change), not a second column-insertion breaking the sheet a second time.
+reference `Spec_Order` or `Spec_Transform` (and may not reference
+`Spec_Sequence` or `Spec_Base_Period_Delta` either — those names are consumed
+only by the zero-or-one validation and the base-period layer, never by a
+constructor). The columns exist purely so the *sheet layout* absorbs the
+future feature now; wiring them in a later release is additive (a formula
+change), not a second column-insertion breaking the sheet a second time —
+exactly how column I went live in the base-period release.
 
 **Cascading relevance:** C–G and J–K gray out (conditional formatting)
 whenever Role ≠ Predictor — the same pattern as
@@ -881,10 +883,31 @@ Naming Convention above (no abbreviations) rather than needing a retrofit.
 
 ### Longitudinal & Panel-Time — *subcategory*
 
-- `Lag_By(x, group, time, [periods], [include])` — prior-period value within the same
-  group, keyed on `group`/`time`, not on physical row order.
-- `Difference_By(x, group, time, [periods], [include])` — within-group time difference,
-  \(\Delta_k x_{it} = x_{it} - x_{i,t-k}\).
+**Shipped early, in the base-period release** (ahead of the v2.2 bundle), to
+the gap-aware semantics recorded in the v2.1 design record §1:
+
+- `Lag_By(x, group, seq, [delta], [include])` — prior-period value within the
+  same group, keyed on `group`/`seq` **by exact time value, not physical row
+  order** (exact-match lookup of `(group, seq − Δ)` pairs, never OFFSET/row
+  arithmetic). A gap — `seq − Δ` absent within the group — returns `NA()`,
+  never the previous available row.
+- `Difference_By(x, group, seq, [delta], [include])` — within-group time
+  difference \(\Delta x_{it} = x_{it} - x_{i,t-\Delta}\), delegating the pair
+  lookup to `Lag_By`. Each group's first period returns `NA()` — never a
+  fabricated 0 that would enter a design matrix silently.
+- `Base_Period_Delta()` — the Δ in effect: spec column I on the
+  Sequence-flagged row (computed candidate or typed override). The omitted-
+  `[delta]` default of both functions above — Δ is never a silent 1; with no
+  declared axis they return `NA()` everywhere (visible failure). Companion
+  sheet-scoped closures `Sequence_Deltas` / `Base_Period_Delta_Candidate` /
+  `Sequence_Delta_Spectrum` drive the spec's Sequence Spacing block.
+
+Exception to the row-aligned `""` convention, recorded: an *included* row
+whose difference is incomputable (first period, gap, non-numeric value)
+returns `NA()`, not `""` — it is a visible incomputable observation, not an
+excluded row. `""` remains the excluded-row return. Verification:
+`tests/test_difference_by_verification.py` (WHO exact counts plus the
+punched-out-year and calendar-date synthetic cases); human test plan T17–T19.
 
 ---
 
@@ -917,10 +940,11 @@ meaning. This satisfies the non-breaking criterion in Versioning & Release Conve
   a Continuous Response and/or Continuous Predictors.
 - **The standalone Data Transformation function library ships in this release** (see
   the *Data Transformation* section for the full specs): `Center`, `Zscore`,
-  `Minmax_Scale`, `Winsorize`, `Ln_Positive`, `Zscore_By`, `Decompose_By`, `Lag_By`,
-  `Difference_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`,
-  `Model_Matrix`. (`Demean_By`/`Group_Mean` arrive at v2.1 as FE internals; the
-  two-way functions follow the two-way FE milestone.)
+  `Minmax_Scale`, `Winsorize`, `Ln_Positive`, `Zscore_By`, `Decompose_By`,
+  `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix`.
+  (`Demean_By`/`Group_Mean` arrive at v2.1 as FE internals; `Lag_By`/
+  `Difference_By`/`Base_Period_Delta` shipped early in the base-period release;
+  the two-way functions follow the two-way FE milestone.)
 - **OLS MLR formula names stay the unit-space defaults** — `R_Squared`, `AICc`, etc. are
   not renamed or forked; they continue to describe whatever space the model was actually
   fit in. New functions are added *alongside* them for the unit-space (back-transformed)

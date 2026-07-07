@@ -10,7 +10,9 @@ Sequence structural axis):
                    Base Period Δ / Levels / Reference In Use). Row 2 =
                    Intercept control (label A2, Allow_Intercept toggle C2) and
                    the Sequence status line (H2); headers row 3; one spec row
-                   per table column on rows 4–26.
+                   per table column on rows 4–26; the Sequence Spacing block
+                   (Base Period Δ candidate / Δ in use / verdict lines /
+                   delta spectrum at J–K) on rows 28–34.
   Col L          — thin gap (width 2)
   Col M–S        — Predictor Summary: level-qualified constructed names +
                    Pearson R, Spearman R, Skewness, Kurtosis, VIF, Tolerance —
@@ -78,6 +80,7 @@ from .write_sheet_model_construction import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _write_intercept_control,
+    _write_sequence_spacing_block,
     _write_spec_block,
 )
 
@@ -607,6 +610,7 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     """
     section_heading(sheet, 1, _C_A, "MODEL SPECIFICATION")
     _write_spec_block(sheet)
+    _write_sequence_spacing_block(sheet)
     _write_intercept_control(sheet)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _RESERVED_NOTE)
@@ -1214,7 +1218,7 @@ def write_regression_output_sheet(
     for column_letter, width in {
         "A": 28, "B": 20, "C": 9, "D": 11, "E": 15,
         "F": 0, "G": 0,  # reserved Order/Transform slots — hidden until wired
-        "H": 10, "I": 14,  # Sequence flag / Base Period Δ (reserved companion)
+        "H": 10, "I": 14,  # Sequence flag / Base Period Δ (candidate + override)
         "J": 7, "K": 16,   # Levels / Reference In Use displays
         "L": 2,   # thin gap
         "M": 28, "N": 8, "O": 10, "P": 10, "Q": 8, "R": 8, "S": 10,

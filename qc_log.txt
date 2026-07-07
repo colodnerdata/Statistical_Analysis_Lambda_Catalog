@@ -1,96 +1,78 @@
 python build_qc.py --verbose
   Prep: catalog loaded            0.0s
-  Prep: analysis loaded           0.0s
-  Prep: csv loaded                0.1s
-  Prep total                      0.1s
-  Prep: drop names start          0.1s
-  Prep: drop names done           0.1s
+  Prep: regression QC loaded      0.7s
+  Prep: csv loaded                0.8s
+  Prep total                      0.8s
+  Prep: drop names start          0.8s
+  Prep: drop names done           0.9s
   Write: app start                0.0s
-  Write: app ready                0.3s
+  Write: app ready                0.4s
   Write: open workbook            0.4s
-  Write: workbook opened          0.6s
+  Write: workbook opened          0.7s
   Write: catalog start            0.9s
-  Write: catalog done             4.4s
-  Write: life exp start           4.4s
+  Write: catalog done             4.0s
+  Write: life exp start           4.0s
   LifeExp: get/create start       0.0s
   LifeExp: get/create done        0.0s
   LifeExp: reset start            0.0s
   LifeExp: reset done             0.0s
   LifeExp: activate done          0.0s
   LifeExp: headers start (22 cols)    0.0s
-  LifeExp: headers done           0.1s
-  LifeExp: row write start (2938 rows)    0.1s
-  LifeExp: row write done         0.2s
-  LifeExp: table add start        0.2s
-  LifeExp: table add done         0.2s
-  LifeExp: table style done       0.2s
-  LifeExp: formula start          0.2s
-  LifeExp: formula done           0.2s
-  LifeExp: autofit start          0.2s
+  LifeExp: headers done           0.0s
+  LifeExp: row write start (2938 rows)    0.0s
+  LifeExp: row write done         0.1s
+  LifeExp: table add start        0.1s
+  LifeExp: table add done         0.1s
+  LifeExp: table style done       0.1s
+  LifeExp: formula start          0.1s
+  LifeExp: formula done           0.1s
+  LifeExp: autofit start          0.1s
   LifeExp: autofit done           0.2s
   LifeExp: width done             0.2s
   LifeExp: freeze start           0.2s
   LifeExp: freeze done            0.2s
-  Write: life exp done            4.6s
-  Write: univariate start         4.6s
-  Write: univariate done         15.4s
-  Write: regression instr start   15.4s
-  Write: regression instr done   15.5s
-  Write: diagnostic start        15.5s
-  Write: diagnostic done         16.2s
-  Write: version history start   16.2s
-  Write: version history done    16.3s
-  Write: regression start        16.3s
-  Write: regression done         22.0s
-  Write: scalar start            22.0s
-  Write: scalar done             22.7s
-  Write: vector start            22.7s
-  Write: vector done             23.3s
-  Write: observation start       23.3s
-  Write: observation done        23.6s
-  Write: dummy test start        23.6s
-  Write: dummy test done         23.9s
-  Write: save start              23.9s
-  Write: save done              708.9s
-  Write sheets:   709.1s
+  Write: life exp done            4.2s
+  Write: univariate start         4.2s
+  Write: univariate done         17.3s
+  Write: regression instr start   17.3s
+  Write: regression instr done   17.4s
+  Write: diagnostic start        17.4s
+  Write: diagnostic done         17.8s
+  Write: version history start   17.8s
+  Write: version history done    17.9s
+  Write: regression start        17.9s
+  Write: regression done         23.1s
+  Write: dummy test start        23.1s
+  Write: dummy test done         23.5s
+  Write: save start              23.5s
+  Write: save done              663.8s
+  Write sheets:   664.0s
   Sync: start                     0.0s
-  Sync: done                      0.1s
-  Sync names:     0.1s
+  Sync: done                      0.2s
+  Sync names:     0.2s
   Verify: app start               0.0s
   Verify: app ready               0.3s
   Verify: open workbook           0.4s
-  Verify: workbook opened         0.6s
+  Verify: workbook opened         0.7s
   Verify: calculate start         0.0s
   Calc: Life Expectancy Data start    0.0s
   Calc: Life Expectancy Data done    0.0s
-  Calc: MLR_Scalar_Test start     0.0s
-  Calc: MLR_Scalar_Test done      0.2s
-  Calc: MLR_Vector_Outputs_T start    0.2s
-  Calc: MLR_Vector_Outputs_T done    1.4s
-  Calc: MLR_Observation_Test start    1.4s
-  Calc: MLR_Observation_Test done    1.7s
-  Calc: Regression start          1.7s
-  Calc: Regression done           8.0s
-  Calc: Univariate start          8.0s
-  Calc: Univariate done          73.3s
-  Calc: Dummy_Test start         73.3s
-  Calc: Dummy_Test done          73.4s
-  Verify: calculate done         73.4s
-  Verify: read scalar start      73.4s
-  Verify: read scalar done       73.4s
-  Verify: read vector start      73.4s
-  Verify: read vector done       73.4s
-  Verify: read obs start         73.4s
-  Verify: read obs done          73.7s
-  Verify: reg spec block start   74.7s
-  Verify: reg spec block done    85.8s
-  Verify: regression start       85.8s
-  Verify: regression done       109.7s
-  Verify: univariate start      110.5s
-  Verify: univariate done       110.7s
-  Verify: dummy test start      110.7s
-  Verify: dummy test done       110.7s
-  Verify:         111.7s
+  Calc: Regression start          0.0s
+  Calc: Regression done          13.3s
+  Calc: Univariate start         13.3s
+  Calc: Univariate done         183.4s
+  Calc: Dummy_Test start        183.4s
+  Calc: Dummy_Test done         183.4s
+  Verify: calculate done        183.4s
+  Verify: reg spec block start  183.5s
+  Verify: reg spec block done   205.7s
+  Verify: regression start      205.7s
+  Verify: regression done       274.6s
+  Verify: univariate start      276.1s
+  Verify: univariate done       276.3s
+  Verify: dummy test start      276.3s
+  Verify: dummy test done       276.3s
+  Verify:         277.3s
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_QC.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
@@ -99,13 +81,10 @@ Sheet updated: Regression Instructions
 Sheet updated: Diagnostic Guide
 Sheet updated: Version History
 Sheet updated: Regression
-Sheet updated: MLR_Scalar_Test
-Sheet updated: MLR_Vector_Outputs_Test
-Sheet updated: MLR_Observation_Test
 Sheet updated: Dummy_Test
 Sheet verified: Regression
 Sheet verified: Univariate
 Sheet verified: Dummy_Test
-Created names: 96
+Created names: 100
 Updated names: 0
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\qc_log.txt

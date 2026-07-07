@@ -20,7 +20,12 @@ from .regression_shared import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
-_CACHE_SCHEMA_VERSION = 12
+# Bump on any change to the analysis oracle so a stale .analysis_cache.json is
+# invalidated. v13: Regression sheet oracle switched to spec-driven completeness
+# (filter on the model's own predictors, not all FEATURE_COLUMNS) when Full_Data
+# was demoted from the default Filter — sparse/medium configs now compute on
+# more rows, so cached v12 expected values are wrong.
+_CACHE_SCHEMA_VERSION = 13
 
 
 def _csv_fingerprint(csv_path: Path) -> str:

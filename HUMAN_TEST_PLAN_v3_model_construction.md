@@ -5,9 +5,20 @@ to most complex. Every test gives an **Inputs** block (the exact cells to edit o
 the `Model Construction` sheet, everything else unchanged from the previous test)
 and an **Expected** block (the exact cells to read and the values they must show).
 Reference numbers were computed directly from
-`sample_data/Life Expectancy Data.csv` and the `Full_Data` completeness definition
-(`Data_Completeness` over `[Life expectancy]:[Schooling]`), so mismatches indicate
+`sample_data/Life Expectancy Data.csv` by the same spec-driven mask the sheet
+applies (`calculate_model_construction_expectations`), so mismatches indicate
 implementation bugs, not stale expectations.
+
+**Baseline change (Full_Data omitted).** The shipped spec no longer uses the
+`Full_Data` completeness column as a Filter — it ships as **Omit**. `Full_Data`
+flags rows complete on *all* 18 numeric features, which is (a) redundant with the
+mask's built-in completeness (`Sample_Include()` already requires the response
+and every included **continuous** predictor to be numeric) and (b) an
+over-filter: it drops rows missing a sparse predictor the model does not even
+use. With no Filter declared, the mask is completeness-only on the model's own
+columns, so the default model now includes **2,482** rows, not 1,649. The Filter
+role is exercised in T8 via a purpose-built `Is_Stan` filter column, not the
+completeness flag.
 
 **Layout note (Sequence structural-axis release):** the spec block has since
 gained column H (`Sequence` flag) and column I (`Base Period Δ` — live since
@@ -20,15 +31,18 @@ and shift any address in column K or rightward by two columns. The base-period
 addendum (T17–T19) uses current addresses (headers row 3, spec rows 4–26,
 Sequence Spacing block rows 28–34).
 
-**Baseline facts:** 2,938 data rows; `Full_Data` TRUE on 1,649; within those 1,649:
-Status has 2 levels (`Developed`, `Developing` — 242 / 1,407 rows), Year has 16
-levels (2000–2015, first-sort reference `2000`), Country has 133 levels (193 in the
-full dataset). First data row: Afghanistan, 2015, Life expectancy 65.0.
+**Baseline facts:** 2,938 data rows. Completeness-only on the shipped default's
+three continuous predictors (`Adult Mortality`, `GDP`, `Schooling`) plus the
+response is TRUE on **2,482** rows; requiring *all* 18 features (the old
+`Full_Data`) is TRUE on 1,649. Within the 2,482: Status has 2 levels
+(`Developed`, `Developing`), Year has 16 levels (2000–2015, first-sort reference
+`2000`), Country has 157 levels. First data row: Afghanistan, 2015, Life
+expectancy 65.0.
 
 ## Cell map
 
-Spec block (columns B Role · C Include · D Type · E Reference · H Levels), one row
-per table column:
+Spec block (columns B Role · C Include · D Type · E Reference · H Sequence ·
+J Levels), one row per table column:
 
 | Row | Variable | Row | Variable |
 |---|---|---|---|
@@ -78,9 +92,13 @@ Output cells:
 | GDP | Predictor | TRUE | Continuous | | | None | |
 | Schooling | Predictor | TRUE | Continuous | | | None | |
 | (all other numerics) | Predictor | FALSE | Continuous | | | None | |
-| Full_Data | Filter | FALSE | Continuous | | | None | |
+| Full_Data | Omit | FALSE | Continuous | | | None | |
 
-The shipped spec now demonstrates every Role (Identifier, Response, Predictor, Filter, and Omit — Population is shipped as an explicit Omit) and flags Year as the Sequence axis, so the Base Period Δ candidate (Δ = 1), the Sequence Spacing block, and the gated Durbin-Watson diagnostic on the Regression sheet are all live at T0. Population's Omit role contributes no column and imposes no completeness condition, so k and included rows are unchanged from a not-included row.
+The shipped spec demonstrates the Role axis (Identifier, Response, Predictor,
+Omit — Population and Full_Data both ship as Omit) and flags Year as the
+Sequence axis, so the Base Period Δ candidate (Δ = 1), the Sequence Spacing
+block, and the gated Durbin-Watson diagnostic on the Regression sheet are all
+live at T0. **No Filter is declared**, so the mask is completeness-only.
 
 **Expected:**
 
@@ -90,19 +108,19 @@ The shipped spec now demonstrates every Role (Identifier, Response, Predictor, F
 | rows | N1 | 2938 |
 | response | Q1 | `Life expectancy` |
 | responses | S1 | 1, not red |
-| included rows | U1 | 1649 |
+| included rows | U1 | **2482** (completeness on the response + `Adult Mortality`, `GDP`, `Schooling`; no Full_Data over-filter) |
 | sequence status | H2 | blank — one flag (Year) is valid; the line errors only at two-plus |
 | header strip | Q2→ | `Year: 2001` … `Year: 2015` (15 cols), `Status: Developing`, `Adult Mortality`, `GDP`, `Schooling` |
-| Levels | H4 / H5 | 16 / 2, blank elsewhere |
+| Levels | J4 / J5 | 16 / 2, blank elsewhere |
 | Base Period Δ | Year row, col I | 1 (Year's within-country spacing) |
 | Durbin-Watson | Regression diagnostics | a number computed along Year, not the `n/a — requires Sequence` token |
 | gray cascade | C–H | gray on every non-Predictor row |
 | y header | N2 | `y: Life expectancy` |
 | first filtered label | M3 | `Afghanistan` |
 
-- [X] Pass
+- [ ] Pass
 
-## T1 — Reproduce v1: full continuous set, y, filter (simplest behavior)
+## T1 — Reproduce the all-features model (spec-driven == Full_Data here)
 
 **Inputs:**
 
@@ -117,17 +135,20 @@ The shipped spec now demonstrates every Role (Identifier, Response, Predictor, F
 | Check | Cell | Expect |
 |---|---|---|
 | k | K1 | 18 |
-| included rows | U1 | 1649 |
+| included rows | U1 | **1649** |
 | header strip | Q2→ | the 18 numeric headers, `Adult Mortality` … `Schooling`, table order |
 | labels | M3 | `Afghanistan\|2015` (Country and Year both Identifier) |
 | filtered y | N3 | 65 (Life expectancy, Afghanistan 2015) |
 | cross-check | Q3→ row | matches the Regression sheet's first included observation cell-for-cell |
 
-This is exactly v1's `x_s`/`y`/`Regression_Sample_Include`.
+Teaching point: with **every** numeric feature in the model, spec-driven
+completeness requires all 18 columns — exactly the old `Full_Data` rule — so the
+count coincides at 1,649. The two diverge only when the model omits a predictor
+(T2).
 
-- [X] Pass
+- [ ] Pass
 
-## T2 — Continuous subset
+## T2 — Continuous subset (the over-filter fix, made visible)
 
 **Inputs:**
 
@@ -144,9 +165,12 @@ This is exactly v1's `x_s`/`y`/`Regression_Sample_Include`.
 |---|---|---|
 | k | K1 | 3 |
 | header strip | Q2→ | `Adult Mortality`, `GDP`, `Schooling` (spec order) |
-| included rows | U1 | 1649 (completeness is spec-driven, but every Full_Data row is complete anyway) |
+| included rows | U1 | **2482** — completeness now demands only the three predictors in the model, so 833 rows that were missing a *dropped* sparse predictor rejoin the sample (2482 > 1649) |
 
-- [X] Pass
+This 1,649 → 2,482 jump is the whole reason `Full_Data` was demoted to Omit: the
+model must not lose rows to a predictor it does not use.
+
+- [ ] Pass
 
 ## T3 — First categorical (binary)
 
@@ -164,15 +188,16 @@ This is exactly v1's `x_s`/`y`/`Regression_Sample_Include`.
 | Check | Cell | Expect |
 |---|---|---|
 | k | K1 | 4 |
-| Levels | H5 | 2 |
+| Levels | J5 | 2 |
 | header strip | Q2→ | `Status: Developing`, `Adult Mortality`, `GDP`, `Schooling` |
 | dummy values | Q3↓ (Status column) | only 0/1 |
+| included rows | U1 | 2482 (a Categorical Predictor imposes no numeric condition) |
 | rows | N1 | 2938 |
 
 Reference defaulted to `Developed` (first in sort order — surfaced by omission in
 the column name).
 
-- [X] Pass
+- [ ] Pass
 
 ## T4 — Reference override
 
@@ -185,7 +210,7 @@ the column name).
 | strip column | Q2 | flips to `Status: Developed`; 0/1 pattern inverts; k stays 4 |
 | after clearing E5 | Q2 | reverts to `Status: Developing` |
 
-- [X] Pass
+- [ ] Pass
 
 ## T5 — Invalid reference (visible failure)
 
@@ -201,9 +226,10 @@ the column name).
 | after clearing E5 | K1 | back to 4 |
 
 Visible degradation, not a hard error, not silent full one-hot (the collinearity
-trap the reference-drop exists to prevent).
+trap the reference-drop exists to prevent). Conditional formatting may need a
+recalculate to render.
 
-- [X - but needed to wait for a recalculate for conditional formatting to kick in; not responsive] Pass
+- [ ] Pass
 
 ## T6 — Numeric-valued categorical
 
@@ -220,15 +246,16 @@ trap the reference-drop exists to prevent).
 | Check | Cell | Expect |
 |---|---|---|
 | k | K1 | 19 |
-| Levels | H4 | 16 |
+| Levels | J4 | 16 |
 | header strip | Q2→ | fifteen columns `Year: 2001` … `Year: 2015`, then `Status: Developing`, `Adult Mortality`, `GDP`, `Schooling` |
+| included rows | U1 | 2482 |
 | dummy values | Year columns | each 0/1 |
 | labels | M3 | `Afghanistan` (Country is again the sole Identifier) |
 
 Reference `2000` — numeric sort, not text sort; if `Year: 2013` is missing or the
 ordering is weird, numeric/text coercion is broken.
 
-- [X] Pass
+- [ ] Pass
 
 ## T7 — Identifier labeling variants
 
@@ -236,66 +263,78 @@ ordering is weird, numeric/text coercion is broken.
 **Expected:** J3/M3 = `Afghanistan` (Country only).
 
 **(b) Inputs:** B4 → `Identifier`.
-**Expected:** labels become `Afghanistan|2015`; k drops to 4 (Year left the model).
+**Expected:** labels become `Afghanistan|2015`; k drops to 4 (Year left the
+model); U1 stays 2482.
 
 **(c) Inputs:** B3 → `Omit`, B4 → `Omit`.
 **Expected:** J3 = `Obs. 1`, `Obs. 2`, … full height; M3 = `Obs. 1` (row 1 —
-Afghanistan|2015 — passes the filter; if the first included row were later, the
+Afghanistan|2015 — passes the mask; if the first included row were later, the
 filtered column would start at that observation number, not `Obs. 1`).
 
-**Restore:** B3 → `Identifier`, B4 → `Identifier` (labels `Afghanistan|2015`).
+**Restore:** B3 → `Identifier`, B4 → `Identifier` (labels `Afghanistan|2015`;
+Status Predictor/Categorical, three continuous predictors — k = 4, U1 = 2482).
 
-- [X] Pass
+- [ ] Pass
 
-## T8 — Filter composition (declarative stratification)
+## T8 — Filter composition (the `stan` filter)
 
-**Inputs:** on the `Life Expectancy Data` sheet, type `Is_Developing` in the first
-header cell right of the table (X1) — the table auto-expands — and in X2 the
-formula `=--([@Status]="Developing")`. Back on `Model Construction`, its spec row
-appears automatically at row 26 (column A spills from the headers; the B–G
+**Inputs:** on the `Life Expectancy Data` sheet, type `Is_Stan` in the first
+header cell right of the table (the table auto-expands) and in the first data
+cell below it the formula `=--(RIGHT([@Country],4)="stan")` — 1 for every country
+whose name ends in "stan" (Afghanistan, Kazakhstan, Kyrgyzstan, Pakistan,
+Tajikistan, Turkmenistan, Uzbekistan). Back on `Model Construction`, its spec row
+appears automatically at row 26 (column A spills from the headers; the B–H
 dropdowns already cover it):
 
 | Cell | Enter |
 |---|---|
-| B26 (Is_Developing Role) | `Filter` |
+| B26 (Is_Stan Role) | `Filter` |
 
-(Status is already Predictor/TRUE/Categorical from T3; Year Identifier from T7.)
+(State entering T8: Country Identifier, Year Identifier, Status
+Predictor/Categorical, three continuous predictors.)
 
 **Expected:**
 
 | Check | Cell | Expect |
 |---|---|---|
-| included rows | U1 | **1407** (Full_Data AND Is_Developing) |
-| Levels | H5 | collapses 2 → **1**, cell turns **red** (included, categorical, L ≤ 1) — computed over the *masked* sample |
+| included rows | U1 | **96** — completeness-on-the-model AND `Is_Stan` = 1 (7 "-stan" countries, 96 rows complete on the three predictors; Kyrgyzstan contributes no complete row) |
+| Levels | J5 | collapses 2 → **1**, cell turns **red** (included, categorical, L ≤ 1) — every "-stan" country in the sample is `Developing`, so Status degenerates over the masked stratum |
 | k | K1 | 3 — Status contributes **zero** columns while every other output still computes |
-| filtered zones | M3↓ | exactly 1407 rows; first label still `Afghanistan\|2015` |
+| filtered zones | M3↓ | exactly 96 rows; first label still `Afghanistan\|2015` |
 
-Visible degradation, not a hard error, not silent omission. (Optional inspect:
-Country levels within the stratum = 114 — set B3 → Predictor/Categorical, read H3,
-then restore B3 → Identifier.)
+Visible degradation, not a hard error, not silent omission — the filter both
+demonstrates the Filter role and drives Status into the masked-degeneracy path.
+(Optional inspect: Country levels within the stratum = **6** — set B3 →
+Predictor/Categorical, read J3, then restore B3 → Identifier.)
 
-- [X] Pass
+- [ ] Pass
 
-## T9 — Filter semantics edge
+## T9 — Filter semantics edge (and why Full_Data is Omit)
 
-**Inputs (step 1):** B26 → `Omit`.
-**Expected:** U1 returns to 1649; H5 back to 2; K1 back to 4.
+**Inputs (step 1):** B26 (Is_Stan Role) → `Omit`.
+**Expected:** U1 returns to **2482**; J5 back to 2; K1 back to 4 — with no Filter
+declared the mask is completeness-only.
 
-**Inputs (step 2):** B25 (Full_Data Role) → `Omit` — zero Filter columns.
+**Inputs (step 2 — the over-filter demonstration):** B25 (Full_Data Role) →
+`Filter`.
 **Expected:**
 
 | Check | Cell | Expect |
 |---|---|---|
-| included rows | U1 | **2482** — completeness-only: rows where y, Adult Mortality, GDP, Schooling are all numeric (Full_Data demanded *all* numerics; the spec-driven mask demands only the ones in the model, so 2482 > 1649) |
-| k | K1 | 4 (Status has both levels in the wider mask) |
+| included rows | U1 | **1649** — re-imposing the all-features completeness flag drops 833 rows whose only missing values are in predictors the model does not use |
+| k | K1 | 4 (Status keeps both levels in the narrower mask) |
 
-**Restore:** B25 → `Filter` (U1 = 1649).
+This is exactly the redundant over-filter the shipped default avoids by leaving
+`Full_Data` as Omit.
 
-- [X] Pass
+**Restore:** B25 (Full_Data Role) → `Omit` (U1 = 2482).
+
+- [ ] Pass
 
 ## T10 — Response swap (derived y)
 
-**Inputs:**
+**Inputs:** (state entering T10: Country Identifier, Year Identifier, Status
+Predictor/Categorical, three continuous predictors — k = 4.)
 
 | Cell | Enter |
 |---|---|
@@ -312,11 +351,12 @@ then restore B3 → Identifier.)
 | filtered y | N3 | GDP values (first ≈ 584.26) |
 | responses | S1 | 1, not red |
 | header strip | Q2→ | `Status: Developing`, `Life expectancy`, `Adult Mortality`, `Schooling` |
-| included rows | U1 | 1649 (GDP-as-response must be numeric — identical outcome, Full_Data already demands it) |
+| k | K1 | 4 |
+| included rows | U1 | 2482 (the required column set — GDP + Life expectancy/Adult Mortality/Schooling — is the same four columns as before) |
 
 Do **not** restore yet — T11 continues from this state.
 
-- [X] Pass
+- [ ] Pass
 
 ## T11 — Response-count validation
 
@@ -342,7 +382,7 @@ Responses).
 
 **Restore:** B19 → `Predictor`, C19 → `TRUE`, C6 → `FALSE` (S1 = 1; K1 = 4).
 
-- [X] Pass
+- [ ] Pass
 
 ## T12 — Levels display is live and mask-aware (no model change)
 
@@ -358,44 +398,44 @@ Responses).
 
 | Check | Cell | Expect |
 |---|---|---|
-| Levels | H3 | **133** — not 193 — computed over the 1,649 mask-included rows; **no red** (not included) |
+| Levels | J3 | **157** — computed over the 2,482 mask-included rows (wider than the 133 the old 1,649 Full_Data mask showed); **no red** (not included) |
 | k | K1 | unchanged (4) |
-| labels | M3 | `2015` — Year is now the sole Identifier; expected side effect, reverts on restore |
+| labels | M3 | `2015` — Country left the Identifier role, so Year is now the sole Identifier; expected side effect, reverts on restore |
 
-Then C3 → `TRUE` briefly: K1 jumps to **136** (+132) and the header strip floods
-with `Country: …` names — the visible-count-as-warning behavior.
+Then C3 → `TRUE` briefly: K1 jumps to **160** (+156 Country dummies) and the
+header strip floods with `Country: …` names — the visible-count-as-warning
+behavior.
 
 **Restore:** C3 → `FALSE`, B3 → `Identifier`, D3 → `Continuous` (labels
 `Afghanistan|2015`).
 
-- [X] Pass
+- [ ] Pass
 
-## T13 — Extreme stratification degeneracy
+## T13 — Extreme stratification degeneracy (both categoricals collapse)
 
-**Inputs:** on `Life Expectancy Data`, add table column `Is_2015` (header Y1) with
-formula `=--([@Year]=2015)`. Then:
+**Inputs:** on `Life Expectancy Data`, add table column `Is_2015` with formula
+`=--([@Year]=2015)`. Keep the `Is_Stan` column from T8. Then:
 
 | Cell | Enter |
 |---|---|
-| B27 (Is_2015 Role) | `Filter` (Full_Data stays Filter) |
-| B4 (Year Role) | `Predictor` |
-| C4 (Year Include) | `TRUE` |
-| D4 (Year Type) | `Categorical` |
+| B26 (Is_Stan Role) | `Filter` |
+| B27 (Is_2015 Role) | `Filter` |
+| B4 (Year Role) | `Predictor`, C4 → `TRUE`, D4 → `Categorical` |
 
 **Expected:**
 
 | Check | Cell | Expect |
 |---|---|---|
-| included rows | U1 | **2** — only two 2015 rows survive Full_Data (GDP/Population are missing for most 2015 records; real dataset property, not a bug) |
-| Levels | H4 | 1 → **red**; Year contributes 0 columns |
-| Levels | H5 | 1 → **red** — both surviving rows are Developing, so Status degenerates too |
+| included rows | U1 | **6** — "-stan" AND 2015 AND complete on the three predictors (one row per qualifying country; Kyrgyzstan's 2015 row is incomplete) |
+| Levels | J4 | 1 → **red**; Year contributes 0 columns (all six rows are 2015) |
+| Levels | J5 | 1 → **red** — all six are Developing, so Status degenerates too |
 | k | K1 | 3 (`Adult Mortality`, `GDP`, `Schooling` only) |
-| filtered zones | M3↓ | exactly 2 rows: `Afghanistan`, `Albania` (Country sole Identifier); N3 = 65, N4 = 77.8 |
-| no errors | all zones | construction zone must not error; any fit on 2 rows is degenerate *downstream* |
+| filtered zones | M3↓ | exactly 6 rows; first label `Afghanistan` (Country sole Identifier); N3 = 65 |
+| no errors | all zones | construction zone must not error; any fit on 6 rows is degenerate *downstream* |
 
-**Restore:** B27 → `Omit`, B4 → `Identifier`.
+**Restore:** B26 → `Omit`, B27 → `Omit`, B4 → `Identifier`.
 
-- [X] Pass
+- [ ] Pass
 
 ## T14 — Empty model
 
@@ -409,26 +449,26 @@ formula `=--([@Year]=2015)`. Then:
 | rows | N1 | `(empty model)` |
 | header strip | Q2 | `(empty model)` |
 | matrix | Q3 | `(empty model)` |
-| still alive | M3 / N3 / U1 / S1 | labels, y values, 1649, 1 — the mask and response are spec-driven, not X_s-driven |
+| still alive | M3 / N3 / U1 / S1 | labels, y values, **2928**, 1 — with every predictor excluded and no Filter, the mask reduces to "response is numeric" (10 rows have a blank Life expectancy); the mask and response are spec-driven, not X_s-driven |
 | no leaks | all zones | no `#CALC!` anywhere |
 
 **Restore T0** (full reset):
 
 | Cell | Enter |
 |---|---|
-| Life Expectancy Data | delete the `Is_Developing` and `Is_2015` table columns (spec rows 26–27 disappear) |
+| Life Expectancy Data | delete the `Is_Stan` and `Is_2015` table columns (spec rows 26–27 disappear) |
 | B3 / C3 / D3 | `Identifier` / `FALSE` / `Continuous` |
 | B4 / C4 / D4 | `Predictor` / `TRUE` / `Categorical` |
 | B5 / C5 / D5 | `Predictor` / `TRUE` / `Categorical` |
 | B6 / C6 / D6 | `Response` / `FALSE` / `Continuous` |
 | C7, C19, C24 | `TRUE` |
 | C8:C18, C20:C23 | `FALSE` |
-| B25 / C25 | `Filter` / `FALSE` |
+| B20 (Population) / B25 (Full_Data) | `Omit` / `Omit` |
 | E3:E25 | blank |
 
 Verify the T0 Expected block again before continuing.
 
-- [X] Pass
+- [ ] Pass
 
 ## T15 — Full-height vs filtered contract
 
@@ -440,11 +480,11 @@ Verify the T0 Expected block again before continuing.
 |---|---|---|
 | full-height labels | J3↓ | exactly 2938 rows |
 | full-height mask | K3↓ | exactly 2938 booleans |
-| filtered labels / y | M3↓, N3↓, P3↓ | exactly 1649 rows |
-| filtered matrix | Q3→↓ | 1649 × 19 |
+| filtered labels / y | M3↓, N3↓, P3↓ | exactly 2482 rows |
+| filtered matrix | Q3→↓ | 2482 × 19 |
 | rows audit | N1 | 2938 — always; the constructor never row-filters (the row-mask contract); only the display zones do |
 
-- [X] Pass
+- [ ] Pass
 
 ## T16 — Twin alignment tripwire
 
@@ -456,7 +496,7 @@ the K1 audit cell, always. If they ever disagree, the `X_s` /
 `Constructed_Column_Names` twins have drifted — a structural bug, not a data
 issue.
 
-- [X] Pass
+- [ ] Pass
 
 ---
 
@@ -470,7 +510,7 @@ included and encodes as all-zero dummies — indistinguishable from the referenc
 level. The ROADMAP language suggests such rows should be excluded instead.
 
 **Steps:** on `Life Expectancy Data`, note then delete the Status value of a
-Full_Data-complete row (e.g., the first row). On `Model Construction`, check
+mask-complete row (e.g., the first row). On `Model Construction`, check
 whether U1 drops by 1 (row excluded) or holds (row included, encoded as
 reference). Restore the cell afterward.
 
@@ -486,10 +526,10 @@ with a non-blank condition for included Categorical Predictors in a follow-up).
 
 | Field | |
 |---|---|
-| Executed by | Stephen Colodner |
-| Date | 2026-07-05 |
-| Workbook build | 2.0 |
-| Result | PASS |
+| Executed by | |
+| Date | |
+| Workbook build | |
+| Result | |
 
 ---
 
@@ -507,12 +547,15 @@ period `#N/A` — never a fabricated 0; (B) "prior period" = the literal time
 value t−Δ — a gap returns `#N/A`, never the previous available row; (C) Δ
 computed-and-displayed-with-override, never a silent 1. Expected numbers below
 are asserted programmatically in `tests/test_difference_by_verification.py`
-from the same CSV.
+from the same CSV. The spectrum counts within-group Year spacings and is
+**independent of the completeness mask** (`Sequence_Deltas` ignores
+`Sample_Include()`), so the Full_Data change does not move these numbers.
 
 ## T17 — WHO panel: Δ candidate, spectrum, and gap-aware differencing
 
-**Inputs:** starting from the shipped defaults, set **H5 = TRUE** (Year is the
-sequence axis; Country is already the Identifier, so groups = Country).
+**Inputs:** none required — the shipped default already flags **Year as the
+Sequence axis** (H5 = TRUE, Country is the Identifier, so groups = Country). If
+you cleared it in an earlier test, re-set **H5 = TRUE**.
 
 **Expected:**
 
@@ -601,7 +644,8 @@ data-sheet `ISNA` count reads **194** (the 193 first periods + Albania 2008).
   by a 31-day month) and **11** `#N/A` — commitment (B) on off-grid data.
 
 **Restore:** delete the `Month_Start` table column, set B4 back to
-`Identifier (Row Label)`, clear H27/I27, and re-apply the desired T17 state.
+`Identifier (Row Label)`, clear H27/I27, and re-set H5 = TRUE (Year the
+shipped Sequence axis).
 
 - [ ] Pass
 

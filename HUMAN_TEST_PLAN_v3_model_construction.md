@@ -67,17 +67,20 @@ Output cells:
 
 **Inputs:** none. The build ships this spec:
 
-| Variable | Role | Include | Type | Reference | Order | Transform |
-|---|---|---|---|---|---|---|
-| Country | Identifier | FALSE | Continuous | | | None |
-| Year | Predictor | TRUE | Categorical | | | None |
-| Status | Predictor | TRUE | Categorical | | | None |
-| Life expectancy | Response | FALSE | Continuous | | | None |
-| Adult Mortality | Predictor | TRUE | Continuous | | | None |
-| GDP | Predictor | TRUE | Continuous | | | None |
-| Schooling | Predictor | TRUE | Continuous | | | None |
-| (all other numerics) | Predictor | FALSE | Continuous | | | None |
-| Full_Data | Filter | FALSE | Continuous | | | None |
+| Variable | Role | Include | Type | Reference | Order | Transform | Sequence |
+|---|---|---|---|---|---|---|---|
+| Country | Identifier | FALSE | Continuous | | | None | |
+| Year | Predictor | TRUE | Categorical | | | None | TRUE |
+| Status | Predictor | TRUE | Categorical | | | None | |
+| Life expectancy | Response | FALSE | Continuous | | | None | |
+| Adult Mortality | Predictor | TRUE | Continuous | | | None | |
+| Population | Omit | FALSE | Continuous | | | None | |
+| GDP | Predictor | TRUE | Continuous | | | None | |
+| Schooling | Predictor | TRUE | Continuous | | | None | |
+| (all other numerics) | Predictor | FALSE | Continuous | | | None | |
+| Full_Data | Filter | FALSE | Continuous | | | None | |
+
+The shipped spec now demonstrates every Role (Identifier, Response, Predictor, Filter, and Omit — Population is shipped as an explicit Omit) and flags Year as the Sequence axis, so the Base Period Δ candidate (Δ = 1), the Sequence Spacing block, and the gated Durbin-Watson diagnostic on the Regression sheet are all live at T0. Population's Omit role contributes no column and imposes no completeness condition, so k and included rows are unchanged from a not-included row.
 
 **Expected:**
 
@@ -88,8 +91,11 @@ Output cells:
 | response | Q1 | `Life expectancy` |
 | responses | S1 | 1, not red |
 | included rows | U1 | 1649 |
+| sequence status | H2 | blank — one flag (Year) is valid; the line errors only at two-plus |
 | header strip | Q2→ | `Year: 2001` … `Year: 2015` (15 cols), `Status: Developing`, `Adult Mortality`, `GDP`, `Schooling` |
 | Levels | H4 / H5 | 16 / 2, blank elsewhere |
+| Base Period Δ | Year row, col I | 1 (Year's within-country spacing) |
+| Durbin-Watson | Regression diagnostics | a number computed along Year, not the `n/a — requires Sequence` token |
 | gray cascade | C–H | gray on every non-Predictor row |
 | y header | N2 | `y: Life expectancy` |
 | first filtered label | M3 | `Afghanistan` |

@@ -308,17 +308,35 @@ _VALIDATION_LAST_ROW = 16000
 # Default spec: variable -> (role, include, type). Reference (E) starts
 # blank everywhere so the first-in-sort-order default is what gets
 # exercised; type an explicit level into E to exercise the override path.
+# The shipped T0 spec is a live demonstration of the full feature set: every
+# Role is exercised (Response, Predictor, Identifier, Filter, Omit), both
+# Types (Continuous, Categorical), and — via _DEFAULT_SEQUENCE_VARIABLES
+# below — the structural Sequence axis with its Base Period Δ companion.
+# Population is shipped as an explicit Omit (WHO population figures are
+# notoriously incomplete/inconsistent) so the Omit role and its graying are
+# demonstrated; because Omit contributes no column and imposes no mask
+# condition, it leaves the fitted model identical to a plain excluded row.
 _DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "Country": (_ROLE_IDENTIFIER, False, "Continuous"),
     "Year": (_ROLE_PREDICTOR, True, "Categorical"),
     "Status": (_ROLE_PREDICTOR, True, "Categorical"),
     "Life expectancy": (_ROLE_RESPONSE, False, "Continuous"),
     "Adult Mortality": (_ROLE_PREDICTOR, True, "Continuous"),
+    "Population": (_ROLE_OMIT, False, "Continuous"),
     "GDP": (_ROLE_PREDICTOR, True, "Continuous"),
     "Schooling": (_ROLE_PREDICTOR, True, "Continuous"),
     "Full_Data": (_ROLE_FILTER, False, "Continuous"),
 }
 _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
+
+# Variables shipped with their Sequence flag (column H) set TRUE. Year is the
+# canonical ordering axis for the WHO Country/Year panel: flagging it activates
+# the Base Period Δ candidate (Δ = 1), the Sequence Spacing block, and the
+# gated Durbin-Watson diagnostic on the Regression sheet. Structural and
+# Role-independent — Year stays a Categorical Predictor, so the fitted model is
+# unchanged; the flag only drives the serial-correlation / base-period layer.
+# Kept to at most one entry: the H2 status line errors at two-plus flags.
+_DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Year"})
 
 _DEFAULT_TRANSFORM = "None"
 
@@ -542,14 +560,17 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         format_input(sheet, row, _C_ORDER)
         val(sheet, row, _C_TRANSFORM, _DEFAULT_TRANSFORM)
         format_input(sheet, row, _C_TRANSFORM)
-        # H (Sequence) starts blank everywhere: zero flags is a valid spec
-        # (non-panel data). I (Base Period Δ) is computed-with-override:
+        # H (Sequence): TRUE on the shipped ordering axis (Year), blank
+        # elsewhere — zero-or-one flags is the legal range, and blank stays a
+        # valid non-panel spec. I (Base Period Δ) is computed-with-override:
         # pre-filled with the candidate formula — the MODE of within-group
         # spacings on the flagged row, blank elsewhere — and styled as an
         # input so a typed number overrides the candidate (the reference-
         # level pattern). Base_Period_Delta() reads whatever this cell
         # shows; the scalar $H test keeps the candidate lazy (it computes
         # only on the flagged row).
+        if variable in _DEFAULT_SEQUENCE_VARIABLES:
+            val(sheet, row, _C_SEQUENCE, True)
         format_input(sheet, row, _C_SEQUENCE)
         f(
             sheet,

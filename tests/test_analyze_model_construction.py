@@ -23,6 +23,7 @@ from lambda_catalog.analyze_model_construction import (
     load_source_rows,
 )
 from lambda_catalog.write_sheet_model_construction import (
+    _DEFAULT_SEQUENCE_VARIABLES,
     _DEFAULT_SPEC,
     _ROLE_FILTER,
     _ROLE_OMIT,
@@ -69,6 +70,7 @@ def test_default_spec_mirrors_the_writer_prefill() -> None:
         else:
             assert (variable.role, variable.include) == ("Predictor (x)", False)
         assert variable.reference == ""
+        assert variable.sequence == (variable.name in _DEFAULT_SEQUENCE_VARIABLES)
 
 
 # ---------------------------------------------------------------------------
@@ -79,6 +81,9 @@ def test_t0_expectations_pin_the_csv_derived_values(rows, t0_expected) -> None:
     assert t0_expected.total_rows == 2938
     assert t0_expected.included_rows == 1649
     assert t0_expected.k == 19
+    # Year is the shipped Sequence axis; Population's Omit role leaves k
+    # unchanged (Omit contributes no column, same as a not-included row).
+    assert t0_expected.sequence_flags == 1
     assert t0_expected.response_name == "Life expectancy"
     assert t0_expected.responses_count == 1
     assert t0_expected.first_filtered_label == "Afghanistan"
@@ -194,9 +199,9 @@ def _observed_matching(expected) -> ModelConstructionObserved:
         audit_response=expected.response_name,
         audit_responses=float(expected.responses_count),
         audit_included=float(expected.included_rows),
-        # The shipped spec pre-fills the Sequence column blank, so the
-        # zero-or-one audit count always reads 0 in the QC states.
-        audit_sequence_flags=0.0,
+        # The shipped spec flags Year as the Sequence axis, so the zero-or-one
+        # audit count reads 1; a correct sheet reads back this expected count.
+        audit_sequence_flags=float(expected.sequence_flags),
         header_strip=expected.constructed_column_names,
         level_cells={
             name: float(count) for name, count in expected.level_counts.items()

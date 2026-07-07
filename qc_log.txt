@@ -1,6 +1,5 @@
 python build_qc.py --verbose
   Prep: catalog loaded            0.0s
-<<<<<<< HEAD
   Prep: regression QC loaded      0.7s
   Prep: csv loaded                0.8s
   Prep total                      0.8s
@@ -13,20 +12,6 @@ python build_qc.py --verbose
   Write: catalog start            0.9s
   Write: catalog done             4.0s
   Write: life exp start           4.0s
-=======
-  Prep: analysis loaded           0.0s
-  Prep: csv loaded                0.1s
-  Prep total                      0.1s
-  Prep: drop names start          0.1s
-  Prep: drop names done           0.3s
-  Write: app start                0.0s
-  Write: app ready                0.3s
-  Write: open workbook            0.5s
-  Write: workbook opened          4.4s
-  Write: catalog start            4.7s
-  Write: catalog done             7.7s
-  Write: life exp start           7.7s
->>>>>>> origin/main
   LifeExp: get/create start       0.0s
   LifeExp: get/create done        0.0s
   LifeExp: reset start            0.0s
@@ -46,7 +31,6 @@ python build_qc.py --verbose
   LifeExp: width done             0.2s
   LifeExp: freeze start           0.2s
   LifeExp: freeze done            0.2s
-<<<<<<< HEAD
   Write: life exp done            4.2s
   Write: univariate start         4.2s
   Write: univariate done         17.3s
@@ -63,30 +47,6 @@ python build_qc.py --verbose
   Write: save start              23.5s
   Write: save done              663.8s
   Write sheets:   664.0s
-=======
-  Write: life exp done            7.9s
-  Write: univariate start         7.9s
-  Write: univariate done         18.1s
-  Write: regression instr start   18.1s
-  Write: regression instr done   18.2s
-  Write: diagnostic start        18.2s
-  Write: diagnostic done         18.5s
-  Write: version history start   18.5s
-  Write: version history done    18.6s
-  Write: regression start        18.6s
-  Write: regression done         23.3s
-  Write: scalar start            23.3s
-  Write: scalar done             23.9s
-  Write: vector start            23.9s
-  Write: vector done             24.5s
-  Write: observation start       24.5s
-  Write: observation done        24.8s
-  Write: dummy test start        24.8s
-  Write: dummy test done         25.1s
-  Write: save start              25.1s
-  Write: save done              655.1s
-  Write sheets:   655.2s
->>>>>>> origin/main
   Sync: start                     0.0s
   Sync: done                      0.2s
   Sync names:     0.2s
@@ -97,7 +57,6 @@ python build_qc.py --verbose
   Verify: calculate start         0.0s
   Calc: Life Expectancy Data start    0.0s
   Calc: Life Expectancy Data done    0.0s
-<<<<<<< HEAD
   Calc: Regression start          0.0s
   Calc: Regression done          13.3s
   Calc: Univariate start         13.3s
@@ -129,234 +88,3 @@ Sheet verified: Dummy_Test
 Created names: 100
 Updated names: 0
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\qc_log.txt
-=======
-  Calc: MLR_Scalar_Test start     0.0s
-  Calc: MLR_Scalar_Test done      0.2s
-  Calc: MLR_Vector_Outputs_T start    0.2s
-  Calc: MLR_Vector_Outputs_T done    1.5s
-  Calc: MLR_Observation_Test start    1.5s
-  Calc: MLR_Observation_Test done    1.8s
-  Calc: Regression start          1.8s
-  Calc: Regression done          15.1s
-  Calc: Univariate start         15.1s
-  Calc: Univariate done         186.9s
-  Calc: Dummy_Test start        186.9s
-  Calc: Dummy_Test done         186.9s
-  Verify: calculate done        186.9s
-  Verify: read scalar start     186.9s
-  Verify: read scalar done      187.0s
-  Verify: read vector start     187.0s
-  Verify: read vector done      187.0s
-  Verify: read obs start        187.0s
-  Verify: read obs done         187.3s
-  Verify: reg spec block start  188.2s
-  Verify: reg spec block done   210.4s
-  Verify: regression start      210.4s
-  Verify: regression done       243.4s
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='Multiple_R': expected=0.8916429161889693, excel_calc=0.885195895495728, abs_diff=0.006447020693241323, fdd=3.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='R_Squared': expected=0.7950270899899694, excel_calc=0.7835717734024837, abs_diff=0.011455316587485664, fdd=2.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='Adjusted_R_Squared': expected=0.794528372447366, excel_calc=0.7832547785630879, abs_diff=0.011273593884278066, fdd=2.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='SE_Regression': expected=3.9875150380002333, excel_calc=4.338224847672588, abs_diff=0.3507098096723551, fdd=1.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='Observations': expected=1649.0, excel_calc=2736.0, abs_diff=1087.0, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='PRESS': expected=26383.96576830581, excel_calc=51784.07045432716, abs_diff=25400.104686021346, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='PRESS_R2': expected=0.7931144964940972, excel_calc=0.7819458931467855, abs_diff=0.011168603347311623, fdd=2.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='Mean_Leverage': expected=0.0030321406913280777, excel_calc=0.001827485380116959, abs_diff=0.0012046553112111187, fdd=3.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='AIC': expected=4566.681257795717, excel_calc=8034.9652363209125, abs_diff=3468.2839785251954, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='BIC': expected=4593.720879408515, excel_calc=8064.536497714625, abs_diff=3470.815618306109, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='AICc': expected=4566.71777635932, excel_calc=8034.98721434289, abs_diff=3468.2694379835702, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='QQ_Correlation': expected=0.9934996682119852, excel_calc=0.9821540641171659, abs_diff=0.011345604094819328, fdd=2.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='SS_Regression': expected=101389.25720608865, excel_calc=186084.71312677834, abs_diff=84695.4559206897, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='MS_Regression': expected=25347.31430152216, excel_calc=46521.178281694585, abs_diff=21173.863980172424, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='F_Statistic': expected=1594.1430209967127, excel_calc=2471.875488244126, abs_diff=877.7324672474131, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='Residual_Degrees_Of_Freedom': expected=1644.0, excel_calc=2731.0, abs_diff=1087.0, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='SS_Residual': expected=26140.054037089034, excel_calc=51397.95207790027, abs_diff=25257.898040811237, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='MS_Residual': expected=15.900276178278002, excel_calc=18.82019482896385, abs_diff=2.9199186506858474, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='Total_Degrees_Of_Freedom': expected=1648.0, excel_calc=2735.0, abs_diff=1087.0, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_intercept' allow_intercept=True stat_name='SS_Total': expected=127529.31124317768, excel_calc=237482.6652046786, abs_diff=109953.35396150092, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='Multiple_R': expected=0.9892528654662228, excel_calc=0.986756029990925, abs_diff=0.002496835475297776, fdd=3.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='R_Squared': expected=0.9786212318331327, excel_calc=0.9736874627234514, abs_diff=0.004933769109681241, fdd=2.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='Adjusted_R_Squared': expected=0.9785692469865263, excel_calc=0.9736489377786834, abs_diff=0.00492030920784281, fdd=2.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='SE_Regression': expected=10.226691543159673, excel_calc=11.380294701040333, abs_diff=1.15360315788066, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='Observations': expected=1649.0, excel_calc=2736.0, abs_diff=1087.0, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='PRESS': expected=173218.55780215497, excel_calc=355495.3323351194, abs_diff=182276.77453296445, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='PRESS_R2': expected=0.9784751130138167, excel_calc=0.9735631979570895, abs_diff=0.0049119150567272785, fdd=2.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='Mean_Leverage': expected=0.002425712553062462, excel_calc=0.0014619883040935672, abs_diff=0.000963724248968895, fdd=3.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='AIC': expected=7671.848835597596, excel_calc=13311.262626276863, abs_diff=5639.413790679267, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='BIC': expected=7693.480532887835, excel_calc=13334.919635391832, abs_diff=5641.439102503998, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='AICc': expected=7671.8731664978395, excel_calc=13311.277272926442, abs_diff=5639.404106428602, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='QQ_Correlation': expected=0.9979401900291053, excel_calc=0.9807449659262628, abs_diff=0.017195224102842466, fdd=2.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='SS_Regression': expected=7875319.323233356, excel_calc=13093162.61435774, abs_diff=5217843.291124384, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='MS_Regression': expected=1968829.830808339, excel_calc=3273290.653589435, abs_diff=1304460.822781096, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='F_Statistic': expected=18825.124930027632, excel_calc=25274.207882370705, abs_diff=6449.082952343073, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='Residual_Degrees_Of_Freedom': expected=1645.0, excel_calc=2732.0, abs_diff=1087.0, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='SS_Residual': expected=172042.68676664573, excel_calc=353824.34564226284, abs_diff=181781.6588756171, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='MS_Residual': expected=104.58521991893357, excel_calc=129.51110748252665, abs_diff=24.92588756359308, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='Total_Degrees_Of_Freedom': expected=1649.0, excel_calc=2736.0, abs_diff=1087.0, fdd=0.0
-ERROR [Regression/scalars] config_name='sparse_no_intercept' allow_intercept=False stat_name='SS_Total': expected=8047362.010000002, excel_calc=13446986.960000003, abs_diff=5399624.950000001, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='Multiple_R': expected=0.8957500485864232, excel_calc=0.891172775594501, abs_diff=0.004577272991922121, fdd=2.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='R_Squared': expected=0.8023681495425794, excel_calc=0.7941889159608069, abs_diff=0.008179233581772527, fdd=2.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='Adjusted_R_Squared': expected=0.80140409173547, excel_calc=0.7932969936031072, abs_diff=0.008107098132362767, fdd=2.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='SE_Regression': expected=3.9202300337363183, excel_calc=3.917778299489581, abs_diff=0.0024517342467373915, fdd=3.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='Observations': expected=1649.0, excel_calc=1855.0, abs_diff=206.0, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='PRESS': expected=25564.71304255686, excel_calc=28768.39125508811, abs_diff=3203.6782125312493, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='PRESS_R2': expected=0.7995385312337404, excel_calc=0.7910353002188205, abs_diff=0.008503231014919899, fdd=2.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='Mean_Leverage': expected=0.005457853244390539, excel_calc=0.004851752021563342, abs_diff=0.0006061012228271972, fdd=4.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='AIC': expected=4514.539151975775, excel_calc=5075.074854922737, abs_diff=560.5357029469624, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='BIC': expected=4563.210470878811, excel_calc=5124.805614698111, abs_diff=561.5951438192997, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='AICc': expected=4514.648975038618, excel_calc=5075.172415898347, abs_diff=560.5234408597289, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='QQ_Correlation': expected=0.992721217190581, excel_calc=0.9877208016774468, abs_diff=0.005000415513134238, fdd=3.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='SS_Regression': expected=102325.45747462814, excel_calc=109336.82812809973, abs_diff=7011.370653471589, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='MS_Regression': expected=12790.682184328518, excel_calc=13667.103516012467, abs_diff=876.4213316839487, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='F_Statistic': expected=832.282196799381, excel_calc=890.4238234470291, abs_diff=58.14162664764808, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='Residual_Degrees_Of_Freedom': expected=1640.0, excel_calc=1846.0, abs_diff=206.0, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='SS_Residual': expected=25203.85376854954, excel_calc=28334.229640094418, abs_diff=3130.3758715448785, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='MS_Residual': expected=15.368203517408256, excel_calc=15.348986803951473, abs_diff=0.019216713456783552, fdd=1.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='Total_Degrees_Of_Freedom': expected=1648.0, excel_calc=1854.0, abs_diff=206.0, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_intercept' allow_intercept=True stat_name='SS_Total': expected=127529.31124317768, excel_calc=137671.05776819415, abs_diff=10141.746525016468, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='Multiple_R': expected=0.992897832631588, excel_calc=0.9924762896717313, abs_diff=0.0004215429598567466, fdd=3.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='R_Squared': expected=0.985846106044505, excel_calc=0.9850091855605663, abs_diff=0.0008369204839386857, fdd=3.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='Adjusted_R_Squared': expected=0.9857771047333265, excel_calc=0.9849442551244453, abs_diff=0.0008328496088811921, fdd=2.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='SE_Regression': expected=8.33125538423123, excel_calc=8.659623473993305, abs_diff=0.32836808976207443, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='Observations': expected=1649.0, excel_calc=1855.0, abs_diff=206.0, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='PRESS': expected=115355.15966288847, excel_calc=140377.65860625167, abs_diff=25022.4989433632, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='PRESS_R2': expected=0.9856654690668143, excel_calc=0.9848064832379891, abs_diff=0.000858985828825154, fdd=2.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='Mean_Leverage': expected=0.004851425106124924, excel_calc=0.00431266846361186, abs_diff=0.0005387566425130641, fdd=3.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='AIC': expected=6999.787202010513, excel_calc=8016.65301063548, abs_diff=1016.865808624967, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='BIC': expected=7043.05059659099, excel_calc=8060.858130435812, abs_diff=1017.8075338448225, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='AICc': expected=6999.875006888562, excel_calc=8016.731017136022, abs_diff=1016.8560102474603, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='QQ_Correlation': expected=0.9974962603595647, excel_calc=0.9822267294987912, abs_diff=0.01526953086077354, fdd=2.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='SS_Regression': expected=7933460.501488982, excel_calc=9100808.281620162, abs_diff=1167347.7801311798, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='MS_Regression': expected=991682.5626861227, excel_calc=1137601.0352025202, abs_diff=145918.47251639748, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='F_Statistic': expected=14287.353228605283, excel_calc=15170.222847804534, abs_diff=882.8696191992512, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='Residual_Degrees_Of_Freedom': expected=1641.0, excel_calc=1847.0, abs_diff=206.0, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='SS_Residual': expected=113901.50851101957, excel_calc=138504.82837983736, abs_diff=24603.319868817794, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='MS_Residual': expected=69.40981627728188, excel_calc=74.98907871133588, abs_diff=5.579262434054002, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='Total_Degrees_Of_Freedom': expected=1649.0, excel_calc=1855.0, abs_diff=206.0, fdd=0.0
-ERROR [Regression/scalars] config_name='medium_no_intercept' allow_intercept=False stat_name='SS_Total': expected=8047362.010000002, excel_calc=9239313.11, abs_diff=1191951.0999999978, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='Multiple_R': expected=0.9136398057544148, excel_calc=0.9065347264570507, abs_diff=0.0071050792973641475, fdd=3.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='R_Squared': expected=0.834737694658965, excel_calc=0.8218052102725597, abs_diff=0.012932484386405263, fdd=2.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='Adjusted_R_Squared': expected=0.8329127121459965, excel_calc=0.8201543593595535, abs_diff=0.012758352786442995, fdd=2.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='SE_Regression': expected=3.5958213627434157, excel_calc=3.652333785489622, abs_diff=0.05651242274620616, fdd=1.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='Observations': expected=1649.0, excel_calc=1853.0, abs_diff=204.0, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='PRESS': expected=21644.33729163833, excel_calc=25115.41674477014, abs_diff=3471.0794531318097, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='PRESS_R2': expected=0.8302795092308929, excel_calc=0.8171653939356676, abs_diff=0.013114115295225326, fdd=2.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='Mean_Leverage': expected=0.011522134627046696, excel_calc=0.009713977334052886, abs_diff=0.0018081572929938092, fdd=3.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='AIC': expected=4239.579194472018, excel_calc=4818.539721269463, abs_diff=578.9605267974457, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='BIC': expected=4342.32975660065, excel_calc=4917.9818233425995, abs_diff=575.652066741949, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='AICc': expected=4240.045738363976, excel_calc=4818.912676558449, abs_diff=578.8669381944728, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='QQ_Correlation': expected=0.9948200868058761, excel_calc=0.9884725744511789, abs_diff=0.006347512354697216, fdd=3.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='Regression_Degrees_Of_Freedom': expected=18.0, excel_calc=17.0, abs_diff=1.0, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='SS_Regression': expected=106453.52326857577, excel_calc=112888.80580821978, abs_diff=6435.282539644017, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='MS_Regression': expected=5914.084626031987, excel_calc=6640.517988718811, abs_diff=726.4333626868238, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='F_Statistic': expected=457.3949003495903, excel_calc=497.80704229434195, abs_diff=40.41214194475168, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='Residual_Degrees_Of_Freedom': expected=1630.0, excel_calc=1835.0, abs_diff=205.0, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='SS_Residual': expected=21075.78797460192, excel_calc=24478.059717954126, abs_diff=3402.271743352205, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='MS_Residual': expected=12.929931272761914, excel_calc=13.33954208062895, abs_diff=0.4096108078670362, fdd=1.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='Total_Degrees_Of_Freedom': expected=1648.0, excel_calc=1852.0, abs_diff=204.0, fdd=0.0
-ERROR [Regression/scalars] config_name='full_intercept' allow_intercept=True stat_name='SS_Total': expected=127529.31124317768, excel_calc=137366.8655261739, abs_diff=9837.554282996221, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='Multiple_R': expected=0.9944627615843322, excel_calc=0.9940286782368993, abs_diff=0.0004340833474328898, fdd=4.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='R_Squared': expected=0.9889561841779363, excel_calc=0.9880930131573972, abs_diff=0.0008631710205391219, fdd=3.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='Adjusted_R_Squared': expected=0.9888343027035051, excel_calc=0.987982763279225, abs_diff=0.0008515394242801788, fdd=3.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='SE_Regression': expected=7.381750571735556, excel_calc=7.735090769773316, abs_diff=0.35334019803775973, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='Observations': expected=1649.0, excel_calc=1853.0, abs_diff=204.0, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='PRESS': expected=91663.42695306729, excel_calc=112901.13361739251, abs_diff=21237.70666432522, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='PRESS_R2': expected=0.9886095062159298, excel_calc=0.9877623882514418, abs_diff=0.0008471179644879978, fdd=3.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='Mean_Leverage': expected=0.010915706488781079, excel_calc=0.009174311926605505, abs_diff=0.0017413945621755737, fdd=3.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='AIC': expected=6610.638706766345, excel_calc=7598.534851325751, abs_diff=987.8961445594059, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='BIC': expected=6707.9813445724185, excel_calc=7692.452392172602, abs_diff=984.4710476001837, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='AICc': expected=6611.058338668186, excel_calc=7598.868366312127, abs_diff=987.8100276439418, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='QQ_Correlation': expected=0.9971273592784836, excel_calc=0.9818107399743097, abs_diff=0.01531661930417394, fdd=2.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='Regression_Degrees_Of_Freedom': expected=18.0, excel_calc=17.0, abs_diff=1.0, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='SS_Regression': expected=7958488.426108089, excel_calc=9115898.068758262, abs_diff=1157409.642650173, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='MS_Regression': expected=442138.24589489383, excel_calc=536229.2981622508, abs_diff=94091.05226735695, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='F_Statistic': expected=8114.0812317370555, excel_calc=8962.304807390847, abs_diff=848.2235756537912, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='Residual_Degrees_Of_Freedom': expected=1631.0, excel_calc=1836.0, abs_diff=205.0, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='SS_Residual': expected=88873.583891912, excel_calc=109850.871241737, abs_diff=20977.287349824997, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='MS_Residual': expected=54.49024150331821, excel_calc=59.83162921663235, abs_diff=5.341387713314141, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='Total_Degrees_Of_Freedom': expected=1649.0, excel_calc=1853.0, abs_diff=204.0, fdd=0.0
-ERROR [Regression/scalars] config_name='full_no_intercept' allow_intercept=False stat_name='SS_Total': expected=8047362.010000002, excel_calc=9225748.94, abs_diff=1178386.9299999978, fdd=0.0
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Pearson_R': expected=-0.7025230623069737, excel_calc=-0.6810170773799489, abs_diff=0.021505984927024824, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='BMI' stat_name='Pearson_R': expected=0.5420415876915768, excel_calc=0.5637358574369801, abs_diff=0.021694269745403227, fdd=1
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Pearson_R': expected=-0.5922362925926375, excel_calc=-0.5672318668456401, abs_diff=0.02500442574699746, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Schooling' stat_name='Pearson_R': expected=0.7276300323211041, excel_calc=0.749687864419444, abs_diff=0.02205783209833989, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Spearman_R': expected=-0.6556208069725407, excel_calc=-0.6323790664454991, abs_diff=0.023241740527041532, fdd=1
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='BMI' stat_name='Spearman_R': expected=0.5836370658786587, excel_calc=0.5831016752033443, abs_diff=0.0005353906753143844, fdd=3
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Spearman_R': expected=-0.720264698186958, excel_calc=-0.739602564999963, abs_diff=0.019337866813004978, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Schooling' stat_name='Spearman_R': expected=0.7747691193054028, excel_calc=0.810464021692221, abs_diff=0.03569490238681816, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Skewness': expected=1.2764291138227017, excel_calc=1.2649363290401283, abs_diff=0.011492784782573429, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='BMI' stat_name='Skewness': expected=-0.233600717641878, excel_calc=-0.2673898294728434, abs_diff=0.03378911183096539, fdd=1
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Skewness': expected=4.974175596962507, excel_calc=5.321933752197237, abs_diff=0.34775815523473064, fdd=1
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Schooling' stat_name='Skewness': expected=-0.12816419625645165, excel_calc=-0.4848102962585658, abs_diff=0.35664610000211416, fdd=1
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Kurtosis': expected=2.400944587743931, excel_calc=2.200256803035182, abs_diff=0.20068778470874893, fdd=1
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='BMI' stat_name='Kurtosis': expected=-1.2702262093966017, excel_calc=-1.29274711758942, abs_diff=0.02252090819281838, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Kurtosis': expected=27.75149159908865, excel_calc=33.48756447030932, abs_diff=5.736072871220674, fdd=0
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Schooling' stat_name='Kurtosis': expected=0.04570755295106421, excel_calc=0.6387738960364979, abs_diff=0.5930663430854337, fdd=0
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='VIF': expected=1.689457170647062, excel_calc=1.6693786691186194, abs_diff=0.020078501528442594, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='BMI' stat_name='VIF': expected=1.4832473756915423, excel_calc=1.5042089502136349, abs_diff=0.020961574522092574, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='VIF': expected=1.4385388653125504, excel_calc=1.4020353285731484, abs_diff=0.03650353673940199, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Schooling' stat_name='VIF': expected=1.5805964917720525, excel_calc=1.6023159600053751, abs_diff=0.021719468233322603, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Tolerance': expected=0.5919060970435848, excel_calc=0.5990252652071859, abs_diff=0.007119168163601142, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='BMI' stat_name='Tolerance': expected=0.6741963723574866, excel_calc=0.6648012564065486, abs_diff=0.009395115950938004, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Tolerance': expected=0.6951497968619226, excel_calc=0.7132487888288095, abs_diff=0.018098991966886913, fdd=2
-ERROR [Regression/predictors] config_name='sparse_intercept' allow_intercept=True predictor_name='Schooling' stat_name='Tolerance': expected=0.6326725417939344, excel_calc=0.6240966357201144, abs_diff=0.008575906073819972, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Adult Mortality' stat_name='Pearson_R': expected=-0.7025230623069737, excel_calc=-0.6810170773799489, abs_diff=0.021505984927024824, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='BMI' stat_name='Pearson_R': expected=0.5420415876915768, excel_calc=0.5637358574369801, abs_diff=0.021694269745403227, fdd=1
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='HIV/AIDS' stat_name='Pearson_R': expected=-0.5922362925926375, excel_calc=-0.5672318668456401, abs_diff=0.02500442574699746, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Schooling' stat_name='Pearson_R': expected=0.7276300323211041, excel_calc=0.749687864419444, abs_diff=0.02205783209833989, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Adult Mortality' stat_name='Spearman_R': expected=-0.6556208069725407, excel_calc=-0.6323790664454991, abs_diff=0.023241740527041532, fdd=1
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='BMI' stat_name='Spearman_R': expected=0.5836370658786587, excel_calc=0.5831016752033443, abs_diff=0.0005353906753143844, fdd=3
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='HIV/AIDS' stat_name='Spearman_R': expected=-0.720264698186958, excel_calc=-0.739602564999963, abs_diff=0.019337866813004978, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Schooling' stat_name='Spearman_R': expected=0.7747691193054028, excel_calc=0.810464021692221, abs_diff=0.03569490238681816, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Adult Mortality' stat_name='Skewness': expected=1.2764291138227017, excel_calc=1.2649363290401283, abs_diff=0.011492784782573429, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='BMI' stat_name='Skewness': expected=-0.233600717641878, excel_calc=-0.2673898294728434, abs_diff=0.03378911183096539, fdd=1
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='HIV/AIDS' stat_name='Skewness': expected=4.974175596962507, excel_calc=5.321933752197237, abs_diff=0.34775815523473064, fdd=1
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Schooling' stat_name='Skewness': expected=-0.12816419625645165, excel_calc=-0.4848102962585658, abs_diff=0.35664610000211416, fdd=1
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Adult Mortality' stat_name='Kurtosis': expected=2.400944587743931, excel_calc=2.200256803035182, abs_diff=0.20068778470874893, fdd=1
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='BMI' stat_name='Kurtosis': expected=-1.2702262093966017, excel_calc=-1.29274711758942, abs_diff=0.02252090819281838, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='HIV/AIDS' stat_name='Kurtosis': expected=27.75149159908865, excel_calc=33.48756447030932, abs_diff=5.736072871220674, fdd=0
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Schooling' stat_name='Kurtosis': expected=0.04570755295106421, excel_calc=0.6387738960364979, abs_diff=0.5930663430854337, fdd=0
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Adult Mortality' stat_name='VIF': expected=1.689457170647062, excel_calc=1.6693786691186194, abs_diff=0.020078501528442594, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='BMI' stat_name='VIF': expected=1.4832473756915423, excel_calc=1.5042089502136349, abs_diff=0.020961574522092574, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='HIV/AIDS' stat_name='VIF': expected=1.4385388653125504, excel_calc=1.4020353285731484, abs_diff=0.03650353673940199, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Schooling' stat_name='VIF': expected=1.5805964917720525, excel_calc=1.6023159600053751, abs_diff=0.021719468233322603, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Adult Mortality' stat_name='Tolerance': expected=0.5919060970435848, excel_calc=0.5990252652071859, abs_diff=0.007119168163601142, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='BMI' stat_name='Tolerance': expected=0.6741963723574866, excel_calc=0.6648012564065486, abs_diff=0.009395115950938004, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='HIV/AIDS' stat_name='Tolerance': expected=0.6951497968619226, excel_calc=0.7132487888288095, abs_diff=0.018098991966886913, fdd=2
-ERROR [Regression/predictors] config_name='sparse_no_intercept' allow_intercept=False predictor_name='Schooling' stat_name='Tolerance': expected=0.6326725417939344, excel_calc=0.6240966357201144, abs_diff=0.008575906073819972, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Pearson_R': expected=-0.7025230623069737, excel_calc=-0.7125968816848772, abs_diff=0.010073819377903526, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Alcohol' stat_name='Pearson_R': expected=0.4027183217273533, excel_calc=0.35115561302530124, abs_diff=0.05156270870205204, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Hepatitis B' stat_name='Pearson_R': expected=0.19993527639757752, excel_calc=0.22523213971171652, abs_diff=0.025296863314138995, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Polio' stat_name='Pearson_R': expected=0.3272944031049288, excel_calc=0.3479828332385122, abs_diff=0.020688430133583402, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Pearson_R': expected=-0.5922362925926375, excel_calc=-0.5921994356902897, abs_diff=3.685690234789263e-05, fdd=5
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='GDP' stat_name='Pearson_R': expected=0.4413218099135653, excel_calc=0.43770627148112834, abs_diff=0.003615538432436949, fdd=3
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='thinness 1-19 years' stat_name='Pearson_R': expected=-0.457838193349844, excel_calc=-0.4529348399706029, abs_diff=0.004903353379241082, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Schooling' stat_name='Pearson_R': expected=0.7276300323211041, excel_calc=0.7073567916607423, abs_diff=0.020273240660361846, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Spearman_R': expected=-0.6556208069725407, excel_calc=-0.6540513541827921, abs_diff=0.0015694527897485155, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Alcohol' stat_name='Spearman_R': expected=0.4515670966315161, excel_calc=0.3987394720274868, abs_diff=0.052827624604029344, fdd=1
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Hepatitis B' stat_name='Spearman_R': expected=0.29839199664291366, excel_calc=0.3190436978693549, abs_diff=0.02065170122644122, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Polio' stat_name='Spearman_R': expected=0.43534266254009196, excel_calc=0.4389342010506113, abs_diff=0.0035915385105193542, fdd=3
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Spearman_R': expected=-0.720264698186958, excel_calc=-0.7091890583844038, abs_diff=0.011075639802554216, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='GDP' stat_name='Spearman_R': expected=0.5707963690426558, excel_calc=0.5925674350807888, abs_diff=0.021771066038132947, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='thinness 1-19 years' stat_name='Spearman_R': expected=-0.6196004677486489, excel_calc=-0.5776755470354006, abs_diff=0.04192492071324827, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Schooling' stat_name='Spearman_R': expected=0.7747691193054028, excel_calc=0.7632245566423932, abs_diff=0.011544562663009628, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Skewness': expected=1.2764291138227017, excel_calc=1.3850819768569782, abs_diff=0.10865286303427646, fdd=1
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Alcohol' stat_name='Skewness': expected=0.6625183993572465, excel_calc=0.6820635446323852, abs_diff=0.01954514527513862, fdd=2
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Hepatitis B' stat_name='Skewness': expected=-1.7933774066676542, excel_calc=-1.9294095987895268, abs_diff=0.13603219212187256, fdd=1
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Polio' stat_name='Skewness': expected=-2.360176884972496, excel_calc=-2.5202872294405627, abs_diff=0.16011034446806693, fdd=0
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Skewness': expected=4.974175596962507, excel_calc=5.296763231936723, abs_diff=0.32258763497421583, fdd=1
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='GDP' stat_name='Skewness': expected=4.517297422564161, excel_calc=3.699651660885385, abs_diff=0.8176457616787758, fdd=0
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='thinness 1-19 years' stat_name='Skewness': expected=1.821073514241356, excel_calc=1.8883411658932863, abs_diff=0.06726765165193016, fdd=1
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Schooling' stat_name='Skewness': expected=-0.12816419625645165, excel_calc=-0.34242775295098393, abs_diff=0.2142635566945323, fdd=1
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Adult Mortality' stat_name='Kurtosis': expected=2.400944587743931, excel_calc=2.784125470812443, abs_diff=0.3831808830685124, fdd=0
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Alcohol' stat_name='Kurtosis': expected=-0.5911004426049695, excel_calc=-0.5900513724236518, abs_diff=0.001049070181317724, fdd=3
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Hepatitis B' stat_name='Kurtosis': expected=2.231415347048647, excel_calc=2.7815789249765834, abs_diff=0.5501635779279366, fdd=0
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='Polio' stat_name='Kurtosis': expected=5.063550726443641, excel_calc=5.956803226542711, abs_diff=0.8932525000990701, fdd=0
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='HIV/AIDS' stat_name='Kurtosis': expected=27.75149159908865, excel_calc=31.61765642566377, abs_diff=3.8661648265751225, fdd=0
-ERROR [Regression/predictors] config_name='medium_intercept' allow_intercept=True predictor_name='GDP' stat_name='Kurtosis': expected=28.015318265499133, excel_calc=18.138248451849563, abs_diff=9.87706981364957, fdd=0
-ERROR Additional QC mismatches suppressed.
-  Verify: univariate start      244.9s
-  Verify: univariate done       245.0s
-  Verify: dummy test start      245.0s
-  Verify: dummy test done       245.1s
-ERROR QC mismatch totals: Regression/coefficients=342, Regression/prediction_interval=30, Regression/predictors=360, Regression/residuals=88637, Regression/scalars=122
->>>>>>> origin/main

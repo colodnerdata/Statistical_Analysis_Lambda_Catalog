@@ -800,6 +800,12 @@ mechanisms**, and the Predictor Type axis never grows:
   future serial-correlation diagnostics.
 - **`Cluster`** *(later candidate)* — clustered standard errors, the honest endgame
   for panel inference. Substantial engine work; out of scope until after FE ships.
+  Forward wiring already in place: `Serial_Correlation_Group()` — the grouping-key
+  resolver the BFN panel DW consumes instead of referencing the FE column directly —
+  carries a dormant, unreachable Cluster branch in its SWITCH (returns the
+  `RESERVED — v2.6+` token; the reserved-spec-column pattern), so supplying the
+  grouping key from a Cluster role for pooled-panel diagnostics without absorption
+  is a resolver-only edit.
 
 Cardinality constraints when added: at most one `Weight`, at most one `Time`; the
 status block validates (same pattern as exactly-one-Response).

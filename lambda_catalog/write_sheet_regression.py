@@ -744,11 +744,15 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     # the LAMBDA, so group seams contribute nothing by construction. Active
     # only when a Sequence axis AND a Fixed Effects variable are declared;
     # multiple FE variables (two-way absorption, out of scope) show a token
-    # rather than computing on an arbitrary first match. Interpretation reads
-    # like DW (near 2 ⇒ no first-order autocorrelation), but its critical
-    # values depend on N and T — surfacing those bounds is a recorded open
-    # item, and the standard DW bounds must not be presented next to it (the
-    # cell note carries that caveat).
+    # rather than computing on an arbitrary first match. The group argument is
+    # Serial_Correlation_Group() — the grouping-key resolver — NOT the FE
+    # column accessor directly: the resolver is the single retargeting point
+    # for which dimension partitions residuals (today the Fixed Effects
+    # column; its dormant Cluster branch activates at v2.6+ without touching
+    # this cell). Interpretation reads like DW (near 2 ⇒ no first-order
+    # autocorrelation), but its critical values depend on N and T — surfacing
+    # those bounds is a recorded open item, and the standard DW bounds must
+    # not be presented next to it (the cell note carries that caveat).
     val(sheet, 12, _C_X, "BFN Panel Durbin-Watson")
     f(
         sheet,
@@ -761,7 +765,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         'IF(fe_vars=0,"n/a — no fixed effects",'
         'IF(fe_vars>1,"n/a — multiple FE variables",'
         "BFN_Panel_Durbin_Watson(X_s(),Response_Column(),"
-        "Fixed_Effects_Column(),Sequence_Column(),Base_Period_Delta(),"
+        "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
         "Allow_Intercept,Sample_Include()))))))",
     )
     sheet.range(rc(12, _C_Y), rc(12, _C_Y)).number_format = "0.000"

@@ -420,8 +420,8 @@ unifies the LOOCV machinery under the Sherman-Morrison-Woodbury update that
 **5. Build-phase retry / RPC handling.** Excel's COM automation occasionally
 returns `RPC server unavailable` mid-`Calculate` — a transient that surfaced
 during the v1.1 build under heavy Data Table evaluation. v1.2 introduces
-`_retry_on_open` in `build_production.py:296` and splits `main()` (line 331)
-into two phases: phase 1 (sheet writes, no retry — minutes long, the only phase
+`_retry_on_open` in `build_production.py` and splits `main()` into two phases:
+phase 1 (sheet writes, no retry — minutes long, the only phase
 that benefits from a clean Excel instance) and phase 2 (recalculate + save,
 short, the most likely phase to hit the RPC failure). The retry-on-open
 behavior is applied to phase 2 only, so a transient failure there doesn't

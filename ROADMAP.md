@@ -467,7 +467,7 @@ The spec spans **every column of the source table**, one row per column:
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
 | G | **Transform** *(reserved, not implemented v2.0)* | Input, dropdown. Will apply a transform (e.g. `Log`) to a Continuous Response or Predictor. v2.0 dropdown list is `None` only; build pre-fills `None`. Cell comment marks it reserved. |
-| H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank; pre-filled blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer and — since the base-period release — by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`); no constructor consumes it. |
+| H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank; pre-filled blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer, by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`) since the base-period release, and — since the DW-gate release — by the serial-correlation accessor `Sequence_Column` (which feeds the gated `Durbin_Watson_By` diagnostic cell). No design-matrix constructor consumes it: Sequence orders the data, it never enters the model matrix. |
 | I | **Base Period Δ** *(live — base-period release; Sequence companion)* | **Computed-with-override**, the reference-level pattern: pre-filled with a formula showing `Base_Period_Delta_Candidate()` (MODE of within-group consecutive spacings, MIN fallback when no spacing repeats) on the Sequence-flagged row, blank elsewhere; typing a number overrides. Read only by the base-period layer — the `Base_Period_Delta()` accessor (the omitted-`[delta]` default of `Lag_By`/`Difference_By`) and the Sequence Spacing block's Δ-in-use display (yellow CF when overridden). The block (rows 28–34 under the spec) also shows the delta spectrum and verdicts: Regularity (any spacing ≠ Δ), Off-grid (spacing not a whole multiple of Δ), the no-natural-base-period override prompt, and calendar-signature guidance (~28–31/90–92/365–366 clusters → recommend an integer period index upstream; day counts are never quantized to a scalar Δ). |
 | J | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
 | K | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. *(Deviation from the earlier draft of this table, recorded: the shipped v2.0 sheet implemented this display here instead of the optional Design Columns audit column; the Σ(design columns) = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot.)* |
@@ -700,7 +700,14 @@ broadcast, per the level-vector split).
 ### Open items (recorded, not resolved)
 
 1. **Durbin-Watson under FE** *(v2.1)* — relabel, caveat, or suppress. (Related to the
-   iid caveat above.)
+   iid caveat above.) *Partially advanced by the DW-gate release:* the Regression
+   sheet's Durbin-Watson cell now requires a declared Sequence axis and differences
+   residuals along it (`Durbin_Watson_By` sorts by `Sequence_Column()` before
+   differencing), removing the physical-row-order hazard. Still open for FE/panel
+   data: on a pooled panel where the Sequence axis repeats across groups (many
+   countries sharing a Year), adjacency along `seq` alone is not the *within-group*
+   serial axis — the group-aware (seam-safe, à la `Sequence_Deltas`) DW is the
+   remaining work here.
 2. **Categorical × FE prediction encoding** *(v2.1)* — when non-FE categorical
    predictors coexist with fixed effects, x_new and x̄ᵢ must be formed in the
    *constructed* design-matrix space (dummies encoded through the same `Dummy_Code`

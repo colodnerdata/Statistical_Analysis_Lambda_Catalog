@@ -89,6 +89,7 @@ _EXPECTED_NAME_ORDER = [
     "Row_Labels",
     "X_s",
     "Constructed_Column_Names",
+    "Sequence_Column",
     "Sequence_Deltas",
     "Base_Period_Delta_Candidate",
     "Sequence_Delta_Spectrum",
@@ -309,11 +310,12 @@ def test_reserved_spec_names_are_defined_but_read_by_nothing() -> None:
             assert reserved not in formula, (reserved, formula)
 
 
-def test_sequence_name_is_read_only_by_validation_and_base_period_layer() -> None:
+def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
     # Spec_Sequence is live for the zero-or-one validation (H2 status line,
-    # audit count) and — since the base-period release — for the sequence-
-    # spacing layer (Sequence_Deltas). No CONSTRUCTOR closure may consume
-    # it: Sequence is a structural annotation, not a model axis.
+    # audit count), the sequence-spacing layer (Sequence_Deltas), and — since
+    # the DW-gate release — the serial-correlation accessor (Sequence_Column,
+    # which feeds Durbin_Watson_By). No design-matrix CONSTRUCTOR closure may
+    # consume it: Sequence orders the data, it does not enter the model matrix.
     sheet = _named_sheet()
     readers = sorted(
         item.Name.split("!", 1)[-1]
@@ -321,7 +323,7 @@ def test_sequence_name_is_read_only_by_validation_and_base_period_layer() -> Non
         if "Spec_Sequence" in item.RefersTo
         and item.Name.split("!", 1)[-1] != "Spec_Sequence"
     )
-    assert readers == ["Sequence_Deltas"]
+    assert readers == ["Sequence_Column", "Sequence_Deltas"]
     for constructor in (
         "Sample_Include",
         "Response_Column",

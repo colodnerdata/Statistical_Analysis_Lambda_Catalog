@@ -71,6 +71,7 @@ from .write_sheet_model_construction import (
     _BASE_PERIOD_NOTE,
     _RESERVED_NOTE,
     _RESPONSE_NAME_FORMULA,
+    _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
     _C_BASE_PERIOD as _C_SPEC_BASE_PERIOD,
     _C_ORDER as _C_SPEC_ORDER,
@@ -212,6 +213,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (8, _C_X, "BIC"),
         (9, _C_X, "AICc"),
         (10, _C_X, "QQ Correlation"),
+        (11, _C_X, "Durbin-Watson"),
         (12, _C_U, "Alpha"),
         (14, _C_V, "df"),
         (14, _C_W, "SS"),
@@ -671,7 +673,7 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
 
 
 def _write_diagnostics(sheet: xw.Sheet) -> None:
-    """Cols X–Y, rows 3–10."""
+    """Cols X–Y, rows 3–11."""
     section_heading(sheet, 3, _C_X, "DIAGNOSTICS")
     for row, label, formula in [
         (4,  "PRESS",          "=PRESS(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"),
@@ -695,7 +697,27 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         val(sheet, row, _C_X, label)
         f(sheet, row, _C_Y, formula)
     sheet.range(rc(4, _C_Y), rc(10, _C_Y)).number_format = "0.0000"
-    border_box(sheet, 3, _C_X, 10, _C_Y)
+
+    # Durbin-Watson is gated on a declared Sequence axis: differencing residuals
+    # in physical row order silently assumes row order = time order, which
+    # reports spurious autocorrelation under any meaningful non-time sort. With
+    # no Sequence flag set, the cell shows an explicit not-applicable token (never
+    # NA(), which is reserved for genuine errors and is also friendlier to a
+    # future Model-Comparison XLOOKUP than ""). With one set, Durbin_Watson_By
+    # sorts residuals by Sequence_Column() before differencing — all array work
+    # internal, scalar out, no spill.
+    val(sheet, 11, _C_X, "Durbin-Watson")
+    f(
+        sheet,
+        11,
+        _C_Y,
+        f'=IF(({_SEQUENCE_FLAG_COUNT_FORMULA})=0,'
+        '"n/a — requires Sequence",'
+        "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
+        "Allow_Intercept,Sample_Include()))",
+    )
+    sheet.range(rc(11, _C_Y), rc(11, _C_Y)).number_format = "0.000"
+    border_box(sheet, 3, _C_X, 11, _C_Y)
 
 
 def _write_alpha(sheet: xw.Sheet) -> None:

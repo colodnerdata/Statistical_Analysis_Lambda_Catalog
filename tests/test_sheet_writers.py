@@ -284,13 +284,16 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
 
     assert sheet.cell(11, _C_X).value == "Durbin-Watson"
     dw_formula = cast(str, sheet.cell(11, _C_Y).api.Formula2)
-    # No Sequence flag → explicit not-applicable token, never NA() or "".
-    assert '"n/a — requires Sequence"' in dw_formula
+    # Both off-spec states show an explicit text token, never NA() or "".
+    assert '"n/a — requires Sequence"' in dw_formula      # zero flags
+    assert '"n/a — multiple Sequence flags"' in dw_formula  # two-plus flags
     assert "NA()" not in dw_formula
-    # Gate keys on the zero-or-one Sequence-flag count over the live spec rows.
+    # Gate keys on the Sequence-flag count over the live spec rows, evaluated
+    # once via LET, and requires EXACTLY one flag before computing.
     assert "SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))" in dw_formula
-    assert ")=0," in dw_formula
-    # When set, DW is computed along the declared axis, not physical row order.
+    assert "IF(seq_flags=0," in dw_formula
+    assert "IF(seq_flags>1," in dw_formula
+    # With exactly one flag, DW is computed along the declared axis, not row order.
     assert (
         "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
         "Allow_Intercept,Sample_Include())"

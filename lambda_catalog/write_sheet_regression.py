@@ -698,12 +698,15 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         f(sheet, row, _C_Y, formula)
     sheet.range(rc(4, _C_Y), rc(10, _C_Y)).number_format = "0.0000"
 
-    # Durbin-Watson is gated on a declared Sequence axis: differencing residuals
-    # in physical row order silently assumes row order = time order, which
-    # reports spurious autocorrelation under any meaningful non-time sort. With
-    # no Sequence flag set, the cell shows an explicit not-applicable token (never
-    # NA(), which is reserved for genuine errors and is also friendlier to a
-    # future Model-Comparison XLOOKUP than ""). With one set, Durbin_Watson_By
+    # Durbin-Watson is gated on EXACTLY ONE declared Sequence axis: differencing
+    # residuals in physical row order silently assumes row order = time order,
+    # which reports spurious autocorrelation under any meaningful non-time sort.
+    # Both off-spec states show an explicit not-applicable token (never NA(),
+    # which is reserved for genuine errors, and friendlier than "" to a future
+    # Model-Comparison XLOOKUP) rather than a misleading number: zero flags →
+    # "requires Sequence"; two-plus flags is the spec error the H2 status line
+    # already reports, and computing on Sequence_Column()'s first match would be
+    # ambiguous → "multiple Sequence flags". With exactly one, Durbin_Watson_By
     # sorts residuals by Sequence_Column() before differencing — all array work
     # internal, scalar out, no spill.
     val(sheet, 11, _C_X, "Durbin-Watson")
@@ -711,10 +714,11 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         sheet,
         11,
         _C_Y,
-        f'=IF(({_SEQUENCE_FLAG_COUNT_FORMULA})=0,'
-        '"n/a — requires Sequence",'
+        f"=LET(seq_flags,{_SEQUENCE_FLAG_COUNT_FORMULA},"
+        'IF(seq_flags=0,"n/a — requires Sequence",'
+        'IF(seq_flags>1,"n/a — multiple Sequence flags",'
         "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
-        "Allow_Intercept,Sample_Include()))",
+        "Allow_Intercept,Sample_Include()))))",
     )
     sheet.range(rc(11, _C_Y), rc(11, _C_Y)).number_format = "0.000"
     border_box(sheet, 3, _C_X, 11, _C_Y)

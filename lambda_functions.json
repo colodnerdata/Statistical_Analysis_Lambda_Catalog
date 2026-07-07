@@ -2811,7 +2811,7 @@
     "BIC": "Another model-comparison score like AIC, but it penalizes extra predictors more strongly.",
     "AICc": "AIC with an extra correction for small samples.",
     "QQ Correlation": "A numeric check of how close the residuals are to a normal bell shape. Values closer to 1 are better.",
-    "Durbin-Watson": "A check for serial correlation — whether residuals next to each other in the declared Sequence order tend to move together. Values near 2 mean no autocorrelation; below ~1.5 suggests positive, above ~2.5 negative. Requires a Sequence axis to be flagged; without one the cell reads 'n/a — requires Sequence' because plain row order is not a meaningful time axis.",
+    "Durbin-Watson": "A check for serial correlation — whether residuals next to each other in the declared Sequence order tend to move together. Values near 2 mean no autocorrelation; below ~1.5 suggests positive, above ~2.5 negative. Requires exactly one Sequence axis to be flagged; with none the cell reads 'n/a — requires Sequence' (plain row order is not a meaningful time axis), and with two or more it reads 'n/a — multiple Sequence flags' (the spec error the status line above column H reports).",
     "Alpha": "The cutoff for statistical significance. At 0.05, results with p-values below 0.05 are treated as statistically significant.",
     "df": "The number of independent data points available to estimate each part of the model — total rows minus one for each estimated parameter.",
     "SS": "The total variation attributed to that source — regression, residual, or total. The raw material from which MS and F are calculated.",

@@ -222,7 +222,437 @@ users never see "FE is in the dropdown but the engine is forthcoming."
 ---
 
 ## v2.2 — Transforms & the standalone transform library
+v2.2 TODO — Formula Strings, Log Transforms, and Unit-Space Prediction
 
+Goal
+
+Make transformed regression models auditable in three layers:
+
+1. Spec-level formula — what the user specified.
+2. Fit-space formula — the linear model actually estimated.
+3. Unit-space prediction formula — how predictions are returned to the response’s original units.
+
+The implementation must be spec-aware. Display text is not an identifier. The authoritative audit trail is the coefficient metadata, not parsed formula strings.
+
+---
+
+1. Add formula display zones to the Regression sheet
+
+TODO 1.1 — Add bold spec-level formula in row 2
+
+Add a bold formula display above the regression outputs, positioned between the Coefficients zone header and the Prediction Output zone header.
+
+Example:
+
+ln(Cost) ~ ln(Weight) + Country + Status
+
+This formula operates at the source-variable/spec level:
+
+- Continuous predictors show transforms when applicable.
+- Categorical predictors appear as source variables, not expanded levels.
+- Omitted/reference levels are not shown here.
+- This is the preferred formula string for Model Comparison registry rows.
+
+Gate criteria
+
+- Formula updates when Response changes.
+- Formula updates when Include toggles change.
+- Formula updates when a Continuous predictor transform changes.
+- Categorical predictors are not expanded.
+- Filter, Identifier, and Omit variables never appear.
+
+---
+
+2. Add coefficient metadata columns
+
+TODO 2.1 — Add coefficient metadata columns to the left of the existing coefficient statistics
+
+Add the following helper/display columns before the existing coefficient estimate/statistic columns:
+
+Column| Purpose
+Beta| "β₀", "β₁", … in coefficient-vector order
+Term Kind| "Intercept", "Continuous", or "Categorical Level"
+Display Term| Human-readable term such as "ln(GDP)" or "I(Country = "Brazil")"
+Source Variable| Original source-table column name
+Predictor Type| "Continuous" or "Categorical"; blank for intercept
+Transform| "None", "Ln", future transform values; blank for intercept and categorical rows
+Level| Categorical level represented by this coefficient; blank otherwise
+Reference Level| Omitted level for that categorical source variable; blank otherwise
+Design Column Index| "0" for intercept, "1..k" for constructed design columns
+
+Do not include Source Role. Coefficient rows are already limited to intercept plus included predictors, so Role is redundant.
+
+Gate criteria
+
+- Intercept row appears as "β₀" only when "Allow_Intercept = TRUE".
+- Non-intercept rows align exactly with "x_s()" constructed column order.
+- Number of non-intercept coefficient rows equals "COLUMNS(x_s())".
+- Categorical rows carry Source Variable, Level, and Reference Level separately.
+- Continuous rows carry Source Variable and Transform.
+- No formula-string logic parses Display Term to infer meaning.
+
+---
+
+3. Implement coefficient metadata as column-wise spill formulas
+
+TODO 3.1 — Do not build one large "HSTACK" metadata formula
+
+Each metadata field should be its own spill formula or sheet-scoped named helper.
+
+Preferred helper names:
+
+Coefficient_Beta_Symbols
+Coefficient_Term_Kinds
+Coefficient_Display_Terms
+Coefficient_Source_Variables
+Coefficient_Predictor_Types
+Coefficient_Transforms
+Coefficient_Levels
+Coefficient_Reference_Levels
+Coefficient_Design_Column_Indexes
+
+The coefficient metadata zone may visually form a table, but implementation should remain column-by-column for auditability.
+
+Gate criteria
+
+- Each metadata column can be inspected independently.
+- A failure in one metadata field does not obscure all metadata fields.
+- The workbook does not rely on one giant "HSTACK" formula for the coefficient metadata table.
+- Metadata spills remain aligned row-for-row.
+
+---
+
+4. Define display-term rules
+
+TODO 4.1 — Continuous display terms
+
+For Continuous predictors:
+
+Transform| Display Term
+None / blank| "VariableName"
+Ln| "ln(VariableName)"
+
+Future transforms should extend this mapping rather than special-case formula strings elsewhere.
+
+TODO 4.2 — Categorical display terms
+
+For Categorical predictors, use:
+
+I(SourceVariable = "Level")
+
+Example:
+
+I(Country = "Brazil")
+
+This is a display convention only. It is not an identifier.
+
+TODO 4.3 — Preserve collision safety through metadata
+
+A user may have a source column literally named:
+
+I(Country = "Brazil")
+
+Do not attempt to solve this by inventing a special display convention. Instead, rely on the structured metadata columns.
+
+Example collision case:
+
+Beta| Term Kind| Display Term| Source Variable| Predictor Type| Level
+β₂| Categorical Level| "I(Country = "Brazil")"| "Country"| Categorical| Brazil
+β₃| Continuous| "I(Country = "Brazil")"| "I(Country = "Brazil")"| Continuous| —
+
+The display terms may collide; the metadata must not.
+
+Gate criteria
+
+- Formula generation never parses Display Term.
+- Source Variable and Level remain separate fields.
+- A source column named like an indicator expression remains distinguishable in the metadata.
+- Tests include a deliberate collision case.
+
+---
+
+5. Build fit-space formula string
+
+TODO 5.1 — Add fit-space formula display near the prediction section
+
+Add a formula string showing the linear predictor actually estimated.
+
+Example:
+
+ln(Cost) = η = β₀ + β₁ ln(Weight) + β₂ I(Country = "Brazil")
+
+This formula is built from coefficient metadata, not from constructed column names alone.
+
+Gate criteria
+
+- Uses Beta symbols from "Coefficient_Beta_Symbols".
+- Uses Display Terms from "Coefficient_Display_Terms".
+- Omits intercept term when "Allow_Intercept = FALSE".
+- Includes categorical level terms in coefficient-vector order.
+- Updates when Include toggles, transforms, references, or categorical levels change.
+- Does not parse display text for semantic meaning.
+
+---
+
+6. Build unit-space prediction formula string
+
+TODO 6.1 — Add unit-space formula display near Prediction Output
+
+The unit-space formula keys off the Response transform and Back-transform Method.
+
+If Response transform is blank / None:
+
+ŷ = η
+
+If Response transform is "Ln" and Back-transform Method is "Naive":
+
+ŷ = exp(η)
+
+If Response transform is "Ln" and Back-transform Method is "Duan":
+
+ŷ = S · exp(η), where S = mean(exp(residuals))
+
+The displayed unit-space formula must match the actual prediction calculation.
+
+Gate criteria
+
+- Formula changes when Response Transform changes.
+- Formula changes when Back-transform Method changes.
+- Non-log response models do not show Duan/Naive as active.
+- Log-response models show the selected back-transform method.
+- Unit-space formula is visibly tied to "η", not presented as if the model was fit directly in unit space.
+
+---
+
+7. Add Back-transform Method input
+
+TODO 7.1 — Add prediction-section toggle
+
+Add a Prediction Output input cell:
+
+Back-transform Method: Duan / Naive
+
+Default:
+
+Duan
+
+This toggle affects prediction output and the displayed unit-space formula. It does not affect fitted coefficients.
+
+For untransformed response models, the cell should gray out or display an inactive status.
+
+TODO 7.2 — Add visible caveat text
+
+Add a short caveat below the prediction output:
+
+Duan = Duan (1983) smearing; Naive = textbook EXP(η), biased for log-response means.
+
+Gate criteria
+
+- Default workbook uses Duan for log-response predictions.
+- Naive option remains available.
+- Toggle does not affect fit-space coefficients.
+- Unit-space prediction output and unit-space formula string update together.
+- Caveat is visible on the sheet.
+
+---
+
+8. Add formula-string LAMBDAs / helpers
+
+TODO 8.1 — Add spec-level formula helper
+
+Candidate function:
+
+Model_Spec_Formula_String(
+    response_name,
+    response_transform,
+    spec_names,
+    spec_roles,
+    spec_includes,
+    spec_types,
+    spec_transforms
+)
+
+Output example:
+
+ln(Cost) ~ ln(Weight) + Country + Status
+
+Rules:
+
+- Use source-variable names.
+- Apply transforms only to Continuous variables.
+- Do not expand categoricals.
+- Exclude non-included predictors.
+- Exclude Identifier, Filter, and Omit variables.
+
+TODO 8.2 — Add fit-space formula helper
+
+Candidate function:
+
+Fit_Space_Formula_String(
+    response_name,
+    response_transform,
+    beta_symbols,
+    display_terms
+)
+
+Output example:
+
+ln(Cost) = η = β₀ + β₁ ln(Weight) + β₂ I(Country = "Brazil")
+
+Inputs should come from coefficient metadata spills, not parsed design-column labels.
+
+TODO 8.3 — Add unit-space formula helper
+
+Candidate function:
+
+Unit_Space_Formula_String(
+    response_name,
+    response_transform,
+    back_transform_method
+)
+
+Output examples:
+
+Cost_hat = η
+Cost_hat = exp(η)
+Cost_hat = S · exp(η), S = mean(exp(residuals))
+
+Gate criteria
+
+- Helpers return readable text, not numeric results.
+- Helpers use "NA()" for invalid transform values.
+- Helpers handle no-intercept models.
+- Helpers handle intercept-only models if the sheet allows them.
+- Helpers handle categorical-only models.
+- Helpers do not require parsing Display Term.
+
+---
+
+9. Wire Model_Formula_String to the spec-level formula
+
+TODO 9.1 — Define public wrapper for Model Comparison
+
+"Model_Formula_String(anchor_cell)" should return the spec-level formula string, not the expanded fit-space formula.
+
+Reason: Model Comparison needs a compact registry label.
+
+Example:
+
+ln(Cost) ~ ln(Weight) + Country + Status
+
+The expanded coefficient-level formula belongs on the Regression sheet, not in the registry row.
+
+Gate criteria
+
+- "Model_Formula_String(anchor_cell)" reads the target sheet via anchor-cell pattern, not "INDIRECT".
+- Returns "NA()" if the anchor does not point to a valid Regression sheet.
+- Output matches the row-2 spec formula on the source Regression sheet.
+- Function does not depend on raw constructed design-column names.
+
+---
+
+10. Testing requirements
+
+TODO 10.1 — Basic transform tests
+
+Test models:
+
+1. No transforms.
+2. Log Response only.
+3. Log Predictor only.
+4. Log Response and Log Predictor.
+5. Mixed transformed and untransformed predictors.
+
+Verify:
+
+- Spec formula.
+- Fit-space formula.
+- Unit-space formula.
+- Prediction back-transform behavior.
+
+TODO 10.2 — Categorical tests
+
+Test models:
+
+1. Single categorical predictor with intercept.
+2. Categorical plus continuous predictor.
+3. Categorical plus log-transformed continuous predictor.
+4. Categorical with explicit reference level.
+5. Categorical with default reference level.
+
+Verify:
+
+- Display terms use "I(Source = "Level")".
+- Reference level appears in metadata.
+- Omitted level has no beta row.
+- Intercept note/baseline interpretation remains correct.
+
+TODO 10.3 — Collision tests
+
+Create a source table containing both:
+
+- A categorical variable "Country" with level "Brazil".
+- A separate source column literally named "I(Country = "Brazil")".
+
+Verify:
+
+- Both can appear in the coefficient metadata.
+- Display terms may match, but Source Variable / Predictor Type / Level distinguish them.
+- Formula-string generation does not collapse or deduplicate them incorrectly.
+- Coefficient order still matches "x_s()".
+
+TODO 10.4 — Duan / Naive tests
+
+For log-response models, verify:
+
+- Duan prediction equals "EXP(η) * AVERAGE(EXP(residuals))".
+- Naive prediction equals "EXP(η)".
+- Formula display changes with the toggle.
+- Non-log response models ignore or gray out the toggle.
+
+---
+
+11. Documentation updates
+
+TODO 11.1 — Regression Instructions
+
+Add explanation of:
+
+- Spec-level formula.
+- Fit-space formula.
+- Unit-space prediction formula.
+- Why log-response predictions need back-transformation.
+- Difference between Duan and Naive.
+- Why categorical coefficients are relative to the reference level.
+
+TODO 11.2 — Diagnostic Guide
+
+Add log-model interpretation notes:
+
+- In "ln(y) ~ x", coefficients are semi-elasticity-style effects.
+- In "ln(y) ~ ln(x)", coefficients are elasticities.
+- In log-response models, "exp(β)" is multiplicative in unit space.
+- For categorical predictors in log-response models, "exp(β_level)" is the multiplicative effect relative to the reference level.
+- Duan smearing adjusts the predicted mean after exponentiating log-space predictions.
+
+TODO 11.3 — Roadmap cleanup
+
+Move the detailed v2.2 formula-string design discussion out of "ROADMAP.md" and into this TODO section. Leave the roadmap with only the high-level milestone summary and a pointer to this section.
+
+---
+
+12. Final acceptance criteria for v2.2 formula-string work
+
+v2.2 formula-string work is complete when:
+
+- The Regression sheet displays a bold spec-level formula above outputs.
+- The coefficient zone includes structured metadata columns.
+- The coefficient metadata is produced column-by-column, not by one giant "HSTACK".
+- Fit-space and unit-space formulas are visible and update with the model spec.
+- Log-response prediction supports Duan and Naive back-transform methods.
+- Formula strings are generated from spec/metadata fields, not parsed display labels.
+- Collision tests prove that source-column names resembling indicator expressions do not silently corrupt formula interpretation.
+- Model Comparison can call "Model_Formula_String(anchor_cell)" and receive the compact spec-level formula.
 ### Transform wiring (spec column G)
 
 - TODO: `Transform` dropdown gains `Log`; wire `X_s()` / `Constructed_Column_Names()` /

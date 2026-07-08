@@ -387,7 +387,9 @@ This toggle affects prediction output and the displayed unit-space formula. It d
 
 For untransformed response models, the cell should gray out or display an inactive status.
 
-TODO 7.2 — Add visible caveat text
+TODO 7.2. - Add Duan_Smear Lambda and surface it in the prediction output area.
+
+TODO 7.3 — Add visible caveat text
 
 Add a short caveat below the prediction output:
 

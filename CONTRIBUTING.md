@@ -2,7 +2,7 @@
 
 ## Setup
 
-Requires Python 3.10+, [uv](https://github.com/astral-sh/uv). Building the Excel workbook also requires desktop Excel on Windows (xlwings uses COM automation), but running the Python test suite does not.
+Requires Python 3.10+, [uv](https://github.com/astral-sh/uv). Building the Excel workbook also requires desktop Excel on Windows or Mac (xlwings uses COM automation on Windows, AppleScript bridges on Mac), but running the Python test suite does not.
 
 ```powershell
 uv sync
@@ -44,6 +44,10 @@ Tests live in `tests/`. The current test files are:
 | `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
 | `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
 | `test_qc_configs.py` | QC config generation, cross-consistency between scalar/vector/observation configs, regression sheet diagnostics, cache round-trips |
+| `test_bfn_panel_durbin_watson_verification.py` | `BFN_Panel_Durbin_Watson` against the WHO panel — within-group differencing via `Difference_By`, mutual gating with `Durbin_Watson_By` |
+| `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the v2.6+ reserved-spec-column pattern) |
+| `test_difference_by_verification.py` | Gap-aware `Difference_By` (WHO exact counts plus the punched-out-year and calendar-date synthetic cases per `HUMAN_TEST_PLAN_v3_model_construction.md` T17–T19) |
+| `test_analyze_regression_spec_block.py` | Post-changeover spec-block QC analyzer (predicted counts and values, regression sheet spec state) |
 
 ### Coverage scope
 
@@ -223,31 +227,31 @@ Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COL
 
 Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AH$3:$AH$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
 
-Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$T$8`:
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$V$8` (the `Observations` cell in the Regression Outputs zone after the v2.0 spec-block changeover):
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AH$2,1,0,MAX(IFERROR('{sname}'!$T$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AJ$2,1,0,MAX(IFERROR('{sname}'!$V$8,1),1),1)",
 )
 ```
 
-This starts one row below the column header (row 2) and extends exactly `$T$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$T$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
+This starts one row below the column header (row 2) and extends exactly `$V$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$V$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
 **Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names:
 
 | Name | Column | Contents |
 |---|---|---|
-| `RegChartQQX` | AN | Normal Scores Ranked (QQ theoretical axis) |
-| `RegChartQQY` | AO | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | AH | Predicted Y — shared by multiple charts |
-| `RegChartResid` | AI | Residuals |
-| `RegChartActY` | AG | Actual Y |
-| `RegChartScaleLoc` | AP | Scale-Location |
-| `RegChartCookDist` | AM | Cook's Distance |
-| `RegChartLeverage` | AK | Hat Diagonal |
-| `RegChartStudResid` | AL | Studentized Residuals |
-| `RegChartPRESSResid` | AQ | PRESS Residual |
+| `RegChartQQX` | AP | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AQ | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | AJ | Predicted Y — shared by multiple charts |
+| `RegChartResid` | AK | Residuals |
+| `RegChartActY` | AI | Actual Y |
+| `RegChartScaleLoc` | AR | Scale-Location |
+| `RegChartCookDist` | AO | Cook's Distance |
+| `RegChartLeverage` | AM | Hat Diagonal |
+| `RegChartStudResid` | AN | Studentized Residuals |
+| `RegChartPRESSResid` | AS | PRESS Residual |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 

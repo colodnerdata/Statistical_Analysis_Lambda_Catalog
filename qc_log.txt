@@ -6,73 +6,73 @@ python build_qc.py --verbose
   Prep: drop names start          0.8s
   Prep: drop names done           0.9s
   Write: app start                0.0s
-  Write: app ready                0.4s
+  Write: app ready                0.3s
   Write: open workbook            0.4s
   Write: workbook opened          0.7s
   Write: catalog start            0.9s
-  Write: catalog done             4.0s
-  Write: life exp start           4.0s
+  Write: catalog done             4.6s
+  Write: life exp start           4.6s
   LifeExp: get/create start       0.0s
   LifeExp: get/create done        0.0s
   LifeExp: reset start            0.0s
   LifeExp: reset done             0.0s
   LifeExp: activate done          0.0s
   LifeExp: headers start (22 cols)    0.0s
-  LifeExp: headers done           0.0s
-  LifeExp: row write start (2938 rows)    0.0s
-  LifeExp: row write done         0.1s
-  LifeExp: table add start        0.1s
-  LifeExp: table add done         0.1s
-  LifeExp: table style done       0.1s
-  LifeExp: formula start          0.1s
-  LifeExp: formula done           0.1s
-  LifeExp: autofit start          0.1s
+  LifeExp: headers done           0.1s
+  LifeExp: row write start (2938 rows)    0.1s
+  LifeExp: row write done         0.2s
+  LifeExp: table add start        0.2s
+  LifeExp: table add done         0.2s
+  LifeExp: table style done       0.2s
+  LifeExp: formula start          0.2s
+  LifeExp: formula done           0.2s
+  LifeExp: autofit start          0.2s
   LifeExp: autofit done           0.2s
   LifeExp: width done             0.2s
   LifeExp: freeze start           0.2s
   LifeExp: freeze done            0.2s
-  Write: life exp done            4.2s
-  Write: univariate start         4.2s
-  Write: univariate done         17.3s
-  Write: regression instr start   17.3s
-  Write: regression instr done   17.4s
-  Write: diagnostic start        17.4s
-  Write: diagnostic done         17.8s
-  Write: version history start   17.8s
-  Write: version history done    17.9s
-  Write: regression start        17.9s
-  Write: regression done         23.1s
-  Write: dummy test start        23.1s
-  Write: dummy test done         23.5s
-  Write: save start              23.5s
-  Write: save done              663.8s
-  Write sheets:   664.0s
+  Write: life exp done            4.8s
+  Write: univariate start         4.8s
+  Write: univariate done         24.2s
+  Write: regression instr start   24.2s
+  Write: regression instr done   24.3s
+  Write: diagnostic start        24.3s
+  Write: diagnostic done         24.9s
+  Write: version history start   24.9s
+  Write: version history done    25.0s
+  Write: regression start        25.0s
+  Write: regression done         31.7s
+  Write: dummy test start        31.7s
+  Write: dummy test done         32.2s
+  Write: save start              32.2s
+  Write: save done              671.0s
+  Write sheets:   671.1s
   Sync: start                     0.0s
   Sync: done                      0.2s
   Sync names:     0.2s
   Verify: app start               0.0s
   Verify: app ready               0.3s
-  Verify: open workbook           0.4s
-  Verify: workbook opened         0.7s
+  Verify: open workbook           0.3s
+  Verify: workbook opened         0.6s
   Verify: calculate start         0.0s
   Calc: Life Expectancy Data start    0.0s
   Calc: Life Expectancy Data done    0.0s
   Calc: Regression start          0.0s
-  Calc: Regression done          13.3s
-  Calc: Univariate start         13.3s
-  Calc: Univariate done         183.4s
-  Calc: Dummy_Test start        183.4s
-  Calc: Dummy_Test done         183.4s
-  Verify: calculate done        183.4s
-  Verify: reg spec block start  183.5s
-  Verify: reg spec block done   205.7s
-  Verify: regression start      205.7s
-  Verify: regression done       274.6s
-  Verify: univariate start      276.1s
-  Verify: univariate done       276.3s
-  Verify: dummy test start      276.3s
-  Verify: dummy test done       276.3s
-  Verify:         277.3s
+  Calc: Regression done          13.4s
+  Calc: Univariate start         13.4s
+  Calc: Univariate done         183.2s
+  Calc: Dummy_Test start        183.2s
+  Calc: Dummy_Test done         183.3s
+  Verify: calculate done        183.3s
+  Verify: reg spec block start  183.3s
+  Verify: reg spec block done   205.5s
+  Verify: regression start      205.5s
+  Verify: regression done       273.4s
+  Verify: univariate start      275.0s
+  Verify: univariate done       275.1s
+  Verify: dummy test start      275.1s
+  Verify: dummy test done       275.2s
+  Verify:         276.1s
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_QC.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
@@ -85,6 +85,6 @@ Sheet updated: Dummy_Test
 Sheet verified: Regression
 Sheet verified: Univariate
 Sheet verified: Dummy_Test
-Created names: 100
+Created names: 101
 Updated names: 0
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\qc_log.txt

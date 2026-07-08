@@ -1,19 +1,6 @@
 # TODOs
 
-## Design note — chart series data ranges
 
-Chart `SERIES` formulas require explicit range references; the `#` spill operator is not reliably supported in chart series formulas. However, referencing all 1,048,576 rows can significantly degrade performance or crash Excel when the populated dataset is much smaller.
-
-Instead, define dynamically sized named ranges using the row count in `$T$8`. For example:
-
-```excel
-RegChartQQX = OFFSET($AN$2,1,0,MAX(IFERROR($T$8,1),1),1)
-RegChartQQY = OFFSET($AO$2,1,0,MAX(IFERROR($T$8,1),1),1)
-```
-
-These formulas define ranges beginning at `AN3` and `AO3`, respectively, and extending for exactly the number of rows specified in `$T$8`. All chart series names use the `RegChart` prefix and are documented in CONTRIBUTING.md.
-
----
 
 ## Alias layer
 
@@ -107,7 +94,7 @@ Suggested alias names:
 | `GS_MIN` | `Grid_Argument_Minimum` |
 | `GS_OPT` | `Grid_Search_Optimum` |
 
----
+
 
 ## v1.x — Regression sheet
 
@@ -119,38 +106,10 @@ Suggested alias names:
 
 ### LAMBDA functions
 
-**PDF functions — DROPPED (unnecessary, will not be implemented)**
-- ~~Implement `PDF_Normal` … `PDF_BetaPERT` evaluated at bin midpoints~~ — superseded.
-  The histogram tables already compute per-bin probabilities as **CDF deltas between the
-  bin boundaries** (`CDF(upper edge) − CDF(lower edge)`, the 8 `CDF_*` probability
-  columns in each histogram block). That delta is the bin's probability mass (the PDF
-  integrated exactly over the bin) — more faithful to the histogram than a midpoint PDF
-  evaluation — so no PDF LAMBDAs are needed. See ROADMAP.md § v1.1 Distribution
+. See ROADMAP.md § v1.1 Distribution
   fitting for the full rationale.
 
 ### Sheet writer (`write_sheet_univariate.py`)
-
-**Q-Q plots and histogram overlays — DONE (ships with the next workbook build)**
-- ~~Per-distribution Q-Q plots (8 charts) using OFFSET-based named ranges~~ — done.
-  Zone 6 (cols CW–DF) holds Hazen plotting positions `(i−0.5)/n` (the same
-  convention as `QQ_Correlation`/`Normal_Scores`), the sorted sample, and eight
-  theoretical-quantile columns (native `NORM.INV`/`LOGNORM.INV`/`GAMMA.INV`/
-  `BETA.INV` plus closed-form inverses for Exponential, Weibull, and Triangular,
-  validated against scipy in `tests/test_univariate.py`). Eight XY scatter charts
-  stack under the histogram charts at G74–G233, each with an identity-line data
-  series, fed by OFFSET-based `UV_QQ_*` named ranges.
-- ~~Histogram overlays as combo charts~~ — done. Each histogram chart keeps its
-  gapless count bars and adds one smoothed, markerless line series per
-  distribution. The axis question was settled as **expected counts on the shared
-  count axis** (not a secondary axis): `UV_<method>_<Dist>_Expected` named
-  formulas multiply the CDF-delta column by the Count stat cell ($E$14).
-- TODO: Investigate suppressing worst-fit / N/A-error distributions from the combo
-  charts. Best outcome would be dynamically hiding those columns — hidden columns
-  drop out of charts automatically (`PlotVisibleOnly` default) — but it is unclear
-  whether column hiding can be driven from cell values without VBA (manual hiding
-  works; data-driven hiding may be VBA-only, which the library forbids). No-VBA
-  fallback to evaluate: emit `NA()` across a suppressed distribution's column, since
-  line charts skip `#N/A` points — same chart effect without hiding.
 
 **Additional distributions (long-term)**
 - TODO: Add support for more distribution families: Bernoulli, Binomial, Geometric, Negative Binomial, Hypergeometric, Poisson, Uniform, Chi-Square, Student-t.
@@ -180,18 +139,6 @@ v2.5+ section. Items below are in the locked ship order: the Sequence fix is
 the prerequisite for the 2.1.0 entry; the FE Role dropdown, the CI+PI
 prediction layout, and the engine are gated to ship as a single release so
 users never see "FE is in the dropdown but the engine is forthcoming."
-
-### Shipped (since v2.0.0)
-
-- ~~TODO: Sequence structural axis (spec column H) and reserved Base Period Δ (column I).~~ **DONE (PR #101):** spec block grew A–I to A–K; zero-or-one validation at H2; pre-filled blank by the build; read only by the validation layer and the base-period layer.
-- ~~TODO: Gap-aware `Difference_By` / `Lag_By` and the Base Period Δ layer.~~ **DONE (PR #102):** `Difference_By` / `Lag_By` keyed on exact `(group, seq−Δ)` pairs (no OFFSET/row arithmetic); NA() at first periods and panel gaps; the Sequence Spacing block (rows 28–34) and the parser's zero-parameter LAMBDA support. Verified by `tests/test_difference_by_verification.py` (T17–T19).
-- ~~TODO: Sequence-aware Durbin-Watson.~~ **DONE (PR #103):** `Durbin_Watson_By(X_s, Y, seq, [Allow_Intercept], [Include])` — sequence-axis DW, row-order invariant; gated cell at Regression X11/Y11 with `n/a — requires Sequence` / `n/a — multiple Sequence flags` tokens.
-- ~~TODO: BFN panel Durbin-Watson.~~ **DONE (PR #105):** `BFN_Panel_Durbin_Watson(X_s, Y, group, seq, [delta], …)` (Bhargava–Franzini–Narendranathan 1982); within-group differencing via `Difference_By`; mutual-gate trigger matrix with the DW cell; X12/Y12 cell.
-- ~~TODO: Grouping-key resolver.~~ **DONE (PR #106):** `Serial_Correlation_Group()` SWITCH with the dormant `Cluster` branch (the reserved-spec-column pattern for the v2.6+ Cluster role).
-- ~~TODO: v1.1 leftovers — histogram distribution overlays and per-distribution Q-Q plots.~~ **DONE (PRs #96, #97, #99, #100):** eight per-distribution Q-Q charts with closed-form quantile inverses; histogram combo charts with overlay lines on the shared count axis; BetaPERT singularity fix; 4×2 Q-Q layout.
-- ~~TODO: `--skip-univariate` CLI option.~~ **DONE (PR #98):** build-ergonomics for the slow grid-search step.
-- ~~TODO: Spec-driven QC refactor.~~ **DONE (PR #103):** `analyze_regression_spec.py` and `test_regression_spec_qc.py` replace the legacy MLR smoke-test-sheet path; `Full_Data` ships as Omit in the default spec; Year flagged as Sequence, Population as Omit demonstrator.
-- ~~TODO: Durbin-Watson under FE — relabel, caveat, or suppress.~~ **DONE (BFN + resolver releases):** resolved as "second cell + mutual gating" (PR #105), with the resolver (PR #106) carrying the dormant Cluster forward-wiring.
 
 ### Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5)
 

@@ -287,7 +287,7 @@ users never see "FE is in the dropdown but the engine is forthcoming."
   sheet-scoped named range `Bootstrap_Random_Draws` holds a uniformly-distributed
   random table pre-drawn once at build time, seeded from the same SHA-derived seed
   the QC build already uses (`analysis_cache.py`). `Bootstrap_CI` indexes via
-  `INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`.
+  `INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples)-1, ROWS(Bootstrap_Random_Draws))+1)`.
   Same inputs → same output, every recalc. `RANDARRAY()` rejected: silently re-drawing
   per recalc is the opposite of the library's auditability philosophy. To get a new
   draw, regenerate the workbook via `build_production.py` (deliberate, not a limitation).

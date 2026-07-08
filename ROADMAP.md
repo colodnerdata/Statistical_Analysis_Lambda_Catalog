@@ -58,8 +58,10 @@ flag.
 | v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) | No | In progress — pending Sequence auto-detection/override fix (`Sequence Period` (I) / `Period In Use` (J) rename, spill-collision guard) and FE engine work; no release scheduled. Bundles the Sequence/BFN/QC chain with the FE engine as a single release so users never see "FE is in the dropdown but the engine is forthcoming" |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Planned — MINOR. Wires the reserved spec column G and ships the user-callable transform functions (Center, Zscore, Winsorize, Lag_By, …). Completes the Regression sheet as a fully functional deliverable |
 | v2.3 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. Read-only across finished Regression sheets; ships after Transforms so its comparisons are unit-space-honest from day one |
-| v2.4 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned |
-| v2.5+ | Two-sample, ANOVA, time series, additional roles (Weight, Cluster, Time) | mixed | Open. Mostly additive minors; the **next MAJOR (v3.0)** is claimed by whichever of these next breaks the public interface |
+| v2.4 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QA build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
+| v2.5 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Claimed — next MINOR after v2.4. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix` |
+| v2.6 | `Weight` Role (WLS) | No | Claimed — after v2.5. User-supplied weights as the first stage; variance-driver-derived weights and FGLS as v2.6+ follow-ons. Engine signature addition with a default-uniform `[Weights]` argument (default-uniform → identical to OLS, the v2.1 `[DF_Absorbed]` precedent) |
+| v2.7+ | Two-way FE, `Cluster` and `Time` Roles, Time series, ANOVA, Fourier, Decision | mixed | Unordered (deliberate — see Future section). Two-way FE has forward wiring from the v2.1 FE engine; `Cluster` has forward wiring from `Serial_Correlation_Group()`'s dormant branch; the rest are design-not-started |
 
 **Ladder rationale.** Under the interface definition above, only one planned milestone
 breaks user inputs — Specification-Driven Regression — so it alone takes the next major
@@ -1137,33 +1139,55 @@ meaning. This satisfies the non-breaking criterion in Versioning & Release Conve
 
 ### Unit-space fit statistics — naming
 
-Proposed pattern: `{Response_Transform}_{Predictor_Transform}_Unit_Space_{Statistic}`,
-covering the four combinations a single Log transform produces:
+**RESOLVED: dispatcher function, with arguments in `(model, response_transform, predictor_transform)` order.**
 
-| Response | Predictor(s) | Function (example: R²) |
-|---|---|---|
-| Level | Level | *(no new function — existing `R_Squared` already is the unit-space value)* |
-| Log | Level | `Log_Level_Unit_Space_R_Squared` |
-| Level | Log | `Level_Log_Unit_Space_R_Squared` |
-| Log | Log | `Log_Log_Unit_Space_R_Squared` |
+```
+Unit_Space_R_Squared(model, response_transform, predictor_transform)
+Unit_Space_Adjusted_R_Squared(model, response_transform, predictor_transform)
+Unit_Space_RMSE(model, response_transform, predictor_transform)
+```
 
-> **Open decision — one LAMBDA per combination vs. a dispatch function.** Four
-> combinations for one transform is manageable, but this is combinatorial: N transform
-> types produce roughly N² named functions once a second transform (e.g. square-root,
-> Box-Cox) is added. That tension sits directly against the "one canonical name, one
-> LAMBDA" principle only if each combination stays a separate function — an alternative
-> is a single dispatcher, e.g.
-> `Unit_Space_R_Squared(model, response_transform, predictor_transform)`, that internally
-> `SWITCH`es on the transform arguments. The dispatcher is more scalable and still
-> auditable (the SWITCH branches are visible in one place) but is a bigger departure
-> from the current per-statistic-per-shape naming style used everywhere else in the
-> catalog. Worth resolving before v2.2 implementation starts, since it sets the pattern
-> for every future transform.
+The dispatcher internally `SWITCH`es on the `(response_transform, predictor_transform)` pair.
+For Log at v2.2.0, the four branches are: `(None, None)`, `(Log, None)`, `(None, Log)`,
+`(Log, Log)` — plus an `else` branch that returns `NA()` for any unrecognised transform
+value, consistent with the library's `NA()`-based error-signaling convention.
 
-Per-statistic, this multiplies across whichever fit statistics get a unit-space
-counterpart (R², Adjusted R², RMSE at minimum — AIC/BIC are likelihood-based and
-comparing them across differently-transformed responses is a separate, harder question
-worth flagging rather than solving here).
+The argument order is deliberate. `model` first (the heavy argument — the design matrix,
+the response, the coefficients), then the two transform descriptors in `response →
+predictor` order, matching the spec-block's column-G reading order
+(`Spec_Transform` on the Response row first, then on the Predictor rows). When the
+Regression sheet's unit-space block builds the dispatcher call, the arguments map
+1:1 to that reading order; no reordering at the sheet layer.
+
+**Why dispatcher, not per-combination names.** A per-combination scheme
+(`Log_Level_Unit_Space_R_Squared`, `Level_Log_Unit_Space_R_Squared`, etc.) scales as
+O(N²) per statistic and O(N² × M) across the M statistics with unit-space
+counterparts — and the rename pain only gets worse with each new transform
+(square-root, Box-Cox, …). The dispatcher scales as O(N²) in SWITCH branches
+*regardless of how many statistics get a unit-space counterpart*: adding a new
+unit-space statistic is one new dispatcher, not N² new named functions. The
+SWITCH body is auditable in one place per statistic, and the spec block's
+existing `SWITCH(Spec_Transform, …)` pattern on column G is the precedent.
+
+**Naming-style departure, recorded.** The dispatcher is a bigger departure from
+the per-statistic-per-shape naming style used everywhere else in the catalog.
+Worth flagging because every other function in the library follows the
+"one canonical name, one LAMBDA" rule; the dispatcher is the first deliberate
+exception, and the exception is justified by the combinatorial blow-up the
+exception avoids. Pattern: when a family is closed-form (one shape per name),
+use the per-shape style; when a family is combinatorial in its inputs (N
+transforms × M statistics), use a dispatcher. Future combinatorially-named
+families (e.g. a future `Cross_Product_Of_Transforms_*` if one ever exists)
+follow the same exception.
+
+**Statistics with a unit-space counterpart (v2.2.0):** R², Adjusted R², RMSE.
+**Statistics flagged but deferred:** AIC, AICc, BIC — likelihood-based; comparing
+them across differently-transformed responses is a separate, harder question
+(likelihood depends on the Jacobian of the transformation, and the "right"
+comparison is on the original response's likelihood evaluated at the
+back-transformed prediction, not the transformed response's likelihood).
+Tracked as an open item — *not* shipped at v2.2.0 even via a dispatcher,
+because the answer is not yet a single SWITCH branch.
 
 ### Unit-space section on the Regression sheet
 
@@ -1175,15 +1199,28 @@ Comparison sheet's GoF table references (not the raw-space statistic) once this 
 
 ### Prediction under transforms
 
-- Predicted values and intervals need back-transformation (e.g. `EXP()` for a logged
-  response) before they are comparable in the Model Comparison sheet's prediction
-  results table.
-- **Flagging, not resolving:** naive exponentiation of a log-linear prediction is a
-  known biased estimator of the mean (the smearing-estimator problem). Whether to apply
-  a correction (e.g. Duan's smearing estimator) or ship the naive back-transform with a
-  documented caveat is a real statistical decision, not an implementation detail — record
-  it as an open item rather than deciding it implicitly by whichever version of `EXP()`
-  gets typed first.
+**RESOLVED: ship Duan's smearing estimator as the default, with a per-cell toggle for naive `EXP()`.**
+
+- Predicted values need back-transformation (e.g. `EXP()` for a logged response) before
+  they are comparable in the Model Comparison sheet's prediction results table.
+- **Why Duan, not naive:** naive exponentiation of a log-linear prediction is a biased
+  estimator of the conditional mean response (Jensen's inequality: E[exp(X)] ≠ exp(E[X])
+  whenever X has variance). Duan (1983) smearing — ŷ_smeared = ŷ_log · mean(exp(residuals)) —
+  is unbiased under the iid-residual assumption and adds one extra `AVERAGE(EXP(residuals))`
+  cell. For a cost-estimator audience the naive-vs-Duan difference is not a footnote; it
+  is a number-vs-number question they will see and ask about.
+- **Default = Duan; per-cell toggle for naive:** the prediction outputs section exposes
+  a single input cell (e.g. `Back_Transform_Method` at a known coordinate) with values
+  `Duan` (default) and `Naive` (the documented-biased alternative). The toggle is a
+  per-sheet user preference — a user who wants the textbook `EXP()` form for a
+  homework-style check can flip it; the default ships at Duan for honest reporting.
+  Form: `IF(method="Naive", EXP(ŷ_log), EXP(ŷ_log) * AVERAGE(EXP(residuals)))`.
+- **Caveat row on the sheet:** regardless of which is selected, the prediction outputs
+  block carries a one-line caveat under the value:
+  *Duan = Duan (1983) smearing; Naive = textbook EXP(ŷ), biased.*
+  Visible from day one so the choice is auditable, not implicit.
+- **Reference:** Duan, N. (1983). "Smearing Estimate: A Nonparametric Retransformation
+  Method." *Journal of the American Statistical Association*, 78(383), 605–610.
 
 ### Sequencing note
 
@@ -1206,7 +1243,16 @@ sheet is allowed to *read* it. No new modeling capability is added; this is pure
 cross-sheet aggregation and navigation layer, which is why it is a MINOR: it is
 read-only against finished Regression sheets and changes no existing input.
 
-### `Regression_Model_Spec_String` (name open — see below)
+### `Model_Formula_String` (name RESOLVED)
+
+**RESOLVED name: `Model_Formula_String(anchor_cell)`.** Considered alternatives
+(`Regression_Model_Spec_String`, `Regression_Spec_Label`) and rejected them:
+`Regression_*` prefixes couple the function name to a particular sheet kind,
+which is wrong because the same string format is meaningful for any model
+sheet (and the same anchor-validation pattern would extend to a future
+GLM sheet, time-series sheet, etc.). `Spec_Label` is vague — could be any
+text label. `Model_Formula_String` is self-describing (a model, in
+formula-string form) and matches R's "model formula" terminology.
 
 A workbook-scoped LAMBDA that reads a Regression sheet's spec block and returns a
 human-readable model formula string, e.g. `Life expectancy ~ GDP, Schooling, Status`.
@@ -1223,32 +1269,28 @@ human-readable model formula string, e.g. `Life expectancy ~ GDP, Schooling, Sta
   rather than a malformed string, consistent with the library's `NA()`-based
   error-signaling convention (`Dummy_Levels`/`Dummy_Code`).
 
-> **Open decision — argument type: sheet name vs. cell reference.** Two options:
->
-> 1. **Sheet name (text)** — `Regression_Model_Spec_String("Life Expectancy Model")`.
->    Requires `INDIRECT` to reach an arbitrary sheet's cells, which is volatile and
->    breaks on sheet rename — the same class of problem `Source_Data` was built to avoid
->    for the table reference.
-> 2. **Cell reference (anchor cell)** — `Regression_Model_Spec_String(Sheet2!$A$1)`,
->    where the passed reference is a fixed anchor cell *inside* the target sheet's spec
->    block. Every other cell the function needs is reached by `OFFSET`/`INDEX` relative
->    to that one reference — no `INDIRECT`, not volatile, and it keeps the same "one
->    retargeting point" pattern `Source_Data` already established.
->
-> **Lean: option 2.** More consistent with the project's existing aversion to `INDIRECT`,
-> and it costs the user only one extra click (pointing at a cell instead of typing a
-> sheet name) when registering a model on the Comparison sheet.
+**Argument type — RESOLVED: anchor cell, with the rationale recorded for the
+next person to revisit it.** The considered alternatives were:
 
-**Function name — also open.** `Regression_Model_Spec_String` follows the naming
-convention correctly (full words, Title_Case). Alternatives worth considering before
-locking it in: `Regression_Spec_Label`, `Model_Formula_String`. Whichever is chosen, it
-is the first function in a new subcategory (below), so get the name right once.
+1. **Sheet name (text)** — `Model_Formula_String("Life Expectancy Model")`.
+   Requires `INDIRECT` to reach an arbitrary sheet's cells, which is volatile and
+   breaks on sheet rename — the same class of problem `Source_Data` was built to avoid
+   for the table reference.
+2. **Cell reference (anchor cell)** — `Model_Formula_String(Sheet2!$A$1)`,
+   where the passed reference is a fixed anchor cell *inside* the target sheet's spec
+   block. Every other cell the function needs is reached by `OFFSET`/`INDEX` relative
+   to that one reference — no `INDIRECT`, not volatile, and it keeps the same "one
+   retargeting point" pattern `Source_Data` already established.
+
+The choice is option 2 (anchor cell). More consistent with the project's existing
+aversion to `INDIRECT`, and it costs the user only one extra click (pointing at a cell
+instead of typing a sheet name) when registering a model on the Comparison sheet.
 
 ### Sheet layout
 
 | Zone | Contents |
 |---|---|
-| **Model registry** | One row per registered Regression sheet: Col A = hyperlink, display text = `Regression_Model_Spec_String(...)`, link target = a fixed anchor cell inside that sheet's status block (to the right of the spec block, per the "focus on the outputs, not the inputs" framing) |
+| **Model registry** | One row per registered Regression sheet: Col A = hyperlink, display text = `Model_Formula_String(...)`, link target = a fixed anchor cell inside that sheet's status block (to the right of the spec block, per the "focus on the outputs, not the inputs" framing) |
 | **GoF table** | R², Adjusted R², AIC, AICc, BIC, PRESS, LOOCV, F-statistic, F p-value, n, k — each a cross-sheet reference to a fixed status-block cell on the corresponding Regression sheet. References the **unit-space headline** statistic (shipped in v2.2 Transforms), so a logged model and a level model line up as comparable quantities by construction |
 | **Shared prediction inputs** | Two columns: spec name, value. A single shared set of "what-if" inputs, entered once |
 | **Prediction results table** | One row per model: hyperlink to that sheet's prediction output cell, predicted value, prediction interval bounds |
@@ -1266,17 +1308,35 @@ point of an apples-to-apples comparison sheet.
 > rather than a `#N/A` propagating into the prediction is the likely answer, but the exact
 > behavior should be decided before building.
 
-### Interface contract (formalizes what v2.0 built implicitly)
+### Interface contract — RESOLVED: `Comparison_Anchor` (and its siblings) ship at v2.3 as a public-interface commitment
 
-The v2.0 status block was designed to be fixed-height and fixed-position, but v2.0 never
-had to promise that layout to *another sheet's formulas*. Model Comparison is the first
-consumer that does. Recommend formalizing a small set of sheet-scoped named ranges per
-Regression sheet (e.g. a `Comparison_Anchor` cell) purely so the Model Comparison sheet's
-formulas reference a name, not a raw coordinate — if the status block ever shifts rows in
-a future release, one name gets re-pointed instead of every downstream reference breaking
-silently. (Note: promoting these anchors to named ranges makes them part of the public
-interface per the definition above, so their stability becomes a versioning commitment —
-worth doing deliberately.)
+**RESOLVED.** v2.3 introduces three sheet-scoped named ranges per Regression sheet
+that become the public interface for the Model Comparison sheet's formulas:
+
+| Named range | Points at | Used by |
+|---|---|---|
+| `Comparison_Anchor` | A single anchor cell inside the status block (e.g. the Response-in-effect cell) | `Model_Formula_String`'s first argument; the model-registry hyperlink target on the Comparison sheet |
+| `Comparison_Headline_GoF` | The v2.2 unit-space headline cells (R², Adjusted R², RMSE — all three) | The GoF table on the Comparison sheet; references unit-space-honest values by construction |
+| `Comparison_Prediction_Output` | The center cell of the v2.1 prediction outputs (point · CI low/high · PI low/high) | The prediction results table on the Comparison sheet |
+
+**Why named ranges, not raw coordinates.** A name gets re-pointed in one place if the
+status block ever shifts rows in a future release; every downstream reference inherits
+the new coordinate automatically. Raw coordinates would require finding and updating
+every consumer at every layout change, with high risk of silent breakage.
+
+**The public-interface commitment.** Per the Versioning definition above, these three
+named ranges are part of the library's public interface the moment they ship at v2.3:
+their existence, scope (sheet-scoped), and meaning (which status-block concept each
+points at) become a versioning commitment. A future release may rename or repoint
+them, but cannot silently remove or repurpose them without going MAJOR. The
+changelog entry for v2.3.0 must name them explicitly so the commitment is discoverable.
+
+**One anchor cell, not one per output.** `Comparison_Anchor` is a single cell inside
+the status block; `Comparison_Headline_GoF` and `Comparison_Prediction_Output` are
+separate named ranges because they live in different blocks (GoF block vs. prediction
+block). The three together give the Comparison sheet everything it needs: anchor for
+the spec string and the registry hyperlink, GoF cell for the comparison table,
+prediction cell for the prediction-results table.
 
 ### New catalog surface
 
@@ -1285,7 +1345,10 @@ worth doing deliberately.)
   now it is a single function, but the interface-contract helpers above could grow the
   list. Lean toward a new top-level category once there are 2+ functions in it, per the
   existing "categories describe what a function does" rule.
-- `Regression_Model_Spec_String(anchor_cell)` (name pending)
+- `Model_Formula_String(anchor_cell)` — name RESOLVED. Reads a Regression sheet's spec
+  block via a single anchor-cell reference (no `INDIRECT`) and returns the
+  `y ~ x1, x2, x3` formula string. Header-signature validation; `NA()` on non-Regression
+  targets.
 - Possible follow-on: a small validation helper confirming an anchor cell actually points
   at a v2.0-shaped status block, reused by both the spec-string function and any future
   comparison-sheet helper.
@@ -1300,33 +1363,126 @@ territory (three-point estimates, MCS, risk analysis). These do not depend on th
 two-sample or ANOVA work, so they come early. Bootstrap and Monte Carlo pair naturally and
 may share a single sheet.
 
+**No-volatile constraint, RESOLVED.** `RANDARRAY()`-based resampling is rejected.
+Every recalc would re-draw a new bootstrap sample and silently re-compute every
+resampled statistic; the result is the opposite of the library's
+"live recalculation, formula transparency, auditability" philosophy. The cost
+estimator who sees a 90% CI of (4.2, 5.7) one moment and (4.0, 5.9) the next, with
+no record of which sample produced which, has not been given a tool — they have
+been given a number that changes meaning under their feet.
+
+**Resolved mechanism: pre-drawn random table, indexed.** A single sheet-scoped
+named range `Bootstrap_Random_Draws` holds a fixed table of uniformly-distributed
+random numbers, pre-drawn once at build time and visible in the workbook (auditable,
+reproducible). The bootstrap loop indexes into this table via
+`INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`,
+giving a resample-index sequence that wraps cleanly through the table. The
+random number seed is the same SHA-derived seed the QC build already uses
+(see `analysis_cache.py`), so the draw is deterministic across builds. The
+table is sized once for the library's default n_resamples (e.g. 1,000 draws) and
+is rebuilt (not re-randomised at use time) only when a new build is generated.
+
+**Consequence for `Bootstrap_CI`:** the function is non-volatile — same inputs,
+same output, every recalc. Reproducibility wins; "fresh randomness" loses, but
+for a workbook-bound tool the reproducibility is the more important property.
+Users who want a new draw open the workbook in Excel, hit `F9` to force a
+recalculation, and *the draw does not change* (it was pre-drawn at build). To
+get a new sample they regenerate the workbook via `build_production.py`. This
+is deliberate, not a limitation — it is the same trade-off the spec block made
+when it decided the source-data table is a stable reference, not a live query.
+
+**Monte Carlo draws (`MC_Percentile`, `PERT_Sample`)** use the same pre-drawn
+table mechanism, with the per-distribution transform applied at INDEX time.
+
 ---
 
-## v2.5+ — Future (sequence TBD)
+## v2.5+ — Future (sequence TBD; first two claimed)
 
-Deliberately left loose. Candidate milestones, roughly in conceptual order:
+The v2.5+ bucket previously listed seven candidates with no order. Two are
+now claimed as the immediate successors to v2.4; the rest are deliberately
+unordered pending real demand from a user (a single maintainer should not
+pre-order things nobody is asking for yet).
 
-- **Two-way Fixed Effects** — the first candidate after v2.1: the `Absorb_Two_Way_Fixed_Effects`
-  / `Demean_Two_Way_Balanced` / `Fixed_Effects_Convergence_Check` trio, the two-way
-  `Is_Balanced_Panel` check, lifting the v2.1 one-FE-variable status-block error, and
-  the (harder) two-way prediction question. Deliberately deferred until the one-way
-  Fixed Effects framework is finished.
-- **Bivariate / two-sample** — t-tests (one-sample, two-sample equal variance, Welch
-  unequal variance, paired), F-test for variance equality feeding a recommendation on which
-  t-test to use, and Covariance to complement the existing Correlation. (Pyrcz's
-  "difference in means" / "difference in variances" demos map here.)
-- **Multi-group means (ANOVA)** — one-way ANOVA, implemented as regression on group
-  dummies, reusing the existing SS/MS/F machinery. A natural hinge showing ANOVA *is*
-  regression — and, post-v2.0, expressible as a spec with one Categorical predictor.
-- **Future specification roles** — `Weight` (WLS), `Cluster` (clustered SEs), `Time`
-  (see *Future roles*, above).
-- **Time series** — Moving Average, Exponential Smoothing.
-- **Fourier analysis** — to be added later.
-- **Decision analysis** — possible long-tail addition (loss functions), cost/risk oriented.
+### v2.5 — Bivariate / Two-sample *(claimed, next MINOR after v2.4)*
 
-*(Removed from this list relative to the prior revision: the standalone WLS milestone
-and dedicated WLS Regression sheet — superseded by the `Weight` role; see v2.0
-supersession note.)*
+- **TODO: `T_Test_OneSample(data, mu0, alpha, [include])`** — test statistic, p-value, CI.
+- **TODO: `T_Test_TwoSample(data1, data2, alpha, equal_var, [include1], [include2])`** —
+  equal-variance, Welch unequal-variance, and paired variants via the `equal_var` flag
+  (paired is a separate code path the flag does not cover; design before implementation
+  — a 3-way flag or a separate `paired` boolean is the open question).
+- **TODO: `F_Test_Variance(data1, data2, alpha, [include1], [include2])`** — feeds a
+  recommendation cell that selects the appropriate t-test variant (equal-variance vs.
+  Welch). The recommendation is a visible single cell, not silent.
+- **TODO: `Covariance_Matrix(data, [include])`** — complement to the existing
+  `Correlation_Matrix`. Sample covariance, not population; consistent with the existing
+  catalog's sample-statistic convention.
+- **TODO: Sheet layout** — inputs, test selector, F-test assumption check, output
+  (test statistic, df, p-value, CI, effect size). `write_sheet_two_sample.py`.
+
+**Why this next.** Two-sample tests are a discrete "tests of means" add that
+maps directly to the cost-estimator audience (a/b comparisons, baseline-vs-proposed
+frequently surface in the same workbooks that already use the v1.0 regression).
+Independent of the Role-axis work; does not block or get blocked by Weight/Cluster.
+
+### v2.6 — `Weight` Role (WLS) *(claimed, after v2.5)*
+
+- **TODO: Implement the `Weight` Role** (at most one, per the cardinality rule that
+  Response, Time, and Weight all share). Status-block validation identical to
+  exactly-one-Response.
+- **TODO: Thread weights through the engine** per the Role-axis design: weighted
+  least squares with the same model-matrix constructor the v2.0 spec block already
+  uses, with a single optional `[Weights]` argument (default uniform, i.e. OLS) on
+  the inferential chain. The `[DF_Absorbed]` precedent (default 0, no-FE models
+  identical) is the exact pattern to follow — default-uniform weights means every
+  existing OLS call computes identically.
+- **TODO: Update the Diagnostic Guide** to describe which diagnostics change
+  interpretation under WLS. (WLS closes the loop opened by v1's Scale-Location
+  diagnostic, which is the classic visual prompt that the user *might* want
+  WLS.)
+
+**Three-stage scope carried forward** (per the *Future roles* section): at v2.6
+the user-supplied-weight stage is what ships. Variance-driver-derived weights
+(`Var(x)` form) and full FGLS are v2.6+ follow-ons, not part of the first MINOR.
+
+**Why this second.** After v2.5 (tests of means) the natural next Role-axis
+addition is `Weight`, because it pairs with the existing Scale-Location
+diagnostic the user is already looking at. Two-way FE (v2.7 or later) and
+`Cluster` (v2.7 or later) build on the v2.1/v2.2 framework; `Time` is partly
+forward-wired via the Sequence axis but the rest of its semantics still need
+design work.
+
+### Unordered (v2.7+ candidates, no claim)
+
+The following are real candidate work but deliberately unordered pending
+demand. The two above (Two-sample, `Weight`) come first; these do not have a
+user-pressing-for-them signal yet, and a single maintainer should not
+pre-order work that may not be the next thing actually needed.
+
+- **Two-way Fixed Effects** — the trio (`Absorb_Two_Way_Fixed_Effects`,
+  `Demean_Two_Way_Balanced`, `Fixed_Effects_Convergence_Check`), the two-way
+  `Is_Balanced_Panel` check, lifting the v2.1 one-FE-variable status-block
+  error, and the two-way prediction question. The v2.1 FE engine is the
+  prerequisite — does not start until v2.1.0 ships.
+- **Multi-group means (ANOVA)** — one-way ANOVA as regression on group
+  dummies (post-v2.0, a single Categorical predictor *is* an ANOVA — but the
+  framing, the post-hoc comparisons (Tukey HSD or Bonferroni), and the
+  dedicated sheet are new work).
+- **`Cluster` Role (clustered SEs)** — the post-FE inference endgame. Has
+  forward wiring in `Serial_Correlation_Group()`'s dormant branch (PR #106),
+  so the resolver side is partial; the engine side (cluster-robust variance
+  estimator) is not.
+- **`Time` Role (time-index designation)** — partially forward-wired via the
+  v2.1 Sequence axis. The full `Time` Role adds the time-index semantics
+  (e.g. for the future time-series sheet, for the Lag_By / Difference_By
+  cross-sheet calls) and depends on design work for how `Time` and
+  `Sequence` interact (a column can be both? one or the other?).
+- **Time series** — `Moving_Average`, `Exponential_Smoothing`; depends on
+  the `Time` Role landing.
+- **Fourier analysis** — long-tail. Out of scope; the *ToolPak Parity
+  Reference* notes it is "intentionally skipped" and a later
+  addition-by-demand decision, not a planned milestone.
+- **Decision analysis** — long-tail (loss functions, cost/risk oriented).
+  Not on the planning horizon.
 
 ---
 

@@ -227,13 +227,17 @@ users never see "FE is in the dropdown but the engine is forthcoming."
 
 - TODO: `Transform` dropdown gains `Log`; wire `X_s()` / `Constructed_Column_Names()` /
   prediction to read column G.
-- TODO: Unit-space fit statistics (R², Adjusted R², RMSE at minimum) — resolve the
-  one-LAMBDA-per-combination vs. `Unit_Space_*` dispatcher decision BEFORE implementing
-  (sets the pattern for every future transform).
+- TODO: **Unit-space dispatcher function, RESOLVED:** `Unit_Space_R_Squared(model, response_transform, predictor_transform)`,
+  `Unit_Space_Adjusted_R_Squared(...)`, `Unit_Space_RMSE(...)`. Single dispatcher per
+  statistic, internal `SWITCH` on the `(response_transform, predictor_transform)` pair;
+  `NA()` on unrecognised values. Argument order: `model` first, then `response_transform`
+  then `predictor_transform` (matches spec-block reading order on column G).
 - TODO: Unit-space section on the Regression sheet — SWITCH on column G, one headline
   comparable statistic (the cell v2.3 Model Comparison will reference).
-- TODO: Prediction back-transformation — decide naive `EXP()` with documented caveat
-  vs. Duan smearing estimator (a statistical decision, not an implementation detail).
+- TODO: **Prediction back-transformation, RESOLVED:** Duan's smearing estimator as the
+  default, with a per-cell `Back_Transform_Method` toggle (`Duan` default | `Naive`).
+  Caveat row visible on the sheet:
+  *Duan = Duan (1983) smearing; Naive = textbook EXP(ŷ), biased.*
 
 ### Standalone Data Transformation functions (specs in ROADMAP.md)
 
@@ -255,32 +259,98 @@ users never see "FE is in the dropdown but the engine is forthcoming."
 
 ## v2.3 — Model Comparison Sheet
 
-- TODO: Resolve the spec-string function name (`Regression_Model_Spec_String` vs.
-  `Regression_Spec_Label` vs. `Model_Formula_String`) and the argument type (lean:
-  anchor-cell reference, not sheet-name text — avoids volatile `INDIRECT`).
-- TODO: Implement the spec-string LAMBDA with header-signature validation (`NA()` on
+- ~~TODO: Resolve the spec-string function name (~~`Regression_Model_Spec_String` ~~vs.~~ ~~`Regression_Spec_Label`~~ ~~vs.~~ ~~`Model_Formula_String`~~ ~~) and the argument type (lean: anchor-cell reference, not sheet-name text — avoids volatile `INDIRECT`).~~ **RESOLVED.** Function name: **`Model_Formula_String(anchor_cell)`**. Argument type: **anchor cell** (consistent with the project's `INDIRECT`-avoidance stance).
+- TODO: Implement the `Model_Formula_String` LAMBDA with header-signature validation (`NA()` on
   non-Regression targets).
 - TODO: Sheet layout — model registry (hyperlinks), GoF table referencing the v2.2
   unit-space headline cells, shared prediction inputs (Comparison sheet is the source;
   Regression sheets pull via XLOOKUP), prediction results table.
-- TODO: Formalize `Comparison_Anchor` sheet-scoped named ranges (interface contract —
-  becomes part of the public interface, a versioning commitment).
+- ~~TODO: Formalize `Comparison_Anchor` sheet-scoped named ranges (interface contract —
+  becomes part of the public interface, a versioning commitment).~~ **RESOLVED:** three
+  named ranges ship at v2.3 as a public-interface commitment:
+  - `Comparison_Anchor` — single anchor cell in the status block (the
+    `Model_Formula_String` first-argument; the model-registry hyperlink target)
+  - `Comparison_Headline_GoF` — the v2.2 unit-space headline cells (R²,
+    Adjusted R², RMSE) — the GoF table's source
+  - `Comparison_Prediction_Output` — the v2.1 prediction outputs center cell —
+    the prediction-results table's source
+
+  All three are sheet-scoped and the changelog entry for v2.3.0 must name them
+  explicitly so the public-interface commitment is discoverable.
 - TODO: Decide the mismatched-predictor-set fallback (XLOOKUP `[if_not_found]`).
 
 ---
 
 ## v2.4 — Resampling & Simulation
 
-- TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples, alpha, [include])` — bootstrap confidence interval for an arbitrary statistic passed as a LAMBDA. Evaluate whether `RANDARRAY`-based resampling is viable or whether a pre-drawn random table is needed.
-- TODO: Implement `MC_Percentile(dist_params, n_samples, percentile)` — Monte Carlo draw from a fitted distribution; complements v2.0 fitting.
-- TODO: Implement `PERT_Sample(min, mode, max, n_samples)` — BetaPERT sampling for cost/schedule risk analysis.
-- TODO: Design sheet layout (bootstrap section + Monte Carlo section; may share one sheet). Implement `write_sheet_simulation.py`.
+- TODO: **No-volatile constraint, RESOLVED: pre-drawn random table.** A single
+  sheet-scoped named range `Bootstrap_Random_Draws` holds a uniformly-distributed
+  random table pre-drawn once at build time, seeded from the same SHA-derived seed
+  the QC build already uses (`analysis_cache.py`). `Bootstrap_CI` indexes via
+  `INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`.
+  Same inputs → same output, every recalc. `RANDARRAY()` rejected: silently re-drawing
+  per recalc is the opposite of the library's auditability philosophy. To get a new
+  draw, regenerate the workbook via `build_production.py` (deliberate, not a limitation).
+- TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples, alpha, [include])` — bootstrap
+  confidence interval for an arbitrary statistic passed as a LAMBDA. Uses the pre-drawn
+  table above.
+- TODO: Implement `MC_Percentile(dist_params, n_samples, percentile)` — Monte Carlo draw
+  from a fitted distribution; complements v2.0 fitting. Uses the same pre-drawn table.
+- TODO: Implement `PERT_Sample(min, mode, max, n_samples)` — BetaPERT sampling for
+  cost/schedule risk analysis. Uses the same pre-drawn table.
+- TODO: Design sheet layout (bootstrap section + Monte Carlo section; may share one sheet).
+  Implement `write_sheet_simulation.py`.
 
 ---
 
-## v2.5+ — Future (sequence TBD)
+## v2.5+ — Future (sequence TBD; first two claimed)
 
-### Two-way Fixed Effects (first candidate after v2.1)
+The v2.5+ bucket previously had seven candidates with no order. Two-sample
+tests are now v2.5 (next MINOR after v2.4) and the `Weight` Role is v2.6
+(after v2.5). The rest are deliberately unordered pending actual user
+demand — a single maintainer should not pre-order work that may not be
+the next thing actually needed.
+
+### v2.5 — Bivariate / Two-sample *(claimed, next MINOR after v2.4)*
+
+- TODO: Implement `T_Test_OneSample(data, mu0, alpha, [include])` → test statistic, p-value, CI.
+- TODO: Implement `T_Test_TwoSample(data1, data2, alpha, equal_var, [include1], [include2])` —
+  equal-variance, Welch, and paired variants. Open design question: paired is a separate
+  code path the `equal_var` flag does not cover — 3-way flag or separate `paired` boolean?
+- TODO: Implement `F_Test_Variance(data1, data2, alpha, [include1], [include2])` — output
+  feeds a recommendation cell that selects the appropriate t-test variant.
+- TODO: Implement `Covariance_Matrix(data, [include])` — sample covariance (consistent
+  with the existing catalog's sample-statistic convention); complement to the existing
+  `Correlation_Matrix`.
+- TODO: Design two-sample sheet layout: inputs, test selector, F-test assumption check,
+  output (test statistic, df, p-value, CI, effect size). Implement `write_sheet_two_sample.py`.
+
+### v2.6 — `Weight` Role (WLS) *(claimed, after v2.5)*
+
+The standalone WLS milestone and its `[weights]`-argument-vs-parallel-function-set
+debate are superseded by a **`Weight` value on the Role axis** (see ROADMAP *Future
+roles*). Three-stage scope carried forward: user-supplied weights →
+variance-driver-derived weights → FGLS. v2.6 ships the first stage only.
+
+- TODO: Implement the `Weight` Role (at most one, per the cardinality rule that
+  Response, Time, and Weight share; status-block validation identical to
+  exactly-one-Response).
+- TODO: Thread weights through the engine per the Role-axis design: a single optional
+  `[Weights]` argument (default uniform) on the inferential chain. Default-uniform
+  means every existing OLS call computes identically — the v2.1 `[DF_Absorbed]`
+  precedent (default 0 → identical no-FE model) is the exact pattern to follow.
+- TODO: Update the Diagnostic Guide to describe which diagnostics change interpretation
+  under WLS. (WLS closes the loop opened by v1's Scale-Location diagnostic.)
+
+### v2.7+ — Unordered candidates (no claim)
+
+The following are real candidate work but deliberately unordered. Two-way FE
+and `Cluster` have partial forward wiring (from v2.1 FE and the
+`Serial_Correlation_Group()` resolver); the rest are design-not-started.
+A user-pressing-for-them signal would reorder these; absent that, they
+stay in this unordered bucket.
+
+#### Two-way Fixed Effects
 
 - TODO: Implement `Absorb_Two_Way_Fixed_Effects(x, group1, group2, [include], [passes])`
   (alternating-projection demeaning for unbalanced panels).
@@ -291,33 +361,38 @@ users never see "FE is in the dropdown but the engine is forthcoming."
 - TODO: Lift the v2.1 one-FE-variable status-block error; resolve the two-way
   prediction question (group intercepts are not recoverable as simple group means).
 
-### Weighted regression — superseded by the `Weight` Role
-
-The standalone WLS milestone and its `[weights]`-argument-vs-parallel-function-set
-debate are superseded by a **`Weight` value on the Role axis** (see ROADMAP *Future
-roles*). Three-stage scope carried forward: user-supplied weights →
-variance-driver-derived weights → FGLS.
-
-- TODO: Implement the `Weight` Role (at most one; status-block validation) and thread
-  weights through the engine per the Role-axis design.
-- TODO: Update the Diagnostic Guide to describe which diagnostics change interpretation
-  under WLS. (WLS closes the loop opened by v1's Scale-Location diagnostic.)
-
-### Bivariate / Two-sample
-
-- TODO: Implement `T_Test_OneSample(data, mu0, alpha, [include])` → test statistic, p-value, CI.
-- TODO: Implement `T_Test_TwoSample(data1, data2, alpha, equal_var, [include1], [include2])` — equal-variance, Welch, and paired variants via `equal_var` flag.
-- TODO: Implement `F_Test_Variance(data1, data2, alpha, [include1], [include2])` — test for equality of variances; output feeds a recommendation cell that selects the appropriate t-test variant.
-- TODO: Implement `Covariance_Matrix(data, [include])` — complement to the existing `Correlation_Matrix`.
-- TODO: Design two-sample sheet layout: inputs, test selector, F-test assumption check, output (test statistic, df, p-value, CI, effect size). Implement `write_sheet_two_sample.py`.
-
-### Multi-group means (ANOVA)
+#### Multi-group means (ANOVA)
 
 - TODO: Implement one-way ANOVA as regression on group dummies, reusing the existing SS/MS/F machinery. Frame explicitly as "ANOVA is regression" — group means, SS decomposition, and F-test should match the MLR output exactly.
 - TODO: Add post-hoc comparisons (Tukey HSD or Bonferroni) as an optional output section.
 
-### Time series
+#### `Cluster` Role (clustered SEs)
+
+- TODO: Implement the `Cluster` Role (at most one) — clustered-robust variance estimator.
+  Has partial forward wiring from `Serial_Correlation_Group()`'s dormant Cluster branch
+  (PR #106), but the engine-side estimator (cluster-robust V_β) is not implemented.
+- TODO: Lift the v2.1 `n/a — engine forthcoming` token on the BFN cell when Cluster is
+  active (the BFN formula already uses `Serial_Correlation_Group()` as its resolver, so
+  the wiring is partial).
+
+#### `Time` Role (time-index designation)
+
+- TODO: Design and implement the `Time` Role. Partially forward-wired via the v2.1
+  Sequence axis, but the full `Time` Role adds time-index semantics (for the future
+  time-series sheet, for cross-sheet `Lag_By`/`Difference_By` calls). Open design
+  question: can a column be both `Sequence` and `Time`, or are they mutually exclusive?
+
+#### Time series
 
 - TODO: Implement `Moving_Average(data, window, [include])`.
-- TODO: Implement `Exponential_Smoothing(data, alpha_smooth, [include])` — note: use `alpha_smooth` to distinguish from the significance-level `alpha`.
-- TODO: Implement `write_sheet_time_series.py` with forecast output, error metrics (MAE, RMSE, MAPE), and an actual vs. smoothed series chart.
+- TODO: Implement `Exponential_Smoothing(data, alpha_smooth, [include])` — note: use
+  `alpha_smooth` to distinguish from the significance-level `alpha`.
+- TODO: Implement `write_sheet_time_series.py` with forecast output, error metrics
+  (MAE, RMSE, MAPE), and an actual vs. smoothed series chart.
+
+#### Long-tail (out of planning horizon)
+
+- **Fourier analysis** — long-tail; the *ToolPak Parity Reference* notes it is
+  "intentionally skipped" and a later addition-by-demand decision, not a planned milestone.
+- **Decision analysis** — long-tail (loss functions, cost/risk oriented). Not on the
+  planning horizon.

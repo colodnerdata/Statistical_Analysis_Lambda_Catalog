@@ -61,7 +61,7 @@ import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
-    a1, border_box, col_letter, drop_local_name,
+    OPEN_WORKBOOK_ERRORS, a1, border_box, col_letter, drop_local_name,
     excel_color, f, rc, section_heading, val,
 )
 
@@ -315,10 +315,12 @@ def _autofit_column_widths(sheet: xw.Sheet) -> None:
 def _drop_wb_name(sheet: xw.Sheet, name: str) -> None:
     """Remove a workbook-scoped (non-local) name if present."""
     wb_names = sheet.book.api.Names
-    for idx in range(wb_names.Count, 0, -1):
-        n = wb_names(idx)
-        if "!" not in n.Name and n.Name.lower() == name.lower():
-            n.Delete()
+    try:
+        n = wb_names(name)
+    except OPEN_WORKBOOK_ERRORS:
+        return
+    if "!" not in n.Name and n.Name.lower() == name.lower():
+        n.Delete()
 
 
 def _setup_local_names(sheet: xw.Sheet) -> None:

@@ -173,63 +173,51 @@ decision remains from it:
 
 ---
 
-## v2.1 — Fixed Effects (one-way only)
+## v2.1 — Sequence, gap-aware longitudinal, serial-correlation diagnostics, fixed effects (in progress)
 
 Two-way FE is deliberately deferred until this framework is finished — see the
-v2.5+ section.
+v2.5+ section. Items below are in the locked ship order: the Sequence fix is
+the prerequisite for the 2.1.0 entry; the FE Role dropdown, the CI+PI
+prediction layout, and the engine are gated to ship as a single release so
+users never see "FE is in the dropdown but the engine is forthcoming."
 
-### Engine
+### Shipped (since v2.0.0)
 
-- TODO: Implement `y_s()` — the demeaned-Response constructor (new function, not a
-  replacement wired into existing no-FE call sites).
-- TODO: Thread the optional `[DF_Absorbed]` argument (default 0) through the df /
-  MS-residual / t-critical inference chain; no-FE models must compute identically.
-- TODO: Implement `Demean_By(x, group, [include])` and `Group_Mean(x, group, [include])`
-  (constructor internals, also user-callable).
-- TODO: Implement `Absorbed_Degrees_Of_Freedom(...)` — Σ(Gᵢ − 1) from the spec.
-- TODO: Implement `Is_Balanced_Panel(group, time, [include])` (one-way/panel diagnostic).
+- ~~TODO: Sequence structural axis (spec column H) and reserved Base Period Δ (column I).~~ **DONE (PR #101):** spec block grew A–I to A–K; zero-or-one validation at H2; pre-filled blank by the build; read only by the validation layer and the base-period layer.
+- ~~TODO: Gap-aware `Difference_By` / `Lag_By` and the Base Period Δ layer.~~ **DONE (PR #102):** `Difference_By` / `Lag_By` keyed on exact `(group, seq−Δ)` pairs (no OFFSET/row arithmetic); NA() at first periods and panel gaps; the Sequence Spacing block (rows 28–34) and the parser's zero-parameter LAMBDA support. Verified by `tests/test_difference_by_verification.py` (T17–T19).
+- ~~TODO: Sequence-aware Durbin-Watson.~~ **DONE (PR #103):** `Durbin_Watson_By(X_s, Y, seq, [Allow_Intercept], [Include])` — sequence-axis DW, row-order invariant; gated cell at Regression X11/Y11 with `n/a — requires Sequence` / `n/a — multiple Sequence flags` tokens.
+- ~~TODO: BFN panel Durbin-Watson.~~ **DONE (PR #105):** `BFN_Panel_Durbin_Watson(X_s, Y, group, seq, [delta], …)` (Bhargava–Franzini–Narendranathan 1982); within-group differencing via `Difference_By`; mutual-gate trigger matrix with the DW cell; X12/Y12 cell.
+- ~~TODO: Grouping-key resolver.~~ **DONE (PR #106):** `Serial_Correlation_Group()` SWITCH with the dormant `Cluster` branch (the reserved-spec-column pattern for the v2.6+ Cluster role).
+- ~~TODO: v1.1 leftovers — histogram distribution overlays and per-distribution Q-Q plots.~~ **DONE (PRs #96, #97, #99, #100):** eight per-distribution Q-Q charts with closed-form quantile inverses; histogram combo charts with overlay lines on the shared count axis; BetaPERT singularity fix; 4×2 Q-Q layout.
+- ~~TODO: `--skip-univariate` CLI option.~~ **DONE (PR #98):** build-ergonomics for the slow grid-search step.
+- ~~TODO: Spec-driven QC refactor.~~ **DONE (PR #103):** `analyze_regression_spec.py` and `test_regression_spec_qc.py` replace the legacy MLR smoke-test-sheet path; `Full_Data` ships as Omit in the default spec; Year flagged as Sequence, Population as Omit demonstrator.
+- ~~TODO: Durbin-Watson under FE — relabel, caveat, or suppress.~~ **DONE (BFN + resolver releases):** resolved as "second cell + mutual gating" (PR #105), with the resolver (PR #106) carrying the dormant Cluster forward-wiring.
 
-### Sheet
+### Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5)
 
-- TODO: Restructure the prediction zone into the general group-mean form
-  ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂ with the whole sample as the degenerate G = 1 group
-  (v2.0 shipped the standard `Prediction_Interval` form, so this is a rebuild, not an
-  activation — see the ROADMAP post-ship correction).
-- TODO: Surface BOTH intervals — mean-response CI and new-observation PI (three lines:
-  point · CI low/high · PI low/high).
-- TODO: FE group selection dropdown sourced from the observed level list; ȳᵢ / x̄ᵢ / Tᵢ
-  via AVERAGEIFS/COUNTIFS respecting the Include/Filter mask.
-- TODO: Status block — active FE variable, group count, absorbed df; visible error when
-  more than one FE variable is declared; intercept × FE red flag (flag, don't force).
-- TODO: Relabel within-model residual outputs; Diagnostic Guide paragraph on residuals
-  under FE.
+- TODO: **Sequence axis auto-detection and override** (renames column I to **`Sequence Period`**, adds column J **`Period In Use`** following the Reference Level / Reference In Use pattern). The current override mechanic has a spill-collision risk for source tables wider than the shipped WHO sample: the spec block reads its own H/I cells, and a longer table could let the override spill overrun an input band. Fix: relocate the override spill and bound every read of the H/I/J band by `COLUMNS(Source_Data)` (the spill-placement principle from `CLAUDE.md`). Yellow CF on `Period In Use` when overridden; red CF on `Period In Use` when off-grid; per-row CF on the override cell. Update the Sequence Spacing block (rows 28–34), the spec layout constants, and the QC analyzers. **Significant testing. Resolve before writing the 2.1.0 Version History entry.**
 
-### Open decisions
+- TODO: **FE Role dropdown + status-block validation** (gated to ship with the engine). `Fixed Effects` in the Role axis; status-block cells for "active FE variable," "group count" (`n/a — engine forthcoming` until the engine lands), "absorbed df" (`n/a — engine forthcoming` until the engine lands); visible error at 2+ FE variables; intercept × FE red flag; CF bands update. Sheet-only; no engine change.
 
-- ~~TODO: Durbin-Watson under FE — relabel, caveat, or suppress.~~ **DONE (BFN
-  release):** resolved as "second cell + mutual gating", not relabel/suppress.
-  `BFN_Panel_Durbin_Watson` (Bhargava–Franzini–Narendranathan 1982) computes the
-  within-group panel DW built on `Difference_By` (numerator NA→0 masked locally;
-  denominator over all û²), surfaced at Regression X12/Y12. Trigger matrix: no
-  Sequence → both cells token; Sequence + no FE → DW active, BFN
-  `n/a — no fixed effects`; Sequence + FE → BFN active, DW `n/a — FE active`.
-  FE detection keys on the count of Role="Fixed Effects" spec rows — forward
-  wiring, since the role is not in the dropdown until the v2.1 FE engine ships.
-  **Grouping-key resolver — DONE (resolver release, after BFN):** the BFN
-  cell's group argument routes through `Serial_Correlation_Group()` — the
-  single retargeting point for which dimension partitions residuals — never
-  `Fixed_Effects_Column()` directly. The resolver's SWITCH carries a dormant, unreachable Cluster
-  branch (returns `n/a — Cluster grouping RESERVED — v2.6+`; the reserved-
-  spec-column pattern), so the v2.6+ Cluster role retargets the key by
-  editing the resolver alone; no grouping role → the `none` sentinel
-  (ordinary DW path).
-- TODO: BFN critical values — the statistic ships with an interpretation-caveat
-  note only (near 2 ⇒ no first-order autocorrelation). Its significance bounds
-  depend on N and T (Bhargava et al. 1982 tables); do NOT present standard DW
-  bounds next to it. Surfacing BFN bounds on the sheet is the recorded open item.
-- TODO: Categorical × FE prediction encoding — x_new and x̄ᵢ formed in constructed
-  design-matrix space (largely subsumed by v2.0 categorical prediction; recorded so the
-  encoding step is not forgotten).
+- TODO: **Surface BOTH intervals in adjacent cells of the prediction outputs section** (gated to ship with the engine). Three lines: point · CI low/high · PI low/high. The PI half-width is `√(σ²·(1+1/T) + q)` and the CI half-width is `√(σ²/T + q)`; same center, same x_new, same t-critical. Sheet layout only — the math lives in the engine. The FE engine drops in group-keyed inputs at the activation step without restructuring this layout.
+
+- TODO: **`Demean_By(x, group, [include])` and `Group_Mean(x, group, [include])`** (constructor internals, also user-callable transforms).
+
+- TODO: **`Is_Balanced_Panel(group, time, [include])`** — one-way/panel diagnostic; ships with `Demean_By` (shares the "valid group set" primitive).
+
+- TODO: **`Absorbed_Degrees_Of_Freedom(spec)`** — Σ(Gᵢ − 1) from the spec.
+
+- TODO: **`y_s()`** — demeaned-Response constructor (new function, not a replacement wired into existing no-FE call sites).
+
+- TODO: **`[DF_Absorbed]` argument (default 0) threaded through df / MS-residual / t-critical.** **Significant testing** — assert bit-equality of every existing engine test with and without the argument, plus FE-active cases for the full inferential chain (SE, t, p, CIs, AIC/BIC).
+
+- TODO: **FE group selection dropdown + ȳᵢ / x̄ᵢ / Tᵢ cells** (gated to ship with the engine). AVERAGEIFS/COUNTIFS respecting the Include/Filter mask; the prediction outputs section from the CI+PI layout activates the group-mean form (ȳᵢ + (x_new − x̄ᵢ)′β̂) with group-keyed inputs; BFN cell (X12/Y12) flips from `n/a — no fixed effects` to active when FE is set. **#2, #3, and this item ship as one release with the engine.**
+
+- TODO: **BFN critical values** (follow-on, ships with 2.1.0 if there's room). N,T-dependent bounds per Bhargava et al. 1982 tables; do NOT present standard DW bounds next to the BFN cell.
+
+- TODO: **Categorical × FE prediction encoding** (follow-on, ships with 2.1.0 if there's room). x_new and x̄ᵢ formed in constructed design-matrix space; UI wire to encode through `Dummy_Code` before reaching the FE formula. Largely subsumed by v2.0 categorical prediction; recorded so the encoding step is not forgotten.
+
+- TODO: **Relabel within-model residual outputs + Diagnostic Guide paragraph on residuals under FE** (follow-on, ships with 2.1.0 if there's room). Documentation-only.
 
 ---
 

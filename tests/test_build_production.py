@@ -227,6 +227,42 @@ def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:
     assert "retrying in a fresh Excel instance" in capsys.readouterr().err
 
 
+def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys) -> None:
+    calls: list[bool] = []
+
+    monkeypatch.setattr(
+        build_production,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_univariate=False,
+            skip_data_table_calculations=True,
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "build_production_workbook",
+        lambda **_: NameSyncResult(created=1, updated=2),
+    )
+
+    def record_retry(_label, fn, *, retry_rpc=False, **_kwargs) -> None:
+        calls.append(cast(bool, retry_rpc))
+        fn()
+
+    monkeypatch.setattr(build_production, "_retry_on_open", record_retry)
+
+    build_production.main()
+
+    assert calls == [True]
+    output = capsys.readouterr().out
+    assert "Created names: 1" in output
+    assert "Updated names: 2" in output
+
+
 class _RecordingBook:
     def __init__(self) -> None:
         self.sheets = _FakeSheetCollection()

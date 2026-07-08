@@ -300,7 +300,7 @@ def _retry_on_open(
     retry_rpc: bool = False,
     max_rpc_retries: int = 1,
 ) -> None:
-    """Call fn(); if it raises 'likely open in Excel', prompt and retry just fn()."""
+    """Call fn(); retry open-workbook locks and optionally dropped COM sessions."""
     rpc_retries = 0
     while True:
         try:
@@ -310,7 +310,7 @@ def _retry_on_open(
             if retry_rpc and _is_rpc_failure(exc) and rpc_retries < max_rpc_retries:
                 rpc_retries += 1
                 print(
-                    "\nExcel's COM session dropped during recalculation; "
+                    "\nExcel's COM session dropped; "
                     "retrying in a fresh Excel instance...",
                     file=sys.stderr,
                     flush=True,
@@ -349,7 +349,11 @@ def main() -> None:
             skip_univariate=args.skip_univariate,
         )
 
-    _retry_on_open(f"{args.workbook.name} is open in Excel", _run_build)
+    _retry_on_open(
+        f"{args.workbook.name} is open in Excel",
+        _run_build,
+        retry_rpc=True,
+    )
     assert result is not None
 
     # Phase 2: recalculate Data Tables and save.

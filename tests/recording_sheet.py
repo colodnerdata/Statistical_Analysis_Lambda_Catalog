@@ -25,7 +25,12 @@ class RecordingNames:
     def Count(self) -> int:
         return len(self.items)
 
-    def __call__(self, index: int) -> RecordingName:
+    def __call__(self, index: int | str) -> RecordingName:
+        if isinstance(index, str):
+            for item in self.items:
+                if item.Name.lower() == index.lower():
+                    return item
+            raise OSError(f"Name not found: {index}")
         return self.items[index - 1]
 
     def Add(self, *, Name: str, RefersTo: str) -> RecordingName:

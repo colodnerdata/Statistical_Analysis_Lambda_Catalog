@@ -55,7 +55,7 @@ flag.
 | v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries. The two post-release leftovers (per-distribution Q-Q plots and combo-chart overlay lines built on those CDF-delta columns) are now implemented and ship with the next workbook build |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
-| v2.1 | Fixed Effects (Role axis) — **one-way only** | No | Planned — panel regression, `y_s()`, absorbed df. One FE variable only; two-way absorption is its own post-v2.1 milestone (see v2.5+). Non-breaking: the absorbed-df correction is an optional `[DF_Absorbed]` argument defaulting to 0 (decision recorded under v2.1), so no-FE models are unchanged |
+| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) | No | In progress — pending Sequence auto-detection/override fix (`Sequence Period` (I) / `Period In Use` (J) rename, spill-collision guard) and FE engine work; no release scheduled. Bundles the Sequence/BFN/QC chain with the FE engine as a single release so users never see "FE is in the dropdown but the engine is forthcoming" |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Planned — MINOR. Wires the reserved spec column G and ships the user-callable transform functions (Center, Zscore, Winsorize, Lag_By, …). Completes the Regression sheet as a fully functional deliverable |
 | v2.3 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. Read-only across finished Regression sheets; ships after Transforms so its comparisons are unit-space-honest from day one |
 | v2.4 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned |
@@ -718,14 +718,13 @@ broadcast, per the level-vector split).
    its significance bounds are N,T-dependent (Bhargava et al. 1982 tables) and the
    standard DW bounds must not be presented next to it — surfacing proper BFN
    bounds is the recorded open item.
-2. **Categorical × FE prediction encoding** *(v2.1)* — when non-FE categorical
-   predictors coexist with fixed effects, x_new and x̄ᵢ must be formed in the
-   *constructed* design-matrix space (dummies encoded through the same `Dummy_Code`
-   path `x_s()` uses), not raw input space. The arithmetic above is unchanged (it is
-   general in design-matrix coordinates); what remains is wiring the prediction-input
-   UI to encode the chosen level through `Dummy_Code` before it reaches the formula.
-   Shares machinery with v2.0 categorical prediction, so largely subsumed — recorded
-   so the encoding step is not forgotten.
+2. **Categorical × FE prediction encoding** *(v2.1)* — moved to the v2.1
+   Pending block (item #11 in `TODOs.md`). When non-FE categorical predictors
+   coexist with fixed effects, x_new and x̄ᵢ must be formed in the *constructed*
+   design-matrix space (dummies encoded through the same `Dummy_Code` path
+   `x_s()` uses), not raw input space. Shares machinery with v2.0 categorical
+   prediction, so largely subsumed — recorded so the encoding step is not
+   forgotten.
 3. **Dataset bundling** (carried forward) — bundled WHO vs. data-agnostic. The
    `Source_Data` indirection reduces changeover to a one-name edit, which
    strengthens the data-agnostic option; the named-range rename it gated is
@@ -780,6 +779,99 @@ prediction zone that could be backported now, or simply introduced at v2.0 when 
 prediction zone is rebuilt in the general form anyway. *(Post-ship note: v2.0 kept the
 single interval, so the CI + PI pair lands at v2.1 together with the group-mean
 restructure above.)*
+
+---
+
+## v2.1 — Sequence, fixed effects, and the forward-wiring chain — IN PROGRESS
+
+The 2.1 milestone bundles three coherent pieces that share the Sequence axis
+and the FE Role: the Sequence/Base Period/longitudinal/serial-correlation chain
+that the v2.0 work record says is "the v2.1 work that doesn't need the FE
+engine proper" (now substantially complete in the repo), the FE engine
+proper (`y_s`, `[DF_Absorbed]`, `Demean_By`, `Group_Mean`,
+`Absorbed_Degrees_Of_Freedom`, `Is_Balanced_Panel`), and the sheet work that
+activates the engine (FE Role dropdown, status-block validation, CI+PI
+prediction layout, FE group dropdown, BFN cell flips active when FE is set).
+Two-way FE remains a post-2.1 milestone (see v2.5+).
+
+The 2.1.0 release ships as **a single release**, not as a sequence of preview
+builds — the FE Role dropdown, the CI+PI prediction layout, and the FE
+activation on the sheet are all gated to ship with the engine, so users never
+see a workbook that says "FE is in the dropdown but the engine is forthcoming."
+
+### Shipped (since v2.0.0)
+
+- ~~Sequence structural axis (spec column H) and reserved Base Period Δ (column I).~~ **DONE (PR #101).** Spec block grew A–I to A–K; zero-or-one validation at H2; read only by the validation layer and the base-period layer.
+- ~~Gap-aware `Difference_By` / `Lag_By` and the Base Period Δ layer.~~ **DONE (PR #102).** Within-group differencing via exact `(group, seq−Δ)` lookups; NA() at first periods and panel gaps; Sequence Spacing block (rows 28–34); parser supports zero-parameter LAMBDAs so `Base_Period_Delta()` survives the workbook.xml sync.
+- ~~Sequence-aware Durbin-Watson.~~ **DONE (PR #103).** `Durbin_Watson_By(X_s, Y, seq, [Allow_Intercept], [Include])`; gated cell at Regression X11/Y11.
+- ~~BFN panel Durbin-Watson.~~ **DONE (PR #105).** `BFN_Panel_Durbin_Watson` (Bhargava–Franzini–Narendranathan 1982) with the Sequence/FE trigger matrix; cell at X12/Y12.
+- ~~Grouping-key resolver.~~ **DONE (PR #106).** `Serial_Correlation_Group()` SWITCH with the dormant `Cluster` branch (the v2.6+ Cluster role is a resolver-only edit).
+- ~~v1.1 leftovers — histogram distribution overlays and per-distribution Q-Q plots.~~ **DONE (PRs #96, #97, #99, #100).** Eight per-distribution Q-Q charts with closed-form quantile inverses; histogram combo charts with overlay lines on the shared count axis; BetaPERT singularity fix; 4×2 Q-Q layout.
+- ~~`--skip-univariate` CLI option.~~ **DONE (PR #98).** Build ergonomics for the slow grid-search step.
+- ~~Spec-driven QC refactor.~~ **DONE (PR #103).** `analyze_regression_spec.py` and `test_regression_spec_qc.py` replace the legacy MLR smoke-test-sheet path; `Full_Data` ships as Omit in the default spec; Year flagged as Sequence, Population as Omit demonstrator.
+
+### Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5)
+
+The full ship order lives in `TODOs.md` under the v2.1 section. The high-level
+shape: the Sequence fix lands first (it's a real sheet-writer change with
+significant testing, not a one-liner), then the FE Role dropdown + status
+block validation, then the CI+PI prediction layout, then the engine
+(`Demean_By` / `Group_Mean` / `Is_Balanced_Panel` / `Absorbed_Degrees_Of_Freedom`
+/ `y_s` / `[DF_Absorbed]`), then the FE group dropdown + ȳᵢ/x̄ᵢ/Tᵢ cells +
+BFN cell flips active. The follow-on polish (BFN critical values, Categorical
+× FE prediction encoding, residual relabel + Diagnostic Guide) ships with
+2.1.0 if there's room.
+
+**#1 — Sequence axis auto-detection and override (prerequisite).** The
+override mechanic has a spill-collision risk: the spec block reads its own H/I
+cells, and a source table wider than the shipped WHO sample could let the
+override spill overrun an input band. Fix: rename column I to
+**`Sequence Period`**, add column J **`Period In Use`** following the
+Reference Level / Reference In Use pattern (displays the candidate if no
+override, the typed value if the override is non-blank), bound every read of
+the H/I/J band by `COLUMNS(Source_Data)` (the spill-placement principle from
+`CLAUDE.md`), add yellow CF on `Period In Use` when overridden, red CF when
+off-grid, and per-row CF on the override cell. Update the Sequence Spacing
+block (rows 28–34), the spec layout constants, and the QC analyzers.
+
+**#2 — FE Role dropdown + status-block validation (gated).** Sheet-only, no
+engine change. `Fixed Effects` in the Role axis; status-block cells for
+"active FE variable," "group count," and "absorbed df" — the last two show
+`n/a — engine forthcoming` until the engine lands. Visible error at 2+ FE
+variables; intercept × FE red flag; CF bands update.
+
+**#3 — Surface BOTH intervals in adjacent cells of the prediction outputs
+section (gated).** Three lines: point · CI low/high · PI low/high. The PI
+half-width is `√(σ²·(1+1/T) + q)` and the CI half-width is `√(σ²/T + q)`;
+same center, same x_new, same t-critical. Sheet layout only — the math lives
+in the engine. The FE engine drops in group-keyed inputs at the activation
+step without restructuring this layout.
+
+**#4–#8 — Engine work.** `Demean_By` / `Group_Mean` (constructor internals
+and user-callable transforms) and `Is_Balanced_Panel` (one-way diagnostic)
+ship together; `Absorbed_Degrees_Of_Freedom(spec)`; `y_s()` (the
+demeaned-Response constructor, new function, not a replacement); and the
+optional `[DF_Absorbed]` argument (default 0) threaded through df /
+MS-residual / t-critical. Because `[DF_Absorbed]` defaults to 0, no-FE
+models compute identically to v2.0 — this is what keeps v2.1 non-breaking
+under the interface definition. **Significant testing on the engine PR:**
+assert bit-equality of every existing engine test with and without the
+argument, plus FE-active cases for the full inferential chain (SE, t, p,
+CIs, AIC/BIC).
+
+**#9 — FE group selection dropdown + ȳᵢ / x̄ᵢ / Tᵢ cells + BFN cell flips
+active (gated).** AVERAGEIFS/COUNTIFS respecting the Include/Filter mask;
+the prediction outputs section from #3 activates the group-mean form
+(ȳᵢ + (x_new − x̄ᵢ)′β̂) with group-keyed inputs; BFN cell (X12/Y12) flips
+from `n/a — no fixed effects` to active when FE is set. **#2, #3, and #9
+ship as one release with the engine.**
+
+**#10–#12 — Follow-on polish (ships with 2.1.0 if there's room).** BFN
+critical values (N,T-dependent per Bhargava et al. 1982 tables — do NOT
+present standard DW bounds next to the BFN cell); Categorical × FE
+prediction encoding (x_new and x̄ᵢ formed in constructed design-matrix
+space, UI wire to encode through `Dummy_Code`); and the residual-output
+relabel plus a Diagnostic Guide paragraph on residuals under FE.
 
 ---
 

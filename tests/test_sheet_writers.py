@@ -53,11 +53,18 @@ from lambda_catalog.write_sheet_univariate import (
     _write_qq_data,
     _write_weibull_grid_search,
 )
-from tests.recording_sheet import RecordingSheet
+from tests.recording_sheet import RecordingName, RecordingNames, RecordingSheet
 
 
 def _as_xw_sheet(sheet: RecordingSheet) -> xw.Sheet:
     return cast(xw.Sheet, sheet)
+
+
+class BrokenIndexRecordingNames(RecordingNames):
+    def __call__(self, index: int | str) -> RecordingName:
+        if isinstance(index, int):
+            raise OSError("broken integer enumeration")
+        return super().__call__(index)
 
 
 def _formula(sheet: RecordingSheet, row: int, col: int) -> str:
@@ -456,6 +463,18 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
         "MAX(IFERROR(Number_Of_Histogram_Bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
     )
     assert getattr(names.by_short_name("UV_Sturges_Normal_CDF"), "Comment", None) is None
+
+
+def test_local_name_setup_drops_legacy_globals_without_enumerating_all_workbook_names() -> None:
+    sheet = RecordingSheet()
+    sheet.book.api.Names = BrokenIndexRecordingNames(
+        names=["UV_Data", "UV_Include", "UnrelatedName"]
+    )
+
+    _setup_local_names(_as_xw_sheet(sheet))
+
+    assert [item.Name for item in sheet.book.api.Names.items] == ["UnrelatedName"]
+    assert sheet.api.Names.by_short_name("UV_Data").RefersTo == "='Univariate'!$A$4#"
 
 
 def test_local_name_setup_creates_expected_count_overlay_names() -> None:

@@ -46,7 +46,7 @@ Zones 1–4 (cols A–Z) use the standard row layout:
 | 4 | Column sub-headers ("Upper Edge", "Count", "Distribution", …) | `_subheader_row` |
 | 5+ | Data / spill formulas | — |
 
-Zone 5 (cols BE–CU, with gap columns BD and BZ) holds the two-stage grid searches — three vertically stacked two-stage blocks (Weibull rows 1–25, Gamma rows 27–51, Beta rows 53–77). Each stage (`_write_grid_stage`) spans 21 columns (1 row-axis col + 20 Data Table body cols):
+Zone 5 holds the two-stage grid searches (Weibull / Gamma / Beta, vertically stacked). Each stage (`_write_grid_stage`) spans 21 columns (1 row-axis col + 20 Data Table body cols):
 
 | dr | Row | Contents |
 |---|---|---|
@@ -57,11 +57,9 @@ Zone 5 (cols BE–CU, with gap columns BD and BZ) holds the two-stage grid searc
 | 4 | row 5 | corner NLL cell (c0); Shape SEQUENCE spills right across 20 columns |
 | 5–24 | rows 6–25 | Scale SEQUENCE (c0); Data Table body (c0+1:c0+20) |
 
-For the Weibull block, Stage 1 is `BE1:BY25` with named body `UV_WB_S1 = BF6:BY25` and Stage 2 is `CA1:CU25` with named body `UV_WB_S2 = CB6:CU25`; the Gamma and Beta blocks follow the same pattern at their row anchors with `UV_GAMMA_S1/S2` and `UV_BETA_S1/S2` bodies. The visible Shape and Scale Input cells are the Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` and documents the physical table size; editing it does not resize the Data Table.
+Column letters and row anchors are defined as `_C_GS`, `_C_GS_S2`, and the `_GS_R_*` / `_GS_C_*` constants at the top of `write_sheet_univariate.py` — never hard-code row or column positions inside `_write_grid_stage`; the constants are the single source of truth for the zone layout. The visible Shape and Scale Input cells are the Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` and documents the physical table size; editing it does not resize the Data Table.
 
-Row and column offsets are defined as `_GS_R_*` and `_GS_C_*` constants at the top of `write_sheet_univariate.py`. Never hard-code row or column positions inside `_write_grid_stage`.
-
-Zone 6 (cols CW–DF, gap column CV) holds the Q-Q plot data: Hazen plotting positions `P`, the sorted `Sample` column, and eight theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts at G14/G34/G54 (count bars + one smoothed `UV_<method>_<Dist>_Expected` overlay line per distribution) and eight per-distribution Q-Q scatter charts in a 4×2 grid from row 74 (20 rows per chart row; left chart spans G:O, right chart P:T), fed by the OFFSET-based `UV_QQ_*` named ranges.
+Zone 6 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts and per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges.
 
 ### Regression sheet heading hierarchy
 
@@ -85,22 +83,7 @@ def _name_ref(local_name: str) -> str:
     return f"='{sname}'!{local_name}"
 ```
 
-All OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix. This distinguishes them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names. The full set:
-
-| Name | Column | Contents |
-|---|---|---|
-| `RegChartQQX` | AP | Normal Scores Ranked (QQ theoretical axis) |
-| `RegChartQQY` | AQ | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | AJ | Predicted Y — shared by multiple charts |
-| `RegChartResid` | AK | Residuals |
-| `RegChartActY` | AI | Actual Y |
-| `RegChartScaleLoc` | AR | Scale-Location |
-| `RegChartCookDist` | AO | Cook's Distance |
-| `RegChartLeverage` | AM | Hat Diagonal |
-| `RegChartStudResid` | AN | Studentized Residuals |
-| `RegChartPRESSResid` | AS | PRESS Residual |
-
-When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
+All OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix. This distinguishes them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names. The post-v2.0 name-to-column map (and the `$V$8` anchor) lives in the loop in `_setup_local_names` in `lambda_catalog/write_sheet_regression.py` — that loop is the single source of truth for the column letters. When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
 
 ## Charts — patterns and pitfalls
 

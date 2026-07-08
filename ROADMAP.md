@@ -200,7 +200,7 @@ sheet, Version History sheet, seven pre-built diagnostic charts, conditional for
 on out-of-bounds diagnostics, QC via `analyze_regression_sheet.py` across six
 configurations (sparse/medium/full predictor sets × intercept/no-intercept).
 
-(Full v1.0 gate history retained in git history of this file.)
+(The full v1.0 gate history is in the git history of this file rather than restated here; the bullets above are the still-relevant surface of the release.)
 
 ## v1.1 — Univariate — SHIPPED 2026-06-29
 
@@ -364,6 +364,83 @@ Closed-form MLE for Normal, Lognormal, and Exponential; grid-search MLE for the
 two-parameter shape family (Weibull, Gamma, Beta); direct min/mode/max estimation for
 Triangular and BetaPERT (non-differentiable / by-construction cases). Method of moments
 was not adopted as a default path anywhere.
+
+---
+
+## v1.2 — Workbook hardening & regression usability — SHIPPED 2026-07-03
+
+*(Released in the workbook Version History as 1.2.0; renumbered from 2.1.0. A
+non-breaking MINOR consolidating the v1.0 / v1.1 surface into a workbook that holds up
+under hand-use by cost estimators and other non-git users. The technical core is
+unchanged; every existing v1.0 / v1.1 input computes identically. Five additions:)*
+
+**1. Name Manager notes on every worksheet-scoped name.** Every worksheet-scoped
+named range (constructor closures, `RegChart*` chart feeds, helper formulas) now
+carries a `Comment` in the workbook's Name Manager describing what the name is for
+and which sheet zone owns it. The motivation: a non-git user opening
+`Lambda_Library.xlsx` in Excel has no way to read `ROADMAP.md` or
+`write_sheet_regression.py` — the only documentation they can reach is the workbook
+itself. The Name Manager `Comments` column is the in-workbook index. The loop in
+`_setup_local_names` in `write_sheet_regression.py` is the single source of the
+`Comment` strings; the same pattern applies to the other sheet writers.
+
+**2. Identity-line data series on the diagnostic charts (replacing the failed
+`Shapes.AddLine` approach).** The QQ, Actual-vs-Predicted, and Studentized-vs-Leverage
+charts all need a `y = x` reference line. v1.0 attempted to draw it with
+`chart.Shapes.AddLine(...)` — a position-in-fixed-plot-area-pixels approach that
+silently went wrong when the chart was resized, moved, or its axis scaling changed.
+v1.2 replaces every reference line with a real data series pointing both
+`XValues` and `Values` at the same named range (`RegChartQQX` for the QQ chart,
+`RegChartFitY` for the Actual-vs-Predicted chart, the corresponding `RegChart*`
+range for the leverage chart), with `ChartType = _XL_XY_SCATTER_LINES_NO_MARKERS`
+and `Name = "Identity"`. The series then auto-rescales with the chart, since
+its pixel coordinates are *not* fixed. The "Never draw reference lines as
+shapes" guide in `CLAUDE.md` / `AGENTS.md` captures the rationale; the helper
+`_add_identity_line` in `write_sheet_regression.py` is the implementation.
+
+**3. Intercept-only and undersized-sample guards.** Two narrow edge cases that v1.0
+returned silently-wrong numbers for. With the v1.0 input layout, an intercept-only
+model (every `Include` FALSE, intercept TRUE) and a model with n ≤ k + 1
+observations both computed reasonable-looking OLS output by accident — k = 0
+trivially; the undersized case produced a singular `Gram_Inverse` and the engine
+fell through to a near-`#NUM!` result. v1.2 adds explicit guards in
+`analyze_regression_sheet.py` (and the corresponding LAMBDA-side checks in
+`regression_shared.py`) that surface a visible `n/a — undersized sample` or
+`n/a — intercept-only` token in the affected output cells rather than returning
+silently-wrong numbers. The status block on the Regression sheet echoes the same
+token. Visible failure is the design philosophy.
+
+**4. `LOOCV_Residual` (new function, pair to `LOOCV_Prediction`).** v1.0 shipped
+`LOOCV_Prediction(X_s, Y, n, [Allow_Intercept], [Include])` — the leave-one-out
+predicted value for a single observation. v1.2 adds `LOOCV_Residual(X_s, Y,
+[Allow_Intercept], [Include])` (catalog entry in `lambda_functions.json`) returning the leave-one-out residual vector `eᵢ / (1 − hᵢ)` in a single call, which makes `PRESS = SUMSQ(LOOCV_Residual(...))` an obvious idiom and
+unifies the LOOCV machinery under the Sherman-Morrison-Woodbury update that
+`LOOCV_Prediction` was already using internally.
+
+**5. Build-phase retry / RPC handling.** Excel's COM automation occasionally
+returns `RPC server unavailable` mid-`Calculate` — a transient that surfaced
+during the v1.1 build under heavy Data Table evaluation. v1.2 introduces
+`_retry_on_open` in `build_production.py` and splits `main()` into two phases:
+phase 1 (sheet writes, no retry — minutes long, the only phase
+that benefits from a clean Excel instance) and phase 2 (recalculate + save,
+short, the most likely phase to hit the RPC failure). The retry-on-open
+behavior is applied to phase 2 only, so a transient failure there doesn't
+restart the multi-minute sheet-writing phase. The same pattern lives in
+`build_qc.py`.
+
+**Resolved decisions (v1.2):**
+
+- *Name Manager note scope — RESOLVED: every worksheet-scoped name gets a note.*
+  The alternative (notes only on names a non-git user is likely to encounter) was
+  rejected because the line between "likely" and "unlikely" is too subjective to
+  keep stable across releases. The blanket rule is the only one that scales.
+- *Identity-line technique — RESOLVED: real data series, not `Shapes.AddLine`.*
+  See point 2 above; the `Shapes.AddLine` approach was tried and abandoned in
+  the v1.0 → v1.1 cycle.
+- *Undersized-sample failure mode — RESOLVED: visible `n/a` token, not silent
+  numbers.* Consistent with the library's "visible failure" philosophy for
+  categorical degeneracy, invalid reference levels, and the
+  blank-categorical caveat (see v2.0).
 
 ---
 
@@ -733,9 +810,12 @@ broadcast, per the level-vector split).
    `Sample_Include()` shipped with the role-aware completeness layer built in (every
    Filter column truthy AND the Response numeric AND every included Continuous
    Predictor numeric), so no separate `Role_Aware_Complete_Cases` function was needed.
-   Remaining gap: **Categorical Predictors impose no non-blank condition yet** (known
-   caveat, recorded in the human test plan and TODOs.md). Interim: a completeness
-   column declared as a Filter (the `Full_Data` pattern) covers the gap manually.
+   Remaining gap (the **blank-categorical caveat**): Categorical Predictors impose no
+   non-blank condition; a blank category value encodes as all-zero dummies. Tracked
+   in `TODOs.md` (v2.0 leftovers) and verified in
+   `HUMAN_TEST_PLAN_v3_model_construction.md` "Known caveat to verify and accept (or
+   escalate)" — the decision is to accept the caveat as documented v2.0 behavior
+   (interim: declare a completeness column as a Filter).
 
 ### Regression sheet redesign impact — read this before scheduling
 
@@ -763,22 +843,12 @@ untouched. Building v2.0's prediction in the naive x_new′β̂-only form would 
 it up at v2.1; building it in the general form makes FE prediction a genuine addition.
 This is the single most important sequencing note for the v2.0 implementer.
 
-> **Status note (post-ship correction):** this forethought item was **not** taken up —
-> v2.0 shipped the prediction zone in the standard `Prediction_Interval` form with a
-> single interval and Training-Mean input defaults (`write_sheet_regression.py`,
-> Prediction Outputs zone), not the general group-mean form. The prediction-zone
-> restructure (group-mean form, ȳᵢ/x̄ᵢ/Tᵢ keys, group dropdown) therefore moves onto
-> the v2.1 work list, contrary to the "prevents a second redesign" intent above. The
-> arithmetic consequence is unchanged; the cost is that v2.1 rebuilds the prediction
-> zone instead of merely activating it.
-
-**The one thing that could touch v1.0 (optional).** Surfacing both a mean-response CI
-and a new-observation PI is not FE-specific — it is a standard OLS distinction. If v1.0
-currently shows only one interval, adding the second is an additive change to the v1.0
-prediction zone that could be backported now, or simply introduced at v2.0 when the
-prediction zone is rebuilt in the general form anyway. *(Post-ship note: v2.0 kept the
-single interval, so the CI + PI pair lands at v2.1 together with the group-mean
-restructure above.)*
+> **Post-ship note:** v2.0 shipped the prediction zone in the standard
+> `Prediction_Interval` form rather than the general group-mean form, and kept the
+> single-interval output rather than a CI + PI pair. Both items move to the v2.1 work
+> list (see `TODOs.md` under v2.1) — v2.1 rebuilds the prediction zone instead of
+> merely activating it. The arithmetic consequence is unchanged; the cost is one
+> rebuild at v2.1.
 
 ---
 

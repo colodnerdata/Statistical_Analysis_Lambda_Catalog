@@ -791,7 +791,7 @@ def _write_alpha(sheet: xw.Sheet) -> None:
 
 
 def _write_anova(sheet: xw.Sheet) -> None:
-    """ANOVA table, rows 13–17, cols U–Z."""
+    """ANOVA table, rows 13–17, cols V–AA."""
     section_heading(sheet, 13, _C_V, "ANOVA TABLE")
 
     for col, header in zip(

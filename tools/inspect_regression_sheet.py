@@ -266,7 +266,7 @@ def read_regression_df(
             ("Observations",  float(summary.observations), _ROW_OBS,  _C_W),
         ]
 
-        # Diagnostics (column Y)
+        # Diagnostics (column Z)
         press_r2 = 1.0 - summary.press / summary.ss_total
         mean_lev = (summary.df_regression + (1 if allow_intercept else 0)) / summary.observations
         ms_reg = summary.ss_regression / summary.df_regression

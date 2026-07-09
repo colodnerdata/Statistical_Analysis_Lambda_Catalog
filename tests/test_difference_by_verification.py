@@ -424,7 +424,7 @@ def test_difference_by_delegates_the_pair_lookup_and_signals_by_na() -> None:
 
 
 def test_omitted_delta_routes_through_the_visible_spec_cell() -> None:
-    # (C): Δ defaults to the sheet's Base Period Δ cell (spec column I on
+    # (C): Δ defaults to the sheet's Period In Use cell (spec column J on
     # the Sequence-flagged row) via Base_Period_Delta() — never a silent 1.
     formulas = _catalog_formulas()
     for name in ("Lag_By", "Difference_By"):
@@ -433,7 +433,7 @@ def test_omitted_delta_routes_through_the_visible_spec_cell() -> None:
         assert ",1," not in compact.split("ISOMITTED(delta)")[1][:40], name
     accessor = _compact(formulas["Base_Period_Delta"])
     assert "XMATCH(TRUE,TAKE('Regression'!Spec_Sequence" in accessor
-    assert "TAKE('Regression'!Spec_Base_Period_Delta" in accessor
+    assert "TAKE('Regression'!Spec_Period_In_Use" in accessor
     assert "IF(ISNUMBER(value),value,NA())" in accessor
 
 

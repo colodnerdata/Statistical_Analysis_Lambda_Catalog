@@ -34,12 +34,13 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_MATRIX_START,
     _DEFAULT_SEQUENCE_VARIABLES,
     _DEFAULT_SPEC,
-    _C_BASE_PERIOD,
     _C_INCLUDE,
     _C_LABEL,
     _C_LEVELS,
+    _C_PERIOD_IN_USE,
     _C_REF_IN_USE,
     _C_SEQUENCE,
+    _C_SEQUENCE_PERIOD,
     _CLOSURE_SCOPE,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
@@ -83,7 +84,8 @@ _EXPECTED_NAME_ORDER = [
     "Spec_Order",
     "Spec_Transform",
     "Spec_Sequence",
-    "Spec_Base_Period_Delta",
+    "Spec_Sequence_Period",
+    "Spec_Period_In_Use",
     "Allow_Intercept",
     "Sample_Include",
     "Response_Column",
@@ -174,7 +176,8 @@ def test_spec_ranges_cover_the_standard_input_band() -> None:
         ("Spec_Order", "F"),
         ("Spec_Transform", "G"),
         ("Spec_Sequence", "H"),
-        ("Spec_Base_Period_Delta", "I"),
+        ("Spec_Sequence_Period", "I"),
+        ("Spec_Period_In_Use", "J"),
     ):
         assert _refers_to(sheet, name) == (
             f"='{SHEET_NAME}'!${column}${_FIRST_DATA_ROW}:${column}$16000"
@@ -208,7 +211,8 @@ def test_sample_include_is_the_reduce_product_mask() -> None:
         "Spec_Order",
         "Spec_Transform",
         "Spec_Sequence",
-        "Spec_Base_Period_Delta",
+        "Spec_Sequence_Period",
+        "Spec_Period_In_Use",
     ):
         assert non_model_axis not in mask
 
@@ -235,19 +239,19 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_row_zones(_as_xw_sheet(sheet))
 
-    # L: narrow gap, visually reserving the future Design Columns column.
-    assert sheet.range((1, 12)).column_width == 2
+    # M: narrow gap, visually reserving the future Design Columns column.
+    assert sheet.range((1, 13)).column_width == 2
 
-    # M/N headers on the spec-header row, bold like the A–K headers.
-    assert sheet.cell(_HEADER_ROW, 13).value == "Row Labels"
-    assert sheet.cell(_HEADER_ROW, 14).value == "Included"
-    assert sheet.range((_HEADER_ROW, 13), (_HEADER_ROW, 14)).api.Font.Bold is True
+    # N/O headers on the spec-header row, bold like the A–L headers.
+    assert sheet.cell(_HEADER_ROW, 14).value == "Row Labels"
+    assert sheet.cell(_HEADER_ROW, 15).value == "Included"
+    assert sheet.range((_HEADER_ROW, 14), (_HEADER_ROW, 15)).api.Font.Bold is True
 
     # Full-height spills at the first data row; row 1 belongs to
     # _write_audit_row, so this writer must leave it untouched.
-    assert sheet.cell(_FIRST_DATA_ROW, 13).api.Formula2 == "=Row_Labels()"
-    assert sheet.cell(_FIRST_DATA_ROW, 14).api.Formula2 == "=Sample_Include()"
-    for col in (13, 14):
+    assert sheet.cell(_FIRST_DATA_ROW, 14).api.Formula2 == "=Row_Labels()"
+    assert sheet.cell(_FIRST_DATA_ROW, 15).api.Formula2 == "=Sample_Include()"
+    for col in (14, 15):
         assert sheet.cell(1, col).value is None
         assert sheet.cell(1, col).api.Formula2 is None
 
@@ -337,8 +341,28 @@ def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
         assert "Spec_Sequence" not in _refers_to(sheet, constructor), constructor
 
 
-def test_base_period_name_is_read_only_by_the_base_period_layer() -> None:
-    # Spec_Base_Period_Delta is live, but only for the Δ-in-use display in
+def test_sequence_period_name_has_no_readers() -> None:
+    # Spec_Sequence_Period (I, the pure override input) is named now so the
+    # grid shape is final, but no formula reads the NAMED band — J's
+    # per-row formula and the per-row CF both read the literal $I{row} cell
+    # directly, not this name. Same "reserved but unread" shape as
+    # Spec_Order/Spec_Transform.
+    sheet = _named_sheet()
+    _write_all_zones(sheet)
+
+    name_readers = [
+        item.Name
+        for item in sheet.api.Names.items
+        if "Spec_Sequence_Period" in item.RefersTo
+        and item.Name.split("!", 1)[-1] != "Spec_Sequence_Period"
+    ]
+    assert name_readers == []
+    for formula in _all_written_formulas(sheet):
+        assert "Spec_Sequence_Period" not in formula, formula
+
+
+def test_period_in_use_name_is_read_only_by_the_base_period_layer() -> None:
+    # Spec_Period_In_Use is live, but only for the Δ-in-use display in
     # the Sequence Spacing block (on-sheet) and the workbook-scoped
     # Base_Period_Delta() accessor (in lambda_functions.json). No sheet
     # closure — constructor or otherwise — reads it: the candidate is
@@ -349,23 +373,24 @@ def test_base_period_name_is_read_only_by_the_base_period_layer() -> None:
     name_readers = [
         item.Name
         for item in sheet.api.Names.items
-        if "Spec_Base_Period_Delta" in item.RefersTo
-        and item.Name.split("!", 1)[-1] != "Spec_Base_Period_Delta"
+        if "Spec_Period_In_Use" in item.RefersTo
+        and item.Name.split("!", 1)[-1] != "Spec_Period_In_Use"
     ]
     assert name_readers == []
 
     formula_readers = [
         formula
         for formula in _all_written_formulas(sheet)
-        if "Spec_Base_Period_Delta" in formula
+        if "Spec_Period_In_Use" in formula
     ]
     in_use = cast(
         str, sheet.cell(_ROW_SPACING_IN_USE, 2).api.Formula2
     )
     assert formula_readers == [in_use]
-    # Every read of the live H/I bands must TAKE-trim to the table width —
-    # the Sequence Spacing block itself sits inside the 16000-row bands.
-    assert "TAKE(Spec_Base_Period_Delta,n_c)" in in_use
+    # Every read of the live H/J bands must TAKE-trim to the table width —
+    # the Sequence Spacing block sits well past the 16000-row bands, but
+    # every base-period consumer TAKE-trims regardless.
+    assert "TAKE(Spec_Period_In_Use,n_c)" in in_use
     assert "TAKE(Spec_Sequence,n_c)" in in_use
 
 
@@ -413,16 +438,21 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         # elsewhere. Zero-or-one flags is the legal range.
         expected_sequence = True if variable in _DEFAULT_SEQUENCE_VARIABLES else None
         assert sheet.cell(row, 8).value is expected_sequence, variable
-        # I (Base Period Δ) is computed-with-override: pre-filled with the
-        # candidate formula (blank off the flagged row via the scalar $H
-        # test, so the candidate stays lazy), input-styled so a typed
-        # number overrides it.
-        assert sheet.cell(row, 9).api.Formula2 == (
+        # I (Sequence Period) is a PURE override input — blank everywhere,
+        # like E/F, no pre-filled formula.
+        assert sheet.cell(row, 9).value is None, variable
+        assert sheet.cell(row, 9).api.Formula2 is None, variable
+        # J (Period In Use) is the computed display: I's override when
+        # present, else the candidate — blank off the flagged row via the
+        # scalar $H test, so the candidate stays lazy.
+        assert sheet.cell(row, 10).api.Formula2 == (
             f'=IF($H{row}<>TRUE,"",'
-            'IFERROR(Base_Period_Delta_Candidate(),""))'
+            f'IF($I{row}<>"",$I{row},'
+            'IFERROR(Base_Period_Delta_Candidate(),"")))'
         ), variable
         for col in range(2, 10):
             assert sheet.cell(row, col).color == INPUT_COLOR, (variable, col)
+        assert sheet.cell(row, 10).color != INPUT_COLOR, variable
 
     # Spot-check the named T0 roles — the shipped spec demonstrates Identifier,
     # Response, Predictor, and Omit. Full_Data ships as Omit (not Filter): its
@@ -525,18 +555,18 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     r = _FIRST_DATA_ROW
     off = _FIRST_DATA_ROW - 1
     # Role-keyed relevance: the per-Predictor inputs (C–G) and the
-    # Categorical displays (J–K); H–I are deliberately NOT in these bands.
+    # Categorical displays (K–L); H–J are deliberately NOT in these bands.
     for band in (
         f"$C${r}:$G${_LAST_DATA_ROW}",
-        f"$J${r}:$K${_LAST_DATA_ROW}",
+        f"$K${r}:$L${_LAST_DATA_ROW}",
     ):
         gray = sheet.range(band).api.FormatConditions.items
         assert [c.Formula1 for c in gray] == [f'=$B{r}<>"Predictor (x)"'], band
         assert gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
 
-    # Sequence-keyed relevance: H–I gray on rows that are not the sequence
+    # Sequence-keyed relevance: H–J gray on rows that are not the sequence
     # axis — keyed on the flag itself, not on Role.
-    seq_gray = sheet.range(f"$H${r}:$I${_LAST_DATA_ROW}").api.FormatConditions.items
+    seq_gray = sheet.range(f"$H${r}:$J${_LAST_DATA_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in seq_gray] == [f"=$H{r}<>TRUE"]
     assert seq_gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
 
@@ -549,9 +579,41 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     assert multi[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert multi[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
-    degenerate = sheet.range(f"$J${r}:$J${_LAST_DATA_ROW}").api.FormatConditions.items
+    # Period In Use (J): red off-grid first (StopIfTrue, outranks yellow),
+    # then yellow overridden.
+    period_in_use = sheet.range(f"$J${r}:$J${_LAST_DATA_ROW}").api.FormatConditions.items
+    assert [c.Formula1 for c in period_in_use] == [
+        (
+            f"=AND($H{r}=TRUE,ISNUMBER($J{r}),"
+            f"N($J{r})>0,"
+            f"SUM(--(MOD(Sequence_Deltas(),$J{r})<>0))>0)"
+        ),
+        f'=AND($H{r}=TRUE,$I{r}<>"")',
+    ]
+    off_grid_cf, overridden_cf = period_in_use
+    assert off_grid_cf.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert off_grid_cf.Font.Color == excel_color(CF_DARK_RED_TEXT)
+    assert off_grid_cf.StopIfTrue is True
+    assert overridden_cf.Interior.Color == excel_color(CF_YELLOW_FILL)
+    assert overridden_cf.Font.Color == excel_color(CF_DARK_YELLOW_TEXT)
+    assert overridden_cf.StopIfTrue is False
+
+    # Sequence Period (I): yellow when the typed override differs from the
+    # computed candidate.
+    sequence_period = sheet.range(f"$I${r}:$I${_LAST_DATA_ROW}").api.FormatConditions.items
+    assert [c.Formula1 for c in sequence_period] == [
+        (
+            f"=AND($H{r}=TRUE,ISNUMBER($I{r}),"
+            "ISNUMBER(Base_Period_Delta_Candidate()),"
+            f"$I{r}<>Base_Period_Delta_Candidate())"
+        ),
+    ]
+    assert sequence_period[0].Interior.Color == excel_color(CF_YELLOW_FILL)
+    assert sequence_period[0].Font.Color == excel_color(CF_DARK_YELLOW_TEXT)
+
+    degenerate = sheet.range(f"$K${r}:$K${_LAST_DATA_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in degenerate] == [
-        f'=AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Categorical",N($J{r})<=1)'
+        f'=AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Categorical",N($K{r})<=1)'
     ]
     assert degenerate[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert degenerate[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
@@ -592,17 +654,18 @@ def test_sequence_spacing_block_layout_and_verdicts() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_sequence_spacing_block(_as_xw_sheet(sheet))
 
-    # Fixed rows below the spec: heading 28, Δ candidate/in-use 29–30,
-    # verdict lines 31–34; spectrum headers on 29 with the spill on 30.
+    # Relocated past the end of the 16000-row Spec_* bands: heading 16002,
+    # Δ candidate/in-use 16003–16004, verdict lines 16005–16008; spectrum
+    # headers on 16003 with the spill on 16004.
     assert (_ROW_SPACING_HEADING, _ROW_SPACING_CANDIDATE, _ROW_SPACING_IN_USE) == (
-        28, 29, 30,
+        16002, 16003, 16004,
     )
     assert (
         _ROW_SPACING_REGULARITY,
         _ROW_SPACING_OFF_GRID,
         _ROW_SPACING_NO_NATURAL,
         _ROW_SPACING_CALENDAR,
-    ) == (31, 32, 33, 34)
+    ) == (16005, 16006, 16007, 16008)
 
     heading = sheet.cell(_ROW_SPACING_HEADING, 1)
     assert heading.value == "Sequence Spacing (Base Period Δ)"
@@ -615,27 +678,28 @@ def test_sequence_spacing_block_layout_and_verdicts() -> None:
         '=IFERROR(Base_Period_Delta_Candidate(),"")'
     )
 
-    # Δ in use: the flagged row's I cell via LOCAL Spec_* names (a
-    # standalone Model Construction rebuild must read its own spec), both
-    # bands TAKE-trimmed so the block's own rows are never scanned.
+    # Δ in use: the flagged row's J (Period In Use) cell via LOCAL Spec_*
+    # names (a standalone Model Construction rebuild must read its own
+    # spec), both bands TAKE-trimmed regardless of the relocation.
     assert sheet.cell(_ROW_SPACING_IN_USE, 1).value == "Δ in use"
     in_use = cast(str, sheet.cell(_ROW_SPACING_IN_USE, 2).api.Formula2)
     assert "TAKE(Spec_Sequence,n_c)" in in_use
-    assert "TAKE(Spec_Base_Period_Delta,n_c)" in in_use
+    assert "TAKE(Spec_Period_In_Use,n_c)" in in_use
     assert '"(not set)"' in in_use
 
     # Visible override: yellow when the Δ in use differs from the candidate.
-    override = sheet.range("$B$30").api.FormatConditions.items
+    override = sheet.range("$B$16004").api.FormatConditions.items
     assert [c.Formula1 for c in override] == [
-        "=AND(ISNUMBER($B$30),ISNUMBER($B$29),$B$30<>$B$29)"
+        "=AND(ISNUMBER($B$16004),ISNUMBER($B$16003),$B$16004<>$B$16003)"
     ]
     assert override[0].Interior.Color == excel_color(CF_YELLOW_FILL)
     assert override[0].Font.Color == excel_color(CF_DARK_YELLOW_TEXT)
 
-    # Delta spectrum: two-column spill at J/K under bold headers.
-    assert sheet.cell(_ROW_SPACING_CANDIDATE, 10).value == "Delta"
-    assert sheet.cell(_ROW_SPACING_CANDIDATE, 11).value == "Count"
-    assert sheet.cell(_ROW_SPACING_IN_USE, 10).api.Formula2 == (
+    # Delta spectrum: two-column spill at K/L (the block's own Levels /
+    # Reference In Use column positions, reused by row) under bold headers.
+    assert sheet.cell(_ROW_SPACING_CANDIDATE, 11).value == "Delta"
+    assert sheet.cell(_ROW_SPACING_CANDIDATE, 12).value == "Count"
+    assert sheet.cell(_ROW_SPACING_IN_USE, 11).api.Formula2 == (
         '=IFERROR(Sequence_Delta_Spectrum(),"")'
     )
 
@@ -662,14 +726,15 @@ def test_sequence_spacing_block_layout_and_verdicts() -> None:
     regularity = cast(str, sheet.cell(_ROW_SPACING_REGULARITY, 1).api.Formula2)
     off_grid = cast(str, sheet.cell(_ROW_SPACING_OFF_GRID, 1).api.Formula2)
     calendar = cast(str, sheet.cell(_ROW_SPACING_CALENDAR, 1).api.Formula2)
-    assert "$B$30" in regularity and "SUM(--(d<>v))>0" in regularity
-    assert "$B$30" in off_grid and "MOD(d,v)<>0" in off_grid
-    assert "$B$30" not in calendar
+    assert "$B$16004" in regularity and "SUM(--(d<>v))>0" in regularity
+    assert "$B$16004" in off_grid and "MOD(d,v)<>0" in off_grid
+    assert "$B$16004" not in calendar
     no_natural = cast(str, sheet.cell(_ROW_SPACING_NO_NATURAL, 1).api.Formula2)
     assert "ISNA(MODE.SNGL(d))" in no_natural
 
-    # The spec dropdown validations are scrubbed off the block's rows.
-    scrub = sheet.range((28, 2), (34, 9)).api.Validation
+    # Defensive no-op: the block sits past the end of the spec's dropdown
+    # validations now, so this scrub never has anything to remove.
+    scrub = sheet.range((16002, 2), (16008, 10)).api.Validation
     assert scrub.delete_count == 1
 
 
@@ -733,19 +798,19 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
     _write_audit_row(_as_xw_sheet(sheet))
 
     expected = [
-        (13, 14, "k", '=IFERROR(COLUMNS(X_s()),"(empty model)")'),
-        (16, 17, "rows", '=IFERROR(ROWS(X_s()),"(empty model)")'),
-        (19, 20, "response", f"={_RESPONSE_NAME}"),
+        (14, 15, "k", '=IFERROR(COLUMNS(X_s()),"(empty model)")'),
+        (17, 18, "rows", '=IFERROR(ROWS(X_s()),"(empty model)")'),
+        (20, 21, "response", f"={_RESPONSE_NAME}"),
         (
-            21,
             22,
+            23,
             "responses",
             '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response (y)"))',
         ),
-        (23, 24, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+        (24, 25, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
         (
-            25,
             26,
+            27,
             "sequence flags",
             "=SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))",
         ),
@@ -753,7 +818,7 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
     assert list(_AUDIT_PAIRS) == [(lc, vc) for lc, vc, _, _ in expected]
     assert _AUDIT_ROW == 1
     for label_col, value_col, label, formula in expected:
-        # No audit cell may land on a width-2 break column (O=15, R=18).
+        # No audit cell may land on a width-2 break column (P=16, S=19).
         assert label_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
         assert value_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
         assert sheet.cell(1, label_col).value == label
@@ -763,14 +828,14 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
         )
 
     # Exactly-one-Response validation: red CF on the responses count cell.
-    conditions = sheet.range("$V$1").api.FormatConditions.items
-    assert [c.Formula1 for c in conditions] == ["=N($V$1)<>1"]
+    conditions = sheet.range("$W$1").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ["=N($W$1)<>1"]
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
     # Zero-or-one-Sequence validation: red CF only at two-plus flags.
-    seq_conditions = sheet.range("$Z$1").api.FormatConditions.items
-    assert [c.Formula1 for c in seq_conditions] == ["=N($Z$1)>1"]
+    seq_conditions = sheet.range("$AA$1").api.FormatConditions.items
+    assert [c.Formula1 for c in seq_conditions] == ["=N($AA$1)>1"]
     assert seq_conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert seq_conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
@@ -779,7 +844,7 @@ def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_filtered_zones(_as_xw_sheet(sheet))
 
-    # O and R: narrow visual breaks, same width as the L gap.
+    # P and S: narrow visual breaks, same width as the M gap.
     assert sheet.range((1, _C_BREAK_LEFT)).column_width == 2
     assert sheet.range((1, _C_BREAK_MID)).column_width == 2
 

@@ -11,20 +11,20 @@ Reference In Use displays) would have no live-Excel verification at all.
 This is the Model Construction verifier ported to the Regression sheet. The
 expectation side is reused verbatim (``analyze_model_construction``'s
 calculator is pure Python and sheet-agnostic), and the spec block occupies
-identical coordinates on both sheets (columns A–K; intercept row 2, headers
+identical coordinates on both sheets (columns A–L; intercept row 2, headers
 row 3, spec rows 4–26 — the writers are shared), so the Levels / Reference
 In Use reads port unchanged. Only the assertions against the Model
 Construction sheet's display zones are remapped onto the Regression sheet's
 own display of the same facts:
 
-    MC audit k / twin tripwire   → M3 constructed-names spill width, and the
-                                   U21 coefficient-label spill (k+1 rows with
+    MC audit k / twin tripwire   → N3 constructed-names spill width, and the
+                                   V21 coefficient-label spill (k+1 rows with
                                    the default intercept ON)
-    MC header strip names        → M3 spill contents (vertical)
-    MC audit response            → Z2 Predicted Variable readout
-    MC audit included rows       → V8 Observations cell
-    MC first filtered label      → AH3 (first residual-output row label)
-    MC filtered zone heights     → AH3 spill height
+    MC header strip names        → N3 spill contents (vertical)
+    MC audit response            → AA2 Predicted Variable readout
+    MC audit included rows       → W8 Observations cell
+    MC first filtered label      → AI3 (first residual-output row label)
+    MC filtered zone heights     → AI3 spill height
     MC audit sequence flags      → H2 Sequence status line (blank while the
                                    spec carries zero-or-one flags)
 

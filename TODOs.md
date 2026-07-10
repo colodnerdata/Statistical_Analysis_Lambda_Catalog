@@ -283,7 +283,7 @@ users never see "FE is in the dropdown but the engine is forthcoming."
 
 ## v2.4 — Resampling & Simulation
 
-- TODO: **No-volatile constraint, RESOLVED: pre-drawn random table.** A single
+- TODO: **Non-volatile constraint, RESOLVED: pre-drawn random table.** A single
   sheet-scoped named range `Bootstrap_Random_Draws` holds a uniformly-distributed
   random table pre-drawn once at build time, seeded from the same SHA-derived seed
   the QC build already uses (`analysis_cache.py`). `Bootstrap_CI` indexes via

@@ -416,8 +416,7 @@ and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
 
 Shipped early, in the base-period release (ahead of the v2.2 bundle), to
 the gap-aware semantics recorded in
-[DECISIONS.md § v2.1 base-period layer](DECISIONS.md#v21):
-
+[DECISIONS.md § v2.1 base-period layer](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects):
 - `Lag_By(x, group, seq, [delta], [include])` — prior-period value
   within the same group, keyed on `group`/`seq` **by exact time value,
   not physical row order** (exact-match lookup of `(group, seq − Δ)` pairs,

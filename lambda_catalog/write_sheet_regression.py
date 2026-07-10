@@ -1311,7 +1311,7 @@ def write_regression_output_sheet(
         "U": 22,        # labels — longest is "Adjusted R Square" (16) or "Status[Developing]" (17)
         "V": 12,        # stat values, Alpha, df, Coefficients
         "W": 12,        # SS, Std Error
-        "X": 20,        # diagnostics labels (longest: "BFN Panel Durbin-Watson" = 23) + MS + t Stat
+        "X": 24,        # diagnostics labels (longest: "BFN Panel Durbin-Watson" = 23) + MS + t Stat
         "Y": 16,        # diagnostics values + "Predicted Variable" section heading + F + P-value
         "Z": 14,        # derived response name (e.g., "Life expectancy") + Significance F + Lower 95%
         "AA": 10,       # Upper 95% values

@@ -212,9 +212,10 @@ class ColumnSpec(NamedTuple):
     """One column's layout facts: index, width, header text, and a note.
 
     A file-local declarative alternative to separate constant/comment/width
-    sections — pass a tuple of these to `set_column_widths`, and derive
-    `_C_*` constants from `.index` via tuple-unpacking so existing call
-    sites keep working unchanged.
+    sections. Feed `(c.index, c.width)` pairs from a tuple of these to
+    `set_column_widths` (e.g. ``((c.index, c.width) for c in _COLUMNS)``),
+    and derive `_C_*` constants from `.index` via tuple-unpacking so
+    existing call sites keep working unchanged.
     """
 
     index: int

@@ -16,6 +16,7 @@ _COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec(3, 14, "Breaking?"),
     ColumnSpec(4, 90, "Summary of Changes"),
 )
+_LAST_COL = _COLUMNS[-1].index
 
 # Versions follow the interface-based semantic-versioning convention in
 # ROADMAP.md: MAJOR only when a workbook built against the prior version would
@@ -105,7 +106,7 @@ def write_version_history_sheet(workbook: xw.Book) -> None:
     cell = sheet.range("A1")
     cell.value = "VERSION HISTORY"
     cell.api.Font.Bold = True
-    sheet.range("A1:D1").color = _HEADER_COLOR
+    sheet.range((1, 1), (1, _LAST_COL)).color = _HEADER_COLOR
 
     for column in _COLUMNS:
         cell = sheet.range((2, column.index))
@@ -118,7 +119,7 @@ def write_version_history_sheet(workbook: xw.Book) -> None:
         sheet.range((row, 1)).value = entry["version"]
         sheet.range((row, 2)).value = entry["date"]
         sheet.range((row, 3)).value = entry["breaking"]
-        cell = sheet.range((row, 4))
+        cell = sheet.range((row, _LAST_COL))
         cell.value = entry["summary"]
         cell.api.WrapText = True
-        sheet.range((row, 1), (row, 4)).api.EntireRow.AutoFit()
+        sheet.range((row, 1), (row, _LAST_COL)).api.EntireRow.AutoFit()

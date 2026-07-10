@@ -15,16 +15,17 @@ _COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec(3, 22, "Y-axis / Yellow threshold / Next step"),
     ColumnSpec(4, 46, "What to look for / Red threshold"),
 )
+_LAST_COL = _COLUMNS[-1].index
 
 
 def _heading(sheet: xw.Sheet, row: int, text: str) -> None:
     cell = sheet.range((row, 1))
     cell.value = text
     cell.api.Font.Bold = True
-    sheet.range((row, 1), (row, 4)).color = _HEADER_COLOR
+    sheet.range((row, 1), (row, _LAST_COL)).color = _HEADER_COLOR
 
 
-def _subheading(sheet: xw.Sheet, row: int, text: str, cols: int = 4) -> None:
+def _subheading(sheet: xw.Sheet, row: int, text: str, cols: int = _LAST_COL) -> None:
     cell = sheet.range((row, 1))
     cell.value = text
     cell.api.Font.Bold = True

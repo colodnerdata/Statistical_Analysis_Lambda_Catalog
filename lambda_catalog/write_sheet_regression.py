@@ -29,9 +29,8 @@ Sequence structural axis):
                    Training Mean spill (AG13 — the single X_s() evaluation
                    the orange AF prefills INDEX into; owns column AG downward
                    so it can never collide with another spill)
-  Col AH         — thin gap (width 2)
-  Col AI–AT      — Residual Output: heading + Row_Labels() identifiers in AI;
-                   11 diagnostics columns (AJ–AT), spills downward from row 3
+  Col AH–AT      — Residual Output: heading + Row_Labels() identifiers in AH;
+                   11 diagnostics columns (AI–AS), spills downward from row 3
 
 The spec block replaces the v1 A–B Model Selection zone (predictor toggles +
 Allow_Intercept in B2). Everything the v1 sheet hard-wired is now derived:
@@ -137,7 +136,7 @@ _C_AG = 33  # Training Mean — the per-constructed-column means spill (AG13).
 # residual-diagnostic columns. Row-2 headers are written by _write_residual_outputs
 # (see the note_cells table); row-3 formulas are the source of truth for what
 # each column actually contains.
-_C_AH = 34  # thin gap; Row_Labels() spill
+_C_AH = 34  # row identifiers (Row_Labels() spill)
 _C_AI = 35  # Y (actual dependent variable)
 _C_AJ = 36  # Predicted Y
 _C_AK = 37  # Residuals
@@ -1292,7 +1291,7 @@ def write_regression_output_sheet(
     sheet.range(rc(2, _C_M), rc(2, _C_AT)).api.WrapText = True
 
     # Column widths (A–L = spec block; AE = prediction labels, AF = values;
-    # AI = row identifiers, diagnostics start at AJ)
+    # AH = row identifiers, diagnostics start at AI)
     for column_letter, width in {
         "A": 28, "B": 20, "C": 9, "D": 11, "E": 15,
         "F": 0, "G": 0,  # reserved Order/Transform slots — hidden until wired
@@ -1306,9 +1305,8 @@ def write_regression_output_sheet(
         "V": 22, "W": 12, "X": 12, "Y": 14, "Z": 10, "AA": 13, "AB": 10, "AC": 12,
         "AD": 2,  # thin gap
         "AE": 20, "AF": 14, "AG": 13,  # prediction labels / values / means
-        "AH": 2,   # thin gap
-        "AI": 16,  # row identifiers (Row_Labels)
-        "AJ": 10, "AK": 9, "AL": 10, "AM": 9, "AN": 9, "AO": 12, "AP": 9,
+        "AH": 16,  # row identifiers (Row_Labels)
+        "AI": 10, "AJ": 10, "AK": 9, "AL": 10, "AM": 9, "AN": 9, "AO": 12, "AP": 9,
         "AQ": 14, "AR": 17, "AS": 14, "AT": 15,
     }.items():
         sheet.range(f"{column_letter}:{column_letter}").column_width = width

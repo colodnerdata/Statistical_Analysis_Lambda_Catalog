@@ -389,13 +389,13 @@ _SEQUENCE_NOTE = (
     "the reserved Order column (F), which is term-ordering."
 )
 _SEQUENCE_PERIOD_NOTE = (
-    "Sequence Period — computed-with-override (the Base Period Δ "
-    "companion, renamed in v2.1.0). On the Sequence-flagged row this "
-    "cell shows the computed candidate (the MODE of within-group "
-    "consecutive spacings; MIN when no spacing repeats). Type a number "
-    "over it to override; Lag_By and Difference_By use this cell when "
-    "[delta] is omitted. The Period In Use column shows what the engine "
-    "will actually use (the override if non-blank, else the candidate). "
+    "Sequence Period — typed override input for Base Period Δ "
+    "(renamed in v2.1.0). On the Sequence-flagged row this cell is blank "
+    "by default; type a number here to override the computed candidate "
+    "delta. Lag_By and Difference_By read the Period In Use column when "
+    "[delta] is omitted. Period In Use shows what the engine will "
+    "actually use (the typed override if non-blank, else the computed "
+    "candidate from within-group consecutive spacings). "
     "Blank on rows that are not the sequence axis. See the Sequence "
     "Spacing block below the spec for the delta spectrum and verdicts."
 )

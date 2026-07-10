@@ -433,7 +433,7 @@ def test_omitted_delta_routes_through_the_visible_spec_cell() -> None:
         assert ",1," not in compact.split("ISOMITTED(delta)")[1][:40], name
     accessor = _compact(formulas["Base_Period_Delta"])
     assert "XMATCH(TRUE,TAKE('Regression'!Spec_Sequence" in accessor
-    assert "TAKE('Regression'!Spec_Base_Period_Delta" in accessor
+    assert "TAKE('Regression'!Spec_Sequence_Period" in accessor
     assert "IF(ISNUMBER(value),value,NA())" in accessor
 
 

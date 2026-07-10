@@ -4,33 +4,32 @@ Writes the spec-driven Regression sheet into any target workbook.
 
 Layout (five horizontal zones — v3.0 changeover; +2 column shift with the
 Sequence structural axis):
-  Col A–K        — Model Specification: the declarative spec block shared with
+  Col A–L        — Model Specification: the declarative spec block shared with
                    write_sheet_model_construction (Variable / Role / Include /
                    Type / Reference Level / Order / Transform / Sequence /
-                   Base Period Δ / Levels / Reference In Use). Row 2 =
-                   Intercept control (label A2, Allow_Intercept toggle C2) and
-                   the Sequence status line (H2); headers row 3; one spec row
-                   per table column on rows 4–26; the Sequence Spacing block
-                   (Base Period Δ candidate / Δ in use / verdict lines /
-                   delta spectrum at J–K) on rows 28–34.
-  Col L          — thin gap (width 2)
-  Col M–S        — Predictor Summary: level-qualified constructed names +
+                   Sequence Period / Period In Use / Levels / Reference In Use).
+                   Row 2 = Intercept control (label A2, Allow_Intercept toggle
+                   C2) and the Sequence status line (H2); headers row 3; one
+                   spec row per table column on rows 4–26; the Sequence Spacing
+                   block (Δ candidate / Δ in use / verdict lines / delta
+                   spectrum at K–L) on rows 28–34.
+  Col M          — thin gap (width 2)
+  Col N–T        — Predictor Summary: level-qualified constructed names +
                    Pearson R, Spearman R, Skewness, Kurtosis, VIF, Tolerance —
                    computed on the CONSTRUCTED design matrix (dummies included)
-  Col T          — thin gap (width 2)
-  Col U–AB       — Regression Outputs: Predicted Variable readout (Y2:Z2),
-                   Statistics (U–V rows 3–8), Diagnostics (X–Y rows 3–12;
+  Col U          — thin gap (width 2)
+  Col V–AC       — Regression Outputs: Predicted Variable readout (Y2:Z2),
+                   Statistics (V–W rows 3–8), Diagnostics (X–Y rows 3–12;
                    the serial-correlation pair DW/BFN at rows 11–12),
-                   Alpha input (V12), ANOVA Table (rows 13–17, U–Z),
-                   Coefficients (rows 19+, U–AA), Beta Weights (AB)
-  Col AC         — thin gap (width 2)
-  Col AD–AF      — Prediction Outputs: Prediction Interval (AD1:AE8, boxed),
-                   Prediction Inputs (AD10+, one row per constructed column),
-                   Training Mean spill (AF13 — the single X_s() evaluation
-                   the orange AE prefills INDEX into; owns column AF downward
+                   Alpha input (V12), ANOVA Table (rows 13–17, V–AA),
+                   Coefficients (rows 19+, V–AB), Beta Weights (AC)
+  Col AD         — thin gap (width 2)
+  Col AE–AG      — Prediction Outputs: Prediction Interval (AE1:AF8, boxed),
+                   Prediction Inputs (AE10+, one row per constructed column),
+                   Training Mean spill (AG13 — the single X_s() evaluation
+                   the orange AF prefills INDEX into; owns column AG downward
                    so it can never collide with another spill)
-  Col AG         — thin gap (width 2)
-  Col AH–AS      — Residual Output: heading + Row_Labels() identifiers in AH;
+  Col AH–AT      — Residual Output: heading + Row_Labels() identifiers in AH;
                    11 diagnostics columns (AI–AS), spills downward from row 3
 
 The spec block replaces the v1 A–B Model Selection zone (predictor toggles +
@@ -69,13 +68,13 @@ from .workbook_helpers import (
     section_heading, val,
 )
 from .write_sheet_model_construction import (
-    _BASE_PERIOD_NOTE,
+    _SEQUENCE_PERIOD_NOTE,
     _FIXED_EFFECTS_COUNT_FORMULA,
     _RESERVED_NOTE,
     _RESPONSE_NAME_FORMULA,
     _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
-    _C_BASE_PERIOD as _C_SPEC_BASE_PERIOD,
+    _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
     _C_ORDER as _C_SPEC_ORDER,
     _C_REF_IN_USE as _C_SPEC_REF_IN_USE,
     _C_SEQUENCE as _C_SPEC_SEQUENCE,
@@ -98,47 +97,50 @@ _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.j
 # ── 1-based column indices ─────────────────────────────────────────────────────
 # Every constant matches its actual column letter (e.g. _C_K is column K).
 
-# Zone 1: Model Specification — columns A–K are owned by the shared spec-block
+# Zone 1: Model Specification — columns A–L are owned by the shared spec-block
 # writers in write_sheet_model_construction (imported above); only the section
 # heading cell is written here.
 _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 
 # Zone 2: Predictor Summary (constructed columns)
-_C_L = 12   # thin gap
-_C_M = 13   # constructed column names (level-qualified)
-_C_N = 14   # Pearson R
-_C_O = 15   # Spearman R
-_C_P = 16   # Skewness
-_C_Q = 17   # Kurtosis
-_C_R = 18   # VIF
-_C_S = 19   # Tolerance
+_C_M = 13   # thin gap
+_C_N = 14   # constructed column names (level-qualified)
+_C_O = 15   # Pearson R
+_C_P = 16   # Spearman R
+_C_Q = 17   # Skewness
+_C_R = 18   # Kurtosis
+_C_S = 19   # VIF
+_C_T = 20   # Tolerance
 
 # Zone 3: Regression Outputs
-_C_T = 20   # thin gap
-_C_U = 21   # labels (stats / ANOVA / coefficients)
-_C_V = 22   # stat values / ANOVA df / coefficient values; V8 = Observations; V12 = alpha
-_C_W = 23   # ANOVA SS / coefficient SE
-_C_X = 24   # diagnostics labels / ANOVA MS / coefficient t-stat
-_C_Y = 25   # Predicted Variable label (Y2) / diagnostics values / ANOVA F / coefficient p-value
-_C_Z = 26   # predicted variable readout (Z2) / ANOVA Sig F / coefficient CI lower
-_C_AA = 27  # coefficient CI upper
-_C_AB = 28  # Beta Weights
+_C_U = 21   # thin gap
+_C_V = 22   # labels (stats / ANOVA / coefficients)
+_C_W = 23   # stat values / ANOVA df / coefficient values
+_C_X = 24   # ANOVA SS / coefficient SE
+_C_Y = 25   # diagnostics labels / ANOVA MS / coefficient t-stat
+_C_Z = 26   # Predicted Variable label (Z2) / diagnostics values / ANOVA F / coefficient p-value
+_C_AA = 27  # predicted variable readout (AA2) / ANOVA Sig F / coefficient CI lower
+_C_AB = 28  # coefficient CI upper
+_C_AC = 29  # Beta Weights
 
 # Zone 4: Prediction Outputs
-_C_AC = 29  # thin gap
-_C_AD = 30  # prediction interval labels / prediction input labels
-_C_AE = 31  # prediction interval values / prediction input values
-_C_AF = 32  # Training Mean — the per-constructed-column means spill (AF13).
-            # The spill owns column AF downward, so it can never collide with
+_C_AD = 30  # thin gap
+_C_AE = 31  # prediction interval labels / prediction input labels
+_C_AF = 32  # prediction interval values / prediction input values
+_C_AG = 33  # Training Mean — the per-constructed-column means spill (AG13).
+            # The spill owns column AG downward, so it can never collide with
             # another spill when the source data or spec changes.
 
 # Zone 5: Residual Output
-_C_AG = 33  # thin gap
-_C_AH = 34  # section heading anchor / Row_Labels() identifiers
+# _C_AH holds Row_Labels() (the identifiers spill); _C_AI onward hold the
+# residual-diagnostic columns. Row-2 headers are written by _write_residual_outputs
+# (see the note_cells table); row-3 formulas are the source of truth for what
+# each column actually contains.
+_C_AH = 34  # row identifiers (Row_Labels() spill)
 _C_AI = 35  # Y (actual dependent variable)
 _C_AJ = 36  # Predicted Y
 _C_AK = 37  # Residuals
-_C_AL = 38  # LOOCV residual
+_C_AL = 38  # LOOCV Residual
 _C_AM = 39  # Hat Diagonal
 _C_AN = 40  # Studentized Residuals
 _C_AO = 41  # Cook's Distance
@@ -146,6 +148,7 @@ _C_AP = 42  # Normal Scores Ranked
 _C_AQ = 43  # Studentized Residuals Ranked
 _C_AR = 44  # Scale-Location
 _C_AS = 45  # PRESS Residual
+_C_AT = 46  # wrap-text bound for row-2 header strip (no own column)
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
@@ -158,7 +161,7 @@ _FORMAT_BAND_LAST_ROW = 62
 # rebuild (Cells.Clear does NOT remove outline levels, so re-grouping
 # without ClearOutline would deepen the outline each build).
 _COLUMN_GROUPS: tuple[tuple[int, int], ...] = (
-    (_C_A, _C_SPEC_REF_IN_USE),  # A:K  — Model Specification
+    (_C_A, _C_SPEC_REF_IN_USE),  # A:L  — Model Specification (A–L after v2.1 Period In Use addition)
     (_C_M, _C_S),                # M:S  — Predictor Summary
     (_C_U, _C_AB),               # U:AB — Regression Outputs
     (_C_AD, _C_AF),              # AD:AF — Prediction Outputs
@@ -620,7 +623,7 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _RESERVED_NOTE)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE, _SEQUENCE_NOTE)
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_BASE_PERIOD, _BASE_PERIOD_NOTE)
+    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
 
 
 def _write_predictor_summary(sheet: xw.Sheet) -> None:
@@ -1285,25 +1288,26 @@ def write_regression_output_sheet(
     _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
 
-    sheet.range(rc(2, _C_M), rc(2, _C_AS)).api.WrapText = True
+    sheet.range(rc(2, _C_M), rc(2, _C_AT)).api.WrapText = True
 
-    # Column widths (A–K = spec block; AD = prediction labels, AE = values;
+    # Column widths (A–L = spec block; AE = prediction labels, AF = values;
     # AH = row identifiers, diagnostics start at AI)
     for column_letter, width in {
         "A": 28, "B": 20, "C": 9, "D": 11, "E": 15,
         "F": 0, "G": 0,  # reserved Order/Transform slots — hidden until wired
-        "H": 10, "I": 14,  # Sequence flag / Base Period Δ (candidate + override)
-        "J": 7, "K": 16,   # Levels / Reference In Use displays
-        "L": 2,   # thin gap
-        "M": 28, "N": 8, "O": 10, "P": 10, "Q": 8, "R": 8, "S": 10,
-        "T": 2,   # thin gap
-        "U": 22, "V": 12, "W": 12, "X": 14, "Y": 10, "Z": 13, "AA": 10, "AB": 12,
-        "AC": 2,  # thin gap
-        "AD": 20, "AE": 14, "AF": 13,  # prediction labels / values / means
-        "AG": 2,   # thin gap
+        "H": 10,        # Sequence flag
+        "I": 14,        # Sequence Period (typed override)
+        "J": 14,        # Period In Use (candidate-with-override display)
+        "K": 7, "L": 16,  # Levels / Reference In Use displays
+        "M": 2,   # thin gap
+        "N": 28, "O": 8, "P": 10, "Q": 10, "R": 8, "S": 8, "T": 10,
+        "U": 2,   # thin gap
+        "V": 22, "W": 12, "X": 12, "Y": 14, "Z": 10, "AA": 13, "AB": 10, "AC": 12,
+        "AD": 2,  # thin gap
+        "AE": 20, "AF": 14, "AG": 13,  # prediction labels / values / means
         "AH": 16,  # row identifiers (Row_Labels)
-        "AI": 10, "AJ": 9, "AK": 10, "AL": 9, "AM": 9, "AN": 12, "AO": 9,
-        "AP": 14, "AQ": 17, "AR": 14, "AS": 15,
+        "AI": 10, "AJ": 10, "AK": 9, "AL": 10, "AM": 9, "AN": 9, "AO": 12, "AP": 9,
+        "AQ": 14, "AR": 17, "AS": 14, "AT": 15,
     }.items():
         sheet.range(f"{column_letter}:{column_letter}").column_width = width
 

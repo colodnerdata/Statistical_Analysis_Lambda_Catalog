@@ -229,6 +229,7 @@ def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:
 
 def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys) -> None:
     calls: list[bool] = []
+    popen_calls: list[tuple[str, ...]] = []
 
     monkeypatch.setattr(
         build_production,
@@ -254,10 +255,26 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
         fn()
 
     monkeypatch.setattr(build_production, "_retry_on_open", record_retry)
+    # main() ends by shelling out to `start "" <workbook>` to open the just-built
+    # file in Excel. That shell call must not fire during tests — the test
+    # workbook path is a stub (Example.xlsx) and even if the file existed, no
+    # Excel window should pop up from a unit test. Capture the call instead.
+    monkeypatch.setattr(
+        build_production.subprocess,
+        "Popen",
+        lambda args: popen_calls.append(tuple(args)),
+    )
 
     build_production.main()
 
     assert calls == [True]
+    # build_production_workbook resolves the workbook path to an absolute path
+    # before opening; the same absolute path is what the final `cmd /c start`
+    # gets. Compare via Path so the assertion is robust to CWD differences.
+    assert len(popen_calls) == 1
+    popen_args = popen_calls[0]
+    assert popen_args[:4] == ("cmd", "/c", "start", "")
+    assert Path(popen_args[4]) == Path("Example.xlsx").resolve()
     output = capsys.readouterr().out
     assert "Created names: 1" in output
     assert "Updated names: 2" in output

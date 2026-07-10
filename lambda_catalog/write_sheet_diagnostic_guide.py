@@ -4,14 +4,17 @@ from __future__ import annotations
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER_COLOR, SUBHDR_COLOR as _SUBHEADER_COLOR
-from .workbook_helpers import get_or_create_sheet, reset_generated_sheet
+from .workbook_helpers import ColumnSpec, get_or_create_sheet, reset_generated_sheet, set_column_widths
 
 
 SHEET_NAME = "Diagnostic Guide"
-_COL_A_WIDTH = 28
-_COL_B_WIDTH = 22
-_COL_C_WIDTH = 22
-_COL_D_WIDTH = 46
+
+_COLUMNS: tuple[ColumnSpec, ...] = (
+    ColumnSpec(1, 28, "Plot / Diagnostic / Pattern"),
+    ColumnSpec(2, 22, "X-axis / Location / Symptom"),
+    ColumnSpec(3, 22, "Y-axis / Yellow threshold / Next step"),
+    ColumnSpec(4, 46, "What to look for / Red threshold"),
+)
 
 
 def _heading(sheet: xw.Sheet, row: int, text: str) -> None:
@@ -48,10 +51,7 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
 
-    sheet.range("A:A").column_width = _COL_A_WIDTH
-    sheet.range("B:B").column_width = _COL_B_WIDTH
-    sheet.range("C:C").column_width = _COL_C_WIDTH
-    sheet.range("D:D").column_width = _COL_D_WIDTH
+    set_column_widths(sheet, ((c.index, c.width) for c in _COLUMNS))
 
     r = 1
 

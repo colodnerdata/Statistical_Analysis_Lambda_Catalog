@@ -81,6 +81,7 @@ from .write_sheet_model_construction import (
     _C_TRANSFORM as _C_SPEC_TRANSFORM,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
     _set_sheet_scoped_names as _set_spec_scoped_names,
+    _set_spec_block_column_widths,
     _write_intercept_control,
     _write_sequence_spacing_block,
     _write_spec_block,
@@ -1290,16 +1291,13 @@ def write_regression_output_sheet(
 
     sheet.range(rc(2, _C_M), rc(2, _C_AT)).api.WrapText = True
 
-    # Column widths (A–L = spec block; AD = prediction labels, AE = values;
+    # A–L (spec block) widths are owned by write_sheet_model_construction.py
+    # so the standalone and shared-block builds can never drift.
+    _set_spec_block_column_widths(sheet)
+
+    # Column widths (AD = prediction labels, AE = values;
     # AH = row identifiers, diagnostics start at AI)
     for column_letter, width in {
-        "A": 28, "B": 20, "C": 9, "D": 11, "E": 15,
-        "F": 0, "G": 0,  # reserved Order/Transform slots — hidden until wired
-        "H": 10,        # Sequence flag
-        "I": 14,        # Sequence Period (typed override)
-        "J": 14,        # Period In Use
-        "K": 7, "L": 16,  # Levels / Reference In Use
-
         # Predictor Summary (M–T): level-qualified constructed names + 6 stats.
         "M": 24,        # constructed column names (e.g., "Status[Developed]")
         "N": 9, "O": 9, "P": 9, "Q": 9, "R": 9, "S": 9,  # stats values

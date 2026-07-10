@@ -4,11 +4,18 @@ from __future__ import annotations
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER_COLOR, SUBHDR_COLOR as _SUBHDR_COLOR
-from .workbook_helpers import get_or_create_sheet, reset_generated_sheet
+from .workbook_helpers import ColumnSpec, get_or_create_sheet, reset_generated_sheet, set_column_widths
 
 
 SHEET_NAME = "Version History"
 _TABLE_HEADER_COLOR = _SUBHDR_COLOR
+
+_COLUMNS: tuple[ColumnSpec, ...] = (
+    ColumnSpec(1, 12, "Version"),
+    ColumnSpec(2, 16, "Release Date"),
+    ColumnSpec(3, 14, "Breaking?"),
+    ColumnSpec(4, 90, "Summary of Changes"),
+)
 
 # Versions follow the interface-based semantic-versioning convention in
 # ROADMAP.md: MAJOR only when a workbook built against the prior version would
@@ -93,20 +100,16 @@ def write_version_history_sheet(workbook: xw.Book) -> None:
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
 
-    sheet.range("A:A").column_width = 12
-    sheet.range("B:B").column_width = 16
-    sheet.range("C:C").column_width = 14
-    sheet.range("D:D").column_width = 90
+    set_column_widths(sheet, ((c.index, c.width) for c in _COLUMNS))
 
     cell = sheet.range("A1")
     cell.value = "VERSION HISTORY"
     cell.api.Font.Bold = True
     sheet.range("A1:D1").color = _HEADER_COLOR
 
-    headers = ["Version", "Release Date", "Breaking?", "Summary of Changes"]
-    for col, header in enumerate(headers, start=1):
-        cell = sheet.range((2, col))
-        cell.value = header
+    for column in _COLUMNS:
+        cell = sheet.range((2, column.index))
+        cell.value = column.header
         cell.api.Font.Bold = True
         cell.color = _TABLE_HEADER_COLOR
 

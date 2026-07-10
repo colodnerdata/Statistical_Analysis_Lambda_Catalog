@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import NoReturn
+from typing import Iterable, NamedTuple, NoReturn
 
 try:
     import pywintypes  # type: ignore[import-untyped]
@@ -204,6 +204,36 @@ def rc(row: int, col: int) -> tuple[int, int]:
 
 def a1(row: int, col: int) -> str:
     return f"{col_letter(col)}{row}"
+
+
+# ── Column layout helpers ──────────────────────────────────────────────────────
+
+class ColumnSpec(NamedTuple):
+    """One column's layout facts: index, width, header text, and a note.
+
+    A file-local declarative alternative to separate constant/comment/width
+    sections — pass a tuple of these to `set_column_widths`, and derive
+    `_C_*` constants from `.index` via tuple-unpacking so existing call
+    sites keep working unchanged.
+    """
+
+    index: int
+    width: float | None = None
+    header: str = ""
+    note: str = ""
+
+
+def set_column_widths(sheet: xw.Sheet, columns: Iterable[tuple[int, float | None]]) -> None:
+    """Set column widths from an iterable of (1-based index, width) pairs.
+
+    ``width=None`` entries are skipped, so a `ColumnSpec` list can be passed
+    directly (e.g. ``((c.index, c.width) for c in _COLUMNS)``) without
+    filtering out columns that intentionally have no width opinion.
+    """
+    for col, width in columns:
+        if width is None:
+            continue
+        sheet.range(rc(1, col), rc(1, col)).column_width = width
 
 
 # ── Cell value / formula helpers ───────────────────────────────────────────────

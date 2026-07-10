@@ -57,12 +57,14 @@ Sheet-scoped named ranges
 """
 from __future__ import annotations
 
+from typing import NamedTuple
+
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
     OPEN_WORKBOOK_ERRORS, a1, border_box, col_letter, drop_local_name,
-    excel_color, f, rc, section_heading, val,
+    excel_color, f, rc, section_heading, set_column_widths, val,
 )
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
@@ -114,18 +116,33 @@ _HB_TRI   = 8   # Triangular CDF prob
 _HB_BETA  = 9   # Beta CDF prob
 _HB_PERT  = 10  # BetaPERT CDF prob
 
+class _BlockColumnSpec(NamedTuple):
+    """One column's facts within a repeating block: offset, header text,
+    named-range suffix, and distribution label (empty for non-CDF columns).
+
+    Callers unpack these by position (``for offset, header, suffix,
+    distribution in _HIST_COLUMNS``), so field order must stay
+    offset/header/suffix/distribution.
+    """
+
+    offset: int
+    header: str
+    suffix: str
+    distribution: str = ""
+
+
 _HIST_COLUMNS = [
-    (_HB_LOWER, "Lower Edges", "Lower_Edges", ""),
-    (_HB_EDGE,  "Upper Edges", "Upper_Edges", ""),
-    (_HB_COUNT, "Count", "Counts", ""),
-    (_HB_NORM,  "Normal", "Normal_CDF", "Normal"),
-    (_HB_LOGN,  "Lognormal", "Lognormal_CDF", "Lognormal"),
-    (_HB_EXP,   "Exponential", "Exponential_CDF", "Exponential"),
-    (_HB_WB,    "Weibull", "Weibull_CDF", "Weibull"),
-    (_HB_GAM,   "Gamma", "Gamma_CDF", "Gamma"),
-    (_HB_TRI,   "Triangular", "Triangular_CDF", "Triangular"),
-    (_HB_BETA,  "Beta", "Beta_CDF", "Beta"),
-    (_HB_PERT,  "BetaPERT", "BetaPERT_CDF", "BetaPERT"),
+    _BlockColumnSpec(_HB_LOWER, "Lower Edges", "Lower_Edges", ""),
+    _BlockColumnSpec(_HB_EDGE,  "Upper Edges", "Upper_Edges", ""),
+    _BlockColumnSpec(_HB_COUNT, "Count", "Counts", ""),
+    _BlockColumnSpec(_HB_NORM,  "Normal", "Normal_CDF", "Normal"),
+    _BlockColumnSpec(_HB_LOGN,  "Lognormal", "Lognormal_CDF", "Lognormal"),
+    _BlockColumnSpec(_HB_EXP,   "Exponential", "Exponential_CDF", "Exponential"),
+    _BlockColumnSpec(_HB_WB,    "Weibull", "Weibull_CDF", "Weibull"),
+    _BlockColumnSpec(_HB_GAM,   "Gamma", "Gamma_CDF", "Gamma"),
+    _BlockColumnSpec(_HB_TRI,   "Triangular", "Triangular_CDF", "Triangular"),
+    _BlockColumnSpec(_HB_BETA,  "Beta", "Beta_CDF", "Beta"),
+    _BlockColumnSpec(_HB_PERT,  "BetaPERT", "BetaPERT_CDF", "BetaPERT"),
 ]
 
 _HIST_BLOCKS = [
@@ -174,16 +191,16 @@ _QQ_W = 10   # P, Sample, 8 theoretical-quantile columns
 _QQ_P      = 0   # Hazen plotting positions (i - 0.5)/n
 _QQ_SAMPLE = 1   # sorted included sample values (Y axis of every Q-Q chart)
 _QQ_COLUMNS = [
-    (_QQ_P,      "P", "P", ""),
-    (_QQ_SAMPLE, "Sample", "Sample", ""),
-    (2,  "Normal", "Normal", "Normal"),
-    (3,  "Lognormal", "Lognormal", "Lognormal"),
-    (4,  "Exponential", "Exponential", "Exponential"),
-    (5,  "Weibull", "Weibull", "Weibull"),
-    (6,  "Gamma", "Gamma", "Gamma"),
-    (7,  "Triangular", "Triangular", "Triangular"),
-    (8,  "Beta", "Beta", "Beta"),
-    (9,  "BetaPERT", "BetaPERT", "BetaPERT"),
+    _BlockColumnSpec(_QQ_P,      "P", "P", ""),
+    _BlockColumnSpec(_QQ_SAMPLE, "Sample", "Sample", ""),
+    _BlockColumnSpec(2,  "Normal", "Normal", "Normal"),
+    _BlockColumnSpec(3,  "Lognormal", "Lognormal", "Lognormal"),
+    _BlockColumnSpec(4,  "Exponential", "Exponential", "Exponential"),
+    _BlockColumnSpec(5,  "Weibull", "Weibull", "Weibull"),
+    _BlockColumnSpec(6,  "Gamma", "Gamma", "Gamma"),
+    _BlockColumnSpec(7,  "Triangular", "Triangular", "Triangular"),
+    _BlockColumnSpec(8,  "Beta", "Beta", "Beta"),
+    _BlockColumnSpec(9,  "BetaPERT", "BetaPERT", "BetaPERT"),
 ]
 
 # ── Row anchors ───────────────────────────────────────────────────────────────
@@ -240,6 +257,16 @@ def _subheader_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
 
 # ── Column widths ─────────────────────────────────────────────────────────────
 
+# Per-offset widths within one 11-col histogram block (Lower/Upper/Count get
+# their own widths; the 8 CDF probability columns share one width).
+_HIST_BLOCK_WIDTHS: dict[int, float] = {
+    _HB_LOWER: 12,
+    _HB_EDGE: 12,
+    _HB_COUNT: 10,
+    **{offset: 12 for offset in range(_HB_NORM, _HIST_W)},
+}
+
+
 def _set_column_widths(sheet: xw.Sheet) -> None:
     widths = {
         _C_A: 14,         # data
@@ -263,37 +290,38 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         _C_KS: 12,       # K-S (S)
         20:   2,          # gap (T)
     }
-    for col, w in widths.items():
-        sheet.range(rc(1, col), rc(1, col)).column_width = w
+    set_column_widths(sheet, widths.items())
 
     # Histogram blocks: 11 cols each with gap cols between/after
     for block_start in (_C_STUR, _C_SCOTT, _C_FD):
-        sheet.range(rc(1, block_start + _HB_LOWER), rc(1, block_start + _HB_LOWER)).column_width = 12
-        sheet.range(rc(1, block_start + _HB_EDGE), rc(1, block_start + _HB_EDGE)).column_width = 12
-        sheet.range(rc(1, block_start + _HB_COUNT), rc(1, block_start + _HB_COUNT)).column_width = 10
-        for offset in range(_HB_NORM, _HIST_W):
-            sheet.range(rc(1, block_start + offset), rc(1, block_start + offset)).column_width = 12
+        set_column_widths(
+            sheet, ((block_start + offset, w) for offset, w in _HIST_BLOCK_WIDTHS.items())
+        )
         gap_col = block_start + _HIST_W
-        sheet.range(rc(1, gap_col), rc(1, gap_col)).column_width = 2
+        set_column_widths(sheet, ((gap_col, 2),))
 
     # Grid-search stages: compact fixed-area controls above narrow Data Tables.
     # Stage 1: BE–BY; gap BZ; Stage 2: CA–CU.
     for stage_start in (_C_GS, _C_GS_S2):
-        for c in range(stage_start, stage_start + _N_GRID + 1):
-            sheet.range(rc(1, c), rc(1, c)).column_width = 6
-        sheet.range(rc(1, stage_start)).column_width = 12                  # Min NLL / row axis
-        sheet.range(rc(1, stage_start + _GS_C_N_GRID)).column_width = 14   # Rows/Columns
-        sheet.range(rc(1, stage_start + _GS_C_PARAM)).column_width = 13   # Parameter
-        for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_STEP, _GS_C_BEST):
-            sheet.range(rc(1, stage_start + dc)).column_width = 10
+        set_column_widths(sheet, ((c, 6) for c in range(stage_start, stage_start + _N_GRID + 1)))
+        set_column_widths(
+            sheet,
+            (
+                (stage_start, 12),                   # Min NLL / row axis
+                (stage_start + _GS_C_N_GRID, 14),     # Rows/Columns
+                (stage_start + _GS_C_PARAM, 13),      # Parameter
+            ),
+        )
+        set_column_widths(
+            sheet, ((stage_start + dc, 10) for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_STEP, _GS_C_BEST))
+        )
 
     # Gap col BZ between Stage 1 and Stage 2.
-    sheet.range(rc(1, _C_GS + _GS_W), rc(1, _C_GS + _GS_W)).column_width = 2
+    set_column_widths(sheet, ((_C_GS + _GS_W, 2),))
 
     # Q-Q plot data block (gap col CV before it).
-    sheet.range(rc(1, _C_QQ - 1), rc(1, _C_QQ - 1)).column_width = 2
-    for offset in range(_QQ_W):
-        sheet.range(rc(1, _C_QQ + offset), rc(1, _C_QQ + offset)).column_width = 12
+    set_column_widths(sheet, ((_C_QQ - 1, 2),))
+    set_column_widths(sheet, ((_C_QQ + offset, 12) for offset in range(_QQ_W)))
 
 
 def _autofit_column_widths(sheet: xw.Sheet) -> None:

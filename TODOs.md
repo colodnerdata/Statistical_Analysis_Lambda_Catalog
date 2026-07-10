@@ -195,7 +195,7 @@ users never see "FE is in the dropdown but the engine is forthcoming."
 
 ### Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5)
 
-- TODO: **Sequence axis auto-detection and override** (renames column I to **`Sequence Period`**, adds column J **`Period In Use`** following the Reference Level / Reference In Use pattern). The current override mechanic has a spill-collision risk for source tables wider than the shipped WHO sample: the spec block reads its own H/I cells, and a longer table could let the override spill overrun an input band. Fix: relocate the override spill and bound every read of the H/I/J band by `COLUMNS(Source_Data)` (the spill-placement principle from `CLAUDE.md`). Yellow CF on `Period In Use` when overridden; red CF on `Period In Use` when off-grid; per-row CF on the override cell. Update the Sequence Spacing block (rows 28–34), the spec layout constants, and the QC analyzers. **Significant testing. Resolve before writing the 2.1.0 Version History entry.**
+- TODO: **Sequence axis auto-detection and override** (renames column I to **`Sequence Period`** (the typed override input), adds column J **`Period In Use`** following the Reference Level / Reference In Use pattern (displays the typed override if non-blank, otherwise the candidate)). The current override mechanic has a spill-collision risk for source tables wider than the shipped WHO sample: the spec block reads its own H/I cells, and a longer table could let the override spill overrun an input band. Fix: relocate the override spill and bound every read of the H/I/J band by `COLUMNS(Source_Data)` (the spill-placement principle from `CLAUDE.md`). **Override flagging lives ONLY on the Sequence Spacing block's verdict lines (rows 31–34) — the J spec-block cell stays plain, so the spec reads top-to-bottom as a clean declaration.** Update the Sequence Spacing block (rows 28–34), the spec layout constants, the named-range rename (`Spec_Base_Period_Delta` → `Spec_Sequence_Period`), and the QC analyzers. **Significant testing. Resolve before writing the 2.1.0 Version History entry.**
 
 - TODO: **FE Role dropdown + status-block validation** (gated to ship with the engine). `Fixed Effects` in the Role axis; status-block cells for "active FE variable," "group count" (`n/a — engine forthcoming` until the engine lands), "absorbed df" (`n/a — engine forthcoming` until the engine lands); visible error at 2+ FE variables; intercept × FE red flag; CF bands update. Sheet-only; no engine change.
 
@@ -247,8 +247,9 @@ users never see "FE is in the dropdown but the engine is forthcoming."
 - ~~Longitudinal — `Lag_By`, `Difference_By`~~ — **DONE (shipped early, base-period
   release)** with the gap-aware t−Δ semantics: exact-match lookup of
   (group, seq−Δ) pairs, `NA()` at first periods and gaps, `[delta]` defaulting
-  to the spec's Base Period Δ cell via `Base_Period_Delta()` (never a silent 1).
-  The same release wired spec column I (candidate + override) and the Sequence
+  to the spec's Period In Use cell via `Base_Period_Delta()` (never a silent 1).
+  The same release wired spec column I (typed override → Sequence Period) and
+  J (candidate-with-override display → Period In Use) plus the Sequence
   Spacing block (delta spectrum, Regularity/Off-grid flags, calendar-signature
   guidance). Verification: `tests/test_difference_by_verification.py`; human
   test plan T17–T19.

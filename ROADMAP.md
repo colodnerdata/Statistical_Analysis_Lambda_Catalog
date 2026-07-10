@@ -547,34 +547,39 @@ The spec spans **every column of the source table**, one row per column:
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
 | G | **Transform** *(reserved, not implemented v2.0)* | Input, dropdown. Will apply a transform (e.g. `Log`) to a Continuous Response or Predictor. v2.0 dropdown list is `None` only; build pre-fills `None`. Cell comment marks it reserved. |
 | H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank. The shipped default pre-flags **Year** `TRUE` (the WHO panel's ordering axis; every other row blank) so the Sequence machinery is live at T0; on a non-panel dataset leave it blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer, by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`) since the base-period release, and — since the DW-gate release — by the serial-correlation accessor `Sequence_Column` (which feeds the gated `Durbin_Watson_By` diagnostic cell). No design-matrix constructor consumes it: Sequence orders the data, it never enters the model matrix. |
-| I | **Base Period Δ** *(live — base-period release; Sequence companion)* | **Computed-with-override**, the reference-level pattern: pre-filled with a formula showing `Base_Period_Delta_Candidate()` (MODE of within-group consecutive spacings, MIN fallback when no spacing repeats) on the Sequence-flagged row, blank elsewhere; typing a number overrides. Read only by the base-period layer — the `Base_Period_Delta()` accessor (the omitted-`[delta]` default of `Lag_By`/`Difference_By`) and the Sequence Spacing block's Δ-in-use display (yellow CF when overridden). The block (rows 28–34 under the spec) also shows the delta spectrum and verdicts: Regularity (any spacing ≠ Δ), Off-grid (spacing not a whole multiple of Δ), the no-natural-base-period override prompt, and calendar-signature guidance (~28–31/90–92/365–366 clusters → recommend an integer period index upstream; day counts are never quantized to a scalar Δ). |
-| J | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
-| K | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. *(Deviation from the earlier draft of this table, recorded: the shipped v2.0 sheet implemented this display here instead of the optional Design Columns audit column; the Σ(design columns) = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot.)* |
+| I | **Sequence Period** *(typed override input, post-v2.1 Sequence fix)* | Orange input — the user types a number on the Sequence-flagged row to declare a Δ that differs from the computed candidate. Blank by default; the spec falls back to the candidate. Read only by the in-use display at column J, not by any constructor. The cell is the load-bearing override point of the reference-level pattern. |
+| J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). Read only by the base-period layer — the `Base_Period_Delta()` accessor (the omitted-`[delta]` default of `Lag_By`/`Difference_By`) and the Sequence Spacing block's Δ-in-use display. Override flagging lives on the Sequence Spacing block (verdict lines on rows 31–34), not on the spec block itself: the J cell stays plain so the spec reads top-to-bottom as a clean declaration. The block (rows 28–34 under the spec) also shows the delta spectrum and verdicts: Regularity (any spacing ≠ Δ), Off-grid (spacing not a whole multiple of Δ), the no-natural-base-period override prompt, and calendar-signature guidance (~28–31/90–92/365–366 clusters → recommend an integer period index upstream; day counts are never quantized to a scalar Δ). |
+| K | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
+| L | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. *(Deviation from the earlier draft of this table, recorded: the shipped v2.0 sheet implemented this display here instead of the optional Design Columns audit column; the Σ(design columns) = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot.)* |
 
 **Reserved-column policy (F, G).** Neither reserved column is read by any
 formula — confirmed by construction, not by convention: `X_s()`,
 `Constructed_Column_Names()`, `Row_Labels()`, and `Sample_Include()` must not
 reference `Spec_Order` or `Spec_Transform` (and may not reference
-`Spec_Sequence` or `Spec_Base_Period_Delta` either — those names are consumed
+`Spec_Sequence` or `Spec_Sequence_Period` either — those names are consumed
 only by the zero-or-one validation and the base-period layer, never by a
 constructor). The columns exist purely so the *sheet layout* absorbs the
 future feature now; wiring them in a later release is additive (a formula
 change), not a second column-insertion breaking the sheet a second time —
 exactly how column I went live in the base-period release.
 
-**Cascading relevance:** C–G and J–K gray out (conditional formatting)
+**Cascading relevance:** C–G and K–L gray out (conditional formatting)
 whenever Role ≠ Predictor — the same pattern as
-Reference-only-for-Categorical, applied one level up. H–I key on the
+Reference-only-for-Categorical, applied one level up. H–J key on the
 **Sequence flag itself**, not on Role: they gray on every row that is not the
 sequence axis, because Sequence is structural and Role-independent.
 
-**Display derives, never feeds.** Columns J and K must not be inputs to the
-constructor. Both the cells and `x_s()` call the same mask-aware primitive
-(`Dummy_Levels`); the cells display what the constructor will do. Letting the engine
-read a display column would make it load-bearing. One source of truth is the
-*function*. (This is also what settled the `Dummy_Code` design: the level-vector
-split is required — it makes display and constructor provably consistent, and gives
-prediction the training level set.)
+**Display derives, never feeds.** Columns J (the Period In Use display),
+K, and L must not be inputs to the constructor. The J cell calls
+`Base_Period_Delta_Candidate()` and reads column I; the K and L cells call
+the same mask-aware primitive (`Dummy_Levels`); the constructor calls
+`Base_Period_Delta()` (which reads J) and the same primitive. Display and
+constructor read the same closure, so they are provably consistent.
+Letting the engine read a display column would make it load-bearing. One
+source of truth is the *function*. (This is also what settled the
+`Dummy_Code` design: the level-vector split is required — it makes display
+and constructor provably consistent, and gives prediction the training
+level set.)
 
 ### Release scoping: v2.0 vs v2.1
 
@@ -659,10 +664,11 @@ data estimates ≈ 0 and wastes a df — not catastrophic — so silently forcin
 
 ### Zone changes on the Regression sheet (breaking — hence MAJOR)
 
-- **Spec block:** A–B → A–K (Role, Include, Type, Reference, Order, Transform,
-  Sequence, Base Period Δ, Levels, Reference In Use — Order/Transform/Base
-  Period Δ reserved, unread by any formula; Sequence added post-v2.0 as the
-  structural axis), spanning all table columns, with cascading-relevance CF.
+- **Spec block:** A–B → A–L (Role, Include, Type, Reference, Order, Transform,
+  Sequence, Sequence Period, Period In Use, Levels, Reference In Use —
+  Order/Transform reserved, unread by any formula; Sequence added post-v2.0
+  as the structural axis, with Sequence Period/Period In Use split
+  post-v2.1), spanning all table columns, with cascading-relevance CF.
 - **Predictor summary changes referent:** Pearson/Spearman/Skewness/Kurtosis/VIF/
   Tolerance run on the **constructed** columns — more correct anyway (VIF on the
   actual design matrix, dummies included). Block height = constructed width.
@@ -882,6 +888,19 @@ see a workbook that says "FE is in the dropdown but the engine is forthcoming."
 - ~~`--skip-univariate` CLI option.~~ **DONE (PR #98).** Build ergonomics for the slow grid-search step.
 - ~~Spec-driven QC refactor.~~ **DONE (PR #103).** `analyze_regression_spec.py` and `test_regression_spec_qc.py` replace the legacy MLR smoke-test-sheet path; `Full_Data` ships as Omit in the default spec; Year flagged as Sequence, Population as Omit demonstrator.
 
+**Note (Sequence Period / Period In Use split, post-#1 above):** the v2.0.0
+Base Period Δ cell (column I) was a computed-with-override single cell —
+candidate formula pre-filled, user override typed over it. The v2.1 fix
+splits this into two cells: column I becomes the typed override input
+(`Sequence Period`) and column J becomes the live companion display
+(`Period In Use`). This is the same reference-level pattern as the
+Categorical Reference (E) / Reference In Use (L) pair. The named range
+moves from `Spec_Base_Period_Delta` to `Spec_Sequence_Period`; every
+reader (the `Base_Period_Delta()` accessor, the Sequence Spacing block's
+Δ-in-use cell) is updated to read the new name. Override flagging lives
+on the Sequence Spacing block's verdict lines only — the J cell stays
+plain, so the spec block reads top-to-bottom as a clean declaration.
+
 ### Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5)
 
 The full ship order lives in `TODOs.md` under the v2.1 section. The high-level
@@ -898,13 +917,16 @@ BFN cell flips active. The follow-on polish (BFN critical values, Categorical
 override mechanic has a spill-collision risk: the spec block reads its own H/I
 cells, and a source table wider than the shipped WHO sample could let the
 override spill overrun an input band. Fix: rename column I to
-**`Sequence Period`**, add column J **`Period In Use`** following the
-Reference Level / Reference In Use pattern (displays the candidate if no
-override, the typed value if the override is non-blank), bound every read of
-the H/I/J band by `COLUMNS(Source_Data)` (the spill-placement principle from
-`CLAUDE.md`), add yellow CF on `Period In Use` when overridden, red CF when
-off-grid, and per-row CF on the override cell. Update the Sequence Spacing
-block (rows 28–34), the spec layout constants, and the QC analyzers.
+**`Sequence Period`** (the typed override input), add column J
+**`Period In Use`** following the Reference Level / Reference In Use
+pattern (displays the typed override if non-blank, otherwise the candidate),
+bound every read of the H/I/J band by `COLUMNS(Source_Data)` (the
+spill-placement principle from `CLAUDE.md`), and keep the J spec-block cell
+plain — override flagging lives ONLY on the Sequence Spacing block's
+verdict lines (rows 31–34), never on the spec block itself, so the spec
+reads top-to-bottom as a clean declaration. Update the Sequence Spacing
+block (rows 28–34), the spec layout constants, the named-range rename
+(`Spec_Base_Period_Delta` → `Spec_Sequence_Period`), and the QC analyzers.
 
 **#2 — FE Role dropdown + status-block validation (gated).** Sheet-only, no
 engine change. `Fixed Effects` in the Role axis; status-block cells for

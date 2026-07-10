@@ -21,12 +21,14 @@ role is exercised in T8 via a purpose-built `Is_Stan` filter column, not the
 completeness flag.
 
 **Layout note (Sequence structural-axis release):** the spec block has since
-gained column H (`Sequence` flag) and column I (`Base Period Δ` — live since
-the base-period release: candidate formula with typed override, see T17–T19),
-so the `Levels` and `Reference In Use` displays moved to **J** and **K**, and
-every derived zone right of the spec block shifted two columns right (audit
-strip starts at M1; filtered zones at P/S). Cell addresses below reflect the
-layout at the time this plan was written — read `Levels` at J instead of H,
+gained column H (`Sequence` flag), column I (`Sequence Period` — typed
+override input), and column J (`Period In Use` — live since the base-period
+release: candidate formula with typed override via column I, see T17–T19),
+so the `Levels` and `Reference In Use` displays moved to **K** and **L**,
+and every derived zone right of the spec block shifted one column right
+(audit strip starts at N1; filtered zones at Q/V). Cell addresses below
+reflect the layout at the time this plan was written — read `Levels` at
+K instead of H,
 and shift any address in column K or rightward by two columns. The base-period
 addendum (T17–T19) uses current addresses (headers row 3, spec rows 4–26,
 Sequence Spacing block rows 28–34).
@@ -96,7 +98,7 @@ Output cells:
 
 The shipped spec demonstrates the Role axis (Identifier, Response, Predictor,
 Omit — Population and Full_Data both ship as Omit) and flags Year as the
-Sequence axis, so the Base Period Δ candidate (Δ = 1), the Sequence Spacing
+Sequence axis, so the Period In Use candidate (Δ = 1), the Sequence Spacing
 block, and the gated Durbin-Watson diagnostic on the Regression sheet are all
 live at T0. **No Filter is declared**, so the mask is completeness-only.
 
@@ -111,8 +113,8 @@ live at T0. **No Filter is declared**, so the mask is completeness-only.
 | included rows | U1 | **2482** (completeness on the response + `Adult Mortality`, `GDP`, `Schooling`; no Full_Data over-filter) |
 | sequence status | H2 | blank — one flag (Year) is valid; the line errors only at two-plus |
 | header strip | Q2→ | `Year: 2001` … `Year: 2015` (15 cols), `Status: Developing`, `Adult Mortality`, `GDP`, `Schooling` |
-| Levels | J4 / J5 | 16 / 2, blank elsewhere |
-| Base Period Δ | Year row, col I | 1 (Year's within-country spacing) |
+| Levels | K4 / K5 | 16 / 2, blank elsewhere |
+| Period In Use | Year row, col J | 1 (Year's within-country spacing; I is the override input) |
 | Durbin-Watson | Regression diagnostics (Y11) | a number computed along Year, not the `n/a — requires Sequence` token |
 | BFN Panel Durbin-Watson | Regression diagnostics (Y12) | `n/a — no fixed effects` (Sequence declared, no Role="Fixed Effects" row — the role ships with the v2.1 FE engine). Clearing Year's H flag flips BOTH cells to `n/a — requires Sequence` |
 | gray cascade | C–H | gray on every non-Predictor row |

@@ -384,8 +384,7 @@ and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
 - `Dummy_Levels(category, [reference], [include])` — **rebuilt for v2.0**
   (an earlier version existed as a catalog function with string-based
   error returns; dropped and replaced rather than amended — see
-  [DECISIONS.md § v2.0 Dummy rebuild](DECISIONS.md#v20)). Signals
-  failure via a real Excel error (`NA()`), never a descriptive string, so
+  [DECISIONS.md § v2.0 Dummy rebuild](DECISIONS.md#v20--specification-driven-regression)). Signals
   every downstream `IFERROR`/`ISNA` guard works without special-casing.
   Retained categorical levels as a horizontal header row; backs the v2.0
   prediction-input validation lists and is the hard dependency of

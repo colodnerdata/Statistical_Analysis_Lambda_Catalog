@@ -1305,13 +1305,12 @@ def write_regression_output_sheet(
         "N": 9, "O": 9, "P": 9, "Q": 9, "R": 9, "S": 9,  # stats values
         "T": 2,         # thin gap
 
-        # Regression Outputs (U–AC): statistics, ANOVA, coefficients, beta weights.
-        # U holds the labels (stats names, ANOVA rows, coefficient row names);
-        # V–AB hold the corresponding values; AC is unused thin gap.
+        # Regression Outputs (U–AC): regression statistics (U–V), diagnostics (X–Y), ANOVA (U–Z), coefficients (U–AB), beta weights (AB).
+        # Column roles vary by sub-table; widths below are sized for the widest label/value used in each column. AC is an unused thin gap.
         "U": 22,        # labels — longest is "Adjusted R Square" (16) or "Status[Developing]" (17)
         "V": 12,        # stat values, Alpha, df, Coefficients
         "W": 12,        # SS, Std Error
-        "X": 20,        # diagnostics labels (longest: "BFN Panel Durbin-Watson" = 23) + MS + t Stat
+        "X": 24,        # diagnostics labels (longest: "BFN Panel Durbin-Watson" = 23) + MS + t Stat
         "Y": 16,        # diagnostics values + "Predicted Variable" section heading + F + P-value
         "Z": 14,        # derived response name (e.g., "Life expectancy") + Significance F + Lower 95%
         "AA": 10,       # Upper 95% values

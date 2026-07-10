@@ -90,7 +90,7 @@ combinatorially-named families follow the same exception.
 
 - v2.2 — the `Unit_Space_*` dispatcher family (`Unit_Space_R_Squared`,
   `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`). See
-  [DECISIONS.md § v2.2 unit-space dispatcher](DECISIONS.md#v22-unit-space).
+  [DECISIONS.md § v2.2 unit-space dispatcher](DECISIONS.md#v22--transforms--unit-space-comparability).
 
 ---
 

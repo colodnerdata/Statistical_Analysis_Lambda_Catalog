@@ -1290,22 +1290,41 @@ def write_regression_output_sheet(
 
     sheet.range(rc(2, _C_M), rc(2, _C_AT)).api.WrapText = True
 
-    # Column widths (A–L = spec block; AE = prediction labels, AF = values;
+    # Column widths (A–L = spec block; AD = prediction labels, AE = values;
     # AH = row identifiers, diagnostics start at AI)
     for column_letter, width in {
         "A": 28, "B": 20, "C": 9, "D": 11, "E": 15,
         "F": 0, "G": 0,  # reserved Order/Transform slots — hidden until wired
         "H": 10,        # Sequence flag
         "I": 14,        # Sequence Period (typed override)
-        "J": 14,        # Period In Use (candidate-with-override display)
-        "K": 7, "L": 16,  # Levels / Reference In Use displays
-        "M": 2,   # thin gap
-        "N": 28, "O": 8, "P": 10, "Q": 10, "R": 8, "S": 8, "T": 10,
-        "U": 2,   # thin gap
-        "V": 22, "W": 12, "X": 12, "Y": 14, "Z": 10, "AA": 13, "AB": 10, "AC": 12,
-        "AD": 2,  # thin gap
-        "AE": 20, "AF": 14, "AG": 13,  # prediction labels / values / means
-        "AH": 16,  # row identifiers (Row_Labels)
+        "J": 14,        # Period In Use
+        "K": 7, "L": 16,  # Levels / Reference In Use
+
+        # Predictor Summary (M–T): level-qualified constructed names + 6 stats.
+        "M": 24,        # constructed column names (e.g., "Status[Developed]")
+        "N": 9, "O": 9, "P": 9, "Q": 9, "R": 9, "S": 9,  # stats values
+        "T": 2,         # thin gap
+
+        # Regression Outputs (U–AC): regression statistics (U–V), diagnostics (X–Y), ANOVA (U–Z), coefficients (U–AB), beta weights (AB).
+        # Column roles vary by sub-table; widths below are sized for the widest label/value used in each column. AC is an unused thin gap.
+        "U": 22,        # labels — longest is "Adjusted R Square" (16) or "Status[Developing]" (17)
+        "V": 12,        # stat values, Alpha, df, Coefficients
+        "W": 12,        # SS, Std Error
+        "X": 24,        # diagnostics labels (longest: "BFN Panel Durbin-Watson" = 23) + MS + t Stat
+        "Y": 16,        # diagnostics values + "Predicted Variable" section heading + F + P-value
+        "Z": 14,        # derived response name (e.g., "Life expectancy") + Significance F + Lower 95%
+        "AA": 10,       # Upper 95% values
+        "AB": 10,       # Beta Weight values
+        "AC": 2,        # thin gap (Beta Weights are in AB, not AC — see _write_coefficients)
+
+        # Prediction Outputs (AD–AF): interval box label/values, inputs, training mean.
+        "AD": 24,       # section heading, "PREDICTION INTERVAL" / "PREDICTION INPUTS" labels, spilled constructed names
+        "AE": 16,       # prediction interval values + prediction input values
+        "AF": 14,       # Training Mean header + values spill
+
+        # Residual Output (AH–AT): row identifiers (AH) + 11 diagnostics (AI–AS).
+        # AH holds Row_Labels() — country/identifier strings like "United States" (13).
+        "AH": 16,       # row identifiers (Row_Labels)
         "AI": 10, "AJ": 10, "AK": 9, "AL": 10, "AM": 9, "AN": 9, "AO": 12, "AP": 9,
         "AQ": 14, "AR": 17, "AS": 14, "AT": 15,
     }.items():

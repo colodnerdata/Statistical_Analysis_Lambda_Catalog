@@ -283,8 +283,7 @@ item by construction; only the auto-completeness LAMBDA remains to build,
 and the hard-coded `Data_Completeness(...[Life expectancy]:[Schooling])`
 span dies with it. The `Sample_Include()` shipped-with role-aware
 completeness layer is the resolution — see
-[DECISIONS.md § v2.0 auto-completeness](DECISIONS.md#v20).
-
+[DECISIONS.md § v2.0 auto-completeness](DECISIONS.md#v20--specification-driven-regression).
 ### The `x_s()` row-mask contract
 
 The constructor reads the effective mask *only* to fix Categorical level

@@ -208,8 +208,7 @@ lag/difference/serial-correlation features land on a declared axis.
 - **Continuous** — enters the design matrix as a single column.
 - **Categorical** — encoded via the level-vector split: training and
   prediction both call the same encoder with the same training level vector
-  (see [DECISIONS.md § v2.0 level-vector split](DECISIONS.md#v20)).
-
+  (see [DECISIONS.md § v2.0 level-vector split](DECISIONS.md#v20--specification-driven-regression)).
 Closed: the Predictor Type axis never grows. Fixed Effects is not a Type
 value; it contributes no columns and no coefficients. It moves to the Role
 axis (v2.1), and the Type axis becomes permanently Continuous/Categorical.

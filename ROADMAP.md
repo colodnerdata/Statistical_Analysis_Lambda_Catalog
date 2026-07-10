@@ -1205,8 +1205,8 @@ Comparison sheet's GoF table references (not the raw-space statistic) once this 
   they are comparable in the Model Comparison sheet's prediction results table.
 - **Why Duan, not naive:** naive exponentiation of a log-linear prediction is a biased
   estimator of the conditional mean response (Jensen's inequality: E[exp(X)] ≠ exp(E[X])
-  whenever X has variance). Duan (1983) smearing — ŷ_smeared = ŷ_log · mean(exp(residuals)) —
-  is unbiased under the iid-residual assumption and adds one extra `AVERAGE(EXP(residuals))`
+  whenever X has variance). Duan (1983) smearing — ŷ_smeared = EXP(ŷ_log) · mean(EXP(residuals)) —
+  reduces this bias under the iid-residual assumption and adds one extra `AVERAGE(EXP(residuals))`
   cell. For a cost-estimator audience the naive-vs-Duan difference is not a footnote; it
   is a number-vs-number question they will see and ask about.
 - **Default = Duan; per-cell toggle for naive:** the prediction outputs section exposes

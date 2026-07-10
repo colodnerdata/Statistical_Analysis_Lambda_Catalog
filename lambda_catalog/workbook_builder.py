@@ -21,7 +21,8 @@ _RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
 _CALC_CHAIN_REL_TYPE = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/calcChain"
 XL_CALCULATION_AUTOMATIC     = -4105  # Excel XlCalculation.xlCalculationAutomatic
 XL_CALCULATION_MANUAL        = -4135  # Excel XlCalculation.xlCalculationManual
-XL_CALCULATION_SEMIAUTOMATIC = -4133  # Excel XlCalculation.xlCalculationSemiAutomatic (auto except tables)
+XL_CALCULATION_SEMIAUTOMATIC = 2      # Excel XlCalculation.xlCalculationSemiautomatic
+                                       # (auto recalc, but ignore changes in data tables)
 
 
 @dataclass(frozen=True)

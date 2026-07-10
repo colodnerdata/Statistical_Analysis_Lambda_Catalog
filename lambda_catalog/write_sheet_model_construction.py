@@ -180,6 +180,7 @@ from .workbook_helpers import (
     rc,
     reset_generated_sheet,
     section_heading,
+    set_column_widths,
     val,
 )
 
@@ -258,6 +259,31 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
     _C_LEVELS,
     _C_REF_IN_USE,
 ) = range(1, 13)
+
+# Widths for the shared A-L spec block — owned here (not by
+# write_sheet_regression.py, which imports and calls _set_spec_block_column_widths)
+# so the standalone build and the shared-block build can never drift.
+# F/G (Order/Transform) are reserved-but-unwired, hence width 0 — visually
+# collapsed until a future release wires them up.
+_SPEC_COLUMN_WIDTHS: dict[int, float] = {
+    _C_LABEL: 28,
+    _C_ROLE: 20,
+    _C_INCLUDE: 9,
+    _C_TYPE: 11,
+    _C_REFERENCE: 15,
+    _C_ORDER: 0,
+    _C_TRANSFORM: 0,
+    _C_SEQUENCE: 10,
+    _C_SEQUENCE_PERIOD: 14,
+    _C_PERIOD_IN_USE: 14,
+    _C_LEVELS: 7,
+    _C_REF_IN_USE: 16,
+}
+
+
+def _set_spec_block_column_widths(sheet: xw.Sheet) -> None:
+    set_column_widths(sheet, _SPEC_COLUMN_WIDTHS.items())
+
 
 # Derived-row zone right of the spec block. M is a narrow gap (and the
 # visual reservation for the future Design Columns audit column); N and O
@@ -1170,9 +1196,7 @@ def write_model_construction_sheet(
     _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE, _SEQUENCE_NOTE)
     _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
 
-    sheet.range(
-        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_REF_IN_USE)
-    ).columns.autofit()
+    _set_spec_block_column_widths(sheet)
     return sheet
 
 

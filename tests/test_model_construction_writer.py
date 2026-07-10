@@ -37,10 +37,12 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_INCLUDE,
     _C_LABEL,
     _C_LEVELS,
+    _C_ORDER,
     _C_REF_IN_USE,
     _C_SEQUENCE,
     _C_SEQUENCE_PERIOD,
     _C_PERIOD_IN_USE,
+    _C_TRANSFORM,
     _CLOSURE_SCOPE,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
@@ -61,6 +63,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _ROW_SPACING_OFF_GRID,
     _ROW_SPACING_REGULARITY,
     _set_sheet_scoped_names,
+    _set_spec_block_column_widths,
     _write_audit_row,
     _write_filtered_zones,
     _write_intercept_control,
@@ -251,6 +254,16 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
     for col in (14, 15):
         assert sheet.cell(1, col).value is None
         assert sheet.cell(1, col).api.Formula2 is None
+
+
+def test_spec_block_column_widths_hide_reserved_columns() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _set_spec_block_column_widths(_as_xw_sheet(sheet))
+
+    assert sheet.range((1, _C_LABEL), (1, _C_LABEL)).column_width == 28
+    assert sheet.range((1, _C_ORDER), (1, _C_ORDER)).column_width == 0
+    assert sheet.range((1, _C_TRANSFORM), (1, _C_TRANSFORM)).column_width == 0
+    assert sheet.range((1, _C_REF_IN_USE), (1, _C_REF_IN_USE)).column_width == 16
 
 
 def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:

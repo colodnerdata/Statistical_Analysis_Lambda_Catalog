@@ -303,9 +303,8 @@ numeric AND every included Continuous Predictor numeric), so no separate
 
 **Remaining gap (the blank-categorical caveat):** Categorical Predictors
 impose no non-blank condition; a blank category value encodes as
-all-zero dummies (indistinguishable from the reference level). Recorded
 as `DEFERRED` in
-[TODOs.md § v2.0](TODOs.md#v2.0--specification-driven-regression-shipped-leftovers);
+[TODOs.md § v2.0](TODOs.md#v20--specification-driven-regression-shipped-leftovers);
 interim workaround is a completeness column declared as a Filter.
 
 ### Spec-validation semantics (NA() everywhere)

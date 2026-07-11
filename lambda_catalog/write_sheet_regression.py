@@ -1096,7 +1096,10 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
     f(sheet, 3, _C_AT, "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    sheet.range(f"{col_letter(_C_AK)}:{col_letter(_C_AT)}").number_format = "0.0000"
+    # Format every numeric residual-output column — the actual Y (AJ) through
+    # PRESS (AT). Only the AI identifier column (text: country/Obs. labels) is
+    # left unformatted.
+    sheet.range(f"{col_letter(_C_AJ)}:{col_letter(_C_AT)}").number_format = "0.0000"
 
 
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements
@@ -1340,9 +1343,9 @@ def write_regression_output_sheet(
     # so the standalone and shared-block builds can never drift.
     _set_spec_block_column_widths(sheet)
 
-    # Content-column widths, per zone. The gap columns (M, U, AD, AH) are sized
-    # from _GAP_COLUMNS below so the layout stays declarative — one width there,
-    # not one per hard-coded gap letter.
+    # Content-column widths, per zone, plus the AU post-zone gutter (last entry).
+    # The gap columns (M, U, AD, AH) are sized from _GAP_COLUMNS below so the
+    # layout stays declarative — one width there, not one per hard-coded gap letter.
     for column_letter, width in {
         # Predictor Summary (N–T): level-qualified constructed names + 6 stats.
         "N": 24,        # constructed column names (e.g., "Status[Developed]")
@@ -1368,7 +1371,13 @@ def write_regression_output_sheet(
         # AI holds Row_Labels() — country/identifier strings like "United States" (13).
         "AI": 16,       # row identifiers (Row_Labels)
         "AJ": 10, "AK": 10, "AL": 9, "AM": 10, "AN": 9, "AO": 9, "AP": 12, "AQ": 9,
-        "AR": 14, "AS": 17, "AT": 14, "AU": 15,
+        "AR": 14, "AS": 17, "AT": 14,
+
+        # AU is NOT a content column and NOT a zone gap — it is the post-zone
+        # gutter that bounds the row-2 header wrap (_C_AU) and anchors the
+        # diagnostic charts (they start at _C_AT + 1). Sized here so it reads as
+        # a deliberate margin rather than a default-width column.
+        "AU": 15,
     }.items():
         sheet.range(f"{column_letter}:{column_letter}").column_width = width
 

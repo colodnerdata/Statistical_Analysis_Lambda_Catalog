@@ -17,14 +17,14 @@ In Use reads port unchanged. Only the assertions against the Model
 Construction sheet's display zones are remapped onto the Regression sheet's
 own display of the same facts:
 
-    MC audit k / twin tripwire   → M3 constructed-names spill width, and the
-                                   U21 coefficient-label spill (k+1 rows with
+    MC audit k / twin tripwire   → N3 constructed-names spill width, and the
+                                   V21 coefficient-label spill (k+1 rows with
                                    the default intercept ON)
-    MC header strip names        → M3 spill contents (vertical)
-    MC audit response            → Z2 Predicted Variable readout
-    MC audit included rows       → V8 Observations cell
-    MC first filtered label      → AH3 (first residual-output row label)
-    MC filtered zone heights     → AH3 spill height
+    MC header strip names        → N3 spill contents (vertical)
+    MC audit response            → AA2 Predicted Variable readout
+    MC audit included rows       → W8 Observations cell
+    MC first filtered label      → AI3 (first residual-output row label)
+    MC filtered zone heights     → AI3 spill height
     MC audit sequence flags      → H2 Sequence status line (blank while the
                                    spec carries zero-or-one flags)
 
@@ -81,22 +81,22 @@ from .write_sheet_model_construction import (
 )
 from .write_sheet_regression import (
     REGRESSION_SHEET_NAME,
-    _C_AH,
-    _C_M,
-    _C_U,
+    _C_AA,
+    _C_AI,
+    _C_N,
     _C_V,
-    _C_Z,
+    _C_W,
 )
 
 _QC_PREFIX = "[Regression Spec]"
 
 # Row anchors on the Regression sheet (1-based; must match
 # write_sheet_regression.py's section writers).
-_ROW_RESPONSE_READOUT = 2   # Z2 = derived response name
-_ROW_NAMES_SPILL = 3        # M3 = TRANSPOSE(Constructed_Column_Names())
-_ROW_RESID_FIRST = 3        # AH3 = FILTER(Row_Labels(), Sample_Include())
-_ROW_OBSERVATIONS = 8       # V8 = Observations(...)
-_ROW_COEFF_FIRST = 21       # U21 = coefficient label spill (k+1 with intercept)
+_ROW_RESPONSE_READOUT = 2   # AA2 = derived response name
+_ROW_NAMES_SPILL = 3        # N3 = TRANSPOSE(Constructed_Column_Names())
+_ROW_RESID_FIRST = 3        # AI3 = FILTER(Row_Labels(), Sample_Include())
+_ROW_OBSERVATIONS = 8       # W8 = Observations(...)
+_ROW_COEFF_FIRST = 21       # V21 = coefficient label spill (k+1 with intercept)
 
 
 @dataclass(frozen=True)
@@ -124,12 +124,12 @@ def read_observed_spec_values(
     shows up as a height/width mismatch instead of being clipped.
     """
     names = _read_column(
-        sheet, _C_M, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
+        sheet, _C_N, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
     )
     constructed_names = tuple(names[: _contiguous_height(names)])
 
     coeff_labels = _read_column(
-        sheet, _C_U, _ROW_COEFF_FIRST, k_bound + 1 + _READ_MARGIN
+        sheet, _C_V, _ROW_COEFF_FIRST, k_bound + 1 + _READ_MARGIN
     )
 
     level_cells = {
@@ -144,14 +144,14 @@ def read_observed_spec_values(
     }
 
     resid_labels = _read_column(
-        sheet, _C_AH, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
+        sheet, _C_AI, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
     )
 
     return RegressionSpecObserved(
         constructed_names=constructed_names,
         coeff_label_height=_contiguous_height(coeff_labels),
-        response_readout=sheet.range((_ROW_RESPONSE_READOUT, _C_Z)).value,
-        observations_cell=sheet.range((_ROW_OBSERVATIONS, _C_V)).value,
+        response_readout=sheet.range((_ROW_RESPONSE_READOUT, _C_AA)).value,
+        observations_cell=sheet.range((_ROW_OBSERVATIONS, _C_W)).value,
         level_cells=level_cells,
         reference_cells=reference_cells,
         resid_labels_height=_contiguous_height(resid_labels),
@@ -185,7 +185,7 @@ def compare_spec_observed_to_expected(
         expected.constructed_column_names,
         observed.constructed_names,
     )
-    # Twin tripwire against the engine side: the U21 coefficient-label spill
+    # Twin tripwire against the engine side: the V21 coefficient-label spill
     # is VSTACK("Intercept", names...) under the shipped intercept-ON
     # default, so its height must be exactly k+1.
     check(

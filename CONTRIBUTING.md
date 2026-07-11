@@ -225,18 +225,18 @@ Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COL
 
 ### Chart series data ranges
 
-Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AH$3:$AH$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
+Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AI$3:$AI$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
 
-Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$V$8` (the `Observations` cell in the Regression Outputs zone after the v2.0 spec-block changeover):
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$W$8` (the `Observations` cell in the Regression Outputs zone):
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AJ$2,1,0,MAX(IFERROR('{sname}'!$V$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AK$2,1,0,MAX(IFERROR('{sname}'!$W$8,1),1),1)",
 )
 ```
 
-This starts one row below the column header (row 2) and extends exactly `$V$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$V$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
+This starts one row below the column header (row 2) and extends exactly `$W$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$W$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
 **Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names:
 

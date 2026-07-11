@@ -107,9 +107,7 @@ _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.j
 # independently: Excel merges a contiguous run of same-level grouped columns
 # into a single outline, so two zones with no ungrouped column between them
 # share one collapse control. The gap columns are M, U, AD, AH — one before
-# each zone that follows the spec block. (Historically the predictor summary
-# began at M with no separating gap, which fused the spec and predictor
-# outlines into one control; the gap column restores the intended split.)
+# each zone that follows the spec block.
 #
 #   A–L   Model Specification   | M gap | N–T Predictor Summary | U gap |
 #   V–AC  Regression Outputs    | AD gap | AE–AG Prediction Outputs | AH gap |

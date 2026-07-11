@@ -197,29 +197,7 @@ python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
 
 ## Cell styling
 
-All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples directly in a sheet writer.
-
-| Constant | RGB | Usage |
-|---|---|---|
-| `HEADER_COLOR` | `(202, 237, 251)` | Zone / section headings — light blue, used on every sheet |
-| `SUBHDR_COLOR` | `(220, 230, 241)` | Column sub-header rows within a zone |
-| `INPUT_COLOR`  | `(251, 226, 213)` | User-editable input cells — light orange |
-| `CF_LIGHT_RED_FILL` | `(255, 199, 206)` | Conditional formatting — failed significance / diagnostic flag |
-| `CF_DARK_RED_TEXT` | `(156, 0, 6)` | Conditional formatting — text color for red-flagged cells |
-| `CF_YELLOW_FILL` | `(255, 235, 156)` | Conditional formatting — borderline diagnostic flag |
-| `CF_DARK_YELLOW_TEXT` | `(156, 101, 0)` | Conditional formatting — text color for yellow-flagged cells |
-
-Import pattern:
-
-```python
-from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
-```
-
-The `as _NAME` alias keeps existing private helpers (`_section_heading`, `_subheader_row`, etc.) unchanged.
-
-A **section heading** is bold text with `HEADER_COLOR` fill at the default font size. The sheet title ("Univariate Analysis") is 14 pt bold with no fill — that is the only cell with a custom font size. Use the private `_section_heading(sheet, row, col, label)` helper defined in each sheet writer; do not apply the style inline.
-
-Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COLOR` in `write_sheet_diagnostic_guide.py`) remain as local constants in the relevant file.
+All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples directly in a sheet writer. The constant table, the import pattern, and the section-heading convention are in [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md) at the project-instructions tier — consult that for the canonical definitions. Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COLOR` in `write_sheet_diagnostic_guide.py`) remain as local constants in the relevant file.
 
 ## Regression sheet conventions
 

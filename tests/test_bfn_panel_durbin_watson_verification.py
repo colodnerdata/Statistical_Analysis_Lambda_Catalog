@@ -383,16 +383,16 @@ def test_trigger_matrix_states() -> None:
 
 
 def _diagnostic_cell_formulas() -> tuple[str, str]:
-    """The shipped DW (Y11) and BFN (Y12) formulas, via the sheet writer."""
+    """The shipped DW (Z11) and BFN (Z12) formulas, via the sheet writer."""
     # pylint: disable=import-outside-toplevel
     import xlwings as xw
-    from lambda_catalog.write_sheet_regression import _write_diagnostics, _C_Y
+    from lambda_catalog.write_sheet_regression import _write_diagnostics, _C_Z
     from tests.recording_sheet import RecordingSheet
 
     sheet = RecordingSheet(name="Regression")
     _write_diagnostics(cast(xw.Sheet, sheet))
-    dw = cast(str, sheet.cell(11, _C_Y).api.Formula2)
-    bfn = cast(str, sheet.cell(12, _C_Y).api.Formula2)
+    dw = cast(str, sheet.cell(11, _C_Z).api.Formula2)
+    bfn = cast(str, sheet.cell(12, _C_Z).api.Formula2)
     return dw, bfn
 
 

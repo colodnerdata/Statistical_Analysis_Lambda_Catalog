@@ -7,19 +7,19 @@ Specification-Driven Regression; Sequence added post-v2.0):
     Variable Role   Include Type  Reference Level Order   Transform Sequence Sequence Period Period In Use Levels Reference In Use
     (spill)  (drop) (input) (drop)(input)         (rsvd.) (rsvd.)   (flag)   (cand./ovr.)   (disp.)        (disp.)(disp.)
 
-Right of the spec block, after a narrow gap column M (which also visually
+Right of the spec block, after a narrow gap column O (which also visually
 reserves the future Design Columns audit column):
 
-    N             O        P     Q           R            S     T           U →
-    Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered X_s
-    (=Row_Labels() spill at M4; =Sample_Include() spill at N4 — both
-     full-height, never internally filtered. P/Q/S/T are the FILTERED
+    O (gap)   P             Q        R     S           T            U     V           W →
+              Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered X_s
+    (=Row_Labels() spill at P4; =Sample_Include() spill at Q4 — both
+     full-height, never internally filtered. S/T/V/W are the FILTERED
      display zones: the only place on the sheet where Sample_Include()
-     row-filters anything. S repeats the filtered labels so the matrix
-     reads side-by-side without scrolling back to P.)
+     row-filters anything. V repeats the filtered labels so the matrix
+     reads side-by-side without scrolling back to S.)
 
-Row 1, from column M rightward, holds the bold audit cells as
-label/value pairs (values on the non-narrow columns N/Q/T/V/X/Z):
+Row 1, from column O rightward, holds the bold audit cells as
+label/value pairs (values on the non-narrow columns P/S/V/W/Y/AA):
 
     k = COLUMNS(X_s()) · rows = ROWS(X_s()) · response = <derived name> ·
     responses = <count of Role="Response (y)"> (red CF when <> 1) ·
@@ -72,9 +72,25 @@ consecutive spacings, MIN fallback when no spacing repeats) on the
 Sequence-flagged row and blank elsewhere. Typing a number into I on the
 flagged row overrides the candidate. The workbook-scoped Base_Period_Delta()
 accessor reads column J and is the default [delta] of Lag_By /
-Difference_By — Δ is never a silent 1. No CONSTRUCTOR reads H, I, or J —
-the base-period layer (candidate closure, spectrum, accessor) is the only
-consumer, and every read is TAKE-trimmed to COLUMNS(Source_Data).
+Difference_By — Δ is never a silent 1. Override flagging lives ONLY on
+the Sequence Spacing block (verdict lines on rows 31–34), never on the
+spec block itself: the J cell stays plain so the spec block reads
+top-to-bottom as a clean declaration, with the override verdict surfaced
+where the user actually inspects the time grid.
+The Sequence Spacing block below the spec (rows 28–34) surfaces the
+candidate, the Δ in use (yellow when overridden), the delta spectrum
+(distinct within-group spacings with counts, spilling at K/L), and four
+verdict lines: Regularity (any spacing ≠ Δ), Off-grid (a spacing that is
+not a whole multiple of Δ), the no-natural-base-period override prompt
+(MODE undefined → MIN fallback in use), and the calendar-signature guidance
+(spacings clustered at ~28–31 / ~90–92 / ~365–366 → recommend an integer
+period index upstream instead of quantizing day counts to a scalar Δ).
+The spectrum deliberately ignores Sample_Include(): the time grid is
+dataset structure, not model-iteration state. No CONSTRUCTOR reads H, I, or
+J — the base-period layer (candidate closure, spectrum, accessor) is the only
+consumer, and every read is TAKE-trimmed to COLUMNS(Source_Data) so the
+block's own cells sitting inside the 16000-row Spec_* bands are never
+scanned as spec rows.
 
 The role system dissolves the v1 Regression sheet's three hard-wired names
 into declarations, all late-bound zero-argument LAMBDAs on this sheet:
@@ -146,16 +162,21 @@ from .lambda_formula_parser import (
 )
 from .sheet_styles import (
     CF_DARK_RED_TEXT,
+    CF_DARK_YELLOW_TEXT,
     CF_LIGHT_RED_FILL,
+    CF_YELLOW_FILL,
     MUTED_TEXT_COLOR,
 )
 from .workbook_helpers import (
+    XL_SRC_RANGE,
+    XL_YES,
     add_expression_format,
     bold,
     bold_row,
     col_letter,
     drop_local_name,
     f,
+    f_structured,
     format_input,
     get_or_create_sheet,
     open_or_create_workbook,
@@ -267,27 +288,41 @@ def _set_spec_block_column_widths(sheet: xw.Sheet) -> None:
     set_column_widths(sheet, _SPEC_COLUMN_WIDTHS.items())
 
 
-# Derived-row zone right of the spec block. M is a narrow gap (and the
-# visual reservation for the future Design Columns audit column); N and O
-# hold the full-height Row_Labels() / Sample_Include() spills.
-_C_GAP = 13
-_C_ROW_LABELS = 14
-_C_INCLUDED = 15
+# Spec feedback zone (M, N, I — the verdict overlay): the delta spectrum
+# (Sequence_Delta_Spectrum() spill at M2:N?) sits in M and N; the combined
+# verdict switch lives at I2 (the Sequence_Period column's row-1/row-2
+# cells are unused by the spec block, so the verdict overlays them
+# without disturbing anything below row 3). Headers on row 1, content on
+# row 2 — both sit INSIDE the spec block's zone (which extends from A:N,
+# see the Regression sheet's _ZONES), so a single click on the spec
+# outline collapses the spec and its feedback together.
+_C_FEEDBACK_DELTA = 13     # M — Δ header / spectrum column 1
+_C_FEEDBACK_COUNT = 14     # N — Count header / spectrum column 2
+
+# Gap before the derived-row zone. One ungrouped column (width 2) so the
+# spec outline and the derived-row outline collapse independently.
+_C_GAP = 15
+
+# Derived-row zone right of the spec block. P and Q hold the full-height
+# Row_Labels() / Sample_Include() spills — they honor the full-height
+# contract (never row-filtered); the FILTERED display zone is further right.
+_C_ROW_LABELS = 16
+_C_INCLUDED = 17
 _GAP_COLUMN_WIDTH = 2
 
 # Filtered display zone: the ONLY place Sample_Include() row-filters
-# anything (everything left of O honors the full-height contract). P and
-# S are narrow visual breaks; T repeats the filtered labels so the matrix
-# reads side-by-side without scrolling back to Q.
-_C_BREAK_LEFT = 16
-_C_FILTERED_LABELS = 17
-_C_FILTERED_Y = 18
-_C_BREAK_MID = 19
-_C_MATRIX_LABELS = 20
-_C_MATRIX_START = 21
+# anything (everything left of Q honors the full-height contract). R and
+# U are narrow visual breaks; V repeats the filtered labels so the matrix
+# reads side-by-side without scrolling back to S.
+_C_BREAK_LEFT = 18
+_C_FILTERED_LABELS = 19
+_C_FILTERED_Y = 20
+_C_BREAK_MID = 21
+_C_MATRIX_LABELS = 22
+_C_MATRIX_START = 23
 
-# Row-1 audit strip: label/value pairs marching right from column M,
-# values placed on the non-narrow columns (N, Q, T, V, X, Z) so no number
+# Row-1 audit strip: label/value pairs marching right from column P,
+# values placed on the non-narrow columns (P, S, V, W, Y, AA) so no number
 # lands on a width-2 break column.
 _AUDIT_ROW = 1
 _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
@@ -297,8 +332,6 @@ _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
     (_C_MATRIX_START + 1, _C_MATRIX_START + 2),  # responses (red CF <> 1)
     (_C_MATRIX_START + 3, _C_MATRIX_START + 4),  # included rows
     (_C_MATRIX_START + 5, _C_MATRIX_START + 6),  # sequence flags (red CF > 1)
-    (_C_MATRIX_START + 7, _C_MATRIX_START + 8),  # FE variables (red CF > 1)
-    (_C_MATRIX_START + 9, _C_MATRIX_START + 10),  # active FE variable
 )
 
 _EMPTY_MODEL_FALLBACK = '"(empty model)"'
@@ -314,9 +347,12 @@ _ROLE_PREDICTOR = "Predictor (x)"
 _ROLE_IDENTIFIER = "Identifier (Row Label)"
 _ROLE_FILTER = "Filter"
 _ROLE_OMIT = "Omit"
-# The v2.1 panel role (ROADMAP Role-axis values). This token is now in the
-# Role dropdown so users can declare the FE axis in-spec; sheet diagnostics and
-# status validations consume it before the FE engine wiring lands.
+# The v2.1 panel role (ROADMAP Role-axis values). Forward wiring only: the
+# token is read by the Fixed_Effects_Column() accessor and the FE-count guard
+# on the Regression diagnostics (BFN panel Durbin-Watson trigger matrix), but
+# it is deliberately NOT in the Role dropdown yet — the design-matrix engine
+# does not absorb fixed effects until the v2.1 release, and offering the role
+# before then would let a spec claim FE while silently fitting pooled OLS.
 _ROLE_FIXED_EFFECTS = "Fixed Effects"
 
 # The derived response name, shared by the audit strip and the filtered-y
@@ -366,8 +402,8 @@ _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
 
 # Variables shipped with their Sequence flag (column H) set TRUE. Year is the
 # canonical ordering axis for the WHO Country/Year panel: flagging it activates
-# the Base Period Δ candidate (Δ = 1) and the gated Durbin-Watson diagnostic
-# on the Regression sheet. Structural and
+# the Base Period Δ candidate (Δ = 1), the Sequence Spacing block, and the
+# gated Durbin-Watson diagnostic on the Regression sheet. Structural and
 # Role-independent — Year stays a Categorical Predictor, so the fitted model is
 # unchanged; the flag only drives the serial-correlation / base-period layer.
 # Kept to at most one entry: the H2 status line errors at two-plus flags.
@@ -376,14 +412,7 @@ _DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Year"})
 _DEFAULT_TRANSFORM = "None"
 
 _ROLE_VALIDATION_LIST = ",".join(
-    (
-        _ROLE_RESPONSE,
-        _ROLE_PREDICTOR,
-        _ROLE_IDENTIFIER,
-        _ROLE_FILTER,
-        _ROLE_OMIT,
-        _ROLE_FIXED_EFFECTS,
-    )
+    (_ROLE_RESPONSE, _ROLE_PREDICTOR, _ROLE_IDENTIFIER, _ROLE_FILTER, _ROLE_OMIT)
 )
 _INCLUDE_VALIDATION_LIST = "TRUE,FALSE"
 _TYPE_VALIDATION_LIST = "Continuous,Categorical"
@@ -424,11 +453,34 @@ _SEQUENCE_FLAG_COUNT_FORMULA = (
 
 # Count of Role="Fixed Effects" spec rows — the FE-active detector behind the
 # Regression sheet's serial-correlation trigger matrix (plain DW vs. the BFN
-# panel DW) and the spec status validations. Same TAKE-trimmed idiom as the
-# responses and sequence-flag counts.
+# panel DW). Always 0 until the v2.1 Fixed Effects role ships (the token is
+# not in the Role dropdown), which keeps the shipped workbook in the
+# DW-active / BFN-token state. Same TAKE-trimmed idiom as the responses and
+# sequence-flag counts.
 _FIXED_EFFECTS_COUNT_FORMULA = (
     "SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))"
     f'="{_ROLE_FIXED_EFFECTS}"))'
+)
+
+# Verdict messages. Blank cell = quiet; conditional formatting keys on
+# nonblank (yellow = advisory, red = the data is off the declared grid).
+_MSG_REGULARITY = (
+    "Sequence is not evenly spaced: spacings besides Δ exist — "
+    "Difference_By / Lag_By return #N/A at gap rows."
+)
+_MSG_OFF_GRID = (
+    "Off-grid spacings: some gaps are not whole multiples of Δ — "
+    "those observations never align with the Δ grid."
+)
+_MSG_NO_NATURAL = (
+    "No repeated spacing — no natural base period (candidate falls back "
+    "to the minimum). Review the spectrum and set Δ in spec column I "
+    "(Sequence Period)."
+)
+_MSG_CALENDAR = (
+    "Calendar-day spacing (~28–31 / 90–92 / 365–366): do not "
+    "set a day-count Δ — build an integer period index upstream "
+    "(YEAR, or YEAR*12+MONTH) and flag that as the Sequence axis."
 )
 
 
@@ -465,22 +517,35 @@ def _set_sheet_scoped_names(
         "Source_Table": "=LifeExpectancyData[#All]",
         "Source_Data": "=DROP(Source_Table,1)",
         "Header_Names": "=TAKE(Source_Table,1)",
-        # ── Spec ranges (local columns B–I; TAKE-trimmed at use) ─────────
-        "Spec_Role": f"={sname}!$B${_FIRST_DATA_ROW}:$B${_VALIDATION_LAST_ROW}",
-        "Spec_Include": f"={sname}!$C${_FIRST_DATA_ROW}:$C${_VALIDATION_LAST_ROW}",
-        "Spec_Type": f"={sname}!$D${_FIRST_DATA_ROW}:$D${_VALIDATION_LAST_ROW}",
-        "Spec_Reference": f"={sname}!$E${_FIRST_DATA_ROW}:$E${_VALIDATION_LAST_ROW}",
+        # ── Spec ranges (table-column structured references) ─────────────
+        # The spec data area is a structured table (SpecTable) at B3:L26;
+        # these band names bind to its columns via SpecTable[[#Data],[Column]]
+        # structured references. Each column header carries the actual
+        # human-readable name (with spaces — Excel requires the exact
+        # header text, not a sanitized underscore form, in structured
+        # references). The [#Data] qualifier restricts the range to the
+        # data body (rows 4–26), which is what every TAKE-trimmed consumer
+        # expects: the spec rows, not the headers.
+        "Spec_Role": f"={sname}!SpecTable[[#Data],[Role]]",
+        "Spec_Include": f"={sname}!SpecTable[[#Data],[Include]]",
+        "Spec_Type": f"={sname}!SpecTable[[#Data],[Type]]",
+        "Spec_Reference": f"={sname}!SpecTable[[#Data],[Reference Level]]",
         # Reserved axes: named now so the grid shape is final, read by
         # nothing until the Order/Transform release.
-        "Spec_Order": f"={sname}!$F${_FIRST_DATA_ROW}:$F${_VALIDATION_LAST_ROW}",
-        "Spec_Transform": f"={sname}!$G${_FIRST_DATA_ROW}:$G${_VALIDATION_LAST_ROW}",
+        "Spec_Order": f"={sname}!SpecTable[[#Data],[Order]]",
+        "Spec_Transform": f"={sname}!SpecTable[[#Data],[Transform]]",
         # Sequence structural axis (live: read by the zero-or-one status
         # validation and its conditional formats, not by any constructor);
         # Base Period Δ is its reserved companion, read by nothing until
-        # the base-period release.
-        "Spec_Sequence": f"={sname}!$H${_FIRST_DATA_ROW}:$H${_VALIDATION_LAST_ROW}",
+        # the base-period release. The Period In Use band name is new —
+        # it parallels the other Spec_* names so every spec column has a
+        # single binding, even though no formula reads it yet.
+        "Spec_Sequence": f"={sname}!SpecTable[[#Data],[Sequence]]",
         "Spec_Sequence_Period": (
-            f"={sname}!$I${_FIRST_DATA_ROW}:$I${_VALIDATION_LAST_ROW}"
+            f"={sname}!SpecTable[[#Data],[Sequence Period]]"
+        ),
+        "Spec_Period_In_Use": (
+            f"={sname}!SpecTable[[#Data],[Period In Use]]"
         ),
         # Model-level Intercept toggle (row-2 control): a single boolean cell
         # in the C/Include column. No v3.0 formula reads it yet — the engine
@@ -555,6 +620,11 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     ):
         val(sheet, _HEADER_ROW, col, header)
 
+    # Create the table before writing any [@Column] formulas below. Excel
+    # rejects row-scoped structured references until the target cell belongs
+    # to a ListObject with the referenced headers.
+    _create_spec_table(sheet)
+
     # A: variable names spill straight from the table's header row via the
     # Header_Names indirection (dataset-agnostic; reads no other sheet).
     f(sheet, _FIRST_DATA_ROW, _C_LABEL, "=TRANSPOSE(Header_Names)")
@@ -585,21 +655,25 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         # reference-level pattern: it shows the typed I value when I is
         # non-blank, otherwise the candidate closure's value. The pattern
         # keeps I as the load-bearing override cell (the candidate closure
-        # never overwrites user input); no other sheet formula reads J.
+        # never overwrites user input), and J is a pure display that the
+        # Sequence Spacing block reads.
         if variable in _DEFAULT_SEQUENCE_VARIABLES:
             val(sheet, row, _C_SEQUENCE, True)
         format_input(sheet, row, _C_SEQUENCE)
         # I is a pure input: no candidate formula here. The pre-filled
         # candidate is in J; the user types a number into I to override,
         # and the J formula picks the override via the I reference.
+        # The J/K/L formulas use structured references ([@Column]) because
+        # the spec data area is a structured table at B3:L26; Formula2
+        # rejects structured refs, so they go through f_structured.
         format_input(sheet, row, _C_SEQUENCE_PERIOD)
-        f(
+        f_structured(
             sheet,
             row,
             _C_PERIOD_IN_USE,
             (
-                f'=IF($H{row}<>TRUE,"",'
-                f'IF(N($I{row})<>0,$I{row},'
+                '=IF([@Sequence]<>TRUE,"",'
+                'IF(N([@[Sequence Period]])<>0,[@[Sequence Period]],'
                 'IFERROR(Base_Period_Delta_Candidate(),"")))'
             ),
         )
@@ -610,14 +684,15 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         # Dummy_Levels call: the display must show L (including 1 for a
         # degenerate column, feeding the red CF below), while Dummy_Levels
         # returns the L−1 retained levels and #N/A when degenerate.
-        # ROW()-2 maps sheet row 3 → Source_Data column 1. IFERROR → 0
-        # covers the empty-masked-sample edge.
-        f(
+        # ROW()−_ROW_TO_COL_OFFSET maps the sheet row to a Source_Data
+        # column index. IFERROR → 0 covers the empty-masked-sample edge.
+        f_structured(
             sheet,
             row,
             _C_LEVELS,
             (
-                f'=IF(OR($B{row}<>"{_ROLE_PREDICTOR}",$D{row}<>"Categorical"),"",'
+                f'=IF(OR([@Role]<>"{_ROLE_PREDICTOR}",'
+                f'[@Type]<>"Categorical"),"",'
                 f"LET(col,INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
                 f'x,IF(col="","",col),'
                 f'IFERROR(ROWS(UNIQUE(FILTER(x,(x<>"")*Sample_Include()))),0)))'
@@ -625,21 +700,23 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         )
 
         # L: Reference In Use display — the level the constructor will
-        # actually drop, surfaced even when defaulted. A nonblank E is
-        # echoed verbatim (E's invalid-reference CF carries the error
-        # signal); a blank E shows Dummy_Levels' own default, the first
-        # sorted level over the mask-included sample, with the same blank
-        # normalization mirrored inline. Deliberately NOT a Dummy_Levels
-        # call: the function returns the RETAINED levels, which is exactly
-        # the set the reference has been dropped from. IFERROR → "" covers
-        # the empty-masked-sample edge (K shows 0 and flags red there).
-        f(
+        # actually drop, surfaced even when defaulted. A nonblank
+        # [@Reference Level] is echoed verbatim (its invalid-reference CF
+        # carries the error signal); a blank E shows Dummy_Levels' own
+        # default, the first sorted level over the mask-included sample,
+        # with the same blank normalization mirrored inline. Deliberately
+        # NOT a Dummy_Levels call: the function returns the RETAINED
+        # levels, which is exactly the set the reference has been dropped
+        # from. IFERROR → "" covers the empty-masked-sample edge (K shows
+        # 0 and flags red there).
+        f_structured(
             sheet,
             row,
             _C_REF_IN_USE,
             (
-                f'=IF(OR($B{row}<>"{_ROLE_PREDICTOR}",$D{row}<>"Categorical"),"",'
-                f'IF($E{row}<>"",$E{row},'
+                f'=IF(OR([@Role]<>"{_ROLE_PREDICTOR}",'
+                f'[@Type]<>"Categorical"),"",'
+                f'IF([@[Reference Level]]<>"",[@[Reference Level]],'
                 f"LET(col,INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
                 f'x,IF(col="","",col),'
                 f'IFERROR(INDEX(SORT(UNIQUE(FILTER(x,(x<>"")*Sample_Include()))),1,1),""))))'
@@ -694,8 +771,10 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     )
 
     # Period In Use (J) override flagging is intentionally NOT applied on
-    # the spec block. The J cells stay plain — the spec block is a
-    # declaration; it should read top-to-bottom as a clean grid.
+    # the spec block. The J cells stay plain; the override verdict lives
+    # on the Sequence Spacing block (verdict lines on rows 31–34) where
+    # the user actually inspects the time grid. The spec block is a
+    # declaration — it should read top-to-bottom as a clean grid.
 
     # Degeneracy flag: red K when an INCLUDED Categorical Predictor has
     # L <= 1 — the constructor contributes zero columns for it (visible
@@ -730,7 +809,167 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         font_color=CF_DARK_RED_TEXT,
     )
 
-    _write_sequence_status(sheet)
+def _create_spec_table(sheet: xw.Sheet) -> None:
+    """Convert the spec data area at B3:L26 into a structured ListObject.
+
+    The table is named ``SpecTable`` (Excel strips special characters and
+    prefixes automatically; the name field is the user-visible label). A
+    column is outside the table by design — the variable-names spill at
+    A4:A26 must not be absorbed by the table's spill scope, since the
+    spill lives outside the structured-reference world.
+
+    Headers on row 3 are the existing column labels written by
+    _write_spec_block; XlListObjectHasHeaders=xlYes tells Excel to
+    promote the first row to headers. The table must exist before the
+    Spec_* band names are registered in _set_sheet_scoped_names (Excel
+    validates each name's RefersTo at registration time).
+    """
+    table_range = sheet.range(
+        (_HEADER_ROW, _C_ROLE), (_LAST_DATA_ROW, _C_REF_IN_USE)
+    )
+    table = sheet.api.ListObjects.Add(
+        SourceType=XL_SRC_RANGE,
+        Source=table_range.api,
+        XlListObjectHasHeaders=XL_YES,
+    )
+    table.Name = "SpecTable"
+
+
+def _write_spec_feedback(sheet: xw.Sheet) -> None:
+    """The M/N spectrum and the I1/I2 verdict overlay.
+
+    Layout (cells land on row 1 for headers, row 2 for content; row 1 is
+    shared with the row-1 audit strip on the right side of the sheet, and
+    row 2 holds the row-2 Intercept control — both unaffected by the
+    feedback cells to the right of E2):
+
+        M1 = "Δ"          (bold header)
+        N1 = "Count"      (bold header)
+        M2 = IFERROR(Sequence_Delta_Spectrum(), "")
+            — spills downward into empty territory (M and N are spec
+              feedback columns with no other content, so the spill never
+              collides with the spec block below row 3)
+        I1 = "Verdict"    (bold header — overlays the Sequence_Period
+                          column's row-1 cell, which is unused)
+        I2 = combined switch formula (priority-ordered, single message)
+
+    The E1 Sequence error status is written here too (moved from H2 when
+    the spec data area became a structured table at B3:L26 — H2 is now
+    the table's "Sequence" header cell, and a status cell on top of a
+    table header reads as a visual collision). E1 keeps the same pattern
+    as the old H2: blank while the spec is legal, a red error line when
+    it is not.
+    """
+    feedback_header_row = 1
+    feedback_content_row = 2
+
+    # E1: the Sequence multi-flag error status (moved from H2 — see above).
+    # E1 sits inside the A1–L1 row-1 zone above the spec data area; the E
+    # column is otherwise Reference Level (an input, blank on row 1 by
+    # default), so the status cell shares the column with no other content.
+    status_cell = f"${col_letter(_C_REFERENCE)}${feedback_header_row}"  # $E$1
+    f(
+        sheet,
+        feedback_header_row,
+        _C_REFERENCE,
+        (
+            f"=IF({_SEQUENCE_FLAG_COUNT_FORMULA}>1,"
+            '"ERROR: multiple Sequence flags (mark at most one variable)","")'
+        ),
+    )
+    bold(sheet, feedback_header_row, _C_REFERENCE)
+    add_expression_format(
+        sheet,
+        status_cell,
+        f'={status_cell}<>""',
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # M1/N1: bold headers (no fill, default font size). The Verdict header
+    # (I1) is bolded separately below; it lives in column I (the spec
+    # block's Sequence_Period column) and so is NOT in the M:N range.
+    val(sheet, feedback_header_row, _C_FEEDBACK_DELTA, "Δ")
+    val(sheet, feedback_header_row, _C_FEEDBACK_COUNT, "Count")
+    bold_row(
+        sheet,
+        feedback_header_row,
+        _C_FEEDBACK_DELTA,
+        _C_FEEDBACK_COUNT,
+    )
+
+    # M2: Sequence_Delta_Spectrum() — an N×2 array of (delta, count) pairs,
+    # spilling downward into empty territory. IFERROR degrades the
+    # no-axis / no-spacings #N/A to a quiet blank.
+    f(
+        sheet,
+        feedback_content_row,
+        _C_FEEDBACK_DELTA,
+        '=IFERROR(Sequence_Delta_Spectrum(),"")',
+    )
+
+    # I1: the Verdict header (bold). I is the Sequence_Period spec column,
+    # but only rows 4-26 use it for the per-variable override; the row-1
+    # and row-2 cells are above the spec table and free to carry feedback.
+    val(sheet, feedback_header_row, _C_SEQUENCE_PERIOD, "Verdict")
+    bold(sheet, feedback_header_row, _C_SEQUENCE_PERIOD)
+
+    # I2: the combined verdict switch — one cell, one message, with
+    # conditional formatting carrying the priority (red outranks yellow
+    # via StopIfTrue). Picks the most severe applicable verdict:
+    #
+    #   off-grid       (red)  — data is off the declared grid
+    #   regularity     (yel)  — data has spacings besides Δ
+    #   no-natural     (yel)  — MODE undefined, candidate falls back to MIN
+    #   calendar       (red)  — day-count signature; recommend integer
+    #                           period index upstream
+    #
+    # The switch looks up the Sequence-flagged row's Period In Use value
+    # via the registered Spec_Period_In_Use band, paired with XMATCH over
+    # Spec_Sequence to find the flagged row. Using the names here avoids
+    # Formula2's rejection of direct structured references.
+    # outer guard returns blank when no Sequence axis is flagged OR the
+    # flagged row's I/J is non-numeric.
+    o2_formula = (
+        "=LET("
+        "d,Sequence_Deltas(),"
+        "v,INDEX(Spec_Period_In_Use,"
+        "XMATCH(TRUE,Spec_Sequence,0)),"
+        "IF(OR(COUNT(d)=0,NOT(ISNUMBER(v))),"
+        '"",'
+        'IF(SUM(--(MOD(d,v)<>0))>0,"' + _MSG_OFF_GRID + '",'
+        'IF(SUM(--(d<>v))>0,"' + _MSG_REGULARITY + '",'
+        'IF(ISNA(MODE.SNGL(d)),"' + _MSG_NO_NATURAL + '",'
+        'IF(SUM(--((((d>=28)*(d<=31))+((d>=90)*(d<=92))'
+        '+((d>=365)*(d<=366)))>0))*2>COUNT(d),'
+        '"' + _MSG_CALENDAR + '",'
+        '""'
+        "))))))"
+    )
+    f(sheet, feedback_content_row, _C_SEQUENCE_PERIOD, o2_formula)
+
+    # I2 CF: red for off-grid or calendar (StopIfTrue outranks yellow);
+    # yellow for regularity or no-natural. Each rule keys on a SEARCH
+    # of the cell's rendered text for the message keyword — the same
+    # four message constants _MSG_* used to build the formula.
+    verdict_cell = f"${col_letter(_C_SEQUENCE_PERIOD)}${feedback_content_row}"  # $I$2
+    add_expression_format(
+        sheet,
+        verdict_cell,
+        f'=OR(ISNUMBER(SEARCH("off-grid",{verdict_cell})),'
+        f'ISNUMBER(SEARCH("calendar",{verdict_cell})))',
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+        stop_if_true=True,
+    )
+    add_expression_format(
+        sheet,
+        verdict_cell,
+        f'=OR(ISNUMBER(SEARCH("regularity",{verdict_cell})),'
+        f'ISNUMBER(SEARCH("no natural",{verdict_cell})))',
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
+    )
 
 
 def _write_sequence_status(sheet: xw.Sheet) -> None:
@@ -812,16 +1051,6 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
         "N(TAKE(Spec_Include,COLUMNS(Source_Data))=TRUE),"
         'N(TAKE(Spec_Type,COLUMNS(Source_Data))="Categorical"))>0'
     )
-    fe_active = f"{_FIXED_EFFECTS_COUNT_FORMULA}>0"
-    # FE + intercept is a visible red flag while one-way FE wiring is active.
-    add_expression_format(
-        sheet,
-        toggle,
-        f"=AND({toggle}=TRUE,{fe_active})",
-        fill=CF_LIGHT_RED_FILL,
-        font_color=CF_DARK_RED_TEXT,
-        stop_if_true=True,
-    )
     # Red first (StopIfTrue → outranks gray on this cell): FALSE while a
     # Categorical needs the intercept.
     add_expression_format(
@@ -878,14 +1107,6 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
         ),
         ("included rows", "=SUMPRODUCT(N(Sample_Include()))"),
         ("sequence flags", f"={_SEQUENCE_FLAG_COUNT_FORMULA}"),
-        ("fe variables", f"={_FIXED_EFFECTS_COUNT_FORMULA}"),
-        (
-            "active FE variable",
-            '=IFERROR(IF('
-            f"{_FIXED_EFFECTS_COUNT_FORMULA}=1,"
-            f'INDEX(TOROW(Header_Names),XMATCH("{_ROLE_FIXED_EFFECTS}",'
-            'TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)"),"(none)")',
-        ),
     )
     for (label_col, value_col), (label, formula) in zip(
         _AUDIT_PAIRS, audit_cells
@@ -913,17 +1134,6 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
         sheet,
         f"${sequence_col}${_AUDIT_ROW}",
         f"=N(${sequence_col}${_AUDIT_ROW})>1",
-        fill=CF_LIGHT_RED_FILL,
-        font_color=CF_DARK_RED_TEXT,
-    )
-
-    # Zero-or-one Fixed Effects variables — red only at two-plus (v2.1 is
-    # one-way FE only; two-way absorption is a later milestone).
-    fe_count_col = col_letter(_AUDIT_PAIRS[6][1])
-    add_expression_format(
-        sheet,
-        f"${fe_count_col}${_AUDIT_ROW}",
-        f"=N(${fe_count_col}${_AUDIT_ROW})>1",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -1004,8 +1214,13 @@ def write_model_construction_sheet(
 
     section_heading(sheet, 1, _C_LABEL, "Model Construction")
 
-    _set_sheet_scoped_names(sheet, closures)
+    # The spec block must run before the names are registered: it creates
+    # the structured table (SpecTable) at B3:L26, which the Spec_* band
+    # names bind to via SpecTable[[#Data],[Column]] references — Excel
+    # validates the RefersTo at registration time.
     _write_spec_block(sheet)
+    _set_sheet_scoped_names(sheet, closures)
+    _write_spec_feedback(sheet)
     _write_intercept_control(sheet)
     _write_row_zones(sheet)
     _write_audit_row(sheet)

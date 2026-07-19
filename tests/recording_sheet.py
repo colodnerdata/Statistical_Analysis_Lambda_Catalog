@@ -111,6 +111,7 @@ class RecordingValidation:
 class RecordingRangeState:
     value: Any = None
     formula2: str | None = None
+    formula: str | None = None
     color: Any = None
     number_format: str | None = None
     column_width: float | None = None
@@ -147,6 +148,14 @@ class RecordingRangeApi:
     @Formula2.setter
     def Formula2(self, value: str) -> None:
         self._state.formula2 = value
+
+    @property
+    def Formula(self) -> str | None:
+        return self._state.formula
+
+    @Formula.setter
+    def Formula(self, value: str) -> None:
+        self._state.formula = value
 
 
 class RecordingRange:
@@ -192,13 +201,76 @@ class RecordingRange:
         self.state.column_width = value
 
 
+class RecordingListColumns:
+    def __init__(self, table: "RecordingListObject") -> None:
+        self._table = table
+        self.items: list[RecordingListColumn] = []
+
+    def Add(self) -> "RecordingListColumn":
+        column = RecordingListColumn(self._table)
+        self.items.append(column)
+        return column
+
+    def __call__(self, name: str) -> "RecordingListColumn":
+        for column in self.items:
+            if column.Name == name:
+                return column
+        raise KeyError(name)
+
+
+@dataclass
+class RecordingListColumn:
+    table: Any
+    Name: str = ""
+    DataBodyRange: Any = field(default_factory=lambda: SimpleNamespace(Formula=None))
+
+    def Delete(self) -> None:
+        self.table.ListColumns.items.remove(self)
+
+
+class RecordingListObject:
+    def __init__(self, source_range: Any) -> None:
+        self.Name: str = ""
+        self.TableStyle: str = ""
+        self.ShowTableStyleRowStripes: bool = False
+        self.ShowTableStyleColumnStripes: bool = False
+        self.ListColumns = RecordingListColumns(self)
+        self._source_range = source_range
+        self._body_range = SimpleNamespace(Formula=None)
+        self.HeaderRowRange = source_range
+
+    @property
+    def DataBodyRange(self) -> Any:
+        return self._body_range
+
+
+class RecordingListObjects:
+    def __init__(self) -> None:
+        self.items: list[RecordingListObject] = []
+
+    def Add(
+        self,
+        *,
+        SourceType: int = 0,
+        Source: Any = None,
+        XlListObjectHasHeaders: int = 0,
+    ) -> RecordingListObject:
+        table = RecordingListObject(Source)
+        self.items.append(table)
+        return table
+
+
 class RecordingSheet:
     def __init__(self, name: str = "Univariate", global_names: list[str] | None = None) -> None:
         self.name = name
         self.ranges: dict[tuple[Any, ...], RecordingRange] = {}
         self.merges: list[tuple[Any, ...]] = []
         self.tables: list[dict[str, Any]] = []
-        self.api = SimpleNamespace(Names=RecordingNames(f"{name}!"))
+        self.list_objects: list[RecordingListObject] = []
+        self.api = SimpleNamespace(
+            Names=RecordingNames(f"{name}!"),
+            ListObjects=RecordingListObjects(),
+        )
         self.book = SimpleNamespace(
             api=SimpleNamespace(Names=RecordingNames(names=global_names))
         )

@@ -3,14 +3,14 @@
 Two-axis specification plus the Sequence structural axis (ROADMAP: v3.0 —
 Specification-Driven Regression; Sequence added post-v2.0):
 
-    A        B      C       D     E               F       G         H        I             J      K
-    Variable Role   Include Type  Reference Level Order   Transform Sequence Base Period Δ Levels Reference In Use
-    (spill)  (drop) (input) (drop)(input)         (rsvd.) (rsvd.)   (flag)   (cand./ovr.)  (disp.)(disp.)
+    A        B      C       D     E               F       G         H        I              J              K      L
+    Variable Role   Include Type  Reference Level Order   Transform Sequence Sequence Period Period In Use Levels Reference In Use
+    (spill)  (drop) (input) (drop)(input)         (rsvd.) (rsvd.)   (flag)   (cand./ovr.)   (disp.)        (disp.)(disp.)
 
-Right of the spec block, after a narrow gap column L (which also visually
+Right of the spec block, after a narrow gap column M (which also visually
 reserves the future Design Columns audit column):
 
-    M             N        O     P           Q            R     S           T →
+    N             O        P     Q           R            S     T           U →
     Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered X_s
     (=Row_Labels() spill at M4; =Sample_Include() spill at N4 — both
      full-height, never internally filtered. P/Q/S/T are the FILTERED
@@ -63,25 +63,31 @@ The spec spans EVERY column of the LifeExpectancyData table (23 rows:
 Columns F (Order) and G (Transform) are reserved for a future release: they
 are styled as inputs and carry sheet-scoped names (Spec_Order, Spec_Transform)
 so the grid shape is final, but no formula reads them yet. Column I
-(Base Period Δ) is Sequence's LIVE companion since the base-period release —
-computed-with-override, the reference-level pattern: every row is pre-filled
-with a formula that shows Base_Period_Delta_Candidate() (MODE of the
-within-group consecutive spacings, MIN fallback when no spacing repeats) on
-the Sequence-flagged row and blank elsewhere; typing a number over the
-flagged row's cell overrides the candidate. The workbook-scoped
-Base_Period_Delta() accessor reads whatever that cell shows and is the
-default [delta] of Lag_By / Difference_By — Δ is never a silent 1.
+(Sequence Period) is the typed override cell on the Sequence-flagged row
+(what the user sees typed; default empty); column J (Period In Use) is
+Sequence's LIVE companion since the base-period release — computed-with-
+override, the reference-level pattern: every row is pre-filled with a
+formula that shows Base_Period_Delta_Candidate() (MODE of the within-group
+consecutive spacings, MIN fallback when no spacing repeats) on the
+Sequence-flagged row and blank elsewhere. Typing a number into I on the
+flagged row overrides the candidate. The workbook-scoped Base_Period_Delta()
+accessor reads column J and is the default [delta] of Lag_By /
+Difference_By — Δ is never a silent 1. Override flagging lives ONLY on
+the Sequence Spacing block (verdict lines on rows 31–34), never on the
+spec block itself: the J cell stays plain so the spec block reads
+top-to-bottom as a clean declaration, with the override verdict surfaced
+where the user actually inspects the time grid.
 The Sequence Spacing block below the spec (rows 28–34) surfaces the
 candidate, the Δ in use (yellow when overridden), the delta spectrum
-(distinct within-group spacings with counts, spilling at J/K), and four
+(distinct within-group spacings with counts, spilling at K/L), and four
 verdict lines: Regularity (any spacing ≠ Δ), Off-grid (a spacing that is
 not a whole multiple of Δ), the no-natural-base-period override prompt
 (MODE undefined → MIN fallback in use), and the calendar-signature guidance
 (spacings clustered at ~28–31 / ~90–92 / ~365–366 → recommend an integer
 period index upstream instead of quantizing day counts to a scalar Δ).
 The spectrum deliberately ignores Sample_Include(): the time grid is
-dataset structure, not model-iteration state. No CONSTRUCTOR reads H or I —
-the base-period layer (candidate closure, spectrum, accessor) is the only
+dataset structure, not model-iteration state. No CONSTRUCTOR reads H, I, or
+J — the base-period layer (candidate closure, spectrum, accessor) is the only
 consumer, and every read is TAKE-trimmed to COLUMNS(Source_Data) so the
 block's own cells sitting inside the 16000-row Spec_* bands are never
 scanned as spec rows.
@@ -174,6 +180,7 @@ from .workbook_helpers import (
     rc,
     reset_generated_sheet,
     section_heading,
+    set_column_widths,
     val,
 )
 
@@ -234,8 +241,10 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 # Spec-block columns (1-based). Role precedes Include: the larger
 # declaration comes first (dataset semantics before iteration state).
 # F/G are the reserved Order/Transform slots; H is the Sequence structural
-# flag with I as its reserved Base Period Δ companion; J and K are the
-# computed displays (Levels count, Reference In Use).
+# flag with I/J as its Sequence Period / Period In Use pair (the
+# reference-level pattern: I is the candidate-with-override input,
+# J is the in-use display); K and L are the computed Categorical
+# displays (Levels count, Reference In Use).
 (
     _C_LABEL,
     _C_ROLE,
@@ -245,29 +254,55 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
     _C_ORDER,
     _C_TRANSFORM,
     _C_SEQUENCE,
-    _C_BASE_PERIOD,
+    _C_SEQUENCE_PERIOD,
+    _C_PERIOD_IN_USE,
     _C_LEVELS,
     _C_REF_IN_USE,
-) = range(1, 12)
+) = range(1, 13)
 
-# Derived-row zone right of the spec block. L is a narrow gap (and the
-# visual reservation for the future Design Columns audit column); M and N
+# Widths for the shared A-L spec block — owned here (not by
+# write_sheet_regression.py, which imports and calls _set_spec_block_column_widths)
+# so the standalone build and the shared-block build can never drift.
+# F/G (Order/Transform) are reserved-but-unwired, hence width 0 — visually
+# collapsed until a future release wires them up.
+_SPEC_COLUMN_WIDTHS: dict[int, float] = {
+    _C_LABEL: 28,
+    _C_ROLE: 20,
+    _C_INCLUDE: 9,
+    _C_TYPE: 11,
+    _C_REFERENCE: 15,
+    _C_ORDER: 0,
+    _C_TRANSFORM: 0,
+    _C_SEQUENCE: 10,
+    _C_SEQUENCE_PERIOD: 14,
+    _C_PERIOD_IN_USE: 14,
+    _C_LEVELS: 7,
+    _C_REF_IN_USE: 16,
+}
+
+
+def _set_spec_block_column_widths(sheet: xw.Sheet) -> None:
+    set_column_widths(sheet, _SPEC_COLUMN_WIDTHS.items())
+
+
+# Derived-row zone right of the spec block. M is a narrow gap (and the
+# visual reservation for the future Design Columns audit column); N and O
 # hold the full-height Row_Labels() / Sample_Include() spills.
-_C_GAP = 12
-_C_ROW_LABELS = 13
-_C_INCLUDED = 14
+_C_GAP = 13
+_C_ROW_LABELS = 14
+_C_INCLUDED = 15
 _GAP_COLUMN_WIDTH = 2
 
 # Filtered display zone: the ONLY place Sample_Include() row-filters
-# anything (everything left of O honors the full-height contract). O and
-# R are narrow visual breaks; S repeats the filtered labels so the matrix
-# reads side-by-side without scrolling back to P.
-_C_BREAK_LEFT = 15
-_C_FILTERED_LABELS = 16
-_C_FILTERED_Y = 17
-_C_BREAK_MID = 18
-_C_MATRIX_LABELS = 19
-_C_MATRIX_START = 20
+# anything (everything left of O honors the full-height contract). P and
+# S are narrow visual breaks; T repeats the filtered labels so the matrix
+# reads side-by-side without scrolling back to Q.
+_C_BREAK_LEFT = 16
+_C_FILTERED_LABELS = 17
+_C_FILTERED_Y = 18
+_C_BREAK_MID = 19
+_C_MATRIX_LABELS = 20
+_C_MATRIX_START = 21
 
 # Row-1 audit strip: label/value pairs marching right from column M,
 # values placed on the non-narrow columns (N, Q, T, V, X, Z) so no number
@@ -379,12 +414,15 @@ _SEQUENCE_NOTE = (
     "spec error shown in the status line above this column. Distinct from "
     "the reserved Order column (F), which is term-ordering."
 )
-_BASE_PERIOD_NOTE = (
-    "Base Period Δ — computed-with-override. On the Sequence-flagged row this "
-    "cell shows the computed candidate (the MODE of within-group consecutive "
-    "spacings; MIN when no spacing repeats). Type a number over it to "
-    "override; Lag_By and Difference_By use this cell when [delta] is "
-    "omitted. Blank on rows that are not the sequence axis. See the Sequence "
+_SEQUENCE_PERIOD_NOTE = (
+    "Sequence Period — typed override input for Base Period Δ "
+    "(renamed in v2.1.0). On the Sequence-flagged row this cell is blank "
+    "by default; type a number here to override the computed candidate "
+    "delta. Lag_By and Difference_By read the Period In Use column when "
+    "[delta] is omitted. Period In Use shows what the engine will "
+    "actually use (the typed override if non-blank, else the computed "
+    "candidate from within-group consecutive spacings). "
+    "Blank on rows that are not the sequence axis. See the Sequence "
     "Spacing block below the spec for the delta spectrum and verdicts."
 )
 
@@ -425,8 +463,12 @@ _ROW_SPACING_LAST = _ROW_SPACING_CALENDAR
 # Spectrum display: headers on the candidate row, the two-column
 # Sequence_Delta_Spectrum() spill directly below (deltas are data-dependent,
 # so the spill grows downward past the fixed verdict rows when needed).
-_C_SPECTRUM_DELTA = _C_LEVELS       # J
-_C_SPECTRUM_COUNT = _C_REF_IN_USE   # K
+# Lives at columns K/L (Levels / Reference In Use display columns) because
+# the spec block's J column is now Period In Use, not Levels, and the
+# spectrum only renders when a Sequence axis is flagged, so the K/L cells
+# at the spacing rows (28-34) are physically empty of any spec display.
+_C_SPECTRUM_DELTA = _C_LEVELS       # K
+_C_SPECTRUM_COUNT = _C_REF_IN_USE   # L
 
 # Verdict messages. Blank cell = quiet; conditional formatting keys on
 # nonblank (yellow = advisory, red = the data is off the declared grid).
@@ -440,7 +482,8 @@ _MSG_OFF_GRID = (
 )
 _MSG_NO_NATURAL = (
     "No repeated spacing — no natural base period (candidate falls back "
-    "to the minimum). Review the spectrum and set Δ in spec column I."
+    "to the minimum). Review the spectrum and set Δ in spec column I "
+    "(Sequence Period)."
 )
 _MSG_CALENDAR = (
     "Calendar-day spacing (~28–31 / 90–92 / 365–366): do not "
@@ -496,7 +539,7 @@ def _set_sheet_scoped_names(
         # Base Period Δ is its reserved companion, read by nothing until
         # the base-period release.
         "Spec_Sequence": f"={sname}!$H${_FIRST_DATA_ROW}:$H${_VALIDATION_LAST_ROW}",
-        "Spec_Base_Period_Delta": (
+        "Spec_Sequence_Period": (
             f"={sname}!$I${_FIRST_DATA_ROW}:$I${_VALIDATION_LAST_ROW}"
         ),
         # Model-level Intercept toggle (row-2 control): a single boolean cell
@@ -554,7 +597,7 @@ def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
 
 
 def _write_spec_block(sheet: xw.Sheet) -> None:
-    """The A–K specification block: headers, defaults, dropdowns, CF."""
+    """The A–L specification block: headers, defaults, dropdowns, CF."""
     bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_REF_IN_USE)
     for col, header in (
         (_C_LABEL, "Variable"),
@@ -565,7 +608,8 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         (_C_ORDER, "Order"),
         (_C_TRANSFORM, "Transform"),
         (_C_SEQUENCE, "Sequence"),
-        (_C_BASE_PERIOD, "Base Period Δ"),
+        (_C_SEQUENCE_PERIOD, "Sequence Period"),
+        (_C_PERIOD_IN_USE, "Period In Use"),
         (_C_LEVELS, "Levels"),
         (_C_REF_IN_USE, "Reference In Use"),
     ):
@@ -592,28 +636,36 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         format_input(sheet, row, _C_TRANSFORM)
         # H (Sequence): TRUE on the shipped ordering axis (Year), blank
         # elsewhere — zero-or-one flags is the legal range, and blank stays a
-        # valid non-panel spec. I (Base Period Δ) is computed-with-override:
-        # pre-filled with the candidate formula — the MODE of within-group
-        # spacings on the flagged row, blank elsewhere — and styled as an
-        # input so a typed number overrides the candidate (the reference-
-        # level pattern). Base_Period_Delta() reads whatever this cell
-        # shows; the scalar $H test keeps the candidate lazy (it computes
-        # only on the flagged row).
+        # valid non-panel spec.
+        # I (Sequence Period) is the typed override input: the user types a
+        # number here on the Sequence-flagged row to declare a Δ that
+        # differs from the computed candidate. The cell is styled as an
+        # input; left blank, the spec falls back to the candidate.
+        # J (Period In Use) is the candidate-with-override display, the
+        # reference-level pattern: it shows the typed I value when I is
+        # non-blank, otherwise the candidate closure's value. The pattern
+        # keeps I as the load-bearing override cell (the candidate closure
+        # never overwrites user input), and J is a pure display that the
+        # Sequence Spacing block reads.
         if variable in _DEFAULT_SEQUENCE_VARIABLES:
             val(sheet, row, _C_SEQUENCE, True)
         format_input(sheet, row, _C_SEQUENCE)
+        # I is a pure input: no candidate formula here. The pre-filled
+        # candidate is in J; the user types a number into I to override,
+        # and the J formula picks the override via the I reference.
+        format_input(sheet, row, _C_SEQUENCE_PERIOD)
         f(
             sheet,
             row,
-            _C_BASE_PERIOD,
+            _C_PERIOD_IN_USE,
             (
                 f'=IF($H{row}<>TRUE,"",'
-                'IFERROR(Base_Period_Delta_Candidate(),""))'
+                f'IF(N($I{row})<>0,$I{row},'
+                'IFERROR(Base_Period_Delta_Candidate(),"")))'
             ),
         )
-        format_input(sheet, row, _C_BASE_PERIOD)
 
-        # J: Levels display — Categorical Predictors only; the raw distinct
+        # K: Levels display — Categorical Predictors only; the raw distinct
         # level count L over the mask-included rows, with Dummy_Levels'
         # blank normalization mirrored inline. Deliberately NOT a
         # Dummy_Levels call: the display must show L (including 1 for a
@@ -633,7 +685,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
             ),
         )
 
-        # K: Reference In Use display — the level the constructor will
+        # L: Reference In Use display — the level the constructor will
         # actually drop, surfaced even when defaulted. A nonblank E is
         # echoed verbatim (E's invalid-reference CF carries the error
         # signal); a blank E shows Dummy_Levels' own default, the first
@@ -641,7 +693,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         # normalization mirrored inline. Deliberately NOT a Dummy_Levels
         # call: the function returns the RETAINED levels, which is exactly
         # the set the reference has been dropped from. IFERROR → "" covers
-        # the empty-masked-sample edge (J shows 0 and flags red there).
+        # the empty-masked-sample edge (K shows 0 and flags red there).
         f(
             sheet,
             row,
@@ -662,13 +714,13 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     _add_list_validation(sheet, _C_SEQUENCE, _SEQUENCE_VALIDATION_LIST)
 
     # Cascading relevance, Role-keyed: the per-Predictor inputs (C–G) and
-    # the Categorical displays (J–K) gray out whenever Role ≠ Predictor —
+    # the Categorical displays (K–L) gray out whenever Role ≠ Predictor —
     # the Reference-only-for-Categorical pattern applied one level up.
-    # H–I are deliberately excluded: Sequence is a structural axis, not a
+    # H–J are deliberately excluded: Sequence is a structural axis, not a
     # Role property (an Identifier like Year is a typical sequence axis).
     for role_keyed_band in (
         f"$C${_FIRST_DATA_ROW}:$G${_LAST_DATA_ROW}",
-        f"$J${_FIRST_DATA_ROW}:$K${_LAST_DATA_ROW}",
+        f"$K${_FIRST_DATA_ROW}:$L${_LAST_DATA_ROW}",
     ):
         add_expression_format(
             sheet,
@@ -677,12 +729,13 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
             font_color=MUTED_TEXT_COLOR,
         )
 
-    # Cascading relevance, Sequence-keyed: H–I gray out on every row that
-    # is not the sequence axis — Base Period Δ is meaningful only for the
-    # flagged row, and the flag itself keys on its own value, not on Role.
+    # Cascading relevance, Sequence-keyed: H–J gray out on every row that
+    # is not the sequence axis — Sequence Period and Period In Use are
+    # meaningful only for the flagged row, and the flag itself keys on its
+    # own value, not on Role.
     add_expression_format(
         sheet,
-        f"$H${_FIRST_DATA_ROW}:$I${_LAST_DATA_ROW}",
+        f"$H${_FIRST_DATA_ROW}:$J${_LAST_DATA_ROW}",
         f"=$H{_FIRST_DATA_ROW}<>TRUE",
         font_color=MUTED_TEXT_COLOR,
     )
@@ -701,17 +754,23 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         font_color=CF_DARK_RED_TEXT,
     )
 
-    # Degeneracy flag: red J when an INCLUDED Categorical Predictor has
+    # Period In Use (J) override flagging is intentionally NOT applied on
+    # the spec block. The J cells stay plain; the override verdict lives
+    # on the Sequence Spacing block (verdict lines on rows 31–34) where
+    # the user actually inspects the time grid. The spec block is a
+    # declaration — it should read top-to-bottom as a clean grid.
+
+    # Degeneracy flag: red K when an INCLUDED Categorical Predictor has
     # L <= 1 — the constructor contributes zero columns for it (visible
     # degradation, not silent omission). N() coerces "" to 0.
     add_expression_format(
         sheet,
-        f"$J${_FIRST_DATA_ROW}:$J${_LAST_DATA_ROW}",
+        f"$K${_FIRST_DATA_ROW}:$K${_LAST_DATA_ROW}",
         (
             f'=AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
             f"$C{_FIRST_DATA_ROW}=TRUE,"
             f'$D{_FIRST_DATA_ROW}="Categorical",'
-            f"N($J{_FIRST_DATA_ROW})<=1)"
+            f"N($K{_FIRST_DATA_ROW})<=1)"
         ),
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
@@ -771,12 +830,12 @@ def _write_sequence_status(sheet: xw.Sheet) -> None:
 def _write_sequence_spacing_block(sheet: xw.Sheet) -> None:
     """The Sequence Spacing block under the spec rows (base-period release).
 
-    Fixed rows 28–34, columns A–K: Δ candidate and Δ in use on the left,
+    Fixed rows 28–34, columns A–L: Δ candidate and Δ in use on the left,
     the delta spectrum (distinct within-group spacings with counts)
-    spilling at J/K, and four verdict lines in A that render blank while
-    quiet — the H2-status-line pattern. Verdicts key on the Δ-in-use cell
-    (candidate or typed override), so an override re-runs every check
-    against the user's Δ.
+    spilling at K/L, and four verdict lines in A that render blank while
+    quiet — the H2-status-line pattern. Verdicts key on the Period In Use
+    cell at the flagged row (the candidate or a typed override), so an
+    override re-runs every check against the user's Δ.
 
     The block's rows sit inside the 16000-row Spec_* bands; every
     base-period consumer TAKE-trims to COLUMNS(Source_Data), and the spec
@@ -784,7 +843,7 @@ def _write_sequence_spacing_block(sheet: xw.Sheet) -> None:
     haunts a display cell.
     """
     section_heading(
-        sheet, _ROW_SPACING_HEADING, _C_LABEL, "Sequence Spacing (Base Period Δ)"
+        sheet, _ROW_SPACING_HEADING, _C_LABEL, "Sequence Spacing (Period In Use)"
     )
 
     in_use = f"$B${_ROW_SPACING_IN_USE}"
@@ -814,7 +873,7 @@ def _write_sequence_spacing_block(sheet: xw.Sheet) -> None:
             "=LET(n_c,COLUMNS(Source_Data),"
             "p,IFERROR(XMATCH(TRUE,TAKE(Spec_Sequence,n_c),0),0),"
             'IF(p=0,"",'
-            "LET(v,INDEX(TAKE(Spec_Base_Period_Delta,n_c),p),"
+            "LET(v,INDEX(TAKE(Spec_Sequence_Period,n_c),p),"
             'IF(ISNUMBER(v),v,"(not set)"))))'
         ),
     )
@@ -903,9 +962,11 @@ def _write_sequence_spacing_block(sheet: xw.Sheet) -> None:
 
     # The block's rows sit inside the spec columns' 16000-row dropdown
     # validations — scrub them off the display band so no spec dropdown
-    # haunts these cells.
+    # haunts these cells. A–J covers Role through Period In Use; the
+    # K/L spectrum cells inherit the Levels/Reference In Use dropdowns
+    # only on the spec rows 4–26, which is fine.
     sheet.range(
-        (_ROW_SPACING_HEADING, _C_ROLE), (_ROW_SPACING_LAST, _C_BASE_PERIOD)
+        (_ROW_SPACING_HEADING, _C_ROLE), (_ROW_SPACING_LAST, _C_PERIOD_IN_USE)
     ).api.Validation.Delete()
 
 
@@ -1133,11 +1194,9 @@ def write_model_construction_sheet(
     _set_note(sheet, _FIRST_DATA_ROW, _C_ORDER, _RESERVED_NOTE)
     _set_note(sheet, _FIRST_DATA_ROW, _C_TRANSFORM, _RESERVED_NOTE)
     _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE, _SEQUENCE_NOTE)
-    _set_note(sheet, _FIRST_DATA_ROW, _C_BASE_PERIOD, _BASE_PERIOD_NOTE)
+    _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
 
-    sheet.range(
-        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_REF_IN_USE)
-    ).columns.autofit()
+    _set_spec_block_column_widths(sheet)
     return sheet
 
 

@@ -197,46 +197,24 @@ python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
 
 ## Cell styling
 
-All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples directly in a sheet writer.
-
-| Constant | RGB | Usage |
-|---|---|---|
-| `HEADER_COLOR` | `(202, 237, 251)` | Zone / section headings — light blue, used on every sheet |
-| `SUBHDR_COLOR` | `(220, 230, 241)` | Column sub-header rows within a zone |
-| `INPUT_COLOR`  | `(251, 226, 213)` | User-editable input cells — light orange |
-| `CF_LIGHT_RED_FILL` | `(255, 199, 206)` | Conditional formatting — failed significance / diagnostic flag |
-| `CF_DARK_RED_TEXT` | `(156, 0, 6)` | Conditional formatting — text color for red-flagged cells |
-| `CF_YELLOW_FILL` | `(255, 235, 156)` | Conditional formatting — borderline diagnostic flag |
-| `CF_DARK_YELLOW_TEXT` | `(156, 101, 0)` | Conditional formatting — text color for yellow-flagged cells |
-
-Import pattern:
-
-```python
-from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
-```
-
-The `as _NAME` alias keeps existing private helpers (`_section_heading`, `_subheader_row`, etc.) unchanged.
-
-A **section heading** is bold text with `HEADER_COLOR` fill at the default font size. The sheet title ("Univariate Analysis") is 14 pt bold with no fill — that is the only cell with a custom font size. Use the private `_section_heading(sheet, row, col, label)` helper defined in each sheet writer; do not apply the style inline.
-
-Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COLOR` in `write_sheet_diagnostic_guide.py`) remain as local constants in the relevant file.
+All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples directly in a sheet writer. The constant table, the import pattern, and the section-heading convention are in [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md) at the project-instructions tier — consult that for the canonical definitions. Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COLOR` in `write_sheet_diagnostic_guide.py`) remain as local constants in the relevant file.
 
 ## Regression sheet conventions
 
 ### Chart series data ranges
 
-Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AH$3:$AH$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
+Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AI$3:$AI$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
 
-Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$V$8` (the `Observations` cell in the Regression Outputs zone after the v2.0 spec-block changeover):
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$W$8` (the `Observations` cell in the Regression Outputs zone):
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AJ$2,1,0,MAX(IFERROR('{sname}'!$V$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AK$2,1,0,MAX(IFERROR('{sname}'!$W$8,1),1),1)",
 )
 ```
 
-This starts one row below the column header (row 2) and extends exactly `$V$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$V$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
+This starts one row below the column header (row 2) and extends exactly `$W$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$W$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
 **Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names:
 

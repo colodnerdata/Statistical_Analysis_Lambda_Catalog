@@ -113,6 +113,14 @@ def _row_label(row: dict[str, object], identifiers: list[str], fallback_index: i
     return f"Obs. {fallback_index + 1}"
 
 
+def _numeric_cell(row: dict[str, object], name: str) -> float:
+    """Return a validated numeric source value."""
+    value = row[name]
+    if not _is_number(value):
+        raise ValueError(f"Expected numeric value for {name!r}, got {value!r}")
+    return float(value)
+
+
 def _with_extra_columns(
     rows: list[dict[str, object]],
     extra_columns: tuple[ExtraSpecColumn, ...],
@@ -164,7 +172,9 @@ def build_spec_design(
             continue
         if variable.var_type != "Categorical":
             constructed_names.append(variable.name)
-            matrix_columns.append([float(rows[idx][variable.name]) for idx in included_indices])
+            matrix_columns.append(
+                [_numeric_cell(rows[idx], variable.name) for idx in included_indices]
+            )
             continue
 
         retained = _retained_levels(variable, rows, list(mask))
@@ -187,7 +197,7 @@ def build_spec_design(
     if len(seq_variables) == 1:
         sequence_name = seq_variables[0]
         sequence_values = np.asarray(
-            [float(rows[idx][sequence_name]) for idx in included_indices],
+            [_numeric_cell(rows[idx], sequence_name) for idx in included_indices],
             dtype=np.float64,
         )
 

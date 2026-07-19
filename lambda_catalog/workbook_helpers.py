@@ -218,7 +218,7 @@ class ColumnSpec(NamedTuple):
     existing call sites keep working unchanged.
     """
 
-    index: int
+    index: int  # type: ignore[assignment]  # Intentionally shadows tuple.index.
     width: float | None = None
     header: str = ""
     note: str = ""

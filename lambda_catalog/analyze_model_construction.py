@@ -31,6 +31,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TypeGuard
 
 import xlwings as xw
 
@@ -168,7 +169,7 @@ class ModelConstructionExpectations:
     degenerate_categoricals: tuple[str, ...]
 
 
-def _is_number(value: object) -> bool:
+def _is_number(value: object) -> TypeGuard[int | float]:
     """ISNUMBER semantics: Excel booleans are not numbers."""
     return isinstance(value, (int, float)) and not isinstance(value, bool)
 

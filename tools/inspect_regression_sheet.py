@@ -138,7 +138,7 @@ def _apply_extra_columns(
 
 def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
     """Write C2 and the full visible spec block for one QC case."""
-    sheet.range(_INTERCEPT_ROW, _C_SPEC_INCLUDE).value = expected.case.allow_intercept
+    sheet.range((_INTERCEPT_ROW, _C_SPEC_INCLUDE)).value = expected.case.allow_intercept
 
     # Clear only the spec rows (plus one blank row) so we don't wipe the
     # Sequence Spacing block that lives under the spec on the Regression sheet.
@@ -156,15 +156,15 @@ def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
             _C_SPEC_REFERENCE,
             _C_SPEC_SEQUENCE,
         ):
-            sheet.range(row, col).clear_contents()
+            sheet.range((row, col)).clear_contents()
 
     for offset, variable in enumerate(expected.case.spec):
         row = _SPEC_FIRST_DATA_ROW + offset
-        sheet.range(row, _C_SPEC_ROLE).value = variable.role
-        sheet.range(row, _C_SPEC_INCLUDE).value = variable.include
-        sheet.range(row, _C_SPEC_TYPE).value = variable.var_type
-        sheet.range(row, _C_SPEC_REFERENCE).value = variable.reference
-        sheet.range(row, _C_SPEC_SEQUENCE).value = variable.sequence
+        sheet.range((row, _C_SPEC_ROLE)).value = variable.role
+        sheet.range((row, _C_SPEC_INCLUDE)).value = variable.include
+        sheet.range((row, _C_SPEC_TYPE)).value = variable.var_type
+        sheet.range((row, _C_SPEC_REFERENCE)).value = variable.reference
+        sheet.range((row, _C_SPEC_SEQUENCE)).value = variable.sequence
 
 
 def _set_pred_inputs(
@@ -182,11 +182,11 @@ def _set_pred_inputs(
         (_ROW_PRED_INPUT_FIRST, _C_AF), (_ROW_PRED_INPUT_LAST, _C_AF)
     ).clear_contents()
     for i, value in enumerate(pred_input_values):
-        sheet.range(_ROW_PRED_INPUT_FIRST + i, _C_AF).value = value
+        sheet.range((_ROW_PRED_INPUT_FIRST + i, _C_AF)).value = value
 
 
 def _read_cell(sheet: xw.Sheet, row: int, col: int) -> float | None:
-    val = sheet.range(row, col).value
+    val = sheet.range((row, col)).value
     return to_float_or_none(val)
 
 
@@ -413,14 +413,16 @@ def read_regression_df(
         block = _read_block(sheet, _ROW_RESID_FIRST, _C_AJ, _C_AR, n)
         for row_idx, xl_row in enumerate(block):
             for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
-                exp_val: float | None = float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None
-                diff, fdd_val = compare_values(exp_val, xl_val)
+                residual_expected = (
+                    float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None
+                )
+                diff, fdd_val = compare_values(residual_expected, xl_val)
                 resid_rows.append({
                     "config_name": config_name,
                     "allow_intercept": allow_intercept,
                     "row_idx": row_idx + 1,
                     "stat_name": stat_name,
-                    "expected": exp_val,
+                    "expected": residual_expected,
                     "excel_calc": xl_val,
                     "abs_diff": diff,
                     "first_digit_deviation": fdd_val,

@@ -44,9 +44,10 @@ dev = [
 default-groups = ["dev"]
 
 [tool.mypy]
+check_untyped_defs = true
 
 [[tool.mypy.overrides]]
-module = ["scipy", "scipy.*"]
+module = ["pandas", "pandas.*", "scipy", "scipy.*", "statsmodels", "statsmodels.*"]
 ignore_missing_imports = true
 
 [build-system]

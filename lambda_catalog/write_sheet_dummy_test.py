@@ -109,6 +109,10 @@ EXPECTED_DEFAULT_LEVELS = dummy_levels_reference(CATEGORY_VALUES)
 EXPECTED_EXPLICIT_LEVELS = dummy_levels_reference(CATEGORY_VALUES, "Developing")
 _CODE_DEFAULT = dummy_code_reference(CATEGORY_VALUES)
 _CODE_MASKED = dummy_code_reference(CATEGORY_VALUES, "Developed", INCLUDE_VALUES)
+assert EXPECTED_DEFAULT_LEVELS is not None
+assert EXPECTED_EXPLICIT_LEVELS is not None
+assert _CODE_DEFAULT is not None
+assert _CODE_MASKED is not None
 
 _CAT = f"{SHEET_NAME}[Category]"
 _INC = f"{SHEET_NAME}[Include]"

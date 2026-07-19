@@ -88,7 +88,7 @@ def lag_by(x, group, seq, delta, include=None):
     for g, t, v, inc in zip(group, seq, x, include):
         if inc and isinstance(t, (int, float)) and v != "":
             sources.setdefault((g, t), v)
-    out = []
+    out: list[object] = []
     for i in range(n):
         if not include[i]:
             out.append(EXCLUDED)
@@ -109,7 +109,7 @@ def difference_by(x, group, seq, delta, include=None):
     if include is None:
         include = [g != "" and isinstance(t, (int, float)) for g, t in zip(group, seq)]
     prior = lag_by(x, group, seq, delta, include)
-    out = []
+    out: list[object] = []
     for v, p, inc in zip(x, prior, include):
         if not inc:
             out.append(EXCLUDED)

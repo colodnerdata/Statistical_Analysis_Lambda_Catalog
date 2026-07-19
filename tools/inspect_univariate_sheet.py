@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 import xlwings as xw
@@ -74,13 +74,16 @@ def _numeric_mismatch(expected: float, actual: Any, tolerance: int) -> bool:
     return first_deviation is not None and first_deviation <= tolerance
 
 
-def _load_source_data(csv_path: Path) -> list[object]:
+def _load_source_data(csv_path: Path) -> list[float | None]:
     headers, rows = load_life_expectancy_rows(csv_path)
     try:
         data_col = headers.index(_DATA_HEADER)
     except ValueError as exc:
         raise ValueError(f"CSV is missing required column {_DATA_HEADER!r}.") from exc
-    return [row[data_col] if data_col < len(row) else None for row in rows]
+    return cast(
+        list[float | None],
+        [row[data_col] if data_col < len(row) else None for row in rows],
+    )
 
 
 def read_univariate_failures(

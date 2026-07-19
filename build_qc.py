@@ -9,6 +9,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from typing import TextIO
 
 import xlwings as xw
 
@@ -408,7 +409,7 @@ def parse_args() -> argparse.Namespace:
 class _Tee(io.TextIOBase):
     """Write to two streams simultaneously."""
 
-    def __init__(self, primary: io.TextIOBase, secondary: io.TextIOBase) -> None:
+    def __init__(self, primary: TextIO, secondary: TextIO) -> None:
         self._primary = primary
         self._secondary = secondary
 
@@ -426,7 +427,7 @@ def main() -> None:
     args = parse_args()
     with open(DEFAULT_LOG_PATH, "w", encoding="utf-8") as log_file:
         real_stdout = sys.stdout
-        sys.stdout = _Tee(sys.stdout, log_file)  # type: ignore[assignment]
+        sys.stdout = _Tee(sys.stdout, log_file)
         try:
             print(f"python {Path(__file__).name} " + " ".join(sys.argv[1:]))
             _run_main(args)

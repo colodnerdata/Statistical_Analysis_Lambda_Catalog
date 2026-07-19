@@ -552,7 +552,6 @@ class TestFullResidualsIndependent(unittest.TestCase):
             )
 
     def test_hat_diagonal_bounds(self) -> None:
-        p = self.k + 1
         for i, h in enumerate(self.fr.hat_diagonal):
             self.assertGreaterEqual(h, 1.0 / self.n - 1e-12, msg=f"h_lo[{i}]")
             self.assertLessEqual(h, 1.0, msg=f"h_hi[{i}]")
@@ -902,7 +901,7 @@ class TestDurbinWatsonAlongSequence(unittest.TestCase):
         series = self._who_country_series()
         if series is None:
             self.skipTest("Life Expectancy CSV not found or no suitable country series")
-        y, x, year = series
+        y, x, _year = series
 
         design = np.column_stack([np.ones(len(y)), x])
         beta = np.linalg.lstsq(design, y, rcond=None)[0]

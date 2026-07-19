@@ -467,7 +467,7 @@ def mle_lognormal(data: Sequence[float | None]) -> tuple[float, float]:
     floc=0 fixes the location to 0 (two-parameter fit matching the LAMBDA).
     """
     x = _clean(data)
-    s, loc, scale = scipy_stats.lognorm.fit(x, floc=0)
+    s, _loc, scale = scipy_stats.lognorm.fit(x, floc=0)
     meanlog = math.log(scale)
     sdlog = s
     return float(meanlog), float(sdlog)

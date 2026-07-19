@@ -40,8 +40,6 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_ORDER,
     _C_REF_IN_USE,
     _C_SEQUENCE,
-    _C_SEQUENCE_PERIOD,
-    _C_PERIOD_IN_USE,
     _C_TRANSFORM,
     _CLOSURE_SCOPE,
     _FALLBACK_SPEC,

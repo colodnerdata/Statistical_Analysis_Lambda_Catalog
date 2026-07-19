@@ -1375,7 +1375,7 @@ been given a number that changes meaning under their feet.
 named range `Bootstrap_Random_Draws` holds a fixed table of uniformly-distributed
 random numbers, pre-drawn once at build time and visible in the workbook (auditable,
 reproducible). The bootstrap loop indexes into this table via
-`INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`,
+`INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples)-1, ROWS(Bootstrap_Random_Draws))+1)`,
 giving a resample-index sequence that wraps cleanly through the table. The
 random number seed is the same SHA-derived seed the QC build already uses
 (see `analysis_cache.py`), so the draw is deterministic across builds. The

@@ -1363,7 +1363,7 @@ territory (three-point estimates, MCS, risk analysis). These do not depend on th
 two-sample or ANOVA work, so they come early. Bootstrap and Monte Carlo pair naturally and
 may share a single sheet.
 
-**No-volatile constraint, RESOLVED.** `RANDARRAY()`-based resampling is rejected.
+**Non-volatile constraint, RESOLVED.** `RANDARRAY()`-based resampling is rejected.
 Every recalc would re-draw a new bootstrap sample and silently re-compute every
 resampled statistic; the result is the opposite of the library's
 "live recalculation, formula transparency, auditability" philosophy. The cost

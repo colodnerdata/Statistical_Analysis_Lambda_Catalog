@@ -19,15 +19,28 @@ from lambda_catalog.write_sheet_regression import (
     _C_Y,
     _C_Z,
     _C_AA,
+    _C_AB,
     _C_AC,
+    _C_AD,
+    _C_AE,
     _C_AF,
     _C_AG,
+    _C_AH,
     _C_AI,
     _C_AJ,
+    _C_AK,
     _C_AL,
     _C_AM,
     _C_AN,
+    _C_AO,
+    _C_AP,
+    _C_AQ,
+    _C_AR,
+    _C_AS,
     _C_AT,
+    _C_AU,
+    _C_AV,
+    _C_AW,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
     _setup_local_names as _setup_regression_names,
@@ -116,7 +129,7 @@ def test_regression_names_register_spec_wiring_and_constructors() -> None:
     assert sheet.api.Names.by_short_name("Allow_Intercept").RefersTo == (
         "='Regression'!$C$2"
     )
-    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$W$12"
+    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$Y$12"
 
 
 def test_regression_chart_names_size_to_the_observation_cell() -> None:
@@ -126,11 +139,11 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
 
     fit_y = sheet.api.Names.by_short_name("RegChartFitY").RefersTo
     assert fit_y == (
-        "=OFFSET('Regression'!$AK$2,1,0,"
-        "MAX(IFERROR('Regression'!$W$8,1),1),1)"
+        "=OFFSET('Regression'!$AM$2,1,0,"
+        "MAX(IFERROR('Regression'!$Y$8,1),1),1)"
     )
     press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
-    assert "$AT$2" in press
+    assert "$AV$2" in press
     assert {
         name: sheet.api.Names.by_short_name(name).Comment
         for name in (
@@ -179,13 +192,13 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
 
     _write_prediction_interval(_as_xw_sheet(sheet))
 
-    formula = sheet.cell(3, 32).api.Formula2
+    formula = sheet.cell(3, 34).api.Formula2
     assert formula is not None
     assert formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert "IFERROR" not in formula
     # Inputs correspond 1:1 to constructed columns — TAKE exactly k rows,
     # no Include-filter needed.
-    assert "LET(pred_input,VSTACK($AF$12,TAKE($AF$13:$AF$62,COLUMNS(X_s())))" in formula
+    assert "LET(pred_input,VSTACK($AH$12,TAKE($AH$13:$AH$62,COLUMNS(X_s())))" in formula
     assert "Prediction_Interval(X_s(),Response_Column(),pred_input" in formula
     assert "Intercept_Only_Point()" in formula
 
@@ -196,10 +209,10 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     _write_prediction_inputs(_as_xw_sheet(sheet))
 
     # The Training Mean spill is the ONE X_s() evaluation for the whole
-    # prefill band; it owns column AG downward so it can never collide with
+    # prefill band; it owns column AI downward so it can never collide with
     # another spill when the source data or spec changes.
-    assert sheet.cell(11, _C_AG).value == "Training Mean"
-    means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AG)
+    assert sheet.cell(11, _C_AI).value == "Training Mean"
+    means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AI)
     assert means == (
         "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
         'LAMBDA(c,AVERAGE(c)))),"")'
@@ -209,10 +222,10 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # call, so no prefill cell may invoke it — 50 cells × 2 calls made the
     # workbook's first full calculation take ~20 minutes.
     for row in (_PRED_INPUT_FIRST_ROW, _PRED_INPUT_LAST_ROW):
-        prefill = _formula(sheet, row, _C_AF)
+        prefill = _formula(sheet, row, _C_AH)
         assert "X_s()" not in prefill
-        assert f"INDEX($AG${_PRED_INPUT_FIRST_ROW}#" in prefill
-        assert f"IFERROR(ROWS($AG${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
+        assert f"INDEX($AI${_PRED_INPUT_FIRST_ROW}#" in prefill
+        assert f"IFERROR(ROWS($AI${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
 
 
 def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
@@ -220,20 +233,20 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     _write_coefficients(_as_xw_sheet(sheet))
 
-    label_formula = _formula(sheet, 21, _C_V)
+    label_formula = _formula(sheet, 21, _C_X)
     assert label_formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert 'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA())' in label_formula
     # Level-qualified names come from the constructor twin (a row vector).
     assert 'VSTACK("Intercept",TRANSPOSE(Constructed_Column_Names()))' in label_formula
 
-    coefficient_formula = _formula(sheet, 21, _C_W)
+    coefficient_formula = _formula(sheet, 21, _C_Y)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
     assert "Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include())" in coefficient_formula
 
-    se_formula = _formula(sheet, 21, _C_X)
+    se_formula = _formula(sheet, 21, _C_Z)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
 
-    beta_formula = _formula(sheet, 21, _C_AC)
+    beta_formula = _formula(sheet, 21, _C_AE)
     assert 'IF(Allow_Intercept,"",NA())' in beta_formula
 
 
@@ -242,16 +255,16 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
 
     _write_regression_outputs_header(_as_xw_sheet(sheet))
 
-    assert sheet.cell(2, _C_Z).value == "Predicted Variable"
-    assert sheet.cell(2, _C_Z).api.Font.Bold is True
-    assert sheet.cell(2, _C_Z).color == HEADER_COLOR
+    assert sheet.cell(2, _C_AB).value == "Predicted Variable"
+    assert sheet.cell(2, _C_AB).api.Font.Bold is True
+    assert sheet.cell(2, _C_AB).color == HEADER_COLOR
     # Derived response name — the header of the Role=Response spec row.
-    readout = sheet.cell(2, _C_AA).api.Formula2
+    readout = sheet.cell(2, _C_AC).api.Formula2
     assert readout is not None
     assert readout.startswith("=IFERROR(INDEX(TOROW(Header_Names),")
     assert 'XMATCH("Response (y)"' in readout
-    assert sheet.cell(2, _C_AA).api.Font.Bold is True
-    assert sheet.cell(2, _C_AA).color == HEADER_COLOR
+    assert sheet.cell(2, _C_AC).api.Font.Bold is True
+    assert sheet.cell(2, _C_AC).color == HEADER_COLOR
 
 
 def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
@@ -261,25 +274,25 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
 
     # Static header; Row_Labels() supplies its own per-row content and
     # no-Identifier fallback, so only an all-FALSE mask is absorbed here.
-    assert sheet.cell(2, _C_AI).value == "Observation"
-    assert sheet.cell(3, _C_AI).api.Formula2 == (
+    assert sheet.cell(2, _C_AK).value == "Observation"
+    assert sheet.cell(3, _C_AK).api.Formula2 == (
         "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
-    assert sheet.cell(2, _C_AJ).value == "Y"
-    assert sheet.cell(3, _C_AJ).api.Formula2 == (
+    assert sheet.cell(2, _C_AL).value == "Y"
+    assert sheet.cell(3, _C_AL).api.Formula2 == (
         "=Dependent_Variable(Response_Column(),Sample_Include())"
     )
-    assert sheet.cell(3, _C_AL).api.Formula2 == (
+    assert sheet.cell(3, _C_AN).api.Formula2 == (
         "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AN).api.Formula2 == (
+    assert sheet.cell(3, _C_AP).api.Formula2 == (
         "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AM).api.Formula2 == (
+    assert sheet.cell(3, _C_AO).api.Formula2 == (
         "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AT).api.Formula2 == (
+    assert sheet.cell(3, _C_AV).api.Formula2 == (
         "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
 
@@ -289,8 +302,8 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
 
     _write_diagnostics(_as_xw_sheet(sheet))
 
-    assert sheet.cell(11, _C_Y).value == "Durbin-Watson"
-    dw_formula = cast(str, sheet.cell(11, _C_Z).api.Formula2)
+    assert sheet.cell(11, _C_AA).value == "Durbin-Watson"
+    dw_formula = cast(str, sheet.cell(11, _C_AB).api.Formula2)
     # All off-spec states show an explicit text token, never NA() or "".
     assert '"n/a — requires Sequence"' in dw_formula      # zero flags
     assert '"n/a — multiple Sequence flags"' in dw_formula  # two-plus flags
@@ -312,7 +325,7 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
         "Allow_Intercept,Sample_Include())"
     ) in dw_formula
     # Scalar numeric cell (the token is text and ignores the format).
-    assert sheet.range(rc(11, _C_Z), rc(11, _C_Z)).number_format == "0.000"
+    assert sheet.range(rc(11, _C_AB), rc(11, _C_AB)).number_format == "0.000"
 
 
 def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
@@ -323,8 +336,8 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
 
     _write_diagnostics(_as_xw_sheet(sheet))
 
-    assert sheet.cell(12, _C_Y).value == "BFN Panel Durbin-Watson"
-    bfn_formula = cast(str, sheet.cell(12, _C_Z).api.Formula2)
+    assert sheet.cell(12, _C_AA).value == "BFN Panel Durbin-Watson"
+    bfn_formula = cast(str, sheet.cell(12, _C_AB).api.Formula2)
     # The four trigger-matrix states, each an explicit token (never NA()/""):
     assert '"n/a — requires Sequence"' in bfn_formula       # no Sequence axis
     assert '"n/a — multiple Sequence flags"' in bfn_formula  # spec error
@@ -351,7 +364,7 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
         "Allow_Intercept,Sample_Include())"
     ) in bfn_formula
     assert "Fixed_Effects_Column()" not in bfn_formula
-    assert sheet.range(rc(12, _C_Z), rc(12, _C_Z)).number_format == "0.000"
+    assert sheet.range(rc(12, _C_AB), rc(12, _C_AB)).number_format == "0.000"
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:

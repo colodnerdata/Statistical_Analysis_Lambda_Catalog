@@ -247,6 +247,16 @@ def f(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:
     sheet.range(rc(row, col)).api.Formula2 = formula
 
 
+def f_structured(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:
+    """Write a formula using the ``Formula`` property (not ``Formula2``).
+
+    ``Formula2`` is the locale-aware variant that rejects structured table
+    references like ``[@Column]``; use this helper whenever a formula
+    refers to a structured table column or row.
+    """
+    sheet.range(rc(row, col)).api.Formula = formula
+
+
 # ── Cell formatting helpers ────────────────────────────────────────────────────
 
 def bold(sheet: xw.Sheet, row: int, col: int) -> None:

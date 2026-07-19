@@ -10,29 +10,33 @@ single ungrouped GAP column so the zones collapse independently; see the
                    Type / Reference Level / Order / Transform / Sequence /
                    Sequence Period / Period In Use / Levels / Reference In Use).
                    Row 2 = Intercept control (label A2, Allow_Intercept toggle
-                   C2) and the Sequence status line (H2); headers row 3; one
-                   spec row per table column on rows 4–26; the Sequence Spacing
-                   block (Δ candidate / Δ in use / verdict lines / delta
-                   spectrum at K–L) on rows 28–34.
-  Col M          — thin gap (width 2, ungrouped)
-  Col N–T        — Predictor Summary: level-qualified constructed names (N) +
+                   C2) and the Sequence status line (E1); I1 carries the
+                   "Verdict" header and I2 the combined verdict switch
+                   (the row-1/row-2 cells of column I are above the spec
+                   table at B3:L26, so the verdict overlays the
+                   Sequence_Period column's input cells without
+                   disturbing the spec rows); M holds the Δ header
+                   and N holds the Count header for the
+                   Sequence_Delta_Spectrum() spill at M2:N?
+  Col O          — thin gap (width 2, ungrouped)
+  Col P–V        — Predictor Summary: level-qualified constructed names (P) +
                    Pearson R, Spearman R, Skewness, Kurtosis, VIF, Tolerance —
                    computed on the CONSTRUCTED design matrix (dummies included)
-  Col U          — thin gap (width 2, ungrouped)
-  Col V–AC       — Regression Outputs: Predicted Variable readout (Z2:AA2),
-                   Statistics (V–W rows 3–8), Diagnostics (Y–Z rows 3–12;
+  Col W          — thin gap (width 2, ungrouped)
+  Col X–AE       — Regression Outputs: Predicted Variable readout (AB2:AC2),
+                   Statistics (X–Y rows 3–8), Diagnostics (AA–AB rows 3–12;
                    the serial-correlation pair DW/BFN at rows 11–12),
-                   Alpha input (W12), ANOVA Table (rows 13–17, V–AA),
-                   Coefficients (rows 19+, V–AC), Beta Weights (AC)
-  Col AD         — thin gap (width 2, ungrouped)
-  Col AE–AG      — Prediction Outputs: Prediction Interval (AE1:AF8, boxed),
-                   Prediction Inputs (AE10+, one row per constructed column),
-                   Training Mean spill (AG13 — the single X_s() evaluation
-                   the orange AF prefills INDEX into; owns column AG downward
+                   Alpha input (Y12), ANOVA Table (rows 13–17, X–AC),
+                   Coefficients (rows 19+, X–AE), Beta Weights (AE)
+  Col AF         — thin gap (width 2, ungrouped)
+  Col AG–AI      — Prediction Outputs: Prediction Interval (AG1:AH8, boxed),
+                   Prediction Inputs (AG10+, one row per constructed column),
+                   Training Mean spill (AI13 — the single X_s() evaluation
+                   the orange AH prefills INDEX into; owns column AI downward
                    so it can never collide with another spill)
-  Col AH         — thin gap (width 2, ungrouped)
-  Col AI–AT      — Residual Output: heading + Row_Labels() identifiers in AI;
-                   11 diagnostics columns (AJ–AT), spills downward from row 3
+  Col AJ         — thin gap (width 2, ungrouped)
+  Col AK–AV      — Residual Output: heading + Row_Labels() identifiers in AK;
+                   11 diagnostics columns (AL–AV), spills downward from row 3
 
 The spec block replaces the v1 A–B Model Selection zone (predictor toggles +
 Allow_Intercept in B2). Everything the v1 sheet hard-wired is now derived:
@@ -85,8 +89,8 @@ from .write_sheet_model_construction import (
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _set_spec_block_column_widths,
     _write_intercept_control,
-    _write_sequence_spacing_block,
     _write_spec_block,
+    _write_spec_feedback,
 )
 
 # ── Conditional-formatting helpers ────────────────────────────────────────────
@@ -106,12 +110,13 @@ _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.j
 # outline group. That ungrouped column is what makes the two zones collapse
 # independently: Excel merges a contiguous run of same-level grouped columns
 # into a single outline, so two zones with no ungrouped column between them
-# share one collapse control. The gap columns are M, U, AD, AH — one before
+# share one collapse control. The gap columns are O, W, AF, AJ — one before
 # each zone that follows the spec block.
 #
-#   A–L   Model Specification   | M gap | N–T Predictor Summary | U gap |
-#   V–AC  Regression Outputs    | AD gap | AE–AG Prediction Outputs | AH gap |
-#   AI–AT Residual Output
+#   A–L   Model Specification   | M, N spec feedback + I Verdict overlay
+#   | O gap | P–V Predictor Summary
+#   | W gap | X–AE Regression Outputs | AF gap | AG–AI Prediction Outputs
+#   | AJ gap | AK–AV Residual Output
 #
 # The gap columns and the per-zone content spans below are the single source
 # of truth for both column widths and outline grouping (see _ZONES / _GAP_COLUMNS).
@@ -121,62 +126,74 @@ _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.j
 # heading cell is written here.
 _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 
+# Spec feedback (M, N, plus the I Verdict overlay): the delta spectrum
+# (Sequence_Delta_Spectrum() spill at M2:N?) sits in M and N. The combined
+# verdict switch overlays column I (the Sequence_Period spec column on
+# rows 4-26; the row-1/row-2 cells are above the spec table and free).
+# I1 holds the "Verdict" header (bold), I2 the priority-ordered switch
+# formula (off-grid outranks regularity, both outrank no-natural and
+# calendar; red CF outranks yellow via StopIfTrue). The E1 cell carries
+# the multi-flag Sequence error status (moved here from H2 when the spec
+# data area became a structured table at B3:L26).
+_C_M = 13   # spec feedback: Δ header / spectrum spill
+_C_N = 14   # spec feedback: Count header / spectrum spill
+
 # Gap before Predictor Summary.
-_C_M = 13   # thin gap (ungrouped — splits the spec and predictor outlines)
+_C_O = 15   # thin gap (ungrouped — splits the spec and predictor outlines)
 
 # Zone 2: Predictor Summary (constructed columns)
-_C_N = 14   # constructed column names (level-qualified)
-_C_O = 15   # Pearson R
-_C_P = 16   # Spearman R
-_C_Q = 17   # Skewness
-_C_R = 18   # Kurtosis
-_C_S = 19   # VIF
-_C_T = 20   # Tolerance
+_C_P = 16   # constructed column names (level-qualified)
+_C_Q = 17   # Pearson R
+_C_R = 18   # Spearman R
+_C_S = 19   # Skewness
+_C_T = 20   # Kurtosis
+_C_U = 21   # VIF
+_C_V = 22   # Tolerance
 
 # Gap before Regression Outputs.
-_C_U = 21   # thin gap (ungrouped)
+_C_W = 23   # thin gap (ungrouped)
 
 # Zone 3: Regression Outputs
-_C_V = 22   # labels (stats / ANOVA / coefficients)
-_C_W = 23   # stat values / ANOVA df / coefficient values
-_C_X = 24   # ANOVA SS / coefficient SE
-_C_Y = 25   # diagnostics labels / ANOVA MS / coefficient t-stat
-_C_Z = 26   # Predicted Variable label (Z2) / diagnostics values / ANOVA F / coefficient p-value
-_C_AA = 27  # predicted variable readout (AA2) / ANOVA Sig F / coefficient CI lower
-_C_AB = 28  # coefficient CI upper
-_C_AC = 29  # Beta Weights
+_C_X = 24   # labels (stats / ANOVA / coefficients)
+_C_Y = 25   # stat values / ANOVA df / coefficient values
+_C_Z = 26   # ANOVA SS / coefficient SE
+_C_AA = 27  # diagnostics labels / ANOVA MS / coefficient t-stat
+_C_AB = 28  # Predicted Variable label (AB2) / diagnostics values / ANOVA F / coefficient p-value
+_C_AC = 29  # predicted variable readout (AC2) / ANOVA Sig F / coefficient CI lower
+_C_AD = 30  # coefficient CI upper
+_C_AE = 31  # Beta Weights
 
 # Gap before Prediction Outputs.
-_C_AD = 30  # thin gap (ungrouped)
+_C_AF = 32  # thin gap (ungrouped)
 
 # Zone 4: Prediction Outputs
-_C_AE = 31  # prediction interval labels / prediction input labels
-_C_AF = 32  # prediction interval values / prediction input values
-_C_AG = 33  # Training Mean — the per-constructed-column means spill (AG13).
-            # The spill owns column AG downward, so it can never collide with
+_C_AG = 33  # prediction interval labels / prediction input labels
+_C_AH = 34  # prediction interval values / prediction input values
+_C_AI = 35  # Training Mean — the per-constructed-column means spill (AI13).
+            # The spill owns column AI downward, so it can never collide with
             # another spill when the source data or spec changes.
 
 # Gap before Residual Output.
-_C_AH = 34  # thin gap (ungrouped)
+_C_AJ = 36  # thin gap (ungrouped)
 
 # Zone 5: Residual Output
-# _C_AI holds Row_Labels() (the identifiers spill); _C_AJ onward hold the
+# _C_AK holds Row_Labels() (the identifiers spill); _C_AL onward hold the
 # residual-diagnostic columns. Row-2 headers are written by _write_residuals
 # (see the note_cells table); row-3 formulas are the source of truth for what
 # each column actually contains.
-_C_AI = 35  # row identifiers (Row_Labels() spill)
-_C_AJ = 36  # Y (actual dependent variable)
-_C_AK = 37  # Predicted Y
-_C_AL = 38  # Residuals
-_C_AM = 39  # LOOCV Residual
-_C_AN = 40  # Hat Diagonal
-_C_AO = 41  # Studentized Residuals
-_C_AP = 42  # Cook's Distance
-_C_AQ = 43  # Normal Scores Ranked
-_C_AR = 44  # Studentized Residuals Ranked
-_C_AS = 45  # Scale-Location
-_C_AT = 46  # PRESS Residual
-_C_AU = 47  # wrap-text bound for row-2 header strip (no own column)
+_C_AK = 37  # row identifiers (Row_Labels() spill)
+_C_AL = 38  # Y (actual dependent variable)
+_C_AM = 39  # Predicted Y
+_C_AN = 40  # Residuals
+_C_AO = 41  # LOOCV Residual
+_C_AP = 42  # Hat Diagonal
+_C_AQ = 43  # Studentized Residuals
+_C_AR = 44  # Cook's Distance
+_C_AS = 45  # Normal Scores Ranked
+_C_AT = 46  # Studentized Residuals Ranked
+_C_AU = 47  # Scale-Location
+_C_AV = 48  # PRESS Residual
+_C_AW = 49  # wrap-text bound for row-2 header strip (no own column)
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
@@ -187,13 +204,16 @@ _FORMAT_BAND_LAST_ROW = 62
 # Content zones as (first_col, last_col) spans — the single source of truth for
 # the outline groups. Each pair becomes one collapsible column group; the gap
 # columns between them (below) stay ungrouped so the zones collapse
-# independently.
+# independently. Zone 1 includes the M/N spec feedback columns and the
+# column-I Verdict overlay so the spec block and its feedback share one
+# outline (one click to collapse the spec block together — a spec edit
+# doesn't need the feedback visible).
 _ZONES: tuple[tuple[int, int], ...] = (
-    (_C_A, _C_SPEC_REF_IN_USE),  # A:L  — Model Specification
-    (_C_N, _C_T),                # N:T  — Predictor Summary
-    (_C_V, _C_AC),               # V:AC — Regression Outputs
-    (_C_AE, _C_AG),              # AE:AG — Prediction Outputs
-    (_C_AI, _C_AT),              # AI:AT — Residual Output
+    (_C_A, _C_N),                 # A:N  — Model Specification + feedback
+    (_C_P, _C_V),                 # P:V  — Predictor Summary
+    (_C_X, _C_AE),                # X:AE — Regression Outputs
+    (_C_AG, _C_AI),               # AG:AI — Prediction Outputs
+    (_C_AK, _C_AV),               # AK:AV — Residual Output
 )
 
 # The ungrouped gap columns (width 2) that separate the zones above. Derived as
@@ -244,59 +264,59 @@ def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
 def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> None:
     """Attach plain-language notes to key statistical labels on the sheet."""
     note_cells = [
-        (2, _C_O, "Pearson R"),
-        (2, _C_P, "Spearman R"),
-        (2, _C_Q, "Skewness"),
-        (2, _C_R, "Kurtosis"),
-        (2, _C_S, "VIF"),
-        (2, _C_T, "Tolerance"),
-        (4, _C_V, "Multiple R"),
-        (5, _C_V, "R Square"),
-        (6, _C_V, "Adjusted R Square"),
-        (7, _C_V, "Standard Error"),
-        (8, _C_V, "Observations"),
-        (4, _C_Y, "PRESS"),
-        (5, _C_Y, "PRESS R²"),
-        (6, _C_Y, "Mean Leverage"),
-        (7, _C_Y, "AIC"),
-        (8, _C_Y, "BIC"),
-        (9, _C_Y, "AICc"),
-        (10, _C_Y, "QQ Correlation"),
-        (11, _C_Y, "Durbin-Watson"),
-        (12, _C_Y, "BFN Panel Durbin-Watson"),
-        (12, _C_V, "Alpha"),
-        (14, _C_W, "df"),
-        (14, _C_X, "SS"),
-        (14, _C_Y, "MS"),
-        (14, _C_Z, "F"),
-        (14, _C_AA, "Significance F"),
-        (15, _C_V, "Regression"),
-        (16, _C_V, "Residual"),
-        (17, _C_V, "Total"),
-        (20, _C_W, "Coefficients"),
-        (20, _C_X, "Std Error"),
-        (20, _C_Y, "t Stat"),
-        (20, _C_Z, "P-value"),
-        (20, _C_AA, "Lower 95%"),
-        (20, _C_AB, "Upper 95%"),
-        (20, _C_AC, "Beta Weight"),
-        (3, _C_AE, "Point Estimate"),
-        (4, _C_AE, "SE Prediction"),
-        (5, _C_AE, "t Critical"),
-        (6, _C_AE, "Lower 95%"),
-        (7, _C_AE, "Upper 95%"),
-        (8, _C_AE, "Confidence Level"),
-        (2, _C_AJ, "Y"),
-        (2, _C_AK, "Predicted Y"),
-        (2, _C_AL, "Residuals"),
-        (2, _C_AM, "LOOCV Residual"),
-        (2, _C_AN, "Hat Diagonal"),
-        (2, _C_AO, "Studentized Residuals"),
-        (2, _C_AP, "Cook's Distance"),
-        (2, _C_AQ, "Normal Scores Ranked"),
-        (2, _C_AR, "Studentized Residuals Ranked"),
-        (2, _C_AS, "Scale-Location"),
-        (2, _C_AT, "PRESS Residual"),
+        (2, _C_Q, "Pearson R"),
+        (2, _C_R, "Spearman R"),
+        (2, _C_S, "Skewness"),
+        (2, _C_T, "Kurtosis"),
+        (2, _C_U, "VIF"),
+        (2, _C_V, "Tolerance"),
+        (4, _C_X, "Multiple R"),
+        (5, _C_X, "R Square"),
+        (6, _C_X, "Adjusted R Square"),
+        (7, _C_X, "Standard Error"),
+        (8, _C_X, "Observations"),
+        (4, _C_AA, "PRESS"),
+        (5, _C_AA, "PRESS R²"),
+        (6, _C_AA, "Mean Leverage"),
+        (7, _C_AA, "AIC"),
+        (8, _C_AA, "BIC"),
+        (9, _C_AA, "AICc"),
+        (10, _C_AA, "QQ Correlation"),
+        (11, _C_AA, "Durbin-Watson"),
+        (12, _C_AA, "BFN Panel Durbin-Watson"),
+        (12, _C_X, "Alpha"),
+        (14, _C_Y, "df"),
+        (14, _C_Z, "SS"),
+        (14, _C_AA, "MS"),
+        (14, _C_AB, "F"),
+        (14, _C_AC, "Significance F"),
+        (15, _C_X, "Regression"),
+        (16, _C_X, "Residual"),
+        (17, _C_X, "Total"),
+        (20, _C_Y, "Coefficients"),
+        (20, _C_Z, "Std Error"),
+        (20, _C_AA, "t Stat"),
+        (20, _C_AB, "P-value"),
+        (20, _C_AC, "Lower 95%"),
+        (20, _C_AD, "Upper 95%"),
+        (20, _C_AE, "Beta Weight"),
+        (3, _C_AG, "Point Estimate"),
+        (4, _C_AG, "SE Prediction"),
+        (5, _C_AG, "t Critical"),
+        (6, _C_AG, "Lower 95%"),
+        (7, _C_AG, "Upper 95%"),
+        (8, _C_AG, "Confidence Level"),
+        (2, _C_AL, "Y"),
+        (2, _C_AM, "Predicted Y"),
+        (2, _C_AN, "Residuals"),
+        (2, _C_AO, "LOOCV Residual"),
+        (2, _C_AP, "Hat Diagonal"),
+        (2, _C_AQ, "Studentized Residuals"),
+        (2, _C_AR, "Cook's Distance"),
+        (2, _C_AS, "Normal Scores Ranked"),
+        (2, _C_AT, "Studentized Residuals Ranked"),
+        (2, _C_AU, "Scale-Location"),
+        (2, _C_AV, "PRESS Residual"),
     ]
 
     for row, col, key in note_cells:
@@ -308,8 +328,8 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
 def _write_significance_conditional_formatting(sheet: xw.Sheet) -> None:
     """Flag nonsignificant coefficient and overall-model P-values."""
 
-    coefficient_p_values = f"Z21:Z{MAX_EXCEL_ROW}"
-    significance_f = "AA15"
+    coefficient_p_values = f"AB21:AB{MAX_EXCEL_ROW}"
+    significance_f = "AC15"
 
     sheet.range(coefficient_p_values).api.FormatConditions.Delete()
     sheet.range(significance_f).api.FormatConditions.Delete()
@@ -318,7 +338,7 @@ def _write_significance_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         coefficient_p_values,
-        "=AND(ISNUMBER(Z21),Z21>$W$12)",
+        "=AND(ISNUMBER(AB21),AB21>$Y$12)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -327,7 +347,7 @@ def _write_significance_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         significance_f,
-        "=AND(ISNUMBER(AA15),AA15>$W$12)",
+        "=AND(ISNUMBER(AC15),AC15>$Y$12)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -337,12 +357,12 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     """Apply diagnostic cutoffs to the residual-output columns."""
 
     addresses = {
-        "hat":                f"AN3:AN{MAX_EXCEL_ROW}",
-        "studentized":        f"AO3:AO{MAX_EXCEL_ROW}",
-        "cooks":              f"AP3:AP{MAX_EXCEL_ROW}",
-        "studentized_ranked": f"AR3:AR{MAX_EXCEL_ROW}",
-        "scale_location":     f"AS3:AS{MAX_EXCEL_ROW}",
-        "press_residual":     f"AT3:AT{MAX_EXCEL_ROW}",
+        "hat":                f"AP3:AP{MAX_EXCEL_ROW}",
+        "studentized":        f"AQ3:AQ{MAX_EXCEL_ROW}",
+        "cooks":              f"AR3:AR{MAX_EXCEL_ROW}",
+        "studentized_ranked": f"AT3:AT{MAX_EXCEL_ROW}",
+        "scale_location":     f"AU3:AU{MAX_EXCEL_ROW}",
+        "press_residual":     f"AV3:AV{MAX_EXCEL_ROW}",
     }
 
     # Remove existing rules so repeated builds do not duplicate them.
@@ -350,12 +370,12 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         sheet.range(address).api.FormatConditions.Delete()
 
     # ── Hat diagonal ─────────────────────────────────────────────────────────
-    # Z6 contains mean leverage, p/n.
+    # AB6 contains mean leverage, p/n.
     # > 2p/n: light-red fill and dark-red text.
     add_expression_format(
         sheet,
         addresses["hat"],
-        "=AND(ISNUMBER(AN3),AN3>2*$Z$6)",
+        "=AND(ISNUMBER(AP3),AP3>2*$AB$6)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -364,14 +384,14 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["hat"],
-        "=AND(ISNUMBER(AN3),AN3>3*$Z$6)",
+        "=AND(ISNUMBER(AP3),AP3>3*$AB$6)",
         bold_font=True,
     )
 
     # ── Studentized residuals ────────────────────────────────────────────────
     for column, address in [
-        ("AO", addresses["studentized"]),
-        ("AR", addresses["studentized_ranked"]),
+        ("AQ", addresses["studentized"]),
+        ("AT", addresses["studentized_ranked"]),
     ]:
         # 2 < |r| < 3: light-yellow fill and dark-yellow text.
         add_expression_format(
@@ -398,12 +418,12 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         )
 
     # ── Cook's distance ──────────────────────────────────────────────────────
-    # W8 contains the number of observations, n.
+    # Y8 contains the number of observations, n.
     # 4/n < D <= 0.9: light-yellow fill and dark-yellow text.
     add_expression_format(
         sheet,
         addresses["cooks"],
-        "=AND(ISNUMBER(AP3),AP3>4/$W$8,AP3<=0.9)",
+        "=AND(ISNUMBER(AR3),AR3>4/$Y$8,AR3<=0.9)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
@@ -412,7 +432,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["cooks"],
-        "=AND(ISNUMBER(AP3),AP3>0.9)",
+        "=AND(ISNUMBER(AR3),AR3>0.9)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -423,32 +443,32 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["scale_location"],
-        "=AND(ISNUMBER(AS3),AS3>1.414,AS3<=1.732)",
+        "=AND(ISNUMBER(AU3),AU3>1.414,AU3<=1.732)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
     add_expression_format(
         sheet,
         addresses["scale_location"],
-        "=AND(ISNUMBER(AS3),AS3>1.732)",
+        "=AND(ISNUMBER(AU3),AU3>1.732)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
 
     # ── PRESS Residual: e_i / (1 - h_i) ─────────────────────────────────────
-    # W7 contains the Standard Error of the regression.
+    # Y7 contains the Standard Error of the regression.
     # |PRESS| > 2*SE: mild concern; > 3*SE: strong concern.
     add_expression_format(
         sheet,
         addresses["press_residual"],
-        "=AND(ISNUMBER(AT3),ABS(AT3)>2*$W$7,ABS(AT3)<=3*$W$7)",
+        "=AND(ISNUMBER(AV3),ABS(AV3)>2*$Y$7,ABS(AV3)<=3*$Y$7)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
     add_expression_format(
         sheet,
         addresses["press_residual"],
-        "=AND(ISNUMBER(AT3),ABS(AT3)>3*$W$7)",
+        "=AND(ISNUMBER(AV3),ABS(AV3)>3*$Y$7)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -457,9 +477,9 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
 def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
     """Apply rule-of-thumb formatting to VIF, PRESS R², and QQ Correlation."""
 
-    vif_address = f"S3:S{MAX_EXCEL_ROW}"
-    press_r2_address = "Z5"
-    qq_corr_address = "Z10"
+    vif_address = f"U3:U{MAX_EXCEL_ROW}"
+    press_r2_address = "AB5"
+    qq_corr_address = "AB10"
 
     # Prevent duplicate rules when rebuilding the sheet.
     sheet.range(vif_address).api.FormatConditions.Delete()
@@ -471,7 +491,7 @@ def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         vif_address,
-        "=AND(ISNUMBER(S3),S3>5,S3<=10)",
+        "=AND(ISNUMBER(U3),U3>5,U3<=10)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
@@ -480,7 +500,7 @@ def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         vif_address,
-        "=AND(ISNUMBER(S3),S3>10)",
+        "=AND(ISNUMBER(U3),U3>10)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -491,7 +511,7 @@ def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         press_r2_address,
-        "=AND(ISNUMBER(Z5),Z5<0)",
+        "=AND(ISNUMBER(AB5),AB5<0)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -502,14 +522,14 @@ def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         qq_corr_address,
-        "=AND(ISNUMBER(Z10),Z10<0.98,Z10>=0.95)",
+        "=AND(ISNUMBER(AB10),AB10<0.98,AB10>=0.95)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
     add_expression_format(
         sheet,
         qq_corr_address,
-        "=AND(ISNUMBER(Z10),Z10<0.95)",
+        "=AND(ISNUMBER(AB10),AB10<0.95)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -566,11 +586,11 @@ def _setup_local_names(
         RefersTo="=LAMBDA(IFERROR(COLUMNS(X_s()),0)=0)",
     )
 
-    # alpha: confidence level input, lives in W12
+    # alpha: confidence level input, lives in Y12
     drop_local_name(sheet, "alpha")
     sheet.api.Names.Add(
         Name="alpha",
-        RefersTo=f"={sname}!$W$12",
+        RefersTo=f"={sname}!$Y$12",
     )
 
     # ── Intercept-only closed-form helpers ──────────────────────────────────
@@ -614,38 +634,38 @@ def _setup_local_names(
         RefersTo="=LAMBDA(Intercept_Only_N()-1)",
     )
 
-    # ── Chart data ranges (OFFSET-based, sized to n = $W$8 observations) ────────
+    # ── Chart data ranges (OFFSET-based, sized to n = $Y$8 observations) ────────
     # These worksheet-scoped names feed chart SERIES formulas as
     # ='Regression'!<Name>, avoiding full-column references that degrade
     # performance and avoiding the unsupported # spill operator in chart formulas.
     # The third element becomes the Name Manager comment so a user browsing
     # names can tell which chart each range feeds.
     for _name, _col_ltr, _comment in [
-        ("RegChartQQX", col_letter(_C_AQ),
+        ("RegChartQQX", col_letter(_C_AS),
          "Normal Q-Q chart: X values (theoretical quantiles, Normal Scores Ranked)"),
-        ("RegChartQQY", col_letter(_C_AR),
+        ("RegChartQQY", col_letter(_C_AT),
          "Normal Q-Q chart: Y values (Studentized Residuals Ranked)"),
-        ("RegChartFitY", col_letter(_C_AK),
+        ("RegChartFitY", col_letter(_C_AM),
          "Predicted Y: X values for the Residuals vs. Fitted, Actual vs. Predicted, and Scale-Location charts"),
-        ("RegChartResid", col_letter(_C_AL),
+        ("RegChartResid", col_letter(_C_AN),
          "Residuals vs. Fitted chart: Y values (Residuals)"),
-        ("RegChartActY", col_letter(_C_AJ),
+        ("RegChartActY", col_letter(_C_AL),
          "Actual vs. Predicted chart: Y values (Actual Y)"),
-        ("RegChartScaleLoc", col_letter(_C_AS),
+        ("RegChartScaleLoc", col_letter(_C_AU),
          "Scale-Location chart: Y values (sqrt of abs Studentized Residual)"),
-        ("RegChartCookDist", col_letter(_C_AP),
+        ("RegChartCookDist", col_letter(_C_AR),
          "Cook's Distance chart: bar values"),
-        ("RegChartLeverage", col_letter(_C_AN),
+        ("RegChartLeverage", col_letter(_C_AP),
          "Studentized Residuals vs. Leverage chart: X values (Hat Diagonal)"),
-        ("RegChartStudResid", col_letter(_C_AO),
+        ("RegChartStudResid", col_letter(_C_AQ),
          "Studentized Residuals vs. Leverage chart: Y values"),
-        ("RegChartPRESSResid", col_letter(_C_AT),
+        ("RegChartPRESSResid", col_letter(_C_AV),
          "PRESS Residuals chart: bar values"),
     ]:
         drop_local_name(sheet, _name)
         _nm = sheet.api.Names.Add(
             Name=_name,
-            RefersTo=f"=OFFSET('{sname}'!${_col_ltr}$2,1,0,MAX(IFERROR('{sname}'!$W$8,1),1),1)",
+            RefersTo=f"=OFFSET('{sname}'!${_col_ltr}$2,1,0,MAX(IFERROR('{sname}'!$Y$8,1),1),1)",
         )
         _nm.Comment = _comment
 
@@ -653,16 +673,22 @@ def _setup_local_names(
 # ── Section writers ───────────────────────────────────────────────────────────
 
 def _write_model_specification(sheet: xw.Sheet) -> None:
-    """Zone A–K: the shared spec block + row-2 Intercept control.
+    """Zone A–L: the shared spec block + row-2 Intercept control.
 
     The block itself (headers, defaults, dropdowns, CF, the Levels and
     Reference In Use displays) is written by the same functions that build
     the standalone Model Construction sheet, so the two layouts can never
     drift. Only the zone heading and the reserved-column notes are local.
+
+    The spec block's TABLE CREATION (SpecTable) happens at the top of
+    ``write_regression_output_sheet`` — names registered after that point
+    can bind to the table's columns via SpecTable[Column] structured
+    references. Here we just layer the spec feedback (E1 status, M/N
+    spectrum, I Verdict overlay), the Intercept control, and the column
+    notes on top.
     """
     section_heading(sheet, 1, _C_A, "MODEL SPECIFICATION")
-    _write_spec_block(sheet)
-    _write_sequence_spacing_block(sheet)
+    _write_spec_feedback(sheet)
     _write_intercept_control(sheet)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _RESERVED_NOTE)
@@ -671,43 +697,43 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
 
 
 def _write_predictor_summary(sheet: xw.Sheet) -> None:
-    """Zone N–T: EDA stats for the CONSTRUCTED design-matrix columns."""
-    section_heading(sheet, 1, _C_N, "PREDICTOR SUMMARY")
+    """Zone P–V: EDA stats for the CONSTRUCTED design-matrix columns."""
+    section_heading(sheet, 1, _C_P, "PREDICTOR SUMMARY")
 
     for col, header in zip(
-        [_C_N, _C_O, _C_P, _C_Q, _C_R, _C_S, _C_T],
+        [_C_P, _C_Q, _C_R, _C_S, _C_T, _C_U, _C_V],
         ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "VIF", "Tolerance"],
     ):
         val(sheet, 2, col, header)
-    bold_row(sheet, 2, _C_N, _C_T)
+    bold_row(sheet, 2, _C_P, _C_V)
 
     # Spill anchors at row 3 — each spills once per constructed column.
     # Names come from the constructor twin, so dummies are level-qualified
     # and the stats run on the actual design matrix (VIF with dummies in).
-    f(sheet, 3, _C_N, "=TRANSPOSE(Constructed_Column_Names())")
-    f(sheet, 3, _C_O, "=Pearson_R(X_s(),Response_Column(),Sample_Include())")
-    f(sheet, 3, _C_P, "=Spearman_R(X_s(),Response_Column(),Sample_Include())")
-    f(sheet, 3, _C_Q, "=Skewness(X_s(),Sample_Include())")
-    f(sheet, 3, _C_R, "=Kurtosis(X_s(),Sample_Include())")
-    f(sheet, 3, _C_S, "=VIF(X_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_T, "=Tolerance(X_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_P, "=TRANSPOSE(Constructed_Column_Names())")
+    f(sheet, 3, _C_Q, "=Pearson_R(X_s(),Response_Column(),Sample_Include())")
+    f(sheet, 3, _C_R, "=Spearman_R(X_s(),Response_Column(),Sample_Include())")
+    f(sheet, 3, _C_S, "=Skewness(X_s(),Sample_Include())")
+    f(sheet, 3, _C_T, "=Kurtosis(X_s(),Sample_Include())")
+    f(sheet, 3, _C_U, "=VIF(X_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_V, "=Tolerance(X_s(),Allow_Intercept,Sample_Include())")
 
     sheet.range(
-        (rc(3, _C_O)), (rc(_FORMAT_BAND_LAST_ROW, _C_T))
+        (rc(3, _C_Q)), (rc(_FORMAT_BAND_LAST_ROW, _C_V))
     ).number_format = "0.00"
 
 
 def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
-    section_heading(sheet, 1, _C_V, "REGRESSION OUTPUTS")
-    section_heading(sheet, 2, _C_Z, "Predicted Variable")
-    section_heading(sheet, 2, _C_AA, "")
+    section_heading(sheet, 1, _C_X, "REGRESSION OUTPUTS")
+    section_heading(sheet, 2, _C_AB, "Predicted Variable")
+    section_heading(sheet, 2, _C_AC, "")
     # Derived response name — the header of the Role=Response spec row.
-    f(sheet, 2, _C_AA, f"={_RESPONSE_NAME_FORMULA}")
+    f(sheet, 2, _C_AC, f"={_RESPONSE_NAME_FORMULA}")
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
-    """Cols V–W, rows 3–8."""
-    section_heading(sheet, 3, _C_V, "REGRESSION STATISTICS")
+    """Cols X–Y, rows 3–8."""
+    section_heading(sheet, 3, _C_X, "REGRESSION STATISTICS")
     for row, label, formula in [
         (4, "Multiple R",        "=Multiple_R(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"),
         (5, "R Square",          "=R_Squared(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"),
@@ -715,16 +741,16 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
         (7, "Standard Error",    "=SE_Regression(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"),
         (8, "Observations",      "=Observations(Response_Column(),Sample_Include())"),
     ]:
-        val(sheet, row, _C_V, label)
-        f(sheet, row, _C_W, formula)
-    sheet.range(rc(4, _C_W), rc(7, _C_W)).number_format = "0.0000"
-    sheet.range(rc(8, _C_W), rc(8, _C_W)).number_format = "0"
-    border_box(sheet, 3, _C_V, 8, _C_W)
+        val(sheet, row, _C_X, label)
+        f(sheet, row, _C_Y, formula)
+    sheet.range(rc(4, _C_Y), rc(7, _C_Y)).number_format = "0.0000"
+    sheet.range(rc(8, _C_Y), rc(8, _C_Y)).number_format = "0"
+    border_box(sheet, 3, _C_X, 8, _C_Y)
 
 
 def _write_diagnostics(sheet: xw.Sheet) -> None:
-    """Cols Y–Z, rows 3–12."""
-    section_heading(sheet, 3, _C_Y, "DIAGNOSTICS")
+    """Cols AA–AB, rows 3–12."""
+    section_heading(sheet, 3, _C_AA, "DIAGNOSTICS")
     for row, label, formula in [
         (4,  "PRESS",          "=PRESS(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"),
         (
@@ -744,12 +770,12 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         (9,  "AICc",           "=AICc(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"),
         (10, "QQ Correlation", "=QQ_Correlation(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"),
     ]:
-        val(sheet, row, _C_Y, label)
-        f(sheet, row, _C_Z, formula)
-    sheet.range(rc(4, _C_Z), rc(10, _C_Z)).number_format = "0.0000"
+        val(sheet, row, _C_AA, label)
+        f(sheet, row, _C_AB, formula)
+    sheet.range(rc(4, _C_AB), rc(10, _C_AB)).number_format = "0.0000"
 
-    # Serial-correlation trigger matrix — two fixed cells (Y11/Z11 plain DW,
-    # Y12/Z12 BFN panel DW), each SELF-GUARDING: every state a cell can show is
+    # Serial-correlation trigger matrix — two fixed cells (AA11/AB11 plain DW,
+    # AA12/AB12 BFN panel DW), each SELF-GUARDING: every state a cell can show is
     # visible in that cell's own formula, never dispatched from a shared
     # selector cell — the audit-friendly form. Off-spec states show an explicit
     # not-applicable token (never NA(), which is reserved for genuine errors,
@@ -762,7 +788,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     # Durbin-Watson is gated on EXACTLY ONE declared Sequence axis: differencing
     # residuals in physical row order silently assumes row order = time order,
     # which reports spurious autocorrelation under any meaningful non-time sort.
-    # Zero flags → "requires Sequence"; two-plus flags is the spec error the H2
+    # Zero flags → "requires Sequence"; two-plus flags is the spec error the E1
     # status line already reports, and computing on Sequence_Column()'s first
     # match would be ambiguous → "multiple Sequence flags". Under fixed effects
     # the single-series statistic is invalid twice over (within-demeaned
@@ -770,11 +796,11 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     # below takes over. With exactly one flag and no FE, Durbin_Watson_By sorts
     # residuals by Sequence_Column() before differencing — all array work
     # internal, scalar out, no spill.
-    val(sheet, 11, _C_Y, "Durbin-Watson")
+    val(sheet, 11, _C_AA, "Durbin-Watson")
     f(
         sheet,
         11,
-        _C_Z,
+        _C_AB,
         f"=LET(seq_flags,{_SEQUENCE_FLAG_COUNT_FORMULA},"
         f"fe_vars,{_FIXED_EFFECTS_COUNT_FORMULA},"
         'IF(seq_flags=0,"n/a — requires Sequence",'
@@ -783,7 +809,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
         "Allow_Intercept,Sample_Include())))))",
     )
-    sheet.range(rc(11, _C_Z), rc(11, _C_Z)).number_format = "0.000"
+    sheet.range(rc(11, _C_AB), rc(11, _C_AB)).number_format = "0.000"
 
     # BFN panel Durbin-Watson (Bhargava–Franzini–Narendranathan 1982): the
     # within-group form for panels under fixed effects. Differencing is
@@ -800,11 +826,11 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     # autocorrelation), but its critical values depend on N and T — surfacing
     # those bounds is a recorded open item, and the standard DW bounds must
     # not be presented next to it (the cell note carries that caveat).
-    val(sheet, 12, _C_Y, "BFN Panel Durbin-Watson")
+    val(sheet, 12, _C_AA, "BFN Panel Durbin-Watson")
     f(
         sheet,
         12,
-        _C_Z,
+        _C_AB,
         f"=LET(seq_flags,{_SEQUENCE_FLAG_COUNT_FORMULA},"
         f"fe_vars,{_FIXED_EFFECTS_COUNT_FORMULA},"
         'IF(seq_flags=0,"n/a — requires Sequence",'
@@ -815,63 +841,63 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
         "Allow_Intercept,Sample_Include()))))))",
     )
-    sheet.range(rc(12, _C_Z), rc(12, _C_Z)).number_format = "0.000"
-    border_box(sheet, 3, _C_Y, 12, _C_Z)
+    sheet.range(rc(12, _C_AB), rc(12, _C_AB)).number_format = "0.000"
+    border_box(sheet, 3, _C_AA, 12, _C_AB)
 
 
 def _write_alpha(sheet: xw.Sheet) -> None:
-    """Alpha input cell at W12 — controls prediction interval confidence level."""
-    val(sheet, 12, _C_V, "Alpha")
-    bold(sheet, 12, _C_V)
-    val(sheet, 12, _C_W, 0.05)
-    format_input(sheet, 12, _C_W)
+    """Alpha input cell at Y12 — controls prediction interval confidence level."""
+    val(sheet, 12, _C_X, "Alpha")
+    bold(sheet, 12, _C_X)
+    val(sheet, 12, _C_Y, 0.05)
+    format_input(sheet, 12, _C_Y)
 
 
 def _write_anova(sheet: xw.Sheet) -> None:
-    """ANOVA table, rows 13–17, cols V–AA."""
-    section_heading(sheet, 13, _C_V, "ANOVA TABLE")
+    """ANOVA table, rows 13–17, cols X–AC."""
+    section_heading(sheet, 13, _C_X, "ANOVA TABLE")
 
     for col, header in zip(
-        [_C_V, _C_W, _C_X, _C_Y, _C_Z, _C_AA],
+        [_C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC],
         ["", "df", "SS", "MS", "F", "Significance F"],
     ):
         val(sheet, 14, col, header)
-    bold_row(sheet, 14, _C_V, _C_AA)
+    bold_row(sheet, 14, _C_X, _C_AC)
 
-    val(sheet, 15, _C_V, "Regression")
-    f(sheet, 15, _C_W, "=Regression_Degrees_Of_Freedom(X_s())")
-    f(sheet, 15, _C_X, "=SS_Regression(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 15, _C_Y, "=MS_Regression(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 15, _C_Z, "=F_Statistic(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 15, _C_AA, "=F_Statistic_P_Value(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    val(sheet, 15, _C_X, "Regression")
+    f(sheet, 15, _C_Y, "=Regression_Degrees_Of_Freedom(X_s())")
+    f(sheet, 15, _C_Z, "=SS_Regression(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 15, _C_AA, "=MS_Regression(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 15, _C_AB, "=F_Statistic(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 15, _C_AC, "=F_Statistic_P_Value(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
 
-    val(sheet, 16, _C_V, "Residual")
-    f(sheet, 16, _C_W, "=Residual_Degrees_Of_Freedom(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 16, _C_X, "=SS_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 16, _C_Y, "=MS_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    val(sheet, 16, _C_X, "Residual")
+    f(sheet, 16, _C_Y, "=Residual_Degrees_Of_Freedom(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 16, _C_Z, "=SS_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 16, _C_AA, "=MS_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
 
-    val(sheet, 17, _C_V, "Total")
-    f(sheet, 17, _C_W, "=Total_Degrees_Of_Freedom(Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 17, _C_X, "=SS_Total(Response_Column(),Allow_Intercept,Sample_Include())")
+    val(sheet, 17, _C_X, "Total")
+    f(sheet, 17, _C_Y, "=Total_Degrees_Of_Freedom(Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 17, _C_Z, "=SS_Total(Response_Column(),Allow_Intercept,Sample_Include())")
 
-    sheet.range(rc(15, _C_W), rc(17, _C_W)).number_format = "0"
-    sheet.range(rc(15, _C_X), rc(17, _C_X)).number_format = "0.0"
-    sheet.range(rc(15, _C_Y), rc(16, _C_Y)).number_format = "0.0"
-    sheet.range(rc(15, _C_Z), rc(15, _C_Z)).number_format = "0.0"
-    sheet.range(rc(15, _C_AA), rc(15, _C_AA)).number_format = "0.0E+00"
-    border_box(sheet, 13, _C_V, 17, _C_AA)
+    sheet.range(rc(15, _C_Y), rc(17, _C_Y)).number_format = "0"
+    sheet.range(rc(15, _C_Z), rc(17, _C_Z)).number_format = "0.0"
+    sheet.range(rc(15, _C_AA), rc(16, _C_AA)).number_format = "0.0"
+    sheet.range(rc(15, _C_AB), rc(15, _C_AB)).number_format = "0.0"
+    sheet.range(rc(15, _C_AC), rc(15, _C_AC)).number_format = "0.0E+00"
+    border_box(sheet, 13, _C_X, 17, _C_AC)
 
 
 def _write_coefficients(sheet: xw.Sheet) -> None:
-    """Cols V–AC, rows 19+. Spills downward — nothing placed below row 39 in these cols."""
-    section_heading(sheet, 19, _C_V, "COEFFICIENTS")
+    """Cols X–AE, rows 19+. Spills downward — nothing placed below row 39 in these cols."""
+    section_heading(sheet, 19, _C_X, "COEFFICIENTS")
 
     for col, header in zip(
-        [_C_V, _C_W, _C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC],
+        [_C_X, _C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD, _C_AE],
         ["", "Coefficients", "Std Error", "t Stat", "P-value", "Lower 95%", "Upper 95%", "Beta Weight"],
     ):
         val(sheet, 20, col, header)
-    bold_row(sheet, 20, _C_V, _C_AC)
+    bold_row(sheet, 20, _C_X, _C_AE)
 
     # Spill row labels aligned to the constructed columns (level-qualified via
     # the constructor twin). Zero_Predictors_Selected() branch computes a real
@@ -880,7 +906,7 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     f(
         sheet,
         21,
-        _C_V,
+        _C_X,
         '=IF(Zero_Predictors_Selected(),'
         'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA()),'
         'IF(Allow_Intercept,'
@@ -890,37 +916,37 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
 
     # Spill anchors at row 21 — pad with blank top row when intercept is disabled;
     # zero-predictor branch uses the closed-form intercept-only statistic, or
-    # NA() when there is nothing to fit. The mean (V) only needs one observation;
-    # SE/t/p/CI (X-AB) need at least two to estimate variance, so they're guarded
+    # NA() when there is nothing to fit. The mean (Y) only needs one observation;
+    # SE/t/p/CI (Z-AA-AD) need at least two to estimate variance, so they're guarded
     # separately rather than sharing the N>=1 check used for the mean.
-    f(sheet, 21, _C_W,
+    f(sheet, 21, _C_Y,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA()),'
        'IF(Allow_Intercept,Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include()),'
        'VSTACK("",Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include()))))')
-    f(sheet, 21, _C_X,
+    f(sheet, 21, _C_Z,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,SE_Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include()),'
        'VSTACK("",SE_Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include()))))')
-    f(sheet, 21, _C_Y,
+    f(sheet, 21, _C_AA,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,T_Statistics(X_s(),Response_Column(),Allow_Intercept,Sample_Include()),'
        'VSTACK("",T_Statistics(X_s(),Response_Column(),Allow_Intercept,Sample_Include()))))')
-    f(sheet, 21, _C_Z,
+    f(sheet, 21, _C_AB,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
        'IF(Allow_Intercept,P_Values(X_s(),Response_Column(),Allow_Intercept,Sample_Include()),'
        'VSTACK("",P_Values(X_s(),Response_Column(),Allow_Intercept,Sample_Include()))))')
-    f(sheet, 21, _C_AA,
+    f(sheet, 21, _C_AC,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,Confidence_Interval_Lower(X_s(),Response_Column(),Allow_Intercept,Sample_Include()),'
        'VSTACK("",Confidence_Interval_Lower(X_s(),Response_Column(),Allow_Intercept,Sample_Include()))))')
-    f(sheet, 21, _C_AB,
+    f(sheet, 21, _C_AD,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
@@ -929,25 +955,25 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     # No predictor exists to standardize in the zero-predictor branch, so render
     # blank (not an error) when Allow_Intercept is TRUE; NA() when nothing is fit.
-    f(sheet, 21, _C_AC,
+    f(sheet, 21, _C_AE,
        '=IF(Zero_Predictors_Selected(),'
        'IF(Allow_Intercept,"",NA()),'
        'VSTACK("",Beta_Weights(X_s(),Response_Column(),Allow_Intercept,Sample_Include())))')
 
-    for col in [_C_W, _C_X, _C_Y, _C_AA, _C_AB, _C_AC]:
+    for col in [_C_Y, _C_Z, _C_AA, _C_AC, _C_AD, _C_AE]:
         sheet.range(
             rc(21, col), rc(_FORMAT_BAND_LAST_ROW, col)
         ).number_format = "0.0000"
     sheet.range(
-        rc(21, _C_Z), rc(_FORMAT_BAND_LAST_ROW, _C_Z)
+        rc(21, _C_AB), rc(_FORMAT_BAND_LAST_ROW, _C_AB)
     ).number_format = "0.0E+00"
 
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
-    """Zone AE1:AF8: boxed prediction interval output."""
-    section_heading(sheet, 1, _C_AE, "PREDICTION OUTPUTS")
-    val(sheet, 2, _C_AE, "PREDICTION INTERVAL")
-    bold(sheet, 2, _C_AE)
+    """Zone AG1:AH8: boxed prediction interval output."""
+    section_heading(sheet, 1, _C_AG, "PREDICTION OUTPUTS")
+    val(sheet, 2, _C_AG, "PREDICTION INTERVAL")
+    bold(sheet, 2, _C_AG)
     for row, label in [
         (3, "Point Estimate"),
         (4, "SE Prediction"),
@@ -956,7 +982,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         (7, "Upper 95%"),
         (8, "Confidence Level"),
     ]:
-        val(sheet, row, _C_AE, label)
+        val(sheet, row, _C_AG, label)
     # Zero_Predictors_Selected() branch computes the closed-form single-mean
     # prediction interval instead of feeding a fabricated first-predictor
     # input into Prediction_Interval(); NA() when there is nothing to fit.
@@ -965,7 +991,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     f(
         sheet,
         3,
-        _C_AF,
+        _C_AH,
         "=IF(Zero_Predictors_Selected(),"
         "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),"
         "LET(point,Intercept_Only_Point(),"
@@ -973,55 +999,55 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         "t_crit,T.INV.2T(alpha,Intercept_Only_DF()),"
         "VSTACK(point,se_pred,t_crit,point-t_crit*se_pred,point+t_crit*se_pred,1-alpha)),"
         "NA()),"
-        f"LET(pred_input,VSTACK($AF$12,"
-        f"TAKE($AF${_PRED_INPUT_FIRST_ROW}:$AF${_PRED_INPUT_LAST_ROW},COLUMNS(X_s()))),"
+        f"LET(pred_input,VSTACK($AH$12,"
+        f"TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s()))),"
         "Prediction_Interval(X_s(),Response_Column(),pred_input,Allow_Intercept,"
         "Sample_Include(),alpha)))",
     )
-    sheet.range(rc(3, _C_AF), rc(8, _C_AF)).number_format = "0.0000"
-    border_box(sheet, 1, _C_AE, 8, _C_AF)
+    sheet.range(rc(3, _C_AH), rc(8, _C_AH)).number_format = "0.0000"
+    border_box(sheet, 1, _C_AG, 8, _C_AH)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
-    """Zone AE10+: one prediction-input row per constructed column."""
-    section_heading(sheet, 10, _C_AE, "PREDICTION INPUTS")
-    val(sheet, 11, _C_AE, "Predictor")
-    val(sheet, 11, _C_AF, "Prediction Value")
-    bold_row(sheet, 11, _C_AE, _C_AG)
+    """Zone AG10+: one prediction-input row per constructed column."""
+    section_heading(sheet, 10, _C_AG, "PREDICTION INPUTS")
+    val(sheet, 11, _C_AG, "Predictor")
+    val(sheet, 11, _C_AH, "Prediction Value")
+    bold_row(sheet, 11, _C_AG, _C_AI)
 
     # Row 12: intercept (auto-set, still orange to show it's a value)
-    val(sheet, 12, _C_AE, "Intercept")
-    f(sheet, 12, _C_AF, "=IF(Allow_Intercept,1,0)")
-    format_input(sheet, 12, _C_AF)
+    val(sheet, 12, _C_AG, "Intercept")
+    f(sheet, 12, _C_AH, "=IF(Allow_Intercept,1,0)")
+    format_input(sheet, 12, _C_AH)
 
-    # AE13: spill formula — level-qualified names, one per constructed column
-    f(sheet, _PRED_INPUT_FIRST_ROW, _C_AE, "=TRANSPOSE(Constructed_Column_Names())")
+    # AG13: spill formula — level-qualified names, one per constructed column
+    f(sheet, _PRED_INPUT_FIRST_ROW, _C_AG, "=TRANSPOSE(Constructed_Column_Names())")
 
-    # AG13: the Training Mean column — per-column means of the filtered design
+    # AI13: the Training Mean column — per-column means of the filtered design
     # matrix, computed with a SINGLE X_s() evaluation. X_s() is a full
     # design-matrix construction on every call (Excel does not cache LAMBDA
     # results), so this spill is the one place the means are computed; the
     # orange prefill cells INDEX into it. The earlier design — every prefill
     # cell calling X_s() twice (width guard + column mean) — made the
     # workbook's first full calculation pathological (~20 minutes at the save
-    # step). The spill owns column AG downward (the AH gap and residual zone
+    # step). The spill owns column AI downward (the AJ gap and residual zone
     # start beyond it), so a wider dataset or spec can never make it collide
     # with another spill.
     # Degrades to "" on an empty model, which the prefill guard reads as a
     # one-row spill holding a blank.
-    val(sheet, 11, _C_AG, "Training Mean")
-    means_anchor = f"$AG${_PRED_INPUT_FIRST_ROW}"
+    val(sheet, 11, _C_AI, "Training Mean")
+    means_anchor = f"$AI${_PRED_INPUT_FIRST_ROW}"
     f(
         sheet,
         _PRED_INPUT_FIRST_ROW,
-        _C_AG,
+        _C_AI,
         (
             "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
             'LAMBDA(c,AVERAGE(c)))),"")'
         ),
     )
 
-    # AF13:AF62 — the Training Mean of each constructed column, individually
+    # AH13:AH62 — the Training Mean of each constructed column, individually
     # overridable. Each row guards on its position against the means-spill
     # height so rows beyond the live constructed width render blank (the
     # width is spec-dependent — 19 on the default WHO spec). Cheap spill
@@ -1031,7 +1057,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
         f(
             sheet,
             row,
-            _C_AF,
+            _C_AH,
             (
                 f"=IF(ROW()-{offset}<=IFERROR(ROWS({means_anchor}#),0),"
                 f"INDEX({means_anchor}#,ROW()-{offset}),"
@@ -1041,25 +1067,25 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
 
     # Orange for all user-editable prediction value cells (the Training Mean
     # column is computed display, not input)
-    _input_range(sheet, _PRED_INPUT_FIRST_ROW, _C_AF, _PRED_INPUT_LAST_ROW, _C_AF)
+    _input_range(sheet, _PRED_INPUT_FIRST_ROW, _C_AH, _PRED_INPUT_LAST_ROW, _C_AH)
     sheet.range(
-        rc(_PRED_INPUT_FIRST_ROW, _C_AF), rc(_PRED_INPUT_LAST_ROW, _C_AF)
+        rc(_PRED_INPUT_FIRST_ROW, _C_AH), rc(_PRED_INPUT_LAST_ROW, _C_AH)
     ).number_format = "0.0000"
     # Column-wide: the means spill height is spec-dependent and the column
     # holds nothing else.
-    sheet.range(f"{col_letter(_C_AG)}:{col_letter(_C_AG)}").number_format = "0.0000"
+    sheet.range(f"{col_letter(_C_AI)}:{col_letter(_C_AI)}").number_format = "0.0000"
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
-    """Residual diagnostic table — row identifiers + 11 diagnostics columns starting at _C_AI."""
-    section_heading(sheet, 1, _C_AI, "RESIDUAL OUTPUT")
+    """Residual diagnostic table — row identifiers + 11 diagnostics columns starting at AL."""
+    section_heading(sheet, 1, _C_AK, "RESIDUAL OUTPUT")
 
-    # AI2: static header — Row_Labels() supplies its own per-row content
+    # AK2: static header — Row_Labels() supplies its own per-row content
     # (joined Identifier columns, or positional Obs. n labels).
-    val(sheet, 2, _C_AI, "Observation")
+    val(sheet, 2, _C_AK, "Observation")
 
     for col, header in zip(
-        [_C_AJ, _C_AK, _C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS, _C_AT],
+        [_C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS, _C_AT, _C_AU, _C_AV],
         [
             "Y", "Predicted Y", "Residuals", "LOOCV Residual",
             "Hat Diagonal", "Studentized Residuals", "Cook's Distance",
@@ -1068,41 +1094,41 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         ],
     ):
         val(sheet, 2, col, header)
-    bold_row(sheet, 2, _C_AI, _C_AT)
+    bold_row(sheet, 2, _C_AK, _C_AV)
 
-    # AI3: row labels — the spec-derived Row_Labels() filtered to the sample.
+    # AK3: row labels — the spec-derived Row_Labels() filtered to the sample.
     # Row_Labels() has its own no-Identifier fallback ("Obs. n"), so the only
     # error left to absorb is an all-FALSE mask.
     f(
-        sheet, 3, _C_AI,
+        sheet, 3, _C_AK,
         "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())",
     )
     # Spill anchors — each spills n rows downward
-    f(sheet, 3, _C_AJ, "=Dependent_Variable(Response_Column(),Sample_Include())")
-    f(sheet, 3, _C_AK, "=Predictions(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AN, "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AL, "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AM, "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AO, "=Studentized_Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AP, "=Cooks_Distance(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AQ, "=SORT(Normal_Scores(Response_Column(),Sample_Include()))")
-    f(sheet, 3, _C_AR, "=Studentized_Residuals_Ranked(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AL, "=Dependent_Variable(Response_Column(),Sample_Include())")
+    f(sheet, 3, _C_AM, "=Predictions(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AP, "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AN, "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AO, "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AQ, "=Studentized_Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AR, "=Cooks_Distance(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AS, "=SORT(Normal_Scores(Response_Column(),Sample_Include()))")
+    f(sheet, 3, _C_AT, "=Studentized_Residuals_Ranked(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
     f(
-        sheet, 3, _C_AS,
+        sheet, 3, _C_AU,
         "=SQRT(ABS(Studentized_Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())))",
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
-    f(sheet, 3, _C_AT, "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    # Format every numeric residual-output column — the actual Y (AJ) through
-    # PRESS (AT). Only the AI identifier column (text: country/Obs. labels) is
+    f(sheet, 3, _C_AV, "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    # Format every numeric residual-output column — the actual Y (AL) through
+    # PRESS (AV). Only the AK identifier column (text: country/Obs. labels) is
     # left unformatted.
-    sheet.range(f"{col_letter(_C_AJ)}:{col_letter(_C_AT)}").number_format = "0.0000"
+    sheet.range(f"{col_letter(_C_AL)}:{col_letter(_C_AV)}").number_format = "0.0000"
 
 
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
-    start_left = sheet.range(a1(1, _C_AT + 1)).left
+    start_left = sheet.range(a1(1, _C_AV + 1)).left
     start_top = sheet.range("A3").top
 
     col_step = _CHART_WIDTH + _CHART_GAP
@@ -1317,6 +1343,13 @@ def write_regression_output_sheet(
     sheet.api.Cells.ClearOutline()
     sheet.activate()
 
+    # The spec block must run before the names are registered: it creates
+    # the structured table (SpecTable) at B3:L26, which the Spec_* band
+    # names bind to via SpecTable[[#Data],[Column]] references — Excel
+    # validates the RefersTo at registration time. The rest of the spec
+    # area (headers, feedback, intercept) runs in _write_model_specification
+    # below, but the table-creating part needs to come first.
+    _write_spec_block(sheet)
     _setup_local_names(sheet, closures)
 
     _write_model_specification(sheet)
@@ -1335,47 +1368,58 @@ def write_regression_output_sheet(
     _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
 
-    sheet.range(rc(2, _C_N), rc(2, _C_AU)).api.WrapText = True
+    sheet.range(rc(2, _C_P), rc(2, _C_AW)).api.WrapText = True
 
     # A–L (spec block) widths are owned by write_sheet_model_construction.py
     # so the standalone and shared-block builds can never drift.
     _set_spec_block_column_widths(sheet)
 
-    # Content-column widths, per zone, plus the AU post-zone gutter (last entry).
-    # The gap columns (M, U, AD, AH) are sized from _GAP_COLUMNS below so the
+    # Content-column widths, per zone, plus the AW post-zone gutter (last entry).
+    # The gap columns (O, W, AF, AJ) are sized from _GAP_COLUMNS below so the
     # layout stays declarative — one width there, not one per hard-coded gap letter.
     for column_letter, width in {
-        # Predictor Summary (N–T): level-qualified constructed names + 6 stats.
-        "N": 24,        # constructed column names (e.g., "Status[Developed]")
-        "O": 9, "P": 9, "Q": 9, "R": 9, "S": 9, "T": 9,  # stats values
+        # Spec feedback (M, N, plus the column-I Verdict overlay):
+        # the M and N headers are bold on row 1, the I1 "Verdict" header
+        # is bold and shares column I with the Sequence_Period spec row
+        # on rows 4-26. The "I" width here is the I2 verdict cell — long
+        # message; the widest cell on the sheet.
+        "M": 10,        # Δ header / spectrum column 1
+        "N": 8,         # Count header / spectrum column 2
+        "I": 38,        # Verdict header / switch (overlays Sequence_Period column)
 
-        # Regression Outputs (V–AC): regression statistics (V–W), diagnostics (Y–Z), ANOVA (V–AA), coefficients (V–AC), beta weights (AC).
-        # Column roles vary by sub-table; widths below are sized for the widest label/value used in each column.
-        "V": 22,        # labels — longest is "Adjusted R Square" (16) or "Status[Developing]" (17)
-        "W": 12,        # stat values, Alpha, df, Coefficients
-        "X": 12,        # SS, Std Error
-        "Y": 24,        # diagnostics labels (longest: "BFN Panel Durbin-Watson" = 23) + MS + t Stat
-        "Z": 16,        # diagnostics values + "Predicted Variable" section heading + F + P-value
-        "AA": 14,       # derived response name (e.g., "Life expectancy") + Significance F + Lower 95%
-        "AB": 10,       # Upper 95% values
-        "AC": 10,       # Beta Weight values
+        # Predictor Summary (P–V): level-qualified constructed names + 6 stats.
+        "P": 24,        # constructed column names (e.g., "Status[Developed]")
+        "Q": 9, "R": 9, "S": 9, "T": 9, "U": 9, "V": 9,  # stats values
 
-        # Prediction Outputs (AE–AG): interval box label/values, inputs, training mean.
-        "AE": 24,       # section heading, "PREDICTION INTERVAL" / "PREDICTION INPUTS" labels, spilled constructed names
-        "AF": 16,       # prediction interval values + prediction input values
-        "AG": 14,       # Training Mean header + values spill
+        # Regression Outputs (X–AE): regression statistics (X–Y), diagnostics (AA–AB),
+        # ANOVA (X–AC), coefficients (X–AE), beta weights (AE).
+        # Column roles vary by sub-table; widths below are sized for the widest
+        # label/value used in each column.
+        "X": 22,        # labels — longest is "Adjusted R Square" (16) or "Status[Developing]" (17)
+        "Y": 12,        # stat values, Alpha, df, Coefficients
+        "Z": 12,        # SS, Std Error
+        "AA": 24,       # diagnostics labels (longest: "BFN Panel Durbin-Watson" = 23) + MS + t Stat
+        "AB": 16,       # diagnostics values + "Predicted Variable" section heading + F + P-value
+        "AC": 14,       # derived response name (e.g., "Life expectancy") + Significance F + Lower 95%
+        "AD": 10,       # Upper 95% values
+        "AE": 10,       # Beta Weight values
 
-        # Residual Output (AI–AT): row identifiers (AI) + 11 diagnostics (AJ–AT).
-        # AI holds Row_Labels() — country/identifier strings like "United States" (13).
-        "AI": 16,       # row identifiers (Row_Labels)
-        "AJ": 10, "AK": 10, "AL": 9, "AM": 10, "AN": 9, "AO": 9, "AP": 12, "AQ": 9,
-        "AR": 14, "AS": 17, "AT": 14,
+        # Prediction Outputs (AG–AI): interval box label/values, inputs, training mean.
+        "AG": 24,       # section heading, "PREDICTION INTERVAL" / "PREDICTION INPUTS" labels, spilled constructed names
+        "AH": 16,       # prediction interval values + prediction input values
+        "AI": 14,       # Training Mean header + values spill
 
-        # AU is NOT a content column and NOT a zone gap — it is the post-zone
-        # gutter that bounds the row-2 header wrap (_C_AU) and anchors the
-        # diagnostic charts (they start at _C_AT + 1). Sized here so it reads as
+        # Residual Output (AK–AV): row identifiers (AK) + 11 diagnostics (AL–AV).
+        # AK holds Row_Labels() — country/identifier strings like "United States" (13).
+        "AK": 16,       # row identifiers (Row_Labels)
+        "AL": 10, "AM": 10, "AN": 9, "AO": 10, "AP": 9, "AQ": 9, "AR": 12, "AS": 9,
+        "AT": 14, "AU": 17, "AV": 14,
+
+        # AW is NOT a content column and NOT a zone gap — it is the post-zone
+        # gutter that bounds the row-2 header wrap (_C_AW) and anchors the
+        # diagnostic charts (they start at _C_AV + 1). Sized here so it reads as
         # a deliberate margin rather than a default-width column.
-        "AU": 15,
+        "AW": 15,
     }.items():
         sheet.range(f"{column_letter}:{column_letter}").column_width = width
 
@@ -1400,7 +1444,7 @@ def write_regression_output_sheet(
     sheet.api.Rows(2).AutoFit()
 
     # Charts must be positioned after column widths are set so that
-    # sheet.range("AU1").left reflects the final column layout.
+    # sheet.range("AV1").left reflects the final column layout.
     _write_diagnostic_charts(sheet)
 
     # Freeze top 2 rows

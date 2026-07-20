@@ -16,7 +16,6 @@ from lambda_catalog.verify_report import (
     VerifyReport,
     report_from_failures,
     render_human,
-    render_json,
 )
 from lambda_catalog.workbook_builder import (
     NameSyncResult,

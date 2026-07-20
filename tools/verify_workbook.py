@@ -1,0 +1,181 @@
+"""Standalone CLI that runs the spec-driven verifier against a production workbook.
+
+Wraps ``build_qc.verify_test_sheets`` behind a small CLI that mirrors
+``build_production --verify`` but takes only a workbook path (and optional
+CSV). Useful for re-verifying a previously-built workbook without going
+through a full ``build_production`` cycle — for example, after manually
+editing a sheet to confirm the spec oracle still holds.
+
+The verifier always runs in ``skip_dummy=True`` mode because production
+workbooks do not contain a ``Dummy_Test`` sheet (that sheet is QC-only).
+
+Usage:
+    python tools/verify_workbook.py Lambda_Library.xlsx
+    python tools/verify_workbook.py Lambda_Library.xlsx --csv path/to/data.csv
+    python tools/verify_workbook.py Lambda_Library.xlsx --json
+"""
+from __future__ import annotations
+
+import argparse
+import importlib.util
+import sys
+import time
+from pathlib import Path
+
+import xlwings as xw
+
+from lambda_catalog.verify_report import (
+    VerifyReport,
+    report_from_failures,
+    render_human,
+    render_json,
+)
+from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
+from lambda_catalog.write_sheet_life_expectancy_data import DEFAULT_CSV_PATH
+
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+
+
+def _load_build_qc_module() -> object:
+    """Import build_qc.py from the repo root.
+
+    ``build_qc`` is a top-level script, not part of the ``lambda_catalog``
+    package, so the canonical import path is unavailable from a frozen
+    console entry point. Loading it explicitly via ``importlib`` keeps the
+    verifier self-contained.
+    """
+    spec = importlib.util.spec_from_file_location("build_qc", ROOT_DIR / "build_qc.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load build_qc.py from {ROOT_DIR}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("build_qc", module)
+    spec.loader.exec_module(module)
+    return module
+
+
+def verify_workbook(
+    workbook_path: Path,
+    csv_path: Path,
+    *,
+    verbose: bool = False,
+) -> VerifyReport:
+    """Run the spec-driven verifier against ``workbook_path`` and return a report.
+
+    On success, the returned ``VerifyReport`` has ``passed=True`` and an empty
+    ``failures`` tuple. On drift, the report carries the structured failure
+    list and the function returns normally; the caller is responsible for
+    deciding whether to ``sys.exit(1)``.
+    """
+    start = time.monotonic()
+    build_qc = _load_build_qc_module()
+
+    app: xw.App | None = None
+    workbook: xw.Book | None = None
+    try:
+        try:
+            app = xw.App(visible=False, add_book=False)
+            app.api.DisplayAlerts = False
+            app.api.AskToUpdateLinks = False
+            workbook = app.books.open(str(workbook_path))
+        except OPEN_WORKBOOK_ERRORS as exc:
+            raise_excel_access_error(workbook_path, "open", exc)
+        try:
+            captured: list[str] = []
+            try:
+                build_qc.verify_test_sheets(
+                    workbook,
+                    build_qc.build_regression_spec_qc_configs(csv_path),
+                    csv_path,
+                    verbose=verbose,
+                    skip_dummy=True,
+                    failures_out=captured,
+                )
+            except RuntimeError as exc:
+                if "QC verification failed" not in str(exc):
+                    raise
+                elapsed = time.monotonic() - start
+                return report_from_failures(
+                    captured,
+                    elapsed_seconds=elapsed,
+                    mode="spec",
+                    workbook=str(workbook_path),
+                )
+        finally:
+            if workbook is not None:
+                try:
+                    workbook.close()
+                except OPEN_WORKBOOK_ERRORS:
+                    pass
+    finally:
+        if app is not None:
+            try:
+                app.quit()
+            except OPEN_WORKBOOK_ERRORS:
+                pass
+
+    elapsed = time.monotonic() - start
+    return VerifyReport(
+        passed=True,
+        categories={},
+        failures=(),
+        elapsed_seconds=elapsed,
+        mode="spec",
+        workbook=str(workbook_path),
+    )
+
+
+def parse_args() -> argparse.Namespace:
+    """Parse command-line arguments for the standalone verifier."""
+    parser = argparse.ArgumentParser(
+        description=(
+            "Run the spec-driven verifier against a workbook and print a "
+            "structured pass/fail report."
+        )
+    )
+    parser.add_argument(
+        "workbook",
+        type=Path,
+        help="Path to the Excel workbook to verify.",
+    )
+    parser.add_argument(
+        "--csv",
+        type=Path,
+        default=DEFAULT_CSV_PATH,
+        help="Path to the Life Expectancy CSV used for Full_Data comparison.",
+    )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="as_json",
+        help="Emit the report as JSON (for agentic consumption) instead of the human-readable form.",
+    )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print per-phase checkpoints from the spec-driven verifier.",
+    )
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+    workbook_path = args.workbook.resolve()
+    if not workbook_path.exists():
+        print(f"Error: workbook not found: {workbook_path}", file=sys.stderr)
+        sys.exit(1)
+    report = verify_workbook(
+        workbook_path=workbook_path,
+        csv_path=args.csv,
+        verbose=args.verbose,
+    )
+    if args.as_json:
+        print(render_json(report))
+    else:
+        print(render_human(report))
+    if not report.passed:
+        sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

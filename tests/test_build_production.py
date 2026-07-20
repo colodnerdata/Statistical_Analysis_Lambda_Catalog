@@ -242,6 +242,8 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
             verbose=False,
             skip_univariate=False,
             skip_data_table_calculations=True,
+            verify=False,
+            no_launch=False,
         ),
     )
     monkeypatch.setattr(
@@ -387,6 +389,8 @@ def test_main_skips_data_table_recalculation_when_requested(
             verbose=True,
             skip_univariate=False,
             skip_data_table_calculations=True,
+            verify=False,
+            no_launch=False,
         ),
     )
 
@@ -415,3 +419,172 @@ def test_main_skips_data_table_recalculation_when_requested(
     assert build_call["recalculate"] is False
     assert "  Recalculate:    skipped" in capsys.readouterr().out
     assert not any(name == "recalculate" for name, _ in calls)
+
+
+def test_main_no_launch_suppresses_post_build_excel_handoff(
+    monkeypatch,
+    capsys,
+) -> None:
+    """When --no-launch is set, main() must not shell out to `cmd /c start`.
+
+    The agentic verifier loop runs the build with --no-launch so the freshly
+    built workbook is never opened in Excel — the verifier has already
+    proven the workbook is correct. A real `cmd /c start` from the test
+    would also pop an unwanted Excel window on the developer's machine.
+    """
+    popen_calls: list[tuple[str, ...]] = []
+
+    monkeypatch.setattr(
+        build_production,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_univariate=False,
+            skip_data_table_calculations=True,
+            verify=False,
+            no_launch=True,
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "build_production_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(
+        build_production.subprocess,
+        "Popen",
+        lambda args: popen_calls.append(tuple(args)),
+    )
+
+    build_production.main()
+
+    assert popen_calls == []
+    assert "Updated names: 0" in capsys.readouterr().out
+
+
+def test_main_runs_deep_verify_and_exits_zero_on_pass(
+    monkeypatch,
+    capsys,
+) -> None:
+    """When --verify is set and the verifier passes, main() must NOT
+    shell out to `cmd /c start` until the report is rendered, then
+    must shell out as usual on the success path."""
+    popen_calls: list[tuple[str, ...]] = []
+    verify_calls: list[tuple[Path, Path]] = []
+
+    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False):
+        verify_calls.append((workbook_path, csv_path))
+        from lambda_catalog.verify_report import VerifyReport
+        return VerifyReport(
+            passed=True,
+            categories={},
+            failures=(),
+            elapsed_seconds=0.0,
+            mode="spec",
+            workbook=str(workbook_path),
+        )
+
+    monkeypatch.setattr(
+        build_production,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_univariate=False,
+            skip_data_table_calculations=True,
+            verify=True,
+            no_launch=False,
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "build_production_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
+    monkeypatch.setattr(
+        build_production.subprocess,
+        "Popen",
+        lambda args: popen_calls.append(tuple(args)),
+    )
+
+    build_production.main()
+
+    assert len(verify_calls) == 1
+    assert verify_calls[0][0] == Path("Example.xlsx").resolve()
+    assert verify_calls[0][1] == Path("life_expectancy.csv")
+    # Excel handoff fires AFTER verify passes.
+    assert len(popen_calls) == 1
+    assert popen_calls[0][:4] == ("cmd", "/c", "start", "")
+    output = capsys.readouterr().out
+    assert "Verify: passed" in output
+    assert "spec mode" in output
+
+
+def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
+    monkeypatch,
+    capsys,
+) -> None:
+    """When --verify is set and the verifier reports drift, main() must
+    NOT shell out to `cmd /c start` (so a stale workbook cannot be
+    launched in place of a fresh one) and must sys.exit(1)."""
+    popen_calls: list[tuple[str, ...]] = []
+
+    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False):
+        from lambda_catalog.verify_report import VerifyReport
+        return VerifyReport(
+            passed=False,
+            categories={"Regression/scalars": 2},
+            failures=(
+                "[Regression/scalars] k=1 expected=1.0 excel_calc=1.5",
+                "[Regression/scalars] k=2 expected=2.0 excel_calc=2.5",
+            ),
+            elapsed_seconds=1.23,
+            mode="spec",
+            workbook=str(workbook_path),
+        )
+
+    monkeypatch.setattr(
+        build_production,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_univariate=False,
+            skip_data_table_calculations=True,
+            verify=True,
+            no_launch=False,
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "build_production_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
+    monkeypatch.setattr(
+        build_production.subprocess,
+        "Popen",
+        lambda args: popen_calls.append(tuple(args)),
+    )
+
+    with pytest.raises(SystemExit) as exc_info:
+        build_production.main()
+
+    assert exc_info.value.code == 1
+    # The Excel handoff must NOT have fired — drift means a stale workbook
+    # would be opened in place of a fresh one.
+    assert popen_calls == []
+    output = capsys.readouterr().out
+    assert "ERROR Verify mismatch totals" in output
+    assert "Regression/scalars=2" in output

@@ -44,6 +44,13 @@ jobs:
 
   windows-verify:
     name: Windows spec-driven verifier
+    # The deep verifier needs Excel (xlwings/COM) and is also slow (~5-7 min)
+    # so we do not run it on every push to every feature branch. The plan
+    # calls for required-on-main only; feature branches run the Linux `test:`
+    # job plus the headless screen, which is the fast feedback path.
+    if: |
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.base.ref == 'main')
     runs-on: windows-latest
 
     steps:
@@ -54,12 +61,6 @@ jobs:
         with:
           version: "latest"
           python-version: "3.12"
-
-      - name: Cache uv
-        uses: actions/cache@v4
-        with:
-          path: ~\AppData\Local\uv\Cache
-          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
 
       - name: Install dependencies
         run: uv sync --all-groups --frozen

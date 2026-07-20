@@ -167,7 +167,7 @@ make verify-deep        # Layer 2 only
 
 ### CI
 
-A `windows-verify` GitHub Actions job (`.github/workflows/ci.yml`) runs Layer 2 on every push to `main` and on every PR to `main`. Layer 1 is auto-discovered by the existing Linux job. Both are required to pass before a PR can be merged.
+GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every push and pull request via `.github/workflows/ci.yml`. The spec-driven verifier (Layer 2) is **not** run in CI: the GitHub-hosted `windows-latest` runner image does not include Microsoft Office, so xlwings fails to dispatch `Excel.Application` (`pywintypes.com_error: (-2147221005, 'Invalid class string')`). Until a self-hosted runner with Office is wired in, Layer 2 must be run on a developer machine (or any Windows box with desktop Excel) — the agentic workflow runs it before pushing. The `windows-verify` job was removed for that reason; see the comment block at the bottom of `ci.yml`. Layer 1 (the headless `tests/test_workbook_invariants.py` suite) is auto-discovered by the existing Linux job once it lands.
 
 ## File structure
 

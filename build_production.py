@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import subprocess
 import sys
 import time
@@ -11,6 +12,12 @@ from pathlib import Path
 import xlwings as xw
 
 from lambda_catalog.catalog_schema import load_catalog_document
+from lambda_catalog.verify_report import (
+    VerifyReport,
+    report_from_failures,
+    render_human,
+    render_json,
+)
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
     XL_CALCULATION_MANUAL,
@@ -91,6 +98,89 @@ def _recalculate_and_save(workbook_path: Path) -> None:
         raise_excel_access_error(workbook_path, "recalculate and save", exc)
     finally:
         _quit_app_quietly(app)
+
+
+def _load_build_qc_module() -> object:
+    """Import build_qc.py from the repo root without requiring it to be a package.
+
+    build_qc.py is a top-level script in the repo (not under lambda_catalog/),
+    so a normal ``import build_qc`` would rely on the consumer adding the
+    repo root to ``sys.path``. Loading it explicitly here keeps the verify
+    path self-contained when build_production is invoked as a script.
+    """
+    spec = importlib.util.spec_from_file_location("build_qc", ROOT_DIR / "build_qc.py")
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Could not load build_qc.py from {ROOT_DIR}")
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("build_qc", module)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _run_deep_verify(
+    workbook_path: Path,
+    csv_path: Path,
+    *,
+    verbose: bool = False,
+) -> VerifyReport:
+    """Run the spec-driven verifier against the production workbook.
+
+    Opens the workbook in a headless Excel instance, computes the per-config
+    Python oracle, and calls ``build_qc.verify_test_sheets(..., skip_dummy=True,
+    failures_out=...)``. On success, returns a passing ``VerifyReport``. On
+    drift, ``verify_test_sheets`` raises ``RuntimeError("QC verification
+    failed with N mismatch(es).")``; ``failures_out`` is populated before
+    the raise so we can return a structured ``VerifyReport`` for the caller
+    to render and ``sys.exit(1)`` without unwinding the build pipeline.
+    Other exceptions propagate.
+    """
+    start = time.monotonic()
+    build_qc = _load_build_qc_module()
+    if verbose:
+        print("  Verify:         spec-driven verifier starting", flush=True)
+
+    app: xw.App | None = None
+    workbook: xw.Book | None = None
+    try:
+        app = xw.App(visible=False, add_book=False)
+        app.api.DisplayAlerts = False
+        app.api.AskToUpdateLinks = False
+        workbook = app.books.open(str(workbook_path))
+        try:
+            captured: list[str] = []
+            try:
+                build_qc.verify_test_sheets(
+                    workbook,
+                    build_qc.build_regression_spec_qc_configs(csv_path),
+                    csv_path,
+                    verbose=verbose,
+                    skip_dummy=True,
+                    failures_out=captured,
+                )
+            except RuntimeError as exc:
+                if "QC verification failed" not in str(exc):
+                    raise
+                elapsed = time.monotonic() - start
+                return report_from_failures(
+                    captured,
+                    elapsed_seconds=elapsed,
+                    mode="spec",
+                    workbook=str(workbook_path),
+                )
+        finally:
+            _close_workbook_quietly(workbook)
+    finally:
+        _quit_app_quietly(app)
+
+    elapsed = time.monotonic() - start
+    return VerifyReport(
+        passed=True,
+        categories={},
+        failures=(),
+        elapsed_seconds=elapsed,
+        mode="spec",
+        workbook=str(workbook_path),
+    )
 
 
 def _backup_unopenable_workbook(workbook_path: Path) -> Path:
@@ -290,6 +380,27 @@ def parse_args() -> argparse.Namespace:
             "and formulas/Data Tables can calculate later in Excel."
         ),
     )
+    parser.add_argument(
+        "--verify",
+        action="store_true",
+        help=(
+            "After the build, run the spec-driven verifier (build_qc."
+            "verify_test_sheets) against the production sheets. On any "
+            "drift, print a structured VerifyReport and sys.exit(1). The "
+            "post-build Excel handoff (cmd /c start) only fires when "
+            "verify passes. Combine with --no-launch to run verify without "
+            "opening Excel at all."
+        ),
+    )
+    parser.add_argument(
+        "--no-launch",
+        action="store_true",
+        help=(
+            "Suppress the post-build 'cmd /c start <workbook>' Excel handoff. "
+            "Useful for agentic loops where the human is not in the QA loop "
+            "and Excel should not pop up."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -391,7 +502,19 @@ def main() -> None:
     if args.validate_reopen:
         print("Reopen validation: passed")
 
-    subprocess.Popen(["cmd", "/c", "start", "", str(workbook_path)])
+    if args.verify:
+        # The verify-success branch is the only path that opens Excel. On
+        # verify failure we sys.exit(1) and never shell out to `cmd /c start`
+        # so a stale build cannot be launched in place of a fresh one.
+        report = _run_deep_verify(
+            workbook_path, args.csv, verbose=args.verbose
+        )
+        print(render_human(report))
+        if not report.passed:
+            sys.exit(1)
+
+    if not args.no_launch:
+        subprocess.Popen(["cmd", "/c", "start", "", str(workbook_path)])
 
 
 if __name__ == "__main__":

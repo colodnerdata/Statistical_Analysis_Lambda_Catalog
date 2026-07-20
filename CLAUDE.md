@@ -4,6 +4,8 @@
 
 **Reply to PR comments after committing fixes.** When a review comment (Copilot or human) leads to a fix, push the fix and then reply to that comment explaining what was changed and why. This is how the repo owner spots addressed comments and resolves the threads.
 
+**Automated verification.** Use `python build_production.py --verify --no-launch --skip-data-table-calculations` to build and verify in one shot. The spec-driven verifier reuses `build_qc.verify_test_sheets(..., skip_dummy=True)`; on drift it prints a structured `VerifyReport` and `sys.exit(1)`, so a stale build never opens in Excel. The `windows-verify` CI job runs this on every PR to `main`. The fast headless screen (`make verify-headless`, pure `zipfile` + `lxml`) is auto-discovered on Linux; both layers are required to pass before a PR can be merged. See `CONTRIBUTING.md` → *Verifying builds* for the full pipeline.
+
 ## Cell styling
 
 All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples in a sheet writer.

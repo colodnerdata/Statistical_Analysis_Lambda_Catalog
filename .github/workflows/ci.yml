@@ -41,3 +41,37 @@ jobs:
         with:
           files: coverage.xml
           fail_ci_if_error: false
+
+  windows-verify:
+    name: Windows spec-driven verifier
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.12"
+
+      - name: Cache uv
+        uses: actions/cache@v4
+        with:
+          path: ~\AppData\Local\uv\Cache
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+
+      - name: Install dependencies
+        run: uv sync --all-groups --frozen
+
+      # Spec-driven verifier against the production workbook. The deep
+      # verifier reuses build_qc.verify_test_sheets(..., skip_dummy=True)
+      # so production sheets are compared against the same Python oracle
+      # the QC build uses. --no-launch suppresses the post-build Excel
+      # handoff (we are the verifier, not the human). --skip-data-table-
+      # calculations avoids the extra CalculateFullRebuild pass since
+      # verify_test_sheets already calls Calculate() per sheet.
+      - name: Run spec-driven verifier
+        env:
+          RUN_EXCEL_INTEGRATION: "1"
+        run: uv run --frozen python build_production.py --verify --no-launch --skip-data-table-calculations

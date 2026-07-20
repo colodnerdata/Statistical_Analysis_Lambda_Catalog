@@ -114,9 +114,60 @@ Optional flags:
 python build_qc.py --validate-reopen
 python build_qc.py --verbose
 python build_qc.py --cache path/to/.analysis_cache.json   # non-default cache location
+python build_qc.py --no-verify                           # build QC sheets but skip the spec-driven pass
 ```
 
 Run the QC build whenever you add or modify a LAMBDA function.
+
+## Verifying builds
+
+There are two verifier layers with different speeds and different scopes. Run them in this order when in doubt; either can be skipped if the other has been run recently.
+
+### Layer 1 — headless structural check
+
+Pure `zipfile` + `lxml` reads of the produced `.xlsx`. Runs in <1 s on Linux CI without Excel. Catches packaging regressions the unit-test suite misses: dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken `[Content_Types].xml`/`workbook.xml.rels`, orphan chart-relationship targets, `localSheetId` out of range, sheet drift.
+
+```powershell
+# All-in-one (also runs the opt-in real-workbook tests):
+make verify-headless
+
+# Or directly:
+uv run pytest tests/test_workbook_invariants.py -v
+RUN_EXCEL_INTEGRATION=1 uv run pytest tests/test_workbook_invariants.py -v   # + real-workbook tests
+```
+
+This is a fast screen. A green run does **not** mean the workbook calculates correctly — that is what Layer 2 is for.
+
+### Layer 2 — spec-driven deep check
+
+Reuses `build_qc.verify_test_sheets` against the production sheets. Same machinery the QC build runs against `MLR_*_Test` and `Dummy_Test`, gated off the `Dummy_Test` block via `skip_dummy=True` because production workbooks do not contain a `Dummy_Test` sheet. This is the source of truth for cell-level correctness.
+
+```powershell
+# Run the production build, recalculate, then verify against the spec oracle.
+# On drift: print a structured VerifyReport, sys.exit(1), and do NOT open
+# Excel (so a stale build cannot be launched in place of a fresh one).
+python build_production.py --verify --no-launch --skip-data-table-calculations
+
+# Or, on the just-built workbook without rebuilding:
+python tools/verify_workbook.py Lambda_Library.xlsx
+python tools/verify_workbook.py Lambda_Library.xlsx --json   # agentic consumption
+```
+
+The `VerifyReport` (in `lambda_catalog/verify_report.py`) is emitted both in a human-readable form (`Verify: passed (spec mode, …)` / `ERROR Verify mismatch totals: …`) and as JSON (stable schema: `passed`, `categories`, `failures`, `elapsed_seconds`, `mode`, `workbook`).
+
+### `make verify`
+
+```powershell
+make verify             # both layers (Layer 1 on any platform, Layer 2 needs Excel)
+make verify-headless    # Layer 1 only
+make verify-deep        # Layer 2 only
+```
+
+`make verify-deep` shells out to `build_production.py --verify --no-launch --skip-data-table-calculations`, so it both rebuilds and verifies. To verify an already-built workbook, use `python tools/verify_workbook.py Lambda_Library.xlsx` instead.
+
+### CI
+
+A `windows-verify` GitHub Actions job (`.github/workflows/ci.yml`) runs Layer 2 on every push to `main` and on every PR to `main`. Layer 1 is auto-discovered by the existing Linux job. Both are required to pass before a PR can be merged.
 
 ## File structure
 
@@ -157,6 +208,7 @@ tools/
   inspect_univariate_sheet.py # Univariate sheet QC comparison (used by build_qc.py)
   inspect_xlsx.py            # workbook inspection utility
   check_lengths.py           # print Name Manager comment lengths
+  verify_workbook.py         # standalone CLI wrapping the spec-driven verifier
 ```
 
 ## File naming conventions

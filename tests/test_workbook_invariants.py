@@ -246,11 +246,13 @@ def _assert_no_orphan_named_ranges(package: WorkbookPackage) -> None:
         f"found {len(defined_names_elements)}"
     )
     defined_names = defined_names_elements[0]
-    seen: set[str] = set()
+    seen_workbook: set[str] = set()
+    seen_local: set[tuple[str, str]] = set()
     offenders: list[str] = []
     for name_element in defined_names.findall(_DEFINED_NAME_TAG):
         name = name_element.get("name")
         body = (name_element.text or "").strip()
+        local_sheet_id = name_element.get("localSheetId")
         if not name:
             offenders.append("<definedName> missing name attribute")
             continue
@@ -260,9 +262,17 @@ def _assert_no_orphan_named_ranges(package: WorkbookPackage) -> None:
             offenders.append(
                 f"<definedName name={name!r}> contains invalid characters"
             )
-        if name in seen:
-            offenders.append(f"duplicate workbook-scoped definedName: {name!r}")
-        seen.add(name)
+        if local_sheet_id is None:
+            if name in seen_workbook:
+                offenders.append(f"duplicate workbook-scoped definedName: {name!r}")
+            seen_workbook.add(name)
+        else:
+            key = (name, local_sheet_id)
+            if key in seen_local:
+                offenders.append(
+                    f"duplicate sheet-scoped definedName: {name!r} localSheetId={local_sheet_id!r}"
+                )
+            seen_local.add(key)
     assert not offenders, "Defined-name violations:\n  " + "\n  ".join(offenders)
 
 

@@ -24,6 +24,14 @@ XL_CALCULATION_MANUAL        = -4135  # Excel XlCalculation.xlCalculationManual
 XL_CALCULATION_SEMIAUTOMATIC = 2      # Excel XlCalculation.xlCalculationSemiautomatic
                                        # (auto recalc, but ignore changes in data tables)
 
+# Cached-value Excel error literals that signal a broken workbook-scoped defined
+# name. The writers never intentionally produce these in a defined-name body;
+# when they appear it is always stale residue from a previous build (e.g. the
+# Regression sheet's wiring moved sheet-scoped and the workbook-scoped entry
+# was orphaned). The sync_workbook_names patcher strips any workbook-scoped
+# <definedName> whose body matches one of these so they never propagate.
+_BROKEN_DEFINED_NAME_BODIES = frozenset({"#REF!", "#NAME?", "#VALUE!", "#NULL!", "#NUM!"})
+
 
 @dataclass(frozen=True)
 class NameSyncResult:
@@ -121,15 +129,41 @@ def sync_workbook_names(
                             _defined_names_insert_index(workbook_root), defined_names
                         )
 
+                    # First pass: collect every name that already has a
+                    # sheet-scoped entry. The patcher's contract is that
+                    # workbook-scoped names come only from the catalog; a
+                    # workbook-scoped entry that duplicates a sheet-scoped
+                    # one is residue from a previous build (when a sheet's
+                    # named range was promoted to workbook scope and later
+                    # moved back). Strip those duplicates too, so the
+                    # workbook.xml has exactly one entry per name.
+                    sheet_scoped_names = {
+                        name_element.get("name")
+                        for name_element in defined_names.findall(
+                            f"{{{WORKBOOK_NS}}}definedName"
+                        )
+                        if name_element.get("localSheetId") is not None
+                    }
+
                     for name_element in list(defined_names):
                         if name_element.tag != f"{{{WORKBOOK_NS}}}definedName":
                             continue
 
                         target_name = name_element.get("name")
                         is_workbook_scope = name_element.get("localSheetId") is None
-                        if is_workbook_scope and target_name in target_names:
+                        body_text = (name_element.text or "").strip()
+                        if not is_workbook_scope:
+                            continue
+                        is_target = target_name in target_names
+                        is_broken_body = body_text in _BROKEN_DEFINED_NAME_BODIES
+                        is_duplicate_of_sheet_scoped = (
+                            target_name in sheet_scoped_names
+                        )
+                        if not (is_target or is_broken_body or is_duplicate_of_sheet_scoped):
+                            continue
+                        if is_target:
                             existing_target_names.add(target_name)
-                            defined_names.remove(name_element)
+                        defined_names.remove(name_element)
 
                     for definition in definitions:
                         name_element = etree.SubElement(

@@ -963,8 +963,8 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     #   row 2: mean confidence interval lower/upper
     #   row 3: prediction interval lower/upper
     #   row 4: confidence level / blank
-    # The live branch takes exactly COLUMNS(X_s()) input rows — the inputs
-    # correspond 1:1 to constructed columns, so no Include-filter is needed.
+    # The live branch builds a (1 + COLUMNS(X_s()))×1 input vector: Intercept + predictor inputs.
+    # Predictor inputs correspond 1:1 to constructed columns, so no Include-filter is needed.
     f(
         sheet,
         3,

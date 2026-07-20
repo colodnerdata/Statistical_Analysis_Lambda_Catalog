@@ -29,7 +29,7 @@ class VerifyReport:
     passed : bool
         True when no failures were detected.
     categories : dict[str, int]
-        Per-category failure counts (e.g. ``{"[Regression/scalars]": 5}``).
+        Per-category failure counts (e.g. ``{"Regression/scalars": 5}``).
         Empty when ``passed`` is True.
     failures : tuple[str, ...]
         Per-failure message strings. Tuple (not list) so the dataclass is

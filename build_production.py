@@ -16,7 +16,6 @@ from lambda_catalog.verify_report import (
     VerifyReport,
     report_from_failures,
     render_human,
-    render_json,
 )
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
@@ -383,6 +382,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--verify",
         action="store_true",
+        default=False,
         help=(
             "After the build, run the spec-driven verifier (build_qc."
             "verify_test_sheets) against the production sheets. On any "
@@ -390,6 +390,15 @@ def parse_args() -> argparse.Namespace:
             "post-build Excel handoff (cmd /c start) only fires when "
             "verify passes. Combine with --no-launch to run verify without "
             "opening Excel at all."
+        ),
+    )
+    parser.add_argument(
+        "--no-verify",
+        action="store_false",
+        dest="verify",
+        help=(
+            "Explicitly disable the spec-driven verifier pass (mainly useful "
+            "for wrapper scripts that default to --verify)."
         ),
     )
     parser.add_argument(

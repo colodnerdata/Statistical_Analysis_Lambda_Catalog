@@ -20,6 +20,7 @@ from lambda_catalog.write_sheet_regression import (
     _C_Z,
     _C_AA,
     _C_AC,
+    _C_AE,
     _C_AF,
     _C_AG,
     _C_AI,
@@ -174,10 +175,18 @@ def test_intercept_only_n_does_not_depend_on_filter() -> None:
     assert "SUMPRODUCT(N(Sample_Include()))" in intercept_only_n_formula
 
 
-def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> None:
+def test_prediction_outputs_surface_ci_and_pi_in_adjacent_cells() -> None:
     sheet = RecordingSheet(name="Regression")
 
     _write_prediction_interval(_as_xw_sheet(sheet))
+
+    assert sheet.cell(2, _C_AE).value == "INTERVAL OUTPUTS"
+    assert sheet.cell(2, _C_AF).value == "Lower"
+    assert sheet.cell(2, _C_AG).value == "Upper"
+    assert sheet.cell(3, _C_AE).value == "Point Estimate"
+    assert sheet.cell(4, _C_AE).value == "Mean CI (95%)"
+    assert sheet.cell(5, _C_AE).value == "Prediction PI (95%)"
+    assert sheet.cell(6, _C_AE).value == "Confidence Level"
 
     formula = sheet.cell(3, 32).api.Formula2
     assert formula is not None
@@ -186,7 +195,9 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     # Inputs correspond 1:1 to constructed columns — TAKE exactly k rows,
     # no Include-filter needed.
     assert "LET(pred_input,VSTACK($AF$12,TAKE($AF$13:$AF$62,COLUMNS(X_s())))" in formula
-    assert "Prediction_Interval(X_s(),Response_Column(),pred_input" in formula
+    assert "Design_Matrix(X_s(),Allow_Intercept,Sample_Include())" in formula
+    assert "HSTACK(point-ci_margin,point+ci_margin)" in formula
+    assert "HSTACK(point-pi_margin,point+pi_margin)" in formula
     assert "Intercept_Only_Point()" in formula
 
 

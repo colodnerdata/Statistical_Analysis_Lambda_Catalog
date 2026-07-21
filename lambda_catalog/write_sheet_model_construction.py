@@ -315,6 +315,8 @@ _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
     (_C_MATRIX_START + 1, _C_MATRIX_START + 2),  # responses (red CF <> 1)
     (_C_MATRIX_START + 3, _C_MATRIX_START + 4),  # included rows
     (_C_MATRIX_START + 5, _C_MATRIX_START + 6),  # sequence flags (red CF > 1)
+    (_C_MATRIX_START + 7, _C_MATRIX_START + 8),  # FE variables (red CF > 1)
+    (_C_MATRIX_START + 9, _C_MATRIX_START + 10),  # active FE variable
 )
 
 _EMPTY_MODEL_FALLBACK = '"(empty model)"'
@@ -330,12 +332,9 @@ _ROLE_PREDICTOR = "Predictor (x)"
 _ROLE_IDENTIFIER = "Identifier (Row Label)"
 _ROLE_FILTER = "Filter"
 _ROLE_OMIT = "Omit"
-# The v2.1 panel role (ROADMAP Role-axis values). Forward wiring only: the
-# token is read by the Fixed_Effects_Column() accessor and the FE-count guard
-# on the Regression diagnostics (BFN panel Durbin-Watson trigger matrix), but
-# it is deliberately NOT in the Role dropdown yet — the design-matrix engine
-# does not absorb fixed effects until the v2.1 release, and offering the role
-# before then would let a spec claim FE while silently fitting pooled OLS.
+# The v2.1 panel role (ROADMAP Role-axis values). This token is now in the
+# Role dropdown so users can declare the FE axis in-spec; sheet diagnostics and
+# status validations consume it before the FE engine wiring lands.
 _ROLE_FIXED_EFFECTS = "Fixed Effects"
 
 # The derived response name, shared by the audit strip and the filtered-y
@@ -395,7 +394,14 @@ _DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Year"})
 _DEFAULT_TRANSFORM = "None"
 
 _ROLE_VALIDATION_LIST = ",".join(
-    (_ROLE_RESPONSE, _ROLE_PREDICTOR, _ROLE_IDENTIFIER, _ROLE_FILTER, _ROLE_OMIT)
+    (
+        _ROLE_RESPONSE,
+        _ROLE_PREDICTOR,
+        _ROLE_IDENTIFIER,
+        _ROLE_FILTER,
+        _ROLE_OMIT,
+        _ROLE_FIXED_EFFECTS,
+    )
 )
 _INCLUDE_VALIDATION_LIST = "TRUE,FALSE"
 _TYPE_VALIDATION_LIST = "Continuous,Categorical"
@@ -436,10 +442,8 @@ _SEQUENCE_FLAG_COUNT_FORMULA = (
 
 # Count of Role="Fixed Effects" spec rows — the FE-active detector behind the
 # Regression sheet's serial-correlation trigger matrix (plain DW vs. the BFN
-# panel DW). Always 0 until the v2.1 Fixed Effects role ships (the token is
-# not in the Role dropdown), which keeps the shipped workbook in the
-# DW-active / BFN-token state. Same TAKE-trimmed idiom as the responses and
-# sequence-flag counts.
+# panel DW) and the spec status validations. Same TAKE-trimmed idiom as the
+# responses and sequence-flag counts.
 _FIXED_EFFECTS_COUNT_FORMULA = (
     "SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))"
     f'="{_ROLE_FIXED_EFFECTS}"))'
@@ -1018,6 +1022,16 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
         "N(TAKE(Spec_Include,COLUMNS(Source_Data))=TRUE),"
         'N(TAKE(Spec_Type,COLUMNS(Source_Data))="Categorical"))>0'
     )
+    fe_active = f"{_FIXED_EFFECTS_COUNT_FORMULA}>0"
+    # FE + intercept is a visible red flag while one-way FE wiring is active.
+    add_expression_format(
+        sheet,
+        toggle,
+        f"=AND({toggle}=TRUE,{fe_active})",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+        stop_if_true=True,
+    )
     # Red first (StopIfTrue → outranks gray on this cell): FALSE while a
     # Categorical needs the intercept.
     add_expression_format(
@@ -1074,6 +1088,14 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
         ),
         ("included rows", "=SUMPRODUCT(N(Sample_Include()))"),
         ("sequence flags", f"={_SEQUENCE_FLAG_COUNT_FORMULA}"),
+        ("fe variables", f"={_FIXED_EFFECTS_COUNT_FORMULA}"),
+        (
+            "active FE variable",
+            '=IFERROR(IF('
+            f"{_FIXED_EFFECTS_COUNT_FORMULA}=1,"
+            f'INDEX(TOROW(Header_Names),XMATCH("{_ROLE_FIXED_EFFECTS}",'
+            'TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)"),"(none)")',
+        ),
     )
     for (label_col, value_col), (label, formula) in zip(
         _AUDIT_PAIRS, audit_cells
@@ -1101,6 +1123,17 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
         sheet,
         f"${sequence_col}${_AUDIT_ROW}",
         f"=N(${sequence_col}${_AUDIT_ROW})>1",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # Zero-or-one Fixed Effects variables — red only at two-plus (v2.1 is
+    # one-way FE only; two-way absorption is a later milestone).
+    fe_count_col = col_letter(_AUDIT_PAIRS[6][1])
+    add_expression_format(
+        sheet,
+        f"${fe_count_col}${_AUDIT_ROW}",
+        f"=N(${fe_count_col}${_AUDIT_ROW})>1",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )

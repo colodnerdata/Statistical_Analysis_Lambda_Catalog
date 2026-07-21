@@ -25,7 +25,8 @@ single ungrouped GAP column so the zones collapse independently; see the
                    Alpha input (W12), ANOVA Table (rows 13–17, V–AA),
                    Coefficients (rows 19+, V–AC), Beta Weights (AC)
   Col AD         — thin gap (width 2, ungrouped)
-  Col AE–AG      — Prediction Outputs: Prediction Interval (AE1:AF8, boxed),
+  Col AE–AG      — Prediction Outputs: point estimate + CI/PI bounds
+                   (AE1:AG8, boxed),
                    Prediction Inputs (AE10+, one row per constructed column),
                    Training Mean spill (AG13 — the single X_s() evaluation
                    the orange AF prefills INDEX into; owns column AG downward
@@ -944,24 +945,26 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
 
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
-    """Zone AE1:AF8: boxed prediction interval output."""
+    """Zone AE1:AG8: boxed point + CI + PI output."""
     section_heading(sheet, 1, _C_AE, "PREDICTION OUTPUTS")
-    val(sheet, 2, _C_AE, "PREDICTION INTERVAL")
-    bold(sheet, 2, _C_AE)
+    val(sheet, 2, _C_AE, "INTERVAL OUTPUTS")
+    val(sheet, 2, _C_AF, "Lower")
+    val(sheet, 2, _C_AG, "Upper")
+    bold_row(sheet, 2, _C_AE, _C_AG)
     for row, label in [
         (3, "Point Estimate"),
-        (4, "SE Prediction"),
-        (5, "t Critical"),
-        (6, "Lower 95%"),
-        (7, "Upper 95%"),
-        (8, "Confidence Level"),
+        (4, "Mean CI (95%)"),
+        (5, "Prediction PI (95%)"),
+        (6, "Confidence Level"),
     ]:
         val(sheet, row, _C_AE, label)
-    # Zero_Predictors_Selected() branch computes the closed-form single-mean
-    # prediction interval instead of feeding a fabricated first-predictor
-    # input into Prediction_Interval(); NA() when there is nothing to fit.
-    # The live branch takes exactly COLUMNS(X_s()) input rows — the inputs
-    # correspond 1:1 to constructed columns, so no Include-filter is needed.
+    # AF3 spill returns a 4x2 block:
+    #   row 1: point estimate (duplicated into lower/upper columns)
+    #   row 2: mean confidence interval lower/upper
+    #   row 3: prediction interval lower/upper
+    #   row 4: confidence level / blank
+    # The live branch builds a (1 + COLUMNS(X_s()))×1 input vector: Intercept + predictor inputs.
+    # Predictor inputs correspond 1:1 to constructed columns, so no Include-filter is needed.
     f(
         sheet,
         3,
@@ -969,17 +972,33 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         "=IF(Zero_Predictors_Selected(),"
         "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),"
         "LET(point,Intercept_Only_Point(),"
-        "se_pred,Intercept_Only_S()*SQRT(1+1/Intercept_Only_N()),"
+        "s,Intercept_Only_S(),"
+        "n,Intercept_Only_N(),"
         "t_crit,T.INV.2T(alpha,Intercept_Only_DF()),"
-        "VSTACK(point,se_pred,t_crit,point-t_crit*se_pred,point+t_crit*se_pred,1-alpha)),"
-        "NA()),"
+        "ci_margin,t_crit*s*SQRT(1/n),"
+        "pi_margin,t_crit*s*SQRT(1+1/n),"
+        'VSTACK(HSTACK(point,point),HSTACK(point-ci_margin,point+ci_margin),'
+        'HSTACK(point-pi_margin,point+pi_margin),HSTACK(1-alpha,""))),'
+        'VSTACK(HSTACK(NA(),NA()),HSTACK(NA(),NA()),'
+        "HSTACK(NA(),NA()),HSTACK(NA(),NA()))),"
         f"LET(pred_input,VSTACK($AF$12,"
         f"TAKE($AF${_PRED_INPUT_FIRST_ROW}:$AF${_PRED_INPUT_LAST_ROW},COLUMNS(X_s()))),"
-        "Prediction_Interval(X_s(),Response_Column(),pred_input,Allow_Intercept,"
-        "Sample_Include(),alpha)))",
+        "X_design,Design_Matrix(X_s(),Allow_Intercept,Sample_Include()),"
+        "beta,Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include()),"
+        "s,SE_Regression(X_s(),Response_Column(),Allow_Intercept,Sample_Include()),"
+        "df,Residual_Degrees_Of_Freedom(X_s(),Response_Column(),Allow_Intercept,Sample_Include()),"
+        "t_crit,T.INV.2T(alpha,df),"
+        "x_new_aligned,IF(Allow_Intercept,pred_input,INDEX(pred_input,SEQUENCE(ROWS(pred_input)-1,1,2,1))),"
+        "XtX_inv,Gram_Inverse(X_design),"
+        "h_new,MMULT(MMULT(TRANSPOSE(x_new_aligned),XtX_inv),x_new_aligned),"
+        "point,SUMPRODUCT(x_new_aligned,beta),"
+        "ci_margin,t_crit*s*SQRT(h_new),"
+        "pi_margin,t_crit*s*SQRT(1+h_new),"
+        'VSTACK(HSTACK(point,point),HSTACK(point-ci_margin,point+ci_margin),'
+        'HSTACK(point-pi_margin,point+pi_margin),HSTACK(1-alpha,""))))',
     )
-    sheet.range(rc(3, _C_AF), rc(8, _C_AF)).number_format = "0.0000"
-    border_box(sheet, 1, _C_AE, 8, _C_AF)
+    sheet.range(rc(3, _C_AF), rc(6, _C_AG)).number_format = "0.0000"
+    border_box(sheet, 1, _C_AE, 8, _C_AG)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:

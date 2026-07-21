@@ -41,3 +41,14 @@ jobs:
         with:
           files: coverage.xml
           fail_ci_if_error: false
+
+# Note: a previous draft of this workflow included a `windows-verify` job
+# that ran `python build_production.py --verify --no-launch` on
+# `windows-latest`. That job cannot succeed on the GitHub-hosted runner:
+# the `windows-latest` image does not include Microsoft Office, so
+# xlwings fails to dispatch `Excel.Application` with
+# `pywintypes.com_error: (-2147221005, 'Invalid class string')`.
+# The spec-driven verifier is still runnable on a developer machine via
+# `python build_production.py --verify --no-launch --skip-data-table-calculations`
+# (see CONTRIBUTING.md → *Verifying builds*); it just has no CI home until
+# a self-hosted runner with Office is wired in.

@@ -153,8 +153,34 @@ def verify_test_sheets(
     regression_sheet_configs: list,
     csv_path: Path,
     verbose: bool = False,
+    *,
+    skip_dummy: bool = False,
+    failures_out: list[str] | None = None,
 ) -> None:
-    """Compare live workbook output against Python-computed QC oracle values."""
+    """Compare live workbook output against Python-computed QC oracle values.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The live xlwings workbook to verify.
+    regression_sheet_configs : list
+        Per-config Python oracle (from ``build_regression_spec_qc_configs``).
+    csv_path : Path
+        Path to the canonical CSV used for Full_Data comparison.
+    verbose : bool
+        Print per-phase checkpoints to stdout.
+    skip_dummy : bool
+        When True, skip the Dummy_Test check (``read_dummy_check_failures``).
+        Used by ``build_production.py --verify`` which produces a workbook
+        without a ``Dummy_Test`` sheet. Defaults to False (legacy QC build
+        behaviour).
+    failures_out : list[str] | None
+        Optional external list. When supplied, every captured failure message
+        is appended to it before the function raises on drift. Used by
+        ``build_production.py --verify`` to populate a ``VerifyReport`` for
+        downstream structured rendering. The internal ``failures`` list is
+        the source of truth; this is a write-through mirror.
+    """
     failures: list[str] = []
     phase_start = time.monotonic()
     _calculate_verification_sheets(workbook, verbose, phase_start)
@@ -205,12 +231,15 @@ def verify_test_sheets(
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: univariate done")
 
-    _verbose_checkpoint(verbose, phase_start, "Verify: dummy test start")
-    for failure in read_dummy_check_failures(workbook):
-        _report_qc_failure(failures, failure)
-    _verbose_checkpoint(verbose, phase_start, "Verify: dummy test done")
+    if not skip_dummy:
+        _verbose_checkpoint(verbose, phase_start, "Verify: dummy test start")
+        for failure in read_dummy_check_failures(workbook):
+            _report_qc_failure(failures, failure)
+        _verbose_checkpoint(verbose, phase_start, "Verify: dummy test done")
 
     if failures:
+        if failures_out is not None:
+            failures_out.extend(failures)
         category_counts = Counter(
             message.split("]", 1)[0].removeprefix("[") for message in failures
         )
@@ -228,6 +257,8 @@ def build_qc_workbook(
     cache_path: Path = DEFAULT_CACHE_PATH,
     validate_reopen: bool = False,
     verbose: bool = False,
+    *,
+    no_verify: bool = False,
 ) -> NameSyncResult:
     """Build production/QC sheets and verify the workbook."""
     _ = cache_path
@@ -335,28 +366,31 @@ def build_qc_workbook(
         print(f"  Sync names:     {time.monotonic() - phase_start:.1f}s", flush=True)
 
     phase_start = time.monotonic()
-    try:
-        _verbose_checkpoint(verbose, phase_start, "Verify: app start")
-        with xw.App(visible=False, add_book=False) as app:
-            _verbose_checkpoint(verbose, phase_start, "Verify: app ready")
-            app.api.DisplayAlerts = False
-            app.api.AskToUpdateLinks = False
-            _verbose_checkpoint(verbose, phase_start, "Verify: open workbook")
-            workbook = app.books.open(str(workbook_path))
-            try:
-                _verbose_checkpoint(verbose, phase_start, "Verify: workbook opened")
-                verify_test_sheets(
-                    workbook,
-                    regression_sheet_configs,
-                    csv_path,
-                    verbose=verbose,
-                )
-            finally:
-                workbook.close()
-    except OPEN_WORKBOOK_ERRORS as exc:
-        raise_excel_access_error(workbook_path, "verify", exc)
-    if verbose:
-        print(f"  Verify:         {time.monotonic() - phase_start:.1f}s", flush=True)
+    if no_verify:
+        print("Verify: skipped (--no-verify)", flush=True)
+    else:
+        try:
+            _verbose_checkpoint(verbose, phase_start, "Verify: app start")
+            with xw.App(visible=False, add_book=False) as app:
+                _verbose_checkpoint(verbose, phase_start, "Verify: app ready")
+                app.api.DisplayAlerts = False
+                app.api.AskToUpdateLinks = False
+                _verbose_checkpoint(verbose, phase_start, "Verify: open workbook")
+                workbook = app.books.open(str(workbook_path))
+                try:
+                    _verbose_checkpoint(verbose, phase_start, "Verify: workbook opened")
+                    verify_test_sheets(
+                        workbook,
+                        regression_sheet_configs,
+                        csv_path,
+                        verbose=verbose,
+                    )
+                finally:
+                    workbook.close()
+        except OPEN_WORKBOOK_ERRORS as exc:
+            raise_excel_access_error(workbook_path, "verify", exc)
+        if verbose:
+            print(f"  Verify:         {time.monotonic() - phase_start:.1f}s", flush=True)
 
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)
@@ -397,6 +431,13 @@ def parse_args() -> argparse.Namespace:
         "--validate-reopen",
         action="store_true",
         help="Reopen the workbook after syncing names to verify Excel accepts the result.",
+    )
+    parser.add_argument(
+        "--no-verify",
+        action="store_true",
+        help="Skip the spec-driven verify pass. Escape hatch for iterating on a "
+        "known-broken sheet; the skip is logged to qc_log.txt so the absence "
+        "is visible.",
     )
     parser.add_argument(
         "--verbose",
@@ -445,6 +486,7 @@ def _run_main(args: argparse.Namespace) -> None:
                 cache_path=args.cache,
                 validate_reopen=args.validate_reopen,
                 verbose=args.verbose,
+                no_verify=args.no_verify,
             )
             break
         except RuntimeError as exc:

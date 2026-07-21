@@ -524,7 +524,10 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
         key[0][1]: validation.rules[0]["Formula1"]
         for key, validation in validated.items()
     }
-    assert formulas[2] == "Response (y),Predictor (x),Identifier (Row Label),Filter,Omit"
+    assert (
+        formulas[2]
+        == "Response (y),Predictor (x),Identifier (Row Label),Filter,Omit,Fixed Effects"
+    )
     assert formulas[3] == "TRUE,FALSE"
     assert formulas[4] == "Continuous,Categorical"
     assert formulas[7] == "None"
@@ -736,13 +739,17 @@ def test_intercept_control_is_a_toggle_with_coupling_cf() -> None:
     # gray "required-here" rule; gray applies whenever a Categorical is in.
     conditions = sheet.range("$C$2").api.FormatConditions.items
     assert [c.Formula1 for c in conditions] == [
+        '=AND($C$2=TRUE,SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))>0)',
         f"=AND($C$2=FALSE,{_CAT_INCLUDED})",
         f"={_CAT_INCLUDED}",
     ]
-    red, gray = conditions
-    assert red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
-    assert red.Font.Color == excel_color(CF_DARK_RED_TEXT)
-    assert red.StopIfTrue is True
+    fe_red, cat_red, gray = conditions
+    assert fe_red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert fe_red.Font.Color == excel_color(CF_DARK_RED_TEXT)
+    assert fe_red.StopIfTrue is True
+    assert cat_red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert cat_red.Font.Color == excel_color(CF_DARK_RED_TEXT)
+    assert cat_red.StopIfTrue is True
     assert gray.Font.Color == excel_color(MUTED_TEXT_COLOR)
     assert gray.StopIfTrue is False
 
@@ -774,6 +781,18 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
             "sequence flags",
             "=SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))",
         ),
+        (
+            28,
+            29,
+            "fe variables",
+            '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))',
+        ),
+        (
+            30,
+            31,
+            "active FE variable",
+            '=IFERROR(IF(SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))=1,INDEX(TOROW(Header_Names),XMATCH("Fixed Effects",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)"),"(none)")',
+        ),
     ]
     assert list(_AUDIT_PAIRS) == [(lc, vc) for lc, vc, _, _ in expected]
     assert _AUDIT_ROW == 1
@@ -798,6 +817,11 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
     assert [c.Formula1 for c in seq_conditions] == ["=N($AA$1)>1"]
     assert seq_conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert seq_conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+    fe_conditions = sheet.range("$AC$1").api.FormatConditions.items
+    assert [c.Formula1 for c in fe_conditions] == ["=N($AC$1)>1"]
+    assert fe_conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert fe_conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
 def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:

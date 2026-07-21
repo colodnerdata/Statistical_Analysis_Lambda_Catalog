@@ -68,6 +68,13 @@ def _section_formula(
 
 
 def build_mlr_observation_row_configs(csv_path: Path) -> list[tuple[int, bool, RegressionObservationVectors]]:
+    """Build the per-section configs for the ``MLR_Observation_Test`` sheet.
+
+    For each ``k`` in ``_MLR_K_VALUES`` and each intercept setting, computes
+    per-observation regression vectors against the Life Expectancy CSV
+    (``FEATURE_COLUMNS[:k]``) and returns ``(k, allow_intercept, vectors)``
+    tuples consumed by :func:`write_mlr_observation_test_sheet`.
+    """
     from .analyze_life_expectancy import calculate_regression_observation_vectors
 
     row_configs: list[tuple[int, bool, RegressionObservationVectors]] = []
@@ -82,6 +89,12 @@ def write_mlr_observation_test_sheet(
     workbook: xw.Book,
     row_configs: list[tuple[int, bool, RegressionObservationVectors]],
 ) -> None:
+    """Write the ``MLR_Observation_Test`` sheet into ``workbook``.
+
+    Lays out one section per ``(k, allow_intercept)`` config in ``row_configs``,
+    spilling the per-observation LAMBDA outputs alongside the expected vectors
+    from ``row_configs`` for the QC verification pass.
+    """
     sheet_name = "MLR_Observation_Test"
     sheet = (
         workbook.sheets[sheet_name]

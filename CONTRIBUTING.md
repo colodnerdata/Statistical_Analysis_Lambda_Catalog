@@ -76,7 +76,7 @@ There are two separate build scripts with distinct purposes.
 python build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes eight sheets:
+Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes seven sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions
 - **Life Expectancy Data** — WHO dataset as a structured table
@@ -84,8 +84,7 @@ Produces `Lambda_Library.xlsx` — the distributable artifact committed to the r
 - **Regression Instructions** — step-by-step guide for adapting the sheet to new datasets
 - **Diagnostic Guide** — interpretation guide for regression diagnostics
 - **Version History** — changelog that travels with the workbook
-- **Regression** — ToolPak-style analysis interface
-- **Model Construction** — declarative variable-specification block and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode this sheet's cell addresses and are defined in `write_sheet_model_construction.py`; the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `X_s`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Model Construction"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
+- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_sheet_model_construction.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `X_s`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
 
 No test sheets, no OLS analysis, no cache dependency.
 
@@ -102,7 +101,7 @@ python build_production.py --verbose           # print per-phase timing
 python build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all twelve sheets (the eight above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all twelve sheets (the seven above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
 
 The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 
@@ -113,7 +112,7 @@ Optional flags:
 ```powershell
 python build_qc.py --validate-reopen
 python build_qc.py --verbose
-python build_qc.py --cache path/to/.analysis_cache.json   # non-default cache location
+python build_qc.py --cache path/to/.analysis_cache.json   # deprecated no-op (retained for compatibility; spec-driven QC computes on demand)
 ```
 
 Run the QC build whenever you add or modify a LAMBDA function.

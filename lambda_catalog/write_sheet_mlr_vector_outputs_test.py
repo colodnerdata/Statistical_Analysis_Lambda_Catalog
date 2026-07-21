@@ -69,6 +69,13 @@ def _calc_k_formula(k: int, allow_intercept: bool, func_name: str, needs_y: bool
 def build_mlr_vector_row_configs(
     csv_path: Path,
 ) -> list[tuple[int, bool, RegressionVectors]]:
+    """Build the per-section configs for the ``MLR_Vector_Outputs_Test`` sheet.
+
+    For each ``k`` in ``_MLR_K_VALUES`` and each intercept setting, computes
+    vector regression outputs against the Life Expectancy CSV
+    (``FEATURE_COLUMNS[:k]``) and returns ``(k, allow_intercept, vectors)``
+    tuples consumed by :func:`write_mlr_vector_outputs_test_sheet`.
+    """
     from .analyze_life_expectancy import calculate_regression_vectors
 
     row_configs: list[tuple[int, bool, RegressionVectors]] = []
@@ -113,6 +120,13 @@ def write_mlr_vector_outputs_test_sheet(
     workbook: xw.Book,
     row_configs: list[tuple[int, bool, RegressionVectors]],
 ) -> None:
+    """Write the ``MLR_Vector_Outputs_Test`` sheet into ``workbook``.
+
+    Lays out one section per ``(k, allow_intercept)`` config in ``row_configs``;
+    each section lists the regression terms as rows and writes the vector-output
+    LAMBDA functions as Calc columns, with the expected vectors from
+    ``row_configs`` available to the QC verification pass.
+    """
     sheet_name = "MLR_Vector_Outputs_Test"
 
     sheet_names = {sheet.name for sheet in workbook.sheets}

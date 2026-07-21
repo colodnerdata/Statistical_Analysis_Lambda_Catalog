@@ -68,7 +68,6 @@ include = [
   "/README.md",
   "/CONTRIBUTING.md",
   "/lambda_functions.json",
-  "/test_excel_connection.py",
 ]
 
 [tool.pylint.format]

@@ -585,8 +585,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         # reference-level pattern: it shows the typed I value when I is
         # non-blank, otherwise the candidate closure's value. The pattern
         # keeps I as the load-bearing override cell (the candidate closure
-        # never overwrites user input), and J is a pure display, read by
-        # the workbook-scoped Base_Period_Delta() accessor.
+        # never overwrites user input); no other sheet formula reads J.
         if variable in _DEFAULT_SEQUENCE_VARIABLES:
             val(sheet, row, _C_SEQUENCE, True)
         format_input(sheet, row, _C_SEQUENCE)

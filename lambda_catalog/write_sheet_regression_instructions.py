@@ -117,11 +117,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
             "live companion — it shows the typed override if column I is non-blank, "
             "otherwise the computed candidate (the most common gap between "
             "consecutive periods within a group). Lag_By and Difference_By read "
-            "column J when their [delta] argument is omitted — never a silent 1. "
-            "The Sequence Spacing block under the spec shows the spacing "
-            "spectrum and warns about gaps, off-grid spacings, and "
-            "calendar-date axes (prefer an integer period index like YEAR "
-            "over raw dates)."
+            "column J when their [delta] argument is omitted — never a silent 1."
         ),
         "body",
     ),

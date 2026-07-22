@@ -16,9 +16,7 @@ import xlwings as xw
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.sheet_styles import (
     CF_DARK_RED_TEXT,
-    CF_DARK_YELLOW_TEXT,
     CF_LIGHT_RED_FILL,
-    CF_YELLOW_FILL,
     INPUT_COLOR,
     MUTED_TEXT_COLOR,
 )
@@ -49,24 +47,12 @@ from lambda_catalog.write_sheet_model_construction import (
     _LAST_DATA_ROW,
     _N_VARIABLES,
     _VARIABLES,
-    _MSG_CALENDAR,
-    _MSG_NO_NATURAL,
-    _MSG_OFF_GRID,
-    _MSG_REGULARITY,
-    _ROW_SPACING_CALENDAR,
-    _ROW_SPACING_CANDIDATE,
-    _ROW_SPACING_HEADING,
-    _ROW_SPACING_IN_USE,
-    _ROW_SPACING_NO_NATURAL,
-    _ROW_SPACING_OFF_GRID,
-    _ROW_SPACING_REGULARITY,
     _set_sheet_scoped_names,
     _set_spec_block_column_widths,
     _write_audit_row,
     _write_filtered_zones,
     _write_intercept_control,
     _write_row_zones,
-    _write_sequence_spacing_block,
     _write_spec_block,
     SHEET_NAME,
 )
@@ -135,7 +121,6 @@ def _all_written_formulas(sheet: RecordingSheet) -> list[str]:
 
 def _write_all_zones(sheet: RecordingSheet) -> None:
     _write_spec_block(_as_xw_sheet(sheet))
-    _write_sequence_spacing_block(_as_xw_sheet(sheet))
     _write_row_zones(_as_xw_sheet(sheet))
     _write_audit_row(_as_xw_sheet(sheet))
     _write_filtered_zones(_as_xw_sheet(sheet))
@@ -350,11 +335,10 @@ def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
 
 
 def test_sequence_period_name_is_read_only_by_the_base_period_layer() -> None:
-    # Spec_Sequence_Period is live, but only for the Δ-in-use display in
-    # the Sequence Spacing block (on-sheet) and the workbook-scoped
+    # Spec_Sequence_Period is live, but only for the workbook-scoped
     # Base_Period_Delta() accessor (in lambda_functions.json). No sheet
-    # closure — constructor or otherwise — reads it: the candidate is
-    # computed from the data, never from its own display cell.
+    # closure or on-sheet formula — constructor or otherwise — reads it:
+    # the candidate is computed from the data, never from a display cell.
     sheet = _named_sheet()
     _write_all_zones(sheet)
 
@@ -371,14 +355,7 @@ def test_sequence_period_name_is_read_only_by_the_base_period_layer() -> None:
         for formula in _all_written_formulas(sheet)
         if "Spec_Sequence_Period" in formula
     ]
-    in_use = cast(
-        str, sheet.cell(_ROW_SPACING_IN_USE, 2).api.Formula2
-    )
-    assert formula_readers == [in_use]
-    # Every read of the live H/I bands must TAKE-trim to the table width —
-    # the Sequence Spacing block itself sits inside the 16000-row bands.
-    assert "TAKE(Spec_Sequence_Period,n_c)" in in_use
-    assert "TAKE(Spec_Sequence,n_c)" in in_use
+    assert formula_readers == []
 
 
 def test_reserved_spec_names_are_not_referenced_repo_wide() -> None:
@@ -570,9 +547,8 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     assert multi[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
     # Per-row override flagging is intentionally NOT applied on column J
-    # of the spec block. The Period In Use cells stay plain; the override
-    # verdict lives on the Sequence Spacing block (rows 31–34) where the
-    # user actually reads it, not on the spec block.
+    # of the spec block. The Period In Use cells stay plain — no on-sheet
+    # display currently surfaces an override verdict.
 
     # Degeneracy flag: red K when an INCLUDED Categorical Predictor has
     # L <= 1 — the constructor contributes zero columns for it (visible
@@ -614,91 +590,6 @@ def test_sequence_status_line_validates_zero_or_one_flags() -> None:
     assert [c.Formula1 for c in conditions] == ['=$H$2<>""']
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
-
-
-def test_sequence_spacing_block_layout_and_verdicts() -> None:
-    sheet = RecordingSheet(name=SHEET_NAME)
-    _write_sequence_spacing_block(_as_xw_sheet(sheet))
-
-    # Fixed rows below the spec: heading 28, Δ candidate/in-use 29–30,
-    # verdict lines 31–34; spectrum headers on 29 with the spill on 30.
-    assert (_ROW_SPACING_HEADING, _ROW_SPACING_CANDIDATE, _ROW_SPACING_IN_USE) == (
-        28, 29, 30,
-    )
-    assert (
-        _ROW_SPACING_REGULARITY,
-        _ROW_SPACING_OFF_GRID,
-        _ROW_SPACING_NO_NATURAL,
-        _ROW_SPACING_CALENDAR,
-    ) == (31, 32, 33, 34)
-
-    heading = sheet.cell(_ROW_SPACING_HEADING, 1)
-    assert heading.value == "Sequence Spacing (Period In Use)"
-    assert heading.api.Font.Bold is True
-
-    # Δ candidate: the computed MODE-with-MIN-fallback closure, degrading
-    # to blank when there are no within-group spacings.
-    assert sheet.cell(_ROW_SPACING_CANDIDATE, 1).value == "Δ candidate"
-    assert sheet.cell(_ROW_SPACING_CANDIDATE, 2).api.Formula2 == (
-        '=IFERROR(Base_Period_Delta_Candidate(),"")'
-    )
-
-    # Δ in use: the flagged row's I cell via LOCAL Spec_* names (a
-    # standalone Model Construction rebuild must read its own spec), both
-    # bands TAKE-trimmed so the block's own rows are never scanned.
-    assert sheet.cell(_ROW_SPACING_IN_USE, 1).value == "Δ in use"
-    in_use = cast(str, sheet.cell(_ROW_SPACING_IN_USE, 2).api.Formula2)
-    assert "TAKE(Spec_Sequence,n_c)" in in_use
-    assert "TAKE(Spec_Sequence_Period,n_c)" in in_use
-    assert '"(not set)"' in in_use
-
-    # Visible override: yellow when the Δ in use differs from the candidate.
-    override = sheet.range("$B$30").api.FormatConditions.items
-    assert [c.Formula1 for c in override] == [
-        "=AND(ISNUMBER($B$30),ISNUMBER($B$29),$B$30<>$B$29)"
-    ]
-    assert override[0].Interior.Color == excel_color(CF_YELLOW_FILL)
-    assert override[0].Font.Color == excel_color(CF_DARK_YELLOW_TEXT)
-
-    # Delta spectrum: two-column spill at K/L under bold headers.
-    assert sheet.cell(_ROW_SPACING_CANDIDATE, 11).value == "Delta"
-    assert sheet.cell(_ROW_SPACING_CANDIDATE, 12).value == "Count"
-    assert sheet.cell(_ROW_SPACING_IN_USE, 11).api.Formula2 == (
-        '=IFERROR(Sequence_Delta_Spectrum(),"")'
-    )
-
-    # Verdict lines: blank while quiet; each carries its message and its
-    # nonblank-keyed CF (yellow = advisory, red = off the declared grid).
-    expected_verdicts = (
-        (_ROW_SPACING_REGULARITY, _MSG_REGULARITY, CF_YELLOW_FILL, CF_DARK_YELLOW_TEXT),
-        (_ROW_SPACING_OFF_GRID, _MSG_OFF_GRID, CF_LIGHT_RED_FILL, CF_DARK_RED_TEXT),
-        (_ROW_SPACING_NO_NATURAL, _MSG_NO_NATURAL, CF_YELLOW_FILL, CF_DARK_YELLOW_TEXT),
-        (_ROW_SPACING_CALENDAR, _MSG_CALENDAR, CF_LIGHT_RED_FILL, CF_DARK_RED_TEXT),
-    )
-    for row, message, fill, font_color in expected_verdicts:
-        formula = cast(str, sheet.cell(row, 1).api.Formula2)
-        assert formula.startswith("=LET(d,Sequence_Deltas(),"), row
-        assert f'"{message}"' in formula, row
-        conditions = sheet.range(f"$A${row}").api.FormatConditions.items
-        assert [c.Formula1 for c in conditions] == [f'=$A${row}<>""'], row
-        assert conditions[0].Interior.Color == excel_color(fill), row
-        assert conditions[0].Font.Color == excel_color(font_color), row
-
-    # Verdicts key on the Δ-in-use cell, so a typed override re-runs every
-    # check against the user's Δ; the calendar check is Δ-independent
-    # (surfacing, never quantizing) and the MODE prompt reads the data only.
-    regularity = cast(str, sheet.cell(_ROW_SPACING_REGULARITY, 1).api.Formula2)
-    off_grid = cast(str, sheet.cell(_ROW_SPACING_OFF_GRID, 1).api.Formula2)
-    calendar = cast(str, sheet.cell(_ROW_SPACING_CALENDAR, 1).api.Formula2)
-    assert "$B$30" in regularity and "SUM(--(d<>v))>0" in regularity
-    assert "$B$30" in off_grid and "MOD(d,v)<>0" in off_grid
-    assert "$B$30" not in calendar
-    no_natural = cast(str, sheet.cell(_ROW_SPACING_NO_NATURAL, 1).api.Formula2)
-    assert "ISNA(MODE.SNGL(d))" in no_natural
-
-    # The spec dropdown validations are scrubbed off the block's rows.
-    scrub = sheet.range((28, 2), (34, 10)).api.Validation
-    assert scrub.delete_count == 1
 
 
 _CAT_INCLUDED = (

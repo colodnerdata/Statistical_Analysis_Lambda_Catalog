@@ -87,13 +87,13 @@ engine is forthcoming."
   could let the override spill overrun an input band. Fix: relocate
   the override spill and bound every read of the H/I/J band by
   `COLUMNS(Source_Data)` (the spill-placement principle from
-  CLAUDE.md). **Override flagging lives ONLY on the Sequence Spacing
-  block's verdict lines (rows 31–34) — the J spec-block cell stays
-  plain, so the spec reads top-to-bottom as a clean declaration.**
-  Update the Sequence Spacing block (rows 28–34), the spec layout
-  constants, the named-range rename (`Spec_Base_Period_Delta` →
-  `Spec_Sequence_Period`), and the QC analyzers. **Significant
-  testing. Resolve before writing the 2.1.0 Version History entry.**
+  CLAUDE.md). **Note: the Sequence Spacing block (rows 28–34), which
+  previously hosted the override-flagging verdict lines, has since been
+  removed — there is currently no on-sheet display of override status.**
+  Update the spec layout constants, the named-range rename
+  (`Spec_Base_Period_Delta` → `Spec_Sequence_Period`), and the QC
+  analyzers. **Significant testing. Resolve before writing the 2.1.0
+  Version History entry.**
   The full design rationale (spill-collision risk, the
   reference-level pattern parallel, override-flagging location) is in
   [DECISIONS.md § v2.1 #1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).

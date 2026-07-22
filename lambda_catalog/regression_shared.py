@@ -105,6 +105,7 @@ class RegressionFullResiduals:
     cooks_distance: tuple[float, ...]
     normal_scores_ranked: tuple[float, ...]
     studentized_residuals_ranked: tuple[float, ...]
+    scale_location: tuple[float, ...]
 
 
 @dataclass(frozen=True)

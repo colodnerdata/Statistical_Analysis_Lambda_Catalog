@@ -1,6 +1,7 @@
 """Shared helpers for QC inspector comparison: numeric coercion and deviation detection."""
 from __future__ import annotations
 
+import math
 from typing import Any
 
 
@@ -24,11 +25,27 @@ def first_digit_deviation(expected: float, actual: float) -> int | None:
     return 0
 
 
+def _finite_or_none(value: float | None) -> float | None:
+    """Treat NaN/Inf as equivalent to missing — both mean "undefined here"."""
+    if value is not None and not math.isfinite(value):
+        return None
+    return value
+
+
 def compare_values(
     expected: float | None,
     actual: float | None,
 ) -> tuple[float | None, int | None]:
-    """Return absolute difference and first-digit deviation for two values."""
+    """Return absolute difference and first-digit deviation for two values.
+
+    A row where the underlying statistic is genuinely undefined (e.g. a
+    leverage-1 observation making a residual denominator 0) can surface as
+    NaN/Inf on the Python side and as Excel's #N/A on the sheet side. Both
+    are normalized to None first so that case reads as "both missing"
+    (no deviation) instead of a spurious first-digit-deviation-0 mismatch.
+    """
+    expected = _finite_or_none(expected)
+    actual = _finite_or_none(actual)
     if expected is None and actual is None:
         return None, None
     if expected is None or actual is None:

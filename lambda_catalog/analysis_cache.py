@@ -25,7 +25,9 @@ DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
 # (filter on the model's own predictors, not all FEATURE_COLUMNS) when Full_Data
 # was demoted from the default Filter — sparse/medium configs now compute on
 # more rows, so cached v12 expected values are wrong.
-_CACHE_SCHEMA_VERSION = 13
+# v14: RegressionFullResiduals gained scale_location (sqrt(|studentized|)), so
+# a cached v13 entry has no key for it.
+_CACHE_SCHEMA_VERSION = 14
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -134,6 +136,7 @@ def _serialize_regression_sheet_configs(
                 "cooks_distance": list(r.full_residuals.cooks_distance),
                 "normal_scores_ranked": list(r.full_residuals.normal_scores_ranked),
                 "studentized_residuals_ranked": list(r.full_residuals.studentized_residuals_ranked),
+                "scale_location": list(r.full_residuals.scale_location),
             },
             "prediction_interval": {
                 "pred_input_values": list(r.prediction_interval.pred_input_values),
@@ -187,6 +190,7 @@ def _deserialize_regression_sheet_configs(
             cooks_distance=tuple(fr["cooks_distance"]),
             normal_scores_ranked=tuple(fr["normal_scores_ranked"]),
             studentized_residuals_ranked=tuple(fr["studentized_residuals_ranked"]),
+            scale_location=tuple(fr["scale_location"]),
         )
         pi = item["prediction_interval"]
         prediction_interval = RegressionPredictionInterval(

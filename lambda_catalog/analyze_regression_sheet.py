@@ -207,6 +207,7 @@ def calculate_regression_results_from_matrix(
     normal_scores = np.array([nd.inv_cdf(float((cl + 0.5) / n)) for cl in count_less])
     studentized = e / (se_regression * np.sqrt(1.0 - h))
     cooks_distance = studentized**2 * h / ((1.0 - h) * p_design)
+    scale_location = np.sqrt(np.abs(studentized))
     full_residuals = RegressionFullResiduals(
         dependent_var=tuple(float(v) for v in y_train),
         predictions=tuple(float(v) for v in predictions),
@@ -217,6 +218,7 @@ def calculate_regression_results_from_matrix(
         cooks_distance=tuple(float(v) for v in cooks_distance),
         normal_scores_ranked=tuple(float(v) for v in np.sort(normal_scores)),
         studentized_residuals_ranked=tuple(float(v) for v in np.sort(studentized)),
+        scale_location=tuple(float(v) for v in scale_location),
     )
 
     x_means = np.mean(x_features, axis=0)

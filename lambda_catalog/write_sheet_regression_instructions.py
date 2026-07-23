@@ -170,6 +170,13 @@ _ROWS: list[tuple[int, str, str | None]] = [
 
 
 def write_regression_instructions_sheet(workbook: xw.Book) -> None:
+    """Write the ``Regression Instructions`` sheet into ``workbook``.
+
+    A static, row-templated guide for retargeting the spec-driven Regression
+    sheet to a new dataset. Content (rows, text, and per-row style) is defined
+    by the module-level ``_ROWS`` list; this function creates or reuses the
+    sheet, applies column width and cell styles, and autofits row heights.
+    """
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
 

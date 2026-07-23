@@ -26,7 +26,7 @@ Import pattern in a sheet writer:
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 ```
 
-The `as _NAME` alias keeps local helper functions (`_section_heading`, `_subheader_row`, etc.) unchanged.
+The `as _NAME` alias keeps local helper functions (`_subheader_row`, etc.) unchanged.
 
 Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COLOR` in `write_sheet_diagnostic_guide.py`) remain as local constants in the relevant file.
 
@@ -34,7 +34,7 @@ Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COL
 
 A **section heading** is bold text with `HEADER_COLOR` fill at the default font size. The sheet title ("Univariate Analysis") is 14 pt bold with no fill — that is the only cell with a custom font size.
 
-`write_sheet_regression.py` and `write_sheet_univariate.py` each define a private `_section_heading(sheet, row, col, label)` that applies this style. Use those helpers; do not apply the style inline.
+The shared helper `section_heading(sheet, row, col, label)` in `lambda_catalog/workbook_helpers.py` applies this style; `write_sheet_regression.py` and `write_sheet_univariate.py` both import and call it. Use that helper; do not apply the style inline.
 
 ### Univariate sheet heading hierarchy
 
@@ -42,9 +42,9 @@ Zones 1–4 (cols A–Z) use the standard row layout:
 
 | Row | Content | Style |
 |---|---|---|
-| 1 | "Univariate Analysis" (A1), "Histograms" (F1:M1 merged) | Title: 14 pt bold; Histograms: `_section_heading` |
-| 2 | "Sturges Method" (F2:G2), "Scott Method" (I2:J2), "Freedman-Diaconis Method" (L2:M2), "Distribution Fitting/Comparison" (P2:Z2) | `_section_heading` + merged |
-| 3 | "Data" (A3), "Descriptive Statistics" (C3) | `_section_heading` |
+| 1 | "Univariate Analysis" (A1), "Histograms" (F1:M1 merged) | Title: 14 pt bold; Histograms: `section_heading` |
+| 2 | "Sturges Method" (F2:G2), "Scott Method" (I2:J2), "Freedman-Diaconis Method" (L2:M2), "Distribution Fitting/Comparison" (P2:Z2) | `section_heading` + merged |
+| 3 | "Data" (A3), "Descriptive Statistics" (C3) | `section_heading` |
 | 4 | Column sub-headers ("Upper Edge", "Count", "Distribution", …) | `_subheader_row` |
 | 5+ | Data / spill formulas | — |
 

@@ -96,6 +96,13 @@ def build_test_columns(
     test_table: str,
     definitions: Sequence[CatalogFunction],
 ) -> list[_ColumnSpec]:
+    """Build the ordered column specs for the ``MLR_Scalar_Test`` table.
+
+    The leading fixed columns (``X_Variables``, ``ind_vars``, ``Allow_Intercept``)
+    are followed by one Calc column per catalog function whose ``test_table``
+    equals ``test_table``; each Calc column's formula calls the function with
+    the dynamic ``x_s`` OFFSET substitution (``_MLR_X_S_OFFSET``).
+    """
     filtered = [d for d in definitions if d.test_table == test_table]
     fixed_columns: list[_ColumnSpec] = [
         (
@@ -118,6 +125,14 @@ def build_test_columns(
 
 
 def build_mlr_row_configs(csv_path: Path) -> list[_RowConfig]:
+    """Build the per-row input + expected-value configs for ``MLR_Scalar_Test``.
+
+    For each ``k`` in ``_MLR_K_VALUES``, computes an OLS summary against the
+    Life Expectancy CSV with intercept on and off (``FEATURE_COLUMNS[:k]``) and
+    packs each into a row config whose inputs are ``ind_vars=k`` and the
+    intercept flag, and whose expected values come from
+    :func:`_expected_values_map`.
+    """
     from .analyze_life_expectancy import calculate_regression_summary
 
     row_configs: list[_RowConfig] = []
@@ -147,6 +162,13 @@ def write_mlr_scalar_test_sheet(
     definitions: Sequence[CatalogFunction],
     row_configs: list[_RowConfig],
 ) -> None:
+    """Write the ``MLR_Scalar_Test`` sheet into ``workbook``.
+
+    Creates or reuses the sheet, installs its sheet-scoped names, and writes a
+    structured table whose Calc columns call the scalar regression LAMBDA
+    functions; ``row_configs`` (from :func:`build_mlr_row_configs`) supplies
+    each row's inputs and expected values for the QC verification pass.
+    """
     test_table = "MLR_Scalar_Test"
 
     sheet_names = {sheet.name for sheet in workbook.sheets}

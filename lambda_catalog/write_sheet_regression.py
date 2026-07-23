@@ -1075,7 +1075,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
-    """Residual diagnostic table — row identifiers + 11 diagnostics columns starting at AL."""
+    """Residual diagnostic table — row identifiers + 10 diagnostics columns starting at AL."""
     section_heading(sheet, 1, _C_AK, "RESIDUAL OUTPUT")
 
     # AK2: static header — Row_Labels() supplies its own per-row content

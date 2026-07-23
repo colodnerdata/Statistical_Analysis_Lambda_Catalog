@@ -146,7 +146,7 @@ def _apply_extra_columns(
 
 def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
     """Write C2 and the full visible spec block for one QC case."""
-    sheet.range(_INTERCEPT_ROW, _C_SPEC_INCLUDE).value = expected.case.allow_intercept
+    sheet.range((_INTERCEPT_ROW, _C_SPEC_INCLUDE)).value = expected.case.allow_intercept
 
     # Clear only the spec rows (plus one blank row) so we don't wipe the
     # Sequence Spacing block that lives under the spec on the Regression sheet.

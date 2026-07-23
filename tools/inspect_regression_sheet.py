@@ -64,12 +64,14 @@ _C_AF = 32  # prediction interval values + prediction input values
 _C_AJ = 36  # Y (filtered dependent var)
 _C_AK = 37  # Predicted Y
 _C_AL = 38  # Residuals
-_C_AM = 39  # LOOCV residual
-_C_AN = 40  # Hat Diagonal
-_C_AO = 41  # Studentized Residuals
-_C_AP = 42  # Cook's Distance
-_C_AQ = 43  # Normal Scores Ranked
-_C_AR = 44  # Studentized Residuals Ranked
+_C_AM = 39  # Hat Diagonal
+_C_AN = 40  # Studentized Residuals
+_C_AO = 41  # Cook's Distance
+_C_AP = 42  # Normal Scores Ranked
+_C_AQ = 43  # Studentized Residuals Ranked
+_C_AR = 44  # Scale-Location
+_C_AS = 45  # PRESS Residual (the leave-one-out / LOOCV residual — no separate
+            # "LOOCV Residual" column exists; both names refer to this one)
 
 # ── Row positions (1-based) ───────────────────────────────────────────────────
 _ROW_SUMMARY_FIRST = 3   # N3 spills constructed names; O3–T3 spill the stats
@@ -398,19 +400,24 @@ def read_regression_df(
                 "first_digit_deviation": fdd_val,
             })
 
-        # ── Residual Output (columns AJ–AR, rows 3 to 3+n-1) ──────────────
+        # ── Residual Output (columns AJ–AS, rows 3 to 3+n-1) ──────────────
+        # PRESS Residual (AS) is the leave-one-out residual under its more
+        # common name — there is deliberately no separate "LOOCV Residual"
+        # column, so it is compared here against fr.loocv_residuals.
         resid_stat_names = [
-            "Dependent_Variable", "Predictions", "Residuals", "LOOCV_Residual",
+            "Dependent_Variable", "Predictions", "Residuals",
             "Hat_Diagonal", "Studentized_Residuals", "Cooks_Distance",
             "Normal_Scores_Ranked", "Studentized_Residuals_Ranked",
+            "Scale_Location", "PRESS_Residual",
         ]
         resid_exp_tuples = [
-            fr.dependent_var, fr.predictions, fr.residuals, fr.loocv_residuals,
+            fr.dependent_var, fr.predictions, fr.residuals,
             fr.hat_diagonal, fr.studentized_residuals, fr.cooks_distance,
             fr.normal_scores_ranked, fr.studentized_residuals_ranked,
+            fr.scale_location, fr.loocv_residuals,
         ]
-        # Block: columns AJ(36) through AR(44) = 9 columns, n rows
-        block = _read_block(sheet, _ROW_RESID_FIRST, _C_AJ, _C_AR, n)
+        # Block: columns AJ(36) through AS(45) = 10 columns, n rows
+        block = _read_block(sheet, _ROW_RESID_FIRST, _C_AJ, _C_AS, n)
         for row_idx, xl_row in enumerate(block):
             for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
                 residual_expected = (

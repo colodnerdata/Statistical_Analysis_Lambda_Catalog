@@ -274,14 +274,14 @@ This starts one row below the column header (row 2) and extends exactly `$W$8` r
 |---|---|---|
 | `RegChartQQX` | AP | Normal Scores Ranked (QQ theoretical axis) |
 | `RegChartQQY` | AQ | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | AJ | Predicted Y — shared by multiple charts |
-| `RegChartResid` | AK | Residuals |
-| `RegChartActY` | AI | Actual Y |
+| `RegChartFitY` | AK | Predicted Y — shared by multiple charts |
+| `RegChartResid` | AL | Residuals |
+| `RegChartActY` | AJ | Actual Y |
 | `RegChartScaleLoc` | AR | Scale-Location |
 | `RegChartCookDist` | AO | Cook's Distance |
 | `RegChartLeverage` | AM | Hat Diagonal |
 | `RegChartStudResid` | AN | Studentized Residuals |
-| `RegChartPRESSResid` | AS | PRESS Residual |
+| `RegChartPRESSResid` | AS | PRESS Residual — the leave-one-out (LOOCV) residual; there is no separate "LOOCV Residual" column |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 

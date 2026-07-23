@@ -32,8 +32,8 @@ single ungrouped GAP column so the zones collapse independently; see the
                    the orange AF prefills INDEX into; owns column AG downward
                    so it can never collide with another spill)
   Col AH         — thin gap (width 2, ungrouped)
-  Col AI–AT      — Residual Output: heading + Row_Labels() identifiers in AI;
-                   11 diagnostics columns (AJ–AT), spills downward from row 3
+  Col AI–AS      — Residual Output: heading + Row_Labels() identifiers in AI;
+                   10 diagnostics columns (AJ–AS), spills downward from row 3
 
 The spec block replaces the v1 A–B Model Selection zone (predictor toggles +
 Allow_Intercept in B2). Everything the v1 sheet hard-wired is now derived:
@@ -112,7 +112,7 @@ _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.j
 #
 #   A–L   Model Specification   | M gap | N–T Predictor Summary | U gap |
 #   V–AC  Regression Outputs    | AD gap | AE–AG Prediction Outputs | AH gap |
-#   AI–AT Residual Output
+#   AI–AS Residual Output
 #
 # The gap columns and the per-zone content spans below are the single source
 # of truth for both column widths and outline grouping (see _ZONES / _GAP_COLUMNS).
@@ -165,19 +165,22 @@ _C_AH = 34  # thin gap (ungrouped)
 # residual-diagnostic columns. Row-2 headers are written by _write_residuals
 # (see the note_cells table); row-3 formulas are the source of truth for what
 # each column actually contains.
+#
+# PRESS Residual (below) IS the leave-one-out residual e_i/(1-h_i) — "PRESS
+# residual" and "LOOCV residual" are two conventional names for the same
+# statistic, so there is deliberately only one column for it, not two.
 _C_AI = 35  # row identifiers (Row_Labels() spill)
 _C_AJ = 36  # Y (actual dependent variable)
 _C_AK = 37  # Predicted Y
 _C_AL = 38  # Residuals
-_C_AM = 39  # LOOCV Residual
-_C_AN = 40  # Hat Diagonal
-_C_AO = 41  # Studentized Residuals
-_C_AP = 42  # Cook's Distance
-_C_AQ = 43  # Normal Scores Ranked
-_C_AR = 44  # Studentized Residuals Ranked
-_C_AS = 45  # Scale-Location
-_C_AT = 46  # PRESS Residual
-_C_AU = 47  # wrap-text bound for row-2 header strip (no own column)
+_C_AM = 39  # Hat Diagonal
+_C_AN = 40  # Studentized Residuals
+_C_AO = 41  # Cook's Distance
+_C_AP = 42  # Normal Scores Ranked
+_C_AQ = 43  # Studentized Residuals Ranked
+_C_AR = 44  # Scale-Location
+_C_AS = 45  # PRESS Residual
+_C_AT = 46  # wrap-text bound for row-2 header strip (no own column)
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
@@ -194,7 +197,7 @@ _ZONES: tuple[tuple[int, int], ...] = (
     (_C_N, _C_T),                # N:T  — Predictor Summary
     (_C_V, _C_AC),               # V:AC — Regression Outputs
     (_C_AE, _C_AG),              # AE:AG — Prediction Outputs
-    (_C_AI, _C_AT),              # AI:AT — Residual Output
+    (_C_AI, _C_AS),              # AI:AS — Residual Output
 )
 
 # The ungrouped gap columns (width 2) that separate the zones above. Derived as
@@ -290,14 +293,13 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (2, _C_AJ, "Y"),
         (2, _C_AK, "Predicted Y"),
         (2, _C_AL, "Residuals"),
-        (2, _C_AM, "LOOCV Residual"),
-        (2, _C_AN, "Hat Diagonal"),
-        (2, _C_AO, "Studentized Residuals"),
-        (2, _C_AP, "Cook's Distance"),
-        (2, _C_AQ, "Normal Scores Ranked"),
-        (2, _C_AR, "Studentized Residuals Ranked"),
-        (2, _C_AS, "Scale-Location"),
-        (2, _C_AT, "PRESS Residual"),
+        (2, _C_AM, "Hat Diagonal"),
+        (2, _C_AN, "Studentized Residuals"),
+        (2, _C_AO, "Cook's Distance"),
+        (2, _C_AP, "Normal Scores Ranked"),
+        (2, _C_AQ, "Studentized Residuals Ranked"),
+        (2, _C_AR, "Scale-Location"),
+        (2, _C_AS, "PRESS Residual"),
     ]
 
     for row, col, key in note_cells:
@@ -338,12 +340,12 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     """Apply diagnostic cutoffs to the residual-output columns."""
 
     addresses = {
-        "hat":                f"AN3:AN{MAX_EXCEL_ROW}",
-        "studentized":        f"AO3:AO{MAX_EXCEL_ROW}",
-        "cooks":              f"AP3:AP{MAX_EXCEL_ROW}",
-        "studentized_ranked": f"AR3:AR{MAX_EXCEL_ROW}",
-        "scale_location":     f"AS3:AS{MAX_EXCEL_ROW}",
-        "press_residual":     f"AT3:AT{MAX_EXCEL_ROW}",
+        "hat":                f"AM3:AM{MAX_EXCEL_ROW}",
+        "studentized":        f"AN3:AN{MAX_EXCEL_ROW}",
+        "cooks":              f"AO3:AO{MAX_EXCEL_ROW}",
+        "studentized_ranked": f"AQ3:AQ{MAX_EXCEL_ROW}",
+        "scale_location":     f"AR3:AR{MAX_EXCEL_ROW}",
+        "press_residual":     f"AS3:AS{MAX_EXCEL_ROW}",
     }
 
     # Remove existing rules so repeated builds do not duplicate them.
@@ -356,7 +358,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["hat"],
-        "=AND(ISNUMBER(AN3),AN3>2*$Z$6)",
+        "=AND(ISNUMBER(AM3),AM3>2*$Z$6)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -365,14 +367,14 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["hat"],
-        "=AND(ISNUMBER(AN3),AN3>3*$Z$6)",
+        "=AND(ISNUMBER(AM3),AM3>3*$Z$6)",
         bold_font=True,
     )
 
     # ── Studentized residuals ────────────────────────────────────────────────
     for column, address in [
-        ("AO", addresses["studentized"]),
-        ("AR", addresses["studentized_ranked"]),
+        ("AN", addresses["studentized"]),
+        ("AQ", addresses["studentized_ranked"]),
     ]:
         # 2 < |r| < 3: light-yellow fill and dark-yellow text.
         add_expression_format(
@@ -404,7 +406,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["cooks"],
-        "=AND(ISNUMBER(AP3),AP3>4/$W$8,AP3<=0.9)",
+        "=AND(ISNUMBER(AO3),AO3>4/$W$8,AO3<=0.9)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
@@ -413,7 +415,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["cooks"],
-        "=AND(ISNUMBER(AP3),AP3>0.9)",
+        "=AND(ISNUMBER(AO3),AO3>0.9)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -424,14 +426,14 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["scale_location"],
-        "=AND(ISNUMBER(AS3),AS3>1.414,AS3<=1.732)",
+        "=AND(ISNUMBER(AR3),AR3>1.414,AR3<=1.732)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
     add_expression_format(
         sheet,
         addresses["scale_location"],
-        "=AND(ISNUMBER(AS3),AS3>1.732)",
+        "=AND(ISNUMBER(AR3),AR3>1.732)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -442,14 +444,14 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         addresses["press_residual"],
-        "=AND(ISNUMBER(AT3),ABS(AT3)>2*$W$7,ABS(AT3)<=3*$W$7)",
+        "=AND(ISNUMBER(AS3),ABS(AS3)>2*$W$7,ABS(AS3)<=3*$W$7)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
     add_expression_format(
         sheet,
         addresses["press_residual"],
-        "=AND(ISNUMBER(AT3),ABS(AT3)>3*$W$7)",
+        "=AND(ISNUMBER(AS3),ABS(AS3)>3*$W$7)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
@@ -622,9 +624,9 @@ def _setup_local_names(
     # The third element becomes the Name Manager comment so a user browsing
     # names can tell which chart each range feeds.
     for _name, _col_ltr, _comment in [
-        ("RegChartQQX", col_letter(_C_AQ),
+        ("RegChartQQX", col_letter(_C_AP),
          "Normal Q-Q chart: X values (theoretical quantiles, Normal Scores Ranked)"),
-        ("RegChartQQY", col_letter(_C_AR),
+        ("RegChartQQY", col_letter(_C_AQ),
          "Normal Q-Q chart: Y values (Studentized Residuals Ranked)"),
         ("RegChartFitY", col_letter(_C_AK),
          "Predicted Y: X values for the Residuals vs. Fitted, Actual vs. Predicted, and Scale-Location charts"),
@@ -632,15 +634,15 @@ def _setup_local_names(
          "Residuals vs. Fitted chart: Y values (Residuals)"),
         ("RegChartActY", col_letter(_C_AJ),
          "Actual vs. Predicted chart: Y values (Actual Y)"),
-        ("RegChartScaleLoc", col_letter(_C_AS),
+        ("RegChartScaleLoc", col_letter(_C_AR),
          "Scale-Location chart: Y values (sqrt of abs Studentized Residual)"),
-        ("RegChartCookDist", col_letter(_C_AP),
+        ("RegChartCookDist", col_letter(_C_AO),
          "Cook's Distance chart: bar values"),
-        ("RegChartLeverage", col_letter(_C_AN),
+        ("RegChartLeverage", col_letter(_C_AM),
          "Studentized Residuals vs. Leverage chart: X values (Hat Diagonal)"),
-        ("RegChartStudResid", col_letter(_C_AO),
+        ("RegChartStudResid", col_letter(_C_AN),
          "Studentized Residuals vs. Leverage chart: Y values"),
-        ("RegChartPRESSResid", col_letter(_C_AT),
+        ("RegChartPRESSResid", col_letter(_C_AS),
          "PRESS Residuals chart: bar values"),
     ]:
         drop_local_name(sheet, _name)
@@ -1070,7 +1072,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
-    """Residual diagnostic table — row identifiers + 11 diagnostics columns starting at _C_AI."""
+    """Residual diagnostic table — row identifiers + 10 diagnostics columns starting at _C_AI."""
     section_heading(sheet, 1, _C_AI, "RESIDUAL OUTPUT")
 
     # AI2: static header — Row_Labels() supplies its own per-row content
@@ -1078,16 +1080,16 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     val(sheet, 2, _C_AI, "Observation")
 
     for col, header in zip(
-        [_C_AJ, _C_AK, _C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS, _C_AT],
+        [_C_AJ, _C_AK, _C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS],
         [
-            "Y", "Predicted Y", "Residuals", "LOOCV Residual",
+            "Y", "Predicted Y", "Residuals",
             "Hat Diagonal", "Studentized Residuals", "Cook's Distance",
             "Normal Scores Ranked", "Studentized Residuals Ranked",
             "Scale-Location", "PRESS Residual",
         ],
     ):
         val(sheet, 2, col, header)
-    bold_row(sheet, 2, _C_AI, _C_AT)
+    bold_row(sheet, 2, _C_AI, _C_AS)
 
     # AI3: row labels — the spec-derived Row_Labels() filtered to the sample.
     # Row_Labels() has its own no-Identifier fallback ("Obs. n"), so the only
@@ -1099,29 +1101,30 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # Spill anchors — each spills n rows downward
     f(sheet, 3, _C_AJ, "=Dependent_Variable(Response_Column(),Sample_Include())")
     f(sheet, 3, _C_AK, "=Predictions(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AN, "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())")
     f(sheet, 3, _C_AL, "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AM, "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AO, "=Studentized_Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AP, "=Cooks_Distance(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AQ, "=SORT(Normal_Scores(Response_Column(),Sample_Include()))")
-    f(sheet, 3, _C_AR, "=Studentized_Residuals_Ranked(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AM, "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AN, "=Studentized_Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AO, "=Cooks_Distance(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AP, "=SORT(Normal_Scores(Response_Column(),Sample_Include()))")
+    f(sheet, 3, _C_AQ, "=Studentized_Residuals_Ranked(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
     f(
-        sheet, 3, _C_AS,
+        sheet, 3, _C_AR,
         "=SQRT(ABS(Studentized_Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())))",
     )
-    # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
-    f(sheet, 3, _C_AT, "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
+    # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i) — the
+    # same statistic sometimes called the "LOOCV residual"; there is
+    # deliberately only one column for it, not two.
+    f(sheet, 3, _C_AS, "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())")
     # Format every numeric residual-output column — the actual Y (AJ) through
-    # PRESS (AT). Only the AI identifier column (text: country/Obs. labels) is
+    # PRESS (AS). Only the AI identifier column (text: country/Obs. labels) is
     # left unformatted.
-    sheet.range(f"{col_letter(_C_AJ)}:{col_letter(_C_AT)}").number_format = "0.0000"
+    sheet.range(f"{col_letter(_C_AJ)}:{col_letter(_C_AS)}").number_format = "0.0000"
 
 
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
-    start_left = sheet.range(a1(1, _C_AT + 1)).left
+    start_left = sheet.range(a1(1, _C_AT)).left
     start_top = sheet.range("A3").top
 
     col_step = _CHART_WIDTH + _CHART_GAP
@@ -1354,13 +1357,13 @@ def write_regression_output_sheet(
     _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
 
-    sheet.range(rc(2, _C_N), rc(2, _C_AU)).api.WrapText = True
+    sheet.range(rc(2, _C_N), rc(2, _C_AT)).api.WrapText = True
 
     # A–L (spec block) widths are owned by write_sheet_model_construction.py
     # so the standalone and shared-block builds can never drift.
     _set_spec_block_column_widths(sheet)
 
-    # Content-column widths, per zone, plus the AU post-zone gutter (last entry).
+    # Content-column widths, per zone, plus the AT post-zone gutter (last entry).
     # The gap columns (M, U, AD, AH) are sized from _GAP_COLUMNS below so the
     # layout stays declarative — one width there, not one per hard-coded gap letter.
     for column_letter, width in {
@@ -1384,17 +1387,17 @@ def write_regression_output_sheet(
         "AF": 16,       # prediction interval values + prediction input values
         "AG": 14,       # Training Mean header + values spill
 
-        # Residual Output (AI–AT): row identifiers (AI) + 11 diagnostics (AJ–AT).
+        # Residual Output (AI–AS): row identifiers (AI) + 10 diagnostics (AJ–AS).
         # AI holds Row_Labels() — country/identifier strings like "United States" (13).
         "AI": 16,       # row identifiers (Row_Labels)
-        "AJ": 10, "AK": 10, "AL": 9, "AM": 10, "AN": 9, "AO": 9, "AP": 12, "AQ": 9,
-        "AR": 14, "AS": 17, "AT": 14,
+        "AJ": 10, "AK": 10, "AL": 9, "AM": 9, "AN": 9, "AO": 12, "AP": 9,
+        "AQ": 14, "AR": 17, "AS": 14,
 
-        # AU is NOT a content column and NOT a zone gap — it is the post-zone
-        # gutter that bounds the row-2 header wrap (_C_AU) and anchors the
-        # diagnostic charts (they start at _C_AT + 1). Sized here so it reads as
+        # AT is NOT a content column and NOT a zone gap — it is the post-zone
+        # gutter that bounds the row-2 header wrap (_C_AT) and anchors the
+        # diagnostic charts (they start at _C_AT). Sized here so it reads as
         # a deliberate margin rather than a default-width column.
-        "AU": 15,
+        "AT": 15,
     }.items():
         sheet.range(f"{column_letter}:{column_letter}").column_width = width
 

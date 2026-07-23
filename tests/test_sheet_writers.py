@@ -28,7 +28,7 @@ from lambda_catalog.write_sheet_regression import (
     _C_AL,
     _C_AM,
     _C_AN,
-    _C_AT,
+    _C_AS,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
     _setup_local_names as _setup_regression_names,
@@ -131,7 +131,7 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
         "MAX(IFERROR('Regression'!$W$8,1),1),1)"
     )
     press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
-    assert "$AT$2" in press
+    assert "$AS$2" in press
     assert {
         name: sheet.api.Names.by_short_name(name).Comment
         for name in (
@@ -284,13 +284,15 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     assert sheet.cell(3, _C_AL).api.Formula2 == (
         "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AN).api.Formula2 == (
+    assert sheet.cell(3, _C_AM).api.Formula2 == (
         "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AM).api.Formula2 == (
-        "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+    assert sheet.cell(3, _C_AN).api.Formula2 == (
+        "=Studentized_Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
-    assert sheet.cell(3, _C_AT).api.Formula2 == (
+    # PRESS Residual is the only column carrying the leave-one-out residual —
+    # there is deliberately no separate "LOOCV Residual" column duplicating it.
+    assert sheet.cell(3, _C_AS).api.Formula2 == (
         "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
     )
 

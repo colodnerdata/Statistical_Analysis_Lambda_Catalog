@@ -1326,7 +1326,7 @@
       "name": "LOOCV_Residual",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    e / (1 - h)\n  )\n)",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    IFERROR(e / (1 - h), NA())\n  )\n)",
       "arguments": [
         {
           "name": "X_s",
@@ -1348,9 +1348,9 @@
         }
       ],
       "yields": "n-element spill vector of leave-one-out residuals for every filtered observation",
-      "description": "Returns the leave-one-out cross-validation residual for every observation simultaneously. The shortcut formula is e_i / (1 - h_i), where e_i is the ordinary OLS residual and h_i is the hat-matrix diagonal from Hat_Diagonal. Squaring and summing this vector gives PRESS.",
+      "description": "Returns the leave-one-out cross-validation residual for every observation simultaneously. The shortcut formula is e_i / (1 - h_i), where e_i is the ordinary OLS residual and h_i is the hat-matrix diagonal from Hat_Diagonal. Squaring and summing this vector gives PRESS. A row with h_i = 1 (its fit is fully determined by that single observation, e.g. a singleton dummy level) makes the denominator 0; that row returns #N/A instead of #DIV/0!.",
       "plain_language_summary": "Each row's prediction error when that row is left out of the fit.",
-      "notes": "Leave-one-out residuals e_i/(1-h_i). SUMSQ of this spilled vector equals PRESS."
+      "notes": "Leave-one-out residuals e_i/(1-h_i). SUMSQ of this spilled vector equals PRESS. #N/A (not #DIV/0!) where h_i = 1."
     },
     {
       "name": "Hat_Diagonal",
@@ -1382,7 +1382,7 @@
       "name": "Studentized_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    e / (se * SQRT(1 - h))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1404,9 +1404,9 @@
         }
       ],
       "yields": "n-element vector of internally studentized residuals",
-      "description": "r_i = e_i / (s√(1−h_i)), the leverage-adjusted scaled residual. Unlike Scaled_Residuals (which divides by s only), studentized residuals have equal variance under the normal model and are more sensitive to outliers in high-leverage regions. Values beyond ±2 or ±3 indicate potential outliers.",
+      "description": "r_i = e_i / (s√(1−h_i)), the leverage-adjusted scaled residual. Unlike Scaled_Residuals (which divides by s only), studentized residuals have equal variance under the normal model and are more sensitive to outliers in high-leverage regions. Values beyond ±2 or ±3 indicate potential outliers. The denominator is 0 when the fit is exact for a row — a perfect-fit model (s = 0) or a leverage-1 row (h_i = 1, e_i = 0 for that row) — and that row returns #N/A rather than #DIV/0!. Cooks_Distance and the Scale-Location column both consume this output, so the #N/A propagates to them automatically.",
       "plain_language_summary": "Residuals adjusted for both model error and leverage.",
-      "notes": "Internally studentized residuals rᵢ = eᵢ / (s√(1−hᵢ)). Leverage-adjusted. Values beyond ±2 flag outliers; ±3 are probable outliers."
+      "notes": "Internally studentized residuals rᵢ = eᵢ / (s√(1−hᵢ)). Leverage-adjusted. Values beyond ±2 flag outliers; ±3 are probable outliers. #N/A (not #DIV/0!) when s = 0 or hᵢ = 1 — an exact fit for that row."
     },
     {
       "name": "Studentized_Residuals_Ranked",
@@ -2907,13 +2907,12 @@
     "Y": "The actual observed outcome values.",
     "Predicted Y": "The fitted outcome values produced by the model.",
     "Residuals": "Actual Y minus predicted Y. Positive means the row came in above the model's prediction; negative means below.",
-    "LOOCV Residual": "The prediction error for a row when that row is left out of the fitting step.",
     "Hat Diagonal": "Leverage. It shows how unusual a row's predictor values are relative to the rest of the data.",
     "Studentized Residuals": "Residuals scaled to account for overall error size and leverage, making outliers easier to compare fairly.",
     "Cook's Distance": "How much a single row can pull the fitted coefficients and predictions around.",
     "Normal Scores Ranked": "Expected bell-curve quantiles used for the Q-Q comparison.",
     "Studentized Residuals Ranked": "Studentized residuals sorted from smallest to largest for the Q-Q plot.",
     "Scale-Location": "The square root of the absolute studentized residual. A flat pattern suggests stable error spread.",
-    "PRESS Residual": "A leverage-adjusted residual used to show how much a row affects out-of-sample prediction error."
+    "PRESS Residual": "The prediction error for a row when that row is left out of the fitting step (the leave-one-out / LOOCV residual). Summing its squares gives PRESS."
   }
 }

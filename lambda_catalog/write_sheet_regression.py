@@ -36,7 +36,7 @@ single ungrouped GAP column so the zones collapse independently; see the
                    so it can never collide with another spill)
   Col AJ         — thin gap (width 2, ungrouped)
   Col AK–AV      — Residual Output: heading + Row_Labels() identifiers in AK;
-                   11 diagnostics columns (AL–AV), spills downward from row 3
+                   10 diagnostics columns (AL–AU), plus AV gutter; spills downward from row 3
 
 The spec block replaces the v1 A–B Model Selection zone (predictor toggles +
 Allow_Intercept in B2). Everything the v1 sheet hard-wired is now derived:

@@ -965,7 +965,7 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
     add_expression_format(
         sheet,
         verdict_cell,
-        f'=OR(ISNUMBER(SEARCH("regularity",{verdict_cell})),'
+        f'=OR(ISNUMBER(SEARCH("evenly spaced",{verdict_cell})),'
         f'ISNUMBER(SEARCH("no natural",{verdict_cell})))',
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,

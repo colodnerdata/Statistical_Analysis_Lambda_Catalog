@@ -23,15 +23,13 @@ completeness flag.
 **Layout note (Sequence structural-axis release):** the spec block has since
 gained column H (`Sequence` flag), column I (`Sequence Period` — typed
 override input), and column J (`Period In Use` — live since the base-period
-release: candidate formula with typed override via column I, see T17–T19),
-so the `Levels` and `Reference In Use` displays moved to **K** and **L**,
-and every derived zone right of the spec block shifted one column right
-(audit strip starts at N1; filtered zones at Q/V). Cell addresses below
-reflect the layout at the time this plan was written — read `Levels` at
-K instead of H,
-and shift any address in column K or rightward by two columns. The base-period
-addendum (T17–T19) uses current addresses (headers row 3, spec rows 4–26,
-Sequence Spacing block rows 28–34).
+release: candidate formula with typed override via column I), so the
+`Levels` and `Reference In Use` displays moved to **K** and **L**, and every
+derived zone right of the spec block shifted one column right (audit strip
+starts at N1; filtered zones at Q/V). Cell addresses below reflect the
+layout at the time this plan was written — read `Levels` at K instead of H,
+and shift any address in column K or rightward by two columns. Headers row
+3, spec rows 4–26.
 
 **Baseline facts:** 2,938 data rows. Completeness-only on the shipped default's
 three continuous predictors (`Adult Mortality`, `GDP`, `Schooling`) plus the
@@ -98,9 +96,9 @@ Output cells:
 
 The shipped spec demonstrates the Role axis (Identifier, Response, Predictor,
 Omit — Population and Full_Data both ship as Omit) and flags Year as the
-Sequence axis, so the Period In Use candidate (Δ = 1), the Sequence Spacing
-block, and the gated Durbin-Watson diagnostic on the Regression sheet are all
-live at T0. **No Filter is declared**, so the mask is completeness-only.
+Sequence axis, so the Period In Use candidate (Δ = 1) and the gated
+Durbin-Watson diagnostic on the Regression sheet are both live at T0.
+**No Filter is declared**, so the mask is completeness-only.
 
 **Expected:**
 
@@ -534,129 +532,3 @@ with a non-blank condition for included Categorical Predictors in a follow-up).
 | Workbook build | |
 | Result | |
 
----
-
-# Addendum — Base Period Δ & gap-aware Difference_By / Lag_By (T17–T19)
-
-Execute on the **Regression** sheet's spec block (the production home of the
-spec; `Base_Period_Delta()` — the omitted-`[delta]` default — reads the
-Regression sheet by name). **Current addresses:** headers row 3; spec rows 4–26
-(Country 4, Year 5, Status 6, Life expectancy 7, …, Full_Data 26); Sequence
-Spacing block rows 28–34 (Δ candidate B29, Δ in use B30, verdict lines
-A31–A34, delta spectrum spilling at J30:K…).
-
-Semantics under test: Δx(i,t) = x(i,t) − x(i,t−Δ) with (A) each group's first
-period `#N/A` — never a fabricated 0; (B) "prior period" = the literal time
-value t−Δ — a gap returns `#N/A`, never the previous available row; (C) Δ
-computed-and-displayed-with-override, never a silent 1. Expected numbers below
-are asserted programmatically in `tests/test_difference_by_verification.py`
-from the same CSV. The spectrum counts within-group Year spacings and is
-**independent of the completeness mask** (`Sequence_Deltas` ignores
-`Sample_Include()`), so the Full_Data change does not move these numbers.
-
-## T17 — WHO panel: Δ candidate, spectrum, and gap-aware differencing
-
-**Inputs:** none required — the shipped default already flags **Year as the
-Sequence axis** (H5 = TRUE, Country is the Identifier, so groups = Country). If
-you cleared it in an earlier test, re-set **H5 = TRUE**.
-
-**Expected:**
-
-- **I5** shows **1** — the candidate (MODE of within-group consecutive Year
-  spacings) populates the spec cell.
-- **B29 (Δ candidate) = 1**; **B30 (Δ in use) = 1**, no yellow highlight.
-- Spectrum: **J30 = 1, K30 = 2745** and no second row — the delta spectrum is
-  exactly {1: 2745}.
-- **A31–A34 all blank** (Regularity quiet, Off-grid quiet, no
-  no-natural-base-period prompt, no calendar guidance).
-
-On the `Life Expectancy Data` sheet, in empty columns right of the table:
-
-| Formula | Expected |
-|---|---|
-| `=Difference_By(LifeExpectancyData[Life expectancy],LifeExpectancyData[Country],LifeExpectancyData[Year])` (spills 2,938 rows; `[delta]` omitted → spec Δ) | first cell (Afghanistan 2015) = **5.1** (= 65.0 − 59.9) |
-| `=SUMPRODUCT(--ISNA(<spill>#))` | **193** — one `#N/A` per country: 183 first periods + all 10 single-observation countries (Cook Islands' one row is `#N/A`, not 0 and not blank) |
-| `=SUMPRODUCT(--ISNUMBER(<spill>#))` | **2745**; 193 + 2745 = **2938** — no row is mask-excluded |
-
-**Override visibility (C):** type **2** into I5 → B30 = 2 with the **yellow**
-override highlight; A31 Regularity fires (spacings besides Δ exist); A32
-Off-grid fires red (1 is not a whole multiple of 2); the data-sheet `ISNA`
-count rises to **376** (each 16-year panel now has two start years, 2000 and
-2001, with no t−2 partner: 183×2, plus the 10 single rows) and the numeric
-count falls to 2,562. Restore by re-entering the candidate formula in I5:
-`=IF($H5<>TRUE,"",IFERROR(Base_Period_Delta_Candidate(),""))` — B30 returns
-to 1, the highlight clears, and the verdicts go quiet.
-
-- [ ] Pass
-
-## T18 — Synthetic: punched-out year (gap on the Δ grid)
-
-**(a) Direct function check — scratch sheet.** Copy Albania's 16
-(Year, Life expectancy) pairs to a blank sheet, delete the **2007** row
-(15 rows remain), add a constant group column `Albania`, then:
-
-`=Difference_By(<x 15-rows>, <group 15-rows>, <year 15-rows>, 1)`
-
-**Expected:** `#N/A` at **2000** (first period, A) and at **2008** (2007
-absent → gap, B — the 2008 value must NOT become x(2008) − x(2006));
-**13** numeric differences; 15 rows total. Delta spectrum of this fragment
-(verified in the Python script): **{1: 13, 2: 1}**, candidate = 1.
-
-**(b) Block check — on the live table.** Delete the Albania 2007 row from
-`LifeExpectancyData` (T17 state still applied: H5 = TRUE, I5 = candidate).
-
-**Expected:** spectrum shows **{1: 2743, 2: 1}** (whole table: Albania trades
-15 one-spacings for 13 ones + one two); **I5 / B29 / B30 still 1**;
-**A31 Regularity fires** (yellow, "spacings besides Δ"); **A32 Off-grid stays
-quiet** (2 is a whole multiple of 1); no calendar guidance. The T17
-data-sheet `ISNA` count reads **194** (the 193 first periods + Albania 2008).
-**Undo (Ctrl+Z)** and confirm the spectrum returns to {1: 2745}.
-
-- [ ] Pass
-
-## T19 — Synthetic: calendar dates (spacing that must NOT be quantized)
-
-**Inputs:**
-
-1. Add a table column `Month_Start`; in its first 24 data rows enter the
-   first-of-month dates Jan 2020 – Dec 2021 (`=DATE(2020,1,1)`, then
-   `=EDATE(prev,1)` filled down; paste as values), leave the rest blank.
-   2020 is a leap year. A new spec row (27) appears for it.
-2. Set **B4 (Country) = Omit** — no Identifier columns remain, so the whole
-   sample is one group and only the 24 dated rows carry the axis.
-3. Set **H27 = TRUE** (clear H5 first — the H2 status line must stay blank).
-
-**Expected:**
-
-- **B29 (Δ candidate) = 31** — MODE of the day-count spacings, which would be
-  a *wrong* Δ for eleven months of the year; the tool surfaces rather than
-  quantizes.
-- Spectrum (ascending, 23 spacings): **J/K rows = (28, 1), (29, 1), (30, 8),
-  (31, 13)**.
-- **A34 calendar-signature guidance fires (red)**: recommends building an
-  integer period index upstream (`YEAR`, or `YEAR*12+MONTH`) and flagging
-  that as the Sequence axis instead of a day-count Δ.
-- **A33 (no natural base period) stays quiet** — MODE is defined here.
-- Row 27 has no pre-filled candidate formula (build pre-fills rows 4–26
-  only), so B30 reads "(not set)" and the Δ-keyed verdicts hold fire until a
-  Δ is typed: enter **31** into **I27** → B30 = 31 (no override highlight —
-  it matches the candidate), **A31 Regularity fires** (28/29/30 exist) and
-  **A32 Off-grid fires red** (28/29/30 are not whole multiples of 31).
-- Optional direct check (scratch): `=Difference_By(<x>, <group>, <dates>, 31)`
-  over the 24 dated rows yields **13** numeric values (only months preceded
-  by a 31-day month) and **11** `#N/A` — commitment (B) on off-grid data.
-
-**Restore:** delete the `Month_Start` table column, set B4 back to
-`Identifier (Row Label)`, clear H27/I27, and re-set H5 = TRUE (Year the
-shipped Sequence axis).
-
-- [ ] Pass
-
-## Addendum sign-off
-
-| Field | |
-|---|---|
-| Executed by | |
-| Date | |
-| Workbook build | |
-| Result | |

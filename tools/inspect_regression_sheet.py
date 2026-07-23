@@ -142,8 +142,7 @@ def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
     """Write C2 and the full visible spec block for one QC case."""
     sheet.range((_INTERCEPT_ROW, _C_SPEC_INCLUDE)).value = expected.case.allow_intercept
 
-    # Clear only the spec rows (plus one blank row) so we don't wipe the
-    # Sequence Spacing block that lives under the spec on the Regression sheet.
+    # Clear only the spec rows (plus one blank row).
     from lambda_catalog.write_sheet_model_construction import _LAST_DATA_ROW as _SPEC_LAST_DATA_ROW
 
     last_row = max(

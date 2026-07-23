@@ -11,9 +11,7 @@ single ungrouped GAP column so the zones collapse independently; see the
                    Sequence Period / Period In Use / Levels / Reference In Use).
                    Row 2 = Intercept control (label A2, Allow_Intercept toggle
                    C2) and the Sequence status line (H2); headers row 3; one
-                   spec row per table column on rows 4–26; the Sequence Spacing
-                   block (Δ candidate / Δ in use / verdict lines / delta
-                   spectrum at K–L) on rows 28–34.
+                   spec row per table column on rows 4–26.
   Col M          — thin gap (width 2, ungrouped)
   Col N–T        — Predictor Summary: level-qualified constructed names (N) +
                    Pearson R, Spearman R, Skewness, Kurtosis, VIF, Tolerance —
@@ -86,7 +84,6 @@ from .write_sheet_model_construction import (
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _set_spec_block_column_widths,
     _write_intercept_control,
-    _write_sequence_spacing_block,
     _write_spec_block,
 )
 
@@ -665,7 +662,6 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     """
     section_heading(sheet, 1, _C_A, "MODEL SPECIFICATION")
     _write_spec_block(sheet)
-    _write_sequence_spacing_block(sheet)
     _write_intercept_control(sheet)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _RESERVED_NOTE)

@@ -81,22 +81,22 @@ from .write_sheet_model_construction import (
 )
 from .write_sheet_regression import (
     REGRESSION_SHEET_NAME,
-    _C_AA,
-    _C_AI,
-    _C_N,
-    _C_V,
-    _C_W,
+    _C_AC,
+    _C_AK,
+    _C_P,
+    _C_X,
+    _C_Y,
 )
 
 _QC_PREFIX = "[Regression Spec]"
 
 # Row anchors on the Regression sheet (1-based; must match
 # write_sheet_regression.py's section writers).
-_ROW_RESPONSE_READOUT = 2   # AA2 = derived response name
-_ROW_NAMES_SPILL = 3        # N3 = TRANSPOSE(Constructed_Column_Names())
-_ROW_RESID_FIRST = 3        # AI3 = FILTER(Row_Labels(), Sample_Include())
-_ROW_OBSERVATIONS = 8       # W8 = Observations(...)
-_ROW_COEFF_FIRST = 21       # V21 = coefficient label spill (k+1 with intercept)
+_ROW_RESPONSE_READOUT = 2   # AC2 = derived response name
+_ROW_NAMES_SPILL = 3        # P3 = TRANSPOSE(Constructed_Column_Names())
+_ROW_RESID_FIRST = 3        # AK3 = FILTER(Row_Labels(), Sample_Include())
+_ROW_OBSERVATIONS = 8       # Y8 = Observations(...)
+_ROW_COEFF_FIRST = 21       # X21 = coefficient label spill (k+1 with intercept)
 
 
 @dataclass(frozen=True)
@@ -124,12 +124,12 @@ def read_observed_spec_values(
     shows up as a height/width mismatch instead of being clipped.
     """
     names = _read_column(
-        sheet, _C_N, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
+        sheet, _C_P, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
     )
     constructed_names = tuple(names[: _contiguous_height(names)])
 
     coeff_labels = _read_column(
-        sheet, _C_V, _ROW_COEFF_FIRST, k_bound + 1 + _READ_MARGIN
+        sheet, _C_X, _ROW_COEFF_FIRST, k_bound + 1 + _READ_MARGIN
     )
 
     level_cells = {
@@ -144,14 +144,14 @@ def read_observed_spec_values(
     }
 
     resid_labels = _read_column(
-        sheet, _C_AI, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
+        sheet, _C_AK, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
     )
 
     return RegressionSpecObserved(
         constructed_names=constructed_names,
         coeff_label_height=_contiguous_height(coeff_labels),
-        response_readout=sheet.range((_ROW_RESPONSE_READOUT, _C_AA)).value,
-        observations_cell=sheet.range((_ROW_OBSERVATIONS, _C_W)).value,
+        response_readout=sheet.range((_ROW_RESPONSE_READOUT, _C_AC)).value,
+        observations_cell=sheet.range((_ROW_OBSERVATIONS, _C_Y)).value,
         level_cells=level_cells,
         reference_cells=reference_cells,
         resid_labels_height=_contiguous_height(resid_labels),

@@ -11,6 +11,7 @@ from lambda_catalog.write_sheet_mileage_data import (
     SHEET_NAME,
     SOURCE_TABLE_NAME,
     TABLE_NAME,
+    _cell_row_col,
     load_mileage_rows,
 )
 
@@ -161,6 +162,45 @@ def test_load_mileage_rows_on_synthetic_fixture_exercises_blank_na_and_numeric(
 
     assert headers == ["MPG", "Horsepower"]
     assert rows == [[18, None], [None, 130]]
+
+
+def test_cell_row_col_parses_valid_reference() -> None:
+    assert _cell_row_col("K407") == (407, 10)
+
+
+def test_cell_row_col_rejects_trailing_garbage() -> None:
+    with pytest.raises(ValueError):
+        _cell_row_col("A1junk")
+
+
+def test_load_mileage_rows_raises_when_table_ref_attribute_missing(tmp_path: Path) -> None:
+    xlsx_path = tmp_path / "no_ref.xlsx"
+    with zipfile.ZipFile(xlsx_path, "w") as archive:
+        archive.writestr(
+            "xl/tables/table1.xml",
+            '<?xml version="1.0"?>'
+            '<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            f'name="{SOURCE_TABLE_NAME}"><tableColumns count="1">'
+            '<tableColumn id="1" name="X"/></tableColumns></table>',
+        )
+
+    with pytest.raises(ValueError, match="ref attribute"):
+        load_mileage_rows(xlsx_path)
+
+
+def test_load_mileage_rows_raises_when_table_column_unnamed(tmp_path: Path) -> None:
+    xlsx_path = tmp_path / "unnamed_column.xlsx"
+    with zipfile.ZipFile(xlsx_path, "w") as archive:
+        archive.writestr(
+            "xl/tables/table1.xml",
+            '<?xml version="1.0"?>'
+            '<table xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+            f'name="{SOURCE_TABLE_NAME}" ref="A1:A1"><tableColumns count="1">'
+            '<tableColumn id="1"/></tableColumns></table>',
+        )
+
+    with pytest.raises(ValueError, match="unnamed tableColumn"):
+        load_mileage_rows(xlsx_path)
 
 
 def test_load_mileage_rows_raises_on_missing_source_table(tmp_path: Path) -> None:

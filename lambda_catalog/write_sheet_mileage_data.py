@@ -75,7 +75,7 @@ def _parse_cell(raw_value: str) -> str | int | float | None:
 
 def _cell_row_col(cell_ref: str) -> tuple[int, int]:
     """Split a cell reference like "K407" into (row, 0-based column) ints."""
-    match = re.match(r"([A-Z]+)(\d+)", cell_ref)
+    match = re.fullmatch(r"([A-Z]+)(\d+)", cell_ref)
     if match is None:
         raise ValueError(f"Malformed cell reference: {cell_ref!r}")
     col_letters, row_str = match.groups()
@@ -146,11 +146,18 @@ def _read_table_definition(archive: zipfile.ZipFile) -> tuple[str, list[str]]:
     for part in table_parts:
         root = etree.fromstring(archive.read(part))
         if root.get("name") == SOURCE_TABLE_NAME:
-            columns = [
-                column.get("name")
-                for column in root.findall(".//m:tableColumn", _XML_NS)
-            ]
-            return root.get("ref"), columns
+            ref = root.get("ref")
+            if ref is None:
+                raise ValueError(f"Table {SOURCE_TABLE_NAME!r} in {part} has no ref attribute")
+            columns: list[str] = []
+            for column in root.findall(".//m:tableColumn", _XML_NS):
+                name = column.get("name")
+                if name is None:
+                    raise ValueError(
+                        f"Table {SOURCE_TABLE_NAME!r} in {part} has an unnamed tableColumn"
+                    )
+                columns.append(name)
+            return ref, columns
 
     raise ValueError(
         f"Table {SOURCE_TABLE_NAME!r} not found in any of: {table_parts}"

@@ -19,10 +19,11 @@ verify-headless:
 	uv run --frozen pytest tests/test_workbook_invariants.py -v
 
 # Spec-driven verifier. Reuses build_qc.verify_test_sheets(..., skip_dummy=True)
-# against the production sheets. Requires Excel; CI runs this on windows-latest.
+# against the production sheets. Requires Excel; not run in CI on GitHub-hosted
+# runners (no Microsoft Office).
 verify-deep:
-	uv run --frozen python build_production.py --verify --no-launch --skip-data-table-calculations
+	uv run --frozen python build_production.py --verify --no-launch --skip-data-table-calculations --skip-univariate
 
-# Both layers. The headless check is auto-discovered on Linux; the deep
-# check runs on Windows in CI. The deep check shell-exits 1 on drift.
+# Both layers. The headless check is auto-discovered on Linux; run the deep
+# check on a machine with Microsoft Excel. The deep check shell-exits 1 on drift.
 verify: verify-headless verify-deep

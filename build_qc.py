@@ -120,11 +120,13 @@ def _calculate_verification_sheets(
 
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
     workbook.app.api.Calculation = XL_CALCULATION_MANUAL
-    for sheet_name in sheet_names:
-        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
-        workbook.sheets[sheet_name].api.Calculate()
-        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
-    workbook.app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
+    try:
+        for sheet_name in sheet_names:
+            _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
+            workbook.sheets[sheet_name].api.Calculate()
+            _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
+    finally:
+        workbook.app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate done")
 
 
@@ -310,9 +312,6 @@ def build_qc_workbook(
     _verbose_checkpoint(verbose, phase_start, "Prep: regression QC loaded")
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: csv loaded")
-    _verbose_checkpoint(verbose, phase_start, "Prep total")
-    prep_elapsed = time.monotonic() - phase_start
-
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
 
@@ -328,6 +327,9 @@ def build_qc_workbook(
             raise_excel_access_error(workbook_path, "update", exc)
         except (PermissionError, OSError) as exc:
             raise_excel_access_error(workbook_path, "update", exc)
+
+    _verbose_checkpoint(verbose, phase_start, "Prep total")
+    prep_elapsed = time.monotonic() - phase_start
 
     phase_start = time.monotonic()
     try:
@@ -593,9 +595,10 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
     print("Sheet updated: Dummy_Test")
-    print("Sheet verified: Regression")
-    print("Sheet verified: Univariate")
-    print("Sheet verified: Dummy_Test")
+    if timings["verify_seconds"] is not None:
+        print("Sheet verified: Regression")
+        print("Sheet verified: Univariate")
+        print("Sheet verified: Dummy_Test")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

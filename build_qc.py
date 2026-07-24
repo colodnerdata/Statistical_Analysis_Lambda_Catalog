@@ -65,7 +65,6 @@ _VERIFY_CALC_SHEET_NAMES = (
     LIFE_EXPECTANCY_SHEET_NAME,
     "Regression",
     "Univariate",
-    "Dummy_Test",
 )
 
 
@@ -95,10 +94,21 @@ def _calculate_verification_sheets(
     workbook: xw.Book,
     verbose: bool,
     phase_start: float,
+    *,
+    include_dummy: bool,
 ) -> None:
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
     workbook.app.api.Calculation = XL_CALCULATION_MANUAL
-    for sheet_name in _VERIFY_CALC_SHEET_NAMES:
+    calc_sheet_names = _VERIFY_CALC_SHEET_NAMES + (("Dummy_Test",) if include_dummy else ())
+    missing_sheet_names = tuple(
+        sheet_name for sheet_name in calc_sheet_names if sheet_name not in {s.name for s in workbook.sheets}
+    )
+    if missing_sheet_names:
+        raise RuntimeError(
+            "QC verification missing required sheet(s): "
+            + ", ".join(missing_sheet_names)
+        )
+    for sheet_name in calc_sheet_names:
         _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
         workbook.sheets[sheet_name].api.Calculate()
         _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
@@ -183,7 +193,12 @@ def verify_test_sheets(
     """
     failures: list[str] = []
     phase_start = time.monotonic()
-    _calculate_verification_sheets(workbook, verbose, phase_start)
+    _calculate_verification_sheets(
+        workbook,
+        verbose,
+        phase_start,
+        include_dummy=not skip_dummy,
+    )
     _verify_life_expectancy_full_data(workbook, csv_path, failures)
 
     _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")

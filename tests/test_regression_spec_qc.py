@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -62,6 +63,73 @@ def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
     }
     assert mlr_names <= set(build_qc._QC_SHEET_NAMES)
     assert mlr_names.isdisjoint(build_qc._VERIFY_CALC_SHEET_NAMES)
+
+
+def test_calculate_verification_sheets_excludes_dummy_when_not_requested() -> None:
+    import build_qc
+
+    calls: list[str] = []
+
+    class _Sheet:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.api = SimpleNamespace(Calculate=lambda: calls.append(name))
+
+    class _Sheets:
+        def __init__(self, names: list[str]) -> None:
+            self._by_name = {name: _Sheet(name) for name in names}
+
+        def __iter__(self):
+            return iter(self._by_name.values())
+
+        def __getitem__(self, name: str):
+            return self._by_name[name]
+
+    workbook = SimpleNamespace(
+        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
+        sheets=_Sheets(["Life Expectancy Data", "Regression", "Univariate"]),
+    )
+
+    build_qc._calculate_verification_sheets(
+        workbook,
+        verbose=False,
+        phase_start=0.0,
+        include_dummy=False,
+    )
+
+    assert calls == ["Life Expectancy Data", "Regression", "Univariate"]
+
+
+def test_calculate_verification_sheets_requires_dummy_when_requested() -> None:
+    import build_qc
+
+    class _Sheet:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.api = SimpleNamespace(Calculate=lambda: None)
+
+    class _Sheets:
+        def __init__(self, names: list[str]) -> None:
+            self._by_name = {name: _Sheet(name) for name in names}
+
+        def __iter__(self):
+            return iter(self._by_name.values())
+
+        def __getitem__(self, name: str):
+            return self._by_name[name]
+
+    workbook = SimpleNamespace(
+        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
+        sheets=_Sheets(["Life Expectancy Data", "Regression", "Univariate"]),
+    )
+
+    with pytest.raises(RuntimeError, match="Dummy_Test"):
+        build_qc._calculate_verification_sheets(
+            workbook,
+            verbose=False,
+            phase_start=0.0,
+            include_dummy=True,
+        )
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")

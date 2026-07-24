@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
@@ -62,6 +63,47 @@ def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
     }
     assert mlr_names <= set(build_qc._QC_SHEET_NAMES)
     assert mlr_names.isdisjoint(build_qc._VERIFY_CALC_SHEET_NAMES)
+
+
+def test_build_qc_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
+    import build_qc
+
+    assert "Dummy_Test" in build_qc._verification_calc_sheet_names(skip_dummy=False)
+    assert "Dummy_Test" not in build_qc._verification_calc_sheet_names(skip_dummy=True)
+
+
+def test_build_qc_run_main_skips_verified_summary_when_verification_disabled(
+    monkeypatch,
+    capsys,
+) -> None:
+    import build_qc
+    from lambda_catalog.workbook_builder import NameSyncResult
+
+    def fake_build_qc_workbook(*, timings_out, **_):
+        timings_out["prep_seconds"] = 1.0
+        timings_out["write_seconds"] = 2.0
+        timings_out["sync_seconds"] = 3.0
+        timings_out["verify_seconds"] = None
+        return NameSyncResult(created=0, updated=0)
+
+    monkeypatch.setattr(build_qc, "build_qc_workbook", fake_build_qc_workbook)
+    monkeypatch.setattr(build_qc.subprocess, "Popen", lambda *_: None)
+
+    build_qc._run_main(
+        SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            cache=Path("cache.json"),
+            validate_reopen=False,
+            verbose=False,
+            no_verify=True,
+        )
+    )
+
+    output = capsys.readouterr().out
+    assert "Sheet verified:" not in output
+    assert "Timing: verify        skipped" in output
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")

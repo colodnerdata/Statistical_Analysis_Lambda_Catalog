@@ -14,6 +14,7 @@ from typing import TextIO
 import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
+from lambda_catalog.analyze_mileage import calculate_mileage_completeness_flags
 from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
 from lambda_catalog.analyze_regression_spec_block import read_regression_spec_block_failures
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH
@@ -41,6 +42,13 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
 )
+from lambda_catalog.write_sheet_mileage_data import (
+    DEFAULT_XLSX_PATH as DEFAULT_MILEAGE_XLSX_PATH,
+    FULL_DATA_HEADER as MILEAGE_FULL_DATA_HEADER,
+    SHEET_NAME as MILEAGE_SHEET_NAME,
+    load_mileage_rows,
+    write_mileage_sheet,
+)
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
     write_regression_instructions_sheet,
@@ -63,6 +71,7 @@ _QC_SHEET_NAMES = (
 )
 _VERIFY_CALC_SHEET_NAMES = (
     LIFE_EXPECTANCY_SHEET_NAME,
+    MILEAGE_SHEET_NAME,
     "Regression",
     "Univariate",
     "Dummy_Test",
@@ -168,12 +177,46 @@ def _verify_life_expectancy_full_data(
             )
 
 
+def _verify_mileage_full_data(
+    workbook: xw.Book,
+    mileage_path: Path,
+    failures: list[str],
+) -> None:
+    full_data_expected = calculate_mileage_completeness_flags(mileage_path)
+    mileage_sheet = workbook.sheets[MILEAGE_SHEET_NAME]
+    mileage_data = mileage_sheet.used_range.value
+    if not mileage_data:
+        return
+
+    if isinstance(mileage_data[0], list):
+        mileage_rows = mileage_data
+    else:
+        mileage_rows = [mileage_data]
+    mileage_headers = [
+        str(header).strip() if header is not None else ""
+        for header in mileage_rows[0]
+    ]
+    full_data_col_idx = mileage_headers.index(MILEAGE_FULL_DATA_HEADER)
+    for row_offset, expected in enumerate(full_data_expected, start=1):
+        row = mileage_rows[row_offset] if row_offset < len(mileage_rows) else []
+        actual = _normalize_excel_bool(
+            row[full_data_col_idx] if full_data_col_idx < len(row) else None
+        )
+        if actual is not expected:
+            _report_qc_failure(
+                failures,
+                f"[Mileage Data] row={row_offset + 1} stat='Full_Data': "
+                f"expected={expected!r}, excel_calc={actual!r}",
+            )
+
+
 def verify_test_sheets(
     workbook: xw.Book,
     regression_sheet_configs: list,
     csv_path: Path,
     verbose: bool = False,
     *,
+    mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
     skip_dummy: bool = False,
     failures_out: list[str] | None = None,
 ) -> None:
@@ -189,6 +232,9 @@ def verify_test_sheets(
         Path to the canonical CSV used for Full_Data comparison.
     verbose : bool
         Print per-phase checkpoints to stdout.
+    mileage_path : Path
+        Path to the Auto MPG sample xlsx used for the Mileage Data sheet's
+        Full_Data comparison. Defaults to the committed sample file.
     skip_dummy : bool
         When True, skip the Dummy_Test check (``read_dummy_check_failures``).
         Used by ``build_production.py --verify`` which produces a workbook
@@ -210,6 +256,7 @@ def verify_test_sheets(
         skip_dummy=skip_dummy,
     )
     _verify_life_expectancy_full_data(workbook, csv_path, failures)
+    _verify_mileage_full_data(workbook, mileage_path, failures)
 
     _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
     for failure in read_regression_spec_block_failures(workbook, csv_path):
@@ -283,6 +330,7 @@ def build_qc_workbook(
     validate_reopen: bool = False,
     verbose: bool = False,
     *,
+    mileage_xlsx_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
     no_verify: bool = False,
     timings_out: dict[str, float | None] | None = None,
 ) -> NameSyncResult:
@@ -294,6 +342,7 @@ def build_qc_workbook(
     regression_sheet_configs = build_regression_spec_qc_configs(csv_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: regression QC loaded")
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
+    mileage_headers, mileage_rows = load_mileage_rows(mileage_xlsx_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: csv loaded")
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
@@ -347,6 +396,9 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, phase_start, "Write: life exp start")
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows, verbose=verbose)
                 _verbose_checkpoint(verbose, phase_start, "Write: life exp done")
+                _verbose_checkpoint(verbose, phase_start, "Write: mileage start")
+                write_mileage_sheet(workbook, mileage_headers, mileage_rows, verbose=verbose)
+                _verbose_checkpoint(verbose, phase_start, "Write: mileage done")
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate start")
                 write_univariate_sheet(workbook)
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate done")
@@ -414,6 +466,7 @@ def build_qc_workbook(
                         workbook,
                         regression_sheet_configs,
                         csv_path,
+                        mileage_path=mileage_xlsx_path,
                         verbose=verbose,
                     )
                 finally:
@@ -549,6 +602,7 @@ def _run_main(args: argparse.Namespace) -> None:
     print(f"Workbook: {args.workbook.resolve()}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    print("Sheet updated: Mileage Data")
     print("Sheet updated: Univariate")
     print("Sheet updated: Regression Instructions")
     print("Sheet updated: Diagnostic Guide")

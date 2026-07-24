@@ -371,6 +371,16 @@ the model) without the volatility cost. The same pattern extends to
 `Model_Formula_String(anchor_cell)` at v2.3 — the argument is an anchor
 cell, not a sheet name, for the same reason.
 
+**Demonstrated by a shipped second table:** the workbook now ships a
+second sample dataset — the Auto MPG data as the `MileageData` table on
+the **Mileage Data** sheet — alongside Life Expectancy Data. It exists to
+make the one-name retarget concrete: repoint `Source_Table` at
+`MileageData[#All]` in Name Manager and the whole spec block re-populates
+from the new columns, with no data of the user's own required. This is
+the reason both `build_production.py` and `build_qc.py` write the two
+datasets as the default build output, and why the QC verifier checks each
+sheet's `Full_Data` completeness column independently.
+
 ### Supersession notes from the v1 planning
 
 **Question:** what happens to the planned Separate Factor Regression and

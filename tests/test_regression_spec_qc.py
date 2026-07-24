@@ -94,7 +94,7 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
 
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(["Life Expectancy Data", "Regression", "Univariate"]),
+        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Regression", "Univariate"]),
     )
 
     build_qc._calculate_verification_sheets(
@@ -104,7 +104,7 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
         skip_dummy=True,
     )
 
-    assert calls == ["Life Expectancy Data", "Regression", "Univariate"]
+    assert calls == ["Life Expectancy Data", "Mileage Data", "Regression", "Univariate"]
 
 
 def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None:
@@ -127,7 +127,7 @@ def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None
 
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(["Life Expectancy Data", "Regression", "Univariate"]),
+        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Regression", "Univariate"]),
     )
 
     with pytest.raises(RuntimeError, match="Dummy_Test"):

@@ -228,8 +228,9 @@ def build_production_workbook(
         Path to the Life Expectancy CSV file.
     mileage_xlsx_path : Path, optional
         Path to the Auto MPG sample xlsx file written to the Mileage Data
-        sheet — a second sample dataset for practicing the Source_Table
-        retarget workflow alongside Life Expectancy Data.
+        sheet — the dataset the Regression sheet's Source_Table targets by
+        default. Life Expectancy Data ships alongside it as a second
+        sample dataset for practicing the Source_Table retarget workflow.
     validate_reopen : bool, optional
         If True, reopens the workbook in Excel after patching to verify it.
     verbose : bool, optional

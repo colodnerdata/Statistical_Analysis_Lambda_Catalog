@@ -268,14 +268,15 @@ def verify_test_sheets(
         without a ``Dummy_Test`` sheet. Defaults to False (legacy QC build
         behaviour).
     skip_univariate : bool
-        When True, skip the Univariate sheet check (``read_univariate_
-        failures``). Used by ``build_production.py --verify --skip-
-        univariate`` which produces a workbook without a ``Univariate``
-        sheet. Defaults to False. Even when False, a workbook that is
-        missing the ``Univariate`` sheet (e.g. built earlier with
-        --skip-univariate) is handled the same way — the check is skipped
-        with a warning rather than raising, since the sheet's absence is
-        expected in that case, not a build failure.
+        When True, skip the Univariate sheet check
+        (``read_univariate_failures``). Used by
+        ``build_production.py --verify --skip-univariate`` which produces
+        a workbook without a ``Univariate`` sheet. Defaults to False. Even
+        when False, a workbook that is missing the ``Univariate`` sheet
+        (e.g. built earlier with --skip-univariate) is handled the same
+        way — the check is skipped with a warning rather than raising,
+        since the sheet's absence is expected in that case, not a build
+        failure.
     failures_out : list[str] | None
         Optional external list. When supplied, every captured failure message
         is appended to it before the function raises on drift. Used by

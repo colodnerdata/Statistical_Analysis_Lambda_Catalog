@@ -100,8 +100,9 @@ def _calculate_verification_sheets(
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
     workbook.app.api.Calculation = XL_CALCULATION_MANUAL
     calc_sheet_names = _VERIFY_CALC_SHEET_NAMES + (("Dummy_Test",) if include_dummy else ())
+    workbook_sheet_names = {s.name for s in workbook.sheets}
     missing_sheet_names = tuple(
-        sheet_name for sheet_name in calc_sheet_names if sheet_name not in {s.name for s in workbook.sheets}
+        sheet_name for sheet_name in calc_sheet_names if sheet_name not in workbook_sheet_names
     )
     if missing_sheet_names:
         raise RuntimeError(

@@ -555,9 +555,10 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
     print("Sheet updated: Dummy_Test")
-    print("Sheet verified: Regression")
-    print("Sheet verified: Univariate")
-    print("Sheet verified: Dummy_Test")
+    if timings["verify_seconds"] is not None:
+        print("Sheet verified: Regression")
+        print("Sheet verified: Univariate")
+        print("Sheet verified: Dummy_Test")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:

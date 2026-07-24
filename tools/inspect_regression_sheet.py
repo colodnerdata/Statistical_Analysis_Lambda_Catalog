@@ -24,6 +24,7 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_qc_configs,
 )
 from lambda_catalog.inspection_compare import compare_values, to_float_or_none
+from lambda_catalog.workbook_builder import XL_CALCULATION_MANUAL
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
 from lambda_catalog.write_sheet_life_expectancy_data import (
     SHEET_NAME as DATA_SHEET_NAME,
@@ -244,93 +245,91 @@ def read_regression_df(
     resid_rows: list[dict] = []
     pi_rows: list[dict] = []
 
-    for expected in regression_sheet_configs:
-        config_name = expected.case.name
-        allow_intercept = expected.case.allow_intercept
-        results = expected.results
-        summary = results.summary
-        vectors = results.vectors
-        ps = results.predictor_summary
-        fr = results.full_residuals
-        pi = results.prediction_interval
-        k = len(ps.predictor_names)
-        n = summary.observations
+    # The per-config loop below makes ~150-250 individual cell writes (spec
+    # clear/rewrite, prediction inputs, extra-column formulas) before each
+    # deliberate sheet.api.Calculate(). Excel's automatic recalculation engine
+    # runs synchronously on every single COM write whenever Calculation is not
+    # Manual, and ScreenUpdating left on lets every write also dirty the
+    # workbook's chart objects (wired to volatile OFFSET named ranges per
+    # write_sheet_regression.py). Across ~11 QC configs that is thousands of
+    # redundant full recalculations/redraws instead of the one-per-config the
+    # code below intends — this is what turns the loop from seconds into
+    # (observed) hours. Suspend both for the whole loop, matching the
+    # Manual-during-writes convention build_qc.py/build_production.py already
+    # use, and restore the caller's settings afterward.
+    app = workbook.app
+    previous_calculation = app.api.Calculation
+    previous_screen_updating = app.api.ScreenUpdating
+    app.api.Calculation = XL_CALCULATION_MANUAL
+    app.api.ScreenUpdating = False
+    try:
+        for expected in regression_sheet_configs:
+            config_name = expected.case.name
+            allow_intercept = expected.case.allow_intercept
+            results = expected.results
+            summary = results.summary
+            vectors = results.vectors
+            ps = results.predictor_summary
+            fr = results.full_residuals
+            pi = results.prediction_interval
+            k = len(ps.predictor_names)
+            n = summary.observations
 
-        # Set source-table fixture columns, full spec, and prediction inputs.
-        _apply_extra_columns(data_sheet, expected, all_extra_names)
-        _apply_spec_case(sheet, expected)
-        _set_pred_inputs(sheet, pi.pred_input_values)
-        # Recalculate only the Regression sheet after changing the visible
-        # inputs. A full dependency-graph rebuild here pulls in the entire
-        # workbook for every QC config and can take several minutes.
-        sheet.api.Calculate()
+            # Set source-table fixture columns, full spec, and prediction inputs.
+            _apply_extra_columns(data_sheet, expected, all_extra_names)
+            _apply_spec_case(sheet, expected)
+            _set_pred_inputs(sheet, pi.pred_input_values)
+            # Recalculate only the Regression sheet after changing the visible
+            # inputs. A full dependency-graph rebuild here pulls in the entire
+            # workbook for every QC config and can take several minutes.
+            sheet.api.Calculate()
 
-        # ── Scalars: Regression Statistics (column Y) ─────────────────────
-        scalar_specs: list[tuple[str, float, int, int]] = [
-            ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_Y),
-            ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_Y),
-            ("Adjusted_R_Squared",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_Y),
-            ("SE_Regression", summary.se_regression, _ROW_SE_REG,     _C_Y),
-            ("Observations",  float(summary.observations), _ROW_OBS,  _C_Y),
-        ]
+            # ── Scalars: Regression Statistics (column Y) ─────────────────────
+            scalar_specs: list[tuple[str, float, int, int]] = [
+                ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_Y),
+                ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_Y),
+                ("Adjusted_R_Squared",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_Y),
+                ("SE_Regression", summary.se_regression, _ROW_SE_REG,     _C_Y),
+                ("Observations",  float(summary.observations), _ROW_OBS,  _C_Y),
+            ]
 
-        # Diagnostics (column AB)
-        press_r2 = 1.0 - summary.press / summary.ss_total
-        mean_lev = (summary.df_regression + (1 if allow_intercept else 0)) / summary.observations
-        ms_reg = summary.ss_regression / summary.df_regression
-        ms_res = summary.ss_residual / summary.df_residual
+            # Diagnostics (column AB)
+            press_r2 = 1.0 - summary.press / summary.ss_total
+            mean_lev = (summary.df_regression + (1 if allow_intercept else 0)) / summary.observations
+            ms_reg = summary.ss_regression / summary.df_regression
+            ms_res = summary.ss_residual / summary.df_residual
 
-        scalar_specs += [
-            ("PRESS",         summary.press,     _ROW_PRESS,    _C_AB),
-            ("PRESS_R2",      press_r2,          _ROW_PRESS_R2, _C_AB),
-            ("Mean_Leverage", mean_lev,          _ROW_MEAN_LEV, _C_AB),
-            ("AIC",           summary.aic,       _ROW_AIC,      _C_AB),
-            ("BIC",           summary.bic,       _ROW_BIC,      _C_AB),
-            ("AICc",          summary.aicc,      _ROW_AICC,     _C_AB),
-            ("QQ_Correlation",summary.qq_correlation, _ROW_QQ_CORR, _C_AB),
-            ("Durbin_Watson",  summary.durbin_watson, _ROW_DURBIN_WATSON, _C_AB),
-        ]
+            scalar_specs += [
+                ("PRESS",         summary.press,     _ROW_PRESS,    _C_AB),
+                ("PRESS_R2",      press_r2,          _ROW_PRESS_R2, _C_AB),
+                ("Mean_Leverage", mean_lev,          _ROW_MEAN_LEV, _C_AB),
+                ("AIC",           summary.aic,       _ROW_AIC,      _C_AB),
+                ("BIC",           summary.bic,       _ROW_BIC,      _C_AB),
+                ("AICc",          summary.aicc,      _ROW_AICC,     _C_AB),
+                ("QQ_Correlation",summary.qq_correlation, _ROW_QQ_CORR, _C_AB),
+                ("Durbin_Watson",  summary.durbin_watson, _ROW_DURBIN_WATSON, _C_AB),
+            ]
 
-        # ANOVA
-        scalar_specs += [
-            ("Regression_Degrees_Of_Freedom",  float(summary.df_regression), _ROW_ANOVA_REG, _C_Y),
-            ("SS_Regression",  summary.ss_regression,        _ROW_ANOVA_REG, _C_Z),
-            ("MS_Regression",  ms_reg,                       _ROW_ANOVA_REG, _C_AA),
-            ("F_Statistic",         summary.f_stat,               _ROW_ANOVA_REG, _C_AB),
-            ("F_Statistic_P_Value",      summary.p_value_f,            _ROW_ANOVA_REG, _C_AC),
-            ("Residual_Degrees_Of_Freedom",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_Y),
-            ("SS_Residual",    summary.ss_residual,          _ROW_ANOVA_RES, _C_Z),
-            ("MS_Residual",    ms_res,                       _ROW_ANOVA_RES, _C_AA),
-            ("Total_Degrees_Of_Freedom",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_Y),
-            ("SS_Total",       summary.ss_total,             _ROW_ANOVA_TOT, _C_Z),
-        ]
+            # ANOVA
+            scalar_specs += [
+                ("Regression_Degrees_Of_Freedom",  float(summary.df_regression), _ROW_ANOVA_REG, _C_Y),
+                ("SS_Regression",  summary.ss_regression,        _ROW_ANOVA_REG, _C_Z),
+                ("MS_Regression",  ms_reg,                       _ROW_ANOVA_REG, _C_AA),
+                ("F_Statistic",         summary.f_stat,               _ROW_ANOVA_REG, _C_AB),
+                ("F_Statistic_P_Value",      summary.p_value_f,            _ROW_ANOVA_REG, _C_AC),
+                ("Residual_Degrees_Of_Freedom",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_Y),
+                ("SS_Residual",    summary.ss_residual,          _ROW_ANOVA_RES, _C_Z),
+                ("MS_Residual",    ms_res,                       _ROW_ANOVA_RES, _C_AA),
+                ("Total_Degrees_Of_Freedom",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_Y),
+                ("SS_Total",       summary.ss_total,             _ROW_ANOVA_TOT, _C_Z),
+            ]
 
-        for stat_name, exp_val, row, col in scalar_specs:
-            xl_val = _read_cell(sheet, row, col)
-            diff, fdd_val = compare_values(exp_val, xl_val)
-            scalar_rows.append({
-                "config_name": config_name,
-                "allow_intercept": allow_intercept,
-                "stat_name": stat_name,
-                "expected": exp_val,
-                "excel_calc": xl_val,
-                "abs_diff": diff,
-                "first_digit_deviation": fdd_val,
-            })
-
-        # ── Predictor Summary (columns Q–V, rows 3 to 3+k-1) ─────────────
-        pred_stat_names = ["Pearson_R", "Spearman_R", "Skewness", "Kurtosis", "GVIF", "Tolerance"]
-        pred_exp_tuples = [ps.pearson_r, ps.spearman_r, ps.skewness, ps.kurtosis, ps.gvif, ps.tolerance]
-        pred_col_indices = [_C_Q, _C_R, _C_S, _C_T, _C_U, _C_V]
-
-        for stat_name, exp_tuple, col in zip(pred_stat_names, pred_exp_tuples, pred_col_indices):
-            xl_vals = _read_col(sheet, _ROW_SUMMARY_FIRST, col, k)
-            for j, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
+            for stat_name, exp_val, row, col in scalar_specs:
+                xl_val = _read_cell(sheet, row, col)
                 diff, fdd_val = compare_values(exp_val, xl_val)
-                predictor_rows.append({
+                scalar_rows.append({
                     "config_name": config_name,
                     "allow_intercept": allow_intercept,
-                    "predictor_name": ps.predictor_names[j],
                     "stat_name": stat_name,
                     "expected": exp_val,
                     "excel_calc": xl_val,
@@ -338,103 +337,132 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-        # ── Coefficients (columns Y–AD, rows 21 to 21+k) ──────────────────
-        # Intercept models: Coefficients() spills k+1 rows (intercept first);
-        # read all k+1 and compare directly against (Intercept, pred1..predk).
-        # No-intercept models prepend one blank row so predictor rows align with
-        # intercept models. Drop that one display row before comparison.
-        n_coef_rows = k + 1
-        coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Statistics", "P_Values", "Confidence_Interval_Lower", "Confidence_Interval_Upper"]
-        coef_col_indices = [_C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD]
-        coef_exp_tuples = [
-            vectors.coefficients, vectors.std_errors, vectors.t_stats,
-            vectors.p_values, vectors.ci_lower, vectors.ci_upper,
-        ]
+            # ── Predictor Summary (columns Q–V, rows 3 to 3+k-1) ─────────────
+            pred_stat_names = ["Pearson_R", "Spearman_R", "Skewness", "Kurtosis", "GVIF", "Tolerance"]
+            pred_exp_tuples = [ps.pearson_r, ps.spearman_r, ps.skewness, ps.kurtosis, ps.gvif, ps.tolerance]
+            pred_col_indices = [_C_Q, _C_R, _C_S, _C_T, _C_U, _C_V]
 
-        for stat_name, exp_tuple, col in zip(coef_stat_names, coef_exp_tuples, coef_col_indices):
-            xl_vals_all = _read_col(sheet, _ROW_COEFF_DATA, col, n_coef_rows)
-            xl_vals = xl_vals_all if allow_intercept else xl_vals_all[1:]
-            for i, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
-                term = vectors.term_names[i]
+            for stat_name, exp_tuple, col in zip(pred_stat_names, pred_exp_tuples, pred_col_indices):
+                xl_vals = _read_col(sheet, _ROW_SUMMARY_FIRST, col, k)
+                for j, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
+                    diff, fdd_val = compare_values(exp_val, xl_val)
+                    predictor_rows.append({
+                        "config_name": config_name,
+                        "allow_intercept": allow_intercept,
+                        "predictor_name": ps.predictor_names[j],
+                        "stat_name": stat_name,
+                        "expected": exp_val,
+                        "excel_calc": xl_val,
+                        "abs_diff": diff,
+                        "first_digit_deviation": fdd_val,
+                    })
+
+            # ── Coefficients (columns Y–AD, rows 21 to 21+k) ──────────────────
+            # Intercept models: Coefficients() spills k+1 rows (intercept first);
+            # read all k+1 and compare directly against (Intercept, pred1..predk).
+            # No-intercept models prepend one blank row so predictor rows align with
+            # intercept models. Drop that one display row before comparison.
+            n_coef_rows = k + 1
+            coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Statistics", "P_Values", "Confidence_Interval_Lower", "Confidence_Interval_Upper"]
+            coef_col_indices = [_C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD]
+            coef_exp_tuples = [
+                vectors.coefficients, vectors.std_errors, vectors.t_stats,
+                vectors.p_values, vectors.ci_lower, vectors.ci_upper,
+            ]
+
+            for stat_name, exp_tuple, col in zip(coef_stat_names, coef_exp_tuples, coef_col_indices):
+                xl_vals_all = _read_col(sheet, _ROW_COEFF_DATA, col, n_coef_rows)
+                xl_vals = xl_vals_all if allow_intercept else xl_vals_all[1:]
+                for i, (exp_val, xl_val) in enumerate(zip(exp_tuple, xl_vals)):
+                    term = vectors.term_names[i]
+                    diff, fdd_val = compare_values(exp_val, xl_val)
+                    coeff_rows.append({
+                        "config_name": config_name,
+                        "allow_intercept": allow_intercept,
+                        "term_name": term,
+                        "stat_name": stat_name,
+                        "expected": exp_val,
+                        "excel_calc": xl_val,
+                        "abs_diff": diff,
+                        "first_digit_deviation": fdd_val,
+                    })
+
+            beta_vals_all = _read_col(sheet, _ROW_COEFF_DATA, _C_AE, n_coef_rows)
+            beta_vals = beta_vals_all[1:]
+            for i, (exp_val, xl_val) in enumerate(zip(vectors.beta_weights, beta_vals)):
+                term = ps.predictor_names[i]
                 diff, fdd_val = compare_values(exp_val, xl_val)
                 coeff_rows.append({
                     "config_name": config_name,
                     "allow_intercept": allow_intercept,
                     "term_name": term,
-                    "stat_name": stat_name,
+                    "stat_name": "Beta_Weights",
                     "expected": exp_val,
                     "excel_calc": xl_val,
                     "abs_diff": diff,
                     "first_digit_deviation": fdd_val,
                 })
 
-        beta_vals_all = _read_col(sheet, _ROW_COEFF_DATA, _C_AE, n_coef_rows)
-        beta_vals = beta_vals_all[1:]
-        for i, (exp_val, xl_val) in enumerate(zip(vectors.beta_weights, beta_vals)):
-            term = ps.predictor_names[i]
-            diff, fdd_val = compare_values(exp_val, xl_val)
-            coeff_rows.append({
-                "config_name": config_name,
-                "allow_intercept": allow_intercept,
-                "term_name": term,
-                "stat_name": "Beta_Weights",
-                "expected": exp_val,
-                "excel_calc": xl_val,
-                "abs_diff": diff,
-                "first_digit_deviation": fdd_val,
-            })
-
-        # ── Prediction Interval (column AH, rows 3–8) ─────────────────────
-        pi_specs: list[tuple[str, float]] = [
-            ("Point_Estimate",  pi.point_estimate),
-            ("SE_Prediction",   pi.se_prediction),
-            ("T_Critical",      pi.t_critical),
-            ("Lower",           pi.lower),
-            ("Upper",           pi.upper),
-            ("Confidence_Level",pi.confidence_level),
-        ]
-        pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AH, 6)
-        for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
-            diff, fdd_val = compare_values(exp_val, xl_val)
-            pi_rows.append({
-                "config_name": config_name,
-                "allow_intercept": allow_intercept,
-                "stat_name": stat_name,
-                "expected": exp_val,
-                "excel_calc": xl_val,
-                "abs_diff": diff,
-                "first_digit_deviation": fdd_val,
-            })
-
-        # ── Residual Output (columns AL–AU, rows 3 to 3+n-1) ──────────────
-        resid_stat_names = [
-            "Dependent_Variable", "Predictions", "Residuals",
-            "Hat_Diagonal", "Studentized_Residuals", "Cooks_Distance",
-            "Normal_Scores_Ranked", "Studentized_Residuals_Ranked",
-            "Scale_Location", "PRESS_Residual",
-        ]
-        resid_exp_tuples = [
-            fr.dependent_var, fr.predictions, fr.residuals,
-            fr.hat_diagonal, fr.studentized_residuals, fr.cooks_distance,
-            fr.normal_scores_ranked, fr.studentized_residuals_ranked,
-            fr.scale_location, fr.loocv_residuals,  # loocv_residuals = e/(1-h) = PRESS
-        ]
-        # Block: columns AL(38) through AU(47) = 10 columns, n rows
-        block = _read_block(sheet, _ROW_RESID_FIRST, _C_AL, _C_AU, n)
-        for row_idx, xl_row in enumerate(block):
-            for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
-                exp_val: float | None = float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None
+            # ── Prediction Interval (column AH, rows 3–8) ─────────────────────
+            pi_specs: list[tuple[str, float]] = [
+                ("Point_Estimate",  pi.point_estimate),
+                ("SE_Prediction",   pi.se_prediction),
+                ("T_Critical",      pi.t_critical),
+                ("Lower",           pi.lower),
+                ("Upper",           pi.upper),
+                ("Confidence_Level",pi.confidence_level),
+            ]
+            pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AH, 6)
+            for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
                 diff, fdd_val = compare_values(exp_val, xl_val)
-                resid_rows.append({
+                pi_rows.append({
                     "config_name": config_name,
                     "allow_intercept": allow_intercept,
-                    "row_idx": row_idx + 1,
                     "stat_name": stat_name,
                     "expected": exp_val,
                     "excel_calc": xl_val,
                     "abs_diff": diff,
                     "first_digit_deviation": fdd_val,
                 })
+
+            # ── Residual Output (columns AL–AU, rows 3 to 3+n-1) ──────────────
+            resid_stat_names = [
+                "Dependent_Variable", "Predictions", "Residuals",
+                "Hat_Diagonal", "Studentized_Residuals", "Cooks_Distance",
+                "Normal_Scores_Ranked", "Studentized_Residuals_Ranked",
+                "Scale_Location", "PRESS_Residual",
+            ]
+            resid_exp_tuples = [
+                fr.dependent_var, fr.predictions, fr.residuals,
+                fr.hat_diagonal, fr.studentized_residuals, fr.cooks_distance,
+                fr.normal_scores_ranked, fr.studentized_residuals_ranked,
+                fr.scale_location, fr.loocv_residuals,  # loocv_residuals = e/(1-h) = PRESS
+            ]
+            # Block: columns AL(38) through AU(47) = 10 columns, n rows
+            block = _read_block(sheet, _ROW_RESID_FIRST, _C_AL, _C_AU, n)
+            for row_idx, xl_row in enumerate(block):
+                for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
+                    exp_val: float | None = float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None
+                    diff, fdd_val = compare_values(exp_val, xl_val)
+                    resid_rows.append({
+                        "config_name": config_name,
+                        "allow_intercept": allow_intercept,
+                        "row_idx": row_idx + 1,
+                        "stat_name": stat_name,
+                        "expected": exp_val,
+                        "excel_calc": xl_val,
+                        "abs_diff": diff,
+                        "first_digit_deviation": fdd_val,
+                    })
+    finally:
+        try:
+            app.api.ScreenUpdating = previous_screen_updating
+        except OPEN_WORKBOOK_ERRORS:
+            pass
+        try:
+            app.api.Calculation = previous_calculation
+        except OPEN_WORKBOOK_ERRORS:
+            pass
 
     return {
         "scalars": pd.DataFrame(scalar_rows, columns=_DF_BASE),

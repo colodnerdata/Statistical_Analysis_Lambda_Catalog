@@ -65,7 +65,15 @@ _VERIFY_CALC_SHEET_NAMES = (
     LIFE_EXPECTANCY_SHEET_NAME,
     "Regression",
     "Univariate",
+    "Dummy_Test",
 )
+
+
+def _verification_calc_sheet_names(*, skip_dummy: bool) -> tuple[str, ...]:
+    """Return workbook sheets that must be force-calculated before verify."""
+    if skip_dummy:
+        return tuple(name for name in _VERIFY_CALC_SHEET_NAMES if name != "Dummy_Test")
+    return _VERIFY_CALC_SHEET_NAMES
 
 
 def _verbose_checkpoint(verbose: bool, start_time: float, label: str) -> None:
@@ -95,25 +103,26 @@ def _calculate_verification_sheets(
     verbose: bool,
     phase_start: float,
     *,
-    include_dummy: bool,
+    skip_dummy: bool,
 ) -> None:
+    sheet_names = _verification_calc_sheet_names(skip_dummy=skip_dummy)
+    workbook_sheet_names = {sheet.name for sheet in workbook.sheets}
+    missing_sheets = [name for name in sheet_names if name not in workbook_sheet_names]
+    if missing_sheets:
+        raise RuntimeError(
+            "Verification requires worksheet(s) that are missing from the workbook: "
+            + ", ".join(missing_sheets)
+        )
+
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
     workbook.app.api.Calculation = XL_CALCULATION_MANUAL
-    calc_sheet_names = _VERIFY_CALC_SHEET_NAMES + (("Dummy_Test",) if include_dummy else ())
-    workbook_sheet_names = {s.name for s in workbook.sheets}
-    missing_sheet_names = tuple(
-        sheet_name for sheet_name in calc_sheet_names if sheet_name not in workbook_sheet_names
-    )
-    if missing_sheet_names:
-        raise RuntimeError(
-            "QC verification missing required sheet(s): "
-            + ", ".join(missing_sheet_names)
-        )
-    for sheet_name in calc_sheet_names:
-        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
-        workbook.sheets[sheet_name].api.Calculate()
-        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
-    workbook.app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
+    try:
+        for sheet_name in sheet_names:
+            _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
+            workbook.sheets[sheet_name].api.Calculate()
+            _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
+    finally:
+        workbook.app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate done")
 
 
@@ -198,7 +207,7 @@ def verify_test_sheets(
         workbook,
         verbose,
         phase_start,
-        include_dummy=not skip_dummy,
+        skip_dummy=skip_dummy,
     )
     _verify_life_expectancy_full_data(workbook, csv_path, failures)
 
@@ -275,6 +284,7 @@ def build_qc_workbook(
     verbose: bool = False,
     *,
     no_verify: bool = False,
+    timings_out: dict[str, float | None] | None = None,
 ) -> NameSyncResult:
     """Build production/QC sheets and verify the workbook."""
     _ = cache_path
@@ -285,8 +295,6 @@ def build_qc_workbook(
     _verbose_checkpoint(verbose, phase_start, "Prep: regression QC loaded")
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: csv loaded")
-    _verbose_checkpoint(verbose, phase_start, "Prep total")
-
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
 
@@ -302,6 +310,9 @@ def build_qc_workbook(
             raise_excel_access_error(workbook_path, "update", exc)
         except (PermissionError, OSError) as exc:
             raise_excel_access_error(workbook_path, "update", exc)
+
+    _verbose_checkpoint(verbose, phase_start, "Prep total")
+    prep_elapsed = time.monotonic() - phase_start
 
     phase_start = time.monotonic()
     try:
@@ -366,8 +377,9 @@ def build_qc_workbook(
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "open or save", exc)
+    write_elapsed = time.monotonic() - phase_start
     if verbose:
-        print(f"  Write sheets:   {time.monotonic() - phase_start:.1f}s", flush=True)
+        print(f"  Write sheets:   {write_elapsed:.1f}s", flush=True)
 
     phase_start = time.monotonic()
     try:
@@ -378,12 +390,15 @@ def build_qc_workbook(
         raise_excel_access_error(workbook_path, "update", exc)
     except (PermissionError, OSError) as exc:
         raise_excel_access_error(workbook_path, "update", exc)
+    sync_elapsed = time.monotonic() - phase_start
     if verbose:
-        print(f"  Sync names:     {time.monotonic() - phase_start:.1f}s", flush=True)
+        print(f"  Sync names:     {sync_elapsed:.1f}s", flush=True)
 
     phase_start = time.monotonic()
+    verify_elapsed: float | None
     if no_verify:
         print("Verify: skipped (--no-verify)", flush=True)
+        verify_elapsed = None
     else:
         try:
             _verbose_checkpoint(verbose, phase_start, "Verify: app start")
@@ -405,11 +420,22 @@ def build_qc_workbook(
                     workbook.close()
         except OPEN_WORKBOOK_ERRORS as exc:
             raise_excel_access_error(workbook_path, "verify", exc)
+        verify_elapsed = time.monotonic() - phase_start
         if verbose:
-            print(f"  Verify:         {time.monotonic() - phase_start:.1f}s", flush=True)
+            print(f"  Verify:         {verify_elapsed:.1f}s", flush=True)
 
     if validate_reopen:
         _validate_workbook_reopen(workbook_path)
+
+    if timings_out is not None:
+        timings_out.update(
+            {
+                "prep_seconds": prep_elapsed,
+                "write_seconds": write_elapsed,
+                "sync_seconds": sync_elapsed,
+                "verify_seconds": verify_elapsed,
+            }
+        )
 
     return result
 
@@ -493,6 +519,8 @@ def main() -> None:
 
 
 def _run_main(args: argparse.Namespace) -> None:
+    total_start = time.monotonic()
+    timings: dict[str, float | None] = {}
     while True:
         try:
             result = build_qc_workbook(
@@ -503,6 +531,7 @@ def _run_main(args: argparse.Namespace) -> None:
                 validate_reopen=args.validate_reopen,
                 verbose=args.verbose,
                 no_verify=args.no_verify,
+                timings_out=timings,
             )
             break
         except RuntimeError as exc:
@@ -526,13 +555,22 @@ def _run_main(args: argparse.Namespace) -> None:
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
     print("Sheet updated: Dummy_Test")
-    print("Sheet verified: Regression")
-    print("Sheet verified: Univariate")
-    print("Sheet verified: Dummy_Test")
+    if timings["verify_seconds"] is not None:
+        print("Sheet verified: Regression")
+        print("Sheet verified: Univariate")
+        print("Sheet verified: Dummy_Test")
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")
     if args.validate_reopen:
         print("Reopen validation: passed")
+    print(f"Timing: prep          {timings['prep_seconds']:.1f}s")
+    print(f"Timing: write sheets  {timings['write_seconds']:.1f}s")
+    print(f"Timing: sync names    {timings['sync_seconds']:.1f}s")
+    if timings["verify_seconds"] is None:
+        print("Timing: verify        skipped")
+    else:
+        print(f"Timing: verify        {timings['verify_seconds']:.1f}s")
+    print(f"Timing: total         {time.monotonic() - total_start:.1f}s")
 
     subprocess.Popen(["cmd", "/c", "start", "", str(args.workbook.resolve())])
     print(f"Log: {DEFAULT_LOG_PATH}")

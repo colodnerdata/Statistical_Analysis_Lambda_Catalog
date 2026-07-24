@@ -73,7 +73,7 @@ There are two separate build scripts with distinct purposes.
 ### Production build
 
 ```powershell
-python build_production.py
+uv run python build_production.py
 ```
 
 Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes seven sheets:
@@ -91,30 +91,35 @@ No test sheets, no OLS analysis, no cache dependency.
 Optional flags:
 
 ```powershell
-python build_production.py --validate-reopen   # re-open workbook to verify XML patch
-python build_production.py --verbose           # print per-phase timing
+uv run python build_production.py --validate-reopen   # re-open workbook to verify XML patch
+uv run python build_production.py --verbose           # print per-phase timing checkpoints
+uv run python build_production.py --verify --no-launch --skip-data-table-calculations
 ```
+
+The one-shot automated flow is the third command above. It builds, syncs names, runs the spec-driven verifier, and exits non-zero on drift without launching Excel.
 
 ### QC build
 
 ```powershell
-python build_qc.py
+uv run python build_qc.py
 ```
 
 Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all twelve sheets (the seven above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
 
 The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 
-The verification step forces Excel to recalculate all test formulas, reads the Calc columns, compares them against Python-computed expected values, and prints a `WARNING` line for any value that diverges beyond the tolerance band. No warnings means the LAMBDA implementations agree with statsmodels.
+The verification step forces Excel to recalculate all required sheets, reads the Calc columns, compares them against Python-computed expected values, and emits `ERROR ...` lines plus a mismatch summary when drift is found. A clean run produces no mismatch errors.
 
 Optional flags:
 
 ```powershell
-python build_qc.py --validate-reopen
-python build_qc.py --verbose
-python build_qc.py --cache path/to/.analysis_cache.json   # non-default cache location
-python build_qc.py --no-verify                           # build QC sheets but skip the spec-driven pass
+uv run python build_qc.py --validate-reopen
+uv run python build_qc.py --verbose
+uv run python build_qc.py --cache path/to/.analysis_cache.json   # non-default cache location
+uv run python build_qc.py --no-verify                           # build QC sheets but skip the spec-driven pass
 ```
+
+`build_qc.py` mirrors terminal output to `qc_log.txt` and now includes end-of-run timing lines (`Timing: prep`, `write sheets`, `sync names`, `verify`, `total`) in both places.
 
 Run the QC build whenever you add or modify a LAMBDA function.
 
@@ -148,11 +153,19 @@ Reuses `build_qc.verify_test_sheets` against the production sheets. Same machine
 python build_production.py --verify --no-launch --skip-data-table-calculations --skip-univariate
 
 # Or, on the just-built workbook without rebuilding:
-python tools/verify_workbook.py Lambda_Library.xlsx
-python tools/verify_workbook.py Lambda_Library.xlsx --json   # agentic consumption
+uv run python tools/verify_workbook.py Lambda_Library.xlsx
+uv run python tools/verify_workbook.py Lambda_Library.xlsx --json   # agentic consumption
 ```
 
 The `VerifyReport` (in `lambda_catalog/verify_report.py`) is emitted both in a human-readable form (`Verify: passed (spec mode, …)` / `ERROR Verify mismatch totals: …`) and as JSON (stable schema: `passed`, `categories`, `failures`, `elapsed_seconds`, `mode`, `workbook`).
+
+Expected terminal flow for the one-shot command:
+
+1. Sheet update summary (`Sheet updated: ...`, `Created names: ...`, `Updated names: ...`).
+2. Spec verifier result (`Verify: passed ...` or `ERROR Verify mismatch totals: ...`).
+3. Timing summary lines (`Timing: build+sync`, `Timing: recalculate` or `skipped`, `Timing: verify`, `Timing: total`).
+
+When the production verifier runs, the deep-check pre-calc list excludes `Dummy_Test` (`skip_dummy=True`) because production workbooks do not include that sheet.
 
 ### `make verify`
 

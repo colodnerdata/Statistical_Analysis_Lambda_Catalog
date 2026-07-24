@@ -408,7 +408,7 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
 
-    assert _N_VARIABLES == 23
+    assert _N_VARIABLES == 12
     assert sheet.cell(_FIRST_DATA_ROW, 1).api.Formula2 == "=TRANSPOSE(Header_Names)"
     for offset, variable in enumerate(_VARIABLES):
         row = _FIRST_DATA_ROW + offset
@@ -446,17 +446,18 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
     # all-features completeness flag is redundant with the built-in mask and
     # over-filters, so it is not the default Filter.
     by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(_VARIABLES)}
-    assert sheet.cell(by_variable["Country"], 2).value == "Identifier (Row Label)"
-    assert sheet.cell(by_variable["Life expectancy"], 2).value == "Response (y)"
+    assert sheet.cell(by_variable["Car Name"], 2).value == "Identifier (Row Label)"
+    assert sheet.cell(by_variable["MPG"], 2).value == "Response (y)"
     assert sheet.cell(by_variable["Full_Data"], 2).value == "Omit"
-    assert sheet.cell(by_variable["Population"], 2).value == "Omit"
-    for categorical in ("Year", "Status"):
+    assert sheet.cell(by_variable["Make"], 2).value == "Omit"
+    assert sheet.cell(by_variable["Model?"], 2).value == "Omit"
+    for categorical in ("Model Year", "Origin"):
         row = by_variable[categorical]
         assert sheet.cell(row, 2).value == "Predictor (x)"
         assert sheet.cell(row, 3).value is True
         assert sheet.cell(row, 4).value == "Categorical"
-    # Year is additionally flagged as the Sequence (ordering) axis.
-    assert sheet.cell(by_variable["Year"], _C_SEQUENCE).value is True
+    # Model Year is additionally flagged as the Sequence (ordering) axis.
+    assert sheet.cell(by_variable["Model Year"], _C_SEQUENCE).value is True
 
 
 def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:

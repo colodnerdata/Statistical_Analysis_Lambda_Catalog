@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 import numpy as np
 
-from .analyze_life_expectancy import DEFAULT_INPUT_CSV
+from .analyze_mileage import DEFAULT_INPUT_XLSX
 from .analyze_model_construction import (
     SpecVariable,
     _compute_mask,
@@ -19,13 +19,28 @@ from .analyze_model_construction import (
     load_source_rows,
 )
 from .analyze_regression_sheet import calculate_regression_results_from_matrix
-from .regression_shared import FEATURE_COLUMNS, RegressionSheetResults
+from .regression_shared import RegressionSheetResults
 from .write_sheet_model_construction import (
     _ROLE_FILTER,
     _ROLE_IDENTIFIER,
     _ROLE_OMIT,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
+)
+
+# The Mileage/Auto MPG continuous-measurement columns available as full
+# continuous predictors in the "v1_full_continuous" QC case (all 5, vs. the
+# curated subset the shipped T0 default and "continuous_subset" turn on).
+# Kept local to this module rather than added to regression_shared's
+# FEATURE_COLUMNS, which backs the unrelated MLR_*_Test QC sheets (those
+# still target Life Expectancy data independently of the Regression sheet's
+# spec-driven QC oracle here).
+_MILEAGE_FEATURE_COLUMNS = (
+    "Cylinders",
+    "Displacement",
+    "Horsepower",
+    "Weight",
+    "Acceleration",
 )
 
 
@@ -101,7 +116,7 @@ def _spec_var(
     role: str,
     include: bool = False,
     var_type: str = "Continuous",
-    reference: str = "",
+    reference: object = "",
     sequence: bool = False,
 ) -> SpecVariable:
     return SpecVariable(name, role, include, var_type, reference, sequence)
@@ -218,10 +233,10 @@ def build_spec_design(
 
 def calculate_regression_spec_case(
     case: RegressionSpecCase,
-    csv_path: Path = DEFAULT_INPUT_CSV,
+    xlsx_path: Path = DEFAULT_INPUT_XLSX,
 ) -> RegressionSpecExpected:
     """Compute expected current Regression sheet outputs for one spec case."""
-    rows = _with_extra_columns(load_source_rows(csv_path), case.extra_columns)
+    rows = _with_extra_columns(load_source_rows(xlsx_path), case.extra_columns)
     design = build_spec_design(case.spec, rows)
     results = calculate_regression_results_from_matrix(
         x_features=design.x_features,
@@ -235,16 +250,16 @@ def calculate_regression_spec_case(
 
 
 def _v1_full_continuous_spec() -> list[SpecVariable]:
-    numeric_predictors = set(FEATURE_COLUMNS)
+    numeric_predictors = set(_MILEAGE_FEATURE_COLUMNS)
     spec = []
     for variable in build_default_spec():
-        if variable.name == "Country":
+        if variable.name == "Car Name":
             spec.append(_spec_var(variable.name, _ROLE_IDENTIFIER))
-        elif variable.name == "Year":
+        elif variable.name == "Model Year":
             spec.append(_spec_var(variable.name, _ROLE_IDENTIFIER, sequence=True))
-        elif variable.name == "Status":
+        elif variable.name == "Origin":
             spec.append(_spec_var(variable.name, _ROLE_OMIT))
-        elif variable.name == "Life expectancy":
+        elif variable.name == "MPG":
             spec.append(_spec_var(variable.name, _ROLE_RESPONSE))
         elif variable.name == "Full_Data":
             spec.append(_spec_var(variable.name, _ROLE_FILTER))
@@ -256,7 +271,7 @@ def _v1_full_continuous_spec() -> list[SpecVariable]:
 
 
 def _continuous_subset_spec() -> list[SpecVariable]:
-    selected = {"Adult Mortality", "GDP", "Schooling"}
+    selected = {"Displacement", "Horsepower", "Weight"}
     spec = []
     for variable in _v1_full_continuous_spec():
         if variable.role == _ROLE_PREDICTOR and variable.name not in selected:
@@ -266,24 +281,26 @@ def _continuous_subset_spec() -> list[SpecVariable]:
     return spec
 
 
-def _with_status(spec: list[SpecVariable], reference: str = "") -> list[SpecVariable]:
+def _with_origin(spec: list[SpecVariable], reference: object = "") -> list[SpecVariable]:
     return _replace_spec_vars(
         spec,
-        status=_spec_var("Status", _ROLE_PREDICTOR, True, "Categorical", reference),
+        origin=_spec_var("Origin", _ROLE_PREDICTOR, True, "Categorical", reference),
     )
 
 
-def _year_status_categorical_spec() -> list[SpecVariable]:
+def _model_year_origin_categorical_spec() -> list[SpecVariable]:
     return _replace_spec_vars(
-        _with_status(_continuous_subset_spec()),
-        year=_spec_var("Year", _ROLE_PREDICTOR, True, "Categorical", sequence=True),
+        _with_origin(_continuous_subset_spec()),
+        model_year=_spec_var(
+            "Model Year", _ROLE_PREDICTOR, True, "Categorical", sequence=True
+        ),
     )
 
 
-_IS_DEVELOPING = ExtraSpecColumn(
-    name="Is_Developing",
-    excel_formula='=--([@Status]="Developing")',
-    value_fn=lambda row: 1 if row["Status"] == "Developing" else 0,
+_IS_USA = ExtraSpecColumn(
+    name="Is_USA",
+    excel_formula="=--([@Origin]=1)",
+    value_fn=lambda row: 1 if row["Origin"] == 1 else 0,
 )
 
 
@@ -316,20 +333,20 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
         )
 
     categorical_specs = [
-        ("status_default_reference", _with_status(_continuous_subset_spec())),
-        ("status_explicit_reference", _with_status(_continuous_subset_spec(), "Developing")),
-        ("status_invalid_reference", _with_status(_continuous_subset_spec(), "Developped")),
-        ("year_status_categorical", _year_status_categorical_spec()),
+        ("origin_default_reference", _with_origin(_continuous_subset_spec())),
+        ("origin_explicit_reference", _with_origin(_continuous_subset_spec(), 2)),
+        ("origin_invalid_reference", _with_origin(_continuous_subset_spec(), 99)),
+        ("model_year_origin_categorical", _model_year_origin_categorical_spec()),
         (
-            "developing_filter_degenerate_status",
+            "usa_filter_degenerate_origin",
             [
                 *build_default_spec(),
-                _spec_var("Is_Developing", _ROLE_FILTER, False, "Continuous"),
+                _spec_var("Is_USA", _ROLE_FILTER, False, "Continuous"),
             ],
         ),
     ]
     for name, spec in categorical_specs:
-        extra = (_IS_DEVELOPING,) if name == "developing_filter_degenerate_status" else ()
+        extra = (_IS_USA,) if name == "usa_filter_degenerate_origin" else ()
         cases.append(
             RegressionSpecCase(
                 name=name,
@@ -343,10 +360,10 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
 
 
 def build_regression_spec_qc_configs(
-    csv_path: Path = DEFAULT_INPUT_CSV,
+    xlsx_path: Path = DEFAULT_INPUT_XLSX,
 ) -> list[RegressionSpecExpected]:
     """Compute expected Regression sheet outputs for all spec-driven QC cases."""
     return [
-        calculate_regression_spec_case(case, csv_path)
+        calculate_regression_spec_case(case, xlsx_path)
         for case in build_regression_spec_cases()
     ]

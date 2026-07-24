@@ -35,11 +35,12 @@ Row 2 is a model-level control row above the spec table: A2 labels
 "Intercept" and C2 is the Allow_Intercept toggle, sitting at the top of the
 C/Include boolean column (mirroring the v1 Regression sheet's A2/B2
 control). It has no v3.0 consumer yet — the engine will read it. Because of
-this control row the spec headers move to row 3 and the 23 variable rows to
-4–26; the row-1 audit strip is unaffected.
+this control row the spec headers move to row 3 and the variable rows to
+4–(4+N−1), where N is the source table's column count; the row-1 audit
+strip is unaffected.
 
-The spec spans EVERY column of the LifeExpectancyData table (23 rows:
-[Country]..[Schooling] plus [Full_Data]). Two axes:
+The spec spans EVERY column of the Source_Table-targeted table (currently
+MileageData, 12 rows: [MPG]..[Model?] plus [Full_Data]). Two axes:
 
     Variable Role  — Response (y) | Predictor (x) | Identifier (Row Label) |
                      Filter | Omit
@@ -125,24 +126,26 @@ Constructor decisions (all settled — see ROADMAP):
    (acc passthrough), flagged red on the sheet by conditional formatting:
    visible degradation, not a hard error, not silent omission.
 
-Default configuration (the human test plan's T0 state):
-    Country          → Identifier            (residual labeling; no columns)
-    Year             → Predictor/Categorical/TRUE  (numeric-valued)
-    Status           → Predictor/Categorical/TRUE
-    Life expectancy  → Response               (derived y)
-    Adult Mortality, GDP, Schooling → Predictor/Continuous/TRUE
-    Population        → Omit                   (deliberate exclusion demo)
-    remaining numerics → Predictor/Continuous/FALSE (candidates)
+Default configuration (the human test plan's T0 state, retargeted to the
+Mileage/Auto MPG dataset since Source_Table now defaults to MileageData):
+    Car Name         → Identifier            (residual labeling; no columns)
+    Model Year       → Predictor/Categorical/TRUE  (numeric-valued; Sequence axis)
+    Origin           → Predictor/Categorical/TRUE  (numeric-valued: 1/2/3)
+    MPG              → Response               (derived y)
+    Horsepower, Weight → Predictor/Continuous/TRUE
+    Cylinders, Displacement, Acceleration → Predictor/Continuous/FALSE (candidates)
+    Make, Model?     → Omit                   (text columns parsed out of Car Name)
     Full_Data        → Omit                    (its all-features completeness
                                                flag is redundant with the mask's
                                                built-in completeness and
                                                over-filters; no default Filter)
 Full-height contract: ROWS(X_s()) = ROWS(Row_Labels()) =
-ROWS(Sample_Include()) = 2938 always — the constructor reads the mask ONLY
+ROWS(Sample_Include()) = 406 always — the constructor reads the mask ONLY
 to fix level sets; nothing here ever row-filters. With the real mask live,
-the T0 mask-dependent values are real on the sheet: k = 19 (15 Year
-dummies), and SUMPRODUCT(N(Sample_Include())) = 2482 (completeness-only on
-the response and the three continuous predictors, no Full_Data over-filter).
+the T0 mask-dependent values are real on the sheet: k = 16 (2 continuous +
+2 Origin dummies + 12 Model Year dummies), and
+SUMPRODUCT(N(Sample_Include())) = 392 (completeness-only on the response
+and the two continuous predictors, no Full_Data over-filter).
 
 Not here (deliberately, per release scoping): the QC analyzer
 (analyze_model_construction.py) and the Version History / CHANGELOG bump
@@ -201,34 +204,23 @@ _CLOSURE_SCOPE = "Regression"
 # not pass them in explicitly.
 _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.json"
 
-# Every LifeExpectancyData column, in table order (incl. the computed
-# Full_Data completeness column — the spec spans the whole table).
+# Every MileageData column, in table order (incl. the computed Full_Data
+# completeness column — the spec spans the whole table).
 _VARIABLES: list[str] = [
-    "Country",
-    "Year",
-    "Status",
-    "Life expectancy",
-    "Adult Mortality",
-    "infant deaths",
-    "Alcohol",
-    "percentage expenditure",
-    "Hepatitis B",
-    "Measles",
-    "BMI",
-    "under-five deaths",
-    "Polio",
-    "Total expenditure",
-    "Diphtheria",
-    "HIV/AIDS",
-    "GDP",
-    "Population",
-    "thinness 1-19 years",
-    "thinness 5-9 years",
-    "Income composition of resources",
-    "Schooling",
+    "MPG",
+    "Cylinders",
+    "Displacement",
+    "Horsepower",
+    "Weight",
+    "Acceleration",
+    "Model Year",
+    "Origin",
+    "Car Name",
+    "Make",
+    "Model?",
     "Full_Data",
 ]
-_N_VARIABLES = len(_VARIABLES)  # 23
+_N_VARIABLES = len(_VARIABLES)  # 12
 
 # Row 2 is the model-level Intercept control (label A2, toggle C2 — aligned
 # to the C/Include boolean column). The spec table sits one row below it:
@@ -374,40 +366,42 @@ _VALIDATION_LAST_ROW = 16000
 # The shipped T0 spec demonstrates the Role axis (Response, Predictor,
 # Identifier, Omit), both Types (Continuous, Categorical), and — via
 # _DEFAULT_SEQUENCE_VARIABLES below — the structural Sequence axis with its
-# Base Period Δ companion. Population is shipped as an explicit Omit (WHO
-# population figures are notoriously incomplete/inconsistent) so the Omit role
+# Base Period Δ companion. Make/Model? ship as explicit Omit (text columns
+# parsed out of Car Name, not usable as numeric predictors) so the Omit role
 # and its graying are demonstrated; Omit contributes no column and imposes no
 # mask condition, leaving the fitted model identical to a plain excluded row.
 #
 # Full_Data ships as Omit, NOT Filter: the Full_Data completeness column
-# demands EVERY numeric feature be present, which is (a) redundant with the
-# built-in completeness the mask already applies to the response and the
-# model's included continuous predictors, and (b) an over-filter — it drops
-# rows missing a sparse predictor the model does not even use. With no Filter
-# declared, the shipped model includes every row complete on its OWN columns
-# (2482, vs 1649 under Full_Data). The Filter role is exercised in the human
-# test plan via a purpose-built filter column, not the completeness flag.
+# demands EVERY continuous-measurement column be present, which is (a)
+# redundant with the built-in completeness the mask already applies to the
+# response and the model's included continuous predictors, and (b) an
+# over-filter — it drops rows missing a sparse predictor the model does not
+# even use. With no Filter declared, the shipped model includes every row
+# complete on its OWN columns (392, vs fewer under Full_Data). The Filter
+# role is exercised in the human test plan via a purpose-built filter
+# column, not the completeness flag.
 _DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
-    "Country": (_ROLE_IDENTIFIER, False, "Continuous"),
-    "Year": (_ROLE_PREDICTOR, True, "Categorical"),
-    "Status": (_ROLE_PREDICTOR, True, "Categorical"),
-    "Life expectancy": (_ROLE_RESPONSE, False, "Continuous"),
-    "Adult Mortality": (_ROLE_PREDICTOR, True, "Continuous"),
-    "Population": (_ROLE_OMIT, False, "Continuous"),
-    "GDP": (_ROLE_PREDICTOR, True, "Continuous"),
-    "Schooling": (_ROLE_PREDICTOR, True, "Continuous"),
+    "MPG": (_ROLE_RESPONSE, False, "Continuous"),
+    "Horsepower": (_ROLE_PREDICTOR, True, "Continuous"),
+    "Weight": (_ROLE_PREDICTOR, True, "Continuous"),
+    "Model Year": (_ROLE_PREDICTOR, True, "Categorical"),
+    "Origin": (_ROLE_PREDICTOR, True, "Categorical"),
+    "Car Name": (_ROLE_IDENTIFIER, False, "Continuous"),
+    "Make": (_ROLE_OMIT, False, "Continuous"),
+    "Model?": (_ROLE_OMIT, False, "Continuous"),
     "Full_Data": (_ROLE_OMIT, False, "Continuous"),
 }
 _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
 
-# Variables shipped with their Sequence flag (column H) set TRUE. Year is the
-# canonical ordering axis for the WHO Country/Year panel: flagging it activates
-# the Base Period Δ candidate (Δ = 1), the Sequence Spacing block, and the
-# gated Durbin-Watson diagnostic on the Regression sheet. Structural and
-# Role-independent — Year stays a Categorical Predictor, so the fitted model is
-# unchanged; the flag only drives the serial-correlation / base-period layer.
-# Kept to at most one entry: the H2 status line errors at two-plus flags.
-_DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Year"})
+# Variables shipped with their Sequence flag (column H) set TRUE. Model Year
+# is the canonical ordering axis for the Auto MPG panel: flagging it
+# activates the Base Period Δ candidate (Δ = 1), the Sequence Spacing block,
+# and the gated Durbin-Watson diagnostic on the Regression sheet. Structural
+# and Role-independent — Model Year stays a Categorical Predictor, so the
+# fitted model is unchanged; the flag only drives the serial-correlation /
+# base-period layer. Kept to at most one entry: the H2 status line errors at
+# two-plus flags.
+_DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Model Year"})
 
 _DEFAULT_TRANSFORM = "None"
 

@@ -4,9 +4,10 @@ The v3.0 changeover moved the declarative spec block onto the Regression
 sheet, and the Model Construction sheet (with its dedicated verifier) left
 the build. The six regression QC configurations only exercise all-continuous
 designs — every config switches the default spec's Categorical predictors
-(Year, Status) OFF — so without this module the categorical constructor path
-(dummy encoding, level-qualified names, the degenerate skip, the Levels and
-Reference In Use displays) would have no live-Excel verification at all.
+(Model Year, Origin) OFF — so without this module the categorical
+constructor path (dummy encoding, level-qualified names, the degenerate
+skip, the Levels and Reference In Use displays) would have no live-Excel
+verification at all.
 
 This is the Model Construction verifier ported to the Regression sheet. The
 expectation side is reused verbatim (``analyze_model_construction``'s
@@ -34,11 +35,11 @@ closures behind them are pinned by the unit suite.
 
 Two passes, mirroring the retired verifier:
 
-1. **Default spec (T0)** — the build's shipped state, Year/Status ON.
+1. **Default spec (T0)** — the build's shipped state, Model Year/Origin ON.
 2. **Degenerate Categorical via a Filter column** (the human test plan's T8
-   mechanism): an ``Is_Developing`` column is added to the data table and
-   declared as a Filter in the spec, collapsing Status to one level inside
-   the mask; Status must contribute zero columns, not an error. The mutation
+   mechanism): an ``Is_USA`` column is added to the data table and
+   declared as a Filter in the spec, collapsing Origin to one level inside
+   the mask; Origin must contribute zero columns, not an error. The mutation
    is reverted, and the QC verify phase closes the workbook without saving
    as a backstop.
 """
@@ -65,8 +66,8 @@ from .analyze_model_construction import (
     calculate_model_construction_expectations,
     load_source_rows,
 )
-from .write_sheet_life_expectancy_data import (
-    DEFAULT_CSV_PATH,
+from .write_sheet_mileage_data import (
+    DEFAULT_XLSX_PATH,
     SHEET_NAME as DATA_SHEET_NAME,
 )
 from .write_sheet_model_construction import (
@@ -240,7 +241,7 @@ def compare_spec_observed_to_expected(
 def _verify_degenerate_filter_case(
     workbook: xw.Book, rows: list[dict[str, object]]
 ) -> list[str]:
-    """Drive the T8 mechanism: add an Is_Developing Filter, assert the skip.
+    """Drive the T8 mechanism: add an Is_USA Filter, assert the skip.
 
     The added ListColumn and the typed Filter role are reverted before
     returning; the verify phase additionally closes the workbook without
@@ -253,7 +254,7 @@ def _verify_degenerate_filter_case(
         SpecVariable(_EXTRA_FILTER_HEADER, _ROLE_FILTER, False, "Continuous")
     ]
     mutated_rows = [
-        {**row, _EXTRA_FILTER_HEADER: 1 if row["Status"] == "Developing" else 0}
+        {**row, _EXTRA_FILTER_HEADER: 1 if row["Origin"] == 1 else 0}
         for row in rows
     ]
     expected = calculate_model_construction_expectations(spec, mutated_rows)
@@ -272,14 +273,14 @@ def _verify_degenerate_filter_case(
             sheet, expected.total_rows, max(expected.k, 1)
         )
         failures = compare_spec_observed_to_expected(
-            observed, expected, "Is_Developing filter"
+            observed, expected, "Is_USA filter"
         )
-        # The point of the case: Status degenerates inside the stratified
+        # The point of the case: Origin degenerates inside the stratified
         # mask and must be skipped (zero contributed columns), not errored.
-        if "Status" not in expected.degenerate_categoricals:
+        if "Origin" not in expected.degenerate_categoricals:
             failures.append(
-                f"{_QC_PREFIX} [Is_Developing filter] check='Status degenerates': "
-                f"expected Status in degenerate_categoricals, "
+                f"{_QC_PREFIX} [Is_USA filter] check='Origin degenerates': "
+                f"expected Origin in degenerate_categoricals, "
                 f"got {expected.degenerate_categoricals!r}"
             )
     finally:
@@ -291,18 +292,18 @@ def _verify_degenerate_filter_case(
 
 
 def read_regression_spec_block_failures(
-    workbook: xw.Book, csv_path: Path = DEFAULT_CSV_PATH
+    workbook: xw.Book, xlsx_path: Path = DEFAULT_XLSX_PATH
 ) -> list[str]:
     """Verify the Regression sheet's spec block; return QC failure messages.
 
     Pass 1 asserts the shipped default spec (the human test plan's T0 state,
-    Year/Status ON — the only live-Excel coverage of the categorical
+    Model Year/Origin ON — the only live-Excel coverage of the categorical
     constructor path); pass 2 drives the degenerate-Categorical Filter case
     and reverts it. Must run while the spec block is in its shipped state —
     i.e. BEFORE the six-configuration regression pass, which mutates the
     Include cells.
     """
-    rows = load_source_rows(csv_path)
+    rows = load_source_rows(xlsx_path)
     spec = build_default_spec()
     expected = calculate_model_construction_expectations(spec, rows)
 

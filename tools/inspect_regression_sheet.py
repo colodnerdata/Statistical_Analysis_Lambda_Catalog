@@ -6,7 +6,7 @@ output zone, and compares against cached Python expected values.
 
 Usage:
     python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx
-    python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx --csv path/to/data.csv
+    python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx --mileage path/to/data.xlsx
 """
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from typing import Any
 import pandas as pd  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
 import xlwings as xw
 
-from lambda_catalog.analyze_life_expectancy import DEFAULT_INPUT_CSV
+from lambda_catalog.analyze_mileage import DEFAULT_INPUT_XLSX
 from lambda_catalog.analyze_regression_spec import (
     RegressionSpecExpected,
     build_regression_spec_qc_configs,
@@ -26,7 +26,7 @@ from lambda_catalog.analyze_regression_spec import (
 from lambda_catalog.inspection_compare import compare_values, to_float_or_none
 from lambda_catalog.workbook_builder import XL_CALCULATION_MANUAL
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
-from lambda_catalog.write_sheet_life_expectancy_data import (
+from lambda_catalog.write_sheet_mileage_data import (
     SHEET_NAME as DATA_SHEET_NAME,
     TABLE_NAME as DATA_TABLE_NAME,
 )
@@ -478,7 +478,7 @@ def main() -> None:
         description="Inspect the Regression sheet against Python-computed expected values."
     )
     parser.add_argument("workbook", type=Path, help="Path to the Excel workbook.")
-    parser.add_argument("--csv", type=Path, default=DEFAULT_INPUT_CSV)
+    parser.add_argument("--mileage", type=Path, default=DEFAULT_INPUT_XLSX)
     args = parser.parse_args()
 
     workbook_path = args.workbook.resolve()
@@ -486,7 +486,7 @@ def main() -> None:
         print(f"Error: workbook not found: {workbook_path}", file=sys.stderr)
         sys.exit(1)
 
-    regression_sheet_configs = build_regression_spec_qc_configs(args.csv)
+    regression_sheet_configs = build_regression_spec_qc_configs(args.mileage)
 
     try:
         with xw.App(visible=False, add_book=False) as app:

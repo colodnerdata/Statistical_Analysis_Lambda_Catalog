@@ -113,8 +113,8 @@ uv run python build_production.py
 Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes eight sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions
-- **Life Expectancy Data** — WHO dataset as a structured table
-- **Mileage Data** — Auto MPG dataset as a structured table (a second sample dataset for practicing the Source_Table retarget workflow)
+- **Life Expectancy Data** — WHO dataset as a structured table (a second sample dataset for practicing the Source_Table retarget workflow)
+- **Mileage Data** — Auto MPG dataset as a structured table; this is the dataset the Regression sheet's `Source_Table` targets by default
 - **Univariate Analysis** — descriptive statistics, histogram binning, and Weibull grid-search fitting
 - **Regression Instructions** — step-by-step guide for adapting the sheet to new datasets
 - **Diagnostic Guide** — interpretation guide for regression diagnostics

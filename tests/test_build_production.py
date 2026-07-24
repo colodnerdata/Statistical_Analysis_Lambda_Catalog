@@ -488,7 +488,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
     popen_calls: list[tuple[str, ...]] = []
     verify_calls: list[tuple[Path, Path]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False):
+    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
         verify_calls.append((workbook_path, csv_path))
         from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
@@ -540,6 +540,59 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
     assert "spec mode" in output
 
 
+def test_main_forwards_skip_univariate_to_deep_verify(
+    monkeypatch,
+    capsys,
+) -> None:
+    """--verify combined with --skip-univariate must not crash trying to
+    verify a sheet that was never written; the flag has to reach the
+    verifier so it knows to skip the Univariate check instead."""
+    verify_kwargs: list[dict] = []
+
+    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
+        verify_kwargs.append({"skip_univariate": skip_univariate})
+        from lambda_catalog.verify_report import VerifyReport
+        return VerifyReport(
+            passed=True,
+            categories={},
+            failures=(),
+            elapsed_seconds=0.0,
+            mode="spec",
+            workbook=str(workbook_path),
+        )
+
+    monkeypatch.setattr(
+        build_production,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_univariate=True,
+            skip_data_table_calculations=True,
+            verify=True,
+            no_launch=False,
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "build_production_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
+    monkeypatch.setattr(
+        build_production.subprocess,
+        "Popen",
+        lambda args: None,
+    )
+
+    build_production.main()
+
+    assert verify_kwargs == [{"skip_univariate": True}]
+
+
 def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     monkeypatch,
     capsys,
@@ -549,7 +602,7 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     launched in place of a fresh one) and must sys.exit(1)."""
     popen_calls: list[tuple[str, ...]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False):
+    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
         from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
             passed=False,

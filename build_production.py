@@ -127,17 +127,23 @@ def _run_deep_verify(
     *,
     mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
     verbose: bool = False,
+    skip_univariate: bool = False,
 ) -> VerifyReport:
     """Run the spec-driven verifier against the production workbook.
 
     Opens the workbook in a headless Excel instance, computes the per-config
     Python oracle, and calls ``build_qc.verify_test_sheets(..., skip_dummy=True,
-    failures_out=...)``. On success, returns a passing ``VerifyReport``. On
-    drift, ``verify_test_sheets`` raises ``RuntimeError("QC verification
-    failed with N mismatch(es).")``; ``failures_out`` is populated before
-    the raise so we can return a structured ``VerifyReport`` for the caller
-    to render and ``sys.exit(1)`` without unwinding the build pipeline.
-    Other exceptions propagate.
+    skip_univariate=skip_univariate, failures_out=...)``. On success, returns
+    a passing ``VerifyReport``. On drift, ``verify_test_sheets`` raises
+    ``RuntimeError("QC verification failed with N mismatch(es).")``;
+    ``failures_out`` is populated before the raise so we can return a
+    structured ``VerifyReport`` for the caller to render and ``sys.exit(1)``
+    without unwinding the build pipeline. Other exceptions propagate.
+
+    ``skip_univariate`` should mirror the ``--skip-univariate`` flag passed
+    to the build phase: when the Univariate sheet was never written (or a
+    prior build already omitted it), ``verify_test_sheets`` skips its
+    Univariate checks with a warning instead of crashing.
     """
     start = time.monotonic()
     build_qc = _load_build_qc_module()
@@ -161,6 +167,7 @@ def _run_deep_verify(
                     mileage_path=mileage_path,
                     verbose=verbose,
                     skip_dummy=True,
+                    skip_univariate=skip_univariate,
                     failures_out=captured,
                 )
             except RuntimeError as exc:
@@ -221,8 +228,9 @@ def build_production_workbook(
         Path to the Life Expectancy CSV file.
     mileage_xlsx_path : Path, optional
         Path to the Auto MPG sample xlsx file written to the Mileage Data
-        sheet — a second sample dataset for practicing the Source_Table
-        retarget workflow alongside Life Expectancy Data.
+        sheet — the dataset the Regression sheet's Source_Table targets by
+        default. Life Expectancy Data ships alongside it as a second
+        sample dataset for practicing the Source_Table retarget workflow.
     validate_reopen : bool, optional
         If True, reopens the workbook in Excel after patching to verify it.
     verbose : bool, optional
@@ -538,7 +546,10 @@ def main() -> None:
         # verify failure we sys.exit(1) and never shell out to `cmd /c start`
         # so a stale build cannot be launched in place of a fresh one.
         report = _run_deep_verify(
-            workbook_path, args.csv, verbose=args.verbose
+            workbook_path,
+            args.csv,
+            verbose=args.verbose,
+            skip_univariate=args.skip_univariate,
         )
         verify_elapsed = time.monotonic() - verify_start
         print(render_human(report))

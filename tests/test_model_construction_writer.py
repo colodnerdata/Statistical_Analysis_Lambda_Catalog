@@ -151,7 +151,7 @@ def test_only_the_retarget_name_references_the_table_directly() -> None:
     # Source_Table is THE dataset-retarget point — a changeover is a one-name
     # edit. The body and header row derive from it via non-volatile DROP/TAKE
     # (OFFSET would be re-evaluated on every Data Table substitution pass).
-    assert _refers_to(sheet, "Source_Table") == "=LifeExpectancyData[#All]"
+    assert _refers_to(sheet, "Source_Table") == "=MileageData[#All]"
     assert _refers_to(sheet, "Source_Data") == "=DROP(Source_Table,1)"
     assert _refers_to(sheet, "Header_Names") == "=TAKE(Source_Table,1)"
     for name in _EXPECTED_NAME_ORDER[1:]:

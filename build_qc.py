@@ -116,11 +116,13 @@ def _calculate_verification_sheets(
 
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
     workbook.app.api.Calculation = XL_CALCULATION_MANUAL
-    for sheet_name in sheet_names:
-        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
-        workbook.sheets[sheet_name].api.Calculate()
-        _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
-    workbook.app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
+    try:
+        for sheet_name in sheet_names:
+            _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} start")
+            workbook.sheets[sheet_name].api.Calculate()
+            _verbose_checkpoint(verbose, phase_start, f"Calc: {sheet_name[:20]} done")
+    finally:
+        workbook.app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate done")
 
 

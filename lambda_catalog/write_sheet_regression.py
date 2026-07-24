@@ -1294,7 +1294,6 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
             identity_ref: str = x_addr
             _add_identity_line(chart, identity_ref)
         if title == "Actual vs. Predicted":
-            _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartFitY", "RegChartActY")
             if x_addr is None:
                 raise AssertionError("Actual vs. Predicted chart requires an x-axis range")
             identity_ref = x_addr

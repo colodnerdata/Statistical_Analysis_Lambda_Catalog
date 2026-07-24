@@ -74,6 +74,13 @@ def _generalized_vif(x_features: np.ndarray, groups: list[str]) -> list[float]:
     ``x_features``, R11 is restricted to the group's own columns, and R22 is
     restricted to every other column. Reduces exactly to ordinary VIF (and to
     1 when there is only one group total) when a column stands alone.
+
+    det_full appears in every column's denominator, so exact multicollinearity
+    anywhere in x_features (det_full == 0) yields inf/nan for every column, not
+    only the collinear ones — mirroring the #DIV/0! the GVIF LAMBDA produces in
+    Excel, and the same all-or-nothing failure mode ordinary VIF's own
+    1/(1-R^2) already has at R^2 = 1. numpy's float division on the det_full
+    scalar returns inf/nan with a RuntimeWarning rather than raising.
     """
     k = x_features.shape[1]
     distinct = sorted(set(groups))

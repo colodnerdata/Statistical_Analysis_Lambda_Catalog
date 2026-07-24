@@ -452,6 +452,8 @@ def main() -> None:
     """Build the production workbook and print a short sync summary for interactive use."""
     args = parse_args()
     workbook_path = args.workbook.resolve()
+    total_start = time.monotonic()
+    verify_elapsed: float | None = None
 
     # Phase 1: write all sheets + sync names + inject charts.
     # If the workbook is open in Excel at this point the entire write must be retried.
@@ -469,11 +471,13 @@ def main() -> None:
             skip_univariate=args.skip_univariate,
         )
 
+    build_phase_start = time.monotonic()
     _retry_on_open(
         f"{args.workbook.name} is open in Excel",
         _run_build,
         retry_rpc=True,
     )
+    build_elapsed = time.monotonic() - build_phase_start
     assert result is not None
 
     # Phase 2: recalculate Data Tables and save.
@@ -482,6 +486,7 @@ def main() -> None:
     if args.skip_data_table_calculations:
         if args.verbose:
             print("  Recalculate:    skipped", flush=True)
+        recalc_elapsed = None
     else:
         _t = time.monotonic()
         _retry_on_open(
@@ -489,8 +494,9 @@ def main() -> None:
             lambda: _recalculate_and_save(workbook_path),
             retry_rpc=True,
         )
+        recalc_elapsed = time.monotonic() - _t
         if args.verbose:
-            print(f"  Recalculate:    {time.monotonic() - _t:.1f}s", flush=True)
+            print(f"  Recalculate:    {recalc_elapsed:.1f}s", flush=True)
 
     if args.validate_reopen:
         _validate_workbook_reopen(workbook_path)
@@ -512,15 +518,31 @@ def main() -> None:
         print("Reopen validation: passed")
 
     if args.verify:
+        verify_start = time.monotonic()
         # The verify-success branch is the only path that opens Excel. On
         # verify failure we sys.exit(1) and never shell out to `cmd /c start`
         # so a stale build cannot be launched in place of a fresh one.
         report = _run_deep_verify(
             workbook_path, args.csv, verbose=args.verbose
         )
+        verify_elapsed = time.monotonic() - verify_start
         print(render_human(report))
+        print(f"Timing: build+sync    {build_elapsed:.1f}s")
+        if recalc_elapsed is None:
+            print("Timing: recalculate   skipped")
+        else:
+            print(f"Timing: recalculate   {recalc_elapsed:.1f}s")
+        print(f"Timing: verify        {verify_elapsed:.1f}s")
+        print(f"Timing: total         {time.monotonic() - total_start:.1f}s")
         if not report.passed:
             sys.exit(1)
+    else:
+        print(f"Timing: build+sync    {build_elapsed:.1f}s")
+        if recalc_elapsed is None:
+            print("Timing: recalculate   skipped")
+        else:
+            print(f"Timing: recalculate   {recalc_elapsed:.1f}s")
+        print(f"Timing: total         {time.monotonic() - total_start:.1f}s")
 
     if not args.no_launch:
         subprocess.Popen(["cmd", "/c", "start", "", str(workbook_path)])

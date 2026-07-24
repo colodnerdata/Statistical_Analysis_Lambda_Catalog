@@ -64,6 +64,13 @@ def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
     assert mlr_names.isdisjoint(build_qc._VERIFY_CALC_SHEET_NAMES)
 
 
+def test_build_qc_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
+    import build_qc
+
+    assert "Dummy_Test" in build_qc._verification_calc_sheet_names(skip_dummy=False)
+    assert "Dummy_Test" not in build_qc._verification_calc_sheet_names(skip_dummy=True)
+
+
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
 def test_default_t0_design_matches_current_constructor_semantics() -> None:
     expected = calculate_regression_spec_case(_case("default_t0_intercept"), CSV_PATH)

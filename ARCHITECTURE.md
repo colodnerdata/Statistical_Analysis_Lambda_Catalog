@@ -40,7 +40,7 @@ from the v2.0 rename pass (2026-07-03), recorded as exceptions to the
 "no abbreviations" rule:
 
 - `AIC`, `AICc`, `BIC` — information-criterion names
-- `VIF` — variance inflation factor
+- `VIF`, `GVIF` — variance inflation factor, generalized variance inflation factor
 - `PRESS` — prediction sum of squares
 - `CDF`, `NLL` — cumulative distribution function, negative log-likelihood
 - `LOOCV` — leave-one-out cross-validation

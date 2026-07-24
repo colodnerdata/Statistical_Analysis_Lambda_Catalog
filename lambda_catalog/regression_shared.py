@@ -88,7 +88,7 @@ class RegressionPredictorSummary:
     spearman_r: tuple[float, ...]
     skewness: tuple[float, ...]
     kurtosis: tuple[float, ...]
-    vif: tuple[float, ...]
+    gvif: tuple[float, ...]
     tolerance: tuple[float, ...]
 
 

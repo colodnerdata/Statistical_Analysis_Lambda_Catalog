@@ -255,6 +255,38 @@ def test_year_status_categorical_keeps_numeric_year_levels_as_dummies() -> None:
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
+def test_year_status_categorical_gvif_shared_across_dummy_columns() -> None:
+    """GVIF collapses each categorical variable's dummy block to one shared value."""
+    expected = calculate_regression_spec_case(_case("year_status_categorical"), CSV_PATH)
+    names = expected.design.constructed_column_names
+    gvif = expected.results.predictor_summary.gvif
+
+    year_gvif = {gvif[i] for i, name in enumerate(names) if name.startswith("Year: ")}
+    assert len(year_gvif) == 1, "all 15 Year dummy columns must share one GVIF value"
+
+    status_gvif = {gvif[i] for i, name in enumerate(names) if name.startswith("Status: ")}
+    assert len(status_gvif) == 1, "Status has a single dummy column but should still be one group"
+
+    # Continuous predictors are their own group (df=1): GVIF must exactly match
+    # ordinary per-column VIF, independently recomputed via lstsq (not calling
+    # into production code) as a genuine cross-check.
+    x = expected.design.x_features
+    for continuous_name in ("Adult Mortality", "GDP", "Schooling"):
+        j = names.index(continuous_name)
+        others = np.delete(x, j, axis=1)
+        others_with_const = np.column_stack([np.ones(x.shape[0]), others])
+        beta = np.linalg.lstsq(others_with_const, x[:, j], rcond=None)[0]
+        y_hat = others_with_const @ beta
+        ss_res = float(np.sum((x[:, j] - y_hat) ** 2))
+        ss_tot = float(np.sum((x[:, j] - np.mean(x[:, j])) ** 2))
+        r2_j = 1.0 - ss_res / ss_tot
+        expected_vif = 1.0 / (1.0 - r2_j)
+        assert gvif[j] == pytest.approx(expected_vif, rel=1e-6), continuous_name
+
+    assert all(v >= 1.0 - 1e-9 for v in gvif)
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
 def test_developing_filter_degenerates_status_and_drops_its_columns() -> None:
     expected = calculate_regression_spec_case(
         _case("developing_filter_degenerate_status"),
@@ -285,7 +317,7 @@ def test_expected_outputs_are_internally_consistent() -> None:
 
     assert len(results.vectors.coefficients) == p
     assert len(results.vectors.beta_weights) == k
-    assert len(results.predictor_summary.vif) == k
+    assert len(results.predictor_summary.gvif) == k
     assert len(results.prediction_interval.pred_input_values) == k
     assert math.isfinite(results.summary.durbin_watson)
     assert 0.0 <= results.summary.durbin_watson <= 4.0

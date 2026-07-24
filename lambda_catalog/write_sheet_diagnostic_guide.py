@@ -154,9 +154,9 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
     ); r += 1
 
     thresholds = [
-        ["VIF (Variance Inflation Factor)", "Col I, Predictor Summary",
-         "VIF > 5  (possible collinearity)", "VIF > 10  (strong collinearity)"],
-        ["Tolerance", "Col J, Predictor Summary",
+        ["GVIF (Generalized Variance Inflation Factor)", "Col U, Predictor Summary",
+         "GVIF > 5  (possible collinearity)", "GVIF > 10  (strong collinearity)"],
+        ["Tolerance", "Col V, Predictor Summary",
          "Tolerance < 0.2", "Tolerance < 0.1"],
         ["PRESS R²", "Cell P5, Diagnostics",
          "—", "PRESS R² < 0  (worse than predicting Y-mean)"],
@@ -206,8 +206,10 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
          "research the reasons why those data points are different. If there's a "
          "significant difference, choose one model, but report the prediction results "
          "of the other regression as a sensitivity analysis."],
-        ["Multicollinearity\n(high VIF)",
-         "VIF > 10 for one or more predictors.",
+        ["Multicollinearity\n(high GVIF)",
+         "GVIF > 10 for one or more predictors. A categorical predictor's dummy "
+         "columns all show the same shared GVIF value — that's the whole "
+         "variable's collinearity, not a per-level artifact.",
          "Remove or combine correlated predictors. Use the Correlation_Matrix "
          "function to identify the pairs. Partial R² shows each predictor's "
          "unique contribution after controlling for the others."],

@@ -6,7 +6,6 @@ from pathlib import Path
 from statistics import NormalDist
 
 import numpy as np
-import statsmodels.api as sm  # type: ignore[import-untyped]
 from scipy import stats as _scipy_stats  # type: ignore[import-untyped]
 
 from .analyze_life_expectancy import (
@@ -53,6 +52,54 @@ REGRESSION_QC_CONFIGS: list[tuple[str, bool, list[str]]] = [
     ("full_intercept", True, FEATURE_COLUMNS),
     ("full_no_intercept", False, FEATURE_COLUMNS),
 ]
+
+
+def _predictor_groups(predictor_names: tuple[str, ...]) -> list[str]:
+    """Group key per constructed column: the text before the first ``": "``.
+
+    Mirrors the Constructed_Column_Names() convention (``"Header: level"``
+    for a categorical predictor's dummy columns) and the GVIF LAMBDA's own
+    grouping logic in Excel, so dummy columns from the same source variable
+    share a group key.
+    """
+    return [name.split(": ", 1)[0] for name in predictor_names]
+
+
+def _generalized_vif(x_features: np.ndarray, groups: list[str]) -> list[float]:
+    """Fox & Monette (1992) Generalized VIF, one value per column of ``x_features``.
+
+    Independent numpy mirror of the GVIF LAMBDA: for each group of columns
+    (dummy columns from the same categorical predictor share a group),
+    GVIF = det(R11) * det(R22) / det(R), where R is the correlation matrix of
+    ``x_features``, R11 is restricted to the group's own columns, and R22 is
+    restricted to every other column. Reduces exactly to ordinary VIF (and to
+    1 when there is only one group total) when a column stands alone.
+
+    det_full appears in every column's denominator, so exact multicollinearity
+    anywhere in x_features (det_full == 0) yields inf/nan for every column, not
+    only the collinear ones — mirroring the #DIV/0! the GVIF LAMBDA produces in
+    Excel, and the same all-or-nothing failure mode ordinary VIF's own
+    1/(1-R^2) already has at R^2 = 1. numpy's float division on the det_full
+    scalar returns inf/nan with a RuntimeWarning rather than raising.
+    """
+    k = x_features.shape[1]
+    distinct = sorted(set(groups))
+    if len(distinct) <= 1:
+        return [1.0] * k
+
+    corr = np.corrcoef(x_features, rowvar=False)
+    det_full = float(np.linalg.det(corr))
+
+    result = [0.0] * k
+    for group in distinct:
+        own_idx = [i for i, g in enumerate(groups) if g == group]
+        other_idx = [i for i in range(k) if i not in own_idx]
+        r11 = corr[np.ix_(own_idx, own_idx)]
+        r22 = corr[np.ix_(other_idx, other_idx)]
+        value = float(np.linalg.det(r11) * np.linalg.det(r22) / det_full)
+        for i in own_idx:
+            result[i] = value
+    return result
 
 
 def calculate_regression_results_from_matrix(
@@ -175,20 +222,14 @@ def calculate_regression_results_from_matrix(
     spearman_r_vals: list[float] = []
     skewness_vals: list[float] = []
     kurtosis_vals: list[float] = []
-    vif_vals: list[float] = []
     for j in range(k):
         x_col = x_features[:, j]
         pearson_r_vals.append(float(np.corrcoef(x_col, y_train)[0, 1]))
         spearman_r_vals.append(float(_scipy_stats.spearmanr(x_col, y_train).statistic))
         skewness_vals.append(float(_scipy_stats.skew(x_col, bias=False)))
         kurtosis_vals.append(float(_scipy_stats.kurtosis(x_col, fisher=True, bias=False)))
-        if k == 1:
-            vif_vals.append(1.0)
-        else:
-            others = np.delete(x_features, j, axis=1)
-            others_with_const = np.column_stack([np.ones(n), others])
-            r2_j = float(sm.OLS(x_col, others_with_const).fit().rsquared)
-            vif_vals.append(1.0 / (1.0 - r2_j))
+
+    gvif_vals = _generalized_vif(x_features, _predictor_groups(predictor_names))
 
     predictor_summary = RegressionPredictorSummary(
         predictor_names=predictor_names,
@@ -196,8 +237,8 @@ def calculate_regression_results_from_matrix(
         spearman_r=tuple(spearman_r_vals),
         skewness=tuple(skewness_vals),
         kurtosis=tuple(kurtosis_vals),
-        vif=tuple(vif_vals),
-        tolerance=tuple(1.0 / v for v in vif_vals),
+        gvif=tuple(gvif_vals),
+        tolerance=tuple(1.0 / v for v in gvif_vals),
     )
 
     loocv_predictions = predictions - h * e / (1.0 - h)

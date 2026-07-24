@@ -27,7 +27,10 @@ DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
 # more rows, so cached v12 expected values are wrong.
 # v14: RegressionFullResiduals gained scale_location (sqrt(|studentized|)), so
 # a cached v13 entry has no key for it.
-_CACHE_SCHEMA_VERSION = 14
+# v15: RegressionPredictorSummary.vif renamed to .gvif (Generalized VIF, one
+# shared value per source variable) — the JSON key changed, so a cached v14
+# entry has no "gvif" key.
+_CACHE_SCHEMA_VERSION = 15
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -123,7 +126,7 @@ def _serialize_regression_sheet_configs(
                 "spearman_r": list(r.predictor_summary.spearman_r),
                 "skewness": list(r.predictor_summary.skewness),
                 "kurtosis": list(r.predictor_summary.kurtosis),
-                "vif": list(r.predictor_summary.vif),
+                "gvif": list(r.predictor_summary.gvif),
                 "tolerance": list(r.predictor_summary.tolerance),
             },
             "full_residuals": {
@@ -176,7 +179,7 @@ def _deserialize_regression_sheet_configs(
             spearman_r=tuple(ps["spearman_r"]),
             skewness=tuple(ps["skewness"]),
             kurtosis=tuple(ps["kurtosis"]),
-            vif=tuple(ps["vif"]),
+            gvif=tuple(ps["gvif"]),
             tolerance=tuple(ps["tolerance"]),
         )
         fr = item["full_residuals"]

@@ -442,7 +442,7 @@ class TestObservationVectorsIndependent(unittest.TestCase):
 # ── Regression sheet: predictor summary ─────────────────────────────────────
 
 class TestPredictorSummaryIndependent(unittest.TestCase):
-    """Verify Pearson_R, Spearman_R, Skewness, Kurtosis, VIF, Tolerance."""
+    """Verify Pearson_R, Spearman_R, Skewness, Kurtosis, GVIF, Tolerance."""
 
     def setUp(self) -> None:
         rng = np.random.default_rng(42)
@@ -492,7 +492,9 @@ class TestPredictorSummaryIndependent(unittest.TestCase):
                 self.ps.kurtosis[j], expected, places=10, msg=f"kurtosis[{j}]"
             )
 
-    def test_vif(self) -> None:
+    def test_gvif(self) -> None:
+        # Every predictor here is its own group (no categorical block), so
+        # GVIF is numerically identical to ordinary per-column VIF.
         for j in range(self.k):
             others = np.delete(self.X_raw, j, axis=1)
             others_with_const = np.column_stack([np.ones(len(self.rows)), others])
@@ -503,13 +505,13 @@ class TestPredictorSummaryIndependent(unittest.TestCase):
             r2_j = 1.0 - ss_res / ss_tot
             expected_vif = 1.0 / (1.0 - r2_j)
             self.assertAlmostEqual(
-                self.ps.vif[j], expected_vif, places=6, msg=f"vif[{j}]"
+                self.ps.gvif[j], expected_vif, places=6, msg=f"gvif[{j}]"
             )
 
     def test_tolerance(self) -> None:
         for j in range(self.k):
             self.assertAlmostEqual(
-                self.ps.tolerance[j], 1.0 / self.ps.vif[j], places=12, msg=f"tol[{j}]"
+                self.ps.tolerance[j], 1.0 / self.ps.gvif[j], places=12, msg=f"tol[{j}]"
             )
 
 
@@ -739,12 +741,12 @@ class TestCorrelationMatrixIndependent(unittest.TestCase):
             )
 
 
-# ── VIF edge case: single predictor ─────────────────────────────────────────
+# ── GVIF edge case: single predictor ────────────────────────────────────────
 
-class TestVIFSinglePredictor(unittest.TestCase):
-    """VIF should be 1.0 when there's only one predictor."""
+class TestGVIFSinglePredictor(unittest.TestCase):
+    """GVIF should be 1.0 when there's only one predictor."""
 
-    def test_vif_is_one(self) -> None:
+    def test_gvif_is_one(self) -> None:
         rows = [_make_row(2.0 + i * 1.5, float(i)) for i in range(12)]
         with tempfile.TemporaryDirectory() as tmp:
             csv_path = Path(tmp) / "single.csv"
@@ -752,7 +754,7 @@ class TestVIFSinglePredictor(unittest.TestCase):
             results = calculate_regression_sheet_results(
                 csv_path, include_intercept=True, feature_columns=FEATURE_COLUMNS[:1]
             )
-            self.assertAlmostEqual(results.predictor_summary.vif[0], 1.0, places=12)
+            self.assertAlmostEqual(results.predictor_summary.gvif[0], 1.0, places=12)
             self.assertAlmostEqual(results.predictor_summary.tolerance[0], 1.0, places=12)
 
 

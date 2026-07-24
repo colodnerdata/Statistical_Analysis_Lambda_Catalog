@@ -32,6 +32,7 @@ from lambda_catalog.verify_report import (
 )
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
 from lambda_catalog.write_sheet_life_expectancy_data import DEFAULT_CSV_PATH
+from lambda_catalog.write_sheet_mileage_data import DEFAULT_XLSX_PATH as DEFAULT_MILEAGE_XLSX_PATH
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -58,6 +59,7 @@ def verify_workbook(
     workbook_path: Path,
     csv_path: Path,
     *,
+    mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
     verbose: bool = False,
 ) -> VerifyReport:
     """Run the spec-driven verifier against ``workbook_path`` and return a report.
@@ -85,8 +87,9 @@ def verify_workbook(
             try:
                 build_qc.verify_test_sheets(
                     workbook,
-                    build_qc.build_regression_spec_qc_configs(csv_path),
+                    build_qc.build_regression_spec_qc_configs(mileage_path),
                     csv_path,
+                    mileage_path=mileage_path,
                     verbose=verbose,
                     skip_dummy=True,
                     failures_out=captured,
@@ -145,6 +148,17 @@ def parse_args() -> argparse.Namespace:
         help="Path to the Life Expectancy CSV used for Full_Data comparison.",
     )
     parser.add_argument(
+        "--mileage",
+        type=Path,
+        default=DEFAULT_MILEAGE_XLSX_PATH,
+        help=(
+            "Path to the Auto MPG sample xlsx used for the Mileage Data "
+            "sheet's Full_Data comparison and the Regression sheet's "
+            "spec-driven QC oracle (the Regression sheet's Source_Table "
+            "default)."
+        ),
+    )
+    parser.add_argument(
         "--json",
         action="store_true",
         dest="as_json",
@@ -167,6 +181,7 @@ def main() -> None:
     report = verify_workbook(
         workbook_path=workbook_path,
         csv_path=args.csv,
+        mileage_path=args.mileage,
         verbose=args.verbose,
     )
     if args.as_json:

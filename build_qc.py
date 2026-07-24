@@ -297,7 +297,7 @@ def verify_test_sheets(
     _verify_mileage_full_data(workbook, mileage_path, failures)
 
     _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
-    for failure in read_regression_spec_block_failures(workbook, csv_path):
+    for failure in read_regression_spec_block_failures(workbook, mileage_path):
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block done")
 
@@ -385,7 +385,7 @@ def build_qc_workbook(
     phase_start = time.monotonic()
     document = load_catalog_document(definitions_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: catalog loaded")
-    regression_sheet_configs = build_regression_spec_qc_configs(csv_path)
+    regression_sheet_configs = build_regression_spec_qc_configs(mileage_xlsx_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: regression QC loaded")
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     mileage_headers, mileage_rows = load_mileage_rows(mileage_xlsx_path)

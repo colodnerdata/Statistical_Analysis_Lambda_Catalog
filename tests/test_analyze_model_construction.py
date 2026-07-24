@@ -1,11 +1,11 @@
 """Tests for the Model Construction QC analyzer.
 
 Excel-side reads run only in the QC build; these tests pin the pure-Python
-side — the default-spec expectations derived from the sample CSV (the human
-test plan's T0 numbers), the stratified-Filter degeneracy case the QC build
-drives (the T8 mechanism from the T0 base state), the mask/label/level
-semantics that mirror the sheet's formulas, and the observed-vs-expected
-comparison layer's failure messages.
+side — the default-spec expectations derived from the sample Mileage/Auto
+MPG xlsx (the human test plan's T0 numbers), the stratified-Filter
+degeneracy case the QC build drives (the T8 mechanism from the T0 base
+state), the mask/label/level semantics that mirror the sheet's formulas,
+and the observed-vs-expected comparison layer's failure messages.
 """
 # pylint: disable=missing-function-docstring,protected-access
 from pathlib import Path
@@ -31,20 +31,20 @@ from lambda_catalog.write_sheet_model_construction import (
 )
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
+XLSX_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.xlsx"
 
 _EXPECTED_T0_NAMES = (
-    *(f"Year: {year}" for year in range(2001, 2016)),
-    "Status: Developing",
-    "Adult Mortality",
-    "GDP",
-    "Schooling",
+    "Horsepower",
+    "Weight",
+    *(f"Model Year: {year}" for year in range(71, 83)),
+    "Origin: 2",
+    "Origin: 3",
 )
 
 
 @pytest.fixture(scope="module", name="rows")
 def _rows() -> list[dict[str, object]]:
-    return load_source_rows(CSV_PATH)
+    return load_source_rows(XLSX_PATH)
 
 
 @pytest.fixture(scope="module", name="t0_expected")
@@ -77,32 +77,31 @@ def test_default_spec_mirrors_the_writer_prefill() -> None:
 # T0 (default spec) expectations — the human test plan's pinned numbers
 # ---------------------------------------------------------------------------
 
-def test_t0_expectations_pin_the_csv_derived_values(rows, t0_expected) -> None:
-    assert t0_expected.total_rows == 2938
+def test_t0_expectations_pin_the_xlsx_derived_values(rows, t0_expected) -> None:
+    assert t0_expected.total_rows == 406
     # Full_Data ships as Omit (not Filter), so the mask is completeness-only on
-    # the response and the model's three continuous predictors — 2482 rows, vs
-    # 1649 under the old all-features Full_Data filter (which over-filtered).
-    assert t0_expected.included_rows == 2482
-    assert t0_expected.k == 19
-    # Year is the shipped Sequence axis; Population's Omit role leaves k
-    # unchanged (Omit contributes no column, same as a not-included row).
+    # the response and the model's two continuous predictors — 392 rows.
+    assert t0_expected.included_rows == 392
+    assert t0_expected.k == 16
+    # Model Year is the shipped Sequence axis.
     assert t0_expected.sequence_flags == 1
-    assert t0_expected.response_name == "Life expectancy"
+    assert t0_expected.response_name == "MPG"
     assert t0_expected.responses_count == 1
-    assert t0_expected.first_filtered_label == "Afghanistan"
-    assert t0_expected.first_filtered_response == 65
-    assert t0_expected.level_counts == {"Year": 16, "Status": 2}
+    assert t0_expected.first_filtered_label == "chevrolet chevelle malibu"
+    assert t0_expected.first_filtered_response == 18
+    assert t0_expected.level_counts == {"Model Year": 13, "Origin": 3}
     # References in effect, surfaced even when defaulted: first sorted
-    # masked level (numbers before text, so Year -> 2000).
-    assert t0_expected.references_in_use == {"Year": 2000, "Status": "Developed"}
+    # masked level (numbers before text; both Model Year and Origin are
+    # numeric-valued, so the lowest value wins in each).
+    assert t0_expected.references_in_use == {"Model Year": 70, "Origin": 1}
     assert t0_expected.degenerate_categoricals == ()
     assert len(rows) == t0_expected.total_rows
 
 
 def test_t0_constructed_names_are_level_qualified_in_spec_order(t0_expected) -> None:
-    # 15 Year dummies (reference 2000 dropped), the Status dummy (reference
-    # Developed dropped), then the three included continuous predictors in
-    # table order — 19 names, matching audit k.
+    # 2 included continuous predictors, then 12 Model Year dummies (reference
+    # 70 dropped), then 2 Origin dummies (reference 1 dropped) — in spec/table
+    # order — 16 names, matching audit k.
     assert t0_expected.constructed_column_names == _EXPECTED_T0_NAMES
     assert len(t0_expected.constructed_column_names) == t0_expected.k
 
@@ -111,53 +110,52 @@ def test_t0_constructed_names_are_level_qualified_in_spec_order(t0_expected) -> 
 # The QC build's degenerate-Categorical case (T8 mechanism from T0 state)
 # ---------------------------------------------------------------------------
 
-def test_stratifying_filter_degenerates_status(rows) -> None:
+def test_stratifying_filter_degenerates_origin(rows) -> None:
     spec = build_default_spec() + [
-        SpecVariable("Is_Developing", _ROLE_FILTER, False, "Continuous")
+        SpecVariable("Is_USA", _ROLE_FILTER, False, "Continuous")
     ]
     mutated = [
-        {**row, "Is_Developing": 1 if row["Status"] == "Developing" else 0}
+        {**row, "Is_USA": 1 if row["Origin"] == 1 else 0}
         for row in rows
     ]
     expected = calculate_model_construction_expectations(spec, mutated)
 
-    # Full_Data ships as Omit, so the only Filter is Is_Developing: the mask is
-    # completeness-on-the-model's-predictors AND Status = Developing → 2034
-    # (was 1407 when Full_Data's all-features filter was also ANDed in).
-    assert expected.included_rows == 2034
-    assert expected.degenerate_categoricals == ("Status",)
-    assert expected.level_counts == {"Year": 16, "Status": 1}
-    # Inside the stratified mask the only Status level left IS the default
+    # Full_Data ships as Omit, so the only Filter is Is_USA: the mask is
+    # completeness-on-the-model's-predictors AND Origin = 1 (USA) → 245.
+    assert expected.included_rows == 245
+    assert expected.degenerate_categoricals == ("Origin",)
+    assert expected.level_counts == {"Model Year": 13, "Origin": 1}
+    # Inside the stratified mask the only Origin level left IS the default
     # reference — the display still shows it while H=1 flags degeneracy.
-    assert expected.references_in_use == {"Year": 2000, "Status": "Developing"}
-    # Status is skipped, not errored: zero contributed columns, everything
-    # else still constructed — 15 Year dummies + 3 continuous.
-    assert expected.k == 18
+    assert expected.references_in_use == {"Model Year": 70, "Origin": 1}
+    # Origin is skipped, not errored: zero contributed columns, everything
+    # else still constructed — 2 continuous + 12 Model Year dummies.
+    assert expected.k == 14
     assert not any(
-        name.startswith("Status:") for name in expected.constructed_column_names
+        name.startswith("Origin:") for name in expected.constructed_column_names
     )
-    assert expected.first_filtered_label == "Afghanistan"
+    assert expected.first_filtered_label == "chevrolet chevelle malibu"
 
 
 def test_invalid_reference_degenerates_the_predictor(rows) -> None:
     spec = [
         variable
-        if variable.name != "Status"
+        if variable.name != "Origin"
         else SpecVariable(
             variable.name,
             variable.role,
             variable.include,
             variable.var_type,
-            reference="Nonexistent Level",
+            reference=99,
         )
         for variable in build_default_spec()
     ]
     expected = calculate_model_construction_expectations(spec, rows)
-    assert "Status" in expected.degenerate_categoricals
-    assert expected.k == 18
+    assert "Origin" in expected.degenerate_categoricals
+    assert expected.k == 14
     # The display echoes the explicit (invalid) E verbatim; E's red CF is
     # what carries the error signal on the sheet.
-    assert expected.references_in_use["Status"] == "Nonexistent Level"
+    assert expected.references_in_use["Origin"] == 99
 
 
 # ---------------------------------------------------------------------------
@@ -183,13 +181,13 @@ def test_filter_truthiness_matches_the_sheet_mask() -> None:
 def test_row_labels_fall_back_to_positional_without_identifiers(rows) -> None:
     spec = [
         variable
-        if variable.name != "Country"
+        if variable.name != "Car Name"
         else SpecVariable(variable.name, _ROLE_OMIT, False, variable.var_type)
         for variable in build_default_spec()
     ]
     expected = calculate_model_construction_expectations(spec, rows)
-    # Row 1 (Afghanistan 2015) passes the mask, so the positional label is
-    # the first observation number.
+    # Row 1 (chevrolet chevelle malibu) passes the mask, so the positional
+    # label is the first observation number.
     assert expected.first_filtered_label == "Obs. 1"
 
 
@@ -241,7 +239,7 @@ def test_comparison_reports_standard_format_failures(t0_expected) -> None:
         **{
             **observed.__dict__,
             "audit_k": 7.0,
-            "first_filtered_label": "Albania",
+            "first_filtered_label": "ford torino",
         }
     )
     failures = compare_observed_to_expected(broken, t0_expected, "default spec")
@@ -249,7 +247,7 @@ def test_comparison_reports_standard_format_failures(t0_expected) -> None:
     assert len(failures) == 3  # audit k, the twin tripwire, first label
     assert all(f.startswith("[Model Construction] [default spec]") for f in failures)
     k_failure = next(f for f in failures if "check='audit k'" in f)
-    assert "expected=19" in k_failure and "excel_calc=7.0" in k_failure
+    assert "expected=16" in k_failure and "excel_calc=7.0" in k_failure
     assert any("twin tripwire" in f for f in failures)
     label_failure = next(f for f in failures if "first filtered label" in f)
-    assert "'Afghanistan'" in label_failure and "'Albania'" in label_failure
+    assert "'chevrolet chevelle malibu'" in label_failure and "'ford torino'" in label_failure

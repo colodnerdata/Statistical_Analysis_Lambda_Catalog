@@ -34,12 +34,12 @@ from lambda_catalog.write_sheet_model_construction import (
 from lambda_catalog.write_sheet_regression import _C_AH, _C_M, _C_U, _C_V, _C_Z
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
+XLSX_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.xlsx"
 
 
 @pytest.fixture(scope="module", name="t0_expected")
 def _t0_expected():
-    rows = load_source_rows(CSV_PATH)
+    rows = load_source_rows(XLSX_PATH)
     return calculate_model_construction_expectations(build_default_spec(), rows)
 
 
@@ -118,15 +118,15 @@ def test_comparison_reports_standard_format_failures(t0_expected) -> None:
             "coeff_label_height": 7,
             "reference_cells": {
                 **observed.reference_cells,
-                "Status": "Developing",
+                "Origin": 2.0,
             },
         }
     )
     failures = compare_spec_observed_to_expected(broken, t0_expected, "default spec")
 
-    assert len(failures) == 2  # twin tripwire, Status reference
+    assert len(failures) == 2  # twin tripwire, Origin reference
     assert all(f.startswith("[Regression Spec] [default spec]") for f in failures)
     tripwire = next(f for f in failures if "twin tripwire" in f)
-    assert "expected=20" in tripwire and "excel_calc=7" in tripwire
+    assert "expected=17" in tripwire and "excel_calc=7" in tripwire
     reference = next(f for f in failures if "Reference In Use" in f)
-    assert "'Developed'" in reference and "'Developing'" in reference
+    assert "expected=1" in reference and "excel_calc=2.0" in reference

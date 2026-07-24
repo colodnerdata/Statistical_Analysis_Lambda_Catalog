@@ -162,7 +162,7 @@ def _run_deep_verify(
             try:
                 build_qc.verify_test_sheets(
                     workbook,
-                    build_qc.build_regression_spec_qc_configs(csv_path),
+                    build_qc.build_regression_spec_qc_configs(mileage_path),
                     csv_path,
                     mileage_path=mileage_path,
                     verbose=verbose,

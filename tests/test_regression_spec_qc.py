@@ -9,16 +9,14 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from lambda_catalog.analyze_regression_sheet import calculate_regression_sheet_results
 from lambda_catalog.analyze_regression_spec import (
     RegressionSpecCase,
     build_regression_spec_cases,
     calculate_regression_spec_case,
 )
-from lambda_catalog.regression_shared import FEATURE_COLUMNS
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
+XLSX_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.xlsx"
 
 _EXPECTED_CASE_NAMES = [
     "default_t0_intercept",
@@ -27,19 +25,19 @@ _EXPECTED_CASE_NAMES = [
     "default_t0_no_intercept",
     "v1_full_continuous_no_intercept",
     "continuous_subset_no_intercept",
-    "status_default_reference",
-    "status_explicit_reference",
-    "status_invalid_reference",
-    "year_status_categorical",
-    "developing_filter_degenerate_status",
+    "origin_default_reference",
+    "origin_explicit_reference",
+    "origin_invalid_reference",
+    "model_year_origin_categorical",
+    "usa_filter_degenerate_origin",
 ]
 
 _EXPECTED_T0_NAMES = (
-    *(f"Year: {year}" for year in range(2001, 2016)),
-    "Status: Developing",
-    "Adult Mortality",
-    "GDP",
-    "Schooling",
+    "Horsepower",
+    "Weight",
+    *(f"Model Year: {year}" for year in range(71, 83)),
+    "Origin: 2",
+    "Origin: 3",
 )
 
 
@@ -48,7 +46,7 @@ def _case(name: str) -> RegressionSpecCase:
     return cases[name]
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
 def test_regression_spec_fixture_names_are_pinned() -> None:
     assert [case.name for case in build_regression_spec_cases()] == _EXPECTED_CASE_NAMES
 
@@ -259,105 +257,112 @@ def test_build_qc_run_main_skips_verified_summary_when_verification_disabled(
     assert "Timing: verify        skipped" in output
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
 def test_default_t0_design_matches_current_constructor_semantics() -> None:
-    expected = calculate_regression_spec_case(_case("default_t0_intercept"), CSV_PATH)
+    expected = calculate_regression_spec_case(_case("default_t0_intercept"), XLSX_PATH)
     design = expected.design
 
-    assert design.included_rows == 2482
-    assert design.x_features.shape == (2482, 19)
-    assert design.y_train.shape == (2482,)
-    assert design.row_labels[0] == "Afghanistan"
+    assert design.included_rows == 392
+    assert design.x_features.shape == (392, 16)
+    assert design.y_train.shape == (392,)
+    assert design.row_labels[0] == "chevrolet chevelle malibu"
     assert design.constructed_column_names == _EXPECTED_T0_NAMES
-    assert design.level_counts == {"Year": 16, "Status": 2}
-    assert design.references_in_use == {"Year": 2000, "Status": "Developed"}
+    assert design.level_counts == {"Model Year": 13, "Origin": 3}
+    assert design.references_in_use == {"Model Year": 70, "Origin": 1}
     assert design.degenerate_categoricals == ()
     assert design.sequence_values is not None
-    assert design.sequence_values[0] == 2015
+    assert design.sequence_values[0] == 70
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
 def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> None:
-    expected = calculate_regression_spec_case(_case("v1_full_continuous_intercept"), CSV_PATH)
+    expected = calculate_regression_spec_case(_case("v1_full_continuous_intercept"), XLSX_PATH)
     design = expected.design
 
-    assert design.included_rows == 1649
-    assert design.x_features.shape == (1649, len(FEATURE_COLUMNS))
-    assert design.constructed_column_names == tuple(FEATURE_COLUMNS)
-    assert design.row_labels[0] == "Afghanistan|2015"
+    assert design.included_rows == 392
+    assert design.x_features.shape == (392, 5)
+    assert design.constructed_column_names == (
+        "Cylinders",
+        "Displacement",
+        "Horsepower",
+        "Weight",
+        "Acceleration",
+    )
+    assert design.row_labels[0] == "70|chevrolet chevelle malibu"
     assert design.level_counts == {}
     assert design.references_in_use == {}
     assert design.degenerate_categoricals == ()
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
 def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
-    expected = calculate_regression_spec_case(_case("status_default_reference"), CSV_PATH)
+    expected = calculate_regression_spec_case(_case("origin_default_reference"), XLSX_PATH)
     design = expected.design
-    status_columns = [
+    origin_columns = [
         idx for idx, name in enumerate(design.constructed_column_names)
-        if name.startswith("Status:")
+        if name.startswith("Origin:")
     ]
 
-    assert status_columns == [0]
-    assert design.constructed_column_names[0] == "Status: Developing"
-    assert set(np.unique(design.x_features[:, status_columns[0]])) <= {0.0, 1.0}
-    assert design.references_in_use["Status"] == "Developed"
-    assert design.included_rows == 1649
+    assert origin_columns == [3, 4]
+    assert design.constructed_column_names[3] == "Origin: 2"
+    assert design.constructed_column_names[4] == "Origin: 3"
+    assert set(np.unique(design.x_features[:, origin_columns[0]])) <= {0.0, 1.0}
+    assert design.references_in_use["Origin"] == 1
+    assert design.included_rows == 392
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
-def test_explicit_reference_changes_status_dummy_level() -> None:
-    expected = calculate_regression_spec_case(_case("status_explicit_reference"), CSV_PATH)
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+def test_explicit_reference_changes_origin_dummy_level() -> None:
+    expected = calculate_regression_spec_case(_case("origin_explicit_reference"), XLSX_PATH)
 
-    assert expected.design.references_in_use["Status"] == "Developing"
-    assert "Status: Developed" in expected.design.constructed_column_names
-    assert "Status: Developing" not in expected.design.constructed_column_names
+    assert expected.design.references_in_use["Origin"] == 2
+    assert "Origin: 1" in expected.design.constructed_column_names
+    assert "Origin: 2" not in expected.design.constructed_column_names
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
-def test_invalid_reference_skips_status_but_model_still_computes() -> None:
-    expected = calculate_regression_spec_case(_case("status_invalid_reference"), CSV_PATH)
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+def test_invalid_reference_skips_origin_but_model_still_computes() -> None:
+    expected = calculate_regression_spec_case(_case("origin_invalid_reference"), XLSX_PATH)
     design = expected.design
 
-    assert design.degenerate_categoricals == ("Status",)
-    assert design.references_in_use["Status"] == "Developped"
-    assert not any(name.startswith("Status:") for name in design.constructed_column_names)
-    assert design.constructed_column_names == ("Adult Mortality", "GDP", "Schooling")
+    assert design.degenerate_categoricals == ("Origin",)
+    assert design.references_in_use["Origin"] == 99
+    assert not any(name.startswith("Origin:") for name in design.constructed_column_names)
+    assert design.constructed_column_names == ("Displacement", "Horsepower", "Weight")
     assert math.isfinite(expected.results.summary.r_squared)
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
-def test_year_status_categorical_keeps_numeric_year_levels_as_dummies() -> None:
-    expected = calculate_regression_spec_case(_case("year_status_categorical"), CSV_PATH)
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() -> None:
+    expected = calculate_regression_spec_case(_case("model_year_origin_categorical"), XLSX_PATH)
     design = expected.design
 
-    assert design.constructed_column_names[:15] == tuple(
-        f"Year: {year}" for year in range(2001, 2016)
+    assert design.constructed_column_names[3:15] == tuple(
+        f"Model Year: {year}" for year in range(71, 83)
     )
-    assert "Status: Developing" in design.constructed_column_names
-    assert design.level_counts == {"Year": 16, "Status": 2}
-    assert design.references_in_use["Year"] == 2000
+    assert "Origin: 2" in design.constructed_column_names
+    assert design.level_counts == {"Model Year": 13, "Origin": 3}
+    assert design.references_in_use["Model Year"] == 70
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
-def test_year_status_categorical_gvif_shared_across_dummy_columns() -> None:
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+def test_model_year_origin_categorical_gvif_shared_across_dummy_columns() -> None:
     """GVIF collapses each categorical variable's dummy block to one shared value."""
-    expected = calculate_regression_spec_case(_case("year_status_categorical"), CSV_PATH)
+    expected = calculate_regression_spec_case(_case("model_year_origin_categorical"), XLSX_PATH)
     names = expected.design.constructed_column_names
     gvif = expected.results.predictor_summary.gvif
 
-    year_gvif = {gvif[i] for i, name in enumerate(names) if name.startswith("Year: ")}
-    assert len(year_gvif) == 1, "all 15 Year dummy columns must share one GVIF value"
+    year_gvif = {gvif[i] for i, name in enumerate(names) if name.startswith("Model Year: ")}
+    assert len(year_gvif) == 1, "all 12 Model Year dummy columns must share one GVIF value"
 
-    status_gvif = {gvif[i] for i, name in enumerate(names) if name.startswith("Status: ")}
-    assert len(status_gvif) == 1, "Status has a single dummy column but should still be one group"
+    origin_gvif = {gvif[i] for i, name in enumerate(names) if name.startswith("Origin: ")}
+    assert len(origin_gvif) == 1, "Origin has two dummy columns but should still be one group"
 
     # Continuous predictors are their own group (df=1): GVIF must exactly match
     # ordinary per-column VIF, independently recomputed via lstsq (not calling
     # into production code) as a genuine cross-check.
     x = expected.design.x_features
-    for continuous_name in ("Adult Mortality", "GDP", "Schooling"):
+    for continuous_name in ("Displacement", "Horsepower", "Weight"):
         j = names.index(continuous_name)
         others = np.delete(x, j, axis=1)
         others_with_const = np.column_stack([np.ones(x.shape[0]), others])
@@ -372,30 +377,29 @@ def test_year_status_categorical_gvif_shared_across_dummy_columns() -> None:
     assert all(v >= 1.0 - 1e-9 for v in gvif)
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
-def test_developing_filter_degenerates_status_and_drops_its_columns() -> None:
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     expected = calculate_regression_spec_case(
-        _case("developing_filter_degenerate_status"),
-        CSV_PATH,
+        _case("usa_filter_degenerate_origin"),
+        XLSX_PATH,
     )
     design = expected.design
 
-    assert design.included_rows == 2034
-    assert design.degenerate_categoricals == ("Status",)
-    assert design.level_counts == {"Year": 16, "Status": 1}
-    assert design.references_in_use == {"Year": 2000, "Status": "Developing"}
-    assert not any(name.startswith("Status:") for name in design.constructed_column_names)
+    assert design.included_rows == 245
+    assert design.degenerate_categoricals == ("Origin",)
+    assert design.level_counts == {"Model Year": 13, "Origin": 1}
+    assert design.references_in_use == {"Model Year": 70, "Origin": 1}
+    assert not any(name.startswith("Origin:") for name in design.constructed_column_names)
     assert design.constructed_column_names == (
-        *(f"Year: {year}" for year in range(2001, 2016)),
-        "Adult Mortality",
-        "GDP",
-        "Schooling",
+        "Horsepower",
+        "Weight",
+        *(f"Model Year: {year}" for year in range(71, 83)),
     )
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
+@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
 def test_expected_outputs_are_internally_consistent() -> None:
-    expected = calculate_regression_spec_case(_case("continuous_subset_intercept"), CSV_PATH)
+    expected = calculate_regression_spec_case(_case("continuous_subset_intercept"), XLSX_PATH)
     results = expected.results
     design = expected.design
     k = len(design.constructed_column_names)
@@ -407,7 +411,7 @@ def test_expected_outputs_are_internally_consistent() -> None:
     assert len(results.prediction_interval.pred_input_values) == k
     assert math.isfinite(results.summary.durbin_watson)
     assert 0.0 <= results.summary.durbin_watson <= 4.0
-    assert results.summary.durbin_watson == pytest.approx(2.1298772256557448)
+    assert results.summary.durbin_watson == pytest.approx(0.8587513374458717)
     assert abs(sum(results.full_residuals.hat_diagonal) - p) < 1e-4
     for y, prediction, residual in zip(
         results.full_residuals.dependent_var,
@@ -415,27 +419,3 @@ def test_expected_outputs_are_internally_consistent() -> None:
         results.full_residuals.residuals,
     ):
         assert abs(y - (prediction + residual)) < 1e-8
-
-
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Life Expectancy CSV not found")
-def test_full_continuous_fixture_matches_legacy_continuous_calculator() -> None:
-    spec_expected = calculate_regression_spec_case(
-        _case("v1_full_continuous_intercept"),
-        CSV_PATH,
-    ).results
-    legacy = calculate_regression_sheet_results(
-        CSV_PATH,
-        include_intercept=True,
-        feature_columns=FEATURE_COLUMNS,
-    )
-
-    assert spec_expected.summary.observations == legacy.summary.observations
-    assert spec_expected.predictor_summary.predictor_names == legacy.predictor_summary.predictor_names
-    assert spec_expected.vectors.term_names == legacy.vectors.term_names
-    assert np.allclose(spec_expected.vectors.coefficients, legacy.vectors.coefficients)
-    assert np.allclose(spec_expected.vectors.beta_weights, legacy.vectors.beta_weights)
-    assert np.allclose(spec_expected.full_residuals.hat_diagonal, legacy.full_residuals.hat_diagonal)
-    assert spec_expected.summary.r_squared == pytest.approx(legacy.summary.r_squared)
-    assert spec_expected.prediction_interval.point_estimate == pytest.approx(
-        legacy.prediction_interval.point_estimate
-    )

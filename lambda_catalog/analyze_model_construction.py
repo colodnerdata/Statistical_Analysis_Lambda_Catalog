@@ -1,14 +1,14 @@
 """Python expected values and QC reads for the Model Construction sheet.
 
 Follows the repo's QC split: expected values are computed in Python from the
-CSV (the ``analyze_regression_sheet`` pattern), sheet reads return failure
-strings in the standard ``[Sheet] check=...`` format (the
+source xlsx (the ``analyze_regression_sheet`` pattern), sheet reads return
+failure strings in the standard ``[Sheet] check=...`` format (the
 ``read_dummy_check_failures`` pattern). The calculator mirrors the sheet's
 own semantics — ``Sample_Include()``'s role-aware mask, ``Dummy_Levels``'
 mask-scoped level sets with the reference dropped, and the ``X_s()`` /
 ``Constructed_Column_Names()`` iteration predicate — over the same typed
-rows the Life Expectancy Data sheet is built from, so every audit cell,
-spill height, and level-qualified column name has an independently derived
+rows the Mileage Data sheet is built from, so every audit cell, spill
+height, and level-qualified column name has an independently derived
 expectation.
 
 Two verification passes run against the open QC workbook:
@@ -19,9 +19,9 @@ Two verification passes run against the open QC workbook:
    the full-height contract on the K/L spills, and the filtered zones'
    heights and first values.
 2. **Degenerate-Categorical via a Filter column** (the human test plan's T8
-   mechanism, driven from the T0 base state): an ``Is_Developing`` column is
-   added to the data table and declared as a Filter, which collapses Status
-   to a single level inside the mask. Status must then contribute zero
+   mechanism, driven from the T0 base state): an ``Is_USA`` column is
+   added to the data table and declared as a Filter, which collapses Origin
+   to a single level inside the mask. Origin must then contribute zero
    columns — flagged by the Levels cell, never an error on the sheet —
    while every other zone recomputes against the narrower mask. The
    mutation is reverted afterwards, and the QC verify phase closes the
@@ -35,13 +35,13 @@ from typing import TypeGuard
 
 import xlwings as xw
 
-from .analyze_life_expectancy import calculate_data_completeness_flags
+from .analyze_mileage import calculate_mileage_completeness_flags
 from .workbook_builder import XL_CALCULATION_MANUAL, XL_CALCULATION_SEMIAUTOMATIC
-from .write_sheet_life_expectancy_data import (
-    DEFAULT_CSV_PATH,
+from .write_sheet_mileage_data import (
+    DEFAULT_XLSX_PATH,
     FULL_DATA_HEADER,
     SHEET_NAME as DATA_SHEET_NAME,
-    load_life_expectancy_rows,
+    load_mileage_rows,
 )
 from .write_sheet_model_construction import (
     _AUDIT_PAIRS,
@@ -69,13 +69,13 @@ from .write_sheet_model_construction import (
 )
 
 _QC_PREFIX = "[Model Construction]"
-_TABLE_NAME = "LifeExpectancyData"
+_TABLE_NAME = "MileageData"
 
-# The T8-mechanism Filter column: 1 for Developing rows, 0 otherwise. Within
-# the narrowed mask every remaining Status value is "Developing", so Status
+# The T8-mechanism Filter column: 1 for USA-built rows, 0 otherwise. Within
+# the narrowed mask every remaining Origin value is 1 (USA), so Origin
 # (Predictor/Categorical/TRUE in the default spec) degenerates to one level.
-_EXTRA_FILTER_HEADER = "Is_Developing"
-_EXTRA_FILTER_FORMULA = '=--([@Status]="Developing")'
+_EXTRA_FILTER_HEADER = "Is_USA"
+_EXTRA_FILTER_FORMULA = "=--([@Origin]=1)"
 
 # Read a few cells beyond every expected spill so an over-long spill is
 # detected rather than silently truncated at the expected size.
@@ -94,7 +94,11 @@ class SpecVariable:
     role: str
     include: bool
     var_type: str
-    reference: str = ""
+    # "" means "use the default (first sorted level)". A non-blank override
+    # matches the underlying level's type — a numeric categorical column
+    # (e.g. Origin, Model Year) takes an int/float reference, mirroring how
+    # Excel auto-converts a typed numeric override to a number, not text.
+    reference: object = ""
     sequence: bool = False
 
 
@@ -120,16 +124,16 @@ def build_default_spec() -> list[SpecVariable]:
     return spec
 
 
-def load_source_rows(csv_path: Path = DEFAULT_CSV_PATH) -> list[dict[str, object]]:
-    """Load the CSV as row dicts matching the LifeExpectancyData table.
+def load_source_rows(xlsx_path: Path = DEFAULT_XLSX_PATH) -> list[dict[str, object]]:
+    """Load the source xlsx as row dicts matching the MileageData table.
 
     Cell values are typed exactly as the data sheet writer types them
     (int/float/str/None), and the computed ``Full_Data`` column is appended
     with the same completeness rule the sheet's ``Data_Completeness``
     formula applies.
     """
-    headers, rows = load_life_expectancy_rows(csv_path)
-    flags = calculate_data_completeness_flags(csv_path)
+    headers, rows = load_mileage_rows(xlsx_path)
+    flags = calculate_mileage_completeness_flags(xlsx_path)
     table_headers = [*headers, FULL_DATA_HEADER]
     return [
         dict(zip(table_headers, [*row, flag]))
@@ -550,7 +554,7 @@ def _recalculate_sheets(workbook: xw.Book, *sheets: xw.Sheet) -> None:
 def _verify_degenerate_filter_case(
     workbook: xw.Book, rows: list[dict[str, object]]
 ) -> list[str]:
-    """Drive the T8 mechanism: add an Is_Developing Filter, assert the skip.
+    """Drive the T8 mechanism: add an Is_USA Filter, assert the skip.
 
     The added ListColumn and the typed Filter role are reverted before
     returning; the verify phase additionally closes the workbook without
@@ -563,7 +567,7 @@ def _verify_degenerate_filter_case(
         SpecVariable(_EXTRA_FILTER_HEADER, _ROLE_FILTER, False, "Continuous")
     ]
     mutated_rows = [
-        {**row, _EXTRA_FILTER_HEADER: 1 if row["Status"] == "Developing" else 0}
+        {**row, _EXTRA_FILTER_HEADER: 1 if row["Origin"] == 1 else 0}
         for row in rows
     ]
     expected = calculate_model_construction_expectations(spec, mutated_rows)
@@ -582,14 +586,14 @@ def _verify_degenerate_filter_case(
             sheet, expected.total_rows, max(expected.k, 1)
         )
         failures = compare_observed_to_expected(
-            observed, expected, "Is_Developing filter"
+            observed, expected, "Is_USA filter"
         )
-        # The point of the case: Status degenerates inside the stratified
+        # The point of the case: Origin degenerates inside the stratified
         # mask and must be skipped (zero contributed columns), not errored.
-        if "Status" not in expected.degenerate_categoricals:
+        if "Origin" not in expected.degenerate_categoricals:
             failures.append(
-                f"{_QC_PREFIX} [Is_Developing filter] check='Status degenerates': "
-                f"expected Status in degenerate_categoricals, "
+                f"{_QC_PREFIX} [Is_USA filter] check='Origin degenerates': "
+                f"expected Origin in degenerate_categoricals, "
                 f"got {expected.degenerate_categoricals!r}"
             )
     finally:
@@ -601,7 +605,7 @@ def _verify_degenerate_filter_case(
 
 
 def read_model_construction_failures(
-    workbook: xw.Book, csv_path: Path = DEFAULT_CSV_PATH
+    workbook: xw.Book, xlsx_path: Path = DEFAULT_XLSX_PATH
 ) -> list[str]:
     """Verify the Model Construction sheet; return QC failure messages.
 
@@ -609,7 +613,7 @@ def read_model_construction_failures(
     state); pass 2 drives the degenerate-Categorical Filter case and
     reverts it. Every mismatch produces one standard-format failure string.
     """
-    rows = load_source_rows(csv_path)
+    rows = load_source_rows(xlsx_path)
     spec = build_default_spec()
     expected = calculate_model_construction_expectations(spec, rows)
 

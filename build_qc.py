@@ -78,11 +78,16 @@ _VERIFY_CALC_SHEET_NAMES = (
 )
 
 
-def _verification_calc_sheet_names(*, skip_dummy: bool) -> tuple[str, ...]:
+def _verification_calc_sheet_names(
+    *, skip_dummy: bool, skip_univariate: bool = False
+) -> tuple[str, ...]:
     """Return workbook sheets that must be force-calculated before verify."""
+    names = _VERIFY_CALC_SHEET_NAMES
     if skip_dummy:
-        return tuple(name for name in _VERIFY_CALC_SHEET_NAMES if name != "Dummy_Test")
-    return _VERIFY_CALC_SHEET_NAMES
+        names = tuple(name for name in names if name != "Dummy_Test")
+    if skip_univariate:
+        names = tuple(name for name in names if name != "Univariate")
+    return names
 
 
 def _verbose_checkpoint(verbose: bool, start_time: float, label: str) -> None:
@@ -107,21 +112,42 @@ def _report_qc_failure(failures: list[str], message: str) -> None:
         print("ERROR Additional QC mismatches suppressed.", flush=True)
 
 
+_OPTIONAL_VERIFY_SHEET_NAMES = ("Univariate",)
+
+
 def _calculate_verification_sheets(
     workbook: xw.Book,
     verbose: bool,
     phase_start: float,
     *,
     skip_dummy: bool,
+    skip_univariate: bool = False,
 ) -> None:
-    sheet_names = _verification_calc_sheet_names(skip_dummy=skip_dummy)
+    sheet_names = _verification_calc_sheet_names(
+        skip_dummy=skip_dummy, skip_univariate=skip_univariate
+    )
     workbook_sheet_names = {sheet.name for sheet in workbook.sheets}
     missing_sheets = [name for name in sheet_names if name not in workbook_sheet_names]
-    if missing_sheets:
+
+    # A sheet named here can be legitimately absent (e.g. a workbook built
+    # with --skip-univariate never got a Univariate sheet at all) even when
+    # the caller didn't pass the matching skip flag — warn and skip
+    # calculating it rather than crashing. Any other missing sheet indicates
+    # a real build problem and still hard-fails.
+    required_missing = [
+        name for name in missing_sheets if name not in _OPTIONAL_VERIFY_SHEET_NAMES
+    ]
+    if required_missing:
         raise RuntimeError(
             "Verification requires worksheet(s) that are missing from the workbook: "
-            + ", ".join(missing_sheets)
+            + ", ".join(required_missing)
         )
+    for name in missing_sheets:
+        print(
+            f"WARNING Sheet '{name}' not found in workbook; skipping its verification.",
+            flush=True,
+        )
+    sheet_names = [name for name in sheet_names if name not in missing_sheets]
 
     _verbose_checkpoint(verbose, phase_start, "Verify: calculate start")
     workbook.app.api.Calculation = XL_CALCULATION_MANUAL
@@ -218,6 +244,7 @@ def verify_test_sheets(
     *,
     mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
     skip_dummy: bool = False,
+    skip_univariate: bool = False,
     failures_out: list[str] | None = None,
 ) -> None:
     """Compare live workbook output against Python-computed QC oracle values.
@@ -240,6 +267,15 @@ def verify_test_sheets(
         Used by ``build_production.py --verify`` which produces a workbook
         without a ``Dummy_Test`` sheet. Defaults to False (legacy QC build
         behaviour).
+    skip_univariate : bool
+        When True, skip the Univariate sheet check (``read_univariate_
+        failures``). Used by ``build_production.py --verify --skip-
+        univariate`` which produces a workbook without a ``Univariate``
+        sheet. Defaults to False. Even when False, a workbook that is
+        missing the ``Univariate`` sheet (e.g. built earlier with
+        --skip-univariate) is handled the same way — the check is skipped
+        with a warning rather than raising, since the sheet's absence is
+        expected in that case, not a build failure.
     failures_out : list[str] | None
         Optional external list. When supplied, every captured failure message
         is appended to it before the function raises on drift. Used by
@@ -254,6 +290,7 @@ def verify_test_sheets(
         verbose,
         phase_start,
         skip_dummy=skip_dummy,
+        skip_univariate=skip_univariate,
     )
     _verify_life_expectancy_full_data(workbook, csv_path, failures)
     _verify_mileage_full_data(workbook, mileage_path, failures)
@@ -294,14 +331,22 @@ def verify_test_sheets(
                     f"abs_diff={row['abs_diff']!r}, fdd={fdd}",
                 )
 
-    uv_mod = _load_module(
-        "inspect_univariate_sheet",
-        ROOT_DIR / "tools" / "inspect_univariate_sheet.py",
-    )
-    _verbose_checkpoint(verbose, phase_start, "Verify: univariate start")
-    for failure in uv_mod.read_univariate_failures(workbook, csv_path):
-        _report_qc_failure(failures, failure)
-    _verbose_checkpoint(verbose, phase_start, "Verify: univariate done")
+    workbook_sheet_names = {sheet.name for sheet in workbook.sheets}
+    if skip_univariate or "Univariate" not in workbook_sheet_names:
+        print(
+            "WARNING Univariate sheet not verified "
+            "(missing from workbook or --skip-univariate was used).",
+            flush=True,
+        )
+    else:
+        uv_mod = _load_module(
+            "inspect_univariate_sheet",
+            ROOT_DIR / "tools" / "inspect_univariate_sheet.py",
+        )
+        _verbose_checkpoint(verbose, phase_start, "Verify: univariate start")
+        for failure in uv_mod.read_univariate_failures(workbook, csv_path):
+            _report_qc_failure(failures, failure)
+        _verbose_checkpoint(verbose, phase_start, "Verify: univariate done")
 
     if not skip_dummy:
         _verbose_checkpoint(verbose, phase_start, "Verify: dummy test start")

@@ -107,6 +107,92 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
     assert calls == ["Life Expectancy Data", "Mileage Data", "Regression", "Univariate"]
 
 
+def test_build_qc_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
+    import build_qc
+
+    assert "Univariate" in build_qc._verification_calc_sheet_names(
+        skip_dummy=True, skip_univariate=False
+    )
+    assert "Univariate" not in build_qc._verification_calc_sheet_names(
+        skip_dummy=True, skip_univariate=True
+    )
+
+
+def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate_missing() -> None:
+    """A workbook built with --skip-univariate never gets a Univariate sheet.
+    Verification must skip it with a warning, not raise, regardless of
+    whether skip_univariate was explicitly passed for this call."""
+    import build_qc
+
+    calls: list[str] = []
+
+    class _Sheet:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.api = SimpleNamespace(Calculate=lambda: calls.append(name))
+
+    class _Sheets:
+        def __init__(self, names: list[str]) -> None:
+            self._by_name = {name: _Sheet(name) for name in names}
+
+        def __iter__(self):
+            return iter(self._by_name.values())
+
+        def __getitem__(self, name: str):
+            return self._by_name[name]
+
+    workbook = SimpleNamespace(
+        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
+        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Regression"]),
+    )
+
+    # skip_univariate not passed (defaults False) — the sheet is simply
+    # absent from this workbook, which must still be handled gracefully.
+    build_qc._calculate_verification_sheets(
+        workbook,
+        verbose=False,
+        phase_start=0.0,
+        skip_dummy=True,
+    )
+
+    assert "Univariate" not in calls
+    assert calls == ["Life Expectancy Data", "Mileage Data", "Regression"]
+
+
+def test_calculate_verification_sheets_still_requires_regression_sheet() -> None:
+    """Missing sheets that are never legitimately optional (Regression) must
+    still hard-fail — only Univariate gets the lenient warn-and-skip path."""
+    import build_qc
+
+    class _Sheet:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.api = SimpleNamespace(Calculate=lambda: None)
+
+    class _Sheets:
+        def __init__(self, names: list[str]) -> None:
+            self._by_name = {name: _Sheet(name) for name in names}
+
+        def __iter__(self):
+            return iter(self._by_name.values())
+
+        def __getitem__(self, name: str):
+            return self._by_name[name]
+
+    workbook = SimpleNamespace(
+        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
+        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Univariate"]),
+    )
+
+    with pytest.raises(RuntimeError, match="Regression"):
+        build_qc._calculate_verification_sheets(
+            workbook,
+            verbose=False,
+            phase_start=0.0,
+            skip_dummy=True,
+        )
+
+
 def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None:
     import build_qc
 

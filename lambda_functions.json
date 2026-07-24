@@ -949,6 +949,64 @@
       "notes": "1/VIF per predictor. Fraction of unique variance not shared with other predictors. < 0.2: review; < 0.1: strong collinearity."
     },
     {
+      "name": "GVIF",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Column_Names, [Allow_Intercept], [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(X_s),\n    grp,      IFERROR(LEFT(Column_Names, FIND(\": \", Column_Names) - 1), Column_Names),\n    IF(COUNTA(UNIQUE(grp, TRUE)) <= 1,\n      MAKEARRAY(k, 1, LAMBDA(j, _, 1)),\n      LET(\n        R, Correlation_Matrix(X_s, filt_arg),\n        MAKEARRAY(k, 1, LAMBDA(j, _,\n          LET(\n            g,   INDEX(grp, 1, j),\n            own, grp = g,\n            R11, FILTER(FILTER(R, TRANSPOSE(own)), own),\n            R22, FILTER(FILTER(R, TRANSPOSE(NOT(own))), NOT(own)),\n            MDETERM(R11) * MDETERM(R22) / MDETERM(R)\n          )\n        ))\n      )\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column); a categorical predictor contributes a contiguous block of dummy columns"
+        },
+        {
+          "name": "Column_Names",
+          "description": "1×k row vector of column labels aligned with X_s, following the \"Header: level\" convention (e.g. Constructed_Column_Names()); columns sharing the text before the first \": \" are treated as one variable's group"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — included for interface consistency; the correlation-matrix formula is intercept-invariant",
+          "optional": true
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of GVIF values, one per column of X_s — every dummy column sharing a source variable's group carries the same value",
+      "description": "Generalized Variance Inflation Factor (Fox & Monette, 1992): GVIF_g = det(R11) * det(R22) / det(R), where R is the k×k correlation matrix of X_s (via Correlation_Matrix), R11 is the submatrix restricted to source-variable g's own columns, and R22 is the submatrix restricted to every other column. Collapses a categorical predictor's whole dummy block into one coding-invariant number instead of L−1 separate, coding-dependent per-dummy VIF values.\n\nGroups are recovered from Column_Names by splitting on the first \": \" — the same convention Constructed_Column_Names() already uses to label dummy columns. When a group has exactly one column (an ordinary continuous predictor, or a two-level categorical), GVIF is numerically identical to VIF's own 1/(1−R²ⱼ) — a matrix identity, not an approximation — so the existing 5/10 review thresholds stay valid for those rows. When every column resolves to the same group (only one source variable in the whole matrix) GVIF returns 1 for all columns, the direct generalization of VIF's own k=1 special case.",
+      "plain_language_summary": "How much overlap with the other predictors is inflating a variable's instability — one shared number per variable, even when it spans several dummy columns.",
+      "notes": "Generalized VIF, one value per source variable (shared across a categorical predictor's dummy columns): det(R11)*det(R22)/det(R). Equals ordinary VIF when a variable is a single column."
+    },
+    {
+      "name": "Generalized_Tolerance",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Column_Names, [Allow_Intercept], [Include],\n  1 / GVIF(X_s, Column_Names, Allow_Intercept, Include)\n)",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors (single or multi-column); a categorical predictor contributes a contiguous block of dummy columns"
+        },
+        {
+          "name": "Column_Names",
+          "description": "1×k row vector of column labels aligned with X_s, following the \"Header: level\" convention (e.g. Constructed_Column_Names())"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — passed through to GVIF; included for interface consistency",
+          "optional": true
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "k×1 column vector of Generalized Tolerance values (= 1/GVIF), one per column of X_s",
+      "description": "Generalized Tolerance = 1 / GVIF, the reciprocal of the Generalized Variance Inflation Factor. Mirrors Tolerance's own one-line relationship to VIF, forwarding all arguments to GVIF.",
+      "plain_language_summary": "How much unique information a variable still has after overlap with the others, generalized to whole categorical predictors.",
+      "notes": "1/GVIF per source variable. Fraction of unique variance not shared with other predictors, generalized across a categorical predictor's dummy columns."
+    },
+    {
       "name": "Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
@@ -2868,8 +2926,8 @@
     "Spearman R": "Measures whether higher X tends to go with higher or lower Y after converting both to ranks. It is useful when the relationship is ordered but curved instead of perfectly linear.",
     "Skewness": "Shows whether the data have a longer tail on one side. Positive means a longer right tail; negative means a longer left tail.",
     "Kurtosis": "Shows how heavy the tails are relative to a normal bell curve. Positive values mean heavier tails with more frequent extremes; values near 0 match a normal distribution.",
-    "VIF": "A measure of collinearity with the other predictors. A value of 1 means no overlap; above 5 warrants review, above 10 indicates a problem.",
-    "Tolerance": "The fraction of a predictor's variation not explained by the other predictors. Values below 0.2 warrant review; below 0.1 indicate strong collinearity.",
+    "GVIF": "A measure of collinearity with the other predictors, generalized so a categorical predictor's whole dummy block shares one value instead of a separate number per level. A value of 1 means no overlap; above 5 warrants review, above 10 indicates a problem — those thresholds are exact for a continuous predictor, and reflect the combined block for a multi-level categorical one.",
+    "Tolerance": "The fraction of a predictor's variation not explained by the other predictors (1/GVIF) — generalized the same way, so a categorical predictor's dummy columns share one value. Values below 0.2 warrant review; below 0.1 indicate strong collinearity.",
     "Multiple R": "How closely the model's predicted Y values track the actual Y values overall.",
     "R Square": "The share of the outcome's variation explained by the model.",
     "Adjusted R Square": "R Square with a penalty for adding predictors that do not help enough.",

@@ -399,7 +399,7 @@ class TestRegressionSheetConfigs(unittest.TestCase):
             self.assertEqual(len(results.predictor_summary.spearman_r), k, name)
             self.assertEqual(len(results.predictor_summary.skewness), k, name)
             self.assertEqual(len(results.predictor_summary.kurtosis), k, name)
-            self.assertEqual(len(results.predictor_summary.vif), k, name)
+            self.assertEqual(len(results.predictor_summary.gvif), k, name)
             self.assertEqual(len(results.predictor_summary.tolerance), k, name)
 
     def test_predictor_names_match_columns(self) -> None:
@@ -408,16 +408,16 @@ class TestRegressionSheetConfigs(unittest.TestCase):
                 list(results.predictor_summary.predictor_names), cols, name,
             )
 
-    def test_vif_tolerance_reciprocal(self) -> None:
+    def test_gvif_tolerance_reciprocal(self) -> None:
         for (name, _, _), results in self.named_configs:
             for j, (v, t) in enumerate(
-                zip(results.predictor_summary.vif, results.predictor_summary.tolerance)
+                zip(results.predictor_summary.gvif, results.predictor_summary.tolerance)
             ):
                 self.assertAlmostEqual(v * t, 1.0, places=10, msg=f"{name} j={j}")
 
-    def test_vif_at_least_one(self) -> None:
+    def test_gvif_at_least_one(self) -> None:
         for (name, _, _), results in self.named_configs:
-            for j, v in enumerate(results.predictor_summary.vif):
+            for j, v in enumerate(results.predictor_summary.gvif):
                 self.assertGreaterEqual(v, 1.0 - 1e-10, msg=f"{name} j={j}")
 
     def test_pearson_r_in_range(self) -> None:
@@ -580,7 +580,7 @@ class TestCacheRoundTrip(unittest.TestCase):
             self.assertEqual(r1.summary.observations, r2.summary.observations)
             self.assertEqual(r1.summary.r_squared, r2.summary.r_squared)
             self.assertEqual(r1.vectors.coefficients, r2.vectors.coefficients)
-            self.assertEqual(r1.predictor_summary.vif, r2.predictor_summary.vif)
+            self.assertEqual(r1.predictor_summary.gvif, r2.predictor_summary.gvif)
             self.assertEqual(
                 r1.full_residuals.hat_diagonal, r2.full_residuals.hat_diagonal,
             )

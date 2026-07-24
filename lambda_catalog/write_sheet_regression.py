@@ -20,8 +20,10 @@ single ungrouped GAP column so the zones collapse independently; see the
                    Sequence_Delta_Spectrum() spill at M2:N?
   Col O          — thin gap (width 2, ungrouped)
   Col P–V        — Predictor Summary: level-qualified constructed names (P) +
-                   Pearson R, Spearman R, Skewness, Kurtosis, VIF, Tolerance —
-                   computed on the CONSTRUCTED design matrix (dummies included)
+                   Pearson R, Spearman R, Skewness, Kurtosis, GVIF, Tolerance —
+                   computed on the CONSTRUCTED design matrix (dummies included);
+                   GVIF/Tolerance share one value across a categorical
+                   predictor's dummy columns (Generalized VIF)
   Col W          — thin gap (width 2, ungrouped)
   Col X–AE       — Regression Outputs: Predicted Variable readout (AB2:AC2),
                    Statistics (X–Y rows 3–8), Diagnostics (AA–AB rows 3–12;
@@ -147,7 +149,7 @@ _C_Q = 17   # Pearson R
 _C_R = 18   # Spearman R
 _C_S = 19   # Skewness
 _C_T = 20   # Kurtosis
-_C_U = 21   # VIF
+_C_U = 21   # GVIF
 _C_V = 22   # Tolerance
 
 # Gap before Regression Outputs.
@@ -267,7 +269,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (2, _C_R, "Spearman R"),
         (2, _C_S, "Skewness"),
         (2, _C_T, "Kurtosis"),
-        (2, _C_U, "VIF"),
+        (2, _C_U, "GVIF"),
         (2, _C_V, "Tolerance"),
         (4, _C_X, "Multiple R"),
         (5, _C_X, "R Square"),
@@ -473,31 +475,33 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
 
 
 def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
-    """Apply rule-of-thumb formatting to VIF, PRESS R², and QQ Correlation."""
+    """Apply rule-of-thumb formatting to GVIF, PRESS R², and QQ Correlation."""
 
-    vif_address = f"U3:U{MAX_EXCEL_ROW}"
+    gvif_address = f"U3:U{MAX_EXCEL_ROW}"
     press_r2_address = "AB5"
     qq_corr_address = "AB10"
 
     # Prevent duplicate rules when rebuilding the sheet.
-    sheet.range(vif_address).api.FormatConditions.Delete()
+    sheet.range(gvif_address).api.FormatConditions.Delete()
     sheet.range(press_r2_address).api.FormatConditions.Delete()
     sheet.range(qq_corr_address).api.FormatConditions.Delete()
 
-    # ── VIF ─────────────────────────────────────────────────────────────────
-    # 5 < VIF <= 10: possible multicollinearity; review.
+    # ── GVIF ────────────────────────────────────────────────────────────────
+    # 5 < GVIF <= 10: possible multicollinearity; review. Thresholds are exact
+    # for a continuous (single-column) predictor and reflect the combined
+    # block for a multi-level categorical one (raw, unstandardized GVIF).
     add_expression_format(
         sheet,
-        vif_address,
+        gvif_address,
         "=AND(ISNUMBER(U3),U3>5,U3<=10)",
         fill=CF_YELLOW_FILL,
         font_color=CF_DARK_YELLOW_TEXT,
     )
 
-    # VIF > 10: strong multicollinearity warning.
+    # GVIF > 10: strong multicollinearity warning.
     add_expression_format(
         sheet,
-        vif_address,
+        gvif_address,
         "=AND(ISNUMBER(U3),U3>10)",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
@@ -700,21 +704,24 @@ def _write_predictor_summary(sheet: xw.Sheet) -> None:
 
     for col, header in zip(
         [_C_P, _C_Q, _C_R, _C_S, _C_T, _C_U, _C_V],
-        ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "VIF", "Tolerance"],
+        ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "GVIF", "Tolerance"],
     ):
         val(sheet, 2, col, header)
     bold_row(sheet, 2, _C_P, _C_V)
 
     # Spill anchors at row 3 — each spills once per constructed column.
     # Names come from the constructor twin, so dummies are level-qualified
-    # and the stats run on the actual design matrix (VIF with dummies in).
+    # and the stats run on the actual design matrix. GVIF/Tolerance are
+    # generalized (Fox & Monette): every dummy column from the same
+    # categorical predictor shares one value instead of a separate,
+    # coding-dependent number per level.
     f(sheet, 3, _C_P, "=TRANSPOSE(Constructed_Column_Names())")
     f(sheet, 3, _C_Q, "=Pearson_R(X_s(),Response_Column(),Sample_Include())")
     f(sheet, 3, _C_R, "=Spearman_R(X_s(),Response_Column(),Sample_Include())")
     f(sheet, 3, _C_S, "=Skewness(X_s(),Sample_Include())")
     f(sheet, 3, _C_T, "=Kurtosis(X_s(),Sample_Include())")
-    f(sheet, 3, _C_U, "=VIF(X_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_V, "=Tolerance(X_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_U, "=GVIF(X_s(),Constructed_Column_Names(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_V, "=Generalized_Tolerance(X_s(),Constructed_Column_Names(),Allow_Intercept,Sample_Include())")
 
     sheet.range(
         (rc(3, _C_Q)), (rc(_FORMAT_BAND_LAST_ROW, _C_V))

@@ -54,7 +54,7 @@ _C_Q = 17   # Pearson R
 _C_R = 18   # Spearman R
 _C_S = 19   # Skewness
 _C_T = 20   # Kurtosis
-_C_U = 21   # VIF
+_C_U = 21   # GVIF
 _C_V = 22   # Tolerance
 _C_X = 24   # labels (stats / ANOVA / coefficients)
 _C_Y = 25   # stat values / ANOVA df / coefficient values
@@ -319,8 +319,8 @@ def read_regression_df(
             })
 
         # ── Predictor Summary (columns Q–V, rows 3 to 3+k-1) ─────────────
-        pred_stat_names = ["Pearson_R", "Spearman_R", "Skewness", "Kurtosis", "VIF", "Tolerance"]
-        pred_exp_tuples = [ps.pearson_r, ps.spearman_r, ps.skewness, ps.kurtosis, ps.vif, ps.tolerance]
+        pred_stat_names = ["Pearson_R", "Spearman_R", "Skewness", "Kurtosis", "GVIF", "Tolerance"]
+        pred_exp_tuples = [ps.pearson_r, ps.spearman_r, ps.skewness, ps.kurtosis, ps.gvif, ps.tolerance]
         pred_col_indices = [_C_Q, _C_R, _C_S, _C_T, _C_U, _C_V]
 
         for stat_name, exp_tuple, col in zip(pred_stat_names, pred_exp_tuples, pred_col_indices):

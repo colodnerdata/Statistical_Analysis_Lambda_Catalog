@@ -162,6 +162,16 @@ def test_only_the_retarget_name_references_the_table_directly() -> None:
         assert "LifeExpectancyData" not in formula, formula
 
 
+def test_source_table_wiring_can_be_overridden() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _set_sheet_scoped_names(
+        _as_xw_sheet(sheet),
+        _model_construction_closures(),
+        source_table_ref="=Auto_MPG_Data[#All]",
+    )
+    assert _refers_to(sheet, "Source_Table") == "=Auto_MPG_Data[#All]"
+
+
 def test_spec_ranges_cover_the_standard_input_band() -> None:
     sheet = _named_sheet()
 

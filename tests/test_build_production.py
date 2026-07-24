@@ -238,6 +238,8 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            regression_dataset="life_expectancy",
+            auto_mpg_workbook=Path("sample_data/auto_mpg_data.xlsx"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=False,
@@ -371,6 +373,74 @@ def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> N
     assert app.book.saved_paths == [str(tmp_path / "Example.xlsx")]
 
 
+def test_build_uses_auto_mpg_source_table_when_requested(monkeypatch, tmp_path) -> None:
+    app = _RecordingApp()
+    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+    monkeypatch.setattr(
+        build_production,
+        "load_catalog_document",
+        lambda _: SimpleNamespace(
+            functions=(),
+            workbook_functions=(),
+            regression_sheet_notes={},
+            functions_for_sheet=lambda _sheet: (),
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "load_life_expectancy_rows",
+        lambda _: ([], []),
+    )
+
+    called: dict[str, object] = {"auto_mpg": False, "source_table_ref": None}
+    monkeypatch.setattr(build_production, "write_catalog_sheet", lambda *_, **__: None)
+    monkeypatch.setattr(
+        build_production, "write_life_expectancy_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_univariate_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_regression_instructions_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_diagnostic_guide_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_version_history_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production,
+        "write_auto_mpg_sheet",
+        lambda *_args, **_kwargs: called.__setitem__("auto_mpg", True),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "write_regression_output_sheet",
+        lambda *args, **kwargs: called.__setitem__(
+            "source_table_ref", kwargs.get("source_table_ref")
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "sync_workbook_names",
+        lambda *_, **__: NameSyncResult(created=0, updated=0),
+    )
+
+    build_production.build_production_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=False,
+        skip_univariate=True,
+        regression_dataset="auto_mpg",
+        auto_mpg_workbook_path=tmp_path / "auto_mpg_data.xlsx",
+    )
+
+    assert called["auto_mpg"] is True
+    assert called["source_table_ref"] == "=Auto_MPG_Data[#All]"
+
+
 def test_main_skips_data_table_recalculation_when_requested(
     monkeypatch,
     capsys,
@@ -385,6 +455,8 @@ def test_main_skips_data_table_recalculation_when_requested(
             workbook=workbook_path,
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            regression_dataset="life_expectancy",
+            auto_mpg_workbook=Path("sample_data/auto_mpg_data.xlsx"),
             validate_reopen=False,
             verbose=True,
             skip_univariate=False,
@@ -441,6 +513,8 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            regression_dataset="life_expectancy",
+            auto_mpg_workbook=Path("sample_data/auto_mpg_data.xlsx"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=False,
@@ -476,7 +550,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
     popen_calls: list[tuple[str, ...]] = []
     verify_calls: list[tuple[Path, Path]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False):
+    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, **_kwargs):
         verify_calls.append((workbook_path, csv_path))
         from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
@@ -495,6 +569,8 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            regression_dataset="life_expectancy",
+            auto_mpg_workbook=Path("sample_data/auto_mpg_data.xlsx"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=False,
@@ -537,7 +613,7 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     launched in place of a fresh one) and must sys.exit(1)."""
     popen_calls: list[tuple[str, ...]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False):
+    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, **_kwargs):
         from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
             passed=False,
@@ -558,6 +634,8 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            regression_dataset="life_expectancy",
+            auto_mpg_workbook=Path("sample_data/auto_mpg_data.xlsx"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=False,
@@ -588,3 +666,13 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     output = capsys.readouterr().out
     assert "ERROR Verify mismatch totals" in output
     assert "Regression/scalars=2" in output
+
+
+def test_auto_mpg_verify_requires_no_verify() -> None:
+    with pytest.raises(RuntimeError) as exc_info:
+        build_production._run_deep_verify(
+            Path("Example.xlsx"),
+            Path("life_expectancy.csv"),
+            regression_dataset="auto_mpg",
+        )
+    assert "supports only regression_dataset=life_expectancy" in str(exc_info.value)

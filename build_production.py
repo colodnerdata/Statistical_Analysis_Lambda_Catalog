@@ -33,6 +33,10 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
     write_life_expectancy_sheet,
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
+from lambda_catalog.write_sheet_auto_mpg_data import (
+    DEFAULT_AUTO_MPG_XLSX_PATH,
+    write_auto_mpg_sheet,
+)
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
@@ -48,6 +52,12 @@ _RPC_FAILURE_PHRASES = (
     "remote procedure call failed",
     "rpc server is unavailable",
 )
+
+
+_REGRESSION_DATASET_REFS: dict[str, str] = {
+    "life_expectancy": "=LifeExpectancyData[#All]",
+    "auto_mpg": "=Auto_MPG_Data[#All]",
+}
 
 
 def _is_rpc_failure(exc: BaseException) -> bool:
@@ -121,6 +131,8 @@ def _run_deep_verify(
     csv_path: Path,
     *,
     verbose: bool = False,
+    regression_dataset: str = "life_expectancy",
+    auto_mpg_workbook_path: Path = DEFAULT_AUTO_MPG_XLSX_PATH,
 ) -> VerifyReport:
     """Run the spec-driven verifier against the production workbook.
 
@@ -134,6 +146,12 @@ def _run_deep_verify(
     Other exceptions propagate.
     """
     start = time.monotonic()
+    if regression_dataset != "life_expectancy":
+        raise RuntimeError(
+            "Spec-driven production verify currently supports only "
+            "regression_dataset=life_expectancy. Re-run with --no-verify "
+            "for auto_mpg builds."
+        )
     build_qc = _load_build_qc_module()
     if verbose:
         print("  Verify:         spec-driven verifier starting", flush=True)
@@ -200,6 +218,8 @@ def build_production_workbook(
     verbose: bool = False,
     recalculate: bool = True,
     skip_univariate: bool = False,
+    regression_dataset: str = "life_expectancy",
+    auto_mpg_workbook_path: Path = DEFAULT_AUTO_MPG_XLSX_PATH,
 ) -> NameSyncResult:
     """Build the production sheets and sync the LAMBDA name manager.
 
@@ -211,6 +231,11 @@ def build_production_workbook(
         Path to the JSON catalog file.
     csv_path : Path, optional
         Path to the Life Expectancy CSV file.
+    regression_dataset : str, optional
+        Regression source-table profile: ``life_expectancy`` or ``auto_mpg``.
+    auto_mpg_workbook_path : Path, optional
+        Path to the bundled Auto MPG source workbook used when
+        ``regression_dataset='auto_mpg'``.
     validate_reopen : bool, optional
         If True, reopens the workbook in Excel after patching to verify it.
     verbose : bool, optional
@@ -229,9 +254,15 @@ def build_production_workbook(
     NameSyncResult
         Counts of created versus updated workbook names.
     """
+    if regression_dataset not in _REGRESSION_DATASET_REFS:
+        raise ValueError(
+            "regression_dataset must be one of: "
+            + ", ".join(sorted(_REGRESSION_DATASET_REFS))
+        )
     _t = time.monotonic()
     document = load_catalog_document(definitions_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
+    source_table_ref = _REGRESSION_DATASET_REFS[regression_dataset]
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
 
@@ -278,6 +309,8 @@ def build_production_workbook(
                 workbook.sheets["Sheet1"].name = "LAMBDA_functions"
             write_catalog_sheet(workbook, document.functions)
             write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
+            if regression_dataset == "auto_mpg":
+                write_auto_mpg_sheet(workbook, auto_mpg_workbook_path)
             if not skip_univariate:
                 write_univariate_sheet(workbook)
             write_regression_instructions_sheet(workbook)
@@ -287,6 +320,7 @@ def build_production_workbook(
                 workbook,
                 document.regression_sheet_notes,
                 document.functions_for_sheet("Regression"),
+                source_table_ref=source_table_ref,
             )
             app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
             workbook.save(str(workbook_path))
@@ -328,7 +362,8 @@ def parse_args() -> argparse.Namespace:
     -------
     argparse.Namespace
         Parsed arguments with workbook, definitions, csv, validate_reopen,
-        verbose, skip_univariate, and skip_data_table_calculations attributes.
+        verbose, skip_univariate, skip_data_table_calculations,
+        regression_dataset, and auto_mpg_workbook attributes.
     """
     parser = argparse.ArgumentParser(
         description="Build Lambda_Library.xlsx from lambda_functions.json."
@@ -410,6 +445,23 @@ def parse_args() -> argparse.Namespace:
             "and Excel should not pop up."
         ),
     )
+    parser.add_argument(
+        "--regression-dataset",
+        choices=tuple(_REGRESSION_DATASET_REFS),
+        default="life_expectancy",
+        help=(
+            "Which table the Regression sheet's Source_Table points to. "
+            "'auto_mpg' targets Auto_MPG_Data and writes the Auto_MPG sheet."
+        ),
+    )
+    parser.add_argument(
+        "--auto-mpg-workbook",
+        type=Path,
+        default=DEFAULT_AUTO_MPG_XLSX_PATH,
+        help=(
+            "Path to auto_mpg_data.xlsx when --regression-dataset=auto_mpg."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -469,6 +521,8 @@ def main() -> None:
             verbose=args.verbose,
             recalculate=False,      # handled separately so only this step retries
             skip_univariate=args.skip_univariate,
+            regression_dataset=args.regression_dataset,
+            auto_mpg_workbook_path=args.auto_mpg_workbook,
         )
 
     build_phase_start = time.monotonic()
@@ -504,6 +558,8 @@ def main() -> None:
     print(f"Workbook: {workbook_path}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    if args.regression_dataset == "auto_mpg":
+        print("Sheet updated: Auto_MPG")
     if args.skip_univariate:
         print("Sheet skipped: Univariate Analysis")
     else:
@@ -523,7 +579,11 @@ def main() -> None:
         # verify failure we sys.exit(1) and never shell out to `cmd /c start`
         # so a stale build cannot be launched in place of a fresh one.
         report = _run_deep_verify(
-            workbook_path, args.csv, verbose=args.verbose
+            workbook_path,
+            args.csv,
+            verbose=args.verbose,
+            regression_dataset=args.regression_dataset,
+            auto_mpg_workbook_path=args.auto_mpg_workbook,
         )
         verify_elapsed = time.monotonic() - verify_start
         print(render_human(report))

@@ -54,6 +54,7 @@ Tests live in `tests/`. The current test files are:
 The coverage configuration in `pyproject.toml` tracks only the modules that are testable without Excel:
 
 - `analyze_life_expectancy.py`
+- `analyze_mileage.py`
 - `analyze_univariate.py`
 - `catalog_schema.py`
 - `lambda_formula_parser.py`
@@ -76,10 +77,11 @@ There are two separate build scripts with distinct purposes.
 uv run python build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes seven sheets:
+Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes eight sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions
 - **Life Expectancy Data** — WHO dataset as a structured table
+- **Mileage Data** — Auto MPG dataset as a structured table (a second sample dataset for practicing the Source_Table retarget workflow)
 - **Univariate Analysis** — descriptive statistics, histogram binning, and Weibull grid-search fitting
 - **Regression Instructions** — step-by-step guide for adapting the sheet to new datasets
 - **Diagnostic Guide** — interpretation guide for regression diagnostics
@@ -104,7 +106,7 @@ The one-shot automated flow is the third command above. It builds, syncs names, 
 uv run python build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all twelve sheets (the seven above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all thirteen sheets (the eight above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
 
 The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 
@@ -189,6 +191,7 @@ build_qc.py                  # QC entry point → Lambda_Library_QC.xlsx
 lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
+  auto_mpg_data.xlsx         # Auto MPG dataset (second sample dataset, "Mileage Data" sheet)
 lambda_catalog/
   catalog_schema.py          # typed document model: CatalogArgument, CatalogFunction, CatalogDocument
   regression_shared.py       # shared regression dataclasses: RegressionSummary, RegressionVectors, etc.
@@ -196,6 +199,7 @@ lambda_catalog/
   workbook_builder.py        # shared core: sync_workbook_names, workbook XML patching
   workbook_helpers.py        # shared xlwings utilities and cell formatting helpers
   analyze_life_expectancy.py # OLS engine: calculate_regression_summary, vectors, observations
+  analyze_mileage.py         # Auto MPG QC oracle: calculate_mileage_completeness_flags
   analyze_regression_sheet.py # full Regression sheet QC oracle (predictor summary, residuals, prediction interval)
   analyze_univariate.py      # univariate analysis: NLL functions, MLE estimators, binning, GoF
   analysis_cache.py          # disk cache keyed on CSV SHA-256 + schema version
@@ -204,6 +208,7 @@ lambda_catalog/
   make_test_sheet.py         # shared helpers for Excel ListObject test tables
   write_sheet_lambda_functions.py
   write_sheet_life_expectancy_data.py
+  write_sheet_mileage_data.py
   write_sheet_univariate.py
   write_sheet_regression_instructions.py
   write_sheet_diagnostic_guide.py

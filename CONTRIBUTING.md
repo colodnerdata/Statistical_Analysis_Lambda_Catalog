@@ -152,7 +152,7 @@ Reuses `build_qc.verify_test_sheets` against the production sheets. Same machine
 # Run the production build, recalculate, then verify against the spec oracle.
 # On drift: print a structured VerifyReport, sys.exit(1), and do NOT open
 # Excel (so a stale build cannot be launched in place of a fresh one).
-uv run python build_production.py --verify --no-launch --skip-data-table-calculations
+python build_production.py --verify --no-launch --skip-data-table-calculations --skip-univariate
 
 # Or, on the just-built workbook without rebuilding:
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
@@ -177,7 +177,7 @@ make verify-headless    # Layer 1 only
 make verify-deep        # Layer 2 only
 ```
 
-`make verify-deep` shells out to `build_production.py --verify --no-launch --skip-data-table-calculations`, so it both rebuilds and verifies. To verify an already-built workbook, use `uv run python tools/verify_workbook.py Lambda_Library.xlsx` instead.
+`make verify-deep` shells out to `build_production.py --verify --no-launch --skip-data-table-calculations --skip-univariate`, so it both rebuilds and verifies while leaving the existing Univariate sheet untouched for faster regression-focused loops. To verify an already-built workbook, use `python tools/verify_workbook.py Lambda_Library.xlsx` instead.
 
 ### CI
 

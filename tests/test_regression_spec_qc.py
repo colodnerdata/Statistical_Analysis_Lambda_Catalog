@@ -72,6 +72,73 @@ def test_build_qc_verification_calc_sheet_names_respects_skip_dummy_flag() -> No
     assert "Dummy_Test" not in build_qc._verification_calc_sheet_names(skip_dummy=True)
 
 
+def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
+    import build_qc
+
+    calls: list[str] = []
+
+    class _Sheet:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.api = SimpleNamespace(Calculate=lambda: calls.append(name))
+
+    class _Sheets:
+        def __init__(self, names: list[str]) -> None:
+            self._by_name = {name: _Sheet(name) for name in names}
+
+        def __iter__(self):
+            return iter(self._by_name.values())
+
+        def __getitem__(self, name: str):
+            return self._by_name[name]
+
+    workbook = SimpleNamespace(
+        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
+        sheets=_Sheets(["Life Expectancy Data", "Regression", "Univariate"]),
+    )
+
+    build_qc._calculate_verification_sheets(
+        workbook,
+        verbose=False,
+        phase_start=0.0,
+        skip_dummy=True,
+    )
+
+    assert calls == ["Life Expectancy Data", "Regression", "Univariate"]
+
+
+def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None:
+    import build_qc
+
+    class _Sheet:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.api = SimpleNamespace(Calculate=lambda: None)
+
+    class _Sheets:
+        def __init__(self, names: list[str]) -> None:
+            self._by_name = {name: _Sheet(name) for name in names}
+
+        def __iter__(self):
+            return iter(self._by_name.values())
+
+        def __getitem__(self, name: str):
+            return self._by_name[name]
+
+    workbook = SimpleNamespace(
+        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
+        sheets=_Sheets(["Life Expectancy Data", "Regression", "Univariate"]),
+    )
+
+    with pytest.raises(RuntimeError, match="Dummy_Test"):
+        build_qc._calculate_verification_sheets(
+            workbook,
+            verbose=False,
+            phase_start=0.0,
+            skip_dummy=False,
+        )
+
+
 def test_build_qc_run_main_skips_verified_summary_when_verification_disabled(
     monkeypatch,
     capsys,

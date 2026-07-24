@@ -10,6 +10,39 @@ uv sync
 
 This installs the `lambda_catalog` package in editable mode along with all dependencies: `lxml`, `numpy`, `pandas`, `pywin32` (Windows only), `scipy`, `statsmodels`, `xlwings`, plus dev tools (`pytest`, `pytest-cov`, `pylint`).
 
+## Quick start
+
+The most common tasks, copy-pasteable. Commands marked **(needs Excel)** dispatch xlwings COM automation and only work on Windows or Mac with desktop Excel installed; everything else runs on any platform, including Linux CI.
+
+```powershell
+# One-time: install the package and all dependencies
+uv sync
+
+# Run the full test suite (no Excel needed)
+uv run pytest
+
+# Run tests with a coverage report
+uv run pytest --cov --cov-report=term-missing
+
+# Fast headless structural check of the committed workbook (no Excel needed)
+uv run pytest tests/test_workbook_invariants.py -v      # or: make verify-headless
+
+# Build the distributable workbook, Lambda_Library.xlsx  (needs Excel)
+uv run python build_production.py
+
+# Build + verify with no Excel window popping up — the one-shot CI-style flow  (needs Excel)
+uv run python build_production.py --verify --no-launch --skip-data-table-calculations
+
+# Build the QC workbook and run the full expected-vs-actual pass
+# (do this whenever you add or change a LAMBDA function)  (needs Excel)
+uv run python build_qc.py
+
+# Verify an already-built workbook without rebuilding it  (needs Excel)
+uv run python tools/verify_workbook.py Lambda_Library.xlsx
+```
+
+New to the repo? A typical loop is: edit code → `uv run pytest` → `uv run python build_qc.py` (to confirm the workbook still calculates) → `uv run python build_production.py` (to regenerate the committed `Lambda_Library.xlsx`). The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
+
 ## Running tests
 
 The Python test suite covers the pure-Python analysis engine, formula parser, and serialization helpers. It runs on any platform without Excel.
@@ -90,15 +123,34 @@ Produces `Lambda_Library.xlsx` — the distributable artifact committed to the r
 
 No test sheets, no OLS analysis, no cache dependency.
 
-Optional flags:
+**All `build_production.py` options:**
+
+| Flag | Default | What it does |
+|---|---|---|
+| `--workbook PATH` | `Lambda_Library.xlsx` | Path to the workbook to create or update. |
+| `--definitions PATH` | `lambda_functions.json` | Path to the JSON catalog of LAMBDA definitions. |
+| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. (The **Mileage Data** source is a fixed committed sample file with no CLI override.) |
+| `--skip-univariate` | off | Skip writing the Univariate Analysis sheet to speed up iteration on other sheets. An existing Univariate sheet is left as-is; a from-scratch build omits it. |
+| `--skip-data-table-calculations` | off | Skip the final Excel `CalculateFullRebuild` phase that evaluates Data Tables. The workbook is still written and names synced; formulas/Data Tables recalc later when opened in Excel. Big speedup for iteration. |
+| `--verify` | off | After the build, run the spec-driven verifier (`build_qc.verify_test_sheets`) against the production sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. The Excel handoff only fires when verify passes, so a stale build can't launch in place of a fresh one. |
+| `--no-verify` | (default) | Explicitly disable the verifier pass. Mainly for wrapper scripts that default to `--verify`. |
+| `--no-launch` | off | Suppress the post-build `cmd /c start <workbook>` Excel handoff. Use in agentic/automated loops where no Excel window should pop up. |
+| `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
+| `--verbose` | off | Print per-phase timing checkpoints to stdout. |
+
+Common combinations:
 
 ```powershell
-uv run python build_production.py --validate-reopen   # re-open workbook to verify XML patch
-uv run python build_production.py --verbose           # print per-phase timing checkpoints
-uv run python build_production.py --verify --no-launch --skip-data-table-calculations
-```
+# Plain build → opens Lambda_Library.xlsx in Excel when done
+uv run python build_production.py
 
-The one-shot automated flow is the third command above. It builds, syncs names, runs the spec-driven verifier, and exits non-zero on drift without launching Excel.
+# The one-shot automated flow: build, sync names, run the spec-driven verifier,
+# exit non-zero on drift, and never open Excel. This is what `make verify-deep` runs.
+uv run python build_production.py --verify --no-launch --skip-data-table-calculations
+
+# Fast Regression-only iteration (skip the slow Univariate sheet and Data Table rebuild)
+uv run python build_production.py --skip-univariate --skip-data-table-calculations --no-launch
+```
 
 ### QC build
 
@@ -112,16 +164,27 @@ The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e
 
 The verification step forces Excel to recalculate all required sheets, reads the Calc columns, compares them against Python-computed expected values, and emits `ERROR ...` lines plus a mismatch summary when drift is found. A clean run produces no mismatch errors.
 
-Optional flags:
+**All `build_qc.py` options:**
+
+| Flag | Default | What it does |
+|---|---|---|
+| `--workbook PATH` | `Lambda_Library_QC.xlsx` | Path to the QC workbook to create or update. |
+| `--definitions PATH` | `lambda_functions.json` | Path to the JSON catalog of LAMBDA definitions. |
+| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV used for both the data sheet and the `Full_Data` QC comparison. |
+| `--cache PATH` | `.analysis_cache.json` | Retained for compatibility; spec-driven QC computes on demand, so this rarely matters. |
+| `--no-verify` | off | Skip the spec-driven verify pass. Escape hatch for iterating on a known-broken sheet; the skip is logged to `qc_log.txt` so the absence is visible. |
+| `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
+| `--verbose` | off | Print per-phase timing checkpoints to stdout. |
 
 ```powershell
-uv run python build_qc.py --validate-reopen
-uv run python build_qc.py --verbose
-uv run python build_qc.py --cache path/to/.analysis_cache.json   # non-default cache location
-uv run python build_qc.py --no-verify                           # build QC sheets but skip the spec-driven pass
+# Full QC build + verification (the usual invocation)
+uv run python build_qc.py
+
+# Build the QC sheets but skip the spec-driven pass (iterating on a known-broken sheet)
+uv run python build_qc.py --no-verify
 ```
 
-`build_qc.py` mirrors terminal output to `qc_log.txt` and now includes end-of-run timing lines (`Timing: prep`, `write sheets`, `sync names`, `verify`, `total`) in both places.
+`build_qc.py` mirrors terminal output to `qc_log.txt` and includes end-of-run timing lines (`Timing: prep`, `write sheets`, `sync names`, `verify`, `total`) in both places.
 
 Run the QC build whenever you add or modify a LAMBDA function.
 
@@ -158,6 +221,14 @@ python build_production.py --verify --no-launch --skip-data-table-calculations -
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
 uv run python tools/verify_workbook.py Lambda_Library.xlsx --json   # agentic consumption
 ```
+
+**All `tools/verify_workbook.py` options** (positional `workbook` path is required):
+
+| Flag | Default | What it does |
+|---|---|---|
+| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV used for the `Full_Data` comparison. |
+| `--json` | off | Emit the report as JSON (stable schema, for agentic consumption) instead of the human-readable form. |
+| `--verbose` | off | Print per-phase checkpoints from the spec-driven verifier. |
 
 The `VerifyReport` (in `lambda_catalog/verify_report.py`) is emitted both in a human-readable form (`Verify: passed (spec mode, …)` / `ERROR Verify mismatch totals: …`) and as JSON (stable schema: `passed`, `categories`, `failures`, `elapsed_seconds`, `mode`, `workbook`).
 
@@ -253,6 +324,8 @@ Each `write_sheet_*.py` module can be run standalone against any open workbook:
 python -m lambda_catalog.write_sheet_lambda_functions Lambda_Library.xlsx --definitions lambda_functions.json
 python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
 ```
+
+Exception: `write_sheet_mileage_data.py` has **no** standalone CLI — its source is a fixed committed sample file (`sample_data/auto_mpg_data.xlsx`), so it is only ever invoked through `build_production.py` / `build_qc.py`, never point-at-a-different-file. Its loader (`load_mileage_rows`) reads that xlsx directly via `zipfile` + `lxml`, with no Excel dependency, so the Python QC oracle (`analyze_mileage.calculate_mileage_completeness_flags`) can run on any platform.
 
 ## Adding a new LAMBDA function
 

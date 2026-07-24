@@ -295,9 +295,6 @@ def build_qc_workbook(
     _verbose_checkpoint(verbose, phase_start, "Prep: regression QC loaded")
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: csv loaded")
-    _verbose_checkpoint(verbose, phase_start, "Prep total")
-    prep_elapsed = time.monotonic() - phase_start
-
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
 
@@ -313,6 +310,9 @@ def build_qc_workbook(
             raise_excel_access_error(workbook_path, "update", exc)
         except (PermissionError, OSError) as exc:
             raise_excel_access_error(workbook_path, "update", exc)
+
+    _verbose_checkpoint(verbose, phase_start, "Prep total")
+    prep_elapsed = time.monotonic() - phase_start
 
     phase_start = time.monotonic()
     try:

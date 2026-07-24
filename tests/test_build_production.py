@@ -177,6 +177,7 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
     for writer_name in [
         "write_catalog_sheet",
         "write_life_expectancy_sheet",
+        "write_auto_mpg_sheet",
         "write_univariate_sheet",
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",
@@ -341,6 +342,7 @@ def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> N
     for writer_name in [
         "write_catalog_sheet",
         "write_life_expectancy_sheet",
+        "write_auto_mpg_sheet",
         "write_univariate_sheet",
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",

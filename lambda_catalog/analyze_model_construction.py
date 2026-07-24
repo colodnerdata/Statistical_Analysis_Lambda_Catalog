@@ -32,6 +32,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeGuard
+from zipfile import ZipFile
+import xml.etree.ElementTree as ET
 
 import xlwings as xw
 
@@ -43,6 +45,7 @@ from .write_sheet_life_expectancy_data import (
     SHEET_NAME as DATA_SHEET_NAME,
     load_life_expectancy_rows,
 )
+from .write_sheet_auto_mpg_data import DEFAULT_AUTO_MPG_XLSX_PATH
 from .write_sheet_model_construction import (
     _AUDIT_PAIRS,
     _AUDIT_ROW,
@@ -135,6 +138,139 @@ def load_source_rows(csv_path: Path = DEFAULT_CSV_PATH) -> list[dict[str, object
         dict(zip(table_headers, [*row, flag]))
         for row, flag in zip(rows, flags)
     ]
+
+
+def _col_index_from_ref(cell_ref: str) -> int:
+    letters = []
+    for char in cell_ref:
+        if "A" <= char <= "Z":
+            letters.append(char)
+        else:
+            break
+    idx = 0
+    for letter in letters:
+        idx = idx * 26 + (ord(letter) - ord("A") + 1)
+    return idx
+
+
+def _cell_value(
+    cell: ET.Element,
+    shared_strings: list[str],
+    ns: str,
+) -> object:
+    cell_type = cell.attrib.get("t")
+    value_node = cell.find(f"{ns}v")
+    if cell_type == "s":
+        if value_node is None or value_node.text is None:
+            return ""
+        return shared_strings[int(value_node.text)]
+    if cell_type == "inlineStr":
+        text_node = cell.find(f"{ns}is/{ns}t")
+        return "" if text_node is None or text_node.text is None else text_node.text
+    if cell_type == "e":
+        return None
+    if cell_type == "b":
+        return value_node is not None and value_node.text == "1"
+    if value_node is None or value_node.text is None:
+        return None
+    raw = value_node.text
+    try:
+        number = float(raw)
+    except ValueError:
+        return raw
+    return int(number) if number.is_integer() else number
+
+
+def load_auto_mpg_rows(
+    source_workbook_path: Path = DEFAULT_AUTO_MPG_XLSX_PATH,
+) -> list[dict[str, object]]:
+    """Load bundled Auto MPG workbook rows as typed row dictionaries."""
+    ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    rel_ns = "{http://schemas.openxmlformats.org/package/2006/relationships}"
+    doc_rel_ns = "{http://schemas.openxmlformats.org/officeDocument/2006/relationships}"
+
+    with ZipFile(source_workbook_path.resolve()) as zf:
+        workbook_xml = ET.fromstring(zf.read("xl/workbook.xml"))
+        sheets = workbook_xml.find(f"{ns}sheets")
+        if sheets is None:
+            raise ValueError(f"No sheets found in Auto MPG workbook: {source_workbook_path}")
+        first_sheet = sheets.find(f"{ns}sheet")
+        if first_sheet is None:
+            raise ValueError(f"No first sheet found in Auto MPG workbook: {source_workbook_path}")
+        sheet_rel_id = first_sheet.attrib[f"{doc_rel_ns}id"]
+
+        rels_xml = ET.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+        sheet_target = None
+        for rel in rels_xml.findall(f"{rel_ns}Relationship"):
+            if rel.attrib.get("Id") == sheet_rel_id:
+                sheet_target = rel.attrib.get("Target")
+                break
+        if sheet_target is None:
+            raise ValueError(f"Could not resolve first sheet relationship in {source_workbook_path}")
+
+        shared_strings: list[str] = []
+        if "xl/sharedStrings.xml" in zf.namelist():
+            sst_xml = ET.fromstring(zf.read("xl/sharedStrings.xml"))
+            for si in sst_xml.findall(f"{ns}si"):
+                text_node = si.find(f"{ns}t")
+                if text_node is not None and text_node.text is not None:
+                    shared_strings.append(text_node.text)
+                    continue
+                text = "".join((node.text or "") for node in si.findall(f".//{ns}t"))
+                shared_strings.append(text)
+
+        sheet_xml = ET.fromstring(zf.read(f"xl/{sheet_target}"))
+        sheet_data = sheet_xml.find(f"{ns}sheetData")
+        if sheet_data is None:
+            raise ValueError(f"No sheetData found in Auto MPG workbook: {source_workbook_path}")
+        rows_xml = sheet_data.findall(f"{ns}row")
+        if len(rows_xml) < 2:
+            raise ValueError(f"Auto MPG workbook has no data rows: {source_workbook_path}")
+
+        parsed_rows: list[list[object]] = []
+        max_col = 0
+        for row_xml in rows_xml:
+            row_values: dict[int, object] = {}
+            for cell in row_xml.findall(f"{ns}c"):
+                cell_ref = cell.attrib.get("r")
+                if not cell_ref:
+                    continue
+                col_idx = _col_index_from_ref(cell_ref)
+                row_values[col_idx] = _cell_value(cell, shared_strings, ns)
+                max_col = max(max_col, col_idx)
+            parsed_rows.append([row_values.get(i) for i in range(1, max_col + 1)])
+
+    headers = [str(value or "").strip() for value in parsed_rows[0]]
+    if not headers:
+        raise ValueError(f"Auto MPG workbook has no headers: {source_workbook_path}")
+
+    data_rows: list[dict[str, object]] = []
+    for row in parsed_rows[1:]:
+        padded = row[: len(headers)] + [None] * max(0, len(headers) - len(row))
+        data_rows.append(dict(zip(headers, padded)))
+    return data_rows
+
+
+def build_default_spec_for_headers(headers: list[str]) -> list[SpecVariable]:
+    """Map the shipped default Role/Type pattern onto a target header list."""
+    template = build_default_spec()
+    mapped: list[SpecVariable] = []
+    for idx, header in enumerate(headers):
+        if idx < len(template):
+            base = template[idx]
+            mapped.append(
+                SpecVariable(
+                    name=header,
+                    role=base.role,
+                    include=base.include,
+                    var_type=base.var_type,
+                    reference=base.reference,
+                    sequence=base.sequence,
+                )
+            )
+            continue
+        mapped.append(SpecVariable(header, _ROLE_PREDICTOR, False, "Continuous"))
+    return mapped
 
 
 # ---------------------------------------------------------------------------

@@ -15,11 +15,14 @@ from .analyze_model_construction import (
     _is_number,
     _retained_levels,
     build_default_spec,
+    build_default_spec_for_headers,
     calculate_model_construction_expectations,
+    load_auto_mpg_rows,
     load_source_rows,
 )
 from .analyze_regression_sheet import calculate_regression_results_from_matrix
 from .regression_shared import FEATURE_COLUMNS, RegressionSheetResults
+from .write_sheet_auto_mpg_data import DEFAULT_AUTO_MPG_XLSX_PATH
 from .write_sheet_model_construction import (
     _ROLE_FILTER,
     _ROLE_IDENTIFIER,
@@ -196,10 +199,12 @@ def build_spec_design(
     sequence_values = None
     if len(seq_variables) == 1:
         sequence_name = seq_variables[0]
-        sequence_values = np.asarray(
-            [_numeric_cell(rows[idx], sequence_name) for idx in included_indices],
-            dtype=np.float64,
-        )
+        seq_cells = [rows[idx][sequence_name] for idx in included_indices]
+        if all(_is_number(value) for value in seq_cells):
+            sequence_values = np.asarray(
+                [float(value) for value in seq_cells],
+                dtype=np.float64,
+            )
 
     expectations = calculate_model_construction_expectations(list(spec_tuple), rows)
     return RegressionSpecDesign(
@@ -219,9 +224,12 @@ def build_spec_design(
 def calculate_regression_spec_case(
     case: RegressionSpecCase,
     csv_path: Path = DEFAULT_INPUT_CSV,
+    *,
+    source_rows: list[dict[str, object]] | None = None,
 ) -> RegressionSpecExpected:
     """Compute expected current Regression sheet outputs for one spec case."""
-    rows = _with_extra_columns(load_source_rows(csv_path), case.extra_columns)
+    base_rows = source_rows if source_rows is not None else load_source_rows(csv_path)
+    rows = _with_extra_columns(base_rows, case.extra_columns)
     design = build_spec_design(case.spec, rows)
     results = calculate_regression_results_from_matrix(
         x_features=design.x_features,
@@ -230,6 +238,7 @@ def calculate_regression_spec_case(
         include_intercept=case.allow_intercept,
         alpha=case.alpha,
         sequence_values=design.sequence_values,
+        allow_singular=source_rows is not None,
     )
     return RegressionSpecExpected(case=case, design=design, results=results)
 
@@ -342,10 +351,50 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
     return cases
 
 
+def _build_auto_mpg_spec_cases(
+    source_rows: list[dict[str, object]],
+) -> list[RegressionSpecCase]:
+    """Return default-spec QC cases for the shipped Auto MPG regression target."""
+    headers = list(source_rows[0].keys())
+    default_spec = build_default_spec_for_headers(headers)
+    by_name = {item.name: item for item in default_spec}
+
+    def _set(name: str, role: str, include: bool, var_type: str) -> None:
+        if name not in by_name:
+            return
+        by_name[name] = _spec_var(name, role, include, var_type)
+
+    # Use a numerically stable single-predictor case on the same dataset so
+    # Python/scipy and Excel stay directly comparable in QC.
+    for header in headers:
+        _set(header, _ROLE_OMIT, False, "Continuous")
+    _set("Car Name", _ROLE_IDENTIFIER, False, "Continuous")
+    _set("MPG", _ROLE_RESPONSE, False, "Continuous")
+    _set("Cylinders", _ROLE_PREDICTOR, True, "Continuous")
+    stable_spec = tuple(by_name[header] for header in headers)
+
+    return [
+        RegressionSpecCase(
+            name="auto_mpg_cylinders_intercept",
+            spec=stable_spec,
+            allow_intercept=True,
+        )
+    ]
+
+
 def build_regression_spec_qc_configs(
     csv_path: Path = DEFAULT_INPUT_CSV,
+    *,
+    regression_dataset: str = "life_expectancy",
+    auto_mpg_workbook_path: Path = DEFAULT_AUTO_MPG_XLSX_PATH,
 ) -> list[RegressionSpecExpected]:
     """Compute expected Regression sheet outputs for all spec-driven QC cases."""
+    if regression_dataset == "auto_mpg":
+        source_rows = load_auto_mpg_rows(auto_mpg_workbook_path)
+        return [
+            calculate_regression_spec_case(case, csv_path, source_rows=source_rows)
+            for case in _build_auto_mpg_spec_cases(source_rows)
+        ]
     return [
         calculate_regression_spec_case(case, csv_path)
         for case in build_regression_spec_cases()

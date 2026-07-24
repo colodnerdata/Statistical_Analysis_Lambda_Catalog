@@ -62,6 +62,7 @@ def calculate_regression_results_from_matrix(
     include_intercept: bool = True,
     alpha: float = 0.05,
     sequence_values: np.ndarray | None = None,
+    allow_singular: bool = False,
 ) -> RegressionSheetResults:
     """Fit OLS and compute expected values for the current Regression sheet.
 
@@ -97,7 +98,7 @@ def calculate_regression_results_from_matrix(
     se_regression = float(np.sqrt(model.mse_resid))
 
     xtx = x_train.T @ x_train
-    xtx_inv = np.linalg.inv(xtx)
+    xtx_inv = np.linalg.pinv(xtx) if allow_singular else np.linalg.inv(xtx)
     z = x_train @ xtx_inv
     h = np.sum(z * x_train, axis=1)
     e = np.asarray(model.resid, dtype=np.float64)
@@ -188,7 +189,8 @@ def calculate_regression_results_from_matrix(
             others = np.delete(x_features, j, axis=1)
             others_with_const = np.column_stack([np.ones(n), others])
             r2_j = float(sm.OLS(x_col, others_with_const).fit().rsquared)
-            vif_vals.append(1.0 / (1.0 - r2_j))
+            denom = 1.0 - r2_j
+            vif_vals.append(float(np.inf) if abs(denom) <= 1e-12 else 1.0 / denom)
 
     predictor_summary = RegressionPredictorSummary(
         predictor_names=predictor_names,
@@ -197,7 +199,7 @@ def calculate_regression_results_from_matrix(
         skewness=tuple(skewness_vals),
         kurtosis=tuple(kurtosis_vals),
         vif=tuple(vif_vals),
-        tolerance=tuple(1.0 / v for v in vif_vals),
+        tolerance=tuple(0.0 if np.isinf(v) else 1.0 / v for v in vif_vals),
     )
 
     loocv_predictions = predictions - h * e / (1.0 - h)

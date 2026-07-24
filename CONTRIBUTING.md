@@ -189,6 +189,7 @@ build_qc.py                  # QC entry point → Lambda_Library_QC.xlsx
 lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
+  auto_mpg_data.xlsx         # Auto MPG dataset workbook (table: Auto_MPG_Data)
 lambda_catalog/
   catalog_schema.py          # typed document model: CatalogArgument, CatalogFunction, CatalogDocument
   regression_shared.py       # shared regression dataclasses: RegressionSummary, RegressionVectors, etc.
@@ -204,6 +205,7 @@ lambda_catalog/
   make_test_sheet.py         # shared helpers for Excel ListObject test tables
   write_sheet_lambda_functions.py
   write_sheet_life_expectancy_data.py
+  write_sheet_auto_mpg_data.py
   write_sheet_univariate.py
   write_sheet_regression_instructions.py
   write_sheet_diagnostic_guide.py

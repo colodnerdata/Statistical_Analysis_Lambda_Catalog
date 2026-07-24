@@ -33,6 +33,7 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
     write_life_expectancy_sheet,
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
+from lambda_catalog.write_sheet_auto_mpg_data import write_auto_mpg_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
@@ -278,6 +279,7 @@ def build_production_workbook(
                 workbook.sheets["Sheet1"].name = "LAMBDA_functions"
             write_catalog_sheet(workbook, document.functions)
             write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
+            write_auto_mpg_sheet(workbook)
             if not skip_univariate:
                 write_univariate_sheet(workbook)
             write_regression_instructions_sheet(workbook)
@@ -504,6 +506,7 @@ def main() -> None:
     print(f"Workbook: {workbook_path}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    print("Sheet updated: Auto_MPG")
     if args.skip_univariate:
         print("Sheet skipped: Univariate Analysis")
     else:

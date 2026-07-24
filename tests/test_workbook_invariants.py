@@ -83,6 +83,7 @@ _DEFINED_NAME_TAG = f"{_WB}definedName"
 EXPECTED_REAL_SHEETS: tuple[str, ...] = (
     "LAMBDA_functions",
     "Life Expectancy Data",
+    "Auto_MPG",
     "Regression Instructions",
     "Diagnostic Guide",
     "Version History",

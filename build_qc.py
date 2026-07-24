@@ -41,6 +41,10 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
 )
+from lambda_catalog.write_sheet_auto_mpg_data import (
+    DEFAULT_AUTO_MPG_XLSX_PATH,
+    write_auto_mpg_sheet,
+)
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
     write_regression_instructions_sheet,
@@ -174,6 +178,8 @@ def verify_test_sheets(
     *,
     skip_dummy: bool = False,
     failures_out: list[str] | None = None,
+    regression_dataset: str = "life_expectancy",
+    auto_mpg_workbook_path: Path = DEFAULT_AUTO_MPG_XLSX_PATH,
 ) -> None:
     """Compare live workbook output against Python-computed QC oracle values.
 
@@ -210,7 +216,12 @@ def verify_test_sheets(
     _verify_life_expectancy_full_data(workbook, csv_path, failures)
 
     _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
-    for failure in read_regression_spec_block_failures(workbook, csv_path):
+    for failure in read_regression_spec_block_failures(
+        workbook,
+        csv_path,
+        regression_dataset=regression_dataset,
+        auto_mpg_workbook_path=auto_mpg_workbook_path,
+    ):
         _report_qc_failure(failures, failure)
     _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block done")
 
@@ -278,6 +289,8 @@ def build_qc_workbook(
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
     csv_path: Path = DEFAULT_CSV_PATH,
     cache_path: Path = DEFAULT_CACHE_PATH,
+    regression_dataset: str = "life_expectancy",
+    auto_mpg_workbook_path: Path = DEFAULT_AUTO_MPG_XLSX_PATH,
     validate_reopen: bool = False,
     verbose: bool = False,
     *,
@@ -289,7 +302,11 @@ def build_qc_workbook(
     phase_start = time.monotonic()
     document = load_catalog_document(definitions_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: catalog loaded")
-    regression_sheet_configs = build_regression_spec_qc_configs(csv_path)
+    regression_sheet_configs = build_regression_spec_qc_configs(
+        csv_path,
+        regression_dataset=regression_dataset,
+        auto_mpg_workbook_path=auto_mpg_workbook_path,
+    )
     _verbose_checkpoint(verbose, phase_start, "Prep: regression QC loaded")
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: csv loaded")
@@ -345,6 +362,9 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, phase_start, "Write: life exp start")
                 write_life_expectancy_sheet(workbook, csv_headers, csv_rows, verbose=verbose)
                 _verbose_checkpoint(verbose, phase_start, "Write: life exp done")
+                _verbose_checkpoint(verbose, phase_start, "Write: auto mpg start")
+                write_auto_mpg_sheet(workbook)
+                _verbose_checkpoint(verbose, phase_start, "Write: auto mpg done")
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate start")
                 write_univariate_sheet(workbook)
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate done")
@@ -413,6 +433,8 @@ def build_qc_workbook(
                         regression_sheet_configs,
                         csv_path,
                         verbose=verbose,
+                        regression_dataset=regression_dataset,
+                        auto_mpg_workbook_path=auto_mpg_workbook_path,
                     )
                 finally:
                     workbook.close()
@@ -460,6 +482,21 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=DEFAULT_CSV_PATH,
         help="Path to the Life Expectancy CSV data file.",
+    )
+    parser.add_argument(
+        "--regression-dataset",
+        choices=("life_expectancy", "auto_mpg"),
+        default="auto_mpg",
+        help=(
+            "Dataset profile used by the Python/scipy Regression oracle. "
+            "Choose auto_mpg to match Source_Table=Auto_MPG_Data[#All]."
+        ),
+    )
+    parser.add_argument(
+        "--auto-mpg-workbook",
+        type=Path,
+        default=DEFAULT_AUTO_MPG_XLSX_PATH,
+        help="Path to the Auto MPG source workbook used by the oracle.",
     )
     parser.add_argument(
         "--cache",
@@ -526,6 +563,8 @@ def _run_main(args: argparse.Namespace) -> None:
                 definitions_path=args.definitions,
                 csv_path=args.csv,
                 cache_path=args.cache,
+                regression_dataset=args.regression_dataset,
+                auto_mpg_workbook_path=args.auto_mpg_workbook,
                 validate_reopen=args.validate_reopen,
                 verbose=args.verbose,
                 no_verify=args.no_verify,
@@ -547,6 +586,7 @@ def _run_main(args: argparse.Namespace) -> None:
     print(f"Workbook: {args.workbook.resolve()}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    print("Sheet updated: Auto_MPG")
     print("Sheet updated: Univariate")
     print("Sheet updated: Regression Instructions")
     print("Sheet updated: Diagnostic Guide")

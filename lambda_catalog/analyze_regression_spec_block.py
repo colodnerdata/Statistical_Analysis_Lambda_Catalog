@@ -62,9 +62,12 @@ from .analyze_model_construction import (
     _recalculate_sheets,
     _values_match,
     build_default_spec,
+    build_default_spec_for_headers,
     calculate_model_construction_expectations,
+    load_auto_mpg_rows,
     load_source_rows,
 )
+from .write_sheet_auto_mpg_data import DEFAULT_AUTO_MPG_XLSX_PATH
 from .write_sheet_life_expectancy_data import (
     DEFAULT_CSV_PATH,
     SHEET_NAME as DATA_SHEET_NAME,
@@ -115,7 +118,10 @@ class RegressionSpecObserved:
 
 
 def read_observed_spec_values(
-    sheet: xw.Sheet, total_rows: int, k_bound: int
+    sheet: xw.Sheet,
+    total_rows: int,
+    k_bound: int,
+    variable_names: tuple[str, ...] = _VARIABLES,
 ) -> RegressionSpecObserved:
     """Read every asserted zone from the Regression sheet.
 
@@ -134,13 +140,13 @@ def read_observed_spec_values(
 
     level_cells = {
         variable: sheet.range((_SPEC_FIRST_DATA_ROW + offset, _C_LEVELS)).value
-        for offset, variable in enumerate(_VARIABLES)
+        for offset, variable in enumerate(variable_names)
     }
     reference_cells = {
         variable: sheet.range(
             (_SPEC_FIRST_DATA_ROW + offset, _C_REF_IN_USE)
         ).value
-        for offset, variable in enumerate(_VARIABLES)
+        for offset, variable in enumerate(variable_names)
     }
 
     resid_labels = _read_column(
@@ -269,7 +275,10 @@ def _verify_degenerate_filter_case(
         _recalculate_sheets(workbook, data_sheet, sheet)
 
         observed = read_observed_spec_values(
-            sheet, expected.total_rows, max(expected.k, 1)
+            sheet,
+            expected.total_rows,
+            max(expected.k, 1),
+            tuple(item.name for item in spec),
         )
         failures = compare_spec_observed_to_expected(
             observed, expected, "Is_Developing filter"
@@ -291,7 +300,11 @@ def _verify_degenerate_filter_case(
 
 
 def read_regression_spec_block_failures(
-    workbook: xw.Book, csv_path: Path = DEFAULT_CSV_PATH
+    workbook: xw.Book,
+    csv_path: Path = DEFAULT_CSV_PATH,
+    *,
+    regression_dataset: str = "life_expectancy",
+    auto_mpg_workbook_path: Path = DEFAULT_AUTO_MPG_XLSX_PATH,
 ) -> list[str]:
     """Verify the Regression sheet's spec block; return QC failure messages.
 
@@ -302,17 +315,29 @@ def read_regression_spec_block_failures(
     i.e. BEFORE the six-configuration regression pass, which mutates the
     Include cells.
     """
-    rows = load_source_rows(csv_path)
-    spec = build_default_spec()
+    if regression_dataset == "auto_mpg":
+        rows = load_auto_mpg_rows(auto_mpg_workbook_path)
+        if not rows:
+            raise ValueError(
+                f"No Auto MPG rows available from {auto_mpg_workbook_path}"
+            )
+        spec = build_default_spec_for_headers(list(rows[0].keys()))
+    else:
+        rows = load_source_rows(csv_path)
+        spec = build_default_spec()
     expected = calculate_model_construction_expectations(spec, rows)
 
     sheet = workbook.sheets[REGRESSION_SHEET_NAME]
     observed = read_observed_spec_values(
-        sheet, expected.total_rows, max(expected.k, 1)
+        sheet,
+        expected.total_rows,
+        max(expected.k, 1),
+        tuple(item.name for item in spec),
     )
     failures = compare_spec_observed_to_expected(
         observed, expected, "default spec"
     )
 
-    failures.extend(_verify_degenerate_filter_case(workbook, rows))
+    if regression_dataset != "auto_mpg":
+        failures.extend(_verify_degenerate_filter_case(workbook, rows))
     return failures

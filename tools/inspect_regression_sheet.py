@@ -455,8 +455,14 @@ def read_regression_df(
                         "first_digit_deviation": fdd_val,
                     })
     finally:
-        app.api.ScreenUpdating = previous_screen_updating
-        app.api.Calculation = previous_calculation
+        try:
+            app.api.ScreenUpdating = previous_screen_updating
+        except OPEN_WORKBOOK_ERRORS:
+            pass
+        try:
+            app.api.Calculation = previous_calculation
+        except OPEN_WORKBOOK_ERRORS:
+            pass
 
     return {
         "scalars": pd.DataFrame(scalar_rows, columns=_DF_BASE),

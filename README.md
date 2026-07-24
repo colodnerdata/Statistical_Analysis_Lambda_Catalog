@@ -14,10 +14,11 @@ To use these functions in a different workbook, open both files in Excel at the 
 
 ## What ships in the workbook
 
-`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The workbook ships with seven sheets:
+`Lambda_Library.xlsx` includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000–2015) as a structured table on the **Life Expectancy Data** sheet. The workbook ships with eight sheets:
 
 - **LAMBDA_functions** — the **canonical function catalog**: every function's name, scope, full LAMBDA definition, arguments, yields, plain-language summary, and long description. This is the source of truth for "what functions exist and what they do" — generated from `lambda_functions.json` by `lambda_catalog/write_sheet_lambda_functions.py`, so the sheet and the source are never out of sync.
 - **Life Expectancy Data** — the WHO dataset as a structured table.
+- **Mileage Data** — the Auto MPG dataset (406 vehicles) as a second structured table. It ships as a ready-made target for practicing the Regression sheet's `Source_Table` retarget: point `Source_Table` at `MileageData[#All]` in Name Manager and the spec block re-populates from its columns, no data of your own required.
 - **Univariate Analysis** — descriptive statistics, three side-by-side histogram binning methods (Sturges, Scott, Freedman-Diaconis), and two-stage Weibull grid-search distribution fitting via native Data Tables. The fitted-distribution Q-Q plots and the histogram distribution overlays live alongside.
 - **Regression** — the spec-driven regression workbench. Each table column gets a Role (Response / Predictor / Identifier / Filter / Omit); the shipped workbook forward-wires Fixed Effects without exposing it in the Role dropdown yet. Each predictor also gets a Type (Continuous / Categorical, with reference-level control). The spec block derives the row mask, the constructed design matrix `X_s()`, and level-qualified column names; the sheet then produces the full regression output, diagnostics, and prediction outputs.
 - **Regression Instructions** — step-by-step guide for adapting the Regression sheet to a new dataset, including Name Manager updates and table setup.

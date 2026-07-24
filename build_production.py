@@ -32,6 +32,11 @@ from lambda_catalog.write_sheet_life_expectancy_data import (
     load_life_expectancy_rows,
     write_life_expectancy_sheet,
 )
+from lambda_catalog.write_sheet_mileage_data import (
+    DEFAULT_XLSX_PATH as DEFAULT_MILEAGE_XLSX_PATH,
+    load_mileage_rows,
+    write_mileage_sheet,
+)
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
@@ -120,6 +125,7 @@ def _run_deep_verify(
     workbook_path: Path,
     csv_path: Path,
     *,
+    mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
     verbose: bool = False,
 ) -> VerifyReport:
     """Run the spec-driven verifier against the production workbook.
@@ -152,6 +158,7 @@ def _run_deep_verify(
                     workbook,
                     build_qc.build_regression_spec_qc_configs(csv_path),
                     csv_path,
+                    mileage_path=mileage_path,
                     verbose=verbose,
                     skip_dummy=True,
                     failures_out=captured,
@@ -196,6 +203,7 @@ def build_production_workbook(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
     csv_path: Path = DEFAULT_CSV_PATH,
+    mileage_xlsx_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
     validate_reopen: bool = False,
     verbose: bool = False,
     recalculate: bool = True,
@@ -211,6 +219,10 @@ def build_production_workbook(
         Path to the JSON catalog file.
     csv_path : Path, optional
         Path to the Life Expectancy CSV file.
+    mileage_xlsx_path : Path, optional
+        Path to the Auto MPG sample xlsx file written to the Mileage Data
+        sheet — a second sample dataset for practicing the Source_Table
+        retarget workflow alongside Life Expectancy Data.
     validate_reopen : bool, optional
         If True, reopens the workbook in Excel after patching to verify it.
     verbose : bool, optional
@@ -232,6 +244,7 @@ def build_production_workbook(
     _t = time.monotonic()
     document = load_catalog_document(definitions_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
+    mileage_headers, mileage_rows = load_mileage_rows(mileage_xlsx_path)
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
 
@@ -278,6 +291,7 @@ def build_production_workbook(
                 workbook.sheets["Sheet1"].name = "LAMBDA_functions"
             write_catalog_sheet(workbook, document.functions)
             write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
+            write_mileage_sheet(workbook, mileage_headers, mileage_rows)
             if not skip_univariate:
                 write_univariate_sheet(workbook)
             write_regression_instructions_sheet(workbook)
@@ -504,6 +518,7 @@ def main() -> None:
     print(f"Workbook: {workbook_path}")
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
+    print("Sheet updated: Mileage Data")
     if args.skip_univariate:
         print("Sheet skipped: Univariate Analysis")
     else:

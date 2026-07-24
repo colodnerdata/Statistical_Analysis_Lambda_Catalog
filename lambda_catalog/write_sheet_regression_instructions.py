@@ -54,7 +54,9 @@ _ROWS: list[tuple[int, str, str | None]] = [
             '(the "Refers To" field) to your table, including its header row — for '
             "example =MyTable[#All]. Everything else derives from this one name: the "
             "header row, the data body, and the variable list in the MODEL SPECIFICATION "
-            "block all update automatically."
+            "block all update automatically. A second sample table, MileageData (on the "
+            "Mileage Data sheet), ships with the workbook if you want to practice this "
+            "retarget before pointing at your own data."
         ),
         "body",
     ),

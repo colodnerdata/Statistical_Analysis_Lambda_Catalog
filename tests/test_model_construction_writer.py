@@ -91,6 +91,7 @@ _EXPECTED_NAME_ORDER = [
     "Constructed_Column_Names",
     "Sequence_Column",
     "Fixed_Effects_Column",
+    "Absorbed_Degrees_Of_Freedom",
     "Serial_Correlation_Group",
     "Sequence_Deltas",
     "Base_Period_Delta_Candidate",

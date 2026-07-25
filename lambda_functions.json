@@ -2767,6 +2767,93 @@
       "notes": "Within-group difference x(t) − x(t−Δ) by exact time value. First period or gap → #N/A (never 0, never the previous available row). Omitted delta reads the spec's Base Period Δ (never a silent 1). Excluded rows return \"\"."
     },
     {
+      "name": "Group_Mean",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Group & Panel",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(x, group, [include],\n    LET(\n        x_v,      TOCOL(IF(x = \"\", \"\", x), 0),\n        g_v,      TOCOL(IF(group = \"\", \"\", group), 0),\n        inc,      IF(ISOMITTED(include), ISNUMBER(x_v), include * 1),\n        active,   inc * (g_v <> \"\"),\n        groups,   IFERROR(UNIQUE(FILTER(g_v, active)), NA()),\n        IF(ISNA(groups),\n           NA(),\n           LET(\n               means, BYROW(groups, LAMBDA(gk,\n                   LET(mask, active * (g_v = gk),\n                       SUMPRODUCT(mask, IF(ISNUMBER(x_v), x_v, 0)) / SUM(mask))\n               )),\n               XLOOKUP(g_v, groups, means, NA(), 0)\n           )\n        )\n    )\n)",
+      "arguments": [
+        {
+          "name": "x",
+          "description": "single-column data range to average",
+          "optional": false
+        },
+        {
+          "name": "group",
+          "description": "single-column group identifiers — the mean is taken within each row's group",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row when computing each group's mean; when omitted, numeric x rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to x: the mean of x within each row's group, over the included rows of that group; #N/A when the row's group is blank or has no included members.",
+      "description": "Group_Mean returns, for every row, the mean of x among the included rows sharing that row's group. Groups are resolved once via UNIQUE over the included sample, and each row looks up its group's mean via XLOOKUP — this avoids an O(n²) pairwise comparison when there are many rows and few groups (a Country/Year panel, or a Facility-by-lot dataset).\n\nA row's own inclusion does not gate whether it receives a value: the function reports what that row's group mean IS over the included sample, even for a row currently excluded from the model (e.g. failing a Filter) — full height, matching the same row-mask contract as X_s() and Sample_Include(). Only two conditions return #N/A: a blank group value, or a group with zero included members (every member of that group is itself excluded, or the group value never appears among included rows).\n\nGroup_Mean is a standalone user-callable transform and also the primitive behind Demean_By — one source of truth, so the two functions can never disagree about a group's mean.",
+      "plain_language_summary": "The average of a column within each row's own group (e.g. each Facility's average cost) — one source of truth for Demean_By.",
+      "notes": "Group mean per row's own group, over included members only; full-height (a row's own inclusion doesn't gate its output). #N/A for a blank group or a group with no included members. Backs Demean_By."
+    },
+    {
+      "name": "Demean_By",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Group & Panel",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(x, group, [include],\n    LET(\n        x_v, TOCOL(IF(x = \"\", \"\", x), 0),\n        gm,  Group_Mean(x, group, include),\n        IF(AND(ISNUMBER(x_v), ISNUMBER(gm)), x_v - gm, NA())\n    )\n)",
+      "arguments": [
+        {
+          "name": "x",
+          "description": "single-column numeric data range to demean",
+          "optional": false
+        },
+        {
+          "name": "group",
+          "description": "single-column group identifiers — the one-way Fixed Effects panel unit",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row when computing each group's mean; when omitted, numeric x rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to x: x_ig − Group_Mean(x, group, include); #N/A when x is non-numeric or the row's group mean is undefined.",
+      "description": "Demean_By is the one-way within transformation: x_ig − x̄_g, where x̄_g is Group_Mean(x, group, include). It is the v2.1 Fixed Effects constructor internal — the entire design matrix and the Response are demeaned by the Fixed Effects group before fitting, which is algebraically equivalent to (and numerically more stable than) fitting a full dummy variable per group (LSDV) — the group intercepts are absorbed rather than estimated.\n\nDelegates group-mean lookup to Group_Mean — the same one-source-of-truth pattern Dummy_Code uses for Dummy_Levels — so a caller can never see Demean_By and Group_Mean disagree about a group's mean. #N/A propagates from either a non-numeric x or an undefined group mean (blank group, or a group with no included members), the same NA()-based error contract used throughout the catalog: a genuine Excel error every downstream IFERROR/ISNA guard can catch, never a silently-wrong zero.\n\nWith a single group spanning the whole included sample (G = 1 — no Fixed Effects row declared, or a degenerate one-level FE variable), Demean_By collapses to ordinary grand-mean centering — the same degenerate-collapse property the v2.1 prediction and df-plumbing design relies on to build the FE machinery once and have it specialize correctly to the no-FE case.",
+      "plain_language_summary": "A column with each group's average subtracted out — the within-group deviation that Fixed Effects fits on instead of the raw values.",
+      "notes": "One-way within transformation x_ig − Group_Mean(x,group,include). v2.1 Fixed Effects constructor internal: demeaning by the FE group is algebraically equivalent to LSDV without materializing group dummy columns. G=1 collapses to grand-mean centering."
+    },
+    {
+      "name": "Is_Balanced_Panel",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Sample Construction & Diagnostics",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(group, time, [include],\n    LET(\n        g_v,     TOCOL(IF(group = \"\", \"\", group), 0),\n        t_v,     TOCOL(IF(time = \"\", \"\", time), 0),\n        inc,     IF(ISOMITTED(include), (g_v <> \"\") * (t_v <> \"\"), include * 1),\n        active,  inc * (g_v <> \"\") * (t_v <> \"\"),\n        n,       SUM(active),\n        IF(n = 0,\n           NA(),\n           LET(\n               sep,     CHAR(31),\n               groups,  UNIQUE(FILTER(g_v, active)),\n               times,   UNIQUE(FILTER(t_v, active)),\n               keys,    FILTER(g_v & sep & t_v, active),\n               AND(n = ROWS(groups) * ROWS(times), n = ROWS(UNIQUE(keys)))\n           )\n        )\n    )\n)",
+      "arguments": [
+        {
+          "name": "group",
+          "description": "single-column group identifiers (the panel unit)",
+          "optional": false
+        },
+        {
+          "name": "time",
+          "description": "single-column time index",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted, rows with a non-blank group and time are used",
+          "optional": true
+        }
+      ],
+      "yields": "TRUE when every included group has exactly one observation for every included time period (a complete, non-duplicated panel grid); FALSE otherwise; #N/A when no rows are included.",
+      "description": "Is_Balanced_Panel checks whether the included sample forms a complete rectangular (group × time) grid: every included group observed at every included time period, exactly once. Two conditions, both required: the included row count equals |groups| × |times| (no missing cells), and every (group, time) pair is distinct (no duplicate cells) — together they rule out both gaps and doubled-up observations, either of which a simple row-count check alone would miss.\n\nThis is a diagnostic, not a constructor internal: it does not feed Demean_By (the one-way within transformation is exact and requires no balance), but it flags when a stronger method (e.g. a two-way within transformation via direct demeaning, Demean_Two_Way_Balanced, valid only for a balanced panel) may be safely used instead of the general-but-iterative Absorb_Two_Way_Fixed_Effects — a v2.7+ concern, ships now as a standalone diagnostic ahead of that milestone.",
+      "plain_language_summary": "TRUE when every group has exactly one observation at every time period — a complete panel grid with no gaps or duplicates.",
+      "notes": "TRUE iff the included sample is a complete (group × time) grid: row count = groups×times AND every (group,time) pair distinct. Diagnostic only — flags when a two-way demeaning shortcut (v2.7+) is valid; Demean_By itself needs no balance."
+    },
+    {
       "name": "Sample_Include",
       "test_table": null,
       "category": "Model Construction",
@@ -2863,6 +2950,20 @@
       "description": "Sheet-scoped accessor for the panel-unit (grouping) variable on the Regression sheet. Returns the data column of the first spec row whose Role is \"Fixed Effects\", via exact-match XMATCH over the TAKE-trimmed Spec_Role vector — the Role-axis sibling of Response_Column (Role=Response) and the structural counterpart of Sequence_Column (the H flag). Full-height by the same row-mask contract as the other sheet closures.\n\nIt is the group input for the seam-safe panel serial-correlation diagnostic (BFN_Panel_Durbin_Watson), keeping the panel unit a single canonical name rather than an inline XMATCH repeated at every call site. When no row carries the Fixed Effects role, XMATCH does not match and the accessor is #N/A — the caller's gate (the FE-variable count) shows the not-applicable token before this is ever evaluated. When two or more rows carry the role (two-way absorption, out of scope until its own milestone) it resolves the first, and callers gate on the count instead of computing.\n\nForward wiring for the v2.1 Fixed Effects release: the \"Fixed Effects\" Role token is not yet offered by the Role dropdown because the design-matrix engine does not absorb it yet — the accessor and the diagnostics gated on it activate when the role ships. Spec_Role is TAKE-trimmed to COLUMNS(Source_Data) so cells below the live spec rows are never scanned.",
       "plain_language_summary": "The column marked as the Fixed Effects (panel unit) variable in the spec — e.g. Country in a Country/Year panel.",
       "notes": "Derived panel-unit column for the Regression sheet: the data column of the first Role=\"Fixed Effects\" spec row. #N/A when none is declared. Feeds BFN_Panel_Durbin_Watson; forward wiring for the v2.1 Fixed Effects role."
+    },
+    {
+      "name": "Absorbed_Degrees_Of_Freedom",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       0,\n       LET(\n           lv, Dummy_Levels(Fixed_Effects_Column(), \"\", Sample_Include()),\n           IF(ISNA(INDEX(lv, 1, 1)), 0, COLUMNS(lv))\n       )\n    )\n))",
+      "arguments": [],
+      "yields": "The degrees of freedom absorbed by the Fixed Effects group: G − 1 where G is the FE column's level count over the included sample; 0 when no Fixed Effects row is declared or the FE variable is degenerate (G ≤ 1).",
+      "description": "Absorbed_Degrees_Of_Freedom is the one-way FE df correction for the Model Construction sheet: G − 1, where G is the count of distinct Fixed Effects levels among the included rows. Every model with no declared Fixed Effects row (the entire v2.0 shipped surface) returns 0 — the same non-breaking default the [DF_Absorbed] argument threads through the inference chain, so a no-FE model's df, MS-Residual, t, p, CI, and AIC/BIC are bit-identical to before this function existed.\n\nReuses Dummy_Levels for the level count rather than a fresh UNIQUE/COUNT — the exact same mask-scoped, reference-dropped level set the design matrix would use if the FE column were instead one-hot encoded (which is the algebraic content of 'absorbing' a fixed effect: G−1 degrees of freedom are spent whether they are spent explicitly, as G−1 dummy coefficients, or implicitly, by demeaning). COLUMNS(Dummy_Levels(...)) is exactly G−1 by construction, so this function can never disagree with what an equivalent LSDV fit would report. A degenerate FE variable (every included row shares one level) makes Dummy_Levels return #N/A; this function absorbs that into 0 rather than propagating the error, because a single-level 'group' fixes no group-specific intercept and absorbs no degrees of freedom.\n\nOne-way only: a spec with two or more Fixed Effects rows is a visible status-block error (validated elsewhere), so this function reads only the first Fixed Effects row via Fixed_Effects_Column() — two-way absorption (Σ over both dimensions, minus the overlap correction) is deferred to the two-way FE milestone (v2.7+).",
+      "plain_language_summary": "How many degrees of freedom the Fixed Effects variable soaks up (G−1 groups) — 0 when there's no Fixed Effects row.",
+      "notes": "One-way FE df correction: G−1 via COLUMNS(Dummy_Levels(...)) on the FE column, 0 when no FE row exists or the FE variable is degenerate. Default 0 keeps every no-FE model bit-identical. Two-way absorption deferred to v2.7+."
     },
     {
       "name": "Serial_Correlation_Group",

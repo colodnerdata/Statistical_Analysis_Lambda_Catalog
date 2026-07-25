@@ -35,7 +35,9 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_MATRIX_START,
     _DEFAULT_SEQUENCE_VARIABLES,
     _DEFAULT_SPEC,
+    _FIXED_EFFECTS_COUNT_FORMULA,
     _C_INCLUDE,
+    _C_ROLE,
     _C_LABEL,
     _C_LEVELS,
     _C_ORDER,
@@ -540,7 +542,7 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
         key[0][1]: validation.rules[0]["Formula1"]
         for key, validation in validated.items()
     }
-    assert formulas[2] == "Response (y),Predictor (x),Identifier (Row Label),Filter,Omit"
+    assert formulas[2] == "Response (y),Predictor (x),Identifier (Row Label),Filter,Omit,Fixed Effects"
     assert formulas[3] == "TRUE,FALSE"
     assert formulas[4] == "Continuous,Categorical"
     assert formulas[7] == "None"
@@ -654,6 +656,56 @@ def test_sequence_status_line_validates_zero_or_one_flags() -> None:
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
+def test_fixed_effects_status_line_validates_zero_or_one_rows() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_block(_as_xw_sheet(sheet))
+    from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
+    _write_spec_feedback(_as_xw_sheet(sheet))
+
+    # B1: the Fixed Effects cardinality error — same pattern as E1's
+    # Sequence check, on Role's own row-1 cell instead of Reference Level's.
+    status = sheet.cell(1, _C_ROLE)
+    assert status.api.Formula2 == (
+        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>1,'
+        '"ERROR: multiple Fixed Effects rows (mark at most one variable)","")'
+    )
+    assert status.api.Font.Bold is True
+
+    conditions = sheet.range("$B$1").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ['=$B$1<>""']
+    assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+
+def test_fixed_effects_status_block_shows_variable_groups_and_absorbed_df() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
+    _write_spec_feedback(_as_xw_sheet(sheet))
+
+    for col, label in (
+        (_C_PERIOD_IN_USE, "FE Variable"),
+        (_C_LEVELS, "FE Groups"),
+        (_C_REF_IN_USE, "FE df absorbed"),
+    ):
+        cell = sheet.cell(1, col)
+        assert cell.value == label, (col, label)
+        assert cell.api.Font.Bold is True
+
+    variable = cast(str, sheet.cell(2, _C_PERIOD_IN_USE).api.Formula2)
+    assert variable.startswith(f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",')
+    assert 'XMATCH("Fixed Effects",TAKE(Spec_Role,COLUMNS(Source_Data)))' in variable
+
+    groups = sheet.cell(2, _C_LEVELS).api.Formula2
+    assert groups == (
+        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom()+1)'
+    )
+
+    absorbed = sheet.cell(2, _C_REF_IN_USE).api.Formula2
+    assert absorbed == (
+        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom())'
+    )
+
+
 def test_spec_feedback_writes_delta_count_verdict_with_priority_cf() -> None:
     """The M/N spectrum and the I1/I2 verdict overlay (Verdict overlays the
     Sequence_Period column's row-1/row-2 cells, which are unused by the spec
@@ -750,18 +802,25 @@ def test_intercept_control_is_a_toggle_with_coupling_cf() -> None:
     # Coupling CF, on C2: red (toggle FALSE while an included Categorical
     # needs the intercept) added first with StopIfTrue so it outranks the
     # hide-in-place "required-here" rule; that rule applies whenever a
-    # Categorical is in, hiding C2 behind its own INPUT_COLOR fill.
+    # Categorical is in, hiding C2 behind its own INPUT_COLOR fill. A third
+    # rule flags the opposite state: toggle TRUE while Fixed Effects is
+    # active (the resulting "Intercept" row is a nuisance artifact, not a
+    # numerical error — see the DF_Absorbed threading, which accounts for it
+    # correctly either way).
     conditions = sheet.range("$C$2").api.FormatConditions.items
     assert [c.Formula1 for c in conditions] == [
         f"=AND($C$2=FALSE,{_CAT_INCLUDED})",
         f"={_CAT_INCLUDED}",
+        f"=AND($C$2=TRUE,{_FIXED_EFFECTS_COUNT_FORMULA}>0)",
     ]
-    red, hidden = conditions
+    red, hidden, fe_red = conditions
     assert red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert red.Font.Color == excel_color(CF_DARK_RED_TEXT)
     assert red.StopIfTrue is True
     assert hidden.Font.Color == excel_color(INPUT_COLOR)
     assert hidden.StopIfTrue is False
+    assert fe_red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert fe_red.Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
 _RESPONSE_NAME = (
@@ -791,6 +850,13 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
             "sequence flags",
             "=SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))",
         ),
+        (
+            30,
+            31,
+            "fixed effects",
+            '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))',
+        ),
+        (32, 33, "FE absorbed df", "=Absorbed_Degrees_Of_Freedom()"),
     ]
     assert list(_AUDIT_PAIRS) == [(lc, vc) for lc, vc, _, _ in expected]
     assert _AUDIT_ROW == 1
@@ -815,6 +881,12 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
     assert [c.Formula1 for c in seq_conditions] == ["=N($AC$1)>1"]
     assert seq_conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert seq_conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+    # Zero-or-one-Fixed-Effects validation: red CF only at two-plus (AE=31).
+    fe_conditions = sheet.range("$AE$1").api.FormatConditions.items
+    assert [c.Formula1 for c in fe_conditions] == ["=N($AE$1)>1"]
+    assert fe_conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert fe_conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
 def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:

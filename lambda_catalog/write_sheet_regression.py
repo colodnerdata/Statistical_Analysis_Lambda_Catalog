@@ -744,12 +744,14 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     # Fit-time X/y (X_s_Within()/y_s()): raw X_s()/Response_Column() unchanged
     # with no Fixed Effects row, one-way within-demeaned when one is declared
     # — every statistic below reports the "within" flavor under FE, the same
-    # convention panel-regression software (e.g. R's plm) uses.
+    # convention panel-regression software (e.g. R's plm) uses. Adjusted R²
+    # and Standard Error also take Absorbed_Degrees_Of_Freedom() (0 with no
+    # FE row) so their df-dependent penalty/divisor is correct.
     for row, label, formula in [
         (4, "Multiple R",        "=Multiple_R(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
         (5, "R Square",          "=R_Squared(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
-        (6, "Adjusted R Square", "=Adjusted_R_Squared(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
-        (7, "Standard Error",    "=SE_Regression(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
+        (6, "Adjusted R Square", "=Adjusted_R_Squared(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (7, "Standard Error",    "=SE_Regression(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
         (8, "Observations",      "=Observations(y_s(),Sample_Include())"),
     ]:
         val(sheet, row, _C_X, label)
@@ -776,10 +778,10 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
             "=(Regression_Degrees_Of_Freedom(X_s_Within())+IF(Allow_Intercept,1,0))"
             "/Observations(y_s(),Sample_Include())",
         ),
-        (7,  "AIC",            "=AIC(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
-        (8,  "BIC",            "=BIC(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
-        (9,  "AICc",           "=AICc(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
-        (10, "QQ Correlation", "=QQ_Correlation(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
+        (7,  "AIC",            "=AIC(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (8,  "BIC",            "=BIC(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (9,  "AICc",           "=AICc(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (10, "QQ Correlation", "=QQ_Correlation(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
     ]:
         val(sheet, row, _C_AA, label)
         f(sheet, row, _C_AB, formula)
@@ -889,13 +891,13 @@ def _write_anova(sheet: xw.Sheet) -> None:
     f(sheet, 15, _C_Y, "=Regression_Degrees_Of_Freedom(X_s_Within())")
     f(sheet, 15, _C_Z, "=SS_Regression(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
     f(sheet, 15, _C_AA, "=MS_Regression(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 15, _C_AB, "=F_Statistic(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 15, _C_AC, "=F_Statistic_P_Value(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 15, _C_AB, "=F_Statistic(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 15, _C_AC, "=F_Statistic_P_Value(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
 
     val(sheet, 16, _C_X, "Residual")
-    f(sheet, 16, _C_Y, "=Residual_Degrees_Of_Freedom(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 16, _C_Y, "=Residual_Degrees_Of_Freedom(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
     f(sheet, 16, _C_Z, "=SS_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 16, _C_AA, "=MS_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 16, _C_AA, "=MS_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
 
     val(sheet, 17, _C_X, "Total")
     f(sheet, 17, _C_Y, "=Total_Degrees_Of_Freedom(y_s(),Allow_Intercept,Sample_Include())")
@@ -948,31 +950,36 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     f(sheet, 21, _C_Z,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,SE_Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()),'
-       'VSTACK("",SE_Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()))))')
+       'IF(Allow_Intercept,SE_Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",SE_Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
     f(sheet, 21, _C_AA,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,T_Statistics(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()),'
-       'VSTACK("",T_Statistics(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()))))')
+       'IF(Allow_Intercept,T_Statistics(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",T_Statistics(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
     f(sheet, 21, _C_AB,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
-       'IF(Allow_Intercept,P_Values(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()),'
-       'VSTACK("",P_Values(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()))))')
+       'IF(Allow_Intercept,P_Values(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",P_Values(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
+    # Confidence_Interval_Lower/Upper's [DF_Absorbed] sits after [Alpha], and
+    # Excel LAMBDA calls cannot skip a middle optional argument — 0.05 is
+    # passed explicitly here (matching the function's own internal default
+    # bit-for-bit) so DF_Absorbed can be reached without changing the
+    # pre-existing (Alpha-input-independent) 95% CI behavior.
     f(sheet, 21, _C_AC,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,Confidence_Interval_Lower(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()),'
-       'VSTACK("",Confidence_Interval_Lower(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()))))')
+       'IF(Allow_Intercept,Confidence_Interval_Lower(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",Confidence_Interval_Lower(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()))))')
     f(sheet, 21, _C_AD,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,Confidence_Interval_Upper(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()),'
-       'VSTACK("",Confidence_Interval_Upper(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()))))')
+       'IF(Allow_Intercept,Confidence_Interval_Upper(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",Confidence_Interval_Upper(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()))))')
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     # No predictor exists to standardize in the zero-predictor branch, so render
     # blank (not an error) when Allow_Intercept is TRUE; NA() when nothing is fit.
@@ -1029,7 +1036,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         f"LET(pred_input,VSTACK($AH$12,"
         f"TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s_Within()))),"
         "Prediction_Interval(X_s_Within(),y_s(),pred_input,Allow_Intercept,"
-        "Sample_Include(),alpha)))",
+        "Sample_Include(),alpha,Absorbed_Degrees_Of_Freedom())))",
     )
     sheet.range(rc(3, _C_AH), rc(8, _C_AH)).number_format = "0.0000"
     border_box(sheet, 1, _C_AG, 8, _C_AH)
@@ -1142,14 +1149,14 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     f(sheet, 3, _C_AM, "=Predictions(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
     f(sheet, 3, _C_AN, "=Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
     f(sheet, 3, _C_AO, "=Hat_Diagonal(X_s_Within(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AP, "=Studentized_Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AQ, "=Cooks_Distance(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AP, "=Studentized_Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 3, _C_AQ, "=Cooks_Distance(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
     f(sheet, 3, _C_AR, "=SORT(Normal_Scores(y_s(),Sample_Include()))")
-    f(sheet, 3, _C_AS, "=Studentized_Residuals_Ranked(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AS, "=Studentized_Residuals_Ranked(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
     f(
         sheet, 3, _C_AT,
-        "=SQRT(ABS(Studentized_Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())))",
+        "=SQRT(ABS(Studentized_Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())))",
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
     f(sheet, 3, _C_AU, "=LOOCV_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")

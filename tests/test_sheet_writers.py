@@ -196,10 +196,44 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     assert formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert "IFERROR" not in formula
     # Inputs correspond 1:1 to constructed columns — TAKE exactly k rows,
-    # no Include-filter needed.
-    assert "LET(pred_input,VSTACK($AH$12,TAKE($AH$13:$AH$62,COLUMNS(X_s())))" in formula
-    assert "Prediction_Interval(X_s(),Response_Column(),pred_input" in formula
+    # no intercept slot (group-mean recovery never uses one).
+    assert f"LET(pred_input,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s()))," in formula
+    assert (
+        "Group_Prediction_Interval(X_s(),Response_Column(),pred_input,"
+        "Prediction_Group_Column(),$AH$12,Allow_Intercept,"
+        "Sample_Include(),alpha,Absorbed_Degrees_Of_Freedom())"
+    ) in formula
     assert "Intercept_Only_Point()" in formula
+    # The zero-predictor closed form also splits mean-CI from new-obs-PI now.
+    assert "se_mean,Intercept_Only_S()/SQRT(Intercept_Only_N())" in formula
+    assert "se_new,Intercept_Only_S()*SQRT(1+1/Intercept_Only_N())" in formula
+
+
+def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
+    sheet = RecordingSheet(name="Regression")
+
+    _write_prediction_interval(_as_xw_sheet(sheet))
+
+    assert sheet.cell(12, _C_AG).value == "FE Group"
+    fe_group = sheet.cell(12, _C_AH).api.Formula2
+    assert fe_group == (
+        "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Sample_Include()))),1,1)"
+    )
+    conditions = sheet.range("$AH$12").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == [
+        "=ISNA(MATCH($AH$12,Prediction_Group_Column(),0))"
+    ]
+    assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+    assert sheet.cell(13, _C_AG).value == "Group Mean (y)"
+    assert sheet.cell(13, _C_AH).api.Formula2 == (
+        "=Group_Mean_At(Response_Column(),Prediction_Group_Column(),$AH$12,Sample_Include())"
+    )
+    assert sheet.cell(14, _C_AG).value == "Group Count"
+    assert sheet.cell(14, _C_AH).api.Formula2 == (
+        "=Group_Count_At(Prediction_Group_Column(),$AH$12,Sample_Include())"
+    )
 
 
 def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
@@ -210,7 +244,7 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # The Training Mean spill is the ONE X_s() evaluation for the whole
     # prefill band; it owns column AI downward so it can never collide with
     # another spill when the source data or spec changes.
-    assert sheet.cell(11, _C_AI).value == "Training Mean"
+    assert sheet.cell(17, _C_AI).value == "Training Mean"
     means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AI)
     assert means == (
         "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
@@ -240,7 +274,7 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     coefficient_formula = _formula(sheet, 21, _C_Y)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
-    assert "Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include())" in coefficient_formula
+    assert "Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())" in coefficient_formula
 
     se_formula = _formula(sheet, 21, _C_Z)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
@@ -280,16 +314,16 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # The diagnostics columns shift one slot right of the identifiers column.
     assert sheet.cell(2, _C_AL).value == "Y"
     assert sheet.cell(3, _C_AL).api.Formula2 == (
-        "=Dependent_Variable(Response_Column(),Sample_Include())"
+        "=Dependent_Variable(y_s(),Sample_Include())"
     )
     assert sheet.cell(3, _C_AN).api.Formula2 == (
-        "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+        "=Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"
     )
     assert sheet.cell(3, _C_AO).api.Formula2 == (
-        "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())"
+        "=Hat_Diagonal(X_s_Within(),Allow_Intercept,Sample_Include())"
     )
     assert sheet.cell(3, _C_AU).api.Formula2 == (
-        "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+        "=LOOCV_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"
     )
 
 
@@ -355,7 +389,7 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
     # Serial_Correlation_Group() (the grouping-key resolver, the single
     # retargeting point), never the FE column accessor directly.
     assert (
-        "BFN_Panel_Durbin_Watson(X_s(),Response_Column(),"
+        "BFN_Panel_Durbin_Watson(X_s_Within(),y_s(),"
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
         "Allow_Intercept,Sample_Include())"
     ) in bfn_formula

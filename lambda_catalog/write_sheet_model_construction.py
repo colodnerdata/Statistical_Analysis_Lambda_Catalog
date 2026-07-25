@@ -43,8 +43,8 @@ The spec spans EVERY column of the Source_Table-targeted table (currently
 MileageData, 12 rows: [MPG]..[Model?] plus [Full_Data]). Two axes:
 
     Variable Role  — Response (y) | Predictor (x) | Identifier (Row Label) |
-                     Filter | Omit
-                     (what the column IS; future: Fixed Effects/Weight/Time.
+                     Filter | Omit | Fixed Effects
+                     (what the column IS; future: Weight/Time.
                       The parenthetical glosses are part of the stored token —
                       see the _ROLE_* constants)
     Predictor Type — Continuous | Categorical
@@ -326,6 +326,8 @@ _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
     (_C_MATRIX_START + 1, _C_MATRIX_START + 2),  # responses (red CF <> 1)
     (_C_MATRIX_START + 3, _C_MATRIX_START + 4),  # included rows
     (_C_MATRIX_START + 5, _C_MATRIX_START + 6),  # sequence flags (red CF > 1)
+    (_C_MATRIX_START + 7, _C_MATRIX_START + 8),  # fixed effects (red CF > 1)
+    (_C_MATRIX_START + 9, _C_MATRIX_START + 10),  # FE absorbed df
 )
 
 _EMPTY_MODEL_FALLBACK = '"(empty model)"'
@@ -353,12 +355,13 @@ _ROLE_OMIT = "Omit"
 # sit with an unset Role: it is inert by construction, not merely
 # "untested," so the user can classify new rows at their own pace instead
 # of being forced to pick a Role the instant the row exists.
-# The v2.1 panel role (ROADMAP Role-axis values). Forward wiring only: the
-# token is read by the Fixed_Effects_Column() accessor and the FE-count guard
-# on the Regression diagnostics (BFN panel Durbin-Watson trigger matrix), but
-# it is deliberately NOT in the Role dropdown yet — the design-matrix engine
-# does not absorb fixed effects until the v2.1 release, and offering the role
-# before then would let a spec claim FE while silently fitting pooled OLS.
+# The v2.1 panel role. Read by the Fixed_Effects_Column() accessor, the
+# FE-count guard on the Regression diagnostics (BFN panel Durbin-Watson
+# trigger matrix), and — since the phase 1-3 engine work — by
+# Absorbed_Degrees_Of_Freedom() and the fit-time y_s()/X_s_Within() pair that
+# the whole inference chain reads. Now in the Role dropdown: a spec claiming
+# Fixed Effects actually gets the one-way within transformation and the
+# absorbed-df correction, not silent pooled OLS.
 _ROLE_FIXED_EFFECTS = "Fixed Effects"
 
 # The derived response name, shared by the audit strip and the filtered-y
@@ -420,7 +423,14 @@ _DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Model Year"})
 _DEFAULT_TRANSFORM = "None"
 
 _ROLE_VALIDATION_LIST = ",".join(
-    (_ROLE_RESPONSE, _ROLE_PREDICTOR, _ROLE_IDENTIFIER, _ROLE_FILTER, _ROLE_OMIT)
+    (
+        _ROLE_RESPONSE,
+        _ROLE_PREDICTOR,
+        _ROLE_IDENTIFIER,
+        _ROLE_FILTER,
+        _ROLE_OMIT,
+        _ROLE_FIXED_EFFECTS,
+    )
 )
 _INCLUDE_VALIDATION_LIST = "TRUE,FALSE"
 _TYPE_VALIDATION_LIST = "Continuous,Categorical"
@@ -461,10 +471,11 @@ _SEQUENCE_FLAG_COUNT_FORMULA = (
 
 # Count of Role="Fixed Effects" spec rows — the FE-active detector behind the
 # Regression sheet's serial-correlation trigger matrix (plain DW vs. the BFN
-# panel DW). Always 0 until the v2.1 Fixed Effects role ships (the token is
-# not in the Role dropdown), which keeps the shipped workbook in the
-# DW-active / BFN-token state. Same TAKE-trimmed idiom as the responses and
-# sequence-flag counts.
+# panel DW) and the audit strip's fixed-effects cardinality check. Zero-or-one
+# is the legal range (same pattern as the Sequence flag count); two-plus is a
+# visible audit-strip error, since two-way absorption is a post-v2.1
+# milestone. Same TAKE-trimmed idiom as the responses and sequence-flag
+# counts.
 _FIXED_EFFECTS_COUNT_FORMULA = (
     "SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))"
     f'="{_ROLE_FIXED_EFFECTS}"))'
@@ -910,6 +921,16 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
     table header reads as a visual collision). E1 keeps the same pattern
     as the old H2: blank while the spec is legal, a red error line when
     it is not.
+
+    B1 carries the parallel Fixed Effects cardinality error (same pattern,
+    Role's own column instead of Sequence's), and J1/K1/L1 (headers) with
+    J2/K2/L2 (values) surface the active FE variable, its group count, and
+    the degrees of freedom it absorbs — TODOs #2's status-block cells, live
+    now that the phase 1-3 engine backs them instead of showing a
+    forthcoming-engine placeholder. J/K/L are the Period In Use / Levels /
+    Reference In Use spec columns; rows 1-2 sit above the table's own
+    per-row content (row 3 header, row 4+ data), the same free space I1/I2
+    already uses for the Sequence Verdict.
     """
     feedback_header_row = 1
     feedback_content_row = 2
@@ -935,6 +956,64 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
         f'={status_cell}<>""',
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
+    )
+
+    # B1: the parallel Fixed Effects cardinality error. B is otherwise Role
+    # (a dropdown input, blank on row 1 by default), so the status cell
+    # shares the column with no other content — same placement logic as E1
+    # sharing Reference Level's row-1 cell.
+    fe_status_cell = f"${col_letter(_C_ROLE)}${feedback_header_row}"  # $B$1
+    f(
+        sheet,
+        feedback_header_row,
+        _C_ROLE,
+        (
+            f"=IF({_FIXED_EFFECTS_COUNT_FORMULA}>1,"
+            '"ERROR: multiple Fixed Effects rows (mark at most one variable)","")'
+        ),
+    )
+    bold(sheet, feedback_header_row, _C_ROLE)
+    add_expression_format(
+        sheet,
+        fe_status_cell,
+        f'={fe_status_cell}<>""',
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # J1/K1/L1 + J2/K2/L2: the Fixed Effects status block. All three values
+    # key off the same FE-count gate, self-guarding like the BFN/DW trigger
+    # matrix's "n/a" tokens — "n/a" when no Fixed Effects row is declared,
+    # live values once one is (still resolves the FIRST FE row even in the
+    # 2-plus-rows error state, exactly like Fixed_Effects_Column() itself;
+    # the B1 error above is what flags that state, not these display cells).
+    val(sheet, feedback_header_row, _C_PERIOD_IN_USE, "FE Variable")
+    val(sheet, feedback_header_row, _C_LEVELS, "FE Groups")
+    val(sheet, feedback_header_row, _C_REF_IN_USE, "FE df absorbed")
+    bold(sheet, feedback_header_row, _C_PERIOD_IN_USE)
+    bold(sheet, feedback_header_row, _C_LEVELS)
+    bold(sheet, feedback_header_row, _C_REF_IN_USE)
+    f(
+        sheet,
+        feedback_content_row,
+        _C_PERIOD_IN_USE,
+        (
+            f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",'
+            "IFERROR(INDEX(TOROW(Header_Names),"
+            f'XMATCH("{_ROLE_FIXED_EFFECTS}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"n/a"))'
+        ),
+    )
+    f(
+        sheet,
+        feedback_content_row,
+        _C_LEVELS,
+        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom()+1)',
+    )
+    f(
+        sheet,
+        feedback_content_row,
+        _C_REF_IN_USE,
+        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom())',
     )
 
     # M1/N1: bold headers (no fill, default font size). The Verdict header
@@ -1122,6 +1201,21 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
         f"={cat_included}",
         font_color=INPUT_COLOR,
     )
+    # Intercept x Fixed Effects: fitting an explicit intercept on top of the
+    # already-demeaned X_s_Within()/y_s() pair is not a numerical error (the
+    # within transform plus Absorbed_Degrees_Of_Freedom() correctly accounts
+    # for it — see the DF_Absorbed threading tests) and LINEST just estimates
+    # it near zero, but the resulting "Intercept" coefficient row is not the
+    # original model's intercept in any interpretable sense — it is an
+    # incidental unbalanced-panel artifact. Flagged so a user does not read
+    # significance into it.
+    add_expression_format(
+        sheet,
+        toggle,
+        f"=AND({toggle}=TRUE,{_FIXED_EFFECTS_COUNT_FORMULA}>0)",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
 
 
 def _write_row_zones(sheet: xw.Sheet) -> None:
@@ -1161,6 +1255,8 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
         ),
         ("included rows", "=SUMPRODUCT(N(Sample_Include()))"),
         ("sequence flags", f"={_SEQUENCE_FLAG_COUNT_FORMULA}"),
+        ("fixed effects", f"={_FIXED_EFFECTS_COUNT_FORMULA}"),
+        ("FE absorbed df", "=Absorbed_Degrees_Of_Freedom()"),
     )
     for (label_col, value_col), (label, formula) in zip(
         _AUDIT_PAIRS, audit_cells
@@ -1188,6 +1284,18 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
         sheet,
         f"${sequence_col}${_AUDIT_ROW}",
         f"=N(${sequence_col}${_AUDIT_ROW})>1",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # Zero-or-one Fixed Effects rows — same pattern as Sequence: zero is a
+    # valid non-panel spec, two-plus (two-way absorption) is out of scope
+    # until its own milestone and a visible spec error until then.
+    fixed_effects_col = col_letter(_AUDIT_PAIRS[6][1])
+    add_expression_format(
+        sheet,
+        f"${fixed_effects_col}${_AUDIT_ROW}",
+        f"=N(${fixed_effects_col}${_AUDIT_ROW})>1",
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )

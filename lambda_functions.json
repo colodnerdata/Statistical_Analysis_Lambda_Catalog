@@ -97,7 +97,7 @@
       "name": "Residual_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    Total_Degrees_Of_Freedom(Y, allow_arg, filt_arg) - Regression_Degrees_Of_Freedom(X_s)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    Total_Degrees_Of_Freedom(Y, allow_arg, filt_arg) - Regression_Degrees_Of_Freedom(X_s) - absorbed_arg\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -116,12 +116,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
+          "optional": true
         }
       ],
-      "yields": "df_residual (n-k-1 with intercept, n-k without) as a scalar integer",
-      "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as Total_Degrees_Of_Freedom(...) - Regression_Degrees_Of_Freedom(...), inheriting the Allow_Intercept correction from Total_Degrees_Of_Freedom.",
-      "plain_language_summary": "How much data is left to estimate random error after fitting the model.",
-      "notes": "Residual degrees of freedom = Total_Degrees_Of_Freedom − Regression_Degrees_Of_Freedom. Denominator df in the F-test and the penalty term in Adjusted R²."
+      "yields": "df_residual (n-k-1 with intercept, n-k without, minus DF_Absorbed) as a scalar integer",
+      "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as Total_Degrees_Of_Freedom(...) - Regression_Degrees_Of_Freedom(...), inheriting the Allow_Intercept correction from Total_Degrees_Of_Freedom.\n\nUnder v2.1 Fixed Effects, an optional trailing DF_Absorbed further subtracts the group degrees of freedom already spent demeaning the data (X_s_Within()/y_s() fit on n-K-1 df as an ordinary OLS would count them, but G−1 of those degrees of freedom were spent estimating group means, not model parameters) — omitted or 0, this is the single source of truth every df-dependent statistic downstream (MS_Residual, SE, t, p, CI, AIC/BIC, Prediction_Interval) threads through.",
+      "plain_language_summary": "How much data is left to estimate random error after fitting the model, minus any degrees of freedom a Fixed Effects variable has already absorbed.",
+      "notes": "Residual df = Total_Degrees_Of_Freedom − Regression_Degrees_Of_Freedom − DF_Absorbed (default 0). Denominator df for the F-test, Adjusted R², and — new in v2.1 — the single source of truth for FE df correction downstream."
     },
     {
       "name": "Multiple_R",
@@ -157,7 +162,7 @@
       "name": "Adjusted_R_Squared",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    1 - (1 - R_Squared(X_s, Y, allow_arg, filt_arg))\n      * Total_Degrees_Of_Freedom(Y, allow_arg, filt_arg)\n      / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    1 - (1 - R_Squared(X_s, Y, allow_arg, filt_arg))\n      * Total_Degrees_Of_Freedom(Y, allow_arg, filt_arg)\n      / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -176,12 +181,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "Adjusted R² as a scalar, typically in [0, 1] but can be negative",
-      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_Squared(...)) * Total_Degrees_Of_Freedom(...) / Residual_Degrees_Of_Freedom(...), inheriting the Allow_Intercept correction from both df functions.",
+      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_Squared(...)) * Total_Degrees_Of_Freedom(...) / Residual_Degrees_Of_Freedom(...), inheriting the Allow_Intercept correction from both df functions. An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to Residual_Degrees_Of_Freedom() so the penalty term correctly reflects absorbed group degrees of freedom.",
       "plain_language_summary": "R-squared adjusted so extra predictors do not get free credit.",
-      "notes": "R² penalised for model complexity: 1 − (1 − R²)·df_total/df_residual. Can be negative when the model fits worse than the mean."
+      "notes": "R² penalised for model complexity: 1 − (1 − R²)·df_total/df_residual. Can be negative when the model fits worse than the mean. Optional DF_Absorbed (default 0) corrects df_residual under Fixed Effects."
     },
     {
       "name": "SS_Total",
@@ -303,7 +313,7 @@
       "name": "MS_Residual",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -322,18 +332,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "mean square for residual error (MS_residual = SS_residual / df_residual) as a scalar",
-      "description": "MS_Residual is the mean square for residual error: SS_Residual divided by df_Residual. It equals SE_Regression² and is the denominator of the overall F-statistic. It represents the average unexplained variation per residual degree of freedom.",
+      "description": "MS_Residual is the mean square for residual error: SS_Residual divided by df_Residual. It equals SE_Regression² and is the denominator of the overall F-statistic. It represents the average unexplained variation per residual degree of freedom.\n\nAn optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to Residual_Degrees_Of_Freedom() so the divisor correctly reflects absorbed group degrees of freedom.",
       "plain_language_summary": "Average unexplained variation per residual degree of freedom.",
-      "notes": "Mean square residual = SS_Residual / df_Residual = SE_Regression². Denominator of the F-statistic."
+      "notes": "Mean square residual = SS_Residual / df_Residual = SE_Regression². Denominator of the F-statistic. Optional DF_Absorbed (default 0) corrects df_Residual under Fixed Effects."
     },
     {
       "name": "SE_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SQRT(SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    SQRT(SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -352,12 +367,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "SE_regression (standard error of the regression) as a scalar",
-      "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / Residual_Degrees_Of_Freedom(...)).",
+      "description": "SE_regression (also called the root mean square error or S) measures the typical distance between observed Y values and the regression line, in the same units as Y. It equals √(SS_residual / df_residual) = √MSE. Smaller values indicate a tighter fit.\n\nComputed as SQRT(SS_Residual(...) / Residual_Degrees_Of_Freedom(...)). An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads through so a Fixed Effects model's typical residual size is computed on the correct (absorbed) df, not an inflated one.",
       "plain_language_summary": "The typical size of the model's prediction mistakes, in Y units.",
-      "notes": "Standard error of the regression (root MSE = √(SS_Residual / df_residual)). Typical prediction error in Y units."
+      "notes": "Standard error of the regression (root MSE = √(SS_Residual / df_residual)). Typical prediction error in Y units. Optional DF_Absorbed (default 0) corrects df_residual under Fixed Effects."
     },
     {
       "name": "PRESS",
@@ -393,7 +413,7 @@
       "name": "AIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + 2 * p\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0) + absorbed_arg,\n    n * LN(ssr / n) + 2 * p\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -412,18 +432,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups; added directly to the parameter count p, since each absorbed group intercept IS an estimated parameter. Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "Akaike Information Criterion (AIC) scalar",
-      "description": "AIC = n·ln(SSR/n) + 2p, where p = number of regression parameters (predictors + intercept when Allow_Intercept is TRUE). Smaller values indicate better-fitting models; compare across models on the same dataset.",
+      "description": "AIC = n·ln(SSR/n) + 2p, where p = number of regression parameters (predictors + intercept when Allow_Intercept is TRUE). Smaller values indicate better-fitting models; compare across models on the same dataset.\n\nUnder v2.1 Fixed Effects, an optional trailing DF_Absorbed adds directly into p: the G−1 group intercepts a Fixed Effects variable absorbs are genuinely estimated parameters even though the within transformation never materializes them as explicit coefficients, so AIC must count them or understate model complexity.",
       "plain_language_summary": "A score for comparing models that rewards fit but penalizes extra complexity.",
-      "notes": "Akaike Information Criterion = n·ln(SSR/n) + 2p. Lower = better. Use to compare models fitted to the same dataset."
+      "notes": "Akaike Information Criterion = n·ln(SSR/n) + 2p. Lower = better. Optional DF_Absorbed (default 0) adds absorbed FE group intercepts into p."
     },
     {
       "name": "BIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0),\n    n * LN(ssr / n) + p * LN(n)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0) + absorbed_arg,\n    n * LN(ssr / n) + p * LN(n)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -442,18 +467,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups; added directly to the parameter count p, since each absorbed group intercept IS an estimated parameter. Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "Bayesian Information Criterion (BIC) scalar",
-      "description": "BIC = n·ln(SSR/n) + p·ln(n), where p = number of regression parameters. Applies a heavier penalty than AIC for additional parameters, favouring sparser models in large samples.",
+      "description": "BIC = n·ln(SSR/n) + p·ln(n), where p = number of regression parameters. Applies a heavier penalty than AIC for additional parameters, favouring sparser models in large samples.\n\nUnder v2.1 Fixed Effects, an optional trailing DF_Absorbed adds directly into p, the same absorbed-group-intercepts-are-parameters correction AIC applies.",
       "plain_language_summary": "A model-comparison score that penalizes extra complexity more strongly than AIC.",
-      "notes": "Bayesian Information Criterion = n·ln(SSR/n) + p·ln(n). Penalises model complexity more strongly than AIC."
+      "notes": "Bayesian Information Criterion = n·ln(SSR/n) + p·ln(n). Penalises model complexity more strongly than AIC. Optional DF_Absorbed (default 0) adds absorbed FE group intercepts into p."
     },
     {
       "name": "AICc",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0),\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0) + absorbed_arg,\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -472,12 +502,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups; added directly to the parameter count p (which also appears in the small-sample correction term). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "Corrected Akaike Information Criterion (AICc) scalar",
-      "description": "AICc = AIC + 2p(p+1)/(n−p−1). The small-sample correction reduces upward bias in AIC when n/p < 40. Converges to AIC as n → ∞.",
+      "description": "AICc = AIC + 2p(p+1)/(n−p−1). The small-sample correction reduces upward bias in AIC when n/p < 40. Converges to AIC as n → ∞.\n\nUnder v2.1 Fixed Effects, an optional trailing DF_Absorbed adds directly into p, propagating into both the AIC term and the small-sample correction term.",
       "plain_language_summary": "AIC with an extra small-sample penalty.",
-      "notes": "AIC with a small-sample correction (+2p(p+1)/(n−p−1)). Preferred when n/p < 40; converges to AIC as n → ∞."
+      "notes": "AIC with a small-sample correction (+2p(p+1)/(n−p−1)). Preferred when n/p < 40; converges to AIC as n → ∞. Optional DF_Absorbed (default 0) adds absorbed FE group intercepts into p."
     },
     {
       "name": "Durbin_Watson",
@@ -590,7 +625,7 @@
       "name": "QQ_Correlation",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    sr,        Scaled_Residuals_Ranked(X_s, Y, allow_arg, filt_arg),\n    n,         ROWS(sr),\n    ns,        NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    sr,        Scaled_Residuals_Ranked(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    n,         ROWS(sr),\n    ns,        NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -609,12 +644,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Scaled_Residuals_Ranked(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "Filliben Q-Q correlation coefficient (normality statistic) scalar",
       "description": "CORREL(Scaled_Residuals_Ranked, Normal_Scores) — the Filliben approximation to the Shapiro-Wilk statistic. Values near 1 indicate approximately normal residuals; values below ~0.99 suggest non-normality. The Q-Q plot is the corresponding visual: plot Normal_Scores (x) vs Scaled_Residuals_Ranked (y) and look for alignment with the identity line.",
       "plain_language_summary": "How close the residual distribution is to a normal bell shape.",
-      "notes": "Filliben Q-Q correlation between ranked scaled residuals and normal quantiles. Values near 1 indicate approximately normal residuals."
+      "notes": "Filliben Q-Q correlation between ranked scaled residuals and normal quantiles. Optional DF_Absorbed (default 0) under Fixed Effects."
     },
     {
       "name": "Coefficients",
@@ -650,7 +690,7 @@
       "name": "SE_Coefficients",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    ses,       INDEX(ls, 2),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ses, 1, k + 1), CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    ses,       INDEX(ls, 2),\n    k,         COLUMNS(X_s),\n    naive_df,  Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg),\n    true_df,   naive_df - absorbed_arg,\n    scale,     SQRT(naive_df / true_df),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ses, 1, k + 1), CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))\n    )) * scale\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -669,18 +709,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups. LINEST cannot be told a different df, so this RESCALES its output by SQRT(naive_df / (naive_df − DF_Absorbed)) — exact, since SS_Residual and (X'X)⁻¹ are identical between the two dfs, only the variance scaling differs. Defaults to 0, giving scale = 1 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "vertical array of standard errors of the OLS coefficients — same order as Coefficients",
-      "description": "Returns a vertical spill array of the standard errors of the fitted OLS coefficients, in the same order as Coefficients (intercept first when included).\n\nUses LINEST with stats=TRUE and extracts row 2 (the standard error row), then applies the same reversal as Coefficients.",
-      "plain_language_summary": "How uncertain each fitted coefficient is.",
-      "notes": "Standard errors of the OLS coefficients, same order as Coefficients. Smaller values = more precise estimates."
+      "description": "Returns a vertical spill array of the standard errors of the fitted OLS coefficients, in the same order as Coefficients (intercept first when included).\n\nUses LINEST with stats=TRUE and extracts row 2 (the standard error row), then applies the same reversal as Coefficients.\n\nUnder v2.1 Fixed Effects, LINEST is an Excel built-in that always computes its own SE using its own internal residual df (n−k−intercept) — it cannot be told about degrees of freedom absorbed by an FE group it never sees, since it only sees the already-demeaned X_s_Within()/y_s(). The fix is an exact rescaling, not an approximation: SS_Residual and (X'X)⁻¹ are identical whichever df is used (OLS coefficients and their sum-of-squares don't depend on df, only the variance-to-SE conversion does), so the correct SE is LINEST's SE times SQRT(naive_df / true_df), where naive_df is exactly what LINEST assumed and true_df subtracts DF_Absorbed. With DF_Absorbed omitted or 0, the scale factor is SQRT(naive_df/naive_df) = 1 exactly, so every no-FE caller is bit-identical to before.",
+      "plain_language_summary": "How uncertain each fitted coefficient is — rescaled under Fixed Effects since Excel's LINEST can't be told about the absorbed groups directly.",
+      "notes": "Standard errors of the OLS coefficients. LINEST can't accept an external df, so DF_Absorbed (default 0) rescales its output by SQRT(naive_df/true_df) — exact, since SSR and (X'X)⁻¹ don't change."
     },
     {
       "name": "T_Statistics",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    Coefficients(X_s, Y, allow_arg, filt_arg) / SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    Coefficients(X_s, Y, allow_arg, filt_arg) / SE_Coefficients(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -699,18 +744,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to SE_Coefficients() — Coefficients() itself is unaffected by df. Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "vertical array of t-statistics for each coefficient (coefficient / standard error)",
-      "description": "Returns a vertical spill array of t-statistics for each OLS coefficient. Each element equals the corresponding Coefficients value divided by its SE_Coefficients value.\n\nComputed as Coefficients(...) / SE_Coefficients(...).",
+      "description": "Returns a vertical spill array of t-statistics for each OLS coefficient. Each element equals the corresponding Coefficients value divided by its SE_Coefficients value.\n\nComputed as Coefficients(...) / SE_Coefficients(...). An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads only to SE_Coefficients() — the coefficient point estimates never depend on df.",
       "plain_language_summary": "Each coefficient measured in standard-error units.",
-      "notes": "t-statistics = Coefficients / SE_Coefficients. Measures each coefficient in standard-error units. Same order as Coefficients."
+      "notes": "t-statistics = Coefficients / SE_Coefficients. Same order as Coefficients. Optional DF_Absorbed (default 0) threads to SE_Coefficients under Fixed Effects."
     },
     {
       "name": "P_Values",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.00E+00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    T.DIST.2T(ABS(T_Statistics(X_s, Y, allow_arg, filt_arg)), Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    T.DIST.2T(ABS(T_Statistics(X_s, Y, allow_arg, filt_arg, absorbed_arg)), Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -729,18 +779,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both T_Statistics() and Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "vertical array of two-tailed p-values for each coefficient",
-      "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Statistics(...)), Residual_Degrees_Of_Freedom(...)).",
+      "description": "Returns a vertical spill array of two-tailed p-values for each OLS coefficient, testing the null hypothesis that the true coefficient equals zero.\n\nComputed as T.DIST.2T(ABS(T_Statistics(...)), Residual_Degrees_Of_Freedom(...)). An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both — the t-statistic's SE and the distribution's df must use the same corrected residual df.",
       "plain_language_summary": "How surprising each coefficient would be if its true effect were zero.",
-      "notes": "Two-tailed p-values per coefficient testing H₀: true effect = 0. Same order as Coefficients. Values < alpha are significant."
+      "notes": "Two-tailed p-values per coefficient testing H₀: true effect = 0. Optional DF_Absorbed (default 0) corrects both the t-stat's SE and the test's df under Fixed Effects."
     },
     {
       "name": "Confidence_Interval_Lower",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha], [DF_Absorbed],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),    0,    DF_Absorbed),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -764,18 +819,23 @@
           "name": "Alpha",
           "description": "significance level (0–1); default 0.05 yields 95% CIs.",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both Residual_Degrees_Of_Freedom() and SE_Coefficients(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "vertical array of lower confidence interval bounds for each coefficient",
-      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) - T.INV.2T(Alpha, Residual_Degrees_Of_Freedom(...)) * SE_Coefficients(...).",
+      "description": "Returns a vertical spill array of the lower bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) - T.INV.2T(Alpha, Residual_Degrees_Of_Freedom(...)) * SE_Coefficients(...). An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both the t-critical value's df and the coefficient SE.",
       "plain_language_summary": "The low end of the likely range for each coefficient.",
-      "notes": "Lower confidence-interval bounds per coefficient. Default Alpha = 0.05 gives 95% CIs. Same order as Coefficients."
+      "notes": "Lower CI bounds per coefficient. Default Alpha = 0.05 gives 95% CIs. Optional DF_Absorbed (default 0) corrects both df and SE under Fixed Effects."
     },
     {
       "name": "Confidence_Interval_Upper",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha], [DF_Absorbed],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),    0,    DF_Absorbed),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -799,18 +859,23 @@
           "name": "Alpha",
           "description": "significance level (0–1); default 0.05 yields 95% CIs.",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both Residual_Degrees_Of_Freedom() and SE_Coefficients(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "vertical array of upper confidence interval bounds for each coefficient",
-      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, Residual_Degrees_Of_Freedom(...)) * SE_Coefficients(...).",
+      "description": "Returns a vertical spill array of the upper bounds of the confidence intervals for each OLS coefficient. Uses a two-tailed t critical value at significance level Alpha (default 0.05, yielding 95% CIs).\n\nComputed as Coefficients(...) + T.INV.2T(Alpha, Residual_Degrees_Of_Freedom(...)) * SE_Coefficients(...). An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both the t-critical value's df and the coefficient SE.",
       "plain_language_summary": "The high end of the likely range for each coefficient.",
-      "notes": "Upper confidence-interval bounds per coefficient. Default Alpha = 0.05 gives 95% CIs. Same order as Coefficients."
+      "notes": "Upper CI bounds per coefficient. Default Alpha = 0.05 gives 95% CIs. Optional DF_Absorbed (default 0) corrects both df and SE under Fixed Effects."
     },
     {
       "name": "Partial_R_Squared",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    t,         T_Statistics(X_s, Y, allow_arg, filt_arg),\n    df,        Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg),\n    t^2 / (t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    t,         T_Statistics(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    df,        Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    t^2 / (t^2 + df)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -829,18 +894,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both T_Statistics() and Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "vertical array of partial R² values — same order as Coefficients (intercept first when included)",
-      "description": "Partial R² for coefficient j = t²ⱼ / (t²ⱼ + df_residual), the proportion of residual variance explained by predictor j after controlling for all other predictors. Equivalently, it is the squared partial correlation between Y and Xⱼ given all other Xₛ.\n\nComputed as T_Statistics² / (T_Statistics² + Residual_Degrees_Of_Freedom), element-wise. The intercept row is included (row 1) for consistency with T_Statistics and P_Values.",
+      "description": "Partial R² for coefficient j = t²ⱼ / (t²ⱼ + df_residual), the proportion of residual variance explained by predictor j after controlling for all other predictors. Equivalently, it is the squared partial correlation between Y and Xⱼ given all other Xₛ.\n\nComputed as T_Statistics² / (T_Statistics² + Residual_Degrees_Of_Freedom), element-wise. The intercept row is included (row 1) for consistency with T_Statistics and P_Values. An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both.",
       "plain_language_summary": "How much unique explanatory value each predictor adds after controlling for the rest.",
-      "notes": "Unique proportion of residual variance explained by each predictor after controlling for all others. Range [0, 1]."
+      "notes": "Unique proportion of residual variance explained by each predictor after controlling for all others. Range [0, 1]. Optional DF_Absorbed (default 0) under Fixed Effects."
     },
     {
       "name": "Partial_Correlation",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    t,         T_Statistics(X_s, Y, allow_arg, filt_arg),\n    df,        Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg),\n    t / SQRT(t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    t,         T_Statistics(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    df,        Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    t / SQRT(t^2 + df)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -859,12 +929,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both T_Statistics() and Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "vertical array of partial correlation coefficients — same order as Coefficients (intercept first when included)",
-      "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R_Squared) × sign(t).\n\nComputed as T_Statistics / SQRT(T_Statistics² + Residual_Degrees_Of_Freedom), element-wise. Ranges from −1 to +1.",
+      "description": "Partial correlation for coefficient j = tⱼ / √(t²ⱼ + df_residual), the sign-preserving linear correlation between Y and Xⱼ after partialling out all other predictors from both Y and Xⱼ. Equals √(Partial_R_Squared) × sign(t).\n\nComputed as T_Statistics / SQRT(T_Statistics² + Residual_Degrees_Of_Freedom), element-wise. Ranges from −1 to +1. An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both.",
       "plain_language_summary": "The predictor-outcome relationship left over after accounting for the other predictors.",
-      "notes": "Sign-preserving partial correlation between Y and each predictor after removing all other predictor effects. Range [−1, 1]."
+      "notes": "Sign-preserving partial correlation between Y and each predictor after removing all other predictor effects. Range [−1, 1]. Optional DF_Absorbed (default 0) under Fixed Effects."
     },
     {
       "name": "Beta_Weights",
@@ -1010,7 +1085,7 @@
       "name": "Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Include], [alpha],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg),\n    df,            Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Include], [alpha], [DF_Absorbed],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    absorbed_arg,  IF(ISOMITTED(DF_Absorbed),     0,    DF_Absorbed),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    df,            Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1038,12 +1113,69 @@
           "name": "alpha",
           "description": "significance level (0–1); default 0.05 yields 95% prediction intervals",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both SE_Regression() and Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "6-element vertical array: [Point Estimate, SE Prediction, t Critical, Lower bound, Upper bound, Confidence Level]",
-      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using Gram_Inverse(X_design) and MMULT.",
+      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using Gram_Inverse(X_design) and MMULT.\n\nAn optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both s and df, so the t-critical value and the prediction SE reflect the correct absorbed-group residual df. This function alone still assumes x_new lives in the same raw covariate space as X_s — it is not a well-defined FE prediction on its own under Fixed Effects; Group_Prediction_Interval is the group-mean-relative sibling that adds the ȳᵢ/x̄ᵢ recovery machinery.",
       "plain_language_summary": "A predicted outcome plus the range a new real-world observation is likely to fall in.",
-      "notes": "6-element vector: point estimate, SE_prediction, t-critical, lower PI bound, upper PI bound, confidence level."
+      "notes": "6-element vector: point estimate, SE_prediction, t-critical, lower/upper PI bound, confidence level. Optional DF_Absorbed (default 0) corrects df/SE under Fixed Effects."
+    },
+    {
+      "name": "Group_Prediction_Interval",
+      "test_table": null,
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X_s, Y, X_new, group, selected_group, [Allow_Intercept], [Include], [alpha], [DF_Absorbed],\n  LET(\n    allow_arg,    IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,     IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(alpha),            0.05, alpha),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),      0,    DF_Absorbed),\n    x_within,     BYCOL(X_s, LAMBDA(col, Demean_By(col, group, filt_arg))),\n    y_within,     Demean_By(Y, group, filt_arg),\n    beta_full,    Coefficients(x_within, y_within, allow_arg, filt_arg),\n    beta,         IF(allow_arg, DROP(beta_full, 1), beta_full),\n    s,            SE_Regression(x_within, y_within, allow_arg, filt_arg, absorbed_arg),\n    df,           Residual_Degrees_Of_Freedom(x_within, y_within, allow_arg, filt_arg, absorbed_arg),\n    t_crit,       T.INV.2T(alpha_arg, df),\n    X_design,     Design_Matrix(x_within, FALSE, filt_arg),\n    XtX_inv,      Gram_Inverse(X_design),\n    xbar_i,       TRANSPOSE(BYCOL(X_s, LAMBDA(col, Group_Mean_At(col, group, selected_group, filt_arg)))),\n    ybar_i,       Group_Mean_At(Y, group, selected_group, filt_arg),\n    T_i,          Group_Count_At(group, selected_group, filt_arg),\n    deviation,    X_new - xbar_i,\n    quad,         MMULT(MMULT(TRANSPOSE(deviation), XtX_inv), deviation),\n    point_est,    ybar_i + SUMPRODUCT(deviation, beta),\n    se_mean,      s * SQRT(1 / T_i + quad),\n    se_new,       s * SQRT(1 + 1 / T_i + quad),\n    margin_mean,  t_crit * se_mean,\n    margin_new,   t_crit * se_new,\n    VSTACK(\n      point_est,\n      se_mean,\n      se_new,\n      t_crit,\n      point_est - margin_mean,\n      point_est + margin_mean,\n      point_est - margin_new,\n      point_est + margin_new,\n      1 - alpha_arg\n    )\n  ))",
+      "arguments": [
+        {
+          "name": "X_s",
+          "description": "column range of predictors, raw (not pre-demeaned) — single or multi-column"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range, raw (not pre-demeaned)"
+        },
+        {
+          "name": "X_new",
+          "description": "column vector of raw predictor values for the new observation, k rows matching COLUMNS(X_s) — no intercept placeholder (group-mean recovery never uses one)"
+        },
+        {
+          "name": "group",
+          "description": "single-column grouping key (Prediction_Group_Column(): the Fixed Effects column, or a constant single group when none is declared)"
+        },
+        {
+          "name": "selected_group",
+          "description": "the one group value to predict for (a dropdown-selected panel unit, or the constant \"(all)\" sentinel when no Fixed Effects row is declared)"
+        },
+        {
+          "name": "Allow_Intercept",
+          "description": "TRUE/FALSE — fit intercept in the within regression? Default TRUE. Does not change the point estimate (an intercept fit on group-demeaned data is always exactly 0), only how Coefficients()'s output is sliced",
+          "optional": true
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "alpha",
+          "description": "significance level (0–1); default 0.05 yields 95% intervals",
+          "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to SE_Regression() and Residual_Degrees_Of_Freedom(). Defaults to 0",
+          "optional": true
+        }
+      ],
+      "yields": "9-element vertical array: [Point Estimate, SE (mean), SE (new obs), t Critical, CI Lower, CI Upper, PI Lower, PI Upper, Confidence Level]",
+      "description": "Group_Prediction_Interval is the v2.1 group-mean-recovery prediction: ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂, the algebraic identity that recovers the group-specific intercept an LSDV fit would have materialized (α̂ᵢ = ȳᵢ − x̄ᵢ′β̂) without ever fitting G−1 group dummies. Surfaces BOTH intervals DECISIONS.md calls for: a mean-response CI (Var = σ²/Tᵢ + (x_new−x̄ᵢ)′V_β(x_new−x̄ᵢ)) and a new-observation PI (the same quadratic term plus σ²), same center, same t-critical, differing by exactly one variance term — reusing the existing leverage quadratic-form machinery (Gram_Inverse, Design_Matrix) fed the *deviation* (x_new−x̄ᵢ) instead of raw x_new.\n\nRe-demeans X_s/Y internally via Demean_By(·, group, include) rather than accepting pre-demeaned X_s_Within()/y_s(): those return the RAW X_s()/Response_Column() unchanged when no Fixed Effects row is declared (preserving the v2.0 model's own intercept exactly), which is correct for the Coefficients/ANOVA/Diagnostics reporting chain but wrong for this function's quadratic-form term, which needs a properly (grand-mean-)centered matrix regardless of FE status. Passing Prediction_Group_Column() as group makes this re-demeaning reduce to the real Fixed_Effects_Column() when FE is active, or to plain grand-mean centering (the standard textbook regression-prediction-variance decomposition) when it is not — an intercept fit on top of either is always mathematically inert (the coefficient is exactly 0 by construction, confirmed independently), so beta only needs the slope rows, never the intercept row, regardless of Allow_Intercept.\n\nDegenerate collapse (DECISIONS.md's 'build it once'): with group = Prediction_Group_Column()'s constant \"(all)\" fallback (G=1, whole sample is the group), ȳᵢ/x̄ᵢ/Tᵢ become the grand mean/grand mean/full count, and this function's point estimate and PI reduce EXACTLY to Prediction_Interval()'s own numbers — verified to floating-point precision, not merely close. Predicting at the selected group's own centroid (x_new = x̄ᵢ) kills the quadratic term and the mean-CI collapses to t·√(σ²/Tᵢ), the standard error of ȳᵢ — the DECISIONS.md sanity check.\n\nScope, per DECISIONS.md: one-way FE only, iid errors, existing groups only (selected_group must be an observed level — Group_Mean_At/Group_Count_At return #N/A/0 rather than fabricating statistics for an unobserved group). Categorical-predictor × FE input encoding (forming X_new/x̄ᵢ in constructed design-matrix space when a non-FE Categorical Predictor coexists with Fixed Effects) is explicitly DEFERRED — this function's X_new is continuous-predictor space only.",
+      "plain_language_summary": "Predicts for a specific group (e.g. one Facility) using that group's own average as the baseline, adjusted for how the new inputs differ from that group's typical values — with both a mean-response interval and a wider individual-observation interval.",
+      "notes": "v2.1 group-mean-recovery prediction: ŷ=ȳᵢ+(x_new−x̄ᵢ)′β̂. Surfaces both mean-CI and new-obs-PI. G=1 (Prediction_Group_Column()'s \"(all)\" fallback) collapses exactly to Prediction_Interval(). One-way FE, iid errors, continuous predictors only."
     },
     {
       "name": "Observation_Number",
@@ -1254,7 +1386,7 @@
       "name": "Scaled_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    Residuals(X_s, Y, allow_arg, filt_arg)\n      / SE_Regression(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    Residuals(X_s, Y, allow_arg, filt_arg)\n      / SE_Regression(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1273,12 +1405,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to SE_Regression(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "residual divided by SE_Regression as a spilled vector",
       "description": "Residual divided by SE_Regression. This is not Excel Analysis ToolPak 'Standard Residuals' and is not leverage-adjusted/studentized.",
       "plain_language_summary": "Residuals converted to a common error scale.",
-      "notes": "Residuals divided by SE_Regression. Not leverage-adjusted; contrast with Studentized_Residuals for outlier detection."
+      "notes": "Residuals divided by SE_Regression. Not leverage-adjusted. Optional DF_Absorbed (default 0) corrects SE_Regression under Fixed Effects."
     },
     {
       "name": "This_Row",
@@ -1440,7 +1577,7 @@
       "name": "Studentized_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1459,18 +1596,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to SE_Regression(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "n-element vector of internally studentized residuals",
-      "description": "r_i = e_i / (s√(1−h_i)), the leverage-adjusted scaled residual. Unlike Scaled_Residuals (which divides by s only), studentized residuals have equal variance under the normal model and are more sensitive to outliers in high-leverage regions. Values beyond ±2 or ±3 indicate potential outliers. The denominator is 0 when the fit is exact for a row — a perfect-fit model (s = 0) or a leverage-1 row (h_i = 1, e_i = 0 for that row) — and that row returns #N/A rather than #DIV/0!. Cooks_Distance and the Scale-Location column both consume this output, so the #N/A propagates to them automatically.",
+      "description": "r_i = e_i / (s√(1−h_i)), the leverage-adjusted scaled residual. Unlike Scaled_Residuals (which divides by s only), studentized residuals have equal variance under the normal model and are more sensitive to outliers in high-leverage regions. Values beyond ±2 or ±3 indicate potential outliers. The denominator is 0 when the fit is exact for a row — a perfect-fit model (s = 0) or a leverage-1 row (h_i = 1, e_i = 0 for that row) — and that row returns #N/A rather than #DIV/0!. Cooks_Distance and the Scale-Location column both consume this output, so the #N/A propagates to them automatically.\n\nAn optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to SE_Regression() so s reflects the correct absorbed-group df.",
       "plain_language_summary": "Residuals adjusted for both model error and leverage.",
-      "notes": "Internally studentized residuals rᵢ = eᵢ / (s√(1−hᵢ)). Leverage-adjusted. Values beyond ±2 flag outliers; ±3 are probable outliers. #N/A (not #DIV/0!) when s = 0 or hᵢ = 1 — an exact fit for that row."
+      "notes": "Internally studentized residuals rᵢ = eᵢ / (s√(1−hᵢ)). Values beyond ±2 flag outliers; ±3 are probable outliers. #N/A when s = 0 or hᵢ = 1. Optional DF_Absorbed (default 0) corrects s under Fixed Effects."
     },
     {
       "name": "Studentized_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    SORT(Studentized_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    SORT(Studentized_Residuals(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1488,19 +1630,24 @@
         {
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Studentized_Residuals(). Defaults to 0 — every no-FE caller is unaffected",
           "optional": true
         }
       ],
       "yields": "sorted studentized residuals as spilled vector",
       "description": "Ascending sort of Studentized_Residuals. Paired with Normal_Scores gives a leverage-corrected Q-Q plot; paired with Percentile gives a cumulative distribution plot.",
       "plain_language_summary": "Studentized residuals sorted from smallest to largest.",
-      "notes": "Studentized residuals sorted ascending. Paired with Normal_Scores for a leverage-corrected Q-Q residual plot."
+      "notes": "Studentized residuals sorted ascending. Paired with Normal_Scores for a leverage-corrected Q-Q residual plot. Optional DF_Absorbed (default 0) under Fixed Effects."
     },
     {
       "name": "Cooks_Distance",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    r,         Studentized_Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(Design_Matrix(X_s, allow_arg, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    r,         Studentized_Residuals(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(Design_Matrix(X_s, allow_arg, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1518,19 +1665,24 @@
         {
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Studentized_Residuals(). Defaults to 0 — every no-FE caller is unaffected",
           "optional": true
         }
       ],
       "yields": "n-element vector of Cook’s distances",
       "description": "D_i = r_i² · h_i / ((1−h_i)·p) where r_i is the internally studentized residual, h_i the hat-matrix diagonal, and p the number of regression parameters. Combines outlier signal (r_i) with leverage (h_i) into a single influence measure. Observations with D_i > 4/n or D_i > 1 are conventionally flagged as influential.",
       "plain_language_summary": "How much one row can pull the fitted model around.",
-      "notes": "Influence measure Dᵢ = rᵢ²·hᵢ / ((1−hᵢ)·p). Combines outlier size and leverage. Values > 4/n or > 1 flag influential rows."
+      "notes": "Influence measure Dᵢ = rᵢ²·hᵢ / ((1−hᵢ)·p). Values > 4/n or > 1 flag influential rows. Optional DF_Absorbed (default 0) under Fixed Effects."
     },
     {
       "name": "Scaled_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    SORT(Scaled_Residuals(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    SORT(Scaled_Residuals(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1549,12 +1701,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Scaled_Residuals(). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "sorted scaled residuals as spilled vector",
       "description": "Sorted Scaled_Residuals, intended for plotting against Normal_Scores.",
       "plain_language_summary": "Scaled residuals sorted from smallest to largest.",
-      "notes": "Scaled residuals sorted ascending. Paired with Normal_Scores for a standard Q-Q residual plot."
+      "notes": "Scaled residuals sorted ascending. Paired with Normal_Scores for a standard Q-Q residual plot. Optional DF_Absorbed (default 0) under Fixed Effects."
     },
     {
       "name": "Column_Select",
@@ -1705,7 +1862,7 @@
       "name": "F_Statistic",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / Regression_Degrees_Of_Freedom(X_s) /\n    (SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / Regression_Degrees_Of_Freedom(X_s) /\n    (SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1724,18 +1881,23 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to the denominator's Residual_Degrees_Of_Freedom() (numerator df is unaffected — absorbed groups aren't estimated slope coefficients). Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "F-statistic for the overall regression model as a scalar",
-      "description": "F_Statistic returns the F-statistic for the omnibus test of the null hypothesis that all regression coefficients are simultaneously zero. It equals (MS_Regression / MS_Residual) = (SS_Regression / df_regression) / (SS_Residual / df_residual).\n\nA large F-statistic (and correspondingly small F_Statistic_P_Value) means the model explains significantly more variance than would be expected by chance. Note that a significant F does not guarantee that every individual predictor is significant — individual t-statistics (T_Statistics) address that question. F_Statistic appears in the ANOVA table on the Regression sheet; this function exposes it as a named reference for use in other formulas.",
+      "description": "F_Statistic returns the F-statistic for the omnibus test of the null hypothesis that all regression coefficients are simultaneously zero. It equals (MS_Regression / MS_Residual) = (SS_Regression / df_regression) / (SS_Residual / df_residual).\n\nA large F-statistic (and correspondingly small F_Statistic_P_Value) means the model explains significantly more variance than would be expected by chance. Note that a significant F does not guarantee that every individual predictor is significant — individual t-statistics (T_Statistics) address that question. F_Statistic appears in the ANOVA table on the Regression sheet; this function exposes it as a named reference for use in other formulas.\n\nAn optional trailing DF_Absorbed (v2.1 Fixed Effects) threads only to the residual (denominator) df — the regression (numerator) df is the count of estimated slope coefficients, which absorbed FE groups are not.",
       "plain_language_summary": "Whether the model, taken as a whole, explains more than random noise would.",
-      "notes": "Overall F-statistic = MS_Regression / MS_Residual. Tests whether the model explains significantly more variance than random noise."
+      "notes": "Overall F = MS_Regression / MS_Residual. Optional DF_Absorbed (default 0) corrects only the denominator df under Fixed Effects — the numerator df is unaffected."
     },
     {
       "name": "F_Statistic_P_Value",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    F.DIST.RT(\n      F_Statistic(X_s, Y, allow_arg, filt_arg),\n      Regression_Degrees_Of_Freedom(X_s),\n      Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
+      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    F.DIST.RT(\n      F_Statistic(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n      Regression_Degrees_Of_Freedom(X_s),\n      Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n    )\n  ))",
       "arguments": [
         {
           "name": "X_s",
@@ -1754,12 +1916,17 @@
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
+        },
+        {
+          "name": "DF_Absorbed",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both F_Statistic() and the denominator df of F.DIST.RT. Defaults to 0 — every no-FE caller is unaffected",
+          "optional": true
         }
       ],
       "yields": "p-value for the overall F-test (right-tail probability of the F distribution)",
-      "description": "F_Statistic_P_Value returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Statistic under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Statistic, df_regression, df_residual).\n\nConventionally, F_Statistic_P_Value < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use.",
+      "description": "F_Statistic_P_Value returns the p-value for the overall model F-test: the probability of observing an F-statistic at least as large as F_Statistic under the null hypothesis that all coefficients are zero. Computed as F.DIST.RT(F_Statistic, df_regression, df_residual).\n\nConventionally, F_Statistic_P_Value < 0.05 indicates that the model as a whole fits the data significantly better than a null model. This p-value appears in the Significance F column of the Regression sheet ANOVA table; this function exposes it for programmatic use. An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both the F-statistic and its denominator df.",
       "plain_language_summary": "How surprising the overall F-statistic would be if the model had no real signal.",
-      "notes": "Right-tail p-value for the overall F-test. Values < 0.05 indicate the model as a whole is statistically significant."
+      "notes": "Right-tail p-value for the overall F-test. Optional DF_Absorbed (default 0) corrects both F_Statistic and its denominator df under Fixed Effects."
     },
     {
       "name": "Correlation_Matrix",
@@ -2767,6 +2934,156 @@
       "notes": "Within-group difference x(t) − x(t−Δ) by exact time value. First period or gap → #N/A (never 0, never the previous available row). Omitted delta reads the spec's Base Period Δ (never a silent 1). Excluded rows return \"\"."
     },
     {
+      "name": "Group_Mean",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Group & Panel",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(x, group, [include],\n    LET(\n        x_v,      TOCOL(IF(x = \"\", \"\", x), 0),\n        g_v,      TOCOL(IF(group = \"\", \"\", group), 0),\n        inc,      IF(ISOMITTED(include), ISNUMBER(x_v), include * 1),\n        active,   inc * (g_v <> \"\"),\n        groups,   IFERROR(UNIQUE(FILTER(g_v, active)), NA()),\n        IF(ISNA(groups),\n           NA(),\n           LET(\n               means, BYROW(groups, LAMBDA(gk,\n                   LET(mask, active * (g_v = gk),\n                       SUMPRODUCT(mask, IF(ISNUMBER(x_v), x_v, 0)) / SUM(mask))\n               )),\n               XLOOKUP(g_v, groups, means, NA(), 0)\n           )\n        )\n    )\n)",
+      "arguments": [
+        {
+          "name": "x",
+          "description": "single-column data range to average",
+          "optional": false
+        },
+        {
+          "name": "group",
+          "description": "single-column group identifiers — the mean is taken within each row's group",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row when computing each group's mean; when omitted, numeric x rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to x: the mean of x within each row's group, over the included rows of that group; #N/A when the row's group is blank or has no included members.",
+      "description": "Group_Mean returns, for every row, the mean of x among the included rows sharing that row's group. Groups are resolved once via UNIQUE over the included sample, and each row looks up its group's mean via XLOOKUP — this avoids an O(n²) pairwise comparison when there are many rows and few groups (a Country/Year panel, or a Facility-by-lot dataset).\n\nA row's own inclusion does not gate whether it receives a value: the function reports what that row's group mean IS over the included sample, even for a row currently excluded from the model (e.g. failing a Filter) — full height, matching the same row-mask contract as X_s() and Sample_Include(). Only two conditions return #N/A: a blank group value, or a group with zero included members (every member of that group is itself excluded, or the group value never appears among included rows).\n\nGroup_Mean is a standalone user-callable transform and also the primitive behind Demean_By — one source of truth, so the two functions can never disagree about a group's mean.",
+      "plain_language_summary": "The average of a column within each row's own group (e.g. each Facility's average cost) — one source of truth for Demean_By.",
+      "notes": "Group mean per row's own group, over included members only; full-height (a row's own inclusion doesn't gate its output). #N/A for a blank group or a group with no included members. Backs Demean_By."
+    },
+    {
+      "name": "Demean_By",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Group & Panel",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(x, group, [include],\n    LET(\n        x_v, TOCOL(IF(x = \"\", \"\", x), 0),\n        gm,  Group_Mean(x, group, include),\n        IF(ISNUMBER(x_v) * ISNUMBER(gm), x_v - gm, NA())\n    )\n)",
+      "arguments": [
+        {
+          "name": "x",
+          "description": "single-column numeric data range to demean",
+          "optional": false
+        },
+        {
+          "name": "group",
+          "description": "single-column group identifiers — the one-way Fixed Effects panel unit",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row when computing each group's mean; when omitted, numeric x rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to x: x_ig − Group_Mean(x, group, include); #N/A when x is non-numeric or the row's group mean is undefined.",
+      "description": "Demean_By is the one-way within transformation: x_ig − x̄_g, where x̄_g is Group_Mean(x, group, include). It is the v2.1 Fixed Effects constructor internal — the entire design matrix and the Response are demeaned by the Fixed Effects group before fitting, which is algebraically equivalent to (and numerically more stable than) fitting a full dummy variable per group (LSDV) — the group intercepts are absorbed rather than estimated.\n\nDelegates group-mean lookup to Group_Mean — the same one-source-of-truth pattern Dummy_Code uses for Dummy_Levels — so a caller can never see Demean_By and Group_Mean disagree about a group's mean. #N/A propagates from either a non-numeric x or an undefined group mean (blank group, or a group with no included members), the same NA()-based error contract used throughout the catalog: a genuine Excel error every downstream IFERROR/ISNA guard can catch, never a silently-wrong zero.\n\nWith a single group spanning the whole included sample (G = 1 — no Fixed Effects row declared, or a degenerate one-level FE variable), Demean_By collapses to ordinary grand-mean centering — the same degenerate-collapse property the v2.1 prediction and df-plumbing design relies on to build the FE machinery once and have it specialize correctly to the no-FE case.",
+      "plain_language_summary": "A column with each group's average subtracted out — the within-group deviation that Fixed Effects fits on instead of the raw values.",
+      "notes": "One-way within transformation x_ig − Group_Mean(x,group,include). v2.1 Fixed Effects constructor internal: demeaning by the FE group is algebraically equivalent to LSDV without materializing group dummy columns. G=1 collapses to grand-mean centering."
+    },
+    {
+      "name": "Is_Balanced_Panel",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Sample Construction & Diagnostics",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(group, time, [include],\n    LET(\n        g_v,     TOCOL(IF(group = \"\", \"\", group), 0),\n        t_v,     TOCOL(IF(time = \"\", \"\", time), 0),\n        inc,     IF(ISOMITTED(include), (g_v <> \"\") * (t_v <> \"\"), include * 1),\n        active,  inc * (g_v <> \"\") * (t_v <> \"\"),\n        n,       SUM(active),\n        IF(n = 0,\n           NA(),\n           LET(\n               sep,     CHAR(31),\n               groups,  UNIQUE(FILTER(g_v, active)),\n               times,   UNIQUE(FILTER(t_v, active)),\n               keys,    FILTER(g_v & sep & t_v, active),\n               AND(n = ROWS(groups) * ROWS(times), n = ROWS(UNIQUE(keys)))\n           )\n        )\n    )\n)",
+      "arguments": [
+        {
+          "name": "group",
+          "description": "single-column group identifiers (the panel unit)",
+          "optional": false
+        },
+        {
+          "name": "time",
+          "description": "single-column time index",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted, rows with a non-blank group and time are used",
+          "optional": true
+        }
+      ],
+      "yields": "TRUE when every included group has exactly one observation for every included time period (a complete, non-duplicated panel grid); FALSE otherwise; #N/A when no rows are included.",
+      "description": "Is_Balanced_Panel checks whether the included sample forms a complete rectangular (group × time) grid: every included group observed at every included time period, exactly once. Two conditions, both required: the included row count equals |groups| × |times| (no missing cells), and every (group, time) pair is distinct (no duplicate cells) — together they rule out both gaps and doubled-up observations, either of which a simple row-count check alone would miss.\n\nThis is a diagnostic, not a constructor internal: it does not feed Demean_By (the one-way within transformation is exact and requires no balance), but it flags when a stronger method (e.g. a two-way within transformation via direct demeaning, Demean_Two_Way_Balanced, valid only for a balanced panel) may be safely used instead of the general-but-iterative Absorb_Two_Way_Fixed_Effects — a v2.7+ concern, ships now as a standalone diagnostic ahead of that milestone.",
+      "plain_language_summary": "TRUE when every group has exactly one observation at every time period — a complete panel grid with no gaps or duplicates.",
+      "notes": "TRUE iff the included sample is a complete (group × time) grid: row count = groups×times AND every (group,time) pair distinct. Diagnostic only — flags when a two-way demeaning shortcut (v2.7+) is valid; Demean_By itself needs no balance."
+    },
+    {
+      "name": "Group_Mean_At",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Group & Panel",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(x, group, selected_group, [include],\n    XLOOKUP(selected_group, group, Group_Mean(x, group, include), NA(), 0)\n)",
+      "arguments": [
+        {
+          "name": "x",
+          "description": "single-column data range to average",
+          "optional": false
+        },
+        {
+          "name": "group",
+          "description": "single-column group identifiers",
+          "optional": false
+        },
+        {
+          "name": "selected_group",
+          "description": "the one group value to return the mean for (a scalar, e.g. a dropdown-selected panel unit)",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row when computing the group's mean; when omitted, numeric x rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "The mean of x among included rows where group = selected_group, as a scalar; #N/A when selected_group does not appear in group.",
+      "description": "Group_Mean_At is the scalar counterpart to Group_Mean: the mean for ONE specific group, not a per-row broadcast. Delegates entirely to Group_Mean — one source of truth for the group-averaging arithmetic — and looks up the requested group's value via XLOOKUP, exact match. This is the ȳᵢ / x̄ᵢ primitive the v2.1 Fixed Effects group-mean prediction recovery uses: the group-mean-recovery point estimate ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂ needs the SELECTED group's own mean, not every row's.\n\n#N/A when selected_group is not among the included group values — never a silent 0, which would misrepresent an unobserved or fully-excluded group as having a real (zero) mean.",
+      "plain_language_summary": "The average of a column for one specific group only — e.g. Facility='Site B''s average cost, for a group-mean prediction.",
+      "notes": "Scalar group mean for one selected group: XLOOKUP into Group_Mean(x,group,include). #N/A when selected_group isn't among the included groups. Backs the v2.1 FE group-mean prediction recovery."
+    },
+    {
+      "name": "Group_Count_At",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Group & Panel",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(group, selected_group, [include],\n    LET(\n        g_v, TOCOL(IF(group = \"\", \"\", group), 0),\n        inc, IF(ISOMITTED(include), (g_v <> \"\"), include * 1),\n        SUMPRODUCT(inc, --(g_v = selected_group))\n    )\n)",
+      "arguments": [
+        {
+          "name": "group",
+          "description": "single-column group identifiers",
+          "optional": false
+        },
+        {
+          "name": "selected_group",
+          "description": "the one group value to count included rows for",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted, rows with a non-blank group are used",
+          "optional": true
+        }
+      ],
+      "yields": "The count of included rows where group = selected_group, as a scalar integer; 0 when selected_group has no included members.",
+      "description": "Group_Count_At is Tᵢ — the number of included observations in one specific group — the third group-keyed summary (alongside Group_Mean_At for ȳᵢ and x̄ᵢ) the v2.1 Fixed Effects group-mean prediction recovery needs: the mean-response and new-observation prediction variances both scale by 1/Tᵢ.\n\nUnlike Group_Mean_At, a group with zero included members returns 0 (a genuine, meaningful count), not #N/A — counting is always well-defined even when the resulting mean would not be.",
+      "plain_language_summary": "How many included rows belong to one specific group — the sample size behind a group-mean prediction's uncertainty.",
+      "notes": "Count of included rows matching selected_group. 0 (not #N/A) when the group has no included members — counting is always well-defined. Backs the v2.1 FE group-mean prediction recovery."
+    },
+    {
       "name": "Sample_Include",
       "test_table": null,
       "category": "Model Construction",
@@ -2863,6 +3180,62 @@
       "description": "Sheet-scoped accessor for the panel-unit (grouping) variable on the Regression sheet. Returns the data column of the first spec row whose Role is \"Fixed Effects\", via exact-match XMATCH over the TAKE-trimmed Spec_Role vector — the Role-axis sibling of Response_Column (Role=Response) and the structural counterpart of Sequence_Column (the H flag). Full-height by the same row-mask contract as the other sheet closures.\n\nIt is the group input for the seam-safe panel serial-correlation diagnostic (BFN_Panel_Durbin_Watson), keeping the panel unit a single canonical name rather than an inline XMATCH repeated at every call site. When no row carries the Fixed Effects role, XMATCH does not match and the accessor is #N/A — the caller's gate (the FE-variable count) shows the not-applicable token before this is ever evaluated. When two or more rows carry the role (two-way absorption, out of scope until its own milestone) it resolves the first, and callers gate on the count instead of computing.\n\nForward wiring for the v2.1 Fixed Effects release: the \"Fixed Effects\" Role token is not yet offered by the Role dropdown because the design-matrix engine does not absorb it yet — the accessor and the diagnostics gated on it activate when the role ships. Spec_Role is TAKE-trimmed to COLUMNS(Source_Data) so cells below the live spec rows are never scanned.",
       "plain_language_summary": "The column marked as the Fixed Effects (panel unit) variable in the spec — e.g. Country in a Country/Year panel.",
       "notes": "Derived panel-unit column for the Regression sheet: the data column of the first Role=\"Fixed Effects\" spec row. #N/A when none is declared. Feeds BFN_Panel_Durbin_Watson; forward wiring for the v2.1 Fixed Effects role."
+    },
+    {
+      "name": "Absorbed_Degrees_Of_Freedom",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       0,\n       LET(\n           lv, Dummy_Levels(Fixed_Effects_Column(), \"\", Sample_Include()),\n           IF(ISNA(INDEX(lv, 1, 1)), 0, COLUMNS(lv))\n       )\n    )\n))",
+      "arguments": [],
+      "yields": "The degrees of freedom absorbed by the Fixed Effects group: G − 1 where G is the FE column's level count over the included sample; 0 when no Fixed Effects row is declared or the FE variable is degenerate (G ≤ 1).",
+      "description": "Absorbed_Degrees_Of_Freedom is the one-way FE df correction for the Model Construction sheet: G − 1, where G is the count of distinct Fixed Effects levels among the included rows. Every model with no declared Fixed Effects row (the entire v2.0 shipped surface) returns 0 — the same non-breaking default the [DF_Absorbed] argument threads through the inference chain, so a no-FE model's df, MS-Residual, t, p, CI, and AIC/BIC are bit-identical to before this function existed.\n\nReuses Dummy_Levels for the level count rather than a fresh UNIQUE/COUNT — the exact same mask-scoped, reference-dropped level set the design matrix would use if the FE column were instead one-hot encoded (which is the algebraic content of 'absorbing' a fixed effect: G−1 degrees of freedom are spent whether they are spent explicitly, as G−1 dummy coefficients, or implicitly, by demeaning). COLUMNS(Dummy_Levels(...)) is exactly G−1 by construction, so this function can never disagree with what an equivalent LSDV fit would report. A degenerate FE variable (every included row shares one level) makes Dummy_Levels return #N/A; this function absorbs that into 0 rather than propagating the error, because a single-level 'group' fixes no group-specific intercept and absorbs no degrees of freedom.\n\nOne-way only: a spec with two or more Fixed Effects rows is a visible status-block error (validated elsewhere), so this function reads only the first Fixed Effects row via Fixed_Effects_Column() — two-way absorption (Σ over both dimensions, minus the overlap correction) is deferred to the two-way FE milestone (v2.7+).",
+      "plain_language_summary": "How many degrees of freedom the Fixed Effects variable soaks up (G−1 groups) — 0 when there's no Fixed Effects row.",
+      "notes": "One-way FE df correction: G−1 via COLUMNS(Dummy_Levels(...)) on the FE column, 0 when no FE row exists or the FE variable is degenerate. Default 0 keeps every no-FE model bit-identical. Two-way absorption deferred to v2.7+."
+    },
+    {
+      "name": "Prediction_Group_Column",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(fe_active,\n       Fixed_Effects_Column(),\n       EXPAND(\"(all)\", ROWS(Source_Data), 1, \"(all)\")\n    )\n))",
+      "arguments": [],
+      "yields": "The Fixed Effects group column when one is declared; a constant \"(all)\" column (every row, one universal group) when none is — full height either way.",
+      "description": "Prediction_Group_Column is the grouping key behind the v2.1 group-mean-recovery prediction (Group_Prediction_Interval): with a Fixed Effects row declared, it is Fixed_Effects_Column(); with none, it is a constant \"(all)\" column treating the entire sample as one group.\n\nThe constant fallback is what makes the group-mean recovery formula ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂ collapse exactly to the ordinary no-FE prediction: with one universal group, ȳᵢ is the grand mean of y, x̄ᵢ is the grand mean of each predictor, and Tᵢ is the full included count — precisely the quantities an intercept-based OLS prediction already reduces to. Uses the same \"(all)\" single-group idiom as Sequence_Deltas' no-Identifier fallback (EXPAND(\"(all)\", n, 1, \"(all)\")) — one degenerate-group sentinel across the catalog.\n\nDeliberately NOT the same object as y_s()/X_s_Within()'s own fe_active branch: those return the RAW (uncentered) Response_Column()/X_s() when inactive, preserving the v2.0 model's own separately-fit intercept exactly. Group_Prediction_Interval needs a properly group-demeaned (here, grand-mean-centered) matrix for its variance term regardless of FE status, so it always re-demeans by this column rather than reusing X_s_Within() directly.",
+      "plain_language_summary": "Which column groups observations for prediction purposes — the Fixed Effects variable when one is declared, or 'everyone is one group' when none is.",
+      "notes": "Grouping key for group-mean-recovery prediction: Fixed_Effects_Column() when FE is declared, else a constant \"(all)\" column (one universal group). Makes the no-FE case a degenerate collapse of the same formula."
+    },
+    {
+      "name": "y_s",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       Response_Column(),\n       Demean_By(Response_Column(), Fixed_Effects_Column(), Sample_Include())\n    )\n))",
+      "arguments": [],
+      "yields": "The fit-time Response: Response_Column() unchanged when no Fixed Effects row is declared, or its one-way within-transformed (group-demeaned) form when one is; full height.",
+      "description": "y_s is the fit-time Response for the Regression sheet — the v2.1 Fixed Effects counterpart to X_s on the predictor side. With no declared Fixed Effects row it is Response_Column() unchanged (the entire v2.0 shipped surface passes through untouched); with one declared, it is Demean_By(Response_Column(), Fixed_Effects_Column(), Sample_Include()) — the one-way within transformation that lets ordinary OLS on the demeaned data reproduce the LSDV (dummy-per-group) fit without materializing G−1 group dummy columns.\n\nShipped as a NEW function, deliberately not a replacement of Response_Column() at its existing call sites: Response_Column() keeps its raw-response consumers that are unrelated to this fit (Intercept_Only_Point/S/SE/N, the zero-predictor closed-form branch). The Residual Output table's Y column is repointed to y_s() too, not left raw — under FE the whole row-level table (Y, Predicted Y, Residuals, Hat Diagonal, …) must read as one internally consistent block in the same fit space, or Residuals would visibly fail to match Y − Predicted Y. Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, and everything built from them) is repointed to y_s() — a caller-side choice, not a change to what Response_Column() means.\n\nThe no-FE branch is checked first and returns the exact same object Response_Column() would — not merely a numerically-equal recomputation — so every existing no-FE model is unaffected by construction, the same non-breaking-default property Absorbed_Degrees_Of_Freedom relies on for the df side.",
+      "plain_language_summary": "The response the model actually fits: unchanged with no Fixed Effects, or with each group's average subtracted out when a Fixed Effects variable is declared.",
+      "notes": "Fit-time Response: Response_Column() unchanged (no FE), else Demean_By(Response_Column(),Fixed_Effects_Column(),Sample_Include()). New function — the zero-predictor Intercept_Only_* branch stays on raw Response_Column()."
+    },
+    {
+      "name": "X_s_Within",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       X_s(),\n       LET(\n           fe,  Fixed_Effects_Column(),\n           inc, Sample_Include(),\n           BYCOL(X_s(), LAMBDA(col, Demean_By(col, fe, inc)))\n       )\n    )\n))",
+      "arguments": [],
+      "yields": "The fit-time design matrix: X_s() unchanged when no Fixed Effects row is declared, or each of its columns one-way within-transformed (group-demeaned) when one is; full height, same width as X_s().",
+      "description": "X_s_Within is the fit-time design matrix for the Regression sheet — the predictor-side counterpart to y_s. With no declared Fixed Effects row it is X_s() unchanged; with one declared, BYCOL demeans every constructed column of X_s() by the Fixed Effects group via Demean_By, reproducing the LSDV fit's coefficients on the non-FE predictors without ever materializing the G−1 group dummy columns an explicit one-hot encoding would require.\n\nShipped as a NEW function alongside y_s, for the identical reason: X_s() has raw-predictor consumers that must not see demeaned values — the Predictor Summary zone (Pearson_R, Spearman_R, Skewness, Kurtosis, GVIF, Generalized_Tolerance) characterizes each predictor's own distribution, and Constructed_Column_Names() labels columns positionally against X_s(), not X_s_Within(). Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, Hat_Diagonal, Cooks_Distance, and everything built from them) is repointed to X_s_Within() — repointing which columns those formulas READ, not a change to what X_s() itself returns.\n\nThe no-FE branch returns X_s() itself, unchanged, so every existing no-FE model is unaffected by construction — including its error behavior: a zero-predictor spec that makes X_s() itself error propagates through X_s_Within() identically, never masked.",
+      "plain_language_summary": "The design matrix the model actually fits: unchanged with no Fixed Effects, or with each predictor column's group average subtracted out when a Fixed Effects variable is declared.",
+      "notes": "Fit-time design matrix: X_s() unchanged (no FE), else each column demeaned by Fixed_Effects_Column() via Demean_By (BYCOL). New function — Predictor Summary and Constructed_Column_Names() stay on raw X_s()."
     },
     {
       "name": "Serial_Correlation_Group",

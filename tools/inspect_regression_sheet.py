@@ -102,6 +102,20 @@ _ROW_ANOVA_REG = 15
 _ROW_ANOVA_RES = 16
 _ROW_ANOVA_TOT = 17
 
+# STALE — v2.1 Fixed Effects Prediction Outputs rebuild (write_sheet_regression.py
+# _write_prediction_interval/_write_prediction_inputs) replaced the 6-row
+# single-CI box (rows 3-8) with a 9-row CI+PI box (rows 3-11) plus an FE Group
+# selector and ybar_i/T_i readouts (rows 12-14), and moved PREDICTION INPUTS
+# from row 10 to row 16 (first predictor row 13 -> 19, no more Intercept row).
+# RegressionPredictionInterval / analyze_regression_sheet.py still model the
+# OLD 6-value shape (point/se_prediction/t_critical/lower/upper/confidence),
+# not the new point/se_mean/se_new/t_critical/ci_lower/ci_upper/pi_lower/
+# pi_upper/confidence shape or the group-mean-recovery formula — the
+# Prediction Interval comparison below does not reflect the shipped sheet
+# until this whole chain (regression_shared.RegressionPredictionInterval,
+# analyze_regression_sheet.py, analysis_cache.py, and the constants/mapping
+# here) gets a matching Phase 6 QC-oracle update. Coefficients/ANOVA/
+# Diagnostics/Residuals comparisons elsewhere in this file are unaffected.
 _ROW_COEFF_DATA = 21   # X21 spills coefficient labels (k+1 rows)
 _ROW_PI_POINT = 3      # AH3 = point estimate
 _ROW_PI_SE = 4
@@ -109,7 +123,7 @@ _ROW_PI_T = 5
 _ROW_PI_LOWER = 6
 _ROW_PI_UPPER = 7
 _ROW_PI_CONF = 8
-_ROW_PRED_INPUT_FIRST = 13  # AH13 = first user-editable predictor value
+_ROW_PRED_INPUT_FIRST = 19  # AH19 = first user-editable predictor value (was 13)
 _ROW_PRED_INPUT_LAST = 62   # end of the guarded prefill band
 
 _ROW_RESID_FIRST = 3   # residual output starts at row 3

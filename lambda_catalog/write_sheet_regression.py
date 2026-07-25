@@ -555,7 +555,9 @@ _LEGACY_LOCAL_NAMES = (
 
 
 def _setup_local_names(
-    sheet: xw.Sheet, closures: tuple[CatalogFunction, ...] | None = None
+    sheet: xw.Sheet,
+    closures: tuple[CatalogFunction, ...] | None = None,
+    source_table_ref: str = "=MileageData[#All]",
 ) -> None:
     """Register sheet-scoped names used by every formula on this sheet.
 
@@ -575,7 +577,7 @@ def _setup_local_names(
     for legacy in _LEGACY_LOCAL_NAMES:
         drop_local_name(sheet, legacy)
 
-    _set_spec_scoped_names(sheet, closures)
+    _set_spec_scoped_names(sheet, closures, source_table_ref=source_table_ref)
 
     # Zero_Predictors_Selected(): TRUE when the spec contributes no design
     # columns — no included Predictor rows, or every included Categorical
@@ -1314,6 +1316,7 @@ def write_regression_output_sheet(
     workbook: xw.Book,
     sheet_notes: dict[str, str] | None = None,
     closures: tuple[CatalogFunction, ...] | None = None,
+    source_table_ref: str = "=MileageData[#All]",
 ) -> None:
     """Create or refresh the spec-driven Regression sheet in workbook.
 
@@ -1327,6 +1330,10 @@ def write_regression_output_sheet(
         The sheet-scoped constructor functions (scope ``"Regression"``), in
         dependency order. When None, they are loaded from
         ``lambda_functions.json``.
+    source_table_ref : str, optional
+        The ``RefersTo`` formula for the ``Source_Table`` sheet-scoped name.
+        Defaults to ``=MileageData[#All]`` (the shipped default dataset).
+        Pass ``=LifeExpectancyData[#All]`` to retarget to Life Expectancy Data.
     """
 
     sheet = next(
@@ -1354,7 +1361,7 @@ def write_regression_output_sheet(
     # area (headers, feedback, intercept) runs in _write_model_specification
     # below, but the table-creating part needs to come first.
     _write_spec_block(sheet)
-    _setup_local_names(sheet, closures)
+    _setup_local_names(sheet, closures, source_table_ref=source_table_ref)
 
     _write_model_specification(sheet)
     _write_predictor_summary(sheet)

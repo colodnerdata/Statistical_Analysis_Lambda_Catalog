@@ -479,7 +479,9 @@ _MSG_CALENDAR = (
 
 
 def _set_sheet_scoped_names(
-    sheet: xw.Sheet, closures: Sequence[CatalogFunction]
+    sheet: xw.Sheet,
+    closures: Sequence[CatalogFunction],
+    source_table_ref: str = "=MileageData[#All]",
 ) -> None:
     """Register this sheet's local names in dependency order.
 
@@ -508,7 +510,7 @@ def _set_sheet_scoped_names(
         # ONE-name edit. DROP/TAKE (not OFFSET) keep the derivations
         # non-volatile — a volatile Header_Names would be re-evaluated on
         # every Data Table substitution pass during workbook calculation.
-        "Source_Table": "=MileageData[#All]",
+        "Source_Table": source_table_ref,
         "Source_Data": "=DROP(Source_Table,1)",
         "Header_Names": "=TAKE(Source_Table,1)",
         # ── Spec ranges (table-column structured references) ─────────────

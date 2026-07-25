@@ -54,6 +54,15 @@ _RPC_FAILURE_PHRASES = (
     "rpc server is unavailable",
 )
 
+# Dataset profiles: maps the --regression-dataset choice to the Source_Table
+# RefersTo formula written as a sheet-scoped name on the Regression sheet.
+# "auto_mpg" is the shipped default (MileageData table on the Mileage Data
+# sheet). "life_expectancy" retargets to the Life Expectancy Data sheet.
+_REGRESSION_DATASET_REFS: dict[str, str] = {
+    "auto_mpg": "=MileageData[#All]",
+    "life_expectancy": "=LifeExpectancyData[#All]",
+}
+
 
 def _is_rpc_failure(exc: BaseException) -> bool:
     """Return True when Excel's COM server disappeared mid-call."""
@@ -215,6 +224,7 @@ def build_production_workbook(
     verbose: bool = False,
     recalculate: bool = True,
     skip_univariate: bool = False,
+    regression_dataset: str = "auto_mpg",
 ) -> NameSyncResult:
     """Build the production sheets and sync the LAMBDA name manager.
 
@@ -231,6 +241,10 @@ def build_production_workbook(
         sheet — the dataset the Regression sheet's Source_Table targets by
         default. Life Expectancy Data ships alongside it as a second
         sample dataset for practicing the Source_Table retarget workflow.
+    regression_dataset : str, optional
+        Regression source-table profile: ``"auto_mpg"`` (default, targets
+        ``MileageData[#All]``) or ``"life_expectancy"`` (targets
+        ``LifeExpectancyData[#All]``).
     validate_reopen : bool, optional
         If True, reopens the workbook in Excel after patching to verify it.
     verbose : bool, optional
@@ -249,10 +263,16 @@ def build_production_workbook(
     NameSyncResult
         Counts of created versus updated workbook names.
     """
+    if regression_dataset not in _REGRESSION_DATASET_REFS:
+        raise ValueError(
+            "regression_dataset must be one of: "
+            + ", ".join(sorted(_REGRESSION_DATASET_REFS))
+        )
     _t = time.monotonic()
     document = load_catalog_document(definitions_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     mileage_headers, mileage_rows = load_mileage_rows(mileage_xlsx_path)
+    source_table_ref = _REGRESSION_DATASET_REFS[regression_dataset]
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
 
@@ -309,6 +329,7 @@ def build_production_workbook(
                 workbook,
                 document.regression_sheet_notes,
                 document.functions_for_sheet("Regression"),
+                source_table_ref=source_table_ref,
             )
             app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
             workbook.save(str(workbook_path))
@@ -432,6 +453,16 @@ def parse_args() -> argparse.Namespace:
             "and Excel should not pop up."
         ),
     )
+    parser.add_argument(
+        "--regression-dataset",
+        choices=tuple(_REGRESSION_DATASET_REFS),
+        default="auto_mpg",
+        help=(
+            "Which dataset the Regression sheet's Source_Table points to. "
+            "'auto_mpg' (default) targets MileageData[#All]; "
+            "'life_expectancy' targets LifeExpectancyData[#All]."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -491,6 +522,7 @@ def main() -> None:
             verbose=args.verbose,
             recalculate=False,      # handled separately so only this step retries
             skip_univariate=args.skip_univariate,
+            regression_dataset=args.regression_dataset,
         )
 
     build_phase_start = time.monotonic()

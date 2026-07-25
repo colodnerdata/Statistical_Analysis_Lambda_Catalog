@@ -162,6 +162,18 @@ def test_only_the_retarget_name_references_the_table_directly() -> None:
         assert "LifeExpectancyData" not in formula, formula
 
 
+def test_source_table_wiring_can_be_overridden() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _set_sheet_scoped_names(
+        _as_xw_sheet(sheet),
+        _model_construction_closures(),
+        source_table_ref="=LifeExpectancyData[#All]",
+    )
+    assert _refers_to(sheet, "Source_Table") == "=LifeExpectancyData[#All]"
+    assert _refers_to(sheet, "Source_Data") == "=DROP(Source_Table,1)"
+    assert _refers_to(sheet, "Header_Names") == "=TAKE(Source_Table,1)"
+
+
 def test_spec_ranges_cover_the_standard_input_band() -> None:
     sheet = _named_sheet()
 

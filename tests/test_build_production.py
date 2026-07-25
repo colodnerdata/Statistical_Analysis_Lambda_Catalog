@@ -250,6 +250,7 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
             skip_data_table_calculations=True,
             verify=False,
             no_launch=False,
+            regression_dataset="auto_mpg",
         ),
     )
     monkeypatch.setattr(
@@ -403,6 +404,7 @@ def test_main_skips_data_table_recalculation_when_requested(
             skip_data_table_calculations=True,
             verify=False,
             no_launch=False,
+            regression_dataset="auto_mpg",
         ),
     )
 
@@ -459,6 +461,7 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
             skip_data_table_calculations=True,
             verify=False,
             no_launch=True,
+            regression_dataset="auto_mpg",
         ),
     )
     monkeypatch.setattr(
@@ -513,6 +516,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
             skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
+            regression_dataset="auto_mpg",
         ),
     )
     monkeypatch.setattr(
@@ -574,6 +578,7 @@ def test_main_forwards_skip_univariate_to_deep_verify(
             skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
+            regression_dataset="auto_mpg",
         ),
     )
     monkeypatch.setattr(
@@ -629,6 +634,7 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
             skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
+            regression_dataset="auto_mpg",
         ),
     )
     monkeypatch.setattr(
@@ -653,3 +659,124 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     output = capsys.readouterr().out
     assert "ERROR Verify mismatch totals" in output
     assert "Regression/scalars=2" in output
+
+
+def test_build_uses_life_expectancy_source_table_when_requested(
+    monkeypatch, tmp_path
+) -> None:
+    """regression_dataset='life_expectancy' must pass LifeExpectancyData[#All]
+    as source_table_ref to write_regression_output_sheet."""
+    app = _RecordingApp()
+    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+    monkeypatch.setattr(
+        build_production,
+        "load_catalog_document",
+        lambda _: SimpleNamespace(
+            functions=(),
+            workbook_functions=(),
+            regression_sheet_notes={},
+            functions_for_sheet=lambda _sheet: (),
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "load_life_expectancy_rows",
+        lambda _: ([], []),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "load_mileage_rows",
+        lambda _: ([], []),
+    )
+
+    called: dict[str, object] = {"source_table_ref": None}
+    monkeypatch.setattr(build_production, "write_catalog_sheet", lambda *_, **__: None)
+    monkeypatch.setattr(
+        build_production, "write_life_expectancy_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_mileage_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_univariate_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_regression_instructions_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_diagnostic_guide_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_version_history_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production,
+        "write_regression_output_sheet",
+        lambda *args, **kwargs: called.__setitem__(
+            "source_table_ref", kwargs.get("source_table_ref")
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "sync_workbook_names",
+        lambda *_, **__: NameSyncResult(created=0, updated=0),
+    )
+
+    build_production.build_production_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=False,
+        skip_univariate=True,
+        regression_dataset="life_expectancy",
+    )
+
+    assert called["source_table_ref"] == "=LifeExpectancyData[#All]"
+
+
+def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
+    """Default regression_dataset must resolve to MileageData[#All]."""
+    app = _RecordingApp()
+    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+    monkeypatch.setattr(
+        build_production,
+        "load_catalog_document",
+        lambda _: SimpleNamespace(
+            functions=(),
+            workbook_functions=(),
+            regression_sheet_notes={},
+            functions_for_sheet=lambda _sheet: (),
+        ),
+    )
+    monkeypatch.setattr(build_production, "load_life_expectancy_rows", lambda _: ([], []))
+    monkeypatch.setattr(build_production, "load_mileage_rows", lambda _: ([], []))
+
+    called: dict[str, object] = {"source_table_ref": None}
+    for name in [
+        "write_catalog_sheet", "write_life_expectancy_sheet",
+        "write_mileage_sheet", "write_univariate_sheet",
+        "write_regression_instructions_sheet", "write_diagnostic_guide_sheet",
+        "write_version_history_sheet",
+    ]:
+        monkeypatch.setattr(build_production, name, lambda *_, **__: None)
+    monkeypatch.setattr(
+        build_production,
+        "write_regression_output_sheet",
+        lambda *args, **kwargs: called.__setitem__(
+            "source_table_ref", kwargs.get("source_table_ref")
+        ),
+    )
+    monkeypatch.setattr(
+        build_production, "sync_workbook_names",
+        lambda *_, **__: NameSyncResult(created=0, updated=0),
+    )
+
+    build_production.build_production_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=False,
+        skip_univariate=True,
+    )
+
+    assert called["source_table_ref"] == "=MileageData[#All]"

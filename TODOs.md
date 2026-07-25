@@ -78,78 +78,114 @@ engine is forthcoming."
 
 ### Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5)
 
-- TODO: **#1 — Sequence axis auto-detection and override** (renames
-  column I to **`Sequence Period`** (the typed override input), adds
-  column J **`Period In Use`** following the Reference Level /
-  Reference In Use pattern). The current override mechanic has a
-  spill-collision risk for source tables wider than the shipped WHO
-  sample: the spec block reads its own H/I cells, and a longer table
-  could let the override spill overrun an input band. Fix: relocate
-  the override spill and bound every read of the H/I/J band by
-  `COLUMNS(Source_Data)` (the spill-placement principle from
-  CLAUDE.md). **Note: the Sequence Spacing block (rows 28–34), which
-  previously hosted the override-flagging verdict lines, has since been
-  removed — there is currently no on-sheet display of override status.**
-  Update the spec layout constants, the named-range rename
-  (`Spec_Base_Period_Delta` → `Spec_Sequence_Period`), and the QC
-  analyzers. **Significant testing. Resolve before writing the 2.1.0
-  Version History entry.**
+- DONE: **#1 — Sequence axis auto-detection and override.** Column I
+  is **`Sequence Period`** (the typed override input), column J is
+  **`Period In Use`** (computed-with-override display), following the
+  Reference Level / Reference In Use pattern. Verified directly: no
+  stale `Spec_Base_Period_Delta` reference remains anywhere in the
+  codebase (fully renamed to `Spec_Sequence_Period`), the spec layout
+  constants (`_C_SEQUENCE_PERIOD`, `_C_PERIOD_IN_USE`) are wired
+  consistently, and the feature is live in shipped workbooks (confirmed
+  against a real built `Regression` sheet).
+  Two sub-items resolved differently than originally envisioned, not
+  left undone: the spill-collision risk is structurally moot — `Spec_Sequence`/
+  `Spec_Sequence_Period`/`Spec_Period_In_Use` are `SpecTable[[#Data],[...]]`
+  structured references, which auto-bound to the live table rows (the
+  same auto-extend behavior ARCHITECTURE.md § 4 documents for the whole
+  spec block), rather than needing a manual `TAKE(...,COLUMNS(Source_Data))`
+  bound — and "update the QC analyzers" turned out to mean the
+  RecordingSheet unit-test layer (`test_spec_ranges_cover_the_standard_input_band`,
+  `test_spec_feedback_writes_delta_count_verdict_with_priority_cf` in
+  `tests/test_model_construction_writer.py`), not the xlwings-based
+  `analyze_regression_spec.py` oracle, which never modeled this feature
+  and doesn't need to. The on-sheet override-status display the Sequence
+  Spacing block used to carry now lives in the I2 combined Verdict cell
+  (off-grid/regularity/no-natural-base-period messages driven by
+  `Spec_Period_In_Use` vs. `Sequence_Deltas()`) — a data-quality check
+  that serves the same "is the declared Δ trustworthy" need, not a
+  literal "you typed an override" flag.
   The full design rationale (spill-collision risk, the
   reference-level pattern parallel, override-flagging location) is in
   [DECISIONS.md § v2.1 #1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
-- TODO: **#2 — FE Role dropdown + status-block validation** (gated to
-  ship with the engine). `Fixed Effects` in the Role axis; status-block
-  cells for "active FE variable," "group count" (`n/a — engine
-  forthcoming` until the engine lands), "absorbed df" (`n/a — engine
-  forthcoming` until the engine lands); visible error at 2+ FE
-  variables; intercept × FE red flag; CF bands update. Sheet-only; no
-  engine change. The Role-axis design (cardinality, what FE
-  contributes) is in
+- DONE: **#2 — FE Role dropdown + status-block validation.**
+  `Fixed Effects` is in the Role axis (`_ROLE_VALIDATION_LIST`,
+  `write_sheet_model_construction.py`); status-block cells for the active
+  FE variable, group count, and absorbed df are live (no more "engine
+  forthcoming" token — the engine backs them); a B1 cardinality error
+  fires at 2+ FE rows (same pattern as the Sequence E1 check); the
+  intercept × FE red flag is on the C2 toggle. The Role-axis design
+  (cardinality, what FE contributes) is in
   [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
+  Tests: `tests/test_model_construction_writer.py`.
 
-- TODO: **#3 — Surface BOTH intervals in adjacent cells of the
-  prediction outputs section** (gated to ship with the engine). Three
-  lines: point · CI low/high · PI low/high. The PI half-width is
-  `√(σ²·(1+1/T) + q)` and the CI half-width is `√(σ²/T + q)`; same
-  center, same x_new, same t-critical. Sheet layout only — the math
-  lives in the engine. The FE engine drops in group-keyed inputs at
-  the activation step without restructuring this layout. The full
-  math (the two variance terms, the group-specific width) is in
+- DONE: **#3 — Surface BOTH intervals in adjacent cells of the
+  prediction outputs section.** Nine rows: point · SE (Mean) · SE (New
+  Obs) · t Critical · CI Lower/Upper · PI Lower/Upper · Confidence
+  Level, via `Group_Prediction_Interval` (`lambda_functions.json`),
+  wired at `write_sheet_regression.py::_write_prediction_interval`. The
+  full math (the two variance terms, the group-specific width) is in
   [DECISIONS.md § v2.1 prediction interval](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+  Tests: `tests/test_group_prediction_interval.py` (verified against an
+  explicit LSDV `get_prediction()` reference and, for the no-FE case,
+  bit-identical to the pre-v2.1 `Prediction_Interval()` numbers).
 
-- TODO: **#4 — `Demean_By(x, group, [include])` and
+- DONE: **#4 — `Demean_By(x, group, [include])` and
   `Group_Mean(x, group, [include])`** (constructor internals, also
   user-callable transforms). The taxonomy and the v2.1 ship schedule
   are in [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
+  Tests: `tests/test_group_panel_transforms.py`.
 
-- TODO: **#5 — `Is_Balanced_Panel(group, time, [include])`** —
-  one-way/panel diagnostic; ships with `Demean_By` (shares the "valid
-  group set" primitive).
+- DONE: **#5 — `Is_Balanced_Panel(group, time, [include])`** —
+  one-way/panel diagnostic; shipped with `Demean_By` (shares the "valid
+  group set" primitive). Tests: `tests/test_group_panel_transforms.py`.
 
-- TODO: **#6 — `Absorbed_Degrees_Of_Freedom(spec)`** — Σ(Gᵢ − 1) from
-  the spec.
+- DONE: **#6 — `Absorbed_Degrees_Of_Freedom()`** — G−1 via
+  `Dummy_Levels` on the FE column, a Regression-sheet closure (not a
+  standalone `(spec)`-argument function — reads `Spec_Role`/`Source_Data`
+  directly, the same pattern as `Fixed_Effects_Column()`).
 
-- TODO: **#7 — `y_s()`** — demeaned-Response constructor (new function,
-  not a replacement wired into existing no-FE call sites).
+- DONE: **#7 — `y_s()`** and its predictor-side sibling `X_s_Within()`
+  — new sheet-scoped closures, not replacements wired into existing
+  no-FE call sites (`Response_Column()`/`X_s()` keep their other raw
+  consumers — Predictor Summary, `Constructed_Column_Names()` labeling,
+  `Intercept_Only_*`). Tests: `tests/test_within_estimator.py`.
 
-- TODO: **#8 — `[DF_Absorbed]` argument (default 0) threaded through
-  df / MS-residual / t-critical.** **Significant testing** — assert
-  bit-equality of every existing engine test with and without the
-  argument, plus FE-active cases for the full inferential chain (SE,
-  t, p, CIs, AIC/BIC). The default-0 → identical no-FE pattern (the
-  "non-breaking MINOR" guarantee) is in
+- DONE: **#8 — `[DF_Absorbed]` argument (default 0) threaded through
+  df / MS-residual / t-critical**, plus AIC/BIC/AICc's parameter count,
+  across 23 engine functions. `SE_Coefficients` needed an exact
+  rescaling (`SQRT(naive_df/true_df)`) rather than a direct threading,
+  since Excel's `LINEST` always computes its own df. Bit-equality of
+  every existing no-FE case confirmed by construction (default 0 ⇒
+  rescale factor 1 / subtraction no-op) and numerically; FE-active SE/t/
+  p/CI/AIC match an independent `statsmodels` LSDV fit. The default-0 →
+  identical no-FE pattern (the "non-breaking MINOR" guarantee) is in
   [DECISIONS.md § v2.1 df plumbing](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+  Tests: `tests/test_df_absorbed_threading.py`.
 
-- TODO: **#9 — FE group selection dropdown + ȳᵢ / x̄ᵢ / Tᵢ cells**
-  (gated to ship with the engine). AVERAGEIFS/COUNTIFS respecting the
-  Include/Filter mask; the prediction outputs section from the CI+PI
-  layout activates the group-mean form
-  (`ȳᵢ + (x_new − x̄ᵢ)′β̂`) with group-keyed inputs; BFN cell
-  (X12/Y12) flips from `n/a — no fixed effects` to active when FE is
-  set. The group-mean-recovery form is in
+- DONE: **#9 — FE group selection + ȳᵢ / Tᵢ cells** (x̄ᵢ is computed
+  internally by `Group_Prediction_Interval`/`xbar_i` rather than also
+  surfaced per-predictor on the sheet — column AJ is the fixed
+  Prediction-Outputs/Residual-Output gap column, so there was no fourth
+  column available without breaking the outline-grouping architecture;
+  a deliberate scope trim, not an oversight). `Group_Mean_At`/
+  `Group_Count_At`/`Prediction_Group_Column` back both the group-mean
+  form and the visible Group Mean (y) / Group Count readouts; the BFN
+  cell already flips from `n/a — no fixed effects` to active (this was
+  forward-wired before v2.1, confirmed working once #2 made the Role
+  selectable). The group-mean-recovery form is in
   [DECISIONS.md § v2.1 FE point prediction](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
-  **#2, #3, and this item ship as one release with the engine.**
+
+**Remaining before the 2.1.0 Version History entry:** the QC-oracle chain
+(`regression_shared.RegressionPredictionInterval`, `analyze_regression_sheet.py`,
+`analysis_cache.py`, `tools/inspect_regression_sheet.py`) still models the
+pre-v2.1 6-value Prediction Interval shape, not the new 9-value CI+PI/
+group-mean-recovery form — flagged in `tools/inspect_regression_sheet.py`
+with a code comment. Not run in CI regardless (requires desktop Excel), but
+should be updated before relying on it for a `--verify` pass on an FE-active
+model. A human test plan covering T0 (pooled baseline) through T4 (degenerate
+FE variable) on the WHO Life Expectancy panel is at
+`HUMAN_TEST_PLAN_v21_regression_fixed_effects.md`.
 
 ### Follow-on polish (ships with 2.1.0 if there's room)
 

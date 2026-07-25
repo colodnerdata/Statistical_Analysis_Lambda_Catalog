@@ -341,6 +341,18 @@ _ROLE_PREDICTOR = "Predictor (x)"
 _ROLE_IDENTIFIER = "Identifier (Row Label)"
 _ROLE_FILTER = "Filter"
 _ROLE_OMIT = "Omit"
+# Unlike the other role tokens, "Omit" is never tested for by name — no
+# constructor closure in lambda_functions.json and no check in the QC
+# oracle (analyze_model_construction.py) compares Role against _ROLE_OMIT;
+# they only test for the active roles (Response/Predictor/Filter). Omit is
+# purely the implicit "none of the above" bucket, and a blank Role cell is
+# indistinguishable from it in every formula and every QC check — both
+# contribute no column and impose no mask condition. This is what makes it
+# safe for a freshly-added spec row (e.g. one that just joined SpecTable
+# via its native auto-extend when typed past the table's bottom edge) to
+# sit with an unset Role: it is inert by construction, not merely
+# "untested," so the user can classify new rows at their own pace instead
+# of being forced to pick a Role the instant the row exists.
 # The v2.1 panel role (ROADMAP Role-axis values). Forward wiring only: the
 # token is read by the Fixed_Effects_Column() accessor and the FE-count guard
 # on the Regression diagnostics (BFN panel Durbin-Watson trigger matrix), but

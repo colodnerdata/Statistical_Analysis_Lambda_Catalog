@@ -176,10 +176,10 @@ def test_source_table_wiring_can_be_overridden() -> None:
 def test_spec_ranges_cover_the_standard_input_band() -> None:
     sheet = _named_sheet()
 
-    # Spec_* band names bind to the SpecTable (B3:L26) via structured
-    # references: SpecTable[[#Data],[Column]]. The [#Data] qualifier
-    # restricts the range to the data body (rows 4–26), which is what
-    # every TAKE-trimmed consumer expects: the spec rows, not the headers.
+    # Spec_* band names bind to the SpecTable via structured references:
+    # SpecTable[[#Data],[Column]]. The [#Data] qualifier restricts the
+    # range to the data body (the spec rows), which is what every
+    # TAKE-trimmed consumer expects: the spec rows, not the headers.
     # The column header text (with spaces) is the actual Excel header —
     # structured references are case- and whitespace-sensitive, so the
     # "Reference Level" / "Sequence Period" forms are correct.
@@ -629,7 +629,7 @@ def test_sequence_status_line_validates_zero_or_one_flags() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
     # The status cell lives in _write_spec_feedback (E1) once the spec
-    # data area becomes a structured table at B3:L26 — H2 is now the
+    # data area becomes a structured table (SpecTable) — H2 is now the
     # table's "Sequence" header cell, and a status cell on top of a
     # table header reads as a visual collision.
     from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
@@ -654,7 +654,7 @@ def test_sequence_status_line_validates_zero_or_one_flags() -> None:
 def test_spec_feedback_writes_delta_count_verdict_with_priority_cf() -> None:
     """The M/N spectrum and the I1/I2 verdict overlay (Verdict overlays the
     Sequence_Period column's row-1/row-2 cells, which are unused by the spec
-    table at B3:L26).
+    table, SpecTable).
 
     M1/N1: bold headers (Δ, Count). M2: the Sequence_Delta_Spectrum() spill,
     wrapped in IFERROR so a no-axis / no-spacings case degrades to blank.

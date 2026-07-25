@@ -42,6 +42,7 @@ from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
+from lambda_catalog.sheet_styles import SUBHDR_COLOR
 
 
 ROOT_DIR = Path(__file__).resolve().parent
@@ -53,6 +54,19 @@ _RPC_FAILURE_PHRASES = (
     "remote procedure call failed",
     "rpc server is unavailable",
 )
+
+_TAB_COLOR_LIGHT_GRAY = (217, 217, 217)
+_TAB_COLOR_DARK_GRAY = (128, 128, 128)
+_TAB_COLOR_LIGHT_GREEN = (198, 239, 206)
+
+_SHEET_NAME_LAMBDA_FUNCTIONS = "LAMBDA_functions"
+_SHEET_NAME_MILEAGE_DATA = "Mileage Data"
+_SHEET_NAME_LIFE_EXPECTANCY_DATA = "Life Expectancy Data"
+_SHEET_NAME_VERSION_HISTORY = "Version History"
+_SHEET_NAME_REGRESSION_INSTRUCTIONS = "Regression Instructions"
+_SHEET_NAME_REGRESSION = "Regression"
+_SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
+_SHEET_NAME_UNIVARIATE = "Univariate Analysis"
 
 # Dataset profiles: maps the --regression-dataset choice to the Source_Table
 # RefersTo formula written as a sheet-scoped name on the Regression sheet.
@@ -215,6 +229,67 @@ def _backup_unopenable_workbook(workbook_path: Path) -> Path:
     return backup_path
 
 
+def _rgb_to_excel_color(rgb: tuple[int, int, int]) -> int:
+    """Convert an RGB tuple to Excel's BGR-packed tab color integer."""
+    r, g, b = rgb
+    return r + (g * 256) + (b * 65536)
+
+
+def _sheet_names(workbook: xw.Book) -> set[str]:
+    """Return the current workbook sheet names."""
+    return {sheet.name for sheet in workbook.sheets}
+
+
+def _move_sheet_before(sheet: xw.Sheet, anchor: xw.Sheet) -> None:
+    """Move one sheet before another."""
+    sheet.api.Move(Before=anchor.api)
+
+
+def _set_tab_color(sheet: xw.Sheet, color: tuple[int, int, int]) -> None:
+    """Set an Excel sheet tab color from an RGB tuple."""
+    sheet.api.Tab.Color = _rgb_to_excel_color(color)
+
+
+def _reorder_and_style_sheet_tabs(workbook: xw.Book, *, include_univariate: bool) -> None:
+    """Apply build-time tab order and tab colors for user-facing sheets."""
+    ordered_front = [
+        _SHEET_NAME_MILEAGE_DATA,
+        _SHEET_NAME_LIFE_EXPECTANCY_DATA,
+        _SHEET_NAME_VERSION_HISTORY,
+        _SHEET_NAME_REGRESSION_INSTRUCTIONS,
+        _SHEET_NAME_REGRESSION,
+        _SHEET_NAME_DIAGNOSTIC_GUIDE,
+    ]
+    if include_univariate:
+        ordered_front.append(_SHEET_NAME_UNIVARIATE)
+    ordered_front.append(_SHEET_NAME_LAMBDA_FUNCTIONS)
+
+    present = _sheet_names(workbook)
+    for sheet_name in reversed(ordered_front):
+        if sheet_name not in present:
+            continue
+        sheet = workbook.sheets[sheet_name]
+        first_sheet = workbook.sheets[0]
+        if sheet.name != first_sheet.name:
+            _move_sheet_before(sheet, first_sheet)
+
+    tab_colors: dict[str, tuple[int, int, int]] = {
+        _SHEET_NAME_MILEAGE_DATA: _TAB_COLOR_LIGHT_GRAY,
+        _SHEET_NAME_LIFE_EXPECTANCY_DATA: _TAB_COLOR_LIGHT_GRAY,
+        _SHEET_NAME_VERSION_HISTORY: _TAB_COLOR_DARK_GRAY,
+        _SHEET_NAME_REGRESSION_INSTRUCTIONS: SUBHDR_COLOR,
+        _SHEET_NAME_REGRESSION: SUBHDR_COLOR,
+        _SHEET_NAME_DIAGNOSTIC_GUIDE: SUBHDR_COLOR,
+    }
+    if include_univariate:
+        tab_colors[_SHEET_NAME_UNIVARIATE] = _TAB_COLOR_LIGHT_GREEN
+
+    present = _sheet_names(workbook)
+    for sheet_name, color in tab_colors.items():
+        if sheet_name in present:
+            _set_tab_color(workbook.sheets[sheet_name], color)
+
+
 def build_production_workbook(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
@@ -316,7 +391,7 @@ def build_production_workbook(
             for qc_sheet in _QC_SHEET_NAMES:
                 _delete_sheet_if_present(workbook, qc_sheet)
             if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
-                workbook.sheets["Sheet1"].name = "LAMBDA_functions"
+                workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS
             write_catalog_sheet(workbook, document.functions)
             write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
             write_mileage_sheet(workbook, mileage_headers, mileage_rows)
@@ -331,6 +406,7 @@ def build_production_workbook(
                 document.functions_for_sheet("Regression"),
                 source_table_ref=source_table_ref,
             )
+            _reorder_and_style_sheet_tabs(workbook, include_univariate=not skip_univariate)
             app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
             workbook.save(str(workbook_path))
         finally:

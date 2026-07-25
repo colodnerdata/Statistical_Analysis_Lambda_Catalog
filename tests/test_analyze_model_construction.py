@@ -191,6 +191,35 @@ def test_row_labels_fall_back_to_positional_without_identifiers(rows) -> None:
     assert expected.first_filtered_label == "Obs. 1"
 
 
+def test_blank_role_behaves_identically_to_explicit_omit(rows) -> None:
+    # No constructor closure and no check here ever compares Role against
+    # _ROLE_OMIT by name (see the comment next to _ROLE_OMIT in
+    # write_sheet_model_construction.py) — Omit is purely the implicit
+    # "none of the active roles" bucket, so a blank Role cell must be
+    # indistinguishable from an explicit "Omit" in every respect. This is
+    # what makes a freshly-added, not-yet-classified spec row safe: it's
+    # inert the instant it exists, whether or not its Role has been set.
+    #
+    # Exercised across every variable in the default spec, one at a time,
+    # so the guarantee holds regardless of which row is left unclassified.
+    for target in build_default_spec():
+        omit_spec = [
+            variable
+            if variable.name != target.name
+            else SpecVariable(variable.name, _ROLE_OMIT, False, variable.var_type)
+            for variable in build_default_spec()
+        ]
+        blank_spec = [
+            variable
+            if variable.name != target.name
+            else SpecVariable(variable.name, "", False, variable.var_type)
+            for variable in build_default_spec()
+        ]
+        omit_expected = calculate_model_construction_expectations(omit_spec, rows)
+        blank_expected = calculate_model_construction_expectations(blank_spec, rows)
+        assert blank_expected == omit_expected, target.name
+
+
 # ---------------------------------------------------------------------------
 # Comparison layer
 # ---------------------------------------------------------------------------

@@ -780,3 +780,122 @@ def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
     )
 
     assert called["source_table_ref"] == "=MileageData[#All]"
+
+
+class _TabOrderSheet:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+
+class _TabOrderSheets:
+    def __init__(self, names: list[str]) -> None:
+        self._items = [_TabOrderSheet(name) for name in names]
+
+    def __iter__(self):
+        return iter(self._items)
+
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            return next(sheet for sheet in self._items if sheet.name == key)
+        return self._items[key]
+
+    def names(self) -> list[str]:
+        return [sheet.name for sheet in self._items]
+
+    def move_before(self, moving_name: str, anchor_name: str) -> None:
+        moving_index = self.names().index(moving_name)
+        anchor_index = self.names().index(anchor_name)
+        sheet = self._items.pop(moving_index)
+        if moving_index < anchor_index:
+            anchor_index -= 1
+        self._items.insert(anchor_index, sheet)
+
+
+class _TabOrderBook:
+    def __init__(self, names: list[str]) -> None:
+        self.sheets = _TabOrderSheets(names)
+
+
+def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(monkeypatch) -> None:
+    book = _TabOrderBook(
+        [
+            "LAMBDA_functions",
+            "Regression",
+            "Diagnostic Guide",
+            "Mileage Data",
+            "Life Expectancy Data",
+            "Version History",
+            "Regression Instructions",
+            "Univariate Analysis",
+        ]
+    )
+    tab_colors: dict[str, tuple[int, int, int]] = {}
+
+    def fake_move_sheet_before(sheet, anchor) -> None:
+        book.sheets.move_before(sheet.name, anchor.name)
+
+    def fake_set_tab_color(sheet, color) -> None:
+        tab_colors[sheet.name] = color
+
+    monkeypatch.setattr(build_production, "_move_sheet_before", fake_move_sheet_before)
+    monkeypatch.setattr(build_production, "_set_tab_color", fake_set_tab_color)
+
+    build_production._reorder_and_style_sheet_tabs(book, include_univariate=True)
+
+    assert book.sheets.names()[:8] == [
+        "Mileage Data",
+        "Life Expectancy Data",
+        "Version History",
+        "Regression Instructions",
+        "Regression",
+        "Diagnostic Guide",
+        "Univariate Analysis",
+        "LAMBDA_functions",
+    ]
+    assert tab_colors == {
+        "Mileage Data": (217, 217, 217),
+        "Life Expectancy Data": (217, 217, 217),
+        "Version History": (128, 128, 128),
+        "Regression Instructions": build_production.SUBHDR_COLOR,
+        "Regression": build_production.SUBHDR_COLOR,
+        "Diagnostic Guide": build_production.SUBHDR_COLOR,
+        "Univariate Analysis": (198, 239, 206),
+    }
+
+
+def test_reorder_and_style_sheet_tabs_omits_univariate_when_not_included(monkeypatch) -> None:
+    book = _TabOrderBook(
+        [
+            "LAMBDA_functions",
+            "Univariate Analysis",
+            "Mileage Data",
+            "Life Expectancy Data",
+            "Regression",
+            "Version History",
+            "Regression Instructions",
+            "Diagnostic Guide",
+        ]
+    )
+    tab_colors: dict[str, tuple[int, int, int]] = {}
+
+    def fake_move_sheet_before(sheet, anchor) -> None:
+        book.sheets.move_before(sheet.name, anchor.name)
+
+    def fake_set_tab_color(sheet, color) -> None:
+        tab_colors[sheet.name] = color
+
+    monkeypatch.setattr(build_production, "_move_sheet_before", fake_move_sheet_before)
+    monkeypatch.setattr(build_production, "_set_tab_color", fake_set_tab_color)
+
+    build_production._reorder_and_style_sheet_tabs(book, include_univariate=False)
+
+    assert book.sheets.names()[:7] == [
+        "Mileage Data",
+        "Life Expectancy Data",
+        "Version History",
+        "Regression Instructions",
+        "Regression",
+        "Diagnostic Guide",
+        "LAMBDA_functions",
+    ]
+    assert "Univariate Analysis" not in tab_colors

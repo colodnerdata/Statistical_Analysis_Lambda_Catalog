@@ -78,22 +78,32 @@ engine is forthcoming."
 
 ### Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5)
 
-- TODO: **#1 — Sequence axis auto-detection and override** (renames
-  column I to **`Sequence Period`** (the typed override input), adds
-  column J **`Period In Use`** following the Reference Level /
-  Reference In Use pattern). The current override mechanic has a
-  spill-collision risk for source tables wider than the shipped WHO
-  sample: the spec block reads its own H/I cells, and a longer table
-  could let the override spill overrun an input band. Fix: relocate
-  the override spill and bound every read of the H/I/J band by
-  `COLUMNS(Source_Data)` (the spill-placement principle from
-  CLAUDE.md). **Note: the Sequence Spacing block (rows 28–34), which
-  previously hosted the override-flagging verdict lines, has since been
-  removed — there is currently no on-sheet display of override status.**
-  Update the spec layout constants, the named-range rename
-  (`Spec_Base_Period_Delta` → `Spec_Sequence_Period`), and the QC
-  analyzers. **Significant testing. Resolve before writing the 2.1.0
-  Version History entry.**
+- DONE: **#1 — Sequence axis auto-detection and override.** Column I
+  is **`Sequence Period`** (the typed override input), column J is
+  **`Period In Use`** (computed-with-override display), following the
+  Reference Level / Reference In Use pattern. Verified directly: no
+  stale `Spec_Base_Period_Delta` reference remains anywhere in the
+  codebase (fully renamed to `Spec_Sequence_Period`), the spec layout
+  constants (`_C_SEQUENCE_PERIOD`, `_C_PERIOD_IN_USE`) are wired
+  consistently, and the feature is live in shipped workbooks (confirmed
+  against a real built `Regression` sheet).
+  Two sub-items resolved differently than originally envisioned, not
+  left undone: the spill-collision risk is structurally moot — `Spec_Sequence`/
+  `Spec_Sequence_Period`/`Spec_Period_In_Use` are `SpecTable[[#Data],[...]]`
+  structured references, which auto-bound to the live table rows (the
+  same auto-extend behavior ARCHITECTURE.md § 4 documents for the whole
+  spec block), rather than needing a manual `TAKE(...,COLUMNS(Source_Data))`
+  bound — and "update the QC analyzers" turned out to mean the
+  RecordingSheet unit-test layer (`test_spec_ranges_cover_the_standard_input_band`,
+  `test_spec_feedback_writes_delta_count_verdict_with_priority_cf` in
+  `tests/test_model_construction_writer.py`), not the xlwings-based
+  `analyze_regression_spec.py` oracle, which never modeled this feature
+  and doesn't need to. The on-sheet override-status display the Sequence
+  Spacing block used to carry now lives in the I2 combined Verdict cell
+  (off-grid/regularity/no-natural-base-period messages driven by
+  `Spec_Period_In_Use` vs. `Sequence_Deltas()`) — a data-quality check
+  that serves the same "is the declared Δ trustworthy" need, not a
+  literal "you typed an override" flag.
   The full design rationale (spill-collision risk, the
   reference-level pattern parallel, override-flagging location) is in
   [DECISIONS.md § v2.1 #1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).

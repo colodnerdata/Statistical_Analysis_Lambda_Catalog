@@ -2968,7 +2968,7 @@
       "category": "Data Transformation",
       "subcategory": "Group & Panel",
       "number_format": "General",
-      "formula_display": "=LAMBDA(x, group, [include],\n    LET(\n        x_v, TOCOL(IF(x = \"\", \"\", x), 0),\n        gm,  Group_Mean(x, group, include),\n        IF(AND(ISNUMBER(x_v), ISNUMBER(gm)), x_v - gm, NA())\n    )\n)",
+      "formula_display": "=LAMBDA(x, group, [include],\n    LET(\n        x_v, TOCOL(IF(x = \"\", \"\", x), 0),\n        gm,  Group_Mean(x, group, include),\n        IF(ISNUMBER(x_v) * ISNUMBER(gm), x_v - gm, NA())\n    )\n)",
       "arguments": [
         {
           "name": "x",

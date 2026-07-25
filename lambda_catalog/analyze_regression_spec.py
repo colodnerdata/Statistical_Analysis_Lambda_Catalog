@@ -299,8 +299,8 @@ def _model_year_origin_categorical_spec() -> list[SpecVariable]:
 
 _IS_USA = ExtraSpecColumn(
     name="Is_USA",
-    excel_formula="=--([@Origin]=1)",
-    value_fn=lambda row: 1 if row["Origin"] == 1 else 0,
+    excel_formula='=--([@Origin]="US")',
+    value_fn=lambda row: 1 if row["Origin"] == "US" else 0,
 )
 
 
@@ -334,7 +334,7 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
 
     categorical_specs = [
         ("origin_default_reference", _with_origin(_continuous_subset_spec())),
-        ("origin_explicit_reference", _with_origin(_continuous_subset_spec(), 2)),
+        ("origin_explicit_reference", _with_origin(_continuous_subset_spec(), "Europe")),
         ("origin_invalid_reference", _with_origin(_continuous_subset_spec(), 99)),
         ("model_year_origin_categorical", _model_year_origin_categorical_spec()),
         (

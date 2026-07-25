@@ -129,4 +129,4 @@ def test_comparison_reports_standard_format_failures(t0_expected) -> None:
     tripwire = next(f for f in failures if "twin tripwire" in f)
     assert "expected=17" in tripwire and "excel_calc=7" in tripwire
     reference = next(f for f in failures if "Reference In Use" in f)
-    assert "expected=1" in reference and "excel_calc=2.0" in reference
+    assert "expected='Asia'" in reference and "excel_calc=2.0" in reference

@@ -12,11 +12,11 @@ verification at all.
 This is the Model Construction verifier ported to the Regression sheet. The
 expectation side is reused verbatim (``analyze_model_construction``'s
 calculator is pure Python and sheet-agnostic), and the spec block occupies
-identical coordinates on both sheets (columns A–K; intercept row 2, headers
-row 3, spec rows 4–26 — the writers are shared), so the Levels / Reference
-In Use reads port unchanged. Only the assertions against the Model
-Construction sheet's display zones are remapped onto the Regression sheet's
-own display of the same facts:
+identical coordinates on both sheets (columns A–L; intercept row 2, headers
+row 3, the spec data rows below that — the writers are shared), so the
+Levels / Reference In Use reads port unchanged. Only the assertions against
+the Model Construction sheet's display zones are remapped onto the
+Regression sheet's own display of the same facts:
 
     MC audit k / twin tripwire   → N3 constructed-names spill width, and the
                                    V21 coefficient-label spill (k+1 rows with
@@ -254,7 +254,7 @@ def _verify_degenerate_filter_case(
         SpecVariable(_EXTRA_FILTER_HEADER, _ROLE_FILTER, False, "Continuous")
     ]
     mutated_rows = [
-        {**row, _EXTRA_FILTER_HEADER: 1 if row["Origin"] == 1 else 0}
+        {**row, _EXTRA_FILTER_HEADER: 1 if row["Origin"] == "US" else 0}
         for row in rows
     ]
     expected = calculate_model_construction_expectations(spec, mutated_rows)

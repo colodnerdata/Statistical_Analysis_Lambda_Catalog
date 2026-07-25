@@ -13,7 +13,7 @@ single ungrouped GAP column so the zones collapse independently; see the
                    C2) and the Sequence status line (E1); I1 carries the
                    "Verdict" header and I2 the combined verdict switch
                    (the row-1/row-2 cells of column I are above the spec
-                   table at B3:L26, so the verdict overlays the
+                   table (SpecTable), so the verdict overlays the
                    Sequence_Period column's input cells without
                    disturbing the spec rows); M holds the Δ header
                    and N holds the Count header for the
@@ -131,12 +131,12 @@ _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 # Spec feedback (M, N, plus the I Verdict overlay): the delta spectrum
 # (Sequence_Delta_Spectrum() spill at M2:N?) sits in M and N. The combined
 # verdict switch overlays column I (the Sequence_Period spec column on
-# rows 4-26; the row-1/row-2 cells are above the spec table and free).
-# I1 holds the "Verdict" header (bold), I2 the priority-ordered switch
-# formula (off-grid outranks regularity, both outrank no-natural and
-# calendar; red CF outranks yellow via StopIfTrue). The E1 cell carries
-# the multi-flag Sequence error status (moved here from H2 when the spec
-# data area became a structured table at B3:L26).
+# the spec data rows; the row-1/row-2 cells are above the spec table and
+# free). I1 holds the "Verdict" header (bold), I2 the priority-ordered
+# switch formula (off-grid outranks regularity, both outrank no-natural
+# and calendar; red CF outranks yellow via StopIfTrue). The E1 cell
+# carries the multi-flag Sequence error status (moved here from H2 when
+# the spec data area became a structured table, SpecTable).
 _C_M = 13   # spec feedback: Δ header / spectrum spill
 _C_N = 14   # spec feedback: Count header / spectrum spill
 
@@ -1355,8 +1355,8 @@ def write_regression_output_sheet(
     sheet.activate()
 
     # The spec block must run before the names are registered: it creates
-    # the structured table (SpecTable) at B3:L26, which the Spec_* band
-    # names bind to via SpecTable[[#Data],[Column]] references — Excel
+    # the structured table (SpecTable), which the Spec_* band names bind
+    # to via SpecTable[[#Data],[Column]] references — Excel
     # validates the RefersTo at registration time. The rest of the spec
     # area (headers, feedback, intercept) runs in _write_model_specification
     # below, but the table-creating part needs to come first.
@@ -1391,9 +1391,9 @@ def write_regression_output_sheet(
     for column_letter, width in {
         # Spec feedback (M, N, plus the column-I Verdict overlay):
         # the M and N headers are bold on row 1, the I1 "Verdict" header
-        # is bold and shares column I with the Sequence_Period spec row
-        # on rows 4-26. The "I" width here is the I2 verdict cell — long
-        # message; the widest cell on the sheet.
+        # is bold and shares column I with the Sequence_Period spec rows.
+        # The "I" width here is the I2 verdict cell — long message; the
+        # widest cell on the sheet.
         "M": 10,        # Δ header / spectrum column 1
         "N": 8,         # Count header / spectrum column 2
         "I": 38,        # Verdict header / switch (overlays Sequence_Period column)

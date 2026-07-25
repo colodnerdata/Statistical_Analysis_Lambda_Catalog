@@ -75,7 +75,7 @@ _TABLE_NAME = "MileageData"
 # the narrowed mask every remaining Origin value is 1 (USA), so Origin
 # (Predictor/Categorical/TRUE in the default spec) degenerates to one level.
 _EXTRA_FILTER_HEADER = "Is_USA"
-_EXTRA_FILTER_FORMULA = "=--([@Origin]=1)"
+_EXTRA_FILTER_FORMULA = '=--([@Origin]="US")'
 
 # Read a few cells beyond every expected spill so an over-long spill is
 # detected rather than silently truncated at the expected size.
@@ -567,7 +567,7 @@ def _verify_degenerate_filter_case(
         SpecVariable(_EXTRA_FILTER_HEADER, _ROLE_FILTER, False, "Continuous")
     ]
     mutated_rows = [
-        {**row, _EXTRA_FILTER_HEADER: 1 if row["Origin"] == 1 else 0}
+        {**row, _EXTRA_FILTER_HEADER: 1 if row["Origin"] == "US" else 0}
         for row in rows
     ]
     expected = calculate_model_construction_expectations(spec, mutated_rows)

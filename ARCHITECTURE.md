@@ -249,11 +249,25 @@ base-period release.
 
 ### Cascading relevance
 
-C–G and K–L gray out (conditional formatting) whenever Role ≠ Predictor —
-the same pattern as Reference-only-for-Categorical, applied one level up.
-H–J key on the **Sequence flag itself**, not on Role: they gray on every
-row that is not the sequence axis, because Sequence is structural and
+C–G and K–L hide in place (conditional formatting sets the font color to
+match each cell's own static fill — `INPUT_COLOR` for the input cells,
+white for the unfilled computed-display cells — rather than a single muted
+gray) whenever Role ≠ Predictor — the same pattern as
+Reference-only-for-Categorical, applied one level up. H–J key on the
+**Sequence flag itself**, not on Role: they hide the same way on every row
+that is not the sequence axis, because Sequence is structural and
 Role-independent.
+
+Every cascading-relevance rule, along with the multi-flag, degeneracy, and
+invalid-reference error flags, is pre-applied out to `_VALIDATION_LAST_ROW`
+(16000) — the same ceiling the Role/Include/Type/Sequence dropdown
+`Validation` already used. Because the spec block lives in a real Excel
+Table (`SpecTable`), typing a value into the row directly below its
+current bottom edge auto-extends the ListObject (structured `Spec_*` names
+and the J/K/L calculated-column formulas follow automatically); widening
+the CF ranges to the same ceiling means a freshly-added row is already
+covered by dropdowns, hide-in-place relevance, and error flags with zero
+Python rebuild.
 
 ### Display derives, never feeds
 

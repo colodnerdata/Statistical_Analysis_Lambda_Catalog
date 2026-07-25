@@ -36,8 +36,8 @@ _EXPECTED_T0_NAMES = (
     "Horsepower",
     "Weight",
     *(f"Model Year: {year}" for year in range(71, 83)),
-    "Origin: 2",
-    "Origin: 3",
+    "Origin: Europe",
+    "Origin: US",
 )
 
 
@@ -268,7 +268,7 @@ def test_default_t0_design_matches_current_constructor_semantics() -> None:
     assert design.row_labels[0] == "chevrolet chevelle malibu"
     assert design.constructed_column_names == _EXPECTED_T0_NAMES
     assert design.level_counts == {"Model Year": 13, "Origin": 3}
-    assert design.references_in_use == {"Model Year": 70, "Origin": 1}
+    assert design.references_in_use == {"Model Year": 70, "Origin": "Asia"}
     assert design.degenerate_categoricals == ()
     assert design.sequence_values is not None
     assert design.sequence_values[0] == 70
@@ -304,10 +304,10 @@ def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
     ]
 
     assert origin_columns == [3, 4]
-    assert design.constructed_column_names[3] == "Origin: 2"
-    assert design.constructed_column_names[4] == "Origin: 3"
+    assert design.constructed_column_names[3] == "Origin: Europe"
+    assert design.constructed_column_names[4] == "Origin: US"
     assert set(np.unique(design.x_features[:, origin_columns[0]])) <= {0.0, 1.0}
-    assert design.references_in_use["Origin"] == 1
+    assert design.references_in_use["Origin"] == "Asia"
     assert design.included_rows == 392
 
 
@@ -315,9 +315,9 @@ def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
 def test_explicit_reference_changes_origin_dummy_level() -> None:
     expected = calculate_regression_spec_case(_case("origin_explicit_reference"), XLSX_PATH)
 
-    assert expected.design.references_in_use["Origin"] == 2
-    assert "Origin: 1" in expected.design.constructed_column_names
-    assert "Origin: 2" not in expected.design.constructed_column_names
+    assert expected.design.references_in_use["Origin"] == "Europe"
+    assert "Origin: Asia" in expected.design.constructed_column_names
+    assert "Origin: Europe" not in expected.design.constructed_column_names
 
 
 @pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
@@ -340,7 +340,7 @@ def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() ->
     assert design.constructed_column_names[3:15] == tuple(
         f"Model Year: {year}" for year in range(71, 83)
     )
-    assert "Origin: 2" in design.constructed_column_names
+    assert "Origin: Europe" in design.constructed_column_names
     assert design.level_counts == {"Model Year": 13, "Origin": 3}
     assert design.references_in_use["Model Year"] == 70
 
@@ -388,7 +388,7 @@ def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     assert design.included_rows == 245
     assert design.degenerate_categoricals == ("Origin",)
     assert design.level_counts == {"Model Year": 13, "Origin": 1}
-    assert design.references_in_use == {"Model Year": 70, "Origin": 1}
+    assert design.references_in_use == {"Model Year": 70, "Origin": "US"}
     assert not any(name.startswith("Origin:") for name in design.constructed_column_names)
     assert design.constructed_column_names == (
         "Horsepower",

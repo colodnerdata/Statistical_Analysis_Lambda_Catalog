@@ -64,7 +64,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
     (7, "", None),
     (
         8,
-        "Define your model in the MODEL SPECIFICATION block (columns A–K):",
+        "Define your model in the MODEL SPECIFICATION block (columns A–L):",
         "heading",
     ),
     (

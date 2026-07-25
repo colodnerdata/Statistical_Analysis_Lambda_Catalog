@@ -20,7 +20,6 @@ from lambda_catalog.sheet_styles import (
     CF_LIGHT_RED_FILL,
     CF_YELLOW_FILL,
     INPUT_COLOR,
-    MUTED_TEXT_COLOR,
 )
 from lambda_catalog.workbook_helpers import excel_color
 from lambda_catalog.write_sheet_model_construction import (
@@ -51,7 +50,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _FIRST_DATA_ROW,
     _HEADER_ROW,
     _INTERCEPT_ROW,
-    _LAST_DATA_ROW,
+    _VALIDATION_LAST_ROW,
     _N_VARIABLES,
     _VARIABLES,
     _MSG_CALENDAR,
@@ -549,30 +548,47 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
         assert validation.IgnoreBlank is True
 
 
-def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> None:
+def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
 
     r = _FIRST_DATA_ROW
     off = _FIRST_DATA_ROW - 1
-    # Role-keyed relevance: the per-Predictor inputs (C–G) and the
-    # Categorical displays (K–L); H–J are deliberately NOT in these bands.
-    for band in (
-        f"$C${r}:$G${_LAST_DATA_ROW}",
-        f"$K${r}:$L${_LAST_DATA_ROW}",
-    ):
-        gray = sheet.range(band).api.FormatConditions.items
-        assert [c.Formula1 for c in gray] == [f'=$B{r}<>"Predictor (x)"'], band
-        assert gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
+    # Role-keyed relevance: the per-Predictor inputs (C–G) hide behind their
+    # own INPUT_COLOR fill, the Categorical displays (K–L) hide behind
+    # white (unfilled computed cells); H–J are deliberately NOT in these
+    # bands. Every range runs out to _VALIDATION_LAST_ROW so a row added by
+    # typing past SpecTable's current bottom edge (auto-extending the
+    # ListObject) is already covered.
+    role_keyed_input = sheet.range(
+        f"$C${r}:$G${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
+    assert [c.Formula1 for c in role_keyed_input] == [f'=$B{r}<>"Predictor (x)"']
+    assert role_keyed_input[0].Font.Color == excel_color(INPUT_COLOR)
 
-    # Sequence-keyed relevance: H–J gray on rows that are not the sequence
-    # axis — keyed on the flag itself, not on Role.
-    seq_gray = sheet.range(f"$H${r}:$J${_LAST_DATA_ROW}").api.FormatConditions.items
-    assert [c.Formula1 for c in seq_gray] == [f"=$H{r}<>TRUE"]
-    assert seq_gray[0].Font.Color == excel_color(MUTED_TEXT_COLOR)
+    role_keyed_computed = sheet.range(
+        f"$K${r}:$L${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
+    assert [c.Formula1 for c in role_keyed_computed] == [f'=$B{r}<>"Predictor (x)"']
+    assert role_keyed_computed[0].Font.Color == excel_color((255, 255, 255))
+
+    # Sequence-keyed relevance: H–I hide behind INPUT_COLOR, J (computed)
+    # behind white, on rows that are not the sequence axis — keyed on the
+    # flag itself, not on Role.
+    seq_input = sheet.range(
+        f"$H${r}:$I${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
+    assert [c.Formula1 for c in seq_input] == [f"=$H{r}<>TRUE"]
+    assert seq_input[0].Font.Color == excel_color(INPUT_COLOR)
+
+    seq_computed = sheet.range(
+        f"$J${r}:$J${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
+    assert [c.Formula1 for c in seq_computed] == [f"=$H{r}<>TRUE"]
+    assert seq_computed[0].Font.Color == excel_color((255, 255, 255))
 
     # Multi-flag error: red on every flagged H cell at two-plus flags.
-    multi = sheet.range(f"$H${r}:$H${_LAST_DATA_ROW}").api.FormatConditions.items
+    multi = sheet.range(f"$H${r}:$H${_VALIDATION_LAST_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in multi] == [
         f"=AND($H{r}=TRUE,"
         "SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))>1)"
@@ -588,7 +604,9 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     # Degeneracy flag: red K when an INCLUDED Categorical Predictor has
     # L <= 1 — the constructor contributes zero columns for it (visible
     # degradation, not silent omission). N() coerces "" to 0.
-    degenerate = sheet.range(f"$K${r}:$K${_LAST_DATA_ROW}").api.FormatConditions.items
+    degenerate = sheet.range(
+        f"$K${r}:$K${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
     assert [c.Formula1 for c in degenerate] == [
         f'=AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Categorical",N($K{r})<=1)'
     ]
@@ -598,7 +616,7 @@ def test_conditional_formats_cover_gray_cascade_degeneracy_and_reference() -> No
     # Invalid reference: the constructor's exact skip condition, tested
     # directly — a membership test against Dummy_Levels' output would
     # false-positive on the default reference itself.
-    invalid = sheet.range(f"$E${r}:$E${_LAST_DATA_ROW}").api.FormatConditions.items
+    invalid = sheet.range(f"$E${r}:$E${_VALIDATION_LAST_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in invalid] == [
         f'=AND($E{r}<>"",ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-{off}),'
         f"$E{r},Sample_Include())))"
@@ -728,18 +746,19 @@ def test_intercept_control_is_a_toggle_with_coupling_cf() -> None:
 
     # Coupling CF, on C2: red (toggle FALSE while an included Categorical
     # needs the intercept) added first with StopIfTrue so it outranks the
-    # gray "required-here" rule; gray applies whenever a Categorical is in.
+    # hide-in-place "required-here" rule; that rule applies whenever a
+    # Categorical is in, hiding C2 behind its own INPUT_COLOR fill.
     conditions = sheet.range("$C$2").api.FormatConditions.items
     assert [c.Formula1 for c in conditions] == [
         f"=AND($C$2=FALSE,{_CAT_INCLUDED})",
         f"={_CAT_INCLUDED}",
     ]
-    red, gray = conditions
+    red, hidden = conditions
     assert red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert red.Font.Color == excel_color(CF_DARK_RED_TEXT)
     assert red.StopIfTrue is True
-    assert gray.Font.Color == excel_color(MUTED_TEXT_COLOR)
-    assert gray.StopIfTrue is False
+    assert hidden.Font.Color == excel_color(INPUT_COLOR)
+    assert hidden.StopIfTrue is False
 
 
 _RESPONSE_NAME = (

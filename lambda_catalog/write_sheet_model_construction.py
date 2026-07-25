@@ -168,7 +168,8 @@ from .sheet_styles import (
     CF_DARK_YELLOW_TEXT,
     CF_LIGHT_RED_FILL,
     CF_YELLOW_FILL,
-    MUTED_TEXT_COLOR,
+    INPUT_COLOR,
+    SUBHDR_COLOR,
 )
 from .workbook_helpers import (
     XL_SRC_RANGE,
@@ -224,11 +225,12 @@ _N_VARIABLES = len(_VARIABLES)  # 12
 
 # Row 2 is the model-level Intercept control (label A2, toggle C2 — aligned
 # to the C/Include boolean column). The spec table sits one row below it:
-# headers on row 3, the 23 variable rows on 4–26.
+# headers on row 3, the N variable rows from _FIRST_DATA_ROW to
+# _LAST_DATA_ROW (N = len(_VARIABLES); currently 12, rows 4-15).
 _INTERCEPT_ROW = 2
 _HEADER_ROW = 3
 _FIRST_DATA_ROW = 4
-_LAST_DATA_ROW = _FIRST_DATA_ROW + _N_VARIABLES - 1  # 26
+_LAST_DATA_ROW = _FIRST_DATA_ROW + _N_VARIABLES - 1  # 15
 # Sheet row _FIRST_DATA_ROW maps to Source_Data column 1, so a row-indexed
 # formula recovers its column via INDEX(Source_Data,0,ROW()-_ROW_TO_COL_OFFSET).
 _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
@@ -514,14 +516,15 @@ def _set_sheet_scoped_names(
         "Source_Data": "=DROP(Source_Table,1)",
         "Header_Names": "=TAKE(Source_Table,1)",
         # ── Spec ranges (table-column structured references) ─────────────
-        # The spec data area is a structured table (SpecTable) at B3:L26;
-        # these band names bind to its columns via SpecTable[[#Data],[Column]]
-        # structured references. Each column header carries the actual
-        # human-readable name (with spaces — Excel requires the exact
-        # header text, not a sanitized underscore form, in structured
-        # references). The [#Data] qualifier restricts the range to the
-        # data body (rows 4–26), which is what every TAKE-trimmed consumer
-        # expects: the spec rows, not the headers.
+        # The spec data area is a structured table (SpecTable) at
+        # B_HEADER_ROW:L_LAST_DATA_ROW; these band names bind to its
+        # columns via SpecTable[[#Data],[Column]] structured references.
+        # Each column header carries the actual human-readable name (with
+        # spaces — Excel requires the exact header text, not a sanitized
+        # underscore form, in structured references). The [#Data]
+        # qualifier restricts the range to the data body (the spec rows),
+        # which is what every TAKE-trimmed consumer expects: the spec
+        # rows, not the headers.
         "Spec_Role": f"={sname}!SpecTable[[#Data],[Role]]",
         "Spec_Include": f"={sname}!SpecTable[[#Data],[Include]]",
         "Spec_Type": f"={sname}!SpecTable[[#Data],[Type]]",
@@ -621,6 +624,15 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     # to a ListObject with the referenced headers.
     _create_spec_table(sheet)
 
+    # TableStyle overrides the header row's fill; re-pin it to SUBHDR_COLOR
+    # (the shared column-sub-header convention) so the header reads
+    # consistently with every other sheet regardless of the table style
+    # underneath. Covers column A's header too (outside the ListObject, so
+    # untouched by TableStyle) for a uniform row.
+    sheet.range(
+        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_REF_IN_USE)
+    ).color = SUBHDR_COLOR
+
     # A: variable names spill straight from the table's header row via the
     # Header_Names indirection (dataset-agnostic; reads no other sheet).
     f(sheet, _FIRST_DATA_ROW, _C_LABEL, "=TRANSPOSE(Header_Names)")
@@ -660,7 +672,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         # candidate is in J; the user types a number into I to override,
         # and the J formula picks the override via the I reference.
         # The J/K/L formulas use structured references ([@Column]) because
-        # the spec data area is a structured table at B3:L26; Formula2
+        # the spec data area is a structured table (SpecTable); Formula2
         # rejects structured refs, so they go through f_structured.
         format_input(sheet, row, _C_SEQUENCE_PERIOD)
         f_structured(
@@ -726,30 +738,53 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     _add_list_validation(sheet, _C_SEQUENCE, _SEQUENCE_VALIDATION_LIST)
 
     # Cascading relevance, Role-keyed: the per-Predictor inputs (C–G) and
-    # the Categorical displays (K–L) gray out whenever Role ≠ Predictor —
-    # the Reference-only-for-Categorical pattern applied one level up.
-    # H–J are deliberately excluded: Sequence is a structural axis, not a
-    # Role property (an Identifier like Year is a typical sequence axis).
-    for role_keyed_band in (
-        f"$C${_FIRST_DATA_ROW}:$G${_LAST_DATA_ROW}",
-        f"$K${_FIRST_DATA_ROW}:$L${_LAST_DATA_ROW}",
-    ):
-        add_expression_format(
-            sheet,
-            role_keyed_band,
-            f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
-            font_color=MUTED_TEXT_COLOR,
-        )
-
-    # Cascading relevance, Sequence-keyed: H–J gray out on every row that
-    # is not the sequence axis — Sequence Period and Period In Use are
-    # meaningful only for the flagged row, and the flag itself keys on its
-    # own value, not on Role.
+    # the Categorical displays (K–L) hide in place whenever Role ≠
+    # Predictor — the Reference-only-for-Categorical pattern applied one
+    # level up. H–J are deliberately excluded: Sequence is a structural
+    # axis, not a Role property (an Identifier like Year is a typical
+    # sequence axis).
+    #
+    # "Hide in place" means the font color matches each band's own static
+    # fill (INPUT_COLOR for format_input-colored cells, white for unfilled
+    # computed-display cells) rather than a single muted gray — the same
+    # font-matches-fill idiom used for the boundary guard on the Univariate
+    # sheet's grid-search tables (write_sheet_univariate.py, cf.Font.Color =
+    # 0xFFFFFF). Every range here runs out to _VALIDATION_LAST_ROW, not just
+    # _LAST_DATA_ROW: SpecTable is a ListObject, so typing a row directly
+    # below its current bottom edge auto-extends the table (structured
+    # names and the J/K/L calculated-column formulas follow automatically);
+    # pre-applying these rules out to the same 16000-row ceiling the B/C/D/
+    # G/H dropdown Validation already uses means a freshly-added row is
+    # fully formatted the instant it joins the table, with no rebuild.
     add_expression_format(
         sheet,
-        f"$H${_FIRST_DATA_ROW}:$J${_LAST_DATA_ROW}",
+        f"$C${_FIRST_DATA_ROW}:$G${_VALIDATION_LAST_ROW}",
+        f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
+        font_color=INPUT_COLOR,
+    )
+    add_expression_format(
+        sheet,
+        f"$K${_FIRST_DATA_ROW}:$L${_VALIDATION_LAST_ROW}",
+        f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
+        font_color=(255, 255, 255),
+    )
+
+    # Cascading relevance, Sequence-keyed: H–J hide in place on every row
+    # that is not the sequence axis — Sequence Period and Period In Use are
+    # meaningful only for the flagged row, and the flag itself keys on its
+    # own value, not on Role. H–I are format_input-colored inputs; J is an
+    # unfilled computed display.
+    add_expression_format(
+        sheet,
+        f"$H${_FIRST_DATA_ROW}:$I${_VALIDATION_LAST_ROW}",
         f"=$H{_FIRST_DATA_ROW}<>TRUE",
-        font_color=MUTED_TEXT_COLOR,
+        font_color=INPUT_COLOR,
+    )
+    add_expression_format(
+        sheet,
+        f"$J${_FIRST_DATA_ROW}:$J${_VALIDATION_LAST_ROW}",
+        f"=$H{_FIRST_DATA_ROW}<>TRUE",
+        font_color=(255, 255, 255),
     )
 
     # Multi-flag error: red on every flagged Sequence cell when two-plus
@@ -757,7 +792,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     # line states the error.
     add_expression_format(
         sheet,
-        f"$H${_FIRST_DATA_ROW}:$H${_LAST_DATA_ROW}",
+        f"$H${_FIRST_DATA_ROW}:$H${_VALIDATION_LAST_ROW}",
         (
             f"=AND($H{_FIRST_DATA_ROW}=TRUE,"
             f"{_SEQUENCE_FLAG_COUNT_FORMULA}>1)"
@@ -777,7 +812,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     # degradation, not silent omission). N() coerces "" to 0.
     add_expression_format(
         sheet,
-        f"$K${_FIRST_DATA_ROW}:$K${_LAST_DATA_ROW}",
+        f"$K${_FIRST_DATA_ROW}:$K${_VALIDATION_LAST_ROW}",
         (
             f'=AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
             f"$C{_FIRST_DATA_ROW}=TRUE,"
@@ -795,7 +830,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     # reference itself, which Dummy_Levels excludes from its output).
     add_expression_format(
         sheet,
-        f"$E${_FIRST_DATA_ROW}:$E${_LAST_DATA_ROW}",
+        f"$E${_FIRST_DATA_ROW}:$E${_VALIDATION_LAST_ROW}",
         (
             f'=AND($E{_FIRST_DATA_ROW}<>"",'
             f"ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
@@ -806,19 +841,24 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     )
 
 def _create_spec_table(sheet: xw.Sheet) -> None:
-    """Convert the spec data area at B3:L26 into a structured ListObject.
+    """Convert the spec data area at B3:L(_LAST_DATA_ROW) into a structured ListObject.
 
     The table is named ``SpecTable`` (Excel strips special characters and
     prefixes automatically; the name field is the user-visible label). A
     column is outside the table by design — the variable-names spill at
-    A4:A26 must not be absorbed by the table's spill scope, since the
-    spill lives outside the structured-reference world.
+    A4:A(_LAST_DATA_ROW) must not be absorbed by the table's spill scope,
+    since the spill lives outside the structured-reference world.
 
     Headers on row 3 are the existing column labels written by
     _write_spec_block; XlListObjectHasHeaders=xlYes tells Excel to
     promote the first row to headers. The table must exist before the
     Spec_* band names are registered in _set_sheet_scoped_names (Excel
     validates each name's RefersTo at registration time).
+
+    TableStyleLight9 (dark-teal accent) with banding off gives the table a
+    neutral body so the conditional formatting (hide-in-place cascading
+    relevance, red/yellow error flags) reads clearly on top of it, instead
+    of competing with Excel's un-pinned default banding.
     """
     table_range = sheet.range(
         (_HEADER_ROW, _C_ROLE), (_LAST_DATA_ROW, _C_REF_IN_USE)
@@ -829,6 +869,9 @@ def _create_spec_table(sheet: xw.Sheet) -> None:
         XlListObjectHasHeaders=XL_YES,
     )
     table.Name = "SpecTable"
+    table.TableStyle = "TableStyleLight9"
+    table.ShowTableStyleRowStripes = False
+    table.ShowTableStyleColumnStripes = False
 
 
 def _write_spec_feedback(sheet: xw.Sheet) -> None:
@@ -850,7 +893,7 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
         I2 = combined switch formula (priority-ordered, single message)
 
     The E1 Sequence error status is written here too (moved from H2 when
-    the spec data area became a structured table at B3:L26 — H2 is now
+    the spec data area became a structured table (SpecTable) — H2 is now
     the table's "Sequence" header cell, and a status cell on top of a
     table header reads as a visual collision). E1 keeps the same pattern
     as the old H2: blank while the spec is legal, a red error line when
@@ -905,8 +948,9 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
     )
 
     # I1: the Verdict header (bold). I is the Sequence_Period spec column,
-    # but only rows 4-26 use it for the per-variable override; the row-1
-    # and row-2 cells are above the spec table and free to carry feedback.
+    # but only the spec data rows (_FIRST_DATA_ROW.._LAST_DATA_ROW) use it
+    # for the per-variable override; the row-1 and row-2 cells are above
+    # the spec table and free to carry feedback.
     val(sheet, feedback_header_row, _C_SEQUENCE_PERIOD, "Verdict")
     bold(sheet, feedback_header_row, _C_SEQUENCE_PERIOD)
 
@@ -1013,12 +1057,12 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
     drops one level and relies on the intercept to carry the baseline, so an
     included Categorical predictor makes the intercept effectively required.
 
-    * **Gray** whenever an included Categorical predictor is present — the
-      toggle is required-here and reads as locked-on even while (correctly)
-      TRUE.
+    * **Hidden (font matches the cell's own INPUT_COLOR fill)** whenever an
+      included Categorical predictor is present — the toggle is
+      required-here and reads as locked-on even while (correctly) TRUE.
     * **Red** when the toggle is nonetheless set FALSE in that state — the
       invalid combination, flagged not forced. Added first with StopIfTrue so
-      it outranks the gray rule on the same cell.
+      it outranks the hide rule on the same cell.
     """
     val(sheet, _INTERCEPT_ROW, _C_LABEL, "Intercept")
     bold(sheet, _INTERCEPT_ROW, _C_LABEL)
@@ -1057,12 +1101,14 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
         font_color=CF_DARK_RED_TEXT,
         stop_if_true=True,
     )
-    # Gray: required-here signal, applies even while the toggle is still TRUE.
+    # Required-here signal, applies even while the toggle is still TRUE.
+    # C2 is format_input-colored, so hide-in-place uses INPUT_COLOR (same
+    # idiom as the spec block's cascading-relevance rules).
     add_expression_format(
         sheet,
         toggle,
         f"={cat_included}",
-        font_color=MUTED_TEXT_COLOR,
+        font_color=INPUT_COLOR,
     )
 
 
@@ -1211,8 +1257,8 @@ def write_model_construction_sheet(
     section_heading(sheet, 1, _C_LABEL, "Model Construction")
 
     # The spec block must run before the names are registered: it creates
-    # the structured table (SpecTable) at B3:L26, which the Spec_* band
-    # names bind to via SpecTable[[#Data],[Column]] references — Excel
+    # the structured table (SpecTable), which the Spec_* band names bind
+    # to via SpecTable[[#Data],[Column]] references — Excel
     # validates the RefersTo at registration time.
     _write_spec_block(sheet)
     _set_sheet_scoped_names(sheet, closures)

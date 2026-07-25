@@ -37,8 +37,8 @@ _EXPECTED_T0_NAMES = (
     "Horsepower",
     "Weight",
     *(f"Model Year: {year}" for year in range(71, 83)),
-    "Origin: 2",
-    "Origin: 3",
+    "Origin: Europe",
+    "Origin: US",
 )
 
 
@@ -91,17 +91,17 @@ def test_t0_expectations_pin_the_xlsx_derived_values(rows, t0_expected) -> None:
     assert t0_expected.first_filtered_response == 18
     assert t0_expected.level_counts == {"Model Year": 13, "Origin": 3}
     # References in effect, surfaced even when defaulted: first sorted
-    # masked level (numbers before text; both Model Year and Origin are
-    # numeric-valued, so the lowest value wins in each).
-    assert t0_expected.references_in_use == {"Model Year": 70, "Origin": 1}
+    # masked level (Model Year is numeric so lowest wins; Origin is now
+    # text-valued so the first alphabetical level — "Asia" — wins).
+    assert t0_expected.references_in_use == {"Model Year": 70, "Origin": "Asia"}
     assert t0_expected.degenerate_categoricals == ()
     assert len(rows) == t0_expected.total_rows
 
 
 def test_t0_constructed_names_are_level_qualified_in_spec_order(t0_expected) -> None:
     # 2 included continuous predictors, then 12 Model Year dummies (reference
-    # 70 dropped), then 2 Origin dummies (reference 1 dropped) — in spec/table
-    # order — 16 names, matching audit k.
+    # 70 dropped), then 2 Origin dummies (reference "Asia" dropped) — in
+    # spec/table order — 16 names, matching audit k.
     assert t0_expected.constructed_column_names == _EXPECTED_T0_NAMES
     assert len(t0_expected.constructed_column_names) == t0_expected.k
 
@@ -115,19 +115,19 @@ def test_stratifying_filter_degenerates_origin(rows) -> None:
         SpecVariable("Is_USA", _ROLE_FILTER, False, "Continuous")
     ]
     mutated = [
-        {**row, "Is_USA": 1 if row["Origin"] == 1 else 0}
+        {**row, "Is_USA": 1 if row["Origin"] == "US" else 0}
         for row in rows
     ]
     expected = calculate_model_construction_expectations(spec, mutated)
 
     # Full_Data ships as Omit, so the only Filter is Is_USA: the mask is
-    # completeness-on-the-model's-predictors AND Origin = 1 (USA) → 245.
+    # completeness-on-the-model's-predictors AND Origin = "US" → 245.
     assert expected.included_rows == 245
     assert expected.degenerate_categoricals == ("Origin",)
     assert expected.level_counts == {"Model Year": 13, "Origin": 1}
     # Inside the stratified mask the only Origin level left IS the default
     # reference — the display still shows it while H=1 flags degeneracy.
-    assert expected.references_in_use == {"Model Year": 70, "Origin": 1}
+    assert expected.references_in_use == {"Model Year": 70, "Origin": "US"}
     # Origin is skipped, not errored: zero contributed columns, everything
     # else still constructed — 2 continuous + 12 Model Year dummies.
     assert expected.k == 14

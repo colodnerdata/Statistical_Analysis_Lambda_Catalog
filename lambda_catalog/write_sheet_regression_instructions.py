@@ -158,14 +158,18 @@ _ROWS: list[tuple[int, str, str | None]] = [
         20,
         (
             "Enter a value for each design-matrix column in the orange cells under "
-            "PREDICTION INPUTS (column AC) — one row per constructed column, "
+            "PREDICTION INPUTS (column AH) — one row per constructed column, "
             "including one per dummy (use 1 for the scenario's level, 0 for its "
-            "siblings). The Training Mean column beside the inputs shows each "
+            "siblings; no Intercept row — the model's own baseline is handled "
+            "automatically). The Training Mean column beside the inputs shows each "
             "column's mean over the analysis sample, which is also the prefilled "
-            "default — so the untouched prediction is at the data's center and the "
-            "SE prediction equals the SE of the regression. Results appear in the "
-            "PREDICTION OUTPUTS box above; the confidence level is controlled by "
-            "the Alpha cell (T12) in REGRESSION OUTPUTS."
+            "default — so the untouched prediction is at the data's center. Results "
+            "appear in the PREDICTION OUTPUTS box above as both a mean-response "
+            "confidence interval (CI) and a wider new-observation prediction "
+            "interval (PI); the confidence level is controlled by the Alpha cell "
+            "(Y12) in REGRESSION OUTPUTS. If a Fixed Effects variable is declared, "
+            "the FE Group cell above the inputs selects which group's own average "
+            "the prediction is anchored to."
         ),
         "body",
     ),

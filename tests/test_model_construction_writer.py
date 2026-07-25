@@ -94,6 +94,7 @@ _EXPECTED_NAME_ORDER = [
     "Sequence_Column",
     "Fixed_Effects_Column",
     "Absorbed_Degrees_Of_Freedom",
+    "Prediction_Group_Column",
     "y_s",
     "X_s_Within",
     "Serial_Correlation_Group",

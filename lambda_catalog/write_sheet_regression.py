@@ -31,11 +31,13 @@ single ungrouped GAP column so the zones collapse independently; see the
                    Alpha input (Y12), ANOVA Table (rows 13–17, X–AC),
                    Coefficients (rows 19+, X–AE), Beta Weights (AE)
   Col AF         — thin gap (width 2, ungrouped)
-  Col AG–AI      — Prediction Outputs: Prediction Interval (AG1:AH8, boxed),
-                   Prediction Inputs (AG10+, one row per constructed column),
-                   Training Mean spill (AI13 — the single X_s() evaluation
-                   the orange AH prefills INDEX into; owns column AI downward
-                   so it can never collide with another spill)
+  Col AG–AI      — Prediction Outputs: Prediction Interval (AG1:AH14, boxed —
+                   point/CI/PI rows 3-11, FE Group selector + ybar_i/T_i
+                   readouts rows 12-14), Prediction Inputs (AG16+, one row
+                   per constructed column, no Intercept row), Training Mean
+                   spill (AI19 — the single X_s() evaluation the orange AH
+                   prefills INDEX into; owns column AI downward so it can
+                   never collide with another spill)
   Col AJ         — thin gap (width 2, ungrouped)
   Col AK–AV      — Residual Output: heading + Row_Labels() identifiers in AK;
                    10 diagnostics columns (AL–AU), plus AV gutter; spills downward from row 3
@@ -198,7 +200,7 @@ _C_AV = 48  # wrap-text bound for row-2 header strip (no own column)
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
-_PRED_INPUT_FIRST_ROW = 13
+_PRED_INPUT_FIRST_ROW = 19
 _PRED_INPUT_LAST_ROW = 62
 _FORMAT_BAND_LAST_ROW = 62
 
@@ -998,30 +1000,41 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
 
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
-    """Zone AG1:AH8: boxed prediction interval output."""
+    """Zone AG1:AH14: boxed prediction interval output, plus the FE group
+    selector and its group-mean/count readouts.
+
+    v2.1 Fixed Effects group-mean recovery (DECISIONS.md "FE point
+    prediction" / "prediction interval"): rebuilt from the v2.0 single-CI
+    6-row block into 9 rows surfacing BOTH a mean-response CI and a
+    new-observation PI (same center, same t-critical, differing by one
+    variance term), via Group_Prediction_Interval — the group-mean-recovery
+    sibling of Prediction_Interval. With no Fixed Effects row declared,
+    Prediction_Group_Column() degenerates to a constant "(all)" group and
+    this collapses EXACTLY to the old Prediction_Interval() numbers (verified
+    in tests/test_group_prediction_interval.py to floating-point precision) —
+    the "build it once" property the whole v2.1 FE design relies on.
+    """
     section_heading(sheet, 1, _C_AG, "PREDICTION OUTPUTS")
     val(sheet, 2, _C_AG, "PREDICTION INTERVAL")
     bold(sheet, 2, _C_AG)
     for row, label in [
         (3, "Point Estimate"),
-        (4, "SE Prediction"),
-        (5, "t Critical"),
-        (6, "Lower 95%"),
-        (7, "Upper 95%"),
-        (8, "Confidence Level"),
+        (4, "SE (Mean)"),
+        (5, "SE (New Obs)"),
+        (6, "t Critical"),
+        (7, "CI Lower"),
+        (8, "CI Upper"),
+        (9, "PI Lower"),
+        (10, "PI Upper"),
+        (11, "Confidence Level"),
     ]:
         val(sheet, row, _C_AG, label)
-    # Zero_Predictors_Selected() branch computes the closed-form single-mean
-    # prediction interval instead of feeding a fabricated first-predictor
-    # input into Prediction_Interval(); NA() when there is nothing to fit.
-    # The live branch takes exactly COLUMNS(X_s_Within()) input rows — the
-    # inputs correspond 1:1 to constructed columns, so no Include-filter is
-    # needed. Fit-time X_s_Within()/y_s() so this reads the SAME model as the
-    # Coefficients block above — under FE, pred_input is still raw covariate
-    # values (COLUMNS(X_s_Within())==COLUMNS(X_s()) by contract, so this is a
-    # width no-op today), which is not yet a well-formed FE prediction; the
-    # group-mean recovery form and group-selection input replace this whole
-    # zone once that machinery lands.
+    # Zero_Predictors_Selected() branch: the closed-form intercept-only
+    # model, now split into its own mean-CI (S/sqrt(n)) and new-obs-PI
+    # (S*sqrt(1+1/n)) the same way the live branch does; NA() when nothing
+    # is fit. The live branch takes exactly COLUMNS(X_s()) raw predictor
+    # values — no intercept slot, since group-mean recovery never uses one
+    # (the selected group's own mean plays that role).
     f(
         sheet,
         3,
@@ -1029,35 +1042,88 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         "=IF(Zero_Predictors_Selected(),"
         "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),"
         "LET(point,Intercept_Only_Point(),"
-        "se_pred,Intercept_Only_S()*SQRT(1+1/Intercept_Only_N()),"
+        "se_mean,Intercept_Only_S()/SQRT(Intercept_Only_N()),"
+        "se_new,Intercept_Only_S()*SQRT(1+1/Intercept_Only_N()),"
         "t_crit,T.INV.2T(alpha,Intercept_Only_DF()),"
-        "VSTACK(point,se_pred,t_crit,point-t_crit*se_pred,point+t_crit*se_pred,1-alpha)),"
+        "VSTACK(point,se_mean,se_new,t_crit,"
+        "point-t_crit*se_mean,point+t_crit*se_mean,"
+        "point-t_crit*se_new,point+t_crit*se_new,1-alpha)),"
         "NA()),"
-        f"LET(pred_input,VSTACK($AH$12,"
-        f"TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s_Within()))),"
-        "Prediction_Interval(X_s_Within(),y_s(),pred_input,Allow_Intercept,"
+        f"LET(pred_input,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s())),"
+        "Group_Prediction_Interval(X_s(),Response_Column(),pred_input,"
+        "Prediction_Group_Column(),$AH$12,Allow_Intercept,"
         "Sample_Include(),alpha,Absorbed_Degrees_Of_Freedom())))",
     )
-    sheet.range(rc(3, _C_AH), rc(8, _C_AH)).number_format = "0.0000"
-    border_box(sheet, 1, _C_AG, 8, _C_AH)
+    sheet.range(rc(3, _C_AH), rc(11, _C_AH)).number_format = "0.0000"
+
+    # FE Group selector (row 12): computed-with-override, the same
+    # reference-level pattern as the Categorical Reference Level (E) —
+    # pre-filled with the alphabetically-first observed group (which is
+    # always the "(all)" sentinel itself when no Fixed Effects row is
+    # declared, since Prediction_Group_Column() is constant in that state),
+    # and directly editable to any other observed group. Red CF flags a
+    # typed value that is not among the observed groups.
+    val(sheet, 12, _C_AG, "FE Group")
+    f(
+        sheet,
+        12,
+        _C_AH,
+        "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Sample_Include()))),1,1)",
+    )
+    format_input(sheet, 12, _C_AH)
+    fe_group_cell = f"${col_letter(_C_AH)}$12"
+    add_expression_format(
+        sheet,
+        fe_group_cell,
+        f"=ISNA(MATCH({fe_group_cell},Prediction_Group_Column(),0))",
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # Group Mean (y) / Group Count (rows 13-14): the ȳᵢ / Tᵢ readouts
+    # DECISIONS.md calls for, computed on the selected group directly via
+    # Group_Mean_At / Group_Count_At — the same primitives
+    # Group_Prediction_Interval uses internally, so these never disagree
+    # with what the interval above actually used.
+    val(sheet, 13, _C_AG, "Group Mean (y)")
+    f(
+        sheet,
+        13,
+        _C_AH,
+        "=Group_Mean_At(Response_Column(),Prediction_Group_Column(),$AH$12,Sample_Include())",
+    )
+    val(sheet, 14, _C_AG, "Group Count")
+    f(
+        sheet,
+        14,
+        _C_AH,
+        "=Group_Count_At(Prediction_Group_Column(),$AH$12,Sample_Include())",
+    )
+    sheet.range(rc(13, _C_AH), rc(13, _C_AH)).number_format = "0.0000"
+    sheet.range(rc(14, _C_AH), rc(14, _C_AH)).number_format = "0"
+
+    border_box(sheet, 1, _C_AG, 14, _C_AH)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
-    """Zone AG10+: one prediction-input row per constructed column."""
-    section_heading(sheet, 10, _C_AG, "PREDICTION INPUTS")
-    val(sheet, 11, _C_AG, "Predictor")
-    val(sheet, 11, _C_AH, "Prediction Value")
-    bold_row(sheet, 11, _C_AG, _C_AI)
+    """Zone AG16+: one prediction-input row per constructed column.
 
-    # Row 12: intercept (auto-set, still orange to show it's a value)
-    val(sheet, 12, _C_AG, "Intercept")
-    f(sheet, 12, _C_AH, "=IF(Allow_Intercept,1,0)")
-    format_input(sheet, 12, _C_AH)
+    No Intercept row here (unlike the pre-v2.1 layout): Group_Prediction_Interval's
+    pred_input is exactly COLUMNS(X_s()) raw predictor values with no
+    intercept slot — group-mean recovery never uses one (the selected
+    group's own mean plays that role) — so the row that used to hold it
+    would be actively misleading now. Row 18 is a blank spacer between the
+    headers and the first predictor row.
+    """
+    section_heading(sheet, 16, _C_AG, "PREDICTION INPUTS")
+    val(sheet, 17, _C_AG, "Predictor")
+    val(sheet, 17, _C_AH, "Prediction Value")
+    bold_row(sheet, 17, _C_AG, _C_AI)
 
-    # AG13: spill formula — level-qualified names, one per constructed column
+    # AG19: spill formula — level-qualified names, one per constructed column
     f(sheet, _PRED_INPUT_FIRST_ROW, _C_AG, "=TRANSPOSE(Constructed_Column_Names())")
 
-    # AI13: the Training Mean column — per-column means of the filtered design
+    # AI19: the Training Mean column — per-column means of the filtered design
     # matrix, computed with a SINGLE X_s() evaluation. X_s() is a full
     # design-matrix construction on every call (Excel does not cache LAMBDA
     # results), so this spill is the one place the means are computed; the
@@ -1069,7 +1135,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # with another spill.
     # Degrades to "" on an empty model, which the prefill guard reads as a
     # one-row spill holding a blank.
-    val(sheet, 11, _C_AI, "Training Mean")
+    val(sheet, 17, _C_AI, "Training Mean")
     means_anchor = f"$AI${_PRED_INPUT_FIRST_ROW}"
     f(
         sheet,
@@ -1081,7 +1147,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
         ),
     )
 
-    # AH13:AH62 — the Training Mean of each constructed column, individually
+    # AH19:AH62 — the Training Mean of each constructed column, individually
     # overridable. Each row guards on its position against the means-spill
     # height so rows beyond the live constructed width render blank (the
     # width is spec-dependent — 19 on the default WHO spec). Cheap spill

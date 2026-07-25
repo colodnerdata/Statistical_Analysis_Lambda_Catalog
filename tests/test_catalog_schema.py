@@ -495,6 +495,8 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 "Sequence_Column",
                 "Fixed_Effects_Column",
                 "Absorbed_Degrees_Of_Freedom",
+                "y_s",
+                "X_s_Within",
                 "Serial_Correlation_Group",
                 "Sequence_Deltas",
                 "Base_Period_Delta_Candidate",

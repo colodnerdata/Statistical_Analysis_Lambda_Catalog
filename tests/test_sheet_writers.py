@@ -197,8 +197,8 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     assert "IFERROR" not in formula
     # Inputs correspond 1:1 to constructed columns — TAKE exactly k rows,
     # no Include-filter needed.
-    assert "LET(pred_input,VSTACK($AH$12,TAKE($AH$13:$AH$62,COLUMNS(X_s())))" in formula
-    assert "Prediction_Interval(X_s(),Response_Column(),pred_input" in formula
+    assert "LET(pred_input,VSTACK($AH$12,TAKE($AH$13:$AH$62,COLUMNS(X_s_Within())))" in formula
+    assert "Prediction_Interval(X_s_Within(),y_s(),pred_input" in formula
     assert "Intercept_Only_Point()" in formula
 
 
@@ -240,7 +240,7 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     coefficient_formula = _formula(sheet, 21, _C_Y)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
-    assert "Coefficients(X_s(),Response_Column(),Allow_Intercept,Sample_Include())" in coefficient_formula
+    assert "Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())" in coefficient_formula
 
     se_formula = _formula(sheet, 21, _C_Z)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
@@ -280,16 +280,16 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # The diagnostics columns shift one slot right of the identifiers column.
     assert sheet.cell(2, _C_AL).value == "Y"
     assert sheet.cell(3, _C_AL).api.Formula2 == (
-        "=Dependent_Variable(Response_Column(),Sample_Include())"
+        "=Dependent_Variable(y_s(),Sample_Include())"
     )
     assert sheet.cell(3, _C_AN).api.Formula2 == (
-        "=Residuals(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+        "=Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"
     )
     assert sheet.cell(3, _C_AO).api.Formula2 == (
-        "=Hat_Diagonal(X_s(),Allow_Intercept,Sample_Include())"
+        "=Hat_Diagonal(X_s_Within(),Allow_Intercept,Sample_Include())"
     )
     assert sheet.cell(3, _C_AU).api.Formula2 == (
-        "=LOOCV_Residual(X_s(),Response_Column(),Allow_Intercept,Sample_Include())"
+        "=LOOCV_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"
     )
 
 
@@ -355,7 +355,7 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
     # Serial_Correlation_Group() (the grouping-key resolver, the single
     # retargeting point), never the FE column accessor directly.
     assert (
-        "BFN_Panel_Durbin_Watson(X_s(),Response_Column(),"
+        "BFN_Panel_Durbin_Watson(X_s_Within(),y_s(),"
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
         "Allow_Intercept,Sample_Include())"
     ) in bfn_formula

@@ -2966,6 +2966,34 @@
       "notes": "One-way FE df correction: G−1 via COLUMNS(Dummy_Levels(...)) on the FE column, 0 when no FE row exists or the FE variable is degenerate. Default 0 keeps every no-FE model bit-identical. Two-way absorption deferred to v2.7+."
     },
     {
+      "name": "y_s",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       Response_Column(),\n       Demean_By(Response_Column(), Fixed_Effects_Column(), Sample_Include())\n    )\n))",
+      "arguments": [],
+      "yields": "The fit-time Response: Response_Column() unchanged when no Fixed Effects row is declared, or its one-way within-transformed (group-demeaned) form when one is; full height.",
+      "description": "y_s is the fit-time Response for the Regression sheet — the v2.1 Fixed Effects counterpart to X_s on the predictor side. With no declared Fixed Effects row it is Response_Column() unchanged (the entire v2.0 shipped surface passes through untouched); with one declared, it is Demean_By(Response_Column(), Fixed_Effects_Column(), Sample_Include()) — the one-way within transformation that lets ordinary OLS on the demeaned data reproduce the LSDV (dummy-per-group) fit without materializing G−1 group dummy columns.\n\nShipped as a NEW function, deliberately not a replacement of Response_Column() at its existing call sites: Response_Column() keeps its raw-response consumers that are unrelated to this fit (Intercept_Only_Point/S/SE/N, the zero-predictor closed-form branch). The Residual Output table's Y column is repointed to y_s() too, not left raw — under FE the whole row-level table (Y, Predicted Y, Residuals, Hat Diagonal, …) must read as one internally consistent block in the same fit space, or Residuals would visibly fail to match Y − Predicted Y. Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, and everything built from them) is repointed to y_s() — a caller-side choice, not a change to what Response_Column() means.\n\nThe no-FE branch is checked first and returns the exact same object Response_Column() would — not merely a numerically-equal recomputation — so every existing no-FE model is unaffected by construction, the same non-breaking-default property Absorbed_Degrees_Of_Freedom relies on for the df side.",
+      "plain_language_summary": "The response the model actually fits: unchanged with no Fixed Effects, or with each group's average subtracted out when a Fixed Effects variable is declared.",
+      "notes": "Fit-time Response: Response_Column() unchanged (no FE), else Demean_By(Response_Column(),Fixed_Effects_Column(),Sample_Include()). New function — the zero-predictor Intercept_Only_* branch stays on raw Response_Column()."
+    },
+    {
+      "name": "X_s_Within",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       X_s(),\n       LET(\n           fe,  Fixed_Effects_Column(),\n           inc, Sample_Include(),\n           BYCOL(X_s(), LAMBDA(col, Demean_By(col, fe, inc)))\n       )\n    )\n))",
+      "arguments": [],
+      "yields": "The fit-time design matrix: X_s() unchanged when no Fixed Effects row is declared, or each of its columns one-way within-transformed (group-demeaned) when one is; full height, same width as X_s().",
+      "description": "X_s_Within is the fit-time design matrix for the Regression sheet — the predictor-side counterpart to y_s. With no declared Fixed Effects row it is X_s() unchanged; with one declared, BYCOL demeans every constructed column of X_s() by the Fixed Effects group via Demean_By, reproducing the LSDV fit's coefficients on the non-FE predictors without ever materializing the G−1 group dummy columns an explicit one-hot encoding would require.\n\nShipped as a NEW function alongside y_s, for the identical reason: X_s() has raw-predictor consumers that must not see demeaned values — the Predictor Summary zone (Pearson_R, Spearman_R, Skewness, Kurtosis, GVIF, Generalized_Tolerance) characterizes each predictor's own distribution, and Constructed_Column_Names() labels columns positionally against X_s(), not X_s_Within(). Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, Hat_Diagonal, Cooks_Distance, and everything built from them) is repointed to X_s_Within() — repointing which columns those formulas READ, not a change to what X_s() itself returns.\n\nThe no-FE branch returns X_s() itself, unchanged, so every existing no-FE model is unaffected by construction — including its error behavior: a zero-predictor spec that makes X_s() itself error propagates through X_s_Within() identically, never masked.",
+      "plain_language_summary": "The design matrix the model actually fits: unchanged with no Fixed Effects, or with each predictor column's group average subtracted out when a Fixed Effects variable is declared.",
+      "notes": "Fit-time design matrix: X_s() unchanged (no FE), else each column demeaned by Fixed_Effects_Column() via Demean_By (BYCOL). New function — Predictor Summary and Constructed_Column_Names() stay on raw X_s()."
+    },
+    {
       "name": "Serial_Correlation_Group",
       "test_table": null,
       "category": "Model Construction",

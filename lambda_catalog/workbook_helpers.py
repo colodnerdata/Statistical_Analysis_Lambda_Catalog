@@ -162,8 +162,9 @@ def copy_static_sheet(workbook: xw.Book, template_path: Path, sheet_name: str) -
     an already-styled sheet via Excel's own ``Copy`` is far cheaper than
     reconstructing every cell with COM calls on each build, and keeps the
     content itself in one editable place — the template workbook — rather
-    than a Python row list. ``template_path`` and ``workbook`` must be open
-    in the same running Excel instance for the cross-workbook copy to work.
+    than a Python row list. ``workbook`` must be open in a running Excel
+    instance; the template is opened in that same instance (or reused if
+    already open there) for the cross-workbook copy to work.
 
     Parameters
     ----------
@@ -185,11 +186,37 @@ def copy_static_sheet(workbook: xw.Book, template_path: Path, sheet_name: str) -
             sheet.delete()
             break
 
-    template_book = workbook.app.books.open(str(template_path))
+    app = workbook.app
+    resolved_template_path = template_path.resolve()
+
+    # Reuse the template if it's already open in this Excel instance (e.g. a
+    # developer editing it by hand) so this helper only closes what it opened
+    # — closing someone else's open workbook out from under them would be a
+    # surprising side effect of what looks like a read-only copy operation.
+    template_book = None
+    for book in app.books:
+        try:
+            if Path(book.fullname).resolve() == resolved_template_path:
+                template_book = book
+                break
+        except OPEN_WORKBOOK_ERRORS:
+            continue
+
+    opened_here = template_book is None
+    if opened_here:
+        try:
+            template_book = app.books.open(str(resolved_template_path))
+        except OPEN_WORKBOOK_ERRORS as exc:
+            # Attribute the failure to the template, not `workbook` — a
+            # missing/locked/corrupt template would otherwise surface as a
+            # misleading error about the (perfectly fine) target workbook.
+            raise_excel_access_error(resolved_template_path, "open", exc)
+
     try:
         template_book.sheets[sheet_name].api.Copy(After=workbook.sheets[-1].api)
     finally:
-        template_book.close()
+        if opened_here:
+            template_book.close()
 
     return workbook.sheets[sheet_name]
 

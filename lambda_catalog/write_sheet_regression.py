@@ -1184,6 +1184,13 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # (joined Identifier columns, or positional Obs. n labels).
     val(sheet, 2, _C_AK, "Observation")
 
+    # Every one of these columns is fit off X_s_Within()/y_s(), so once a
+    # Fixed Effects row is declared they hold within-demeaned quantities, not
+    # the raw response — the header must say so or the table reads as if
+    # "Y" - "Predicted Y" silently stopped equaling "Residuals" (see the
+    # comment above the AL formula below). Each header is an IF conditional
+    # on the same FE-count gate the DW/BFN trigger cells use, so the label
+    # flips the moment a spec declares (or removes) a Fixed Effects variable.
     for col, header in zip(
         [_C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS, _C_AT, _C_AU],
         [
@@ -1193,7 +1200,10 @@ def _write_residuals(sheet: xw.Sheet) -> None:
             "Scale-Location", "PRESS Residual",
         ],
     ):
-        val(sheet, 2, col, header)
+        f(
+            sheet, 2, col,
+            f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header} (Within)","{header}")',
+        )
     bold_row(sheet, 2, _C_AK, _C_AU)
 
     # AK3: row labels — the spec-derived Row_Labels() filtered to the sample.

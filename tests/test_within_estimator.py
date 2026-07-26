@@ -145,10 +145,15 @@ def test_y_s_no_fe_branch_returns_response_column_unchanged() -> None:
     assert "Demean_By(Response_Column(),Fixed_Effects_Column(),Sample_Include())" in formula
 
 
-def test_x_s_within_no_fe_branch_returns_x_s_unchanged_and_uses_bycol() -> None:
+def test_x_s_within_no_fe_branch_returns_x_s_unchanged_and_uses_reduce_hstack() -> None:
+    # BYCOL cannot return a per-call array (Demean_By returns a column), so
+    # the FE branch builds the demeaned matrix column-by-column via the same
+    # REDUCE+HSTACK pattern X_s() itself uses, not BYCOL.
     formula = _formula("X_s_Within")
     assert "IF(NOT(fe_active),X_s()," in formula
-    assert "BYCOL(X_s(),LAMBDA(col,Demean_By(col,fe,inc)))" in formula
+    assert "BYCOL" not in formula
+    assert "REDUCE(seed,SEQUENCE(n_x),LAMBDA(acc,j,HSTACK(acc,Demean_By(INDEX(xs,0,j),fe,inc))))" in formula
+    assert "DROP(built,,1)" in formula
 
 
 def test_y_s_and_x_s_within_are_registered_after_their_dependencies() -> None:

@@ -1401,6 +1401,7 @@ def _write_grid_stage(
         rc(body_row_start, body_col_start),
         rc(body_row_end, body_col_end),
     )
+    _drop_wb_name(sheet, body_name)
     drop_local_name(sheet, body_name)
     sheet.api.Names.Add(
         Name=body_name,

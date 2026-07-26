@@ -263,6 +263,10 @@ lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
   auto_mpg_data.xlsx         # Auto MPG dataset (second sample dataset, "Mileage Data" sheet)
+templates/
+  static_sheets.xlsx         # pre-built copies of dataset-independent reference sheets
+                              # (Regression Instructions, Diagnostic Guide) — see
+                              # "Static reference sheets" below
 lambda_catalog/
   catalog_schema.py          # typed document model: CatalogArgument, CatalogFunction, CatalogDocument
   regression_shared.py       # shared regression dataclasses: RegressionSummary, RegressionVectors, etc.
@@ -326,6 +330,19 @@ python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
 ```
 
 Exception: `write_sheet_mileage_data.py` has **no** standalone CLI — its source is a fixed committed sample file (`sample_data/auto_mpg_data.xlsx`), so it is only ever invoked through `build_production.py` / `build_qc.py`, never point-at-a-different-file. Its loader (`load_mileage_rows`) reads that xlsx directly via `zipfile` + `lxml`, with no Excel dependency, so the Python QC oracle (`analyze_mileage.calculate_mileage_completeness_flags`) can run on any platform.
+
+### Static reference sheets
+
+`write_sheet_regression_instructions.py` and `write_sheet_diagnostic_guide.py` write sheets whose content never depends on the target dataset — a fixed how-to guide and a fixed diagnostics reference. Rebuilding hundreds of styled cells with COM calls for unchanging text on every production/QC build is wasted work, so these two modules instead copy an already-styled sheet out of `templates/static_sheets.xlsx` via `workbook_helpers.copy_static_sheet` (Excel's native `Sheet.Copy` between two workbooks open in the same Excel instance — not an openpyxl round-trip; see CLAUDE.md's "Use xlwings COM API for all chart creation — never openpyxl" for why openpyxl is unsafe for anything Excel-native like this). `write_regression_instructions_sheet(workbook)` / `write_diagnostic_guide_sheet(workbook)` keep their original call signature, so `build_production.py` / `build_qc.py` and their tests are unaffected.
+
+The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but it is only ever executed by that module's own CLI, which rebuilds the sheet inside `templates/static_sheets.xlsx` and nothing else:
+
+```powershell
+python -m lambda_catalog.write_sheet_regression_instructions
+python -m lambda_catalog.write_sheet_diagnostic_guide
+```
+
+After editing either sheet's content, run its CLI and commit the updated `templates/static_sheets.xlsx` alongside the Python change.
 
 ## Adding a new LAMBDA function
 

@@ -154,6 +154,46 @@ def reset_generated_sheet(sheet: xw.Sheet) -> None:
     sheet.api.Cells.Clear()
 
 
+def copy_static_sheet(workbook: xw.Book, template_path: Path, sheet_name: str) -> xw.Sheet:
+    """Replace ``sheet_name`` in ``workbook`` with a copy from a static template.
+
+    For reference/documentation sheets whose content never depends on the
+    target dataset (e.g. Regression Instructions, Diagnostic Guide), copying
+    an already-styled sheet via Excel's own ``Copy`` is far cheaper than
+    reconstructing every cell with COM calls on each build, and keeps the
+    content itself in one editable place — the template workbook — rather
+    than a Python row list. ``template_path`` and ``workbook`` must be open
+    in the same running Excel instance for the cross-workbook copy to work.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open target workbook.
+    template_path : Path
+        Path to the ``.xlsx`` template holding the source sheet.
+    sheet_name : str
+        Name of the sheet to copy from the template. Any existing sheet of
+        the same name in ``workbook`` is deleted first.
+
+    Returns
+    -------
+    xw.Sheet
+        The freshly copied sheet, now part of ``workbook``.
+    """
+    for sheet in list(workbook.sheets):
+        if sheet.name == sheet_name:
+            sheet.delete()
+            break
+
+    template_book = workbook.app.books.open(str(template_path))
+    try:
+        template_book.sheets[sheet_name].api.Copy(After=workbook.sheets[-1].api)
+    finally:
+        template_book.close()
+
+    return workbook.sheets[sheet_name]
+
+
 def reset_column_groups(sheet: xw.Sheet) -> None:
     """Remove existing column outlines and ensure all columns are visible.
 

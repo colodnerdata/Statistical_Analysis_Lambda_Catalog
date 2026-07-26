@@ -312,7 +312,12 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
         "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
-    assert sheet.cell(2, _C_AL).value == "Y"
+    # Headers are IF conditionals on the FE-count gate: plain label with no
+    # Fixed Effects row declared, a "(Within)" suffix once one is.
+    header_formula = sheet.cell(2, _C_AL).api.Formula2
+    assert header_formula is not None
+    assert '"Y (Within)"' in header_formula
+    assert header_formula.endswith(',"Y")')
     assert sheet.cell(3, _C_AL).api.Formula2 == (
         "=Dependent_Variable(y_s(),Sample_Include())"
     )

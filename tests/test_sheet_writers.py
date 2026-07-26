@@ -318,6 +318,12 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     assert header_formula is not None
     assert '"Y (Within)"' in header_formula
     assert header_formula.endswith(',"Y")')
+    # Lock in the gate itself — the same FE-role count detector the DW/BFN
+    # trigger cells use — so an always-true/false or unrelated condition
+    # would not satisfy this test.
+    assert "Spec_Role" in header_formula
+    assert '"Fixed Effects"' in header_formula
+    assert header_formula.startswith("=IF(SUMPRODUCT(N(TAKE(Spec_Role,")
     assert sheet.cell(3, _C_AL).api.Formula2 == (
         "=Dependent_Variable(y_s(),Sample_Include())"
     )

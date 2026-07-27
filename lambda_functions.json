@@ -2791,6 +2791,30 @@
       "notes": "Kolmogorov-Smirnov D = max|F_n(xᵢ) − F(xᵢ)|. Maximum deviation between empirical and fitted CDFs. Lower = better."
     },
     {
+      "name": "Ln_Positive",
+      "test_table": null,
+      "category": "Data Transformation",
+      "subcategory": "Location & Scale",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(x, [include],\n    LET(\n        x_v, TOCOL(IF(x = \"\", \"\", x), 0),\n        inc, IF(ISOMITTED(include), ISNUMBER(x_v), include * 1),\n        pos, IFERROR(ISNUMBER(x_v) * (x_v > 0), FALSE),\n        IF(inc = 0, \"\", IF(pos, LN(x_v), NA()))\n    )\n)",
+      "arguments": [
+        {
+          "name": "x",
+          "description": "single-column numeric data range to transform",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted, all numeric rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to x: LN(x) for an included, strictly-positive numeric value; #N/A for an included value that is zero, negative, or non-numeric; \"\" on excluded rows.",
+      "description": "Ln_Positive returns the natural log of x, restricted to strictly positive numeric input. It is the primitive behind the Regression sheet's Transform = Log spec option (column G): the model spec block's Response_Column(), X_s(), and Constructed_Column_Names() all call this function when a row declares Log, so every log-transformed column in the workbook shares one implementation.\n\nThe row-mask contract matches every other transform in the catalog (Demean_By, Dummy_Code): an excluded row returns \"\" so a spilled array stays row-aligned with its source, exactly the same as a row this function was never asked about. An included row that cannot be logged — zero, negative, or non-numeric — returns #N/A, not a blank. This follows the library's recorded NA()-exception convention (the same one Lag_By/Difference_By use for a first period or a panel gap): \"\" means \"this row isn't part of the sample\"; #N/A means \"this row is part of the sample and the requested computation is genuinely undefined for it.\" A non-positive value under a declared Log transform is exactly that — a modeling error that must surface loudly (a visible #N/A the fit can't quietly absorb into a MMULT), never a silent blank that degrades the whole design matrix without explanation.\n\nWhen include is omitted, the default mask is ISNUMBER(x) — the same default every other row-masked transform in the catalog uses when the caller doesn't supply one explicitly.",
+      "plain_language_summary": "Natural log of x, restricted to strictly positive values — zero/negative/non-numeric input on an included row is a visible #N/A, not a silent blank.",
+      "notes": "LN(x) for strictly positive numeric input. Excluded row -> \"\". Included but non-positive/non-numeric -> #N/A (the NA()-exception convention: \"\" means excluded, #N/A means included-but-incomputable). Backs the Regression sheet's Transform = Log option."
+    },
+    {
       "name": "Dummy_Levels",
       "test_table": "Dummy_Test",
       "category": "Data Transformation",
@@ -3104,12 +3128,12 @@
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
       "number_format": "General",
-      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),INDEX(Source_Data,0,XMATCH(\"Response (y)\",rl))))",
+      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),trn,TAKE(Spec_Transform,n_c),p,XMATCH(\"Response (y)\",rl),col,INDEX(Source_Data,0,p),IF(INDEX(trn,p)=\"Log\",Ln_Positive(col,Sample_Include()),col)))",
       "arguments": [],
-      "yields": "The single Role=Response data column, full height; #N/A when no row is declared Response.",
-      "description": "Sheet-scoped derived response for the Model Construction sheet. Returns the data column of the first spec row whose Role is Response, via XMATCH over the trimmed role vector. Full-height; consumers wrap it in IFERROR to absorb the no-Response and multiple-Response states, which the audit strip's responses count flags separately.",
-      "plain_language_summary": "The y column — whichever variable is marked Response in the spec.",
-      "notes": "Derived y for the Model Construction sheet: the data column of the first Role=Response spec row. #N/A when none is declared; the audit strip flags zero or multiple responses."
+      "yields": "The single Role=Response data column, full height; #N/A when no row is declared Response. When that row's Transform is Log, every value is Ln_Positive(value) instead of the raw value.",
+      "description": "Sheet-scoped derived response for the Model Construction sheet. Returns the data column of the first spec row whose Role is Response, via XMATCH over the trimmed role vector, then applies Ln_Positive to it when that row's Transform (spec column G) is Log. Full-height; consumers wrap it in IFERROR to absorb the no-Response and multiple-Response states, which the audit strip's responses count flags separately.\n\nThe transform is applied here — inside the accessor itself — rather than via a separate wrapper, so every existing consumer (Intercept_Only_Point/S, Pearson_R/Spearman_R, Durbin_Watson_By, Group_Prediction_Interval, Group_Mean_At, and y_s()) automatically fits in log space the instant Log is declared, with no call-site changes. This differs from the v2.1 FE precedent (y_s() wraps Response_Column() rather than modifying it) because FE demeaning has genuine raw-response consumers (the zero-predictor Intercept_Only_* branch needs the undemeaned response to fit its own intercept); a declared Transform has none — every consumer of the response wants it in the space the model spec declares. No Type gate is applied on the Response row: Type (column D) is itself hidden-in-place on Response rows by the spec block's own cascading conditional formatting, so gating on an invisible cell would be a trap; Ln_Positive's own #N/A-on-non-numeric behavior is the only guard needed.",
+      "plain_language_summary": "The y column — whichever variable is marked Response in the spec, natural-logged first if that row's Transform is Log.",
+      "notes": "Derived y for the Model Construction sheet: the data column of the first Role=Response spec row, Ln_Positive-transformed in place when that row's Transform is Log. #N/A when none is declared; the audit strip flags zero or multiple responses."
     },
     {
       "name": "Row_Labels",
@@ -3132,12 +3156,12 @@
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
       "number_format": "General",
-      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),seed,SEQUENCE(ROWS(Source_Data),1,0,0),built,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(col,INDEX(Source_Data,0,j),IF(INDEX(typ,j)<>\"Categorical\",HSTACK(acc,col),LET(d,INDEX(refs,j),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,--(col=lv))))))))),DROP(built,,1)))",
+      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),trn,TAKE(Spec_Transform,n_c),seed,SEQUENCE(ROWS(Source_Data),1,0,0),built,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(col,INDEX(Source_Data,0,j),IF(INDEX(typ,j)<>\"Categorical\",HSTACK(acc,IF(INDEX(trn,j)=\"Log\",Ln_Positive(col,Sample_Include()),col)),LET(d,INDEX(refs,j),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,--(col=lv))))))))),DROP(built,,1)))",
       "arguments": [],
-      "yields": "The constructed design matrix in spec order: continuous predictors passed through, categoricals reference-dropped one-hot; full height.",
-      "description": "Sheet-scoped design-matrix constructor for the Model Construction sheet. A REDUCE assembles columns in spec order for rows where Role=Predictor and Include=TRUE: a Continuous predictor is passed through as its raw column; a Categorical predictor is encoded as --(col = retained_levels), where Dummy_Levels supplies the mask-scoped, reference-dropped level set (bound once; its #N/A on a degenerate or invalid-reference column is the single skip signal, so the variable contributes nothing rather than erroring the sheet). Reads Sample_Include only to fix categorical level sets; the output is always full-height (the row-mask contract). The retained-levels broadcast is inlined, never LET-bound, to avoid an eager empty-array error. The degenerate skip tests ISNA(INDEX(lv,1,1)), a scalar: lv is a 1x(L-1) row, and an array ISNA condition in front of a wider HSTACK branch broadcasts to #N/A, so the guard must be scalarized.",
-      "plain_language_summary": "The design matrix built from the spec — continuous columns as-is, categorical columns turned into reference-dropped dummies.",
-      "notes": "Design matrix for the Model Construction sheet, spec order: continuous predictors raw, categoricals reference-dropped one-hot via Dummy_Levels. Reads the mask only to fix level sets; full-height, degenerate categoricals skipped."
+      "yields": "The constructed design matrix in spec order: continuous predictors passed through (Ln_Positive-transformed when that row's Transform is Log), categoricals reference-dropped one-hot (Transform ignored — see the spec block's red flag for a Categorical row with Log set); full height.",
+      "description": "Sheet-scoped design-matrix constructor for the Model Construction sheet. A REDUCE assembles columns in spec order for rows where Role=Predictor and Include=TRUE: a Continuous predictor is passed through as its raw column — or Ln_Positive(column) when that row's Transform (spec column G) is Log — and a Categorical predictor is encoded as --(col = retained_levels), where Dummy_Levels supplies the mask-scoped, reference-dropped level set (bound once; its #N/A on a degenerate or invalid-reference column is the single skip signal, so the variable contributes nothing rather than erroring the sheet). The Categorical branch never reads Transform: Log on a Categorical Predictor is disallowed and flagged red on the sheet rather than silently applied (the Log wiring never touches dummy-coded columns). Reads Sample_Include only to fix categorical level sets and to gate the Log transform's row mask; the output is always full-height (the row-mask contract). The retained-levels broadcast is inlined, never LET-bound, to avoid an eager empty-array error. The degenerate skip tests ISNA(INDEX(lv,1,1)), a scalar: lv is a 1x(L-1) row, and an array ISNA condition in front of a wider HSTACK branch broadcasts to #N/A, so the guard must be scalarized.",
+      "plain_language_summary": "The design matrix built from the spec — continuous columns as-is (or natural-logged), categorical columns turned into reference-dropped dummies (never logged).",
+      "notes": "Design matrix for the Model Construction sheet, spec order: continuous predictors raw or Ln_Positive-transformed per Transform=Log; categoricals reference-dropped one-hot via Dummy_Levels (Transform ignored). Full-height; degenerate categoricals skipped."
     },
     {
       "name": "Constructed_Column_Names",
@@ -3146,12 +3170,26 @@
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
       "number_format": "General",
-      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),hdrs,TOROW(Header_Names),built,REDUCE(\"\",SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(h,INDEX(hdrs,1,j),IF(INDEX(typ,j)<>\"Categorical\",HSTACK(acc,h),LET(col,INDEX(Source_Data,0,j),d,INDEX(refs,j),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,h&\": \"&lv)))))))),DROP(built,,1)))",
+      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),trn,TAKE(Spec_Transform,n_c),hdrs,TOROW(Header_Names),built,REDUCE(\"\",SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(h,INDEX(hdrs,1,j),IF(INDEX(typ,j)<>\"Categorical\",HSTACK(acc,IF(INDEX(trn,j)=\"Log\",\"Ln(\"&h&\")\",h)),LET(col,INDEX(Source_Data,0,j),d,INDEX(refs,j),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,h&\": \"&lv)))))))),DROP(built,,1)))",
       "arguments": [],
-      "yields": "Horizontal header row of level-qualified names for X_s(); always the same width as COLUMNS(X_s()).",
-      "description": "Sheet-scoped header strip for the Model Construction sheet: the structural twin of X_s. Same iteration, same Predictor-AND-Include predicate, same Dummy_Levels skip conditions, emitting a name per contributed column — the bare header for a Continuous predictor, 'Header: level' for each retained Categorical level. Twinning guarantees the header width always equals COLUMNS(X_s()); QC asserts the two never diverge. The degenerate skip tests ISNA(INDEX(lv,1,1)), a scalar: lv is a 1x(L-1) row, and an array ISNA condition in front of a wider HSTACK branch broadcasts to #N/A, so the guard must be scalarized.",
-      "plain_language_summary": "The column headings for the design matrix — like 'Status: Developing' or 'Year: 2001', one per X_s column.",
-      "notes": "Header strip for the Model Construction design matrix: level-qualified names ('Status: Developing', 'Year: 2001'). Structural twin of X_s — width always equals COLUMNS(X_s())."
+      "yields": "Horizontal header row of level-qualified names for X_s(); always the same width as COLUMNS(X_s()). A Continuous predictor's name is relabelled 'Ln(name)' when that row's Transform is Log.",
+      "description": "Sheet-scoped header strip for the Model Construction sheet: the structural twin of X_s. Same iteration, same Predictor-AND-Include predicate, same Dummy_Levels skip conditions, emitting a name per contributed column — the bare header for a Continuous predictor (or 'Ln(header)' when that row's Transform is Log), 'Header: level' for each retained Categorical level (never relabelled — Log is disallowed on Categorical). Twinning guarantees the header width always equals COLUMNS(X_s()); QC asserts the two never diverge. The degenerate skip tests ISNA(INDEX(lv,1,1)), a scalar: lv is a 1x(L-1) row, and an array ISNA condition in front of a wider HSTACK branch broadcasts to #N/A, so the guard must be scalarized.",
+      "plain_language_summary": "The column headings for the design matrix — like 'Status: Developing', 'Year: 2001', or 'Ln(Weight)' for a logged predictor — one per X_s column.",
+      "notes": "Header strip for the Model Construction design matrix: level-qualified names ('Status: Developing', 'Year: 2001'), or 'Ln(name)' for a Log-transformed Continuous predictor. Structural twin of X_s — width always equals COLUMNS(X_s())."
+    },
+    {
+      "name": "Constructed_Column_Transforms",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),trn,TAKE(Spec_Transform,n_c),built,REDUCE(\"\",SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(t,IF(INDEX(trn,j)=\"Log\",\"Log\",\"None\"),IF(INDEX(typ,j)<>\"Categorical\",HSTACK(acc,t),LET(col,INDEX(Source_Data,0,j),d,INDEX(refs,j),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,EXPAND(\"None\",1,COLUMNS(lv),\"None\"))))))))),DROP(built,,1)))",
+      "arguments": [],
+      "yields": "Horizontal row of per-column Transform flags ('Log' or 'None') aligned to X_s(); always the same width as COLUMNS(X_s()). Every dummy column contributed by a Categorical Predictor reads 'None', regardless of that row's own Transform cell.",
+      "description": "Sheet-scoped Transform-flag strip for the Model Construction sheet: the third structural twin of X_s and Constructed_Column_Names (same iteration, same Predictor-AND-Include predicate, same Dummy_Levels skip conditions). Where Constructed_Column_Names answers 'what is this constructed column called', this answers 'was this constructed column logged' — one flag per column, in constructed-column space rather than spec-row space.\n\nThat distinction is the whole reason this function exists rather than a caller reading Spec_Transform directly: a Categorical Predictor contributes a variable number of dummy columns (Dummy_Levels' retained-level count, not one column per spec row), so a spec-row-indexed Transform vector cannot align with X_s()'s output. This closure re-derives the flag in the constructed column's own space — a Continuous column reads 'Log' or 'None' from its row's Transform cell; every dummy column from a Categorical Predictor reads 'None' unconditionally (EXPAND'd across the retained-level width), because Log is disallowed on Categorical Predictors and must never leak into the design matrix even if the cell happens to hold 'Log' (flagged red on the sheet, but still computationally inert here).\n\nConsumed by the Prediction Inputs band (write_sheet_regression.py) to decide, per predictor, whether the user-typed raw prediction value needs Ln_Positive applied before it reaches Group_Prediction_Interval, and to compute the Training Mean spill in the same (possibly logged) space X_s() itself uses. The retained-levels EXPAND is inlined, never LET-bound, for the same eager-empty-array reason X_s()'s own dummy branch inlines its broadcast.",
+      "plain_language_summary": "Which constructed columns are natural-logged ('Log') versus untouched ('None') — one flag per X_s() column, with every dummy column from a Categorical Predictor always 'None'.",
+      "notes": "Per-constructed-column Transform flags (Log/None), aligned to X_s() (twin of X_s/Constructed_Column_Names). Categorical dummy columns always read None regardless of their spec row Transform cell. Feeds Prediction Inputs auto-log and Training Mean."
     },
     {
       "name": "Sequence_Column",
@@ -3331,12 +3369,13 @@
     "Lower 95%": "The lower bound of the 95% confidence interval.",
     "Upper 95%": "The upper bound of the 95% confidence interval.",
     "Beta Weight": "The coefficient after standardizing units, so predictors can be compared on the same scale.",
-    "Point Estimate": "The model's single best predicted Y value for the inputs you entered.",
+    "Point Estimate": "The model's single best predicted Y value for the inputs you entered. When the Response's Transform is Log, this is in log space — it is not back-transformed to the response's original units.",
     "SE Prediction": "The standard error for a new prediction. It reflects both model uncertainty and ordinary row-to-row noise.",
     "t Critical": "The t-distribution cutoff at the chosen confidence level. Multiply by SE Prediction to get the prediction interval half-width.",
     "Confidence Level": "The probability level associated with the interval. With alpha 0.05, this is 95%.",
     "Y": "The actual observed outcome values.",
-    "Predicted Y": "The fitted outcome values produced by the model.",
+    "Predicted Y": "The fitted outcome values produced by the model. When the Response's Transform is Log, this is in log space — it is not back-transformed to the response's original units.",
+    "Training Mean": "Per-column average of the fitted design matrix, expressed in the units you type into Prediction Value. For a Log-transformed predictor this is the geometric mean (EXP of the log-space average), so leaving the default in place puts the prediction exactly at the model's own centroid.",
     "Residuals": "Actual Y minus predicted Y. Positive means the row came in above the model's prediction; negative means below.",
     "Hat Diagonal": "Leverage. It shows how unusual a row's predictor values are relative to the rest of the data.",
     "Studentized Residuals": "Residuals scaled to account for overall error size and leverage, making outliers easier to compare fairly.",

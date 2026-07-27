@@ -91,6 +91,7 @@ _EXPECTED_NAME_ORDER = [
     "Row_Labels",
     "X_s",
     "Constructed_Column_Names",
+    "Constructed_Column_Transforms",
     "Sequence_Column",
     "Fixed_Effects_Column",
     "Absorbed_Degrees_Of_Freedom",
@@ -276,13 +277,15 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
         assert sheet.cell(1, col).api.Formula2 is None
 
 
-def test_spec_block_column_widths_hide_reserved_columns() -> None:
+def test_spec_block_column_widths_hide_the_reserved_order_column() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _set_spec_block_column_widths(_as_xw_sheet(sheet))
 
     assert sheet.range((1, _C_LABEL), (1, _C_LABEL)).column_width == 28
     assert sheet.range((1, _C_ORDER), (1, _C_ORDER)).column_width == 0
-    assert sheet.range((1, _C_TRANSFORM), (1, _C_TRANSFORM)).column_width == 0
+    # G (Transform) went live at v2.2 — it gets a real width now, matching
+    # _C_TYPE's (both hold comparably-sized dropdown tokens).
+    assert sheet.range((1, _C_TRANSFORM), (1, _C_TRANSFORM)).column_width == 11
     assert sheet.range((1, _C_REF_IN_USE), (1, _C_REF_IN_USE)).column_width == 16
 
 
@@ -307,44 +310,90 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     # Full-height sentinel seed, dropped at the end (the row-mask contract).
     assert "seed,SEQUENCE(ROWS(Source_Data),1,0,0)" in x_s
     assert x_s.endswith("DROP(built,,1)))")
+    # v2.2 Log wiring: a Continuous column is Ln_Positive-transformed when
+    # its row's Transform is Log; the Categorical branch never reads trn.
+    assert "trn,TAKE(Spec_Transform,n_c)" in x_s
+    assert 'HSTACK(acc,IF(INDEX(trn,j)="Log",Ln_Positive(col,Sample_Include()),col))' in x_s
 
 
 def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     sheet = _named_sheet()
     x_s = _refers_to(sheet, "X_s")
     names = _refers_to(sheet, "Constructed_Column_Names")
+    transforms = _refers_to(sheet, "Constructed_Column_Transforms")
 
     # Identical iteration predicate and skip conditions — twinning is what
-    # guarantees the header strip width always matches COLUMNS(X_s()).
+    # guarantees the header strip and transform-flag widths always match
+    # COLUMNS(X_s()). Three-way twin since v2.2's Log wiring added
+    # Constructed_Column_Transforms alongside X_s/Constructed_Column_Names.
     predicate = 'IF(OR(INDEX(rl,j)<>"Predictor (x)",INDEX(inc,j)<>TRUE),acc,'
     assert predicate in x_s
     assert predicate in names
+    assert predicate in transforms
     assert 'lv,Dummy_Levels(col,r,Sample_Include())' in names
     assert names.count("Dummy_Levels(") == 1
+    assert 'lv,Dummy_Levels(col,r,Sample_Include())' in transforms
+    assert transforms.count("Dummy_Levels(") == 1
     # Same scalar skip guard as X_s (the twin must match).
     assert "IF(ISNA(INDEX(lv,1,1)),acc," in names
     assert "IF(ISNA(lv)," not in names
-    # Level-qualified headers: "Status: Developing", "Year: 2001", ...
+    assert "IF(ISNA(INDEX(lv,1,1)),acc," in transforms
+    assert "IF(ISNA(lv)," not in transforms
+    # Level-qualified headers: "Status: Developing", "Year: 2001", ... —
+    # relabelled "Ln(header)" for a Log-transformed Continuous predictor.
     assert 'HSTACK(acc,h&": "&lv)' in names
+    assert 'trn,TAKE(Spec_Transform,n_c)' in names
+    assert 'HSTACK(acc,IF(INDEX(trn,j)="Log","Ln("&h&")",h))' in names
     assert names.endswith("DROP(built,,1)))")
+    # Constructed_Column_Transforms: "Log"/"None" per Continuous column;
+    # every dummy column from a Categorical Predictor reads "None"
+    # unconditionally, regardless of its spec row's own Transform cell.
+    assert 't,IF(INDEX(trn,j)="Log","Log","None")' in transforms
+    assert 'HSTACK(acc,EXPAND("None",1,COLUMNS(lv),"None"))' in transforms
+    assert transforms.endswith("DROP(built,,1)))")
 
 
-def test_reserved_spec_names_are_defined_but_read_by_nothing() -> None:
-    # F (Order) and G (Transform) remain reserved. I (Base Period Δ) went
-    # live with the base-period release and has its own reader tests below.
+def test_reserved_spec_order_is_defined_but_read_by_nothing() -> None:
+    # F (Order) remains reserved. G (Transform) went live at v2.2 — see
+    # test_spec_transform_is_read_only_by_the_transform_aware_constructors
+    # for its (positive) counterpart. I (Base Period Δ) went live with the
+    # base-period release and has its own reader tests below.
     sheet = _named_sheet()
     _write_all_zones(sheet)
 
-    for reserved in ("Spec_Order", "Spec_Transform"):
-        readers = [
-            item.Name
-            for item in sheet.api.Names.items
-            if reserved in item.RefersTo
-            and item.Name.split("!", 1)[-1] != reserved
-        ]
-        assert readers == [], reserved
-        for formula in _all_written_formulas(sheet):
-            assert reserved not in formula, (reserved, formula)
+    reserved = "Spec_Order"
+    readers = [
+        item.Name
+        for item in sheet.api.Names.items
+        if reserved in item.RefersTo
+        and item.Name.split("!", 1)[-1] != reserved
+    ]
+    assert readers == [], reserved
+    for formula in _all_written_formulas(sheet):
+        assert reserved not in formula, (reserved, formula)
+
+
+def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> None:
+    # Confirm-by-construction property, preserved rather than merely
+    # relaxed when G went live: Spec_Transform is read by exactly the four
+    # constructors the Log wiring touches, and by nothing else — in
+    # particular NOT by Sample_Include or Row_Labels, which never
+    # transform anything.
+    sheet = _named_sheet()
+    readers = sorted(
+        item.Name.split("!", 1)[-1]
+        for item in sheet.api.Names.items
+        if "Spec_Transform" in item.RefersTo
+        and item.Name.split("!", 1)[-1] != "Spec_Transform"
+    )
+    assert readers == [
+        "Constructed_Column_Names",
+        "Constructed_Column_Transforms",
+        "Response_Column",
+        "X_s",
+    ]
+    for non_reader in ("Sample_Include", "Row_Labels"):
+        assert "Spec_Transform" not in _refers_to(sheet, non_reader), non_reader
 
 
 def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
@@ -396,7 +445,11 @@ def test_sequence_period_name_is_read_only_by_the_base_period_layer() -> None:
     assert formula_readers == []
 
 
-def test_reserved_spec_names_are_not_referenced_repo_wide() -> None:
+def test_reserved_spec_order_is_not_referenced_repo_wide() -> None:
+    # Spec_Transform is deliberately excluded here now that it's live —
+    # it legitimately appears in lambda_functions.json (the four
+    # transform-aware constructors) and in write_sheet_regression.py's
+    # note-swap import.
     own_module = "write_sheet_model_construction.py"
     sources = [
         path
@@ -407,7 +460,6 @@ def test_reserved_spec_names_are_not_referenced_repo_wide() -> None:
     for path in sources:
         text = path.read_text(encoding="utf-8")
         assert "Spec_Order" not in text, path.name
-        assert "Spec_Transform" not in text, path.name
 
 
 def test_every_name_and_formula_string_is_balanced() -> None:
@@ -536,7 +588,7 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
         ((r, 2), (16000, 2)),  # B Role
         ((r, 3), (16000, 3)),  # C Include
         ((r, 4), (16000, 4)),  # D Type
-        ((r, 7), (16000, 7)),  # G Transform (reserved; only "None" valid)
+        ((r, 7), (16000, 7)),  # G Transform (None or Log, live at v2.2)
         ((r, 8), (16000, 8)),  # H Sequence (TRUE or blank)
     }
     formulas = {
@@ -546,7 +598,7 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
     assert formulas[2] == "Response (y),Predictor (x),Identifier (Row Label),Filter,Omit,Fixed Effects"
     assert formulas[3] == "TRUE,FALSE"
     assert formulas[4] == "Continuous,Categorical"
-    assert formulas[7] == "None"
+    assert formulas[7] == "None,Log"
     assert formulas[8] == "TRUE"
     for validation in validated.values():
         assert validation.delete_count == 1
@@ -560,17 +612,31 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
 
     r = _FIRST_DATA_ROW
     off = _FIRST_DATA_ROW - 1
-    # Role-keyed relevance: the per-Predictor inputs (C–G) hide behind their
+    # Role-keyed relevance: the per-Predictor inputs (C–F) hide behind their
     # own INPUT_COLOR fill, the Categorical displays (K–L) hide behind
     # white (unfilled computed cells); H–J are deliberately NOT in these
     # bands. Every range runs out to _VALIDATION_LAST_ROW so a row added by
     # typing past SpecTable's current bottom edge (auto-extending the
     # ListObject) is already covered.
     role_keyed_input = sheet.range(
-        f"$C${r}:$G${_VALIDATION_LAST_ROW}"
+        f"$C${r}:$F${_VALIDATION_LAST_ROW}"
     ).api.FormatConditions.items
     assert [c.Formula1 for c in role_keyed_input] == [f'=$B{r}<>"Predictor (x)"']
     assert role_keyed_input[0].Font.Color == excel_color(INPUT_COLOR)
+
+    # G (Transform) is relevant on Predictor OR Response rows (unlike C–F,
+    # Predictor-only) — its own cascading-relevance rule, plus a red flag
+    # for the disallowed Categorical x Log combination.
+    transform_col = sheet.range(
+        f"$G${r}:$G${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
+    assert [c.Formula1 for c in transform_col] == [
+        f'=AND($B{r}<>"Predictor (x)",$B{r}<>"Response (y)")',
+        f'=AND($B{r}="Predictor (x)",$D{r}="Categorical",$G{r}="Log")',
+    ]
+    assert transform_col[0].Font.Color == excel_color(INPUT_COLOR)
+    assert transform_col[1].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert transform_col[1].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
     role_keyed_computed = sheet.range(
         f"$K${r}:$L${_VALIDATION_LAST_ROW}"
@@ -825,8 +891,10 @@ def test_intercept_control_is_a_toggle_with_coupling_cf() -> None:
 
 
 _RESPONSE_NAME = (
-    'IFERROR(INDEX(TOROW(Header_Names),'
-    'XMATCH("Response (y)",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
+    "LET(n_c,COLUMNS(Source_Data),"
+    'p,XMATCH("Response (y)",TAKE(Spec_Role,n_c)),'
+    "h,INDEX(TOROW(Header_Names),p),"
+    'IFERROR(IF(INDEX(TAKE(Spec_Transform,n_c),p)="Log","Ln("&h&")",h),"(none)"))'
 )
 
 

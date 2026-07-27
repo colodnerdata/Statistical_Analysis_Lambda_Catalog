@@ -11,6 +11,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 from typing import Any
@@ -35,6 +36,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_REFERENCE as _C_SPEC_REFERENCE,
     _C_ROLE as _C_SPEC_ROLE,
     _C_SEQUENCE as _C_SPEC_SEQUENCE,
+    _C_TRANSFORM as _C_SPEC_TRANSFORM,
     _C_TYPE as _C_SPEC_TYPE,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
     _INTERCEPT_ROW,
@@ -196,6 +198,7 @@ def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
             _C_SPEC_TYPE,
             _C_SPEC_REFERENCE,
             _C_SPEC_SEQUENCE,
+            _C_SPEC_TRANSFORM,
         ):
             sheet.range(row, col).clear_contents()
 
@@ -206,11 +209,13 @@ def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
         sheet.range(row, _C_SPEC_TYPE).value = variable.var_type
         sheet.range(row, _C_SPEC_REFERENCE).value = variable.reference
         sheet.range(row, _C_SPEC_SEQUENCE).value = variable.sequence
+        sheet.range(row, _C_SPEC_TRANSFORM).value = variable.transform
 
 
 def _set_pred_inputs(
     sheet: xw.Sheet,
     pred_input_values: tuple[float, ...],
+    constructed_column_transforms: tuple[str, ...],
 ) -> None:
     """Write prediction inputs to AH13.., one per constructed column.
 
@@ -218,11 +223,22 @@ def _set_pred_inputs(
     identical to the config's column order — so values are written
     positionally. The rest of the guarded prefill band is cleared so a
     previous config's values cannot linger.
+
+    ``pred_input_values`` is the mean of each x_features column, which for
+    a Log-transformed column is already in log space (build_spec_design's
+    transform math logs the source values before this mean is taken). The
+    sheet's AH cells are raw-value inputs (the row-3 prediction formula
+    applies Ln_Positive itself, matching the confirmed UX — a user types
+    the real-world value, never ln(x)), so a logged column's mean must be
+    EXP'd back to input space here — the harness-side mirror of the AI19
+    Training Mean spill's own geometric-mean fix in write_sheet_regression.py.
     """
     sheet.range(
         (_ROW_PRED_INPUT_FIRST, _C_AH), (_ROW_PRED_INPUT_LAST, _C_AH)
     ).clear_contents()
     for i, value in enumerate(pred_input_values):
+        if constructed_column_transforms[i] == "Log":
+            value = math.exp(value)
         sheet.range(_ROW_PRED_INPUT_FIRST + i, _C_AH).value = value
 
 
@@ -310,7 +326,9 @@ def read_regression_df(
             # Set source-table fixture columns, full spec, and prediction inputs.
             _apply_extra_columns(data_sheet, expected, all_extra_names)
             _apply_spec_case(sheet, expected)
-            _set_pred_inputs(sheet, pi.pred_input_values)
+            _set_pred_inputs(
+                sheet, pi.pred_input_values, expected.design.constructed_column_transforms
+            )
             # Recalculate only the Regression sheet after changing the visible
             # inputs. A full dependency-graph rebuild here pulls in the entire
             # workbook for every QC config and can take several minutes.

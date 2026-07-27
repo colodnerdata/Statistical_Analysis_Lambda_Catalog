@@ -492,6 +492,7 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 "Row_Labels",
                 "X_s",
                 "Constructed_Column_Names",
+                "Constructed_Column_Transforms",
                 "Sequence_Column",
                 "Fixed_Effects_Column",
                 "Absorbed_Degrees_Of_Freedom",

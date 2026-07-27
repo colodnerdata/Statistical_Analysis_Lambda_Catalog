@@ -196,8 +196,14 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     assert formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert "IFERROR" not in formula
     # Inputs correspond 1:1 to constructed columns — TAKE exactly k rows,
-    # no intercept slot (group-mean recovery never uses one).
-    assert f"LET(pred_input,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s()))," in formula
+    # no intercept slot (group-mean recovery never uses one). v2.2 Log
+    # wiring: whichever of those raw values belong to a Log-transformed
+    # column are Ln_Positive-transformed before the call, per the
+    # per-constructed-column flag from Constructed_Column_Transforms()
+    # (TRANSPOSE'd to match the AH band's column-vector shape).
+    assert f"LET(raw,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s()))," in formula
+    assert "trn,TRANSPOSE(Constructed_Column_Transforms())," in formula
+    assert 'pred_input,IF(trn="Log",Ln_Positive(raw),raw),' in formula
     assert (
         "Group_Prediction_Interval(X_s(),Response_Column(),pred_input,"
         "Prediction_Group_Column(),$AH$12,Allow_Intercept,"
@@ -246,9 +252,14 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # another spill when the source data or spec changes.
     assert sheet.cell(17, _C_AI).value == "Training Mean"
     means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AI)
+    # v2.2 Log wiring: a Log-transformed column's mean is EXP'd back to
+    # input space (the geometric mean) so the AH prefill — which just
+    # INDEXes this spill — doesn't get double-logged when the row-3
+    # prediction formula applies Ln_Positive to it.
     assert means == (
-        "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
-        'LAMBDA(c,AVERAGE(c)))),"")'
+        "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(X_s(),Sample_Include()),"
+        "LAMBDA(c,AVERAGE(c))),t,Constructed_Column_Transforms(),"
+        'IF(t="Log",EXP(m),m))),"")'
     )
 
     # Perf tripwire: X_s() is a full design-matrix construction on every
@@ -294,8 +305,11 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
     # Derived response name — the header of the Role=Response spec row.
     readout = sheet.cell(2, _C_AC).api.Formula2
     assert readout is not None
-    assert readout.startswith("=IFERROR(INDEX(TOROW(Header_Names),")
+    assert readout.startswith("=LET(n_c,COLUMNS(Source_Data),")
     assert 'XMATCH("Response (y)"' in readout
+    # v2.2 Log wiring: relabelled Ln(name) when the Response row's
+    # Transform is Log, so the readout never lies about what's fitted.
+    assert 'IF(INDEX(TAKE(Spec_Transform,n_c),p)="Log","Ln("&h&")",h)' in readout
     assert sheet.cell(2, _C_AC).api.Font.Bold is True
     assert sheet.cell(2, _C_AC).color == HEADER_COLOR
 
@@ -312,18 +326,34 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
         "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
-    # Headers are IF conditionals on the FE-count gate: plain label with no
-    # Fixed Effects row declared, a "(Within)" suffix once one is.
+    # Response-scale headers (Y, Predicted Y, Residuals, PRESS Residual) are
+    # nested IF conditionals on both the FE-count gate (a "(Within)" suffix)
+    # and the Response row's Transform (a "(Log)" suffix, v2.2) — plain
+    # label with neither, both suffixes when both apply.
     header_formula = sheet.cell(2, _C_AL).api.Formula2
     assert header_formula is not None
+    assert '"Y (Within, Log)"' in header_formula
     assert '"Y (Within)"' in header_formula
-    assert header_formula.endswith(',"Y")')
-    # Lock in the gate itself — the same FE-role count detector the DW/BFN
-    # trigger cells use — so an always-true/false or unrelated condition
-    # would not satisfy this test.
+    assert '"Y (Log)"' in header_formula
+    assert header_formula.endswith(',"Y")))')
+    # Lock in the gates themselves — the same FE-role count detector the
+    # DW/BFN trigger cells use, and the Response row's own Transform cell —
+    # so an always-true/false or unrelated condition would not satisfy this.
     assert "Spec_Role" in header_formula
     assert '"Fixed Effects"' in header_formula
-    assert header_formula.startswith("=IF(SUMPRODUCT(N(TAKE(Spec_Role,")
+    assert "Spec_Transform" in header_formula
+    assert '"Response (y)"' in header_formula
+    assert header_formula.startswith("=IF(AND(SUMPRODUCT(N(TAKE(Spec_Role,")
+
+    # A dimensionless diagnostic (Hat Diagonal) gets ONLY the FE suffix —
+    # it isn't in response units either way, so a Log-transformed response
+    # must not relabel it.
+    hat_header = sheet.cell(2, _C_AO).api.Formula2
+    assert hat_header == (
+        '=IF(SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))>0,'
+        '"Hat Diagonal (Within)","Hat Diagonal")'
+    )
+    assert "Spec_Transform" not in hat_header
     assert sheet.cell(3, _C_AL).api.Formula2 == (
         "=Dependent_Variable(y_s(),Sample_Include())"
     )

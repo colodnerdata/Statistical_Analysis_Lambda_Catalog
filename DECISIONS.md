@@ -565,7 +565,10 @@ additively (formula change) instead of with a second column-insertion.
 Worked examples: v2.0 shipped `Order` (F) and `Transform` (G) as
 reserved columns, unread by any formula; the v2.0 → v2.1 Sequence
 release added column H live; the v2.1 #1 release split the override
-mechanic into columns I and J. The function-side equivalent is a
+mechanic into columns I and J; the v2.2 Log wiring (see
+[DECISIONS.md § v2.2 Transform column wiring](#v22--transforms--unit-space-comparability))
+wired column G itself, the last of the two v2.0 reserved columns to go
+live — `Order` (F) remains reserved. The function-side equivalent is a
 dormant branch in a `SWITCH` returning a `RESERVED — vN+` token; the
 v2.6+ `Cluster` branch in `Serial_Correlation_Group()` is the worked
 example. The general pattern is in
@@ -623,6 +626,102 @@ step is not forgotten. Tracked in
 ---
 
 ## v2.2 — Transforms & Unit-Space Comparability
+
+### Transform column wiring — Log on Response and Continuous Predictors
+
+**Question:** how should spec column G (Transform) actually be read once
+it stops being reserved — where does the `Log` transform get applied, and
+what happens to the FE-demeaning wrappers, the Prediction Inputs band, and
+Categorical Predictors?
+
+**Resolution, in five parts:**
+
+1. **Modify `Response_Column()` and `X_s()` in place, rather than adding
+   `y_s()`-style wrappers.** Every existing consumer of `Response_Column()`
+   (the intercept-only fit, Pearson/Spearman R, `Durbin_Watson_By`,
+   `Group_Prediction_Interval`, `Group_Mean_At`, and `y_s()` itself) wants
+   log-space data the instant Log is declared — there is no consumer that
+   needs the untransformed value the way FE demeaning needed the
+   untransformed response (the zero-predictor `Intercept_Only_*` branch).
+   `X_s()`'s Continuous branch gets the same treatment; the Categorical
+   branch never reads `Spec_Transform` at all. A new twin,
+   `Constructed_Column_Transforms()`, gives the per-constructed-column
+   Log/None flag in the same "structural twin of `X_s`" pattern
+   `Constructed_Column_Names()` already uses — needed because a
+   Categorical Predictor contributes a variable number of dummy columns,
+   so a spec-row-indexed flag cannot align with `X_s()`'s output; every
+   dummy column reads `None` unconditionally.
+2. **Transform-then-demean composition order, unchanged code.** Because
+   (1) puts the Log transform inside `Response_Column()`/`X_s()`
+   themselves, `y_s()`/`X_s_Within()` (the v2.1 FE-demeaning wrappers)
+   need zero code changes — they automatically demean already-logged
+   values, which is the algebraically correct order for a log-linear
+   fixed-effects model (`ln(y_it) − mean_g(ln y)`; demeaning before
+   logging would take logs of negative numbers).
+3. **No `Type` gate on the Response row.** Type (column D) is itself
+   hidden-in-place on Response rows by the spec block's own cascading
+   conditional formatting (Predictor-only), so gating Log's application
+   on an invisible cell would be a trap. `Ln_Positive`'s own `NA()`-on-
+   non-numeric behavior is the only guard needed — see
+   [DECISIONS.md § v1.2 undersized-sample failure mode](#v12--workbook-hardening)
+   for the same "visible failure over silent one" precedent applied here.
+4. **Categorical Predictors: disallowed and flagged, not silently
+   ignored.** `Log` on a Categorical Predictor is computationally inert
+   (the Categorical branch of `X_s()`/`Constructed_Column_Transforms()`
+   never reads the flag) AND visibly wrong on the sheet — a red
+   conditional-format flag on column G, the same "flag red and instruct,
+   never silently switch" precedent the v2.0 Intercept×Categorical
+   decision established (see
+   [DECISIONS.md § v2.0 intercept coupling](#v20--specification-driven-regression)).
+   Silent inertness alone was rejected: a user who mistakenly sets Log on
+   a Categorical row deserves a visible correction signal, not a fit that
+   quietly ignores their spec.
+5. **Prediction Inputs band: raw value in, auto-logged internally.** The
+   user always types the real-world value (e.g. actual miles), never
+   ln(x) — the same convention a Categorical predictor already uses (a
+   raw level string, not a pre-encoded dummy vector) at prediction time.
+   This forced one non-obvious fix: the AH19:AH62 prefill cells `INDEX`
+   into the AI19 Training Mean spill, which is computed from `X_s()` and
+   therefore already log-space for a logged column — feeding that
+   straight through `Ln_Positive` a second time at prediction time would
+   silently double-log the default (`ln(ln(x))`), not merely leave it
+   unback-transformed. Fix: AI19 emits the **geometric mean**
+   (`EXP(mean(ln x))`) for a logged column instead of the arithmetic mean
+   of the already-logged values — exact and self-cancelling
+   (`Ln_Positive(EXP(mean(ln x))) = mean(ln x)`), so the default
+   prediction still lands precisely on `X_s()`'s own centroid, unchanged
+   from the pre-Log-transform behavior. The Python QC oracle mirrors this
+   exact split: `build_spec_design` logs the response/predictor values
+   directly, and `tools/inspect_regression_sheet.py`'s harness
+   `EXP`s a logged column's mean before writing it into AH, so the sheet
+   and the oracle agree on which space each input cell holds.
+
+**Explicit non-goals of this pass:** the unit-space GoF dispatcher
+(`Unit_Space_R_Squared` etc., below) and Duan's-smearing back-transformed
+predictions (below) are both separately resolved decisions, not
+implemented by this wiring — the model fits correctly in log space
+end-to-end, but in-sample "Predicted Y" and the prediction outputs are
+labelled `(Log)` rather than back-transformed to the response's original
+units. Both remain tracked in
+[TODOs.md § v2.2](TODOs.md#v22--transforms--the-standalone-transform-library).
+
+**Verification:** `tests/test_ln_positive_verification.py` (the
+primitive, pure-Python mirror + implementation-shape assertions);
+`tests/test_transform_threading.py` — the acceptance test cross-checks a
+new spec-driven QC case (`production_lots_log_transform`: `Cumulative_Units`
+and `Unit_Cost_BY` with `transform="Log"` declared) against the
+pre-existing `production_lots_fixed_effects` case, which points at
+`production_lots.xlsx`'s precomputed `"log Cum Units"`/`"log Unit Cost"`
+columns — a genuine Crawford/Wright learning-curve model
+(\(\ln(\text{unit cost}) = a + b \cdot \ln(\text{cumulative units})\)),
+composed with Fixed Effects. The two designs and every downstream
+statistic (coefficients, R², SE, residuals, the full CI+PI prediction
+block) agree to floating-point precision, confirming the Log wiring
+reproduces exactly what the precomputed-column workaround already
+delivered. Non-breaking by construction: default `Transform="None"`
+produces identical results to before this change (verified against the
+full existing spec-case suite, zero edits needed to any case's expected
+numbers).
 
 ### Unit-space dispatcher — `(model, response_transform, predictor_transform)`
 

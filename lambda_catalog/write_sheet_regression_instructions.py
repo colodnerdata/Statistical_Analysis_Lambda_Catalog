@@ -1,4 +1,12 @@
-"""Write the Regression Instructions sheet into the target workbook."""
+"""Write the Regression Instructions sheet into the target workbook.
+
+This sheet is a fixed, dataset-independent guide, so production/QC builds
+just copy the already-styled sheet out of ``TEMPLATE_PATH`` (see
+``copy_static_sheet``) instead of re-running the row-by-row COM writes on
+every build. ``_ROWS`` and ``_write_template_sheet`` remain the authored
+source of the content; run this module's CLI after editing ``_ROWS`` to
+regenerate the template, then commit the updated ``.xlsx``.
+"""
 from __future__ import annotations
 
 import argparse
@@ -9,6 +17,7 @@ import xlwings as xw
 from .sheet_styles import HEADER_COLOR as _HEADER_COLOR
 from .workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
+    copy_static_sheet,
     get_or_create_sheet,
     open_or_create_workbook,
     raise_excel_access_error,
@@ -18,6 +27,9 @@ from .workbook_helpers import (
 
 SHEET_NAME = "Regression Instructions"
 _COL_A_WIDTH = 110
+
+_ROOT_DIR = Path(__file__).resolve().parent.parent
+TEMPLATE_PATH = _ROOT_DIR / "templates" / "static_sheets.xlsx"
 
 # (row, text, style): style is "heading", "body", or None (empty spacer)
 _ROWS: list[tuple[int, str, str | None]] = [
@@ -176,13 +188,12 @@ _ROWS: list[tuple[int, str, str | None]] = [
 ]
 
 
-def write_regression_instructions_sheet(workbook: xw.Book) -> None:
-    """Write the ``Regression Instructions`` sheet into ``workbook``.
+def _write_template_sheet(workbook: xw.Book) -> None:
+    """(Re)build this sheet's content directly from ``_ROWS``.
 
-    A static, row-templated guide for retargeting the spec-driven Regression
-    sheet to a new dataset. Content (rows, text, and per-row style) is defined
-    by the module-level ``_ROWS`` list; this function creates or reuses the
-    sheet, applies column width and cell styles, and autofits row heights.
+    Used only to author ``TEMPLATE_PATH`` — production/QC builds never call
+    this; they call ``write_regression_instructions_sheet``, which copies the
+    sheet this function last wrote into the template.
     """
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
@@ -203,27 +214,49 @@ def write_regression_instructions_sheet(workbook: xw.Book) -> None:
     sheet.autofit("rows")
 
 
+def write_regression_instructions_sheet(workbook: xw.Book) -> None:
+    """Create or refresh the ``Regression Instructions`` sheet from the static template.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open xlwings workbook to receive the sheet.
+    """
+    copy_static_sheet(workbook, TEMPLATE_PATH, SHEET_NAME)
+
+
 def _main() -> None:
+    """Regenerate this sheet inside ``templates/static_sheets.xlsx``.
+
+    Run after editing ``_ROWS``, then commit the updated template file.
+    """
     parser = argparse.ArgumentParser(
-        description=f"Write the {SHEET_NAME!r} sheet into a workbook."
+        description=(
+            f"Rebuild the {SHEET_NAME!r} sheet inside the static template workbook."
+        )
     )
-    parser.add_argument("workbook", type=Path, help="Path to the target workbook.")
+    parser.add_argument(
+        "--template",
+        type=Path,
+        default=TEMPLATE_PATH,
+        help="Path to the static template workbook (default: templates/static_sheets.xlsx).",
+    )
     args = parser.parse_args()
 
-    workbook_path = args.workbook.resolve()
+    template_path = args.template.resolve()
     try:
         with xw.App(visible=True, add_book=False) as app:
-            workbook, _ = open_or_create_workbook(app, workbook_path)
+            workbook, _ = open_or_create_workbook(app, template_path)
             try:
-                write_regression_instructions_sheet(workbook)
-                workbook.save(str(workbook_path))
+                _write_template_sheet(workbook)
+                workbook.save(str(template_path))
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
-        raise_excel_access_error(workbook_path, "open or save", exc)
+        raise_excel_access_error(template_path, "open or save", exc)
 
-    print(f"Sheet updated: {SHEET_NAME}")
-    print(f"Workbook: {workbook_path}")
+    print(f"Template sheet updated: {SHEET_NAME}")
+    print(f"Template workbook: {template_path}")
 
 
 if __name__ == "__main__":

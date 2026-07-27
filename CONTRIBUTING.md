@@ -418,6 +418,8 @@ This starts one row below the column header (row 2) and extends exactly `$Y$8` r
 | `RegChartLeverage` | AO | Hat Diagonal |
 | `RegChartStudResid` | AP | Studentized Residuals |
 | `RegChartPRESSResid` | AU | PRESS Residual — the leave-one-out (LOOCV) residual; there is no separate "LOOCV Residual" column |
+| `RegChartCookDistFlag` | AV | Cook's Distance, `NA()`'d below both influence cutoffs (`D > 4/n` or `D > 0.9`) — feeds the Cook's Distance chart's data-label overlay series |
+| `RegChartObsLabel` | AK | Row identifier (Row_Labels()) — the flagged-point overlay series' `XValues`, so its data labels read as the observation identifier rather than a bare index |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 

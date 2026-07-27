@@ -39,8 +39,10 @@ single ungrouped GAP column so the zones collapse independently; see the
                    prefills INDEX into; owns column AI downward so it can
                    never collide with another spill)
   Col AJ         — thin gap (width 2, ungrouped)
-  Col AK–AV      — Residual Output: heading + Row_Labels() identifiers in AK;
-                   10 diagnostics columns (AL–AU), plus AV gutter; spills downward from row 3
+  Col AK–AW      — Residual Output: heading + Row_Labels() identifiers in AK;
+                   11 diagnostics columns (AL–AV, the last being the Cook's
+                   Distance flagged-point overlay feeding chart data labels),
+                   plus AW gutter; spills downward from row 3
 
 The spec block replaces the v1 A–B Model Selection zone (predictor toggles +
 Allow_Intercept in B2). Everything the v1 sheet hard-wired is now derived:
@@ -198,7 +200,8 @@ _C_AR = 44  # Normal Scores Ranked
 _C_AS = 45  # Studentized Residuals Ranked
 _C_AT = 46  # Scale-Location
 _C_AU = 47  # PRESS Residual
-_C_AV = 48  # wrap-text bound for row-2 header strip (no own column)
+_C_AV = 48  # Cook's Distance (Flagged) — chart data-label helper column
+_C_AW = 49  # non-content gutter column — wrap-text bound for row-2 header strip / diagnostic-chart anchor
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
@@ -218,7 +221,7 @@ _ZONES: tuple[tuple[int, int], ...] = (
     (_C_P, _C_V),                 # P:V  — Predictor Summary
     (_C_X, _C_AE),                # X:AE — Regression Outputs
     (_C_AG, _C_AI),               # AG:AI — Prediction Outputs
-    (_C_AK, _C_AU),               # AK:AU — Residual Output
+    (_C_AK, _C_AV),               # AK:AV — Residual Output
 )
 
 # The ungrouped gap columns (width 2) that separate the zones above. Derived as
@@ -242,6 +245,7 @@ _COLUMN_GROUPS: tuple[tuple[int, int], ...] = _ZONES
 _XL_XY_SCATTER = -4169       # Excel xlXYScatter
 _XL_XY_SCATTER_LINES_NO_MARKERS = 75  # Excel xlXYScatterLinesNoMarkers
 _XL_COLUMN_CLUSTERED = 51    # Excel xlColumnClustered
+_XL_LINE = 4                 # Excel xlLine
 _XL_CATEGORY = 1             # horizontal axis
 _XL_VALUE = 2                # vertical axis
 _CHART_WIDTH = 310.0         # points
@@ -368,6 +372,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         "studentized_ranked": f"AS3:AS{MAX_EXCEL_ROW}",
         "scale_location":     f"AT3:AT{MAX_EXCEL_ROW}",
         "press_residual":     f"AU3:AU{MAX_EXCEL_ROW}",
+        "cooks_flag":         f"AV3:AV{MAX_EXCEL_ROW}",
     }
 
     # Remove existing rules so repeated builds do not duplicate them.
@@ -422,25 +427,32 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
             font_color=CF_DARK_RED_TEXT,
         )
 
-    # ── Cook's distance ──────────────────────────────────────────────────────
-    # Y8 contains the number of observations, n.
-    # 4/n < D <= 0.9: light-yellow fill and dark-yellow text.
-    add_expression_format(
-        sheet,
-        addresses["cooks"],
-        "=AND(ISNUMBER(AQ3),AQ3>4/$Y$8,AQ3<=0.9)",
-        fill=CF_YELLOW_FILL,
-        font_color=CF_DARK_YELLOW_TEXT,
-    )
+    # ── Cook's distance (and its AV "Flagged" duplicate) ────────────────────
+    # Y8 contains the number of observations, n. AV mirrors AQ (NA() below
+    # both cutoffs), so the same two rules applied to AV just recolor
+    # whatever value AQ already produced there — kept visually consistent
+    # with the source column it duplicates.
+    for column, address in [
+        ("AQ", addresses["cooks"]),
+        ("AV", addresses["cooks_flag"]),
+    ]:
+        # 4/n < D <= 0.9: light-yellow fill and dark-yellow text.
+        add_expression_format(
+            sheet,
+            address,
+            f"=AND(ISNUMBER({column}3),{column}3>4/$Y$8,{column}3<=0.9)",
+            fill=CF_YELLOW_FILL,
+            font_color=CF_DARK_YELLOW_TEXT,
+        )
 
-    # D > 0.9: light-red fill and dark-red text.
-    add_expression_format(
-        sheet,
-        addresses["cooks"],
-        "=AND(ISNUMBER(AQ3),AQ3>0.9)",
-        fill=CF_LIGHT_RED_FILL,
-        font_color=CF_DARK_RED_TEXT,
-    )
+        # D > 0.9: light-red fill and dark-red text.
+        add_expression_format(
+            sheet,
+            address,
+            f"=AND(ISNUMBER({column}3),{column}3>0.9)",
+            fill=CF_LIGHT_RED_FILL,
+            font_color=CF_DARK_RED_TEXT,
+        )
 
     # ── Scale-Location: SQRT(|Studentized|) ─────────────────────────────────
     # SQRT(2) ≈ 1.414 corresponds to |Studentized| = 2.
@@ -670,6 +682,10 @@ def _setup_local_names(
          "Studentized Residuals vs. Leverage chart: Y values"),
         ("RegChartPRESSResid", col_letter(_C_AU),
          "PRESS Residuals chart: bar values"),
+        ("RegChartCookDistFlag", col_letter(_C_AV),
+         "Cook's Distance chart: flagged-point overlay for data labels (D > 4/n or D > 0.9)"),
+        ("RegChartObsLabel", col_letter(_C_AK),
+         "Cook's Distance chart: observation identifier for flagged-point data labels"),
     ]:
         drop_local_name(sheet, _name)
         _nm = sheet.api.Names.Add(
@@ -1204,7 +1220,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
 
 
 def _write_residuals(sheet: xw.Sheet) -> None:
-    """Residual diagnostic table — row identifiers + 10 diagnostics columns starting at AL."""
+    """Residual diagnostic table — row identifiers + 11 diagnostics columns starting at AL."""
     section_heading(sheet, 1, _C_AK, "RESIDUAL OUTPUT")
 
     # AK2: static header — Row_Labels() supplies its own per-row content
@@ -1232,12 +1248,12 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # suffix.
     response_scale_headers = {_C_AL, _C_AM, _C_AN, _C_AU}
     for col, header in zip(
-        [_C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS, _C_AT, _C_AU],
+        [_C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS, _C_AT, _C_AU, _C_AV],
         [
             "Y", "Predicted Y", "Residuals",
             "Hat Diagonal", "Studentized Residuals", "Cook's Distance",
             "Normal Scores Ranked", "Studentized Residuals Ranked",
-            "Scale-Location", "PRESS Residual",
+            "Scale-Location", "PRESS Residual", "Cook's Distance (Flagged)",
         ],
     ):
         if col in response_scale_headers:
@@ -1252,7 +1268,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
                 f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header} (Within)","{header}")'
             )
         f(sheet, 2, col, formula)
-    bold_row(sheet, 2, _C_AK, _C_AU)
+    bold_row(sheet, 2, _C_AK, _C_AV)
 
     # AK3: row labels — the spec-derived Row_Labels() filtered to the sample.
     # Row_Labels() has its own no-Identifier fallback ("Obs. n"), so the only
@@ -1284,15 +1300,27 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
     f(sheet, 3, _C_AU, "=LOOCV_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
+    # Cook's Distance (Flagged): NA()'d except where D exceeds the standard
+    # influence cutoffs (4/n or 0.9 — algebraically MIN(4/n, 0.9) since these
+    # are two lower bounds on the same "flag it" union, for every n). This
+    # feeds the Cook's Distance chart's data-label overlay series (see
+    # RegChartCookDistFlag in _setup_local_names / _write_diagnostic_charts):
+    # NA() points are skipped for both plotting and labeling, so only the
+    # flagged points get a label.
+    cooks_col = col_letter(_C_AQ)
+    f(
+        sheet, 3, _C_AV,
+        f"=IF({cooks_col}3#>MIN(4/$Y$8,0.9),{cooks_col}3#,NA())",
+    )
     # Format every numeric residual-output column — the actual Y (AL) through
-    # PRESS (AU). Only the AK identifier column (text: country/Obs. labels) is
-    # left unformatted.
-    sheet.range(f"{col_letter(_C_AL)}:{col_letter(_C_AU)}").number_format = "0.0000"
+    # Cook's Distance (Flagged) (AV). Only the AK identifier column (text:
+    # country/Obs. labels) is left unformatted.
+    sheet.range(f"{col_letter(_C_AL)}:{col_letter(_C_AV)}").number_format = "0.0000"
 
 
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
-    start_left = sheet.range(a1(1, _C_AU + 1)).left
+    start_left = sheet.range(a1(1, _C_AW)).left
     start_top = sheet.range("A3").top
 
     col_step = _CHART_WIDTH + _CHART_GAP
@@ -1449,6 +1477,27 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
         if title == "Cook's Distance":
             y_axis.TickLabels.NumberFormat = "0.0E+00"
             x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
+
+            # Overlay series for selective data labels: NA()'d rows in
+            # RegChartCookDistFlag plot/label nothing, so only points past
+            # the 4/n or 0.9 threshold get a marker+label. ChartType=xlLine
+            # (rather than the chart's own xlColumnClustered) keeps this
+            # series off the bar cluster — sharing the category axis
+            # without narrowing/shifting the real bars — which makes this
+            # a Column+Line combo chart.
+            flag_series = chart.SeriesCollection().NewSeries()
+            flag_series.XValues = _name_ref("RegChartObsLabel")
+            flag_series.Values = _name_ref("RegChartCookDistFlag")
+            flag_series.ChartType = _XL_LINE
+            flag_series.Name = "Flagged (D > 4/n or D > 0.9)"
+            flag_series.Format.Line.Visible = False  # msoFalse — no connecting line
+            flag_series.MarkerStyle = -4142          # xlMarkerStyleNone — label only
+            flag_series.HasDataLabels = True
+            dls = flag_series.DataLabels()
+            dls.ShowCategoryName = True  # observation identifier, e.g. "United States"
+            dls.ShowValue = True         # ...plus the Cook's D value
+            dls.NumberFormat = "0.0E+00"  # matches the y-axis format
+            dls.Position = 0              # xlLabelPositionAbove
         if title == "Studentized Residuals vs. Leverage":
             x_axis.TickLabels.NumberFormat = "0.00"
         if title == "PRESS Residuals":
@@ -1539,7 +1588,7 @@ def write_regression_output_sheet(
     _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
 
-    sheet.range(rc(2, _C_P), rc(2, _C_AV)).api.WrapText = True
+    sheet.range(rc(2, _C_P), rc(2, _C_AW)).api.WrapText = True
 
     # A–L (spec block) widths are owned by write_sheet_model_construction.py
     # so the standalone and shared-block builds can never drift.
@@ -1580,17 +1629,18 @@ def write_regression_output_sheet(
         "AH": 16,       # prediction interval values + prediction input values
         "AI": 14,       # Training Mean header + values spill
 
-        # Residual Output (AK–AU): row identifiers (AK) + 10 diagnostics (AL–AU).
+        # Residual Output (AK–AV): row identifiers (AK) + 11 diagnostics (AL–AV).
         # AK holds Row_Labels() — country/identifier strings like "United States" (13).
         "AK": 16,       # row identifiers (Row_Labels)
         "AL": 10, "AM": 10, "AN": 9, "AO": 9, "AP": 9, "AQ": 12, "AR": 9,
         "AS": 14, "AT": 17, "AU": 14,
+        "AV": 12,       # Cook's Distance (Flagged) — chart data-label helper column
 
-        # AV is NOT a content column and NOT a zone gap — it is the post-zone
-        # gutter that bounds the row-2 header wrap (_C_AV) and anchors the
-        # diagnostic charts (they start at _C_AU + 1). Sized here so it reads as
+        # AW is NOT a content column and NOT a zone gap — it is the post-zone
+        # gutter that bounds the row-2 header wrap (_C_AW) and anchors the
+        # diagnostic charts (they start at _C_AW). Sized here so it reads as
         # a deliberate margin rather than a default-width column.
-        "AV": 15,
+        "AW": 15,
     }.items():
         sheet.range(f"{column_letter}:{column_letter}").column_width = width
 

@@ -179,10 +179,16 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
         "load_mileage_rows",
         lambda _: ([], []),
     )
+    monkeypatch.setattr(
+        build_production,
+        "load_production_lots_rows",
+        lambda _: ([], []),
+    )
     for writer_name in [
         "write_catalog_sheet",
         "write_life_expectancy_sheet",
         "write_mileage_sheet",
+        "write_production_lots_sheet",
         "write_univariate_sheet",
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",
@@ -348,12 +354,18 @@ def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> N
         "load_mileage_rows",
         lambda _: ([], []),
     )
+    monkeypatch.setattr(
+        build_production,
+        "load_production_lots_rows",
+        lambda _: ([], []),
+    )
 
     writer_calls: list[str] = []
     for writer_name in [
         "write_catalog_sheet",
         "write_life_expectancy_sheet",
         "write_mileage_sheet",
+        "write_production_lots_sheet",
         "write_univariate_sheet",
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",
@@ -688,6 +700,11 @@ def test_build_uses_life_expectancy_source_table_when_requested(
         "load_mileage_rows",
         lambda _: ([], []),
     )
+    monkeypatch.setattr(
+        build_production,
+        "load_production_lots_rows",
+        lambda _: ([], []),
+    )
 
     called: dict[str, object] = {"source_table_ref": None}
     monkeypatch.setattr(build_production, "write_catalog_sheet", lambda *_, **__: None)
@@ -696,6 +713,9 @@ def test_build_uses_life_expectancy_source_table_when_requested(
     )
     monkeypatch.setattr(
         build_production, "write_mileage_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_production, "write_production_lots_sheet", lambda *_, **__: None
     )
     monkeypatch.setattr(
         build_production, "write_univariate_sheet", lambda *_, **__: None
@@ -750,11 +770,12 @@ def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
     )
     monkeypatch.setattr(build_production, "load_life_expectancy_rows", lambda _: ([], []))
     monkeypatch.setattr(build_production, "load_mileage_rows", lambda _: ([], []))
+    monkeypatch.setattr(build_production, "load_production_lots_rows", lambda _: ([], []))
 
     called: dict[str, object] = {"source_table_ref": None}
     for name in [
         "write_catalog_sheet", "write_life_expectancy_sheet",
-        "write_mileage_sheet", "write_univariate_sheet",
+        "write_mileage_sheet", "write_production_lots_sheet", "write_univariate_sheet",
         "write_regression_instructions_sheet", "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
     ]:

@@ -37,6 +37,11 @@ from lambda_catalog.write_sheet_mileage_data import (
     load_mileage_rows,
     write_mileage_sheet,
 )
+from lambda_catalog.write_sheet_production_lots import (
+    DEFAULT_XLSX_PATH as DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
+    load_production_lots_rows,
+    write_production_lots_sheet,
+)
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
@@ -62,6 +67,7 @@ _TAB_COLOR_LIGHT_GREEN = (198, 239, 206)
 _SHEET_NAME_LAMBDA_FUNCTIONS = "LAMBDA_functions"
 _SHEET_NAME_MILEAGE_DATA = "Mileage Data"
 _SHEET_NAME_LIFE_EXPECTANCY_DATA = "Life Expectancy Data"
+_SHEET_NAME_PRODUCTION_LOTS = "Production Lots"
 _SHEET_NAME_VERSION_HISTORY = "Version History"
 _SHEET_NAME_REGRESSION_INSTRUCTIONS = "Regression Instructions"
 _SHEET_NAME_REGRESSION = "Regression"
@@ -72,9 +78,15 @@ _SHEET_NAME_UNIVARIATE = "Univariate Analysis"
 # RefersTo formula written as a sheet-scoped name on the Regression sheet.
 # "auto_mpg" is the shipped default (MileageData table on the Mileage Data
 # sheet). "life_expectancy" retargets to the Life Expectancy Data sheet.
+# "production_lots" retargets to the Production Lots learning-curve panel —
+# the only shipped dataset with a natural Fixed Effects grouping column
+# (Facility) and Sequence column (Fiscal_Year), so it is what exercises the
+# Fixed Effects role end to end (see analyze_regression_spec.py's
+# production_lots_fixed_effects QC case).
 _REGRESSION_DATASET_REFS: dict[str, str] = {
     "auto_mpg": "=MileageData[#All]",
     "life_expectancy": "=LifeExpectancyData[#All]",
+    "production_lots": "=ProductionLotsData[#All]",
 }
 
 
@@ -149,6 +161,7 @@ def _run_deep_verify(
     csv_path: Path,
     *,
     mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
+    production_lots_path: Path = DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
     verbose: bool = False,
     skip_univariate: bool = False,
 ) -> VerifyReport:
@@ -188,6 +201,7 @@ def _run_deep_verify(
                     build_qc.build_regression_spec_qc_configs(mileage_path),
                     csv_path,
                     mileage_path=mileage_path,
+                    production_lots_path=production_lots_path,
                     verbose=verbose,
                     skip_dummy=True,
                     skip_univariate=skip_univariate,
@@ -255,6 +269,7 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book, *, include_univariate: bool
     ordered_front = [
         _SHEET_NAME_MILEAGE_DATA,
         _SHEET_NAME_LIFE_EXPECTANCY_DATA,
+        _SHEET_NAME_PRODUCTION_LOTS,
         _SHEET_NAME_VERSION_HISTORY,
         _SHEET_NAME_REGRESSION_INSTRUCTIONS,
         _SHEET_NAME_REGRESSION,
@@ -276,6 +291,7 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book, *, include_univariate: bool
     tab_colors: dict[str, tuple[int, int, int]] = {
         _SHEET_NAME_MILEAGE_DATA: _TAB_COLOR_LIGHT_GRAY,
         _SHEET_NAME_LIFE_EXPECTANCY_DATA: _TAB_COLOR_LIGHT_GRAY,
+        _SHEET_NAME_PRODUCTION_LOTS: _TAB_COLOR_LIGHT_GRAY,
         _SHEET_NAME_VERSION_HISTORY: _TAB_COLOR_DARK_GRAY,
         _SHEET_NAME_REGRESSION_INSTRUCTIONS: SUBHDR_COLOR,
         _SHEET_NAME_REGRESSION: SUBHDR_COLOR,
@@ -295,6 +311,7 @@ def build_production_workbook(
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
     csv_path: Path = DEFAULT_CSV_PATH,
     mileage_xlsx_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
+    production_lots_xlsx_path: Path = DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
     validate_reopen: bool = False,
     verbose: bool = False,
     recalculate: bool = True,
@@ -316,10 +333,17 @@ def build_production_workbook(
         sheet — the dataset the Regression sheet's Source_Table targets by
         default. Life Expectancy Data ships alongside it as a second
         sample dataset for practicing the Source_Table retarget workflow.
+    production_lots_xlsx_path : Path, optional
+        Path to the Production Lots sample xlsx file written to the
+        Production Lots sheet — a small unbalanced panel (3 facilities, 51
+        lots) with a natural Fixed Effects grouping column (Facility) and
+        Sequence column (Fiscal_Year), for retargeting Source_Table to
+        exercise the Fixed Effects role.
     regression_dataset : str, optional
         Regression source-table profile: ``"auto_mpg"`` (default, targets
-        ``MileageData[#All]``) or ``"life_expectancy"`` (targets
-        ``LifeExpectancyData[#All]``).
+        ``MileageData[#All]``), ``"life_expectancy"`` (targets
+        ``LifeExpectancyData[#All]``), or ``"production_lots"`` (targets
+        ``ProductionLotsData[#All]``).
     validate_reopen : bool, optional
         If True, reopens the workbook in Excel after patching to verify it.
     verbose : bool, optional
@@ -347,6 +371,9 @@ def build_production_workbook(
     document = load_catalog_document(definitions_path)
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     mileage_headers, mileage_rows = load_mileage_rows(mileage_xlsx_path)
+    production_lots_headers, production_lots_rows = load_production_lots_rows(
+        production_lots_xlsx_path
+    )
     source_table_ref = _REGRESSION_DATASET_REFS[regression_dataset]
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
@@ -395,6 +422,7 @@ def build_production_workbook(
             write_catalog_sheet(workbook, document.functions)
             write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
             write_mileage_sheet(workbook, mileage_headers, mileage_rows)
+            write_production_lots_sheet(workbook, production_lots_headers, production_lots_rows)
             if not skip_univariate:
                 write_univariate_sheet(workbook)
             write_regression_instructions_sheet(workbook)
@@ -536,7 +564,9 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Which dataset the Regression sheet's Source_Table points to. "
             "'auto_mpg' (default) targets MileageData[#All]; "
-            "'life_expectancy' targets LifeExpectancyData[#All]."
+            "'life_expectancy' targets LifeExpectancyData[#All]; "
+            "'production_lots' targets ProductionLotsData[#All] (a small "
+            "unbalanced panel with a natural Fixed Effects grouping column)."
         ),
     )
     return parser.parse_args()
@@ -635,6 +665,7 @@ def main() -> None:
     print("Sheet updated: LAMBDA_functions")
     print("Sheet updated: Life Expectancy Data")
     print("Sheet updated: Mileage Data")
+    print("Sheet updated: Production Lots")
     if args.skip_univariate:
         print("Sheet skipped: Univariate Analysis")
     else:

@@ -16,6 +16,8 @@ from .workbook_helpers import (
     open_or_create_workbook,
     raise_excel_access_error,
     reset_generated_sheet,
+    safe_activate,
+    safe_freeze_top_row,
 )
 
 
@@ -150,7 +152,7 @@ def write_life_expectancy_sheet(
     _verbose_checkpoint(verbose, start_time, "LifeExp: reset start")
     reset_generated_sheet(sheet)
     _verbose_checkpoint(verbose, start_time, "LifeExp: reset done")
-    sheet.activate()
+    safe_activate(sheet)
     _verbose_checkpoint(verbose, start_time, "LifeExp: activate done")
 
     all_headers = headers + [FULL_DATA_HEADER]
@@ -199,9 +201,7 @@ def write_life_expectancy_sheet(
     full_data_col.column_width = max(full_data_col.column_width or 0, 12)
     _verbose_checkpoint(verbose, start_time, "LifeExp: width done")
     _verbose_checkpoint(verbose, start_time, "LifeExp: freeze start")
-    sheet.api.Application.ActiveWindow.SplitRow = 1
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
+    safe_freeze_top_row(sheet)
     _verbose_checkpoint(verbose, start_time, "LifeExp: freeze done")
 
 

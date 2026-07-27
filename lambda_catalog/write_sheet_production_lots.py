@@ -15,7 +15,14 @@ from pathlib import Path
 import xlwings as xw
 from lxml import etree
 
-from .workbook_helpers import XL_SRC_RANGE, XL_YES, get_or_create_sheet, reset_generated_sheet
+from .workbook_helpers import (
+    XL_SRC_RANGE,
+    XL_YES,
+    get_or_create_sheet,
+    reset_generated_sheet,
+    safe_activate,
+    safe_freeze_top_row,
+)
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -208,7 +215,7 @@ def write_production_lots_sheet(
     """
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
-    sheet.activate()
+    safe_activate(sheet)
 
     all_headers = headers + [FULL_DATA_HEADER]
     last_data_row = len(rows) + 1
@@ -235,6 +242,4 @@ def write_production_lots_sheet(
     sheet.used_range.columns.autofit()
     full_data_col = sheet.range((1, full_data_column_index))
     full_data_col.column_width = max(full_data_col.column_width or 0, 12)
-    sheet.api.Application.ActiveWindow.SplitRow = 1
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
+    safe_freeze_top_row(sheet)

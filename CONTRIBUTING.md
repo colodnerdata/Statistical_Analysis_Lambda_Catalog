@@ -110,11 +110,12 @@ There are two separate build scripts with distinct purposes.
 uv run python build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes eight sheets:
+Produces `Lambda_Library.xlsx` — the distributable artifact committed to the repo. Writes nine sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions
 - **Life Expectancy Data** — WHO dataset as a structured table (a second sample dataset for practicing the Source_Table retarget workflow)
 - **Mileage Data** — Auto MPG dataset as a structured table; this is the dataset the Regression sheet's `Source_Table` targets by default
+- **Production Lots** — a small unbalanced learning-curve panel (3 facilities, 51 lots) as a structured table; a third sample dataset, and the only one with a natural Fixed Effects grouping column (Facility) and Sequence column (Fiscal_Year)
 - **Univariate Analysis** — descriptive statistics, histogram binning, and Weibull grid-search fitting
 - **Regression Instructions** — step-by-step guide for adapting the sheet to new datasets
 - **Diagnostic Guide** — interpretation guide for regression diagnostics
@@ -129,7 +130,8 @@ No test sheets, no OLS analysis, no cache dependency.
 |---|---|---|
 | `--workbook PATH` | `Lambda_Library.xlsx` | Path to the workbook to create or update. |
 | `--definitions PATH` | `lambda_functions.json` | Path to the JSON catalog of LAMBDA definitions. |
-| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. (The **Mileage Data** source is a fixed committed sample file with no CLI override.) |
+| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. (The **Mileage Data** and **Production Lots** sources are fixed committed sample files with no CLI override.) |
+| `--regression-dataset {auto_mpg,life_expectancy,production_lots}` | `auto_mpg` | Which dataset the Regression sheet's `Source_Table` targets. `production_lots` is the one to pick for a ready-made Fixed Effects example (Facility as the FE role, Fiscal_Year as Sequence). |
 | `--skip-univariate` | off | Skip writing the Univariate Analysis sheet to speed up iteration on other sheets. An existing Univariate sheet is left as-is; a from-scratch build omits it. |
 | `--skip-data-table-calculations` | off | Skip the final Excel `CalculateFullRebuild` phase that evaluates Data Tables. The workbook is still written and names synced; formulas/Data Tables recalc later when opened in Excel. Big speedup for iteration. |
 | `--verify` | off | After the build, run the spec-driven verifier (`build_qc.verify_test_sheets`) against the production sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. The Excel handoff only fires when verify passes, so a stale build can't launch in place of a fresh one. |
@@ -263,6 +265,8 @@ lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
   auto_mpg_data.xlsx         # Auto MPG dataset (second sample dataset, "Mileage Data" sheet)
+  production_lots.xlsx       # Learning-curve panel (third sample dataset, "Production Lots" sheet) —
+                              # the only shipped dataset with a natural Fixed Effects grouping column
 lambda_catalog/
   catalog_schema.py          # typed document model: CatalogArgument, CatalogFunction, CatalogDocument
   regression_shared.py       # shared regression dataclasses: RegressionSummary, RegressionVectors, etc.
@@ -271,7 +275,10 @@ lambda_catalog/
   workbook_helpers.py        # shared xlwings utilities and cell formatting helpers
   analyze_life_expectancy.py # OLS engine: calculate_regression_summary, vectors, observations
   analyze_mileage.py         # Auto MPG QC oracle: calculate_mileage_completeness_flags
-  analyze_regression_sheet.py # full Regression sheet QC oracle (predictor summary, residuals, prediction interval)
+  analyze_production_lots.py # Production Lots QC oracle: calculate_production_lots_completeness_flags
+  analyze_regression_spec.py # spec-driven Regression QC cases, incl. the Fixed Effects case
+  analyze_regression_sheet.py # full Regression sheet QC oracle (predictor summary, residuals, prediction interval,
+                              # and the Fixed Effects within-transform/DF_Absorbed correction)
   analyze_univariate.py      # univariate analysis: NLL functions, MLE estimators, binning, GoF
   analysis_cache.py          # disk cache keyed on CSV SHA-256 + schema version
   lambda_formula_parser.py   # converts display formulas to workbook XML syntax
@@ -280,6 +287,7 @@ lambda_catalog/
   write_sheet_lambda_functions.py
   write_sheet_life_expectancy_data.py
   write_sheet_mileage_data.py
+  write_sheet_production_lots.py
   write_sheet_univariate.py
   write_sheet_regression_instructions.py
   write_sheet_diagnostic_guide.py
@@ -325,7 +333,7 @@ python -m lambda_catalog.write_sheet_lambda_functions Lambda_Library.xlsx --defi
 python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
 ```
 
-Exception: `write_sheet_mileage_data.py` has **no** standalone CLI — its source is a fixed committed sample file (`sample_data/auto_mpg_data.xlsx`), so it is only ever invoked through `build_production.py` / `build_qc.py`, never point-at-a-different-file. Its loader (`load_mileage_rows`) reads that xlsx directly via `zipfile` + `lxml`, with no Excel dependency, so the Python QC oracle (`analyze_mileage.calculate_mileage_completeness_flags`) can run on any platform.
+Exception: `write_sheet_mileage_data.py` and `write_sheet_production_lots.py` have **no** standalone CLI — their sources are fixed committed sample files (`sample_data/auto_mpg_data.xlsx`, `sample_data/production_lots.xlsx`), so they are only ever invoked through `build_production.py` / `build_qc.py`, never point-at-a-different-file. Their loaders (`load_mileage_rows`, `load_production_lots_rows`) read those xlsx files directly via `zipfile` + `lxml`, with no Excel dependency, so the Python QC oracles (`analyze_mileage.calculate_mileage_completeness_flags`, `analyze_production_lots.calculate_production_lots_completeness_flags`) can run on any platform.
 
 ## Adding a new LAMBDA function
 

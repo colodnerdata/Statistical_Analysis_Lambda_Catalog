@@ -7,6 +7,10 @@ from pathlib import Path
 import numpy as np
 
 from .analyze_mileage import DEFAULT_INPUT_XLSX
+from .analyze_production_lots import (
+    DEFAULT_INPUT_XLSX as PRODUCTION_LOTS_XLSX_PATH,
+    load_production_lots_source_rows,
+)
 from .analyze_model_construction import (
     SpecVariable,
     _compute_mask,
@@ -22,6 +26,7 @@ from .analyze_regression_sheet import calculate_regression_results_from_matrix
 from .regression_shared import RegressionSheetResults
 from .write_sheet_model_construction import (
     _ROLE_FILTER,
+    _ROLE_FIXED_EFFECTS,
     _ROLE_IDENTIFIER,
     _ROLE_OMIT,
     _ROLE_PREDICTOR,
@@ -62,6 +67,29 @@ class RegressionSpecCase:
     allow_intercept: bool
     alpha: float = 0.05
     extra_columns: tuple[ExtraSpecColumn, ...] = ()
+    # Override the source xlsx / row loader for cases that don't target the
+    # default Mileage dataset (e.g. the Production Lots Fixed Effects case,
+    # which has no natural analogue in the Auto MPG table). None means "use
+    # the caller's default", preserving every existing Mileage-based case.
+    source_xlsx_path: Path | None = None
+    row_loader: Callable[[Path], list[dict[str, object]]] | None = None
+    # The live workbook's Source_Table RefersTo to apply before writing this
+    # case's spec block — Source_Table is the ONE name that retargets which
+    # data sheet the Regression sheet's spec block/design matrix read from
+    # (see write_sheet_model_construction._set_sheet_scoped_names), so a case
+    # from a different dataset than the QC workbook's default (Mileage) must
+    # switch it or its spec rows land on the wrong table's columns entirely.
+    # Every case sets this explicitly (not Optional) so the QC harness resets
+    # it on each case regardless of run order — no state leaks between cases.
+    source_table_ref: str = "=MileageData[#All]"
+    # Prediction Interval comparison models the pre-v2.1 single mean-response
+    # CI (see analyze_regression_sheet.calculate_regression_results_from_matrix's
+    # docstring) — accurate for every no-FE case, but not the shipped sheet's
+    # Group_Prediction_Interval/group-mean-recovery mechanism a Fixed Effects
+    # case actually exercises (tracked separately — DECISIONS.md's "v2.1 owes
+    # prediction-zone group-mean rebuild"). FE cases opt out here rather than
+    # report a false QC failure over a known, already-tracked gap.
+    check_prediction_interval: bool = True
 
 
 @dataclass(frozen=True)
@@ -74,6 +102,7 @@ class RegressionSpecDesign:
     x_features: np.ndarray
     y_train: np.ndarray
     sequence_values: np.ndarray | None
+    group_labels: np.ndarray | None
     included_rows: int
     level_counts: dict[str, int]
     references_in_use: dict[str, object]
@@ -216,6 +245,19 @@ def build_spec_design(
             dtype=np.float64,
         )
 
+    # Fixed_Effects_Column(): the exact-match Role accessor's Python mirror.
+    # Zero rows is the ordinary no-FE case; the spec-error states (2+ rows)
+    # are a visible sheet warning the human test plan covers, not something
+    # this Python design builder needs to reproduce — callers only ever hand
+    # it a legal (0-or-1) spec.
+    fe_variables = [item.name for item in spec_tuple if item.role == _ROLE_FIXED_EFFECTS]
+    if len(fe_variables) > 1:
+        raise ValueError(f"Expected at most one Fixed Effects variable, got {fe_variables!r}")
+    group_labels = None
+    if fe_variables:
+        fe_name = fe_variables[0]
+        group_labels = np.asarray([rows[idx][fe_name] for idx in included_indices])
+
     expectations = calculate_model_construction_expectations(list(spec_tuple), rows)
     return RegressionSpecDesign(
         row_mask=mask,
@@ -224,6 +266,7 @@ def build_spec_design(
         x_features=x_features,
         y_train=np.asarray(y_values, dtype=np.float64),
         sequence_values=sequence_values,
+        group_labels=group_labels,
         included_rows=len(included_indices),
         level_counts=expectations.level_counts,
         references_in_use=expectations.references_in_use,
@@ -236,7 +279,11 @@ def calculate_regression_spec_case(
     xlsx_path: Path = DEFAULT_INPUT_XLSX,
 ) -> RegressionSpecExpected:
     """Compute expected current Regression sheet outputs for one spec case."""
-    rows = _with_extra_columns(load_source_rows(xlsx_path), case.extra_columns)
+    effective_xlsx_path = (
+        case.source_xlsx_path if case.source_xlsx_path is not None else xlsx_path
+    )
+    loader = case.row_loader if case.row_loader is not None else load_source_rows
+    rows = _with_extra_columns(loader(effective_xlsx_path), case.extra_columns)
     design = build_spec_design(case.spec, rows)
     results = calculate_regression_results_from_matrix(
         x_features=design.x_features,
@@ -245,6 +292,7 @@ def calculate_regression_spec_case(
         include_intercept=case.allow_intercept,
         alpha=case.alpha,
         sequence_values=design.sequence_values,
+        group_labels=design.group_labels,
     )
     return RegressionSpecExpected(case=case, design=design, results=results)
 
@@ -304,6 +352,32 @@ _IS_USA = ExtraSpecColumn(
 )
 
 
+def _production_lots_fixed_effects_spec() -> list[SpecVariable]:
+    """Facility=Fixed Effects, Fiscal_Year=Sequence: log Cum Units -> log Unit Cost.
+
+    The only shipped case that declares Role=Fixed Effects — a small
+    unbalanced panel (3 facilities, 51 lots) that exercises the within-demeaned
+    fit-time pair (calculate_regression_results_from_matrix's group_labels
+    branch) against a real spec-driven build, unlike Auto MPG (no natural
+    panel-unit variable). Column order matches
+    load_production_lots_rows()'s header order plus the appended Full_Data
+    column — spec rows are positional, one per Source_Table column.
+    """
+    return [
+        _spec_var("Lot_ID", _ROLE_IDENTIFIER),
+        _spec_var("Facility", _ROLE_FIXED_EFFECTS),
+        _spec_var("Fiscal_Year", _ROLE_OMIT, sequence=True),
+        _spec_var("Lot_Quantity", _ROLE_OMIT),
+        _spec_var("Cumulative_Units", _ROLE_OMIT),
+        _spec_var("Experience_Stock", _ROLE_OMIT),
+        _spec_var("Unit_Cost_BY", _ROLE_OMIT),
+        _spec_var("log Cum Units", _ROLE_PREDICTOR, True, "Continuous"),
+        _spec_var("log experience", _ROLE_OMIT),
+        _spec_var("log Unit Cost", _ROLE_RESPONSE),
+        _spec_var("Full_Data", _ROLE_FILTER),
+    ]
+
+
 def build_regression_spec_cases() -> list[RegressionSpecCase]:
     """Return the standard human-plan-core spec cases for QC."""
     cases: list[RegressionSpecCase] = []
@@ -355,6 +429,18 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
                 extra_columns=extra,
             )
         )
+
+    cases.append(
+        RegressionSpecCase(
+            name="production_lots_fixed_effects",
+            spec=tuple(_production_lots_fixed_effects_spec()),
+            allow_intercept=True,
+            source_xlsx_path=PRODUCTION_LOTS_XLSX_PATH,
+            row_loader=load_production_lots_source_rows,
+            source_table_ref="=ProductionLotsData[#All]",
+            check_prediction_interval=False,
+        )
+    )
 
     return cases
 

@@ -15,6 +15,7 @@ import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
 from lambda_catalog.analyze_mileage import calculate_mileage_completeness_flags
+from lambda_catalog.analyze_production_lots import calculate_production_lots_completeness_flags
 from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
 from lambda_catalog.analyze_regression_spec_block import read_regression_spec_block_failures
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH
@@ -49,6 +50,13 @@ from lambda_catalog.write_sheet_mileage_data import (
     load_mileage_rows,
     write_mileage_sheet,
 )
+from lambda_catalog.write_sheet_production_lots import (
+    DEFAULT_XLSX_PATH as DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
+    FULL_DATA_HEADER as PRODUCTION_LOTS_FULL_DATA_HEADER,
+    SHEET_NAME as PRODUCTION_LOTS_SHEET_NAME,
+    load_production_lots_rows,
+    write_production_lots_sheet,
+)
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
     write_regression_instructions_sheet,
@@ -72,6 +80,7 @@ _QC_SHEET_NAMES = (
 _VERIFY_CALC_SHEET_NAMES = (
     LIFE_EXPECTANCY_SHEET_NAME,
     MILEAGE_SHEET_NAME,
+    PRODUCTION_LOTS_SHEET_NAME,
     "Regression",
     "Univariate",
     "Dummy_Test",
@@ -236,6 +245,43 @@ def _verify_mileage_full_data(
             )
 
 
+def _verify_production_lots_full_data(
+    workbook: xw.Book,
+    production_lots_path: Path,
+    failures: list[str],
+) -> None:
+    full_data_expected = calculate_production_lots_completeness_flags(production_lots_path)
+    production_lots_sheet = workbook.sheets[PRODUCTION_LOTS_SHEET_NAME]
+    production_lots_data = production_lots_sheet.used_range.value
+    if not production_lots_data:
+        return
+
+    if isinstance(production_lots_data[0], list):
+        production_lots_rows = production_lots_data
+    else:
+        production_lots_rows = [production_lots_data]
+    production_lots_headers = [
+        str(header).strip() if header is not None else ""
+        for header in production_lots_rows[0]
+    ]
+    full_data_col_idx = production_lots_headers.index(PRODUCTION_LOTS_FULL_DATA_HEADER)
+    for row_offset, expected in enumerate(full_data_expected, start=1):
+        row = (
+            production_lots_rows[row_offset]
+            if row_offset < len(production_lots_rows)
+            else []
+        )
+        actual = _normalize_excel_bool(
+            row[full_data_col_idx] if full_data_col_idx < len(row) else None
+        )
+        if actual is not expected:
+            _report_qc_failure(
+                failures,
+                f"[Production Lots] row={row_offset + 1} stat='Full_Data': "
+                f"expected={expected!r}, excel_calc={actual!r}",
+            )
+
+
 def verify_test_sheets(
     workbook: xw.Book,
     regression_sheet_configs: list,
@@ -243,6 +289,7 @@ def verify_test_sheets(
     verbose: bool = False,
     *,
     mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
+    production_lots_path: Path = DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
     skip_dummy: bool = False,
     skip_univariate: bool = False,
     failures_out: list[str] | None = None,
@@ -262,6 +309,9 @@ def verify_test_sheets(
     mileage_path : Path
         Path to the Auto MPG sample xlsx used for the Mileage Data sheet's
         Full_Data comparison. Defaults to the committed sample file.
+    production_lots_path : Path
+        Path to the Production Lots sample xlsx used for the Production Lots
+        sheet's Full_Data comparison. Defaults to the committed sample file.
     skip_dummy : bool
         When True, skip the Dummy_Test check (``read_dummy_check_failures``).
         Used by ``build_production.py --verify`` which produces a workbook
@@ -295,6 +345,7 @@ def verify_test_sheets(
     )
     _verify_life_expectancy_full_data(workbook, csv_path, failures)
     _verify_mileage_full_data(workbook, mileage_path, failures)
+    _verify_production_lots_full_data(workbook, production_lots_path, failures)
 
     _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
     for failure in read_regression_spec_block_failures(workbook, mileage_path):
@@ -377,6 +428,7 @@ def build_qc_workbook(
     verbose: bool = False,
     *,
     mileage_xlsx_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
+    production_lots_xlsx_path: Path = DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
     no_verify: bool = False,
     timings_out: dict[str, float | None] | None = None,
 ) -> NameSyncResult:
@@ -389,6 +441,9 @@ def build_qc_workbook(
     _verbose_checkpoint(verbose, phase_start, "Prep: regression QC loaded")
     csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
     mileage_headers, mileage_rows = load_mileage_rows(mileage_xlsx_path)
+    production_lots_headers, production_lots_rows = load_production_lots_rows(
+        production_lots_xlsx_path
+    )
     _verbose_checkpoint(verbose, phase_start, "Prep: csv loaded")
     workbook_path = workbook_path.resolve()
     workbook_exists = workbook_path.exists()
@@ -445,6 +500,9 @@ def build_qc_workbook(
                 _verbose_checkpoint(verbose, phase_start, "Write: mileage start")
                 write_mileage_sheet(workbook, mileage_headers, mileage_rows, verbose=verbose)
                 _verbose_checkpoint(verbose, phase_start, "Write: mileage done")
+                _verbose_checkpoint(verbose, phase_start, "Write: production lots start")
+                write_production_lots_sheet(workbook, production_lots_headers, production_lots_rows)
+                _verbose_checkpoint(verbose, phase_start, "Write: production lots done")
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate start")
                 write_univariate_sheet(workbook)
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate done")
@@ -513,6 +571,7 @@ def build_qc_workbook(
                         regression_sheet_configs,
                         csv_path,
                         mileage_path=mileage_xlsx_path,
+                        production_lots_path=production_lots_xlsx_path,
                         verbose=verbose,
                     )
                 finally:

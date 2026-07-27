@@ -110,15 +110,29 @@ class RegressionFullResiduals:
 
 @dataclass(frozen=True)
 class RegressionPredictionInterval:
-    """Prediction interval outputs for the Regression sheet."""
+    """Prediction interval outputs for the Regression sheet.
+
+    The v2.1 group-mean-recovery shape (``Group_Prediction_Interval``):
+    both a mean-response CI and a wider new-observation PI, plus the
+    selected group's own mean/count (AH13/AH14). A no-FE case selects the
+    constant ``"(all)"`` group, which collapses this exactly to the
+    pre-v2.1 single-PI numbers (se_new/pi_lower/pi_upper matching the old
+    se_prediction/lower/upper) — see
+    ``tests/test_group_prediction_interval.py``.
+    """
 
     pred_input_values: tuple[float, ...]
     point_estimate: float
-    se_prediction: float
+    se_mean: float
+    se_new: float
     t_critical: float
-    lower: float
-    upper: float
+    ci_lower: float
+    ci_upper: float
+    pi_lower: float
+    pi_upper: float
     confidence_level: float
+    group_mean: float
+    group_count: int
 
 
 @dataclass(frozen=True)

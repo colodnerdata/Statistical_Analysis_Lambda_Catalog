@@ -82,14 +82,11 @@ class RegressionSpecCase:
     # Every case sets this explicitly (not Optional) so the QC harness resets
     # it on each case regardless of run order — no state leaks between cases.
     source_table_ref: str = "=MileageData[#All]"
-    # Prediction Interval comparison models the pre-v2.1 single mean-response
-    # CI (see analyze_regression_sheet.calculate_regression_results_from_matrix's
-    # docstring) — accurate for every no-FE case, but not the shipped sheet's
-    # Group_Prediction_Interval/group-mean-recovery mechanism a Fixed Effects
-    # case actually exercises (tracked separately — DECISIONS.md's "v2.1 owes
-    # prediction-zone group-mean rebuild"). FE cases opt out here rather than
-    # report a false QC failure over a known, already-tracked gap.
-    check_prediction_interval: bool = True
+    # Which group the Prediction Interval box (AH3:AH14) is anchored to —
+    # written into the sheet's own $AH$12 cell before reading the box back.
+    # None mirrors the sheet's own default (AH12's formula, the
+    # alphabetically-first observed group) rather than hardcoding it here.
+    prediction_group: str | None = None
 
 
 @dataclass(frozen=True)
@@ -116,6 +113,11 @@ class RegressionSpecExpected:
     case: RegressionSpecCase
     design: RegressionSpecDesign
     results: RegressionSheetResults
+    # Always a concrete group name, even when case.prediction_group is None
+    # (resolved to the alphabetically-first observed group, matching the
+    # sheet's own $AH$12 default formula) — what the QC harness writes into
+    # that cell before reading the Prediction Interval box back.
+    resolved_prediction_group: str
 
 
 def _copy_spec(spec: tuple[SpecVariable, ...] | list[SpecVariable]) -> list[SpecVariable]:
@@ -285,6 +287,18 @@ def calculate_regression_spec_case(
     loader = case.row_loader if case.row_loader is not None else load_source_rows
     rows = _with_extra_columns(loader(effective_xlsx_path), case.extra_columns)
     design = build_spec_design(case.spec, rows)
+
+    # Resolve to a concrete group name up front (mirrors $AH$12's own default
+    # formula: the alphabetically-first observed group) so the QC harness has
+    # an explicit value to write into that cell — never ambiguous about
+    # "leave it at whatever the sheet defaults to."
+    if case.prediction_group is not None:
+        resolved_prediction_group = case.prediction_group
+    elif design.group_labels is not None:
+        resolved_prediction_group = str(sorted(np.unique(design.group_labels))[0])
+    else:
+        resolved_prediction_group = "(all)"
+
     results = calculate_regression_results_from_matrix(
         x_features=design.x_features,
         y_train=design.y_train,
@@ -293,8 +307,14 @@ def calculate_regression_spec_case(
         alpha=case.alpha,
         sequence_values=design.sequence_values,
         group_labels=design.group_labels,
+        selected_group=resolved_prediction_group,
     )
-    return RegressionSpecExpected(case=case, design=design, results=results)
+    return RegressionSpecExpected(
+        case=case,
+        design=design,
+        results=results,
+        resolved_prediction_group=resolved_prediction_group,
+    )
 
 
 def _v1_full_continuous_spec() -> list[SpecVariable]:
@@ -438,7 +458,10 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             source_xlsx_path=PRODUCTION_LOTS_XLSX_PATH,
             row_loader=load_production_lots_source_rows,
             source_table_ref="=ProductionLotsData[#All]",
-            check_prediction_interval=False,
+            # Explicit (not the alphabetically-first default) — exercises the
+            # harness actually writing a non-default group into $AH$12, not
+            # just accepting whatever the sheet defaults to.
+            prediction_group="Site B",
         )
     )
 

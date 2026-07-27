@@ -102,27 +102,29 @@ _ROW_ANOVA_REG = 15
 _ROW_ANOVA_RES = 16
 _ROW_ANOVA_TOT = 17
 
-# STALE — v2.1 Fixed Effects Prediction Outputs rebuild (write_sheet_regression.py
-# _write_prediction_interval/_write_prediction_inputs) replaced the 6-row
-# single-CI box (rows 3-8) with a 9-row CI+PI box (rows 3-11) plus an FE Group
-# selector and ybar_i/T_i readouts (rows 12-14), and moved PREDICTION INPUTS
-# from row 10 to row 16 (first predictor row 13 -> 19, no more Intercept row).
-# RegressionPredictionInterval / analyze_regression_sheet.py still model the
-# OLD 6-value shape (point/se_prediction/t_critical/lower/upper/confidence),
-# not the new point/se_mean/se_new/t_critical/ci_lower/ci_upper/pi_lower/
-# pi_upper/confidence shape or the group-mean-recovery formula — the
-# Prediction Interval comparison below does not reflect the shipped sheet
-# until this whole chain (regression_shared.RegressionPredictionInterval,
-# analyze_regression_sheet.py, analysis_cache.py, and the constants/mapping
-# here) gets a matching Phase 6 QC-oracle update. Coefficients/ANOVA/
-# Diagnostics/Residuals comparisons elsewhere in this file are unaffected.
+# v2.1 Fixed Effects Prediction Outputs shape (write_sheet_regression.py
+# _write_prediction_interval/_write_prediction_inputs): a 9-row CI+PI box
+# (rows 3-11: point/se_mean/se_new/t_crit/ci_lower/ci_upper/pi_lower/pi_upper/
+# confidence) plus an FE Group selector and ybar_i/T_i readouts (rows 12-14),
+# and PREDICTION INPUTS starting at row 16 (first predictor row 19, no more
+# Intercept row). RegressionPredictionInterval / analyze_regression_sheet.py
+# model this exact shape via Group_Prediction_Interval's group-mean-recovery
+# formula — a no-FE case selects the constant "(all)" group, which collapses
+# to the pre-v2.1 single-PI numbers exactly (see
+# tests/test_group_prediction_interval.py).
 _ROW_COEFF_DATA = 21   # X21 spills coefficient labels (k+1 rows)
 _ROW_PI_POINT = 3      # AH3 = point estimate
-_ROW_PI_SE = 4
-_ROW_PI_T = 5
-_ROW_PI_LOWER = 6
-_ROW_PI_UPPER = 7
-_ROW_PI_CONF = 8
+_ROW_PI_SE_MEAN = 4
+_ROW_PI_SE_NEW = 5
+_ROW_PI_T = 6
+_ROW_PI_CI_LOWER = 7
+_ROW_PI_CI_UPPER = 8
+_ROW_PI_PI_LOWER = 9
+_ROW_PI_PI_UPPER = 10
+_ROW_PI_CONF = 11
+_ROW_FE_GROUP = 12     # AH12 = FE Group selector (input — written per case)
+_ROW_GROUP_MEAN = 13   # AH13 = Group Mean (y)
+_ROW_GROUP_COUNT = 14  # AH14 = Group Count
 _ROW_PRED_INPUT_FIRST = 19  # AH19 = first user-editable predictor value (was 13)
 _ROW_PRED_INPUT_LAST = 62   # end of the guarded prefill band
 
@@ -169,6 +171,15 @@ def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
     # dataset the PREVIOUS case in the loop left Source_Table pointing at.
     sheet.api.Names.Item("Source_Table").RefersTo = expected.case.source_table_ref
     sheet.range((_INTERCEPT_ROW, _C_SPEC_INCLUDE)).value = expected.case.allow_intercept
+
+    # FE Group selector ($AH$12): always written explicitly to
+    # expected.resolved_prediction_group (never left at whatever the
+    # PREVIOUS case's write left behind, and never blank — typing a value
+    # into this cell replaces its default-computing formula, so "leave it
+    # alone" would silently carry the last case's group forward). This is
+    # the fixed cell above the variable-size Prediction Inputs band (rows
+    # 19+) that the group choice belongs in, not a new slot below it.
+    sheet.range(_ROW_FE_GROUP, _C_AH).value = expected.resolved_prediction_group
 
     # Clear only the spec rows (plus one blank row) so we don't wipe the
     # Sequence Spacing block that lives under the spec on the Regression sheet.
@@ -424,33 +435,50 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-            # ── Prediction Interval (column AH, rows 3–8) ─────────────────────
-            # Skipped for cases that opt out (check_prediction_interval=False):
-            # this box models the pre-v2.1 single mean-response CI, not the
-            # shipped sheet's Group_Prediction_Interval/group-mean-recovery
-            # mechanism a Fixed Effects case actually exercises — see
-            # RegressionSpecCase.check_prediction_interval's docstring.
-            if expected.case.check_prediction_interval:
-                pi_specs: list[tuple[str, float]] = [
-                    ("Point_Estimate",  pi.point_estimate),
-                    ("SE_Prediction",   pi.se_prediction),
-                    ("T_Critical",      pi.t_critical),
-                    ("Lower",           pi.lower),
-                    ("Upper",           pi.upper),
-                    ("Confidence_Level",pi.confidence_level),
-                ]
-                pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AH, 6)
-                for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
-                    diff, fdd_val = compare_values(exp_val, xl_val)
-                    pi_rows.append({
-                        "config_name": config_name,
-                        "allow_intercept": allow_intercept,
-                        "stat_name": stat_name,
-                        "expected": exp_val,
-                        "excel_calc": xl_val,
-                        "abs_diff": diff,
-                        "first_digit_deviation": fdd_val,
-                    })
+            # ── Prediction Interval (column AH, rows 3–14) ────────────────────
+            # Group_Prediction_Interval's 9-value CI+PI box plus the Group
+            # Mean/Count readouts. $AH$12 (the FE Group selector) was already
+            # written to expected.resolved_prediction_group in _apply_spec_case,
+            # above the variable-size Prediction Inputs band written below.
+            pi_specs: list[tuple[str, float]] = [
+                ("Point_Estimate",   pi.point_estimate),
+                ("SE_Mean",          pi.se_mean),
+                ("SE_New",           pi.se_new),
+                ("T_Critical",       pi.t_critical),
+                ("CI_Lower",         pi.ci_lower),
+                ("CI_Upper",         pi.ci_upper),
+                ("PI_Lower",         pi.pi_lower),
+                ("PI_Upper",         pi.pi_upper),
+                ("Confidence_Level", pi.confidence_level),
+            ]
+            pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AH, 9)
+            for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
+                diff, fdd_val = compare_values(exp_val, xl_val)
+                pi_rows.append({
+                    "config_name": config_name,
+                    "allow_intercept": allow_intercept,
+                    "stat_name": stat_name,
+                    "expected": exp_val,
+                    "excel_calc": xl_val,
+                    "abs_diff": diff,
+                    "first_digit_deviation": fdd_val,
+                })
+
+            for stat_name, exp_val, row in [
+                ("Group_Mean", pi.group_mean, _ROW_GROUP_MEAN),
+                ("Group_Count", float(pi.group_count), _ROW_GROUP_COUNT),
+            ]:
+                xl_val = _read_cell(sheet, row, _C_AH)
+                diff, fdd_val = compare_values(exp_val, xl_val)
+                pi_rows.append({
+                    "config_name": config_name,
+                    "allow_intercept": allow_intercept,
+                    "stat_name": stat_name,
+                    "expected": exp_val,
+                    "excel_calc": xl_val,
+                    "abs_diff": diff,
+                    "first_digit_deviation": fdd_val,
+                })
 
             # ── Residual Output (columns AL–AU, rows 3 to 3+n-1) ──────────────
             resid_stat_names = [

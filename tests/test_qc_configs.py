@@ -490,14 +490,14 @@ class TestRegressionSheetConfigs(unittest.TestCase):
     def test_prediction_interval_contains_estimate(self) -> None:
         for (name, _, _), results in self.named_configs:
             pi = results.prediction_interval
-            self.assertLess(pi.lower, pi.point_estimate, name)
-            self.assertGreater(pi.upper, pi.point_estimate, name)
+            self.assertLess(pi.pi_lower, pi.point_estimate, name)
+            self.assertGreater(pi.pi_upper, pi.point_estimate, name)
 
     def test_prediction_interval_symmetry(self) -> None:
         for (name, _, _), results in self.named_configs:
             pi = results.prediction_interval
-            margin_lo = pi.point_estimate - pi.lower
-            margin_hi = pi.upper - pi.point_estimate
+            margin_lo = pi.point_estimate - pi.pi_lower
+            margin_hi = pi.pi_upper - pi.point_estimate
             self.assertAlmostEqual(margin_lo, margin_hi, places=8, msg=name)
 
     def test_prediction_interval_confidence_level(self) -> None:

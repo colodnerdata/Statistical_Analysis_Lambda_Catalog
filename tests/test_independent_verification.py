@@ -662,7 +662,9 @@ class TestPredictionIntervalIndependent(unittest.TestCase):
         expected = float(x_new @ beta)
         self.assertAlmostEqual(self.pi.point_estimate, expected, places=10)
 
-    def test_se_prediction(self) -> None:
+    def test_se_new(self) -> None:
+        # se_new is the new-observation-PI variance term — bit-identical to
+        # the pre-v2.1 se_prediction in this no-FE, degenerate-G=1 case.
         beta = np.linalg.lstsq(self.X, self.Y, rcond=None)[0]
         e = self.Y - self.X @ beta
         n = len(self.rows)
@@ -672,8 +674,8 @@ class TestPredictionIntervalIndependent(unittest.TestCase):
         x_new = np.concatenate([[1.0], x_means])
         xtx_inv = np.linalg.inv(self.X.T @ self.X)
         h_new = float(x_new @ xtx_inv @ x_new)
-        expected_se_pred = se * math.sqrt(1.0 + h_new)
-        self.assertAlmostEqual(self.pi.se_prediction, expected_se_pred, places=10)
+        expected_se_new = se * math.sqrt(1.0 + h_new)
+        self.assertAlmostEqual(self.pi.se_new, expected_se_new, places=10)
 
     def test_t_critical(self) -> None:
         df = self.summary.df_residual
@@ -681,17 +683,17 @@ class TestPredictionIntervalIndependent(unittest.TestCase):
         self.assertAlmostEqual(self.pi.t_critical, expected, places=10)
 
     def test_interval_bounds(self) -> None:
-        expected_lower = self.pi.point_estimate - self.pi.t_critical * self.pi.se_prediction
-        expected_upper = self.pi.point_estimate + self.pi.t_critical * self.pi.se_prediction
-        self.assertAlmostEqual(self.pi.lower, expected_lower, places=10)
-        self.assertAlmostEqual(self.pi.upper, expected_upper, places=10)
+        expected_lower = self.pi.point_estimate - self.pi.t_critical * self.pi.se_new
+        expected_upper = self.pi.point_estimate + self.pi.t_critical * self.pi.se_new
+        self.assertAlmostEqual(self.pi.pi_lower, expected_lower, places=10)
+        self.assertAlmostEqual(self.pi.pi_upper, expected_upper, places=10)
 
     def test_confidence_level(self) -> None:
         self.assertAlmostEqual(self.pi.confidence_level, 0.95, places=12)
 
     def test_interval_contains_point_estimate(self) -> None:
-        self.assertGreater(self.pi.upper, self.pi.point_estimate)
-        self.assertLess(self.pi.lower, self.pi.point_estimate)
+        self.assertGreater(self.pi.pi_upper, self.pi.point_estimate)
+        self.assertLess(self.pi.pi_lower, self.pi.point_estimate)
 
 
 # ── Correlation matrix ──────────────────────────────────────────────────────

@@ -185,7 +185,58 @@ with a code comment. Not run in CI regardless (requires desktop Excel), but
 should be updated before relying on it for a `--verify` pass on an FE-active
 model. A human test plan covering T0 (pooled baseline) through T4 (degenerate
 FE variable) on the WHO Life Expectancy panel is at
-`HUMAN_TEST_PLAN_v21_regression_fixed_effects.md`.
+`HUMAN_TEST_PLAN_v21_regression_fixed_effects.md`. Confirmed as the source of
+the 58 automated `Regression/prediction_interval` mismatches `build_qc.py
+--verify` reports today — bit-identical on a clean `origin/main` baseline, so
+this predates and is independent of the Production Lots/Fixed Effects QC work
+(PR #133).
+
+**Fix plan** (both paths smoke-tested live against the Regression sheet
+before committing to this shape — `tests/test_group_prediction_interval.py`'s
+already-validated `group_prediction_interval_mirror` reproduces the sheet's
+AH3:AH11 box exactly for a no-FE degenerate-G=1 case and an FE-active case
+with a real selected group, both to floating-point precision):
+
+1. `regression_shared.RegressionPredictionInterval` grows from the 6-value
+   shape to the 9 values the sheet shows (point, se_mean, se_new, t_crit,
+   ci_lower, ci_upper, pi_lower, pi_upper, confidence), plus `group_mean`/
+   `group_count` fields for the AH13/AH14 readouts.
+2. `analyze_regression_sheet.py`'s prediction-interval block switches to
+   `group_prediction_interval_mirror`'s formula (group-mean recovery via
+   `Group_Mean_At` and the deviation-quadratic-form variance, not a raw
+   `x_new'β̂` off an intercept). Two details the smoke test surfaced:
+   - The default prediction-input prefill (`x_new`) must be the mean of
+     the RAW design matrix (`AVERAGE` of `X_s()`, i.e. `x_features`) — not
+     the demeaned `x_fit` the current FE-aware code computes it from
+     (mirrors the Training Mean column's own formula, which is
+     FE-independent). That's a live bug today in the FE branch, just
+     unobserved because the FE case already opts out of this comparison
+     (`check_prediction_interval=False`).
+   - For every existing no-FE case, `group_labels` is a constant `"(all)"`
+     array and `selected_group="(all)"` — this is what makes the new
+     formula collapse exactly to the old numbers, so none of the 11
+     existing cases need spec changes, only the formula swap.
+3. `RegressionSpecCase` gains a `prediction_group: str | None` field
+   (default `None` → the sheet's own default, the alphabetically-first
+   observed group). `production_lots_fixed_effects` can drop
+   `check_prediction_interval=False` once this lands and set an explicit
+   group instead (e.g. one of Site A/B/C).
+4. `tools/inspect_regression_sheet.py`: `_apply_spec_case` writes the
+   case's `prediction_group` into the existing `$AH$12` cell — already
+   positioned above the variable-size Prediction Inputs band (rows
+   19–62), the same "spill/input band owns everything below it, nothing
+   variable-sized should ever sit above a fixed cell that depends on it"
+   placement the Training Mean column's own comment documents. Update
+   `_ROW_PI_*` to the new 9-row layout plus two new row constants for
+   Group Mean (13) / Group Count (14), and extend the comparison loop for
+   all 11 values.
+5. `analysis_cache.py`'s `RegressionPredictionInterval` serialization
+   round-trip needs the same 9-field shape.
+
+Once this lands, `build_qc.py --verify` should show zero
+`Regression/prediction_interval` mismatches across all 12 cases (the 11
+existing plus `production_lots_fixed_effects`), closing the last gap before
+the 2.1.0 Version History entry.
 
 ### Follow-on polish (ships with 2.1.0 if there's room)
 

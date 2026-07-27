@@ -75,7 +75,7 @@ from .sheet_styles import (
 from .workbook_helpers import (
     MAX_EXCEL_ROW, a1, add_expression_format, bold, bold_row, border_box,
     col_letter, drop_local_name, excel_color, f, format_input, rc,
-    section_heading, val,
+    safe_activate, section_heading, val,
 )
 from .write_sheet_model_construction import (
     _SEQUENCE_PERIOD_NOTE,
@@ -1464,7 +1464,7 @@ def write_regression_output_sheet(
     # Cells.Clear does not touch outline levels — drop any grouping from a
     # previous build before the zone groups are re-applied below.
     sheet.api.Cells.ClearOutline()
-    sheet.activate()
+    safe_activate(sheet)
 
     # The spec block must run before the names are registered: it creates
     # the structured table (SpecTable), which the Spec_* band names bind
@@ -1570,11 +1570,15 @@ def write_regression_output_sheet(
     # sheet.range("AV1").left reflects the final column layout.
     _write_diagnostic_charts(sheet)
 
-    # Freeze top 2 rows
-    sheet.activate()
-    sheet.range("A3").select()
-    win = sheet.api.Application.ActiveWindow
-    win.FreezePanes = False
-    win.SplitRow = 2
-    win.SplitColumn = 0
-    win.FreezePanes = True
+    # Freeze top 2 rows. Requires an active window, which Excel may refuse to
+    # grant in a headless/non-interactive session, so this is best-effort.
+    try:
+        sheet.activate()
+        sheet.range("A3").select()
+        win = sheet.api.Application.ActiveWindow
+        win.FreezePanes = False
+        win.SplitRow = 2
+        win.SplitColumn = 0
+        win.FreezePanes = True
+    except Exception:
+        pass

@@ -14,7 +14,14 @@ from pathlib import Path
 import xlwings as xw
 from lxml import etree
 
-from .workbook_helpers import XL_SRC_RANGE, XL_YES, get_or_create_sheet, reset_generated_sheet
+from .workbook_helpers import (
+    XL_SRC_RANGE,
+    XL_YES,
+    get_or_create_sheet,
+    reset_generated_sheet,
+    safe_activate,
+    safe_freeze_top_row,
+)
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -224,7 +231,7 @@ def write_mileage_sheet(
     _verbose_checkpoint(verbose, start_time, "Mileage: reset start")
     reset_generated_sheet(sheet)
     _verbose_checkpoint(verbose, start_time, "Mileage: reset done")
-    sheet.activate()
+    safe_activate(sheet)
     _verbose_checkpoint(verbose, start_time, "Mileage: activate done")
 
     all_headers = headers + [FULL_DATA_HEADER]
@@ -273,7 +280,5 @@ def write_mileage_sheet(
     full_data_col.column_width = max(full_data_col.column_width or 0, 12)
     _verbose_checkpoint(verbose, start_time, "Mileage: width done")
     _verbose_checkpoint(verbose, start_time, "Mileage: freeze start")
-    sheet.api.Application.ActiveWindow.SplitRow = 1
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
+    safe_freeze_top_row(sheet)
     _verbose_checkpoint(verbose, start_time, "Mileage: freeze done")

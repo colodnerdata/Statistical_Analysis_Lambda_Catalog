@@ -17,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from .make_test_sheet import _ColumnSpec, write_test_table
-from .workbook_helpers import reset_column_groups
+from .workbook_helpers import reset_column_groups, safe_activate
 
 if TYPE_CHECKING:
     import xlwings as xw
@@ -288,7 +288,7 @@ def write_dummy_test_sheet(workbook: xw.Book) -> None:
     sheet.range((1, _CHECK_LABEL_COL)).column_width = 34
     sheet.range((1, _DISPLAY_LABEL_COL)).column_width = 38
 
-    sheet.activate()
+    safe_activate(sheet)
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True

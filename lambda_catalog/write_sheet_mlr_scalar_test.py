@@ -14,7 +14,7 @@ from .make_test_sheet import (
     write_test_table,
 )
 from .regression_shared import FEATURE_COLUMNS
-from .workbook_helpers import drop_local_name, reset_column_groups
+from .workbook_helpers import drop_local_name, reset_column_groups, safe_activate
 
 if TYPE_CHECKING:
     from .regression_shared import RegressionSummary
@@ -208,7 +208,7 @@ def write_mlr_scalar_test_sheet(
 
     sheet.range((header_row, 2), (last_data_row, col_count)).columns.autofit()
 
-    sheet.activate()
+    safe_activate(sheet)
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True

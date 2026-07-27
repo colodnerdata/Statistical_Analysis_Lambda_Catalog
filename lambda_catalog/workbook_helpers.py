@@ -141,6 +141,26 @@ def get_or_create_sheet(workbook: xw.Book, sheet_name: str) -> xw.Sheet:
     return workbook.sheets.add(name=sheet_name, after=workbook.sheets[-1])
 
 
+def safe_activate(sheet: xw.Sheet) -> None:
+    """Activate a worksheet, tolerating environments where Excel has no foreground window.
+
+    ``Sheet.activate()`` raises when Excel cannot become the active
+    application (no interactive desktop session, focus stolen by another
+    process, etc.), even though the workbook write itself succeeds. Which
+    sheet is on top when the file opens is cosmetic, so that failure must
+    not abort the build.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The worksheet to bring to the front.
+    """
+    try:
+        sheet.activate()
+    except Exception:
+        pass
+
+
 def reset_generated_sheet(sheet: xw.Sheet) -> None:
     """Clear all ListObjects and cell content from a generated sheet.
 

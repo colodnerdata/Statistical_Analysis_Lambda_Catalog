@@ -15,7 +15,13 @@ from pathlib import Path
 import xlwings as xw
 from lxml import etree
 
-from .workbook_helpers import XL_SRC_RANGE, XL_YES, get_or_create_sheet, reset_generated_sheet
+from .workbook_helpers import (
+    XL_SRC_RANGE,
+    XL_YES,
+    get_or_create_sheet,
+    reset_generated_sheet,
+    safe_activate,
+)
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -208,7 +214,7 @@ def write_production_lots_sheet(
     """
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
-    sheet.activate()
+    safe_activate(sheet)
 
     all_headers = headers + [FULL_DATA_HEADER]
     last_data_row = len(rows) + 1

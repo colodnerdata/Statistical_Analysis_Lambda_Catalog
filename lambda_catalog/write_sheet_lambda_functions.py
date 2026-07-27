@@ -16,6 +16,7 @@ from .workbook_helpers import (
     open_or_create_workbook,
     raise_excel_access_error,
     reset_generated_sheet,
+    safe_activate,
 )
 
 
@@ -59,7 +60,7 @@ def write_catalog_sheet(workbook: xw.Book, entries: Sequence[CatalogFunction]) -
     """
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
-    sheet.activate()
+    safe_activate(sheet)
 
     for column_index, header in enumerate(TABLE_HEADERS, start=1):
         sheet.range((1, column_index)).value = header

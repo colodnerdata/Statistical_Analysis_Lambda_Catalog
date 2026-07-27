@@ -16,6 +16,7 @@ from .workbook_helpers import (
     open_or_create_workbook,
     raise_excel_access_error,
     reset_generated_sheet,
+    safe_activate,
 )
 
 
@@ -150,7 +151,7 @@ def write_life_expectancy_sheet(
     _verbose_checkpoint(verbose, start_time, "LifeExp: reset start")
     reset_generated_sheet(sheet)
     _verbose_checkpoint(verbose, start_time, "LifeExp: reset done")
-    sheet.activate()
+    safe_activate(sheet)
     _verbose_checkpoint(verbose, start_time, "LifeExp: activate done")
 
     all_headers = headers + [FULL_DATA_HEADER]

@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 import xlwings as xw
 
 from .regression_shared import FEATURE_COLUMNS
-from .workbook_helpers import drop_local_name, reset_column_groups
+from .workbook_helpers import drop_local_name, reset_column_groups, safe_activate
 
 if TYPE_CHECKING:
     from .regression_shared import RegressionVectors
@@ -165,7 +165,7 @@ def write_mlr_vector_outputs_test_sheet(
     sheet.range((header_row, 1), (header_row, _TOTAL_COLS)).api.EntireRow.AutoFit()
     sheet.range((header_row, 1), (last_content_row, _TOTAL_COLS)).columns.autofit()
 
-    sheet.activate()
+    safe_activate(sheet)
     sheet.api.Application.ActiveWindow.SplitRow = 1
     sheet.api.Application.ActiveWindow.SplitColumn = 0
     sheet.api.Application.ActiveWindow.FreezePanes = True

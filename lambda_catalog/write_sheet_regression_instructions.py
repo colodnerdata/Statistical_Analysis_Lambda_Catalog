@@ -93,7 +93,12 @@ _ROWS: list[tuple[int, str, str | None]] = [
             "Filter — a TRUE/FALSE or 1/0 column; only rows where every Filter column "
             "is truthy enter the regression. Declare several Filter columns to "
             "stratify — they are ANDed together.\n"
-            "Omit — never used for anything; helper columns and notes."
+            "Omit — never used for anything; helper columns and notes.\n"
+            "Fixed Effects — declare exactly one panel-grouping variable; the model "
+            "absorbs a separate intercept per group (one-way within transformation) "
+            "instead of pooled OLS, crediting the absorbed degrees of freedom back "
+            "into inference. Type and Reference Level don't apply to this row — "
+            "leave them as-is."
         ),
         "body",
     ),

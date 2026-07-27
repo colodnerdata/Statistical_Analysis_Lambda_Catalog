@@ -171,6 +171,16 @@ series.ChartType = _XL_XY_SCATTER_LINES_NO_MARKERS
 
 See `_add_identity_line` in `write_sheet_regression.py`.
 
+### Selective data labels — an `NA()`-masked overlay series, not per-point COM loops
+
+To label only the points that meet some value-based criterion (e.g., Cook's Distance points above the standard `4/n` or `0.9` influence cutoffs), add a helper column that returns the real value for qualifying rows and `NA()` for everything else, expose it as its own `RegChart`-prefixed named range, and add it to the chart as an extra series with `HasDataLabels = True`. Excel skips `NA()` points for both plotting and labeling, so only the flagged points render a label — no per-point `Points(i).HasDataLabel` loop, and no reading calculated values back into Python during the sheet-writing phase (which runs under `XL_CALCULATION_MANUAL` and would see stale or unfit values; see "Sheet writer conventions" below).
+
+On a **column-chart** target, do not give the overlay series the chart's own `xlColumnClustered` type — a second column series joins the cluster group and narrows/shifts the real bars, misaligning any label from the bar it annotates. Instead set the overlay series' own `ChartType = xlLine` (constant `4`) with `Format.Line.Visible = False` and `MarkerStyle = xlMarkerStyleNone (-4142)`: a Line-type series shares the same category axis as a Column series without joining its cluster, so it overlays exactly in place. Setting a per-series `ChartType` that differs from the chart's own is how Excel builds a **combo chart** — expect the chart to become one.
+
+To label the point by something more meaningful than its raw value (e.g., the observation's row identifier instead of, or alongside, the Cook's D number), set the overlay series' `XValues` to a named range over the identifier column and turn on `ShowCategoryName` on its `DataLabels()`, combined with `ShowValue` if the number should show too.
+
+See the `RegChartCookDistFlag` / `RegChartObsLabel` names in `_setup_local_names` and the Cook's Distance branch of `_write_diagnostic_charts` in `write_sheet_regression.py`.
+
 ### Separate chart title cells from chart insertion
 
 Write formula cells for chart titles (e.g., `Q14`, `Q34`, `Q54`) **outside** the try/except guard. These are standard cell writes (not COM chart API calls), so they can be exercised in unit tests via the `RecordingSheet` mock without Excel. Only the `ChartObjects().Add(...)` call needs the guard.

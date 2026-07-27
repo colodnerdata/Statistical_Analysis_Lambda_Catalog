@@ -128,6 +128,7 @@ def calculate_regression_results_from_matrix(
     alpha: float = 0.05,
     sequence_values: np.ndarray | None = None,
     group_labels: np.ndarray | None = None,
+    selected_group: str | None = None,
 ) -> RegressionSheetResults:
     """Fit OLS and compute expected values for the current Regression sheet.
 
@@ -157,6 +158,16 @@ def calculate_regression_results_from_matrix(
     ``durbin_watson`` is NaN whenever ``group_labels`` is given; the
     ``compare_values`` QC comparison already treats NaN/None on both sides as
     "both missing", not a mismatch.
+
+    ``selected_group`` picks which group's mean/count the Prediction
+    Interval box (AH3:AH14 on the sheet) is anchored to via
+    ``Group_Prediction_Interval``'s group-mean-recovery form — the sheet's
+    own ``$AH$12`` cell, which defaults to the alphabetically-first observed
+    group when nothing is typed. ``None`` (the default here) mirrors that:
+    picks the alphabetically-first group. With no ``group_labels``, every
+    row is treated as one constant ``"(all)"`` group, which makes this
+    collapse exactly to the pre-v2.1 single-interval numbers (see
+    ``tests/test_group_prediction_interval.py``).
     """
     x_features = np.asarray(x_features, dtype=np.float64)
     y_train = np.asarray(y_train, dtype=np.float64)
@@ -370,27 +381,69 @@ def calculate_regression_results_from_matrix(
         scale_location=tuple(float(v) for v in scale_location),
     )
 
-    # NOTE: this box models the pre-v2.1 single mean-response CI, not the
-    # shipped sheet's Group_Prediction_Interval/group-mean-recovery mechanism
-    # (see the STALE comment in tools/inspect_regression_sheet.py) — accurate
-    # for every existing no-FE case, but not a faithful FE-active oracle.
-    # Callers building an FE spec case should exclude this section from
-    # comparison rather than trust these numbers against the sheet.
-    x_means = np.mean(x_fit, axis=0)
-    x_new_design = np.concatenate([[1.0], x_means]) if include_intercept else x_means
-    h_new = float(x_new_design @ xtx_inv @ x_new_design)
-    point_estimate = float(x_new_design @ model.params)
-    se_pred = se_regression * sqrt(1.0 + h_new)
-    t_crit = float(_scipy_stats.t.ppf(1.0 - alpha / 2.0, df_residual))
-    margin = t_crit * se_pred
+    # Group_Prediction_Interval's own group-mean recovery: y_hat = ybar_i +
+    # (x_new - xbar_i)'beta, with mean-response and new-observation variance
+    # terms (see tests/test_group_prediction_interval.py's docstring for the
+    # derivation). This ALWAYS demeans internally — even a no-FE model
+    # group-demeans by one constant "(all)" group covering every row.
+    #
+    # df_residual/t_crit_coef are reused as-is: Residual_Degrees_Of_Freedom is
+    # a pure function of n/k/allow_arg/absorbed_arg, never of the data, so it
+    # can't differ here. beta/sigma CANNOT be shortcut through pred_coefs/
+    # se_regression, though — that reuse only holds with an intercept (adding
+    # a constant shift to already-demeaned columns doesn't move an
+    # intercept-included fit's slope coefficients or residuals by FWL), and
+    # breaks for a no-intercept model, where centering by the group mean
+    # genuinely changes the through-the-origin fit. So this always re-fits on
+    # the group-demeaned pair, matching the formula exactly rather than
+    # assuming an equivalence that only sometimes holds.
+    if group_labels is not None:
+        pi_group = np.asarray(group_labels)
+    else:
+        pi_group = np.full(n, "(all)", dtype=object)
+    if selected_group is None:
+        selected_group = sorted(np.unique(pi_group))[0]
+
+    x_within_pi = _demean_within_groups(x_features, pi_group)
+    y_within_pi = _demean_within_groups(y_train, pi_group)
+    design_pi = (
+        np.column_stack([np.ones(n), x_within_pi]) if include_intercept else x_within_pi
+    )
+    beta_full_pi, *_ = np.linalg.lstsq(design_pi, y_within_pi, rcond=None)
+    beta_pi = beta_full_pi[1:] if include_intercept else beta_full_pi
+    resid_pi = y_within_pi - design_pi @ beta_full_pi
+    ssr_pi = float(resid_pi @ resid_pi)
+    sigma_pi = sqrt(ssr_pi / df_residual)
+
+    xtx_inv_pi = np.linalg.inv(x_within_pi.T @ x_within_pi)
+    selected_mask = pi_group == selected_group
+    group_count = int(np.sum(selected_mask))
+    group_mean = float(np.mean(y_train[selected_mask]))
+    xbar_i = np.mean(x_features[selected_mask], axis=0)
+
+    # Training Mean prefill: AVERAGE of the RAW X_s() columns — FE-independent,
+    # unlike x_fit (which is demeaned once a Fixed Effects row is declared).
+    x_new = np.mean(x_features, axis=0)
+    deviation = x_new - xbar_i
+    quad = float(deviation @ xtx_inv_pi @ deviation)
+    point_estimate = group_mean + float(deviation @ beta_pi)
+    se_mean = sigma_pi * sqrt(1.0 / group_count + quad)
+    se_new = sigma_pi * sqrt(1.0 + 1.0 / group_count + quad)
+    margin_mean = t_crit_coef * se_mean
+    margin_new = t_crit_coef * se_new
     prediction_interval = RegressionPredictionInterval(
-        pred_input_values=tuple(float(v) for v in x_means),
+        pred_input_values=tuple(float(v) for v in x_new),
         point_estimate=point_estimate,
-        se_prediction=se_pred,
-        t_critical=t_crit,
-        lower=point_estimate - margin,
-        upper=point_estimate + margin,
+        se_mean=se_mean,
+        se_new=se_new,
+        t_critical=t_crit_coef,
+        ci_lower=point_estimate - margin_mean,
+        ci_upper=point_estimate + margin_mean,
+        pi_lower=point_estimate - margin_new,
+        pi_upper=point_estimate + margin_new,
         confidence_level=1.0 - alpha,
+        group_mean=group_mean,
+        group_count=group_count,
     )
 
     return RegressionSheetResults(

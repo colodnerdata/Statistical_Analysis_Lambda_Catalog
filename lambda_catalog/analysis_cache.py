@@ -30,7 +30,11 @@ DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
 # v15: RegressionPredictorSummary.vif renamed to .gvif (Generalized VIF, one
 # shared value per source variable) — the JSON key changed, so a cached v14
 # entry has no "gvif" key.
-_CACHE_SCHEMA_VERSION = 15
+# v16: RegressionPredictionInterval rebuilt from the pre-v2.1 6-value shape
+# (se_prediction/lower/upper) to the v2.1 group-mean-recovery 9-value shape
+# (se_mean/se_new/ci_lower/ci_upper/pi_lower/pi_upper/group_mean/group_count)
+# — a cached v15 entry has none of the new keys.
+_CACHE_SCHEMA_VERSION = 16
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -144,11 +148,16 @@ def _serialize_regression_sheet_configs(
             "prediction_interval": {
                 "pred_input_values": list(r.prediction_interval.pred_input_values),
                 "point_estimate": r.prediction_interval.point_estimate,
-                "se_prediction": r.prediction_interval.se_prediction,
+                "se_mean": r.prediction_interval.se_mean,
+                "se_new": r.prediction_interval.se_new,
                 "t_critical": r.prediction_interval.t_critical,
-                "lower": r.prediction_interval.lower,
-                "upper": r.prediction_interval.upper,
+                "ci_lower": r.prediction_interval.ci_lower,
+                "ci_upper": r.prediction_interval.ci_upper,
+                "pi_lower": r.prediction_interval.pi_lower,
+                "pi_upper": r.prediction_interval.pi_upper,
                 "confidence_level": r.prediction_interval.confidence_level,
+                "group_mean": r.prediction_interval.group_mean,
+                "group_count": r.prediction_interval.group_count,
             },
         })
     return result
@@ -199,11 +208,16 @@ def _deserialize_regression_sheet_configs(
         prediction_interval = RegressionPredictionInterval(
             pred_input_values=tuple(pi["pred_input_values"]),
             point_estimate=pi["point_estimate"],
-            se_prediction=pi["se_prediction"],
+            se_mean=pi["se_mean"],
+            se_new=pi["se_new"],
             t_critical=pi["t_critical"],
-            lower=pi["lower"],
-            upper=pi["upper"],
+            ci_lower=pi["ci_lower"],
+            ci_upper=pi["ci_upper"],
+            pi_lower=pi["pi_lower"],
+            pi_upper=pi["pi_upper"],
             confidence_level=pi["confidence_level"],
+            group_mean=pi["group_mean"],
+            group_count=pi["group_count"],
         )
         result.append((
             item["name"],

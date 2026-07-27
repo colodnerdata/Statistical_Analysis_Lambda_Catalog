@@ -1,13 +1,36 @@
-"""Write the Diagnostic Guide sheet into the target workbook."""
+"""Write the Diagnostic Guide sheet into the target workbook.
+
+This sheet is a fixed, dataset-independent reference, so production/QC
+builds just copy the already-styled sheet out of ``TEMPLATE_PATH`` (see
+``copy_static_sheet``) instead of re-running the row-by-row COM writes on
+every build. ``_write_template_sheet`` remains the authored source of the
+content; run this module's CLI after editing it to regenerate the template,
+then commit the updated ``.xlsx``.
+"""
 from __future__ import annotations
+
+import argparse
+from pathlib import Path
 
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER_COLOR, SUBHDR_COLOR as _SUBHEADER_COLOR
-from .workbook_helpers import ColumnSpec, get_or_create_sheet, reset_generated_sheet, set_column_widths
+from .workbook_helpers import (
+    ColumnSpec,
+    OPEN_WORKBOOK_ERRORS,
+    copy_static_sheet,
+    get_or_create_sheet,
+    open_or_create_workbook,
+    raise_excel_access_error,
+    reset_generated_sheet,
+    set_column_widths,
+)
 
 
 SHEET_NAME = "Diagnostic Guide"
+
+_ROOT_DIR = Path(__file__).resolve().parent.parent
+TEMPLATE_PATH = _ROOT_DIR / "templates" / "static_sheets.xlsx"
 
 _COLUMNS: tuple[ColumnSpec, ...] = (
     ColumnSpec(1, 28, "Plot / Diagnostic / Pattern"),
@@ -47,8 +70,13 @@ def _row(sheet: xw.Sheet, row: int, values: list[str]) -> None:
         cell.api.WrapText = True
 
 
-def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
-    """Create or refresh the Diagnostic Guide reference sheet."""
+def _write_template_sheet(workbook: xw.Book) -> None:
+    """(Re)build this sheet's content directly.
+
+    Used only to author ``TEMPLATE_PATH`` — production/QC builds never call
+    this; they call ``write_diagnostic_guide_sheet``, which copies the sheet
+    this function last wrote into the template.
+    """
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
 
@@ -219,3 +247,52 @@ def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
         _row(sheet, r, vals); r += 1
 
     sheet.autofit("rows")
+
+
+def write_diagnostic_guide_sheet(workbook: xw.Book) -> None:
+    """Create or refresh the Diagnostic Guide reference sheet from the static template.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open xlwings workbook to receive the sheet.
+    """
+    copy_static_sheet(workbook, TEMPLATE_PATH, SHEET_NAME)
+
+
+def _main() -> None:
+    """Regenerate this sheet inside ``templates/static_sheets.xlsx``.
+
+    Run after editing the content above, then commit the updated template file.
+    """
+    parser = argparse.ArgumentParser(
+        description=(
+            f"Rebuild the {SHEET_NAME!r} sheet inside the static template workbook."
+        )
+    )
+    parser.add_argument(
+        "--template",
+        type=Path,
+        default=TEMPLATE_PATH,
+        help="Path to the static template workbook (default: templates/static_sheets.xlsx).",
+    )
+    args = parser.parse_args()
+
+    template_path = args.template.resolve()
+    try:
+        with xw.App(visible=True, add_book=False) as app:
+            workbook, _ = open_or_create_workbook(app, template_path)
+            try:
+                _write_template_sheet(workbook)
+                workbook.save(str(template_path))
+            finally:
+                workbook.close()
+    except OPEN_WORKBOOK_ERRORS as exc:
+        raise_excel_access_error(template_path, "open or save", exc)
+
+    print(f"Template sheet updated: {SHEET_NAME}")
+    print(f"Template workbook: {template_path}")
+
+
+if __name__ == "__main__":
+    _main()

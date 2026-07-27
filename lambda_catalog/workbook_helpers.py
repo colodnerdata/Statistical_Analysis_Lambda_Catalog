@@ -154,6 +154,73 @@ def reset_generated_sheet(sheet: xw.Sheet) -> None:
     sheet.api.Cells.Clear()
 
 
+def copy_static_sheet(workbook: xw.Book, template_path: Path, sheet_name: str) -> xw.Sheet:
+    """Replace ``sheet_name`` in ``workbook`` with a copy from a static template.
+
+    For reference/documentation sheets whose content never depends on the
+    target dataset (e.g. Regression Instructions, Diagnostic Guide), copying
+    an already-styled sheet via Excel's own ``Copy`` is far cheaper than
+    reconstructing every cell with COM calls on each build, and keeps the
+    content itself in one editable place — the template workbook — rather
+    than a Python row list. ``workbook`` must be open in a running Excel
+    instance; the template is opened in that same instance (or reused if
+    already open there) for the cross-workbook copy to work.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The open target workbook.
+    template_path : Path
+        Path to the ``.xlsx`` template holding the source sheet.
+    sheet_name : str
+        Name of the sheet to copy from the template. Any existing sheet of
+        the same name in ``workbook`` is deleted first.
+
+    Returns
+    -------
+    xw.Sheet
+        The freshly copied sheet, now part of ``workbook``.
+    """
+    for sheet in list(workbook.sheets):
+        if sheet.name == sheet_name:
+            sheet.delete()
+            break
+
+    app = workbook.app
+    resolved_template_path = template_path.resolve()
+
+    # Reuse the template if it's already open in this Excel instance (e.g. a
+    # developer editing it by hand) so this helper only closes what it opened
+    # — closing someone else's open workbook out from under them would be a
+    # surprising side effect of what looks like a read-only copy operation.
+    template_book = None
+    for book in app.books:
+        try:
+            if Path(book.fullname).resolve() == resolved_template_path:
+                template_book = book
+                break
+        except OPEN_WORKBOOK_ERRORS:
+            continue
+
+    opened_here = template_book is None
+    if opened_here:
+        try:
+            template_book = app.books.open(str(resolved_template_path))
+        except OPEN_WORKBOOK_ERRORS as exc:
+            # Attribute the failure to the template, not `workbook` — a
+            # missing/locked/corrupt template would otherwise surface as a
+            # misleading error about the (perfectly fine) target workbook.
+            raise_excel_access_error(resolved_template_path, "open", exc)
+
+    try:
+        template_book.sheets[sheet_name].api.Copy(After=workbook.sheets[-1].api)
+    finally:
+        if opened_here:
+            template_book.close()
+
+    return workbook.sheets[sheet_name]
+
+
 def reset_column_groups(sheet: xw.Sheet) -> None:
     """Remove existing column outlines and ensure all columns are visible.
 

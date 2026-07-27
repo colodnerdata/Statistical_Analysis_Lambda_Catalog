@@ -30,6 +30,7 @@ _EXPECTED_CASE_NAMES = [
     "origin_invalid_reference",
     "model_year_origin_categorical",
     "usa_filter_degenerate_origin",
+    "production_lots_fixed_effects",
 ]
 
 _EXPECTED_T0_NAMES = (
@@ -92,7 +93,9 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
 
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Regression", "Univariate"]),
+        sheets=_Sheets(
+            ["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression", "Univariate"]
+        ),
     )
 
     build_qc._calculate_verification_sheets(
@@ -102,7 +105,9 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
         skip_dummy=True,
     )
 
-    assert calls == ["Life Expectancy Data", "Mileage Data", "Regression", "Univariate"]
+    assert calls == [
+        "Life Expectancy Data", "Mileage Data", "Production Lots", "Regression", "Univariate",
+    ]
 
 
 def test_build_qc_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
@@ -141,7 +146,7 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
 
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Regression"]),
+        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression"]),
     )
 
     # skip_univariate not passed (defaults False) — the sheet is simply
@@ -154,7 +159,7 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
     )
 
     assert "Univariate" not in calls
-    assert calls == ["Life Expectancy Data", "Mileage Data", "Regression"]
+    assert calls == ["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression"]
 
 
 def test_calculate_verification_sheets_still_requires_regression_sheet() -> None:
@@ -179,7 +184,7 @@ def test_calculate_verification_sheets_still_requires_regression_sheet() -> None
 
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Univariate"]),
+        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Production Lots", "Univariate"]),
     )
 
     with pytest.raises(RuntimeError, match="Regression"):
@@ -211,7 +216,9 @@ def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None
 
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Regression", "Univariate"]),
+        sheets=_Sheets(
+            ["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression", "Univariate"]
+        ),
     )
 
     with pytest.raises(RuntimeError, match="Dummy_Test"):

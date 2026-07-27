@@ -160,7 +160,14 @@ def _apply_extra_columns(
 
 
 def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
-    """Write C2 and the full visible spec block for one QC case."""
+    """Retarget Source_Table, then write C2 and the full visible spec block for one QC case."""
+    # Source_Table is the ONE name that retargets which data sheet the spec
+    # block/design matrix reads from (see
+    # write_sheet_model_construction._set_sheet_scoped_names). Every case sets
+    # this unconditionally (RegressionSpecCase.source_table_ref is not
+    # Optional) so a case is never accidentally evaluated against whatever
+    # dataset the PREVIOUS case in the loop left Source_Table pointing at.
+    sheet.api.Names.Item("Source_Table").RefersTo = expected.case.source_table_ref
     sheet.range((_INTERCEPT_ROW, _C_SPEC_INCLUDE)).value = expected.case.allow_intercept
 
     # Clear only the spec rows (plus one blank row) so we don't wipe the
@@ -418,26 +425,32 @@ def read_regression_df(
                 })
 
             # ── Prediction Interval (column AH, rows 3–8) ─────────────────────
-            pi_specs: list[tuple[str, float]] = [
-                ("Point_Estimate",  pi.point_estimate),
-                ("SE_Prediction",   pi.se_prediction),
-                ("T_Critical",      pi.t_critical),
-                ("Lower",           pi.lower),
-                ("Upper",           pi.upper),
-                ("Confidence_Level",pi.confidence_level),
-            ]
-            pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AH, 6)
-            for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
-                diff, fdd_val = compare_values(exp_val, xl_val)
-                pi_rows.append({
-                    "config_name": config_name,
-                    "allow_intercept": allow_intercept,
-                    "stat_name": stat_name,
-                    "expected": exp_val,
-                    "excel_calc": xl_val,
-                    "abs_diff": diff,
-                    "first_digit_deviation": fdd_val,
-                })
+            # Skipped for cases that opt out (check_prediction_interval=False):
+            # this box models the pre-v2.1 single mean-response CI, not the
+            # shipped sheet's Group_Prediction_Interval/group-mean-recovery
+            # mechanism a Fixed Effects case actually exercises — see
+            # RegressionSpecCase.check_prediction_interval's docstring.
+            if expected.case.check_prediction_interval:
+                pi_specs: list[tuple[str, float]] = [
+                    ("Point_Estimate",  pi.point_estimate),
+                    ("SE_Prediction",   pi.se_prediction),
+                    ("T_Critical",      pi.t_critical),
+                    ("Lower",           pi.lower),
+                    ("Upper",           pi.upper),
+                    ("Confidence_Level",pi.confidence_level),
+                ]
+                pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AH, 6)
+                for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
+                    diff, fdd_val = compare_values(exp_val, xl_val)
+                    pi_rows.append({
+                        "config_name": config_name,
+                        "allow_intercept": allow_intercept,
+                        "stat_name": stat_name,
+                        "expected": exp_val,
+                        "excel_calc": xl_val,
+                        "abs_diff": diff,
+                        "first_digit_deviation": fdd_val,
+                    })
 
             # ── Residual Output (columns AL–AU, rows 3 to 3+n-1) ──────────────
             resid_stat_names = [

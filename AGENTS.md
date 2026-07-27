@@ -71,12 +71,12 @@ Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY
 
 ### Regression chart named ranges
 
-Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns degrades recalculation performance. All chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$W$8`:
+Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns degrades recalculation performance. All chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$Y$8`:
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AK$2,1,0,MAX(IFERROR('{sname}'!$W$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AM$2,1,0,MAX(IFERROR('{sname}'!$Y$8,1),1),1)",
 )
 ```
 
@@ -87,7 +87,7 @@ def _name_ref(local_name: str) -> str:
     return f"='{sname}'!{local_name}"
 ```
 
-All OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix. This distinguishes them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names. The post-v2.0 name-to-column map (and the `$W$8` anchor) lives in the loop in `_setup_local_names` in `lambda_catalog/write_sheet_regression.py` — that loop is the single source of truth for the column letters. When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
+All OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix. This distinguishes them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names. The post-v2.0 name-to-column map (and the `$Y$8` anchor) lives in the loop in `_setup_local_names` in `lambda_catalog/write_sheet_regression.py` — that loop is the single source of truth for the column letters. When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
 
 ## Charts — patterns and pitfalls
 
@@ -189,4 +189,6 @@ Do not wrap the entire `build_production_workbook()` call in a single retry loop
 
 `Sheet.activate()` and anything touching `Application.ActiveWindow` (e.g. freezing panes) raise when Excel cannot become the active application — no interactive desktop session, focus denied by the OS, an agentic/headless build host, etc. — even though the workbook write itself succeeds. Which sheet is on top or whether panes are frozen when the file opens is cosmetic, so that failure must not abort `build_production_workbook()`.
 
-Use `safe_activate(sheet)` and `safe_freeze_top_row(sheet)` from `workbook_helpers.py` instead of calling `sheet.activate()` / touching `ActiveWindow` directly — every sheet writer that used to call these unguarded (lambda functions, life expectancy, mileage, production lots, dummy test, the three MLR test sheets, and the Regression sheet's freeze-panes block) now goes through these two helpers, each a `try/except Exception: pass` wrapper. When adding a new sheet writer that activates its sheet or freezes its header row, call the `safe_*` helper, not the raw xlwings/COM call. See `tests/test_workbook_helpers.py` for the stub-based unit coverage.
+Use `safe_activate(sheet)` and `safe_freeze_top_row(sheet)` from `workbook_helpers.py` instead of calling `sheet.activate()` / touching `ActiveWindow` directly — every sheet writer that used to call these unguarded (lambda functions, life expectancy, mileage, production lots, dummy test, the three MLR test sheets) now goes through these two helpers, each a `try/except Exception: pass` wrapper. When adding a new sheet writer that activates its sheet or freezes its header row, call the `safe_*` helper, not the raw xlwings/COM call. See `tests/test_workbook_helpers.py` for the stub-based unit coverage.
+
+**Regression sheet exception.** `write_regression_output_sheet` calls `safe_activate(sheet)` for the initial activation, but its freeze-panes block keeps its own inline `try/except` rather than calling `safe_freeze_top_row` — it freezes the top **two** rows (`SplitRow = 2`, matching the sheet's two-row header), where `safe_freeze_top_row` only freezes one. Follow this sheet's own pattern (`sheet.activate()` / `sheet.range("A3").select()` / `ActiveWindow.FreezePanes` inside a bare `try/except Exception: pass`) if a future sheet needs a multi-row freeze; don't route it through `safe_freeze_top_row`, which is single-row only.

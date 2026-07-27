@@ -391,31 +391,31 @@ All cell colors are defined once in `lambda_catalog/sheet_styles.py` and importe
 
 Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AI$3:$AI$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
 
-Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$W$8` (the `Observations` cell in the Regression Outputs zone):
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$Y$8` (the `Observations` cell in the Regression Outputs zone):
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AK$2,1,0,MAX(IFERROR('{sname}'!$W$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AM$2,1,0,MAX(IFERROR('{sname}'!$Y$8,1),1),1)",
 )
 ```
 
-This starts one row below the column header (row 2) and extends exactly `$W$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$W$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
+This starts one row below the column header (row 2) and extends exactly `$Y$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$Y$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
 **Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names:
 
 | Name | Column | Contents |
 |---|---|---|
-| `RegChartQQX` | AP | Normal Scores Ranked (QQ theoretical axis) |
-| `RegChartQQY` | AQ | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | AK | Predicted Y — shared by multiple charts |
-| `RegChartResid` | AL | Residuals |
-| `RegChartActY` | AJ | Actual Y |
-| `RegChartScaleLoc` | AR | Scale-Location |
-| `RegChartCookDist` | AO | Cook's Distance |
-| `RegChartLeverage` | AM | Hat Diagonal |
-| `RegChartStudResid` | AN | Studentized Residuals |
-| `RegChartPRESSResid` | AS | PRESS Residual — the leave-one-out (LOOCV) residual; there is no separate "LOOCV Residual" column |
+| `RegChartQQX` | AR | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AS | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | AM | Predicted Y — shared by multiple charts |
+| `RegChartResid` | AN | Residuals |
+| `RegChartActY` | AL | Actual Y |
+| `RegChartScaleLoc` | AT | Scale-Location |
+| `RegChartCookDist` | AQ | Cook's Distance |
+| `RegChartLeverage` | AO | Hat Diagonal |
+| `RegChartStudResid` | AP | Studentized Residuals |
+| `RegChartPRESSResid` | AU | PRESS Residual — the leave-one-out (LOOCV) residual; there is no separate "LOOCV Residual" column |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 

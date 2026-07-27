@@ -178,7 +178,7 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
         "RegChartStudResid": "Studentized Residuals vs. Leverage chart: Y values",
         "RegChartPRESSResid": "PRESS Residuals chart: bar values",
         "RegChartCookDistFlag": (
-            "Cook's Distance chart: flagged-point overlay for data labels (D > 4/n or 0.9)"
+            "Cook's Distance chart: flagged-point overlay for data labels (D > 4/n or D > 0.9)"
         ),
         "RegChartObsLabel": (
             "Cook's Distance chart: observation identifier for flagged-point data labels"

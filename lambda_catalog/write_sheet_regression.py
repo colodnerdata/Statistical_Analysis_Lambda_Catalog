@@ -199,7 +199,7 @@ _C_AS = 45  # Studentized Residuals Ranked
 _C_AT = 46  # Scale-Location
 _C_AU = 47  # PRESS Residual
 _C_AV = 48  # Cook's Distance (Flagged) — chart data-label helper column
-_C_AW = 49  # wrap-text bound for row-2 header strip / diagnostic-chart anchor (no own column)
+_C_AW = 49  # non-content gutter column — wrap-text bound for row-2 header strip / diagnostic-chart anchor
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
@@ -680,7 +680,7 @@ def _setup_local_names(
         ("RegChartPRESSResid", col_letter(_C_AU),
          "PRESS Residuals chart: bar values"),
         ("RegChartCookDistFlag", col_letter(_C_AV),
-         "Cook's Distance chart: flagged-point overlay for data labels (D > 4/n or 0.9)"),
+         "Cook's Distance chart: flagged-point overlay for data labels (D > 4/n or D > 0.9)"),
         ("RegChartObsLabel", col_letter(_C_AK),
          "Cook's Distance chart: observation identifier for flagged-point data labels"),
     ]:
@@ -1441,7 +1441,7 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
             flag_series.XValues = _name_ref("RegChartObsLabel")
             flag_series.Values = _name_ref("RegChartCookDistFlag")
             flag_series.ChartType = _XL_LINE
-            flag_series.Name = "Flagged (D > 4/n or 0.9)"
+            flag_series.Name = "Flagged (D > 4/n or D > 0.9)"
             flag_series.Format.Line.Visible = False  # msoFalse — no connecting line
             flag_series.MarkerStyle = -4142          # xlMarkerStyleNone — label only
             flag_series.HasDataLabels = True

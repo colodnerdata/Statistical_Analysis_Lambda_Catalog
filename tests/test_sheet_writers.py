@@ -143,6 +143,10 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
     )
     press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
     assert "$AU$2" in press
+    cooks_flag = sheet.api.Names.by_short_name("RegChartCookDistFlag").RefersTo
+    assert "$AV$2" in cooks_flag
+    obs_label = sheet.api.Names.by_short_name("RegChartObsLabel").RefersTo
+    assert "$AK$2" in obs_label
     assert {
         name: sheet.api.Names.by_short_name(name).Comment
         for name in (
@@ -156,6 +160,8 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
             "RegChartLeverage",
             "RegChartStudResid",
             "RegChartPRESSResid",
+            "RegChartCookDistFlag",
+            "RegChartObsLabel",
         )
     } == {
         "RegChartQQX": "Normal Q-Q chart: X values (theoretical quantiles, Normal Scores Ranked)",
@@ -171,6 +177,12 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
         "RegChartLeverage": "Studentized Residuals vs. Leverage chart: X values (Hat Diagonal)",
         "RegChartStudResid": "Studentized Residuals vs. Leverage chart: Y values",
         "RegChartPRESSResid": "PRESS Residuals chart: bar values",
+        "RegChartCookDistFlag": (
+            "Cook's Distance chart: flagged-point overlay for data labels (D > 4/n or D > 0.9)"
+        ),
+        "RegChartObsLabel": (
+            "Cook's Distance chart: observation identifier for flagged-point data labels"
+        ),
     }
 
 
@@ -335,6 +347,11 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     )
     assert sheet.cell(3, _C_AU).api.Formula2 == (
         "=LOOCV_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"
+    )
+    # Cook's Distance (Flagged): NA()'d below both influence cutoffs, so the
+    # Cook's Distance chart's overlay series only labels flagged points.
+    assert sheet.cell(3, _C_AV).api.Formula2 == (
+        "=IF(AQ3#>MIN(4/$Y$8,0.9),AQ3#,NA())"
     )
 
 

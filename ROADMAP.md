@@ -64,7 +64,7 @@ flag.
 | v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries. The two post-release leftovers (per-distribution Q-Q plots and combo-chart overlay lines built on those CDF-delta columns) shipped with the next workbook build |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
-| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) | No | In progress — the Sequence Period split (TODOs #1), the Sequence/BFN chain, the FE Role dropdown + status-block validation, the CI+PI prediction layout, and the one-way FE engine (`Demean_By`/`y_s()`/`X_s_Within()`/`[DF_Absorbed]`/`Group_Prediction_Interval`, TODOs #1–#9) are all shipped; pending only the QC-oracle update for the new prediction shape (`tools/inspect_regression_sheet.py` and friends) before the 2.1.0 Version History entry |
+| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) | No | In progress — the Sequence Period split (TODOs #1), the Sequence/BFN chain, the FE Role dropdown + status-block validation, the CI+PI prediction layout, the one-way FE engine (`Demean_By`/`y_s()`/`X_s_Within()`/`[DF_Absorbed]`/`Group_Prediction_Interval`), the third `Production Lots` sample dataset (a ready-made FE example), and the QC-oracle rebuild for the new 9-value prediction shape (TODOs #1–#10) are all shipped and verified against a live build (0 mismatches); pending only follow-on polish (BFN critical values, Categorical × FE prediction encoding, residual-output relabel — all DEFERRED/documentation-only), executing `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` for a human sign-off, and the 2.1.0 Version History entry |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Planned — MINOR. Wires the reserved spec column G and ships the user-callable transform functions (Center, Zscore, Winsorize, Lag_By, …). Completes the Regression sheet as a fully functional deliverable |
 | v2.3 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. Read-only across finished Regression sheets; ships after Transforms so its comparisons are unit-space-honest from day one |
 | v2.4 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QC build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
@@ -265,19 +265,34 @@ see a workbook that says "FE is in the dropdown but the engine is forthcoming."
 - `--skip-univariate` CLI option. **(PR #98)**
 - Spec-driven QC refactor (`analyze_regression_spec.py` and `test_regression_spec_qc.py`). **(PR #103)**
 - Durbin-Watson under FE — second cell + mutual gating (BFN + resolver releases). **(PRs #105, #106)**
+- Second sample dataset — Auto MPG as the **Mileage Data** sheet, and the default `Source_Table` retarget to it, demonstrating the one-name-edit dataset changeover. **(PRs #123, #125, #126, #127)**
+- Generalized VIF for the multi-level-categorical case. **(PR #124)**
+- Sequence Period (column I) / Period In Use (column J) split — TODOs #1. **(PRs #111, #112, #114, #129)**
+- FE engine proper: `Demean_By`/`Group_Mean` primitives, the fit-time demeaned `y_s()`/`X_s_Within()` pair, `[DF_Absorbed]` threaded through 23 engine functions, the FE Role dropdown + status-block validation + intercept×FE red flag, and the group-mean-recovery Prediction Outputs rebuild (`Group_Prediction_Interval`) — TODOs #2–#9. **(PR #128, with the array-shaped `Group_Mean`/BYCOL fix in PR #130)**
+- FE-aware residual-output headers (conditional on the FE Role being active, not just on a label). **(PRs #131, #132)**
+- Third sample dataset — **Production Lots**, a small unbalanced learning-curve panel with a natural Fixed Effects grouping column (Facility) and Sequence column (Fiscal_Year); the `--regression-dataset {auto_mpg,life_expectancy,production_lots}` build flag; extended the spec-driven QC oracle to compute and verify Fixed Effects (group/within-transform support); a guard against degenerate `df_residual` when FE absorbs too many degrees of freedom. **(PR #133)**
+- QC-oracle rebuild for the shipped 9-value CI+PI/group-mean-recovery Prediction Interval shape (`regression_shared.RegressionPredictionInterval`, `analyze_regression_sheet.py`, `analysis_cache.py` schema v16, `tools/inspect_regression_sheet.py`), closing the 58 automated mismatches the pre-v2.1 6-value oracle was reporting; a `selected_group` validation guard so an unrecognized group name errors loudly instead of dividing by zero — TODOs #10. **(PRs #134, #136)**
+- Build-time sheet tab order and colors; Auto MPG `Origin` values decoded to region labels (US/Europe/Asia) in the source dataset. **(pre-#128 commits)**
+- `safe_activate()` / `safe_freeze_top_row()` guards so a headless/no-focus Excel session (no interactive desktop, focus denied by the OS) cannot abort the build when a sheet writer activates its sheet or freezes its header row. **(PR #135)**
 
-**Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5):**
+**Pending — follow-on polish, human sign-off, and the changelog entry:**
 
-The full ship order is in [TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-in-progress).
-High-level shape: the Sequence fix lands first (the v2.1 #1 — column I
-split into typed override + candidate-with-override display, with
-spill-collision guard), then the FE Role dropdown + status-block
-validation, then the CI+PI prediction layout, then the engine
-(`Demean_By` / `Group_Mean` / `Is_Balanced_Panel` /
-`Absorbed_Degrees_Of_Freedom` / `y_s` / `[DF_Absorbed]`), then the FE
-group dropdown + ȳᵢ/x̄ᵢ/Tᵢ cells + BFN cell flips active. Follow-on
-polish (BFN critical values, Categorical × FE prediction encoding,
-residual relabel + Diagnostic Guide) ships with 2.1.0 if there's room.
+Every numbered TODOs #1–#10 item is DONE and verified against a live build
+(0 mismatches across all 12 spec-driven QC cases). What remains before the
+2.1.0 Version History entry:
+
+- **Follow-on polish** (ships with 2.1.0 if there's room, otherwise slips to
+  a 2.1.x patch): BFN critical values (**DEFERRED** — N,T-dependent bounds),
+  Categorical × FE prediction encoding (**DEFERRED** — encode `x_new`/`x̄ᵢ`
+  through `Dummy_Code` before the FE formula), and a residual-output
+  relabel + Diagnostic Guide paragraph on residuals under FE
+  (documentation-only). Full list in
+  [TODOs.md § v2.1 follow-on polish](TODOs.md#follow-on-polish-ships-with-210-if-theres-room).
+- **Human sign-off** — execute
+  `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` (T0–T4) end-to-end in
+  Excel and record a PASS, the same gate `HUMAN_TEST_PLAN_v3_model_construction.md`
+  passed for the spec block at v2.0/v2.1 #1.
+- **The Version History entry** — write the 2.1.0 row once the above lands.
 
 Design rationale and resolved decisions: [DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 

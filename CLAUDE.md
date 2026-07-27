@@ -184,3 +184,9 @@ Do not wrap the entire `build_production_workbook()` call in a single retry loop
 - Row constants (`_ROW_TITLE`, `_ROW_METHOD_HDR`, `_ROW_SECTION_HDR`, `_ROW_COL_HDRS`, `_ROW_DATA_START`, …) live at the top of each writer and are the single source of truth for the layout.
 - All chart series reference **worksheet-scoped named ranges** via `OFFSET` — never spill references or full-column references (see CONTRIBUTING.md for details).
 - Set `app.api.Calculation = XL_CALCULATION_MANUAL` before writing any sheet and `XL_CALCULATION_SEMIAUTOMATIC` after all writes, before save. This prevents OFFSET-based named ranges from resolving prematurely during build.
+
+### Guard headless/no-focus Excel calls with the `safe_*` helpers
+
+`Sheet.activate()` and anything touching `Application.ActiveWindow` (e.g. freezing panes) raise when Excel cannot become the active application — no interactive desktop session, focus denied by the OS, an agentic/headless build host, etc. — even though the workbook write itself succeeds. Which sheet is on top or whether panes are frozen when the file opens is cosmetic, so that failure must not abort `build_production_workbook()`.
+
+Use `safe_activate(sheet)` and `safe_freeze_top_row(sheet)` from `workbook_helpers.py` instead of calling `sheet.activate()` / touching `ActiveWindow` directly — every sheet writer that used to call these unguarded (lambda functions, life expectancy, mileage, production lots, dummy test, the three MLR test sheets, and the Regression sheet's freeze-panes block) now goes through these two helpers, each a `try/except Exception: pass` wrapper. When adding a new sheet writer that activates its sheet or freezes its header row, call the `safe_*` helper, not the raw xlwings/COM call. See `tests/test_workbook_helpers.py` for the stub-based unit coverage.

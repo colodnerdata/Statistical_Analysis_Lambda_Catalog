@@ -81,6 +81,17 @@ Tests live in `tests/`. The current test files are:
 | `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the v2.6+ reserved-spec-column pattern) |
 | `test_difference_by_verification.py` | Gap-aware `Difference_By` (WHO exact counts plus the punched-out-year and calendar-date synthetic cases per `HUMAN_TEST_PLAN_v3_model_construction.md` T17–T19) |
 | `test_analyze_regression_spec_block.py` | Post-changeover spec-block QC analyzer (predicted counts and values, regression sheet spec state) |
+| `test_regression_spec_qc.py` | Spec-driven Regression QC oracle (`analyze_regression_spec.py` case definitions) |
+| `test_mileage_data_loader.py` | `load_mileage_rows` (`write_sheet_mileage_data.py`) against the committed `sample_data/auto_mpg_data.xlsx` |
+| `test_mileage_completeness_qc.py` | `calculate_mileage_completeness_flags` (`analyze_mileage.py`) against the Auto MPG dataset |
+| `test_within_estimator.py` | v2.1 Fixed Effects phase 2 — the fit-time demeaned pair `y_s()`/`X_s_Within()`, against an independent `statsmodels` LSDV fit |
+| `test_group_panel_transforms.py` | v2.1 Fixed Effects phase 1 — `Group_Mean`, `Demean_By`, `Is_Balanced_Panel`, `Absorbed_Degrees_Of_Freedom` |
+| `test_df_absorbed_threading.py` | v2.1 Fixed Effects phase 3 — `[DF_Absorbed]` threaded through SE/t/p/CI/MS-Residual/AIC/BIC/AICc, against an independent `statsmodels` LSDV fit |
+| `test_group_prediction_interval.py` | v2.1 Fixed Effects phase 5 — `Group_Mean_At`, `Group_Count_At`, `Prediction_Group_Column`, `Group_Prediction_Interval` (the group-mean-recovery CI+PI form), against an explicit LSDV `get_prediction()` reference |
+| `test_workbook_helpers.py` | `safe_activate()` / `safe_freeze_top_row()` against stub sheet/window objects (headless/no-focus Excel session guards) |
+| `test_workbook_builder.py` | Workbook package-patching helpers (`sync_workbook_names` and friends) that don't require Excel |
+| `test_build_production.py` | `build_production.py`'s pure-Python logic (CLI flag handling, dataset selection, tab order/color assignment) that doesn't require Excel |
+| `test_workbook_invariants.py` | Layer 1 headless structural check of a built `.xlsx` package (`zipfile` + `lxml`): dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken package parts, orphan chart-relationship targets, sheet drift — see [Verifying builds](#verifying-builds) |
 
 ### Coverage scope
 
@@ -88,11 +99,16 @@ The coverage configuration in `pyproject.toml` tracks only the modules that are 
 
 - `analyze_life_expectancy.py`
 - `analyze_mileage.py`
+- `analyze_production_lots.py`
+- `analyze_model_construction.py`
+- `analyze_regression_spec.py`
+- `analyze_regression_spec_block.py`
 - `analyze_univariate.py`
 - `catalog_schema.py`
 - `lambda_formula_parser.py`
 - `regression_shared.py`
 - `analysis_cache.py`
+- `verify_report.py`
 
 The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the QC build instead (see below).
 
@@ -160,7 +176,7 @@ uv run python build_production.py --skip-univariate --skip-data-table-calculatio
 uv run python build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all thirteen sheets (the eight above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all thirteen sheets (the nine above plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
 
 The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 
@@ -281,12 +297,15 @@ lambda_catalog/
   analyze_mileage.py         # Auto MPG QC oracle: calculate_mileage_completeness_flags
   analyze_production_lots.py # Production Lots QC oracle: calculate_production_lots_completeness_flags
   analyze_regression_spec.py # spec-driven Regression QC cases, incl. the Fixed Effects case
+  analyze_regression_spec_block.py # post-changeover spec-block QC analyzer (predicted counts/values, spec state)
   analyze_regression_sheet.py # full Regression sheet QC oracle (predictor summary, residuals, prediction interval,
                               # and the Fixed Effects within-transform/DF_Absorbed correction)
+  analyze_model_construction.py # Model Construction QC analyzer: default-spec expectations, mask/level checks
   analyze_univariate.py      # univariate analysis: NLL functions, MLE estimators, binning, GoF
   analysis_cache.py          # disk cache keyed on CSV SHA-256 + schema version
   lambda_formula_parser.py   # converts display formulas to workbook XML syntax
   inspection_compare.py      # numeric comparison helpers for QC value verification
+  verify_report.py           # VerifyReport: structured pass/fail result for the spec-driven verifier
   make_test_sheet.py         # shared helpers for Excel ListObject test tables
   write_sheet_lambda_functions.py
   write_sheet_life_expectancy_data.py

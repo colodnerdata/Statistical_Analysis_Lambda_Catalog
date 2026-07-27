@@ -144,7 +144,7 @@ its value on another.
 
 | Axis | Values | Future values | Meaning |
 |---|---|---|---|
-| **Variable Role** | Response · Predictor · Identifier · Filter · Omit | Fixed Effects, Weight, Time (v2.1+) | What the column *is* in the model |
+| **Variable Role** | Response · Predictor · Identifier · Filter · Omit · Fixed Effects (v2.1) | Weight (v2.6+), Time / Cluster (v2.7+) | What the column *is* in the model |
 | **Predictor Type** | Continuous · Categorical | *(closed — never grows)* | How a Predictor *enters* the design matrix — meaningful only when Role = Predictor |
 | **Sequence** *(structural, post-v2.0)* | TRUE · blank | *(flag — never grows)* | Which column *orders* the data, for lag/difference/serial-correlation features |
 
@@ -166,9 +166,10 @@ lag/difference/serial-correlation features land on a declared axis.
 - **At most one** Sequence (zero-or-one). Zero flags is a valid spec
   (non-panel data); two-plus is a visible status-line error (same pattern as
   exactly-one-Response, with a >1 threshold).
-- **At most one** of each future Role value that is single-instance by
-  nature: Fixed Effects, Weight, Time. The status block validates each the
-  same way it validates exactly-one-Response.
+- **At most one** of each Role value that is single-instance by nature:
+  Fixed Effects (shipped v2.1; a B1 cardinality error fires at two-plus
+  rows), Weight, Time (both still future, v2.6+/v2.7+). The status block
+  validates each the same way it validates exactly-one-Response.
 - **Zero-or-more** Filter columns. AND-composed: no Filter columns → all rows
   included; multiple → logical AND (declarative stratification, e.g.
   `Full_Data` AND a hand-built "Developing only" flag).

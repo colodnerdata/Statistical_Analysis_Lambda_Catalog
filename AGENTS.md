@@ -71,7 +71,7 @@ Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY
 
 ### Regression chart named ranges
 
-Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns degrades recalculation performance. All chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$Y$8`:
+Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns degrades recalculation performance. All chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in the Regression Statistics block at `$Y$8`:
 
 ```python
 sheet.api.Names.Add(

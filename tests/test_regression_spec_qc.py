@@ -31,6 +31,7 @@ _EXPECTED_CASE_NAMES = [
     "model_year_origin_categorical",
     "usa_filter_degenerate_origin",
     "production_lots_fixed_effects",
+    "production_lots_log_transform",
 ]
 
 _EXPECTED_T0_NAMES = (

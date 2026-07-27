@@ -65,7 +65,7 @@ flag.
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
 | v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) | No | In progress — the Sequence Period split (TODOs #1), the Sequence/BFN chain, the FE Role dropdown + status-block validation, the CI+PI prediction layout, the one-way FE engine (`Demean_By`/`y_s()`/`X_s_Within()`/`[DF_Absorbed]`/`Group_Prediction_Interval`), the third `Production Lots` sample dataset (a ready-made FE example), and the QC-oracle rebuild for the new 9-value prediction shape (TODOs #1–#10) are all shipped and verified against a live build (0 mismatches); pending only follow-on polish (BFN critical values, Categorical × FE prediction encoding, residual-output relabel — all DEFERRED/documentation-only), executing `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` for a human sign-off, and the 2.1.0 Version History entry |
-| v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Planned — MINOR. Wires the reserved spec column G and ships the user-callable transform functions (Center, Zscore, Winsorize, Lag_By, …). Completes the Regression sheet as a fully functional deliverable |
+| v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()`/`Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open |
 | v2.3 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. Read-only across finished Regression sheets; ships after Transforms so its comparisons are unit-space-honest from day one |
 | v2.4 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QC build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
 | v2.5 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Claimed — next MINOR after v2.4. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix` |
@@ -298,7 +298,7 @@ Design rationale and resolved decisions: [DECISIONS.md § v2.1](DECISIONS.md#v21
 
 ---
 
-## v2.2 — Transforms & Unit-Space Comparability — PLANNED
+## v2.2 — Transforms & Unit-Space Comparability — PARTIALLY DELIVERED
 
 Wires the reserved spec-block column G (`Transform`) and ships the standalone Data
 Transformation function library. The `Transform` dropdown gains one real value:
@@ -316,26 +316,51 @@ cross-model comparison trustworthy, not just possible — and it is what complet
 Regression sheet as a fully functional deliverable, which is why it precedes the
 Model Comparison convenience layer.
 
-- **Unit-space dispatcher, RESOLVED** — `Unit_Space_R_Squared(model,
+**Shipped:**
+
+- **Column-G Log wiring** — `Response_Column()` and `X_s()` apply
+  `Ln_Positive` in place when a Response or Continuous Predictor row
+  declares `Log`; `Constructed_Column_Names()` relabels the column
+  `Ln(name)`; the new structural twin `Constructed_Column_Transforms()`
+  carries the per-constructed-column Log/None flag the Prediction Inputs
+  band needs (a Categorical Predictor's dummy columns always read
+  `None` — Log is disallowed there and flagged red, never silently
+  applied). The v2.1 FE-demeaning wrappers (`y_s()`/`X_s_Within()`) needed
+  no changes — they compose transform-then-demean automatically. The
+  Prediction Inputs band takes a raw value and auto-logs it internally;
+  its Training Mean spill emits the geometric mean for a logged column to
+  avoid double-logging the default prediction. New catalog function
+  `Ln_Positive(x, [include])`. Verified against a real learning-curve
+  model (Production Lots, raw columns with `transform="Log"`) matching
+  the pre-existing precomputed-log-column case to floating-point
+  precision. Full design rationale in
+  [DECISIONS.md § v2.2 Transform column wiring](DECISIONS.md#v22--transforms--unit-space-comparability).
+
+**Still open (this pass deliberately excluded them — no back-transformation or
+cross-model comparability yet, only a correctly-fitted log-space model):**
+
+- **Unit-space dispatcher, RESOLVED (design only, not implemented)** — `Unit_Space_R_Squared(model,
   response_transform, predictor_transform)` with argument order
   model-then-response-then-predictor (matches the spec block's
   column-G reading order). One canonical name per statistic, internal
   `SWITCH` on the transform pair. The dispatcher is the first
   deliberate departure from "one canonical name, one LAMBDA" —
   justified by the combinatorial blow-up the exception avoids.
-- **Prediction back-transformation, RESOLVED** — Duan's smearing
+- **Prediction back-transformation, RESOLVED (design only, not implemented)** — Duan's smearing
   estimator as the default, with a per-cell `Back_Transform_Method`
   toggle (`Duan` default | `Naive`). Naive is biased (Jensen's
   inequality); Duan is unbiased under iid residuals. Caveat row
-  visible on the sheet.
+  visible on the sheet. Until this ships, in-sample "Predicted Y" and
+  the prediction outputs are labelled `(Log)` rather than back-transformed.
 - **Statistics with a unit-space counterpart:** R², Adjusted R², RMSE.
   AIC / AICc / BIC deferred (likelihood depends on the Jacobian of
   the transformation; the "right" comparison is on the original
   response's likelihood, not the transformed one's).
-- **Standalone transform library ships in this release** —
-  `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Ln_Positive`,
+- **Standalone transform library, remainder** —
+  `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`,
   `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`,
-  `Dummy_Column`, `Interact`, `Model_Matrix`. The full taxonomy
+  `Dummy_Column`, `Interact`, `Model_Matrix` (`Ln_Positive` shipped
+  early with the column-G wiring above). The full taxonomy
   and the `""`-vs-`NA()` row-alignment convention are in
   [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
 

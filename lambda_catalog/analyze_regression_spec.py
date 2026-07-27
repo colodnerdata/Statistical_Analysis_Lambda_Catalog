@@ -4,6 +4,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
+import math
 import numpy as np
 
 from .analyze_mileage import DEFAULT_INPUT_XLSX
@@ -96,6 +97,12 @@ class RegressionSpecDesign:
     row_mask: tuple[bool, ...]
     row_labels: tuple[str, ...]
     constructed_column_names: tuple[str, ...]
+    # v2.2 Log wiring: "Log"/"None" per constructed column, mirroring the
+    # sheet's Constructed_Column_Transforms() — the Python side of the
+    # raw/log split the Prediction Inputs band's auto-log step needs.
+    # Every dummy column from a Categorical Predictor reads "None"
+    # regardless of its spec row's own Transform value.
+    constructed_column_transforms: tuple[str, ...]
     x_features: np.ndarray
     y_train: np.ndarray
     sequence_values: np.ndarray | None
@@ -129,6 +136,7 @@ def _copy_spec(spec: tuple[SpecVariable, ...] | list[SpecVariable]) -> list[Spec
             item.var_type,
             item.reference,
             item.sequence,
+            item.transform,
         )
         for item in spec
     ]
@@ -149,8 +157,9 @@ def _spec_var(
     var_type: str = "Continuous",
     reference: object = "",
     sequence: bool = False,
+    transform: str = "None",
 ) -> SpecVariable:
-    return SpecVariable(name, role, include, var_type, reference, sequence)
+    return SpecVariable(name, role, include, var_type, reference, sequence, transform)
 
 
 def _row_label(row: dict[str, object], identifiers: list[str], fallback_index: int) -> str:
@@ -197,6 +206,9 @@ def build_spec_design(
     spec_tuple = tuple(spec)
     mask = tuple(_compute_mask(list(spec_tuple), rows))
     response_name = _numeric_response_name(spec_tuple)
+    response_transform = next(
+        item.transform for item in spec_tuple if item.role == _ROLE_RESPONSE
+    )
     identifiers = [item.name for item in spec_tuple if item.role == _ROLE_IDENTIFIER]
     included_indices = [idx for idx, included in enumerate(mask) if included]
     if not included_indices:
@@ -208,19 +220,46 @@ def build_spec_design(
         value = rows[idx][response_name]
         if not _is_number(value):
             raise ValueError(f"Included row has nonnumeric response: row={idx + 1}")
-        y_values.append(float(value))
+        numeric_value = float(value)
+        if response_transform == "Log":
+            # Parity contract with Ln_Positive: the sheet returns #N/A for
+            # a non-positive included value under Log; a QC case must
+            # describe a legal, fully-computable model, so this raises
+            # instead of silently emitting NaN.
+            if numeric_value <= 0:
+                raise ValueError(
+                    "Included row has non-positive value for Log-transformed "
+                    f"response: row={idx + 1}"
+                )
+            numeric_value = math.log(numeric_value)
+        y_values.append(numeric_value)
         labels.append(_row_label(rows[idx], identifiers, idx))
 
     matrix_columns: list[list[float]] = []
     constructed_names: list[str] = []
+    constructed_transforms: list[str] = []
     for variable in spec_tuple:
         if variable.role != _ROLE_PREDICTOR or not variable.include:
             continue
         if variable.var_type != "Categorical":
-            constructed_names.append(variable.name)
-            matrix_columns.append(
-                [_numeric_cell(rows[idx], variable.name) for idx in included_indices]
+            is_log = variable.transform == "Log"
+            constructed_names.append(
+                f"Ln({variable.name})" if is_log else variable.name
             )
+            values = []
+            for idx in included_indices:
+                raw = _numeric_cell(rows[idx], variable.name)
+                if is_log:
+                    if raw <= 0:
+                        raise ValueError(
+                            "Included row has non-positive value for "
+                            f"Log-transformed predictor {variable.name!r}: "
+                            f"row={idx + 1}"
+                        )
+                    raw = math.log(raw)
+                values.append(raw)
+            matrix_columns.append(values)
+            constructed_transforms.append("Log" if is_log else "None")
             continue
 
         retained = _retained_levels(variable, rows, list(mask))
@@ -233,6 +272,10 @@ def build_spec_design(
                 else (1.0 if rows[idx][variable.name] == level else 0.0)
                 for idx in included_indices
             ])
+            # Log is disallowed on Categorical Predictors (flagged red on
+            # the sheet); every dummy column reads "None" unconditionally,
+            # mirroring Constructed_Column_Transforms()'s EXPAND branch.
+            constructed_transforms.append("None")
 
     if not matrix_columns:
         raise ValueError("Spec produced zero constructed columns")
@@ -265,6 +308,7 @@ def build_spec_design(
         row_mask=mask,
         row_labels=tuple(labels),
         constructed_column_names=tuple(constructed_names),
+        constructed_column_transforms=tuple(constructed_transforms),
         x_features=x_features,
         y_train=np.asarray(y_values, dtype=np.float64),
         sequence_values=sequence_values,
@@ -398,6 +442,39 @@ def _production_lots_fixed_effects_spec() -> list[SpecVariable]:
     ]
 
 
+def _production_lots_log_transform_spec() -> list[SpecVariable]:
+    """Facility=Fixed Effects, Fiscal_Year=Sequence: Cumulative_Units -Log-> Unit_Cost_BY.
+
+    Sibling of _production_lots_fixed_effects_spec(), pointed at the RAW
+    columns with transform="Log" instead of the precomputed "log Cum
+    Units" / "log Unit Cost" columns it uses — the acceptance test for the
+    v2.2 Transform=Log wiring on both a Predictor and the Response
+    simultaneously, composed with Fixed Effects. This is the textbook
+    Crawford/Wright learning-curve model (ln(unit cost) = a + b*ln(cum
+    units)). tests/test_transform_threading.py cross-checks this case
+    against the sibling above: the shipped "log Cum Units"/"log Unit
+    Cost" columns are exact logs of the raw columns, so the two designs
+    and every downstream statistic are expected to agree to floating-point
+    precision — independent proof the Log wiring reproduces what the
+    precomputed-column workaround already delivered.
+    """
+    return [
+        _spec_var("Lot_ID", _ROLE_IDENTIFIER),
+        _spec_var("Facility", _ROLE_FIXED_EFFECTS),
+        _spec_var("Fiscal_Year", _ROLE_OMIT, sequence=True),
+        _spec_var("Lot_Quantity", _ROLE_OMIT),
+        _spec_var(
+            "Cumulative_Units", _ROLE_PREDICTOR, True, "Continuous", transform="Log"
+        ),
+        _spec_var("Experience_Stock", _ROLE_OMIT),
+        _spec_var("Unit_Cost_BY", _ROLE_RESPONSE, transform="Log"),
+        _spec_var("log Cum Units", _ROLE_OMIT),
+        _spec_var("log experience", _ROLE_OMIT),
+        _spec_var("log Unit Cost", _ROLE_OMIT),
+        _spec_var("Full_Data", _ROLE_FILTER),
+    ]
+
+
 def build_regression_spec_cases() -> list[RegressionSpecCase]:
     """Return the standard human-plan-core spec cases for QC."""
     cases: list[RegressionSpecCase] = []
@@ -461,6 +538,17 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             # Explicit (not the alphabetically-first default) — exercises the
             # harness actually writing a non-default group into $AH$12, not
             # just accepting whatever the sheet defaults to.
+            prediction_group="Site B",
+        )
+    )
+    cases.append(
+        RegressionSpecCase(
+            name="production_lots_log_transform",
+            spec=tuple(_production_lots_log_transform_spec()),
+            allow_intercept=True,
+            source_xlsx_path=PRODUCTION_LOTS_XLSX_PATH,
+            row_loader=load_production_lots_source_rows,
+            source_table_ref="=ProductionLotsData[#All]",
             prediction_group="Site B",
         )
     )

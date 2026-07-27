@@ -228,36 +228,49 @@ The spec spans **every column of the source table**, one row per column:
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
-| G | **Transform** *(reserved, not implemented v2.0)* | Input, dropdown. Will apply a transform (e.g. `Log`) to a Continuous Response or Predictor. v2.0 dropdown list is `None` only; build pre-fills `None`. Cell comment marks it reserved. |
+| G | **Transform** *(live — v2.2 Log wiring)* | Orange input, dropdown `None` · `Log`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). `Log` applies `Ln_Positive` inside `Response_Column()` / `X_s()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. Predictions are not back-transformed (unit-space GoF and Duan smearing remain v2.2 TODOs). Default `None` fits the raw column, identically to v2.1. |
 | H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank. The shipped default pre-flags **Year** `TRUE` (the WHO panel's ordering axis; every other row blank) so the Sequence machinery is live at T0; on a non-panel dataset leave it blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer, by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`) since the base-period release, and — since the DW-gate release — by the serial-correlation accessor `Sequence_Column` (which feeds the gated `Durbin_Watson_By` diagnostic cell). No design-matrix constructor consumes it: Sequence orders the data, it never enters the model matrix. |
 | I | **Sequence Period** *(typed override input, post-v2.1 Sequence fix)* | Orange input — the user types a number on the Sequence-flagged row to declare a Δ that differs from the computed candidate. Blank by default; the spec falls back to the candidate. Read only by the in-use display at column J, not by any constructor. The cell is the load-bearing override point of the reference-level pattern. |
 | J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). No other on-sheet formula reads J; the workbook-scoped `Base_Period_Delta()` accessor (lambda_functions.json) separately provides the omitted-`[delta]` default for `Lag_By`/`Difference_By`. The J cell stays plain, with no on-sheet override-flagging display. |
 | K | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
 | L | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. The Σ(design columns) = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot. |
 
-### Reserved-column policy (F, G)
+### Reserved-column policy (F)
 
-Neither reserved column is read by any formula — confirmed by construction,
-not by convention: `X_s()`, `Constructed_Column_Names()`, `Row_Labels()`,
-and `Sample_Include()` must not reference `Spec_Order` or `Spec_Transform`
-(and may not reference `Spec_Sequence` or `Spec_Sequence_Period` either —
-those names are consumed only by the zero-or-one validation and the
-base-period layer, never by a constructor). The columns exist purely so
-the *sheet layout* absorbs the future feature now; wiring them in a later
-release is additive (a formula change), not a second column-insertion
-breaking the sheet a second time — exactly how column I went live in the
-base-period release.
+`Spec_Order` remains reserved and read by no formula — confirmed by
+construction, not by convention: `X_s()`, `Constructed_Column_Names()`,
+`Row_Labels()`, and `Sample_Include()` must not reference it (and may not
+reference `Spec_Sequence` or `Spec_Sequence_Period` either — those names
+are consumed only by the zero-or-one validation and the base-period
+layer, never by a constructor). The column exists purely so the *sheet
+layout* absorbs the future feature now; wiring it in a later release is
+additive (a formula change), not a second column-insertion breaking the
+sheet a second time — exactly how column I went live in the base-period
+release, and how column G (Transform) went live at v2.2.
+
+`Spec_Transform` (column G) is the worked example of that additive wiring:
+it is now read by exactly four constructors — `Response_Column()`, `X_s()`,
+`Constructed_Column_Names()`, and `Constructed_Column_Transforms()` — and
+by nothing else; `Sample_Include()` and `Row_Labels()` still never
+reference it (confirmed by construction in
+`tests/test_model_construction_writer.py`).
 
 ### Cascading relevance
 
-C–G and K–L hide in place (conditional formatting sets the font color to
+C–F and K–L hide in place (conditional formatting sets the font color to
 match each cell's own static fill — `INPUT_COLOR` for the input cells,
 white for the unfilled computed-display cells — rather than a single muted
 gray) whenever Role ≠ Predictor — the same pattern as
-Reference-only-for-Categorical, applied one level up. H–J key on the
-**Sequence flag itself**, not on Role: they hide the same way on every row
-that is not the sequence axis, because Sequence is structural and
-Role-independent.
+Reference-only-for-Categorical, applied one level up. G (Transform) has
+its own rule instead of sharing C–F's: it hides only when Role is
+**neither** Predictor **nor** Response, since Log is declarable on the
+Response row too. A second rule flags G red — not hidden, a visible error
+— when an included Categorical Predictor's Transform is Log: disallowed,
+and shown rather than silently ignored, the same "flag red and instruct,
+never silently switch" precedent as the v2.0 Intercept×Categorical case.
+H–J key on the **Sequence flag itself**, not on Role: they hide the same
+way on every row that is not the sequence axis, because Sequence is
+structural and Role-independent.
 
 Every cascading-relevance rule, along with the multi-flag, degeneracy, and
 invalid-reference error flags, is pre-applied out to `_VALIDATION_LAST_ROW`
@@ -339,9 +352,12 @@ its own catalog category, separate from the version ladder.
 
 **Delivery, however, is pinned to the ladder** (none of these standalone
 functions is built yet as of v2.0): the user-callable transform library
-ships at **v2.2** alongside the column-G wiring, with two exceptions —
+ships at **v2.2** alongside the column-G wiring, with three exceptions —
 `Demean_By` and `Group_Mean` ship at **v2.1** as Fixed-Effects internals,
-and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
+`Ln_Positive` ships early as part of the **v2.2 column-G Log wiring**
+itself (the same worked-example pattern: the primitive lands with the
+column that first needs it, not held for the rest of the Location & Scale
+bundle), and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
 `Demean_Two_Way_Balanced`, `Fixed_Effects_Convergence_Check`) follow the
 **two-way FE milestone (post-v2.1)**.
 
@@ -369,9 +385,15 @@ and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
 - `Winsorize(x, [lower_p], [upper_p], [include])` — caps values outside
   selected percentiles (default 1st/99th). Remains an explicit modeling
   decision, never an automatic preprocessing step.
-- `Ln_Positive(x, [include])` — natural log, restricted to strictly
-  positive numeric values; returns `""` rather than a worksheet error for
-  zero, negative, or non-numeric input.
+- `Ln_Positive(x, [include])` — **shipped v2.2** (backs spec column G's
+  `Log` value). Natural log, restricted to strictly positive numeric
+  values. Follows this section's own `NA()`-exception convention (below,
+  first recorded for `Lag_By`/`Difference_By`): an excluded row returns
+  `""`, but an *included* row that is zero, negative, or non-numeric
+  returns `NA()`, not `""` — the value is part of the sample and the log
+  is genuinely undefined for it, so the failure must be visible (`#N/A`,
+  catchable by `ISNA`/`IFERROR`), never a blank that silently degrades a
+  downstream `MMULT`.
 
 **Group & Panel**
 
@@ -500,9 +522,11 @@ retry separation), see [CLAUDE.md § Charts](CLAUDE.md).
 
 ## 7. Reserved-spec-column pattern (general)
 
-See §4 "Reserved-column policy (F, G)" for the sheet-side form. The
-function-side form is the same idea applied to a LAMBDA's argument list
-or its internal `SWITCH`:
+See §4 "Reserved-column policy (F)" for the sheet-side form, and its
+worked example of a reserved column going live: column G (Transform)
+shipped reserved-and-unwired at v2.0, then wired for `Log` at v2.2 with
+no second column-insertion. The function-side form is the same idea
+applied to a LAMBDA's argument list or its internal `SWITCH`:
 
 - A `SWITCH` argument that is a Role-axis value can carry a dormant branch
   for a not-yet-implemented Role, returning a `RESERVED — vN+` token. The

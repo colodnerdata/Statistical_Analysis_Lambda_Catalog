@@ -100,6 +100,11 @@ class SpecVariable:
     # Excel auto-converts a typed numeric override to a number, not text.
     reference: object = ""
     sequence: bool = False
+    # "None" (default) or "Log" — mirrors spec column G (Transform, v2.2).
+    # Meaningful on a Response row or a Continuous Predictor row; ignored
+    # on a Categorical Predictor (the sheet flags that combination red
+    # rather than applying it).
+    transform: str = "None"
 
 
 def build_default_spec() -> list[SpecVariable]:

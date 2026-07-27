@@ -233,11 +233,33 @@ engine is forthcoming."
 
 ### Transform wiring (spec column G)
 
-- TODO: `Transform` dropdown gains `Log`; wire `X_s()` /
-  `Constructed_Column_Names()` / prediction to read column G. The
-  reserved-column policy (column G shipped as a placeholder, unread by
-  any formula) is in
-  [ARCHITECTURE.md § 4 "Reserved-column policy"](ARCHITECTURE.md#4-the-model-spec-block-al).
+- ~~`Transform` dropdown gains `Log`; wire `X_s()` /
+  `Constructed_Column_Names()` / prediction to read column G.~~ —
+  **DONE.** Column G's dropdown is `None`/`Log`; `Log` is read by
+  `Response_Column()` (Response row) and `X_s()`'s Continuous branch
+  (Predictor rows), both modified in place rather than wrapped, so every
+  existing consumer (including the v2.1 FE wrappers `y_s()`/`X_s_Within()`,
+  unchanged) inherits log-space data automatically. `Constructed_Column_Names()`
+  relabels a logged column `Ln(name)`; a new structural twin,
+  `Constructed_Column_Transforms()`, gives the per-constructed-column
+  Log/None flag the Prediction Inputs band needs (a Categorical
+  Predictor's dummy columns always read `None`). Log is disallowed —
+  flagged red, not silently ignored — on Categorical Predictors. The
+  Prediction Inputs band takes a raw value and auto-logs it internally
+  (never a typed ln(x)); the Training Mean spill emits the geometric mean
+  for a logged column to avoid double-logging the default. Residual-output
+  headers and the audit-strip response name gain a `(Log)` suffix when
+  active. New catalog function `Ln_Positive(x, [include])` backs all of
+  this (`NA()` on an included non-positive/non-numeric value, `""` on an
+  excluded row). Scope explicitly excludes the unit-space dispatcher and
+  Duan back-transformation below — those remain open. Verified against a
+  real learning-curve model: a new QC case
+  (`production_lots_log_transform`, raw `Cumulative_Units`/`Unit_Cost_BY`
+  with `transform="Log"`) matches the pre-existing
+  `production_lots_fixed_effects` case (precomputed log columns) to
+  floating-point precision — `tests/test_transform_threading.py`,
+  `tests/test_ln_positive_verification.py`. Full design rationale in
+  [DECISIONS.md § v2.2 Transform column wiring](DECISIONS.md#v22--transforms--unit-space-comparability).
 
 - TODO: **Unit-space dispatcher function, RESOLVED:**
   `Unit_Space_R_Squared(model, response_transform, predictor_transform)`,
@@ -263,8 +285,10 @@ engine is forthcoming."
 ### Standalone Data Transformation functions (specs in ARCHITECTURE.md)
 
 - TODO: Location & Scale — `Center`, `Zscore`, `Minmax_Scale`,
-  `Winsorize`, `Ln_Positive`. The full specs are in
+  `Winsorize`. The full specs are in
   [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
+  (`Ln_Positive` shipped early, alongside the Transform column-G wiring
+  above, rather than waiting for the rest of this bundle.)
 
 - TODO: Group & Panel — `Zscore_By`, `Decompose_By`
   (`Demean_By`/`Group_Mean` arrive at v2.1; two-way functions follow

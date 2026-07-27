@@ -61,9 +61,15 @@ MileageData, 12 rows: [MPG]..[Model?] plus [Full_Data]). Two axes:
                       data). Not to be confused with the reserved Order
                       column F, which is term-ordering.)
 
-Columns F (Order) and G (Transform) are reserved for a future release: they
-are styled as inputs and carry sheet-scoped names (Spec_Order, Spec_Transform)
-so the grid shape is final, but no formula reads them yet. Column I
+Column F (Order) is reserved for a future release: it is styled as an
+input and carries a sheet-scoped name (Spec_Order) so the grid shape is
+final, but no formula reads it yet. Column G (Transform) went live at
+v2.2 — its dropdown offers None (default; unchanged fit) or Log (natural
+log). Log is read by Response_Column(), X_s(), Constructed_Column_Names(),
+and Constructed_Column_Transforms() on the Response row and on Continuous
+Predictor rows; it is disallowed (flagged red, not silently ignored) on
+Categorical Predictors. See ARCHITECTURE.md §4/§5 for the full contract.
+Column I
 (Sequence Period) is the typed override cell on the Sequence-flagged row
 (what the user sees typed; default empty); column J (Period In Use) is
 Sequence's LIVE companion since the base-period release — computed-with-
@@ -260,8 +266,10 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 # Widths for the shared A-L spec block — owned here (not by
 # write_sheet_regression.py, which imports and calls _set_spec_block_column_widths)
 # so the standalone build and the shared-block build can never drift.
-# F/G (Order/Transform) are reserved-but-unwired, hence width 0 — visually
-# collapsed until a future release wires them up.
+# F (Order) is reserved-but-unwired, hence width 0 — visually collapsed
+# until a future release wires it up. G (Transform) went live at v2.2
+# (Log wiring); it now gets a real width, matching _C_TYPE's (both hold
+# comparably-sized dropdown tokens).
 _SPEC_COLUMN_WIDTHS: dict[int, float] = {
     _C_LABEL: 28,
     _C_ROLE: 20,
@@ -269,7 +277,7 @@ _SPEC_COLUMN_WIDTHS: dict[int, float] = {
     _C_TYPE: 11,
     _C_REFERENCE: 15,
     _C_ORDER: 0,
-    _C_TRANSFORM: 0,
+    _C_TRANSFORM: 11,
     _C_SEQUENCE: 10,
     _C_SEQUENCE_PERIOD: 14,
     _C_PERIOD_IN_USE: 14,
@@ -367,10 +375,16 @@ _ROLE_FIXED_EFFECTS = "Fixed Effects"
 # The derived response name, shared by the audit strip and the filtered-y
 # header: the header of the first Role=Response spec row, "(none)" when
 # no row carries the role. XMATCH position over the TAKE-trimmed roles is
-# the same lookup Response_Column() uses for its data column.
+# the same lookup Response_Column() uses for its data column. Wrapped in
+# Ln(...) when that row's Transform is Log, so the audit strip never
+# claims the model fits the raw column when it actually fits its log —
+# same XMATCH position, so this reads Spec_Transform at the identical row
+# Response_Column() transforms.
 _RESPONSE_NAME_FORMULA = (
-    'IFERROR(INDEX(TOROW(Header_Names),'
-    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"(none)")'
+    "LET(n_c,COLUMNS(Source_Data),"
+    f'p,XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,n_c)),'
+    "h,INDEX(TOROW(Header_Names),p),"
+    'IFERROR(IF(INDEX(TAKE(Spec_Transform,n_c),p)="Log","Ln("&h&")",h),"(none)"))'
 )
 
 # Dropdown validations cover the repo's standard 16000-row input band so a
@@ -434,13 +448,26 @@ _ROLE_VALIDATION_LIST = ",".join(
 )
 _INCLUDE_VALIDATION_LIST = "TRUE,FALSE"
 _TYPE_VALIDATION_LIST = "Continuous,Categorical"
-_TRANSFORM_VALIDATION_LIST = _DEFAULT_TRANSFORM
+_TRANSFORM_VALIDATION_LIST = ",".join((_DEFAULT_TRANSFORM, "Log"))
 # Sequence flag: TRUE or blank (IgnoreBlank keeps blank legal).
 _SEQUENCE_VALIDATION_LIST = "TRUE"
 _XL_VALIDATE_LIST = 3
 _XL_VALID_ALERT_STOP = 1
 _XL_BETWEEN = 1
 _RESERVED_NOTE = "Reserved for a future release — not yet used by any formula."
+_TRANSFORM_NOTE = (
+    "Transform applied to this variable before fitting. “None” "
+    "(default) fits the raw column. “Log” fits the natural log — "
+    "available on the Response row and on Continuous Predictor rows; not "
+    "allowed on Categorical Predictors (flagged red if set — dummy-coded "
+    "columns are never logged). The constructed column is relabelled "
+    "“Ln(name)” everywhere it appears (Predictor Summary, "
+    "coefficient table, Prediction Inputs). Every model statistic "
+    "(coefficients, R², residuals, prediction interval) is then in "
+    "log space; predictions are NOT back-transformed to the original "
+    "units. A zero, negative, or non-numeric value on an included row "
+    "makes the model return #N/A rather than fit silently."
+)
 _SEQUENCE_NOTE = (
     "Sequence structural axis: mark AT MOST ONE variable TRUE as the "
     "ordering axis for lag/difference/serial-correlation features. "
@@ -479,6 +506,26 @@ _SEQUENCE_FLAG_COUNT_FORMULA = (
 _FIXED_EFFECTS_COUNT_FORMULA = (
     "SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))"
     f'="{_ROLE_FIXED_EFFECTS}"))'
+)
+
+# TRUE when the Response row's Transform (spec column G) is Log — the same
+# XMATCH position Response_Column() uses for its own data column, so this
+# can never disagree with what Response_Column() is actually returning.
+# Feeds the residual-output headers' "(Log)" suffix (write_sheet_regression.py):
+# response-scale columns (Y, Predicted Y, Residuals, PRESS Residual) need to
+# say so, the same way "(Within)" already flags Fixed Effects demeaning —
+# dimensionless diagnostics (Hat Diagonal, Studentized Residuals, Cook's
+# Distance, Normal Scores Ranked, Studentized Residuals Ranked,
+# Scale-Location) are not in response units and do not get the suffix.
+# IFERROR-wrapped to FALSE: during a transient invalid spec state (zero or
+# multiple Response rows — already flagged elsewhere by the audit strip's
+# responses count), XMATCH itself returns #N/A, which would otherwise
+# propagate through INDEX and this comparison into every consumer's AND/IF
+# and show #N/A in the residual headers instead of degrading to the plain
+# (non-"(Log)") label.
+_RESPONSE_LOG_FORMULA = (
+    'IFERROR(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),'
+    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))="Log",FALSE)'
 )
 
 # Verdict messages. Blank cell = quiet; conditional formatting keys on
@@ -760,12 +807,15 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     _add_list_validation(sheet, _C_TRANSFORM, _TRANSFORM_VALIDATION_LIST)
     _add_list_validation(sheet, _C_SEQUENCE, _SEQUENCE_VALIDATION_LIST)
 
-    # Cascading relevance, Role-keyed: the per-Predictor inputs (C–G) and
+    # Cascading relevance, Role-keyed: the per-Predictor inputs (C–F) and
     # the Categorical displays (K–L) hide in place whenever Role ≠
     # Predictor — the Reference-only-for-Categorical pattern applied one
     # level up. H–J are deliberately excluded: Sequence is a structural
     # axis, not a Role property (an Identifier like Year is a typical
-    # sequence axis).
+    # sequence axis). G (Transform) is handled separately, immediately
+    # below: unlike C–F, it is also meaningful on the Response row (a
+    # Log-transformed response is a first-class case, not a Predictor-only
+    # concept), so it cannot share this rule's Role ≠ Predictor test.
     #
     # "Hide in place" means the font color matches each band's own static
     # fill (INPUT_COLOR for format_input-colored cells, white for unfilled
@@ -781,8 +831,19 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     # fully formatted the instant it joins the table, with no rebuild.
     add_expression_format(
         sheet,
-        f"$C${_FIRST_DATA_ROW}:$G${_VALIDATION_LAST_ROW}",
+        f"$C${_FIRST_DATA_ROW}:$F${_VALIDATION_LAST_ROW}",
         f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
+        font_color=INPUT_COLOR,
+    )
+    # G (Transform) hides only when Role is neither Predictor nor Response
+    # — visible on both, since Log is declarable on either.
+    add_expression_format(
+        sheet,
+        f"$G${_FIRST_DATA_ROW}:$G${_VALIDATION_LAST_ROW}",
+        (
+            f'=AND($B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}",'
+            f'$B{_FIRST_DATA_ROW}<>"{_ROLE_RESPONSE}")'
+        ),
         font_color=INPUT_COLOR,
     )
     add_expression_format(
@@ -841,6 +902,26 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
             f"$C{_FIRST_DATA_ROW}=TRUE,"
             f'$D{_FIRST_DATA_ROW}="Categorical",'
             f"N($K{_FIRST_DATA_ROW})<=1)"
+        ),
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # Categorical x Log flag: red G when an INCLUDED Categorical Predictor
+    # has Transform = Log — disallowed, flagged rather than silently
+    # ignored (the "flag red and instruct, never silently switch"
+    # precedent already used for the Intercept x Categorical case). The
+    # constructor still fits the column as ordinary dummy-coding
+    # (Constructed_Column_Transforms() forces every dummy column's flag to
+    # "None" regardless of this cell's value) — the red flag is the
+    # correction signal, not a computation abort.
+    add_expression_format(
+        sheet,
+        f"$G${_FIRST_DATA_ROW}:$G${_VALIDATION_LAST_ROW}",
+        (
+            f'=AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
+            f'$D{_FIRST_DATA_ROW}="Categorical",'
+            f'$G{_FIRST_DATA_ROW}="Log")'
         ),
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
@@ -1391,7 +1472,7 @@ def write_model_construction_sheet(
     # Reserved-column and Sequence notes are COM comment calls; keep them
     # out of the RecordingSheet-testable spec block.
     _set_note(sheet, _FIRST_DATA_ROW, _C_ORDER, _RESERVED_NOTE)
-    _set_note(sheet, _FIRST_DATA_ROW, _C_TRANSFORM, _RESERVED_NOTE)
+    _set_note(sheet, _FIRST_DATA_ROW, _C_TRANSFORM, _TRANSFORM_NOTE)
     _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE, _SEQUENCE_NOTE)
     _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
 

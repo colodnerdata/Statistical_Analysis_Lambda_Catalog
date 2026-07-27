@@ -83,9 +83,11 @@ from .write_sheet_model_construction import (
     _SEQUENCE_PERIOD_NOTE,
     _FIXED_EFFECTS_COUNT_FORMULA,
     _RESERVED_NOTE,
+    _RESPONSE_LOG_FORMULA,
     _RESPONSE_NAME_FORMULA,
     _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
+    _TRANSFORM_NOTE,
     _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
     _C_ORDER as _C_SPEC_ORDER,
     _C_REF_IN_USE as _C_SPEC_REF_IN_USE,
@@ -307,6 +309,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (20, _C_AC, "Lower 95%"),
         (20, _C_AD, "Upper 95%"),
         (20, _C_AE, "Beta Weight"),
+        (17, _C_AI, "Training Mean"),
         (3, _C_AG, "Point Estimate"),
         (4, _C_AG, "SE Prediction"),
         (5, _C_AG, "t Critical"),
@@ -713,7 +716,7 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     _write_spec_feedback(sheet)
     _write_intercept_control(sheet)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE)
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _RESERVED_NOTE)
+    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _TRANSFORM_NOTE)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE, _SEQUENCE_NOTE)
     _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
 
@@ -1049,8 +1052,16 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     # model, now split into its own mean-CI (S/sqrt(n)) and new-obs-PI
     # (S*sqrt(1+1/n)) the same way the live branch does; NA() when nothing
     # is fit. The live branch takes exactly COLUMNS(X_s()) raw predictor
-    # values — no intercept slot, since group-mean recovery never uses one
-    # (the selected group's own mean plays that role).
+    # values from the Prediction Inputs band — no intercept slot, since
+    # group-mean recovery never uses one (the selected group's own mean
+    # plays that role) — then auto-logs whichever of those values belong to
+    # a Log-transformed Continuous predictor before the call:
+    # Constructed_Column_Transforms() gives the per-constructed-column
+    # Log/None flag (not a raw spec-row flag, since a Categorical Predictor
+    # contributes a variable number of dummy columns that must never be
+    # logged), TRANSPOSE'd to match the AH band's column-vector shape, and
+    # Ln_Positive is applied elementwise only where it reads "Log". The
+    # user always types a raw value in AH (e.g. actual miles), never ln(x).
     f(
         sheet,
         3,
@@ -1065,7 +1076,9 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         "point-t_crit*se_mean,point+t_crit*se_mean,"
         "point-t_crit*se_new,point+t_crit*se_new,1-alpha)),"
         "NA()),"
-        f"LET(pred_input,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s())),"
+        f"LET(raw,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s())),"
+        "trn,TRANSPOSE(Constructed_Column_Transforms()),"
+        'pred_input,IF(trn="Log",Ln_Positive(raw),raw),'
         "Group_Prediction_Interval(X_s(),Response_Column(),pred_input,"
         "Prediction_Group_Column(),$AH$12,Allow_Intercept,"
         "Sample_Include(),alpha,Absorbed_Degrees_Of_Freedom())))",
@@ -1151,6 +1164,19 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # with another spill.
     # Degrades to "" on an empty model, which the prefill guard reads as a
     # one-row spill holding a blank.
+    #
+    # Log columns need the GEOMETRIC mean here, not the arithmetic mean of
+    # the already-logged X_s() column: the AH prefill cells below just
+    # INDEX into this spill, and the row-3 prediction formula applies
+    # Ln_Positive to whatever it finds in AH — so if this spill held the
+    # log-space arithmetic mean, the default prediction would silently
+    # double-log (ln(ln(x)), not merely un-back-transformed). EXP(mean(ln
+    # x)) is exact and self-cancelling: Ln_Positive(EXP(mean(ln x))) =
+    # mean(ln x), so the default prediction still lands precisely on
+    # X_s()'s own centroid, unchanged from the pre-Log-transform behavior.
+    # Constructed_Column_Transforms() gives the per-column Log/None flag in
+    # the same 1xk shape as the BYCOL means row, so the two combine
+    # elementwise before the single TRANSPOSE down into the AI column.
     val(sheet, 17, _C_AI, "Training Mean")
     means_anchor = f"$AI${_PRED_INPUT_FIRST_ROW}"
     f(
@@ -1158,8 +1184,9 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
         _PRED_INPUT_FIRST_ROW,
         _C_AI,
         (
-            "=IFERROR(TRANSPOSE(BYCOL(FILTER(X_s(),Sample_Include()),"
-            'LAMBDA(c,AVERAGE(c)))),"")'
+            "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(X_s(),Sample_Include()),"
+            "LAMBDA(c,AVERAGE(c))),t,Constructed_Column_Transforms(),"
+            'IF(t="Log",EXP(m),m))),"")'
         ),
     )
 
@@ -1207,6 +1234,19 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # comment above the AL formula below). Each header is an IF conditional
     # on the same FE-count gate the DW/BFN trigger cells use, so the label
     # flips the moment a spec declares (or removes) a Fixed Effects variable.
+    #
+    # Response-scale columns (Y, Predicted Y, Residuals, PRESS Residual) get
+    # a second, independent "(Log)" suffix when the Response row's Transform
+    # is Log — those four are literally in response units (or a difference
+    # of two response-unit values), so a log-transformed response leaves
+    # them in log space, unlike the Within case they don't silently change
+    # meaning, but they DO stop being in the response's original units and
+    # must say so. The remaining six columns (Hat Diagonal, Studentized
+    # Residuals, Cook's Distance, Normal Scores Ranked, Studentized
+    # Residuals Ranked, Scale-Location) are dimensionless/standardized
+    # diagnostics — not in response units either way — and do not get the
+    # suffix.
+    response_scale_headers = {_C_AL, _C_AM, _C_AN, _C_AU}
     for col, header in zip(
         [_C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS, _C_AT, _C_AU, _C_AV],
         [
@@ -1216,10 +1256,18 @@ def _write_residuals(sheet: xw.Sheet) -> None:
             "Scale-Location", "PRESS Residual", "Cook's Distance (Flagged)",
         ],
     ):
-        f(
-            sheet, 2, col,
-            f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header} (Within)","{header}")',
-        )
+        if col in response_scale_headers:
+            formula = (
+                f'=IF(AND({_FIXED_EFFECTS_COUNT_FORMULA}>0,{_RESPONSE_LOG_FORMULA}),'
+                f'"{header} (Within, Log)",'
+                f'IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header} (Within)",'
+                f'IF({_RESPONSE_LOG_FORMULA},"{header} (Log)","{header}")))'
+            )
+        else:
+            formula = (
+                f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header} (Within)","{header}")'
+            )
+        f(sheet, 2, col, formula)
     bold_row(sheet, 2, _C_AK, _C_AV)
 
     # AK3: row labels — the spec-derived Row_Labels() filtered to the sample.

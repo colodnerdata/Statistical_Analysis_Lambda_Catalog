@@ -92,6 +92,8 @@ Tests live in `tests/`. The current test files are:
 | `test_workbook_builder.py` | Workbook package-patching helpers (`sync_workbook_names` and friends) that don't require Excel |
 | `test_build_production.py` | `build_production.py`'s pure-Python logic (CLI flag handling, dataset selection, tab order/color assignment) that doesn't require Excel |
 | `test_workbook_invariants.py` | Layer 1 headless structural check of a built `.xlsx` package (`zipfile` + `lxml`): dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken package parts, orphan chart-relationship targets, sheet drift — see [Verifying builds](#verifying-builds) |
+| `test_ln_positive_verification.py` | v2.2 Transform=Log — `Ln_Positive` pure-Python mirror (the `NA()`-exception contract, the geometric-mean round-trip the Prediction Inputs fix relies on) and implementation-shape assertions on the catalog formula |
+| `test_transform_threading.py` | v2.2 Transform=Log wiring end to end — cross-checks the new `production_lots_log_transform` QC case (raw columns, `transform="Log"`) against the pre-existing precomputed-log-column case to floating-point precision; Categorical×Log inertness |
 
 ### Coverage scope
 

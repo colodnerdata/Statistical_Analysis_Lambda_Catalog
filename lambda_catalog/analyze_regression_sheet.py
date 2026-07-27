@@ -193,6 +193,14 @@ def calculate_regression_results_from_matrix(
     df_total = n - 1 if include_intercept else n
     naive_df_residual = int(model.df_resid)
     df_residual = naive_df_residual - df_absorbed
+    if df_residual <= 0:
+        raise ValueError(
+            "Fixed Effects absorbed too many degrees of freedom: "
+            f"naive_df_residual={naive_df_residual}, df_absorbed={df_absorbed} "
+            f"leaves df_residual={df_residual} <= 0 (n={n}, k={k}). "
+            "Too many FE groups relative to the number of observations — "
+            "reduce the group count or increase the sample size."
+        )
     # SQRT(naive_df/true_df): the exact SE_Coefficients/SE_Regression
     # rescaling validated in test_df_absorbed_threading.py — LINEST's own SE
     # (computed at naive_df) times this factor reproduces an explicit LSDV

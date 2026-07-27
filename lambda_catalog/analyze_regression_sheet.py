@@ -403,6 +403,13 @@ def calculate_regression_results_from_matrix(
         pi_group = np.full(n, "(all)", dtype=object)
     if selected_group is None:
         selected_group = sorted(np.unique(pi_group))[0]
+    elif selected_group not in pi_group:
+        raise ValueError(
+            f"selected_group={selected_group!r} is not an observed group "
+            f"(observed groups: {sorted(np.unique(pi_group).tolist())!r}) — "
+            "group_count would be 0 and the 1/group_count variance terms "
+            "below would divide by zero."
+        )
 
     x_within_pi = _demean_within_groups(x_features, pi_group)
     y_within_pi = _demean_within_groups(y_train, pi_group)

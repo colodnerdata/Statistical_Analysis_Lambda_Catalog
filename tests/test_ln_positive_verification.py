@@ -33,6 +33,22 @@ BLANK = ""
 
 # ── Pure-Python mirror of the workbook formula ───────────────────────────────
 
+def _is_excel_number(v) -> bool:
+    """Mirror of Excel's ISNUMBER(v).
+
+    Excel's ISNUMBER(TRUE)/ISNUMBER(FALSE) is FALSE — booleans are their
+    own type, not numbers, in Excel's type system — but Python's bool is
+    a subclass of int, so a bare isinstance(v, (int, float)) check would
+    wrongly accept True/False. Also accepts numpy scalar numerics
+    (np.integer / np.floating), which a plain (int, float) check misses.
+    """
+    if isinstance(v, bool):
+        return False
+    if isinstance(v, (int, float, np.integer, np.floating)):
+        return not (isinstance(v, float) and math.isnan(v))
+    return False
+
+
 def ln_positive_mirror(x, include=None):
     """Mirror of Ln_Positive(x, [include]).
 
@@ -45,7 +61,7 @@ def ln_positive_mirror(x, include=None):
     x = list(x)
     n = len(x)
     if include is None:
-        inc = [isinstance(v, (int, float)) and not (isinstance(v, float) and math.isnan(v)) for v in x]
+        inc = [_is_excel_number(v) for v in x]
     else:
         inc = [bool(v) for v in include]
 
@@ -55,8 +71,7 @@ def ln_positive_mirror(x, include=None):
             out.append(BLANK)
             continue
         v = x[i]
-        is_number = isinstance(v, (int, float)) and not (isinstance(v, float) and math.isnan(v))
-        if is_number and v > 0:
+        if _is_excel_number(v) and v > 0:
             out.append(math.log(v))
         else:
             out.append(NA)

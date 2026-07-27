@@ -517,9 +517,15 @@ _FIXED_EFFECTS_COUNT_FORMULA = (
 # dimensionless diagnostics (Hat Diagonal, Studentized Residuals, Cook's
 # Distance, Normal Scores Ranked, Studentized Residuals Ranked,
 # Scale-Location) are not in response units and do not get the suffix.
+# IFERROR-wrapped to FALSE: during a transient invalid spec state (zero or
+# multiple Response rows — already flagged elsewhere by the audit strip's
+# responses count), XMATCH itself returns #N/A, which would otherwise
+# propagate through INDEX and this comparison into every consumer's AND/IF
+# and show #N/A in the residual headers instead of degrading to the plain
+# (non-"(Log)") label.
 _RESPONSE_LOG_FORMULA = (
-    "INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),"
-    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))="Log"'
+    'IFERROR(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),'
+    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))="Log",FALSE)'
 )
 
 # Verdict messages. Blank cell = quiet; conditional formatting keys on

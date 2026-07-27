@@ -56,9 +56,11 @@ def test_log_transform_case_matches_precomputed_log_case_numerically() -> None:
 
     # Design matrices and response vectors: bit-exact, since the shipped
     # "log Cum Units"/"log Unit Cost" columns are exact logs of the raw
-    # Cumulative_Units/Unit_Cost_BY columns.
-    assert np.allclose(fe_expected.design.x_features, log_expected.design.x_features, atol=0.0)
-    assert np.allclose(fe_expected.design.y_train, log_expected.design.y_train, atol=0.0)
+    # Cumulative_Units/Unit_Cost_BY columns. np.array_equal, not allclose —
+    # allclose's default rtol=1e-05 would silently accept a real regression
+    # here, undermining the "bit-exact" claim this comment makes.
+    assert np.array_equal(fe_expected.design.x_features, log_expected.design.x_features)
+    assert np.array_equal(fe_expected.design.y_train, log_expected.design.y_train)
     assert fe_expected.design.row_mask == log_expected.design.row_mask
     assert fe_expected.design.included_rows == log_expected.design.included_rows
 

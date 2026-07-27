@@ -161,6 +161,28 @@ def safe_activate(sheet: xw.Sheet) -> None:
         pass
 
 
+def safe_freeze_top_row(sheet: xw.Sheet) -> None:
+    """Freeze the header row of a worksheet, tolerating a missing active window.
+
+    Freezing panes reads and writes ``Application.ActiveWindow``, which is
+    only populated when Excel has an active window for the sheet. In the
+    same headless/no-focus sessions ``safe_activate`` guards against, that
+    property access can itself raise, so this is best-effort too.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        The worksheet whose top row should be frozen.
+    """
+    try:
+        window = sheet.api.Application.ActiveWindow
+        window.SplitRow = 1
+        window.SplitColumn = 0
+        window.FreezePanes = True
+    except Exception:
+        pass
+
+
 def reset_generated_sheet(sheet: xw.Sheet) -> None:
     """Clear all ListObjects and cell content from a generated sheet.
 

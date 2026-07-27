@@ -21,6 +21,7 @@ from .workbook_helpers import (
     get_or_create_sheet,
     reset_generated_sheet,
     safe_activate,
+    safe_freeze_top_row,
 )
 
 
@@ -241,6 +242,4 @@ def write_production_lots_sheet(
     sheet.used_range.columns.autofit()
     full_data_col = sheet.range((1, full_data_column_index))
     full_data_col.column_width = max(full_data_col.column_width or 0, 12)
-    sheet.api.Application.ActiveWindow.SplitRow = 1
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
+    safe_freeze_top_row(sheet)

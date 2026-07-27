@@ -17,6 +17,7 @@ from .workbook_helpers import (
     raise_excel_access_error,
     reset_generated_sheet,
     safe_activate,
+    safe_freeze_top_row,
 )
 
 
@@ -97,9 +98,7 @@ def write_catalog_sheet(workbook: xw.Book, entries: Sequence[CatalogFunction]) -
     sheet.range(f"A1:{_LAST_COLUMN}{last_data_row}").api.WrapText = True
     sheet.range(f"A2:{_LAST_COLUMN}{last_data_row}").api.EntireRow.AutoFit()
 
-    sheet.api.Application.ActiveWindow.SplitRow = 1
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
+    safe_freeze_top_row(sheet)
 
 
 def write_lambda_catalog(

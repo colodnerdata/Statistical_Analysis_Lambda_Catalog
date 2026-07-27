@@ -7,7 +7,13 @@ from typing import TYPE_CHECKING
 import xlwings as xw
 
 from .regression_shared import FEATURE_COLUMNS
-from .workbook_helpers import col_letter, drop_local_name, reset_column_groups, safe_activate
+from .workbook_helpers import (
+    col_letter,
+    drop_local_name,
+    reset_column_groups,
+    safe_activate,
+    safe_freeze_top_row,
+)
 
 if TYPE_CHECKING:
     from .regression_shared import RegressionObservationVectors
@@ -136,6 +142,4 @@ def write_mlr_observation_test_sheet(
     sheet.range((1, 1), (1, _TOTAL_COLS)).api.WrapText = True
     sheet.range((1, 1), (row, _TOTAL_COLS)).columns.autofit()
     safe_activate(sheet)
-    sheet.api.Application.ActiveWindow.SplitRow = 1
-    sheet.api.Application.ActiveWindow.SplitColumn = 0
-    sheet.api.Application.ActiveWindow.FreezePanes = True
+    safe_freeze_top_row(sheet)

@@ -127,6 +127,34 @@ def test_load_csv_rows_treats_only_blank_as_missing_for_production_lots(
     assert rows == [["LOT-1", "NA"]]
 
 
+def test_load_csv_rows_skips_fully_blank_lines(tmp_path: Path) -> None:
+    csv_path = tmp_path / "blank_line.csv"
+    csv_path.write_text("MPG,Horsepower\n18,130\n\n25,90\n", encoding="utf-8")
+
+    headers, rows = load_csv_rows(csv_path, MILEAGE)
+
+    assert headers == ["MPG", "Horsepower"]
+    assert rows == [[18, 130], [25, 90]]
+
+
+def test_load_csv_rows_pads_short_rows_with_missing_values(tmp_path: Path) -> None:
+    csv_path = tmp_path / "short_row.csv"
+    csv_path.write_text("MPG,Horsepower,Weight\n18\n", encoding="utf-8")
+
+    headers, rows = load_csv_rows(csv_path, MILEAGE)
+
+    assert headers == ["MPG", "Horsepower", "Weight"]
+    assert rows == [[18, None, None]]
+
+
+def test_load_csv_rows_raises_on_row_with_too_many_columns(tmp_path: Path) -> None:
+    csv_path = tmp_path / "long_row.csv"
+    csv_path.write_text("MPG,Horsepower\n18,130,extra\n", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="line 2"):
+        load_csv_rows(csv_path, MILEAGE)
+
+
 def test_load_csv_rows_raises_on_empty_file(tmp_path: Path) -> None:
     csv_path = tmp_path / "empty.csv"
     csv_path.write_text("", encoding="utf-8")

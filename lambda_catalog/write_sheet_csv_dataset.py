@@ -178,7 +178,10 @@ def load_csv_rows(
     Raises
     ------
     ValueError
-        If the CSV file is empty or contains only a header row.
+        If the CSV file is empty, contains only a header row, or contains a
+        data row with more columns than the header (fully blank lines and
+        short rows are tolerated: blank lines are skipped and short rows are
+        padded with missing values).
     """
     with csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
         reader = csv.reader(handle)
@@ -188,9 +191,18 @@ def load_csv_rows(
             raise ValueError(f"CSV file is empty: {csv_path}") from exc
 
         headers = _normalize_headers(raw_headers) if config.normalize_headers else list(raw_headers)
-        rows = [
-            [_parse_cell(value, config.missing_values) for value in row] for row in reader
-        ]
+        n_columns = len(headers)
+        rows: list[list[str | int | float | None]] = []
+        for raw_row in reader:
+            if not raw_row:
+                continue  # skip fully blank lines
+            if len(raw_row) > n_columns:
+                raise ValueError(
+                    f"CSV row at line {reader.line_num} has {len(raw_row)} columns, "
+                    f"more than the {n_columns} header columns: {csv_path}"
+                )
+            padded_row = raw_row + [""] * (n_columns - len(raw_row))
+            rows.append([_parse_cell(value, config.missing_values) for value in padded_row])
 
     if not rows:
         raise ValueError(f"CSV file has headers but no data rows: {csv_path}")

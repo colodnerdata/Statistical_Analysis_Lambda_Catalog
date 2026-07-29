@@ -25,7 +25,7 @@ from .workbook_helpers import (
 
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_XLSX_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.csv"
+DEFAULT_XLSX_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.xlsx"
 SOURCE_TABLE_NAME = "Auto_MPG_Data"
 SHEET_NAME = "Mileage Data"
 TABLE_NAME = "MileageData"

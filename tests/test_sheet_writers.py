@@ -29,9 +29,16 @@ from lambda_catalog.write_sheet_regression import (
     _C_AO,
     _C_AU,
     _C_AV,
+    _C_CHART_LABEL_NAME,
+    _C_CHART_TITLE,
+    _C_CHART_XLABEL,
+    _C_CHART_YLABEL,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
+    _ROW_CHART_LABELS,
+    _diagnostic_chart_specs,
     _setup_local_names as _setup_regression_names,
+    _write_chart_label_cells,
     _write_coefficients,
     _write_diagnostics,
     _write_prediction_interval,
@@ -173,6 +180,37 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
             "Cook's Distance chart: observation identifier for flagged-point data labels"
         ),
     }
+
+
+def test_chart_label_cells_reference_live_statistics_and_stay_ordered() -> None:
+    """Chart Title / X-Axis / Y-Axis formula cells are written one row per
+    chart, in chart_specs order, and the dynamic titles reference the correct
+    sheet cells (response name, QQ correlation, Cook's D threshold, etc.)."""
+    sheet = RecordingSheet(name="Regression")
+
+    _write_chart_label_cells(_as_xw_sheet(sheet))
+
+    specs = _diagnostic_chart_specs()
+    assert len(specs) == 7
+    for i, (key, _chart_type, _x_addr, _y_addr, title_formula, x_label_formula,
+            y_label_formula, _grid_row, _grid_col) in enumerate(specs):
+        row = _ROW_CHART_LABELS + i
+        assert sheet.ranges[((row, _C_CHART_LABEL_NAME),)].state.value == key
+        assert sheet.ranges[((row, _C_CHART_TITLE),)].state.formula2 == title_formula
+        assert sheet.ranges[((row, _C_CHART_XLABEL),)].state.formula2 == x_label_formula
+        assert sheet.ranges[((row, _C_CHART_YLABEL),)].state.formula2 == y_label_formula
+
+    cooks_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Cook's Distance")
+    cooks_title = sheet.ranges[((cooks_row, _C_CHART_TITLE),)].state.formula2
+    assert "MIN(4/$Y$8,0.9)" in cooks_title
+
+    qq_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Normal Q-Q")
+    qq_title = sheet.ranges[((qq_row, _C_CHART_TITLE),)].state.formula2
+    assert "$AB$10" in qq_title
+
+    fitted_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Residuals vs. Fitted")
+    fitted_title = sheet.ranges[((fitted_row, _C_CHART_TITLE),)].state.formula2
+    assert "$AC$2" in fitted_title
 
 
 def test_intercept_only_n_does_not_depend_on_filter() -> None:

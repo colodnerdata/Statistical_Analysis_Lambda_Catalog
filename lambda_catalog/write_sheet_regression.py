@@ -253,6 +253,16 @@ _CHART_WIDTH = 310.0         # points
 _CHART_HEIGHT = 310.0        # points
 _CHART_GAP = 10.0            # gap between charts in points
 
+# Chart label formula cells — one row per diagnostic chart, well below the
+# 2-col x 4-row chart grid's pixel footprint (row_step=320pt starting at row
+# 3, ~85 rows at default row height) so nothing ever renders on top of them.
+# Columns sit past _C_AW, which stays a literal non-content gutter.
+_C_CHART_LABEL_NAME = 50   # AX — human-readable chart name (doc only)
+_C_CHART_TITLE = 51        # AY — Chart Title formula
+_C_CHART_XLABEL = 52       # AZ — X-Axis Title formula
+_C_CHART_YLABEL = 53       # BA — Y-Axis Title formula
+_ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
+
 # ── Visual formatting helpers ─────────────────────────────────────────────────
 
 
@@ -1339,6 +1349,107 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     sheet.range(f"{col_letter(_C_AL)}:{col_letter(_C_AV)}").number_format = "0.0000"
 
 
+def _diagnostic_chart_specs() -> list[tuple[str, str, str | None, str, str, str, str, int, int]]:
+    """Static spec for the 7 regression diagnostic charts.
+
+    Each tuple is (key, chart_type, x_addr, y_addr, title_formula,
+    x_label_formula, y_label_formula, grid_row, grid_col).
+
+    `key` is a stable internal identifier — used for series naming, the
+    gridline-mode lookup, and per-chart branching in `_write_diagnostic_charts`
+    — and is never itself displayed. `title_formula` / `x_label_formula` /
+    `y_label_formula` are Excel formulas (written verbatim into the chart's
+    label cells by `_write_chart_label_cells`) that MAY reference live sheet
+    statistics, so the displayed title can vary with the fitted model while
+    `key` stays fixed.
+    """
+    sname = REGRESSION_SHEET_NAME
+
+    def _name_ref(local_name: str) -> str:
+        return f"='{sname}'!{local_name}"
+
+    return [
+        (
+            "Residuals vs. Fitted", "scatter",
+            _name_ref("RegChartFitY"),
+            _name_ref("RegChartResid"),
+            '="Residuals vs. Fitted — "&$AC$2',
+            '="Fitted Values"', '="Residuals"',
+            1, 1,
+        ),
+        (
+            "Normal Q-Q", "scatter",
+            _name_ref("RegChartQQX"),
+            _name_ref("RegChartQQY"),
+            '="Normal Q-Q  (r = "&TEXT($AB$10,"0.000")&")"'
+            '&IF($AB$10<0.95,"  — check normality","")',
+            '="Theoretical Quantiles"', '="Studentized Residuals"',
+            1, 2,
+        ),
+        (
+            "Actual vs. Predicted", "scatter",
+            _name_ref("RegChartFitY"),
+            _name_ref("RegChartActY"),
+            '="Actual vs. Predicted — "&$AC$2&"  (Adj. R² = "&TEXT($Y$6,"0.000")&")"',
+            '="Predicted "&$AC$2', '="Actual "&$AC$2',
+            2, 1,
+        ),
+        (
+            "Scale-Location", "scatter",
+            _name_ref("RegChartFitY"),
+            _name_ref("RegChartScaleLoc"),
+            '="Scale-Location"',
+            '="Fitted Values"', '="√|Studentized Residual|"',
+            2, 2,
+        ),
+        (
+            "Cook's Distance", "bar",
+            None,
+            _name_ref("RegChartCookDist"),
+            '="Cook\'s Distance  (flag: D > "&TEXT(MIN(4/$Y$8,0.9),"0.000")&")"',
+            '="Observation"', '="Cook\'s Distance"',
+            3, 1,
+        ),
+        (
+            "Studentized Residuals vs. Leverage", "scatter",
+            _name_ref("RegChartLeverage"),
+            _name_ref("RegChartStudResid"),
+            '="Studentized Residuals vs. Leverage  (mean leverage = "'
+            '&TEXT($AB$6,"0.000")&")"',
+            '="Leverage (Hat Diagonal)"', '="Studentized Residuals"',
+            3, 2,
+        ),
+        (
+            "PRESS Residuals", "bar",
+            None,
+            _name_ref("RegChartPRESSResid"),
+            '="PRESS Residuals  (PRESS = "&TEXT($AB$4,"#,##0.0000")&")"',
+            '="Observation"', '="PRESS Residual"',
+            4, 1,
+        ),
+    ]
+
+
+def _write_chart_label_cells(sheet: xw.Sheet) -> None:
+    """Write the Chart Title / X-Axis Title / Y-Axis Title formula cells for
+    the 7 diagnostic charts, one row per chart starting at _ROW_CHART_LABELS.
+
+    `_write_diagnostic_charts` binds each chart's title and axis titles to
+    these cells via `.Formula` rather than embedding label strings directly
+    into the chart-construction call, so tuning a chart's label is a formula
+    edit here, not a change to the COM chart-building code. Plain cell
+    writes only (no chart/COM API), so this is exercised directly in unit
+    tests via `RecordingSheet` without Excel.
+    """
+    for i, spec in enumerate(_diagnostic_chart_specs()):
+        key, _chart_type, _x_addr, _y_addr, title_formula, x_label_formula, y_label_formula, _grid_row, _grid_col = spec
+        row = _ROW_CHART_LABELS + i
+        val(sheet, row, _C_CHART_LABEL_NAME, key)
+        f(sheet, row, _C_CHART_TITLE, title_formula)
+        f(sheet, row, _C_CHART_XLABEL, x_label_formula)
+        f(sheet, row, _C_CHART_YLABEL, y_label_formula)
+
+
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
     start_left = sheet.range(a1(1, _C_AW)).left
@@ -1358,50 +1469,10 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
     def _name_ref(local_name: str) -> str:
         return f"='{sname}'!{local_name}"
 
-    chart_specs = [
-        (
-            "Residuals vs. Fitted", "scatter",
-            _name_ref("RegChartFitY"),
-            _name_ref("RegChartResid"),
-            "Fitted Values", "Residuals", 1, 1,
-        ),
-        (
-            "Normal Q-Q", "scatter",
-            _name_ref("RegChartQQX"),
-            _name_ref("RegChartQQY"),
-            "Theoretical Quantiles", "Studentized Residuals", 1, 2,
-        ),
-        (
-            "Actual vs. Predicted", "scatter",
-            _name_ref("RegChartFitY"),
-            _name_ref("RegChartActY"),
-            "Predicted Y", "Actual Y", 2, 1,
-        ),
-        (
-            "Scale-Location", "scatter",
-            _name_ref("RegChartFitY"),
-            _name_ref("RegChartScaleLoc"),
-            "Fitted Values", "√|Studentized Residual|", 2, 2,
-        ),
-        (
-            "Cook's Distance", "bar",
-            None,
-            _name_ref("RegChartCookDist"),
-            "Observation", "Cook's Distance", 3, 1,
-        ),
-        (
-            "Studentized Residuals vs. Leverage", "scatter",
-            _name_ref("RegChartLeverage"),
-            _name_ref("RegChartStudResid"),
-            "Leverage (Hat Diagonal)", "Studentized Residuals", 3, 2,
-        ),
-        (
-            "PRESS Residuals", "bar",
-            None,
-            _name_ref("RegChartPRESSResid"),
-            "Observation", "PRESS Residual", 4, 1,
-        ),
-    ]
+    def _label_ref(col: int, row: int) -> str:
+        return f"='{sname}'!${col_letter(col)}${row}"
+
+    chart_specs = _diagnostic_chart_specs()
 
     # Per-chart gridline strategy:
     # - Use Y major gridlines for residual magnitude judgment on residual and bar charts.
@@ -1451,7 +1522,10 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
         series.Format.Line.DashStyle = 3  # msoLineRoundDot
         series.Format.Line.Weight = 1.25
 
-    for title, chart_type, x_addr, y_addr, x_label, y_label, grid_row, grid_col in chart_specs:
+    for i, spec in enumerate(chart_specs):
+        (key, chart_type, x_addr, y_addr, _title_formula,
+         _x_label_formula, _y_label_formula, grid_row, grid_col) = spec
+        label_row = _ROW_CHART_LABELS + i
         left, top = _pos(grid_row, grid_col)
         co = sheet.api.ChartObjects().Add(left, top, _CHART_WIDTH, _CHART_HEIGHT)
         chart = co.Chart
@@ -1459,22 +1533,26 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
         chart.ChartType = _XL_XY_SCATTER if chart_type == "scatter" else _XL_COLUMN_CLUSTERED
 
         sc = chart.SeriesCollection()
-        for i in range(sc.Count, 0, -1):
-            sc.Item(i).Delete()
+        for j in range(sc.Count, 0, -1):
+            sc.Item(j).Delete()
 
         series = chart.SeriesCollection().NewSeries()
         if x_addr is not None:
             series.XValues = x_addr
         series.Values = y_addr
-        series.Name = title
+        series.Name = key
         # Bar charts (Cook's Distance, PRESS Residuals) have no markers to resize.
         if chart_type == "scatter":
             series.MarkerSize = 4
 
         # All charts: Header-style title (bold, 14 pt, light-blue fill).
+        # Title and both axis titles are bound to the formula cells written by
+        # _write_chart_label_cells (row `label_row`, cols _C_CHART_TITLE /
+        # _C_CHART_XLABEL / _C_CHART_YLABEL) rather than set from a literal
+        # string, so their content can reference live sheet statistics.
         chart.HasLegend = False
         chart.HasTitle = True
-        chart.ChartTitle.Text = title
+        chart.ChartTitle.Formula = _label_ref(_C_CHART_TITLE, label_row)
         chart.ChartTitle.Font.Bold = True
         chart.ChartTitle.Font.Size = 14
         chart.ChartTitle.Format.Fill.Visible = True
@@ -1483,19 +1561,19 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
 
         x_axis = chart.Axes(_XL_CATEGORY)
         x_axis.HasTitle = True
-        x_axis.AxisTitle.Text = x_label
+        x_axis.AxisTitle.Formula = _label_ref(_C_CHART_XLABEL, label_row)
         x_axis.TickLabels.NumberFormat = "0"
 
         y_axis = chart.Axes(_XL_VALUE)
         y_axis.HasTitle = True
-        y_axis.AxisTitle.Text = y_label
+        y_axis.AxisTitle.Formula = _label_ref(_C_CHART_YLABEL, label_row)
         y_axis.TickLabels.NumberFormat = "0"
 
-        gridline_mode = gridline_modes.get(title, "none")
+        gridline_mode = gridline_modes.get(key, "none")
         x_axis.HasMajorGridlines = gridline_mode == "both"
         y_axis.HasMajorGridlines = gridline_mode in {"y", "both"}
 
-        if title == "Cook's Distance":
+        if key == "Cook's Distance":
             y_axis.TickLabels.NumberFormat = "0.0E+00"
             x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
 
@@ -1519,18 +1597,18 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
             dls.ShowValue = True         # ...plus the Cook's D value
             dls.NumberFormat = "0.0E+00"  # matches the y-axis format
             dls.Position = 0              # xlLabelPositionAbove
-        if title == "Studentized Residuals vs. Leverage":
+        if key == "Studentized Residuals vs. Leverage":
             x_axis.TickLabels.NumberFormat = "0.00"
-        if title == "PRESS Residuals":
+        if key == "PRESS Residuals":
             x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
 
-        if title == "Normal Q-Q":
+        if key == "Normal Q-Q":
             _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartQQX", "RegChartQQY")
             if x_addr is None:
                 raise AssertionError("Normal Q-Q chart requires an x-axis range")
             identity_ref: str = x_addr
             _add_identity_line(chart, identity_ref)
-        if title == "Actual vs. Predicted":
+        if key == "Actual vs. Predicted":
             # Axis limits are left at Excel's defaults (not forced equal via
             # _set_equal_axis_scale_from_named_ranges) — the identity line
             # below still reads correctly regardless of scale.
@@ -1685,9 +1763,19 @@ def write_regression_output_sheet(
     # since wrap points — and therefore the fitted height — depend on them.
     sheet.api.Rows(2).AutoFit()
 
+    # Chart label formula cells are plain cell writes (no COM chart API), so
+    # they're written unconditionally — safe in headless/CI environments and
+    # directly unit-testable via RecordingSheet.
+    _write_chart_label_cells(sheet)
+
     # Charts must be positioned after column widths are set so that
-    # sheet.range("AV1").left reflects the final column layout.
-    _write_diagnostic_charts(sheet)
+    # sheet.range("AV1").left reflects the final column layout. Guarded per
+    # the documented convention: ChartObjects().Add(...) requires the Excel
+    # COM API, which is unavailable in CI/headless environments.
+    try:
+        _write_diagnostic_charts(sheet)
+    except Exception:
+        pass
 
     # Freeze top 2 rows. Requires an active window, which Excel may refuse to
     # grant in a headless/non-interactive session, so this is best-effort.

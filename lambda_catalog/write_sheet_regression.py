@@ -82,6 +82,7 @@ from .workbook_helpers import (
 from .write_sheet_model_construction import (
     _SEQUENCE_PERIOD_NOTE,
     _FIXED_EFFECTS_COUNT_FORMULA,
+    _FIXED_EFFECTS_NAME_FORMULA,
     _RESERVED_NOTE,
     _RESPONSE_LOG_FORMULA,
     _RESPONSE_NAME_FORMULA,
@@ -1246,7 +1247,23 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # Residuals Ranked, Scale-Location) are dimensionless/standardized
     # diagnostics — not in response units either way — and do not get the
     # suffix.
+    #
+    # The Within suffix names the active Fixed Effects variable (e.g.
+    # "(Within Country)") rather than the bare "(Within)" token, via
+    # _FIXED_EFFECTS_NAME_FORMULA — the same Role=Fixed Effects lookup that
+    # fills the spec feedback block's "FE Variable" cell. Y (_C_AL) gets its
+    # own wording instead of "Within": X_s_Within()/y_s() only SUBTRACT the
+    # group mean, they never divide by a standard deviation, so "Y (Within
+    # Country)" would read as a demeaning but "St Devs from Avg." would be
+    # outright wrong — "Deviation from <FE> Avg." says exactly what the
+    # column holds (still response-scale units, just group-centered).
     response_scale_headers = {_C_AL, _C_AM, _C_AN, _C_AU}
+    fe_within_suffix = f'" (Within "&{_FIXED_EFFECTS_NAME_FORMULA}&")"'
+    fe_within_log_suffix = f'" (Within "&{_FIXED_EFFECTS_NAME_FORMULA}&", Log)"'
+    fe_deviation_suffix = f'" (Deviation from "&{_FIXED_EFFECTS_NAME_FORMULA}&" Avg.)"'
+    fe_deviation_log_suffix = (
+        f'" (Deviation from "&{_FIXED_EFFECTS_NAME_FORMULA}&" Avg., Log)"'
+    )
     for col, header in zip(
         [_C_AL, _C_AM, _C_AN, _C_AO, _C_AP, _C_AQ, _C_AR, _C_AS, _C_AT, _C_AU, _C_AV],
         [
@@ -1256,16 +1273,20 @@ def _write_residuals(sheet: xw.Sheet) -> None:
             "Scale-Location", "PRESS Residual", "Cook's Distance (Flagged)",
         ],
     ):
+        if col == _C_AL:
+            within_suffix, within_log_suffix = fe_deviation_suffix, fe_deviation_log_suffix
+        else:
+            within_suffix, within_log_suffix = fe_within_suffix, fe_within_log_suffix
         if col in response_scale_headers:
             formula = (
                 f'=IF(AND({_FIXED_EFFECTS_COUNT_FORMULA}>0,{_RESPONSE_LOG_FORMULA}),'
-                f'"{header} (Within, Log)",'
-                f'IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header} (Within)",'
+                f'"{header}"&{within_log_suffix},'
+                f'IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header}"&{within_suffix},'
                 f'IF({_RESPONSE_LOG_FORMULA},"{header} (Log)","{header}")))'
             )
         else:
             formula = (
-                f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header} (Within)","{header}")'
+                f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header}"&{within_suffix},"{header}")'
             )
         f(sheet, 2, col, formula)
     bold_row(sheet, 2, _C_AK, _C_AV)

@@ -41,6 +41,7 @@ Thumbs.db
 
 # Excel generated temp files
 ~$*.xlsx
+*.tmp
 
 # QC workbook (local dev only)
 Lambda_Library_QC.xlsx

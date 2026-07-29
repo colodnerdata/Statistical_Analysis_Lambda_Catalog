@@ -508,6 +508,19 @@ _FIXED_EFFECTS_COUNT_FORMULA = (
     f'="{_ROLE_FIXED_EFFECTS}"))'
 )
 
+# The active Fixed Effects variable's header name — the same XMATCH-on-Role
+# lookup that fills the spec feedback block's "FE Variable" cell (J2 below),
+# factored out so the Residual Output headers (write_sheet_regression.py) can
+# reuse it verbatim to build "(Within <name>)" suffixes instead of the bare
+# "(Within)" token. Resolves the FIRST FE row even in the 2-plus-rows error
+# state, exactly like Fixed_Effects_Column() itself. IFERROR -> "FE" is a
+# quiet fallback for the (gated-out) case where no Fixed Effects row exists;
+# every call site only evaluates this once {_FIXED_EFFECTS_COUNT_FORMULA} > 0.
+_FIXED_EFFECTS_NAME_FORMULA = (
+    "IFERROR(INDEX(TOROW(Header_Names),"
+    f'XMATCH("{_ROLE_FIXED_EFFECTS}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"FE")'
+)
+
 # TRUE when the Response row's Transform (spec column G) is Log — the same
 # XMATCH position Response_Column() uses for its own data column, so this
 # can never disagree with what Response_Column() is actually returning.
@@ -1080,8 +1093,7 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
         _C_PERIOD_IN_USE,
         (
             f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",'
-            "IFERROR(INDEX(TOROW(Header_Names),"
-            f'XMATCH("{_ROLE_FIXED_EFFECTS}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"n/a"))'
+            f"{_FIXED_EFFECTS_NAME_FORMULA})"
         ),
     )
     f(

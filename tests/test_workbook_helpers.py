@@ -7,7 +7,7 @@ from lambda_catalog.workbook_helpers import safe_activate, safe_freeze_top_row
 
 class _RaisingSheet:
     def activate(self) -> None:
-        raise Exception("Could not activate App! Try to instantiate the App with visible=True.")
+        raise RuntimeError("Could not activate App! Try to instantiate the App with visible=True.")
 
 
 def test_safe_activate_swallows_activation_failure() -> None:
@@ -25,7 +25,7 @@ def test_safe_freeze_top_row_swallows_missing_active_window() -> None:
     class _NoActiveWindowApplication:
         @property
         def ActiveWindow(self) -> None:
-            raise Exception("ActiveWindow is not available in this session")
+            raise RuntimeError("ActiveWindow is not available in this session")
 
     sheet = SimpleNamespace(api=SimpleNamespace(Application=_NoActiveWindowApplication()))
 

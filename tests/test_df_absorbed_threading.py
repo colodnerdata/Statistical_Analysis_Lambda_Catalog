@@ -35,8 +35,6 @@ if __package__ in (None, ""):  # standalone run: make `tests.` importable
 # pylint: disable-next=wrong-import-position
 from tests.test_bfn_panel_durbin_watson_verification import _load_fe_panel
 # pylint: disable-next=wrong-import-position
-from tests.test_group_panel_transforms import demean_by_mirror
-# pylint: disable-next=wrong-import-position
 from tests.test_within_estimator import x_s_within_mirror, y_s_mirror
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -60,7 +58,7 @@ def se_coefficients_mirror(x_within, y_within, df_absorbed: int):
     n, k = x_within.shape
     naive_df = _naive_residual_df(n, k)
     true_df = naive_df - df_absorbed
-    beta, residuals_, _, _ = np.linalg.lstsq(x_within, y_within, rcond=None)
+    beta, _, _, _ = np.linalg.lstsq(x_within, y_within, rcond=None)
     resid = y_within - x_within @ beta
     ssr = float(resid @ resid)
     sigma2_naive = ssr / naive_df
@@ -156,11 +154,8 @@ def test_aic_bic_match_independent_lsdv_parameter_count() -> None:
     beta, _, _, _ = np.linalg.lstsq(x_within, y_within, rcond=None)
     resid = y_within - x_within @ beta
     ssr = float(resid @ resid)
-    n, k = x_within.shape
+    _, k = x_within.shape
     p_mirrored = k + 1 + df_absorbed  # predictors + intercept + absorbed FE df
-    aic_mirrored = n * math.log(ssr / n) + 2 * p_mirrored
-    bic_mirrored = n * math.log(ssr / n) + p_mirrored * math.log(n)
-
     import pandas as pd  # pylint: disable=import-outside-toplevel
     import statsmodels.api as sm  # pylint: disable=import-outside-toplevel
 

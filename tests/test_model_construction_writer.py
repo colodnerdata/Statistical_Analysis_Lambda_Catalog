@@ -823,7 +823,7 @@ def test_spec_feedback_writes_delta_count_verdict_with_priority_cf() -> None:
 
     # Priority CF: red outranks yellow on the same cell via StopIfTrue.
     # The red rule is added first with stop_if_true=True; yellow follows.
-    conditions = sheet.range(f"$I$2").api.FormatConditions.items
+    conditions = sheet.range("$I$2").api.FormatConditions.items
     assert len(conditions) == 2
     red, yellow = conditions
     assert red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)

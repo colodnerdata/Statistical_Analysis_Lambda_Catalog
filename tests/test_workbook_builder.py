@@ -120,4 +120,3 @@ def test_sync_workbook_names_strips_broken_workbook_scoped_residue(tmp_path) -> 
     # Keep_Me replaced (single entry, the new one).
     assert patched.count('<definedName name="Keep_Me">') == 1
     assert 'LAMBDA(x,x)' in patched
-

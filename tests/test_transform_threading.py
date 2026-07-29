@@ -28,7 +28,9 @@ import numpy as np
 if __package__ in (None, ""):  # standalone run: make `tests.` importable
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+# pylint: disable-next=wrong-import-position
 from lambda_catalog.analyze_model_construction import SpecVariable, build_default_spec
+# pylint: disable-next=wrong-import-position
 from lambda_catalog.analyze_regression_spec import (
     PRODUCTION_LOTS_XLSX_PATH,
     build_regression_spec_cases,

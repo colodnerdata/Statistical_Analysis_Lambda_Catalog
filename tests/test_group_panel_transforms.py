@@ -50,7 +50,7 @@ def group_mean_mirror(x, group, include=None):
     else:
         inc = np.asarray(include, dtype=bool)
 
-    active = inc & (group != "") & (group == group)  # group == group excludes NaN
+    active = inc & (group != "") & pd.notna(group)
     out = np.full(len(x), NA)
     for g in pd.unique(group[active]):
         mask = active & (group == g)
@@ -74,7 +74,7 @@ def is_balanced_panel_mirror(group, time, include=None) -> bool | float:
     group = np.asarray(group, dtype=object)
     time = np.asarray(time, dtype=object)
     if include is None:
-        inc = (group != "") & (time == time) & (time != "")
+        inc = (group != "") & pd.notna(time) & (time != "")
     else:
         inc = np.asarray(include, dtype=bool)
 

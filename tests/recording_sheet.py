@@ -255,6 +255,7 @@ class RecordingListObjects:
         Source: Any = None,
         XlListObjectHasHeaders: int = 0,
     ) -> RecordingListObject:
+        del SourceType, XlListObjectHasHeaders
         table = RecordingListObject(Source)
         self.items.append(table)
         return table

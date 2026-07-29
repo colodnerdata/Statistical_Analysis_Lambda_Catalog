@@ -13,31 +13,20 @@ from lambda_catalog.sheet_styles import (
 from lambda_catalog.workbook_helpers import add_expression_format, excel_color, rc
 from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
 from lambda_catalog.write_sheet_regression import (
-    _C_V,
-    _C_W,
     _C_X,
     _C_Y,
     _C_Z,
     _C_AA,
     _C_AB,
     _C_AC,
-    _C_AD,
     _C_AE,
-    _C_AF,
     _C_AG,
     _C_AH,
     _C_AI,
-    _C_AJ,
     _C_AK,
     _C_AL,
-    _C_AM,
     _C_AN,
     _C_AO,
-    _C_AP,
-    _C_AQ,
-    _C_AR,
-    _C_AS,
-    _C_AT,
     _C_AU,
     _C_AV,
     _PRED_INPUT_FIRST_ROW,
@@ -339,13 +328,18 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     )
     # The diagnostics columns shift one slot right of the identifiers column.
     # Response-scale headers (Y, Predicted Y, Residuals, PRESS Residual) are
-    # nested IF conditionals on both the FE-count gate (a "(Within)" suffix)
-    # and the Response row's Transform (a "(Log)" suffix, v2.2) — plain
-    # label with neither, both suffixes when both apply.
+    # nested IF conditionals on both the FE-count gate (a suffix naming the
+    # active Fixed Effects variable) and the Response row's Transform (a
+    # "(Log)" suffix, v2.2) — plain label with neither, both suffixes when
+    # both apply. Y gets its own "Deviation from <FE> Avg." wording (the
+    # Within transform only subtracts the group mean, it never divides by a
+    # standard deviation, so "Within" alone would be accurate but vaguer,
+    # and a "St Devs" framing would be outright wrong).
     header_formula = sheet.cell(2, _C_AL).api.Formula2
     assert header_formula is not None
-    assert '"Y (Within, Log)"' in header_formula
-    assert '"Y (Within)"' in header_formula
+    assert '"Y"&" (Deviation from "' in header_formula
+    assert '" Avg., Log)"' in header_formula
+    assert '" Avg.)"' in header_formula
     assert '"Y (Log)"' in header_formula
     assert header_formula.endswith(',"Y")))')
     # Lock in the gates themselves — the same FE-role count detector the
@@ -355,15 +349,21 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     assert '"Fixed Effects"' in header_formula
     assert "Spec_Transform" in header_formula
     assert '"Response (y)"' in header_formula
+    # The FE variable's own name, pulled the same way the spec feedback
+    # block's "FE Variable" cell does.
+    assert "Header_Names" in header_formula
     assert header_formula.startswith("=IF(AND(SUMPRODUCT(N(TAKE(Spec_Role,")
 
     # A dimensionless diagnostic (Hat Diagonal) gets ONLY the FE suffix —
     # it isn't in response units either way, so a Log-transformed response
-    # must not relabel it.
+    # must not relabel it. Its suffix names the FE variable ("Within
+    # Country"), not the bare "(Within)" token.
     hat_header = sheet.cell(2, _C_AO).api.Formula2
     assert hat_header == (
         '=IF(SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))>0,'
-        '"Hat Diagonal (Within)","Hat Diagonal")'
+        '"Hat Diagonal"&" (Within "&IFERROR(INDEX(TOROW(Header_Names),'
+        'XMATCH("Fixed Effects",TAKE(Spec_Role,COLUMNS(Source_Data)))),"FE")&")",'
+        '"Hat Diagonal")'
     )
     assert "Spec_Transform" not in hat_header
     assert sheet.cell(3, _C_AL).api.Formula2 == (

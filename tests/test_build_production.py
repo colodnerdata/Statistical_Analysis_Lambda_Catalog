@@ -504,6 +504,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
     verify_calls: list[tuple[Path, Path]] = []
 
     def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
+        del verbose, skip_univariate
         verify_calls.append((workbook_path, csv_path))
         from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
@@ -558,7 +559,6 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
 
 def test_main_forwards_skip_univariate_to_deep_verify(
     monkeypatch,
-    capsys,
 ) -> None:
     """--verify combined with --skip-univariate must not crash trying to
     verify a sheet that was never written; the flag has to reach the
@@ -566,6 +566,7 @@ def test_main_forwards_skip_univariate_to_deep_verify(
     verify_kwargs: list[dict] = []
 
     def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
+        del csv_path, verbose
         verify_kwargs.append({"skip_univariate": skip_univariate})
         from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
@@ -620,6 +621,7 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     popen_calls: list[tuple[str, ...]] = []
 
     def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
+        del csv_path, verbose, skip_univariate
         from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
             passed=False,

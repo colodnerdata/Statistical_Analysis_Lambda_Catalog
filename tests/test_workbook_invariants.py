@@ -26,9 +26,13 @@ The deep spec-driven check (``build_qc.verify_test_sheets``, xlwings + Excel
 required) is the source of truth for cell-level correctness. These invariants
 are the cheap, always-on packaging screen.
 """
+# Pytest fixtures intentionally share names with the parameters they inject.
+# pylint: disable=redefined-outer-name
 from __future__ import annotations
 
 import os
+import posixpath
+import tempfile
 import re
 import zipfile
 from collections.abc import Iterable
@@ -345,9 +349,6 @@ def real_workbook_package() -> WorkbookPackage | None:
 
 def _inject_calc_chain(workbook_path: Path) -> None:
     """Add a calcChain part + Override + relationship to a workbook in place."""
-    import os
-    import tempfile
-
     temp_fd, temp_name = tempfile.mkstemp(suffix=".xlsx", dir=workbook_path.parent)
     os.close(temp_fd)
     Path(temp_name).unlink(missing_ok=True)
@@ -514,9 +515,6 @@ def test_fault_inject_extra_sheet_causes_inventory_check_to_fail(
 
 def _replace_member(workbook_path: Path, member_name: str, new_bytes: bytes) -> None:
     """Replace a single member inside an .xlsx zipfile in place."""
-    import os
-    import tempfile
-
     temp_fd, temp_name = tempfile.mkstemp(suffix=".xlsx", dir=workbook_path.parent)
     os.close(temp_fd)
     Path(temp_name).unlink(missing_ok=True)
@@ -631,19 +629,11 @@ class TestRealWorkbook:
             base_dir = rels_part.rsplit("/", 2)[0]  # strip "_rels/foo.rels"
             for rel in root.findall(_RELATIONSHIP_TAG):
                 target = rel.get("Target") or ""
-                if target.startswith("/"):
-                    resolved = target.lstrip("/")
-                else:
-                    resolved = f"{base_dir}/{target}"
-                    # Normalize ../segments
-                    parts: list[str] = []
-                    for segment in resolved.split("/"):
-                        if segment == "..":
-                            if parts:
-                                parts.pop()
-                        elif segment and segment != ".":
-                            parts.append(segment)
-                    resolved = "/".join(parts)
+                resolved = (
+                    target.lstrip("/")
+                    if target.startswith("/")
+                    else posixpath.normpath(f"{base_dir}/{target}")
+                )
                 if resolved not in namelist:
                     missing.append((rels_part, rel.get("Id", "?"), resolved))
         assert not missing, (

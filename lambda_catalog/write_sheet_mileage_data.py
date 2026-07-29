@@ -68,7 +68,7 @@ def _parse_cell(raw_value: str) -> str | int | float | None:
         str otherwise.
     """
     value = raw_value.strip()
-    if value == "" or value == _MISSING_MARKER:
+    if value in ("", _MISSING_MARKER):
         return None
 
     if INTEGER_PATTERN.fullmatch(value):

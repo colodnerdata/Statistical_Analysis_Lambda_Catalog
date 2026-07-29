@@ -806,6 +806,53 @@ the textbook form for a homework-style check. Reference: Duan, N.
 Method." *Journal of the American Statistical Association*, 78(383),
 605–610.
 
+### Static template drift — `rebuild_static_sheets.py`
+
+**Question:** the "Regression Instructions" sheet's how-to text (`_ROWS`
+in `write_sheet_regression_instructions.py`) needed a correction once
+column G's Transform wiring shipped (it still called Transform an unread
+placeholder). Fixing the Python source alone turned out not to be
+enough — `build_production.py` / `build_qc.py` never execute `_ROWS`;
+they only copy the already-baked sheet out of
+`templates/static_sheets.xlsx` (see CONTRIBUTING.md → "Static reference
+sheets"). Regenerating that template was, until now, a per-sheet manual
+step (`python -m lambda_catalog.write_sheet_regression_instructions`,
+`python -m lambda_catalog.write_sheet_diagnostic_guide`) with nothing
+enforcing it ever ran. This was not a one-off miss: the same gap shipped
+stale text once before, when the Fixed Effects role was added to the Role
+bullet list and the template regeneration had to be done as a separate
+follow-up commit. How should this class of drift be prevented going
+forward?
+
+**Resolution:** add `rebuild_static_sheets.py`, a root-level script that
+opens `templates/static_sheets.xlsx` once, calls every static sheet's own
+`_write_template_sheet(workbook)` — the identical function each
+module's individual CLI already calls, so it cannot drift from what
+running those CLIs would produce — and saves once. This is now the
+standard command for regenerating the template; the per-module CLIs
+remain for regenerating a single sheet in isolation while debugging, not
+as the primary path. See CONTRIBUTING.md → "Static reference sheets" for
+the exact commands.
+
+**Rationale — one command instead of N remembered ones.** The failure
+mode both times was the same shape: edit one static sheet's content,
+regenerate the template, but either forget the regenerate step
+entirely or (with two sheets that changed together) regenerate only one
+of them. A single script that rebuilds every static sheet in one Excel
+session removes the "which CLI do I need to run" judgment call — there
+is one command, and it is always complete. This does not change the
+production/QC build's behavior at all: `write_regression_instructions_sheet`
+/ `write_diagnostic_guide_sheet` still only ever copy from the template
+(see the performance rationale in CONTRIBUTING.md — rebuilding hundreds
+of styled cells with COM calls on every build for text that never
+changes per-dataset is wasted work), and `rebuild_static_sheets.py` still
+requires a real Excel COM engine, same as the CLIs it supersedes as the
+default entry point. A test-based drift guard (comparing the template's
+baked-in text against `_ROWS` in CI) was considered and rejected for this
+pass — it would need Excel-independent parsing of the template's cell
+text, which is a reasonable follow-up but a separate piece of work from
+fixing the actual command-proliferation problem.
+
 ---
 
 ## v2.3 — Model Comparison Sheet

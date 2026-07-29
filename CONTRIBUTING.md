@@ -279,6 +279,8 @@ GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every 
 ```
 build_production.py          # production entry point → Lambda_Library.xlsx
 build_qc.py                  # QC entry point → Lambda_Library_QC.xlsx
+rebuild_static_sheets.py      # regenerates templates/static_sheets.xlsx from its Python source —
+                              # see "Static reference sheets" below
 lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
@@ -366,14 +368,19 @@ python -m lambda_catalog.write_sheet_csv_dataset production_lots Lambda_Library.
 
 `write_sheet_regression_instructions.py` and `write_sheet_diagnostic_guide.py` write sheets whose content never depends on the target dataset — a fixed how-to guide and a fixed diagnostics reference. Rebuilding hundreds of styled cells with COM calls for unchanging text on every production/QC build is wasted work, so these two modules instead copy an already-styled sheet out of `templates/static_sheets.xlsx` via `workbook_helpers.copy_static_sheet` (Excel's native `Sheet.Copy` between two workbooks open in the same Excel instance — not an openpyxl round-trip; see CLAUDE.md's "Use xlwings COM API for all chart creation — never openpyxl" for why openpyxl is unsafe for anything Excel-native like this). `write_regression_instructions_sheet(workbook)` / `write_diagnostic_guide_sheet(workbook)` keep their original call signature, so `build_production.py` / `build_qc.py` and their tests are unaffected.
 
-The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but it is only ever executed by that module's own CLI, which rebuilds the sheet inside `templates/static_sheets.xlsx` and nothing else:
+The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but neither `build_production.py` nor `build_qc.py` ever executes it; they only call the copy-from-template functions above. Regenerating the template is a separate, manual step.
+
+Run **`python rebuild_static_sheets.py`** after editing either sheet's content, then commit the updated `templates/static_sheets.xlsx` alongside the Python change. It opens the template once, calls every static sheet's `_write_template_sheet(workbook)` (so nothing is skipped or forgotten), and saves once. This is the standard command — prefer it over the per-module CLIs below, which exist only for regenerating a single sheet in isolation while debugging:
 
 ```powershell
-python -m lambda_catalog.write_sheet_regression_instructions
-python -m lambda_catalog.write_sheet_diagnostic_guide
+python rebuild_static_sheets.py                          # regenerates every static sheet (standard)
+python -m lambda_catalog.write_sheet_regression_instructions  # single-sheet debugging only
+python -m lambda_catalog.write_sheet_diagnostic_guide         # single-sheet debugging only
 ```
 
-After editing either sheet's content, run its CLI and commit the updated `templates/static_sheets.xlsx` alongside the Python change.
+**Why a dedicated command exists:** before it was added, each sheet's own CLI was the only way to regenerate the template, so editing `_ROWS` or `_write_template_sheet` and forgetting to also run that specific CLI would silently ship stale reference text — the template drifted from its Python source with no error anywhere in the build. That happened at least twice (see DECISIONS.md → "Static template drift"). `rebuild_static_sheets.py` collapses "which CLI do I need to remember to run" into a single always-correct command.
+
+All of this — the per-module CLIs and `rebuild_static_sheets.py` alike — requires a real Excel COM engine (`xlwings.App`); none of it runs in a headless/CI environment.
 
 ## Adding a new LAMBDA function
 

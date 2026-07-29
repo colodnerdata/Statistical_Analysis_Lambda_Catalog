@@ -66,10 +66,7 @@ from .analyze_model_construction import (
     calculate_model_construction_expectations,
     load_source_rows,
 )
-from .write_sheet_mileage_data import (
-    DEFAULT_XLSX_PATH,
-    SHEET_NAME as DATA_SHEET_NAME,
-)
+from .write_sheet_csv_dataset import MILEAGE
 from .write_sheet_model_construction import (
     _C_LEVELS,
     _C_REF_IN_USE,
@@ -88,6 +85,9 @@ from .write_sheet_regression import (
     _C_X,
     _C_Y,
 )
+
+DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
+DATA_SHEET_NAME = MILEAGE.sheet_name
 
 _QC_PREFIX = "[Regression Spec]"
 
@@ -292,7 +292,7 @@ def _verify_degenerate_filter_case(
 
 
 def read_regression_spec_block_failures(
-    workbook: xw.Book, xlsx_path: Path = DEFAULT_XLSX_PATH
+    workbook: xw.Book, csv_path: Path = DEFAULT_INPUT_CSV
 ) -> list[str]:
     """Verify the Regression sheet's spec block; return QC failure messages.
 
@@ -303,7 +303,7 @@ def read_regression_spec_block_failures(
     i.e. BEFORE the six-configuration regression pass, which mutates the
     Include cells.
     """
-    rows = load_source_rows(xlsx_path)
+    rows = load_source_rows(csv_path)
     spec = build_default_spec()
     expected = calculate_model_construction_expectations(spec, rows)
 

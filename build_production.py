@@ -27,20 +27,12 @@ from lambda_catalog.workbook_builder import (
 )
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
-from lambda_catalog.write_sheet_life_expectancy_data import (
-    DEFAULT_CSV_PATH,
-    load_life_expectancy_rows,
-    write_life_expectancy_sheet,
-)
-from lambda_catalog.write_sheet_mileage_data import (
-    DEFAULT_XLSX_PATH as DEFAULT_MILEAGE_XLSX_PATH,
-    load_mileage_rows,
-    write_mileage_sheet,
-)
-from lambda_catalog.write_sheet_production_lots import (
-    DEFAULT_XLSX_PATH as DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
-    load_production_lots_rows,
-    write_production_lots_sheet,
+from lambda_catalog.write_sheet_csv_dataset import (
+    LIFE_EXPECTANCY,
+    MILEAGE,
+    PRODUCTION_LOTS,
+    load_csv_rows,
+    write_csv_dataset_sheet,
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
@@ -160,8 +152,8 @@ def _run_deep_verify(
     workbook_path: Path,
     csv_path: Path,
     *,
-    mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
-    production_lots_path: Path = DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
+    mileage_path: Path = MILEAGE.default_csv_path,
+    production_lots_path: Path = PRODUCTION_LOTS.default_csv_path,
     verbose: bool = False,
     skip_univariate: bool = False,
 ) -> VerifyReport:
@@ -309,9 +301,9 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book, *, include_univariate: bool
 def build_production_workbook(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
-    csv_path: Path = DEFAULT_CSV_PATH,
-    mileage_xlsx_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
-    production_lots_xlsx_path: Path = DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
+    csv_path: Path = LIFE_EXPECTANCY.default_csv_path,
+    mileage_csv_path: Path = MILEAGE.default_csv_path,
+    production_lots_csv_path: Path = PRODUCTION_LOTS.default_csv_path,
     validate_reopen: bool = False,
     verbose: bool = False,
     recalculate: bool = True,
@@ -328,13 +320,13 @@ def build_production_workbook(
         Path to the JSON catalog file.
     csv_path : Path, optional
         Path to the Life Expectancy CSV file.
-    mileage_xlsx_path : Path, optional
-        Path to the Auto MPG sample xlsx file written to the Mileage Data
+    mileage_csv_path : Path, optional
+        Path to the Auto MPG sample CSV file written to the Mileage Data
         sheet — the dataset the Regression sheet's Source_Table targets by
         default. Life Expectancy Data ships alongside it as a second
         sample dataset for practicing the Source_Table retarget workflow.
-    production_lots_xlsx_path : Path, optional
-        Path to the Production Lots sample xlsx file written to the
+    production_lots_csv_path : Path, optional
+        Path to the Production Lots sample CSV file written to the
         Production Lots sheet — a small unbalanced panel (3 facilities, 51
         lots) with a natural Fixed Effects grouping column (Facility) and
         Sequence column (Fiscal_Year), for retargeting Source_Table to
@@ -369,10 +361,10 @@ def build_production_workbook(
         )
     _t = time.monotonic()
     document = load_catalog_document(definitions_path)
-    csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
-    mileage_headers, mileage_rows = load_mileage_rows(mileage_xlsx_path)
-    production_lots_headers, production_lots_rows = load_production_lots_rows(
-        production_lots_xlsx_path
+    csv_headers, csv_rows = load_csv_rows(csv_path, LIFE_EXPECTANCY)
+    mileage_headers, mileage_rows = load_csv_rows(mileage_csv_path, MILEAGE)
+    production_lots_headers, production_lots_rows = load_csv_rows(
+        production_lots_csv_path, PRODUCTION_LOTS
     )
     source_table_ref = _REGRESSION_DATASET_REFS[regression_dataset]
     if verbose:
@@ -420,9 +412,11 @@ def build_production_workbook(
             if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                 workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS
             write_catalog_sheet(workbook, document.functions)
-            write_life_expectancy_sheet(workbook, csv_headers, csv_rows)
-            write_mileage_sheet(workbook, mileage_headers, mileage_rows)
-            write_production_lots_sheet(workbook, production_lots_headers, production_lots_rows)
+            write_csv_dataset_sheet(workbook, csv_headers, csv_rows, LIFE_EXPECTANCY)
+            write_csv_dataset_sheet(workbook, mileage_headers, mileage_rows, MILEAGE)
+            write_csv_dataset_sheet(
+                workbook, production_lots_headers, production_lots_rows, PRODUCTION_LOTS
+            )
             if not skip_univariate:
                 write_univariate_sheet(workbook)
             write_regression_instructions_sheet(workbook)
@@ -495,8 +489,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--csv",
         type=Path,
-        default=DEFAULT_CSV_PATH,
+        default=LIFE_EXPECTANCY.default_csv_path,
         help="Path to the Life Expectancy CSV data file.",
+    )
+    parser.add_argument(
+        "--mileage-csv",
+        type=Path,
+        default=MILEAGE.default_csv_path,
+        help="Path to the Auto MPG (Mileage) sample CSV data file.",
+    )
+    parser.add_argument(
+        "--production-lots-csv",
+        type=Path,
+        default=PRODUCTION_LOTS.default_csv_path,
+        help="Path to the Production Lots sample CSV data file.",
     )
     parser.add_argument(
         "--validate-reopen",
@@ -624,6 +630,8 @@ def main() -> None:
             workbook_path=workbook_path,
             definitions_path=args.definitions,
             csv_path=args.csv,
+            mileage_csv_path=args.mileage_csv,
+            production_lots_csv_path=args.production_lots_csv,
             validate_reopen=False,  # handled below after recalculate
             verbose=args.verbose,
             recalculate=False,      # handled separately so only this step retries
@@ -687,6 +695,8 @@ def main() -> None:
         report = _run_deep_verify(
             workbook_path,
             args.csv,
+            mileage_path=args.mileage_csv,
+            production_lots_path=args.production_lots_csv,
             verbose=args.verbose,
             skip_univariate=args.skip_univariate,
         )

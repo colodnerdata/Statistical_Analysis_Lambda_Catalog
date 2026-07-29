@@ -2,7 +2,7 @@
 
 Excel-side reads run only in the QC build; these tests pin the pure-Python
 side — the default-spec expectations derived from the sample Mileage/Auto
-MPG xlsx (the human test plan's T0 numbers), the stratified-Filter
+MPG CSV (the human test plan's T0 numbers), the stratified-Filter
 degeneracy case the QC build drives (the T8 mechanism from the T0 base
 state), the mask/label/level semantics that mirror the sheet's formulas,
 and the observed-vs-expected comparison layer's failure messages.
@@ -31,7 +31,7 @@ from lambda_catalog.write_sheet_model_construction import (
 )
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-XLSX_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.xlsx"
+CSV_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.csv"
 
 _EXPECTED_T0_NAMES = (
     "Horsepower",
@@ -44,7 +44,7 @@ _EXPECTED_T0_NAMES = (
 
 @pytest.fixture(scope="module", name="rows")
 def _rows() -> list[dict[str, object]]:
-    return load_source_rows(XLSX_PATH)
+    return load_source_rows(CSV_PATH)
 
 
 @pytest.fixture(scope="module", name="t0_expected")
@@ -77,7 +77,7 @@ def test_default_spec_mirrors_the_writer_prefill() -> None:
 # T0 (default spec) expectations — the human test plan's pinned numbers
 # ---------------------------------------------------------------------------
 
-def test_t0_expectations_pin_the_xlsx_derived_values(rows, t0_expected) -> None:
+def test_t0_expectations_pin_the_csv_derived_values(rows, t0_expected) -> None:
     assert t0_expected.total_rows == 406
     # Full_Data ships as Omit (not Filter), so the mask is completeness-only on
     # the response and the model's two continuous predictors — 392 rows.

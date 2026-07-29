@@ -82,7 +82,7 @@ Tests live in `tests/`. The current test files are:
 | `test_difference_by_verification.py` | Gap-aware `Difference_By` (WHO exact counts plus the punched-out-year and calendar-date synthetic cases per `HUMAN_TEST_PLAN_v3_model_construction.md` T17–T19) |
 | `test_analyze_regression_spec_block.py` | Post-changeover spec-block QC analyzer (predicted counts and values, regression sheet spec state) |
 | `test_regression_spec_qc.py` | Spec-driven Regression QC oracle (`analyze_regression_spec.py` case definitions) |
-| `test_mileage_data_loader.py` | `load_mileage_rows` (`write_sheet_mileage_data.py`) against the committed `sample_data/auto_mpg_data.xlsx` |
+| `test_csv_dataset_loader.py` | `load_csv_rows` (`write_sheet_csv_dataset.py`) against all three `CsvDatasetConfig`s and the committed sample CSVs |
 | `test_mileage_completeness_qc.py` | `calculate_mileage_completeness_flags` (`analyze_mileage.py`) against the Auto MPG dataset |
 | `test_within_estimator.py` | v2.1 Fixed Effects phase 2 — the fit-time demeaned pair `y_s()`/`X_s_Within()`, against an independent `statsmodels` LSDV fit |
 | `test_group_panel_transforms.py` | v2.1 Fixed Effects phase 1 — `Group_Mean`, `Demean_By`, `Is_Balanced_Panel`, `Absorbed_Degrees_Of_Freedom` |
@@ -284,9 +284,11 @@ rebuild_static_sheets.py      # regenerates templates/static_sheets.xlsx from it
 lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
-  auto_mpg_data.xlsx         # Auto MPG dataset (second sample dataset, "Mileage Data" sheet)
-  production_lots.xlsx       # Learning-curve panel (third sample dataset, "Production Lots" sheet) —
+  auto_mpg_data.csv          # Auto MPG dataset (second sample dataset, "Mileage Data" sheet)
+  production_lots.csv        # Learning-curve panel (third sample dataset, "Production Lots" sheet) —
                               # the only shipped dataset with a natural Fixed Effects grouping column
+  auto_mpg_data.xlsx         # retired source file for auto_mpg_data.csv; kept for reference, unused by writers
+  production_lots.xlsx       # retired source file for production_lots.csv; kept for reference, unused by writers
 templates/
   static_sheets.xlsx         # pre-built copies of dataset-independent reference sheets
                               # (Regression Instructions, Diagnostic Guide) — see
@@ -312,9 +314,7 @@ lambda_catalog/
   verify_report.py           # VerifyReport: structured pass/fail result for the spec-driven verifier
   make_test_sheet.py         # shared helpers for Excel ListObject test tables
   write_sheet_lambda_functions.py
-  write_sheet_life_expectancy_data.py
-  write_sheet_mileage_data.py
-  write_sheet_production_lots.py
+  write_sheet_csv_dataset.py # unified loader/writer/CLI for Life Expectancy, Mileage, and Production Lots
   write_sheet_univariate.py
   write_sheet_regression_instructions.py
   write_sheet_diagnostic_guide.py
@@ -357,10 +357,12 @@ Each `write_sheet_*.py` module can be run standalone against any open workbook:
 
 ```powershell
 python -m lambda_catalog.write_sheet_lambda_functions Lambda_Library.xlsx --definitions lambda_functions.json
-python -m lambda_catalog.write_sheet_life_expectancy_data Lambda_Library.xlsx
+python -m lambda_catalog.write_sheet_csv_dataset life_expectancy Lambda_Library.xlsx
+python -m lambda_catalog.write_sheet_csv_dataset mileage Lambda_Library.xlsx
+python -m lambda_catalog.write_sheet_csv_dataset production_lots Lambda_Library.xlsx
 ```
 
-Exception: `write_sheet_mileage_data.py` and `write_sheet_production_lots.py` have **no** standalone CLI — their sources are fixed committed sample files (`sample_data/auto_mpg_data.xlsx`, `sample_data/production_lots.xlsx`), so they are only ever invoked through `build_production.py` / `build_qc.py`, never point-at-a-different-file. Their loaders (`load_mileage_rows`, `load_production_lots_rows`) read those xlsx files directly via `zipfile` + `lxml`, with no Excel dependency, so the Python QC oracles (`analyze_mileage.calculate_mileage_completeness_flags`, `analyze_production_lots.calculate_production_lots_completeness_flags`) can run on any platform.
+`write_sheet_csv_dataset.py` is a single config-driven module backing all three sample datasets (Life Expectancy, Mileage, Production Lots) — one `CsvDatasetConfig` per dataset (`LIFE_EXPECTANCY`, `MILEAGE`, `PRODUCTION_LOTS`) captures its sheet/table name, `Full_Data` formula, and CSV-parsing quirks (missing-value markers, header normalization), and the shared `load_csv_rows` / `write_csv_dataset_sheet` functions do the actual work. All three CSVs are real committed sample files (`sample_data/Life Expectancy Data.csv`, `sample_data/auto_mpg_data.csv`, `sample_data/production_lots.csv`) that can be pointed at a different CSV via `--csv`, or via `build_production.py`'s `--csv` / `--mileage-csv` / `--production-lots-csv` flags. The loader (`load_csv_rows`) has no Excel dependency, so the Python QC oracles (`analyze_mileage.calculate_mileage_completeness_flags`, `analyze_production_lots.calculate_production_lots_completeness_flags`) can run on any platform.
 
 ### Static reference sheets
 

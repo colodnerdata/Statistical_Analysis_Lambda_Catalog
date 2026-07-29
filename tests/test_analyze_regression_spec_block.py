@@ -34,12 +34,12 @@ from lambda_catalog.write_sheet_model_construction import (
 from lambda_catalog.write_sheet_regression import _C_AH, _C_M, _C_U, _C_V, _C_Z
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-XLSX_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.xlsx"
+CSV_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.csv"
 
 
 @pytest.fixture(scope="module", name="t0_expected")
 def _t0_expected():
-    rows = load_source_rows(XLSX_PATH)
+    rows = load_source_rows(CSV_PATH)
     return calculate_model_construction_expectations(build_default_spec(), rows)
 
 

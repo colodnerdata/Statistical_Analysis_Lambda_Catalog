@@ -6,7 +6,7 @@ output zone, and compares against cached Python expected values.
 
 Usage:
     python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx
-    python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx --mileage path/to/data.xlsx
+    python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx --mileage path/to/data.csv
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from typing import Any
 import pandas as pd  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
 import xlwings as xw
 
-from lambda_catalog.analyze_mileage import DEFAULT_INPUT_XLSX
+from lambda_catalog.analyze_mileage import DEFAULT_INPUT_CSV
 from lambda_catalog.analyze_regression_spec import (
     RegressionSpecExpected,
     build_regression_spec_qc_configs,
@@ -27,10 +27,7 @@ from lambda_catalog.analyze_regression_spec import (
 from lambda_catalog.inspection_compare import compare_values, to_float_or_none
 from lambda_catalog.workbook_builder import XL_CALCULATION_MANUAL
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
-from lambda_catalog.write_sheet_mileage_data import (
-    SHEET_NAME as DATA_SHEET_NAME,
-    TABLE_NAME as DATA_TABLE_NAME,
-)
+from lambda_catalog.write_sheet_csv_dataset import MILEAGE
 from lambda_catalog.write_sheet_model_construction import (
     _C_INCLUDE as _C_SPEC_INCLUDE,
     _C_REFERENCE as _C_SPEC_REFERENCE,
@@ -42,6 +39,9 @@ from lambda_catalog.write_sheet_model_construction import (
     _INTERCEPT_ROW,
 )
 from lambda_catalog.write_sheet_regression import REGRESSION_SHEET_NAME
+
+DATA_SHEET_NAME = MILEAGE.sheet_name
+DATA_TABLE_NAME = MILEAGE.table_name
 
 # ── Tolerance (shared with inspect_test_sheets.py) ───────────────────────────
 _D = 3
@@ -551,7 +551,7 @@ def main() -> None:
         description="Inspect the Regression sheet against Python-computed expected values."
     )
     parser.add_argument("workbook", type=Path, help="Path to the Excel workbook.")
-    parser.add_argument("--mileage", type=Path, default=DEFAULT_INPUT_XLSX)
+    parser.add_argument("--mileage", type=Path, default=DEFAULT_INPUT_CSV)
     args = parser.parse_args()
 
     workbook_path = args.workbook.resolve()

@@ -36,26 +36,12 @@ from lambda_catalog.write_sheet_dummy_test import (
     write_dummy_test_sheet,
 )
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
-from lambda_catalog.write_sheet_life_expectancy_data import (
-    DEFAULT_CSV_PATH,
-    FULL_DATA_HEADER,
-    SHEET_NAME as LIFE_EXPECTANCY_SHEET_NAME,
-    load_life_expectancy_rows,
-    write_life_expectancy_sheet,
-)
-from lambda_catalog.write_sheet_mileage_data import (
-    DEFAULT_XLSX_PATH as DEFAULT_MILEAGE_XLSX_PATH,
-    FULL_DATA_HEADER as MILEAGE_FULL_DATA_HEADER,
-    SHEET_NAME as MILEAGE_SHEET_NAME,
-    load_mileage_rows,
-    write_mileage_sheet,
-)
-from lambda_catalog.write_sheet_production_lots import (
-    DEFAULT_XLSX_PATH as DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
-    FULL_DATA_HEADER as PRODUCTION_LOTS_FULL_DATA_HEADER,
-    SHEET_NAME as PRODUCTION_LOTS_SHEET_NAME,
-    load_production_lots_rows,
-    write_production_lots_sheet,
+from lambda_catalog.write_sheet_csv_dataset import (
+    LIFE_EXPECTANCY,
+    MILEAGE,
+    PRODUCTION_LOTS,
+    load_csv_rows,
+    write_csv_dataset_sheet,
 )
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
@@ -78,9 +64,9 @@ _QC_SHEET_NAMES = (
     "Dummy_Test",
 )
 _VERIFY_CALC_SHEET_NAMES = (
-    LIFE_EXPECTANCY_SHEET_NAME,
-    MILEAGE_SHEET_NAME,
-    PRODUCTION_LOTS_SHEET_NAME,
+    LIFE_EXPECTANCY.sheet_name,
+    MILEAGE.sheet_name,
+    PRODUCTION_LOTS.sheet_name,
     "Regression",
     "Univariate",
     "Dummy_Test",
@@ -185,7 +171,7 @@ def _verify_life_expectancy_full_data(
     failures: list[str],
 ) -> None:
     full_data_expected = calculate_data_completeness_flags(csv_path)
-    life_expectancy_sheet = workbook.sheets[LIFE_EXPECTANCY_SHEET_NAME]
+    life_expectancy_sheet = workbook.sheets[LIFE_EXPECTANCY.sheet_name]
     life_expectancy_data = life_expectancy_sheet.used_range.value
     if not life_expectancy_data:
         return
@@ -198,7 +184,7 @@ def _verify_life_expectancy_full_data(
         str(header).strip() if header is not None else ""
         for header in life_expectancy_rows[0]
     ]
-    full_data_col_idx = life_expectancy_headers.index(FULL_DATA_HEADER)
+    full_data_col_idx = life_expectancy_headers.index(LIFE_EXPECTANCY.full_data_header)
     for row_offset, expected in enumerate(full_data_expected, start=1):
         row = life_expectancy_rows[row_offset] if row_offset < len(life_expectancy_rows) else []
         actual = _normalize_excel_bool(
@@ -218,7 +204,7 @@ def _verify_mileage_full_data(
     failures: list[str],
 ) -> None:
     full_data_expected = calculate_mileage_completeness_flags(mileage_path)
-    mileage_sheet = workbook.sheets[MILEAGE_SHEET_NAME]
+    mileage_sheet = workbook.sheets[MILEAGE.sheet_name]
     mileage_data = mileage_sheet.used_range.value
     if not mileage_data:
         return
@@ -231,7 +217,7 @@ def _verify_mileage_full_data(
         str(header).strip() if header is not None else ""
         for header in mileage_rows[0]
     ]
-    full_data_col_idx = mileage_headers.index(MILEAGE_FULL_DATA_HEADER)
+    full_data_col_idx = mileage_headers.index(MILEAGE.full_data_header)
     for row_offset, expected in enumerate(full_data_expected, start=1):
         row = mileage_rows[row_offset] if row_offset < len(mileage_rows) else []
         actual = _normalize_excel_bool(
@@ -251,7 +237,7 @@ def _verify_production_lots_full_data(
     failures: list[str],
 ) -> None:
     full_data_expected = calculate_production_lots_completeness_flags(production_lots_path)
-    production_lots_sheet = workbook.sheets[PRODUCTION_LOTS_SHEET_NAME]
+    production_lots_sheet = workbook.sheets[PRODUCTION_LOTS.sheet_name]
     production_lots_data = production_lots_sheet.used_range.value
     if not production_lots_data:
         return
@@ -264,7 +250,7 @@ def _verify_production_lots_full_data(
         str(header).strip() if header is not None else ""
         for header in production_lots_rows[0]
     ]
-    full_data_col_idx = production_lots_headers.index(PRODUCTION_LOTS_FULL_DATA_HEADER)
+    full_data_col_idx = production_lots_headers.index(PRODUCTION_LOTS.full_data_header)
     for row_offset, expected in enumerate(full_data_expected, start=1):
         row = (
             production_lots_rows[row_offset]
@@ -288,8 +274,8 @@ def verify_test_sheets(
     csv_path: Path,
     verbose: bool = False,
     *,
-    mileage_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
-    production_lots_path: Path = DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
+    mileage_path: Path = MILEAGE.default_csv_path,
+    production_lots_path: Path = PRODUCTION_LOTS.default_csv_path,
     skip_dummy: bool = False,
     skip_univariate: bool = False,
     failures_out: list[str] | None = None,
@@ -307,10 +293,10 @@ def verify_test_sheets(
     verbose : bool
         Print per-phase checkpoints to stdout.
     mileage_path : Path
-        Path to the Auto MPG sample xlsx used for the Mileage Data sheet's
+        Path to the Auto MPG sample CSV used for the Mileage Data sheet's
         Full_Data comparison. Defaults to the committed sample file.
     production_lots_path : Path
-        Path to the Production Lots sample xlsx used for the Production Lots
+        Path to the Production Lots sample CSV used for the Production Lots
         sheet's Full_Data comparison. Defaults to the committed sample file.
     skip_dummy : bool
         When True, skip the Dummy_Test check (``read_dummy_check_failures``).
@@ -422,13 +408,13 @@ def verify_test_sheets(
 def build_qc_workbook(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
-    csv_path: Path = DEFAULT_CSV_PATH,
+    csv_path: Path = LIFE_EXPECTANCY.default_csv_path,
     cache_path: Path = DEFAULT_CACHE_PATH,
     validate_reopen: bool = False,
     verbose: bool = False,
     *,
-    mileage_xlsx_path: Path = DEFAULT_MILEAGE_XLSX_PATH,
-    production_lots_xlsx_path: Path = DEFAULT_PRODUCTION_LOTS_XLSX_PATH,
+    mileage_csv_path: Path = MILEAGE.default_csv_path,
+    production_lots_csv_path: Path = PRODUCTION_LOTS.default_csv_path,
     no_verify: bool = False,
     timings_out: dict[str, float | None] | None = None,
 ) -> NameSyncResult:
@@ -437,12 +423,12 @@ def build_qc_workbook(
     phase_start = time.monotonic()
     document = load_catalog_document(definitions_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: catalog loaded")
-    regression_sheet_configs = build_regression_spec_qc_configs(mileage_xlsx_path)
+    regression_sheet_configs = build_regression_spec_qc_configs(mileage_csv_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: regression QC loaded")
-    csv_headers, csv_rows = load_life_expectancy_rows(csv_path)
-    mileage_headers, mileage_rows = load_mileage_rows(mileage_xlsx_path)
-    production_lots_headers, production_lots_rows = load_production_lots_rows(
-        production_lots_xlsx_path
+    csv_headers, csv_rows = load_csv_rows(csv_path, LIFE_EXPECTANCY)
+    mileage_headers, mileage_rows = load_csv_rows(mileage_csv_path, MILEAGE)
+    production_lots_headers, production_lots_rows = load_csv_rows(
+        production_lots_csv_path, PRODUCTION_LOTS
     )
     _verbose_checkpoint(verbose, phase_start, "Prep: csv loaded")
     workbook_path = workbook_path.resolve()
@@ -495,13 +481,19 @@ def build_qc_workbook(
                 write_catalog_sheet(workbook, document.functions)
                 _verbose_checkpoint(verbose, phase_start, "Write: catalog done")
                 _verbose_checkpoint(verbose, phase_start, "Write: life exp start")
-                write_life_expectancy_sheet(workbook, csv_headers, csv_rows, verbose=verbose)
+                write_csv_dataset_sheet(
+                    workbook, csv_headers, csv_rows, LIFE_EXPECTANCY, verbose=verbose
+                )
                 _verbose_checkpoint(verbose, phase_start, "Write: life exp done")
                 _verbose_checkpoint(verbose, phase_start, "Write: mileage start")
-                write_mileage_sheet(workbook, mileage_headers, mileage_rows, verbose=verbose)
+                write_csv_dataset_sheet(
+                    workbook, mileage_headers, mileage_rows, MILEAGE, verbose=verbose
+                )
                 _verbose_checkpoint(verbose, phase_start, "Write: mileage done")
                 _verbose_checkpoint(verbose, phase_start, "Write: production lots start")
-                write_production_lots_sheet(workbook, production_lots_headers, production_lots_rows)
+                write_csv_dataset_sheet(
+                    workbook, production_lots_headers, production_lots_rows, PRODUCTION_LOTS
+                )
                 _verbose_checkpoint(verbose, phase_start, "Write: production lots done")
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate start")
                 write_univariate_sheet(workbook)
@@ -570,8 +562,8 @@ def build_qc_workbook(
                         workbook,
                         regression_sheet_configs,
                         csv_path,
-                        mileage_path=mileage_xlsx_path,
-                        production_lots_path=production_lots_xlsx_path,
+                        mileage_path=mileage_csv_path,
+                        production_lots_path=production_lots_csv_path,
                         verbose=verbose,
                     )
                 finally:
@@ -618,8 +610,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--csv",
         type=Path,
-        default=DEFAULT_CSV_PATH,
+        default=LIFE_EXPECTANCY.default_csv_path,
         help="Path to the Life Expectancy CSV data file.",
+    )
+    parser.add_argument(
+        "--mileage-csv",
+        type=Path,
+        default=MILEAGE.default_csv_path,
+        help="Path to the Auto MPG (Mileage) sample CSV data file.",
+    )
+    parser.add_argument(
+        "--production-lots-csv",
+        type=Path,
+        default=PRODUCTION_LOTS.default_csv_path,
+        help="Path to the Production Lots sample CSV data file.",
     )
     parser.add_argument(
         "--cache",
@@ -688,6 +692,8 @@ def _run_main(args: argparse.Namespace) -> None:
                 cache_path=args.cache,
                 validate_reopen=args.validate_reopen,
                 verbose=args.verbose,
+                mileage_csv_path=args.mileage_csv,
+                production_lots_csv_path=args.production_lots_csv,
                 no_verify=args.no_verify,
                 timings_out=timings,
             )

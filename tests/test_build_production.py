@@ -171,24 +171,12 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
     )
     monkeypatch.setattr(
         build_production,
-        "load_life_expectancy_rows",
-        lambda _: ([], []),
+        "load_csv_rows",
+        lambda _csv_path, _config: ([], []),
     )
-    monkeypatch.setattr(
-        build_production,
-        "load_mileage_rows",
-        lambda _: ([], []),
-    )
-    monkeypatch.setattr(
-        build_production,
-        "load_production_lots_rows",
-        lambda _: ([], []),
-    )
+    monkeypatch.setattr(build_production, "write_csv_dataset_sheet", lambda *_, **__: None)
     for writer_name in [
         "write_catalog_sheet",
-        "write_life_expectancy_sheet",
-        "write_mileage_sheet",
-        "write_production_lots_sheet",
         "write_univariate_sheet",
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",
@@ -250,6 +238,8 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=False,
@@ -346,26 +336,18 @@ def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> N
     )
     monkeypatch.setattr(
         build_production,
-        "load_life_expectancy_rows",
-        lambda _: ([], []),
-    )
-    monkeypatch.setattr(
-        build_production,
-        "load_mileage_rows",
-        lambda _: ([], []),
-    )
-    monkeypatch.setattr(
-        build_production,
-        "load_production_lots_rows",
-        lambda _: ([], []),
+        "load_csv_rows",
+        lambda _csv_path, _config: ([], []),
     )
 
     writer_calls: list[str] = []
+    monkeypatch.setattr(
+        build_production,
+        "write_csv_dataset_sheet",
+        lambda *_, **__: writer_calls.append("write_csv_dataset_sheet"),
+    )
     for writer_name in [
         "write_catalog_sheet",
-        "write_life_expectancy_sheet",
-        "write_mileage_sheet",
-        "write_production_lots_sheet",
         "write_univariate_sheet",
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",
@@ -410,6 +392,8 @@ def test_main_skips_data_table_recalculation_when_requested(
             workbook=workbook_path,
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=True,
             skip_univariate=False,
@@ -467,6 +451,8 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=False,
@@ -503,7 +489,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
     popen_calls: list[tuple[str, ...]] = []
     verify_calls: list[tuple[Path, Path]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
+    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False, skip_univariate=False):
         del verbose, skip_univariate
         verify_calls.append((workbook_path, csv_path))
         from lambda_catalog.verify_report import VerifyReport
@@ -523,6 +509,8 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=False,
@@ -565,7 +553,7 @@ def test_main_forwards_skip_univariate_to_deep_verify(
     verifier so it knows to skip the Univariate check instead."""
     verify_kwargs: list[dict] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
+    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False, skip_univariate=False):
         del csv_path, verbose
         verify_kwargs.append({"skip_univariate": skip_univariate})
         from lambda_catalog.verify_report import VerifyReport
@@ -585,6 +573,8 @@ def test_main_forwards_skip_univariate_to_deep_verify(
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=True,
@@ -620,7 +610,7 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     launched in place of a fresh one) and must sys.exit(1)."""
     popen_calls: list[tuple[str, ...]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False, skip_univariate=False):
+    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False, skip_univariate=False):
         del csv_path, verbose, skip_univariate
         from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
@@ -642,6 +632,8 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
             skip_univariate=False,
@@ -694,30 +686,14 @@ def test_build_uses_life_expectancy_source_table_when_requested(
     )
     monkeypatch.setattr(
         build_production,
-        "load_life_expectancy_rows",
-        lambda _: ([], []),
-    )
-    monkeypatch.setattr(
-        build_production,
-        "load_mileage_rows",
-        lambda _: ([], []),
-    )
-    monkeypatch.setattr(
-        build_production,
-        "load_production_lots_rows",
-        lambda _: ([], []),
+        "load_csv_rows",
+        lambda _csv_path, _config: ([], []),
     )
 
     called: dict[str, object] = {"source_table_ref": None}
     monkeypatch.setattr(build_production, "write_catalog_sheet", lambda *_, **__: None)
     monkeypatch.setattr(
-        build_production, "write_life_expectancy_sheet", lambda *_, **__: None
-    )
-    monkeypatch.setattr(
-        build_production, "write_mileage_sheet", lambda *_, **__: None
-    )
-    monkeypatch.setattr(
-        build_production, "write_production_lots_sheet", lambda *_, **__: None
+        build_production, "write_csv_dataset_sheet", lambda *_, **__: None
     )
     monkeypatch.setattr(
         build_production, "write_univariate_sheet", lambda *_, **__: None
@@ -770,14 +746,14 @@ def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
             functions_for_sheet=lambda _sheet: (),
         ),
     )
-    monkeypatch.setattr(build_production, "load_life_expectancy_rows", lambda _: ([], []))
-    monkeypatch.setattr(build_production, "load_mileage_rows", lambda _: ([], []))
-    monkeypatch.setattr(build_production, "load_production_lots_rows", lambda _: ([], []))
+    monkeypatch.setattr(
+        build_production, "load_csv_rows", lambda _csv_path, _config: ([], [])
+    )
 
     called: dict[str, object] = {"source_table_ref": None}
+    monkeypatch.setattr(build_production, "write_csv_dataset_sheet", lambda *_, **__: None)
     for name in [
-        "write_catalog_sheet", "write_life_expectancy_sheet",
-        "write_mileage_sheet", "write_production_lots_sheet", "write_univariate_sheet",
+        "write_catalog_sheet", "write_univariate_sheet",
         "write_regression_instructions_sheet", "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
     ]:

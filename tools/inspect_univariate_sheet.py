@@ -17,7 +17,7 @@ from lambda_catalog.analyze_univariate import (
     sturges_bins,
 )
 from lambda_catalog.inspection_compare import compare_values, to_float_or_none
-from lambda_catalog.write_sheet_life_expectancy_data import load_life_expectancy_rows
+from lambda_catalog.write_sheet_csv_dataset import LIFE_EXPECTANCY, load_csv_rows
 from lambda_catalog.write_sheet_univariate import (
     UNIVARIATE_SHEET_NAME,
     _C_D,
@@ -75,7 +75,7 @@ def _numeric_mismatch(expected: float, actual: Any, tolerance: int) -> bool:
 
 
 def _load_source_data(csv_path: Path) -> list[float | None]:
-    headers, rows = load_life_expectancy_rows(csv_path)
+    headers, rows = load_csv_rows(csv_path, LIFE_EXPECTANCY)
     try:
         data_col = headers.index(_DATA_HEADER)
     except ValueError as exc:

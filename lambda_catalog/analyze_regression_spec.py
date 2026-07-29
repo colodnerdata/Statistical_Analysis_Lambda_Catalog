@@ -7,9 +7,9 @@ from pathlib import Path
 import math
 import numpy as np
 
-from .analyze_mileage import DEFAULT_INPUT_XLSX
+from .analyze_mileage import DEFAULT_INPUT_CSV
 from .analyze_production_lots import (
-    DEFAULT_INPUT_XLSX as PRODUCTION_LOTS_XLSX_PATH,
+    DEFAULT_INPUT_CSV as PRODUCTION_LOTS_CSV_PATH,
     load_production_lots_source_rows,
 )
 from .analyze_model_construction import (
@@ -68,11 +68,11 @@ class RegressionSpecCase:
     allow_intercept: bool
     alpha: float = 0.05
     extra_columns: tuple[ExtraSpecColumn, ...] = ()
-    # Override the source xlsx / row loader for cases that don't target the
+    # Override the source CSV / row loader for cases that don't target the
     # default Mileage dataset (e.g. the Production Lots Fixed Effects case,
     # which has no natural analogue in the Auto MPG table). None means "use
     # the caller's default", preserving every existing Mileage-based case.
-    source_xlsx_path: Path | None = None
+    source_csv_path: Path | None = None
     row_loader: Callable[[Path], list[dict[str, object]]] | None = None
     # The live workbook's Source_Table RefersTo to apply before writing this
     # case's spec block — Source_Table is the ONE name that retargets which
@@ -322,14 +322,14 @@ def build_spec_design(
 
 def calculate_regression_spec_case(
     case: RegressionSpecCase,
-    xlsx_path: Path = DEFAULT_INPUT_XLSX,
+    csv_path: Path = DEFAULT_INPUT_CSV,
 ) -> RegressionSpecExpected:
     """Compute expected current Regression sheet outputs for one spec case."""
-    effective_xlsx_path = (
-        case.source_xlsx_path if case.source_xlsx_path is not None else xlsx_path
+    effective_csv_path = (
+        case.source_csv_path if case.source_csv_path is not None else csv_path
     )
     loader = case.row_loader if case.row_loader is not None else load_source_rows
-    rows = _with_extra_columns(loader(effective_xlsx_path), case.extra_columns)
+    rows = _with_extra_columns(loader(effective_csv_path), case.extra_columns)
     design = build_spec_design(case.spec, rows)
 
     # Resolve to a concrete group name up front (mirrors $AH$12's own default
@@ -423,9 +423,9 @@ def _production_lots_fixed_effects_spec() -> list[SpecVariable]:
     unbalanced panel (3 facilities, 51 lots) that exercises the within-demeaned
     fit-time pair (calculate_regression_results_from_matrix's group_labels
     branch) against a real spec-driven build, unlike Auto MPG (no natural
-    panel-unit variable). Column order matches
-    load_production_lots_rows()'s header order plus the appended Full_Data
-    column — spec rows are positional, one per Source_Table column.
+    panel-unit variable). Column order matches the Production Lots CSV's
+    header order plus the appended Full_Data column — spec rows are
+    positional, one per Source_Table column.
     """
     return [
         _spec_var("Lot_ID", _ROLE_IDENTIFIER),
@@ -532,7 +532,7 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             name="production_lots_fixed_effects",
             spec=tuple(_production_lots_fixed_effects_spec()),
             allow_intercept=True,
-            source_xlsx_path=PRODUCTION_LOTS_XLSX_PATH,
+            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
             row_loader=load_production_lots_source_rows,
             source_table_ref="=ProductionLotsData[#All]",
             # Explicit (not the alphabetically-first default) — exercises the
@@ -546,7 +546,7 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             name="production_lots_log_transform",
             spec=tuple(_production_lots_log_transform_spec()),
             allow_intercept=True,
-            source_xlsx_path=PRODUCTION_LOTS_XLSX_PATH,
+            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
             row_loader=load_production_lots_source_rows,
             source_table_ref="=ProductionLotsData[#All]",
             prediction_group="Site B",
@@ -557,10 +557,10 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
 
 
 def build_regression_spec_qc_configs(
-    xlsx_path: Path = DEFAULT_INPUT_XLSX,
+    csv_path: Path = DEFAULT_INPUT_CSV,
 ) -> list[RegressionSpecExpected]:
     """Compute expected Regression sheet outputs for all spec-driven QC cases."""
     return [
-        calculate_regression_spec_case(case, xlsx_path)
+        calculate_regression_spec_case(case, csv_path)
         for case in build_regression_spec_cases()
     ]

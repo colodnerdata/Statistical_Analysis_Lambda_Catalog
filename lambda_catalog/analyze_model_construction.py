@@ -37,12 +37,7 @@ import xlwings as xw
 
 from .analyze_mileage import calculate_mileage_completeness_flags
 from .workbook_builder import XL_CALCULATION_MANUAL, XL_CALCULATION_SEMIAUTOMATIC
-from .write_sheet_mileage_data import (
-    DEFAULT_XLSX_PATH,
-    FULL_DATA_HEADER,
-    SHEET_NAME as DATA_SHEET_NAME,
-    load_mileage_rows,
-)
+from .write_sheet_csv_dataset import MILEAGE, load_csv_rows
 from .write_sheet_model_construction import (
     _AUDIT_PAIRS,
     _AUDIT_ROW,
@@ -67,6 +62,10 @@ from .write_sheet_model_construction import (
     _VARIABLES,
     SHEET_NAME,
 )
+
+DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
+FULL_DATA_HEADER = MILEAGE.full_data_header
+DATA_SHEET_NAME = MILEAGE.sheet_name
 
 _QC_PREFIX = "[Model Construction]"
 _TABLE_NAME = "MileageData"
@@ -129,16 +128,16 @@ def build_default_spec() -> list[SpecVariable]:
     return spec
 
 
-def load_source_rows(xlsx_path: Path = DEFAULT_XLSX_PATH) -> list[dict[str, object]]:
-    """Load the source xlsx as row dicts matching the MileageData table.
+def load_source_rows(csv_path: Path = DEFAULT_INPUT_CSV) -> list[dict[str, object]]:
+    """Load the source CSV as row dicts matching the MileageData table.
 
     Cell values are typed exactly as the data sheet writer types them
     (int/float/str/None), and the computed ``Full_Data`` column is appended
     with the same completeness rule the sheet's ``Data_Completeness``
     formula applies.
     """
-    headers, rows = load_mileage_rows(xlsx_path)
-    flags = calculate_mileage_completeness_flags(xlsx_path)
+    headers, rows = load_csv_rows(csv_path, MILEAGE)
+    flags = calculate_mileage_completeness_flags(csv_path)
     table_headers = [*headers, FULL_DATA_HEADER]
     return [
         dict(zip(table_headers, [*row, flag]))
@@ -610,7 +609,7 @@ def _verify_degenerate_filter_case(
 
 
 def read_model_construction_failures(
-    workbook: xw.Book, xlsx_path: Path = DEFAULT_XLSX_PATH
+    workbook: xw.Book, csv_path: Path = DEFAULT_INPUT_CSV
 ) -> list[str]:
     """Verify the Model Construction sheet; return QC failure messages.
 
@@ -618,7 +617,7 @@ def read_model_construction_failures(
     state); pass 2 drives the degenerate-Categorical Filter case and
     reverts it. Every mismatch produces one standard-format failure string.
     """
-    rows = load_source_rows(xlsx_path)
+    rows = load_source_rows(csv_path)
     spec = build_default_spec()
     expected = calculate_model_construction_expectations(spec, rows)
 

@@ -16,7 +16,7 @@ from lambda_catalog.analyze_regression_spec import (
 )
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
-XLSX_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.xlsx"
+CSV_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.csv"
 
 _EXPECTED_CASE_NAMES = [
     "default_t0_intercept",
@@ -48,7 +48,7 @@ def _case(name: str) -> RegressionSpecCase:
     return cases[name]
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_regression_spec_fixture_names_are_pinned() -> None:
     assert [case.name for case in build_regression_spec_cases()] == _EXPECTED_CASE_NAMES
 
@@ -253,6 +253,8 @@ def test_build_qc_run_main_skips_verified_summary_when_verification_disabled(
             workbook=Path("Example.xlsx"),
             definitions=Path("lambda_functions.json"),
             csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
             cache=Path("cache.json"),
             validate_reopen=False,
             verbose=False,
@@ -265,9 +267,9 @@ def test_build_qc_run_main_skips_verified_summary_when_verification_disabled(
     assert "Timing: verify        skipped" in output
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_default_t0_design_matches_current_constructor_semantics() -> None:
-    expected = calculate_regression_spec_case(_case("default_t0_intercept"), XLSX_PATH)
+    expected = calculate_regression_spec_case(_case("default_t0_intercept"), CSV_PATH)
     design = expected.design
 
     assert design.included_rows == 392
@@ -282,9 +284,9 @@ def test_default_t0_design_matches_current_constructor_semantics() -> None:
     assert design.sequence_values[0] == 70
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> None:
-    expected = calculate_regression_spec_case(_case("v1_full_continuous_intercept"), XLSX_PATH)
+    expected = calculate_regression_spec_case(_case("v1_full_continuous_intercept"), CSV_PATH)
     design = expected.design
 
     assert design.included_rows == 392
@@ -302,9 +304,9 @@ def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> 
     assert design.degenerate_categoricals == ()
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
-    expected = calculate_regression_spec_case(_case("origin_default_reference"), XLSX_PATH)
+    expected = calculate_regression_spec_case(_case("origin_default_reference"), CSV_PATH)
     design = expected.design
     origin_columns = [
         idx for idx, name in enumerate(design.constructed_column_names)
@@ -319,18 +321,18 @@ def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
     assert design.included_rows == 392
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_explicit_reference_changes_origin_dummy_level() -> None:
-    expected = calculate_regression_spec_case(_case("origin_explicit_reference"), XLSX_PATH)
+    expected = calculate_regression_spec_case(_case("origin_explicit_reference"), CSV_PATH)
 
     assert expected.design.references_in_use["Origin"] == "Europe"
     assert "Origin: Asia" in expected.design.constructed_column_names
     assert "Origin: Europe" not in expected.design.constructed_column_names
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_invalid_reference_skips_origin_but_model_still_computes() -> None:
-    expected = calculate_regression_spec_case(_case("origin_invalid_reference"), XLSX_PATH)
+    expected = calculate_regression_spec_case(_case("origin_invalid_reference"), CSV_PATH)
     design = expected.design
 
     assert design.degenerate_categoricals == ("Origin",)
@@ -340,9 +342,9 @@ def test_invalid_reference_skips_origin_but_model_still_computes() -> None:
     assert math.isfinite(expected.results.summary.r_squared)
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() -> None:
-    expected = calculate_regression_spec_case(_case("model_year_origin_categorical"), XLSX_PATH)
+    expected = calculate_regression_spec_case(_case("model_year_origin_categorical"), CSV_PATH)
     design = expected.design
 
     assert design.constructed_column_names[3:15] == tuple(
@@ -353,10 +355,10 @@ def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() ->
     assert design.references_in_use["Model Year"] == 70
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_model_year_origin_categorical_gvif_shared_across_dummy_columns() -> None:
     """GVIF collapses each categorical variable's dummy block to one shared value."""
-    expected = calculate_regression_spec_case(_case("model_year_origin_categorical"), XLSX_PATH)
+    expected = calculate_regression_spec_case(_case("model_year_origin_categorical"), CSV_PATH)
     names = expected.design.constructed_column_names
     gvif = expected.results.predictor_summary.gvif
 
@@ -385,11 +387,11 @@ def test_model_year_origin_categorical_gvif_shared_across_dummy_columns() -> Non
     assert all(v >= 1.0 - 1e-9 for v in gvif)
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     expected = calculate_regression_spec_case(
         _case("usa_filter_degenerate_origin"),
-        XLSX_PATH,
+        CSV_PATH,
     )
     design = expected.design
 
@@ -405,9 +407,9 @@ def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     )
 
 
-@pytest.mark.skipif(not XLSX_PATH.exists(), reason="Auto MPG xlsx not found")
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_expected_outputs_are_internally_consistent() -> None:
-    expected = calculate_regression_spec_case(_case("continuous_subset_intercept"), XLSX_PATH)
+    expected = calculate_regression_spec_case(_case("continuous_subset_intercept"), CSV_PATH)
     results = expected.results
     design = expected.design
     k = len(design.constructed_column_names)

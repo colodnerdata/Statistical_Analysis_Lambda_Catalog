@@ -1,7 +1,7 @@
 """Independent verification of the v2.2 Transform=Log wiring through the
 Python QC oracle (analyze_regression_spec.py / analyze_model_construction.py).
 
-The headline acceptance test: production_lots.xlsx ships both raw columns
+The headline acceptance test: production_lots.csv ships both raw columns
 (Cumulative_Units, Unit_Cost_BY) and precomputed log columns ("log Cum
 Units", "log Unit Cost") that are bit-identical logs of the raw ones. The
 existing "production_lots_fixed_effects" QC case points its spec at the
@@ -32,7 +32,7 @@ if __package__ in (None, ""):  # standalone run: make `tests.` importable
 from lambda_catalog.analyze_model_construction import SpecVariable, build_default_spec
 # pylint: disable-next=wrong-import-position
 from lambda_catalog.analyze_regression_spec import (
-    PRODUCTION_LOTS_XLSX_PATH,
+    PRODUCTION_LOTS_CSV_PATH,
     build_regression_spec_cases,
     build_spec_design,
     calculate_regression_spec_case,
@@ -53,8 +53,8 @@ def test_log_transform_case_matches_precomputed_log_case_numerically() -> None:
     fe_case = cases["production_lots_fixed_effects"]
     log_case = cases["production_lots_log_transform"]
 
-    fe_expected = calculate_regression_spec_case(fe_case, PRODUCTION_LOTS_XLSX_PATH)
-    log_expected = calculate_regression_spec_case(log_case, PRODUCTION_LOTS_XLSX_PATH)
+    fe_expected = calculate_regression_spec_case(fe_case, PRODUCTION_LOTS_CSV_PATH)
+    log_expected = calculate_regression_spec_case(log_case, PRODUCTION_LOTS_CSV_PATH)
 
     # Design matrices and response vectors: bit-exact, since the shipped
     # "log Cum Units"/"log Unit Cost" columns are exact logs of the raw
@@ -94,7 +94,7 @@ def test_log_transform_case_matches_precomputed_log_case_numerically() -> None:
 def test_log_transform_case_labels_match_the_transform_contract() -> None:
     cases = _cases()
     log_case = cases["production_lots_log_transform"]
-    log_expected = calculate_regression_spec_case(log_case, PRODUCTION_LOTS_XLSX_PATH)
+    log_expected = calculate_regression_spec_case(log_case, PRODUCTION_LOTS_CSV_PATH)
 
     assert log_expected.design.constructed_column_names == ("Ln(Cumulative_Units)",)
     assert log_expected.design.constructed_column_transforms == ("Log",)
@@ -115,7 +115,7 @@ def test_default_spec_has_no_transform_declared() -> None:
 
 
 def test_none_transform_design_is_unaffected_by_the_log_wiring() -> None:
-    rows = load_production_lots_source_rows(PRODUCTION_LOTS_XLSX_PATH)
+    rows = load_production_lots_source_rows(PRODUCTION_LOTS_CSV_PATH)
     cases = _cases()
     fe_case = cases["production_lots_fixed_effects"]
 
@@ -137,7 +137,7 @@ def test_log_on_a_categorical_predictor_is_ignored_by_the_design_builder() -> No
     # the design builder mirrors X_s()'s own behavior — the Categorical
     # branch never reads .transform, so a mislabelled row is computationally
     # inert, not an error and not silently logged.
-    rows = load_production_lots_source_rows(PRODUCTION_LOTS_XLSX_PATH)
+    rows = load_production_lots_source_rows(PRODUCTION_LOTS_CSV_PATH)
     spec = [
         SpecVariable("Lot_ID", "Identifier (Row Label)", False, "Continuous"),
         SpecVariable(

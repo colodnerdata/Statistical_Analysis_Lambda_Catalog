@@ -1769,7 +1769,7 @@ def write_regression_output_sheet(
     _write_chart_label_cells(sheet)
 
     # Charts must be positioned after column widths are set so that
-    # sheet.range("AV1").left reflects the final column layout. Guarded per
+    # sheet.range("AW1").left reflects the final column layout. Guarded per
     # the documented convention: ChartObjects().Add(...) requires the Excel
     # COM API, which is unavailable in CI/headless environments.
     try:

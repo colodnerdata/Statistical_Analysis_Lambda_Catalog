@@ -35,6 +35,7 @@ from lambda_catalog.write_sheet_csv_dataset import (
     write_csv_dataset_sheet,
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
+from lambda_catalog.write_sheet_model_construction import SPEC_DATASET_PROFILES
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
@@ -66,20 +67,19 @@ _SHEET_NAME_REGRESSION = "Regression"
 _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
 _SHEET_NAME_UNIVARIATE = "Univariate Analysis"
 
-# Dataset profiles: maps the --regression-dataset choice to the Source_Table
-# RefersTo formula written as a sheet-scoped name on the Regression sheet.
-# "auto_mpg" is the shipped default (MileageData table on the Mileage Data
-# sheet). "life_expectancy" retargets to the Life Expectancy Data sheet.
+# Dataset profiles: maps the --regression-dataset choice to both the
+# Source_Table RefersTo formula and the spec block's default Role/Include/
+# Type/Sequence values — SPEC_DATASET_PROFILES (write_sheet_model_construction.py)
+# is the single source of truth for both, so retargeting the dataset also
+# retargets the shipped default model instead of leaving every column of
+# the newly-targeted dataset an un-flagged Predictor. "auto_mpg" is the
+# shipped default (MileageData table on the Mileage Data sheet).
+# "life_expectancy" retargets to the Life Expectancy Data sheet.
 # "production_lots" retargets to the Production Lots learning-curve panel —
 # the only shipped dataset with a natural Fixed Effects grouping column
 # (Facility) and Sequence column (Fiscal_Year), so it is what exercises the
 # Fixed Effects role end to end (see analyze_regression_spec.py's
 # production_lots_fixed_effects QC case).
-_REGRESSION_DATASET_REFS: dict[str, str] = {
-    "auto_mpg": "=MileageData[#All]",
-    "life_expectancy": "=LifeExpectancyData[#All]",
-    "production_lots": "=ProductionLotsData[#All]",
-}
 
 
 def _is_rpc_failure(exc: BaseException) -> bool:
@@ -354,10 +354,10 @@ def build_production_workbook(
     NameSyncResult
         Counts of created versus updated workbook names.
     """
-    if regression_dataset not in _REGRESSION_DATASET_REFS:
+    if regression_dataset not in SPEC_DATASET_PROFILES:
         raise ValueError(
             "regression_dataset must be one of: "
-            + ", ".join(sorted(_REGRESSION_DATASET_REFS))
+            + ", ".join(sorted(SPEC_DATASET_PROFILES))
         )
     _t = time.monotonic()
     document = load_catalog_document(definitions_path)
@@ -366,7 +366,8 @@ def build_production_workbook(
     production_lots_headers, production_lots_rows = load_csv_rows(
         production_lots_csv_path, PRODUCTION_LOTS
     )
-    source_table_ref = _REGRESSION_DATASET_REFS[regression_dataset]
+    regression_spec_profile = SPEC_DATASET_PROFILES[regression_dataset]
+    source_table_ref = regression_spec_profile.source_table_ref
     if verbose:
         print(f"  Prep:           {time.monotonic() - _t:.1f}s", flush=True)
 
@@ -427,6 +428,7 @@ def build_production_workbook(
                 document.regression_sheet_notes,
                 document.functions_for_sheet("Regression"),
                 source_table_ref=source_table_ref,
+                spec_profile=regression_spec_profile,
             )
             _reorder_and_style_sheet_tabs(workbook, include_univariate=not skip_univariate)
             app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
@@ -565,14 +567,18 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--regression-dataset",
-        choices=tuple(_REGRESSION_DATASET_REFS),
+        choices=tuple(SPEC_DATASET_PROFILES),
         default="auto_mpg",
         help=(
-            "Which dataset the Regression sheet's Source_Table points to. "
+            "Which dataset the Regression sheet's Source_Table points to, "
+            "and which shipped default spec (Role/Include/Type/Sequence "
+            "per column) pre-fills the MODEL SPECIFICATION block. "
             "'auto_mpg' (default) targets MileageData[#All]; "
-            "'life_expectancy' targets LifeExpectancyData[#All]; "
-            "'production_lots' targets ProductionLotsData[#All] (a small "
-            "unbalanced panel with a natural Fixed Effects grouping column)."
+            "'life_expectancy' targets LifeExpectancyData[#All] (Response: "
+            "Life expectancy; Predictors: the 18-column FEATURE_COLUMNS "
+            "model); 'production_lots' targets ProductionLotsData[#All] "
+            "(Facility as Fixed Effects, Fiscal_Year as Sequence, the "
+            "Crawford/Wright learning-curve model)."
         ),
     )
     return parser.parse_args()

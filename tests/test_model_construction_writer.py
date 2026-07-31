@@ -47,6 +47,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_SEQUENCE_PERIOD,
     _C_PERIOD_IN_USE,
     _C_TRANSFORM,
+    _C_TYPE,
     _CLOSURE_SCOPE,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
@@ -67,6 +68,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _write_row_zones,
     _write_spec_block,
     SHEET_NAME,
+    SPEC_DATASET_PROFILES,
 )
 from tests.recording_sheet import RecordingSheet
 
@@ -527,6 +529,63 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         assert sheet.cell(row, 4).value == "Categorical"
     # Model Year is additionally flagged as the Sequence (ordering) axis.
     assert sheet.cell(by_variable["Model Year"], _C_SEQUENCE).value is True
+
+
+def test_spec_block_sizes_table_and_defaults_to_the_given_profile() -> None:
+    """--regression-dataset life_expectancy must pre-fill its own defaults.
+
+    Life Expectancy has 23 columns (vs. Auto MPG's 12), so SpecTable must
+    be sized to match — every column needs a Spec_Role/Spec_Include/etc.
+    entry, since those are SpecTable[[#Data],[Column]] structured
+    references that silently drop any column outside the table's range.
+    """
+    profile = SPEC_DATASET_PROFILES["life_expectancy"]
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_block(_as_xw_sheet(sheet), profile)
+
+    last_data_row = _FIRST_DATA_ROW + len(profile.variables) - 1
+    assert last_data_row != _FIRST_DATA_ROW + _N_VARIABLES - 1  # differs from Auto MPG
+    table = sheet.api.ListObjects.items[-1]
+    assert table._source_range.address == (
+        (_HEADER_ROW, _C_ROLE),
+        (last_data_row, _C_REF_IN_USE),
+    )
+
+    by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(profile.variables)}
+    assert sheet.cell(by_variable["Life expectancy"], _C_ROLE).value == "Response (y)"
+    assert sheet.cell(by_variable["Country"], _C_ROLE).value == "Identifier (Row Label)"
+    assert sheet.cell(by_variable["Full_Data"], _C_ROLE).value == "Omit"
+    schooling_row = by_variable["Schooling"]
+    assert sheet.cell(schooling_row, _C_ROLE).value == "Predictor (x)"
+    assert sheet.cell(schooling_row, _C_INCLUDE).value is True
+    assert sheet.cell(schooling_row, _C_TYPE).value == "Continuous"
+    assert sheet.cell(by_variable["Year"], _C_SEQUENCE).value is True
+
+
+def test_spec_block_defaults_to_the_auto_mpg_profile_when_omitted() -> None:
+    """Calling _write_spec_block with no profile keeps the shipped Auto MPG behavior."""
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_block(_as_xw_sheet(sheet))
+
+    last_data_row = _FIRST_DATA_ROW + _N_VARIABLES - 1
+    table = sheet.api.ListObjects.items[-1]
+    assert table._source_range.address == (
+        (_HEADER_ROW, _C_ROLE),
+        (last_data_row, _C_REF_IN_USE),
+    )
+
+
+def test_spec_dataset_profiles_cover_every_regression_dataset_choice() -> None:
+    """Every profile's variables must all resolve to a real default (no silent Predictor fallback)."""
+    for name, profile in SPEC_DATASET_PROFILES.items():
+        responses = [
+            variable
+            for variable in profile.variables
+            if profile.default_spec.get(variable, (None, None, None))[0]
+            == "Response (y)"
+        ]
+        assert len(responses) == 1, (name, responses)
+        assert profile.sequence_variables <= set(profile.variables), name
 
 
 def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:

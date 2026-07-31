@@ -277,8 +277,9 @@ def _input_range(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
 # positioned instead of left at the Excel default. Width/height are guessed
 # from the text length (see _note_dimensions); either axis can be overridden
 # per note here for manual tuning without touching the sizing heuristic.
-# Key is the note's label — the sheet_notes key for statistical-term notes,
-# or the constant name for the four Model Specification notes below.
+# Key is the note's label — the sheet_notes key for statistical-term notes
+# (e.g. "Durbin-Watson"), or the human-readable label passed at the four
+# Model Specification call sites below (e.g. "Reserved", "Transform").
 _NOTE_MIN_WIDTH = 150.0     # points
 _NOTE_MAX_WIDTH = 320.0     # points
 _NOTE_BASE_WIDTH = 200.0    # width used for a ~80-char note before scaling

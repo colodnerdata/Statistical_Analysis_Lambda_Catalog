@@ -35,8 +35,12 @@ from lambda_catalog.write_sheet_regression import (
     _C_CHART_YLABEL,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
+    _NOTE_MAX_WIDTH,
+    _NOTE_MIN_WIDTH,
+    _NOTE_SIZE_OVERRIDES,
     _ROW_CHART_LABELS,
     _diagnostic_chart_specs,
+    _note_dimensions,
     _setup_local_names as _setup_regression_names,
     _write_chart_label_cells,
     _write_coefficients,
@@ -97,6 +101,37 @@ def test_observation_y_only_formulas_reuse_first_spill() -> None:
         "=LET(x_s,OFFSET(y,0,1,ROWS(y),5),"
         "Predictions(x_s,y,FALSE,Regression_Sample_Include))"
     )
+
+
+def test_note_dimensions_clamps_width_to_configured_bounds() -> None:
+    tiny_width, _ = _note_dimensions("tiny", "x")
+    assert tiny_width >= _NOTE_MIN_WIDTH
+
+    huge_width, _ = _note_dimensions("huge", "x" * 5000)
+    assert huge_width == _NOTE_MAX_WIDTH
+
+
+def test_note_dimensions_height_grows_with_multi_paragraph_text() -> None:
+    paragraph = "word " * 40
+    _, single_height = _note_dimensions("single", paragraph)
+    _, two_height = _note_dimensions("two", paragraph + "\n" + paragraph)
+
+    assert two_height > single_height
+
+
+def test_note_dimensions_override_replaces_only_the_given_axis() -> None:
+    label = "Test Note Label"
+    text = "some note text that would otherwise be auto-sized"
+    default_width, default_height = _note_dimensions("Unlabeled", text)
+
+    _NOTE_SIZE_OVERRIDES[label] = (default_width + 50.0, None)
+    try:
+        width, height = _note_dimensions(label, text)
+    finally:
+        del _NOTE_SIZE_OVERRIDES[label]
+
+    assert width == default_width + 50.0
+    assert height == default_height
 
 
 def test_regression_names_register_spec_wiring_and_constructors() -> None:

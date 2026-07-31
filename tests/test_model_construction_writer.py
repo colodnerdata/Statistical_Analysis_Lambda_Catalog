@@ -575,13 +575,27 @@ def test_spec_block_defaults_to_the_auto_mpg_profile_when_omitted() -> None:
     )
 
 
+def test_life_expectancy_and_production_lots_profiles_need_no_fallback() -> None:
+    """Unlike Auto MPG (which intentionally leaves 3 candidate predictors on
+    _FALLBACK_SPEC — see _DEFAULT_SPEC's docstring), every column of the two
+    profiles this feature adds must have its own explicit default_spec
+    entry, so retargeting to either dataset never silently depends on
+    _write_spec_block's fallback tuple."""
+    for name in ("life_expectancy", "production_lots"):
+        profile = SPEC_DATASET_PROFILES[name]
+        missing = [v for v in profile.variables if v not in profile.default_spec]
+        assert missing == [], (name, missing)
+
+
 def test_spec_dataset_profiles_cover_every_regression_dataset_choice() -> None:
-    """Every profile's variables must all resolve to a real default (no silent Predictor fallback)."""
+    """Every profile's effective spec — default_spec entries falling back to
+    _FALLBACK_SPEC exactly as _write_spec_block does — has exactly one
+    Response row and Sequence flags restricted to its own variables."""
     for name, profile in SPEC_DATASET_PROFILES.items():
         responses = [
             variable
             for variable in profile.variables
-            if profile.default_spec.get(variable, (None, None, None))[0]
+            if profile.default_spec.get(variable, _FALLBACK_SPEC)[0]
             == "Response (y)"
         ]
         assert len(responses) == 1, (name, responses)

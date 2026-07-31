@@ -60,6 +60,7 @@ write_sheet_model_construction so the two sheets can never drift.
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any
 
@@ -270,15 +271,81 @@ def _input_range(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
     sheet.range(rc(r1, c1), rc(r2, c2)).color = _INPUT
 
 
-def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
-    """Replace the cell's note/comment text with a plain-language explanation."""
-    cell_api = sheet.range(rc(row, col)).api
+# ── Note (cell comment) sizing ─────────────────────────────────────────────────
+# Excel's default new-comment box (≈128x74pt) is too small for most of the
+# plain-language notes on this sheet, so every note is explicitly sized and
+# positioned instead of left at the Excel default. Width/height are guessed
+# from the text length (see _note_dimensions); either axis can be overridden
+# per note here for manual tuning without touching the sizing heuristic.
+# Key is the note's label — the sheet_notes key for statistical-term notes,
+# or the constant name for the four Model Specification notes below.
+_NOTE_MIN_WIDTH = 150.0     # points
+_NOTE_MAX_WIDTH = 320.0     # points
+_NOTE_BASE_WIDTH = 200.0    # width used for a ~80-char note before scaling
+_NOTE_CHARS_PER_LINE_PER_POINT = 1.0 / 5.2  # ~5.2pt per character at 8pt Tahoma
+_NOTE_LINE_HEIGHT = 12.0    # points per wrapped line
+_NOTE_MIN_HEIGHT = 32.0     # points
+_NOTE_VERTICAL_PADDING = 10.0  # points added above/below the wrapped text
+
+_NOTE_SIZE_OVERRIDES: dict[str, tuple[float | None, float | None]] = {
+    # "Durbin-Watson": (320.0, 170.0),  # example manual override (width, height)
+}
+
+
+def _note_dimensions(label: str, text: str) -> tuple[float, float]:
+    """Guess a (width, height) in points that fits `text` without clipping.
+
+    Width grows with text length (clamped to a readable range); height is
+    then derived from how many lines that width wraps the text into. A
+    per-`label` entry in _NOTE_SIZE_OVERRIDES replaces either axis (or
+    both) for hand-tuning notes the heuristic guesses wrong for.
+    """
+    length = len(text)
+    width = min(
+        _NOTE_MAX_WIDTH,
+        max(_NOTE_MIN_WIDTH, _NOTE_BASE_WIDTH + (length - 80) * 0.35),
+    )
+    chars_per_line = max(1, int(width * _NOTE_CHARS_PER_LINE_PER_POINT))
+    lines = sum(
+        max(1, math.ceil(len(paragraph) / chars_per_line))
+        for paragraph in text.split("\n")
+    )
+    height = max(_NOTE_MIN_HEIGHT, lines * _NOTE_LINE_HEIGHT + _NOTE_VERTICAL_PADDING)
+
+    override_width, override_height = _NOTE_SIZE_OVERRIDES.get(label, (None, None))
+    return (
+        override_width if override_width is not None else width,
+        override_height if override_height is not None else height,
+    )
+
+
+def _set_note(
+    sheet: xw.Sheet, row: int, col: int, text: str, *, label: str | None = None
+) -> None:
+    """Replace the cell's note/comment text with a plain-language explanation.
+
+    The note box is sized to fit `text` (see _note_dimensions) and anchored
+    directly to the right of the cell, rather than left at Excel's small
+    default box and default offset position.
+    """
+    cell = sheet.range(rc(row, col))
+    cell_api = cell.api
     try:
         cell_api.ClearComments()
     except Exception:  # pylint: disable=broad-exception-caught
         pass
     cell_api.AddComment(text)
-    cell_api.Comment.Visible = False
+    comment = cell_api.Comment
+    comment.Visible = False
+    width, height = _note_dimensions(label if label is not None else text, text)
+    try:
+        comment_shape = comment.Shape
+        comment_shape.Width = width
+        comment_shape.Height = height
+        comment_shape.Left = cell.left + cell.width
+        comment_shape.Top = cell.top
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
 
 
 def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> None:
@@ -342,7 +409,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
     for row, col, key in note_cells:
         note_text = sheet_notes.get(key)
         if note_text is not None:
-            _set_note(sheet, row, col, note_text)
+            _set_note(sheet, row, col, note_text, label=key)
 
 
 def _write_significance_conditional_formatting(sheet: xw.Sheet) -> None:
@@ -726,10 +793,13 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     section_heading(sheet, 1, _C_A, "MODEL SPECIFICATION")
     _write_spec_feedback(sheet)
     _write_intercept_control(sheet)
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE)
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _TRANSFORM_NOTE)
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE, _SEQUENCE_NOTE)
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
+    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE, label="Reserved")
+    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _TRANSFORM_NOTE, label="Transform")
+    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE, _SEQUENCE_NOTE, label="Sequence")
+    _set_note(
+        sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE,
+        label="Sequence Period",
+    )
 
 
 def _write_predictor_summary(sheet: xw.Sheet) -> None:

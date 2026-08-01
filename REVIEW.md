@@ -12,9 +12,18 @@ must honor, and [TODOs.md](TODOs.md) holds scoped work items. None of those is
 the right place to record "this pattern is individually correct and
 collectively expensive."
 
-**What this file is not.** Not a decision record. Nothing here is resolved.
-When a finding is resolved it moves to DECISIONS.md with its rationale and is
-struck from this file.
+**What this file is not.** Not a decision record. When a finding is resolved it
+moves to DECISIONS.md with its rationale and is struck from this file.
+
+**Status as of the v3.0 documentation pass.** Six of the eight findings — F1,
+F2, F3, F4, F6, F8 — plus the Minor item are **resolved**, recorded in
+[DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline),
+and struck below. They are kept in place rather than deleted so the reasoning
+that produced the v3.0 design stays legible.
+
+**Still open: F5 and F7.** The spec block is still implemented twice, and
+documentation drift is a standing condition rather than something a single pass
+closes.
 
 **Method.** Read: `lambda_functions.json` (126 functions), `ARCHITECTURE.md`,
 `DECISIONS.md`, `TODOs.md`, `ROADMAP.md`, `HUMAN_TEST_PLAN_v20_model_construction.md`,
@@ -34,20 +43,34 @@ catch it is not a review of any one change.
 
 Three clusters:
 
-- **F1, F2** — no canonical place to put "properties of this fit," so fit
+- **F1, F2** ✅ — no canonical place to put "properties of this fit," so fit
   properties accumulate in argument lists and constructor names.
-- **F3, F5, F6** — the sheet layout has no eviction mechanism, is implemented
-  twice, and has no representation for the one feature that cannot be
-  expressed as a column.
-- **F4, F8** — the single-workbook delivery model has begun charging users of
+- **F3** ✅, **F6** ✅, **F5** ⬜ — the sheet layout has no eviction mechanism, is
+  implemented twice, and has no representation for the one feature that cannot
+  be expressed as a column.
+- **F4, F8** ✅ — the single-workbook delivery model has begun charging users of
   one sheet for the cost of another.
 
-**F7** (doc drift) is separate and is the reason the other seven are hard to
+**F7** ⬜ (doc drift) is separate and is the reason the other seven are hard to
 see: no single document currently describes the shipped state.
+
+✅ resolved at v3.0 · ⬜ still open.
+
+**What the resolutions have in common.** Each cluster was fixed by giving the
+thing that was accumulating a *bounded home*, not by trimming instances: fit
+properties get a four-element context block, the sheet gets a terminal zone with
+an increasing-width ordering rule, and delivery gets a second artifact with its
+own version. In each case the old rule constrained the count of changes without
+constraining what could accumulate between them, which is why "additive"
+authorized the growth indefinitely.
 
 ---
 
-## F1 — Optional-argument accretion is now doctrine
+## F1 — Optional-argument accretion is now doctrine  — ~~OPEN~~ **RESOLVED at v3.0**
+
+> **Resolved.** Properties of a fit now travel in the bounded `Model_Context` block; engine signatures collapse from five arguments to four. ARCHITECTURE § 7's reserved-slot pattern no longer applies to argument lists. Full rationale in
+> [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+
 
 **Observation.** `[DF_Absorbed]` is carried by **24 functions** in
 `lambda_functions.json`:
@@ -99,7 +122,11 @@ of unwinding grows with each carrier added.
 
 ---
 
-## F2 — One concept, three mechanisms
+## F2 — One concept, three mechanisms  — ~~OPEN~~ **RESOLVED at v3.0**
+
+> **Resolved.** One constructor pipeline (`Design_Columns()` / `Design_Response()`) plus one named escape hatch (`Predictor_Columns()`) replaces the constructor name fork, applying declared stages in a fixed order. Full rationale in
+> [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+
 
 **Observation.** Fixed effects is implemented as a **constructor variant**
 (`X_s_Within()`, `y_s()`) *and* as a **signature argument** (`[DF_Absorbed]`).
@@ -124,7 +151,11 @@ be evaluated against both.
 
 ---
 
-## F3 — The Regression sheet has no eviction mechanism
+## F3 — The Regression sheet has no eviction mechanism  — ~~OPEN~~ **RESOLVED at v3.0**
+
+> **Resolved.** ARCHITECTURE § 4b sets the boundary this finding said was missing: materialized zones run in increasing width and terminate in the unbounded Constructed Design Matrix, and nothing may be placed to its right. Full rationale in
+> [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+
 
 **Observation.** `write_sheet_regression.py` defines column anchors from `_C_A`
 (1) through `_C_AW` (49) — ~~seven~~ **five** content zones separated by gap
@@ -145,7 +176,11 @@ some width, and no one has set that width.
 
 ---
 
-## F4 — Univariate taxes every other user, and violates the stated philosophy
+## F4 — Univariate taxes every other user, and violates the stated philosophy  — ~~OPEN~~ **RESOLVED at v3.0**
+
+> **Resolved.** The build emits two workbooks, each setting its own calculation mode. Both carry the complete function library. The Regression workbook returns to full Automatic and Univariate's fits are live. Full rationale in
+> [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+
 
 **Observation.** `build_production.py` leaves the shipped workbook in
 `XL_CALCULATION_SEMIAUTOMATIC` — Automatic except Data Tables. This is forced
@@ -192,7 +227,11 @@ contract as a public-interface commitment.
 
 ---
 
-## F6 — Interactions have no representation and no reserved slot
+## F6 — Interactions have no representation and no reserved slot  — ~~OPEN~~ **RESOLVED at v3.0**
+
+> **Resolved.** Interactions are declared with two spec columns (M Interaction Term, N Interaction Operation) and a closed operation vocabulary carrying a symmetry attribute. A second spec section below the per-column block was considered and rejected. Full rationale in
+> [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+
 
 **Observation.** ~~`Interact(x1, x2)` exists as a standalone catalog function,
 but~~ `Interact(x1, x2)` is **specified but not built**, and in either case
@@ -249,9 +288,46 @@ or ROADMAP forms a materially wrong picture of what exists.
 **Triage:** medium, but it is the precondition for the other findings being
 visible at all.
 
+### Status after the v3.0 documentation pass — **STILL OPEN**
+
+The listed instances are reconciled, but the finding stands: nothing prevents
+the next one. Row by row:
+
+| Row | Now |
+|---|---|
+| v2.1 "Planned" | Fixed — ladder reads built and verified, awaiting human sign-off |
+| Spec block A–I | Was already A–L in ROADMAP before this pass; now A–N with the v3.0 interaction columns |
+| Spec-driven regression is v2.0 vs v3.0 | Partly fixed — test plan renamed to `HUMAN_TEST_PLAN_v20_model_construction.md`, `write_sheet_model_construction.py` docstring corrected. The label survives in comments in three test modules, `build_production.py`, and `analyze_regression_spec_block.py`; tracked in TODOs.md |
+| `F_Stat`, `P_Value_F`, … | Already corrected upstream — the current README carries no function reference table at all |
+| `GVIF` / `Generalized_Tolerance` | Fixed — named in the v2.1 ladder row |
+
+Three further drift instances this pass found and fixed, none of which were in
+the original table: the Role dropdown values in ARCHITECTURE.md § 3 omitted the
+parenthetical suffixes that formulas actually string-compare against; `Interact`,
+`Model_Matrix`, and `Dummy_Column` were documented as though they ship;
+and this file's own zone count was wrong (see F3).
+
+One instance found and **not** fixed, because the file is outside the
+documentation set: **CLAUDE.md / AGENTS.md describe the Regression sheet's zones
+as A–L / N–T / V–AC / AE–AG / AI–AS with gap columns M, U, AD, AH.** The code
+says A–N / P–V / X–AE / AG–AI / AK–AV with gaps O, W, AF, AJ. Those files are
+project-instruction tier and were left untouched.
+
+**Why the finding stays open.** Every fix above was made by hand, by reading the
+source. That is exactly the mechanism the finding says does not scale. Two
+mechanical checks are proposed in
+[CONTRIBUTING.md § Documentation drift](CONTRIBUTING.md#documentation-drift-proposed-check--not-yet-implemented)
+— function names resolving against the JSON, and cross-document anchors
+resolving against real headings. Neither is built. Until one is, this finding is
+a standing condition.
+
 ---
 
-## F8 — The versioning definition does not survive a multi-artifact split
+## F8 — The versioning definition does not survive a multi-artifact split  — ~~OPEN~~ **RESOLVED at v3.0**
+
+> **Resolved.** One library version covers the shared catalog; a per-workbook version covers each artifact's input surface. The `Breaking?` flag attaches to the workbook version. Full rationale in
+> [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+
 
 **Observation.** ROADMAP.md defines the public interface as "the user's inputs
 to the workbook" — singular. Any split into multiple emitted workbooks requires
@@ -265,7 +341,17 @@ same problem.
 
 ---
 
-## Minor
+## Minor — ~~OPEN~~ **RESOLVED at v3.0**
+
+> **Resolved.** Correct, and the reason is mechanical rather than a judgment
+> call. `PRESS` is `SUMSQ(LOOCV_Residual(…))`, and neither `eᵢ/(1−hᵢ)` nor the
+> leverage depends on a df count, so there is no term for absorbed df to enter.
+> `QQ_Correlation` calls `Scaled_Residuals_Ranked`, which divides by a σ estimate
+> computed on residual df. The generalized rule — **a statistic needs
+> `[DF_Absorbed]` exactly when it divides by a residual-df-based variance
+> estimate** — goes in each function's JSON `notes` field, so the asymmetry is
+> legible from the catalog sheet without reading both formulas. Full rationale in
+> [DECISIONS.md § v3.0](DECISIONS.md#press-correctly-omits-df_absorbed).
 
 - `PRESS` does not carry `[DF_Absorbed]`; `QQ_Correlation` does. PRESS as a sum
   of squared leave-one-out residuals genuinely does not need residual df, so
@@ -277,18 +363,25 @@ same problem.
 
 ## Compounding map
 
-| Cluster | Findings | Shared root |
-|---|---|---|
-| Fit properties have no home | F1, F2 | No canonical carrier for "properties of this fit"; they accumulate in argument lists and constructor names |
-| Sheet layout | F3, F5, F6 | One growing surface, implemented twice, with no slot for the one non-column feature |
-| Delivery model | F4, F8 | Single workbook, single calc mode, single version number |
-| Visibility | F7 | No document describes the shipped state |
+| Cluster | Findings | Shared root | Status |
+|---|---|---|---|
+| Fit properties have no home | F1, F2 | No canonical carrier for "properties of this fit"; they accumulate in argument lists and constructor names | ✅ `Model_Context` + the constructor pipeline |
+| Sheet layout | F3, F5, F6 | One growing surface, implemented twice, with no slot for the one non-column feature | ⬜ **partly** — F3 and F6 resolved; **F5 open**, and the two spec-block implementations now have more to keep in sync, not less |
+| Delivery model | F4, F8 | Single workbook, single calc mode, single version number | ✅ two artifacts, two calc modes, two version numbers |
+| Visibility | F7 | No document describes the shipped state | ⬜ instances reconciled by hand; no mechanism yet |
+
+**The one place resolution made a finding worse.** F5 is now more expensive, not
+less. v3.0 adds two spec columns, the Design Columns audit column, and the
+materialization zone — every one of which has to be implemented in *both*
+`write_sheet_regression.py` and `write_sheet_model_construction.py`. Whatever
+scope v3.0 takes, F5 should be weighed as part of it rather than deferred again.
 
 ---
 
 ## Sequencing implications
 
-Recorded as observations, not as a plan.
+Recorded as observations, not as a plan. Written before the v3.0 decisions; the
+outcome of each is noted.
 
 1. **F1 gets more expensive per release, not per month.** The unwind cost is
    proportional to carrier count. v2.6 adds `[Weights]` to roughly the same 24
@@ -311,3 +404,22 @@ Recorded as observations, not as a plan.
 5. **F7 should be cheap and should probably go first.** It is the reason the
    rest are hard to see, and reconciling the docs against the JSON and the
    sheet writers is mechanical work that could be partially build-enforced.
+
+### How each played out
+
+1. **Still live, and now a scheduling constraint.** The v3.0 decision changes the
+   WLS mechanism from a threaded `[Weights]` argument to √w scaling in the
+   constructor. If v2.6 ships first it needs the argument anyway, and v3.0 then
+   unwinds it across the same ~24 functions. Recorded in the ROADMAP v2.6 entry.
+2. **Accepted, and it shaped the recommended v3.0 scope.** The recommendation
+   ships the interaction columns and the audit column as *layout* inside v3.0 —
+   reserved and unwired — so the insertions cost one break rather than three.
+3. **Accepted.** F6's representation decision is resolved at v3.0 even though the
+   feature itself ships later, which is exactly what this observation argued for.
+4. **Confirmed and acted on first in the write-up.** F4 is the finding with a
+   live correctness dimension, and the split is packaging-only and non-breaking,
+   so it carries the least risk of any v3.0 change.
+5. **Half-right.** Reconciling the docs was cheap and did go first — this pass.
+   But "should probably go first" understated it: the reconciliation is what
+   surfaced three drift instances the original table missed, including two
+   factual errors in this file. The mechanism it calls for still does not exist.

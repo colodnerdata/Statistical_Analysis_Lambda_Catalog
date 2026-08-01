@@ -17,7 +17,7 @@ When a finding is resolved it moves to DECISIONS.md with its rationale and is
 struck from this file.
 
 **Method.** Read: `lambda_functions.json` (126 functions), `ARCHITECTURE.md`,
-`DECISIONS.md`, `TODOs.md`, `ROADMAP.md`, `HUMAN_TEST_PLAN_v3_model_construction.md`,
+`DECISIONS.md`, `TODOs.md`, `ROADMAP.md`, `HUMAN_TEST_PLAN_v20_model_construction.md`,
 `build_production.py`, `build_qc.py`, `write_sheet_regression.py`,
 `write_sheet_univariate.py`, `write_sheet_model_construction.py`. Counts and
 quotes below are from those sources, not from the README (which is stale — see

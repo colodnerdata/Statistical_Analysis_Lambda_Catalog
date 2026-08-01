@@ -53,14 +53,29 @@ relevant DECISIONS entry for context on *why* — TODOs only holds
 ## v2.0 — Specification-Driven Regression (shipped; leftovers)
 
 Human test plan fully executed and signed off PASS 2026-07-05 (T0–T16).
-One open decision remains from it:
+One open decision remains from it, plus one numbering-cleanup item:
+
+- TODO: **Retire the stale `v3.0` label for the spec-block changeover.**
+  This changeover was planned as v3.0 and renumbered to v2.0 before
+  release; v3.0 now means the engine-interface release (see
+  [ROADMAP.md](ROADMAP.md)), so the old label is a live collision. The
+  docstring in `write_sheet_model_construction.py` and the human test
+  plan filename are corrected. Still carrying the old label in
+  **comments only** — no executable logic reads it:
+  `write_sheet_model_construction.py` (several inline comments),
+  `analyze_regression_spec_block.py` (module docstring),
+  `build_production.py` (one comment), and
+  `tests/test_dummy_functions.py`, `tests/test_model_construction_writer.py`,
+  `tests/test_catalog_schema.py`. Deliberately left out of the v3.0
+  documentation pass, which was documentation-only and would otherwise
+  have touched three test modules; do it as its own small commit.
 
 - TODO: Resolve the blank-categorical caveat — `Sample_Include()`'s
   role-aware completeness layer requires numeric Response and numeric
   included Continuous Predictors, but Categorical Predictors impose no
   non-blank condition; a blank category value encodes as all-zero
   dummies (indistinguishable from the reference level). Run the caveat
-  verification step in `HUMAN_TEST_PLAN_v3_model_construction.md` and
+  verification step in `HUMAN_TEST_PLAN_v20_model_construction.md` and
   record the decision: accept as documented behavior, or extend
   `Sample_Include()` with a non-blank condition for included
   Categorical Predictors. Interim workaround: a completeness column

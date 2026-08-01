@@ -1,7 +1,12 @@
-"""Build the Model Construction worksheet — v3.0 declarative specification block.
+"""Build the Model Construction worksheet — v2.0 declarative specification block.
 
-Two-axis specification plus the Sequence structural axis (ROADMAP: v3.0 —
+Two-axis specification plus the Sequence structural axis (ROADMAP: v2.0 —
 Specification-Driven Regression; Sequence added post-v2.0):
+
+Note on numbering: this changeover was planned as "v3.0" and renumbered to
+v2.0 before release. Other modules and tests still carry the old label in
+comments; v3.0 now means the engine-interface release (ROADMAP). See
+TODOs.md for the cleanup item.
 
     A        B      C       D     E               F       G         H        I              J              K      L
     Variable Role   Include Type  Reference Level Order   Transform Sequence Sequence Period Period In Use Levels Reference In Use

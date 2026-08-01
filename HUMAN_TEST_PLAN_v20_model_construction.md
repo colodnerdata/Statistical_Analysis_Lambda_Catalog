@@ -516,7 +516,7 @@ whether U1 drops by 1 (row excluded) or holds (row included, encoded as
 reference). Restore the cell afterward.
 
 **Record the outcome:** if the row remains included, either **accept** (document
-the caveat as intended v3.0 behavior) or **escalate** (extend `Sample_Include()`
+the caveat as intended v2.0 behavior) or **escalate** (extend `Sample_Include()`
 with a non-blank condition for included Categorical Predictors in a follow-up).
 
 - [ ] Verified — decision: ______________

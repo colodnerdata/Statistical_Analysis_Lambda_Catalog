@@ -78,7 +78,7 @@ Tests live in `tests/`. The current test files are:
 | `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
 | `test_qc_configs.py` | QC config generation, cross-consistency between scalar/vector/observation configs, regression sheet diagnostics, cache round-trips |
 | `test_bfn_panel_durbin_watson_verification.py` | `BFN_Panel_Durbin_Watson` against the WHO panel — within-group differencing via `Difference_By`, mutual gating with `Durbin_Watson_By` |
-| `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the v2.6+ reserved-spec-column pattern) |
+| `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the reserved-spec-column pattern) |
 | `test_difference_by_verification.py` | Gap-aware `Difference_By` (WHO exact counts plus the punched-out-year and calendar-date synthetic cases per `HUMAN_TEST_PLAN_v20_model_construction.md` T17–T19) |
 | `test_analyze_regression_spec_block.py` | Post-changeover spec-block QC analyzer (predicted counts and values, regression sheet spec state) |
 | `test_regression_spec_qc.py` | Spec-driven Regression QC oracle (`analyze_regression_spec.py` case definitions) |

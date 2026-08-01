@@ -709,7 +709,7 @@ implemented by this wiring — the model fits correctly in log space
 end-to-end, but in-sample "Predicted Y" and the prediction outputs are
 labelled `(Log)` rather than back-transformed to the response's original
 units. Both remain tracked in
-[TODOs.md § v2.2](TODOs.md#v22--transforms--the-standalone-transform-library).
+[TODOs.md § v2.2](TODOs.md#v33--transforms-remainder).
 
 **Verification:** `tests/test_ln_positive_verification.py` (the
 primitive, pure-Python mirror + implementation-shape assertions);
@@ -989,7 +989,7 @@ Welch, and paired variants?
 Welch cases; the paired case is a separate code path the flag does
 not cover. A 3-way flag or a separate `paired` boolean is the open
 question, not yet resolved. Tracked in
-[TODOs.md § v2.5](TODOs.md#v25--bivariate--two-sample-claimed-next-minor-after-v24).
+[TODOs.md § v2.5](TODOs.md#v36--bivariate--two-sample-claimed-next-minor-after-v35).
 
 ### v2.6 — WLS: `Weight` Role, default-uniform `[Weights]` argument
 

@@ -20,7 +20,7 @@ Resolver contract, verified here:
                                    Fixed_Effects_Column() — the resolver
                                    dispatches, the accessor looks up)
   Role="Cluster" declared, no FE → the not-applicable token
-                                   "n/a — Cluster grouping RESERVED — v2.6+"
+                                   "n/a — Cluster grouping RESERVED"
                                    (dormant branch: present in the SWITCH,
                                    returns a token, never an error)
   neither role declared          → the none-sentinel "none"
@@ -77,7 +77,7 @@ _ROLE_PREDICTOR = "Predictor (x)"
 
 # The resolver's two non-column results, exactly as the LAMBDA returns them.
 NONE_SENTINEL = "none"
-CLUSTER_RESERVED_TOKEN = "n/a — Cluster grouping RESERVED — v2.6+"
+CLUSTER_RESERVED_TOKEN = "n/a — Cluster grouping RESERVED"
 
 
 # ── Pure-Python mirrors of the workbook formulas ────────────────────────────
@@ -100,7 +100,7 @@ def serial_correlation_group_mirror(roles, columns):
     key = IFS(FE count > 0 → "Fixed Effects", Cluster count > 0 → "Cluster",
     TRUE → "none"), then SWITCH(key): the FE branch routes through the
     Fixed_Effects_Column mirror (one lookup implementation, here as in the
-    catalog), the Cluster branch returns the RESERVED — v2.6+ token, and the
+    catalog), the Cluster branch returns the RESERVED token, and the
     default is the none-sentinel.
     """
     fe_vars = sum(1 for role in roles if role == _ROLE_FIXED_EFFECTS)
@@ -115,7 +115,7 @@ def serial_correlation_group_mirror(roles, columns):
     if key == _ROLE_FIXED_EFFECTS:
         return fixed_effects_column_mirror(roles, columns)
     if key == _ROLE_CLUSTER:
-        return CLUSTER_RESERVED_TOKEN  # dormant branch — RESERVED — v2.6+
+        return CLUSTER_RESERVED_TOKEN  # dormant branch — RESERVED
     return NONE_SENTINEL
 
 
@@ -205,7 +205,7 @@ def test_cluster_declared_spec_takes_the_token_path_not_an_error() -> None:
     # a column of the wrong dimension.
     assert resolved == CLUSTER_RESERVED_TOKEN
     assert resolved is not NA
-    assert "RESERVED — v2.6+" in resolved
+    assert "RESERVED" in resolved
 
 
 def test_cluster_branch_is_unreachable_from_the_shipped_cells() -> None:
@@ -271,11 +271,11 @@ def test_resolver_lambda_is_a_switch_with_the_dormant_cluster_branch() -> None:
     assert (
         'SWITCH(key,'
         '"Fixed Effects",Fixed_Effects_Column(),'
-        '"Cluster","n/a — Cluster grouping RESERVED — v2.6+",'
+        '"Cluster","n/a — Cluster grouping RESERVED",'
         '"none")'
     ) in resolver
     # In-formula documentation of the dormant branch.
-    assert "RESERVED — v2.6+" in resolver
+    assert "RESERVED" in resolver
     # No second lookup implementation hiding inside the resolver.
     assert "XMATCH" not in resolver
     assert "INDEX(" not in resolver

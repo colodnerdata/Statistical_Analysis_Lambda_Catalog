@@ -110,20 +110,39 @@ Rationale in
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
 | v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Built and verified** — every TODOs #1–#10 item is DONE, verified against a live build (0 mismatches across all 12 spec-driven QC cases). `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Awaiting only the human sign-off run of `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` and the 2.1.0 Version History entry, plus DEFERRED follow-on polish |
-| v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()`/`Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open |
-| v2.3 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. Read-only across finished Regression sheets; ships after Transforms so its comparisons are unit-space-honest from day one |
-| v2.4 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QC build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
-| v2.5 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Claimed — next MINOR after v2.4. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix` |
-| v2.6 | `Weight` Role (WLS) | No | Claimed — after v2.5. User-supplied weights as the first stage; variance-driver-derived weights and FGLS as v2.6+ follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument |
-| v2.7+ | Two-way FE, `Cluster` and `Time` Roles, Time series, ANOVA, Fourier, Decision | mixed | Unordered (deliberate — see Future section). Two-way FE has forward wiring from the v2.1 FE engine; `Cluster` has forward wiring from `Serial_Correlation_Group()`'s dormant branch; the rest are design-not-started |
+| v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()`/`Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open and ship as **v3.3**, after v3.0 |
 | **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, interaction spec columns, the materialization zone | **Yes** | In progress — MAJOR, and the second (and intended last) breaking restructure of the Regression sheet. Scope is **resolved**: one release delivered in three stages, of which stage 1 (constructor pipeline + intercept relocation) is code complete but has not yet cleared its spec-driven QC gate. See the milestone entry below |
-| v3.x | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | The split is packaging-only and non-breaking for both artifacts. The grid shrink that follows is MAJOR **for the Univariate workbook version only** and does not move the Regression workbook version |
+| v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 reserved | No | Planned — MINOR. A v3.0 follow-on, not a feature-train milestone: the two spec columns already exist after v3.0, so this is a formula change against a column that ships empty |
+| v3.2 | Full materialization of the design matrix | No | Planned — MINOR. The other v3.0 follow-on. v3.0 establishes the zone; this fills it |
+| v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the standalone transform library | No | Planned — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2 |
+| v3.4 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one |
+| v3.5 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4.* Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QC build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
+| v3.6 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Claimed — next MINOR after v3.5. *Planned as v2.5.* F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix` |
+| v3.7 | `Weight` Role (WLS) | No | Claimed — after v3.6. *Planned as v2.6.* User-supplied weights as the first stage; variance-driver-derived weights and FGLS as later follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument. Shipping after v3.0 is what makes that the first implementation rather than a rewrite |
+| v3.8+ | Two-way FE, `Cluster` and `Time` Roles, Time series, ANOVA, Fourier, Decision | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+.* Two-way FE has forward wiring from the v2.1 FE engine; `Cluster` has forward wiring from `Serial_Correlation_Group()`'s dormant branch; the rest are design-not-started |
+| *(Univariate artifact)* | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | Unnumbered in this ladder on purpose: under the two-number scheme these move the **Univariate workbook version**, not the library version, so they do not take a v3.x slot. The split is packaging-only and non-breaking for both artifacts; the grid shrink that follows is MAJOR for the Univariate workbook version only and does not move the Regression workbook version |
 
 **Ladder rationale.** Under the interface definition above, exactly two milestones
 break user inputs. Specification-Driven Regression took v2.0; everything after it
 was additive and opt-in, forming a v2.x train directly analogous to Python's 3.x
 line — one breaking 3.0 followed by years of large but non-breaking minors
 (async/await, pattern matching) that never forced a new major.
+
+**That train stops at v2.2 and resumes at v3.3.** Semver does not permit shipping
+2.3.0 after 3.0.0, so once v3.0 was planned every unfinished v2.x milestone had to
+move behind it and renumber. The reordering is nothing more than that — the claimed
+sequence is unchanged, each entry carries the number it was planned under, and the
+DECISIONS entries keep their original headings as the record of when each decision
+was actually made.
+
+One milestone gets materially cheaper rather than merely renumbered. `Weight`
+(WLS, now v3.7) carried a standing warning that shipping before v3.0 would force
+the `[Weights]` argument it was designed around, with v3.0 then unwinding it across
+the same ~24 functions. Behind v3.0 the constructor already owns the intercept, so
+√w scaling is the first implementation instead of a rewrite. Two others —
+Model Comparison (v3.4) and the Transforms remainder (v3.3) — keep their relative
+order for the reason they always had: comparison is only honest once the numbers
+being compared are unit-space comparable.
 
 **v3.0 is the second break, and it is not a failure of that plan.** The v2.0 record
 says "one breaking restructure, never a second," and the reasoning behind it still
@@ -307,7 +326,7 @@ proper (`y_s`, `[DF_Absorbed]`, `Demean_By`, `Group_Mean`,
 `Absorbed_Degrees_Of_Freedom`, `Is_Balanced_Panel`), and the sheet work that
 activates the engine (FE Role dropdown, status-block validation, CI+PI
 prediction layout, FE group dropdown, BFN cell flips active when FE is set).
-Two-way FE remains a post-2.1 milestone (see v2.7+).
+Two-way FE remains a post-2.1 milestone (see v3.8+).
 
 The 2.1.0 release ships as **a single release**, not as a sequence of preview
 builds — the FE Role dropdown, the CI+PI prediction layout, and the FE
@@ -396,161 +415,17 @@ Model Comparison convenience layer.
   precision. Full design rationale in
   [DECISIONS.md § v2.2 Transform column wiring](DECISIONS.md#v22--transforms--unit-space-comparability).
 
-**Still open (this pass deliberately excluded them — no back-transformation or
-cross-model comparability yet, only a correctly-fitted log-space model):**
-
-- **Unit-space dispatcher, RESOLVED (design only, not implemented)** — `Unit_Space_R_Squared(model,
-  response_transform, predictor_transform)` with argument order
-  model-then-response-then-predictor (matches the spec block's
-  column-G reading order). One canonical name per statistic, internal
-  `SWITCH` on the transform pair. The dispatcher is the first
-  deliberate departure from "one canonical name, one LAMBDA" —
-  justified by the combinatorial blow-up the exception avoids.
-- **Prediction back-transformation, RESOLVED (design only, not implemented)** — Duan's smearing
-  estimator as the default, with a per-cell `Back_Transform_Method`
-  toggle (`Duan` default | `Naive`). Naive is biased (Jensen's
-  inequality); Duan is unbiased under iid residuals. Caveat row
-  visible on the sheet. Until this ships, in-sample "Predicted Y" and
-  the prediction outputs are labelled `(Log)` rather than back-transformed.
-- **Statistics with a unit-space counterpart:** R², Adjusted R², RMSE.
-  AIC / AICc / BIC deferred (likelihood depends on the Jacobian of
-  the transformation; the "right" comparison is on the original
-  response's likelihood, not the transformed one's).
-- **Standalone transform library, remainder** —
-  `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`,
-  `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`,
-  `Dummy_Column`, `Interact`, `Model_Matrix` (`Ln_Positive` shipped
-  early with the column-G wiring above). The full taxonomy
-  and the `""`-vs-`NA()` row-alignment convention are in
-  [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
+**Not delivered — moved to v3.3.** Back-transformation and cross-model
+comparability were deliberately excluded from this pass, which shipped only a
+correctly-fitted log-space model. They are no longer v2.2 work: when the feature
+train was resequenced behind v3.0, the unfinished half became its own milestone.
+See [v3.3](#v33--transforms-remainder--planned).
 
 Design rationale and resolved decisions: [DECISIONS.md § v2.2](DECISIONS.md#v22--transforms--unit-space-comparability).
 
 ---
 
-## v2.3 — Model Comparison Sheet — PLANNED
-
-Every v2.0 Regression sheet already exposes a fixed-height, fixed-position **Model
-Spec status block** (response in effect, constructed column count, level-qualified
-names, included row count, error state). That block is an interface, not just a
-display — the Model Comparison sheet is what happens when a second sheet is allowed
-to *read* it. No new modeling capability is added; this is purely a cross-sheet
-aggregation and navigation layer, which is why it is a MINOR.
-
-- **Model registry** — one row per registered Regression sheet, hyperlink
-  + display text from `Model_Formula_String(anchor_cell)`, link
-  target a fixed anchor cell inside the spec block.
-- **GoF table** — R², Adjusted R², AIC, AICc, BIC, PRESS, LOOCV,
-  F-statistic, F p-value, n, k. References the **unit-space
-  headline** statistic from v2.2 — a logged model and a level
-  model line up as comparable quantities by construction.
-- **Shared prediction inputs** — the Comparison sheet is the source;
-  individual Regression sheets pull from it via `XLOOKUP` keyed on
-  spec name, so one shared "what-if" scenario drives every
-  registered model simultaneously.
-- **Interface contract, RESOLVED** — three sheet-scoped named ranges
-  per Regression sheet (`Comparison_Anchor`,
-  `Comparison_Headline_GoF`, `Comparison_Prediction_Output`) become
-  part of the library's public interface the moment they ship.
-  The changelog entry for v2.3.0 must name them explicitly so
-  the commitment is discoverable.
-
-Design rationale and resolved decisions: [DECISIONS.md § v2.3](DECISIONS.md#v23--model-comparison-sheet).
-
----
-
-## v2.4 — Resampling & Simulation — PLANNED
-
-Bootstrap confidence intervals and Monte Carlo simulation. Validated as worthwhile
-differentiators by their presence in Pyrcz's Excel demos and squarely in cost-estimation
-territory (three-point estimates, MCS, risk analysis). These do not depend on the
-two-sample or ANOVA work, so they come early. Bootstrap and Monte Carlo pair naturally
-and may share a single sheet.
-
-- **`Bootstrap_Random_Draws` table** — sheet-scoped named range
-  holding a pre-drawn uniformly-distributed table, indexed at use
-  time. Seeded from the same SHA-derived seed the QC build already
-  uses (`analysis_cache.py`). Non-volatile by design.
-- **`RANDARRAY()` rejected** — silently re-drawing per recalc is
-  the opposite of the library's auditability philosophy. A cost
-  estimator who sees a 90% CI of (4.2, 5.7) one moment and
-  (4.0, 5.9) the next, with no record of which sample produced
-  which, has not been given a tool.
-- **Functions** — `Bootstrap_CI(data, stat_lambda, n_resamples,
-  alpha, [include])`, `MC_Percentile(dist_params, n_samples,
-  percentile)`, `PERT_Sample(min, mode, max, n_samples)`.
-
-Design rationale and resolved decisions: [DECISIONS.md § v2.4](DECISIONS.md#v24--resampling--simulation).
-
----
-
-## v2.5+ — Future (sequence TBD; first two claimed)
-
-The v2.5+ bucket previously listed seven candidates with no order. Two are
-now claimed as the immediate successors to v2.4; the rest are deliberately
-unordered pending real demand from a user (a single maintainer should not
-pre-order things nobody is asking for yet).
-
-### v2.5 — Bivariate / Two-sample *(claimed, next MINOR after v2.4)*
-
-`T_Test_OneSample`, `T_Test_TwoSample` (equal-variance / Welch / paired
-variants — the 3-way flag or separate `paired` boolean is the open design
-question, see [DECISIONS.md § v2.5](DECISIONS.md#v25--claimed)),
-`F_Test_Variance` (feeds a recommendation cell that selects the t-test
-variant), `Covariance_Matrix` (complement to the existing
-`Correlation_Matrix`). Dedicated sheet layout with test selector and
-F-test assumption check.
-
-### v2.6 — `Weight` Role (WLS) *(claimed, after v2.5)*
-
-A `Weight` value on the Role axis (see
-[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
-for the cardinality rule). Three-stage scope: user-supplied weights →
-variance-driver-derived weights → FGLS. v2.6 ships the first stage only.
-
-**The mechanism changed at v3.0; the feature did not.** This milestone was
-planned as "a single optional `[Weights]` argument (default uniform), following
-the `[DF_Absorbed]` precedent." That threading is superseded — with the intercept
-owned by the constructor, √w scaling of the design matrix and response yields the
-exact WLS estimator, standard errors, leverage, and Cook's distance, because the
-intercept column correctly becomes √w rather than remaining ones. **WLS becomes a
-constructor concern rather than an engine argument.** Everything else carries
-forward unchanged: the `Weight` Role, its cardinality rule, the status-block
-validation, and the three-stage scope. Weights are still declared in the spec
-block.
-
-One trap this avoids, recorded because it is the kind that ships silently:
-`DEVSQ(√w ⊙ y)` is *not* the weighted total sum of squares — it centres on
-mean(√w·y) rather than ȳ_w — so a naive "scale everything by √w" implementation
-would leave SS_Total, and therefore R², wrong under WLS with no error anywhere.
-The v3.0 projection form of `SS_Total` is correct by construction. See
-[DECISIONS.md § v3.0 SS_Total](DECISIONS.md#ss_total-redefined-as-the-intercept-only-residual-sum-of-squares).
-
-**Sequencing note.** If v2.6 ships before v3.0, it needs the `[Weights]` argument
-after all, and v3.0 then unwinds it across the same ~24 functions. The review's
-first sequencing implication applies directly: any decision to change the
-mechanism is cheaper before v2.6 than after.
-
-### Unordered (v2.7+ candidates, no claim)
-
-Two-way FE (the trio `Absorb_Two_Way_Fixed_Effects`,
-`Demean_Two_Way_Balanced`, `Fixed_Effects_Convergence_Check`, the two-way
-`Is_Balanced_Panel` check, lifting the v2.1 one-FE-variable status-block
-error, and the two-way prediction question); multi-group means (ANOVA,
-with Tukey HSD or Bonferroni post-hoc comparisons); `Cluster` Role
-(clustered-robust V_β; partial forward wiring from
-`Serial_Correlation_Group()`'s dormant branch); `Time` Role (partially
-forward-wired via the Sequence axis; the full `Time` / `Sequence`
-interaction is an open design question); Time series (`Moving_Average`,
-`Exponential_Smoothing`); Fourier analysis and Decision analysis
-(long-tail, out of planning horizon).
-
-A user-pressing-for-them signal would reorder these; absent that, they
-stay in this unordered bucket.
-
----
-
-## v3.0 — The engine-interface release — PLANNED
+## v3.0 — The engine-interface release — IN PROGRESS
 
 The second and intended-last breaking restructure. It responds to
 [REVIEW.md](REVIEW.md), whose findings share one shape: each decision was correct
@@ -616,6 +491,10 @@ becomes a large release hard to verify in one pass — is answered by splitting 
 | 2 | `Model_Context` · `Sample_Include` materialized · `[Has_Intercept]`/`[DF_Absorbed]` collapse into `[Context]` | Planned |
 | 3 | Interaction spec columns M/N (reserved) · Design Columns audit column · Constructed Design Matrix zone + width guard · version bump | Planned |
 
+These three stages are the delivery of **v3.0 alone**. v3.1 and v3.2 below are its
+follow-on minors; v3.3 onward is the feature train resequenced behind it — a
+different thing, and not part of getting v3.0 out.
+
 The order is forced by the same dependencies listed above. Stage one carries a
 verification property the others do not — **no number moves**, so the spec-driven
 QC pass must report zero mismatches across all twelve cases — which is why it goes
@@ -668,9 +547,189 @@ design; both are why stage one is the one with the zero-mismatch gate.
 
 ---
 
-## v3.x — The Univariate split, then the grid shrink — PLANNED
+## v3.3 — Transforms remainder — PLANNED
 
-Two releases, deliberately not bundled.
+*Planned as the second half of v2.2. Moved after v3.0 when the feature train was
+resequenced — see the [ladder rationale](#versioning--release-conventions).*
+
+The column-G `Log` wiring shipped at [v2.2](#v22--transforms--unit-space-comparability--partially-delivered);
+this milestone finishes the release. Until it ships, in-sample "Predicted Y" and the
+prediction outputs stay labelled `(Log)` rather than back-transformed, and an R²
+computed on `Ln(y)` is not comparable with one computed on raw `y` — which is why
+the Model Comparison sheet (v3.4) comes after this and not before.
+
+- **Unit-space dispatcher, RESOLVED (design only, not implemented)** — `Unit_Space_R_Squared(model,
+  response_transform, predictor_transform)` with argument order
+  model-then-response-then-predictor (matches the spec block's
+  column-G reading order). One canonical name per statistic, internal
+  `SWITCH` on the transform pair. The dispatcher is the first
+  deliberate departure from "one canonical name, one LAMBDA" —
+  justified by the combinatorial blow-up the exception avoids.
+- **Prediction back-transformation, RESOLVED (design only, not implemented)** — Duan's smearing
+  estimator as the default, with a per-cell `Back_Transform_Method`
+  toggle (`Duan` default | `Naive`). Naive is biased (Jensen's
+  inequality); Duan is unbiased under iid residuals. Caveat row
+  visible on the sheet. Until this ships, in-sample "Predicted Y" and
+  the prediction outputs are labelled `(Log)` rather than back-transformed.
+- **Statistics with a unit-space counterpart:** R², Adjusted R², RMSE.
+  AIC / AICc / BIC deferred (likelihood depends on the Jacobian of
+  the transformation; the "right" comparison is on the original
+  response's likelihood, not the transformed one's).
+- **Standalone transform library, remainder** —
+  `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`,
+  `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`,
+  `Dummy_Column`, `Interact`, `Model_Matrix` (`Ln_Positive` shipped
+  early with the column-G wiring above). The full taxonomy
+  and the `""`-vs-`NA()` row-alignment convention are in
+  [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
+
+Design rationale and resolved decisions: [DECISIONS.md § v2.2](DECISIONS.md#v22--transforms--unit-space-comparability),
+recorded there under the original milestone number.
+
+---
+
+## v3.4 — Model Comparison Sheet — PLANNED
+
+*Planned as v2.3. Moved after v3.0 when the feature train was resequenced — see the [ladder rationale](#versioning--release-conventions).*
+
+Every v2.0 Regression sheet already exposes a fixed-height, fixed-position **Model
+Spec status block** (response in effect, constructed column count, level-qualified
+names, included row count, error state). That block is an interface, not just a
+display — the Model Comparison sheet is what happens when a second sheet is allowed
+to *read* it. No new modeling capability is added; this is purely a cross-sheet
+aggregation and navigation layer, which is why it is a MINOR.
+
+- **Model registry** — one row per registered Regression sheet, hyperlink
+  + display text from `Model_Formula_String(anchor_cell)`, link
+  target a fixed anchor cell inside the spec block.
+- **GoF table** — R², Adjusted R², AIC, AICc, BIC, PRESS, LOOCV,
+  F-statistic, F p-value, n, k. References the **unit-space
+  headline** statistic from v3.3 — a logged model and a level
+  model line up as comparable quantities by construction.
+- **Shared prediction inputs** — the Comparison sheet is the source;
+  individual Regression sheets pull from it via `XLOOKUP` keyed on
+  spec name, so one shared "what-if" scenario drives every
+  registered model simultaneously.
+- **Interface contract, RESOLVED** — three sheet-scoped named ranges
+  per Regression sheet (`Comparison_Anchor`,
+  `Comparison_Headline_GoF`, `Comparison_Prediction_Output`) become
+  part of the library's public interface the moment they ship.
+  The changelog entry for v3.4.0 must name them explicitly so
+  the commitment is discoverable.
+
+Design rationale and resolved decisions: [DECISIONS.md § v2.3](DECISIONS.md#v23--model-comparison-sheet),
+recorded there under the original milestone number.
+
+---
+
+## v3.5 — Resampling & Simulation — PLANNED
+
+*Planned as v2.4. Moved after v3.0 when the feature train was resequenced — see the [ladder rationale](#versioning--release-conventions).*
+
+Bootstrap confidence intervals and Monte Carlo simulation. Validated as worthwhile
+differentiators by their presence in Pyrcz's Excel demos and squarely in cost-estimation
+territory (three-point estimates, MCS, risk analysis). These do not depend on the
+two-sample or ANOVA work, so they come early. Bootstrap and Monte Carlo pair naturally
+and may share a single sheet.
+
+- **`Bootstrap_Random_Draws` table** — sheet-scoped named range
+  holding a pre-drawn uniformly-distributed table, indexed at use
+  time. Seeded from the same SHA-derived seed the QC build already
+  uses (`analysis_cache.py`). Non-volatile by design.
+- **`RANDARRAY()` rejected** — silently re-drawing per recalc is
+  the opposite of the library's auditability philosophy. A cost
+  estimator who sees a 90% CI of (4.2, 5.7) one moment and
+  (4.0, 5.9) the next, with no record of which sample produced
+  which, has not been given a tool.
+- **Functions** — `Bootstrap_CI(data, stat_lambda, n_resamples,
+  alpha, [include])`, `MC_Percentile(dist_params, n_samples,
+  percentile)`, `PERT_Sample(min, mode, max, n_samples)`.
+
+Design rationale and resolved decisions: [DECISIONS.md § v2.4](DECISIONS.md#v24--resampling--simulation),
+recorded there under the original milestone number.
+
+---
+
+## v3.6+ — Future (sequence TBD; first two claimed)
+
+*Planned as v2.5+. Moved after v3.0 when the feature train was resequenced — see the [ladder rationale](#versioning--release-conventions).*
+
+This bucket previously listed seven candidates with no order. Two are
+now claimed as the immediate successors to v3.5; the rest are deliberately
+unordered pending real demand from a user (a single maintainer should not
+pre-order things nobody is asking for yet).
+
+### v3.6 — Bivariate / Two-sample *(claimed, next MINOR after v3.5; planned as v2.5)*
+
+`T_Test_OneSample`, `T_Test_TwoSample` (equal-variance / Welch / paired
+variants — the 3-way flag or separate `paired` boolean is the open design
+question, see [DECISIONS.md § v2.5](DECISIONS.md#v25--claimed), recorded there under the original number),
+`F_Test_Variance` (feeds a recommendation cell that selects the t-test
+variant), `Covariance_Matrix` (complement to the existing
+`Correlation_Matrix`). Dedicated sheet layout with test selector and
+F-test assumption check.
+
+### v3.7 — `Weight` Role (WLS) *(claimed, after v3.6; planned as v2.6)*
+
+A `Weight` value on the Role axis (see
+[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
+for the cardinality rule). Three-stage scope: user-supplied weights →
+variance-driver-derived weights → FGLS. This milestone ships the first stage only.
+
+**The mechanism changed at v3.0; the feature did not.** This milestone was
+planned as "a single optional `[Weights]` argument (default uniform), following
+the `[DF_Absorbed]` precedent." That threading is superseded — with the intercept
+owned by the constructor, √w scaling of the design matrix and response yields the
+exact WLS estimator, standard errors, leverage, and Cook's distance, because the
+intercept column correctly becomes √w rather than remaining ones. **WLS becomes a
+constructor concern rather than an engine argument.** Everything else carries
+forward unchanged: the `Weight` Role, its cardinality rule, the status-block
+validation, and the three-stage scope. Weights are still declared in the spec
+block.
+
+One trap this avoids, recorded because it is the kind that ships silently:
+`DEVSQ(√w ⊙ y)` is *not* the weighted total sum of squares — it centres on
+mean(√w·y) rather than ȳ_w — so a naive "scale everything by √w" implementation
+would leave SS_Total, and therefore R², wrong under WLS with no error anywhere.
+The v3.0 projection form of `SS_Total` is correct by construction. See
+[DECISIONS.md § v3.0 SS_Total](DECISIONS.md#ss_total-redefined-as-the-intercept-only-residual-sum-of-squares).
+
+**Sequencing note — resolved.** This entry used to warn that shipping before v3.0
+would force the `[Weights]` argument after all, with v3.0 then unwinding it across
+the same ~24 functions. Resequencing the feature train behind v3.0 is what removes
+that cost: the constructor owns the intercept before WLS is built, so √w scaling
+is the *first* implementation rather than a rewrite of a threaded argument. This is
+the clearest single case for the resequencing, and it was already visible in the
+review's first sequencing implication — that changing the mechanism is cheaper
+before this milestone than after.
+
+### Unordered (v3.8+ candidates, no claim; planned as v2.7+)
+
+Two-way FE (the trio `Absorb_Two_Way_Fixed_Effects`,
+`Demean_Two_Way_Balanced`, `Fixed_Effects_Convergence_Check`, the two-way
+`Is_Balanced_Panel` check, lifting the v2.1 one-FE-variable status-block
+error, and the two-way prediction question); multi-group means (ANOVA,
+with Tukey HSD or Bonferroni post-hoc comparisons); `Cluster` Role
+(clustered-robust V_β; partial forward wiring from
+`Serial_Correlation_Group()`'s dormant branch); `Time` Role (partially
+forward-wired via the Sequence axis; the full `Time` / `Sequence`
+interaction is an open design question); Time series (`Moving_Average`,
+`Exponential_Smoothing`); Fourier analysis and Decision analysis
+(long-tail, out of planning horizon).
+
+A user-pressing-for-them signal would reorder these; absent that, they
+stay in this unordered bucket.
+
+---
+
+## Univariate artifact releases — the split, then the grid shrink — PLANNED
+
+Two releases, deliberately not bundled — and deliberately **unnumbered in the v3.x
+ladder above**. Under the two-number scheme
+([Two numbers](#two-numbers-once-the-build-emits-two-workbooks)) these move the
+**Univariate workbook version**, not the library version, so they neither take a
+v3.x slot nor block one. The split moves no version at all on the Regression side;
+the grid shrink is MAJOR for the Univariate workbook alone.
 
 **The split** moves Univariate Analysis into its own workbook. Both artifacts
 carry the complete 126-function library — there is no bundling, no dependency

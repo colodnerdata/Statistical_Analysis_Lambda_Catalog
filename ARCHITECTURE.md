@@ -127,7 +127,7 @@ category can grow its own subdivisions independently as it fills up.
 | **Data Transformation** | Sample Construction & Diagnostics · Location & Scale · Group & Panel · Categorical & Model Construction · Longitudinal & Panel-Time |
 | **Distribution Fitting** | Descriptive · Histogram Binning · Parameter Estimation · Goodness-of-Fit |
 | **Resampling & Simulation** | Bootstrap · Monte Carlo |
-| **Model Comparison** | Spec String & Registry *(provisional — promote from a subcategory only once it holds 2+ functions; see v2.3)* |
+| **Model Comparison** | Spec String & Registry *(provisional — promote from a subcategory only once it holds 2+ functions; see v3.4)* |
 
 Notes:
 
@@ -139,7 +139,7 @@ Notes:
   functions serve double duty as constructor internals and standalone
   user-callable transforms.
 - **Model Comparison** is listed provisionally as a top-level category for
-  the v2.3 sheet's single function. Per the "categories describe what a
+  the Model Comparison sheet's single function. Per the "categories describe what a
   function does" rule it earns top-level status once it holds 2+ functions;
   until then it may equally live as a Model Construction subcategory.
 
@@ -157,7 +157,7 @@ its value on another.
 
 | Axis | Values | Future values | Meaning |
 |---|---|---|---|
-| **Variable Role** | `Response (y)` · `Predictor (x)` · `Identifier (Row Label)` · `Filter` · `Omit` · `Fixed Effects` (v2.1) | Weight (v2.6+), Time / Cluster (v2.7+) | What the column *is* in the model |
+| **Variable Role** | `Response (y)` · `Predictor (x)` · `Identifier (Row Label)` · `Filter` · `Omit` · `Fixed Effects` (v2.1) | Weight (v3.7), Time / Cluster (v3.8+) | What the column *is* in the model |
 | **Predictor Type** | Continuous · Categorical | *(closed — never grows)* | How a Predictor *enters* the design matrix — meaningful only when Role = Predictor |
 | **Sequence** *(structural, post-v2.0)* | TRUE · blank | *(flag — never grows)* | Which column *orders* the data, for lag/difference/serial-correlation features |
 
@@ -190,7 +190,7 @@ lag/difference/serial-correlation features land on a declared axis.
   exactly-one-Response, with a >1 threshold).
 - **At most one** of each Role value that is single-instance by nature:
   Fixed Effects (shipped v2.1; a B1 cardinality error fires at two-plus
-  rows), Weight, Time (both still future, v2.6+/v2.7+). The status block
+  rows), Weight, Time (both still future, v3.7/v3.8+). The status block
   validates each the same way it validates exactly-one-Response.
 - **Zero-or-more** Filter columns. AND-composed: no Filter columns → all rows
   included; multiple → logical AND (declarative stratification, e.g.
@@ -218,11 +218,12 @@ lag/difference/serial-correlation features land on a declared axis.
 - **Fixed Effects** *(v2.1)* — the panel role: enters no column; the entire
   design matrix and the Response are demeaned by its groups (one FE
   variable → `Demean_By`; two-plus → visible error — two-way absorption via
-  `Absorb_Two_Way_Fixed_Effects` is its own post-v2.1 milestone, see v2.7+).
-- **Weight** *(v2.6+)* — WLS. See DECISIONS § v2.6.
-- **Time** *(v2.7+)* — time-index designation. Partially forward-wired via
+  `Absorb_Two_Way_Fixed_Effects` is its own post-v2.1 milestone, see v3.8+).
+- **Weight** *(v3.7)* — WLS. See DECISIONS § v2.6, recorded under the
+  milestone's original number.
+- **Time** *(v3.8+)* — time-index designation. Partially forward-wired via
   the Sequence axis but the full semantics still need design work.
-- **Cluster** *(v2.7+)* — clustered-robust variance estimator. Forward
+- **Cluster** *(v3.8+)* — clustered-robust variance estimator. Forward
   wiring is partial (the dormant branch in `Serial_Correlation_Group()`'s
   SWITCH).
 
@@ -400,7 +401,7 @@ instead of with a second column-insertion that breaks the sheet a second
 time.
 
 The function-side equivalent: a SWITCH or IF with a dormant branch that
-returns a `RESERVED — vN+` token. The v2.6+ `Cluster` branch in
+returns a `RESERVED` token. The `Cluster` branch in
 `Serial_Correlation_Group()`'s SWITCH is the worked example — supplying
 the grouping key from a Cluster role for pooled-panel diagnostics without
 absorption is a resolver-only edit, no engine change.
@@ -656,8 +657,9 @@ bundle), and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
   to the same standard. **v2.0 constructor internal** for Categorical
   roles, via `Dummy_Levels`.
 The three entries below are **specified, not yet built** — none is in
-`lambda_functions.json`. They are v2.2 work items in
-[TODOs.md](TODOs.md#v22--transforms--the-standalone-transform-library). Recorded
+`lambda_functions.json`. They are v3.3 work items in
+[TODOs.md](TODOs.md#v33--transforms-remainder) (planned as v2.2; the standalone
+transform library moved after v3.0 with the rest of the feature train). Recorded
 explicitly because REVIEW.md F6 cited `Interact` as already shipping.
 
 - `Dummy_Column(category, level, [include])` — *(planned)* single indicator
@@ -771,7 +773,7 @@ form:
   resolver (`Serial_Correlation_Group()`) does this for the `Cluster`
   role — supplying the grouping key from a Cluster role for pooled-panel
   diagnostics without absorption is a resolver-only edit, no engine
-  change. The v2.6+ `Cluster` work lights up the dormant branch by adding
+  change. The `Cluster` work (v3.8+) lights up the dormant branch by adding
   the engine-side estimator.
 
 The general principle: when a feature lands across multiple versions, the

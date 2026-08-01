@@ -116,7 +116,7 @@ One open decision remains from it, plus one numbering-cleanup item:
 ## v2.1 — Sequence, gap-aware longitudinal, serial-correlation diagnostics, fixed effects (in progress)
 
 Two-way FE is deliberately deferred until this framework is finished — see
-the v2.7+ section. Items below are in the locked ship order: the
+the v3.8+ section. Items below are in the locked ship order: the
 Sequence fix is the prerequisite for the 2.1.0 entry; the FE Role
 dropdown, the CI+PI prediction layout, and the engine are gated to ship
 as a single release so users never see "FE is in the dropdown but the
@@ -275,7 +275,7 @@ engine is forthcoming."
 - TODO: **Relabel within-model residual outputs + Diagnostic Guide
   paragraph on residuals under FE**. Documentation-only.
 
-## v2.2 — Transforms & the standalone transform library
+## v2.2 — Transforms & the standalone transform library (shipped; remainder is v3.3)
 
 ### Transform wiring (spec column G)
 
@@ -307,107 +307,7 @@ engine is forthcoming."
   `tests/test_ln_positive_verification.py`. Full design rationale in
   [DECISIONS.md § v2.2 Transform column wiring](DECISIONS.md#v22--transforms--unit-space-comparability).
 
-- TODO: **Unit-space dispatcher function, RESOLVED:**
-  `Unit_Space_R_Squared(model, response_transform, predictor_transform)`,
-  `Unit_Space_Adjusted_R_Squared(...)`, `Unit_Space_RMSE(...)`. The
-  dispatcher pattern (one canonical name per statistic, internal
-  `SWITCH` on the transform pair) is the documented
-  naming-style-departure pattern, in
-  [DECISIONS.md § v2.2 unit-space dispatcher](DECISIONS.md#v22--transforms--unit-space-comparability)
-  and [ARCHITECTURE.md § 1 "Naming-style departures"](ARCHITECTURE.md#1-naming-convention).
 
-- TODO: Unit-space section on the Regression sheet — SWITCH on column
-  G, one headline comparable statistic (the cell v2.3 Model Comparison
-  will reference).
-
-- TODO: **Prediction back-transformation, RESOLVED:** Duan's smearing
-  estimator as the default, with a per-cell `Back_Transform_Method`
-  toggle (`Duan` default | `Naive`). Caveat row visible on the sheet:
-  *Duan = Duan (1983) smearing; Naive = textbook EXP(ŷ), biased.* The
-  resolution (Duan as default, the per-cell toggle, the caveat row)
-  is in
-  [DECISIONS.md § v2.2 prediction back-transformation](DECISIONS.md#v22--transforms--unit-space-comparability).
-
-### Standalone Data Transformation functions (specs in ARCHITECTURE.md)
-
-- TODO: Location & Scale — `Center`, `Zscore`, `Minmax_Scale`,
-  `Winsorize`. The full specs are in
-  [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
-  (`Ln_Positive` shipped early, alongside the Transform column-G wiring
-  above, rather than waiting for the rest of this bundle.)
-
-- TODO: Group & Panel — `Zscore_By`, `Decompose_By`
-  (`Demean_By`/`Group_Mean` arrive at v2.1; two-way functions follow
-  the two-way FE milestone).
-
-- ~~Longitudinal — `Lag_By`, `Difference_By`~~ — **DONE (shipped early,
-  base-period release)** with the gap-aware t−Δ semantics: exact-match
-  lookup of (group, seq−Δ) pairs, `NA()` at first periods and gaps,
-  `[delta]` defaulting to the spec's Period In Use cell via
-  `Base_Period_Delta()` (never a silent 1). The same release wired
-  spec column I (typed override → Sequence Period) and J
-  (candidate-with-override display → Period In Use) plus the Sequence
-  Spacing block (delta spectrum, Regularity/Off-grid flags,
-  calendar-signature guidance). Verification:
-  `tests/test_difference_by_verification.py`; human test plan T17–T19.
-  The shipped semantics and the `NA()` exception are in
-  [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy)
-  and
-  [DECISIONS.md § v2.1 base-period layer](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
-
-- TODO: Sample construction — `Numeric_Complete_Cases`.
-
-- TODO: Categorical & model construction — `Dummy_Column`, `Interact`,
-  `Model_Matrix`.
-
-## v2.3 — Model Comparison Sheet
-
-- TODO: Implement the `Model_Formula_String` LAMBDA with
-  header-signature validation (`NA()` on non-Regression targets). The
-  name resolution and the anchor-cell argument-type rationale are in
-  [DECISIONS.md § v2.3 Model_Formula_String](DECISIONS.md#v23--model-comparison-sheet).
-
-- TODO: Sheet layout — model registry (hyperlinks), GoF table
-  referencing the v2.2 unit-space headline cells, shared prediction
-  inputs (Comparison sheet is the source; Regression sheets pull via
-  XLOOKUP), prediction results table. The data-flow direction
-  (Comparison-as-source-via-XLOOKUP) is in
-  [DECISIONS.md § v2.3 prediction inputs](DECISIONS.md#v23--model-comparison-sheet).
-
-- TODO: Decide the mismatched-predictor-set fallback (XLOOKUP
-  `[if_not_found]`). **OPEN** — see the open-decision note in
-  [DECISIONS.md § v2.3 Model Comparison Sheet](DECISIONS.md#v23--model-comparison-sheet).
-
-## v2.4 — Resampling & Simulation
-
-- TODO: **No-volatile constraint, RESOLVED: pre-drawn random table.** A
-  single sheet-scoped named range `Bootstrap_Random_Draws` holds a
-  uniformly-distributed random table pre-drawn once at build time,
-  seeded from the same SHA-derived seed the QC build already uses
-  (`analysis_cache.py`). `Bootstrap_CI` indexes via
-  `INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`.
-  Same inputs → same output, every recalc. `RANDARRAY()` rejected. The
-  full rationale (auditability vs. fresh randomness, the
-  reproducibility trade-off) is in
-  [DECISIONS.md § v2.4 no-volatile constraint](DECISIONS.md#v24--resampling--simulation).
-  To get a new draw, regenerate the workbook via `build_production.py`
-  (deliberate, not a limitation).
-
-- TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples,
-  alpha, [include])` — bootstrap confidence interval for an
-  arbitrary statistic passed as a LAMBDA. Uses the pre-drawn table
-  above.
-
-- TODO: Implement `MC_Percentile(dist_params, n_samples, percentile)` —
-  Monte Carlo draw from a fitted distribution; complements v2.0
-  fitting. Uses the same pre-drawn table.
-
-- TODO: Implement `PERT_Sample(min, mode, max, n_samples)` — BetaPERT
-  sampling for cost/schedule risk analysis. Uses the same pre-drawn
-  table.
-
-- TODO: Design sheet layout (bootstrap section + Monte Carlo section;
-  may share one sheet). Implement `write_sheet_simulation.py`.
 
 ## v3.0 — The engine-interface release (in progress)
 
@@ -426,7 +326,7 @@ been run, and stage 1 is not finished until it has.
   `Predictor_Columns()` / `Design_Columns()` / `Design_Response()`, with
   the `encode → transform → demean → intercept → weight` stage order
   made explicit in `Design_Columns()`. The weight stage is declared and
-  inert until v2.6.
+  inert until v3.7.
 - DONE: the intercept moved into the constructor. `Design_Matrix` stops
   synthesizing it, LINEST runs `const = FALSE` at all three call sites,
   `SS_Total` became the intercept-only residual sum of squares, and
@@ -472,15 +372,132 @@ been run, and stage 1 is not finished until it has.
   than rewriting them — they are the working reference implementations
   of the audit column and the filtered-display pattern.
 
-## v2.5+ — Future (sequence TBD; first two claimed)
+## v3.3 — Transforms remainder
 
-The v2.5+ bucket previously had seven candidates with no order.
-Two-sample tests are now v2.5 (next MINOR after v2.4) and the `Weight`
-Role is v2.6 (after v2.5). The rest are deliberately unordered pending
+Planned as the second half of v2.2; moved after v3.0 when the feature train
+was resequenced — see [ROADMAP.md](ROADMAP.md). The column-G `Log` wiring
+already shipped at v2.2.
+
+- TODO: **Unit-space dispatcher function, RESOLVED:**
+  `Unit_Space_R_Squared(model, response_transform, predictor_transform)`,
+  `Unit_Space_Adjusted_R_Squared(...)`, `Unit_Space_RMSE(...)`. The
+  dispatcher pattern (one canonical name per statistic, internal
+  `SWITCH` on the transform pair) is the documented
+  naming-style-departure pattern, in
+  [DECISIONS.md § v2.2 unit-space dispatcher](DECISIONS.md#v22--transforms--unit-space-comparability)
+  and [ARCHITECTURE.md § 1 "Naming-style departures"](ARCHITECTURE.md#1-naming-convention).
+
+- TODO: Unit-space section on the Regression sheet — SWITCH on column
+  G, one headline comparable statistic (the cell v3.4 Model Comparison
+  will reference).
+
+- TODO: **Prediction back-transformation, RESOLVED:** Duan's smearing
+  estimator as the default, with a per-cell `Back_Transform_Method`
+  toggle (`Duan` default | `Naive`). Caveat row visible on the sheet:
+  *Duan = Duan (1983) smearing; Naive = textbook EXP(ŷ), biased.* The
+  resolution (Duan as default, the per-cell toggle, the caveat row)
+  is in
+  [DECISIONS.md § v2.2 prediction back-transformation](DECISIONS.md#v22--transforms--unit-space-comparability).
+
+### Standalone Data Transformation functions (specs in ARCHITECTURE.md)
+
+- TODO: Location & Scale — `Center`, `Zscore`, `Minmax_Scale`,
+  `Winsorize`. The full specs are in
+  [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
+  (`Ln_Positive` shipped early, alongside the Transform column-G wiring
+  above, rather than waiting for the rest of this bundle.)
+
+- TODO: Group & Panel — `Zscore_By`, `Decompose_By`
+  (`Demean_By`/`Group_Mean` arrive at v2.1; two-way functions follow
+  the two-way FE milestone).
+
+- ~~Longitudinal — `Lag_By`, `Difference_By`~~ — **DONE (shipped early,
+  base-period release)** with the gap-aware t−Δ semantics: exact-match
+  lookup of (group, seq−Δ) pairs, `NA()` at first periods and gaps,
+  `[delta]` defaulting to the spec's Period In Use cell via
+  `Base_Period_Delta()` (never a silent 1). The same release wired
+  spec column I (typed override → Sequence Period) and J
+  (candidate-with-override display → Period In Use) plus the Sequence
+  Spacing block (delta spectrum, Regularity/Off-grid flags,
+  calendar-signature guidance). Verification:
+  `tests/test_difference_by_verification.py`; human test plan T17–T19.
+  The shipped semantics and the `NA()` exception are in
+  [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy)
+  and
+  [DECISIONS.md § v2.1 base-period layer](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+
+- TODO: Sample construction — `Numeric_Complete_Cases`.
+
+- TODO: Categorical & model construction — `Dummy_Column`, `Interact`,
+  `Model_Matrix`.
+
+## v3.4 — Model Comparison Sheet
+
+*Planned as v2.3; moved after v3.0 when the feature train was resequenced —
+see [ROADMAP.md](ROADMAP.md).*
+
+- TODO: Implement the `Model_Formula_String` LAMBDA with
+  header-signature validation (`NA()` on non-Regression targets). The
+  name resolution and the anchor-cell argument-type rationale are in
+  [DECISIONS.md § v2.3 Model_Formula_String](DECISIONS.md#v23--model-comparison-sheet).
+
+- TODO: Sheet layout — model registry (hyperlinks), GoF table
+  referencing the v2.2 unit-space headline cells, shared prediction
+  inputs (Comparison sheet is the source; Regression sheets pull via
+  XLOOKUP), prediction results table. The data-flow direction
+  (Comparison-as-source-via-XLOOKUP) is in
+  [DECISIONS.md § v2.3 prediction inputs](DECISIONS.md#v23--model-comparison-sheet).
+
+- TODO: Decide the mismatched-predictor-set fallback (XLOOKUP
+  `[if_not_found]`). **OPEN** — see the open-decision note in
+  [DECISIONS.md § v2.3 Model Comparison Sheet](DECISIONS.md#v23--model-comparison-sheet).
+
+## v3.5 — Resampling & Simulation
+
+*Planned as v2.4; moved after v3.0 when the feature train was resequenced —
+see [ROADMAP.md](ROADMAP.md).*
+
+- TODO: **No-volatile constraint, RESOLVED: pre-drawn random table.** A
+  single sheet-scoped named range `Bootstrap_Random_Draws` holds a
+  uniformly-distributed random table pre-drawn once at build time,
+  seeded from the same SHA-derived seed the QC build already uses
+  (`analysis_cache.py`). `Bootstrap_CI` indexes via
+  `INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`.
+  Same inputs → same output, every recalc. `RANDARRAY()` rejected. The
+  full rationale (auditability vs. fresh randomness, the
+  reproducibility trade-off) is in
+  [DECISIONS.md § v2.4 no-volatile constraint](DECISIONS.md#v24--resampling--simulation).
+  To get a new draw, regenerate the workbook via `build_production.py`
+  (deliberate, not a limitation).
+
+- TODO: Implement `Bootstrap_CI(data, stat_lambda, n_resamples,
+  alpha, [include])` — bootstrap confidence interval for an
+  arbitrary statistic passed as a LAMBDA. Uses the pre-drawn table
+  above.
+
+- TODO: Implement `MC_Percentile(dist_params, n_samples, percentile)` —
+  Monte Carlo draw from a fitted distribution; complements v2.0
+  fitting. Uses the same pre-drawn table.
+
+- TODO: Implement `PERT_Sample(min, mode, max, n_samples)` — BetaPERT
+  sampling for cost/schedule risk analysis. Uses the same pre-drawn
+  table.
+
+- TODO: Design sheet layout (bootstrap section + Monte Carlo section;
+  may share one sheet). Implement `write_sheet_simulation.py`.
+
+## v3.6+ — Future (sequence TBD; first two claimed)
+
+*Planned as v2.5+; moved after v3.0 when the feature train was resequenced —
+see [ROADMAP.md](ROADMAP.md).*
+
+This bucket previously had seven candidates with no order.
+Two-sample tests are now v3.6 (next MINOR after v3.5) and the `Weight`
+Role is v3.7 (after v3.6). The rest are deliberately unordered pending
 actual user demand — a single maintainer should not pre-order work that
 may not be the next thing actually needed.
 
-### v2.5 — Bivariate / Two-sample *(claimed, next MINOR after v2.4)*
+### v3.6 — Bivariate / Two-sample *(claimed, next MINOR after v3.5)*
 
 - TODO: Implement `T_Test_OneSample(data, mu0, alpha, [include])` →
   test statistic, p-value, CI.
@@ -504,17 +521,17 @@ may not be the next thing actually needed.
   assumption check, output (test statistic, df, p-value, CI, effect
   size). Implement `write_sheet_two_sample.py`.
 
-### v2.6 — `Weight` Role (WLS) *(claimed, after v2.5)*
+### v3.7 — `Weight` Role (WLS) *(claimed, after v3.6)*
 
 The standalone WLS milestone and its `[weights]`-argument-vs-parallel-
 function-set debate are superseded by a **`Weight` value on the Role
 axis** (see
 [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)).
 Three-stage scope carried forward: user-supplied weights →
-variance-driver-derived weights → FGLS. v2.6 ships the first stage
+variance-driver-derived weights → FGLS. This milestone ships the first stage
 only. The default-uniform → OLS pattern (the
 "non-breaking MINOR" guarantee) is in
-[DECISIONS.md § v2.6 WLS](DECISIONS.md#v25--claimed).
+[DECISIONS.md § v2.6 WLS](DECISIONS.md#v26--wls-weight-role-default-uniform-weights-argument).
 
 - TODO: Implement the `Weight` Role (at most one, per the cardinality
   rule that Response, Time, and Weight share; status-block validation
@@ -530,7 +547,7 @@ only. The default-uniform → OLS pattern (the
   change interpretation under WLS. (WLS closes the loop opened by
   v1's Scale-Location diagnostic.)
 
-### v2.7+ — Unordered candidates (no claim)
+### v3.8+ — Unordered candidates (no claim)
 
 The following are real candidate work but deliberately unordered. Two-way
 FE and `Cluster` have partial forward wiring (from v2.1 FE and the

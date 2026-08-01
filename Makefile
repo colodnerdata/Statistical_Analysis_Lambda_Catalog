@@ -21,8 +21,10 @@ verify-headless:
 # Spec-driven verifier. Reuses build_qc.verify_test_sheets(..., skip_dummy=True)
 # against the production sheets. Requires Excel; not run in CI on GitHub-hosted
 # runners (no Microsoft Office).
+# Always recalculates (the recalc is the source of truth and runs under
+# --skip-univariate; the Univariate Data Tables aren't built so it's cheap).
 verify-deep:
-	uv run --frozen python build_production.py --verify --no-launch --skip-data-table-calculations --skip-univariate
+	uv run --frozen python build_production.py --verify --no-launch --skip-univariate
 
 # Both layers. The headless check is auto-discovered on Linux; run the deep
 # check on a machine with Microsoft Excel. The deep check shell-exits 1 on drift.

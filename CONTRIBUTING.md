@@ -31,7 +31,9 @@ uv run pytest tests/test_workbook_invariants.py -v      # or: make verify-headle
 uv run python build_production.py
 
 # Build + verify with no Excel window popping up — the one-shot CI-style flow  (needs Excel)
-uv run python build_production.py --verify --no-launch --skip-data-table-calculations
+# Always recalculates: recalc is the source of truth and runs under --skip-univariate
+# (the Univariate Data Tables aren't built, so the rebuild is cheap). This is `make verify-deep`.
+uv run python build_production.py --verify --no-launch --skip-univariate
 
 # Build the QC workbook and run the full expected-vs-actual pass
 # (do this whenever you add or change a LAMBDA function)  (needs Excel)
@@ -178,7 +180,7 @@ No test sheets, no OLS analysis, no cache dependency.
 | `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. (The **Mileage Data** and **Production Lots** sources are fixed committed sample files with no CLI override.) |
 | `--regression-dataset {auto_mpg,life_expectancy,production_lots}` | `auto_mpg` | Which dataset the Regression sheet's `Source_Table` targets, **and** which shipped default spec pre-fills the MODEL SPECIFICATION block (`SPEC_DATASET_PROFILES` in `write_sheet_model_construction.py`) — SpecTable is sized to the dataset's own column count and every column starts with a real Role/Include/Type instead of falling back to an un-flagged Predictor. `life_expectancy` ships Response=`Life expectancy`, the 18-column `FEATURE_COLUMNS` predictor set, `Country` as Identifier, `Status` as a Categorical predictor, and `Year` as the Sequence axis. `production_lots` is the one to pick for a ready-made Fixed Effects example (Facility as the FE role, Fiscal_Year as Sequence) — its default spec is the QC-validated Crawford/Wright learning-curve model (`log Unit Cost` ~ `log Cum Units`). |
 | `--skip-univariate` | off | Skip writing the Univariate Analysis sheet to speed up iteration on other sheets. An existing Univariate sheet is left as-is; a from-scratch build omits it. |
-| `--skip-data-table-calculations` | off | Skip the final Excel `CalculateFullRebuild` phase that evaluates Data Tables. The workbook is still written and names synced; formulas/Data Tables recalc later when opened in Excel. Big speedup for iteration. |
+| `--skip-data-table-calculations` | off | Skip the final Excel `CalculateFullRebuild` phase that evaluates Data Tables. The workbook is still written and names synced; formulas/Data Tables recalc later when opened in Excel. Big speedup for iteration when the Univariate sheet IS built. No effect under `--skip-univariate`: the Univariate Data Tables aren't built so the rebuild is cheap, and the Regression sheet needs it (the verifier's per-sheet `Calculate` doesn't rebuild the dependency tree after a name sync), so the rebuild always runs under `--skip-univariate`. |
 | `--verify` | off | After the build, run the spec-driven verifier (`build_qc.verify_test_sheets`) against the production sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. The Excel handoff only fires when verify passes, so a stale build can't launch in place of a fresh one. |
 | `--no-verify` | (default) | Explicitly disable the verifier pass. Mainly for wrapper scripts that default to `--verify`. |
 | `--no-launch` | off | Suppress the post-build `cmd /c start <workbook>` Excel handoff. Use in agentic/automated loops where no Excel window should pop up. |
@@ -193,10 +195,13 @@ uv run python build_production.py
 
 # The one-shot automated flow: build, sync names, run the spec-driven verifier,
 # exit non-zero on drift, and never open Excel. This is what `make verify-deep` runs.
-uv run python build_production.py --verify --no-launch --skip-data-table-calculations
+# Recalc always runs under --skip-univariate (it's cheap without the Univariate Data Tables
+# and is the source of truth the verifier reads); never skip it on a verify pass.
+uv run python build_production.py --verify --no-launch --skip-univariate
 
-# Fast Regression-only iteration (skip the slow Univariate sheet and Data Table rebuild)
-uv run python build_production.py --skip-univariate --skip-data-table-calculations --no-launch
+# Fast Regression-only iteration. --skip-univariate omits the Univariate sheet, so its
+# Data Tables aren't built — the recalc that now always runs is Regression-only and cheap.
+uv run python build_production.py --skip-univariate --no-launch
 ```
 
 ### QC build
@@ -262,7 +267,9 @@ Reuses `build_qc.verify_test_sheets` against the production sheets. Same machine
 # Run the production build, recalculate, then verify against the spec oracle.
 # On drift: print a structured VerifyReport, sys.exit(1), and do NOT open
 # Excel (so a stale build cannot be launched in place of a fresh one).
-python build_production.py --verify --no-launch --skip-data-table-calculations --skip-univariate
+# Recalc always runs under --skip-univariate and is the source of truth the
+# verifier reads — do not pair --verify with --skip-data-table-calculations.
+python build_production.py --verify --no-launch --skip-univariate
 
 # Or, on the just-built workbook without rebuilding:
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
@@ -295,7 +302,7 @@ make verify-headless    # Layer 1 only
 make verify-deep        # Layer 2 only
 ```
 
-`make verify-deep` shells out to `build_production.py --verify --no-launch --skip-data-table-calculations --skip-univariate`, so it both rebuilds and verifies while leaving the existing Univariate sheet untouched for faster regression-focused loops. To verify an already-built workbook, use `python tools/verify_workbook.py Lambda_Library.xlsx` instead.
+`make verify-deep` shells out to `build_production.py --verify --no-launch --skip-univariate`, so it both rebuilds and verifies while leaving the existing Univariate sheet untouched for faster regression-focused loops. To verify an already-built workbook, use `python tools/verify_workbook.py Lambda_Library.xlsx` instead.
 
 ### CI
 

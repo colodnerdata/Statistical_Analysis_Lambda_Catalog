@@ -81,6 +81,8 @@ from .workbook_helpers import (
     safe_activate, section_heading, val,
 )
 from .write_sheet_model_construction import (
+    SPEC_DATASET_PROFILES,
+    SpecDatasetProfile,
     _SEQUENCE_PERIOD_NOTE,
     _FIXED_EFFECTS_COUNT_FORMULA,
     _FIXED_EFFECTS_NAME_FORMULA,
@@ -1696,6 +1698,7 @@ def write_regression_output_sheet(
     sheet_notes: dict[str, str] | None = None,
     closures: tuple[CatalogFunction, ...] | None = None,
     source_table_ref: str = "=MileageData[#All]",
+    spec_profile: SpecDatasetProfile | None = None,
 ) -> None:
     """Create or refresh the spec-driven Regression sheet in workbook.
 
@@ -1713,6 +1716,18 @@ def write_regression_output_sheet(
         The ``RefersTo`` formula for the ``Source_Table`` sheet-scoped name.
         Defaults to ``=MileageData[#All]`` (the shipped default dataset).
         Pass ``=LifeExpectancyData[#All]`` to retarget to Life Expectancy Data.
+    spec_profile : SpecDatasetProfile | None, optional
+        The dataset's default spec-block contents (variable list plus
+        default Role/Include/Type/Sequence values) — sizes SpecTable to
+        match the targeted dataset's column count and pre-fills a sensible
+        starting model instead of leaving every column an un-flagged
+        Predictor. Defaults to the Auto MPG profile
+        (``SPEC_DATASET_PROFILES["auto_mpg"]``) when omitted, matching the
+        shipped default ``source_table_ref``. Callers that retarget
+        ``source_table_ref`` to a different dataset should pass the
+        matching entry from ``SPEC_DATASET_PROFILES`` here too — the two
+        are independent parameters, not derived from each other, so they
+        must be kept in sync by the caller (see build_production.py).
     """
 
     sheet = next(
@@ -1739,7 +1754,7 @@ def write_regression_output_sheet(
     # validates the RefersTo at registration time. The rest of the spec
     # area (headers, feedback, intercept) runs in _write_model_specification
     # below, but the table-creating part needs to come first.
-    _write_spec_block(sheet)
+    _write_spec_block(sheet, spec_profile or SPEC_DATASET_PROFILES["auto_mpg"])
     _setup_local_names(sheet, closures, source_table_ref=source_table_ref)
 
     _write_model_specification(sheet)

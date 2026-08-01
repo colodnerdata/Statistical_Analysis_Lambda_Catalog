@@ -160,6 +160,7 @@ to v3.0 — those land in the final wiring PR.
 from __future__ import annotations
 
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 
 import xlwings as xw
@@ -169,6 +170,7 @@ from .lambda_formula_parser import (
     _normalize_user_formula,
     _strip_non_string_whitespace,
 )
+from .regression_shared import FEATURE_COLUMNS as _LIFE_EXPECTANCY_FEATURE_COLUMNS
 from .sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_DARK_YELLOW_TEXT,
@@ -196,6 +198,7 @@ from .workbook_helpers import (
     set_column_widths,
     val,
 )
+from .write_sheet_csv_dataset import LIFE_EXPECTANCY, MILEAGE, PRODUCTION_LOTS
 
 SHEET_NAME = "Model Construction"
 
@@ -433,6 +436,126 @@ _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
 # base-period layer. Kept to at most one entry: the H2 status line errors at
 # two-plus flags.
 _DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Model Year"})
+
+
+# ── Per-dataset spec profiles ──────────────────────────────────────────────
+# _VARIABLES/_DEFAULT_SPEC/_DEFAULT_SEQUENCE_VARIABLES above are the shipped
+# Auto MPG defaults; SpecDatasetProfile wraps a dataset's variable list,
+# default Role/Include/Type spec, and Sequence-flagged columns as one unit
+# so retargeting Source_Table (the --regression-dataset CLI choice) can
+# also retarget the spec block's defaults, instead of leaving every column
+# of a newly-targeted dataset to _FALLBACK_SPEC's un-flagged Predictor.
+# _write_spec_block sizes SpecTable to len(profile.variables) — a dataset
+# with more or fewer columns than Auto MPG gets a table sized to match, so
+# every column has a Spec_Role/Spec_Include/etc. entry from the first
+# build, rather than depending on the user manually typing values past the
+# table's edge until Excel's native AutoExpand catches up.
+@dataclass(frozen=True)
+class SpecDatasetProfile:
+    """One dataset's Source_Table target and shipped spec-block defaults."""
+
+    source_table_ref: str
+    variables: tuple[str, ...]
+    default_spec: dict[str, tuple[str, bool, str]]
+    sequence_variables: frozenset[str] = frozenset()
+
+
+_AUTO_MPG_PROFILE = SpecDatasetProfile(
+    source_table_ref=f"={MILEAGE.table_name}[#All]",
+    variables=tuple(_VARIABLES),
+    default_spec=_DEFAULT_SPEC,
+    sequence_variables=_DEFAULT_SEQUENCE_VARIABLES,
+)
+
+# Column order matches the Life Expectancy CSV's normalized header order
+# plus the appended Full_Data column. Response/Predictor set mirrors
+# regression_shared.FEATURE_COLUMNS, the same 18-predictor model
+# analyze_life_expectancy.py validates against — Country is a text
+# identifier (row labeling only), Year is the natural panel ordering axis
+# (Sequence-flagged, Role Omit so it never enters the design matrix itself),
+# Status is the one categorical predictor, and Full_Data ships Omit for the
+# same reason Auto MPG's does: the built-in per-predictor completeness mask
+# already covers it, so a Filter role would only over-filter.
+_LIFE_EXPECTANCY_VARIABLES: tuple[str, ...] = (
+    "Country",
+    "Year",
+    "Status",
+    "Life expectancy",
+    *_LIFE_EXPECTANCY_FEATURE_COLUMNS,
+    "Full_Data",
+)
+_LIFE_EXPECTANCY_DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
+    "Country": (_ROLE_IDENTIFIER, False, "Continuous"),
+    "Year": (_ROLE_OMIT, False, "Continuous"),
+    "Status": (_ROLE_PREDICTOR, True, "Categorical"),
+    "Life expectancy": (_ROLE_RESPONSE, False, "Continuous"),
+    **{
+        column: (_ROLE_PREDICTOR, True, "Continuous")
+        for column in _LIFE_EXPECTANCY_FEATURE_COLUMNS
+    },
+    "Full_Data": (_ROLE_OMIT, False, "Continuous"),
+}
+_LIFE_EXPECTANCY_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Year"})
+_LIFE_EXPECTANCY_PROFILE = SpecDatasetProfile(
+    source_table_ref=f"={LIFE_EXPECTANCY.table_name}[#All]",
+    variables=_LIFE_EXPECTANCY_VARIABLES,
+    default_spec=_LIFE_EXPECTANCY_DEFAULT_SPEC,
+    sequence_variables=_LIFE_EXPECTANCY_SEQUENCE_VARIABLES,
+)
+
+# Column order matches the Production Lots CSV's header order plus the
+# appended Full_Data column — the same shape as
+# analyze_regression_spec.py's _production_lots_fixed_effects_spec(), the
+# QC-validated Crawford/Wright learning-curve model (ln(unit cost) = a +
+# b*ln(cumulative units)), reused here verbatim so the shipped default
+# matches a spec the test suite already proves fits correctly: Facility is
+# the Fixed Effects panel-grouping column, Fiscal_Year is the Sequence
+# axis, log Cum Units is the sole predictor, log Unit Cost is the
+# response, and Full_Data is a Filter (unlike the other two datasets — this
+# is the one shipped case that exercises Role=Filter by default).
+_PRODUCTION_LOTS_VARIABLES: tuple[str, ...] = (
+    "Lot_ID",
+    "Facility",
+    "Fiscal_Year",
+    "Lot_Quantity",
+    "Cumulative_Units",
+    "Experience_Stock",
+    "Unit_Cost_BY",
+    "log Cum Units",
+    "log experience",
+    "log Unit Cost",
+    "Full_Data",
+)
+_PRODUCTION_LOTS_DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
+    "Lot_ID": (_ROLE_IDENTIFIER, False, "Continuous"),
+    "Facility": (_ROLE_FIXED_EFFECTS, False, "Continuous"),
+    "Fiscal_Year": (_ROLE_OMIT, False, "Continuous"),
+    "Lot_Quantity": (_ROLE_OMIT, False, "Continuous"),
+    "Cumulative_Units": (_ROLE_OMIT, False, "Continuous"),
+    "Experience_Stock": (_ROLE_OMIT, False, "Continuous"),
+    "Unit_Cost_BY": (_ROLE_OMIT, False, "Continuous"),
+    "log Cum Units": (_ROLE_PREDICTOR, True, "Continuous"),
+    "log experience": (_ROLE_OMIT, False, "Continuous"),
+    "log Unit Cost": (_ROLE_RESPONSE, False, "Continuous"),
+    "Full_Data": (_ROLE_FILTER, False, "Continuous"),
+}
+_PRODUCTION_LOTS_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Fiscal_Year"})
+_PRODUCTION_LOTS_PROFILE = SpecDatasetProfile(
+    source_table_ref=f"={PRODUCTION_LOTS.table_name}[#All]",
+    variables=_PRODUCTION_LOTS_VARIABLES,
+    default_spec=_PRODUCTION_LOTS_DEFAULT_SPEC,
+    sequence_variables=_PRODUCTION_LOTS_SEQUENCE_VARIABLES,
+)
+
+# The --regression-dataset CLI choice (build_production.py) indexes this
+# registry for both the Source_Table retarget and the spec-block defaults —
+# adding a new dataset means adding one SpecDatasetProfile and one entry
+# here, nothing else.
+SPEC_DATASET_PROFILES: dict[str, SpecDatasetProfile] = {
+    "auto_mpg": _AUTO_MPG_PROFILE,
+    "life_expectancy": _LIFE_EXPECTANCY_PROFILE,
+    "production_lots": _PRODUCTION_LOTS_PROFILE,
+}
 
 _DEFAULT_TRANSFORM = "None"
 
@@ -683,8 +806,17 @@ def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
     cell_api.Comment.Visible = False
 
 
-def _write_spec_block(sheet: xw.Sheet) -> None:
-    """The A–L specification block: headers, defaults, dropdowns, CF."""
+def _write_spec_block(
+    sheet: xw.Sheet, profile: SpecDatasetProfile | None = None
+) -> None:
+    """The A–L specification block: headers, defaults, dropdowns, CF.
+
+    ``profile`` supplies the variable list and default Role/Include/Type/
+    Sequence values — defaults to the shipped Auto MPG profile
+    (``SPEC_DATASET_PROFILES["auto_mpg"]``) when omitted, matching this
+    function's original hardcoded-to-Auto-MPG behavior.
+    """
+    profile = profile or _AUTO_MPG_PROFILE
     bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_REF_IN_USE)
     for col, header in (
         (_C_LABEL, "Variable"),
@@ -705,7 +837,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     # Create the table before writing any [@Column] formulas below. Excel
     # rejects row-scoped structured references until the target cell belongs
     # to a ListObject with the referenced headers.
-    _create_spec_table(sheet)
+    _create_spec_table(sheet, profile)
 
     # TableStyle overrides the header row's fill; re-pin it to SUBHDR_COLOR
     # (the shared column-sub-header convention) so the header reads
@@ -720,9 +852,9 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
     # Header_Names indirection (dataset-agnostic; reads no other sheet).
     f(sheet, _FIRST_DATA_ROW, _C_LABEL, "=TRANSPOSE(Header_Names)")
 
-    for offset, variable in enumerate(_VARIABLES):
+    for offset, variable in enumerate(profile.variables):
         row = _FIRST_DATA_ROW + offset
-        role, include, ptype = _DEFAULT_SPEC.get(variable, _FALLBACK_SPEC)
+        role, include, ptype = profile.default_spec.get(variable, _FALLBACK_SPEC)
         val(sheet, row, _C_ROLE, role)
         format_input(sheet, row, _C_ROLE)
         val(sheet, row, _C_INCLUDE, include)
@@ -748,7 +880,7 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         # keeps I as the load-bearing override cell (the candidate closure
         # never overwrites user input), and J is a pure display that the
         # Sequence Spacing block reads.
-        if variable in _DEFAULT_SEQUENCE_VARIABLES:
+        if variable in profile.sequence_variables:
             val(sheet, row, _C_SEQUENCE, True)
         format_input(sheet, row, _C_SEQUENCE)
         # I is a pure input: no candidate formula here. The pre-filled
@@ -957,14 +1089,23 @@ def _write_spec_block(sheet: xw.Sheet) -> None:
         font_color=CF_DARK_RED_TEXT,
     )
 
-def _create_spec_table(sheet: xw.Sheet) -> None:
-    """Convert the spec data area at B3:L(_LAST_DATA_ROW) into a structured ListObject.
+def _create_spec_table(
+    sheet: xw.Sheet, profile: SpecDatasetProfile | None = None
+) -> None:
+    """Convert the spec data area at B3:L(last data row) into a structured ListObject.
 
     The table is named ``SpecTable`` (Excel strips special characters and
     prefixes automatically; the name field is the user-visible label). A
     column is outside the table by design — the variable-names spill at
-    A4:A(_LAST_DATA_ROW) must not be absorbed by the table's spill scope,
+    A4:A(last data row) must not be absorbed by the table's spill scope,
     since the spill lives outside the structured-reference world.
+
+    The table is sized to ``len(profile.variables)`` data rows (the Auto
+    MPG profile when ``profile`` is omitted) so every column of the
+    targeted dataset gets a Spec_Role/Spec_Include/etc. entry — those are
+    ``SpecTable[[#Data],[Column]]`` structured references, so a table sized
+    too short for the dataset silently drops the extra columns from every
+    constructor closure instead of erroring.
 
     Headers on row 3 are the existing column labels written by
     _write_spec_block; XlListObjectHasHeaders=xlYes tells Excel to
@@ -977,8 +1118,10 @@ def _create_spec_table(sheet: xw.Sheet) -> None:
     relevance, red/yellow error flags) reads clearly on top of it, instead
     of competing with Excel's un-pinned default banding.
     """
+    profile = profile or _AUTO_MPG_PROFILE
+    last_data_row = _FIRST_DATA_ROW + len(profile.variables) - 1
     table_range = sheet.range(
-        (_HEADER_ROW, _C_ROLE), (_LAST_DATA_ROW, _C_REF_IN_USE)
+        (_HEADER_ROW, _C_ROLE), (last_data_row, _C_REF_IN_USE)
     )
     table = sheet.api.ListObjects.Add(
         SourceType=XL_SRC_RANGE,

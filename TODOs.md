@@ -531,7 +531,7 @@ Three-stage scope carried forward: user-supplied weights →
 variance-driver-derived weights → FGLS. This milestone ships the first stage
 only. The default-uniform → OLS pattern (the
 "non-breaking MINOR" guarantee) is in
-[DECISIONS.md § v2.6 WLS](DECISIONS.md#v25--claimed).
+[DECISIONS.md § v2.6 WLS](DECISIONS.md#v26--wls-weight-role-default-uniform-weights-argument).
 
 - TODO: Implement the `Weight` Role (at most one, per the cardinality
   rule that Response, Time, and Weight share; status-block validation

@@ -25,7 +25,7 @@
       "name": "Regression_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(X, [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    COLUMNS(X) - N(has_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    COLUMNS(X) - N(has_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -46,7 +46,7 @@
       "name": "Total_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    n,        Observations(Y, filt_arg),\n    n - N(has_arg)\n  ))",
+      "formula_display": "=LAMBDA(Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    n,        Observations(Y, filt_arg),\n    n - N(has_arg)\n  ))",
       "arguments": [
         {
           "name": "Y",
@@ -72,7 +72,7 @@
       "name": "R_Squared",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    1 - SS_Residual(X, Y, filt_arg) / SS_Total(X, Y, filt_arg, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    1 - SS_Residual(X, Y, filt_arg) / SS_Total(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -102,7 +102,7 @@
       "name": "Residual_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    Observations(Y, filt_arg) - COLUMNS(X) - absorbed_arg\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Observations(Y, filt_arg) - COLUMNS(X) - absorbed_arg\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -132,7 +132,7 @@
       "name": "Multiple_R",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SQRT(R_Squared(X, Y, filt_arg, context_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SQRT(R_Squared(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -162,7 +162,7 @@
       "name": "Adjusted_R_Squared",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, INDEX(context_arg, 2),\n    1 - (1 - R_Squared(X, Y, filt_arg, context_arg))\n      * Total_Degrees_Of_Freedom(Y, filt_arg, context_arg)\n      / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    1 - (1 - R_Squared(X, Y, filt_arg, context_arg))\n      * Total_Degrees_Of_Freedom(Y, filt_arg, context_arg)\n      / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -192,7 +192,7 @@
       "name": "SS_Total",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    y_filt,   FILTER(Y, filt_arg),\n    IF(NOT(has_arg),\n      SUMSQ(y_filt),\n      LET(\n        c, FILTER(CHOOSECOLS(X, 1), filt_arg),\n        SUMSQ(y_filt) - SUMPRODUCT(c, y_filt) ^ 2 / SUMSQ(c)\n      )\n    )\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    y_filt,   FILTER(Y, filt_arg),\n    IF(NOT(has_arg),\n      SUMSQ(y_filt),\n      LET(\n        c, FILTER(CHOOSECOLS(X, 1), filt_arg),\n        SUMSQ(y_filt) - SUMPRODUCT(c, y_filt) ^ 2 / SUMSQ(c)\n      )\n    )\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -247,7 +247,7 @@
       "name": "SS_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Total(X, Y, filt_arg, context_arg) - SS_Residual(X, Y, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Total(X, Y, filt_arg, context_arg) - SS_Residual(X, Y, filt_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -277,7 +277,7 @@
       "name": "MS_Regression",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Regression(X, Y, filt_arg, context_arg) / Regression_Degrees_Of_Freedom(X, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Regression(X, Y, filt_arg, context_arg) / Regression_Degrees_Of_Freedom(X, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -307,7 +307,7 @@
       "name": "MS_Residual",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -337,7 +337,7 @@
       "name": "SE_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    SQRT(SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SQRT(SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -392,7 +392,7 @@
       "name": "AIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + 2 * p\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + 2 * p\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -422,7 +422,7 @@
       "name": "BIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + p * LN(n)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + p * LN(n)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -452,7 +452,7 @@
       "name": "AICc",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -574,7 +574,7 @@
       "name": "QQ_Correlation",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    sr, Scaled_Residuals_Ranked(X, Y, filt_arg, context_arg),\n    n,  ROWS(sr),\n    ns, NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    sr, Scaled_Residuals_Ranked(X, Y, filt_arg, context_arg),\n    n,  ROWS(sr),\n    ns, NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -629,7 +629,7 @@
       "name": "SE_Coefficients",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    ls,       LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, TRUE),\n    ses,      INDEX(ls, 2),\n    k,        COLUMNS(X),\n    naive_df, Residual_Degrees_Of_Freedom(X, Y, filt_arg),\n    true_df,  naive_df - absorbed_arg,\n    scale,    SQRT(naive_df / true_df),\n    TRANSPOSE(CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))) * scale\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    ls,       LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, TRUE),\n    ses,      INDEX(ls, 2),\n    k,        COLUMNS(X),\n    naive_df, Residual_Degrees_Of_Freedom(X, Y, filt_arg),\n    true_df,  naive_df - absorbed_arg,\n    scale,    SQRT(naive_df / true_df),\n    TRANSPOSE(CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))) * scale\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -659,7 +659,7 @@
       "name": "T_Statistics",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    Coefficients(X, Y, filt_arg) / SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg) / SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -689,7 +689,7 @@
       "name": "P_Values",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.00E+00",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    T.DIST.2T(ABS(T_Statistics(X, Y, filt_arg, context_arg)), Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    T.DIST.2T(ABS(T_Statistics(X, Y, filt_arg, context_arg)), Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -719,7 +719,7 @@
       "name": "Confidence_Interval_Lower",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    Coefficients(X, Y, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n        * SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n        * SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -754,7 +754,7 @@
       "name": "Confidence_Interval_Upper",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    Coefficients(X, Y, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n        * SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n        * SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -789,7 +789,7 @@
       "name": "Partial_R_Squared",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    t,  T_Statistics(X, Y, filt_arg, context_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t^2 / (t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    t,  T_Statistics(X, Y, filt_arg, context_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t^2 / (t^2 + df)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -819,7 +819,7 @@
       "name": "Partial_Correlation",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    t,  T_Statistics(X, Y, filt_arg, context_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t / SQRT(t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    t,  T_Statistics(X, Y, filt_arg, context_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t / SQRT(t^2 + df)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -849,7 +849,7 @@
       "name": "Beta_Weights",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg,   IF(ISOMITTED(Include),       TRUE, Include),\n    coefs,      Coefficients(X, Y, filt_arg),\n    preds,      IF(has_arg, DROP(X, , 1), X),\n    pred_coefs, IF(has_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(preds),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(preds, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,   IF(ISOMITTED(Include),       TRUE, Include),\n    coefs,      Coefficients(X, Y, filt_arg),\n    preds,      IF(has_arg, DROP(X, , 1), X),\n    pred_coefs, IF(has_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(preds),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(preds, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -969,7 +969,7 @@
       "name": "Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, X_new, [Include], [alpha], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg,      IF(ISOMITTED(Include),       TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),         0.05, alpha),\n    absorbed_arg, INDEX(context_arg, 2),\n    X_design,      Design_Matrix(X, filt_arg),\n    beta,          Coefficients(X, Y, filt_arg),\n    s,             SE_Regression(X, Y, filt_arg, context_arg),\n    df,            Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(has_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(X, Y, X_new, [Include], [alpha], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,      IF(ISOMITTED(Include),       TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),         0.05, alpha),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    X_design,      Design_Matrix(X, filt_arg),\n    beta,          Coefficients(X, Y, filt_arg),\n    s,             SE_Regression(X, Y, filt_arg, context_arg),\n    df,            Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(has_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -1008,7 +1008,7 @@
       "name": "Group_Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(Predictors, Y, X_new, group, selected_group, [Include], [alpha], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg,      IF(ISOMITTED(Include),       TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),         0.05, alpha),\n    absorbed_arg, INDEX(context_arg, 2),\n    x_within,      LET(\n                       n_x,   COLUMNS(Predictors),\n                       seed,  SEQUENCE(ROWS(Predictors), 1, 0, 0),\n                       built, REDUCE(seed, SEQUENCE(n_x), LAMBDA(acc, j,\n                           HSTACK(acc, Demean_By(INDEX(Predictors, 0, j), group, filt_arg))\n                       )),\n                       DROP(built, , 1)\n                   ),\n    y_within,      Demean_By(Y, group, filt_arg),\n    design_within, IF(has_arg, HSTACK(SEQUENCE(ROWS(x_within), 1, 1, 0), x_within), x_within),\n    beta_full,     Coefficients(design_within, y_within, filt_arg),\n    beta,          IF(has_arg, DROP(beta_full, 1), beta_full),\n    s,             SE_Regression(design_within, y_within, filt_arg, context_arg),\n    df,            Residual_Degrees_Of_Freedom(design_within, y_within, filt_arg, context_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    X_design,      Design_Matrix(x_within, filt_arg),\n    XtX_inv,       Gram_Inverse(X_design),\n    xbar_i,        TRANSPOSE(BYCOL(Predictors, LAMBDA(col, Group_Mean_At(col, group, selected_group, filt_arg)))),\n    ybar_i,        Group_Mean_At(Y, group, selected_group, filt_arg),\n    T_i,           Group_Count_At(group, selected_group, filt_arg),\n    deviation,     X_new - xbar_i,\n    quad,          MMULT(MMULT(TRANSPOSE(deviation), XtX_inv), deviation),\n    point_est,     ybar_i + SUMPRODUCT(deviation, beta),\n    se_mean,       s * SQRT(1 / T_i + quad),\n    se_new,        s * SQRT(1 + 1 / T_i + quad),\n    margin_mean,   t_crit * se_mean,\n    margin_new,    t_crit * se_new,\n    VSTACK(\n      point_est,\n      se_mean,\n      se_new,\n      t_crit,\n      point_est - margin_mean,\n      point_est + margin_mean,\n      point_est - margin_new,\n      point_est + margin_new,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(Predictors, Y, X_new, group, selected_group, [Include], [alpha], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,      IF(ISOMITTED(Include),       TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),         0.05, alpha),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    x_within,      LET(\n                       n_x,   COLUMNS(Predictors),\n                       seed,  SEQUENCE(ROWS(Predictors), 1, 0, 0),\n                       built, REDUCE(seed, SEQUENCE(n_x), LAMBDA(acc, j,\n                           HSTACK(acc, Demean_By(INDEX(Predictors, 0, j), group, filt_arg))\n                       )),\n                       DROP(built, , 1)\n                   ),\n    y_within,      Demean_By(Y, group, filt_arg),\n    design_within, IF(has_arg, HSTACK(SEQUENCE(ROWS(x_within), 1, 1, 0), x_within), x_within),\n    beta_full,     Coefficients(design_within, y_within, filt_arg),\n    beta,          IF(has_arg, DROP(beta_full, 1), beta_full),\n    s,             SE_Regression(design_within, y_within, filt_arg, context_arg),\n    df,            Residual_Degrees_Of_Freedom(design_within, y_within, filt_arg, context_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    X_design,      Design_Matrix(x_within, filt_arg),\n    XtX_inv,       Gram_Inverse(X_design),\n    xbar_i,        TRANSPOSE(BYCOL(Predictors, LAMBDA(col, Group_Mean_At(col, group, selected_group, filt_arg)))),\n    ybar_i,        Group_Mean_At(Y, group, selected_group, filt_arg),\n    T_i,           Group_Count_At(group, selected_group, filt_arg),\n    deviation,     X_new - xbar_i,\n    quad,          MMULT(MMULT(TRANSPOSE(deviation), XtX_inv), deviation),\n    point_est,     ybar_i + SUMPRODUCT(deviation, beta),\n    se_mean,       s * SQRT(1 / T_i + quad),\n    se_new,        s * SQRT(1 + 1 / T_i + quad),\n    margin_mean,   t_crit * se_mean,\n    margin_new,    t_crit * se_new,\n    VSTACK(\n      point_est,\n      se_mean,\n      se_new,\n      t_crit,\n      point_est - margin_mean,\n      point_est + margin_mean,\n      point_est - margin_new,\n      point_est + margin_new,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
           "name": "Predictors",
@@ -1245,7 +1245,7 @@
       "name": "Scaled_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    Residuals(X, Y, filt_arg)\n      / SE_Regression(X, Y, filt_arg, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Residuals(X, Y, filt_arg)\n      / SE_Regression(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -1411,7 +1411,7 @@
       "name": "Studentized_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    e,  Residuals(X, Y, filt_arg),\n    se, SE_Regression(X, Y, filt_arg, context_arg),\n    h,  Hat_Diagonal(X, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    e,  Residuals(X, Y, filt_arg),\n    se, SE_Regression(X, Y, filt_arg, context_arg),\n    h,  Hat_Diagonal(X, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -1441,7 +1441,7 @@
       "name": "Studentized_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    SORT(Studentized_Residuals(X, Y, filt_arg, context_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SORT(Studentized_Residuals(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -1471,7 +1471,7 @@
       "name": "Cooks_Distance",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    r, Studentized_Residuals(X, Y, filt_arg, context_arg),\n    h, Hat_Diagonal(X, filt_arg),\n    p, COLUMNS(Design_Matrix(X, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    r, Studentized_Residuals(X, Y, filt_arg, context_arg),\n    h, Hat_Diagonal(X, filt_arg),\n    p, COLUMNS(Design_Matrix(X, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -1501,7 +1501,7 @@
       "name": "Scaled_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    absorbed_arg, INDEX(context_arg, 2),\n    SORT(Scaled_Residuals(X, Y, filt_arg, context_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SORT(Scaled_Residuals(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -1676,7 +1676,7 @@
       "name": "F_Statistic",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, INDEX(context_arg, 2),\n    MS_Regression(X, Y, filt_arg, context_arg) / MS_Residual(X, Y, filt_arg, context_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    MS_Regression(X, Y, filt_arg, context_arg) / MS_Residual(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -1706,7 +1706,7 @@
       "name": "F_Statistic_P_Value",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), VSTACK(TRUE,0,\"None\",\"None\"), Context),\n    has_arg,      INDEX(context_arg, 1),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, INDEX(context_arg, 2),\n    F.DIST.RT(\n      F_Statistic(X, Y, filt_arg, context_arg),\n      Regression_Degrees_Of_Freedom(X, context_arg),\n      Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n    )\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    F.DIST.RT(\n      F_Statistic(X, Y, filt_arg, context_arg),\n      Regression_Degrees_Of_Freedom(X, context_arg),\n      Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n    )\n  ))",
       "arguments": [
         {
           "name": "X",
@@ -3072,7 +3072,7 @@
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
       "number_format": "General",
-      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    has_int,   INDEX(Model_Context(), 1) = 1,\n    ones,      SEQUENCE(ROWS(Source_Data), 1, 1, 0),\n    k_p,       IFERROR(COLUMNS(Predictor_Columns()), 0),\n    IF(k_p = 0,\n       IF(has_int, ones, Predictor_Columns()),\n       LET(\n           demeaned, IF(NOT(fe_active),\n                        Predictor_Columns(),\n                        LET(\n                            fe,    Fixed_Effects_Column(),\n                            inc,   Sample_Include(),\n                            xp,    Predictor_Columns(),\n                            seed,  SEQUENCE(ROWS(xp), 1, 0, 0),\n                            built, REDUCE(seed, SEQUENCE(k_p), LAMBDA(acc, j,\n                                HSTACK(acc, Demean_By(INDEX(xp, 0, j), fe, inc))\n                            )),\n                            DROP(built, , 1)\n                        )),\n           IF(has_int, HSTACK(ones, demeaned), demeaned)\n       )\n    )\n))",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    has_int,   Context_Has_Intercept(Fit_Context()) = 1,\n    ones,      SEQUENCE(ROWS(Source_Data), 1, 1, 0),\n    k_p,       IFERROR(COLUMNS(Predictor_Columns()), 0),\n    IF(k_p = 0,\n       IF(has_int, ones, Predictor_Columns()),\n       LET(\n           demeaned, IF(NOT(fe_active),\n                        Predictor_Columns(),\n                        LET(\n                            fe,    Fixed_Effects_Column(),\n                            inc,   Sample_Include(),\n                            xp,    Predictor_Columns(),\n                            seed,  SEQUENCE(ROWS(xp), 1, 0, 0),\n                            built, REDUCE(seed, SEQUENCE(k_p), LAMBDA(acc, j,\n                                HSTACK(acc, Demean_By(INDEX(xp, 0, j), fe, inc))\n                            )),\n                            DROP(built, , 1)\n                        )),\n           IF(has_int, HSTACK(ones, demeaned), demeaned)\n       )\n    )\n))",
       "arguments": [],
       "yields": "The fit-time design matrix: X() unchanged when no Fixed Effects row is declared, or each of its columns one-way within-transformed (group-demeaned) when one is; full height, same width as X().",
       "description": "Design_Columns is the fit-time design matrix for the Regression sheet — the predictor-side counterpart to Design_Response. With no declared Fixed Effects row it is X() unchanged; with one declared, a REDUCE+HSTACK builds a new matrix column-by-column, demeaning each constructed column of X() by the Fixed Effects group via Demean_By, reproducing the LSDV fit's coefficients on the non-FE predictors without ever materializing the G−1 group dummy columns an explicit one-hot encoding would require. (Not BYCOL: Demean_By returns a whole column, and BYCOL's callback contract requires a single scalar per call — the same REDUCE+HSTACK pattern X() itself uses for column-by-column assembly.)\n\nShipped as a NEW function alongside Design_Response, for the identical reason: X() has raw-predictor consumers that must not see demeaned values — the Predictor Summary zone (Pearson_R, Spearman_R, Skewness, Kurtosis, GVIF, Generalized_Tolerance) characterizes each predictor's own distribution, and Constructed_Column_Names() labels columns positionally against X(), not Design_Columns(). Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, Hat_Diagonal, Cooks_Distance, and everything built from them) is repointed to Design_Columns() — repointing which columns those formulas READ, not a change to what X() itself returns.\n\nThe no-FE branch returns X() itself, unchanged, so every existing no-FE model is unaffected by construction — including its error behavior: a zero-predictor spec that makes X() itself error propagates through Design_Columns() identically, never masked.",
@@ -3168,6 +3168,82 @@
       "description": "Model_Context is the constructor for the bounded 4x1 context array threaded through the v3.0 engine as the [Context] argument. It bundles the spec-derived scalars an engine function cannot derive from its own design-matrix argument: the intercept flag (column-1 identity, not a synthesize switch), the fixed-effects absorbed df, and the two transform summaries. Free-form callers outside the Regression sheet build a context with it; on the Regression sheet the context is materialized once into a spill range and read back by a sheet-scoped Model_Context() thunk, so this workbook function is shadowed there by design.",
       "plain_language_summary": "Build the 4-row context array (intercept flag, absorbed df, response transform, predictor transform) that every v3.0 engine function receives.",
       "notes": "Row order is a versioned public contract - append only, never insert. ROWS(Model_Context()) is the build-time constant asserted in the build. Defaults reproduce the pre-v3.0 no-intercept-extra, no-FE surface: VSTACK(TRUE,0,'None','None')."
+    },
+    {
+      "name": "Context_Has_Intercept",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Context Accessor",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(Context,\n  INDEX(Context, 1)\n)",
+      "arguments": [
+        {
+          "name": "Context",
+          "description": "the intercept flag (column-1 identity, not a synthesize switch) - element 1 of Model_Context()",
+          "optional": false
+        }
+      ],
+      "yields": "Element 1 of the Model_Context() 4x1 array.",
+      "description": "Accessor for element 1 of the v3.0 [Context] array. Routing every context read through this one-line function means the Model_Context row order is a contract enforced in one place rather than 32 hard-coded positional indices.",
+      "plain_language_summary": "Read element 1 of the model context array.",
+      "notes": "Part of the v3.0 context row-order contract (append only, never insert)."
+    },
+    {
+      "name": "Context_DF_Absorbed",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Context Accessor",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(Context,\n  INDEX(Context, 2)\n)",
+      "arguments": [
+        {
+          "name": "Context",
+          "description": "the fixed-effects absorbed degrees of freedom - element 2 of Model_Context()",
+          "optional": false
+        }
+      ],
+      "yields": "Element 2 of the Model_Context() 4x1 array.",
+      "description": "Accessor for element 2 of the v3.0 [Context] array. Routing every context read through this one-line function means the Model_Context row order is a contract enforced in one place rather than 32 hard-coded positional indices.",
+      "plain_language_summary": "Read element 2 of the model context array.",
+      "notes": "Part of the v3.0 context row-order contract (append only, never insert)."
+    },
+    {
+      "name": "Context_Response_Transform",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Context Accessor",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(Context,\n  INDEX(Context, 3)\n)",
+      "arguments": [
+        {
+          "name": "Context",
+          "description": "the response transform summary (None/Log) - element 3 of Model_Context()",
+          "optional": false
+        }
+      ],
+      "yields": "Element 3 of the Model_Context() 4x1 array.",
+      "description": "Accessor for element 3 of the v3.0 [Context] array. Routing every context read through this one-line function means the Model_Context row order is a contract enforced in one place rather than 32 hard-coded positional indices.",
+      "plain_language_summary": "Read element 3 of the model context array.",
+      "notes": "Part of the v3.0 context row-order contract (append only, never insert)."
+    },
+    {
+      "name": "Context_Predictor_Transform",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Context Accessor",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(Context,\n  INDEX(Context, 4)\n)",
+      "arguments": [
+        {
+          "name": "Context",
+          "description": "the predictor transform summary (None/Log/Mixed) - element 4 of Model_Context()",
+          "optional": false
+        }
+      ],
+      "yields": "Element 4 of the Model_Context() 4x1 array.",
+      "description": "Accessor for element 4 of the v3.0 [Context] array. Routing every context read through this one-line function means the Model_Context row order is a contract enforced in one place rather than 32 hard-coded positional indices.",
+      "plain_language_summary": "Read element 4 of the model context array.",
+      "notes": "Part of the v3.0 context row-order contract (append only, never insert)."
     }
   ],
   "regression_sheet_notes": {

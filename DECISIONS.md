@@ -1138,10 +1138,9 @@ should the engine receive properties of the fit?
 
 **Resolution:** a bounded, fixed-height array holding **only the minimum each
 engine function needs that it cannot derive from its own arguments**. It is
-materialized once into a spill range on the Regression sheet with a named range
-over it, and `Model_Context()` is a LAMBDA that *reads the materialized range*
-rather than recomputing — the same pattern as `Base_Period_Delta()` reading spec
-column J.
+materialized once into a spill range on the Regression sheet, and a sheet-scoped
+reader `Fit_Context()` *reads that materialized range* rather than recomputing —
+the same pattern as `Base_Period_Delta()` reading spec column J.
 
 **Contents — exactly four elements:**
 
@@ -1192,6 +1191,37 @@ constant and should be asserted in the build.
 
 **Row order is a versioned public contract.** Append only, never insert — the
 same discipline as reserved spec columns F and G.
+
+**Two names, by design (v3.0 stage two).** `Model_Context(...)` is the
+workbook-scoped constructor — the one definition of the default context, and
+what every carrier's omitted-`[Context]` default routes through. `Fit_Context()`
+is the sheet-scoped reader — a zero-arg thunk over the fixed materialized range,
+and what the ~30 Regression sheet call sites pass so they read the actual
+spec-derived context rather than the constructor default. Splitting the names
+keeps `Model_Context` unshadowed: a single sheet-scoped thunk named
+`Model_Context` would make `Model_Context()` in a sheet cell resolve to the
+materialized values while the same token in a carrier's omitted-default
+resolved to the workbook constructor — the invisible shadowing the v3.0 release
+exists to remove.
+
+**The row order is enforced in one place.** Four workbook-scoped accessors —
+`Context_Has_Intercept`, `Context_DF_Absorbed`,
+`Context_Response_Transform`, `Context_Predictor_Transform`, each
+`=LAMBDA(Context, INDEX(Context, N))` for N = 1..4 — are the only context
+reads. Carriers route `Context_Has_Intercept(context_arg)` /
+`Context_DF_Absorbed(context_arg)`, never a bare `INDEX(context_arg, N)`, so a
+future row insertion changes one accessor instead of 32 hard-coded positional
+indices.
+
+**All four rows land together.** Elements 1-2 (the C2 `Allow_Intercept`
+toggle, `Absorbed_Degrees_Of_Freedom()`) feed today's engines; elements 3-4
+(the response transform, and the `None`/`Log`/`Mixed` summary over the included
+Continuous predictors) have no engine reader until the v3.3 unit-space
+dispatcher. They are populated from the spec block now, not left as `"None"`,
+because the row order is the contract that is expensive to change later. An
+error in an unconsumed row is contained: the engines read only elements 1-2
+through the accessors, so a bad spec name surfaces as a visible cell error
+(caught by the headless verifier) without shifting a fitted number.
 
 **Performance rationale.** Names whose Refers To is a formula are re-evaluated at
 every use site; Excel does not memoize them. A materialized cell is computed once.
@@ -1663,11 +1693,12 @@ spill is a separate, Excel-verified follow-up.
 
 **Rationale:** the two artifacts have different risk profiles.
 
-- `Model_Context` is **bounded** — `ROWS(Model_Context())` is a 4-row
-  build-time constant. The thunk reads a **fixed range** (`$BO$2:$BO$5`), so
-  the `#` spill operator never enters a `LAMBDA` defined-name `RefersTo`. That
-  combination is the only unproven one in this workbook, and the fixed-range
-  read sidesteps it entirely. The materialization is safe to land blind.
+- `Model_Context` is **bounded** — `ROWS(Fit_Context())` is a 4-row
+  build-time constant. The sheet-scoped reader `Fit_Context` reads a **fixed
+  range** (`$BO$2:$BO$5`), so the `#` spill operator never enters a `LAMBDA`
+  defined-name `RefersTo`. That combination is the only unproven one in this
+  workbook, and the fixed-range read sidesteps it entirely. The materialization
+  is safe to land blind.
 - `Sample_Include` is **unbounded** — `n × 1`, sized to the source table. A
   thunk over it requires `#` inside the `RefersTo`, the combination not used
   anywhere else. A wrong guess breaks the row-mask contract that keeps every
@@ -1831,7 +1862,7 @@ against a workbook nobody can rebuild in CI.
 | Stage | Contents |
 |---|---|
 | 1 | The constructor pipeline and the intercept relocation |
-| 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; `Model_Context` materialized, `Sample_Include` placed at its final §4b position as a reserved placeholder (thunk materialization deferred to an Excel-verified follow-up) |
+| 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; the two-name split (`Model_Context` constructor / `Fit_Context` reader) keeps `Model_Context` unshadowed; four `Context_*` accessors make the row order a contract enforced in one place; all four context rows materialized (1-2 feed the engines, 3-4 populated from the spec block for v3.3); `Sample_Include` placed at its final §4b position as a reserved placeholder (thunk materialization deferred to an Excel-verified follow-up) |
 | 3 | Layout — interaction spec columns M/N reserved, the Design Columns audit column, the Constructed Design Matrix zone and its width guard |
 
 **Rationale:** the order is forced by the dependencies the scope entry already

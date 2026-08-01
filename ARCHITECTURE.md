@@ -22,8 +22,11 @@ what keeps the sheet's right edge from being consumed. Their rationale lives in
 
 v3.0 ships in three stages. **§4a is built**; §4b is stage three, so its layout
 is specification rather than description until then. Where a §4a example shows a
-`Model_Context()` argument, that is the stage-two signature — stage one threads
-an explicit `[Has_Intercept]` in its place, and stage two folds it in.
+`Fit_Context()` argument, that is the stage-two signature — stage one threads
+an explicit `[Has_Intercept]` in its place, and stage two folds it into a
+trailing `[Context]`. The sheet call passes the sheet-scoped reader
+`Fit_Context()`; a free-form caller outside the sheet passes the workbook-scoped
+constructor `Model_Context()`.
 
 ---
 
@@ -455,7 +458,7 @@ old names it was invisible — nothing in `X_s()` versus `X_s_Within()` said whi
 call site wanted which, and nothing enforced it. The names now carry it:
 
 ```excel
-R_Squared(Design_Columns(), Design_Response(), Sample_Include(), Model_Context())
+R_Squared(Design_Columns(), Design_Response(), Sample_Include(), Fit_Context())
 GVIF(Predictor_Columns())
 ```
 

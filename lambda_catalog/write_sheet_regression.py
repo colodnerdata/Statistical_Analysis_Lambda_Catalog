@@ -90,6 +90,8 @@ from .write_sheet_model_construction import (
     _RESERVED_NOTE,
     _RESPONSE_LOG_FORMULA,
     _RESPONSE_NAME_FORMULA,
+    _ROLE_PREDICTOR,
+    _ROLE_RESPONSE,
     _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
     _TRANSFORM_NOTE,
@@ -310,16 +312,17 @@ _C_GUTTER_AFTER_CONTEXT = _C_MODEL_CONTEXT + 1               # 68
 _C_SAMPLE_INCLUDE_MATERIALIZED = _C_GUTTER_AFTER_CONTEXT + 1  # 69 — n x 1 spill
 _C_GUTTER_AFTER_SAMPLE_INCLUDE = _C_SAMPLE_INCLUDE_MATERIALIZED + 1  # 70
 
-# Model_Context is a bounded, fixed-height cache. ROWS(Model_Context()) is a
+# Model_Context is a bounded, fixed-height cache. ROWS(Fit_Context()) is a
 # build-time constant asserted in _write_materialization_zone; the materialized
 # VSTACK below has exactly this many elements, so the assertion is structural.
 _MODEL_CONTEXT_ROWS = 4
 # The context's four elements, in versioned public-contract row order
 # (append-only, never insert): Has_Intercept, DF_Absorbed, Response_Transform,
-# Predictor_Transform. Stages one/two materialize elements 1-2 from the spec
-# block (the C2 Allow_Intercept toggle and Absorbed_Degrees_Of_Freedom()); the
-# transform summaries (elements 3-4) are reserved for the v3.3 unit-space
-# dispatcher and materialize as "None" until that wiring lands.
+# Predictor_Transform. All four are materialized from the spec block in
+# _write_materialization_zone: elements 1-2 (the C2 Allow_Intercept toggle and
+# Absorbed_Degrees_Of_Freedom()) feed today's engines; elements 3-4 (the
+# response and predictor transform summaries) have no engine reader until the
+# v3.3 unit-space dispatcher but land now so the row order is fixed.
 _MODEL_CONTEXT_ELEMENT_LABELS = (
     "Has_Intercept",
     "DF_Absorbed",
@@ -927,10 +930,10 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     # and Standard Error also carry the absorbed df (element 2 of Model_Context,
     # 0 with no FE row) so their df-dependent penalty/divisor is correct.
     for row, label, formula in [
-        (4, "Multiple R",        "=Multiple_R(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())"),
-        (5, "R Square",          "=R_Squared(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())"),
-        (6, "Adjusted R Square", "=Adjusted_R_Squared(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())"),
-        (7, "Standard Error",    "=SE_Regression(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())"),
+        (4, "Multiple R",        "=Multiple_R(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (5, "R Square",          "=R_Squared(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (6, "Adjusted R Square", "=Adjusted_R_Squared(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (7, "Standard Error",    "=SE_Regression(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
         (8, "Observations",      "=Observations(Design_Response(),Sample_Include())"),
     ]:
         val(sheet, row, _C_X, label)
@@ -949,7 +952,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
             5,
             "PRESS R²",
             "=1-PRESS(Design_Columns(),Design_Response(),Sample_Include())"
-            "/SS_Total(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())",
+            "/SS_Total(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())",
         ),
         (
             6,
@@ -957,10 +960,10 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
             "=COLUMNS(Design_Columns())"
             "/Observations(Design_Response(),Sample_Include())",
         ),
-        (7,  "AIC",            "=AIC(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())"),
-        (8,  "BIC",            "=BIC(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())"),
-        (9,  "AICc",           "=AICc(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())"),
-        (10, "QQ Correlation", "=QQ_Correlation(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())"),
+        (7,  "AIC",            "=AIC(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (8,  "BIC",            "=BIC(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (9,  "AICc",           "=AICc(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (10, "QQ Correlation", "=QQ_Correlation(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
     ]:
         val(sheet, row, _C_AA, label)
         f(sheet, row, _C_AB, formula)
@@ -1068,20 +1071,20 @@ def _write_anova(sheet: xw.Sheet) -> None:
     # fit-time pair (Design_Columns()/Design_Response()) — mixing a raw Total SS against
     # within Regression/Residual SS would break the ANOVA identity.
     val(sheet, 15, _C_X, "Regression")
-    f(sheet, 15, _C_Y, "=Regression_Degrees_Of_Freedom(Design_Columns(),Model_Context())")
-    f(sheet, 15, _C_Z, "=SS_Regression(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
-    f(sheet, 15, _C_AA, "=MS_Regression(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
-    f(sheet, 15, _C_AB, "=F_Statistic(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
-    f(sheet, 15, _C_AC, "=F_Statistic_P_Value(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
+    f(sheet, 15, _C_Y, "=Regression_Degrees_Of_Freedom(Design_Columns(),Fit_Context())")
+    f(sheet, 15, _C_Z, "=SS_Regression(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 15, _C_AA, "=MS_Regression(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 15, _C_AB, "=F_Statistic(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 15, _C_AC, "=F_Statistic_P_Value(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
 
     val(sheet, 16, _C_X, "Residual")
-    f(sheet, 16, _C_Y, "=Residual_Degrees_Of_Freedom(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
+    f(sheet, 16, _C_Y, "=Residual_Degrees_Of_Freedom(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
     f(sheet, 16, _C_Z, "=SS_Residual(Design_Columns(),Design_Response(),Sample_Include())")
-    f(sheet, 16, _C_AA, "=MS_Residual(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
+    f(sheet, 16, _C_AA, "=MS_Residual(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
 
     val(sheet, 17, _C_X, "Total")
-    f(sheet, 17, _C_Y, "=Total_Degrees_Of_Freedom(Design_Response(),Sample_Include(),Model_Context())")
-    f(sheet, 17, _C_Z, "=SS_Total(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
+    f(sheet, 17, _C_Y, "=Total_Degrees_Of_Freedom(Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 17, _C_Z, "=SS_Total(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
 
     sheet.range(rc(15, _C_Y), rc(17, _C_Y)).number_format = "0"
     sheet.range(rc(15, _C_Z), rc(17, _C_Z)).number_format = "0.0"
@@ -1130,19 +1133,19 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     f(sheet, 21, _C_Z,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,SE_Coefficients(Design_Columns(),Design_Response(),Sample_Include(),Model_Context()),'
-       'VSTACK("",SE_Coefficients(Design_Columns(),Design_Response(),Sample_Include(),Model_Context()))))')
+       'IF(Allow_Intercept,SE_Coefficients(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()),'
+       'VSTACK("",SE_Coefficients(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()))))')
     f(sheet, 21, _C_AA,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,T_Statistics(Design_Columns(),Design_Response(),Sample_Include(),Model_Context()),'
-       'VSTACK("",T_Statistics(Design_Columns(),Design_Response(),Sample_Include(),Model_Context()))))')
+       'IF(Allow_Intercept,T_Statistics(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()),'
+       'VSTACK("",T_Statistics(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()))))')
     f(sheet, 21, _C_AB,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
-       'IF(Allow_Intercept,P_Values(Design_Columns(),Design_Response(),Sample_Include(),Model_Context()),'
-       'VSTACK("",P_Values(Design_Columns(),Design_Response(),Sample_Include(),Model_Context()))))')
+       'IF(Allow_Intercept,P_Values(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()),'
+       'VSTACK("",P_Values(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()))))')
     # Confidence_Interval_Lower/Upper's [Context] sits after [Alpha], and
     # Excel LAMBDA calls cannot skip a middle optional argument — 0.05 is
     # passed explicitly here (matching the function's own internal default
@@ -1152,21 +1155,21 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,Confidence_Interval_Lower(Design_Columns(),Design_Response(),Sample_Include(),0.05,Model_Context()),'
-       'VSTACK("",Confidence_Interval_Lower(Design_Columns(),Design_Response(),Sample_Include(),0.05,Model_Context()))))')
+       'IF(Allow_Intercept,Confidence_Interval_Lower(Design_Columns(),Design_Response(),Sample_Include(),0.05,Fit_Context()),'
+       'VSTACK("",Confidence_Interval_Lower(Design_Columns(),Design_Response(),Sample_Include(),0.05,Fit_Context()))))')
     f(sheet, 21, _C_AD,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,Confidence_Interval_Upper(Design_Columns(),Design_Response(),Sample_Include(),0.05,Model_Context()),'
-       'VSTACK("",Confidence_Interval_Upper(Design_Columns(),Design_Response(),Sample_Include(),0.05,Model_Context()))))')
+       'IF(Allow_Intercept,Confidence_Interval_Upper(Design_Columns(),Design_Response(),Sample_Include(),0.05,Fit_Context()),'
+       'VSTACK("",Confidence_Interval_Upper(Design_Columns(),Design_Response(),Sample_Include(),0.05,Fit_Context()))))')
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     # No predictor exists to standardize in the zero-predictor branch, so render
     # blank (not an error) when Allow_Intercept is TRUE; NA() when nothing is fit.
     f(sheet, 21, _C_AE,
        '=IF(Zero_Predictors_Selected(),'
        'IF(Allow_Intercept,"",NA()),'
-       'VSTACK("",Beta_Weights(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())))')
+       'VSTACK("",Beta_Weights(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())))')
 
     for col in [_C_Y, _C_Z, _C_AA, _C_AC, _C_AD, _C_AE]:
         sheet.range(
@@ -1240,7 +1243,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         'pred_input,IF(trn="Log",Ln_Positive(raw),raw),'
         "Group_Prediction_Interval(Predictor_Columns(),Response_Column(),pred_input,"
         "Prediction_Group_Column(),$AH$12,"
-        "Sample_Include(),alpha,Model_Context())))",
+        "Sample_Include(),alpha,Fit_Context())))",
     )
     sheet.range(rc(3, _C_AH), rc(11, _C_AH)).number_format = "0.0000"
 
@@ -1469,14 +1472,14 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     f(sheet, 3, _C_AM, "=Predictions(Design_Columns(),Design_Response(),Sample_Include())")
     f(sheet, 3, _C_AN, "=Residuals(Design_Columns(),Design_Response(),Sample_Include())")
     f(sheet, 3, _C_AO, "=Hat_Diagonal(Design_Columns(),Sample_Include())")
-    f(sheet, 3, _C_AP, "=Studentized_Residuals(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
-    f(sheet, 3, _C_AQ, "=Cooks_Distance(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
+    f(sheet, 3, _C_AP, "=Studentized_Residuals(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 3, _C_AQ, "=Cooks_Distance(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
     f(sheet, 3, _C_AR, "=SORT(Normal_Scores(Design_Response(),Sample_Include()))")
-    f(sheet, 3, _C_AS, "=Studentized_Residuals_Ranked(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())")
+    f(sheet, 3, _C_AS, "=Studentized_Residuals_Ranked(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
     f(
         sheet, 3, _C_AT,
-        "=SQRT(ABS(Studentized_Residuals(Design_Columns(),Design_Response(),Sample_Include(),Model_Context())))",
+        "=SQRT(ABS(Studentized_Residuals(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())))",
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
     f(sheet, 3, _C_AU, "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())")
@@ -1605,12 +1608,38 @@ def _write_materialization_zone(
 ) -> None:
     """Write the ARCHITECTURE §4b materialization band at the sheet's far right.
 
-    ``Model_Context`` is the bounded 4x1 cache of spec-derived scalars every v3.0
-    engine function reads through its ``[Context]`` argument. It is materialized
-    ONCE into a spill cell (Excel does not memoize a name whose RefersTo is a
-    formula, so a constructor inside ~30 engine calls runs ~30 times); a
-    sheet-scoped ``Model_Context`` thunk reads that fixed range, so the ~30 call
-    sites that pass ``Model_Context()`` all read the one materialized cell.
+    Two names share the model context, by design (v3.0 stage two):
+
+    ``Model_Context(...)`` is the WORKBOOK-scoped constructor — the one
+    definition of the default context (Has_Intercept=TRUE, DF_Absorbed=0,
+    both transforms "None"). It takes optional overrides, is what every
+    engine's omitted-[Context] default routes through, and is what the MLR
+    test sheets call with a per-row flag.
+
+    ``Fit_Context()`` is the SHEET-scoped reader — a zero-arg thunk over the
+    FIXED range holding the materialized 4x1 spill. It is what the ~30
+    Regression sheet call sites pass, so they read the actual spec-derived
+    context (the C2 Allow_Intercept toggle, the Absorbed_Degrees_Of_Freedom()
+    closure, the spec-block transform summaries) rather than the constructor
+    default. Splitting the names keeps ``Model_Context`` unshadowed: a single
+    sheet-scoped thunk named ``Model_Context`` would make ``Model_Context()``
+    in a sheet cell resolve to the materialized values while the same token in
+    a carrier's omitted-default resolved to the workbook constructor — the
+    invisible shadowing the v3.0 release exists to remove.
+
+    The context is materialized ONCE into a spill cell (Excel does not memoize
+    a name whose RefersTo is a formula, so a constructor inside ~30 engine
+    calls runs ~30 times); ``Fit_Context`` reads that fixed range, so the ~30
+    call sites that pass ``Fit_Context()`` all read the one materialized cell.
+
+    Elements 3-4 (Response_Transform, Predictor_Transform) are populated from
+    the spec block now but have no engine reader until the v3.3 unit-space
+    dispatcher; the row order is the contract that is expensive to change
+    later, so all four rows land together. An error in an unconsumed row is
+    contained: ``VSTACK`` returns a 4-row array with the error in one cell, and
+    the engines read only elements 1-2 through the accessors, so a bad name
+    surfaces as a visible cell error (caught by the headless verifier) without
+    shifting a single fitted number.
 
     The ``Sample_Include`` column is placed at its final §4b position as a
     RESERVED placeholder. Promoting the live ``Sample_Include()`` closure to a
@@ -1632,17 +1661,36 @@ def _write_materialization_zone(
         )
 
     # ── Model_Context (4x1) ──────────────────────────────────────────────────
-    # Elements 1-2 from the spec block (the C2 Allow_Intercept toggle and the
-    # Absorbed_Degrees_Of_Freedom() closure); elements 3-4 reserved for the
-    # v3.3 unit-space dispatcher and materialized as "None" until that wiring
-    # lands. The VSTACK length IS the build-time constant; the assert below
-    # pins it to _MODEL_CONTEXT_ROWS so a future edit that changes the context
-    # height fails the build loudly rather than shifting every engine call.
+    # Element 1 is the C2 Allow_Intercept toggle (named range). Element 2 is
+    # the Absorbed_Degrees_Of_Freedom() Regression closure. Elements 3-4 are
+    # the spec-block transform summaries: row 3 the single response transform
+    # (mirrors _RESPONSE_LOG_FORMULA's INDEX/XMATCH over the spec rows); row 4
+    # the None/Log/Mixed summary over the INCLUDED CONTINUOUS predictors — masked
+    # to Continuous so a Categorical dummy's transform never yields a false
+    # "Mixed". Both reference worksheet-scoped spec names on this sheet. The
+    # VSTACK length IS the build-time constant; the assert below pins it to
+    # _MODEL_CONTEXT_ROWS so a future edit that changes the context height
+    # fails the build loudly rather than shifting every engine call.
+    response_transform = (
+        'IFERROR(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),'
+        f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"None")'
+    )
+    predictor_transform = (
+        "LET(n_c,COLUMNS(Source_Data),"
+        "rl,TAKE(Spec_Role,n_c),"
+        "inc,TAKE(Spec_Include,n_c),"
+        "typ,TAKE(Spec_Type,n_c),"
+        "trn,TAKE(Spec_Transform,n_c),"
+        f'mask,(rl="{_ROLE_PREDICTOR}")*(inc=TRUE)*(typ="Continuous"),'
+        'nL,SUMPRODUCT(mask*N(trn="Log")),'
+        'nN,SUMPRODUCT(mask*N(trn="None")),'
+        'IF(nL=0,"None",IF(nN=0,"Log","Mixed")))'
+    )
     context_elements = (
         "Allow_Intercept",
         "Absorbed_Degrees_Of_Freedom()",
-        '"None"',
-        '"None"',
+        response_transform,
+        predictor_transform,
     )
     assert len(context_elements) == _MODEL_CONTEXT_ROWS
     spill_formula = "=VSTACK(" + ",".join(context_elements) + ")"
@@ -1651,23 +1699,26 @@ def _write_materialization_zone(
     section_heading(sheet, 1, _C_MODEL_CONTEXT, "Model Context")
     f(sheet, 2, _C_MODEL_CONTEXT, spill_formula)
     # The materialized spill occupies rows 2 .. 1 + _MODEL_CONTEXT_ROWS; the
-    # sheet-scoped thunk reads that fixed range (no spill operator — the
-    # height is a structural constant, so a fixed range is exact and avoids
-    # the dynamic-array-in-a-name question entirely).
+    # sheet-scoped reader Fit_Context reads that fixed range (no spill operator
+    # — the height is a structural constant, so a fixed range is exact and
+    # avoids the dynamic-array-in-a-name question entirely). Drop both the
+    # legacy "Model_Context" sheet name (left by a pre-split build) and any
+    # stale "Fit_Context" before re-adding, so a rebuild never leaves a shadow.
     ctx_ref = f"'{sname}'!${ctx_col}$2:${ctx_col}${1 + _MODEL_CONTEXT_ROWS}"
     drop_local_name(sheet, "Model_Context")
+    drop_local_name(sheet, "Fit_Context")
     sheet.api.Names.Add(
-        Name="Model_Context",
+        Name="Fit_Context",
         RefersTo=f"=LAMBDA({ctx_ref})",
     )
-    # Runtime build assertion: ROWS(Model_Context()) is the build-time constant.
+    # Runtime build assertion: ROWS(Fit_Context()) is the build-time constant.
     # Displays TRUE when the materialized context has exactly _MODEL_CONTEXT_ROWS
     # rows; a verifier (or the user) reads this cell to confirm the invariant.
     f(
         sheet,
         2 + _MODEL_CONTEXT_ROWS,
         _C_MODEL_CONTEXT,
-        f"=ROWS(Model_Context())={_MODEL_CONTEXT_ROWS}",
+        f"=ROWS(Fit_Context())={_MODEL_CONTEXT_ROWS}",
     )
 
     # ── Sample_Include (reserved) ────────────────────────────────────────────
@@ -2075,7 +2126,7 @@ def write_regression_output_sheet(
     except Exception:
         pass
 
-    # §4b materialization zone: Model_Context (4x1, materialized + thunk name)
+    # §4b materialization zone: Model_Context (4x1, materialized spill) read via
     # and the reserved Sample_Include column, placed at their final far-right
     # positions with gutters. Runs after the column widths and zone groups so
     # the chart-footprint clearance assertion sees the final geometry. Plain

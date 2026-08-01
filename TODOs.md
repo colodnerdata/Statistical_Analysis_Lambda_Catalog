@@ -175,11 +175,11 @@ live in
 [ROADMAP.md](ROADMAP.md) and
 [DECISIONS.md § v3.0 ships in three stages](DECISIONS.md#v30-ships-in-three-stages).
 
-### Stage 1 — constructor pipeline + intercept relocation — CODE COMPLETE, **VERIFICATION GATE OUTSTANDING**
+### Stage 1 — constructor pipeline + intercept relocation — BUILT AND VERIFIED
 
-Not "built and verified" in the sense the v2.1 row uses. The code is written
-and the headless layers pass; the spec-driven Excel gate below has **not**
-been run, and stage 1 is not finished until it has.
+The code is written, the headless layers pass, and the spec-driven Excel gate
+has reported **0 mismatches across all 12 QC cases** on a developer machine —
+the standard the v2.1 row uses. Stage 1 shipped merged as #148.
 
 - DONE: Stage 1 — the constructor pipeline + intercept relocation
   landed (merged as #148): the `X_s()`/`X_s_Within()`/`y_s()` →
@@ -193,11 +193,11 @@ been run, and stage 1 is not finished until it has.
   argument names (`make_test_sheet.build_call`). Design rationale in
   [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
-- TODO: **Run the spec-driven verifier on a machine with Excel** —
+- DONE: **Spec-driven verifier passed on a machine with Excel** —
   `python build_production.py --verify --no-launch
-  --skip-data-table-calculations --skip-univariate`. Stage 1 must report
-  **0 mismatches across all 12 QC cases**: it changes where the intercept
-  is created, not what is fitted, so any mismatch is a bug rather than an
+  --skip-data-table-calculations --skip-univariate` reported 0 mismatches
+  across all 12 QC cases. Stage 1 changes where the intercept is created,
+  not what is fitted, so any mismatch would have been a bug rather than an
   expected delta. Not runnable in CI (no Office on the GitHub-hosted
   runner) — see [CONTRIBUTING.md](CONTRIBUTING.md) → *Verifying builds*.
 
@@ -213,32 +213,63 @@ been run, and stage 1 is not finished until it has.
 ### Stage 2 — `Model_Context` — CODE COMPLETE, **VERIFICATION GATE OUTSTANDING**
 
 Not "built and verified" — the code is written and the headless layers
-pass; the spec-driven Excel gate below has **not** been run, and stage 2 is
-not finished until it has. (Same standard as stage 1.)
+pass; the spec-driven Excel gate below has **not** been run on the aligned
+form, and stage 2 is not finished until it has. (Same standard as stage 1.)
 
 - DONE: Engine — the 32 carriers (13 `[Has_Intercept]`-only + 19
   `[DF_Absorbed]`-only + 5 dual) collapsed `[Has_Intercept]` and
   `[DF_Absorbed]` into a single trailing `[Context]` argument. Each
-  carrier's LET binds `context_arg, IF(ISOMITTED(Context),
-  VSTACK(TRUE,0,"None","None"), Context)` once and extracts
-  `has_arg, INDEX(context_arg,1)` / `absorbed_arg, INDEX(context_arg,2)`;
-  inter-carrier calls drop the two tokens and append `context_arg`. The
-  workbook `Model_Context` constructor (category *Model Construction*,
-  subcategory *Context Constructor*, scope defaults *workbook*) builds the
-  4×1 array `[Has_Intercept, DF_Absorbed, Response_Transform,
-  Predictor_Transform]` — the free-form-caller path outside the Regression
-  sheet. `Design_Columns` reads `INDEX(Model_Context(),1)=1` (was
-  `N(Allow_Intercept)=1`). Pinned by `test_intercept_relocation` and
-  `test_df_absorbed_threading`.
+  carrier's LET binds `context_arg, IF(ISOMITTED(Context), Model_Context(),
+  Context)` once and reads `has_arg, Context_Has_Intercept(context_arg)` /
+  `absorbed_arg, Context_DF_Absorbed(context_arg)` — never a bare
+  `INDEX(context_arg, N)`, so the context row order is a contract enforced
+  in one place (the accessors), not 32 hard-coded positional indices. The
+  omitted-`[Context]` default routes through the `Model_Context()`
+  constructor (one definition of the default), not a per-carrier inline
+  `VSTACK`. Inter-carrier calls drop the two tokens and append
+  `context_arg`. The workbook `Model_Context` constructor (category
+  *Model Construction*, subcategory *Context Constructor*, scope defaults
+  *workbook*) builds the 4×1 array `[Has_Intercept, DF_Absorbed,
+  Response_Transform, Predictor_Transform]`. `Design_Columns` (the only
+  Regression-scoped closure that reads the context) reads
+  `Context_Has_Intercept(Fit_Context())=1` (was
+  `INDEX(Model_Context(),1)=1`, which after the unshadowing below would
+  have resolved to the always-TRUE constructor — a correctness fix that is
+  a direct consequence of the two-name split). Pinned by
+  `test_intercept_relocation` and `test_df_absorbed_threading`.
 
-- DONE: Sheet — `Model_Context` materialized ONCE into a 4×1 spill at its
-  final §4b column (BO); a sheet-scoped `Model_Context` thunk reads that
-  fixed range (no `#` inside the LAMBDA `RefersTo` — the height is a
-  structural constant, so a fixed range sidesteps the dynamic-array-in-a-
-  name question entirely); a guard cell asserts
-  `=ROWS(Model_Context())=_MODEL_CONTEXT_ROWS`. The ~30 engine call sites
-  in `write_sheet_regression.py` were remapped to pass `Model_Context()`.
-  Pinned by `test_materialization_zone_materializes_model_context`.
+- DONE: Accessors — four workbook-scoped one-line functions
+  `Context_Has_Intercept` / `Context_DF_Absorbed` /
+  `Context_Response_Transform` / `Context_Predictor_Transform`, each
+  `=LAMBDA(Context, INDEX(Context, N))` for N = 1..4 (category *Model
+  Construction*, subcategory *Context Accessor*). Every context read goes
+  through them; a future row insertion changes one accessor, not 32
+  indices. The catalog is now 131 functions. Pinned by
+  `test_context_accessors_index_rows_one_through_four` and
+  `test_no_carrier_reads_the_context_with_a_bare_positional_index`.
+
+- DONE: Sheet — the two-name split. `Model_Context(...)` stays the
+  workbook-scoped constructor (the omitted-`[Context]` default and the MLR
+  test-sheet path); `Fit_Context()` is the SHEET-scoped reader — a zero-arg
+  thunk over the FIXED range holding the materialized 4×1 spill. The ~30
+  Regression sheet call sites pass `Fit_Context()` so they read the actual
+  spec-derived context, not the constructor default. Splitting the names
+  keeps `Model_Context` unshadowed: a single sheet-scoped thunk named
+  `Model_Context` would make `Model_Context()` in a sheet cell resolve to
+  the materialized values while the same token in a carrier's
+  omitted-default resolved to the workbook constructor — the invisible
+  shadowing the v3.0 release exists to remove. The spill materializes all
+  four rows: elements 1-2 (the C2 `Allow_Intercept` toggle and the
+  `Absorbed_Degrees_Of_Freedom()` closure) feed today's engines; elements
+  3-4 (the response transform, and the None/Log/Mixed summary over the
+  included Continuous predictors) have no engine reader until the v3.3
+  unit-space dispatcher but land now so the row order is fixed. The guard
+  cell asserts `=ROWS(Fit_Context())=_MODEL_CONTEXT_ROWS`. No `#` inside
+  the LAMBDA `RefersTo` — the height is a structural constant, so a fixed
+  range sidesteps the dynamic-array-in-a-name question entirely. An error
+  in an unconsumed row 3/4 is contained (the engines read only elements
+  1-2 through the accessors). Pinned by
+  `test_materialization_zone_materializes_model_context`.
 
 - DONE: QC harness — all three MLR test-sheet writers
   (`write_sheet_mlr_{scalar,observation,vector_outputs}_test.py`) thread
@@ -249,6 +280,19 @@ not finished until it has. (Same standard as stage 1.)
   the carriers' new trailing `[Context]` argument — a regression the headless
   suite did not catch (it only exercised non-carrier functions). Pinned by
   the `test_*_formula_threads_context_*` tests.
+
+- DONE: Numeric + contract coverage — the relocated chain reproduces the
+  pre-relocation numbers through the context-accessor path (200 datasets,
+  both intercept states — packaging the flag into a 4×1 context and
+  reading it via `INDEX(Context,1)` moves nothing); and the FE correction
+  matches LSDV when `DF_Absorbed` is routed through element 2 of the same
+  context array. Plus the contract assertions: only `Model_Context`
+  declares `Has_Intercept`/`DF_Absorbed`; no formula anywhere contains a
+  bare `INDEX(context_arg,`; `ROWS(Model_Context())` is 4. Pinned by
+  `test_the_relocated_chain_is_unchanged_through_the_context_accessor_path`,
+  `test_df_absorbed_routed_through_a_context_array_still_matches_lsdv`,
+  `test_only_model_context_declares_df_absorbed`, and
+  `test_model_context_constructor_is_a_four_row_vstack`.
 
 - DEFERRED: Promote `Sample_Include()` from a live closure to a thunk over a
   materialized spill. The column is placed at its final §4b position

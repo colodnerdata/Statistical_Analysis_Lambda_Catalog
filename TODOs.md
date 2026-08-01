@@ -411,8 +411,8 @@ engine is forthcoming."
 
 ## v3.0 — The engine-interface release (in progress)
 
-Delivered in three stages, in dependency order. Stage 1 is built; the
-scope decision and the stage table live in
+Delivered in three stages, in dependency order. Stage 1 is code complete
+and awaiting its QC gate; the scope decision and the stage table live in
 [ROADMAP.md](ROADMAP.md) and
 [DECISIONS.md § v3.0 ships in three stages](DECISIONS.md#v30-ships-in-three-stages).
 

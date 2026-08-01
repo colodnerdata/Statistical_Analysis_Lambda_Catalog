@@ -1710,21 +1710,29 @@ def _write_materialization_zone(
     # ── Chart-footprint clearance assertion (Excel only) ────────────────────
     # _LAST_CHART_COLUMN is a conservative bound; this verifies the column
     # past the footprint actually clears the computed chart right edge, so a
-    # chart resize that would overlap the context block fails the build. COM
-    # geometry is unavailable headless, so the check is best-effort and silent
-    # there — the conservative constant keeps the layout safe by construction.
+    # chart resize that would overlap the context block fails the build.
+    #
+    # The geometry LOOKUP is best-effort — COM geometry (sheet.range(...).left)
+    # is unavailable headless, so that raise is swallowed and the check is
+    # skipped there (the conservative constant keeps the layout safe by
+    # construction). But the clearance ASSERT itself must NOT be swallowed:
+    # wrapping it in the same broad except would make the guard a no-op in
+    # Excel, the one place it can actually run. So acquire the geometry under
+    # the guard, then assert outside it.
     try:
         chart_right = (
             sheet.range(a1(1, _C_AW)).left + _CHART_RIGHT_OFFSET_PT
         )
         clear_left = sheet.range(a1(1, _LAST_CHART_COLUMN + 1)).left
+    except Exception:  # pylint: disable=broad-except — headless / no COM geometry
+        chart_right = None
+        clear_left = None
+    if chart_right is not None and clear_left is not None:
         assert clear_left >= chart_right, (
             f"chart footprint ({chart_right:.0f}pt) overlaps the materialization "
             f"zone (column {col_letter(_LAST_CHART_COLUMN + 1)} left edge "
             f"{clear_left:.0f}pt); raise _LAST_CHART_COLUMN"
         )
-    except Exception:  # pylint: disable=broad-except
-        pass
 
 
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements

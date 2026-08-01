@@ -15,15 +15,20 @@ collectively expensive."
 **What this file is not.** Not a decision record. When a finding is resolved it
 moves to DECISIONS.md with its rationale and is struck from this file.
 
-**Status as of the v3.0 documentation pass.** Six of the eight findings — F1,
-F2, F3, F4, F6, F8 — plus the Minor item are **resolved**, recorded in
+**Status as of the v3.0 documentation pass.** Seven of the eight findings — F1,
+F2, F3, F4, F5, F6, F8 — plus the Minor item are **resolved**, recorded in
 [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline),
 and struck below. They are kept in place rather than deleted so the reasoning
 that produced the v3.0 design stays legible.
 
-**Still open: F5 and F7.** The spec block is still implemented twice, and
-documentation drift is a standing condition rather than something a single pass
-closes.
+**F5 is a different kind of closure from the rest.** Six findings were resolved
+by decisions this pass made. F5 was **already fixed in the code when the review
+was written** — the spec block is imported by `write_sheet_regression.py`, not
+duplicated in it — so the finding was never true as stated. It is struck as
+corrected rather than as decided.
+
+**Still open: F7 alone.** Documentation drift is a standing condition rather
+than something a single pass closes — and F5 is now itself an instance of it.
 
 **Method.** Read: `lambda_functions.json` (126 functions), `ARCHITECTURE.md`,
 `DECISIONS.md`, `TODOs.md`, `ROADMAP.md`, `HUMAN_TEST_PLAN_v20_model_construction.md`,
@@ -45,9 +50,9 @@ Three clusters:
 
 - **F1, F2** ✅ — no canonical place to put "properties of this fit," so fit
   properties accumulate in argument lists and constructor names.
-- **F3** ✅, **F6** ✅, **F5** ⬜ — the sheet layout has no eviction mechanism, is
-  implemented twice, and has no representation for the one feature that cannot
-  be expressed as a column.
+- **F3** ✅, **F6** ✅, **F5** ✅*(never true)* — the sheet layout has no eviction
+  mechanism, ~~is implemented twice,~~ and has no representation for the one
+  feature that cannot be expressed as a column.
 - **F4, F8** ✅ — the single-workbook delivery model has begun charging users of
   one sheet for the cost of another.
 
@@ -210,20 +215,47 @@ table and n-resample machinery to the same workbook.
 
 ---
 
-## F5 — The spec block is implemented twice
+## F5 — The spec block is implemented twice  — ~~OPEN~~ **RESOLVED — already fixed in the code**
 
-**Observation.** `write_sheet_regression.py` (1,862 lines) and
+> **Resolved, and it was resolved before this review was written.** The spec
+> block is implemented **once**. `write_sheet_regression.py` imports the
+> spec-block writers — `_write_spec_block`, `_write_spec_feedback`,
+> `_write_intercept_control`, `_set_sheet_scoped_names`,
+> `_set_spec_block_column_widths` — plus every `_C_*` column constant from
+> `write_sheet_model_construction.py`, and calls them. Its module docstring
+> states the intent: *"the spec-block writers are imported from
+> write_sheet_model_construction so the two sheets can never drift."*
+> Separately, the Model Construction **sheet** is deleted by both builds
+> (`build_production.py`, `build_qc.py`), so only one spec block ships at all.
+> Full rationale in
+> [DECISIONS.md § v3.0](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
+
+**Observation.** ~~`write_sheet_regression.py` (1,862 lines) and
 `write_sheet_model_construction.py` (1,512 lines) each implement a spec block —
 against the WHO and Mileage datasets respectively. A layout change touches
-both writers.
+both writers.~~
+
+*Correction (v3.0 doc pass).* The line counts are right and the inference from
+them is wrong. Both files are large and both concern the spec block, but the
+relationship is **import**, not duplication: one module owns the writers, the
+other calls them. A layout change touches one writer. What the review measured
+was file size; what it concluded was coupling.
 
 This matters for v2.3, whose design assumes a single canonical spec/status
 block shape that a second sheet can read through a fixed anchor
-(`Comparison_Anchor`, DECISIONS.md § v2.3). There are already two
-implementations of the shape that contract would be written against.
+(`Comparison_Anchor`, DECISIONS.md § v2.3). ~~There are already two
+implementations of the shape that contract would be written against.~~ There is
+one, which is what that contract needs.
 
-**Triage:** medium. Cheap now, expensive after v2.3 formalizes the anchor
-contract as a public-interface commitment.
+**Triage:** ~~medium~~ none — no work outstanding.
+
+**What is left is a naming problem, not a structural one.**
+`write_sheet_model_construction.py` no longer writes a shipped sheet; it is the
+spec-block component library the Regression sheet is built from, and its name
+still refers to a sheet that both builds delete. Renaming it (and dropping the
+dead standalone-CLI path) is tracked in
+[TODOs.md](TODOs.md). That is cosmetic — it changes no behavior and closes no
+finding.
 
 ---
 
@@ -301,11 +333,19 @@ the next one. Row by row:
 | `F_Stat`, `P_Value_F`, … | Already corrected upstream — the current README carries no function reference table at all |
 | `GVIF` / `Generalized_Tolerance` | Fixed — named in the v2.1 ladder row |
 
-Three further drift instances this pass found and fixed, none of which were in
+Four further drift instances this pass found and fixed, none of which were in
 the original table: the Role dropdown values in ARCHITECTURE.md § 3 omitted the
 parenthetical suffixes that formulas actually string-compare against; `Interact`,
 `Model_Matrix`, and `Dummy_Column` were documented as though they ship;
-and this file's own zone count was wrong (see F3).
+this file's own zone count was wrong (see F3); and **F5 itself described a
+duplication that the code had already replaced with an import** (see F5).
+
+That last one is the sharpest illustration of why this finding matters. F5 was
+not a doc lagging behind a *plan* — it was a review of the code, written from
+the code, that reached a wrong conclusion because it compared two file sizes
+instead of reading one import statement. Drift is not only docs falling behind
+code; it is also the absence of any check that a claim *about* the code still
+holds.
 
 One instance found and **not** fixed, because the file is outside the
 documentation set: **CLAUDE.md / AGENTS.md describe the Regression sheet's zones
@@ -366,15 +406,23 @@ same problem.
 | Cluster | Findings | Shared root | Status |
 |---|---|---|---|
 | Fit properties have no home | F1, F2 | No canonical carrier for "properties of this fit"; they accumulate in argument lists and constructor names | ✅ `Model_Context` + the constructor pipeline |
-| Sheet layout | F3, F5, F6 | One growing surface, implemented twice, with no slot for the one non-column feature | ⬜ **partly** — F3 and F6 resolved; **F5 open**, and the two spec-block implementations now have more to keep in sync, not less |
+| Sheet layout | F3, F5, F6 | One growing surface, ~~implemented twice~~, with no slot for the one non-column feature | ✅ F3 and F6 resolved at v3.0; **F5 was never true** — the spec block is imported, not duplicated |
 | Delivery model | F4, F8 | Single workbook, single calc mode, single version number | ✅ two artifacts, two calc modes, two version numbers |
 | Visibility | F7 | No document describes the shipped state | ⬜ instances reconciled by hand; no mechanism yet |
 
-**The one place resolution made a finding worse.** F5 is now more expensive, not
-less. v3.0 adds two spec columns, the Design Columns audit column, and the
-materialization zone — every one of which has to be implemented in *both*
-`write_sheet_regression.py` and `write_sheet_model_construction.py`. Whatever
-scope v3.0 takes, F5 should be weighed as part of it rather than deferred again.
+**Correction to an earlier draft of this pass.** A previous revision claimed v3.0
+made F5 *worse*, on the reasoning that the two new spec columns, the audit
+column, and the materialization zone would each have to be built in both
+writers. That was wrong, and wrong in the same way F5 itself was: it inferred
+duplication from two large files without checking the import. Each of those
+lands in **one** writer and the other inherits it. F5 is not a v3.0 cost.
+
+**What the cluster's shared root actually was.** Two of the three findings held —
+one growing surface with no eviction rule, and no slot for interactions. The
+"implemented twice" leg did not. Worth noting because it is the second time in
+this file that a correct-sounding structural inference was drawn from
+file-level evidence without reading the coupling; see also F6's `Interact`
+premise.
 
 ---
 
@@ -390,7 +438,8 @@ outcome of each is noted.
 
 2. **F3, F5, and F6 all want the same breaking change.** Resolving them
    separately spends three layout breaks where one would do — the exact outcome
-   the reserved-column policy was written to avoid.
+   the reserved-column policy was written to avoid. *(F5 turned out not to be a
+   layout problem at all; the observation holds for F3 and F6.)*
 
 3. **F6 is the only finding that is irreversible if deferred.** Everything else
    can be fixed later at higher cost; an interaction mechanism cannot be added
@@ -411,9 +460,10 @@ outcome of each is noted.
    WLS mechanism from a threaded `[Weights]` argument to √w scaling in the
    constructor. If v2.6 ships first it needs the argument anyway, and v3.0 then
    unwinds it across the same ~24 functions. Recorded in the ROADMAP v2.6 entry.
-2. **Accepted, and it shaped the recommended v3.0 scope.** The recommendation
-   ships the interaction columns and the audit column as *layout* inside v3.0 —
-   reserved and unwired — so the insertions cost one break rather than three.
+2. **Accepted for F3 and F6, and it shaped the recommended v3.0 scope.** The
+   recommendation ships the interaction columns and the audit column as *layout*
+   inside v3.0 — reserved and unwired — so the insertions cost one break rather
+   than three. F5 dropped out of the cluster once the import was checked.
 3. **Accepted.** F6's representation decision is resolved at v3.0 even though the
    feature itself ships later, which is exactly what this observation argued for.
 4. **Confirmed and acted on first in the write-up.** F4 is the finding with a

@@ -612,8 +612,8 @@ argues for one release, against the general principle of small increments.
 | v3.1 | Interaction wiring — the constructor actually builds the columns | MINOR |
 | v3.2 | Full materialization of the design matrix | MINOR |
 
-**Justification.** REVIEW.md's own sequencing note observes that F3, F5, and F6
-"all want the same breaking change — resolving them separately spends three layout
+**Justification.** REVIEW.md's own sequencing note observes that F3 and F6 "all
+want the same breaking change — resolving them separately spends three layout
 breaks where one would do." The two interaction columns and the audit column are
 *insertions* that shift every column to their right; that is the irreversible
 part. The wiring of each is a formula change against a column that already
@@ -621,6 +621,16 @@ exists — precisely the reserved-column pattern, and exactly how column G went 
 at v2.2. This spends one signature break and one layout break together, satisfies
 the materialization zone's dependency on the pipeline, and leaves genuinely
 additive work for the minors.
+
+**What this scope does *not* cost.** F5 read as though the layout work would have
+to be done twice — "the spec block is implemented twice; a layout change touches
+both writers." It is not, and it does not. `write_sheet_regression.py` imports
+the spec-block writers from `write_sheet_model_construction.py` and calls them,
+so the two interaction columns, the audit column, and the materialization zone
+each land in **one** writer. That single-implementation structure is part of what
+makes this scope affordable, and it is why F5 does not appear in the release
+above. See
+[DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
 
 The counter-argument worth weighing: v3.0 becomes a large release that is hard to
 verify in one pass, and the human test plan for it would be substantial. A

@@ -1026,8 +1026,9 @@ The v3.0 decisions respond to [REVIEW.md](REVIEW.md), a standing architecture
 review whose findings share one shape: each individual decision was correct,
 argued well, and recorded properly, and the cost is in the sum. Findings F1,
 F2, F3, F4, F6, and F8 are resolved by the decisions below and struck from that
-file; F5 (the spec block implemented twice) and F7 (documentation drift) remain
-open there.
+file. **F5** is struck too, but on different grounds — it was already fixed in
+the code when the review was written, and the entry below records the correction
+rather than a decision. **F7** (documentation drift) remains open there.
 
 The v3.0 *scope* — which of these ship together — is the one open question, and
 it lives in [ROADMAP.md](ROADMAP.md), in the v3.0 milestone entry.
@@ -1712,6 +1713,59 @@ its df argument counts model parameters including absorbed fixed effects.
 parameter count, because a distribution fit has no design matrix and no absorbed
 df. Collapsing them would mean one name whose argument list changes meaning by
 context, which is exactly the ambiguity the naming convention exists to prevent.
+
+### The spec block is implemented once, not twice
+
+**Question:** REVIEW.md F5 observes that `write_sheet_regression.py` (1,862
+lines) and `write_sheet_model_construction.py` (1,512 lines) "each implement a
+spec block," so "a layout change touches both writers." With v3.0 adding two
+spec columns, the Design Columns audit column, and the materialization zone,
+does that double cost need paying — or unwinding — as part of this release?
+
+**Resolution:** neither. The premise is false. There is **one** implementation.
+`write_sheet_regression.py` imports the spec-block writers from
+`write_sheet_model_construction.py` and calls them:
+
+```python
+from .write_sheet_model_construction import (
+    _set_sheet_scoped_names as _set_spec_scoped_names,
+    _set_spec_block_column_widths,
+    _write_intercept_control,
+    _write_spec_block,
+    _write_spec_feedback,
+    # … plus every _C_* column constant and formula string
+)
+```
+
+`write_sheet_regression.py`'s own module docstring states the intent: *"the
+spec-block writers are imported from write_sheet_model_construction so the two
+sheets can never drift."* Separately, the Model Construction **sheet** is
+deleted by both builds — `_delete_sheet_if_present(workbook, "Model
+Construction")` in `build_production.py` and `build_qc.py` — so only one spec
+block ships at all.
+
+**Consequence for v3.0 scope:** the interaction columns, the audit column, and
+the materialization zone each land in **one** writer. F5 is not a cost of this
+release, and the shared-import structure is part of what makes the recommended
+scope affordable.
+
+**Rationale for recording a non-decision.** Nothing was decided here — the fix
+predates the review that reported the problem. It is recorded because the wrong
+version was load-bearing twice: F5 was triaged as medium and "expensive after
+v2.3," and an earlier draft of this v3.0 pass argued the release made it *worse*
+on the same reasoning. Both inferred coupling from two large files without
+reading the import. Writing down that the coupling does not exist is what stops
+a third round.
+
+**What remains is a naming problem.** `write_sheet_model_construction.py` no
+longer writes a shipped sheet; it is the spec-block component library the
+Regression sheet is built from, and it still carries the name of a sheet both
+builds delete. Renaming it — and dropping the unreachable
+`write_model_construction_sheet()` / `main()` standalone-CLI path — is tracked
+in [TODOs.md](TODOs.md) as cosmetic follow-up. Deliberately **not** dropped:
+`_write_audit_row` and `_write_filtered_zones`, which are the working reference
+implementations of the Design Columns audit column and the V/W filtered-display
+pattern that this release promotes to production.
 
 ### The standalone user-callable layer is documented, not orphaned
 

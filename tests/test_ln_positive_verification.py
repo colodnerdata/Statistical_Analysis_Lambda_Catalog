@@ -1,7 +1,7 @@
 """Independent verification of Ln_Positive (v2.2 Transform=Log MVP).
 
 Ln_Positive is the primitive behind the Regression sheet's spec column G
-(Transform): Response_Column(), X_s(), and Constructed_Column_Names() all
+(Transform): Response_Column(), Predictor_Columns(), and Constructed_Column_Names() all
 call it when a row declares Log. Verified here the same way the other
 transform-family functions are: a pure-Python mirror cross-checked against
 math.log, plus implementation-shape assertions on the actual catalog
@@ -131,7 +131,7 @@ def test_ln_positive_geometric_mean_round_trip() -> None:
     # The Prediction Inputs band's double-log fix (write_sheet_regression.py
     # AI19) relies on this exact identity: EXP(mean(ln x)) fed back through
     # Ln_Positive recovers mean(ln x), so the default prediction still
-    # lands on X_s()'s own centroid.
+    # lands on Predictor_Columns()'s own centroid.
     x = [50.0, 75.0, 120.0, 30.0]
     logged = np.log(x)
     geometric_mean_input = math.exp(float(np.mean(logged)))
@@ -167,7 +167,7 @@ def test_ln_positive_is_a_workbook_scoped_data_transformation_function() -> None
 def test_ln_positive_is_elementwise_not_an_aggregate_and() -> None:
     formula = _formula("Ln_Positive")
     # AND() aggregates an array to one scalar — the exact class of bug the
-    # X_s() degeneracy-guard comment warns about, in reverse: this function
+    # Predictor_Columns() degeneracy-guard comment warns about, in reverse: this function
     # must stay elementwise so it broadcasts over a full column.
     assert "AND(" not in formula
     assert "IF(inc=0,\"\",IF(pos,LN(x_v),NA()))" in formula

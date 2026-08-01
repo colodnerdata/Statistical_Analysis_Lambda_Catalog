@@ -4,6 +4,7 @@ from __future__ import annotations
 import json
 import re
 from dataclasses import dataclass
+from functools import lru_cache
 from pathlib import Path
 
 from lambda_catalog.lambda_formula_parser import to_workbook_xml_formula_from_display
@@ -395,3 +396,40 @@ def load_catalog_document(
         functions=tuple(functions),
         regression_sheet_notes=dict(notes_raw),
     )
+
+
+DEFAULT_CATALOG_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.json"
+
+
+@lru_cache(maxsize=1)
+def _default_document() -> CatalogDocument:
+    return load_catalog_document(DEFAULT_CATALOG_PATH)
+
+
+def catalog_argument_names(function_name: str) -> tuple[str, ...]:
+    """Return the declared argument names of ``function_name`` from the catalog.
+
+    The QC test-sheet writers render their formulas from these names rather than
+    from a hard-coded positional list, so a signature change in the catalog can
+    never leave a test sheet calling the old shape. The parsed document is
+    cached, so repeated lookups during a build cost one file read.
+
+    Parameters
+    ----------
+    function_name : str
+        The catalog function to look up.
+
+    Returns
+    -------
+    tuple[str, ...]
+        Argument names in declaration order.
+
+    Raises
+    ------
+    KeyError
+        If no catalog function has that name.
+    """
+    for function in _default_document().functions:
+        if function.name == function_name:
+            return function.argument_names
+    raise KeyError(f"{function_name!r} is not in the catalog")

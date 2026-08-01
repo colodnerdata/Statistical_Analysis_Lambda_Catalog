@@ -5,7 +5,7 @@ source xlsx (the ``analyze_regression_sheet`` pattern), sheet reads return
 failure strings in the standard ``[Sheet] check=...`` format (the
 ``read_dummy_check_failures`` pattern). The calculator mirrors the sheet's
 own semantics — ``Sample_Include()``'s role-aware mask, ``Dummy_Levels``'
-mask-scoped level sets with the reference dropped, and the ``X_s()`` /
+mask-scoped level sets with the reference dropped, and the ``Predictor_Columns()`` /
 ``Constructed_Column_Names()`` iteration predicate — over the same typed
 rows the Mileage Data sheet is built from, so every audit cell, spill
 height, and level-qualified column name has an independently derived
@@ -15,7 +15,7 @@ Two verification passes run against the open QC workbook:
 
 1. **Default spec (T0)** — the build's shipped spec, untouched: audit strip
    (k, rows, response, responses, included rows, sequence flags), the header-strip /
-   ``X_s()`` twin tripwire, the Levels and Reference In Use display cells,
+   ``Predictor_Columns()`` twin tripwire, the Levels and Reference In Use display cells,
    the full-height contract on the K/L spills, and the filtered zones'
    heights and first values.
 2. **Degenerate-Categorical via a Filter column** (the human test plan's T8
@@ -495,7 +495,7 @@ def compare_observed_to_expected(
     check("audit sequence flags", expected.sequence_flags, observed.audit_sequence_flags)
 
     # Twin tripwire: the header strip is Constructed_Column_Names() and the
-    # audit k is COLUMNS(X_s()) — their widths must always agree.
+    # audit k is COLUMNS(Predictor_Columns()) — their widths must always agree.
     check(
         "header strip width == audit k (twin tripwire)",
         observed.audit_k,

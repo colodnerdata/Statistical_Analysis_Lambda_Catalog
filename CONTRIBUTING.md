@@ -71,7 +71,7 @@ Tests live in `tests/`. The current test files are:
 | `test_dummy_functions.py` | `Dummy_Levels`/`Dummy_Code` NA()-based error contract: formula statics, parser translation, and the pure-Python mirrors behind the `Dummy_Test` QC sheet |
 | `test_lambda_catalog_plain_language.py` | All LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
 | `test_sheet_writers.py` | Sheet writer integration (conditional formatting, named ranges) |
-| `test_model_construction_writer.py` | Model Construction sheet writer: sheet-scoped name definitions and order, T0 default-spec prefill, dropdowns, conditional formats, `X_s`/`Constructed_Column_Names` twin invariants |
+| `test_model_construction_writer.py` | Model Construction sheet writer: sheet-scoped name definitions and order, T0 default-spec prefill, dropdowns, conditional formats, `Predictor_Columns`/`Constructed_Column_Names` twin invariants |
 | `test_analyze_model_construction.py` | Model Construction QC analyzer: default-spec expectations pinned against the sample CSV (mask size, k, level-qualified names), the stratified-Filter degeneracy case, and the observed-vs-expected comparison layer |
 | `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
 | `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
@@ -84,7 +84,7 @@ Tests live in `tests/`. The current test files are:
 | `test_regression_spec_qc.py` | Spec-driven Regression QC oracle (`analyze_regression_spec.py` case definitions) |
 | `test_csv_dataset_loader.py` | `load_csv_rows` (`write_sheet_csv_dataset.py`) against all three `CsvDatasetConfig`s and the committed sample CSVs |
 | `test_mileage_completeness_qc.py` | `calculate_mileage_completeness_flags` (`analyze_mileage.py`) against the Auto MPG dataset |
-| `test_within_estimator.py` | v2.1 Fixed Effects phase 2 — the fit-time demeaned pair `y_s()`/`X_s_Within()`, against an independent `statsmodels` LSDV fit |
+| `test_within_estimator.py` | v2.1 Fixed Effects phase 2 — the constructor pipeline — the fit-time pair `Design_Response()`/`Design_Columns()` and its stage order, against an independent `statsmodels` LSDV fit |
 | `test_group_panel_transforms.py` | v2.1 Fixed Effects phase 1 — `Group_Mean`, `Demean_By`, `Is_Balanced_Panel`, `Absorbed_Degrees_Of_Freedom` |
 | `test_df_absorbed_threading.py` | v2.1 Fixed Effects phase 3 — `[DF_Absorbed]` threaded through SE/t/p/CI/MS-Residual/AIC/BIC/AICc, against an independent `statsmodels` LSDV fit |
 | `test_group_prediction_interval.py` | v2.1 Fixed Effects phase 5 — `Group_Mean_At`, `Group_Count_At`, `Prediction_Group_Column`, `Group_Prediction_Interval` (the group-mean-recovery CI+PI form), against an explicit LSDV `get_prediction()` reference |
@@ -165,7 +165,7 @@ Produces `Lambda_Library.xlsx` — the distributable artifact committed to the r
 - **Regression Instructions** — step-by-step guide for adapting the sheet to new datasets
 - **Diagnostic Guide** — interpretation guide for regression diagnostics
 - **Version History** — changelog that travels with the workbook
-- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_sheet_model_construction.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `X_s`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
+- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_sheet_model_construction.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `Predictor_Columns`, `Design_Columns`, `Design_Response`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
 
 No test sheets, no OLS analysis, no cache dependency.
 
@@ -428,6 +428,22 @@ Neither is built. They are recorded here as a scoped follow-up rather than as a 
 4. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py`.
 5. Update the relevant `write_sheet_mlr_*.py` to include a Calc column for the new function.
 6. Run `python build_qc.py` and confirm no WARNING lines appear.
+
+**Argument names are load-bearing in the QC harness.** The three
+`write_sheet_mlr_*.py` writers render their formulas from each function's
+*declared* argument names via `make_test_sheet.build_call`, not from a
+hard-coded positional list, so a signature change reaches the harness
+automatically and a dropped argument raises instead of silently shifting every
+argument after it. Two names carry meaning the harness acts on:
+
+| Argument name | Resolves to |
+|---|---|
+| `X` | the design matrix — predictor block with the intercept column prepended when the section or row has one |
+| `Predictors` | the bare predictor block, never an intercept column |
+
+Name a new function's matrix argument accordingly. `Predictors` is for anything
+that must not see a constant column — `VIF`, `GVIF`, `Correlation_Matrix` and
+the predictor-summary statistics; everything that fits a model takes `X`.
 7. Run `python build_production.py` to rebuild the distributables.
 8. Move the **library version**, not a workbook version — a new function ships in both artifacts. See [Which version number moves](#which-version-number-moves).
 
@@ -452,7 +468,7 @@ sheet.api.Names.Add(
 
 This starts one row below the column header (row 2) and extends exactly `$Y$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$Y$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
-**Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`X_s`, `Sample_Include`, etc.) and formula-helper names:
+**Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`Design_Columns`, `Sample_Include`, etc.) and formula-helper names:
 
 | Name | Column | Contents |
 |---|---|---|

@@ -1787,6 +1787,156 @@ extends the same framing to the rest. (The count is a text-match of function nam
 against `write_sheet_*.py` and moves as sheets change; it is illustrative, not a
 tracked invariant.)
 
+### v3.0 ships in three stages
+
+**Question:** the scope entry in [ROADMAP.md](ROADMAP.md) settled *what* v3.0
+contains but not how it lands. All of it in one change is a diff nobody can review
+against a workbook nobody can rebuild in CI.
+
+**Resolution:** three pull requests, in dependency order.
+
+| Stage | Contents |
+|---|---|
+| 1 | The constructor pipeline and the intercept relocation |
+| 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; `Model_Context` and `Sample_Include` materialized |
+| 3 | Layout — interaction spec columns M/N reserved, the Design Columns audit column, the Constructed Design Matrix zone and its width guard |
+
+**Rationale:** the order is forced by the dependencies the scope entry already
+names — the bounded context requires the intercept relocation, which requires the
+pipeline order, and the materialization zone requires the constructor to be
+settled. Stage one also has a verification property the others do not: **no number
+moves.** The relocation changes where the intercept is created, not what is
+fitted, so the spec-driven QC pass must report zero mismatches across all twelve
+cases. Any mismatch is a bug rather than an expected delta, which is the cleanest
+gate available for the stage that touches the most functions.
+
+**The version number does not move until stage three.** v3.0 is not reached
+part-way through.
+
+### `R_Squared` is the third LINEST `const` site — and the one that fails silently
+
+**Question:** the LINEST `const` trap above names `Coefficients` and
+`SE_Coefficients`. Is that the whole exposure?
+
+**Resolution:** no. `R_Squared` is a third call site, and it is the most dangerous
+of the three. It read `INDEX(LINEST(Y, X, allow_arg, TRUE), 3, 1)` — LINEST's own
+R². **Under `const = FALSE`, that cell holds the *uncentered* R²**, computed
+against Σy² rather than DEVSQ(y). Flipping the flag and leaving the read in place
+would have silently changed R², Adjusted R², Multiple R, and the F-statistic for
+every model with an intercept — no error, no `#REF!`, just different numbers.
+
+`R_Squared` is therefore derived from the sums of squares instead, which also
+breaks the cycle that made the old definitions self-referential (`SS_Residual` was
+`SS_Total × (1 − R²)` while `R²` came from LINEST):
+
+```
+SS_Residual(X, Y, [Include])           = INDEX(LINEST(y, X, FALSE, TRUE), 5, 2)
+SS_Total(X, Y, [Has_Intercept], [Inc]) = ‖y‖² − (c′y)²/(c′c)
+R_Squared                              = 1 − SS_Residual / SS_Total
+SS_Regression                          = SS_Total − SS_Residual
+```
+
+LINEST's fifth output row holds Σe² regardless of `const`, so `SS_Residual` can
+stand on its own. The result is value-preserving in both states: with an intercept
+the denominator is DEVSQ(y) and the expression reproduces LINEST's centered R²;
+without one it is SUMSQ(y) and reproduces the uncentered R² LINEST already
+returned. **Recorded because it was missed by the design pass**, and it belongs
+beside the WLS `DEVSQ` trap and the `const` trap as the same failure class: a
+change that looks like a pass-through, is not, and fails in a plausible direction.
+
+### The honest count: 48 → 13, not 48 → 7
+
+**Question:** the intercept relocation entry above estimates that `Has_Intercept`
+"survives in roughly seven places." What is the built number?
+
+**Resolution:** **thirteen**, and the difference is instructive rather than a
+miscount of the eleven branchers.
+
+`Adjusted_R_Squared`, `Beta_Weights`, `F_Statistic`, `F_Statistic_P_Value`,
+`Group_Prediction_Interval`, `MS_Regression`, `Multiple_R`, `Prediction_Interval`,
+`R_Squared`, `Regression_Degrees_Of_Freedom`, `SS_Regression`, `SS_Total`, and
+`Total_Degrees_Of_Freedom`.
+
+Two things moved in opposite directions. Three of the original eleven branchers
+**stopped** needing it: `Coefficients` and `SE_Coefficients` collapse to a plain
+reversal under `const = FALSE`, and `Design_Matrix` loses the argument outright
+once it stops synthesizing the column — it reduces to the row filter. `AIC`,
+`BIC`, and `AICc` also shed it, because `COLUMNS(X)` now counts the intercept and
+`p` needs no separate term.
+
+But the whole R²/SS chain **acquired** it, which the estimate did not anticipate:
+`SS_Total` needs to know which column to project off, and everything computed from
+it inherits the need. That is the real content of the correction — the estimate
+counted the functions that branch on an intercept *arithmetically* and missed the
+ones that need it as an *identifier*, which is exactly the role the entry above
+says the flag now plays.
+
+This does not weaken the case for the context block; it strengthens it. Thirteen
+functions threading a positional flag is precisely the accretion stage two
+eliminates, and all thirteen collapse into `[Context]` by the same mechanical
+substitution.
+
+### `Regression_Degrees_Of_Freedom` takes the design matrix and a flag
+
+**Question:** the relocation entry states this function "takes the predictor matrix,
+so it never counted the intercept and needs no change." Does that survive contact
+with the sheet?
+
+**Resolution:** no — it becomes `Regression_Degrees_Of_Freedom(X, [Has_Intercept])`
+returning `COLUMNS(X) − N(has)`.
+
+**Rationale:** the premise assumed the caller has a predictor matrix to hand. At
+the fit sites it does not: the sheet holds `Design_Columns()`, and every internal
+caller — `MS_Regression`, `F_Statistic`, `F_Statistic_P_Value` — receives the
+design matrix. Keeping the old signature would mean passing `Predictor_Columns()`
+alongside `X` to functions that otherwise need only one matrix, which adds an
+argument to avoid adding an argument. Subtracting at each call site instead would
+scatter the ANOVA convention across five formulas.
+
+Corollary worth stating: `Residual_Degrees_Of_Freedom` moves the *other* way and
+sheds its flag entirely, becoming `n − COLUMNS(X) − absorbed`. Both changes come
+from the same fact — `COLUMNS(X)` is now the fitted parameter count — and the two
+together are why the df arithmetic gets simpler rather than more conditional.
+
+### `Predictors`, not `Predictor_Columns`, as the parameter name
+
+**Question:** the escape-hatch functions take pre-intercept columns. What is that
+parameter called?
+
+**Resolution:** `Predictors`. Not `Predictor_Columns` — that is the name of the
+sheet-scoped constructor closure, and a LAMBDA parameter of the same name would
+shadow it inside the function body. Legal in Excel, confusing to read, and exactly
+the kind of invisible distinction the constructor rename exists to eliminate.
+
+The split is load-bearing beyond readability: the QC test-sheet harness renders its
+formulas from each function's *declared argument names*, so `X` resolves to the
+intercept-bearing design matrix and `Predictors` to the bare predictor block with
+no per-function special case. `VIF`, `Tolerance`, `GVIF`, `Generalized_Tolerance`,
+and `Correlation_Matrix` take `Predictors`; a constant column in a correlation
+matrix would make it singular.
+
+`VIF` gained one internal consequence: its auxiliary regressions genuinely need an
+intercept, and `R_Squared` no longer synthesizes one, so `VIF` builds a ones column
+onto each sub-matrix itself.
+
+### `Group_Prediction_Interval` takes predictor columns, not a design matrix
+
+**Question:** this function demeans its input internally. Which matrix should it
+receive once the constructor owns the intercept?
+
+**Resolution:** `Predictors` — the un-demeaned predictor columns, exactly what the
+sheet passed before — plus `[Has_Intercept]`. It builds the intercept itself, after
+demeaning.
+
+**Rationale:** it is the one function that must *not* receive `Design_Columns()`.
+That constructor has already demeaned when Fixed Effects are active, and this
+function demeans again by the prediction group; handing it the design matrix would
+double-demean, and the intercept column it strips would have to be re-added anyway.
+Taking predictor columns and applying `demean → intercept` internally is the same
+stage order [ARCHITECTURE.md § 4a](ARCHITECTURE.md#4a-the-constructor-pipeline)
+fixes for the constructor, applied for the same reason: a ones column demeaned by
+group is a column of zeros.
+
 ---
 
 ## Aliases

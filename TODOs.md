@@ -409,6 +409,65 @@ engine is forthcoming."
 - TODO: Design sheet layout (bootstrap section + Monte Carlo section;
   may share one sheet). Implement `write_sheet_simulation.py`.
 
+## v3.0 — The engine-interface release (in progress)
+
+Delivered in three stages, in dependency order. Stage 1 is built; the
+scope decision and the stage table live in
+[ROADMAP.md](ROADMAP.md) and
+[DECISIONS.md § v3.0 ships in three stages](DECISIONS.md#v30-ships-in-three-stages).
+
+### Stage 1 — constructor pipeline + intercept relocation — **BUILT**
+
+- DONE: `X_s()` / `X_s_Within()` / `y_s()` renamed to
+  `Predictor_Columns()` / `Design_Columns()` / `Design_Response()`, with
+  the `encode → transform → demean → intercept → weight` stage order
+  made explicit in `Design_Columns()`. The weight stage is declared and
+  inert until v2.6.
+- DONE: the intercept moved into the constructor. `Design_Matrix` stops
+  synthesizing it, LINEST runs `const = FALSE` at all three call sites,
+  `SS_Total` became the intercept-only residual sum of squares, and
+  `[Allow_Intercept]` left all 48 signatures — 13 now carry
+  `[Has_Intercept]` as an identifier.
+- DONE: the QC test-sheet writers render formulas from declared argument
+  names (`make_test_sheet.build_call`) rather than positional lists.
+
+- TODO: **Run the spec-driven verifier on a machine with Excel** —
+  `python build_production.py --verify --no-launch
+  --skip-data-table-calculations --skip-univariate`. Stage 1 must report
+  **0 mismatches across all 12 QC cases**: it changes where the intercept
+  is created, not what is fitted, so any mismatch is a bug rather than an
+  expected delta. Not runnable in CI (no Office on the GitHub-hosted
+  runner) — see [CONTRIBUTING.md](CONTRIBUTING.md) → *Verifying builds*.
+
+- TODO: Re-examine the intercept-only closed-form bypass in
+  `write_sheet_regression.py` → `_setup_local_names`
+  (`Intercept_Only_N` / `_Point` / `_SE` / `_S` / `_DF`).
+  `Design_Columns()` now returns a well-formed ones column in the
+  zero-predictor state, so the engines could fit it directly and the
+  bypass may be removable. Kept for stage 1 because the shipped
+  behaviour was verified against it; retire it only with a QC pass
+  behind it.
+
+### Stage 2 — `Model_Context` — PLANNED
+
+- TODO: Collapse `[Has_Intercept]` and `[DF_Absorbed]` into a single
+  `[Context]` argument across the 13 + 24 carriers; materialize
+  `Model_Context` and `Sample_Include` as spill ranges on the Regression
+  sheet, with a build assertion that `ROWS(Model_Context())` is a
+  build-time constant.
+
+### Stage 3 — layout — PLANNED
+
+- TODO: Insert spec columns M (Interaction Term) and N (Interaction
+  Operation), reserved-and-unwired; build the Design Columns audit
+  column; establish the Constructed Design Matrix zone and its two-
+  threshold width guard; move the version number to 3.0.
+
+- TODO: Promote `_write_audit_row` and `_write_filtered_zones` from
+  `write_sheet_model_construction.py` into the Regression writer rather
+  than rewriting them — they are the working reference implementations
+  of the audit column and the filtered-display pattern.
+
 ## v2.5+ — Future (sequence TBD; first two claimed)
 
 The v2.5+ bucket previously had seven candidates with no order.

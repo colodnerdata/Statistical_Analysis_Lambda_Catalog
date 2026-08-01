@@ -107,7 +107,7 @@ def _demean_within_groups(values: np.ndarray, groups: np.ndarray) -> np.ndarray:
 
     Mirrors the within estimator validated independently in
     ``tests/test_within_estimator.py``/``tests/test_df_absorbed_threading.py``
-    (Demean_By/``y_s()``/``X_s_Within()`` on the Excel side): subtract each
+    (Demean_By/``Design_Response()``/``Design_Columns()`` on the Excel side): subtract each
     group's own mean from every value in that group. Works for both a 1-D
     response and a 2-D design matrix (demeaned column-by-column via the
     ``axis=0`` mean).
@@ -138,7 +138,7 @@ def calculate_regression_results_from_matrix(
 
     ``group_labels``, when given, is the Fixed Effects grouping column
     (one label per row, aligned with ``x_features``/``y_train``). Every
-    workbook function that fits on ``X_s_Within()``/``y_s()`` — Coefficients,
+    workbook function that fits on ``Design_Columns()``/``Design_Response()`` — Coefficients,
     Predictions, Residuals, Hat_Diagonal, SE_Regression and everything built
     on it (Adjusted R², SE/t/p/CI, AIC/BIC/AICc, F, Studentized Residuals,
     Cook's Distance, Scale-Location, QQ Correlation, PRESS, Prediction
@@ -149,7 +149,7 @@ def calculate_regression_results_from_matrix(
     ``tests/test_df_absorbed_threading.py``). Predictor Summary
     (Pearson/Spearman R, Skewness, Kurtosis, GVIF, Tolerance) stays on the
     RAW ``x_features``/``y_train`` in both cases — the sheet computes those
-    off ``X_s()``/``Response_Column()`` regardless of Fixed Effects (see the
+    off ``Predictor_Columns()``/``Response_Column()`` regardless of Fixed Effects (see the
     comment above the Predictor Summary formulas in write_sheet_regression.py).
     Durbin-Watson has no valid FE-active reading (the sheet's AB11 cell shows
     "n/a — FE active" instead of a number whenever a Fixed Effects row is
@@ -326,7 +326,7 @@ def calculate_regression_results_from_matrix(
         ci_lower=tuple(float(v) for v in ci_lower),
         ci_upper=tuple(float(v) for v in ci_upper),
         beta_weights=tuple(
-            # Beta_Weights(X_s_Within(),y_s(),...) standardizes by the
+            # Beta_Weights(Design_Columns(),Design_Response(),...) standardizes by the
             # WITHIN-demeaned x/y, not the raw predictor-summary columns.
             float(coef * np.std(x_fit[:, j], ddof=1) / np.std(y_fit, ddof=1))
             for j, coef in enumerate(pred_coefs)
@@ -357,7 +357,7 @@ def calculate_regression_results_from_matrix(
     )
 
     # Y (dependent_var), the Normal_Scores basis, and LOOCV_Residual all take
-    # y_s() on the sheet — the within-demeaned response under FE, same as
+    # Design_Response() on the sheet — the within-demeaned response under FE, same as
     # every other fit-stage quantity above (see the docstring: the whole
     # Residual Output table has to read as one internally consistent block).
     loocv_predictions = predictions - h * e / (1.0 - h)
@@ -428,7 +428,7 @@ def calculate_regression_results_from_matrix(
     group_mean = float(np.mean(y_train[selected_mask]))
     xbar_i = np.mean(x_features[selected_mask], axis=0)
 
-    # Training Mean prefill: AVERAGE of the RAW X_s() columns — FE-independent,
+    # Training Mean prefill: AVERAGE of the RAW Predictor_Columns() columns — FE-independent,
     # unlike x_fit (which is demeaned once a Fixed Effects row is declared).
     x_new = np.mean(x_features, axis=0)
     deviation = x_new - xbar_i

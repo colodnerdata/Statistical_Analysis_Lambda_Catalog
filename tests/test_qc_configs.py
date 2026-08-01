@@ -76,7 +76,7 @@ class TestScalarConfigs(unittest.TestCase):
     def test_each_config_has_k_and_intercept(self) -> None:
         for row_vals, _ in self.configs:
             self.assertIn("ind_vars", row_vals)
-            self.assertIn("Allow_Intercept", row_vals)
+            self.assertIn("Has_Intercept", row_vals)
 
     def test_expected_values_map_keys(self) -> None:
         expected_keys = {
@@ -94,7 +94,7 @@ class TestScalarConfigs(unittest.TestCase):
             for key, val in expected.items():
                 self.assertTrue(
                     math.isfinite(val),
-                    f"k={row_vals['ind_vars']} intercept={row_vals['Allow_Intercept']} "
+                    f"k={row_vals['ind_vars']} intercept={row_vals['Has_Intercept']} "
                     f"{key}={val} is not finite",
                 )
 
@@ -104,12 +104,12 @@ class TestScalarConfigs(unittest.TestCase):
                 expected["SS_Total"],
                 expected["SS_Regression"] + expected["SS_Residual"],
                 places=6,
-                msg=f"k={row_vals['ind_vars']} intercept={row_vals['Allow_Intercept']}",
+                msg=f"k={row_vals['ind_vars']} intercept={row_vals['Has_Intercept']}",
             )
 
     def test_r_squared_bounds(self) -> None:
         for row_vals, expected in self.configs:
-            if row_vals["Allow_Intercept"]:
+            if row_vals["Has_Intercept"]:
                 self.assertGreaterEqual(expected["R_Squared"], 0.0)
                 self.assertLessEqual(expected["R_Squared"], 1.0)
 
@@ -123,7 +123,7 @@ class TestScalarConfigs(unittest.TestCase):
 
     def test_df_total_with_intercept(self) -> None:
         for row_vals, expected in self.configs:
-            if row_vals["Allow_Intercept"]:
+            if row_vals["Has_Intercept"]:
                 self.assertEqual(
                     expected["Total_Degrees_Of_Freedom"],
                     expected["Observations"] - 1,
@@ -131,7 +131,7 @@ class TestScalarConfigs(unittest.TestCase):
 
     def test_df_total_without_intercept(self) -> None:
         for row_vals, expected in self.configs:
-            if not row_vals["Allow_Intercept"]:
+            if not row_vals["Has_Intercept"]:
                 self.assertEqual(
                     expected["Total_Degrees_Of_Freedom"],
                     expected["Observations"],
@@ -141,7 +141,7 @@ class TestScalarConfigs(unittest.TestCase):
         for row_vals, expected in self.configs:
             k = row_vals["ind_vars"]
             n = expected["Observations"]
-            df_resid = n - k - (1 if row_vals["Allow_Intercept"] else 0)
+            df_resid = n - k - (1 if row_vals["Has_Intercept"] else 0)
             self.assertEqual(expected["Residual_Degrees_Of_Freedom"], df_resid)
 
     def test_se_regression_squared_equals_mse(self) -> None:
@@ -167,7 +167,7 @@ class TestScalarConfigs(unittest.TestCase):
     def test_aic_bic_aicc_formulas(self) -> None:
         for row_vals, expected in self.configs:
             n = expected["Observations"]
-            p = expected["Regression_Degrees_Of_Freedom"] + (1 if row_vals["Allow_Intercept"] else 0)
+            p = expected["Regression_Degrees_Of_Freedom"] + (1 if row_vals["Has_Intercept"] else 0)
             log_term = n * math.log(expected["SS_Residual"] / n)
             aic = log_term + 2.0 * p
             bic = log_term + p * math.log(n)
@@ -327,7 +327,7 @@ class TestCrossConsistency(unittest.TestCase):
     def _scalar_lookup(self) -> dict:
         lookup = {}
         for row_vals, expected in self.scalar_configs:
-            key = (row_vals["ind_vars"], row_vals["Allow_Intercept"])
+            key = (row_vals["ind_vars"], row_vals["Has_Intercept"])
             lookup[key] = expected
         return lookup
 

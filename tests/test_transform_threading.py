@@ -98,7 +98,7 @@ def test_log_transform_case_labels_match_the_transform_contract() -> None:
 
     assert log_expected.design.constructed_column_names == ("Ln(Cumulative_Units)",)
     assert log_expected.design.constructed_column_transforms == ("Log",)
-    # Constructed-column-space alignment: one flag per X_s()-equivalent
+    # Constructed-column-space alignment: one flag per Predictor_Columns()-equivalent
     # column, same width as x_features.
     assert len(log_expected.design.constructed_column_transforms) == (
         log_expected.design.x_features.shape[1]
@@ -134,7 +134,7 @@ def test_none_transform_design_is_unaffected_by_the_log_wiring() -> None:
 
 def test_log_on_a_categorical_predictor_is_ignored_by_the_design_builder() -> None:
     # The sheet flags this combination red (write_sheet_model_construction.py);
-    # the design builder mirrors X_s()'s own behavior — the Categorical
+    # the design builder mirrors Predictor_Columns()'s own behavior — the Categorical
     # branch never reads .transform, so a mislabelled row is computationally
     # inert, not an error and not silently logged.
     rows = load_production_lots_source_rows(PRODUCTION_LOTS_CSV_PATH)

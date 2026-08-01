@@ -17,6 +17,12 @@ cross-link to ARCHITECTURE for the foundational pattern it instantiates.
   the resolution is in the codebase.
 - **SUPERSEDED** — a decision was made and later replaced by a later
   decision. Cross-link to the superseding decision.
+- **REJECTED** — an alternative was considered at a decision point and
+  not taken. Recorded rather than deleted, so the same option is not
+  re-proposed without the reason it lost.
+- **WITHDRAWN** — a proposal made during planning for a version and
+  retracted before that version resolved, usually because a later
+  decision in the same pass removed its basis.
 - **DEFERRED** — the question is open and intentionally held for a
   specific future version. The full deferral record (why, what changes
   when resolved) lives here; the action item (resolve it then) lives in
@@ -1014,6 +1020,775 @@ the FE Role question.
 
 ---
 
+## v3.0 — Two artifacts, a bounded model context, and the constructor pipeline
+
+The v3.0 decisions respond to [REVIEW.md](REVIEW.md), a standing architecture
+review whose findings share one shape: each individual decision was correct,
+argued well, and recorded properly, and the cost is in the sum. Findings F1,
+F2, F3, F4, F6, and F8 are resolved by the decisions below and struck from that
+file. **F5** is struck too, but on different grounds — it was already fixed in
+the code when the review was written, and the entry below records the correction
+rather than a decision. **F7** (documentation drift) remains open there.
+
+The v3.0 *scope* — which of these ship together — is the one open question, and
+it lives in [ROADMAP.md](ROADMAP.md), in the v3.0 milestone entry.
+Everything below is resolved.
+
+### Univariate becomes its own workbook
+
+**Question:** the shipped workbook leaves Excel in
+`XL_CALCULATION_SEMIAUTOMATIC` — Automatic except Data Tables. Should the build
+keep emitting one artifact?
+
+**Resolution:** the build emits **two workbooks**. Univariate Analysis moves to
+its own artifact; the Regression workbook keeps every other sheet. **Both
+workbooks carry the complete function library** — all 126 catalog functions ship
+in both Name Managers. There is no bundling, no dependency closure, and no
+per-artifact function subsetting; the workbooks differ only in which sheets they
+contain. Splitting lets each artifact set its own calculation mode, and the
+Regression workbook returns to full Automatic.
+
+**Rationale:** the semiautomatic mode is forced by the Univariate sheet's six
+two-input Data Tables (Weibull, Gamma, Beta × two stages, 20×20 each —
+2,400 NLL evaluations per full recalculation). Two consequences shipped with it.
+First, every Regression user receives a non-default calculation mode as a side
+effect of a sheet they may never open. Second, and far more serious, **Univariate
+fit results are stale until the user presses Ctrl+Alt+F9** — the flagship
+distribution-fitting sheet silently displays a previous answer. That is a direct
+violation of the live-recalculation and visible-failure philosophy, in the one
+place the philosophy exists to prevent it. Keeping the two sheets in one file
+means one calculation mode has to be wrong for one of them.
+
+**Breakage class: non-breaking, for both artifacts.** The split is packaging
+only — no formula, no input cell, and no named range changes meaning. Per the
+public-interface definition in [ROADMAP.md](ROADMAP.md), every specification
+valid before the split produces the same result after it.
+
+**Mechanism already half-built.** `--skip-univariate` and
+`--skip-data-table-calculations` already exist in `build_production.py`;
+formalizing them into two build targets is most of the work. Resolves
+REVIEW.md F4.
+
+### The grid shrink ships as a later release of the Univariate artifact
+
+**Question:** the 2,400-evaluation grid is what forced the calculation mode.
+Should shrinking it be bundled with the split?
+
+**Resolution:** no. The shrink ships as a **subsequent release of the Univariate
+artifact**, after the split. Breakage class: **MAJOR for the Univariate workbook
+version only** — the Scale Min/Max/Step input cells change or disappear, so a
+user's saved bounds stop meaning anything. It does not move the Regression
+workbook version.
+
+**Weibull and Gamma collapse to one-dimensional searches** by profiling out the
+scale/rate parameter in closed form.
+
+Gamma — with β̂(α) = α / x̄:
+
+> ℓ_p(α) = n·α·ln(α/x̄) − n·lnΓ(α) + (α−1)·Σln xᵢ − n·α
+
+Two fixed sample statistics (x̄ and Σln xᵢ) are computed once; only
+`GAMMALN.PRECISE` is α-dependent. Starting value from Minka's approximation:
+with s = ln(AM/GM), α₀ ≈ (3 − s + √((s−3)² + 24s)) / (12s).
+
+Weibull — with λ̂(k) = ((1/n)·Σxᵢᵏ)^(1/k):
+
+> ℓ_p(k) = n·ln k + (k−1)·Σln xᵢ − n·ln((1/n)·Σxᵢᵏ) − n
+
+Σxᵢᵏ is k-dependent and recomputes per grid point; only Σln xᵢ is fixed.
+Starting value from the probability-plot regression of ln(−ln(1−F̂)) on ln x,
+with F̂ from the existing `Rank_Fraction()`.
+
+**Beta remains two-dimensional** — both conditional MLEs involve digamma — but
+gets a method-of-moments start: on the rescaled data with mean m and variance v,
+α₀ = m·(m(1−m)/v − 1) and β₀ = (1−m)·α₀/m, allowing a smaller grid (~12×12).
+
+Total evaluations fall from ~2,400 to ~370.
+
+**Profiling is still genuine MLE.** The profile maximizer *is* the joint
+maximizer, so the "MLE without Solver" claim strengthens rather than weakens:
+closed form for one parameter, zeroth-order search for the other. This **extends**
+the [v1.1 MLE-via-grid reframing](#v11--univariate) rather than replacing it —
+that entry said the wall was never "MLE without Solver" but "MLE in closed form,"
+and profiling moves one more parameter back across that line.
+
+### Profile-NLL line charts replace the Weibull and Gamma heatmaps
+
+**Question:** the two-dimensional NLL heatmap is the visible artifact of the
+grid. What replaces it once Weibull and Gamma search one parameter?
+
+**Resolution:** a **profile-NLL line chart** plotting NLL against the searched
+parameter. Beta keeps its heatmap. Both existing grid guards — the boundary-hit
+flag and the `IFERROR` sentinel for undefined NLL — carry forward unchanged.
+
+**Rationale:** this is an upgrade in legibility, not a downgrade. The basin, the
+interior minimum, and any boundary-hit are all more directly visible in a line
+chart than in a one-row color strip, which is what a 1-D search would reduce the
+heatmap to. The two guards from
+[§ v1.1 two grid guards](#v11--univariate) are what make a boundary hit and an
+undefined-likelihood region visible at all, and neither depends on the chart type.
+
+### `Model_Context` — a bounded, materialized cache of spec-derived scalars
+
+**Question:** `[DF_Absorbed]` is carried by 24 functions and `[Allow_Intercept]`
+by 48. v2.6 would have added `[Weights]` and v2.7+ a Cluster key. Excel has no
+keyword arguments, so every addition converts to positional comma-counting — the
+worst current sheet formula is 695 characters ending in a nine-argument call. How
+should the engine receive properties of the fit?
+
+**Resolution:** a bounded, fixed-height array holding **only the minimum each
+engine function needs that it cannot derive from its own arguments**. It is
+materialized once into a spill range on the Regression sheet with a named range
+over it, and `Model_Context()` is a LAMBDA that *reads the materialized range*
+rather than recomputing — the same pattern as `Base_Period_Delta()` reading spec
+column J.
+
+**Contents — exactly four elements:**
+
+| Element | Consumed by |
+|---|---|
+| `Has_Intercept` | `SS_Total` (identifies the intercept column), total-df and regression-df display |
+| `DF_Absorbed` | the fixed-effects df correction |
+| `Response_Transform` | the unit-space dispatcher family |
+| `Predictor_Transform` | the unit-space dispatcher family — a `None`/`Log`/`Mixed` summary; per-column detail already lives in `Constructed_Column_Transforms()` |
+
+**Explicitly excluded, with reasons:**
+
+- `Is_Weighted` — no engine needs it. Under the intercept relocation below, the
+  weighting is carried by the design matrix itself (column 1 is √w); `SS_Total`
+  reads the column, not a flag.
+- `n`, `k` — derivable as `ROWS`/`COLUMNS` of arrays the caller already holds.
+- Model formula string, headline GoF, error state — **status-block** content, not
+  engine plumbing. See the status-block relationship below.
+
+**It is built by the spec block.** Every element is a pure function of the spec
+block plus the source data: `Has_Intercept` from the C2 intercept toggle,
+`DF_Absorbed` from `Absorbed_Degrees_Of_Freedom()` reading `Spec_Role`, both
+transforms from `Spec_Transform`.
+
+**The boundary — why this does not contradict "display derives, never feeds."**
+The context block introduces **no new state**. It is a materialized cache of a
+pure function of state that already exists. No user types into it. It belongs to
+the same family as the computed-display cells J, K, and L in
+[ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an) — cached for
+performance rather than shown for display. Recorded explicitly so it is not later
+cited as precedent for putting genuine user input into a computed block: a cell
+whose value a user can change is an input, wherever it sits, and inputs belong in
+the spec block.
+
+**Signature change.** Engine signatures collapse from
+`(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed])` to
+`(X, Y, [Include], [Context])`. A `Model_Context(...)` constructor with its own
+optional arguments serves free-form callers outside the sheet.
+
+**`[Include]` is a permanent floor, not a transitional state.** It cannot be
+absorbed into the context: the row mask is n×1 and would break boundedness, and
+engine functions are workbook-scoped so they cannot default to a sheet-scoped
+closure. Four arguments, down from five, with both trailing arguments being
+zero-argument closures at the sheet call site.
+
+**Boundedness is the invariant.** `ROWS(Model_Context())` is a build-time
+constant and should be asserted in the build.
+
+**Row order is a versioned public contract.** Append only, never insert — the
+same discipline as reserved spec columns F and G.
+
+**Performance rationale.** Names whose Refers To is a formula are re-evaluated at
+every use site; Excel does not memoize them. A materialized cell is computed once.
+The recomputation eliminated is not small: `Absorbed_Degrees_Of_Freedom()` calls
+`Dummy_Levels(Fixed_Effects_Column(), "", Sample_Include())` — a UNIQUE/SORT over
+the included sample — at all 24 current `[DF_Absorbed]` call sites.
+
+Resolves REVIEW.md F1.
+
+### The context is NOT the Model Comparison interface
+
+**Question:** the v2.3 Model Comparison sheet needs a fixed-position interface on
+each Regression sheet. Is the context block that interface?
+
+**Resolution:** no. Two distinct objects, and an earlier draft that proposed
+collapsing part of v2.3 into the context block is **withdrawn** by the minimality
+decision above.
+
+- **`Model_Context`** — engine plumbing. Minimal, bounded, order-versioned.
+- **The status block** — display and cross-sheet interface. Already fixed-height
+  and fixed-position, and already what the v2.3 anchor design was written against.
+
+The v2.3 `Comparison_Anchor` / `Comparison_Headline_GoF` /
+`Comparison_Prediction_Output` design stands unchanged (see
+[§ v2.3](#v23--model-comparison-sheet)). One relationship to record: status-block
+cells that overlap the context (`Has_Intercept`, absorbed df) should **read the
+materialized context** rather than recompute — "display derives, never feeds,"
+applied one layer up.
+
+### Row filtering stays in the engine, never in the constructor
+
+**Question:** moving the row mask into the constructor would remove `[Include]`
+from every signature and apply the mask once per recalculation instead of roughly
+thirty times. Should it move?
+
+**Resolution:** rejected. Row filtering stays in the engine.
+
+**Rationale, in three parts:**
+
+1. It breaks the `x_s()` full-height row-mask contract
+   ([§ v2.0](#v20--specification-driven-regression)), which exists precisely to
+   prevent double-filtering against the engine's own mask application.
+2. Full-height output is what keeps every spilled array **row-aligned with the
+   source table**. `Row_Labels()`, the residual-output zone, and the materialized
+   design matrix all read across against the source rows. A filtered constructor
+   would silently break that alignment.
+3. The materialized design matrix is specified full-height for the same reason; a
+   filtered constructor would contradict it.
+
+### `Sample_Include()` is materialized instead
+
+**Question:** the performance argument for filtering in the constructor was real
+even though the mechanism was wrong. How is it recovered?
+
+**Resolution:** materialize the mask. `Sample_Include()` is, like the context, a
+pure function of the spec block plus the source data. It cannot go *inside* the
+context (n×1 breaks boundedness), but it becomes its own materialized full-height
+spill range with a name, and `Sample_Include()` reads the range rather than
+recomputing.
+
+**Rationale:** this eliminates roughly thirty recomputations of the role-aware
+completeness logic — which tests numeric-ness across the response and every
+included Continuous Predictor over every row — while leaving the contract
+untouched. The Model Construction sheet already spills `Sample_Include()`
+full-height at Q4, so the pattern is proven; this promotes it to production on the
+Regression sheet. It is placed immediately left of the design-matrix terminal
+zone, per the zone layout below.
+
+### Intercept relocation into the constructor
+
+**Question:** `[Allow_Intercept]` is the largest optional-argument carrier in the
+catalog. Can the intercept stop being an engine argument?
+
+**Resolution:** yes. The intercept column moves out of `Design_Matrix` and into
+the design-matrix constructor. `Design_Matrix` stops synthesizing it.
+
+**What it costs — the honest count.** 48 functions carry `[Allow_Intercept]`.
+**37 are pure pass-through; 11 branch on the flag** — `Total_Degrees_Of_Freedom`,
+`SS_Total`, `Design_Matrix`, `AIC`, `BIC`, `AICc`, `Coefficients`,
+`SE_Coefficients`, `Beta_Weights`, `Prediction_Interval`, and
+`Group_Prediction_Interval`. `Has_Intercept` therefore does not disappear; it
+survives in roughly seven places, as an identifier rather than an arithmetic
+switch: identify column 1 for `SS_Total`, `n − Has_Intercept` for total df,
+`COLUMNS(X) − Has_Intercept` for the ANOVA regression-df display convention, the
+coefficient-vector `DROP` in `Beta_Weights` and `Group_Prediction_Interval`, and
+the `x_new` alignment in `Prediction_Interval`.
+
+`Regression_Degrees_Of_Freedom(X_s)` is `COLUMNS(X_s)` and takes the predictor
+matrix, so it never counted the intercept and needs no change.
+
+**Rationale:** the relocation is still worth doing at eleven functions. It is what
+makes the `Model_Context` collapse possible, and it converts WLS from an engine
+argument threaded through 24 more functions into a constructor concern — see the
+v2.6 supersession below. The alternative is the accretion trajectory REVIEW.md F1
+describes, which has no stopping rule.
+
+### `SS_Total` redefined as the intercept-only residual sum of squares
+
+**Question:** with the intercept a column rather than a flag, what does
+`SS_Total` compute?
+
+**Resolution:** the residual sum of squares from the intercept-only model — the
+projection of y off whatever the intercept column actually is:
+
+> SS_Total = ‖y‖² − (c′y)² / (c′c)
+
+This collapses three cases into one formula:
+
+| Intercept column c | Result | Equals |
+|---|---|---|
+| ones | Σy² − (Σy)²/n | `DEVSQ(y)` |
+| absent | ‖y‖² | `SUMSQ(y)` |
+| √w | Σwy² − (Σwy)²/Σw | Σw(y − ȳ_w)² |
+
+The decomposition SS_Total = SS_Regression + SS_Residual continues to hold in all
+three cases.
+
+**The WLS trap, recorded with the algebra.** `DEVSQ(√w ⊙ y)` is **not** the
+weighted total sum of squares — it centers on mean(√w·y) rather than on ȳ_w. A
+naive "scale everything by √w" implementation would leave SS_Total, and therefore
+R², silently wrong under WLS, with no error anywhere and a plausible-looking
+number in the cell. The projection form above is correct by construction. This is
+exactly the class of silent misfiring the library exists to prevent, which is why
+it is recorded here rather than in a code comment.
+
+### The LINEST `const` trap
+
+**Question:** `Coefficients` and `SE_Coefficients` both call
+`LINEST(FILTER(Y, filt), FILTER(X_s, filt), allow_arg, …)`. What happens to that
+call when the design matrix arrives with the intercept already in it?
+
+**Resolution:** `const` must be hard-`FALSE` at both sites, and the coefficient
+reassembly simplifies accordingly.
+
+**Rationale — this is the sharpest edge in the relocation.** `allow_arg` is not
+merely passed along in these two functions: it *is* LINEST's third argument,
+`const`, which tells Excel whether to fit its own intercept. If the constructor
+prepends a column of ones and `const` is left `TRUE`, Excel fits a second
+intercept on top of it — two perfectly collinear terms, an exactly singular Gram
+matrix, and a result that is wrong rather than absent.
+
+Two consequences follow. `Coefficients` currently unwinds LINEST's
+reverse-order output with `INDEX(ls, 1, k + 1)` for the intercept plus
+`CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))` for the slopes; with `const = FALSE` and
+the intercept already a column of `X`, LINEST returns exactly `COLUMNS(X)`
+coefficients and the branch collapses to the reversal alone. `SE_Coefficients`'
+`naive_df` rescaling changes with it, because LINEST computes n − k under
+`const = FALSE` where it computed n − k − 1 before — which is the correct df once
+the intercept is counted in k.
+
+The same arithmetic reaches the information criteria: `AIC`, `BIC`, and `AICc`
+compute `p = Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0) + absorbed_arg`,
+and the `+ IF(allow_arg, 1, 0)` term must go once `COLUMNS(X)` counts the
+intercept itself.
+
+Recorded beside the WLS trap above because it is the same failure class: a change
+that looks like a pass-through, is not, and fails silently in a plausible
+direction.
+
+### Pipeline order is a hard constraint
+
+**Question:** in what order do the construction stages apply?
+
+**Resolution:** one fixed order, recorded in
+[ARCHITECTURE.md § 4a](ARCHITECTURE.md#4a-the-constructor-pipeline):
+
+> encode → transform → demean → intercept → weight
+
+**Rationale:** a column of ones demeaned by group is a column of zeros, giving a
+singular Gram matrix. The current code is safe *by accident* — `Design_Matrix`
+prepends the intercept to the already-demeaned `X_s_Within()` output, so the
+ordering is enforced by which function calls which. Once the constructor owns the
+intercept, that accident disappears and the ordering must be stated, or someone
+will rediscover it as a singular-matrix bug. The transform-then-demean half of the
+order was already settled at
+[v2.2](#v22--transforms--unit-space-comparability) for a different reason —
+demeaning before logging would take logs of negative numbers — so this entry
+extends an existing constraint rather than introducing a new one.
+
+### Weighted fixed effects — out of scope, not overlooked
+
+**Question:** under WLS with Fixed Effects, should the within transformation
+demean using weighted group means?
+
+**Resolution:** yes, it should — and it is **not part of v3.0**. Recorded here so
+a later WLS + FE release does not inherit an unstated assumption that plain group
+means are correct under weighting.
+
+### One constructor pipeline replaces the constructor name fork
+
+**Question:** `X_s()` and `X_s_Within()` are two names for stages of one pipeline,
+and the sheet must currently know which each call site wants — fit statistics take
+`X_s_Within()` while `GVIF`, `Generalized_Tolerance`, `Pearson_R`, `Spearman_R`,
+`Skewness`, and `Kurtosis` take `X_s()`. The distinction is statistically correct
+and entirely invisible in the names, and nothing enforces it. Adding weighting and
+two-way absorption would produce a cross product of variants. What replaces the
+fork?
+
+**Resolution:** one constructor applying the declared stages in the fixed order
+above, plus one explicit escape hatch returning pre-demeaning columns for the
+predictor-summary zone that legitimately wants them:
+
+| Name | Replaces | Stages applied |
+|---|---|---|
+| `Design_Columns()` | `X_s_Within()` | encode → transform → demean → intercept → weight |
+| `Design_Response()` | `y_s()` | transform → demean → weight |
+| `Predictor_Columns()` | `X_s()` | encode → transform only — the escape hatch |
+| `Response_Column()` | *(unchanged)* | transform only |
+
+**Rationale for the names.** The problem being fixed is that the distinction is
+invisible, so the names have to carry it. `Design_Columns()` is what enters the
+model; `Predictor_Columns()` is the predictors as columns, before the model-fitting
+stages. Call sites read correctly without cross-referencing —
+`R_Squared(Design_Columns(), Design_Response(), …)` against
+`GVIF(Predictor_Columns())` — and the "design columns" vocabulary is shared with
+the Design Columns audit column and the Constructed Design Matrix zone below, so
+one term covers all three. The names satisfy the
+[§ 1 naming convention](ARCHITECTURE.md#1-naming-convention): full English words,
+Title_Case_With_Underscores, no abbreviations.
+
+Resolves REVIEW.md F2.
+
+### Interactions are declared with two spec columns
+
+**Question:** the spec block is one row per source column, and an interaction term
+is not a column. It fits neither declared axis — Predictor Type is permanently
+closed, and Role describes what a column *is*. Where do interactions live?
+
+**Resolution:** two new spec-block columns — an **Interaction Term** column
+(naming the other operand) and an **Interaction Operation** column — both
+defaulting to none/blank.
+
+**Rejected alternative: a second spec section below the per-column block.** The
+source table's column count is variable, so anything positioned below the
+per-column block has no fixed address. The spec block auto-extends as a real Excel
+Table (`SpecTable`); a second section beneath it would be pushed down by any table
+that grows, and every formula referencing it would need a dynamic offset. Recorded
+in the supersession log.
+
+**Rationale for resolving it now, ahead of the feature.** REVIEW.md F6 notes this
+is the only finding that is irreversible if deferred: every other pending feature
+can be absorbed additively, but an interaction mechanism cannot be retrofitted the
+way column G was, because it is not a per-column property. The representation
+decision is therefore worth making before the next layout touch, independent of
+when interactions are actually implemented — which is exactly what the
+reserved-spec-column policy exists to enable. Resolves REVIEW.md F6.
+
+**One correction to F6's premise.** That finding states `Interact(x1, x2)` "exists
+as a standalone catalog function." It does not — `Interact`, `Model_Matrix`, and
+`Dummy_Column` are all *specified* in
+[ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy) and listed
+as v2.2 work items in [TODOs.md](TODOs.md), but none is in
+`lambda_functions.json`. The finding's conclusion is unaffected; its evidence is
+corrected here.
+
+### Interaction operation vocabulary — closed, with a symmetry attribute
+
+**Question:** which operations may an interaction declare, and what happens when
+both operands declare each other?
+
+**Resolution:** the operation list is **closed**, in the same sense as Predictor
+Type, and each operation carries a symmetry attribute that determines whether a
+reciprocal declaration is legitimate:
+
+| Operation | Symmetry | Reciprocal declaration (B on A as well as A on B) |
+|---|---|---|
+| Product | Symmetric | Produces a duplicate column → singular Gram. **Flag red.** |
+| Difference | Antisymmetric | Produces the exact negative → equally collinear. **Flag red.** |
+| Ratio | Asymmetric | Legitimate and distinct. **Allowed.** |
+
+**Rationale:** flag rather than silently deduplicate — the same "flag and instruct,
+never silently switch" precedent as the
+[v2.0 intercept × categorical case](#v20--specification-driven-regression) and the
+[v2.2 Log-on-Categorical case](#v22--transforms--unit-space-comparability).
+Silently dropping the duplicate would make the constructed design matrix disagree
+with the declared spec, which is the one thing the spec block exists to prevent.
+
+### Self-interaction is allowed and documented
+
+**Question:** an Interaction Term pointing at its own row — accident or feature?
+
+**Resolution:** allowed and documented. With Operation = `Product` it yields x².
+This is the documented way to get a quadratic term.
+
+**Rationale:** it is useful in cost work, unambiguous in meaning, and falls out of
+the layout anyway. Allowing it explicitly is better than leaving it as an
+accidental edge case whose behavior nobody has decided.
+
+### Operand Role and Include semantics — four cases
+
+**Question:** what happens when an interaction's target is not an included
+Predictor?
+
+**Resolution:**
+
+| Case | Behavior |
+|---|---|
+| Target Role is Omit, Response, Filter, Identifier, or Fixed Effects | **Error.** Only a Predictor can be an operand. |
+| Declaring row has Include = FALSE | Contributes nothing; the interaction is excluded. Consistent with cascading relevance. |
+| Target is a Predictor with Include = FALSE | **Allowed, flagged amber.** |
+| Both included | Normal. |
+
+**Rationale for the amber case:** an interaction without its main effect is a
+marginality violation — usually a specification error, but occasionally deliberate.
+Blocking it would be the library deciding a modeling question on the user's behalf,
+which is not its role; flagging it surfaces the issue without overriding the
+declaration. Amber rather than red because, unlike the reciprocal-Product case, the
+resulting model is estimable.
+
+### Two-way interactions only
+
+**Question:** should nested or three-way interactions be expressible?
+
+**Resolution:** no. One operand per spec row; (A×B)×C is not expressible.
+
+**Rationale:** this is the right limit for a spreadsheet library — three-way
+interactions on a categorical pair already produce column counts no one can audit
+by eye, and the spec block's readability is the feature. Recorded as a **deliberate
+decision** rather than left as an emergent property of the one-operand-per-row
+layout, so a future reader does not mistake the limit for an oversight.
+
+### Interactions make the Design Columns audit column required
+
+**Question:** [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an)
+notes that the gap column right of the spec block "visually reserves a future
+Design Columns slot." Does interaction support change its status?
+
+**Resolution:** it must now be built. The reserved slot becomes a required column.
+
+**Rationale — width.** Continuous × Categorical broadcasts to L−1 columns;
+Categorical × Categorical gives (L₁−1)(L₂−1). Status × Country on the WHO data is
+155 columns from a single spec row. **Interactions, not main effects, are where the
+design matrix explodes.** The audit column is the only place a user can see that
+one dropdown added 155 columns, and it supplies the pre-flight width number the
+guard below needs.
+
+**`Constructed_Column_Names()` needs an interaction convention.** R's colon form —
+`GDP:Schooling`, level-qualified as `GDP:StatusDeveloping`. The constructor twin
+must stay structurally identical to the constructor, per the existing rule that
+names and columns cannot disagree.
+
+### Materialize the design matrix as the terminal zone
+
+**Question:** the constructor is called inside every engine function, so the
+design matrix is rebuilt roughly thirty times per recalculation and is never
+visible. Should it be materialized on the sheet?
+
+**Resolution:** yes. Materialize the constructed design matrix at the far right of
+the Regression sheet, **full-height**, preserving the `x_s()` row-mask contract —
+the engine keeps doing the row filtering.
+
+**Persistent benefits, beyond one-time performance:**
+
+1. It restores the visible design matrix that v2.0 gave up; the status block was
+   the consolation prize for construction moving inside a LAMBDA.
+2. The Model Construction sheet's V/W zones already prove the pattern; this
+   promotes a QC feature to production.
+3. v2.4 bootstrap resamples the design matrix per draw, and reconstruction per
+   draw is not viable.
+4. Two-way FE absorption is iterative (alternating projections with a `[passes]`
+   argument); recomputing it inside every engine call is prohibitive.
+
+**Record the cost honestly.** Materialization is a tradeoff, not a pure win. On the
+WHO data with Country as a Categorical Predictor, the design matrix is roughly
+2,938 × 156 ≈ 458,000 live cells that recalculate on any input change, and the used
+range and file size grow accordingly. This is still far cheaper than reconstructing
+the matrix inside thirty engine calls, but it is not free.
+
+**Dependency:** the constructor pipeline must be resolved first, or two variants of
+a soon-to-change architecture get materialized.
+
+### The width guard — pre-flight, two thresholds
+
+**Question:** the materialized zone's width is unbounded and one dropdown away.
+What stops it running off the sheet?
+
+**Resolution:** a pre-flight check computed from the **Σ Design Columns audit
+total**, not from `COLUMNS(Design_Columns())`, with two thresholds.
+
+- **Hard error** at the sheet-width bound: `16,384 − (last_chart_column + 5)`,
+  where the five columns are three gutters plus the `Model_Context` and
+  `Sample_Include` columns. Computed from the layout constants, never hard-coded.
+  Surfaced as a spec-block-area error flag and in the status block's error state.
+- **Soft warning** at **k = 200 constructed columns, or 500,000 materialized cells
+  (n × k), whichever trips first.**
+
+**Rationale for pre-flight.** Constructing a 16,000-column array in order to
+discover it does not fit is precisely the failure being prevented. The audit column
+gives the number before the constructor runs.
+
+**Rationale for the soft thresholds.** `Gram_Inverse` is O(k³) in `MMULT`, so the
+practical wall is in the hundreds, not thousands — a model that reaches 16k columns
+has been unusable for a long time already. The two numbers are calibrated against
+the largest sane shipped example: WHO with Country as a Categorical Predictor is
+k = 156 and ≈ 458,000 cells, deliberately just under both, so the worked example
+does not trip its own warning while anything materially larger does. The
+cell-count trigger exists because materialized-cell count, not just k, is now part
+of the cost.
+
+### Materialization zone layout
+
+**Question:** where exactly do the materialized artifacts sit, and in what order?
+
+**Resolution:** all materialized artifacts live at the far right of the Regression
+sheet, each in its **own outline group separated by a thin ungrouped gutter
+column**, following the sheet's established pattern. The group begins after the
+diagnostic-chart columns:
+
+```
+… existing zones … │ charts │ gutter │ Model_Context │ gutter │ Sample_Include │ gutter │ Constructed Design Matrix →
+                                        (4 × 1)                  (n × 1)                  (n × k, unbounded)
+```
+
+**Naming.** The terminal zone is the **Constructed Design Matrix**, not the "Model
+Construction" zone — `Model Construction` is already a sheet name
+(`write_sheet_model_construction.py`) and the two must stay distinguishable.
+
+**Ordering rule:** the materialized zones run in **increasing width and terminate
+in the unbounded zone**. This single rule covers both the "nothing may ever be
+placed to the right of the Constructed Design Matrix" commitment and the question
+of where any future bounded materialization goes. It lives in
+[ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone) as a pattern a
+new feature must honor. It also supersedes REVIEW.md F3's framing: the sheet now
+has an explicit terminal boundary and a stated rule for what may be added, which
+is the eviction mechanism that finding said was missing.
+
+**Collapse behavior differs by zone.** Three separate groups exist precisely so
+they collapse independently. `Model_Context` and `Sample_Include` are one column
+each and ship **expanded**; the Constructed Design Matrix ships **collapsed by
+default**, because an unbounded-width zone that cannot be collapsed is a scrolling
+hazard.
+
+**The first gutter is structural, not cosmetic.** Charts anchored over columns
+inside a collapsed outline group get squashed. The gutter after the chart columns
+is what keeps the diagnostic-chart anchors outside every collapsible group.
+
+**The chart footprint needs an explicit bound.** `_C_AW` is currently the chart
+*anchor* column, not the chart *extent*: the seven diagnostic charts are floating
+objects tiled in a 4×2 grid roughly 640 points wide from AW's left edge, and four
+further content columns (AX–BA) carry the chart title and axis-label formula cells.
+Nothing records where that footprint ends. Introduce a named constant for the last
+chart column with a build assertion that no chart extends past it. Without it, a
+chart resize silently overlaps the context block, and the zone start column cannot
+be computed reliably — which the width guard above depends on.
+
+**All zones share a first data row.** Read-across is the point — the mask value
+beside its design-matrix row, both aligned to the source table rows, with the
+gutters as visual separators. Assert the shared start row in the build rather than
+leaving it to layout constants.
+
+**Build details for implementation:**
+
+- Column widths cannot be set per-column across an unbounded zone. Set a generous
+  fixed block of narrow columns in a single range call (the univariate grid's
+  width-6 pattern is the precedent) and let the remainder take default width.
+- Each zone needs a name over its spill anchor (`Regression!$XX$n#`).
+- The `Model_Context` row order remains append-only.
+- Gutter columns must remain **ungrouped**, or the groups merge.
+
+### Versioning across two artifacts
+
+**Question:** [ROADMAP.md](ROADMAP.md) defines the public interface as "the user's
+inputs to the workbook" — singular. Two emitted workbooks break that definition.
+What replaces it?
+
+**Resolution:** a **single library version** covering the shared function catalog,
+plus a **per-workbook version** covering each artifact's sheets and input surface.
+
+**Rationale:** both workbooks carry the identical complete function library, so a
+function change is genuinely a shared event and should move one number. The input
+surfaces differ entirely, so a Univariate layout change must not move the number a
+Regression user reads as the answer to "do my existing inputs still work?"
+
+**The `Breaking?` flag attaches to the workbook version, not the library version.**
+It answers a question about a user's saved inputs, and inputs are a property of the
+workbook's sheets. A library-version bump that adds a function breaks nothing.
+
+Consequences, recorded so the two-number scheme is unambiguous at its first two
+uses: the Univariate split is **non-breaking for both artifacts** and moves neither
+workbook's major; the grid shrink is **MAJOR for the Univariate workbook version
+only** and does not move the Regression workbook version. The full display and
+changelog conventions are in
+[ROADMAP.md § Versioning](ROADMAP.md#versioning--release-conventions). Resolves
+REVIEW.md F8.
+
+### `PRESS` correctly omits `[DF_Absorbed]`
+
+**Question:** `PRESS` does not carry `[DF_Absorbed]` but `QQ_Correlation` does.
+The two sit in adjacent zones of the same sheet and the asymmetry is not legible
+from the signatures. Is it correct?
+
+**Resolution:** correct, and the reason is mechanical rather than a judgment call.
+`PRESS` is `SUMSQ(LOOCV_Residual(…))` — a sum of squared leave-one-out residuals,
+each of which is `eᵢ / (1 − hᵢ)`. Neither the residual nor the leverage depends on
+a degrees-of-freedom count, so there is no term for absorbed df to enter.
+`QQ_Correlation` calls `Scaled_Residuals_Ranked`, which divides by an estimate of
+σ computed on residual df — so absorbed df changes its value.
+
+The rule this generalizes to: **a statistic needs `[DF_Absorbed]` exactly when it
+divides by a residual-df-based variance estimate.** Recorded in each function's
+JSON `notes` field so the asymmetry is legible from the catalog sheet without
+reading both formulas. Resolves the REVIEW.md Minor item.
+
+### `AIC` and `GoF_AIC` are deliberately distinct
+
+**Question:** `write_sheet_univariate.py` references both `AIC`/`BIC` and
+`GoF_AIC`/`GoF_BIC`. Is that a naming collision?
+
+**Resolution:** deliberate, and there is no collision in the code. The Univariate
+sheet **only ever calls** `GoF_AIC(nll, k)` and `GoF_BIC(nll, k, n)`; the strings
+`"AIC"` and `"BIC"` that also appear there are column-header labels in the
+fit-comparison table, not function calls.
+
+**Rationale:** the two families take different arguments because they answer
+different questions. `AIC(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed])`
+computes a regression information criterion from the residual sum of squares, and
+its df argument counts model parameters including absorbed fixed effects.
+`GoF_AIC(nll, k)` takes an already-computed negative log-likelihood and a
+parameter count, because a distribution fit has no design matrix and no absorbed
+df. Collapsing them would mean one name whose argument list changes meaning by
+context, which is exactly the ambiguity the naming convention exists to prevent.
+
+### The spec block is implemented once, not twice
+
+**Question:** REVIEW.md F5 observes that `write_sheet_regression.py` (1,862
+lines) and `write_sheet_model_construction.py` (1,512 lines) "each implement a
+spec block," so "a layout change touches both writers." With v3.0 adding two
+spec columns, the Design Columns audit column, and the materialization zone,
+does that double cost need paying — or unwinding — as part of this release?
+
+**Resolution:** neither. The premise is false. There is **one** implementation.
+`write_sheet_regression.py` imports the spec-block writers from
+`write_sheet_model_construction.py` and calls them:
+
+```python
+from .write_sheet_model_construction import (
+    _set_sheet_scoped_names as _set_spec_scoped_names,
+    _set_spec_block_column_widths,
+    _write_intercept_control,
+    _write_spec_block,
+    _write_spec_feedback,
+    # … plus every _C_* column constant and formula string
+)
+```
+
+`write_sheet_regression.py`'s own module docstring states the intent: *"the
+spec-block writers are imported from write_sheet_model_construction so the two
+sheets can never drift."* Separately, the Model Construction **sheet** is
+deleted by both builds — `_delete_sheet_if_present(workbook, "Model
+Construction")` in `build_production.py` and `build_qc.py` — so only one spec
+block ships at all.
+
+**Consequence for v3.0 scope:** the interaction columns, the audit column, and
+the materialization zone each land in **one** writer. F5 is not a cost of this
+release, and the shared-import structure is part of what makes the recommended
+scope affordable.
+
+**Rationale for recording a non-decision.** Nothing was decided here — the fix
+predates the review that reported the problem. It is recorded because the wrong
+version was load-bearing twice: F5 was triaged as medium and "expensive after
+v2.3," and an earlier draft of this v3.0 pass argued the release made it *worse*
+on the same reasoning. Both inferred coupling from two large files without
+reading the import. Writing down that the coupling does not exist is what stops
+a third round.
+
+**What remains is a naming problem.** `write_sheet_model_construction.py` no
+longer writes a shipped sheet; it is the spec-block component library the
+Regression sheet is built from, and it still carries the name of a sheet both
+builds delete. Renaming it — and dropping the unreachable
+`write_model_construction_sheet()` / `main()` standalone-CLI path — is tracked
+in [TODOs.md](TODOs.md) as cosmetic follow-up. Deliberately **not** dropped:
+`_write_audit_row` and `_write_filtered_zones`, which are the working reference
+implementations of the Design Columns audit column and the V/W filtered-display
+pattern that this release promotes to production.
+
+### The standalone user-callable layer is documented, not orphaned
+
+**Question:** 30 catalog functions are called by no sheet writer. With the full
+library in both workbooks this raises no packaging question, but do they look
+abandoned?
+
+**Resolution:** they are the **standalone user-callable layer** and the
+`LAMBDA_functions` catalog sheet documents them as such, rather than leaving them
+to read as orphans.
+
+**Rationale:** the count is a property of the sheets, not of the functions. A
+function like `Correlation_Matrix`, `Lag_By`, or `Descriptive_Statistics` exists so
+a user can call it in their own cell on their own data — that is the library's
+primary purpose, and the pre-built sheets are demonstrations of it, not the whole
+of it. `ARCHITECTURE.md § 5` already records that the Data Transformation family
+serves "double duty" as constructor internals and standalone transforms; this
+extends the same framing to the rest. (The count is a text-match of function names
+against `write_sheet_*.py` and moves as sheets change; it is illustrative, not a
+tracked invariant.)
+
+---
+
 ## Aliases
 
 A separate, optional layer of short, ALL-CAPS aliases may be added in
@@ -1163,3 +1938,63 @@ just records what was replaced, when, and by what.
   additively. v2.0 shipped the standard form anyway; v2.1 rebuilds
   the prediction zone in the general form (the rebuild is the
   cost paid for the v2.0 short-cut).
+- **Optional-argument accretion as the standard extension mechanism**
+  (v2.1 `[DF_Absorbed]`, generalized by ARCHITECTURE § 7 to "a
+  LAMBDA's argument list or its internal SWITCH") → SUPERSEDED at
+  v3.0 by the bounded `Model_Context` block. The v2.1 decision
+  remains correct on its own terms — default 0, no-FE models
+  identical, MINOR instead of MAJOR — but each addition was
+  individually non-breaking, which is exactly why the sequence had
+  no stopping rule. The reserved-slot pattern survives for *sheet
+  columns* and for dormant `SWITCH` branches; it no longer applies
+  to engine argument lists.
+- **`[Allow_Intercept]` as an engine argument** (v1.0) → SUPERSEDED
+  at v3.0 by the intercept column moving into the design-matrix
+  constructor. `Design_Matrix` stops synthesizing the column;
+  `Has_Intercept` survives in the context block as an identifier,
+  not an arithmetic switch.
+- **`[Weights]` as a threaded engine argument** (v2.6 planning) →
+  SUPERSEDED at v3.0, **narrowly**, by WLS as a constructor concern:
+  with the intercept in the constructor, √w scaling of the design
+  matrix and response yields the exact WLS estimator, standard
+  errors, leverage, and Cook's distance, because the intercept
+  column correctly becomes √w rather than remaining ones. Only the
+  *implementation mechanism* is superseded. The `Weight` value on
+  the Role axis, its cardinality rule, the status-block validation,
+  and the three-stage scope (user-supplied weights →
+  variance-driver-derived weights → FGLS) all carry forward
+  unchanged — weights remain declared in the spec block, exactly as
+  recorded at v2.0 and v2.6.
+- **The `X_s()` / `X_s_Within()` constructor name fork** (v2.1) →
+  SUPERSEDED at v3.0 by one pipeline constructor
+  (`Design_Columns()` / `Design_Response()`) plus one named escape
+  hatch (`Predictor_Columns()`). The fork was statistically correct
+  and invisible in the names, with nothing enforcing the
+  correct-call-site rule.
+- **A second spec section below the per-column block, for
+  interactions** (v3.0 planning) → REJECTED at v3.0 in favor of two
+  new per-column spec columns. The source table's column count is
+  variable, so anything positioned below the per-column block has no
+  fixed address — the spec block auto-extends as a real Excel Table,
+  and a section beneath it would be displaced by any table that
+  grows.
+- **Row filtering moved into the constructor** (v3.0 planning) →
+  REJECTED at v3.0. It would have removed `[Include]` from every
+  signature and applied the mask once instead of ~30 times, but it
+  breaks the `x_s()` full-height row-mask contract and the
+  source-table row alignment that `Row_Labels()`, the residual-output
+  zone, and the materialized design matrix all depend on. The
+  performance is recovered instead by materializing
+  `Sample_Include()` as its own full-height spill range.
+- **`Model_Context` as the Model Comparison interface** (v3.0
+  planning) → WITHDRAWN at v3.0 by the minimality decision. An
+  earlier draft proposed collapsing part of v2.3 into the context
+  block; the context is engine plumbing and the status block remains
+  the display and cross-sheet interface. The v2.3
+  `Comparison_Anchor` / `Comparison_Headline_GoF` /
+  `Comparison_Prediction_Output` design stands unchanged.
+- **A single version number for a single workbook** (v1.0 →
+  v2.x) → SUPERSEDED at v3.0 by one library version plus a
+  per-workbook version, once the build began emitting two artifacts.
+  The `Breaking?` flag moves to the workbook version, where the
+  question it answers actually lives.

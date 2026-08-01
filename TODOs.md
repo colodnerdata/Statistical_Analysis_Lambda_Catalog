@@ -53,14 +53,60 @@ relevant DECISIONS entry for context on *why* — TODOs only holds
 ## v2.0 — Specification-Driven Regression (shipped; leftovers)
 
 Human test plan fully executed and signed off PASS 2026-07-05 (T0–T16).
-One open decision remains from it:
+One open decision remains from it, plus one numbering-cleanup item:
+
+- TODO: **Rename `write_sheet_model_construction.py` to match what it is.**
+  It no longer writes a shipped sheet — both `build_production.py` and
+  `build_qc.py` call `_delete_sheet_if_present(workbook, "Model
+  Construction")`. What it actually is now is the **spec-block component
+  library**: `write_sheet_regression.py` imports `_write_spec_block`,
+  `_write_spec_feedback`, `_write_intercept_control`,
+  `_set_sheet_scoped_names`, `_set_spec_block_column_widths`, and every
+  `_C_*` column constant from it. Proposed: rename to `write_spec_block.py`
+  and update the importers (`write_sheet_regression.py`,
+  `analyze_model_construction.py`, `analyze_regression_spec.py`,
+  `analyze_regression_spec_block.py`, `tools/inspect_regression_sheet.py`,
+  and five test modules). Mechanical; changes no behavior.
+
+  Drop at the same time: `write_model_construction_sheet()`, `main()`, and
+  `SHEET_NAME` — the standalone-CLI path, unreachable from any build.
+
+  **Keep** `_write_audit_row` and `_write_filtered_zones`. They are the
+  working reference implementations of the Design Columns audit column
+  (now required — [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an))
+  and the V/W filtered-display pattern the Constructed Design Matrix
+  promotes to production
+  ([ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone)).
+  Promote them into the Regression writer as v3.0 builds those; do not
+  delete and rewrite. Their `RecordingSheet` coverage in
+  `tests/test_model_construction_writer.py` is the only test for that
+  behavior.
+
+  Context: this is what remains of REVIEW.md F5 after the finding itself
+  was struck as never-true — see
+  [DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
+
+- TODO: **Retire the stale `v3.0` label for the spec-block changeover.**
+  This changeover was planned as v3.0 and renumbered to v2.0 before
+  release; v3.0 now means the engine-interface release (see
+  [ROADMAP.md](ROADMAP.md)), so the old label is a live collision. The
+  docstring in `write_sheet_model_construction.py` and the human test
+  plan filename are corrected. Still carrying the old label in
+  **comments only** — no executable logic reads it:
+  `write_sheet_model_construction.py` (several inline comments),
+  `analyze_regression_spec_block.py` (module docstring),
+  `build_production.py` (one comment), and
+  `tests/test_dummy_functions.py`, `tests/test_model_construction_writer.py`,
+  `tests/test_catalog_schema.py`. Deliberately left out of the v3.0
+  documentation pass, which was documentation-only and would otherwise
+  have touched three test modules; do it as its own small commit.
 
 - TODO: Resolve the blank-categorical caveat — `Sample_Include()`'s
   role-aware completeness layer requires numeric Response and numeric
   included Continuous Predictors, but Categorical Predictors impose no
   non-blank condition; a blank category value encodes as all-zero
   dummies (indistinguishable from the reference level). Run the caveat
-  verification step in `HUMAN_TEST_PLAN_v3_model_construction.md` and
+  verification step in `HUMAN_TEST_PLAN_v20_model_construction.md` and
   record the decision: accept as documented behavior, or extend
   `Sample_Include()` with a non-blank condition for included
   Categorical Predictors. Interim workaround: a completeness column

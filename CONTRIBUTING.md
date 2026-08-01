@@ -79,7 +79,7 @@ Tests live in `tests/`. The current test files are:
 | `test_qc_configs.py` | QC config generation, cross-consistency between scalar/vector/observation configs, regression sheet diagnostics, cache round-trips |
 | `test_bfn_panel_durbin_watson_verification.py` | `BFN_Panel_Durbin_Watson` against the WHO panel — within-group differencing via `Difference_By`, mutual gating with `Durbin_Watson_By` |
 | `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the v2.6+ reserved-spec-column pattern) |
-| `test_difference_by_verification.py` | Gap-aware `Difference_By` (WHO exact counts plus the punched-out-year and calendar-date synthetic cases per `HUMAN_TEST_PLAN_v3_model_construction.md` T17–T19) |
+| `test_difference_by_verification.py` | Gap-aware `Difference_By` (WHO exact counts plus the punched-out-year and calendar-date synthetic cases per `HUMAN_TEST_PLAN_v20_model_construction.md` T17–T19) |
 | `test_analyze_regression_spec_block.py` | Post-changeover spec-block QC analyzer (predicted counts and values, regression sheet spec state) |
 | `test_regression_spec_qc.py` | Spec-driven Regression QC oracle (`analyze_regression_spec.py` case definitions) |
 | `test_csv_dataset_loader.py` | `load_csv_rows` (`write_sheet_csv_dataset.py`) against all three `CsvDatasetConfig`s and the committed sample CSVs |
@@ -120,7 +120,34 @@ GitHub Actions runs the test suite on Python 3.10–3.13 (Ubuntu) on every push 
 
 ## Building
 
-There are two separate build scripts with distinct purposes.
+There are two separate build scripts with distinct purposes. From v3.0 the production script emits **two artifacts** rather than one.
+
+### The two production artifacts
+
+| Target | Produces | Calculation mode | Sheets |
+|---|---|---|---|
+| Regression | `Lambda_Library.xlsx` | **Automatic** (full) | Catalog, three sample datasets, Regression, the two reference sheets, Version History |
+| Univariate | `Lambda_Library_Univariate.xlsx` | **Automatic including Data Tables** | Catalog, Univariate Analysis, Version History |
+
+**Both artifacts carry the complete function library.** All 126 LAMBDA definitions are written into both Name Managers. There is no bundling step, no dependency closure, and no per-artifact function subsetting — the artifacts differ only in which sheets they contain. When you add a function, it lands in both; there is no list to update.
+
+**Why the split exists.** Excel's calculation mode is a workbook-level setting, and "Automatic except Data Tables" was the only mode under which a combined workbook was usable — the Univariate sheet's six two-input Data Tables cost 2,400 NLL evaluations per full recalculation. That mode leaves Univariate's fitted parameters **stale until the user presses Ctrl+Alt+F9**, which is a live correctness bug against the library's visible-failure philosophy, and it imposed a non-default calculation mode on every Regression user. Two artifacts, two calculation modes, no compromise. See [DECISIONS.md § v3.0](DECISIONS.md#univariate-becomes-its-own-workbook).
+
+**The mechanism already exists in flag form.** `--skip-univariate` and `--skip-data-table-calculations` predate the split; formalizing them into two named targets is most of the work.
+
+### Which version number moves
+
+Two numbers, and a change usually moves exactly one:
+
+| You changed | Moves |
+|---|---|
+| A LAMBDA definition in `lambda_functions.json` — added, renamed, or different return | **The library version.** It affects *both* artifacts, because both ship the whole catalog |
+| A sheet's layout, input cells, or control block | **That workbook's version only** |
+| Both | Both |
+
+**A change to a shared function is a shared event.** There is no such thing as "a Univariate-only function change" — every function ships in both workbooks, so a catalog edit reaches every user of either artifact and moves the one library version. Conversely, a Univariate sheet-layout change must **not** move the Regression workbook version: that number is what a Regression user reads to answer "do my existing inputs still work?"
+
+The `Breaking?` flag in each Version History sheet attaches to the **workbook** version, never the library version. Full conventions in [ROADMAP.md § Versioning](ROADMAP.md#versioning--release-conventions).
 
 ### Production build
 
@@ -382,6 +409,17 @@ python -m lambda_catalog.write_sheet_diagnostic_guide         # single-sheet deb
 
 All of this — the per-module CLIs and `rebuild_static_sheets.py` alike — requires a real Excel COM engine (`xlwings.App`); none of it runs in a headless/CI environment.
 
+## Documentation drift (proposed check — not yet implemented)
+
+`lambda_functions.json` is the source of truth for functions, but nothing is the source of truth for the *documented* state, and the planning docs have drifted from the code more than once. Recent examples, all caught by hand: `ROADMAP.md` listed a milestone as planned that was fully built; `ARCHITECTURE.md` documented Role dropdown values without the parenthetical suffixes that formulas actually string-compare against; `REVIEW.md` cited `Interact` as a shipping catalog function when it is only specified. This is finding **F7** in [REVIEW.md](REVIEW.md), and it stays open.
+
+Two mechanical checks would catch most of this class. Both are pure Python, need no Excel, and would run in the existing Linux CI job:
+
+1. **Function names.** Every name written as a function reference in a doc table or fenced block resolves to an entry in `lambda_functions.json`, unless it is a native Excel function or explicitly tagged as planned. This is what would have caught the `Interact` claim and the older stale-rename list.
+2. **Cross-document anchors.** Every `](FILE.md#anchor)` link resolves to a heading that exists in the target file. Heading renames silently break these — the `ARCHITECTURE.md` §4 rename from `(A–L)` to `(A–N)` broke a `ROADMAP.md` link in exactly this way.
+
+Neither is built. They are recorded here as a scoped follow-up rather than as a claim, since the v3.0 documentation pass was documentation-only. The second is the cheaper and higher-yield of the two; a reasonable first cut is ~40 lines of `re` plus a `pytest` case, added to the tracked-modules list in `pyproject.toml`.
+
 ## Adding a new LAMBDA function
 
 1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `test_table` and `number_format`.
@@ -390,7 +428,8 @@ All of this — the per-module CLIs and `rebuild_static_sheets.py` alike — req
 4. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py`.
 5. Update the relevant `write_sheet_mlr_*.py` to include a Calc column for the new function.
 6. Run `python build_qc.py` and confirm no WARNING lines appear.
-7. Run `python build_production.py` to rebuild the distributable.
+7. Run `python build_production.py` to rebuild the distributables.
+8. Move the **library version**, not a workbook version — a new function ships in both artifacts. See [Which version number moves](#which-version-number-moves).
 
 ## Cell styling
 

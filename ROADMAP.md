@@ -56,6 +56,51 @@ existing inputs still work?" — without the number also having to convey "how b
 this release." Deliverable size is described in the changelog prose; breakage is the
 flag.
 
+### Two numbers, once the build emits two workbooks
+
+The definition above says "the user's inputs to **the** workbook" — singular. From
+the Univariate split that is no longer true, and one number cannot answer the
+question for two artifacts with entirely different input surfaces. The scheme:
+
+| Number | Covers | Moves when |
+|---|---|---|
+| **Library version** | The shared function catalog — all 126 LAMBDA definitions, identical in both workbooks | A function is added, renamed, or changes what it returns |
+| **Workbook version** *(one per artifact)* | That artifact's sheets, input cells, control blocks, and sheet-scoped names | That workbook's input surface changes |
+
+**Why split this way.** Both workbooks carry the identical complete function
+library, so a function change is genuinely a shared event and should move one
+number. The input surfaces share nothing, so a Univariate layout change must not
+move the number a Regression user reads as the answer to "do my existing inputs
+still work?"
+
+**The `Breaking?` flag attaches to the workbook version, not the library version.**
+It answers a question about a user's saved inputs, and inputs are a property of a
+workbook's sheets. A library-version bump that adds a function breaks nothing.
+
+**How they display.** Each workbook's Version History sheet shows both, with its
+own workbook version as the headline and the library version beside it:
+
+```
+Regression Workbook 3.0.0   ·   Function Library 3.0.0
+Univariate Workbook 1.0.0   ·   Function Library 3.0.0
+```
+
+**One changelog serves both.** Entries stay in a single chronological list, each
+tagged with which artifact's version it moves (or `Library` for a shared function
+change). A reader filters by their artifact; a maintainer does not keep two files
+in sync. The Version History sheet in each workbook renders the entries tagged
+`Library` plus those tagged with that workbook.
+
+**Worked example — the first two uses.** The Univariate split moves neither
+workbook's major: it is packaging only, and every specification valid before it
+produces the same result after. The grid shrink that follows is MAJOR for the
+Univariate workbook version alone, because its Scale Min/Max/Step input cells
+change meaning; the Regression workbook version does not move, and neither does
+the library version unless a catalog function changes with it.
+
+Rationale in
+[DECISIONS.md § v3.0 versioning](DECISIONS.md#versioning-across-two-artifacts).
+
 **Version ladder (current plan):**
 
 | Version | Milestone | Breaking? | Status |
@@ -64,20 +109,34 @@ flag.
 | v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries. The two post-release leftovers (per-distribution Q-Q plots and combo-chart overlay lines built on those CDF-delta columns) shipped with the next workbook build |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
-| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) | No | In progress — the Sequence Period split (TODOs #1), the Sequence/BFN chain, the FE Role dropdown + status-block validation, the CI+PI prediction layout, the one-way FE engine (`Demean_By`/`y_s()`/`X_s_Within()`/`[DF_Absorbed]`/`Group_Prediction_Interval`), the third `Production Lots` sample dataset (a ready-made FE example), and the QC-oracle rebuild for the new 9-value prediction shape (TODOs #1–#10) are all shipped and verified against a live build (0 mismatches); pending only follow-on polish (BFN critical values, Categorical × FE prediction encoding, residual-output relabel — all DEFERRED/documentation-only), executing `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` for a human sign-off, and the 2.1.0 Version History entry |
+| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Built and verified** — every TODOs #1–#10 item is DONE, verified against a live build (0 mismatches across all 12 spec-driven QC cases). `y_s`, `X_s_Within`, `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Awaiting only the human sign-off run of `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` and the 2.1.0 Version History entry, plus DEFERRED follow-on polish |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()`/`Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open |
 | v2.3 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. Read-only across finished Regression sheets; ships after Transforms so its comparisons are unit-space-honest from day one |
 | v2.4 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QC build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
 | v2.5 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Claimed — next MINOR after v2.4. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix` |
-| v2.6 | `Weight` Role (WLS) | No | Claimed — after v2.5. User-supplied weights as the first stage; variance-driver-derived weights and FGLS as v2.6+ follow-ons. Engine signature addition with a default-uniform `[Weights]` argument (default-uniform → identical to OLS, the v2.1 `[DF_Absorbed]` precedent) |
+| v2.6 | `Weight` Role (WLS) | No | Claimed — after v2.5. User-supplied weights as the first stage; variance-driver-derived weights and FGLS as v2.6+ follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument |
 | v2.7+ | Two-way FE, `Cluster` and `Time` Roles, Time series, ANOVA, Fourier, Decision | mixed | Unordered (deliberate — see Future section). Two-way FE has forward wiring from the v2.1 FE engine; `Cluster` has forward wiring from `Serial_Correlation_Group()`'s dormant branch; the rest are design-not-started |
+| **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, interaction spec columns, the materialization zone | **Yes** | Planned — MAJOR, and the second (and intended last) breaking restructure of the Regression sheet. Scope is the one **OPEN** decision; see the milestone entry below |
+| v3.x | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | The split is packaging-only and non-breaking for both artifacts. The grid shrink that follows is MAJOR **for the Univariate workbook version only** and does not move the Regression workbook version |
 
-**Ladder rationale.** Under the interface definition above, only one planned milestone
-breaks user inputs — Specification-Driven Regression — so it alone takes the next major
-number (v2.0). Everything after it is additive and opt-in, forming a v2.x train
-directly analogous to Python's 3.x line: one breaking 3.0 followed by years of large
-but non-breaking minors (async/await, pattern matching) that never forced a new major.
-The next MAJOR is reserved for the next genuine interface break, whenever that is.
+**Ladder rationale.** Under the interface definition above, exactly two milestones
+break user inputs. Specification-Driven Regression took v2.0; everything after it
+was additive and opt-in, forming a v2.x train directly analogous to Python's 3.x
+line — one breaking 3.0 followed by years of large but non-breaking minors
+(async/await, pattern matching) that never forced a new major.
+
+**v3.0 is the second break, and it is not a failure of that plan.** The v2.0 record
+says "one breaking restructure, never a second," and the reasoning behind it still
+holds: no single v2.x feature justified another. What accumulated instead was the
+*sum* of correctly-classified additive changes — 24 functions carrying
+`[DF_Absorbed]`, 48 carrying `[Allow_Intercept]`, two constructor names for one
+pipeline, and no representation for interactions at all. "Additive" is the property
+that makes a change a MINOR; it was never evidence that the interface could absorb
+it indefinitely. v3.0 spends one break to unwind that, and the discipline it
+replaces the old rule with is stated in the milestone entry below.
+
+The next MAJOR after v3.0 is reserved for the next genuine interface break,
+whenever that is.
 
 Univariate shipped **before** Specification-Driven Regression despite the lower version
 gap, as planned: its engine was already implemented and its sheet writer was wired into
@@ -208,11 +267,12 @@ reference *is* the model.
   Sequence (a structural flag, never grows). The full taxonomy and the
   cardinality rules are in
   [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
-- **Spec block A–L on the Regression sheet** — every column of the source
+- **Spec block A–L on the Regression sheet** *(A–N from v3.0, which appends the
+  two interaction columns)* — every column of the source
   table, one row per column. Cascading-relevance CF grays out cells
   irrelevant to the column's Role. The full A–L layout, the
   reserved-column policy, and the "Display derives, never feeds" rule
-  are in [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-al).
+  are in [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an).
 - **Spec-order assembly for `x_s()`** with the **level-vector split** for
   Categorical Predictors — training and prediction both call the same
   encoder with the same training level vector. Reference-level validation
@@ -237,7 +297,7 @@ Design rationale and resolved decisions: [DECISIONS.md § v2.0](DECISIONS.md#v20
 
 ---
 
-## v2.1 — Sequence, fixed effects, and the forward-wiring chain — IN PROGRESS
+## v2.1 — Sequence, fixed effects, and the forward-wiring chain — BUILT, AWAITING SIGN-OFF
 
 The 2.1 milestone bundles three coherent pieces that share the Sequence axis
 and the FE Role: the Sequence/Base Period/longitudinal/serial-correlation chain
@@ -290,7 +350,7 @@ Every numbered TODOs #1–#10 item is DONE and verified against a live build
   [TODOs.md § v2.1 follow-on polish](TODOs.md#follow-on-polish-ships-with-210-if-theres-room).
 - **Human sign-off** — execute
   `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` (T0–T4) end-to-end in
-  Excel and record a PASS, the same gate `HUMAN_TEST_PLAN_v3_model_construction.md`
+  Excel and record a PASS, the same gate `HUMAN_TEST_PLAN_v20_model_construction.md`
   passed for the spec block at v2.0/v2.1 #1.
 - **The Version History entry** — write the 2.1.0 row once the above lands.
 
@@ -445,11 +505,31 @@ F-test assumption check.
 
 A `Weight` value on the Role axis (see
 [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
-for the cardinality rule), with a single optional `[Weights]` argument
-(default uniform, i.e. OLS) on the inferential chain. The `[DF_Absorbed]`
-precedent (default 0, no-FE models identical) is the exact pattern to
-follow. Three-stage scope: user-supplied weights → variance-driver-derived
-weights → FGLS. v2.6 ships the first stage only.
+for the cardinality rule). Three-stage scope: user-supplied weights →
+variance-driver-derived weights → FGLS. v2.6 ships the first stage only.
+
+**The mechanism changed at v3.0; the feature did not.** This milestone was
+planned as "a single optional `[Weights]` argument (default uniform), following
+the `[DF_Absorbed]` precedent." That threading is superseded — with the intercept
+owned by the constructor, √w scaling of the design matrix and response yields the
+exact WLS estimator, standard errors, leverage, and Cook's distance, because the
+intercept column correctly becomes √w rather than remaining ones. **WLS becomes a
+constructor concern rather than an engine argument.** Everything else carries
+forward unchanged: the `Weight` Role, its cardinality rule, the status-block
+validation, and the three-stage scope. Weights are still declared in the spec
+block.
+
+One trap this avoids, recorded because it is the kind that ships silently:
+`DEVSQ(√w ⊙ y)` is *not* the weighted total sum of squares — it centres on
+mean(√w·y) rather than ȳ_w — so a naive "scale everything by √w" implementation
+would leave SS_Total, and therefore R², wrong under WLS with no error anywhere.
+The v3.0 projection form of `SS_Total` is correct by construction. See
+[DECISIONS.md § v3.0 SS_Total](DECISIONS.md#ss_total-redefined-as-the-intercept-only-residual-sum-of-squares).
+
+**Sequencing note.** If v2.6 ships before v3.0, it needs the `[Weights]` argument
+after all, and v3.0 then unwinds it across the same ~24 functions. The review's
+first sequencing implication applies directly: any decision to change the
+mechanism is cheaper before v2.6 than after.
 
 ### Unordered (v2.7+ candidates, no claim)
 
@@ -467,6 +547,152 @@ interaction is an open design question); Time series (`Moving_Average`,
 
 A user-pressing-for-them signal would reorder these; absent that, they
 stay in this unordered bucket.
+
+---
+
+## v3.0 — The engine-interface release — PLANNED
+
+The second and intended-last breaking restructure. It responds to
+[REVIEW.md](REVIEW.md), whose findings share one shape: each decision was correct
+in isolation and the cost is in the sum. Every design question below is
+**resolved** in
+[DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline);
+only the *scope* is open.
+
+- **Bounded `Model_Context`** — engine signatures collapse from
+  `(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed])` to
+  `(X, Y, [Include], [Context])`. Exactly four elements (`Has_Intercept`,
+  `DF_Absorbed`, `Response_Transform`, `Predictor_Transform`), materialized once
+  into a spill range. `[Include]` is a permanent floor, not a transitional
+  state — an n×1 row mask would break boundedness. Resolves F1.
+- **Intercept relocation** — the intercept column moves into the constructor and
+  `Design_Matrix` stops synthesizing it. `SS_Total` is redefined as the
+  intercept-only residual sum of squares, which collapses the ones / absent / √w
+  cases into one projection formula.
+- **The constructor pipeline** — `Design_Columns()` / `Design_Response()` /
+  `Predictor_Columns()` replace the `X_s()` / `X_s_Within()` name fork, applying
+  declared stages in the fixed order `encode → transform → demean → intercept →
+  weight`. Resolves F2.
+- **Interaction spec columns** — M (Interaction Term) and N (Interaction
+  Operation), with a closed operation vocabulary carrying a symmetry attribute.
+  Resolves F6.
+- **The materialization zone** — `Model_Context`, `Sample_Include`, and the
+  Constructed Design Matrix at the far right, in increasing width, terminating in
+  the unbounded zone. Resolves F3.
+- **Two artifacts and two version numbers** — see the Versioning section above.
+  Resolves F4 and F8.
+
+**What replaces "one breaking restructure, never a second."** That rule failed
+because it constrained the *count* of breaks without constraining what could
+accumulate between them. The v3.0 replacement constrains the accumulation
+directly, in two rules that live in ARCHITECTURE because they bind every future
+feature, not just this release:
+
+1. **Properties of a fit travel in the context block, never as new optional
+   arguments.** The reserved-slot pattern explicitly no longer applies to
+   argument lists ([ARCHITECTURE.md § 7](ARCHITECTURE.md#7-reserved-spec-column-pattern-general)).
+2. **Nothing may be placed right of the Constructed Design Matrix**, and
+   materialized zones run in increasing width
+   ([ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone)).
+
+### Scope — **OPEN**
+
+Which of the five pieces ship together is undecided. They are interdependent: the
+bounded context requires intercept relocation, which requires the pipeline order;
+the materialization zone depends on the constructor pipeline being settled first,
+or two variants of a soon-to-change architecture get materialized; and the
+interaction columns and the audit column both touch the spec-block layout. That
+argues for one release, against the general principle of small increments.
+
+**Recommendation — ship §3/§4/§5 fully, and §6/§7 as layout only:**
+
+| Release | Contents | Break |
+|---|---|---|
+| **v3.0** | `Model_Context` · intercept relocation · constructor pipeline · **interaction columns reserved-and-unwired** · **materialization zone established + Design Columns audit column built** | MAJOR |
+| v3.1 | Interaction wiring — the constructor actually builds the columns | MINOR |
+| v3.2 | Full materialization of the design matrix | MINOR |
+
+**Justification.** REVIEW.md's own sequencing note observes that F3 and F6 "all
+want the same breaking change — resolving them separately spends three layout
+breaks where one would do." The two interaction columns and the audit column are
+*insertions* that shift every column to their right; that is the irreversible
+part. The wiring of each is a formula change against a column that already
+exists — precisely the reserved-column pattern, and exactly how column G went live
+at v2.2. This spends one signature break and one layout break together, satisfies
+the materialization zone's dependency on the pipeline, and leaves genuinely
+additive work for the minors.
+
+**What this scope does *not* cost.** F5 read as though the layout work would have
+to be done twice — "the spec block is implemented twice; a layout change touches
+both writers." It is not, and it does not. `write_sheet_regression.py` imports
+the spec-block writers from `write_sheet_model_construction.py` and calls them,
+so the two interaction columns, the audit column, and the materialization zone
+each land in **one** writer. That single-implementation structure is part of what
+makes this scope affordable, and it is why F5 does not appear in the release
+above. See
+[DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
+
+The counter-argument worth weighing: v3.0 becomes a large release that is hard to
+verify in one pass, and the human test plan for it would be substantial. A
+maintainer who would rather verify in smaller steps should split §6 and §7's
+layout work into a v3.0 and v3.1 pair — at the cost of a second layout break, which
+is the thing the recommendation is trying to avoid.
+
+---
+
+## v3.x — The Univariate split, then the grid shrink — PLANNED
+
+Two releases, deliberately not bundled.
+
+**The split** moves Univariate Analysis into its own workbook. Both artifacts
+carry the complete 126-function library — there is no bundling, no dependency
+closure, and no per-artifact function subsetting; they differ only in which sheets
+they contain. It is **non-breaking for both**.
+
+The reason is a live correctness bug, not tidiness. `build_production.py` ships
+the workbook in `XL_CALCULATION_SEMIAUTOMATIC` — Automatic except Data Tables —
+forced by the Univariate sheet's six two-input Data Tables (2,400 NLL evaluations
+per full recalculation). So **Univariate fit results are stale until the user
+presses Ctrl+Alt+F9**: the flagship distribution-fitting sheet displays a previous
+answer with no indication it has done so, which is the exact silent wrongness the
+library's visible-failure philosophy exists to prevent. Splitting lets each
+artifact set its own calculation mode, and the Regression workbook returns to full
+Automatic. `--skip-univariate` and `--skip-data-table-calculations` already exist;
+formalizing them into two build targets is most of the mechanism.
+
+**The grid shrink** follows as a separate release of the Univariate artifact, and
+is **MAJOR for that workbook's version only**. Weibull and Gamma collapse to
+one-dimensional searches by profiling out the scale/rate parameter in closed form;
+Beta stays two-dimensional but gets a method-of-moments start and a smaller grid.
+Total evaluations fall from ~2,400 to ~370. Profiling is still genuine MLE — the
+profile maximizer is the joint maximizer — so this extends the v1.1 MLE-via-grid
+reframing rather than replacing it. The two-dimensional NLL heatmap becomes a
+profile-NLL line chart for Weibull and Gamma, which is an upgrade in legibility:
+the basin, the interior minimum, and any boundary hit are more visible in a line
+chart than in a one-row colour strip.
+
+It is MAJOR because the Scale Min/Max/Step input cells change or disappear, so a
+user's saved bounds stop meaning anything. That is a workbook-interface break, and
+it does not move the Regression workbook version.
+
+Design rationale: [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+
+---
+
+## A note on the "v3.0" label in the codebase
+
+The Specification-Driven Regression changeover was planned as v3.0 and renumbered
+to **v2.0** before release, under the interface definition above. The old label
+survives in comments and docstrings across `write_sheet_model_construction.py`,
+`analyze_regression_spec_block.py`, `build_production.py`, and three test modules,
+where "v3.0" means the spec-block changeover.
+
+**v3.0 now means the engine-interface release.** The two are unrelated, and the
+collision is live. `write_sheet_model_construction.py`'s docstring and the human
+test plan filename (`HUMAN_TEST_PLAN_v20_model_construction.md`) are corrected;
+the remaining comment references are tracked as a cleanup item in
+[TODOs.md](TODOs.md). They are comments only — no executable logic reads the
+label.
 
 ---
 

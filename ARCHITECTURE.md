@@ -8,9 +8,17 @@ even if the version it ships in changes.
 
 **Reading order for someone new to the codebase.** §1 (Naming) and §2
 (Categories) first — they apply to every catalog function. §3 (Role / Type /
-Sequence) and §4 (Spec block) before touching the Regression sheet. §5 (Data
+Sequence), §4 (Spec block), §4a (Constructor pipeline), and §4b
+(Materialization zone) before touching the Regression sheet. §5 (Data
 Transformation) before writing transforms. §6 (Chart patterns) and §7
 (Reserved-spec-column pattern) when relevant.
+
+**Note on §4a and §4b.** Both describe patterns introduced at v3.0. They are
+recorded here, not in ROADMAP, because they are constraints any future feature
+must honor rather than facts about one release — the pipeline order is what
+keeps the Gram matrix non-singular, and the materialization ordering rule is
+what keeps the sheet's right edge from being consumed. Their rationale lives in
+[DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
 ---
 
@@ -144,9 +152,18 @@ its value on another.
 
 | Axis | Values | Future values | Meaning |
 |---|---|---|---|
-| **Variable Role** | Response · Predictor · Identifier · Filter · Omit · Fixed Effects (v2.1) | Weight (v2.6+), Time / Cluster (v2.7+) | What the column *is* in the model |
+| **Variable Role** | `Response (y)` · `Predictor (x)` · `Identifier (Row Label)` · `Filter` · `Omit` · `Fixed Effects` (v2.1) | Weight (v2.6+), Time / Cluster (v2.7+) | What the column *is* in the model |
 | **Predictor Type** | Continuous · Categorical | *(closed — never grows)* | How a Predictor *enters* the design matrix — meaningful only when Role = Predictor |
 | **Sequence** *(structural, post-v2.0)* | TRUE · blank | *(flag — never grows)* | Which column *orders* the data, for lag/difference/serial-correlation features |
+
+**The Role strings are exact and load-bearing.** The three parenthetical
+suffixes are part of the value, not documentation shorthand: `Sample_Include()`
+string-compares `INDEX(rl, j) = "Response (y)"`, and
+`Absorbed_Degrees_Of_Freedom()` compares against `"Fixed Effects"`. The
+canonical list is `_ROLE_VALIDATION_LIST` in
+`write_sheet_model_construction.py`. Prose below refers to the roles by their
+short names (Response, Predictor, Identifier) for readability; the dropdown
+values are the strings in the table.
 
 Literature precedent: this is essentially the tidymodels `recipes` role
 system (outcome / predictor / ID) plus Stata's factor-variable notation on
@@ -216,9 +233,19 @@ axis (v2.1), and the Type axis becomes permanently Continuous/Categorical.
 
 ---
 
-## 4. The Model Spec block (A–L)
+## 4. The Model Spec block (A–N)
 
-The spec spans **every column of the source table**, one row per column:
+The spec spans **every column of the source table**, one row per column.
+
+**A–L are the v2.0–v2.2 columns and keep their letters; M and N are the v3.0
+interaction pair.** Appending rather than inserting is deliberate: even inside a
+MAJOR, every cell a user already filled in keeps both its address and its
+meaning, so a saved spec's A–L survives the upgrade. The cost is that two
+*inputs* now sit right of the J/K/L computed displays, which reads slightly
+against the block's otherwise inputs-then-displays order. That was judged the
+cheaper of the two — the alternative shifts eight columns to preserve a reading
+convention. See
+[DECISIONS.md § v3.0 interactions](DECISIONS.md#interactions-are-declared-with-two-spec-columns).
 
 | Col | Contents | UX |
 |---|---|---|
@@ -233,7 +260,28 @@ The spec spans **every column of the source table**, one row per column:
 | I | **Sequence Period** *(typed override input, post-v2.1 Sequence fix)* | Orange input — the user types a number on the Sequence-flagged row to declare a Δ that differs from the computed candidate. Blank by default; the spec falls back to the candidate. Read only by the in-use display at column J, not by any constructor. The cell is the load-bearing override point of the reference-level pattern. |
 | J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). No other on-sheet formula reads J; the workbook-scoped `Base_Period_Delta()` accessor (lambda_functions.json) separately provides the omitted-`[delta]` default for `Lag_By`/`Difference_By`. The J cell stays plain, with no on-sheet override-flagging display. |
 | K | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
-| L | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. The Σ(design columns) = COLUMNS(x_s()) audit lives in the status strip's `k` cell, and the gap column right of the spec block still visually reserves a future Design Columns slot. |
+| L | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. |
+| M | **Interaction Term** *(v3.0)* | Orange input, dropdown sourced from the variable-name column: names the **other operand** of an interaction involving this row. Blank by default (no interaction). Only a Predictor may be an operand — any other Role on the target is an error. A target that is a Predictor with Include = FALSE is **allowed and flagged amber** (an interaction without its main effect is a marginality violation, usually a mistake but occasionally deliberate; blocking it would be the library deciding a modeling question). Pointing at its own row with Operation = `Product` yields x² and is the documented way to declare a quadratic term. |
+| N | **Interaction Operation** *(v3.0)* | Dropdown, **closed** in the same sense as Predictor Type: `Product` · `Difference` · `Ratio`, blank by default. Each carries a symmetry attribute governing reciprocal declarations — `Product` is symmetric and `Difference` antisymmetric, so declaring B on A *as well as* A on B produces a duplicate or exact-negative column and a singular Gram matrix (**flagged red**, never silently deduplicated); `Ratio` is asymmetric, so the reciprocal is legitimate and **allowed**. |
+
+### The Design Columns audit column (required from v3.0)
+
+Through v2.2 the gap column right of the spec block merely *reserved* a Design
+Columns slot, and the Σ(design columns) = `COLUMNS(x_s())` audit lived only in
+the status strip's `k` cell. **From v3.0 the per-row audit column must be
+built.**
+
+Interactions are what force it. Continuous × Categorical broadcasts to L−1
+columns and Categorical × Categorical to (L₁−1)(L₂−1) — Status × Country on the
+WHO data is 155 columns from a single spec row. Interactions, not main effects,
+are where the design matrix explodes, and the audit column is the only place a
+user can see that one dropdown did that. It also supplies the **pre-flight**
+width number for the guard in §4b: the check has to read a number computed from
+the spec, because constructing a 16,000-column array in order to discover it
+does not fit is the failure being prevented.
+
+The column is a computed display and is bound by "Display derives, never feeds"
+like J, K, and L — no constructor may read it.
 
 ### Reserved-column policy (F)
 
@@ -257,7 +305,7 @@ reference it (confirmed by construction in
 
 ### Cascading relevance
 
-C–F and K–L hide in place (conditional formatting sets the font color to
+C–F, K–L, and M–N hide in place (conditional formatting sets the font color to
 match each cell's own static fill — `INPUT_COLOR` for the input cells,
 white for the unfilled computed-display cells — rather than a single muted
 gray) whenever Role ≠ Predictor — the same pattern as
@@ -285,13 +333,24 @@ Python rebuild.
 
 ### Display derives, never feeds
 
-Columns J (the Period In Use display), K, and L must not be inputs to the
+Columns J (the Period In Use display), K, and L — and, from v3.0, the Design
+Columns audit column — must not be inputs to the
 constructor. The J cell calls `Base_Period_Delta_Candidate()` and reads
 column I; the K and L cells call the same mask-aware primitive
 (`Dummy_Levels`); the constructor calls `Base_Period_Delta()` (which reads
 J) and the same primitive. Display and constructor read the same closure,
 so they are provably consistent. Letting the engine read a display column
 would make it load-bearing. One source of truth is the *function*.
+
+**The v3.0 materialized blocks (§4b) are the one apparent exception, and are
+not one.** `Model_Context` and the materialized `Sample_Include()` range are
+read by the engine, but they are not displays: they hold no user input and are
+pure functions of the spec block plus the source data, materialized once so
+Excel does not re-evaluate them at every use site. They are a *cache*, and the
+function remains the source of truth. The boundary that matters: a cell whose
+value a user can change is an input and belongs in the spec block, wherever it
+sits on the sheet. See
+[DECISIONS.md § v3.0 Model_Context](DECISIONS.md#model_context--a-bounded-materialized-cache-of-spec-derived-scalars).
 
 This is also what settled the `Dummy_Code` design: the level-vector split
 is required — it makes display and constructor provably consistent, and
@@ -340,6 +399,159 @@ returns a `RESERVED — vN+` token. The v2.6+ `Cluster` branch in
 `Serial_Correlation_Group()`'s SWITCH is the worked example — supplying
 the grouping key from a Cluster role for pooled-panel diagnostics without
 absorption is a resolver-only edit, no engine change.
+
+---
+
+## 4a. The constructor pipeline
+
+From v3.0 the design matrix is built by **one constructor applying declared
+stages in a fixed order**, replacing the `X_s()` / `X_s_Within()` name fork.
+
+### The stage order is a hard constraint
+
+    encode → transform → demean → intercept → weight
+
+**A column of ones demeaned by group is a column of zeros**, giving a singular
+Gram matrix. Through v2.2 the code was safe by accident: `Design_Matrix`
+prepended the intercept to the already-demeaned `X_s_Within()` output, so the
+ordering was enforced by which function called which. Once the constructor owns
+the intercept, that accident disappears and the order has to be stated, or
+someone rediscovers it as a singular-matrix bug.
+
+Two stages of the order were already fixed for independent reasons, so this is
+one constraint made explicit rather than a new one invented:
+
+- **transform before demean** — settled at v2.2, because demeaning before
+  logging would take logs of negative numbers.
+- **intercept before weight** — because √w scaling has to reach the intercept
+  column. That is precisely what makes WLS a constructor concern: with the
+  intercept in the design matrix, scaling everything by √w yields the exact WLS
+  estimator, standard errors, leverage, and Cook's distance, because the
+  intercept column correctly becomes √w rather than remaining ones.
+
+**Out of scope, recorded so it is not assumed away:** weighted fixed effects
+should demean using *weighted* group means. Not part of v3.0.
+
+### The four constructor names
+
+| Name | Stages applied | Taken by |
+|---|---|---|
+| `Design_Columns()` | encode → transform → demean → intercept → weight | every fit and inference statistic |
+| `Design_Response()` | transform → demean → weight | the same, as the response |
+| `Predictor_Columns()` | encode → transform only | the predictor-summary zone — the escape hatch |
+| `Response_Column()` | transform only | the intercept-only fit, correlation cells |
+
+The escape hatch exists because collinearity and marginal diagnostics
+legitimately want **pre-demeaning** columns: `GVIF`, `Generalized_Tolerance`,
+`Pearson_R`, `Spearman_R`, `Skewness`, and `Kurtosis` all take
+`Predictor_Columns()`. That distinction is statistically correct, and under the
+old names it was invisible — nothing in `X_s()` versus `X_s_Within()` said which
+call site wanted which, and nothing enforced it. The names now carry it:
+
+```excel
+R_Squared(Design_Columns(), Design_Response(), Sample_Include(), Model_Context())
+GVIF(Predictor_Columns())
+```
+
+**When adding a stage, add it to the pipeline — never as a new constructor
+name.** Weighting and two-way absorption as separate constructors would produce
+a cross product of variants, each with its own correct-call-site rule and none
+of them checkable by the build. That is the failure this section exists to
+prevent.
+
+### The row-mask contract is unchanged
+
+Every constructor above emits **full-height** columns and leaves row filtering
+to the engine, exactly as `x_s()` did (see the `x_s()` row-mask contract in §4).
+Moving the mask into the constructor was considered at v3.0 and rejected: it
+would break the contract, and full-height output is what keeps every spilled
+array row-aligned with the source table — which `Row_Labels()`, the
+residual-output zone, and the materialized design matrix in §4b all depend on.
+
+---
+
+## 4b. The materialization zone
+
+From v3.0 the Regression sheet carries a band of **materialized** artifacts at
+its far right: values computed once into a spill range, with a name over the
+anchor, read by formulas that would otherwise recompute them. Excel does not
+memoize a name whose Refers To is a formula — it re-evaluates at every use site
+— so a constructor called inside thirty engine functions runs thirty times.
+
+```
+… existing zones … │ charts │ gutter │ Model_Context │ gutter │ Sample_Include │ gutter │ Constructed Design Matrix →
+                                        (4 × 1)                  (n × 1)                  (n × k, unbounded)
+```
+
+### The ordering rule
+
+> **The materialized zones run in increasing width and terminate in the
+> unbounded zone. Nothing may ever be placed to the right of the Constructed
+> Design Matrix.**
+
+This one rule answers both standing questions: where a future bounded
+materialization goes (in width order, left of the design matrix), and what may
+be added at the sheet's right edge (nothing). The design matrix's width is
+unbounded and one dropdown away — Country as a Categorical Predictor is 156
+columns, and interactions multiply — so any zone placed after it would be
+displaced by an ordinary modeling choice.
+
+### Rules that fall out of it
+
+- **Each zone gets its own outline group, separated by a thin *ungrouped*
+  gutter column.** Excel fuses a contiguous run of same-level grouped columns
+  into one outline, so a missing gutter merges two zones into a single collapse
+  control. Same mechanism as the `_C_O` / `_C_W` / `_C_AF` / `_C_AJ` gap columns
+  that separate the existing content zones.
+- **The first gutter is structural, not cosmetic.** Charts anchored over columns
+  inside a collapsed outline group get squashed. The gutter after the chart
+  columns is what keeps the diagnostic-chart anchors outside every collapsible
+  group.
+- **Collapse state differs by zone.** `Model_Context` and `Sample_Include` are
+  one column each and ship **expanded**; the Constructed Design Matrix ships
+  **collapsed by default**, because an unbounded-width zone that cannot be
+  collapsed is a scrolling hazard.
+- **All zones share a first data row**, asserted in the build. Read-across is
+  the point — the mask value beside its design-matrix row, both aligned to the
+  source table rows, with the gutters as visual separators.
+- **The chart footprint needs an explicit bound.** `_C_AW` is the chart
+  *anchor*, not the chart *extent*: the seven diagnostic charts are floating
+  objects tiled in a 4×2 grid roughly 640 points wide from AW's left edge, and
+  AX–BA carry the chart title and axis-label formula cells. Nothing currently
+  records where that footprint ends. A named last-chart-column constant with a
+  build assertion is required — without it a chart resize silently overlaps the
+  context block, and the zone start column cannot be computed.
+
+### The width guard
+
+Two thresholds, both computed **pre-flight** from the Design Columns audit
+total rather than from `COLUMNS(Design_Columns())`:
+
+- **Hard error** at `16,384 − (last_chart_column + 5)` — the five columns being
+  three gutters plus the `Model_Context` and `Sample_Include` columns. Derived
+  from the layout constants, never hard-coded. Surfaced as a spec-block-area
+  error flag and in the status block's error state.
+- **Soft warning** at k = 200 constructed columns, or 500,000 materialized cells
+  (n × k), whichever trips first. `Gram_Inverse` is O(k³) in `MMULT`, so the
+  practical wall is in the hundreds; a model that reaches 16k columns has been
+  unusable for a long time already.
+
+### Naming
+
+The terminal zone is the **Constructed Design Matrix**. Not the "Model
+Construction" zone — `Model Construction` is already a sheet name
+(`write_sheet_model_construction.py`) and the two have to stay
+distinguishable. That sheet's V/W filtered-display zones are the pattern this
+promotes to production.
+
+### The cost, recorded honestly
+
+Materialization is a tradeoff, not a pure win. On the WHO data with Country as a
+Categorical Predictor the design matrix is roughly 2,938 × 156 ≈ 458,000 live
+cells that recalculate on any input change, and the used range and file size
+grow with it. Still far cheaper than reconstructing the matrix inside thirty
+engine calls — but the soft threshold above is informed by materialized-cell
+count for exactly this reason, not by `Gram_Inverse` complexity alone.
 
 ---
 
@@ -438,15 +650,24 @@ bundle), and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
   does not call it directly (it encodes inline via broadcast) but is held
   to the same standard. **v2.0 constructor internal** for Categorical
   roles, via `Dummy_Levels`.
-- `Dummy_Column(category, level, [include])` — single indicator column
-  per explicit call.
-- `Interact(x1, x2)` — elementwise product \(x_1 x_2\); broadcasts across
-  dummy-coded matrices to produce one interaction column per retained
-  level.
-- `Model_Matrix(X, [add_intercept])` — optionally prepends an intercept
-  column. Intentionally not variadic — predictors are assembled
+The three entries below are **specified, not yet built** — none is in
+`lambda_functions.json`. They are v2.2 work items in
+[TODOs.md](TODOs.md#v22--transforms--the-standalone-transform-library). Recorded
+explicitly because REVIEW.md F6 cited `Interact` as already shipping.
+
+- `Dummy_Column(category, level, [include])` — *(planned)* single indicator
+  column per explicit call.
+- `Interact(x1, x2)` — *(planned)* elementwise product \(x_1 x_2\); broadcasts
+  across dummy-coded matrices to produce one interaction column per retained
+  level. This is the standalone, free-form counterpart to the v3.0 spec-block
+  interaction columns (§4 M/N); the spec-driven path does not call it — the
+  constructor encodes inline, the same relationship `X_s()` already has with
+  `Dummy_Code`.
+- `Model_Matrix(X, [add_intercept])` — *(planned)* optionally prepends an
+  intercept column. Intentionally not variadic — predictors are assembled
   explicitly with `HSTACK` so the specification stays visible and
-  auditable.
+  auditable. Note that from v3.0 the *spec-driven* intercept is owned by the
+  constructor pipeline (§4a), not by this function.
 
 **Longitudinal & Panel-Time**
 
@@ -525,8 +746,20 @@ retry separation), see [CLAUDE.md § Charts](CLAUDE.md).
 See §4 "Reserved-column policy (F)" for the sheet-side form, and its
 worked example of a reserved column going live: column G (Transform)
 shipped reserved-and-unwired at v2.0, then wired for `Log` at v2.2 with
-no second column-insertion. The function-side form is the same idea
-applied to a LAMBDA's argument list or its internal `SWITCH`:
+no second column-insertion.
+
+**Scope limit added at v3.0 — this pattern does not extend to argument lists.**
+Through v2.2 the function-side form was described as applying to "a LAMBDA's
+argument list *or* its internal `SWITCH`," and that first half is withdrawn.
+Reserving slots in an argument list is what produced the accretion REVIEW.md F1
+describes: `[DF_Absorbed]` on 24 functions, `[Allow_Intercept]` on 48, each
+addition individually non-breaking and therefore individually authorized, with
+no step at which the rule said stop. Properties of a fit now travel in the
+bounded `Model_Context` block instead
+([DECISIONS.md § v3.0](DECISIONS.md#model_context--a-bounded-materialized-cache-of-spec-derived-scalars)).
+
+What survives is the **sheet-column** form and the **dormant `SWITCH` branch**
+form:
 
 - A `SWITCH` argument that is a Role-axis value can carry a dormant branch
   for a not-yet-implemented Role, returning a `RESERVED — vN+` token. The

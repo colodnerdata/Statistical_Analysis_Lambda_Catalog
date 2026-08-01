@@ -212,7 +212,7 @@ reference *is* the model.
   table, one row per column. Cascading-relevance CF grays out cells
   irrelevant to the column's Role. The full A–L layout, the
   reserved-column policy, and the "Display derives, never feeds" rule
-  are in [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-al).
+  are in [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an).
 - **Spec-order assembly for `x_s()`** with the **level-vector split** for
   Categorical Predictors — training and prediction both call the same
   encoder with the same training level vector. Reference-level validation

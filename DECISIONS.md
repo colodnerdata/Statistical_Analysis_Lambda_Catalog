@@ -1030,7 +1030,7 @@ file; F5 (the spec block implemented twice) and F7 (documentation drift) remain
 open there.
 
 The v3.0 *scope* — which of these ship together — is the one open question, and
-it lives in [ROADMAP.md § v3.0](ROADMAP.md#v30--the-engine-interface-release).
+it lives in [ROADMAP.md](ROADMAP.md), in the v3.0 milestone entry.
 Everything below is resolved.
 
 ### Univariate becomes its own workbook

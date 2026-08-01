@@ -127,9 +127,14 @@ be evaluated against both.
 ## F3 — The Regression sheet has no eviction mechanism
 
 **Observation.** `write_sheet_regression.py` defines column anchors from `_C_A`
-(1) through `_C_AW` (49) — seven content zones separated by gap columns. The
-committed plan adds more: a unit-space block (v2.2), comparison anchors (v2.3),
-weight display (v2.6).
+(1) through `_C_AW` (49) — ~~seven~~ **five** content zones separated by gap
+columns. The committed plan adds more: a unit-space block (v2.2), comparison
+anchors (v2.3), weight display (v2.6).
+
+*Correction (v3.0 doc pass).* This finding originally said seven zones. `_ZONES`
+defines five — `(A,N) (P,V) (X,AE) (AG,AI) (AK,AV)` — separated by four
+ungrouped gap columns (O, W, AF, AJ), with AW a non-content gutter. The finding
+stands: the count was wrong, the growth trajectory it describes was not.
 
 Every one of those is correctly classified as *additive*, which is precisely
 why nothing ever leaves. "Additive" is the property that makes a change a
@@ -189,11 +194,19 @@ contract as a public-interface commitment.
 
 ## F6 — Interactions have no representation and no reserved slot
 
-**Observation.** `Interact(x1, x2)` exists as a standalone catalog function,
-but the spec block is **one row per source column** and an interaction term is
+**Observation.** ~~`Interact(x1, x2)` exists as a standalone catalog function,
+but~~ `Interact(x1, x2)` is **specified but not built**, and in either case
+the spec block is **one row per source column** and an interaction term is
 not a column. It fits neither declared axis: Predictor Type is documented as
 permanently closed (ARCHITECTURE.md § 3), and Role describes what a column
 *is*.
+
+*Correction (v3.0 doc pass).* This finding originally asserted that `Interact`
+ships. It does not — `Interact`, `Model_Matrix`, and `Dummy_Column` are all
+specified in ARCHITECTURE.md § 5 and listed as v2.2 work items in TODOs.md, but
+none is in `lambda_functions.json`. The correction strengthens the finding
+rather than weakening it: there is no standalone escape hatch either, so
+interactions are currently unreachable by any route.
 
 The reserved-column policy exists exactly to prevent a second layout break —
 column F (Order) and column G (Transform) were reserved for that reason, and

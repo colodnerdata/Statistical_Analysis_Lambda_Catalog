@@ -11,6 +11,7 @@ from .catalog_schema import CatalogFunction
 from .make_test_sheet import (
     _ColumnSpec,
     _RowConfig,
+    build_call,
     write_test_table,
 )
 from .regression_shared import FEATURE_COLUMNS
@@ -28,8 +29,23 @@ if TYPE_CHECKING:
 _MLR_K_VALUES: list[int] = [1, 5, 10, 18]
 _MLR_TABLE_HEADER_ROW = 1
 
-# Replaces x_s in every formula; resolves dynamically from each row's ind_vars value.
-_MLR_X_S_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
+# The predictor block, resolved dynamically from each row's ind_vars value.
+_MLR_PREDICTOR_OFFSET = "OFFSET(y,0,1,ROWS(y),[@[ind_vars]])"
+
+# The design matrix the engines now expect: the same predictor block with the
+# intercept column prepended when the row's Has_Intercept flag is set. Before
+# the v3.0 relocation the engines synthesized this column themselves from an
+# [Allow_Intercept] argument; now the caller supplies it, and the QC harness is
+# a caller like any other.
+_MLR_DESIGN = (
+    "IF([@[Has_Intercept]],"
+    "HSTACK(SEQUENCE(ROWS(y),1,1,0),predictors),"
+    "predictors)"
+)
+
+# Unlike the other two QC sheets, this one varies the intercept per table ROW
+# rather than per section, so the design matrix has to be a worksheet IF rather
+# than a build-time literal.
 
 
 def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
@@ -46,31 +62,45 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
 
     drop_local_name(sheet, "Allow_Intercept")
+    drop_local_name(sheet, "Has_Intercept")
 
 
 def _actual_formula(
     function_name: str,
     argument_names: Iterable[str],
-    x_s_name: str = "x_s",
+    predictor_ref: str = "predictors",
 ) -> str:
-    args = list(argument_names)
-    uses_x_s = any(a.strip().lower() == "x_s" for a in args)
-    use_let = uses_x_s and x_s_name != "x_s"
+    """Render one Calc-column formula for ``function_name``.
 
-    reference_map = {
+    ``X`` resolves to the intercept-aware design matrix and ``Predictors`` to
+    the bare predictor block, so a function that takes pre-intercept columns
+    (``Regression_Degrees_Of_Freedom``, ``VIF``) keeps receiving them without a
+    special case here.
+    """
+    args = list(argument_names)
+    keys = {a.strip().lower() for a in args}
+
+    reference_map: dict[str, str | None] = {
         "y": "y",
-        "x_s": "x_s" if use_let else x_s_name,
+        "predictors": "predictors",
+        "x": "X",
         "filter": "Regression_Sample_Include",
         "include": "Regression_Sample_Include",
-        "allow_intercept": "[@[Allow_Intercept]]",
+        "has_intercept": "[@[Has_Intercept]]",
+        "alpha": None,
+        "df_absorbed": None,
     }
 
-    resolved_arguments = [
-        reference_map.get(argument_name.strip().lower(), argument_name)
-        for argument_name in args
-    ]
-    call = f"{function_name}({', '.join(resolved_arguments)})"
-    return f"=LET(x_s, {x_s_name}, {call})" if use_let else f"={call}"
+    call = build_call(function_name, args, reference_map)
+
+    bindings = []
+    if keys & {"x", "predictors"}:
+        bindings.append(f"predictors,{predictor_ref}")
+    if "x" in keys:
+        bindings.append(f"X,{_MLR_DESIGN}")
+    if not bindings:
+        return f"={call}"
+    return f"=LET({','.join(bindings)},{call})"
 
 
 def _expected_values_map(summary: RegressionSummary) -> dict[str, float | int]:
@@ -103,10 +133,11 @@ def build_test_columns(
 ) -> list[_ColumnSpec]:
     """Build the ordered column specs for the ``MLR_Scalar_Test`` table.
 
-    The leading fixed columns (``X_Variables``, ``ind_vars``, ``Allow_Intercept``)
+    The leading fixed columns (``X_Variables``, ``ind_vars``, ``Has_Intercept``)
     are followed by one Calc column per catalog function whose ``test_table``
     equals ``test_table``; each Calc column's formula calls the function with
-    the dynamic ``x_s`` OFFSET substitution (``_MLR_X_S_OFFSET``).
+    the dynamic predictor OFFSET substitution (``_MLR_PREDICTOR_OFFSET``),
+    wrapped into a design matrix where the signature asks for one.
     """
     filtered = [d for d in definitions if d.test_table == test_table]
     fixed_columns: list[_ColumnSpec] = [
@@ -116,12 +147,12 @@ def build_test_columns(
             "General",
         ),
         ("ind_vars", None, "0"),
-        ("Allow_Intercept", None, "General"),
+        ("Has_Intercept", None, "General"),
     ]
     calc_columns: list[_ColumnSpec] = [
         (
             d.name,
-            _actual_formula(d.name, d.argument_names, _MLR_X_S_OFFSET),
+            _actual_formula(d.name, d.argument_names, _MLR_PREDICTOR_OFFSET),
             d.number_format,
         )
         for d in filtered
@@ -154,10 +185,10 @@ def build_mlr_row_configs(csv_path: Path) -> list[_RowConfig]:
             feature_columns=feature_cols,
         )
         row_configs.append(
-            ({"ind_vars": k, "Allow_Intercept": True}, _expected_values_map(summary_true))
+            ({"ind_vars": k, "Has_Intercept": True}, _expected_values_map(summary_true))
         )
         row_configs.append(
-            ({"ind_vars": k, "Allow_Intercept": False}, _expected_values_map(summary_false))
+            ({"ind_vars": k, "Has_Intercept": False}, _expected_values_map(summary_false))
         )
     return row_configs
 

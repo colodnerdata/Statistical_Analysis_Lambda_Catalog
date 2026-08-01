@@ -17,7 +17,7 @@
         }
       ],
       "yields": "n — count of rows used in the regression as a scalar integer",
-      "description": "n (number of observations) is the count of data points available to the model after any filtering is applied. It is the fundamental sample size that drives all degrees-of-freedom calculations.\n\nReturns ROWS(FILTER(Y, filt_arg)). X_s is not required because row count is fully determined by Y.",
+      "description": "n (number of observations) is the count of data points available to the model after any filtering is applied. It is the fundamental sample size that drives all degrees-of-freedom calculations.\n\nReturns ROWS(FILTER(Y, filt_arg)). X is not required because row count is fully determined by Y.",
       "plain_language_summary": "How many rows of data the model is using.",
       "notes": "Count of rows used in the regression after optional filtering. The fundamental sample size n driving all degrees-of-freedom and model-comparison calculations."
     },
@@ -25,31 +25,36 @@
       "name": "Regression_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(X_s,\n  COLUMNS(X_s))",
+      "formula_display": "=LAMBDA(X, [Has_Intercept],\n  LET(\n    has_arg, IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    COLUMNS(X) - N(has_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
+        },
+        {
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
+          "optional": true
         }
       ],
       "yields": "df_regression (k, number of predictors) as a scalar integer",
-      "description": "df_regression is the number of degrees of freedom attributable to the regression model — equal to k, the number of predictor columns. The intercept term (if any) is not counted here; it is accounted for implicitly in df_total.\n\nReturns COLUMNS(X_s). Include and Allow_Intercept do not affect this value.",
+      "description": "df_regression is the number of degrees of freedom attributable to the regression model — equal to k, the number of predictor columns. The intercept term is not counted here; it is accounted for in df_total.\n\nReturns COLUMNS(X) - N(has_arg). Since the v3.0 intercept relocation the design matrix carries its own intercept column, so the count has to be corrected back to the ANOVA convention; Has_Intercept identifies the column rather than switching a behaviour.",
       "plain_language_summary": "How many predictor slots the model is trying to fit.",
-      "notes": "Degrees of freedom for regression = number of predictors k (= COLUMNS(X_s)). Used as the numerator df in the F-test."
+      "notes": "Degrees of freedom for regression = number of predictors k (= COLUMNS(X) less the intercept column, if the design matrix has one). Used as the numerator df in the F-test."
     },
     {
       "name": "Total_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    n,         Observations(Y, filt_arg),\n    IF(allow_arg, n - 1, n)\n  ))",
+      "formula_display": "=LAMBDA(Y, [Has_Intercept], [Include],\n  LET(\n    has_arg,  IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    n,        Observations(Y, filt_arg),\n    n - N(has_arg)\n  ))",
       "arguments": [
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -59,7 +64,7 @@
         }
       ],
       "yields": "df_total (n-1 with intercept, n without) as a scalar integer",
-      "description": "df_total is the total degrees of freedom for the sum of squares. When an intercept is fit (default), one df is spent estimating the grand mean, giving n - 1. When the model is forced through the origin (Allow_Intercept = FALSE), no df is spent on the mean, giving n. df_total partitions into df_regression + df_residual.\n\nCalls Observations() for n, then returns IF(allow_arg, n-1, n).",
+      "description": "df_total is the total degrees of freedom for the sum of squares. When an intercept is fit (default), one df is spent estimating the grand mean, giving n - 1. When the model is forced through the origin (Has_Intercept = FALSE), no df is spent on the mean, giving n. df_total partitions into df_regression + df_residual.\n\nCalls Observations() for n, then returns n - N(has_arg).",
       "plain_language_summary": "The total amount of independent information in the outcome column.",
       "notes": "Total degrees of freedom = n − 1 with intercept or n without. Partitions into Regression_Degrees_Of_Freedom + Residual_Degrees_Of_Freedom."
     },
@@ -67,19 +72,19 @@
       "name": "R_Squared",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE), 3, 1)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include],\n  LET(\n    has_arg,  IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    1 - SS_Residual(X, Y, filt_arg) / SS_Total(X, Y, has_arg, filt_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -89,28 +94,23 @@
         }
       ],
       "yields": "R² (coefficient of determination) as a scalar in [0, 1]",
-      "description": "R² (coefficient of determination) is the proportion of variance in Y explained by the regression model. It equals SS_regression / SS_total, ranges from 0 (no explanatory power) to 1 (perfect fit), and is the square of Multiple R.\n\nReturns INDEX(LINEST(...), 3, 1) directly. R_Squared is the base statistic from which Multiple_R and Adjusted_R_Squared are derived.",
+      "description": "R² is the proportion of variation in the response explained by the model — 1 - SS_Residual / SS_Total.\n\nComputed from the sums of squares rather than read out of LINEST. That is deliberate and load-bearing: since the v3.0 intercept relocation every LINEST call passes const = FALSE (the design matrix supplies its own intercept column), and under const = FALSE LINEST's own R² is the UNCENTERED R², computed against Σy² instead of DEVSQ(y). Reading it would silently change R², Adjusted R², Multiple R and the F-statistic for every model with an intercept.\n\nBecause SS_Total is itself the intercept-only residual sum of squares, the centered and uncentered cases both fall out of the one expression: with an intercept the denominator is DEVSQ(y), without one it is SUMSQ(y).",
       "plain_language_summary": "How much of the outcome's movement the model explains.",
-      "notes": "Proportion of Y’s variance explained by the model (SS_Regression / SS_Total). Ranges [0, 1]; higher is better."
+      "notes": "Coefficient of determination, 1 - SS_Residual/SS_Total. Derived from the sums of squares, NOT from LINEST — under const = FALSE LINEST reports the uncentered R²."
     },
     {
       "name": "Residual_Degrees_Of_Freedom",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    Total_Degrees_Of_Freedom(Y, allow_arg, filt_arg) - Regression_Degrees_Of_Freedom(X_s) - absorbed_arg\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    Observations(Y, filt_arg) - COLUMNS(X) - absorbed_arg\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -124,7 +124,7 @@
         }
       ],
       "yields": "df_residual (n-k-1 with intercept, n-k without, minus DF_Absorbed) as a scalar integer",
-      "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as Total_Degrees_Of_Freedom(...) - Regression_Degrees_Of_Freedom(...), inheriting the Allow_Intercept correction from Total_Degrees_Of_Freedom.\n\nUnder v2.1 Fixed Effects, an optional trailing DF_Absorbed further subtracts the group degrees of freedom already spent demeaning the data (X_s_Within()/y_s() fit on n-K-1 df as an ordinary OLS would count them, but G−1 of those degrees of freedom were spent estimating group means, not model parameters) — omitted or 0, this is the single source of truth every df-dependent statistic downstream (MS_Residual, SE, t, p, CI, AIC/BIC, Prediction_Interval) threads through.",
+      "description": "df_residual (also called df_error) is the degrees of freedom remaining after the regression model has been fit. With an intercept it equals n - k - 1; without an intercept it equals n - k. It is the denominator degrees of freedom for the F-test and the penalty term in Adjusted R².\n\nComputed as Observations(Y, filt_arg) - COLUMNS(X) - absorbed_arg. Because the design matrix carries its own intercept column, COLUMNS(X) already counts every fitted parameter and no separate intercept correction is needed — which is why this function does not take Has_Intercept.",
       "plain_language_summary": "How much data is left to estimate random error after fitting the model, minus any degrees of freedom a Fixed Effects variable has already absorbed.",
       "notes": "Residual df = Total_Degrees_Of_Freedom − Regression_Degrees_Of_Freedom − DF_Absorbed (default 0). Denominator df for the F-test, Adjusted R², and — new in v2.1 — the single source of truth for FE df correction downstream."
     },
@@ -132,19 +132,19 @@
       "name": "Multiple_R",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SQRT(R_Squared(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include],\n  LET(\n    has_arg,  IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SQRT(R_Squared(X, Y, has_arg, filt_arg))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -162,19 +162,19 @@
       "name": "Adjusted_R_Squared",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    1 - (1 - R_Squared(X_s, Y, allow_arg, filt_arg))\n      * Total_Degrees_Of_Freedom(Y, allow_arg, filt_arg)\n      / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include], [DF_Absorbed],\n  LET(\n    has_arg,      IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    1 - (1 - R_Squared(X, Y, has_arg, filt_arg))\n      * Total_Degrees_Of_Freedom(Y, has_arg, filt_arg)\n      / Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -184,12 +184,12 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
       "yields": "Adjusted R² as a scalar, typically in [0, 1] but can be negative",
-      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_Squared(...)) * Total_Degrees_Of_Freedom(...) / Residual_Degrees_Of_Freedom(...), inheriting the Allow_Intercept correction from both df functions. An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to Residual_Degrees_Of_Freedom() so the penalty term correctly reflects absorbed group degrees of freedom.",
+      "description": "Adjusted R² penalises R² for the number of predictors relative to sample size, correcting for the inflation that occurs when irrelevant predictors are added. It equals 1 - (1 - R²) × df_total / df_residual, which reduces to the familiar 1 - (1 - R²)(n-1)/(n-k-1) when an intercept is fit. Unlike R² it can decrease when a predictor adds less explanatory power than expected by chance, and can be negative when the model fits worse than a horizontal line.\n\nComputed as 1 - (1 - R_Squared(...)) * Total_Degrees_Of_Freedom(...) / Residual_Degrees_Of_Freedom(...), inheriting the intercept correction from Total_Degrees_Of_Freedom (the residual df needs none — COLUMNS(X) already counts the intercept column). An optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to Residual_Degrees_Of_Freedom() so the penalty term correctly reflects absorbed group degrees of freedom.",
       "plain_language_summary": "R-squared adjusted so extra predictors do not get free credit.",
       "notes": "R² penalised for model complexity: 1 − (1 − R²)·df_total/df_residual. Can be negative when the model fits worse than the mean. Optional DF_Absorbed (default 0) corrects df_residual under Fixed Effects."
     },
@@ -197,15 +197,19 @@
       "name": "SS_Total",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    y_filt, FILTER(Y, filt_arg),\n    IF(allow_arg, DEVSQ(y_filt), SUMSQ(y_filt))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include],\n  LET(\n    has_arg,  IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    y_filt,   FILTER(Y, filt_arg),\n    IF(NOT(has_arg),\n      SUMSQ(y_filt),\n      LET(\n        c, FILTER(CHOOSECOLS(X, 1), filt_arg),\n        SUMSQ(y_filt) - SUMPRODUCT(c, y_filt) ^ 2 / SUMSQ(c)\n      )\n    )\n  ))",
       "arguments": [
+        {
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
+        },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -215,28 +219,23 @@
         }
       ],
       "yields": "SS_total (total sum of squares) as a scalar",
-      "description": "SS_total is the total variation in Y before any predictors are added. With an intercept it equals the sum of squared deviations from the mean — DEVSQ(Y). Without an intercept it equals the raw sum of squares — SUMSQ(Y). It is the denominator in the R² formula and partitions into SS_regression + SS_residual.\n\nReturns DEVSQ(filtered_Y) when Allow_Intercept is TRUE, SUMSQ(filtered_Y) when FALSE. Does not require X_s.",
+      "description": "SS_Total is the total sum of squares — the residual sum of squares from the intercept-only model, that is, the projection of y off whatever the intercept column actually is:\n\n    SS_Total = ||y||² - (c'y)² / (c'c)\n\nOne formula covers all three cases. With c a column of ones it reduces to DEVSQ(y) = Σy² - (Σy)²/n; with no intercept column it is SUMSQ(y); and under weighted least squares, where c is √w, it gives Σw(y - ȳ_w)².\n\nThe projection form is used rather than DEVSQ specifically because DEVSQ(√w ⊙ y) is NOT the weighted total sum of squares — it centers on mean(√w·y) instead of ȳ_w, which would leave SS_Total and therefore R² silently wrong under WLS. The decomposition SS_Total = SS_Regression + SS_Residual holds in every case.",
       "plain_language_summary": "All of the variation in Y before the model explains any of it.",
-      "notes": "Total variation in Y before fitting (DEVSQ(Y) with intercept, SUMSQ(Y) without). Denominator of the R² formula."
+      "notes": "Total sum of squares: the residual sum of squares from the intercept-only model, ||y||² - (c'y)²/(c'c) where c is the intercept column. Reduces to DEVSQ(y) for an ordinary intercept and SUMSQ(y) with none."
     },
     {
       "name": "SS_Residual",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Total(Y, allow_arg, filt_arg) * (1 - R_Squared(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, TRUE), 5, 2)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -245,27 +244,27 @@
         }
       ],
       "yields": "SS_residual (residual/error sum of squares) as a scalar",
-      "description": "SS_residual (also called SS_error) is the variation in Y left unexplained by the regression model — the sum of squared differences between observed and fitted values. It equals SS_total × (1 - R²) and shrinks as the model improves.\n\nComputed as SS_Total(...) * (1 - R_Squared(...)).",
+      "description": "SS_Residual (also SSE, the error sum of squares) is Σ(yᵢ - ŷᵢ)² — the variation the model fails to explain.\n\nRead directly from LINEST's fifth output row, which holds the residual sum of squares regardless of the const setting. Taking it from LINEST rather than deriving it as SS_Total × (1 - R²) is what keeps the sums-of-squares chain acyclic: R_Squared is now derived FROM this value, not the other way round.",
       "plain_language_summary": "The part of Y's variation the model still misses.",
-      "notes": "Unexplained variation in Y = SS_Total × (1 − R²). Shrinks as model fit improves."
+      "notes": "Residual (error) sum of squares Σ(y - ŷ)², read from LINEST's fifth output row. The base quantity from which R², SS_Regression and the mean squares are derived."
     },
     {
       "name": "SS_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Total(Y, allow_arg, filt_arg) * R_Squared(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include],\n  LET(\n    has_arg,  IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Total(X, Y, has_arg, filt_arg) - SS_Residual(X, Y, filt_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -275,7 +274,7 @@
         }
       ],
       "yields": "SS_regression (explained/model sum of squares) as a scalar",
-      "description": "SS_regression (also called SS_model or SS_explained) is the variation in Y explained by the regression model — the reduction in total variation achieved by adding the predictors. It equals SS_total × R² and grows as the model explains more.\n\nComputed as SS_Total(...) * R_Squared(...).",
+      "description": "SS_Regression (also SSR, the model sum of squares) is the variation explained by the fitted model.\n\nComputed as SS_Total - SS_Residual, which makes the ANOVA decomposition SS_Total = SS_Regression + SS_Residual true by construction.",
       "plain_language_summary": "The part of Y's variation the model successfully explains.",
       "notes": "Explained variation in Y = SS_Total × R². Grows as model fit improves."
     },
@@ -283,19 +282,19 @@
       "name": "MS_Regression",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / Regression_Degrees_Of_Freedom(X_s)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include],\n  LET(\n    has_arg,  IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Regression(X, Y, has_arg, filt_arg) / Regression_Degrees_Of_Freedom(X, has_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -313,20 +312,15 @@
       "name": "MS_Residual",
       "test_table": null,
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -335,7 +329,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -348,20 +342,15 @@
       "name": "SE_Regression",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    SQRT(SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    SQRT(SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -370,7 +359,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -383,20 +372,15 @@
       "name": "PRESS",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    SUMSQ(LOOCV_Residual(X_s, Y, allow_arg, filt_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    SUMSQ(LOOCV_Residual(X, Y, filt_arg))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -413,20 +397,15 @@
       "name": "AIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0) + absorbed_arg,\n    n * LN(ssr / n) + 2 * p\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + 2 * p\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -435,12 +414,12 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups; added directly to the parameter count p, since each absorbed group intercept IS an estimated parameter. Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
       "yields": "Akaike Information Criterion (AIC) scalar",
-      "description": "AIC = n·ln(SSR/n) + 2p, where p = number of regression parameters (predictors + intercept when Allow_Intercept is TRUE). Smaller values indicate better-fitting models; compare across models on the same dataset.\n\nUnder v2.1 Fixed Effects, an optional trailing DF_Absorbed adds directly into p: the G−1 group intercepts a Fixed Effects variable absorbs are genuinely estimated parameters even though the within transformation never materializes them as explicit coefficients, so AIC must count them or understate model complexity.",
+      "description": "AIC = n·ln(SSR/n) + 2p, where p = COLUMNS(X), the number of regression parameters. Since the v3.0 intercept relocation the design matrix carries its own intercept column, so COLUMNS(X) counts it directly and no separate intercept term is added. Smaller values indicate better-fitting models; compare across models on the same dataset.\n\nUnder v2.1 Fixed Effects, an optional trailing DF_Absorbed adds directly into p: the G−1 group intercepts a Fixed Effects variable absorbs are genuinely estimated parameters even though the within transformation never materializes them as explicit coefficients, so AIC must count them or understate model complexity.",
       "plain_language_summary": "A score for comparing models that rewards fit but penalizes extra complexity.",
       "notes": "Akaike Information Criterion = n·ln(SSR/n) + 2p. Lower = better. Optional DF_Absorbed (default 0) adds absorbed FE group intercepts into p."
     },
@@ -448,20 +427,15 @@
       "name": "BIC",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0) + absorbed_arg,\n    n * LN(ssr / n) + p * LN(n)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + p * LN(n)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -470,7 +444,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups; added directly to the parameter count p, since each absorbed group intercept IS an estimated parameter. Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -483,20 +457,15 @@
       "name": "AICc",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X_s, Y, allow_arg, filt_arg),\n    p,   Regression_Degrees_Of_Freedom(X_s) + IF(allow_arg, 1, 0) + absorbed_arg,\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -505,7 +474,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups; added directly to the parameter count p (which also appears in the small-sample correction term). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -518,20 +487,15 @@
       "name": "Durbin_Watson",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    SUM((DROP(e, 1) - DROP(e, -1))^2) / SUM(e^2)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    e,        Residuals(X, Y, filt_arg),\n    SUM((DROP(e, 1) - DROP(e, -1))^2) / SUM(e^2)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -548,11 +512,11 @@
       "name": "Durbin_Watson_By",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, seq, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    ord,       FILTER(seq, filt_arg),\n    es,        SORTBY(e, ord, 1),\n    SUM((DROP(es, 1) - DROP(es, -1))^2) / SUM(es^2)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, seq, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    e,        Residuals(X, Y, filt_arg),\n    ord,      FILTER(seq, filt_arg),\n    es,       SORTBY(e, ord, 1),\n    SUM((DROP(es, 1) - DROP(es, -1))^2) / SUM(es^2)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
@@ -561,11 +525,6 @@
         {
           "name": "seq",
           "description": "single-column ordering axis (the declared Sequence column, e.g. Year) — residuals are sorted by this before differencing, so the result does not depend on physical row order"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -582,11 +541,11 @@
       "name": "BFN_Panel_Durbin_Watson",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, group, seq, [delta], [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    step,      IF(ISOMITTED(delta), Base_Period_Delta(), delta),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    g_f,       FILTER(group, filt_arg),\n    t_f,       FILTER(seq, filt_arg),\n    d,         Difference_By(e, g_f, t_f, step),\n    n_terms,   SUMPRODUCT(N(ISNUMBER(d))),\n    IF(n_terms = 0, NA(),\n      SUMPRODUCT(IFERROR(d, 0)^2) / SUMPRODUCT(e^2))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, group, seq, [delta], [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    step,     IF(ISOMITTED(delta), Base_Period_Delta(), delta),\n    e,        Residuals(X, Y, filt_arg),\n    g_f,      FILTER(group, filt_arg),\n    t_f,      FILTER(seq, filt_arg),\n    d,        Difference_By(e, g_f, t_f, step),\n    n_terms,  SUMPRODUCT(N(ISNUMBER(d))),\n    IF(n_terms = 0, NA(),\n      SUMPRODUCT(IFERROR(d, 0)^2) / SUMPRODUCT(e^2))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
@@ -598,16 +557,11 @@
         },
         {
           "name": "seq",
-          "description": "single-column numeric time index (the declared Sequence column, e.g. Year) — the within-group lookup key, not the row order"
+          "description": "single-column ordering axis (the declared Sequence column, e.g. Year) — residuals are sorted by this before differencing, so the result does not depend on physical row order"
         },
         {
           "name": "delta",
           "description": "base period Δ: differences pair û(i,t) with û(i,t−delta) by exact time value; when omitted, the spec's Base Period Δ (Base_Period_Delta()) is used — never a silent 1",
-          "optional": true
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
           "optional": true
         },
         {
@@ -625,20 +579,15 @@
       "name": "QQ_Correlation",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    sr,        Scaled_Residuals_Ranked(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    n,         ROWS(sr),\n    ns,        NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    sr, Scaled_Residuals_Ranked(X, Y, filt_arg, absorbed_arg),\n    n,  ROWS(sr),\n    ns, NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -647,7 +596,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Scaled_Residuals_Ranked(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -660,20 +609,15 @@
       "name": "Coefficients",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, FALSE),\n    k,         COLUMNS(X_s),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ls, 1, k + 1), CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ls, SEQUENCE(1, k, k, -1))\n    ))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    ls,       LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, FALSE),\n    k,        COLUMNS(X),\n    TRANSPOSE(CHOOSECOLS(ls, SEQUENCE(1, k, k, -1)))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -682,28 +626,23 @@
         }
       ],
       "yields": "vertical array of fitted OLS coefficients — intercept first (when included), then predictors in input order",
-      "description": "Returns a vertical spill array of the fitted OLS regression coefficients. When Allow_Intercept is TRUE the intercept is the first element, followed by the coefficients for each column of X_s in input order. When Allow_Intercept is FALSE the output contains only the k predictor coefficients.\n\nUses LINEST with stats=FALSE (row 1 only), then reverses and optionally prepends the intercept to match X_s column order.",
+      "description": "Returns the fitted OLS coefficient vector, in design-matrix column order.\n\nLINEST is called with const = FALSE. This is not a stylistic choice: the design matrix arrives with its intercept column already in it, and letting Excel fit a second intercept on top would produce two exactly collinear terms, a singular Gram matrix, and a result that is wrong rather than absent. With const = FALSE, LINEST returns exactly COLUMNS(X) coefficients in reverse column order, so unwinding it is a single reversal — the old intercept-splicing branch is gone.",
       "plain_language_summary": "The fitted intercept and predictor weights used to make predictions.",
-      "notes": "Fitted OLS coefficients as a column vector: intercept first (when included), then each predictor in X_s column order."
+      "notes": "Fitted OLS coefficients in design-matrix column order. LINEST runs with const = FALSE because the design matrix already carries its intercept column."
     },
     {
       "name": "SE_Coefficients",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    ls,        LINEST(FILTER(Y, filt_arg), FILTER(X_s, filt_arg), allow_arg, TRUE),\n    ses,       INDEX(ls, 2),\n    k,         COLUMNS(X_s),\n    naive_df,  Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg),\n    true_df,   naive_df - absorbed_arg,\n    scale,     SQRT(naive_df / true_df),\n    TRANSPOSE(IF(allow_arg,\n      HSTACK(INDEX(ses, 1, k + 1), CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))),\n      CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))\n    )) * scale\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    ls,       LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, TRUE),\n    ses,      INDEX(ls, 2),\n    k,        COLUMNS(X),\n    naive_df, Residual_Degrees_Of_Freedom(X, Y, filt_arg),\n    true_df,  naive_df - absorbed_arg,\n    scale,    SQRT(naive_df / true_df),\n    TRANSPOSE(CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))) * scale\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -712,12 +651,12 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups. LINEST cannot be told a different df, so this RESCALES its output by SQRT(naive_df / (naive_df − DF_Absorbed)) — exact, since SS_Residual and (X'X)⁻¹ are identical between the two dfs, only the variance scaling differs. Defaults to 0, giving scale = 1 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
       "yields": "vertical array of standard errors of the OLS coefficients — same order as Coefficients",
-      "description": "Returns a vertical spill array of the standard errors of the fitted OLS coefficients, in the same order as Coefficients (intercept first when included).\n\nUses LINEST with stats=TRUE and extracts row 2 (the standard error row), then applies the same reversal as Coefficients.\n\nUnder v2.1 Fixed Effects, LINEST is an Excel built-in that always computes its own SE using its own internal residual df (n−k−intercept) — it cannot be told about degrees of freedom absorbed by an FE group it never sees, since it only sees the already-demeaned X_s_Within()/y_s(). The fix is an exact rescaling, not an approximation: SS_Residual and (X'X)⁻¹ are identical whichever df is used (OLS coefficients and their sum-of-squares don't depend on df, only the variance-to-SE conversion does), so the correct SE is LINEST's SE times SQRT(naive_df / true_df), where naive_df is exactly what LINEST assumed and true_df subtracts DF_Absorbed. With DF_Absorbed omitted or 0, the scale factor is SQRT(naive_df/naive_df) = 1 exactly, so every no-FE caller is bit-identical to before.",
+      "description": "Returns the standard errors of the fitted coefficients, in design-matrix column order.\n\nLINEST is called with const = FALSE for the same reason as Coefficients: the intercept is a column of X, not something Excel should add. Under const = FALSE LINEST computes its residual df as n - COLUMNS(X), which is the correct value once the intercept is counted among the columns.\n\nUnder fixed effects the absorbed groups are not visible to LINEST, so the standard errors are rescaled by SQRT(naive_df / true_df) rather than reimplementing the fit.",
       "plain_language_summary": "How uncertain each fitted coefficient is — rescaled under Fixed Effects since Excel's LINEST can't be told about the absorbed groups directly.",
       "notes": "Standard errors of the OLS coefficients. LINEST can't accept an external df, so DF_Absorbed (default 0) rescales its output by SQRT(naive_df/true_df) — exact, since SSR and (X'X)⁻¹ don't change."
     },
@@ -725,20 +664,15 @@
       "name": "T_Statistics",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    Coefficients(X_s, Y, allow_arg, filt_arg) / SE_Coefficients(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    Coefficients(X, Y, filt_arg) / SE_Coefficients(X, Y, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -747,7 +681,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to SE_Coefficients() — Coefficients() itself is unaffected by df. Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -760,20 +694,15 @@
       "name": "P_Values",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.00E+00",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    T.DIST.2T(ABS(T_Statistics(X_s, Y, allow_arg, filt_arg, absorbed_arg)), Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    T.DIST.2T(ABS(T_Statistics(X, Y, filt_arg, absorbed_arg)), Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -782,7 +711,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both T_Statistics() and Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -795,20 +724,15 @@
       "name": "Confidence_Interval_Lower",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha], [DF_Absorbed],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),    0,    DF_Absorbed),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    Coefficients(X, Y, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg))\n        * SE_Coefficients(X, Y, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -822,7 +746,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both Residual_Degrees_Of_Freedom() and SE_Coefficients(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -835,20 +759,15 @@
       "name": "Confidence_Interval_Upper",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [Alpha], [DF_Absorbed],\n  LET(\n    allow_arg,   IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,    IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,   IF(ISOMITTED(Alpha),           0.05, Alpha),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),    0,    DF_Absorbed),\n    Coefficients(X_s, Y, allow_arg, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n        * SE_Coefficients(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    Coefficients(X, Y, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg))\n        * SE_Coefficients(X, Y, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -862,7 +781,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both Residual_Degrees_Of_Freedom() and SE_Coefficients(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -875,20 +794,15 @@
       "name": "Partial_R_Squared",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    t,         T_Statistics(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    df,        Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    t^2 / (t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    t,  T_Statistics(X, Y, filt_arg, absorbed_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg),\n    t^2 / (t^2 + df)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -897,7 +811,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both T_Statistics() and Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -910,20 +824,15 @@
       "name": "Partial_Correlation",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    t,         T_Statistics(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    df,        Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    t / SQRT(t^2 + df)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    t,  T_Statistics(X, Y, filt_arg, absorbed_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg),\n    t / SQRT(t^2 + df)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -932,7 +841,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both T_Statistics() and Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -945,19 +854,19 @@
       "name": "Beta_Weights",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg,  IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,   IF(ISOMITTED(Include),          TRUE, Include),\n    coefs,      Coefficients(X_s, Y, allow_arg, filt_arg),\n    pred_coefs, IF(allow_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(X_s),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(X_s, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include],\n  LET(\n    has_arg,    IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg,   IF(ISOMITTED(Include),       TRUE, Include),\n    coefs,      Coefficients(X, Y, filt_arg),\n    preds,      IF(has_arg, DROP(X, , 1), X),\n    pred_coefs, IF(has_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(preds),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(preds, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -967,7 +876,7 @@
         }
       ],
       "yields": "k×1 column vector of standardized coefficients (Beta weights), one per predictor — intercept row excluded",
-      "description": "Standardized (Beta) coefficient for predictor j = b_j × std(X_j) / std(Y). Expresses each coefficient in standard-deviation units, making predictors with different scales directly comparable in magnitude. Always returns k values (one per predictor); the intercept has no meaningful standardized counterpart and is excluded.\n\nComputed as Coefficients × column-wise STDEV(X) / STDEV(Y), using filtered rows. Mirrors the output of VIF and Tolerance in returning k rows without an intercept entry.",
+      "description": "Standardized regression coefficients — each slope rescaled by the ratio of its predictor's standard deviation to the response's, making magnitudes comparable across predictors measured in different units.\n\nThe intercept is excluded from both halves: its coefficient is dropped, and the per-column standard deviations are taken over the predictor columns of X only. A standard deviation of the intercept column would be zero and the whole vector would come back as zeros or errors.",
       "plain_language_summary": "Coefficients rescaled so predictors on different units can be compared fairly.",
       "notes": "Standardised coefficients in SD units for comparing predictors measured on different scales. k rows; no intercept row."
     },
@@ -975,16 +884,11 @@
       "name": "VIF",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(X_s),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_Squared(\n            CHOOSECOLS(X_s, FILTER(col_idx, col_idx <> j)),\n            CHOOSECOLS(X_s, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
+      "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(Predictors),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        ones,    SEQUENCE(ROWS(Predictors), 1, 1, 0),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_Squared(\n            HSTACK(ones, CHOOSECOLS(Predictors, FILTER(col_idx, col_idx <> j))),\n            CHOOSECOLS(Predictors, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — included for interface consistency; VIF always fits intercept in auxiliary regressions",
-          "optional": true
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Include",
@@ -993,7 +897,7 @@
         }
       ],
       "yields": "k×1 column vector of VIF values, one per predictor (does not include an intercept row)",
-      "description": "Variance Inflation Factor for each predictor Xⱼ = 1 / (1 − R²ⱼ), where R²ⱼ is the R² from regressing Xⱼ on all other predictors. VIF measures how much the variance of coefficient j is inflated by multicollinearity. VIF = 1 means no collinearity; VIF > 10 (or > 5 by stricter convention) signals a problem.\n\nAuxiliary regressions always include an intercept regardless of the main model's Allow_Intercept setting (standard convention). When k = 1 the function returns 1 (no collinearity possible with a single predictor). Uses MAKEARRAY + FILTER to iterate over column indices without VBA or helper columns.",
+      "description": "Variance Inflation Factor for each predictor: 1 / (1 - R²ⱼ), where R²ⱼ comes from regressing predictor j on all the others. Values above roughly 5-10 indicate problematic multicollinearity.\n\nTakes PREDICTOR columns, never a design matrix — a constant intercept column among the predictors would make the auxiliary regressions singular. The auxiliary fits themselves do need an intercept, so VIF builds one onto each sub-matrix itself.",
       "plain_language_summary": "How much overlap with other predictors is inflating each coefficient's instability.",
       "notes": "Variance Inflation Factor per predictor = 1/(1−R²ⱼ). VIF = 1: no collinearity. VIF > 5: review. VIF > 10: problem."
     },
@@ -1001,16 +905,11 @@
       "name": "Tolerance",
       "test_table": "MLR_Vector_Outputs_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  1 / VIF(X_s, Allow_Intercept, Include)\n)",
+      "formula_display": "=LAMBDA(Predictors, [Include],\n  1 / VIF(Predictors, Include)\n)",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — passed through to VIF; included for interface consistency",
-          "optional": true
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Include",
@@ -1019,56 +918,46 @@
         }
       ],
       "yields": "k×1 column vector of Tolerance values (= 1/VIF), one per predictor",
-      "description": "Tolerance = 1 − R²ⱼ = 1 / VIF, where R²ⱼ is the coefficient of determination from regressing Xⱼ on all other predictors. Values below 0.1 (VIF > 10) conventionally flag severe multicollinearity; values below 0.2 (VIF > 5) flag moderate concern.\n\nComputed as 1 / VIF(...), forwarding all arguments.",
+      "description": "Tolerance is the reciprocal of the Variance Inflation Factor, 1 / VIF — the share of a predictor's variance not explained by the other predictors. Values below roughly 0.1-0.2 indicate problematic multicollinearity.\n\nTakes predictor columns, never a design matrix.",
       "plain_language_summary": "How much unique information a predictor still has after overlap with the others.",
       "notes": "1/VIF per predictor. Fraction of unique variance not shared with other predictors. < 0.2: review; < 0.1: strong collinearity."
     },
     {
       "name": "GVIF",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Column_Names, [Allow_Intercept], [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(X_s),\n    grp,      IFERROR(LEFT(Column_Names, FIND(\": \", Column_Names) - 1), Column_Names),\n    IF(COUNTA(UNIQUE(grp, TRUE)) <= 1,\n      MAKEARRAY(k, 1, LAMBDA(j, _, 1)),\n      LET(\n        R,    Correlation_Matrix(X_s, filt_arg),\n        detR, MDETERM(R),\n        MAKEARRAY(k, 1, LAMBDA(j, _,\n          LET(\n            g,   INDEX(grp, 1, j),\n            own, grp = g,\n            R11, FILTER(FILTER(R, TRANSPOSE(own)), own),\n            R22, FILTER(FILTER(R, TRANSPOSE(NOT(own))), NOT(own)),\n            MDETERM(R11) * MDETERM(R22) / detR\n          )\n        ))\n      )\n    )\n  ))",
+      "formula_display": "=LAMBDA(Predictors, Column_Names, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(Predictors),\n    grp,      IFERROR(LEFT(Column_Names, FIND(\": \", Column_Names) - 1), Column_Names),\n    IF(COUNTA(UNIQUE(grp, TRUE)) <= 1,\n      MAKEARRAY(k, 1, LAMBDA(j, _, 1)),\n      LET(\n        R,    Correlation_Matrix(Predictors, filt_arg),\n        detR, MDETERM(R),\n        MAKEARRAY(k, 1, LAMBDA(j, _,\n          LET(\n            g,   INDEX(grp, 1, j),\n            own, grp = g,\n            R11, FILTER(FILTER(R, TRANSPOSE(own)), own),\n            R22, FILTER(FILTER(R, TRANSPOSE(NOT(own))), NOT(own)),\n            MDETERM(R11) * MDETERM(R22) / detR\n          )\n        ))\n      )\n    )\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column); a categorical predictor contributes a contiguous block of dummy columns"
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Column_Names",
           "description": "1×k row vector of column labels aligned with X_s, following the \"Header: level\" convention (e.g. Constructed_Column_Names()); columns sharing the text before the first \": \" are treated as one variable's group"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — included for interface consistency; the correlation-matrix formula is intercept-invariant",
-          "optional": true
-        },
-        {
           "name": "Include",
           "description": "boolean array — TRUE includes the row, FALSE excludes it",
           "optional": true
         }
       ],
-      "yields": "k×1 column vector of GVIF values, one per column of X_s — every dummy column sharing a source variable's group carries the same value",
-      "description": "Generalized Variance Inflation Factor (Fox & Monette, 1992): GVIF_g = det(R11) * det(R22) / det(R), where R is the k×k correlation matrix of X_s (via Correlation_Matrix), R11 is the submatrix restricted to source-variable g's own columns, and R22 is the submatrix restricted to every other column. Collapses a categorical predictor's whole dummy block into one coding-invariant number instead of L−1 separate, coding-dependent per-dummy VIF values.\n\nGroups are recovered from Column_Names by splitting on the first \": \" — the same convention Constructed_Column_Names() already uses to label dummy columns. When a group has exactly one column (an ordinary continuous predictor, or a two-level categorical), GVIF is numerically identical to VIF's own 1/(1−R²ⱼ) — a matrix identity, not an approximation — so the existing 5/10 review thresholds stay valid for those rows. When every column resolves to the same group (only one source variable in the whole matrix) GVIF returns 1 for all columns, the direct generalization of VIF's own k=1 special case.\n\ndet(R) appears in every column's denominator, so exact multicollinearity anywhere in X_s (det(R) = 0) produces #DIV/0! for every column, not only the collinear ones — the same all-or-nothing failure mode VIF's own 1/(1−R²ⱼ) already has at R²ⱼ = 1, surfaced once instead of per column.",
+      "yields": "k×1 column vector of GVIF values, one per column of Predictors — every dummy column sharing a source variable's group carries the same value",
+      "description": "Generalized Variance Inflation Factor (Fox & Monette, 1992): GVIF_g = det(R11) * det(R22) / det(R), where R is the k×k correlation matrix of Predictors (via Correlation_Matrix), R11 is the submatrix restricted to source-variable g's own columns, and R22 is the submatrix restricted to every other column. Collapses a categorical predictor's whole dummy block into one coding-invariant number instead of L−1 separate, coding-dependent per-dummy VIF values.\n\nGroups are recovered from Column_Names by splitting on the first \": \" — the same convention Constructed_Column_Names() already uses to label dummy columns. When a group has exactly one column (an ordinary continuous predictor, or a two-level categorical), GVIF is numerically identical to VIF's own 1/(1−R²ⱼ) — a matrix identity, not an approximation — so the existing 5/10 review thresholds stay valid for those rows. When every column resolves to the same group (only one source variable in the whole matrix) GVIF returns 1 for all columns, the direct generalization of VIF's own k=1 special case.\n\ndet(R) appears in every column's denominator, so exact multicollinearity anywhere in Predictors (det(R) = 0) produces #DIV/0! for every column, not only the collinear ones — the same all-or-nothing failure mode VIF's own 1/(1−R²ⱼ) already has at R²ⱼ = 1, surfaced once instead of per column.",
       "plain_language_summary": "How much overlap with the other predictors is inflating a variable's instability — one shared number per variable, even when it spans several dummy columns.",
       "notes": "Generalized VIF, one value per source variable (shared across a categorical predictor's dummy columns): det(R11)*det(R22)/det(R). Equals ordinary VIF when a variable is a single column."
     },
     {
       "name": "Generalized_Tolerance",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Column_Names, [Allow_Intercept], [Include],\n  1 / GVIF(X_s, Column_Names, Allow_Intercept, Include)\n)",
+      "formula_display": "=LAMBDA(Predictors, Column_Names, [Include],\n  1 / GVIF(Predictors, Column_Names, Include)\n)",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column); a categorical predictor contributes a contiguous block of dummy columns"
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Column_Names",
-          "description": "1×k row vector of column labels aligned with X_s, following the \"Header: level\" convention (e.g. Constructed_Column_Names())"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — passed through to GVIF; included for interface consistency",
-          "optional": true
+          "description": "1×k row vector of column labels aligned with X_s, following the \"Header: level\" convention (e.g. Constructed_Column_Names()); columns sharing the text before the first \": \" are treated as one variable's group"
         },
         {
           "name": "Include",
@@ -1076,7 +965,7 @@
           "optional": true
         }
       ],
-      "yields": "k×1 column vector of Generalized Tolerance values (= 1/GVIF), one per column of X_s",
+      "yields": "k×1 column vector of Generalized Tolerance values (= 1/GVIF), one per column of Predictors",
       "description": "Generalized Tolerance = 1 / GVIF, the reciprocal of the Generalized Variance Inflation Factor. Mirrors Tolerance's own one-line relationship to VIF, forwarding all arguments to GVIF.",
       "plain_language_summary": "How much unique information a variable still has after overlap with the others, generalized to whole categorical predictors.",
       "notes": "1/GVIF per source variable. Fraction of unique variance not shared with other predictors, generalized across a categorical predictor's dummy columns."
@@ -1085,11 +974,11 @@
       "name": "Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, X_new, [Allow_Intercept], [Include], [alpha], [DF_Absorbed],\n  LET(\n    allow_arg,     IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,      IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),           0.05, alpha),\n    absorbed_arg,  IF(ISOMITTED(DF_Absorbed),     0,    DF_Absorbed),\n    X_design,      Design_Matrix(X_s, allow_arg, filt_arg),\n    beta,          Coefficients(X_s, Y, allow_arg, filt_arg),\n    s,             SE_Regression(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    df,            Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(allow_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(X, Y, X_new, [Has_Intercept], [Include], [alpha], [DF_Absorbed],\n  LET(\n    has_arg,       IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg,      IF(ISOMITTED(Include),       TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),         0.05, alpha),\n    absorbed_arg,  IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    X_design,      Design_Matrix(X, filt_arg),\n    beta,          Coefficients(X, Y, filt_arg),\n    s,             SE_Regression(X, Y, filt_arg, absorbed_arg),\n    df,            Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(has_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
@@ -1100,8 +989,8 @@
           "description": "column vector of predictor values for the new observation — intercept term first (=1 or 0) when Allow_Intercept is TRUE, matching the layout of pred_input on the Regression sheet"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -1116,12 +1005,12 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both SE_Regression() and Residual_Degrees_Of_Freedom(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
       "yields": "6-element vertical array: [Point Estimate, SE Prediction, t Critical, Lower bound, Upper bound, Confidence Level]",
-      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Allow_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using Gram_Inverse(X_design) and MMULT.\n\nAn optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both s and df, so the t-critical value and the prediction SE reflect the correct absorbed-group residual df. This function alone still assumes x_new lives in the same raw covariate space as X_s — it is not a well-defined FE prediction on its own under Fixed Effects; Group_Prediction_Interval is the group-mean-relative sibling that adds the ȳᵢ/x̄ᵢ recovery machinery.",
+      "description": "Returns a 6-element VSTACK: (1) point estimate = x_new · beta, (2) SE of prediction = s √(1 + x_new'(X'X)⁻¹x_new), (3) t critical value at alpha, (4) lower prediction bound, (5) upper prediction bound, (6) confidence level = 1 − alpha.\n\nWhen Has_Intercept is FALSE the first element of X_new (the intercept placeholder) is dropped before the dot product and leverage calculation to align dimensions with the k-column design matrix. Leverage h_new is computed as x_new'(X'X)⁻¹x_new using Gram_Inverse(X_design) and MMULT.\n\nAn optional trailing DF_Absorbed (v2.1 Fixed Effects) threads to both s and df, so the t-critical value and the prediction SE reflect the correct absorbed-group residual df. This function alone still assumes x_new lives in the same raw covariate space as X — it is not a well-defined FE prediction on its own under Fixed Effects; Group_Prediction_Interval is the group-mean-relative sibling that adds the ȳᵢ/x̄ᵢ recovery machinery.",
       "plain_language_summary": "A predicted outcome plus the range a new real-world observation is likely to fall in.",
       "notes": "6-element vector: point estimate, SE_prediction, t-critical, lower/upper PI bound, confidence level. Optional DF_Absorbed (default 0) corrects df/SE under Fixed Effects."
     },
@@ -1129,31 +1018,31 @@
       "name": "Group_Prediction_Interval",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, X_new, group, selected_group, [Allow_Intercept], [Include], [alpha], [DF_Absorbed],\n  LET(\n    allow_arg,    IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,     IF(ISOMITTED(Include),          TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(alpha),            0.05, alpha),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),      0,    DF_Absorbed),\n    x_within,     LET(\n                      n_x,   COLUMNS(X_s),\n                      seed,  SEQUENCE(ROWS(X_s), 1, 0, 0),\n                      built, REDUCE(seed, SEQUENCE(n_x), LAMBDA(acc, j,\n                          HSTACK(acc, Demean_By(INDEX(X_s, 0, j), group, filt_arg))\n                      )),\n                      DROP(built, , 1)\n                  ),\n    y_within,     Demean_By(Y, group, filt_arg),\n    beta_full,    Coefficients(x_within, y_within, allow_arg, filt_arg),\n    beta,         IF(allow_arg, DROP(beta_full, 1), beta_full),\n    s,            SE_Regression(x_within, y_within, allow_arg, filt_arg, absorbed_arg),\n    df,           Residual_Degrees_Of_Freedom(x_within, y_within, allow_arg, filt_arg, absorbed_arg),\n    t_crit,       T.INV.2T(alpha_arg, df),\n    X_design,     Design_Matrix(x_within, FALSE, filt_arg),\n    XtX_inv,      Gram_Inverse(X_design),\n    xbar_i,       TRANSPOSE(BYCOL(X_s, LAMBDA(col, Group_Mean_At(col, group, selected_group, filt_arg)))),\n    ybar_i,       Group_Mean_At(Y, group, selected_group, filt_arg),\n    T_i,          Group_Count_At(group, selected_group, filt_arg),\n    deviation,    X_new - xbar_i,\n    quad,         MMULT(MMULT(TRANSPOSE(deviation), XtX_inv), deviation),\n    point_est,    ybar_i + SUMPRODUCT(deviation, beta),\n    se_mean,      s * SQRT(1 / T_i + quad),\n    se_new,       s * SQRT(1 + 1 / T_i + quad),\n    margin_mean,  t_crit * se_mean,\n    margin_new,   t_crit * se_new,\n    VSTACK(\n      point_est,\n      se_mean,\n      se_new,\n      t_crit,\n      point_est - margin_mean,\n      point_est + margin_mean,\n      point_est - margin_new,\n      point_est + margin_new,\n      1 - alpha_arg\n    )\n  ))",
+      "formula_display": "=LAMBDA(Predictors, Y, X_new, group, selected_group, [Has_Intercept], [Include], [alpha], [DF_Absorbed],\n  LET(\n    has_arg,       IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg,      IF(ISOMITTED(Include),       TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),         0.05, alpha),\n    absorbed_arg,  IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    x_within,      LET(\n                       n_x,   COLUMNS(Predictors),\n                       seed,  SEQUENCE(ROWS(Predictors), 1, 0, 0),\n                       built, REDUCE(seed, SEQUENCE(n_x), LAMBDA(acc, j,\n                           HSTACK(acc, Demean_By(INDEX(Predictors, 0, j), group, filt_arg))\n                       )),\n                       DROP(built, , 1)\n                   ),\n    y_within,      Demean_By(Y, group, filt_arg),\n    design_within, IF(has_arg, HSTACK(SEQUENCE(ROWS(x_within), 1, 1, 0), x_within), x_within),\n    beta_full,     Coefficients(design_within, y_within, filt_arg),\n    beta,          IF(has_arg, DROP(beta_full, 1), beta_full),\n    s,             SE_Regression(design_within, y_within, filt_arg, absorbed_arg),\n    df,            Residual_Degrees_Of_Freedom(design_within, y_within, filt_arg, absorbed_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    X_design,      Design_Matrix(x_within, filt_arg),\n    XtX_inv,       Gram_Inverse(X_design),\n    xbar_i,        TRANSPOSE(BYCOL(Predictors, LAMBDA(col, Group_Mean_At(col, group, selected_group, filt_arg)))),\n    ybar_i,        Group_Mean_At(Y, group, selected_group, filt_arg),\n    T_i,           Group_Count_At(group, selected_group, filt_arg),\n    deviation,     X_new - xbar_i,\n    quad,          MMULT(MMULT(TRANSPOSE(deviation), XtX_inv), deviation),\n    point_est,     ybar_i + SUMPRODUCT(deviation, beta),\n    se_mean,       s * SQRT(1 / T_i + quad),\n    se_new,        s * SQRT(1 + 1 / T_i + quad),\n    margin_mean,   t_crit * se_mean,\n    margin_new,    t_crit * se_new,\n    VSTACK(\n      point_est,\n      se_mean,\n      se_new,\n      t_crit,\n      point_est - margin_mean,\n      point_est + margin_mean,\n      point_est - margin_new,\n      point_est + margin_new,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors, raw (not pre-demeaned) — single or multi-column"
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Y",
-          "description": "single-column outcome range, raw (not pre-demeaned)"
+          "description": "single-column outcome range"
         },
         {
           "name": "X_new",
-          "description": "column vector of raw predictor values for the new observation, k rows matching COLUMNS(X_s) — no intercept placeholder (group-mean recovery never uses one)"
+          "description": "column vector of predictor values for the new observation — intercept term first (=1 or 0) when Allow_Intercept is TRUE, matching the layout of pred_input on the Regression sheet"
         },
         {
           "name": "group",
-          "description": "single-column grouping key (Prediction_Group_Column(): the Fixed Effects column, or a constant single group when none is declared)"
+          "description": "single-column panel-unit identifiers (the Fixed Effects variable, e.g. Country) — residual differences never cross a group boundary"
         },
         {
           "name": "selected_group",
           "description": "the one group value to predict for (a dropdown-selected panel unit, or the constant \"(all)\" sentinel when no Fixed Effects row is declared)"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept in the within regression? Default TRUE. Does not change the point estimate (an intercept fit on group-demeaned data is always exactly 0), only how Coefficients()'s output is sliced",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -1163,17 +1052,17 @@
         },
         {
           "name": "alpha",
-          "description": "significance level (0–1); default 0.05 yields 95% intervals",
+          "description": "significance level (0–1); default 0.05 yields 95% prediction intervals",
           "optional": true
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to SE_Regression() and Residual_Degrees_Of_Freedom(). Defaults to 0",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
       "yields": "9-element vertical array: [Point Estimate, SE (mean), SE (new obs), t Critical, CI Lower, CI Upper, PI Lower, PI Upper, Confidence Level]",
-      "description": "Group_Prediction_Interval is the v2.1 group-mean-recovery prediction: ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂, the algebraic identity that recovers the group-specific intercept an LSDV fit would have materialized (α̂ᵢ = ȳᵢ − x̄ᵢ′β̂) without ever fitting G−1 group dummies. Surfaces BOTH intervals DECISIONS.md calls for: a mean-response CI (Var = σ²/Tᵢ + (x_new−x̄ᵢ)′V_β(x_new−x̄ᵢ)) and a new-observation PI (the same quadratic term plus σ²), same center, same t-critical, differing by exactly one variance term — reusing the existing leverage quadratic-form machinery (Gram_Inverse, Design_Matrix) fed the *deviation* (x_new−x̄ᵢ) instead of raw x_new.\n\nRe-demeans X_s/Y internally via Demean_By(·, group, include) rather than accepting pre-demeaned X_s_Within()/y_s(): those return the RAW X_s()/Response_Column() unchanged when no Fixed Effects row is declared (preserving the v2.0 model's own intercept exactly), which is correct for the Coefficients/ANOVA/Diagnostics reporting chain but wrong for this function's quadratic-form term, which needs a properly (grand-mean-)centered matrix regardless of FE status. Passing Prediction_Group_Column() as group makes this re-demeaning reduce to the real Fixed_Effects_Column() when FE is active, or to plain grand-mean centering (the standard textbook regression-prediction-variance decomposition) when it is not — an intercept fit on top of either is always mathematically inert (the coefficient is exactly 0 by construction, confirmed independently), so beta only needs the slope rows, never the intercept row, regardless of Allow_Intercept.\n\nDegenerate collapse (DECISIONS.md's 'build it once'): with group = Prediction_Group_Column()'s constant \"(all)\" fallback (G=1, whole sample is the group), ȳᵢ/x̄ᵢ/Tᵢ become the grand mean/grand mean/full count, and this function's point estimate and PI reduce EXACTLY to Prediction_Interval()'s own numbers — verified to floating-point precision, not merely close. Predicting at the selected group's own centroid (x_new = x̄ᵢ) kills the quadratic term and the mean-CI collapses to t·√(σ²/Tᵢ), the standard error of ȳᵢ — the DECISIONS.md sanity check.\n\nScope, per DECISIONS.md: one-way FE only, iid errors, existing groups only (selected_group must be an observed level — Group_Mean_At/Group_Count_At return #N/A/0 rather than fabricating statistics for an unobserved group). Categorical-predictor × FE input encoding (forming X_new/x̄ᵢ in constructed design-matrix space when a non-FE Categorical Predictor coexists with Fixed Effects) is explicitly DEFERRED — this function's X_new is continuous-predictor space only.",
+      "description": "Group_Prediction_Interval is the v2.1 group-mean-recovery prediction: ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂, the algebraic identity that recovers the group-specific intercept an LSDV fit would have materialized (α̂ᵢ = ȳᵢ − x̄ᵢ′β̂) without ever fitting G−1 group dummies. Surfaces BOTH intervals DECISIONS.md calls for: a mean-response CI (Var = σ²/Tᵢ + (x_new−x̄ᵢ)′V_β(x_new−x̄ᵢ)) and a new-observation PI (the same quadratic term plus σ²), same center, same t-critical, differing by exactly one variance term — reusing the existing leverage quadratic-form machinery (Gram_Inverse, Design_Matrix) fed the *deviation* (x_new−x̄ᵢ) instead of raw x_new.\n\nRe-demeans Predictors/Y internally via Demean_By(·, group, include) rather than accepting pre-demeaned Design_Columns()/Design_Response(): those return the RAW Predictors()/Response_Column() unchanged when no Fixed Effects row is declared (preserving the v2.0 model's own intercept exactly), which is correct for the Coefficients/ANOVA/Diagnostics reporting chain but wrong for this function's quadratic-form term, which needs a properly (grand-mean-)centered matrix regardless of FE status. Passing Prediction_Group_Column() as group makes this re-demeaning reduce to the real Fixed_Effects_Column() when FE is active, or to plain grand-mean centering (the standard textbook regression-prediction-variance decomposition) when it is not — an intercept fit on top of either is always mathematically inert (the coefficient is exactly 0 by construction, confirmed independently), so beta only needs the slope rows, never the intercept row, regardless of Has_Intercept.\n\nDegenerate collapse (DECISIONS.md's 'build it once'): with group = Prediction_Group_Column()'s constant \"(all)\" fallback (G=1, whole sample is the group), ȳᵢ/x̄ᵢ/Tᵢ become the grand mean/grand mean/full count, and this function's point estimate and PI reduce EXACTLY to Prediction_Interval()'s own numbers — verified to floating-point precision, not merely close. Predicting at the selected group's own centroid (x_new = x̄ᵢ) kills the quadratic term and the mean-CI collapses to t·√(σ²/Tᵢ), the standard error of ȳᵢ — the DECISIONS.md sanity check.\n\nScope, per DECISIONS.md: one-way FE only, iid errors, existing groups only (selected_group must be an observed level — Group_Mean_At/Group_Count_At return #N/A/0 rather than fabricating statistics for an unobserved group). Categorical-predictor × FE input encoding (forming X_new/x̄ᵢ in constructed design-matrix space when a non-FE Categorical Predictor coexists with Fixed Effects) is explicitly DEFERRED — this function's X_new is continuous-predictor space only.",
       "plain_language_summary": "Predicts for a specific group (e.g. one Facility) using that group's own average as the baseline, adjusted for how the new inputs differ from that group's typical values — with both a mean-response interval and a wider individual-observation interval.",
       "notes": "v2.1 group-mean-recovery prediction: ŷ=ȳᵢ+(x_new−x̄ᵢ)′β̂. Surfaces both mean-CI and new-obs-PI. G=1 (Prediction_Group_Column()'s \"(all)\" fallback) collapses exactly to Prediction_Interval(). One-way FE, iid errors, continuous predictors only."
     },
@@ -1286,16 +1175,11 @@
       "name": "Design_Matrix",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    x_filt,    FILTER(X_s, filt_arg),\n    IF(\n      allow_arg,\n      HSTACK(SEQUENCE(ROWS(x_filt), , 1, 0), x_filt),\n      x_filt\n    )\n  ))",
+      "formula_display": "=LAMBDA(X, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    FILTER(X, filt_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Include",
@@ -1304,9 +1188,9 @@
         }
       ],
       "yields": "filtered numeric design matrix as spilled array",
-      "description": "Returns the matrix used for prediction: with intercept, a leading column of 1s followed by filtered X columns; without intercept, filtered X columns only. Factor encoding is intentionally deferred.",
+      "description": "Returns the design matrix restricted to the included rows — FILTER(X, filt_arg).\n\nIt no longer synthesizes an intercept column. Since v3.0 the constructor (Design_Columns on the Regression sheet) owns every construction stage, including the intercept, so by the time a design matrix reaches an engine function its intercept column is already there. What remains here is the row mask, applied in the engine so that constructors can stay full-height and row-aligned with the source table.",
       "plain_language_summary": "The cleaned predictor matrix the regression actually fits.",
-      "notes": "Filtered predictor matrix with a leading column of 1s when intercept is included. The X matrix used internally by the regression."
+      "notes": "The design matrix restricted to the included rows. Does not add an intercept column — the constructor owns that stage from v3.0."
     },
     {
       "name": "Gram_Inverse",
@@ -1326,20 +1210,15 @@
       "name": "Predictions",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    MMULT(\n      Design_Matrix(X_s, allow_arg, filt_arg),\n      Coefficients(X_s, Y, allow_arg, filt_arg)\n    )\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    MMULT(\n      Design_Matrix(X, filt_arg),\n      Coefficients(X, Y, filt_arg)\n    )\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1356,20 +1235,15 @@
       "name": "Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    FILTER(Y, filt_arg) - Predictions(X_s, Y, allow_arg, filt_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    FILTER(Y, filt_arg) - Predictions(X, Y, filt_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1386,20 +1260,15 @@
       "name": "Scaled_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    Residuals(X_s, Y, allow_arg, filt_arg)\n      / SE_Regression(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    Residuals(X, Y, filt_arg)\n      / SE_Regression(X, Y, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1408,7 +1277,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to SE_Regression(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -1457,11 +1326,11 @@
       "name": "Leave_One_Out_Prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, n, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    X_filt,    FILTER(X_s, filt_arg),\n    Y_filt,    FILTER(Y, filt_arg),\n    X_loo,     Exclude_Row_N(X_filt, n),\n    Y_loo,     Exclude_Row_N(Y_filt, n),\n    x_n,       Design_Matrix(CHOOSEROWS(X_filt, n), allow_arg),\n    beta_loo,  Coefficients(X_loo, Y_loo, allow_arg),\n    MMULT(x_n, beta_loo)\n  )\n)",
+      "formula_display": "=LAMBDA(X, Y, n, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    X_filt,   FILTER(X, filt_arg),\n    Y_filt,   FILTER(Y, filt_arg),\n    X_loo,    Exclude_Row_N(X_filt, n),\n    Y_loo,    Exclude_Row_N(Y_filt, n),\n    x_n,      Design_Matrix(CHOOSEROWS(X_filt, n)),\n    beta_loo, Coefficients(X_loo, Y_loo),\n    MMULT(x_n, beta_loo)\n  )\n)",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
@@ -1469,12 +1338,7 @@
         },
         {
           "name": "n",
-          "description": "relative row index of the observation to predict (1-based within the filtered dataset; negative values count from the end)"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
+          "description": "1-based row to exclude; negative values count from the end (−1 = last row)"
         },
         {
           "name": "Include",
@@ -1482,7 +1346,7 @@
           "optional": true
         }
       ],
-      "yields": "scalar LOO prediction for observation n — the fitted value from a model trained on all rows except n, evaluated at row n of X_s",
+      "yields": "scalar LOO prediction for observation n — the fitted value from a model trained on all rows except n, evaluated at row n of X",
       "description": "Applies the filter once in the outer scope to produce X_filt and Y_filt, then delegates to inner LAMBDAs without re-passing the filter. Exclude_Row_N removes observation n from both X and Y; Coefficients fits OLS on the remaining n−1 rows; Design_Matrix builds the single-row design vector for row n (with or without intercept column); MMULT computes the dot product.\n\nNote: for n LOO predictions at once use LOOCV_Prediction, which avoids n separate OLS fits via the hat-matrix shortcut.",
       "plain_language_summary": "One leave-one-out prediction for the requested row.",
       "notes": "Single leave-one-out prediction for row n by refitting on n−1 rows. For all rows at once use LOOCV_Prediction."
@@ -1491,20 +1355,15 @@
       "name": "LOOCV_Prediction",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    yhat,      Predictions(X_s, Y, allow_arg, filt_arg),\n    e,         FILTER(Y, filt_arg) - yhat,\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    yhat - h * e / (1 - h)\n  )\n)",
+      "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    yhat,     Predictions(X, Y, filt_arg),\n    e,        FILTER(Y, filt_arg) - yhat,\n    h,        Hat_Diagonal(X, filt_arg),\n    yhat - h * e / (1 - h)\n  )\n)",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1521,20 +1380,15 @@
       "name": "LOOCV_Residual",
       "test_table": null,
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    IFERROR(e / (1 - h), NA())\n  )\n)",
+      "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    e, Residuals(X, Y, filt_arg),\n    h, Hat_Diagonal(X, filt_arg),\n    IFERROR(e / (1 - h), NA())\n  )\n)",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1551,16 +1405,11 @@
       "name": "Hat_Diagonal",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, [Allow_Intercept], [Include],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    X_design,  Design_Matrix(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(X_design),\n    XtX_inv,   Gram_Inverse(X_design),\n    Z,         MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
+      "formula_display": "=LAMBDA(X, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    X_design, Design_Matrix(X, filt_arg),\n    p,        COLUMNS(X_design),\n    XtX_inv,  Gram_Inverse(X_design),\n    Z,        MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Include",
@@ -1577,20 +1426,15 @@
       "name": "Studentized_Residuals",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    e,         Residuals(X_s, Y, allow_arg, filt_arg),\n    se,        SE_Regression(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    e,  Residuals(X, Y, filt_arg),\n    se, SE_Regression(X, Y, filt_arg, absorbed_arg),\n    h,  Hat_Diagonal(X, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1599,7 +1443,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to SE_Regression(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -1612,20 +1456,15 @@
       "name": "Studentized_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    SORT(Studentized_Residuals(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    SORT(Studentized_Residuals(X, Y, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1634,7 +1473,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Studentized_Residuals(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -1647,20 +1486,15 @@
       "name": "Cooks_Distance",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    r,         Studentized_Residuals(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n    h,         Hat_Diagonal(X_s, allow_arg, filt_arg),\n    p,         COLUMNS(Design_Matrix(X_s, allow_arg, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    r, Studentized_Residuals(X, Y, filt_arg, absorbed_arg),\n    h, Hat_Diagonal(X, filt_arg),\n    p, COLUMNS(Design_Matrix(X, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1669,7 +1503,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Studentized_Residuals(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -1682,20 +1516,15 @@
       "name": "Scaled_Residuals_Ranked",
       "test_table": "MLR_Observation_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include), TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    SORT(Scaled_Residuals(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Include], [DF_Absorbed],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed), 0,    DF_Absorbed),\n    SORT(Scaled_Residuals(X, Y, filt_arg, absorbed_arg))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
-        },
-        {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
-          "optional": true
         },
         {
           "name": "Include",
@@ -1704,7 +1533,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to Scaled_Residuals(). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -1729,28 +1558,28 @@
         }
       ],
       "yields": "array of the selected columns in the specified order",
-      "description": "Wraps CHOOSECOLS to give column selection a named, self-documenting form. The output is a calculated array with the same row count as the source table, valid as X_s in any library function.\n\nPrimary use: define a named range — e.g. X_Predictors = Column_Select(LifeData, {3,7,9}) — then pass that name as X_s. Non-contiguous column sets are fully supported. Combine with Complete_Cases_Filter to drop rows that have missing or non-numeric values in the chosen columns.",
+      "description": "Wraps CHOOSECOLS to give column selection a named, self-documenting form. The output is a calculated array with the same row count as the source table, valid as X in any library function.\n\nPrimary use: define a named range — e.g. X_Predictors = Column_Select(LifeData, {3,7,9}) — then pass that name as X. Non-contiguous column sets are fully supported. Combine with Complete_Cases_Filter to drop rows that have missing or non-numeric values in the chosen columns.",
       "plain_language_summary": "A helper that picks specific columns from a larger table.",
-      "notes": "Named wrapper for CHOOSECOLS: picks non-contiguous predictor columns by index. Returns an array suitable for X_s."
+      "notes": "Named wrapper for CHOOSECOLS: picks non-contiguous predictor columns by index. Returns an array suitable for X."
     },
     {
       "name": "Complete_Cases_Filter",
       "test_table": null,
       "number_format": "General",
-      "formula_display": "=LAMBDA(X_s, [Y],\n  LET(\n    combined, IF(ISOMITTED(Y), X_s, HSTACK(X_s, Y)),\n    MMULT((ISNUMBER(combined)) * 1, SEQUENCE(COLUMNS(combined), 1, 1, 0)) = COLUMNS(combined)\n  )\n)",
+      "formula_display": "=LAMBDA(Predictors, [Y],\n  LET(\n    combined, IF(ISOMITTED(Y), Predictors, HSTACK(Predictors, Y)),\n    MMULT((ISNUMBER(combined)) * 1, SEQUENCE(COLUMNS(combined), 1, 1, 0)) = COLUMNS(combined)\n  )\n)",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column), or a Column_Select result"
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Y",
-          "description": "single-column outcome range; when supplied, rows where Y is also non-numeric are excluded",
+          "description": "single-column outcome range",
           "optional": true
         }
       ],
       "yields": "boolean column vector — TRUE for rows where every included column is numeric",
-      "description": "Produces a ready-made Include argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only X_s columns are checked. When Y is provided, it is HSTACKed onto X_s so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_Squared(X_s, Y, , Complete_Cases_Filter(X_s, Y))",
+      "description": "Produces a ready-made Include argument for any library function. TRUE rows have no blanks, text, or errors in any of the supplied columns.\n\nWhen Y is omitted, only Predictors columns are checked. When Y is provided, it is HSTACKed onto Predictors so that a single MMULT row-sum determines completeness across all regression inputs at once. ISNUMBER returns FALSE for errors and blanks, so error cells are safely treated as incomplete without propagating into the MMULT result.\n\nTypical usage: R_Squared(Predictors, Y, , Complete_Cases_Filter(Predictors, Y))",
       "plain_language_summary": "A TRUE/FALSE mask that keeps only rows with usable numeric data.",
       "notes": "Boolean vector TRUE where every included column is numeric. Pass as the Include argument to exclude incomplete rows."
     },
@@ -1773,11 +1602,11 @@
     {
       "name": "Pearson_R",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    yf, FILTER(Y,   filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), yf)))\n  ))",
+      "formula_display": "=LAMBDA(Predictors, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(Predictors, filt_arg),\n    yf, FILTER(Y,          filt_arg),\n    MAKEARRAY(COLUMNS(Predictors), 1, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), yf)))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "predictor column range (single or multi-column); returns one correlation per column"
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Y",
@@ -1790,9 +1619,9 @@
         }
       ],
       "yields": "k×1 column vector of Pearson correlations between each predictor and Y",
-      "description": "Pearson_R computes the linear (Pearson product-moment) correlation between each column of X_s and Y after applying the optional Include argument. When X_s has a single column the result is a scalar; when X_s has k columns it spills as a k×1 column vector.\n\nA Pearson_R close to ±1 indicates a strong linear association. Comparing Pearson_R with Spearman_R on the same data reveals nonlinearity: a large gap (Spearman > Pearson in magnitude) suggests a monotonic but curved relationship that may warrant a log or polynomial transformation.",
+      "description": "Pearson_R computes the linear (Pearson product-moment) correlation between each column of Predictors and Y after applying the optional Include argument. When Predictors has a single column the result is a scalar; when Predictors has k columns it spills as a k×1 column vector.\n\nA Pearson_R close to ±1 indicates a strong linear association. Comparing Pearson_R with Spearman_R on the same data reveals nonlinearity: a large gap (Spearman > Pearson in magnitude) suggests a monotonic but curved relationship that may warrant a log or polynomial transformation.",
       "plain_language_summary": "The straight-line relationship between each predictor and the outcome.",
-      "notes": "Linear (Pearson) correlations between each X_s column and Y. Returns a k×1 vector. Compare with Spearman_R to detect nonlinearity."
+      "notes": "Linear (Pearson) correlations between each Predictors column and Y. Returns a k×1 vector. Compare with Spearman_R to detect nonlinearity."
     },
     {
       "name": "Spearman_R",
@@ -1816,16 +1645,16 @@
       "yields": "k×1 column vector of Spearman rank correlations between each predictor and Y",
       "description": "Spearman_R computes the rank (Spearman) correlation between each column of xf and yf. For each predictor column, rows are kept where both that column and yf are numeric (and pass the optional Include). Ties receive average ranks via a MAP-based helper (avoids RANK.AVG on dynamic arrays). Returns a k×1 vector when xf has k columns.\n\nUnlike Pearson_R, Spearman_R measures any monotonic relationship, not just linear ones. The diagnostic value of the pair is in their difference: if |Spearman_R| is noticeably larger than |Pearson_R| for the same predictor, the relationship is curved and a transformation (e.g. LOG) or a nonlinear term may improve model fit.",
       "plain_language_summary": "The rank-order relationship between each predictor and the outcome.",
-      "notes": "Rank (Spearman) correlations between each X_s column and Y. Detects monotonic but curved relationships. Returns a k×1 vector."
+      "notes": "Rank (Spearman) correlations between each X column and Y. Detects monotonic but curved relationships. Returns a k×1 vector."
     },
     {
       "name": "Skewness",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, SKEW(CHOOSECOLS(xf, r))))\n  ))",
+      "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(Predictors, filt_arg),\n    MAKEARRAY(COLUMNS(Predictors), 1, LAMBDA(r, c, SKEW(CHOOSECOLS(xf, r))))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range to summarize (single or multi-column); returns one value per column"
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Include",
@@ -1833,19 +1662,19 @@
           "optional": true
         }
       ],
-      "yields": "k×1 column vector of sample skewness values (one per column of X_s)",
-      "description": "Skewness returns the sample skewness (Fisher-Pearson standardized third moment) for each column of X_s after filtering. Uses Excel's SKEW function, which divides by (n-1)(n-2).\n\nInterpretation: 0 = symmetric; positive = right tail (mean > median, common in counts and incomes); negative = left tail. |Skewness| > 1 typically signals that a log or square-root transformation would linearize relationships and stabilize regression residual variance. Compare with Kurtosis for a fuller picture of distributional shape.",
+      "yields": "k×1 column vector of sample skewness values (one per column of Predictors)",
+      "description": "Skewness returns the sample skewness (Fisher-Pearson standardized third moment) for each column of Predictors after filtering. Uses Excel's SKEW function, which divides by (n-1)(n-2).\n\nInterpretation: 0 = symmetric; positive = right tail (mean > median, common in counts and incomes); negative = left tail. |Skewness| > 1 typically signals that a log or square-root transformation would linearize relationships and stabilize regression residual variance. Compare with Kurtosis for a fuller picture of distributional shape.",
       "plain_language_summary": "Whether a variable has a longer tail on one side than the other.",
-      "notes": "Sample skewness per X_s column after filtering. 0 = symmetric; > 1 = long right tail; < −1 = long left tail."
+      "notes": "Sample skewness per Predictors column after filtering. 0 = symmetric; > 1 = long right tail; < −1 = long left tail."
     },
     {
       "name": "Kurtosis",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    MAKEARRAY(COLUMNS(X_s), 1, LAMBDA(r, c, KURT(CHOOSECOLS(xf, r))))\n  ))",
+      "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(Predictors, filt_arg),\n    MAKEARRAY(COLUMNS(Predictors), 1, LAMBDA(r, c, KURT(CHOOSECOLS(xf, r))))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range to summarize (single or multi-column); returns one value per column"
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Include",
@@ -1853,28 +1682,28 @@
           "optional": true
         }
       ],
-      "yields": "k×1 column vector of excess kurtosis values (one per column of X_s)",
-      "description": "Kurtosis returns the excess kurtosis for each filtered column of X_s. Uses Excel's KURT function (Fisher's excess kurtosis: kurtosis − 3, so a normal distribution returns 0).\n\nPositive excess kurtosis (leptokurtic) indicates heavier tails and more extreme outliers than a normal distribution. Negative (platykurtic) indicates lighter tails. High kurtosis in a predictor or in regression residuals signals that OLS standard errors may be unreliable, and that robust standard errors or a different distributional assumption may be warranted.",
+      "yields": "k×1 column vector of excess kurtosis values (one per column of Predictors)",
+      "description": "Kurtosis returns the excess kurtosis for each filtered column of Predictors. Uses Excel's KURT function (Fisher's excess kurtosis: kurtosis − 3, so a normal distribution returns 0).\n\nPositive excess kurtosis (leptokurtic) indicates heavier tails and more extreme outliers than a normal distribution. Negative (platykurtic) indicates lighter tails. High kurtosis in a predictor or in regression residuals signals that OLS standard errors may be unreliable, and that robust standard errors or a different distributional assumption may be warranted.",
       "plain_language_summary": "Whether a variable has unusually heavy tails or outliers.",
-      "notes": "Excess kurtosis per X_s column. 0 = normal-distributed tails; positive = heavier tails with more frequent extremes."
+      "notes": "Excess kurtosis per Predictors column. 0 = normal-distributed tails; positive = heavier tails with more frequent extremes."
     },
     {
       "name": "F_Statistic",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    SS_Regression(X_s, Y, allow_arg, filt_arg) / Regression_Degrees_Of_Freedom(X_s) /\n    (SS_Residual(X_s, Y, allow_arg, filt_arg) / Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg))\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include], [DF_Absorbed],\n  LET(\n    has_arg,      IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    MS_Regression(X, Y, has_arg, filt_arg) / MS_Residual(X, Y, filt_arg, absorbed_arg)\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -1884,7 +1713,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to the denominator's Residual_Degrees_Of_Freedom() (numerator df is unaffected — absorbed groups aren't estimated slope coefficients). Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -1897,19 +1726,19 @@
       "name": "F_Statistic_P_Value",
       "test_table": "MLR_Scalar_Test",
       "number_format": "0.0000",
-      "formula_display": "=LAMBDA(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed],\n  LET(\n    allow_arg, IF(ISOMITTED(Allow_Intercept), TRUE, Allow_Intercept),\n    filt_arg,  IF(ISOMITTED(Include),          TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    F.DIST.RT(\n      F_Statistic(X_s, Y, allow_arg, filt_arg, absorbed_arg),\n      Regression_Degrees_Of_Freedom(X_s),\n      Residual_Degrees_Of_Freedom(X_s, Y, allow_arg, filt_arg, absorbed_arg)\n    )\n  ))",
+      "formula_display": "=LAMBDA(X, Y, [Has_Intercept], [Include], [DF_Absorbed],\n  LET(\n    has_arg,      IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, IF(ISOMITTED(DF_Absorbed),   0,    DF_Absorbed),\n    F.DIST.RT(\n      F_Statistic(X, Y, has_arg, filt_arg, absorbed_arg),\n      Regression_Degrees_Of_Freedom(X, has_arg),\n      Residual_Degrees_Of_Freedom(X, Y, filt_arg, absorbed_arg)\n    )\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of predictors (single or multi-column)"
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
         },
         {
           "name": "Y",
           "description": "single-column outcome range"
         },
         {
-          "name": "Allow_Intercept",
-          "description": "TRUE/FALSE — fit intercept? Default TRUE",
+          "name": "Has_Intercept",
+          "description": "TRUE when column 1 of the design matrix is the intercept column",
           "optional": true
         },
         {
@@ -1919,7 +1748,7 @@
         },
         {
           "name": "DF_Absorbed",
-          "description": "degrees of freedom absorbed by declared Fixed Effects groups, threaded to both F_Statistic() and the denominator df of F.DIST.RT. Defaults to 0 — every no-FE caller is unaffected",
+          "description": "degrees of freedom absorbed by declared Fixed Effects groups (Absorbed_Degrees_Of_Freedom(), Σ(Gᵢ−1)); subtracted from the residual df. Defaults to 0, so every no-FE caller is unaffected",
           "optional": true
         }
       ],
@@ -1931,11 +1760,11 @@
     {
       "name": "Correlation_Matrix",
       "number_format": "0.000",
-      "formula_display": "=LAMBDA(X_s, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(X_s, filt_arg),\n    k,  COLUMNS(X_s),\n    MAKEARRAY(k, k, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), CHOOSECOLS(xf, c))))\n  ))",
+      "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(Predictors, filt_arg),\n    k,  COLUMNS(Predictors),\n    MAKEARRAY(k, k, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), CHOOSECOLS(xf, c))))\n  ))",
       "arguments": [
         {
-          "name": "X_s",
-          "description": "column range of variables (single or multi-column); returns a k×k symmetric matrix"
+          "name": "Predictors",
+          "description": "predictor columns before the model-fitting stages — never carries an intercept column"
         },
         {
           "name": "Include",
@@ -1944,9 +1773,9 @@
         }
       ],
       "yields": "k×k symmetric matrix of pairwise Pearson correlations (diagonal = 1)",
-      "description": "Correlation_Matrix returns the k×k Pearson correlation matrix for all columns of X_s after filtering. Each cell [r, c] equals CORREL(column r, column c). The diagonal is always 1. The matrix is symmetric. Enter as a single formula and let it spill.\n\nUse this to screen for multicollinearity before fitting a model: pairs with |r| > 0.7 are candidates for VIF investigation. High off-diagonal correlations indicate redundant predictors whose coefficients will be unstable and hard to interpret. For formal post-fit diagnostics, use VIF and Tolerance instead.",
+      "description": "Correlation_Matrix returns the k×k Pearson correlation matrix for all columns of Predictors after filtering. Each cell [r, c] equals CORREL(column r, column c). The diagonal is always 1. The matrix is symmetric. Enter as a single formula and let it spill.\n\nUse this to screen for multicollinearity before fitting a model: pairs with |r| > 0.7 are candidates for VIF investigation. High off-diagonal correlations indicate redundant predictors whose coefficients will be unstable and hard to interpret. For formal post-fit diagnostics, use VIF and Tolerance instead.",
       "plain_language_summary": "The pairwise correlations among all predictor columns.",
-      "notes": "k×k symmetric Pearson correlation matrix among all X_s columns. Use to screen for multicollinearity before fitting."
+      "notes": "k×k symmetric Pearson correlation matrix among all Predictors columns. Use to screen for multicollinearity before fitting."
     },
     {
       "name": "Missing_Count",
@@ -2810,7 +2639,7 @@
         }
       ],
       "yields": "n × 1 column, row-aligned to x: LN(x) for an included, strictly-positive numeric value; #N/A for an included value that is zero, negative, or non-numeric; \"\" on excluded rows.",
-      "description": "Ln_Positive returns the natural log of x, restricted to strictly positive numeric input. It is the primitive behind the Regression sheet's Transform = Log spec option (column G): the model spec block's Response_Column(), X_s(), and Constructed_Column_Names() all call this function when a row declares Log, so every log-transformed column in the workbook shares one implementation.\n\nThe row-mask contract matches every other transform in the catalog (Demean_By, Dummy_Code): an excluded row returns \"\" so a spilled array stays row-aligned with its source, exactly the same as a row this function was never asked about. An included row that cannot be logged — zero, negative, or non-numeric — returns #N/A, not a blank. This follows the library's recorded NA()-exception convention (the same one Lag_By/Difference_By use for a first period or a panel gap): \"\" means \"this row isn't part of the sample\"; #N/A means \"this row is part of the sample and the requested computation is genuinely undefined for it.\" A non-positive value under a declared Log transform is exactly that — a modeling error that must surface loudly (a visible #N/A the fit can't quietly absorb into a MMULT), never a silent blank that degrades the whole design matrix without explanation.\n\nWhen include is omitted, the default mask is ISNUMBER(x) — the same default every other row-masked transform in the catalog uses when the caller doesn't supply one explicitly.",
+      "description": "Ln_Positive returns the natural log of x, restricted to strictly positive numeric input. It is the primitive behind the Regression sheet's Transform = Log spec option (column G): the model spec block's Response_Column(), X(), and Constructed_Column_Names() all call this function when a row declares Log, so every log-transformed column in the workbook shares one implementation.\n\nThe row-mask contract matches every other transform in the catalog (Demean_By, Dummy_Code): an excluded row returns \"\" so a spilled array stays row-aligned with its source, exactly the same as a row this function was never asked about. An included row that cannot be logged — zero, negative, or non-numeric — returns #N/A, not a blank. This follows the library's recorded NA()-exception convention (the same one Lag_By/Difference_By use for a first period or a panel gap): \"\" means \"this row isn't part of the sample\"; #N/A means \"this row is part of the sample and the requested computation is genuinely undefined for it.\" A non-positive value under a declared Log transform is exactly that — a modeling error that must surface loudly (a visible #N/A the fit can't quietly absorb into a MMULT), never a silent blank that degrades the whole design matrix without explanation.\n\nWhen include is omitted, the default mask is ISNUMBER(x) — the same default every other row-masked transform in the catalog uses when the caller doesn't supply one explicitly.",
       "plain_language_summary": "Natural log of x, restricted to strictly positive values — zero/negative/non-numeric input on an included row is a visible #N/A, not a silent blank.",
       "notes": "LN(x) for strictly positive numeric input. Excluded row -> \"\". Included but non-positive/non-numeric -> #N/A (the NA()-exception convention: \"\" means excluded, #N/A means included-but-incomputable). Backs the Regression sheet's Transform = Log option."
     },
@@ -2982,7 +2811,7 @@
         }
       ],
       "yields": "n × 1 column, row-aligned to x: the mean of x within each row's group, over the included rows of that group; #N/A when the row's group is blank or has no included members.",
-      "description": "Group_Mean returns, for every row, the mean of x among the included rows sharing that row's group. Groups are resolved once via UNIQUE over the included sample, and each row looks up its group's mean via XLOOKUP — this avoids an O(n²) pairwise comparison when there are many rows and few groups (a Country/Year panel, or a Facility-by-lot dataset).\n\nA row's own inclusion does not gate whether it receives a value: the function reports what that row's group mean IS over the included sample, even for a row currently excluded from the model (e.g. failing a Filter) — full height, matching the same row-mask contract as X_s() and Sample_Include(). Only two conditions return #N/A: a blank group value, or a group with zero included members (every member of that group is itself excluded, or the group value never appears among included rows).\n\nGroup_Mean is a standalone user-callable transform and also the primitive behind Demean_By — one source of truth, so the two functions can never disagree about a group's mean.",
+      "description": "Group_Mean returns, for every row, the mean of x among the included rows sharing that row's group. Groups are resolved once via UNIQUE over the included sample, and each row looks up its group's mean via XLOOKUP — this avoids an O(n²) pairwise comparison when there are many rows and few groups (a Country/Year panel, or a Facility-by-lot dataset).\n\nA row's own inclusion does not gate whether it receives a value: the function reports what that row's group mean IS over the included sample, even for a row currently excluded from the model (e.g. failing a Filter) — full height, matching the same row-mask contract as X() and Sample_Include(). Only two conditions return #N/A: a blank group value, or a group with zero included members (every member of that group is itself excluded, or the group value never appears among included rows).\n\nGroup_Mean is a standalone user-callable transform and also the primitive behind Demean_By — one source of truth, so the two functions can never disagree about a group's mean.",
       "plain_language_summary": "The average of a column within each row's own group (e.g. each Facility's average cost) — one source of truth for Demean_By.",
       "notes": "Group mean per row's own group, over included members only; full-height (a row's own inclusion doesn't gate its output). #N/A for a blank group or a group with no included members. Backs Demean_By."
     },
@@ -3131,7 +2960,7 @@
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),trn,TAKE(Spec_Transform,n_c),p,XMATCH(\"Response (y)\",rl),col,INDEX(Source_Data,0,p),IF(INDEX(trn,p)=\"Log\",Ln_Positive(col,Sample_Include()),col)))",
       "arguments": [],
       "yields": "The single Role=Response data column, full height; #N/A when no row is declared Response. When that row's Transform is Log, every value is Ln_Positive(value) instead of the raw value.",
-      "description": "Sheet-scoped derived response for the Model Construction sheet. Returns the data column of the first spec row whose Role is Response, via XMATCH over the trimmed role vector, then applies Ln_Positive to it when that row's Transform (spec column G) is Log. Full-height; consumers wrap it in IFERROR to absorb the no-Response and multiple-Response states, which the audit strip's responses count flags separately.\n\nThe transform is applied here — inside the accessor itself — rather than via a separate wrapper, so every existing consumer (Intercept_Only_Point/S, Pearson_R/Spearman_R, Durbin_Watson_By, Group_Prediction_Interval, Group_Mean_At, and y_s()) automatically fits in log space the instant Log is declared, with no call-site changes. This differs from the v2.1 FE precedent (y_s() wraps Response_Column() rather than modifying it) because FE demeaning has genuine raw-response consumers (the zero-predictor Intercept_Only_* branch needs the undemeaned response to fit its own intercept); a declared Transform has none — every consumer of the response wants it in the space the model spec declares. No Type gate is applied on the Response row: Type (column D) is itself hidden-in-place on Response rows by the spec block's own cascading conditional formatting, so gating on an invisible cell would be a trap; Ln_Positive's own #N/A-on-non-numeric behavior is the only guard needed.",
+      "description": "Sheet-scoped derived response for the Model Construction sheet. Returns the data column of the first spec row whose Role is Response, via XMATCH over the trimmed role vector, then applies Ln_Positive to it when that row's Transform (spec column G) is Log. Full-height; consumers wrap it in IFERROR to absorb the no-Response and multiple-Response states, which the audit strip's responses count flags separately.\n\nThe transform is applied here — inside the accessor itself — rather than via a separate wrapper, so every existing consumer (Intercept_Only_Point/S, Pearson_R/Spearman_R, Durbin_Watson_By, Group_Prediction_Interval, Group_Mean_At, and Design_Response()) automatically fits in log space the instant Log is declared, with no call-site changes. This differs from the v2.1 FE precedent (Design_Response() wraps Response_Column() rather than modifying it) because FE demeaning has genuine raw-response consumers (the zero-predictor Intercept_Only_* branch needs the undemeaned response to fit its own intercept); a declared Transform has none — every consumer of the response wants it in the space the model spec declares. No Type gate is applied on the Response row: Type (column D) is itself hidden-in-place on Response rows by the spec block's own cascading conditional formatting, so gating on an invisible cell would be a trap; Ln_Positive's own #N/A-on-non-numeric behavior is the only guard needed.",
       "plain_language_summary": "The y column — whichever variable is marked Response in the spec, natural-logged first if that row's Transform is Log.",
       "notes": "Derived y for the Model Construction sheet: the data column of the first Role=Response spec row, Ln_Positive-transformed in place when that row's Transform is Log. #N/A when none is declared; the audit strip flags zero or multiple responses."
     },
@@ -3145,12 +2974,12 @@
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),ids,IFERROR(TRANSPOSE(FILTER(TRANSPOSE(Source_Data),rl=\"Identifier (Row Label)\")),NA()),IF(SUM(--(rl=\"Identifier (Row Label)\"))=0,\"Obs. \"&SEQUENCE(ROWS(Source_Data)),BYROW(ids,LAMBDA(r,TEXTJOIN(\"|\",FALSE,r))))))",
       "arguments": [],
       "yields": "Full-height text column of observation labels: joined Identifier columns, or 'Obs. n' when none are declared.",
-      "description": "Sheet-scoped observation labels for the Model Construction sheet. Dispatches structurally on whether any spec row has Role=Identifier: with none, positional labels 'Obs. 1', 'Obs. 2', …; with some, a per-row TEXTJOIN of all Identifier columns in table order, '|'-separated with ignore_empty=FALSE so field positions stay aligned when an identifier cell is blank. Full-height by the same row-mask contract as X_s and Sample_Include.",
+      "description": "Sheet-scoped observation labels for the Model Construction sheet. Dispatches structurally on whether any spec row has Role=Identifier: with none, positional labels 'Obs. 1', 'Obs. 2', …; with some, a per-row TEXTJOIN of all Identifier columns in table order, '|'-separated with ignore_empty=FALSE so field positions stay aligned when an identifier cell is blank. Full-height by the same row-mask contract as X and Sample_Include.",
       "plain_language_summary": "A readable label per row — the Identifier columns joined, or Obs. 1, Obs. 2, … when there are none.",
       "notes": "Observation labels for the Model Construction sheet: Identifier columns joined by '|', or positional 'Obs. n' when no Identifier is declared. Full-height."
     },
     {
-      "name": "X_s",
+      "name": "Predictor_Columns",
       "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
@@ -3172,10 +3001,10 @@
       "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),trn,TAKE(Spec_Transform,n_c),hdrs,TOROW(Header_Names),built,REDUCE(\"\",SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(h,INDEX(hdrs,1,j),IF(INDEX(typ,j)<>\"Categorical\",HSTACK(acc,IF(INDEX(trn,j)=\"Log\",\"Ln(\"&h&\")\",h)),LET(col,INDEX(Source_Data,0,j),d,INDEX(refs,j),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,h&\": \"&lv)))))))),DROP(built,,1)))",
       "arguments": [],
-      "yields": "Horizontal header row of level-qualified names for X_s(); always the same width as COLUMNS(X_s()). A Continuous predictor's name is relabelled 'Ln(name)' when that row's Transform is Log.",
-      "description": "Sheet-scoped header strip for the Model Construction sheet: the structural twin of X_s. Same iteration, same Predictor-AND-Include predicate, same Dummy_Levels skip conditions, emitting a name per contributed column — the bare header for a Continuous predictor (or 'Ln(header)' when that row's Transform is Log), 'Header: level' for each retained Categorical level (never relabelled — Log is disallowed on Categorical). Twinning guarantees the header width always equals COLUMNS(X_s()); QC asserts the two never diverge. The degenerate skip tests ISNA(INDEX(lv,1,1)), a scalar: lv is a 1x(L-1) row, and an array ISNA condition in front of a wider HSTACK branch broadcasts to #N/A, so the guard must be scalarized.",
+      "yields": "Horizontal header row of level-qualified names for X(); always the same width as COLUMNS(X()). A Continuous predictor's name is relabelled 'Ln(name)' when that row's Transform is Log.",
+      "description": "Sheet-scoped header strip for the Model Construction sheet: the structural twin of X. Same iteration, same Predictor-AND-Include predicate, same Dummy_Levels skip conditions, emitting a name per contributed column — the bare header for a Continuous predictor (or 'Ln(header)' when that row's Transform is Log), 'Header: level' for each retained Categorical level (never relabelled — Log is disallowed on Categorical). Twinning guarantees the header width always equals COLUMNS(X()); QC asserts the two never diverge. The degenerate skip tests ISNA(INDEX(lv,1,1)), a scalar: lv is a 1x(L-1) row, and an array ISNA condition in front of a wider HSTACK branch broadcasts to #N/A, so the guard must be scalarized.",
       "plain_language_summary": "The column headings for the design matrix — like 'Status: Developing', 'Year: 2001', or 'Ln(Weight)' for a logged predictor — one per X_s column.",
-      "notes": "Header strip for the Model Construction design matrix: level-qualified names ('Status: Developing', 'Year: 2001'), or 'Ln(name)' for a Log-transformed Continuous predictor. Structural twin of X_s — width always equals COLUMNS(X_s())."
+      "notes": "Header strip for the Model Construction design matrix: level-qualified names ('Status: Developing', 'Year: 2001'), or 'Ln(name)' for a Log-transformed Continuous predictor. Structural twin of X — width always equals COLUMNS(X())."
     },
     {
       "name": "Constructed_Column_Transforms",
@@ -3186,10 +3015,10 @@
       "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),trn,TAKE(Spec_Transform,n_c),built,REDUCE(\"\",SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(t,IF(INDEX(trn,j)=\"Log\",\"Log\",\"None\"),IF(INDEX(typ,j)<>\"Categorical\",HSTACK(acc,t),LET(col,INDEX(Source_Data,0,j),d,INDEX(refs,j),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,EXPAND(\"None\",1,COLUMNS(lv),\"None\"))))))))),DROP(built,,1)))",
       "arguments": [],
-      "yields": "Horizontal row of per-column Transform flags ('Log' or 'None') aligned to X_s(); always the same width as COLUMNS(X_s()). Every dummy column contributed by a Categorical Predictor reads 'None', regardless of that row's own Transform cell.",
-      "description": "Sheet-scoped Transform-flag strip for the Model Construction sheet: the third structural twin of X_s and Constructed_Column_Names (same iteration, same Predictor-AND-Include predicate, same Dummy_Levels skip conditions). Where Constructed_Column_Names answers 'what is this constructed column called', this answers 'was this constructed column logged' — one flag per column, in constructed-column space rather than spec-row space.\n\nThat distinction is the whole reason this function exists rather than a caller reading Spec_Transform directly: a Categorical Predictor contributes a variable number of dummy columns (Dummy_Levels' retained-level count, not one column per spec row), so a spec-row-indexed Transform vector cannot align with X_s()'s output. This closure re-derives the flag in the constructed column's own space — a Continuous column reads 'Log' or 'None' from its row's Transform cell; every dummy column from a Categorical Predictor reads 'None' unconditionally (EXPAND'd across the retained-level width), because Log is disallowed on Categorical Predictors and must never leak into the design matrix even if the cell happens to hold 'Log' (flagged red on the sheet, but still computationally inert here).\n\nConsumed by the Prediction Inputs band (write_sheet_regression.py) to decide, per predictor, whether the user-typed raw prediction value needs Ln_Positive applied before it reaches Group_Prediction_Interval, and to compute the Training Mean spill in the same (possibly logged) space X_s() itself uses. The retained-levels EXPAND is inlined, never LET-bound, for the same eager-empty-array reason X_s()'s own dummy branch inlines its broadcast.",
+      "yields": "Horizontal row of per-column Transform flags ('Log' or 'None') aligned to X(); always the same width as COLUMNS(X()). Every dummy column contributed by a Categorical Predictor reads 'None', regardless of that row's own Transform cell.",
+      "description": "Sheet-scoped Transform-flag strip for the Model Construction sheet: the third structural twin of X and Constructed_Column_Names (same iteration, same Predictor-AND-Include predicate, same Dummy_Levels skip conditions). Where Constructed_Column_Names answers 'what is this constructed column called', this answers 'was this constructed column logged' — one flag per column, in constructed-column space rather than spec-row space.\n\nThat distinction is the whole reason this function exists rather than a caller reading Spec_Transform directly: a Categorical Predictor contributes a variable number of dummy columns (Dummy_Levels' retained-level count, not one column per spec row), so a spec-row-indexed Transform vector cannot align with X()'s output. This closure re-derives the flag in the constructed column's own space — a Continuous column reads 'Log' or 'None' from its row's Transform cell; every dummy column from a Categorical Predictor reads 'None' unconditionally (EXPAND'd across the retained-level width), because Log is disallowed on Categorical Predictors and must never leak into the design matrix even if the cell happens to hold 'Log' (flagged red on the sheet, but still computationally inert here).\n\nConsumed by the Prediction Inputs band (write_sheet_regression.py) to decide, per predictor, whether the user-typed raw prediction value needs Ln_Positive applied before it reaches Group_Prediction_Interval, and to compute the Training Mean spill in the same (possibly logged) space X() itself uses. The retained-levels EXPAND is inlined, never LET-bound, for the same eager-empty-array reason X()'s own dummy branch inlines its broadcast.",
       "plain_language_summary": "Which constructed columns are natural-logged ('Log') versus untouched ('None') — one flag per X_s() column, with every dummy column from a Categorical Predictor always 'None'.",
-      "notes": "Per-constructed-column Transform flags (Log/None), aligned to X_s() (twin of X_s/Constructed_Column_Names). Categorical dummy columns always read None regardless of their spec row Transform cell. Feeds Prediction Inputs auto-log and Training Mean."
+      "notes": "Per-constructed-column Transform flags (Log/None), aligned to X() (twin of X/Constructed_Column_Names). Categorical dummy columns always read None regardless of their spec row Transform cell. Feeds Prediction Inputs auto-log and Training Mean."
     },
     {
       "name": "Sequence_Column",
@@ -3243,12 +3072,12 @@
       "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(fe_active,\n       Fixed_Effects_Column(),\n       EXPAND(\"(all)\", ROWS(Source_Data), 1, \"(all)\")\n    )\n))",
       "arguments": [],
       "yields": "The Fixed Effects group column when one is declared; a constant \"(all)\" column (every row, one universal group) when none is — full height either way.",
-      "description": "Prediction_Group_Column is the grouping key behind the v2.1 group-mean-recovery prediction (Group_Prediction_Interval): with a Fixed Effects row declared, it is Fixed_Effects_Column(); with none, it is a constant \"(all)\" column treating the entire sample as one group.\n\nThe constant fallback is what makes the group-mean recovery formula ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂ collapse exactly to the ordinary no-FE prediction: with one universal group, ȳᵢ is the grand mean of y, x̄ᵢ is the grand mean of each predictor, and Tᵢ is the full included count — precisely the quantities an intercept-based OLS prediction already reduces to. Uses the same \"(all)\" single-group idiom as Sequence_Deltas' no-Identifier fallback (EXPAND(\"(all)\", n, 1, \"(all)\")) — one degenerate-group sentinel across the catalog.\n\nDeliberately NOT the same object as y_s()/X_s_Within()'s own fe_active branch: those return the RAW (uncentered) Response_Column()/X_s() when inactive, preserving the v2.0 model's own separately-fit intercept exactly. Group_Prediction_Interval needs a properly group-demeaned (here, grand-mean-centered) matrix for its variance term regardless of FE status, so it always re-demeans by this column rather than reusing X_s_Within() directly.",
+      "description": "Prediction_Group_Column is the grouping key behind the v2.1 group-mean-recovery prediction (Group_Prediction_Interval): with a Fixed Effects row declared, it is Fixed_Effects_Column(); with none, it is a constant \"(all)\" column treating the entire sample as one group.\n\nThe constant fallback is what makes the group-mean recovery formula ŷ = ȳᵢ + (x_new − x̄ᵢ)′β̂ collapse exactly to the ordinary no-FE prediction: with one universal group, ȳᵢ is the grand mean of y, x̄ᵢ is the grand mean of each predictor, and Tᵢ is the full included count — precisely the quantities an intercept-based OLS prediction already reduces to. Uses the same \"(all)\" single-group idiom as Sequence_Deltas' no-Identifier fallback (EXPAND(\"(all)\", n, 1, \"(all)\")) — one degenerate-group sentinel across the catalog.\n\nDeliberately NOT the same object as Design_Response()/Design_Columns()'s own fe_active branch: those return the RAW (uncentered) Response_Column()/X() when inactive, preserving the v2.0 model's own separately-fit intercept exactly. Group_Prediction_Interval needs a properly group-demeaned (here, grand-mean-centered) matrix for its variance term regardless of FE status, so it always re-demeans by this column rather than reusing Design_Columns() directly.",
       "plain_language_summary": "Which column groups observations for prediction purposes — the Fixed Effects variable when one is declared, or 'everyone is one group' when none is.",
       "notes": "Grouping key for group-mean-recovery prediction: Fixed_Effects_Column() when FE is declared, else a constant \"(all)\" column (one universal group). Makes the no-FE case a degenerate collapse of the same formula."
     },
     {
-      "name": "y_s",
+      "name": "Design_Response",
       "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
@@ -3257,23 +3086,23 @@
       "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       Response_Column(),\n       Demean_By(Response_Column(), Fixed_Effects_Column(), Sample_Include())\n    )\n))",
       "arguments": [],
       "yields": "The fit-time Response: Response_Column() unchanged when no Fixed Effects row is declared, or its one-way within-transformed (group-demeaned) form when one is; full height.",
-      "description": "y_s is the fit-time Response for the Regression sheet — the v2.1 Fixed Effects counterpart to X_s on the predictor side. With no declared Fixed Effects row it is Response_Column() unchanged (the entire v2.0 shipped surface passes through untouched); with one declared, it is Demean_By(Response_Column(), Fixed_Effects_Column(), Sample_Include()) — the one-way within transformation that lets ordinary OLS on the demeaned data reproduce the LSDV (dummy-per-group) fit without materializing G−1 group dummy columns.\n\nShipped as a NEW function, deliberately not a replacement of Response_Column() at its existing call sites: Response_Column() keeps its raw-response consumers that are unrelated to this fit (Intercept_Only_Point/S/SE/N, the zero-predictor closed-form branch). The Residual Output table's Y column is repointed to y_s() too, not left raw — under FE the whole row-level table (Y, Predicted Y, Residuals, Hat Diagonal, …) must read as one internally consistent block in the same fit space, or Residuals would visibly fail to match Y − Predicted Y. Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, and everything built from them) is repointed to y_s() — a caller-side choice, not a change to what Response_Column() means.\n\nThe no-FE branch is checked first and returns the exact same object Response_Column() would — not merely a numerically-equal recomputation — so every existing no-FE model is unaffected by construction, the same non-breaking-default property Absorbed_Degrees_Of_Freedom relies on for the df side.",
+      "description": "Design_Response is the fit-time Response for the Regression sheet — the v2.1 Fixed Effects counterpart to X on the predictor side. With no declared Fixed Effects row it is Response_Column() unchanged (the entire v2.0 shipped surface passes through untouched); with one declared, it is Demean_By(Response_Column(), Fixed_Effects_Column(), Sample_Include()) — the one-way within transformation that lets ordinary OLS on the demeaned data reproduce the LSDV (dummy-per-group) fit without materializing G−1 group dummy columns.\n\nShipped as a NEW function, deliberately not a replacement of Response_Column() at its existing call sites: Response_Column() keeps its raw-response consumers that are unrelated to this fit (Intercept_Only_Point/S/SE/N, the zero-predictor closed-form branch). The Residual Output table's Y column is repointed to Design_Response() too, not left raw — under FE the whole row-level table (Y, Predicted Y, Residuals, Hat Diagonal, …) must read as one internally consistent block in the same fit space, or Residuals would visibly fail to match Y − Predicted Y. Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, and everything built from them) is repointed to Design_Response() — a caller-side choice, not a change to what Response_Column() means.\n\nThe no-FE branch is checked first and returns the exact same object Response_Column() would — not merely a numerically-equal recomputation — so every existing no-FE model is unaffected by construction, the same non-breaking-default property Absorbed_Degrees_Of_Freedom relies on for the df side.",
       "plain_language_summary": "The response the model actually fits: unchanged with no Fixed Effects, or with each group's average subtracted out when a Fixed Effects variable is declared.",
       "notes": "Fit-time Response: Response_Column() unchanged (no FE), else Demean_By(Response_Column(),Fixed_Effects_Column(),Sample_Include()). New function — the zero-predictor Intercept_Only_* branch stays on raw Response_Column()."
     },
     {
-      "name": "X_s_Within",
+      "name": "Design_Columns",
       "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
       "number_format": "General",
-      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       X_s(),\n       LET(\n           fe,    Fixed_Effects_Column(),\n           inc,   Sample_Include(),\n           xs,    X_s(),\n           n_x,   COLUMNS(xs),\n           seed,  SEQUENCE(ROWS(xs), 1, 0, 0),\n           built, REDUCE(seed, SEQUENCE(n_x), LAMBDA(acc, j,\n               HSTACK(acc, Demean_By(INDEX(xs, 0, j), fe, inc))\n           )),\n           DROP(built, , 1)\n       )\n    )\n))",
+      "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    has_int,   N(Allow_Intercept) = 1,\n    ones,      SEQUENCE(ROWS(Source_Data), 1, 1, 0),\n    k_p,       IFERROR(COLUMNS(Predictor_Columns()), 0),\n    IF(k_p = 0,\n       IF(has_int, ones, Predictor_Columns()),\n       LET(\n           demeaned, IF(NOT(fe_active),\n                        Predictor_Columns(),\n                        LET(\n                            fe,    Fixed_Effects_Column(),\n                            inc,   Sample_Include(),\n                            xp,    Predictor_Columns(),\n                            seed,  SEQUENCE(ROWS(xp), 1, 0, 0),\n                            built, REDUCE(seed, SEQUENCE(k_p), LAMBDA(acc, j,\n                                HSTACK(acc, Demean_By(INDEX(xp, 0, j), fe, inc))\n                            )),\n                            DROP(built, , 1)\n                        )),\n           IF(has_int, HSTACK(ones, demeaned), demeaned)\n       )\n    )\n))",
       "arguments": [],
-      "yields": "The fit-time design matrix: X_s() unchanged when no Fixed Effects row is declared, or each of its columns one-way within-transformed (group-demeaned) when one is; full height, same width as X_s().",
-      "description": "X_s_Within is the fit-time design matrix for the Regression sheet — the predictor-side counterpart to y_s. With no declared Fixed Effects row it is X_s() unchanged; with one declared, a REDUCE+HSTACK builds a new matrix column-by-column, demeaning each constructed column of X_s() by the Fixed Effects group via Demean_By, reproducing the LSDV fit's coefficients on the non-FE predictors without ever materializing the G−1 group dummy columns an explicit one-hot encoding would require. (Not BYCOL: Demean_By returns a whole column, and BYCOL's callback contract requires a single scalar per call — the same REDUCE+HSTACK pattern X_s() itself uses for column-by-column assembly.)\n\nShipped as a NEW function alongside y_s, for the identical reason: X_s() has raw-predictor consumers that must not see demeaned values — the Predictor Summary zone (Pearson_R, Spearman_R, Skewness, Kurtosis, GVIF, Generalized_Tolerance) characterizes each predictor's own distribution, and Constructed_Column_Names() labels columns positionally against X_s(), not X_s_Within(). Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, Hat_Diagonal, Cooks_Distance, and everything built from them) is repointed to X_s_Within() — repointing which columns those formulas READ, not a change to what X_s() itself returns.\n\nThe no-FE branch returns X_s() itself, unchanged, so every existing no-FE model is unaffected by construction — including its error behavior: a zero-predictor spec that makes X_s() itself error propagates through X_s_Within() identically, never masked.",
+      "yields": "The fit-time design matrix: X() unchanged when no Fixed Effects row is declared, or each of its columns one-way within-transformed (group-demeaned) when one is; full height, same width as X().",
+      "description": "Design_Columns is the fit-time design matrix for the Regression sheet — the predictor-side counterpart to Design_Response. With no declared Fixed Effects row it is X() unchanged; with one declared, a REDUCE+HSTACK builds a new matrix column-by-column, demeaning each constructed column of X() by the Fixed Effects group via Demean_By, reproducing the LSDV fit's coefficients on the non-FE predictors without ever materializing the G−1 group dummy columns an explicit one-hot encoding would require. (Not BYCOL: Demean_By returns a whole column, and BYCOL's callback contract requires a single scalar per call — the same REDUCE+HSTACK pattern X() itself uses for column-by-column assembly.)\n\nShipped as a NEW function alongside Design_Response, for the identical reason: X() has raw-predictor consumers that must not see demeaned values — the Predictor Summary zone (Pearson_R, Spearman_R, Skewness, Kurtosis, GVIF, Generalized_Tolerance) characterizes each predictor's own distribution, and Constructed_Column_Names() labels columns positionally against X(), not Design_Columns(). Only the fit/inference/prediction/residual chain (Coefficients, Predictions, Residuals, Hat_Diagonal, Cooks_Distance, and everything built from them) is repointed to Design_Columns() — repointing which columns those formulas READ, not a change to what X() itself returns.\n\nThe no-FE branch returns X() itself, unchanged, so every existing no-FE model is unaffected by construction — including its error behavior: a zero-predictor spec that makes X() itself error propagates through Design_Columns() identically, never masked.",
       "plain_language_summary": "The design matrix the model actually fits: unchanged with no Fixed Effects, or with each predictor column's group average subtracted out when a Fixed Effects variable is declared.",
-      "notes": "Fit-time design matrix: X_s() unchanged (no FE), else each column demeaned by Fixed_Effects_Column() via Demean_By, built column-by-column via REDUCE+HSTACK. New function — Predictor Summary and Constructed_Column_Names() stay on raw X_s()."
+      "notes": "Fit-time design matrix: X() unchanged (no FE), else each column demeaned by Fixed_Effects_Column() via Demean_By, built column-by-column via REDUCE+HSTACK. New function — Predictor Summary and Constructed_Column_Names() stay on raw X()."
     },
     {
       "name": "Serial_Correlation_Group",

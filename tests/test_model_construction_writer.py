@@ -4,7 +4,7 @@ Excel-side behavior (spill evaluation, Dummy_Levels calls, conditional
 formatting rendering) is exercised by the QC build; these tests pin
 everything checkable without Excel — the sheet-scoped name definitions and
 their order, the T0 default-spec prefill, the dropdown and conditional-
-formatting registrations, and the structural invariants of the X_s /
+formatting registrations, and the structural invariants of the Predictor_Columns /
 Constructed_Column_Names twins.
 """
 # pylint: disable=missing-function-docstring,protected-access
@@ -91,15 +91,15 @@ _EXPECTED_NAME_ORDER = [
     "Sample_Include",
     "Response_Column",
     "Row_Labels",
-    "X_s",
+    "Predictor_Columns",
     "Constructed_Column_Names",
     "Constructed_Column_Transforms",
     "Sequence_Column",
     "Fixed_Effects_Column",
     "Absorbed_Degrees_Of_Freedom",
     "Prediction_Group_Column",
-    "y_s",
-    "X_s_Within",
+    "Design_Response",
+    "Design_Columns",
     "Serial_Correlation_Group",
     "Sequence_Deltas",
     "Base_Period_Delta_Candidate",
@@ -293,7 +293,7 @@ def test_spec_block_column_widths_hide_the_reserved_order_column() -> None:
 
 def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     sheet = _named_sheet()
-    x_s = _refers_to(sheet, "X_s")
+    x_s = _refers_to(sheet, "Predictor_Columns")
 
     assert x_s.startswith("=LAMBDA(LET(")
     assert x_s.count("Dummy_Levels(") == 1
@@ -320,14 +320,15 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
 
 def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     sheet = _named_sheet()
-    x_s = _refers_to(sheet, "X_s")
+    x_s = _refers_to(sheet, "Predictor_Columns")
     names = _refers_to(sheet, "Constructed_Column_Names")
     transforms = _refers_to(sheet, "Constructed_Column_Transforms")
 
     # Identical iteration predicate and skip conditions — twinning is what
     # guarantees the header strip and transform-flag widths always match
-    # COLUMNS(X_s()). Three-way twin since v2.2's Log wiring added
-    # Constructed_Column_Transforms alongside X_s/Constructed_Column_Names.
+    # COLUMNS(Predictor_Columns()). Three-way twin since v2.2's Log wiring added
+    # Constructed_Column_Transforms alongside
+    # Predictor_Columns/Constructed_Column_Names.
     predicate = 'IF(OR(INDEX(rl,j)<>"Predictor (x)",INDEX(inc,j)<>TRUE),acc,'
     assert predicate in x_s
     assert predicate in names
@@ -336,7 +337,7 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     assert names.count("Dummy_Levels(") == 1
     assert 'lv,Dummy_Levels(col,r,Sample_Include())' in transforms
     assert transforms.count("Dummy_Levels(") == 1
-    # Same scalar skip guard as X_s (the twin must match).
+    # Same scalar skip guard as Predictor_Columns (the twin must match).
     assert "IF(ISNA(INDEX(lv,1,1)),acc," in names
     assert "IF(ISNA(lv)," not in names
     assert "IF(ISNA(INDEX(lv,1,1)),acc," in transforms
@@ -391,8 +392,8 @@ def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> No
     assert readers == [
         "Constructed_Column_Names",
         "Constructed_Column_Transforms",
+        "Predictor_Columns",
         "Response_Column",
-        "X_s",
     ]
     for non_reader in ("Sample_Include", "Row_Labels"):
         assert "Spec_Transform" not in _refers_to(sheet, non_reader), non_reader
@@ -416,7 +417,7 @@ def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
         "Sample_Include",
         "Response_Column",
         "Row_Labels",
-        "X_s",
+        "Predictor_Columns",
         "Constructed_Column_Names",
     ):
         assert "Spec_Sequence" not in _refers_to(sheet, constructor), constructor
@@ -976,8 +977,8 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
     _write_audit_row(_as_xw_sheet(sheet))
 
     expected = [
-        (16, 17, "k", '=IFERROR(COLUMNS(X_s()),"(empty model)")'),
-        (19, 20, "rows", '=IFERROR(ROWS(X_s()),"(empty model)")'),
+        (16, 17, "k", '=IFERROR(COLUMNS(Predictor_Columns()),"(empty model)")'),
+        (19, 20, "rows", '=IFERROR(ROWS(Predictor_Columns()),"(empty model)")'),
         (22, 23, "response", f"={_RESPONSE_NAME}"),
         (
             24,
@@ -1064,7 +1065,7 @@ def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
         _C_FILTERED_LABELS: "Row_Labels()",
         _C_FILTERED_Y: "Response_Column()",
         _C_MATRIX_LABELS: "Row_Labels()",
-        _C_MATRIX_START: "X_s()",
+        _C_MATRIX_START: "Predictor_Columns()",
     }
     for col, source in expected_spills.items():
         assert sheet.cell(_FIRST_DATA_ROW, col).api.Formula2 == (

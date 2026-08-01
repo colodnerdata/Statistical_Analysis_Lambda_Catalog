@@ -448,7 +448,7 @@ def test_bfn_lambda_differences_through_difference_by_only() -> None:
     assert "IF(ISOMITTED(delta),Base_Period_Delta(),delta)" in bfn
     # Residuals are computed inside the LAMBDA (scalar out, no spill exposure),
     # with group and seq filtered by the same mask so rows stay aligned.
-    assert "Residuals(X_s,Y,allow_arg,filt_arg)" in bfn
+    assert "Residuals(X,Y,filt_arg)" in bfn
     assert "FILTER(group,filt_arg)" in bfn
     assert "FILTER(seq,filt_arg)" in bfn
 

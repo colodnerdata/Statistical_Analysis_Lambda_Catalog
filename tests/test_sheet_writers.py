@@ -85,7 +85,7 @@ def _formula(sheet: RecordingSheet, row: int, col: int) -> str:
 
 def test_scalar_formula_maps_include_to_the_sheet_filter() -> None:
     formula = _actual_formula("Observations", ("Y", "Include"))
-    assert formula == "=Observations(y, Regression_Sample_Include)"
+    assert formula == "=Observations(y,Regression_Sample_Include)"
 
 
 def test_observation_y_only_formulas_reuse_first_spill() -> None:
@@ -97,9 +97,11 @@ def test_observation_y_only_formulas_reuse_first_spill() -> None:
 
     assert first == "=Rank_Fraction(y,Regression_Sample_Include)"
     assert second == "=$C$3#"
+    # No intercept for this section, so the design matrix IS the predictor
+    # block — the engines no longer synthesize a column from a flag.
     assert prediction == (
-        "=LET(x_s,OFFSET(y,0,1,ROWS(y),5),"
-        "Predictions(x_s,y,FALSE,Regression_Sample_Include))"
+        "=LET(X,OFFSET(y,0,1,ROWS(y),5),"
+        "Predictions(X,y,Regression_Sample_Include))"
     )
 
 
@@ -142,19 +144,22 @@ def test_regression_names_register_spec_wiring_and_constructors() -> None:
     names = [item.Name.split("!", 1)[-1] for item in sheet.api.Names.items]
     # Spec wiring precedes the closures, which precede the Regression-only names.
     assert names.index("Spec_Include") < names.index("Sample_Include")
-    assert names.index("Sample_Include") < names.index("X_s")
-    assert names.index("X_s") < names.index("Zero_Predictors_Selected")
+    assert names.index("Sample_Include") < names.index("Predictor_Columns")
+    assert names.index("Predictor_Columns") < names.index("Zero_Predictors_Selected")
     # The v1 hard-wired names are gone.
     for legacy in ("All_Xs", "Coefficient_Name_Col", "Ind_Var_Include", "y",
                    "Regression_Sample_Include", "data_identifiers"):
         assert legacy not in names, legacy
 
-    x_s_formula = sheet.api.Names.by_short_name("X_s").RefersTo
-    assert x_s_formula.startswith("=LAMBDA(LET(")
-    assert "Dummy_Levels(" in x_s_formula
+    predictor_formula = sheet.api.Names.by_short_name("Predictor_Columns").RefersTo
+    assert predictor_formula.startswith("=LAMBDA(LET(")
+    assert "Dummy_Levels(" in predictor_formula
 
+    # The width probe counts PREDICTOR columns. Design_Columns() would report 1
+    # in exactly this state — the intercept stage still runs when the predictor
+    # stage is empty — and the zero-predictor branch would never fire.
     zero_formula = sheet.api.Names.by_short_name("Zero_Predictors_Selected").RefersTo
-    assert zero_formula == "=LAMBDA(IFERROR(COLUMNS(X_s()),0)=0)"
+    assert zero_formula == "=LAMBDA(IFERROR(COLUMNS(Predictor_Columns()),0)=0)"
 
     assert sheet.api.Names.by_short_name("Allow_Intercept").RefersTo == (
         "='Regression'!$C$2"
@@ -275,11 +280,11 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     # column are Ln_Positive-transformed before the call, per the
     # per-constructed-column flag from Constructed_Column_Transforms()
     # (TRANSPOSE'd to match the AH band's column-vector shape).
-    assert f"LET(raw,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s()))," in formula
+    assert f"LET(raw,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(Predictor_Columns()))," in formula
     assert "trn,TRANSPOSE(Constructed_Column_Transforms())," in formula
     assert 'pred_input,IF(trn="Log",Ln_Positive(raw),raw),' in formula
     assert (
-        "Group_Prediction_Interval(X_s(),Response_Column(),pred_input,"
+        "Group_Prediction_Interval(Predictor_Columns(),Response_Column(),pred_input,"
         "Prediction_Group_Column(),$AH$12,Allow_Intercept,"
         "Sample_Include(),alpha,Absorbed_Degrees_Of_Freedom())"
     ) in formula
@@ -321,7 +326,7 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
 
     _write_prediction_inputs(_as_xw_sheet(sheet))
 
-    # The Training Mean spill is the ONE X_s() evaluation for the whole
+    # The Training Mean spill is the ONE Predictor_Columns() evaluation for the whole
     # prefill band; it owns column AI downward so it can never collide with
     # another spill when the source data or spec changes.
     assert sheet.cell(17, _C_AI).value == "Training Mean"
@@ -331,17 +336,17 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # INDEXes this spill — doesn't get double-logged when the row-3
     # prediction formula applies Ln_Positive to it.
     assert means == (
-        "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(X_s(),Sample_Include()),"
+        "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(Predictor_Columns(),Sample_Include()),"
         "LAMBDA(c,AVERAGE(c))),t,Constructed_Column_Transforms(),"
         'IF(t="Log",EXP(m),m))),"")'
     )
 
-    # Perf tripwire: X_s() is a full design-matrix construction on every
+    # Perf tripwire: Predictor_Columns() is a full design-matrix construction on every
     # call, so no prefill cell may invoke it — 50 cells × 2 calls made the
     # workbook's first full calculation take ~20 minutes.
     for row in (_PRED_INPUT_FIRST_ROW, _PRED_INPUT_LAST_ROW):
         prefill = _formula(sheet, row, _C_AH)
-        assert "X_s()" not in prefill
+        assert "Predictor_Columns()" not in prefill
         assert f"INDEX($AI${_PRED_INPUT_FIRST_ROW}#" in prefill
         assert f"IFERROR(ROWS($AI${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
 
@@ -359,7 +364,7 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     coefficient_formula = _formula(sheet, 21, _C_Y)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
-    assert "Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())" in coefficient_formula
+    assert "Coefficients(Design_Columns(),Design_Response(),Sample_Include())" in coefficient_formula
 
     se_formula = _formula(sheet, 21, _C_Z)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
@@ -440,16 +445,16 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     )
     assert "Spec_Transform" not in hat_header
     assert sheet.cell(3, _C_AL).api.Formula2 == (
-        "=Dependent_Variable(y_s(),Sample_Include())"
+        "=Dependent_Variable(Design_Response(),Sample_Include())"
     )
     assert sheet.cell(3, _C_AN).api.Formula2 == (
-        "=Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"
+        "=Residuals(Design_Columns(),Design_Response(),Sample_Include())"
     )
     assert sheet.cell(3, _C_AO).api.Formula2 == (
-        "=Hat_Diagonal(X_s_Within(),Allow_Intercept,Sample_Include())"
+        "=Hat_Diagonal(Design_Columns(),Sample_Include())"
     )
     assert sheet.cell(3, _C_AU).api.Formula2 == (
-        "=LOOCV_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"
+        "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())"
     )
     # Cook's Distance (Flagged): NA()'d below both influence cutoffs, so the
     # Cook's Distance chart's overlay series only labels flagged points.
@@ -482,8 +487,8 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
     assert "IF(fe_vars>0," in dw_formula
     # With exactly one flag, DW is computed along the declared axis, not row order.
     assert (
-        "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
-        "Allow_Intercept,Sample_Include())"
+        "Durbin_Watson_By(Design_Columns(),Design_Response(),Sequence_Column(),"
+        "Sample_Include())"
     ) in dw_formula
     # Scalar numeric cell (the token is text and ignores the format).
     assert sheet.range(rc(11, _C_AB), rc(11, _C_AB)).number_format == "0.000"
@@ -520,9 +525,9 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
     # Serial_Correlation_Group() (the grouping-key resolver, the single
     # retargeting point), never the FE column accessor directly.
     assert (
-        "BFN_Panel_Durbin_Watson(X_s_Within(),y_s(),"
+        "BFN_Panel_Durbin_Watson(Design_Columns(),Design_Response(),"
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
-        "Allow_Intercept,Sample_Include())"
+        "Sample_Include())"
     ) in bfn_formula
     assert "Fixed_Effects_Column()" not in bfn_formula
     assert sheet.range(rc(12, _C_AB), rc(12, _C_AB)).number_format == "0.000"

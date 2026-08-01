@@ -490,15 +490,15 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 "Sample_Include",
                 "Response_Column",
                 "Row_Labels",
-                "X_s",
+                "Predictor_Columns",
                 "Constructed_Column_Names",
                 "Constructed_Column_Transforms",
                 "Sequence_Column",
                 "Fixed_Effects_Column",
                 "Absorbed_Degrees_Of_Freedom",
                 "Prediction_Group_Column",
-                "y_s",
-                "X_s_Within",
+                "Design_Response",
+                "Design_Columns",
                 "Serial_Correlation_Group",
                 "Sequence_Deltas",
                 "Base_Period_Delta_Candidate",
@@ -545,18 +545,18 @@ class RealCatalogIntegrationTests(unittest.TestCase):
         self.assertIn("LOOCV_Residual", functions)
         self.assertEqual(
             functions["LOOCV_Residual"].argument_names,
-            ("X_s", "Y", "Allow_Intercept", "Include"),
+            ("X", "Y", "Include"),
         )
         self.assertIn(
-            "Residuals(X_s, Y, allow_arg, filt_arg)",
+            "Residuals(X, Y, filt_arg)",
             functions["LOOCV_Residual"].formula_display,
         )
         self.assertIn(
-            "Hat_Diagonal(X_s, allow_arg, filt_arg)",
+            "Hat_Diagonal(X, filt_arg)",
             functions["LOOCV_Residual"].formula_display,
         )
         self.assertIn(
-            "SUMSQ(LOOCV_Residual(X_s, Y, allow_arg, filt_arg))",
+            "SUMSQ(LOOCV_Residual(X, Y, filt_arg))",
             functions["PRESS"].formula_display,
         )
 

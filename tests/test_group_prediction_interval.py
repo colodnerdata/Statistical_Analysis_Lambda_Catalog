@@ -248,7 +248,7 @@ def test_group_prediction_interval_reuses_demean_by_and_gram_inverse() -> None:
     assert "Design_Matrix(" in formula
     # No intercept in the Gram matrix — group-mean recovery structurally
     # never needs one (alpha_hat_i already plays that role).
-    assert "Design_Matrix(x_within,FALSE," in formula
+    assert "Design_Matrix(x_within," in formula
 
 
 def main() -> None:  # pragma: no cover - standalone runner

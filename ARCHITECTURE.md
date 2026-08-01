@@ -20,6 +20,11 @@ keeps the Gram matrix non-singular, and the materialization ordering rule is
 what keeps the sheet's right edge from being consumed. Their rationale lives in
 [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
+v3.0 ships in three stages. **§4a is built**; §4b is stage three, so its layout
+is specification rather than description until then. Where a §4a example shows a
+`Model_Context()` argument, that is the stage-two signature — stage one threads
+an explicit `[Has_Intercept]` in its place, and stage two folds it in.
+
 ---
 
 ## 1. Naming Convention
@@ -255,7 +260,7 @@ convention. See
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
-| G | **Transform** *(live — v2.2 Log wiring)* | Orange input, dropdown `None` · `Log`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). `Log` applies `Ln_Positive` inside `Response_Column()` / `X_s()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. Predictions are not back-transformed (unit-space GoF and Duan smearing remain v2.2 TODOs). Default `None` fits the raw column, identically to v2.1. |
+| G | **Transform** *(live — v2.2 Log wiring)* | Orange input, dropdown `None` · `Log`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). `Log` applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. Predictions are not back-transformed (unit-space GoF and Duan smearing remain v2.2 TODOs). Default `None` fits the raw column, identically to v2.1. |
 | H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank. The shipped default pre-flags **Year** `TRUE` (the WHO panel's ordering axis; every other row blank) so the Sequence machinery is live at T0; on a non-panel dataset leave it blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer, by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`) since the base-period release, and — since the DW-gate release — by the serial-correlation accessor `Sequence_Column` (which feeds the gated `Durbin_Watson_By` diagnostic cell). No design-matrix constructor consumes it: Sequence orders the data, it never enters the model matrix. |
 | I | **Sequence Period** *(typed override input, post-v2.1 Sequence fix)* | Orange input — the user types a number on the Sequence-flagged row to declare a Δ that differs from the computed candidate. Blank by default; the spec falls back to the candidate. Read only by the in-use display at column J, not by any constructor. The cell is the load-bearing override point of the reference-level pattern. |
 | J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). No other on-sheet formula reads J; the workbook-scoped `Base_Period_Delta()` accessor (lambda_functions.json) separately provides the omitted-`[delta]` default for `Lag_By`/`Difference_By`. The J cell stays plain, with no on-sheet override-flagging display. |
@@ -286,7 +291,7 @@ like J, K, and L — no constructor may read it.
 ### Reserved-column policy (F)
 
 `Spec_Order` remains reserved and read by no formula — confirmed by
-construction, not by convention: `X_s()`, `Constructed_Column_Names()`,
+construction, not by convention: `Predictor_Columns()`, `Constructed_Column_Names()`,
 `Row_Labels()`, and `Sample_Include()` must not reference it (and may not
 reference `Spec_Sequence` or `Spec_Sequence_Period` either — those names
 are consumed only by the zero-or-one validation and the base-period
@@ -297,7 +302,7 @@ sheet a second time — exactly how column I went live in the base-period
 release, and how column G (Transform) went live at v2.2.
 
 `Spec_Transform` (column G) is the worked example of that additive wiring:
-it is now read by exactly four constructors — `Response_Column()`, `X_s()`,
+it is now read by exactly four constructors — `Response_Column()`, `Predictor_Columns()`,
 `Constructed_Column_Names()`, and `Constructed_Column_Transforms()` — and
 by nothing else; `Sample_Include()` and `Row_Labels()` still never
 reference it (confirmed by construction in
@@ -636,7 +641,7 @@ bundle), and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
   every downstream `IFERROR`/`ISNA` guard works without special-casing.
   Retained categorical levels as a horizontal header row; backs the v2.0
   prediction-input validation lists and is the hard dependency of
-  `X_s()`'s level-vector split.
+  `Predictor_Columns()`'s level-vector split.
 - `Dummy_Code(category, [reference], [include])` — **rebuilt for v2.0**
   alongside `Dummy_Levels`, calling it internally for level determination
   (one source of truth, same NA()-based error contract). Dummy-coded
@@ -646,7 +651,7 @@ bundle), and the two-way functions (`Absorb_Two_Way_Fixed_Effects`,
   requested reference actually exists in the included sample) is required
   at implementation, not deferred** — an invalid reference must error
   (`NA()`), never silently fail to drop a column and reintroduce the
-  exact collinearity the function exists to prevent. Standalone; `X_s()`
+  exact collinearity the function exists to prevent. Standalone; `Predictor_Columns()`
   does not call it directly (it encodes inline via broadcast) but is held
   to the same standard. **v2.0 constructor internal** for Categorical
   roles, via `Dummy_Levels`.
@@ -661,7 +666,7 @@ explicitly because REVIEW.md F6 cited `Interact` as already shipping.
   across dummy-coded matrices to produce one interaction column per retained
   level. This is the standalone, free-form counterpart to the v3.0 spec-block
   interaction columns (§4 M/N); the spec-driven path does not call it — the
-  constructor encodes inline, the same relationship `X_s()` already has with
+  constructor encodes inline, the same relationship `Predictor_Columns()` already has with
   `Dummy_Code`.
 - `Model_Matrix(X, [add_intercept])` — *(planned)* optionally prepends an
   intercept column. Intentionally not variadic — predictors are assembled

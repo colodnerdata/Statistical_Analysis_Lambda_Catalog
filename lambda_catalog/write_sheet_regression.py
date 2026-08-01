@@ -35,9 +35,9 @@ single ungrouped GAP column so the zones collapse independently; see the
                    point/CI/PI rows 3-11, FE Group selector + ybar_i/T_i
                    readouts rows 12-14), Prediction Inputs (AG16+, one row
                    per constructed column, no Intercept row), Training Mean
-                   spill (AI19 — the single X_s() evaluation the orange AH
-                   prefills INDEX into; owns column AI downward so it can
-                   never collide with another spill)
+                   spill (AI19 — the single Predictor_Columns() evaluation
+                   the orange AH prefills INDEX into; owns column AI downward
+                   so it can never collide with another spill)
   Col AJ         — thin gap (width 2, ungrouped)
   Col AK–AW      — Residual Output: heading + Row_Labels() identifiers in AK;
                    11 diagnostics columns (AL–AV, the last being the Cook's
@@ -47,8 +47,9 @@ single ungrouped GAP column so the zones collapse independently; see the
 The spec block replaces the v1 A–B Model Selection zone (predictor toggles +
 Allow_Intercept in B2). Everything the v1 sheet hard-wired is now derived:
     y                          → Response_Column()
-    All_Xs / x_s()             → Source_Data / X_s() (the spec-driven
-                                 design-matrix constructor)
+    All_Xs / x_s()             → Source_Data / Design_Columns() (the
+                                 spec-driven design-matrix constructor; it
+                                 owns the intercept column from v3.0)
     Regression_Sample_Include  → Sample_Include()
     Coefficient_Name_Col       → Constructed_Column_Names()
     data_identifiers           → Row_Labels()
@@ -661,7 +662,7 @@ def _setup_local_names(
 
     The spec wiring (Source_Data / Header_Names / Spec_* / Allow_Intercept)
     and the constructor closures (Sample_Include / Response_Column /
-    Row_Labels / X_s / Constructed_Column_Names) are registered by the shared
+    Row_Labels / Predictor_Columns / Constructed_Column_Names) are registered by
     ``_set_sheet_scoped_names`` from write_sheet_model_construction; this
     function adds the Regression-only names on top.
     """
@@ -677,15 +678,20 @@ def _setup_local_names(
 
     _set_spec_scoped_names(sheet, closures, source_table_ref=source_table_ref)
 
-    # Zero_Predictors_Selected(): TRUE when the spec contributes no design
-    # columns — no included Predictor rows, or every included Categorical
-    # degenerate. X_s() errors in that state (DROP of the sentinel-only
-    # accumulator), so the width probe wraps IFERROR rather than counting
-    # Include toggles the way v1 did.
+    # Zero_Predictors_Selected(): TRUE when the spec contributes no
+    # predictor columns — no included Predictor rows, or every included
+    # Categorical degenerate. Predictor_Columns() errors in that state (DROP
+    # of the sentinel-only accumulator), so the width probe wraps IFERROR
+    # rather than counting Include toggles the way v1 did.
+    #
+    # It must probe Predictor_Columns(), NOT Design_Columns(): with the
+    # intercept relocated into the constructor, Design_Columns() returns the
+    # lone ones column in exactly this state, so counting its columns would
+    # report 1 and the zero-predictor branch would never fire.
     drop_local_name(sheet, "Zero_Predictors_Selected")
     sheet.api.Names.Add(
         Name="Zero_Predictors_Selected",
-        RefersTo="=LAMBDA(IFERROR(COLUMNS(X_s()),0)=0)",
+        RefersTo="=LAMBDA(IFERROR(COLUMNS(Predictor_Columns()),0)=0)",
     )
 
     # alpha: confidence level input, lives in Y12
@@ -699,9 +705,15 @@ def _setup_local_names(
     # Used by _write_coefficients and _write_prediction_interval when
     # Zero_Predictors_Selected() is TRUE and Allow_Intercept is TRUE: an
     # intercept-only OLS model (Y = b0 + error) is still statistically
-    # well-defined even though X_s() has nothing to construct. Bypasses
-    # X_s()/Coefficients()/Prediction_Interval() entirely since Excel cannot
-    # represent a valid zero-column array.
+    # well-defined even though Predictor_Columns() has nothing to construct.
+    # Bypasses Predictor_Columns()/Coefficients()/Prediction_Interval()
+    # entirely since Excel cannot represent a valid zero-column array.
+    #
+    # Design_Columns() does return a well-formed ones column in this state
+    # (the intercept stage runs even when the predictor stage is empty), so
+    # the engines could in principle fit it directly. The closed-form bypass
+    # is kept because it is what the shipped behaviour was verified against;
+    # retiring it is a follow-up, not part of the relocation.
     # Intercept_Only_N uses SUMPRODUCT over the computed mask (COUNTIF needs
     # a range reference, and Sample_Include() is an array) so it never
     # errors, even when the mask has zero TRUE rows — callers guard on its
@@ -823,12 +835,12 @@ def _write_predictor_summary(sheet: xw.Sheet) -> None:
     # categorical predictor shares one value instead of a separate,
     # coding-dependent number per level.
     f(sheet, 3, _C_P, "=TRANSPOSE(Constructed_Column_Names())")
-    f(sheet, 3, _C_Q, "=Pearson_R(X_s(),Response_Column(),Sample_Include())")
-    f(sheet, 3, _C_R, "=Spearman_R(X_s(),Response_Column(),Sample_Include())")
-    f(sheet, 3, _C_S, "=Skewness(X_s(),Sample_Include())")
-    f(sheet, 3, _C_T, "=Kurtosis(X_s(),Sample_Include())")
-    f(sheet, 3, _C_U, "=GVIF(X_s(),Constructed_Column_Names(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_V, "=Generalized_Tolerance(X_s(),Constructed_Column_Names(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_Q, "=Pearson_R(Predictor_Columns(),Response_Column(),Sample_Include())")
+    f(sheet, 3, _C_R, "=Spearman_R(Predictor_Columns(),Response_Column(),Sample_Include())")
+    f(sheet, 3, _C_S, "=Skewness(Predictor_Columns(),Sample_Include())")
+    f(sheet, 3, _C_T, "=Kurtosis(Predictor_Columns(),Sample_Include())")
+    f(sheet, 3, _C_U, "=GVIF(Predictor_Columns(),Constructed_Column_Names(),Sample_Include())")
+    f(sheet, 3, _C_V, "=Generalized_Tolerance(Predictor_Columns(),Constructed_Column_Names(),Sample_Include())")
 
     sheet.range(
         (rc(3, _C_Q)), (rc(_FORMAT_BAND_LAST_ROW, _C_V))
@@ -846,18 +858,19 @@ def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
     """Cols X–Y, rows 3–8."""
     section_heading(sheet, 3, _C_X, "REGRESSION STATISTICS")
-    # Fit-time X/y (X_s_Within()/y_s()): raw X_s()/Response_Column() unchanged
-    # with no Fixed Effects row, one-way within-demeaned when one is declared
+    # Fit-time X/y (Design_Columns()/Design_Response()): the response is
+    # Response_Column() unchanged with no Fixed Effects row and one-way
+    # within-demeaned when one is declared
     # — every statistic below reports the "within" flavor under FE, the same
     # convention panel-regression software (e.g. R's plm) uses. Adjusted R²
     # and Standard Error also take Absorbed_Degrees_Of_Freedom() (0 with no
     # FE row) so their df-dependent penalty/divisor is correct.
     for row, label, formula in [
-        (4, "Multiple R",        "=Multiple_R(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
-        (5, "R Square",          "=R_Squared(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
-        (6, "Adjusted R Square", "=Adjusted_R_Squared(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
-        (7, "Standard Error",    "=SE_Regression(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
-        (8, "Observations",      "=Observations(y_s(),Sample_Include())"),
+        (4, "Multiple R",        "=Multiple_R(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include())"),
+        (5, "R Square",          "=R_Squared(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include())"),
+        (6, "Adjusted R Square", "=Adjusted_R_Squared(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (7, "Standard Error",    "=SE_Regression(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (8, "Observations",      "=Observations(Design_Response(),Sample_Include())"),
     ]:
         val(sheet, row, _C_X, label)
         f(sheet, row, _C_Y, formula)
@@ -870,23 +883,23 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     """Cols AA–AB, rows 3–12."""
     section_heading(sheet, 3, _C_AA, "DIAGNOSTICS")
     for row, label, formula in [
-        (4,  "PRESS",          "=PRESS(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"),
+        (4,  "PRESS",          "=PRESS(Design_Columns(),Design_Response(),Sample_Include())"),
         (
             5,
             "PRESS R²",
-            "=1-PRESS(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())"
-            "/SS_Total(y_s(),Allow_Intercept,Sample_Include())",
+            "=1-PRESS(Design_Columns(),Design_Response(),Sample_Include())"
+            "/SS_Total(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include())",
         ),
         (
             6,
             "Mean Leverage",
-            "=(Regression_Degrees_Of_Freedom(X_s_Within())+IF(Allow_Intercept,1,0))"
-            "/Observations(y_s(),Sample_Include())",
+            "=COLUMNS(Design_Columns())"
+            "/Observations(Design_Response(),Sample_Include())",
         ),
-        (7,  "AIC",            "=AIC(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
-        (8,  "BIC",            "=BIC(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
-        (9,  "AICc",           "=AICc(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
-        (10, "QQ Correlation", "=QQ_Correlation(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (7,  "AIC",            "=AIC(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (8,  "BIC",            "=BIC(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (9,  "AICc",           "=AICc(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
+        (10, "QQ Correlation", "=QQ_Correlation(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())"),
     ]:
         val(sheet, row, _C_AA, label)
         f(sheet, row, _C_AB, formula)
@@ -924,20 +937,21 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         'IF(seq_flags=0,"n/a — requires Sequence",'
         'IF(seq_flags>1,"n/a — multiple Sequence flags",'
         'IF(fe_vars>0,"n/a — FE active",'
-        "Durbin_Watson_By(X_s(),Response_Column(),Sequence_Column(),"
-        "Allow_Intercept,Sample_Include())))))",
+        "Durbin_Watson_By(Design_Columns(),Design_Response(),Sequence_Column(),"
+        "Sample_Include())))))",
     )
     sheet.range(rc(11, _C_AB), rc(11, _C_AB)).number_format = "0.000"
 
     # BFN panel Durbin-Watson (Bhargava–Franzini–Narendranathan 1982): the
-    # within-group form for panels under fixed effects. Unlike the plain DW
-    # cell above (which stays on raw X_s()/Response_Column() because it only
-    # ever fires in the no-FE state, where X_s_Within()==X_s() and y_s()==
-    # Response_Column() anyway), this cell REQUIRES the demeaned matrix: BFN's
-    # own contract says "the residuals are within-demeaned" — Residuals(X_s,Y)
-    # only produces within residuals when X_s/Y already ARE the within-
-    # transformed pair, so this is the one X_s()/Response_Column() call in the
-    # sheet that must not stay raw once FE is active. Differencing is
+    # within-group form for panels under fixed effects. Both this cell and the
+    # plain DW cell above read the fit-time pair
+    # (Design_Columns()/Design_Response()), and both must: BFN's own contract
+    # says "the residuals are within-demeaned" — Residuals(X, Y) only produces
+    # within residuals when X/Y already ARE the within-transformed pair. The DW
+    # cell above only ever fires in the no-FE state, where Design_Response()
+    # reduces to Response_Column() and Design_Columns() to the intercept plus
+    # Predictor_Columns(), so reading the fit-time pair there is the same
+    # computation stated in the honest way. Differencing is
     # restricted to within-group (group, seq−Δ) pairs via Difference_By inside
     # the LAMBDA, so group seams contribute nothing by construction. Active
     # only when a Sequence axis AND a Fixed Effects variable are declared;
@@ -962,9 +976,9 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         'IF(seq_flags>1,"n/a — multiple Sequence flags",'
         'IF(fe_vars=0,"n/a — no fixed effects",'
         'IF(fe_vars>1,"n/a — multiple FE variables",'
-        "BFN_Panel_Durbin_Watson(X_s_Within(),y_s(),"
+        "BFN_Panel_Durbin_Watson(Design_Columns(),Design_Response(),"
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
-        "Allow_Intercept,Sample_Include()))))))",
+        "Sample_Include()))))))",
     )
     sheet.range(rc(12, _C_AB), rc(12, _C_AB)).number_format = "0.000"
     border_box(sheet, 3, _C_AA, 12, _C_AB)
@@ -990,23 +1004,23 @@ def _write_anova(sheet: xw.Sheet) -> None:
     bold_row(sheet, 14, _C_X, _C_AC)
 
     # SST = SSR + SSE must hold under FE too, so every row reads the SAME
-    # fit-time pair (X_s_Within()/y_s()) — mixing a raw Total SS against
+    # fit-time pair (Design_Columns()/Design_Response()) — mixing a raw Total SS against
     # within Regression/Residual SS would break the ANOVA identity.
     val(sheet, 15, _C_X, "Regression")
-    f(sheet, 15, _C_Y, "=Regression_Degrees_Of_Freedom(X_s_Within())")
-    f(sheet, 15, _C_Z, "=SS_Regression(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 15, _C_AA, "=MS_Regression(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 15, _C_AB, "=F_Statistic(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
-    f(sheet, 15, _C_AC, "=F_Statistic_P_Value(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 15, _C_Y, "=Regression_Degrees_Of_Freedom(Design_Columns(),Allow_Intercept)")
+    f(sheet, 15, _C_Z, "=SS_Regression(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include())")
+    f(sheet, 15, _C_AA, "=MS_Regression(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include())")
+    f(sheet, 15, _C_AB, "=F_Statistic(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 15, _C_AC, "=F_Statistic_P_Value(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
 
     val(sheet, 16, _C_X, "Residual")
-    f(sheet, 16, _C_Y, "=Residual_Degrees_Of_Freedom(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
-    f(sheet, 16, _C_Z, "=SS_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 16, _C_AA, "=MS_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 16, _C_Y, "=Residual_Degrees_Of_Freedom(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 16, _C_Z, "=SS_Residual(Design_Columns(),Design_Response(),Sample_Include())")
+    f(sheet, 16, _C_AA, "=MS_Residual(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())")
 
     val(sheet, 17, _C_X, "Total")
-    f(sheet, 17, _C_Y, "=Total_Degrees_Of_Freedom(y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 17, _C_Z, "=SS_Total(y_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 17, _C_Y, "=Total_Degrees_Of_Freedom(Design_Response(),Allow_Intercept,Sample_Include())")
+    f(sheet, 17, _C_Z, "=SS_Total(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include())")
 
     sheet.range(rc(15, _C_Y), rc(17, _C_Y)).number_format = "0"
     sheet.range(rc(15, _C_Z), rc(17, _C_Z)).number_format = "0.0"
@@ -1050,24 +1064,24 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     f(sheet, 21, _C_Y,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA()),'
-       'IF(Allow_Intercept,Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()),'
-       'VSTACK("",Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include()))))')
+       'IF(Allow_Intercept,Coefficients(Design_Columns(),Design_Response(),Sample_Include()),'
+       'VSTACK("",Coefficients(Design_Columns(),Design_Response(),Sample_Include()))))')
     f(sheet, 21, _C_Z,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,SE_Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
-       'VSTACK("",SE_Coefficients(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
+       'IF(Allow_Intercept,SE_Coefficients(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",SE_Coefficients(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
     f(sheet, 21, _C_AA,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,T_Statistics(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
-       'VSTACK("",T_Statistics(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
+       'IF(Allow_Intercept,T_Statistics(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",T_Statistics(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
     f(sheet, 21, _C_AB,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
-       'IF(Allow_Intercept,P_Values(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
-       'VSTACK("",P_Values(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
+       'IF(Allow_Intercept,P_Values(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",P_Values(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom()))))')
     # Confidence_Interval_Lower/Upper's [DF_Absorbed] sits after [Alpha], and
     # Excel LAMBDA calls cannot skip a middle optional argument — 0.05 is
     # passed explicitly here (matching the function's own internal default
@@ -1077,21 +1091,21 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,Confidence_Interval_Lower(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()),'
-       'VSTACK("",Confidence_Interval_Lower(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()))))')
+       'IF(Allow_Intercept,Confidence_Interval_Lower(Design_Columns(),Design_Response(),Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",Confidence_Interval_Lower(Design_Columns(),Design_Response(),Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()))))')
     f(sheet, 21, _C_AD,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,Confidence_Interval_Upper(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()),'
-       'VSTACK("",Confidence_Interval_Upper(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()))))')
+       'IF(Allow_Intercept,Confidence_Interval_Upper(Design_Columns(),Design_Response(),Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()),'
+       'VSTACK("",Confidence_Interval_Upper(Design_Columns(),Design_Response(),Sample_Include(),0.05,Absorbed_Degrees_Of_Freedom()))))')
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     # No predictor exists to standardize in the zero-predictor branch, so render
     # blank (not an error) when Allow_Intercept is TRUE; NA() when nothing is fit.
     f(sheet, 21, _C_AE,
        '=IF(Zero_Predictors_Selected(),'
        'IF(Allow_Intercept,"",NA()),'
-       'VSTACK("",Beta_Weights(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())))')
+       'VSTACK("",Beta_Weights(Design_Columns(),Design_Response(),Allow_Intercept,Sample_Include())))')
 
     for col in [_C_Y, _C_Z, _C_AA, _C_AC, _C_AD, _C_AE]:
         sheet.range(
@@ -1135,7 +1149,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     # Zero_Predictors_Selected() branch: the closed-form intercept-only
     # model, now split into its own mean-CI (S/sqrt(n)) and new-obs-PI
     # (S*sqrt(1+1/n)) the same way the live branch does; NA() when nothing
-    # is fit. The live branch takes exactly COLUMNS(X_s()) raw predictor
+    # is fit. The live branch takes exactly COLUMNS(Predictor_Columns()) raw predictor
     # values from the Prediction Inputs band — no intercept slot, since
     # group-mean recovery never uses one (the selected group's own mean
     # plays that role) — then auto-logs whichever of those values belong to
@@ -1160,10 +1174,10 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         "point-t_crit*se_mean,point+t_crit*se_mean,"
         "point-t_crit*se_new,point+t_crit*se_new,1-alpha)),"
         "NA()),"
-        f"LET(raw,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(X_s())),"
+        f"LET(raw,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(Predictor_Columns())),"
         "trn,TRANSPOSE(Constructed_Column_Transforms()),"
         'pred_input,IF(trn="Log",Ln_Positive(raw),raw),'
-        "Group_Prediction_Interval(X_s(),Response_Column(),pred_input,"
+        "Group_Prediction_Interval(Predictor_Columns(),Response_Column(),pred_input,"
         "Prediction_Group_Column(),$AH$12,Allow_Intercept,"
         "Sample_Include(),alpha,Absorbed_Degrees_Of_Freedom())))",
     )
@@ -1222,7 +1236,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     """Zone AG16+: one prediction-input row per constructed column.
 
     No Intercept row here (unlike the pre-v2.1 layout): Group_Prediction_Interval's
-    pred_input is exactly COLUMNS(X_s()) raw predictor values with no
+    pred_input is exactly COLUMNS(Predictor_Columns()) raw predictor values with no
     intercept slot — group-mean recovery never uses one (the selected
     group's own mean plays that role) — so the row that used to hold it
     would be actively misleading now. Row 18 is a blank spacer between the
@@ -1237,11 +1251,12 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     f(sheet, _PRED_INPUT_FIRST_ROW, _C_AG, "=TRANSPOSE(Constructed_Column_Names())")
 
     # AI19: the Training Mean column — per-column means of the filtered design
-    # matrix, computed with a SINGLE X_s() evaluation. X_s() is a full
+    # matrix, computed with a SINGLE Predictor_Columns() evaluation. Predictor_Columns() is
+    # a full
     # design-matrix construction on every call (Excel does not cache LAMBDA
     # results), so this spill is the one place the means are computed; the
     # orange prefill cells INDEX into it. The earlier design — every prefill
-    # cell calling X_s() twice (width guard + column mean) — made the
+    # cell calling Predictor_Columns() twice (width guard + column mean) — made the
     # workbook's first full calculation pathological (~20 minutes at the save
     # step). The spill owns column AI downward (the AJ gap and residual zone
     # start beyond it), so a wider dataset or spec can never make it collide
@@ -1250,14 +1265,14 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # one-row spill holding a blank.
     #
     # Log columns need the GEOMETRIC mean here, not the arithmetic mean of
-    # the already-logged X_s() column: the AH prefill cells below just
+    # the already-logged Predictor_Columns() column: the AH prefill cells below just
     # INDEX into this spill, and the row-3 prediction formula applies
     # Ln_Positive to whatever it finds in AH — so if this spill held the
     # log-space arithmetic mean, the default prediction would silently
     # double-log (ln(ln(x)), not merely un-back-transformed). EXP(mean(ln
     # x)) is exact and self-cancelling: Ln_Positive(EXP(mean(ln x))) =
     # mean(ln x), so the default prediction still lands precisely on
-    # X_s()'s own centroid, unchanged from the pre-Log-transform behavior.
+    # Predictor_Columns()'s own centroid, unchanged from the pre-Log-transform behavior.
     # Constructed_Column_Transforms() gives the per-column Log/None flag in
     # the same 1xk shape as the BYCOL means row, so the two combine
     # elementwise before the single TRANSPOSE down into the AI column.
@@ -1268,7 +1283,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
         _PRED_INPUT_FIRST_ROW,
         _C_AI,
         (
-            "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(X_s(),Sample_Include()),"
+            "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(Predictor_Columns(),Sample_Include()),"
             "LAMBDA(c,AVERAGE(c))),t,Constructed_Column_Transforms(),"
             'IF(t="Log",EXP(m),m))),"")'
         ),
@@ -1278,7 +1293,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # overridable. Each row guards on its position against the means-spill
     # height so rows beyond the live constructed width render blank (the
     # width is spec-dependent — 19 on the default WHO spec). Cheap spill
-    # references only: no prefill cell may call X_s() itself.
+    # references only: no prefill cell may call Predictor_Columns() itself.
     offset = _PRED_INPUT_FIRST_ROW - 1
     for row in range(_PRED_INPUT_FIRST_ROW, _PRED_INPUT_LAST_ROW + 1):
         f(
@@ -1311,7 +1326,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # (joined Identifier columns, or positional Obs. n labels).
     val(sheet, 2, _C_AK, "Observation")
 
-    # Every one of these columns is fit off X_s_Within()/y_s(), so once a
+    # Every one of these columns is fit off Design_Columns()/Design_Response(), so once a
     # Fixed Effects row is declared they hold within-demeaned quantities, not
     # the raw response — the header must say so or the table reads as if
     # "Y" - "Predicted Y" silently stopped equaling "Residuals" (see the
@@ -1335,7 +1350,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # "(Within Country)") rather than the bare "(Within)" token, via
     # _FIXED_EFFECTS_NAME_FORMULA — the same Role=Fixed Effects lookup that
     # fills the spec feedback block's "FE Variable" cell. Y (_C_AL) gets its
-    # own wording instead of "Within": X_s_Within()/y_s() only SUBTRACT the
+    # own wording instead of "Within": Design_Columns()/Design_Response() only SUBTRACT the
     # group mean, they never divide by a standard deviation, so "Y (Within
     # Country)" would read as a demeaning but "St Devs from Avg." would be
     # outright wrong — "Deviation from <FE> Avg." says exactly what the
@@ -1381,7 +1396,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         sheet, 3, _C_AK,
         "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())",
     )
-    # Spill anchors — each spills n rows downward. Fit-time X_s_Within()/y_s()
+    # Spill anchors — each spills n rows downward. Fit-time Design_Columns()/Design_Response()
     # throughout, INCLUDING the "Y" column (AL): under FE the whole table
     # must read as one internally consistent block — Residuals (AN) is an
     # independently-computed column, not a literal AL-AM subtraction, but a
@@ -1389,21 +1404,21 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # broken (Residuals would not visually match Y - Predicted Y). The actual
     # observed response is still available via Response_Column() elsewhere
     # (e.g. Intercept_Only_*); this table shows the model's own fit space.
-    f(sheet, 3, _C_AL, "=Dependent_Variable(y_s(),Sample_Include())")
-    f(sheet, 3, _C_AM, "=Predictions(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AN, "=Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AO, "=Hat_Diagonal(X_s_Within(),Allow_Intercept,Sample_Include())")
-    f(sheet, 3, _C_AP, "=Studentized_Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
-    f(sheet, 3, _C_AQ, "=Cooks_Distance(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
-    f(sheet, 3, _C_AR, "=SORT(Normal_Scores(y_s(),Sample_Include()))")
-    f(sheet, 3, _C_AS, "=Studentized_Residuals_Ranked(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 3, _C_AL, "=Dependent_Variable(Design_Response(),Sample_Include())")
+    f(sheet, 3, _C_AM, "=Predictions(Design_Columns(),Design_Response(),Sample_Include())")
+    f(sheet, 3, _C_AN, "=Residuals(Design_Columns(),Design_Response(),Sample_Include())")
+    f(sheet, 3, _C_AO, "=Hat_Diagonal(Design_Columns(),Sample_Include())")
+    f(sheet, 3, _C_AP, "=Studentized_Residuals(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 3, _C_AQ, "=Cooks_Distance(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())")
+    f(sheet, 3, _C_AR, "=SORT(Normal_Scores(Design_Response(),Sample_Include()))")
+    f(sheet, 3, _C_AS, "=Studentized_Residuals_Ranked(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
     f(
         sheet, 3, _C_AT,
-        "=SQRT(ABS(Studentized_Residuals(X_s_Within(),y_s(),Allow_Intercept,Sample_Include(),Absorbed_Degrees_Of_Freedom())))",
+        "=SQRT(ABS(Studentized_Residuals(Design_Columns(),Design_Response(),Sample_Include(),Absorbed_Degrees_Of_Freedom())))",
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
-    f(sheet, 3, _C_AU, "=LOOCV_Residual(X_s_Within(),y_s(),Allow_Intercept,Sample_Include())")
+    f(sheet, 3, _C_AU, "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())")
     # Cook's Distance (Flagged): NA()'d except where D exceeds the standard
     # influence cutoffs (4/n or 0.9 — algebraically MIN(4/n, 0.9) since these
     # are two lower bounds on the same "flag it" union, for every n). This

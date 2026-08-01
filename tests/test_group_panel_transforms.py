@@ -40,7 +40,7 @@ def group_mean_mirror(x, group, include=None):
 
     Per-row group mean over the included members of that row's own group.
     A row's own inclusion does not gate its own output (full-height
-    contract, same as X_s()); only a blank group or an empty included group
+    contract, same as Predictor_Columns()); only a blank group or an empty included group
     yields NA.
     """
     x = np.asarray(x, dtype=float)

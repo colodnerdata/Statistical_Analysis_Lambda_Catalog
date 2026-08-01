@@ -1,14 +1,14 @@
 """Independent verification of the [DF_Absorbed] threading through the
 inference chain (v2.1 Fixed Effects, phase 3).
 
-Concept: fitting OLS on the within-demeaned X_s_Within()/y_s() pair (phase 2)
+Concept: fitting OLS on the within-demeaned Design_Columns()/Design_Response() pair (phase 2)
 gets the COEFFICIENTS right, but every df-dependent statistic built on top —
 SE, t, p, CI, AIC/BIC, F — silently overstates precision unless the G-1
 degrees of freedom spent estimating the Fixed Effects group means are
 subtracted back out. This module verifies, independently of the catalog
 formulas, that the within-estimator-plus-DF_Absorbed-correction reproduces
 an explicit LSDV (dummy-per-group) fit's own inferential statistics —
-statsmodels' OLS on X_s_Within()/y_s() never sees the FE group at all, so if
+statsmodels' OLS on Design_Columns()/Design_Response() never sees the FE group at all, so if
 its DF_Absorbed-corrected numbers match statsmodels' LSDV numbers, the
 correction is doing exactly what it claims to.
 
@@ -181,7 +181,7 @@ def test_no_fe_case_is_bit_identical_scale_one() -> None:
     # matching what LINEST(...,Allow_Intercept,...) actually fits.
     _groups, _years, y, x = _load_fe_panel()
     n, k = x.shape
-    design = np.column_stack([np.ones(n), x])  # fe_active=False: X_s_Within()==X_s()
+    design = np.column_stack([np.ones(n), x])  # fe_active=False: Design_Columns()==Predictor_Columns()
 
     naive_df = _naive_residual_df(n, k)  # k predictors + 1 intercept, matching Allow_Intercept=TRUE
     beta_design, _, _, _ = np.linalg.lstsq(design, y, rcond=None)
@@ -252,25 +252,36 @@ def test_residual_degrees_of_freedom_defaults_df_absorbed_to_zero() -> None:
 
 def test_se_coefficients_rescales_rather_than_reimplementing_linest() -> None:
     formula = _formula("SE_Coefficients")
-    assert "naive_df,Residual_Degrees_Of_Freedom(X_s,Y,allow_arg,filt_arg)" in formula
+    assert "naive_df,Residual_Degrees_Of_Freedom(X,Y,filt_arg)" in formula
     assert "true_df,naive_df-absorbed_arg" in formula
     assert "scale,SQRT(naive_df/true_df)" in formula
     assert formula.rstrip(")").endswith("*scale")
 
 
 def test_aic_bic_aicc_add_absorbed_directly_into_parameter_count() -> None:
+    # p counts every fitted column. Since the v3.0 intercept relocation the
+    # design matrix carries its own intercept column, so COLUMNS(X) IS the
+    # parameter count and the former "+ IF(allow_arg, 1, 0)" term would
+    # double-count it.
     for name in ("AIC", "BIC", "AICc"):
         formula = _formula(name)
-        assert "p,Regression_Degrees_Of_Freedom(X_s)+IF(allow_arg,1,0)+absorbed_arg" in formula, name
+        assert "p,COLUMNS(X)+absorbed_arg" in formula, name
+        assert "IF(allow_arg,1,0)" not in formula, name
 
 
 def test_f_statistic_does_not_correct_the_numerator_degrees_of_freedom() -> None:
     # Only the denominator (residual) df should see DF_Absorbed — the
     # regression (numerator) df counts estimated slope coefficients, which
-    # absorbed FE groups are not.
-    formula = _formula("F_Statistic")
-    assert "Regression_Degrees_Of_Freedom(X_s)/" in formula.replace(" ", "")
-    assert formula.count("absorbed_arg") == 2  # the IF(ISOMITTED...) def, and the one use
+    # absorbed FE groups are not. F_Statistic is now the plain MS ratio, so
+    # the property is checked where each mean square is actually formed.
+    assert "MS_Regression(X,Y,has_arg,filt_arg)/MS_Residual(X,Y,filt_arg,absorbed_arg)" in _formula("F_Statistic")
+
+    numerator = _formula("MS_Regression")
+    assert "Regression_Degrees_Of_Freedom(X,has_arg)" in numerator
+    assert "absorbed_arg" not in numerator
+
+    denominator = _formula("MS_Residual")
+    assert "Residual_Degrees_Of_Freedom(X,Y,filt_arg,absorbed_arg)" in denominator
 
 
 def main() -> None:  # pragma: no cover - standalone runner

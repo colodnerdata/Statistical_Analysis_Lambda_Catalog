@@ -109,14 +109,14 @@ Rationale in
 | v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries. The two post-release leftovers (per-distribution Q-Q plots and combo-chart overlay lines built on those CDF-delta columns) shipped with the next workbook build |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
-| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Built and verified** — every TODOs #1–#10 item is DONE, verified against a live build (0 mismatches across all 12 spec-driven QC cases). `y_s`, `X_s_Within`, `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Awaiting only the human sign-off run of `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` and the 2.1.0 Version History entry, plus DEFERRED follow-on polish |
+| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Built and verified** — every TODOs #1–#10 item is DONE, verified against a live build (0 mismatches across all 12 spec-driven QC cases). `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Awaiting only the human sign-off run of `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` and the 2.1.0 Version History entry, plus DEFERRED follow-on polish |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()`/`Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open |
 | v2.3 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. Read-only across finished Regression sheets; ships after Transforms so its comparisons are unit-space-honest from day one |
 | v2.4 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QC build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
 | v2.5 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Claimed — next MINOR after v2.4. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix` |
 | v2.6 | `Weight` Role (WLS) | No | Claimed — after v2.5. User-supplied weights as the first stage; variance-driver-derived weights and FGLS as v2.6+ follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument |
 | v2.7+ | Two-way FE, `Cluster` and `Time` Roles, Time series, ANOVA, Fourier, Decision | mixed | Unordered (deliberate — see Future section). Two-way FE has forward wiring from the v2.1 FE engine; `Cluster` has forward wiring from `Serial_Correlation_Group()`'s dormant branch; the rest are design-not-started |
-| **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, interaction spec columns, the materialization zone | **Yes** | Planned — MAJOR, and the second (and intended last) breaking restructure of the Regression sheet. Scope is the one **OPEN** decision; see the milestone entry below |
+| **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, interaction spec columns, the materialization zone | **Yes** | In progress — MAJOR, and the second (and intended last) breaking restructure of the Regression sheet. Scope is **resolved**: one release delivered in three stages, of which stage 1 (constructor pipeline + intercept relocation) is code complete but has not yet cleared its spec-driven QC gate. See the milestone entry below |
 | v3.x | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | The split is packaging-only and non-breaking for both artifacts. The grid shrink that follows is MAJOR **for the Univariate workbook version only** and does not move the Regression workbook version |
 
 **Ladder rationale.** Under the interface definition above, exactly two milestones
@@ -595,16 +595,35 @@ feature, not just this release:
    materialized zones run in increasing width
    ([ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone)).
 
-### Scope — **OPEN**
+### Scope — **RESOLVED**
 
-Which of the five pieces ship together is undecided. They are interdependent: the
-bounded context requires intercept relocation, which requires the pipeline order;
-the materialization zone depends on the constructor pipeline being settled first,
-or two variants of a soon-to-change architecture get materialized; and the
-interaction columns and the audit column both touch the spec-block layout. That
-argues for one release, against the general principle of small increments.
+Which of the five pieces ship together was the one open question. They are
+interdependent: the bounded context requires intercept relocation, which requires
+the pipeline order; the materialization zone depends on the constructor pipeline
+being settled first, or two variants of a soon-to-change architecture get
+materialized; and the interaction columns and the audit column both touch the
+spec-block layout. That argued for one release, against the general principle of
+small increments.
 
-**Recommendation — ship §3/§4/§5 fully, and §6/§7 as layout only:**
+**Resolved: one release, delivered in three pull requests.** The recommendation
+below stands as the release contents; the counter-argument it records — that v3.0
+becomes a large release hard to verify in one pass — is answered by splitting the
+*delivery* rather than the release, so no second layout break is spent.
+
+| Stage | Contents | Status |
+|---|---|---|
+| **1** | Constructor pipeline · intercept relocation | Code complete — **QC gate outstanding** |
+| 2 | `Model_Context` · `Sample_Include` materialized · `[Has_Intercept]`/`[DF_Absorbed]` collapse into `[Context]` | Planned |
+| 3 | Interaction spec columns M/N (reserved) · Design Columns audit column · Constructed Design Matrix zone + width guard · version bump | Planned |
+
+The order is forced by the same dependencies listed above. Stage one carries a
+verification property the others do not — **no number moves**, so the spec-driven
+QC pass must report zero mismatches across all twelve cases — which is why it goes
+first despite touching the most functions. The version number does not move until
+stage three; v3.0 is not reached part-way through. See
+[DECISIONS.md § v3.0 ships in three stages](DECISIONS.md#v30-ships-in-three-stages).
+
+**Release contents — §3/§4/§5 fully, and §6/§7 as layout only:**
 
 | Release | Contents | Break |
 |---|---|---|
@@ -632,11 +651,20 @@ makes this scope affordable, and it is why F5 does not appear in the release
 above. See
 [DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
 
-The counter-argument worth weighing: v3.0 becomes a large release that is hard to
-verify in one pass, and the human test plan for it would be substantial. A
-maintainer who would rather verify in smaller steps should split §6 and §7's
-layout work into a v3.0 and v3.1 pair — at the cost of a second layout break, which
-is the thing the recommendation is trying to avoid.
+The counter-argument weighed and answered: v3.0 is a large release that is hard to
+verify in one pass, and the human test plan for it is substantial. The earlier
+draft of this entry offered splitting §6 and §7's layout work into a v3.0 and v3.1
+pair, at the cost of a second layout break. The three-stage delivery above gets the
+same reviewability without paying that cost — each stage is a reviewable diff with
+its own verification gate, and the layout insertions still land exactly once.
+
+**What stage one actually cost, against the estimates in this entry.** Two numbers
+moved and both are recorded in DECISIONS: `Has_Intercept` survives in **thirteen**
+functions rather than the estimated seven (the R²/sums-of-squares chain needs it as
+an identifier, which the estimate did not anticipate), and `R_Squared` turned out
+to be a **third** LINEST `const` site — the one that would have failed silently,
+since LINEST reports the uncentered R² under `const = FALSE`. Neither changes the
+design; both are why stage one is the one with the zero-mismatch gate.
 
 ---
 

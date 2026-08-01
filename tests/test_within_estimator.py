@@ -1,10 +1,10 @@
 """Independent verification of the v2.1 Fixed Effects fit-time pair,
-y_s() and X_s_Within() (phase 2 of the Fixed Effects engine).
+Design_Response() and Design_Columns() (phase 2 of the Fixed Effects engine).
 
-Concept: y_s()/X_s_Within() are the predictor/response pair the Regression
+Concept: Design_Response()/Design_Columns() are the predictor/response pair the Regression
 sheet's fit chain (Coefficients, Predictions, Residuals, ANOVA, the BFN
 diagnostic, …) is repointed to. With no declared Fixed Effects row they are
-Response_Column()/X_s() unchanged; with one declared, every column is
+Response_Column()/Predictor_Columns() unchanged; with one declared, every column is
 one-way within-demeaned via Demean_By before the ordinary OLS engine ever
 sees it — the mechanism that lets a plain least-squares fit on the demeaned
 data reproduce an LSDV (dummy-per-group) fit's non-FE coefficients without
@@ -46,14 +46,14 @@ CATALOG_PATH = ROOT_DIR / "lambda_functions.json"
 # ── Pure-Python mirrors of the workbook formulas ─────────────────────────────
 
 def y_s_mirror(response, fe_active: bool, group=None, include=None):
-    """Mirror of y_s(): Response_Column() unchanged, or Demean_By when FE is active."""
+    """Mirror of Design_Response(): Response_Column() unchanged, or Demean_By when FE is active."""
     if not fe_active:
         return np.asarray(response, dtype=float)
     return demean_by_mirror(response, group, include)
 
 
 def x_s_within_mirror(x, fe_active: bool, group=None, include=None):
-    """Mirror of X_s_Within(): X_s() unchanged, or each column Demean_By'd when FE is active."""
+    """Mirror of Design_Columns(): Predictor_Columns() unchanged, or each column Demean_By'd when FE is active."""
     x = np.asarray(x, dtype=float)
     if not fe_active:
         return x
@@ -102,7 +102,7 @@ def test_within_fit_matches_independent_lsdv_coefficients() -> None:
 
 
 def test_g_equals_one_collapses_to_the_no_fe_pair_exactly() -> None:
-    # No Fixed Effects row (or a call with fe_active=False): y_s()/X_s_Within()
+    # No Fixed Effects row (or a call with fe_active=False): Design_Response()/Design_Columns()
     # must return the EXACT no-FE objects, not a numerically-equal
     # recomputation — the non-breaking-default property every no-FE model
     # relies on.
@@ -129,40 +129,62 @@ def _formula(name: str) -> str:
     return _strip_non_string_whitespace(_normalize_user_formula(functions[name]["formula_display"]))
 
 
-def test_y_s_and_x_s_within_are_regression_sheet_closures() -> None:
+def test_design_response_and_design_columns_are_regression_sheet_closures() -> None:
     functions = _catalog_functions()
-    for name in ("y_s", "X_s_Within"):
+    for name in ("Design_Response", "Design_Columns"):
         fn = functions[name]
         assert fn.get("scope") == "Regression"
         assert fn.get("category") == "Model Construction"
         assert fn.get("arguments", []) == []
 
 
-def test_y_s_no_fe_branch_returns_response_column_unchanged() -> None:
-    formula = _formula("y_s")
+def test_design_response_no_fe_branch_returns_response_column_unchanged() -> None:
+    formula = _formula("Design_Response")
     assert "IF(NOT(fe_active),Response_Column()," in formula
     assert "Demean_By(Response_Column(),Fixed_Effects_Column(),Sample_Include())" in formula
 
 
-def test_x_s_within_no_fe_branch_returns_x_s_unchanged_and_uses_reduce_hstack() -> None:
+def test_design_columns_demeans_with_reduce_hstack_not_bycol() -> None:
     # BYCOL cannot return a per-call array (Demean_By returns a column), so
     # the FE branch builds the demeaned matrix column-by-column via the same
-    # REDUCE+HSTACK pattern X_s() itself uses, not BYCOL.
-    formula = _formula("X_s_Within")
-    assert "IF(NOT(fe_active),X_s()," in formula
+    # REDUCE+HSTACK pattern Predictor_Columns() itself uses, not BYCOL.
+    formula = _formula("Design_Columns")
+    assert "IF(NOT(fe_active),Predictor_Columns()," in formula
     assert "BYCOL" not in formula
-    assert "REDUCE(seed,SEQUENCE(n_x),LAMBDA(acc,j,HSTACK(acc,Demean_By(INDEX(xs,0,j),fe,inc))))" in formula
+    assert "REDUCE(seed,SEQUENCE(k_p),LAMBDA(acc,j,HSTACK(acc,Demean_By(INDEX(xp,0,j),fe,inc))))" in formula
     assert "DROP(built,,1)" in formula
 
 
-def test_y_s_and_x_s_within_are_registered_after_their_dependencies() -> None:
+def test_design_columns_applies_the_intercept_stage_after_demeaning() -> None:
+    # Pipeline order is load-bearing: a ones column demeaned by group is a
+    # column of zeros, which makes the Gram matrix exactly singular. The
+    # intercept must therefore be stacked onto the ALREADY-demeaned block.
+    formula = _formula("Design_Columns")
+    assert "IF(has_int,HSTACK(ones,demeaned),demeaned)" in formula
+    assert "ones,SEQUENCE(ROWS(Source_Data),1,1,0)" in formula
+    assert "has_int,N(Allow_Intercept)=1" in formula
+    # The demeaning stage never sees the ones column.
+    demean_stage = formula.split("demeaned,")[1].split("IF(has_int,HSTACK")[0]
+    assert "ones" not in demean_stage
+
+
+def test_design_columns_returns_the_bare_intercept_when_no_predictor_contributes() -> None:
+    # Predictor_Columns() errors when the spec contributes nothing (DROP of a
+    # sentinel-only accumulator). HSTACK onto an error is an error, so the
+    # zero-predictor state is branched on before the stack, not after.
+    formula = _formula("Design_Columns")
+    assert "k_p,IFERROR(COLUMNS(Predictor_Columns()),0)" in formula
+    assert "IF(k_p=0,IF(has_int,ones,Predictor_Columns())" in formula
+
+
+def test_constructors_are_registered_after_their_dependencies() -> None:
     payload = json.loads(CATALOG_PATH.read_text(encoding="utf-8"))
     regression_closures = [
         fn["name"] for fn in payload["functions"] if fn.get("scope") == "Regression"
     ]
-    for dependency in ("Response_Column", "X_s", "Fixed_Effects_Column"):
-        assert regression_closures.index(dependency) < regression_closures.index("y_s")
-        assert regression_closures.index(dependency) < regression_closures.index("X_s_Within")
+    for dependency in ("Response_Column", "Predictor_Columns", "Fixed_Effects_Column"):
+        assert regression_closures.index(dependency) < regression_closures.index("Design_Response")
+        assert regression_closures.index(dependency) < regression_closures.index("Design_Columns")
 
 
 def main() -> None:  # pragma: no cover - standalone runner

@@ -16,7 +16,7 @@ Right of the spec block, after a narrow gap column O (which also visually
 reserves the future Design Columns audit column):
 
     O (gap)   P             Q        R     S           T            U     V           W →
-              Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered X_s
+              Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered Predictor_Columns
     (=Row_Labels() spill at P4; =Sample_Include() spill at Q4 — both
      full-height, never internally filtered. S/T/V/W are the FILTERED
      display zones: the only place on the sheet where Sample_Include()
@@ -26,7 +26,7 @@ reserves the future Design Columns audit column):
 Row 1, from column O rightward, holds the bold audit cells as
 label/value pairs (values on the non-narrow columns P/S/V/W/Y/AA):
 
-    k = COLUMNS(X_s()) · rows = ROWS(X_s()) · response = <derived name> ·
+    k = COLUMNS(Predictor_Columns()) · rows = ROWS(Predictor_Columns()) · response = <derived name> ·
     responses = <count of Role="Response (y)"> (red CF when <> 1) ·
     included rows = SUMPRODUCT(N(Sample_Include())) ·
     sequence flags = <count of Sequence=TRUE> (red CF when > 1)
@@ -70,7 +70,7 @@ Column F (Order) is reserved for a future release: it is styled as an
 input and carries a sheet-scoped name (Spec_Order) so the grid shape is
 final, but no formula reads it yet. Column G (Transform) went live at
 v2.2 — its dropdown offers None (default; unchanged fit) or Log (natural
-log). Log is read by Response_Column(), X_s(), Constructed_Column_Names(),
+log). Log is read by Response_Column(), Predictor_Columns(), Constructed_Column_Names(),
 and Constructed_Column_Transforms() on the Response row and on Continuous
 Predictor rows; it is disallowed (flagged red, not silently ignored) on
 Categorical Predictors. See ARCHITECTURE.md §4/§5 for the full contract.
@@ -150,7 +150,7 @@ Mileage/Auto MPG dataset since Source_Table now defaults to MileageData):
                                                flag is redundant with the mask's
                                                built-in completeness and
                                                over-filters; no default Filter)
-Full-height contract: ROWS(X_s()) = ROWS(Row_Labels()) =
+Full-height contract: ROWS(Predictor_Columns()) = ROWS(Row_Labels()) =
 ROWS(Sample_Include()) = 406 always — the constructor reads the mask ONLY
 to fix level sets; nothing here ever row-filters. With the real mask live,
 the T0 mask-dependent values are real on the sheet: k = 16 (2 continuous +
@@ -350,7 +350,7 @@ _EMPTY_MODEL_FALLBACK = '"(empty model)"'
 
 # Role tokens — the exact strings stored in column B and compared by every
 # role-driven formula, here and in the catalog closures (Sample_Include,
-# Response_Column, Row_Labels, X_s, Constructed_Column_Names in
+# Response_Column, Row_Labels, Predictor_Columns, Constructed_Column_Names in
 # lambda_functions.json). The parenthetical glosses are part of the stored
 # value, not display-only: renaming a token means updating the JSON
 # closures in lockstep.
@@ -374,7 +374,7 @@ _ROLE_OMIT = "Omit"
 # The v2.1 panel role. Read by the Fixed_Effects_Column() accessor, the
 # FE-count guard on the Regression diagnostics (BFN panel Durbin-Watson
 # trigger matrix), and — since the phase 1-3 engine work — by
-# Absorbed_Degrees_Of_Freedom() and the fit-time y_s()/X_s_Within() pair that
+# Absorbed_Degrees_Of_Freedom() and the fit-time Design_Response()/Design_Columns() pair that
 # the whole inference chain reads. Now in the Role dropdown: a spec claiming
 # Fixed Effects actually gets the one-way within transformation and the
 # absorbed-df correction, not silent pooled OLS.
@@ -707,12 +707,12 @@ def _set_sheet_scoped_names(
        These hardcode *this sheet's* cell addresses and the source table, so
        they live with the sheet layout rather than in the portable catalog.
     2. **Constructor closures** (``closures``) — the zero-arg LAMBDAs
-       ``Sample_Include``/``Response_Column``/``Row_Labels``/``X_s``/
+       ``Sample_Include``/``Response_Column``/``Row_Labels``/``Predictor_Columns``/
        ``Constructed_Column_Names``, sourced from ``lambda_functions.json``
        (scope ``"Regression"``) so their definitions live in one declarative
        place and appear on the LAMBDA_functions catalog sheet. Passed in
        document order, which is dependency order (``Sample_Include`` before
-       ``X_s``, etc.).
+       ``Predictor_Columns``, etc.).
     """
     sname = f"'{sheet.name}'"
 
@@ -771,11 +771,11 @@ def _set_sheet_scoped_names(
         drop_local_name(sheet, name)
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
 
-    # Constructor closures (Sample_Include, Response_Column, Row_Labels, X_s,
+    # Constructor closures (Sample_Include, Response_Column, Row_Labels, Predictor_Columns,
     # Constructed_Column_Names) come from lambda_functions.json, in document
     # (= dependency) order. Their full rationale — the REDUCE-product mask, the
     # (col+0) Filter coercion that avoids N()'s implicit intersection, the
-    # once-bound Dummy_Levels skip, the X_s / Constructed_Column_Names twin —
+    # once-bound Dummy_Levels skip, the Predictor_Columns / Constructed_Column_Names twin —
     # lives in each entry's catalog description. Compact the display formula to
     # a single line for the defined name's RefersTo (no-op on already-compact
     # strings; safe if the JSON is later pretty-printed).
@@ -1443,7 +1443,7 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
         font_color=INPUT_COLOR,
     )
     # Intercept x Fixed Effects: fitting an explicit intercept on top of the
-    # already-demeaned X_s_Within()/y_s() pair is not a numerical error (the
+    # already-demeaned Design_Columns()/Design_Response() pair is not a numerical error (the
     # within transform plus Absorbed_Degrees_Of_Freedom() correctly accounts
     # for it — see the DF_Absorbed threading tests) and LINEST just estimates
     # it near zero, but the resulting "Intercept" coefficient row is not the
@@ -1479,15 +1479,15 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
     """Row-1 audit strip: bold label/value pairs from column K rightward.
 
     Values live in their own cells (not concatenated into the labels) so
-    the QC analyzer can assert the numbers directly. The X_s()-derived
+    the QC analyzer can assert the numbers directly. The Predictor_Columns()-derived
     cells wrap IFERROR — an empty model makes DROP(built,,1) error, and
     the audit strip must degrade to the documented string, never leak a
     raw #CALC!. The two SUMPRODUCT counts are total functions over
     full-height inputs and cannot error, so they stay unwrapped.
     """
     audit_cells: tuple[tuple[str, str], ...] = (
-        ("k", f"=IFERROR(COLUMNS(X_s()),{_EMPTY_MODEL_FALLBACK})"),
-        ("rows", f"=IFERROR(ROWS(X_s()),{_EMPTY_MODEL_FALLBACK})"),
+        ("k", f"=IFERROR(COLUMNS(Predictor_Columns()),{_EMPTY_MODEL_FALLBACK})"),
+        ("rows", f"=IFERROR(ROWS(Predictor_Columns()),{_EMPTY_MODEL_FALLBACK})"),
         ("response", f"={_RESPONSE_NAME_FORMULA}"),
         (
             "responses",
@@ -1565,7 +1565,7 @@ def _write_filtered_zones(sheet: xw.Sheet) -> None:
     )
     val(sheet, _HEADER_ROW, _C_MATRIX_LABELS, "Row Labels")
     # Header strip above the matrix: the structural twin guarantees this
-    # spills exactly COLUMNS(X_s()) level-qualified names.
+    # spills exactly COLUMNS(Predictor_Columns()) level-qualified names.
     f(
         sheet,
         _HEADER_ROW,
@@ -1577,7 +1577,7 @@ def _write_filtered_zones(sheet: xw.Sheet) -> None:
         (_C_FILTERED_LABELS, "Row_Labels()"),
         (_C_FILTERED_Y, "Response_Column()"),
         (_C_MATRIX_LABELS, "Row_Labels()"),
-        (_C_MATRIX_START, "X_s()"),
+        (_C_MATRIX_START, "Predictor_Columns()"),
     )
     for col, source in filtered_spills:
         f(

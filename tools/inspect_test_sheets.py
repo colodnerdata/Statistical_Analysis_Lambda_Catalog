@@ -48,14 +48,14 @@ _TERM_COL = 1
 _CALC_START_COL = 2
 
 _DF_SCALAR_COLS = [
-    "k", "allow_intercept", "stat_name",
+    "k", "has_intercept", "stat_name",
     "expected", "excel_calc", "abs_diff", "first_digit_deviation",
 ]
 _DF_VECTOR_COLS = [
-    "k", "allow_intercept", "term_name", "stat_name",
+    "k", "has_intercept", "term_name", "stat_name",
     "expected", "excel_calc", "abs_diff", "first_digit_deviation",
 ]
-_DF_OBS_COLS = ["k", "allow_intercept", "row_idx", "stat_name", "expected", "excel_calc", "abs_diff", "first_digit_deviation"]
+_DF_OBS_COLS = ["k", "has_intercept", "row_idx", "stat_name", "expected", "excel_calc", "abs_diff", "first_digit_deviation"]
 _OBS_STATS = [
     "Observation_Number",
     "Rank_Fraction",
@@ -86,10 +86,10 @@ def read_scalar_df(
 
     Expected values are taken from ``scalar_row_configs`` (Python-computed OLS metrics),
     not from the (Exp.) columns in the sheet. Only the Calc columns and the row-identity
-    columns (ind_vars, Allow_Intercept) are read from the workbook.
+    columns (ind_vars, Has_Intercept) are read from the workbook.
 
-    Each row in the returned DataFrame corresponds to one (k, allow_intercept, stat_name)
-    triple. Columns: k, allow_intercept, stat_name, expected, excel_calc, abs_diff,
+    Each row in the returned DataFrame corresponds to one (k, has_intercept, stat_name)
+    triple. Columns: k, has_intercept, stat_name, expected, excel_calc, abs_diff,
     first_digit_deviation.
     """
     sheet = workbook.sheets["MLR_Scalar_Test"]
@@ -103,23 +103,23 @@ def read_scalar_df(
     ind_vars_col: int | None = None
     intercept_col: int | None = None
 
-    _SCALAR_FIXED = {"", "X_Variables", "ind_vars", "Allow_Intercept"}
+    _SCALAR_FIXED = {"", "X_Variables", "ind_vars", "Has_Intercept"}
     for i, h in enumerate(headers):
         h_norm = h.replace("\n", " ").strip()
         if h_norm == "ind_vars":
             ind_vars_col = i
-        elif h_norm == "Allow_Intercept":
+        elif h_norm == "Has_Intercept":
             intercept_col = i
         elif h_norm not in _SCALAR_FIXED:
             calc_cols[h_norm] = i
 
-    # Build lookup: (k, allow_intercept) -> expected_dict
+    # Build lookup: (k, has_intercept) -> expected_dict
     config_lookup: dict[tuple[int, bool], dict[str, float]] = {}
     for item in scalar_row_configs:
         row_vals = item[0]
         expected_values = item[1]
         k_val = row_vals.get("ind_vars")
-        ai_val = bool(row_vals.get("Allow_Intercept"))
+        ai_val = bool(row_vals.get("Has_Intercept"))
         if k_val is not None:
             config_lookup[(int(k_val), ai_val)] = expected_values
 
@@ -132,15 +132,15 @@ def read_scalar_df(
             if ind_vars_col is not None and row[ind_vars_col] is not None
             else None
         )
-        allow_intercept = (
+        has_intercept = (
             bool(row[intercept_col])
             if intercept_col is not None and row[intercept_col] is not None
             else None
         )
 
         expected_dict: dict[str, float] = {}
-        if k is not None and allow_intercept is not None:
-            expected_dict = config_lookup.get((k, allow_intercept), {})
+        if k is not None and has_intercept is not None:
+            expected_dict = config_lookup.get((k, has_intercept), {})
 
         for stat_name, calc_i in calc_cols.items():
             calc_val = row[calc_i] if calc_i < len(row) else None
@@ -152,7 +152,7 @@ def read_scalar_df(
 
             rows.append({
                 "k": k,
-                "allow_intercept": allow_intercept,
+                "has_intercept": has_intercept,
                 "stat_name": stat_name,
                 "expected": exp_f,
                 "excel_calc": calc_f,
@@ -174,7 +174,7 @@ def read_vector_df(
     are read from the workbook.
 
     Each row in the returned DataFrame corresponds to one
-    (k, allow_intercept, term_name, stat_name) quad. Columns: k, allow_intercept,
+    (k, has_intercept, term_name, stat_name) quad. Columns: k, has_intercept,
     term_name, stat_name, expected, excel_calc, abs_diff, first_digit_deviation.
     """
     sheet = workbook.sheets["MLR_Vector_Outputs_Test"]
@@ -185,10 +185,10 @@ def read_vector_df(
     term_col_0 = _TERM_COL - 1           # 0-indexed: 7
     calc_start_0 = _CALC_START_COL - 1   # 0-indexed: 8
 
-    # Build lookup: (k, allow_intercept) -> RegressionVectors
+    # Build lookup: (k, has_intercept) -> RegressionVectors
     config_lookup: dict[tuple[int, bool], RegressionVectors] = {
-        (k, allow_intercept): vectors
-        for k, allow_intercept, vectors in vector_row_configs
+        (k, has_intercept): vectors
+        for k, has_intercept, vectors in vector_row_configs
     }
 
     rows = []
@@ -241,7 +241,7 @@ def read_vector_df(
 
             rows.append({
                 "k": section_k,
-                "allow_intercept": section_intercept,
+                "has_intercept": section_intercept,
                 "term_name": str(term_name),
                 "stat_name": stat_name,
                 "expected": exp_f,
@@ -291,7 +291,7 @@ def read_observation_df(workbook: xw.Book, observation_row_configs: list) -> pd.
             abs_diff, fdd = compare_values(exp_f, calc_f)
             rows.append({
                 "k": section_k,
-                "allow_intercept": section_intercept,
+                "has_intercept": section_intercept,
                 "row_idx": row_offset + 1,
                 "stat_name": stat,
                 "expected": exp_f,

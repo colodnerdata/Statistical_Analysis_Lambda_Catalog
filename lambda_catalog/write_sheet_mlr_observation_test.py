@@ -6,6 +6,8 @@ from typing import TYPE_CHECKING
 
 import xlwings as xw
 
+from .catalog_schema import catalog_argument_names
+from .make_test_sheet import build_call, design_expression
 from .regression_shared import FEATURE_COLUMNS
 from .workbook_helpers import (
     col_letter,
@@ -45,11 +47,18 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
         sheet.api.Names.Add(Name=name, RefersTo=refers_to)
 
 
-def _calc_formula(k: int, allow_intercept: bool, func_name: str) -> str:
-    allow_arg = "TRUE" if allow_intercept else "FALSE"
+def _calc_formula(k: int, has_intercept: bool, func_name: str) -> str:
     if func_name in _Y_ONLY_FUNCS:
         return f"={func_name}(y,Regression_Sample_Include)"
-    return f"=LET(x_s,OFFSET(y,0,1,ROWS(y),{k}),{func_name}(x_s,y,{allow_arg},Regression_Sample_Include))"
+    reference_map = {
+        "x": "X",
+        "y": "y",
+        "include": "Regression_Sample_Include",
+        "df_absorbed": None,
+    }
+    argument_names = catalog_argument_names(func_name)
+    call = build_call(func_name, argument_names, reference_map)
+    return f"=LET(X,{design_expression(k, has_intercept)},{call})"
 
 
 def _spill_ref_formula(row: int, col: int) -> str:
@@ -58,7 +67,7 @@ def _spill_ref_formula(row: int, col: int) -> str:
 
 def _section_formula(
     k: int,
-    allow_intercept: bool,
+    has_intercept: bool,
     func_name: str,
     row: int,
     col: int,
@@ -67,7 +76,7 @@ def _section_formula(
     if func_name in _Y_ONLY_FUNCS and func_name in y_only_anchor_rows:
         return _spill_ref_formula(y_only_anchor_rows[func_name], col)
 
-    formula = _calc_formula(k, allow_intercept, func_name)
+    formula = _calc_formula(k, has_intercept, func_name)
     if func_name in _Y_ONLY_FUNCS:
         y_only_anchor_rows[func_name] = row
     return formula
@@ -78,16 +87,16 @@ def build_mlr_observation_row_configs(csv_path: Path) -> list[tuple[int, bool, R
 
     For each ``k`` in ``_MLR_K_VALUES`` and each intercept setting, computes
     per-observation regression vectors against the Life Expectancy CSV
-    (``FEATURE_COLUMNS[:k]``) and returns ``(k, allow_intercept, vectors)``
+    (``FEATURE_COLUMNS[:k]``) and returns ``(k, has_intercept, vectors)``
     tuples consumed by :func:`write_mlr_observation_test_sheet`.
     """
     from .analyze_life_expectancy import calculate_regression_observation_vectors
 
     row_configs: list[tuple[int, bool, RegressionObservationVectors]] = []
     for k in _MLR_K_VALUES:
-        for allow_intercept in (True, False):
-            vectors = calculate_regression_observation_vectors(csv_path, allow_intercept, FEATURE_COLUMNS[:k])
-            row_configs.append((k, allow_intercept, vectors))
+        for has_intercept in (True, False):
+            vectors = calculate_regression_observation_vectors(csv_path, has_intercept, FEATURE_COLUMNS[:k])
+            row_configs.append((k, has_intercept, vectors))
     return row_configs
 
 
@@ -97,7 +106,7 @@ def write_mlr_observation_test_sheet(
 ) -> None:
     """Write the ``MLR_Observation_Test`` sheet into ``workbook``.
 
-    Lays out one section per ``(k, allow_intercept)`` config in ``row_configs``,
+    Lays out one section per ``(k, has_intercept)`` config in ``row_configs``,
     spilling the per-observation LAMBDA outputs alongside the expected vectors
     from ``row_configs`` for the QC verification pass.
     """
@@ -116,11 +125,11 @@ def write_mlr_observation_test_sheet(
 
     row = 2
     y_only_anchor_rows: dict[str, int] = {}
-    for k, allow_intercept, vectors in row_configs:
+    for k, has_intercept, vectors in row_configs:
         n = len(vectors.observation_num)
         predictors = ", ".join(FEATURE_COLUMNS[:k])
         sheet.range((row, 1)).value = (
-            f"k={k}, Allow_Intercept={'TRUE' if allow_intercept else 'FALSE'} | {predictors}"
+            f"k={k}, Has_Intercept={'TRUE' if has_intercept else 'FALSE'} | {predictors}"
         )
         row += 1
 
@@ -128,7 +137,7 @@ def write_mlr_observation_test_sheet(
             calc_col = _CALC_START_COL + i
             formula = _section_formula(
                 k,
-                allow_intercept,
+                has_intercept,
                 fn_name,
                 row,
                 calc_col,

@@ -169,8 +169,9 @@ back-transformation, standalone transform library) moved to v3.3 below.
 
 ## v3.0 — The engine-interface release (in progress)
 
-Delivered in three stages, in dependency order. Stage 1 is code complete
-and awaiting its QC gate; the scope decision and the stage table live in
+Delivered in three stages, in dependency order. Stages 1 and 2 are code
+complete and awaiting their QC gate; the scope decision and the stage table
+live in
 [ROADMAP.md](ROADMAP.md) and
 [DECISIONS.md § v3.0 ships in three stages](DECISIONS.md#v30-ships-in-three-stages).
 
@@ -209,13 +210,65 @@ been run, and stage 1 is not finished until it has.
   behaviour was verified against it; retire it only with a QC pass
   behind it.
 
-### Stage 2 — `Model_Context` — PLANNED
+### Stage 2 — `Model_Context` — CODE COMPLETE, **VERIFICATION GATE OUTSTANDING**
 
-- TODO: Collapse `[Has_Intercept]` and `[DF_Absorbed]` into a single
-  `[Context]` argument across the 13 + 24 carriers; materialize
-  `Model_Context` and `Sample_Include` as spill ranges on the Regression
-  sheet, with a build assertion that `ROWS(Model_Context())` is a
-  build-time constant.
+Not "built and verified" — the code is written and the headless layers
+pass; the spec-driven Excel gate below has **not** been run, and stage 2 is
+not finished until it has. (Same standard as stage 1.)
+
+- DONE: Engine — the 32 carriers (13 `[Has_Intercept]`-only + 19
+  `[DF_Absorbed]`-only + 5 dual) collapsed `[Has_Intercept]` and
+  `[DF_Absorbed]` into a single trailing `[Context]` argument. Each
+  carrier's LET binds `context_arg, IF(ISOMITTED(Context),
+  VSTACK(TRUE,0,"None","None"), Context)` once and extracts
+  `has_arg, INDEX(context_arg,1)` / `absorbed_arg, INDEX(context_arg,2)`;
+  inter-carrier calls drop the two tokens and append `context_arg`. The
+  workbook `Model_Context` constructor (category *Model Construction*,
+  subcategory *Context Constructor*, scope defaults *workbook*) builds the
+  4×1 array `[Has_Intercept, DF_Absorbed, Response_Transform,
+  Predictor_Transform]` — the free-form-caller path outside the Regression
+  sheet. `Design_Columns` reads `INDEX(Model_Context(),1)=1` (was
+  `N(Allow_Intercept)=1`). Pinned by `test_intercept_relocation` and
+  `test_df_absorbed_threading`.
+
+- DONE: Sheet — `Model_Context` materialized ONCE into a 4×1 spill at its
+  final §4b column (BO); a sheet-scoped `Model_Context` thunk reads that
+  fixed range (no `#` inside the LAMBDA `RefersTo` — the height is a
+  structural constant, so a fixed range sidesteps the dynamic-array-in-a-
+  name question entirely); a guard cell asserts
+  `=ROWS(Model_Context())=_MODEL_CONTEXT_ROWS`. The ~30 engine call sites
+  in `write_sheet_regression.py` were remapped to pass `Model_Context()`.
+  Pinned by `test_materialization_zone_materializes_model_context`.
+
+- DONE: QC harness — all three MLR test-sheet writers
+  (`write_sheet_mlr_{scalar,observation,vector_outputs}_test.py`) thread
+  `context` through their `build_call` `reference_map` via the workbook
+  `Model_Context` constructor (the scalar sheet carries the per-row
+  `[@[Has_Intercept]]`; the observation/vector sheets carry a per-section
+  `TRUE`/`FALSE` literal). Without this, `build_call` raises `KeyError` on
+  the carriers' new trailing `[Context]` argument — a regression the headless
+  suite did not catch (it only exercised non-carrier functions). Pinned by
+  the `test_*_formula_threads_context_*` tests.
+
+- DEFERRED: Promote `Sample_Include()` from a live closure to a thunk over a
+  materialized spill. The column is placed at its final §4b position
+  (BQ) now — as a RESERVED placeholder — so stage 3 only adds the
+  Constructed Design Matrix zone behind it. The thunk materialization needs
+  the dynamic-array spill operator (`#`) inside a `LAMBDA` defined-name
+  `RefersTo`, a combination not used anywhere in this workbook and only
+  verifiable with Excel present. A wrong guess would break the row-mask
+  contract that keeps every spilled array row-aligned, so it lands as a
+  separate Excel-verified follow-up, not blind. The live closure is
+  untouched and remains the row mask until then.
+
+- TODO: **Run the spec-driven verifier on a machine with Excel** —
+  `python build_production.py --verify --no-launch
+  --skip-data-table-calculations --skip-univariate`. Stage 2 must report
+  **0 mismatches across all 12 QC cases**: the collapse is behaviour-
+  preserving (`context_arg` carries exactly the two scalars the dropped
+  arguments carried), so any mismatch is a bug, not an expected delta. Not
+  runnable in CI (no Office on the GitHub-hosted runner) — see
+  [CONTRIBUTING.md](CONTRIBUTING.md) → *Verifying builds*.
 
 ### Stage 3 — layout — PLANNED
 

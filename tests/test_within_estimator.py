@@ -162,7 +162,7 @@ def test_design_columns_applies_the_intercept_stage_after_demeaning() -> None:
     formula = _formula("Design_Columns")
     assert "IF(has_int,HSTACK(ones,demeaned),demeaned)" in formula
     assert "ones,SEQUENCE(ROWS(Source_Data),1,1,0)" in formula
-    assert "has_int,N(Allow_Intercept)=1" in formula
+    assert "has_int,INDEX(Model_Context(),1)=1" in formula
     # The demeaning stage never sees the ones column.
     demean_stage = formula.split("demeaned,")[1].split("IF(has_int,HSTACK")[0]
     assert "ones" not in demean_stage

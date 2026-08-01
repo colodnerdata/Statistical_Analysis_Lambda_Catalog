@@ -86,9 +86,13 @@ def _actual_formula(
         "x": "X",
         "filter": "Regression_Sample_Include",
         "include": "Regression_Sample_Include",
-        "has_intercept": "[@[Has_Intercept]]",
         "alpha": None,
-        "df_absorbed": None,
+        # The v3.0 engine's [Context] argument is the trailing optional every
+        # carrier declares. Unlike the other two QC sheets, this one varies the
+        # intercept per ROW, so the context's intercept flag is the per-row
+        # structured reference, not a build-time literal. Absorbed df defaults
+        # to 0 inside Model_Context (no Fixed Effects on this sheet).
+        "context": "Model_Context([@[Has_Intercept]])",
     }
 
     call = build_call(function_name, args, reference_map)

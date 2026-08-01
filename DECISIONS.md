@@ -1651,6 +1651,39 @@ leaving it to layout constants.
 - The `Model_Context` row order remains append-only.
 - Gutter columns must remain **ungrouped**, or the groups merge.
 
+### Materialization lands in two steps — `Model_Context` now, `Sample_Include` deferred
+
+**Question:** the layout above shows both `Model_Context` and `Sample_Include`
+materialized. Does stage two land both?
+
+**Resolution:** no. `Model_Context` materializes in stage two; `Sample_Include`
+is placed at its final §4b position as a **reserved placeholder**, and
+promoting the live `Sample_Include()` closure to a thunk over a materialized
+spill is a separate, Excel-verified follow-up.
+
+**Rationale:** the two artifacts have different risk profiles.
+
+- `Model_Context` is **bounded** — `ROWS(Model_Context())` is a 4-row
+  build-time constant. The thunk reads a **fixed range** (`$BO$2:$BO$5`), so
+  the `#` spill operator never enters a `LAMBDA` defined-name `RefersTo`. That
+  combination is the only unproven one in this workbook, and the fixed-range
+  read sidesteps it entirely. The materialization is safe to land blind.
+- `Sample_Include` is **unbounded** — `n × 1`, sized to the source table. A
+  thunk over it requires `#` inside the `RefersTo`, the combination not used
+  anywhere else. A wrong guess breaks the row-mask contract that keeps every
+  spilled array row-aligned with its design-matrix row, and that breakage is
+  only catchable by the spec-driven Excel gate — the headless suite does not
+  exercise it. `Sample_Include` is also a pure performance optimization: the
+  collapse into `[Context]` does not depend on it, the live closure already
+  works, and nothing about stage three's layout needs it materialized. So it
+  lands where it can be Excel-verified, not blind.
+
+**Consequence for stage three:** the `Sample_Include` column already occupies
+its final §4b position, so stage three only adds the Constructed Design Matrix
+zone (and its width guard) behind the existing reserved column — no relocation.
+The placeholder is labelled "reserved" on the sheet and carries a cell comment
+documenting the deferral so it is not mistaken for an oversight.
+
 ### Versioning across two artifacts
 
 **Question:** [ROADMAP.md](ROADMAP.md) defines the public interface as "the user's
@@ -1798,7 +1831,7 @@ against a workbook nobody can rebuild in CI.
 | Stage | Contents |
 |---|---|
 | 1 | The constructor pipeline and the intercept relocation |
-| 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; `Model_Context` and `Sample_Include` materialized |
+| 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; `Model_Context` materialized, `Sample_Include` placed at its final §4b position as a reserved placeholder (thunk materialization deferred to an Excel-verified follow-up) |
 | 3 | Layout — interaction spec columns M/N reserved, the Design Columns audit column, the Constructed Design Matrix zone and its width guard |
 
 **Rationale:** the order is forced by the dependencies the scope entry already

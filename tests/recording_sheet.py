@@ -261,6 +261,31 @@ class RecordingListObjects:
         return table
 
 
+class RecordingColumns:
+    """Records outline Group/Ungroup calls made via ``sheet.api.Columns(addr)``.
+
+    Several writers fold columns into Excel outline groups
+    (``sheet.api.Columns("BO:BO").Group()``); the full regression writer does
+    it for every zone, and the §4b materialization zone does it for its two
+    bounded blocks. Recording the grouped addresses lets a headless test
+    confirm a column was grouped (and, just as importantly, that a gutter was
+    NOT).
+    """
+
+    def __init__(self, sheet: "RecordingSheet") -> None:
+        self._sheet = sheet
+
+    def __call__(self, address: str) -> Any:
+        return SimpleNamespace(
+            Group=lambda: self._sheet.column_groups.append(address),
+            Ungroup=lambda: (
+                self._sheet.column_groups.remove(address)
+                if address in self._sheet.column_groups
+                else None
+            ),
+        )
+
+
 class RecordingSheet:
     def __init__(self, name: str = "Univariate", global_names: list[str] | None = None) -> None:
         self.name = name
@@ -268,9 +293,18 @@ class RecordingSheet:
         self.merges: list[tuple[Any, ...]] = []
         self.tables: list[dict[str, Any]] = []
         self.list_objects: list[RecordingListObject] = []
+        self.column_groups: list[str] = []
         self.api = SimpleNamespace(
             Names=RecordingNames(f"{name}!"),
             ListObjects=RecordingListObjects(),
+            Columns=RecordingColumns(self),
+            # ``Cells`` is used as a wholesale clear (``Cells.Clear()``) and to
+            # drop outline levels (``Cells.ClearOutline()``) before re-grouping;
+            # neither is load-bearing for a cell/name assertion, so they no-op.
+            Cells=SimpleNamespace(
+                Clear=lambda: None,
+                ClearOutline=lambda: setattr(self, "column_groups", []),
+            ),
         )
         self.book = SimpleNamespace(
             api=SimpleNamespace(Names=RecordingNames(names=global_names))

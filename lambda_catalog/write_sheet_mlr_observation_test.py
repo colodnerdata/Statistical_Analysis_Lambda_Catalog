@@ -50,11 +50,16 @@ def _set_sheet_scoped_names(sheet: xw.Sheet) -> None:
 def _calc_formula(k: int, has_intercept: bool, func_name: str) -> str:
     if func_name in _Y_ONLY_FUNCS:
         return f"={func_name}(y,Regression_Sample_Include)"
+    # The v3.0 engine's [Context] argument is the trailing optional every
+    # carrier declares. These observation sections carry no Fixed Effects, so
+    # the context bundles just the per-section intercept flag (absorbed df
+    # defaults to 0 inside Model_Context). The flag must match whether
+    # ``design_expression`` below stacked an intercept column onto X.
     reference_map = {
         "x": "X",
         "y": "y",
         "include": "Regression_Sample_Include",
-        "df_absorbed": None,
+        "context": f"Model_Context({'TRUE' if has_intercept else 'FALSE'})",
     }
     argument_names = catalog_argument_names(func_name)
     call = build_call(func_name, argument_names, reference_map)

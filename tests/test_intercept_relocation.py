@@ -66,26 +66,39 @@ def test_no_function_declares_allow_intercept() -> None:
     assert offenders == []
 
 
-def test_has_intercept_carriers_are_exactly_the_expected_set() -> None:
-    # A new carrier is not automatically wrong, but it is a decision: every one
-    # of these becomes an element read out of Model_Context at stage two.
-    carriers = {
+def test_has_intercept_carriers_are_folded_into_context() -> None:
+    # Stage two folds the thirteen has-intercept carriers into the bounded
+    # Model_Context: each declares [Context] and extracts has_arg from element
+    # 1. No engine function re-acquires Has_Intercept as an argument; only the
+    # Model_Context constructor itself takes it.
+    for name in _EXPECTED_HAS_INTERCEPT_CARRIERS:
+        fn = _functions()[name]
+        arg_names = {a["name"] for a in fn["arguments"]}
+        assert "Has_Intercept" not in arg_names, name
+        assert "Context" in arg_names, name
+
+    has_intercept_declaring = {
         name
         for name, fn in _functions().items()
         if any(arg["name"] == "Has_Intercept" for arg in fn["arguments"])
     }
-    assert carriers == _EXPECTED_HAS_INTERCEPT_CARRIERS
+    assert has_intercept_declaring == {"Model_Context"}
 
 
 def test_has_intercept_is_always_optional_and_defaults_to_true() -> None:
     for name in _EXPECTED_HAS_INTERCEPT_CARRIERS:
         fn = _functions()[name]
-        declared = next(a for a in fn["arguments"] if a["name"] == "Has_Intercept")
+        declared = next(a for a in fn["arguments"] if a["name"] == "Context")
         assert declared.get("optional") is True, name
+        compact = _compact(fn["formula_display"])
+        # The context defaults to VSTACK(TRUE,0,"None","None"), so an omitted
+        # context still means "intercept model with no absorbed df"; has_arg is
+        # element 1 of that default.
         assert (
-            "has_arg,IF(ISOMITTED(Has_Intercept),TRUE,Has_Intercept)"
-            in _compact(fn["formula_display"])
+            'context_arg,IF(ISOMITTED(Context),VSTACK(TRUE,0,"None","None"),Context)'
+            in compact
         ), name
+        assert "has_arg,INDEX(context_arg,1)" in compact, name
 
 
 def test_every_linest_call_disables_its_own_intercept() -> None:
@@ -108,7 +121,7 @@ def test_every_linest_call_disables_its_own_intercept() -> None:
 def test_r_squared_is_derived_from_the_sums_of_squares_not_from_linest() -> None:
     formula = _compact(_functions()["R_Squared"]["formula_display"])
     assert "LINEST" not in formula
-    assert "1-SS_Residual(X,Y,filt_arg)/SS_Total(X,Y,has_arg,filt_arg)" in formula
+    assert "1-SS_Residual(X,Y,filt_arg)/SS_Total(X,Y,filt_arg,context_arg)" in formula
 
 
 def test_the_sums_of_squares_chain_is_acyclic() -> None:
@@ -123,7 +136,7 @@ def test_the_sums_of_squares_chain_is_acyclic() -> None:
 
     ss_regression = _compact(functions["SS_Regression"]["formula_display"])
     assert "R_Squared" not in ss_regression
-    assert "SS_Total(X,Y,has_arg,filt_arg)-SS_Residual(X,Y,filt_arg)" in ss_regression
+    assert "SS_Total(X,Y,filt_arg,context_arg)-SS_Residual(X,Y,filt_arg)" in ss_regression
 
 
 def test_ss_total_projects_the_response_off_the_intercept_column() -> None:

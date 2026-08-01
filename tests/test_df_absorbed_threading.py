@@ -234,19 +234,24 @@ _DF_ABSORBED_FUNCTIONS = (
 )
 
 
-def test_every_df_dependent_function_has_a_trailing_optional_df_absorbed() -> None:
+def test_every_df_dependent_function_has_a_trailing_optional_context() -> None:
+    # Stage two folds [DF_Absorbed] (with [Has_Intercept]) into a single trailing
+    # [Context] argument. The absorbed df is element 2 of that context.
     functions = _catalog_functions()
     for name in _DF_ABSORBED_FUNCTIONS:
         fn = functions[name]
         args = fn["arguments"]
-        assert args[-1]["name"] == "DF_Absorbed", name
+        assert args[-1]["name"] == "Context", name
         assert args[-1].get("optional") is True, name
-        assert "DF_Absorbed" in fn["formula_display"], name
+        assert "Context" in fn["formula_display"], name
 
 
 def test_residual_degrees_of_freedom_defaults_df_absorbed_to_zero() -> None:
     formula = _formula("Residual_Degrees_Of_Freedom")
-    assert "absorbed_arg,IF(ISOMITTED(DF_Absorbed),0,DF_Absorbed)" in formula
+    # absorbed df is element 2 of the context, defaulting to 0 via the
+    # VSTACK(TRUE,0,"None","None") default when [Context] is omitted.
+    assert "context_arg,IF(ISOMITTED(Context),VSTACK(TRUE,0,\"None\",\"None\"),Context)" in formula
+    assert "absorbed_arg,INDEX(context_arg,2)" in formula
     assert formula.rstrip(")").endswith("-absorbed_arg")
 
 
@@ -274,14 +279,14 @@ def test_f_statistic_does_not_correct_the_numerator_degrees_of_freedom() -> None
     # regression (numerator) df counts estimated slope coefficients, which
     # absorbed FE groups are not. F_Statistic is now the plain MS ratio, so
     # the property is checked where each mean square is actually formed.
-    assert "MS_Regression(X,Y,has_arg,filt_arg)/MS_Residual(X,Y,filt_arg,absorbed_arg)" in _formula("F_Statistic")
+    assert "MS_Regression(X,Y,filt_arg,context_arg)/MS_Residual(X,Y,filt_arg,context_arg)" in _formula("F_Statistic")
 
     numerator = _formula("MS_Regression")
-    assert "Regression_Degrees_Of_Freedom(X,has_arg)" in numerator
+    assert "Regression_Degrees_Of_Freedom(X,context_arg)" in numerator
     assert "absorbed_arg" not in numerator
 
     denominator = _formula("MS_Residual")
-    assert "Residual_Degrees_Of_Freedom(X,Y,filt_arg,absorbed_arg)" in denominator
+    assert "Residual_Degrees_Of_Freedom(X,Y,filt_arg,context_arg)" in denominator
 
 
 def main() -> None:  # pragma: no cover - standalone runner

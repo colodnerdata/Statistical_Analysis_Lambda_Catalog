@@ -416,7 +416,11 @@ scope decision and the stage table live in
 [ROADMAP.md](ROADMAP.md) and
 [DECISIONS.md § v3.0 ships in three stages](DECISIONS.md#v30-ships-in-three-stages).
 
-### Stage 1 — constructor pipeline + intercept relocation — **BUILT**
+### Stage 1 — constructor pipeline + intercept relocation — CODE COMPLETE, **VERIFICATION GATE OUTSTANDING**
+
+Not "built and verified" in the sense the v2.1 row uses. The code is written
+and the headless layers pass; the spec-driven Excel gate below has **not**
+been run, and stage 1 is not finished until it has.
 
 - DONE: `X_s()` / `X_s_Within()` / `y_s()` renamed to
   `Predictor_Columns()` / `Design_Columns()` / `Design_Response()`, with

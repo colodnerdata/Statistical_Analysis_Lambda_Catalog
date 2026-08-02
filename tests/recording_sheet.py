@@ -312,20 +312,39 @@ class RecordingColumns:
     bounded blocks. Recording the grouped addresses lets a headless test
     confirm a column was grouped (and, just as importantly, that a gutter was
     NOT).
+
+    Assigning ``ShowDetail`` collapses or expands an existing outline group.
+    A plain SimpleNamespace would swallow that assignment silently, so the
+    proxy below is a real object that records it — collapse state is part of
+    the §4b zone contract (the unbounded design-matrix zone ships collapsed
+    while the bounded ones ship expanded), and a silently-dropped assignment
+    would make that untestable.
     """
+
+    class _Proxy:
+        def __init__(self, columns: "RecordingColumns", address: str) -> None:
+            object.__setattr__(self, "_columns", columns)
+            object.__setattr__(self, "_address", address)
+
+        def Group(self) -> None:  # noqa: N802 — mirrors the COM API
+            self._columns._sheet.column_groups.append(self._address)
+
+        def Ungroup(self) -> None:  # noqa: N802 — mirrors the COM API
+            groups = self._columns._sheet.column_groups
+            if self._address in groups:
+                groups.remove(self._address)
+
+        def __setattr__(self, name: str, value: Any) -> None:
+            if name == "ShowDetail":
+                self._columns._sheet.column_show_detail[self._address] = value
+                return
+            object.__setattr__(self, name, value)
 
     def __init__(self, sheet: "RecordingSheet") -> None:
         self._sheet = sheet
 
     def __call__(self, address: str) -> Any:
-        return SimpleNamespace(
-            Group=lambda: self._sheet.column_groups.append(address),
-            Ungroup=lambda: (
-                self._sheet.column_groups.remove(address)
-                if address in self._sheet.column_groups
-                else None
-            ),
-        )
+        return RecordingColumns._Proxy(self, address)
 
 
 class RecordingSheet:
@@ -336,6 +355,7 @@ class RecordingSheet:
         self.tables: list[dict[str, Any]] = []
         self.list_objects: list[RecordingListObject] = []
         self.column_groups: list[str] = []
+        self.column_show_detail: dict[str, Any] = {}
         self.api = SimpleNamespace(
             Names=RecordingNames(f"{name}!"),
             ListObjects=RecordingListObjects(),

@@ -12,19 +12,34 @@ TODOs.md for the cleanup item.
     Variable Role   Include Type  Reference Level Order   Transform Sequence Sequence Period Period In Use Levels Reference In Use
     (spill)  (drop) (input) (drop)(input)         (rsvd.) (rsvd.)   (flag)   (cand./ovr.)   (disp.)        (disp.)(disp.)
 
-Right of the spec block, after a narrow gap column O (which also visually
-reserves the future Design Columns audit column):
+    M                N                     O
+    Interaction Term Interaction Operation  Design Columns
+    (rsvd. input)    (rsvd. drop)           (disp.)
 
-    O (gap)   P             Q        R     S           T            U     V           W →
-              Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered Predictor_Columns
-    (=Row_Labels() spill at P4; =Sample_Include() spill at Q4 — both
-     full-height, never internally filtered. S/T/V/W are the FILTERED
+M and N are the layout-break MAJOR's interaction pair — declared,
+validated, and flagged now, read by no constructor until the interaction
+wiring release (the same reserved-column pattern F and G went live under).
+O is the per-row Design Columns audit: how many columns this spec row
+contributes to the constructed design matrix. It is a computed display,
+bound by "display derives, never feeds" exactly like J/K/L, and it is
+what supplies the PRE-FLIGHT width number the §4b guard reads — the check
+has to be answerable from the spec, because constructing a 16,000-column
+array in order to discover it does not fit is the failure being prevented.
+
+Right of the spec block sit the Δ/Count spectrum feedback columns (P/Q)
+and then a narrow gap column R:
+
+    P    Q      R (gap) S             T        U     V           W            X     Y           Z →
+    Δ    Count          Row Labels    Included (brk) Filt.Labels Filt.y       (brk) Filt.Labels Filtered Predictor_Columns
+    (=Row_Labels() spill at S4; =Sample_Include() spill at T4 — both
+     full-height, never internally filtered. V/W/Y/Z are the FILTERED
      display zones: the only place on the sheet where Sample_Include()
-     row-filters anything. V repeats the filtered labels so the matrix
-     reads side-by-side without scrolling back to S.)
+     row-filters anything. Y repeats the filtered labels so the matrix
+     reads side-by-side without scrolling back to V.)
 
-Row 1, from column O rightward, holds the bold audit cells as
-label/value pairs (values on the non-narrow columns P/S/V/W/Y/AA):
+Row 1, from column S rightward, holds the bold audit cells as
+label/value pairs — labels on S/V/Y/AA/AC/AE/AG/AI, values on the
+non-narrow columns T/W/Z/AB/AD/AF/AH/AJ (never on a width-2 break):
 
     k = COLUMNS(Predictor_Columns()) · rows = ROWS(Predictor_Columns()) · response = <derived name> ·
     responses = <count of Role="Response (y)"> (red CF when <> 1) ·
@@ -256,6 +271,21 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 # reference-level pattern: I is the candidate-with-override input,
 # J is the in-use display); K and L are the computed Categorical
 # displays (Levels count, Reference In Use).
+#
+# M/N are the interaction pair added by the layout-break MAJOR: M names the
+# OTHER operand (dropdown over the variable names), N the operation
+# (Product | Difference | Ratio, a closed axis). They are APPENDED rather
+# than inserted so every cell a saved spec already filled in keeps both its
+# address and its meaning — the cost being that two inputs now sit right of
+# the J/K/L computed displays, which reads slightly against the block's
+# inputs-then-displays order. That was the cheaper of the two; the
+# alternative shifts eight columns to preserve a reading convention.
+# Both are RESERVED-and-unwired at this release: validated and flagged on
+# the sheet, read by no constructor until the interaction wiring release.
+#
+# O is the per-row Design Columns audit — a computed display bound by
+# "display derives, never feeds" like J/K/L, and the pre-flight width
+# number the ARCHITECTURE §4b guard reads.
 (
     _C_LABEL,
     _C_ROLE,
@@ -269,9 +299,17 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
     _C_PERIOD_IN_USE,
     _C_LEVELS,
     _C_REF_IN_USE,
-) = range(1, 13)
+    _C_INTERACTION_TERM,
+    _C_INTERACTION_OPERATION,
+    _C_DESIGN_COLUMNS,
+) = range(1, 16)
 
-# Widths for the shared A-L spec block — owned here (not by
+# The rightmost spec-block column — the single place the block's extent is
+# stated, so header bolding, the SUBHDR fill strip, and the SpecTable span
+# all move together when a column is appended.
+_C_SPEC_LAST = _C_DESIGN_COLUMNS
+
+# Widths for the shared A-O spec block — owned here (not by
 # write_sheet_regression.py, which imports and calls _set_spec_block_column_widths)
 # so the standalone build and the shared-block build can never drift.
 # F (Order) is reserved-but-unwired, hence width 0 — visually collapsed
@@ -291,6 +329,9 @@ _SPEC_COLUMN_WIDTHS: dict[int, float] = {
     _C_PERIOD_IN_USE: 14,
     _C_LEVELS: 7,
     _C_REF_IN_USE: 16,
+    _C_INTERACTION_TERM: 18,
+    _C_INTERACTION_OPERATION: 18,
+    _C_DESIGN_COLUMNS: 14,
 }
 
 
@@ -298,42 +339,46 @@ def _set_spec_block_column_widths(sheet: xw.Sheet) -> None:
     set_column_widths(sheet, _SPEC_COLUMN_WIDTHS.items())
 
 
-# Spec feedback zone (M, N, I — the verdict overlay): the delta spectrum
-# (Sequence_Delta_Spectrum() spill at M2:N?) sits in M and N; the combined
+# Spec feedback zone (P, Q, I — the verdict overlay): the delta spectrum
+# (Sequence_Delta_Spectrum() spill at P2:Q?) sits in P and Q; the combined
 # verdict switch lives at I2 (the Sequence_Period column's row-1/row-2
 # cells are unused by the spec block, so the verdict overlays them
 # without disturbing anything below row 3). Headers on row 1, content on
-# row 2 — both sit INSIDE the spec block's zone (which extends from A:N,
+# row 2 — both sit INSIDE the spec block's zone (which extends from A:Q,
 # see the Regression sheet's _ZONES), so a single click on the spec
 # outline collapses the spec and its feedback together.
-_C_FEEDBACK_DELTA = 13     # M — Δ header / spectrum column 1
-_C_FEEDBACK_COUNT = 14     # N — Count header / spectrum column 2
+#
+# The spectrum used to sit at M/N; the layout-break MAJOR took those two
+# columns for the interaction pair (and O for the Design Columns audit), so
+# it moved three columns right along with everything after it.
+_C_FEEDBACK_DELTA = 16     # P — Δ header / spectrum column 1
+_C_FEEDBACK_COUNT = 17     # Q — Count header / spectrum column 2
 
 # Gap before the derived-row zone. One ungrouped column (width 2) so the
 # spec outline and the derived-row outline collapse independently.
-_C_GAP = 15
+_C_GAP = 18
 
-# Derived-row zone right of the spec block. P and Q hold the full-height
+# Derived-row zone right of the spec block. S and T hold the full-height
 # Row_Labels() / Sample_Include() spills — they honor the full-height
 # contract (never row-filtered); the FILTERED display zone is further right.
-_C_ROW_LABELS = 16
-_C_INCLUDED = 17
+_C_ROW_LABELS = 19
+_C_INCLUDED = 20
 _GAP_COLUMN_WIDTH = 2
 
 # Filtered display zone: the ONLY place Sample_Include() row-filters
-# anything (everything left of Q honors the full-height contract). R and
-# U are narrow visual breaks; V repeats the filtered labels so the matrix
-# reads side-by-side without scrolling back to S.
-_C_BREAK_LEFT = 18
-_C_FILTERED_LABELS = 19
-_C_FILTERED_Y = 20
-_C_BREAK_MID = 21
-_C_MATRIX_LABELS = 22
-_C_MATRIX_START = 23
+# anything (everything left of T honors the full-height contract). U and
+# X are narrow visual breaks; Y repeats the filtered labels so the matrix
+# reads side-by-side without scrolling back to V.
+_C_BREAK_LEFT = 21
+_C_FILTERED_LABELS = 22
+_C_FILTERED_Y = 23
+_C_BREAK_MID = 24
+_C_MATRIX_LABELS = 25
+_C_MATRIX_START = 26
 
-# Row-1 audit strip: label/value pairs marching right from column P,
-# values placed on the non-narrow columns (P, S, V, W, Y, AA) so no number
-# lands on a width-2 break column.
+# Row-1 audit strip: label/value pairs marching right from column S,
+# values placed on the non-narrow columns (T, W, Z, AB, AD, AF, AH, AJ) so
+# no number lands on a width-2 break column.
 _AUDIT_ROW = 1
 _AUDIT_PAIRS: tuple[tuple[int, int], ...] = (
     (_C_ROW_LABELS, _C_INCLUDED),          # k
@@ -579,6 +624,34 @@ _TYPE_VALIDATION_LIST = "Continuous,Categorical"
 _TRANSFORM_VALIDATION_LIST = ",".join((_DEFAULT_TRANSFORM, "Log"))
 # Sequence flag: TRUE or blank (IgnoreBlank keeps blank legal).
 _SEQUENCE_VALIDATION_LIST = "TRUE"
+
+# Interaction Operation (N): a CLOSED axis in the same sense as Predictor
+# Type — these three exhaust the operations an interaction column can be
+# built from, and the list never grows. Each carries a symmetry attribute
+# the reciprocal-declaration flag below keys on: Product is symmetric and
+# Difference antisymmetric (a reciprocal declaration duplicates or negates
+# a column, giving a singular Gram matrix), while Ratio is asymmetric, so
+# its reciprocal is a legitimately different column.
+_INTERACTION_PRODUCT = "Product"
+_INTERACTION_DIFFERENCE = "Difference"
+_INTERACTION_RATIO = "Ratio"
+_INTERACTION_OPERATION_VALIDATION_LIST = ",".join(
+    (_INTERACTION_PRODUCT, _INTERACTION_DIFFERENCE, _INTERACTION_RATIO)
+)
+# The operations whose reciprocal declaration is degenerate. Ratio is
+# deliberately absent — B/A is not A/B, so declaring both is legal.
+_INTERACTION_SYMMETRIC_OPERATIONS = (
+    _INTERACTION_PRODUCT,
+    _INTERACTION_DIFFERENCE,
+)
+
+# Interaction Term (M): the dropdown source is the variable-name spill at
+# A{_FIRST_DATA_ROW}, referenced with the spill operator so the list is
+# exactly the dataset's columns and resizes with a retarget — no fixed
+# range to keep in sync, and no volatile OFFSET. The spill itself is
+# =TRANSPOSE(Header_Names), so the offered names are always the live
+# table headers.
+_INTERACTION_TERM_VALIDATION_FORMULA = f"=$A${_FIRST_DATA_ROW}#"
 _XL_VALIDATE_LIST = 3
 _XL_VALID_ALERT_STOP = 1
 _XL_BETWEEN = 1
@@ -614,6 +687,44 @@ _SEQUENCE_PERIOD_NOTE = (
     "candidate from within-group consecutive spacings). "
     "Blank on rows that are not the sequence axis. See the Sequence "
     "Spacing block below the spec for the delta spectrum and verdicts."
+)
+_INTERACTION_TERM_NOTE = (
+    "Interaction Term — names the OTHER operand of an interaction "
+    "involving this row. Blank (the default) means no interaction. Only a "
+    "Predictor may be an operand: any other Role on the named row is an "
+    "error (flagged red), as is a name that is not a variable in this "
+    "table. Naming a Predictor whose Include is FALSE is ALLOWED and "
+    "flagged amber — an interaction without its main effect is a "
+    "marginality violation, usually a mistake but occasionally "
+    "deliberate, and blocking it would be the library deciding a "
+    "modeling question. Pointing at this row's OWN variable with "
+    "Operation = Product is the documented way to declare a quadratic "
+    "(x squared) term. RESERVED: validated and flagged now, read by no "
+    "constructor until the interaction wiring release — the Design "
+    "Columns audit therefore still counts main effects only."
+)
+_INTERACTION_OPERATION_NOTE = (
+    "Interaction Operation — how the two operands combine: Product "
+    "(symmetric), Difference (antisymmetric), or Ratio (asymmetric). A "
+    "closed axis, like Predictor Type: these three never grow. Declaring "
+    "B on A as well as A on B is flagged red for Product and Difference "
+    "— the reciprocal produces a duplicate or exact-negative column and a "
+    "singular Gram matrix, and it is flagged, never silently "
+    "deduplicated. Ratio is asymmetric, so its reciprocal is a different "
+    "column and is allowed. RESERVED alongside Interaction Term: read by "
+    "no constructor until the interaction wiring release."
+)
+_DESIGN_COLUMNS_NOTE = (
+    "Design Columns — how many columns THIS spec row contributes to the "
+    "constructed design matrix. Blank when the row is not a Predictor; 0 "
+    "when it is excluded or degenerate; 1 for a Continuous Predictor; "
+    "L-1 for a Categorical one, where L is the Levels count beside it. "
+    "This is the column where one dropdown change becomes visible: "
+    "switching a high-cardinality variable to Categorical can add "
+    "hundreds of columns. A computed display — no constructor reads it — "
+    "and the pre-flight number behind the design-matrix width guard "
+    "above, which is why the check is answerable from the spec instead "
+    "of by building a matrix that turns out not to fit."
 )
 
 # Count of Sequence flags across the live spec rows — the zero-or-one
@@ -667,6 +778,41 @@ _FIXED_EFFECTS_NAME_FORMULA = (
 _RESPONSE_LOG_FORMULA = (
     'IFERROR(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),'
     f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))="Log",FALSE)'
+)
+
+# The per-row Design Columns audit (spec column O). Mirrors
+# Predictor_Columns()'s own iteration predicate and its degenerate skip
+# EXACTLY, rather than re-deriving the count from the K (Levels) display:
+#
+#   Role <> Predictor            -> ""  (the column is not a candidate)
+#   Include <> TRUE              -> 0   (candidate, currently out)
+#   Type <> Categorical          -> 1   (one column, transform or not)
+#   otherwise                    -> COLUMNS(Dummy_Levels(...)), i.e. L-1,
+#                                   and 0 when Dummy_Levels signals #N/A
+#                                   (degenerate column or invalid
+#                                   reference — the constructor's acc
+#                                   passthrough, which contributes nothing)
+#
+# The reference normalization is the constructor's own
+# (IF(LEN(d&"")=0,"",d)), so a blank Reference Level resolves to the same
+# default level here as it does inside Predictor_Columns(). Reading K
+# instead would make one display depend on another; reading the same
+# closure the constructor reads makes them provably consistent, which is
+# the "one source of truth is the FUNCTION" rule from ARCHITECTURE §4.
+#
+# Interactions are not counted: M/N are reserved-and-unwired at this
+# release, so the constructor builds main effects only and an audit that
+# anticipated interaction columns would be reporting a matrix that does
+# not exist. Wiring them adds a term here in the same edit that teaches
+# the constructor to build them.
+_DESIGN_COLUMNS_ROW_FORMULA = (
+    f'=IF([@Role]<>"{_ROLE_PREDICTOR}","",'
+    "IF([@Include]<>TRUE,0,"
+    'IF([@Type]<>"Categorical",1,'
+    "IFERROR(COLUMNS(Dummy_Levels("
+    f"INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
+    'IF(LEN([@[Reference Level]]&"")=0,"",[@[Reference Level]]),'
+    "Sample_Include())),0))))"
 )
 
 # Verdict messages. Blank cell = quiet; conditional formatting keys on
@@ -757,6 +903,22 @@ def _set_sheet_scoped_names(
         "Spec_Period_In_Use": (
             f"={sname}!SpecTable[[#Data],[Period In Use]]"
         ),
+        # The interaction pair (M/N) and the Design Columns audit (O),
+        # added by the layout-break MAJOR. The first two are RESERVED —
+        # bound so the grid shape is final and so the conditional-format
+        # rules on the pair have a band to read, but consumed by no
+        # constructor until the interaction wiring release. The third is
+        # a computed display, bound by "display derives, never feeds":
+        # only the width guard reads it, and the guard is a display too.
+        "Spec_Interaction_Term": (
+            f"={sname}!SpecTable[[#Data],[Interaction Term]]"
+        ),
+        "Spec_Interaction_Operation": (
+            f"={sname}!SpecTable[[#Data],[Interaction Operation]]"
+        ),
+        "Spec_Design_Columns": (
+            f"={sname}!SpecTable[[#Data],[Design Columns]]"
+        ),
         # Model-level Intercept toggle (row-2 control): a single boolean cell
         # in the C/Include column. No v3.0 formula reads it yet — the engine
         # will, exactly as the v1 Regression sheet's Allow_Intercept did.
@@ -811,10 +973,103 @@ def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
     cell_api.Comment.Visible = False
 
 
+def _interaction_error_formats(sheet: xw.Sheet) -> None:
+    """The three conditional-formatting flags on the interaction pair M/N.
+
+    All three resolve the named OTHER operand the same way: XMATCH the
+    typed name against the live table headers to get its source-column
+    index ``j``, then read the target row's own spec cells at that index.
+    ``j`` is 0 when the name matches nothing, and every INDEX is taken at
+    ``MAX(j,1)`` so a miss produces a clean FALSE instead of an #N/A that
+    would propagate out of the enclosing AND (and silently disable the
+    rule — an error result means "do not format", which is exactly the
+    wrong answer for a flag whose job is to catch bad input).
+
+    1. **Red on M** — the named operand is not a variable in this table,
+       or its Role is not Predictor. Only a Predictor may be an operand.
+    2. **Amber on M** — the operand IS a Predictor but is excluded. An
+       interaction without its main effect is a marginality violation:
+       usually a mistake, occasionally deliberate, so it is flagged and
+       allowed. Blocking it would be the library deciding a modeling
+       question.
+    3. **Red on N** — a reciprocal declaration under a symmetric or
+       antisymmetric operation: this row names the other, the other names
+       this one back, and both carry the same Product or Difference.
+       That is a duplicate or exact-negative column and a singular Gram
+       matrix. Flagged, never silently deduplicated. Ratio is excluded
+       (it is asymmetric — B/A is a different column from A/B), and a row
+       naming ITSELF is excluded (self × self under Product is the
+       documented way to declare a quadratic term, not a reciprocal).
+    """
+    r = _FIRST_DATA_ROW
+    last = _VALIDATION_LAST_ROW
+    m = f"$M{r}"
+    n = f"$N{r}"
+    # Shared prologue: nc = spec width, hdr = the live header row, j = the
+    # named operand's source-column index (0 = no match), p = j clamped
+    # into range so every INDEX below is well-formed.
+    lookup = (
+        "nc,COLUMNS(Source_Data),"
+        "hdr,TOROW(Header_Names),"
+        f"j,IFERROR(XMATCH({m},hdr),0),"
+        "p,MAX(j,1),"
+    )
+
+    add_expression_format(
+        sheet,
+        f"$M${r}:$M${last}",
+        (
+            f"=LET({lookup}"
+            f'AND({m}<>"",OR(j=0,'
+            f'INDEX(TAKE(Spec_Role,nc),p)<>"{_ROLE_PREDICTOR}")))'
+        ),
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+        stop_if_true=True,
+    )
+    add_expression_format(
+        sheet,
+        f"$M${r}:$M${last}",
+        (
+            f"=LET({lookup}"
+            f'AND({m}<>"",j>0,'
+            f'INDEX(TAKE(Spec_Role,nc),p)="{_ROLE_PREDICTOR}",'
+            "INDEX(TAKE(Spec_Include,nc),p)<>TRUE))"
+        ),
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
+        stop_if_true=True,
+    )
+
+    # This row's own source-column index, clamped the same way: the CF
+    # band runs out to _VALIDATION_LAST_ROW, well past the spec rows, and
+    # an unclamped INDEX(hdr,1,i) there would error. Clamping is safe
+    # because the rule also requires a non-blank Operation, which no row
+    # below the table has.
+    reciprocal_ops = ",".join(
+        f'{n}="{op}"' for op in _INTERACTION_SYMMETRIC_OPERATIONS
+    )
+    add_expression_format(
+        sheet,
+        f"$N${r}:$N${last}",
+        (
+            f"=LET({lookup}"
+            f"i,ROW()-{_ROW_TO_COL_OFFSET},"
+            "q,MIN(MAX(i,1),nc),"
+            f"AND(OR({reciprocal_ops}),j>0,j<>i,"
+            "INDEX(TAKE(Spec_Interaction_Term,nc),p)=INDEX(hdr,1,q),"
+            f"INDEX(TAKE(Spec_Interaction_Operation,nc),p)={n}))"
+        ),
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+        stop_if_true=True,
+    )
+
+
 def _write_spec_block(
     sheet: xw.Sheet, profile: SpecDatasetProfile | None = None
 ) -> None:
-    """The A–L specification block: headers, defaults, dropdowns, CF.
+    """The A–O specification block: headers, defaults, dropdowns, CF.
 
     ``profile`` supplies the variable list and default Role/Include/Type/
     Sequence values — defaults to the shipped Auto MPG profile
@@ -822,7 +1077,7 @@ def _write_spec_block(
     function's original hardcoded-to-Auto-MPG behavior.
     """
     profile = profile or _AUTO_MPG_PROFILE
-    bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_REF_IN_USE)
+    bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_SPEC_LAST)
     for col, header in (
         (_C_LABEL, "Variable"),
         (_C_ROLE, "Role"),
@@ -836,6 +1091,9 @@ def _write_spec_block(
         (_C_PERIOD_IN_USE, "Period In Use"),
         (_C_LEVELS, "Levels"),
         (_C_REF_IN_USE, "Reference In Use"),
+        (_C_INTERACTION_TERM, "Interaction Term"),
+        (_C_INTERACTION_OPERATION, "Interaction Operation"),
+        (_C_DESIGN_COLUMNS, "Design Columns"),
     ):
         val(sheet, _HEADER_ROW, col, header)
 
@@ -850,7 +1108,7 @@ def _write_spec_block(
     # underneath. Covers column A's header too (outside the ListObject, so
     # untouched by TableStyle) for a uniform row.
     sheet.range(
-        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_REF_IN_USE)
+        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST)
     ).color = SUBHDR_COLOR
 
     # A: variable names spill straight from the table's header row via the
@@ -951,11 +1209,29 @@ def _write_spec_block(
             ),
         )
 
+        # M/N: the interaction pair — both pure inputs, blank by default
+        # (no interaction). Styled and validated now; read by no
+        # constructor until the interaction wiring release.
+        format_input(sheet, row, _C_INTERACTION_TERM)
+        format_input(sheet, row, _C_INTERACTION_OPERATION)
+
+        # O: the Design Columns audit — how many columns this row
+        # contributes to the constructed design matrix.
+        f_structured(sheet, row, _C_DESIGN_COLUMNS, _DESIGN_COLUMNS_ROW_FORMULA)
+
     _add_list_validation(sheet, _C_ROLE, _ROLE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_INCLUDE, _INCLUDE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_TYPE, _TYPE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_TRANSFORM, _TRANSFORM_VALIDATION_LIST)
     _add_list_validation(sheet, _C_SEQUENCE, _SEQUENCE_VALIDATION_LIST)
+    _add_list_validation(
+        sheet, _C_INTERACTION_TERM, _INTERACTION_TERM_VALIDATION_FORMULA
+    )
+    _add_list_validation(
+        sheet,
+        _C_INTERACTION_OPERATION,
+        _INTERACTION_OPERATION_VALIDATION_LIST,
+    )
 
     # Cascading relevance, Role-keyed: the per-Predictor inputs (C–F) and
     # the Categorical displays (K–L) hide in place whenever Role ≠
@@ -999,6 +1275,32 @@ def _write_spec_block(
     add_expression_format(
         sheet,
         f"$K${_FIRST_DATA_ROW}:$L${_VALIDATION_LAST_ROW}",
+        f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
+        font_color=(255, 255, 255),
+    )
+
+    # ── Interaction pair (M/N) flags ─────────────────────────────────────
+    # Rule ORDER is the priority order: FormatConditions.Add appends, and
+    # the earlier rule wins, so the two error flags go in FIRST with
+    # StopIfTrue and the hide-in-place rule last. Without that, a
+    # non-blank M typed onto a non-Predictor row would be silently grayed
+    # out by the hide rule instead of showing its error.
+    _interaction_error_formats(sheet)
+
+    # Cascading relevance, Role-keyed (continued): M–N hide in place
+    # whenever Role ≠ Predictor, exactly like C–F. Both are
+    # format_input-colored inputs, so the font matches INPUT_COLOR.
+    add_expression_format(
+        sheet,
+        f"$M${_FIRST_DATA_ROW}:$N${_VALIDATION_LAST_ROW}",
+        f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
+        font_color=INPUT_COLOR,
+    )
+    # O (Design Columns) is an unfilled computed display, so it hides the
+    # same way K and L do — white font on the white cell.
+    add_expression_format(
+        sheet,
+        f"$O${_FIRST_DATA_ROW}:$O${_VALIDATION_LAST_ROW}",
         f'=$B{_FIRST_DATA_ROW}<>"{_ROLE_PREDICTOR}"',
         font_color=(255, 255, 255),
     )
@@ -1126,7 +1428,7 @@ def _create_spec_table(
     profile = profile or _AUTO_MPG_PROFILE
     last_data_row = _FIRST_DATA_ROW + len(profile.variables) - 1
     table_range = sheet.range(
-        (_HEADER_ROW, _C_ROLE), (last_data_row, _C_REF_IN_USE)
+        (_HEADER_ROW, _C_ROLE), (last_data_row, _C_SPEC_LAST)
     )
     table = sheet.api.ListObjects.Add(
         SourceType=XL_SRC_RANGE,
@@ -1140,17 +1442,17 @@ def _create_spec_table(
 
 
 def _write_spec_feedback(sheet: xw.Sheet) -> None:
-    """The M/N spectrum and the I1/I2 verdict overlay.
+    """The P/Q spectrum and the I1/I2 verdict overlay.
 
     Layout (cells land on row 1 for headers, row 2 for content; row 1 is
     shared with the row-1 audit strip on the right side of the sheet, and
     row 2 holds the row-2 Intercept control — both unaffected by the
     feedback cells to the right of E2):
 
-        M1 = "Δ"          (bold header)
-        N1 = "Count"      (bold header)
-        M2 = IFERROR(Sequence_Delta_Spectrum(), "")
-            — spills downward into empty territory (M and N are spec
+        P1 = "Δ"          (bold header)
+        Q1 = "Count"      (bold header)
+        P2 = IFERROR(Sequence_Delta_Spectrum(), "")
+            — spills downward into empty territory (P and Q are spec
               feedback columns with no other content, so the spill never
               collides with the spec block below row 3)
         I1 = "Verdict"    (bold header — overlays the Sequence_Period
@@ -1257,9 +1559,9 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
         f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom())',
     )
 
-    # M1/N1: bold headers (no fill, default font size). The Verdict header
+    # P1/Q1: bold headers (no fill, default font size). The Verdict header
     # (I1) is bolded separately below; it lives in column I (the spec
-    # block's Sequence_Period column) and so is NOT in the M:N range.
+    # block's Sequence_Period column) and so is NOT in the P:Q range.
     val(sheet, feedback_header_row, _C_FEEDBACK_DELTA, "Δ")
     val(sheet, feedback_header_row, _C_FEEDBACK_COUNT, "Count")
     bold_row(
@@ -1269,7 +1571,7 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
         _C_FEEDBACK_COUNT,
     )
 
-    # M2: Sequence_Delta_Spectrum() — an N×2 array of (delta, count) pairs,
+    # P2: Sequence_Delta_Spectrum() — an N×2 array of (delta, count) pairs,
     # spilling downward into empty territory. IFERROR degrades the
     # no-axis / no-spacings #N/A to a quiet blank.
     f(
@@ -1460,9 +1762,9 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
 
 
 def _write_row_zones(sheet: xw.Sheet) -> None:
-    """The M/N derived-row zone: full-height label and mask spills.
+    """The S/T derived-row zone: full-height label and mask spills.
 
-    Row 1 of M/N is not written here — _write_audit_row owns the audit
+    Row 1 of S/T is not written here — _write_audit_row owns the audit
     strip that occupies it.
     """
     sheet.range(rc(1, _C_GAP)).column_width = _GAP_COLUMN_WIDTH
@@ -1476,7 +1778,7 @@ def _write_row_zones(sheet: xw.Sheet) -> None:
 
 
 def _write_audit_row(sheet: xw.Sheet) -> None:
-    """Row-1 audit strip: bold label/value pairs from column K rightward.
+    """Row-1 audit strip: bold label/value pairs from column S rightward.
 
     Values live in their own cells (not concatenated into the labels) so
     the QC analyzer can assert the numbers directly. The Predictor_Columns()-derived
@@ -1543,7 +1845,7 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
 
 
 def _write_filtered_zones(sheet: xw.Sheet) -> None:
-    """The P/Q and S/T→ filtered display zones.
+    """The V/W and Y/Z→ filtered display zones.
 
     The only row-filtering on the sheet: FILTER(<full-height name>(),
     Sample_Include()). Every spill wraps IFERROR(..., "(empty model)") —
@@ -1635,6 +1937,16 @@ def write_model_construction_sheet(
     _set_note(sheet, _FIRST_DATA_ROW, _C_TRANSFORM, _TRANSFORM_NOTE)
     _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE, _SEQUENCE_NOTE)
     _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
+    _set_note(
+        sheet, _FIRST_DATA_ROW, _C_INTERACTION_TERM, _INTERACTION_TERM_NOTE
+    )
+    _set_note(
+        sheet,
+        _FIRST_DATA_ROW,
+        _C_INTERACTION_OPERATION,
+        _INTERACTION_OPERATION_NOTE,
+    )
+    _set_note(sheet, _FIRST_DATA_ROW, _C_DESIGN_COLUMNS, _DESIGN_COLUMNS_NOTE)
 
     _set_spec_block_column_widths(sheet)
     return sheet

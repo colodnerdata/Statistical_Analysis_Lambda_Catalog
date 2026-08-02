@@ -96,21 +96,40 @@ _VERSIONS = [
     {
         "version": "3.0.0",
         "date": "2026-08-02",
-        "breaking": "No",
+        "breaking": "Yes",
         "summary": (
-            "v3.0: bounded model context, constructor pipeline, and the "
-            "two-workbook split. The Regression fit chain is rebuilt around a "
-            "bounded [Context] argument (Has_Intercept, DF_Absorbed, response "
-            "and predictor transforms) threaded through a single Model_Context "
-            "constructor with Context_* field accessors, and Design_Columns / "
-            "Design_Response construct the fit-time design matrix (the within "
-            "estimator's demean-by-group stage lives here, not in the engines). "
+            "v3.0: bounded model context, constructor pipeline, the "
+            "two-workbook split, and the layout break. The Regression fit "
+            "chain is rebuilt around a bounded [Context] argument "
+            "(Has_Intercept, DF_Absorbed, response and predictor transforms) "
+            "threaded through a single Model_Context constructor with "
+            "Context_* field accessors, and Design_Columns / Design_Response "
+            "construct the fit-time design matrix (the within estimator's "
+            "demean-by-group stage lives here, not in the engines). "
             "Univariate Analysis moves to its own workbook "
-            "(Lambda_Library_Univariate.xlsx) so each artifact can set its own "
-            "calculation mode; the Regression workbook returns to full "
-            "Automatic. The split is packaging only — no specification, input "
-            "cell, or named range changes meaning, so every model valid before "
-            "3.0.0 produces the same result after it."
+            "(Lambda_Library_Univariate.xlsx) so each artifact can set its "
+            "own calculation mode; the Regression workbook returns to full "
+            "Automatic. The model specification block gains three columns: "
+            "Interaction Term (M) and Interaction Operation (N) declare an "
+            "interaction between a spec row and another Predictor, and "
+            "Design Columns (O) shows how many design-matrix columns each "
+            "row contributes, totalled above it as the constructed matrix's "
+            "full width. A pre-flight width guard reads that total and flags "
+            "a model wide enough to be slow (amber) or too wide for the "
+            "sheet (red) — computed from the specification, before any "
+            "matrix is built. The sheet's far right gains the Constructed "
+            "Design Matrix zone, which terminates the materialization band; "
+            "nothing may ever be placed to its right. M and N are reserved: "
+            "validated and flagged now, read by no constructor until the "
+            "interaction wiring release. WHAT BREAKS: cell ADDRESSES, not "
+            "meanings. Columns A-L keep both their letters and their "
+            "meanings, so a saved specification survives the upgrade "
+            "unchanged and no fitted number moves — but the three new "
+            "columns push every zone right of the spec block three columns "
+            "over (Alpha moves Y12 to AB12, Prediction Inputs move from "
+            "column AH to AK, Residual Output from AK to AN), so any "
+            "formula of your own that points at a cell on this sheet needs "
+            "re-pointing."
         ),
     },
 ]

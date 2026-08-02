@@ -116,9 +116,9 @@ Rationale in
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
 | v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Built and verified** — every TODOs #1–#10 item is DONE, verified against a live build (0 mismatches across all 12 spec-driven QC cases). `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Awaiting only the human sign-off run of `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` and the 2.1.0 Version History entry, plus DEFERRED follow-on polish |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()`/`Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open and ship as **v3.3**, after v3.0 |
-| **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, and the two-artifact split | **No** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0). Stages 1-2 (constructor pipeline + intercept relocation, then the `Model_Context` / `[Context]` collapse) and the Univariate split shipped together. **Non-breaking at the public interface**: stages 1-2 restructure the engine (the constructor pipeline, the bounded `[Context]` argument) but leave the user-typed spec block and its results unchanged — a Regression spec saved under 2.0.0 produces identical output under 3.0.0 (stage one QC: zero mismatches across all twelve cases; stage two gate green) — and the split is packaging only. The 3.0.0 MAJOR is the architectural-milestone number for the engine-interface release, not the "your saved inputs break" signal (that is the `Breaking?` flag, **No**). The originally-planned stage-3 layout break (interaction spec columns M/N, the Design Columns audit column, the Constructed Design Matrix zone) is deferred to a future MAJOR release. See the milestone entry below |
-| v3.1 | Interaction wiring — the constructor actually builds the interaction columns the deferred layout break inserts | No | Planned — MINOR. A follow-on to the deferred stage-3 layout break (the future MAJOR below), not to the shipped v3.0 and not a feature-train milestone: once that MAJOR inserts the two spec columns reserved-and-unwired, this is a formula change against a column that ships empty |
-| v3.2 | Full materialization of the design matrix | No | Planned — MINOR. The other follow-on to the deferred stage-3 layout break: that future MAJOR establishes the zone; this fills it |
+| **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the two-artifact split, and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
+| v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | Planned — MINOR. A follow-on to the layout break, not a feature-train milestone: the two spec columns already exist reserved-and-unwired, so this is a formula change against columns that ship empty. The Design Columns audit gains its interaction term in the same edit that teaches the constructor to build them |
+| v3.2 | Full materialization of the design matrix | No | Planned — MINOR. The other follow-on: stage 3 established the terminal zone and its width guard; this fills it. Also carries the deferred `Sample_Include()` thunk-over-a-spill promotion, which needs the `#` spill operator inside a `LAMBDA` defined-name and is only verifiable with Excel present |
 | v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the standalone transform library | No | Planned — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2 |
 | v3.4 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one |
 | v3.5 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4.* Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QC build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
@@ -158,15 +158,18 @@ pipeline, and no representation for interactions at all. "Additive" is the prope
 that makes a change a MINOR; it was never evidence that the interface could absorb
 it indefinitely. v3.0 unwinds that accumulation in the *engine* (the constructor
 pipeline and the bounded `Model_Context`), which is non-breaking at the public
-interface — a spec saved under 2.0.0 produces identical output under 3.0.0 — so
-the engine-interface milestone shipped without a break. The one genuine break the
-unwinding needs is the layout insertion (interaction spec columns M/N, the audit
-column, the materialization zone), and it was separated out as the **deferred
-stage-3 MAJOR** rather than bundled into v3.0. The discipline v3.0 replaces the old
-rule with is stated in the milestone entry below.
+interface — a spec saved under 2.0.0 produces identical output under 3.0.0 — and
+in the *layout* (the interaction spec columns, the audit column, the
+materialization zone), which is the one genuine break the unwinding needs. Both
+land inside v3.0, as separate stages behind separate pull requests: the engine
+stages carry a zero-mismatch verification gate, and the layout stage carries the
+`Breaking?` flag. The discipline v3.0 replaces the old rule with is stated in the
+milestone entry below.
 
-The next MAJOR is that deferred layout break; the one after it is reserved for the
-next genuine interface break after that, whenever that is.
+The next MAJOR is reserved for the next genuine interface break, whenever that
+is. The layout stage bought room for two of them not to happen: M/N ship
+reserved-and-unwired and the terminal materialization zone ships reserved, so
+v3.1 and v3.2 are formula changes against columns that already exist.
 
 Univariate shipped **before** Specification-Driven Regression despite the lower version
 gap, as planned: its engine was already implemented and its sheet writer was wired into
@@ -297,12 +300,12 @@ reference *is* the model.
   Sequence (a structural flag, never grows). The full taxonomy and the
   cardinality rules are in
   [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
-- **Spec block A–L on the Regression sheet** *(A–N from v3.0, which appends the
-  two interaction columns)* — every column of the source
-  table, one row per column. Cascading-relevance CF grays out cells
-  irrelevant to the column's Role. The full A–L layout, the
+- **Spec block A–L on the Regression sheet** *(A–O from v3.0, which appends the
+  two interaction columns and the Design Columns audit)* — every column of the
+  source table, one row per column. Cascading-relevance CF grays out cells
+  irrelevant to the column's Role. The full A–O layout, the
   reserved-column policy, and the "Display derives, never feeds" rule
-  are in [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an).
+  are in [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao).
 - **Spec-order assembly for `x_s()`** with the **level-vector split** for
   Categorical Predictors — training and prediction both call the same
   encoder with the same training level vector. Reference-level validation
@@ -443,9 +446,9 @@ The engine-interface release. It responds to
 in isolation and the cost is in the sum. Every design question below is
 **resolved** in
 [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
-The release shipped as stages 1-2 plus the two-artifact split (workbook 3.0.0,
-Univariate artifact 1.0.0); the originally-planned stage-3 layout break is
-deferred to a future MAJOR (see the scope section below).
+The release shipped as three stages plus the two-artifact split (workbook 3.0.0,
+Univariate artifact 1.0.0), each a separate reviewable pull request with its own
+verification gate (see the scope section below).
 
 - **Bounded `Model_Context`** — engine signatures collapse from
   `(X_s, Y, [Allow_Intercept], [Include], [DF_Absorbed])` to
@@ -493,53 +496,59 @@ materialized; and the interaction columns and the audit column both touch the
 spec-block layout. That argued for one release, against the general principle of
 small increments.
 
-**Resolved: shipped as stages 1-2 plus the two-artifact split; the layout break
-deferred.** v3.0 shipped as two reviewable pull requests (stages 1-2) plus the
-Univariate split — workbook 3.0.0, Univariate artifact 1.0.0, 2026-08-02. The
-originally-planned third stage (the layout break — interaction spec columns M/N,
-the Design Columns audit column, the Constructed Design Matrix zone) is deferred
-to a future MAJOR release; v3.1 and v3.2 below are its follow-on minors, not
-v3.0's.
+**Resolved: shipped as three stages plus the two-artifact split.** v3.0 shipped as
+four reviewable pull requests — workbook 3.0.0, Univariate artifact 1.0.0,
+2026-08-02. Splitting the release into stages did not split the release: all four
+land under the one version number, because they answer the one question together.
 
 | Stage | Contents | Status |
 |---|---|---|
 | **1** | Constructor pipeline · intercept relocation | **Shipped** (merged as #148, QC gate cleared) |
 | **2** | `Model_Context` · `Sample_Include` materialized · `[Has_Intercept]`/`[DF_Absorbed]` collapse into `[Context]` · two-name split (`Model_Context` constructor / `Fit_Context` reader) + 4 context accessors · rows 3-4 populated | **Shipped** (merged as #150, QC gate green) |
-| **+ split** | Univariate Analysis → its own workbook; Regression workbook → full Automatic | **Shipped** with v3.0 |
-| 3 | Interaction spec columns M/N (reserved) · Design Columns audit column · Constructed Design Matrix zone + width guard | **Deferred to a future MAJOR** |
+| **+ split** | Univariate Analysis → its own workbook; Regression workbook → full Automatic | **Shipped** with v3.0 (merged as #151) |
+| **3** | Interaction spec columns M/N (reserved) · Design Columns audit column + pre-flight width guard · Constructed Design Matrix zone | **Shipped** — the layout break; spec-driven verifier passed, no fitted number moved |
 
-v3.0 alone is stages 1-2 plus the split. v3.3 onward is the feature train
-resequenced behind it — a different thing, and not part of v3.0.
+v3.3 onward is the feature train resequenced behind v3.0 — a different thing, and
+not part of it.
 
 The order was forced by the same dependencies listed above. Stage one carried a
 verification property the others did not — **no number moves**, so the spec-driven
 QC pass had to report zero mismatches across all twelve cases — which is why it
-went first despite touching the most functions. **v3.0 is non-breaking at the
-public interface**: stages 1-2 restructure the engine, not the user-typed spec
-block, and the split is packaging only — a spec saved under 2.0.0 produces
-identical output under 3.0.0. The 3.0.0 MAJOR marks the architectural milestone;
-the `Breaking?` flag is **No**. The genuine interface break is the deferred
-stage-3 layout work. See
-[DECISIONS.md § v3.0 shipped in two stages](DECISIONS.md#v30-shipped-in-two-stages-the-layout-break-is-deferred-to-a-future-major).
+went first despite touching the most functions. Stage three went last because the
+materialization zone could not be positioned until the constructor pipeline was
+settled; placing it earlier would have materialized two variants of an
+architecture that was still changing.
 
-**Release contents — §3/§4/§5 fully (shipped); §6/§7 deferred to the layout-break MAJOR:**
+**Where the `Breaking?` flag comes from.** Stages 1-2 and the split are
+non-breaking: they restructure the engine and the packaging, not the user-typed
+spec block, so a spec saved under 2.0.0 produces identical output. Stage three is
+the break, and it is worth being precise about what kind. Its three columns are
+**appended** to the spec block, not inserted into it, so A–L keep both their
+addresses and their meanings — a saved specification survives untouched and no
+fitted number moves. What moves is every zone to the *right* of the spec block,
+three columns over. A user who only fills in the spec block notices nothing; a
+user whose own formulas point at cells on this sheet has to re-point them. That is
+a real break, so the flag is **Yes**, but it is an address break rather than a
+meaning break — the far more recoverable of the two. See
+[DECISIONS.md § v3.0 shipped in stages](DECISIONS.md#v30-shipped-in-stages-the-layout-break-lands-last).
 
-| Release | Contents | Break |
+**Release contents — §3 through §7, all shipped:**
+
+| Stage | Contents | Break |
 |---|---|---|
-| **v3.0** (shipped) | `Model_Context` · intercept relocation · constructor pipeline · two-artifact split (Univariate → its own workbook; Regression → full Automatic) | **No** (non-breaking; the 3.0.0 MAJOR marks the architectural milestone) |
-| **Future MAJOR** (deferred stage 3) | Interaction spec columns M/N reserved-and-unwired · Design Columns audit column · Constructed Design Matrix zone + width guard | **Yes** (the layout break — column insertions shift every spec-block column right) |
-| v3.1 | Interaction wiring — the constructor actually builds the columns the layout break inserts | MINOR (follows the layout-break MAJOR) |
-| v3.2 | Full materialization of the design matrix | MINOR (follows the layout-break MAJOR) |
+| 1-2 + split | `Model_Context` · intercept relocation · constructor pipeline · two-artifact split (Univariate → its own workbook; Regression → full Automatic) | **No** |
+| 3 | Interaction spec columns M/N reserved-and-unwired · Design Columns audit column · Constructed Design Matrix zone + width guard | **Yes** (addresses right of the spec block shift three columns) |
+| v3.1 | Interaction wiring — the constructor actually builds the columns stage 3 declared | MINOR (follows v3.0) |
+| v3.2 | Full materialization of the design matrix | MINOR (follows v3.0) |
 
 **Justification.** REVIEW.md's own sequencing note observes that F3 and F6 "all
 want the same breaking change — resolving them separately spends three layout
-breaks where one would do." The two interaction columns and the audit column are
-*insertions* that shift every column to their right; that is the irreversible
-part, and it is the genuine interface break — which is why it is the deferred
-layout-break MAJOR, not bundled into the non-breaking v3.0. The wiring of each is
-a formula change against a column that already exists — precisely the
-reserved-column pattern, and exactly how column G went live at v2.2 — so it stays
-genuinely additive MINOR work once the layout break lands.
+breaks where one would do." That is why the two interaction columns, the audit
+column, and the materialization zone all landed in the single stage-three change
+rather than one per release. The wiring of each is then a formula change against a
+column that already exists — precisely the reserved-column pattern, and exactly
+how column G went live at v2.2 — so v3.1 and v3.2 stay genuinely additive MINOR
+work with no second layout break behind them.
 
 **What this scope does *not* cost.** F5 read as though the layout work would have
 to be done twice — "the spec block is implemented twice; a layout change touches
@@ -552,14 +561,13 @@ above. See
 [DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
 
 The counter-argument weighed and answered: v3.0 is a large release that is hard to
-verify in one pass, and the human test plan for it is substantial. The earlier
-draft of this entry offered splitting §6 and §7's layout work into a v3.0 and v3.1
-pair, at the cost of a second layout break. What shipped goes further: stages 1-2
-(the engine interface) and the split landed as the non-breaking v3.0, each a
-reviewable diff with its own verification gate, and the layout break was separated
-out as a deferred MAJOR rather than bundled in — so the engine-interface milestone
-is verified and in users' hands without waiting on the layout insertions, which
-still land exactly once when that MAJOR ships.
+verify in one pass, and the human test plan for it is substantial. The answer was
+not to shrink the release but to stage it — four pull requests, each a reviewable
+diff with its own verification gate, under one version number. The engine stages
+cleared a zero-mismatch numeric gate before the layout stage was allowed to move a
+single column, which is what made the layout stage's own gate meaningful: with the
+numbers already pinned, any mismatch it produced could only have come from the
+layout.
 
 **What stage one actually cost, against the estimates in this entry.** Two numbers
 moved and both are recorded in DECISIONS: `Has_Intercept` survives in **thirteen**

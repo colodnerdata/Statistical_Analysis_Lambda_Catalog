@@ -83,9 +83,9 @@ class RegressionSpecCase:
     # Every case sets this explicitly (not Optional) so the QC harness resets
     # it on each case regardless of run order — no state leaks between cases.
     source_table_ref: str = "=MileageData[#All]"
-    # Which group the Prediction Interval box (AH3:AH14) is anchored to —
-    # written into the sheet's own $AH$12 cell before reading the box back.
-    # None mirrors the sheet's own default (AH12's formula, the
+    # Which group the Prediction Interval box (AK3:AK14) is anchored to —
+    # written into the sheet's own $AK$12 cell before reading the box back.
+    # None mirrors the sheet's own default (AK12's formula, the
     # alphabetically-first observed group) rather than hardcoding it here.
     prediction_group: str | None = None
 
@@ -122,7 +122,7 @@ class RegressionSpecExpected:
     results: RegressionSheetResults
     # Always a concrete group name, even when case.prediction_group is None
     # (resolved to the alphabetically-first observed group, matching the
-    # sheet's own $AH$12 default formula) — what the QC harness writes into
+    # sheet's own $AK$12 default formula) — what the QC harness writes into
     # that cell before reading the Prediction Interval box back.
     resolved_prediction_group: str
 
@@ -332,7 +332,7 @@ def calculate_regression_spec_case(
     rows = _with_extra_columns(loader(effective_csv_path), case.extra_columns)
     design = build_spec_design(case.spec, rows)
 
-    # Resolve to a concrete group name up front (mirrors $AH$12's own default
+    # Resolve to a concrete group name up front (mirrors $AK$12's own default
     # formula: the alphabetically-first observed group) so the QC harness has
     # an explicit value to write into that cell — never ambiguous about
     # "leave it at whatever the sheet defaults to."
@@ -536,7 +536,7 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             row_loader=load_production_lots_source_rows,
             source_table_ref="=ProductionLotsData[#All]",
             # Explicit (not the alphabetically-first default) — exercises the
-            # harness actually writing a non-default group into $AH$12, not
+            # harness actually writing a non-default group into $AK$12, not
             # just accepting whatever the sheet defaults to.
             prediction_group="Site B",
         )

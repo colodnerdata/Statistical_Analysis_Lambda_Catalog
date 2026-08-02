@@ -26,6 +26,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _AUDIT_PAIRS,
     _AUDIT_ROW,
     _C_BREAK_LEFT,
+    _C_DESIGN_COLUMNS,
     _C_BREAK_MID,
     _C_FEEDBACK_COUNT,
     _C_FEEDBACK_DELTA,
@@ -43,6 +44,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_ORDER,
     _C_REFERENCE,
     _C_REF_IN_USE,
+    _C_SPEC_LAST,
     _C_SEQUENCE,
     _C_SEQUENCE_PERIOD,
     _C_PERIOD_IN_USE,
@@ -87,6 +89,9 @@ _EXPECTED_NAME_ORDER = [
     "Spec_Sequence",
     "Spec_Sequence_Period",
     "Spec_Period_In_Use",
+    "Spec_Interaction_Term",
+    "Spec_Interaction_Operation",
+    "Spec_Design_Columns",
     "Allow_Intercept",
     "Sample_Include",
     "Response_Column",
@@ -262,19 +267,19 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_row_zones(_as_xw_sheet(sheet))
 
-    # O: narrow gap, splitting the spec block and the derived-row zone.
-    assert sheet.range((1, 15)).column_width == 2
+    # R: narrow gap, splitting the spec block and the derived-row zone.
+    assert sheet.range((1, 18)).column_width == 2
 
-    # P/Q headers on the spec-header row, bold like the A–L headers.
-    assert sheet.cell(_HEADER_ROW, 16).value == "Row Labels"
-    assert sheet.cell(_HEADER_ROW, 17).value == "Included"
-    assert sheet.range((_HEADER_ROW, 16), (_HEADER_ROW, 17)).api.Font.Bold is True
+    # S/T headers on the spec-header row, bold like the A–O headers.
+    assert sheet.cell(_HEADER_ROW, 19).value == "Row Labels"
+    assert sheet.cell(_HEADER_ROW, 20).value == "Included"
+    assert sheet.range((_HEADER_ROW, 19), (_HEADER_ROW, 20)).api.Font.Bold is True
 
     # Full-height spills at the first data row; row 1 belongs to
     # _write_audit_row, so this writer must leave it untouched.
-    assert sheet.cell(_FIRST_DATA_ROW, 16).api.Formula2 == "=Row_Labels()"
-    assert sheet.cell(_FIRST_DATA_ROW, 17).api.Formula2 == "=Sample_Include()"
-    for col in (16, 17):
+    assert sheet.cell(_FIRST_DATA_ROW, 19).api.Formula2 == "=Row_Labels()"
+    assert sheet.cell(_FIRST_DATA_ROW, 20).api.Formula2 == "=Sample_Include()"
+    for col in (19, 20):
         assert sheet.cell(1, col).value is None
         assert sheet.cell(1, col).api.Formula2 is None
 
@@ -549,7 +554,7 @@ def test_spec_block_sizes_table_and_defaults_to_the_given_profile() -> None:
     table = sheet.api.ListObjects.items[-1]
     assert table._source_range.address == (
         (_HEADER_ROW, _C_ROLE),
-        (last_data_row, _C_REF_IN_USE),
+        (last_data_row, _C_SPEC_LAST),
     )
 
     by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(profile.variables)}
@@ -572,7 +577,7 @@ def test_spec_block_defaults_to_the_auto_mpg_profile_when_omitted() -> None:
     table = sheet.api.ListObjects.items[-1]
     assert table._source_range.address == (
         (_HEADER_ROW, _C_ROLE),
-        (last_data_row, _C_REF_IN_USE),
+        (last_data_row, _C_SPEC_LAST),
     )
 
 
@@ -621,6 +626,128 @@ def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:
     assert 'x,IF(col="","",col)' in formula  # blank normalization mirrored
 
 
+def test_design_columns_audit_mirrors_the_constructors_own_skip_rules() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_block(_as_xw_sheet(sheet))
+
+    formula = cast(
+        str, sheet.cell(_FIRST_DATA_ROW, _C_DESIGN_COLUMNS).api.Formula
+    )
+    # The audit has to agree with Predictor_Columns() by construction, not
+    # by coincidence: same iteration predicate (Role/Include), same
+    # Continuous-vs-Categorical split, same reference normalization, and
+    # the same degenerate skip (Dummy_Levels' #N/A means the constructor
+    # contributes nothing, so the audit must read 0 and not error).
+    assert formula.startswith('=IF([@Role]<>"Predictor (x)","",')
+    assert "IF([@Include]<>TRUE,0," in formula
+    assert 'IF([@Type]<>"Categorical",1,' in formula
+    assert "COLUMNS(Dummy_Levels(" in formula
+    assert 'IF(LEN([@[Reference Level]]&"")=0,"",[@[Reference Level]])' in formula
+    assert "Sample_Include()" in formula
+    assert formula.endswith(",0))))")
+    # First data row → Source_Data column 1, same mapping K and L use.
+    assert f"ROW()-{_FIRST_DATA_ROW - 1}" in formula
+    # Reading the Levels display instead would make one display depend on
+    # another; the audit reads the same closure the constructor reads.
+    assert "[@Levels]" not in formula
+
+
+def test_design_columns_audit_is_read_only_by_the_width_guard() -> None:
+    # Spec_Design_Columns is a computed display: "display derives, never
+    # feeds". No constructor closure may reference it — only the
+    # pre-flight width guard, which is itself a display.
+    sheet = _named_sheet()
+    _write_all_zones(sheet)
+
+    band = "Spec_Design_Columns"
+    readers = [
+        item.Name.split("!", 1)[-1]
+        for item in sheet.api.Names.items
+        if band in item.RefersTo and item.Name.split("!", 1)[-1] != band
+    ]
+    assert readers == []
+    for formula in _all_written_formulas(sheet):
+        assert band not in formula, formula
+
+
+def test_interaction_bands_are_declared_but_read_by_no_constructor() -> None:
+    # M/N ship RESERVED: validated and flagged on the sheet, consumed by
+    # nothing until the interaction wiring release. The conditional-format
+    # rules read the bands, but CF expressions are not defined names and
+    # not cell formulas, so neither check below sees them.
+    sheet = _named_sheet()
+    _write_all_zones(sheet)
+
+    for band in ("Spec_Interaction_Term", "Spec_Interaction_Operation"):
+        readers = [
+            item.Name.split("!", 1)[-1]
+            for item in sheet.api.Names.items
+            if band in item.RefersTo and item.Name.split("!", 1)[-1] != band
+        ]
+        assert readers == [], band
+        for formula in _all_written_formulas(sheet):
+            assert band not in formula, (band, formula)
+
+
+def test_interaction_flags_key_on_the_named_operands_own_spec_row() -> None:
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_block(_as_xw_sheet(sheet))
+
+    r = _FIRST_DATA_ROW
+    term = sheet.range(
+        f"$M${r}:$M${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
+    # Error flags come FIRST with StopIfTrue, so a bad interaction typed
+    # onto a non-Predictor row shows its error instead of being grayed out
+    # by the hide-in-place rule that follows.
+    assert len(term) == 2
+    invalid, marginality = term
+
+    # Red: the name matches no variable (j=0), or the row it names is not
+    # a Predictor. MAX(j,1) keeps the INDEX well-formed on a miss, so the
+    # AND yields FALSE rather than an #N/A that would disable the rule.
+    assert "j,IFERROR(XMATCH($M4,hdr),0)" in invalid.Formula1
+    assert "p,MAX(j,1)" in invalid.Formula1
+    assert 'OR(j=0,INDEX(TAKE(Spec_Role,nc),p)<>"Predictor (x)")' in invalid.Formula1
+    assert invalid.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert invalid.StopIfTrue is True
+
+    # Amber: a marginality violation — the named operand IS a Predictor
+    # but is excluded. Allowed and flagged, never blocked.
+    assert 'INDEX(TAKE(Spec_Role,nc),p)="Predictor (x)"' in marginality.Formula1
+    assert "INDEX(TAKE(Spec_Include,nc),p)<>TRUE" in marginality.Formula1
+    assert marginality.Interior.Color == excel_color(CF_YELLOW_FILL)
+    assert marginality.StopIfTrue is True
+
+    # The hide-in-place rule covers M and N together, so it lands on the
+    # M:N band rather than M's own — and it is registered AFTER both error
+    # rules, which is what lets their StopIfTrue outrank it.
+    hide = sheet.range(
+        f"$M${r}:$N${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
+    assert [c.Formula1 for c in hide] == [f'=$B{r}<>"Predictor (x)"']
+    assert hide[0].Font.Color == excel_color(INPUT_COLOR)
+
+    # Red on N: a reciprocal declaration under a SYMMETRIC operation. Ratio
+    # is excluded (B/A is a different column from A/B), and a row naming
+    # itself is excluded (self x self under Product is a quadratic term).
+    operation = sheet.range(
+        f"$N${r}:$N${_VALIDATION_LAST_ROW}"
+    ).api.FormatConditions.items
+    assert len(operation) == 1
+    reciprocal = operation[0].Formula1
+    assert f'OR($N{r}="Product",$N{r}="Difference")' in reciprocal
+    assert "Ratio" not in reciprocal
+    assert "j>0,j<>i" in reciprocal
+    assert "INDEX(TAKE(Spec_Interaction_Term,nc),p)=INDEX(hdr,1,q)" in reciprocal
+    assert f"INDEX(TAKE(Spec_Interaction_Operation,nc),p)=$N{r}" in reciprocal
+    # Both indices are clamped: the CF band runs past the spec rows, and an
+    # unclamped INDEX there would error the rule into silence.
+    assert f"i,ROW()-{_FIRST_DATA_ROW - 1}" in reciprocal
+    assert "q,MIN(MAX(i,1),nc)" in reciprocal
+    assert operation[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+
+
 def test_reference_in_use_echoes_e_or_shows_the_sorted_default() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
@@ -648,7 +775,7 @@ def test_reference_in_use_echoes_e_or_shows_the_sorted_default() -> None:
     assert formula.endswith(',""))))')
 
 
-def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
+def test_dropdowns_cover_exactly_the_list_columns() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
 
@@ -664,6 +791,8 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
         ((r, 4), (16000, 4)),  # D Type
         ((r, 7), (16000, 7)),  # G Transform (None or Log, live at v2.2)
         ((r, 8), (16000, 8)),  # H Sequence (TRUE or blank)
+        ((r, 13), (16000, 13)),  # M Interaction Term (the variable-name spill)
+        ((r, 14), (16000, 14)),  # N Interaction Operation (closed axis)
     }
     formulas = {
         key[0][1]: validation.rules[0]["Formula1"]
@@ -674,6 +803,10 @@ def test_dropdowns_cover_exactly_the_four_list_columns() -> None:
     assert formulas[4] == "Continuous,Categorical"
     assert formulas[7] == "None,Log"
     assert formulas[8] == "TRUE"
+    # M sources its list from the variable-name spill at A4, so the offered
+    # names resize with the dataset instead of a fixed range going stale.
+    assert formulas[13] == f"=$A${r}#"
+    assert formulas[14] == "Product,Difference,Ratio"
     for validation in validated.values():
         assert validation.delete_count == 1
         assert validation.rules[0]["Type"] == 3  # xlValidateList
@@ -977,34 +1110,34 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
     _write_audit_row(_as_xw_sheet(sheet))
 
     expected = [
-        (16, 17, "k", '=IFERROR(COLUMNS(Predictor_Columns()),"(empty model)")'),
-        (19, 20, "rows", '=IFERROR(ROWS(Predictor_Columns()),"(empty model)")'),
-        (22, 23, "response", f"={_RESPONSE_NAME}"),
+        (19, 20, "k", '=IFERROR(COLUMNS(Predictor_Columns()),"(empty model)")'),
+        (22, 23, "rows", '=IFERROR(ROWS(Predictor_Columns()),"(empty model)")'),
+        (25, 26, "response", f"={_RESPONSE_NAME}"),
         (
-            24,
-            25,
+            27,
+            28,
             "responses",
             '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response (y)"))',
         ),
-        (26, 27, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+        (29, 30, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
         (
-            28,
-            29,
+            31,
+            32,
             "sequence flags",
             "=SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))",
         ),
         (
-            30,
-            31,
+            33,
+            34,
             "fixed effects",
             '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))',
         ),
-        (32, 33, "FE absorbed df", "=Absorbed_Degrees_Of_Freedom()"),
+        (35, 36, "FE absorbed df", "=Absorbed_Degrees_Of_Freedom()"),
     ]
     assert list(_AUDIT_PAIRS) == [(lc, vc) for lc, vc, _, _ in expected]
     assert _AUDIT_ROW == 1
     for label_col, value_col, label, formula in expected:
-        # No audit cell may land on a width-2 break column (R=18, U=21).
+        # No audit cell may land on a width-2 break column (U=21, X=24).
         assert label_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
         assert value_col not in (_C_BREAK_LEFT, _C_BREAK_MID)
         assert sheet.cell(1, label_col).value == label
@@ -1013,21 +1146,21 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
             sheet.range((1, label_col), (1, value_col)).api.Font.Bold is True
         )
 
-    # Exactly-one-Response validation: red CF on the responses count cell (Y=25).
-    conditions = sheet.range("$Y$1").api.FormatConditions.items
-    assert [c.Formula1 for c in conditions] == ["=N($Y$1)<>1"]
+    # Exactly-one-Response validation: red CF on the responses count cell (AB=28).
+    conditions = sheet.range("$AB$1").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ["=N($AB$1)<>1"]
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
-    # Zero-or-one-Sequence validation: red CF only at two-plus flags (AC=29).
-    seq_conditions = sheet.range("$AC$1").api.FormatConditions.items
-    assert [c.Formula1 for c in seq_conditions] == ["=N($AC$1)>1"]
+    # Zero-or-one-Sequence validation: red CF only at two-plus flags (AF=32).
+    seq_conditions = sheet.range("$AF$1").api.FormatConditions.items
+    assert [c.Formula1 for c in seq_conditions] == ["=N($AF$1)>1"]
     assert seq_conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert seq_conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
-    # Zero-or-one-Fixed-Effects validation: red CF only at two-plus (AE=31).
-    fe_conditions = sheet.range("$AE$1").api.FormatConditions.items
-    assert [c.Formula1 for c in fe_conditions] == ["=N($AE$1)>1"]
+    # Zero-or-one-Fixed-Effects validation: red CF only at two-plus (AH=34).
+    fe_conditions = sheet.range("$AH$1").api.FormatConditions.items
+    assert [c.Formula1 for c in fe_conditions] == ["=N($AH$1)>1"]
     assert fe_conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert fe_conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 

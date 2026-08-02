@@ -394,7 +394,6 @@ def test_materialization_zone_materializes_model_context() -> None:
     _write_materialization_zone(_as_xw_sheet(sheet), closures=())
 
     ctx_col = col_letter(_C_MODEL_CONTEXT)
-    si_col = col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)
 
     # Section headings at row 1, styled as section headings.
     assert sheet.cell(1, _C_MODEL_CONTEXT).value == "Model Context"

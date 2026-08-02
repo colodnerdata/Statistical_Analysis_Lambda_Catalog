@@ -1722,7 +1722,6 @@ def _write_materialization_zone(
     )
 
     # ── Sample_Include (reserved) ────────────────────────────────────────────
-    si_col = col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)
     section_heading(sheet, 1, _C_SAMPLE_INCLUDE_MATERIALIZED, "Sample Include")
     val(
         sheet,

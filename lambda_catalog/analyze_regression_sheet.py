@@ -162,7 +162,7 @@ def calculate_regression_results_from_matrix(
     ``selected_group`` picks which group's mean/count the Prediction
     Interval box (AH3:AH14 on the sheet) is anchored to via
     ``Group_Prediction_Interval``'s group-mean-recovery form — the sheet's
-    own ``$AH$12`` cell, which defaults to the alphabetically-first observed
+    own ``$AK$12`` cell, which defaults to the alphabetically-first observed
     group when nothing is typed. ``None`` (the default here) mirrors that:
     picks the alphabetically-first group. With no ``group_labels``, every
     row is treated as one constant ``"(all)"`` group, which makes this

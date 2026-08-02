@@ -31,7 +31,7 @@ from lambda_catalog.write_sheet_model_construction import (
     _C_SEQUENCE,
     _INTERCEPT_ROW,
 )
-from lambda_catalog.write_sheet_regression import _C_AH, _C_M, _C_U, _C_V, _C_Z
+from lambda_catalog.write_sheet_regression import _C_AA, _C_AB, _C_AF, _C_AN, _C_S
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.csv"
@@ -48,16 +48,21 @@ def _t0_expected():
 # ---------------------------------------------------------------------------
 
 def test_reads_anchor_to_the_documented_regression_cells() -> None:
-    # M3 = TRANSPOSE(Constructed_Column_Names()) spill
-    assert (col_letter(_C_M), _ROW_NAMES_SPILL) == ("M", 3)
-    # U21 = coefficient label spill (k+1 rows with the default intercept ON)
-    assert (col_letter(_C_U), _ROW_COEFF_FIRST) == ("U", 21)
-    # V8 = Observations cell
-    assert (col_letter(_C_V), _ROW_OBSERVATIONS) == ("V", 8)
-    # Z2 = Predicted Variable readout
-    assert (col_letter(_C_Z), _ROW_RESPONSE_READOUT) == ("Z", 2)
-    # AH3 = FILTER(Row_Labels(), Sample_Include()) spill
-    assert (col_letter(_C_AH), _ROW_RESID_FIRST) == ("AH", 3)
+    # These are the cells read_observed_spec_values actually reads. Pinning
+    # the letters here is what makes a layout shift break loudly instead of
+    # letting the verifier read a neighbouring column and compare the wrong
+    # numbers — so import the SAME constants the module under test uses,
+    # never a parallel set that happens to spell the old letters.
+    # S3 = TRANSPOSE(Constructed_Column_Names()) spill
+    assert (col_letter(_C_S), _ROW_NAMES_SPILL) == ("S", 3)
+    # AA21 = coefficient label spill (k+1 rows with the default intercept ON)
+    assert (col_letter(_C_AA), _ROW_COEFF_FIRST) == ("AA", 21)
+    # AB8 = Observations cell
+    assert (col_letter(_C_AB), _ROW_OBSERVATIONS) == ("AB", 8)
+    # AF2 = Predicted Variable readout
+    assert (col_letter(_C_AF), _ROW_RESPONSE_READOUT) == ("AF", 2)
+    # AN3 = FILTER(Row_Labels(), Sample_Include()) spill
+    assert (col_letter(_C_AN), _ROW_RESID_FIRST) == ("AN", 3)
     # H2 = Sequence status line (shared spec-block coordinates)
     assert (col_letter(_C_SEQUENCE), _INTERCEPT_ROW) == ("H", 2)
 

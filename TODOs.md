@@ -194,8 +194,7 @@ the standard the v2.1 row uses. Stage 1 shipped merged as #148.
   [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
 - DONE: **Spec-driven verifier passed on a machine with Excel** —
-  `python build_production.py --verify --no-launch
-  --skip-data-table-calculations --skip-univariate` reported 0 mismatches
+  `python build_production.py --verify --no-launch` reported 0 mismatches
   across all 12 QC cases. Stage 1 changes where the intercept is created,
   not what is fitted, so any mismatch would have been a bug rather than an
   expected delta. Not runnable in CI (no Office on the GitHub-hosted
@@ -306,8 +305,7 @@ form, and stage 2 is not finished until it has. (Same standard as stage 1.)
   untouched and remains the row mask until then.
 
 - TODO: **Run the spec-driven verifier on a machine with Excel** —
-  `python build_production.py --verify --no-launch
-  --skip-data-table-calculations --skip-univariate`. Stage 2 must report
+  `python build_production.py --verify --no-launch`. Stage 2 must report
   **0 mismatches across all 12 QC cases**: the collapse is behaviour-
   preserving (`context_arg` carries exactly the two scalars the dropped
   arguments carried), so any mismatch is a bug, not an expected delta. Not

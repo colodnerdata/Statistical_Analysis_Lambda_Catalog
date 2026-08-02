@@ -982,6 +982,19 @@ def test_weibull_grid_formulas_reference_visible_controls() -> None:
     )
     assert "NLL_Beta(z,$BI$55,$BI$56)" in _formula(sheet, 57, 57)
 
+    # Weibull/Gamma bodies are static formula grids (no Data Table): each body
+    # cell holds an explicit NLL referencing the column-axis (shape, top row 5)
+    # and row-axis (scale, left col BE) SEQUENCE cells.
+    assert sheet.cell(6, 58).api.Formula2 == (
+        "=NLL_Weibull(UV_Data,$BF$5,$BE$6,UV_Include)"
+    )
+    assert sheet.cell(25, 77).api.Formula2 == (
+        "=NLL_Weibull(UV_Data,$BY$5,$BE$25,UV_Include)"
+    )
+    assert sheet.cell(32, 58).api.Formula2 == (
+        "=NLL_Gamma(UV_Data,$BF$31,$BE$32,UV_Include)"
+    )
+
     assert sheet.cell(3, 84).api.Formula2 == "=MAX(0.001,$BM$3-$BL$3)"
     assert sheet.cell(3, 85).api.Formula2 == "=$BM$3+$BL$3"
     assert sheet.cell(4, 84).api.Formula2 == "=MAX(0.001,$BM$4-$BL$4)"
@@ -993,29 +1006,9 @@ def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
 
     _write_weibull_grid_search(_as_xw_sheet(sheet))
 
-    assert sheet.tables[:2] == [
-        {
-            "range": ((5, 57), (25, 77)),
-            "row_input": ((3, 61),),
-            "column_input": ((4, 61),),
-        },
-        {
-            "range": ((5, 79), (25, 99)),
-            "row_input": ((3, 83),),
-            "column_input": ((4, 83),),
-        },
-    ]
-    assert sheet.tables[2:] == [
-        {
-            "range": ((31, 57), (51, 77)),
-            "row_input": ((29, 61),),
-            "column_input": ((30, 61),),
-        },
-        {
-            "range": ((31, 79), (51, 99)),
-            "row_input": ((29, 83),),
-            "column_input": ((30, 83),),
-        },
+    # Weibull and Gamma use formula grids (no Data Table objects); only the
+    # two Beta stages wire two-input Data Tables.
+    assert sheet.tables == [
         {
             "range": ((57, 57), (77, 77)),
             "row_input": ((55, 61),),

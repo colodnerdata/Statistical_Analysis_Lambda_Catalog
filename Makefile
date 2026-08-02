@@ -12,20 +12,30 @@
 # verify runs both layers; verify-headless is the fast screen, verify-deep
 # is the source of truth.
 
-.PHONY: verify-headless verify-deep verify
+.PHONY: verify-headless verify-deep verify-deep-univariate verify
 
 # Fast screen — pure zipfile/lxml invariant tests. <1 s on Linux.
 verify-headless:
 	uv run --frozen pytest tests/test_workbook_invariants.py -v
 
-# Spec-driven verifier. Reuses build_qc.verify_test_sheets(..., skip_dummy=True)
-# against the production sheets. Requires Excel; not run in CI on GitHub-hosted
-# runners (no Microsoft Office).
-# Always recalculates (the recalc is the source of truth and runs under
-# --skip-univariate; the Univariate Data Tables aren't built so it's cheap).
+# Spec-driven verifier for the Regression workbook. Reuses
+# build_qc.verify_test_sheets(..., skip_dummy=True) against the production
+# sheets. Requires Excel; not run in CI on GitHub-hosted runners (no
+# Microsoft Office). Always recalculates (the recalc is the source of truth:
+# the verifier's per-sheet Calculate doesn't rebuild the dependency tree
+# after a name sync, so the Regression engines need CalculateFullRebuild).
 verify-deep:
-	uv run --frozen python build_production.py --verify --no-launch --skip-univariate
+	uv run --frozen python build_production.py --verify --no-launch
 
-# Both layers. The headless check is auto-discovered on Linux; run the deep
-# check on a machine with Microsoft Excel. The deep check shell-exits 1 on drift.
-verify: verify-headless verify-deep
+# Spec-driven verifier for the standalone Univariate workbook. Runs
+# build_qc.verify_test_sheets(..., skip_dummy=True, skip_regression=True) —
+# this artifact has no Regression / Mileage / Production Lots sheets, so
+# those checks are skipped; the Life Expectancy and Univariate checks run.
+# Requires Excel; not run in CI.
+verify-deep-univariate:
+	uv run --frozen python build_univariate.py --verify --no-launch
+
+# Both layers for both artifacts. The headless check is auto-discovered on
+# Linux; run the deep checks on a machine with Microsoft Excel. Each deep
+# check shell-exits 1 on drift.
+verify: verify-headless verify-deep verify-deep-univariate

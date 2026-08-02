@@ -46,6 +46,11 @@ Thumbs.db
 # QC workbook (local dev only)
 Lambda_Library_QC.xlsx
 
+# Detached-build log/pid artifacts (local dev only)
+build_*.log
+build_*.err
+build_*.pid
+
 # Force-include the built workbook
 !Lambda_Library.xlsx
 

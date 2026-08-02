@@ -1,4 +1,4 @@
-"""Tests for the production build driver that do not require Excel."""
+"""Tests for the Regression production build driver that do not require Excel."""
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
@@ -9,12 +9,8 @@ from typing import cast
 import pytest
 
 import build_production
-from lambda_catalog.workbook_builder import (
-    NameSyncResult,
-    XL_CALCULATION_AUTOMATIC,
-    XL_CALCULATION_MANUAL,
-    XL_CALCULATION_SEMIAUTOMATIC,
-)
+from lambda_catalog.verify_report import VerifyReport
+from lambda_catalog.workbook_builder import NameSyncResult
 
 
 class _FakeApi:
@@ -130,30 +126,6 @@ class _CleanupFailingApp:
         raise OSError("cleanup quit masked the original error")
 
 
-def test_recalculate_uses_full_rebuild_without_automatic_mode(monkeypatch) -> None:
-    app = _FakeApp()
-    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
-    workbook_path = Path("Example.xlsx")
-
-    build_production._recalculate_and_save(workbook_path)
-
-    assert app.books.opened_paths == [str(workbook_path)]
-    assert app.api.full_rebuilds == 1
-    assert app.api.calculation_values == [
-        XL_CALCULATION_MANUAL,
-        XL_CALCULATION_SEMIAUTOMATIC,
-    ]
-    assert app.events[:3] == [
-        ("open", str(workbook_path)),
-        ("calculation", XL_CALCULATION_MANUAL),
-        ("full_rebuild", None),
-    ]
-    assert XL_CALCULATION_AUTOMATIC not in app.api.calculation_values
-    assert app.book.saved_paths == [str(workbook_path)]
-    assert app.book.closed is True
-    assert app.quit_called is True
-
-
 def test_build_preserves_original_write_error_when_cleanup_fails(
     monkeypatch,
     tmp_path,
@@ -177,7 +149,6 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
     monkeypatch.setattr(build_production, "write_csv_dataset_sheet", lambda *_, **__: None)
     for writer_name in [
         "write_catalog_sheet",
-        "write_univariate_sheet",
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
@@ -242,7 +213,6 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_univariate=False,
             skip_data_table_calculations=True,
             verify=False,
             no_launch=False,
@@ -260,6 +230,11 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
         fn()
 
     monkeypatch.setattr(build_production, "_retry_on_open", record_retry)
+    # The Regression build always runs the recalculate phase (the verifier's
+    # per-sheet Calculate doesn't rebuild the dependency tree after a name
+    # sync), so main() calls _recalculate_and_save even when
+    # --skip-data-table-calculations is set. Stub it so no real Excel opens.
+    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
     # main() ends by shelling out to `start "" <workbook>` to open the just-built
     # file in Excel. That shell call must not fire during tests — the test
     # workbook path is a stub (Example.xlsx) and even if the file existed, no
@@ -272,7 +247,8 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
 
     build_production.main()
 
-    assert calls == [True]
+    # _retry_on_open wraps both the build phase and the recalc phase.
+    assert calls == [True, True]
     # build_production_workbook resolves the workbook path to an absolute path
     # before opening; the same absolute path is what the final `cmd /c start`
     # gets. Compare via Path so the assertion is robust to CWD differences.
@@ -321,9 +297,8 @@ class _RecordingApp:
         self.quit_called = True
 
 
-def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> None:
-    app = _RecordingApp()
-    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+def _stub_regression_build_writers(monkeypatch, writer_calls: list[str]) -> None:
+    """Stub every writer build_production_workbook calls, recording names."""
     monkeypatch.setattr(
         build_production,
         "load_catalog_document",
@@ -339,8 +314,6 @@ def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> N
         "load_csv_rows",
         lambda _csv_path, _config: ([], []),
     )
-
-    writer_calls: list[str] = []
     monkeypatch.setattr(
         build_production,
         "write_csv_dataset_sheet",
@@ -348,7 +321,6 @@ def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> N
     )
     for writer_name in [
         "write_catalog_sheet",
-        "write_univariate_sheet",
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
@@ -365,25 +337,64 @@ def test_build_skips_univariate_sheet_when_requested(monkeypatch, tmp_path) -> N
         lambda *_, **__: NameSyncResult(created=0, updated=0),
     )
 
+
+def test_build_never_writes_univariate_sheet(monkeypatch, tmp_path) -> None:
+    """The Regression workbook ships no Univariate sheet (it moved to its own
+    artifact in v3.0), so build_production_workbook must never call a Univariate
+    writer — and indeed does not even import one."""
+    app = _RecordingApp()
+    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+
+    writer_calls: list[str] = []
+    _stub_regression_build_writers(monkeypatch, writer_calls)
+
     build_production.build_production_workbook(
         workbook_path=tmp_path / "Example.xlsx",
         definitions_path=tmp_path / "lambda_functions.json",
         csv_path=tmp_path / "life_expectancy.csv",
         recalculate=False,
-        skip_univariate=True,
     )
 
     assert "write_univariate_sheet" not in writer_calls
     assert "write_regression_output_sheet" in writer_calls
+    assert "write_csv_dataset_sheet" in writer_calls
     assert app.book.saved_paths == [str(tmp_path / "Example.xlsx")]
+    # build_production must not import the Univariate writer at all.
+    assert not hasattr(build_production, "write_univariate_sheet")
 
 
-def test_main_skips_data_table_recalculation_when_requested(
+def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
+    """The Regression workbook returns to full Automatic (the Univariate Data
+    Tables that forced SEMIAUTOMATIC moved to their own artifact)."""
+    app = _RecordingApp()
+    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+
+    writer_calls: list[str] = []
+    _stub_regression_build_writers(monkeypatch, writer_calls)
+
+    build_production.build_production_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=False,
+    )
+
+    from lambda_catalog.workbook_builder import XL_CALCULATION_AUTOMATIC
+
+    assert app.api.calculation_values[-1] == XL_CALCULATION_AUTOMATIC
+
+
+def test_main_always_rebuilds_regression_even_with_skip_data_table_calculations(
     monkeypatch,
     capsys,
 ) -> None:
+    """The Regression workbook has no Data Tables, so
+    --skip-data-table-calculations is a no-op: the rebuild always runs (the
+    verifier's per-sheet Calculate doesn't rebuild the dependency tree after
+    a name sync, so the Regression sheet needs the rebuild to avoid every QC
+    value reading nan)."""
     workbook_path = Path("Example.xlsx")
-    calls: list[tuple[str, object]] = []
+    recalc_calls: list[Path] = []
 
     monkeypatch.setattr(
         build_production,
@@ -396,39 +407,33 @@ def test_main_skips_data_table_recalculation_when_requested(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=True,
-            skip_univariate=False,
             skip_data_table_calculations=True,
             verify=False,
-            no_launch=False,
+            no_launch=True,
             regression_dataset="auto_mpg",
         ),
     )
-
-    def fake_build_production_workbook(**kwargs) -> NameSyncResult:
-        calls.append(("build", kwargs))
-        return NameSyncResult(created=1, updated=2)
-
-    def fail_recalculate(workbook_path: Path) -> None:
-        raise AssertionError("_recalculate_and_save should be skipped")
-
     monkeypatch.setattr(
         build_production,
         "build_production_workbook",
-        fake_build_production_workbook,
+        lambda **_: NameSyncResult(created=1, updated=2),
     )
-    monkeypatch.setattr(build_production, "_recalculate_and_save", fail_recalculate)
+    monkeypatch.setattr(
+        build_production,
+        "_recalculate_and_save",
+        lambda path: recalc_calls.append(path),
+    )
     monkeypatch.setattr(
         build_production.subprocess,
         "Popen",
-        lambda args: calls.append(("popen", args)),
+        lambda args: None,
     )
 
     build_production.main()
 
-    build_call = cast(dict[str, object], next(value for name, value in calls if name == "build"))
-    assert build_call["recalculate"] is False
-    assert "  Recalculate:    skipped" in capsys.readouterr().out
-    assert not any(name == "recalculate" for name, _ in calls)
+    assert len(recalc_calls) == 1
+    output = capsys.readouterr().out
+    assert "no-op for the Regression workbook" in output
 
 
 def test_main_no_launch_suppresses_post_build_excel_handoff(
@@ -455,7 +460,6 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_univariate=False,
             skip_data_table_calculations=True,
             verify=False,
             no_launch=True,
@@ -467,6 +471,7 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
+    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(
         build_production.subprocess,
         "Popen",
@@ -489,10 +494,9 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
     popen_calls: list[tuple[str, ...]] = []
     verify_calls: list[tuple[Path, Path]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False, skip_univariate=False):
-        del verbose, skip_univariate
+    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False):
+        del mileage_path, production_lots_path, verbose
         verify_calls.append((workbook_path, csv_path))
-        from lambda_catalog.verify_report import VerifyReport
         return VerifyReport(
             passed=True,
             categories={},
@@ -513,7 +517,6 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_univariate=False,
             skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
@@ -525,6 +528,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
+    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
     monkeypatch.setattr(
         build_production.subprocess,
@@ -545,75 +549,6 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
     assert "spec mode" in output
 
 
-def test_main_forwards_skip_univariate_to_deep_verify(
-    monkeypatch,
-) -> None:
-    """--verify combined with --skip-univariate must not crash trying to
-    verify a sheet that was never written; the flag has to reach the
-    verifier so it knows to skip the Univariate check instead. Also: with
-    --skip-univariate set, the final CalculateFullRebuild always runs even
-    though --skip-data-table-calculations is also set — the Univariate Data
-    Tables it would skip aren't built, and the Regression sheet needs the
-    rebuild (the verifier's per-sheet Calculate doesn't rebuild the
-    dependency tree after a name sync)."""
-    verify_kwargs: list[dict] = []
-    recalc_calls: list = []
-
-    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False, skip_univariate=False):
-        del csv_path, verbose
-        verify_kwargs.append({"skip_univariate": skip_univariate})
-        from lambda_catalog.verify_report import VerifyReport
-        return VerifyReport(
-            passed=True,
-            categories={},
-            failures=(),
-            elapsed_seconds=0.0,
-            mode="spec",
-            workbook=str(workbook_path),
-        )
-
-    monkeypatch.setattr(
-        build_production,
-        "parse_args",
-        lambda: SimpleNamespace(
-            workbook=Path("Example.xlsx"),
-            definitions=Path("lambda_functions.json"),
-            csv=Path("life_expectancy.csv"),
-            mileage_csv=Path("mileage.csv"),
-            production_lots_csv=Path("production_lots.csv"),
-            validate_reopen=False,
-            verbose=False,
-            skip_univariate=True,
-            skip_data_table_calculations=True,
-            verify=True,
-            no_launch=False,
-            regression_dataset="auto_mpg",
-        ),
-    )
-    monkeypatch.setattr(
-        build_production,
-        "build_production_workbook",
-        lambda **_: NameSyncResult(created=0, updated=0),
-    )
-    monkeypatch.setattr(
-        build_production,
-        "_recalculate_and_save",
-        lambda workbook_path: recalc_calls.append(workbook_path),
-    )
-    monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
-    monkeypatch.setattr(
-        build_production.subprocess,
-        "Popen",
-        lambda args: None,
-    )
-
-    build_production.main()
-
-    assert verify_kwargs == [{"skip_univariate": True}]
-    # --skip-univariate forces the rebuild despite --skip-data-table-calculations.
-    assert len(recalc_calls) == 1
-
-
 def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     monkeypatch,
     capsys,
@@ -623,9 +558,8 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     launched in place of a fresh one) and must sys.exit(1)."""
     popen_calls: list[tuple[str, ...]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False, skip_univariate=False):
-        del csv_path, verbose, skip_univariate
-        from lambda_catalog.verify_report import VerifyReport
+    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False):
+        del csv_path, mileage_path, production_lots_path, verbose
         return VerifyReport(
             passed=False,
             categories={"Regression/scalars": 2},
@@ -649,7 +583,6 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_univariate=False,
             skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
@@ -661,6 +594,7 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
+    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
     monkeypatch.setattr(
         build_production.subprocess,
@@ -709,9 +643,6 @@ def test_build_uses_life_expectancy_source_table_when_requested(
         build_production, "write_csv_dataset_sheet", lambda *_, **__: None
     )
     monkeypatch.setattr(
-        build_production, "write_univariate_sheet", lambda *_, **__: None
-    )
-    monkeypatch.setattr(
         build_production, "write_regression_instructions_sheet", lambda *_, **__: None
     )
     monkeypatch.setattr(
@@ -738,7 +669,6 @@ def test_build_uses_life_expectancy_source_table_when_requested(
         definitions_path=tmp_path / "lambda_functions.json",
         csv_path=tmp_path / "life_expectancy.csv",
         recalculate=False,
-        skip_univariate=True,
         regression_dataset="life_expectancy",
     )
 
@@ -766,7 +696,7 @@ def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
     called: dict[str, object] = {"source_table_ref": None}
     monkeypatch.setattr(build_production, "write_csv_dataset_sheet", lambda *_, **__: None)
     for name in [
-        "write_catalog_sheet", "write_univariate_sheet",
+        "write_catalog_sheet",
         "write_regression_instructions_sheet", "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
     ]:
@@ -788,7 +718,6 @@ def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
         definitions_path=tmp_path / "lambda_functions.json",
         csv_path=tmp_path / "life_expectancy.csv",
         recalculate=False,
-        skip_univariate=True,
     )
 
     assert called["source_table_ref"] == "=MileageData[#All]"
@@ -829,6 +758,9 @@ class _TabOrderBook:
 
 
 def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(monkeypatch) -> None:
+    """The Regression workbook's tab order puts the three data sheets first, then
+    Version History, then the Regression workbench sheets, with LAMBDA_functions
+    last. There is no Univariate tab (it ships in its own workbook)."""
     book = _TabOrderBook(
         [
             "LAMBDA_functions",
@@ -836,9 +768,9 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(monkey
             "Diagnostic Guide",
             "Mileage Data",
             "Life Expectancy Data",
+            "Production Lots",
             "Version History",
             "Regression Instructions",
-            "Univariate Analysis",
         ]
     )
     tab_colors: dict[str, tuple[int, int, int]] = {}
@@ -852,62 +784,84 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(monkey
     monkeypatch.setattr(build_production, "_move_sheet_before", fake_move_sheet_before)
     monkeypatch.setattr(build_production, "_set_tab_color", fake_set_tab_color)
 
-    build_production._reorder_and_style_sheet_tabs(book, include_univariate=True)
+    build_production._reorder_and_style_sheet_tabs(book)
 
     assert book.sheets.names()[:8] == [
         "Mileage Data",
         "Life Expectancy Data",
+        "Production Lots",
         "Version History",
         "Regression Instructions",
         "Regression",
         "Diagnostic Guide",
-        "Univariate Analysis",
         "LAMBDA_functions",
     ]
     assert tab_colors == {
         "Mileage Data": (217, 217, 217),
         "Life Expectancy Data": (217, 217, 217),
+        "Production Lots": (217, 217, 217),
         "Version History": (128, 128, 128),
         "Regression Instructions": build_production.SUBHDR_COLOR,
         "Regression": build_production.SUBHDR_COLOR,
         "Diagnostic Guide": build_production.SUBHDR_COLOR,
-        "Univariate Analysis": (198, 239, 206),
     }
 
 
-def test_reorder_and_style_sheet_tabs_omits_univariate_when_not_included(monkeypatch) -> None:
-    book = _TabOrderBook(
-        [
-            "LAMBDA_functions",
-            "Univariate Analysis",
-            "Mileage Data",
-            "Life Expectancy Data",
-            "Regression",
-            "Version History",
-            "Regression Instructions",
-            "Diagnostic Guide",
-        ]
+class _FakeVerifyBuildQc:
+    """Stand-in for the build_qc module returned by _load_build_qc_module.
+
+    Records the kwargs passed to verify_test_sheets and does not raise, so
+    _run_deep_verify takes its success branch and returns a passing report.
+    """
+
+    def __init__(self) -> None:
+        self.verify_kwargs: dict = {}
+
+    @staticmethod
+    def build_regression_spec_qc_configs(mileage_path) -> list:
+        # _run_deep_verify calls this to build the Regression oracle before
+        # passing it to verify_test_sheets; return a non-None sentinel so the
+        # test can assert the Regression path forwards real configs.
+        return ["_fake_regression_configs"]
+
+    def verify_test_sheets(self, workbook, regression_sheet_configs, csv_path, **kwargs) -> None:
+        self.verify_kwargs = {
+            "workbook": workbook,
+            "regression_sheet_configs": regression_sheet_configs,
+            "csv_path": csv_path,
+            **kwargs,
+        }
+
+
+def test_run_deep_verify_forwards_skip_regression_false_and_skip_univariate_true(
+    monkeypatch,
+) -> None:
+    """The Regression artifact's verify path must run the full Regression check
+    (skip_regression defaults to False) while still skipping the Univariate
+    check (the Regression workbook ships no Univariate sheet)."""
+    app = _FakeApp()
+    monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
+
+    fake_build_qc = _FakeVerifyBuildQc()
+    monkeypatch.setattr(
+        build_production,
+        "_load_build_qc_module",
+        lambda: fake_build_qc,
     )
-    tab_colors: dict[str, tuple[int, int, int]] = {}
 
-    def fake_move_sheet_before(sheet, anchor) -> None:
-        book.sheets.move_before(sheet.name, anchor.name)
+    report = build_production._run_deep_verify(
+        Path("Example.xlsx"),
+        Path("life_expectancy.csv"),
+        mileage_path=Path("mileage.csv"),
+        production_lots_path=Path("production_lots.csv"),
+    )
 
-    def fake_set_tab_color(sheet, color) -> None:
-        tab_colors[sheet.name] = color
-
-    monkeypatch.setattr(build_production, "_move_sheet_before", fake_move_sheet_before)
-    monkeypatch.setattr(build_production, "_set_tab_color", fake_set_tab_color)
-
-    build_production._reorder_and_style_sheet_tabs(book, include_univariate=False)
-
-    assert book.sheets.names()[:7] == [
-        "Mileage Data",
-        "Life Expectancy Data",
-        "Version History",
-        "Regression Instructions",
-        "Regression",
-        "Diagnostic Guide",
-        "LAMBDA_functions",
-    ]
-    assert "Univariate Analysis" not in tab_colors
+    assert report.passed is True
+    # _run_deep_verify does not pass skip_regression explicitly, so it defaults
+    # to False — the full Regression check runs (this artifact HAS a Regression
+    # sheet). skip_univariate=True is passed explicitly (no Univariate sheet).
+    assert fake_build_qc.verify_kwargs["skip_univariate"] is True
+    assert fake_build_qc.verify_kwargs["skip_dummy"] is True
+    assert fake_build_qc.verify_kwargs.get("skip_regression", False) is False
+    # The Regression path passes real regression_sheet_configs (not None).
+    assert fake_build_qc.verify_kwargs["regression_sheet_configs"] is not None

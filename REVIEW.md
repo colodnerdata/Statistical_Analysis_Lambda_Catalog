@@ -204,9 +204,11 @@ distribution-fitting sheet currently displays a previous answer with no
 indication that it has done so — silent wrongness, in the one place the
 philosophy exists to prevent it.
 
-**Mitigating note.** `--skip-univariate` and `--skip-data-table-calculations`
-already exist in the build. Bundling is closer than it looks; it is simply not
-a first-class concept.
+**Mitigating note (pre-resolution).** `--skip-univariate` and
+`--skip-data-table-calculations` already existed in the build, so bundling was
+closer than it looked — it was simply not a first-class concept. It is now:
+`build_production.py` and `build_univariate.py` are the two build targets
+(`--skip-univariate` retired with the split).
 
 **Compounds with.** v2.4 Resampling adds a pre-drawn `Bootstrap_Random_Draws`
 table and n-resample machinery to the same workbook.

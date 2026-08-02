@@ -80,18 +80,33 @@ _SHEET_TAG = f"{_WB}sheet"
 _DEFINED_NAMES_TAG = f"{_WB}definedNames"
 _DEFINED_NAME_TAG = f"{_WB}definedName"
 
-# Real Lambda_Library.xlsx has 6 sheets in the committed artifact (the
-# production build that excludes Univariate and Model Construction was the
-# last to be checked in). We keep this list here so the invariant test can
-# assert the structural set without re-reading the spec at every run.
+# Real Lambda_Library.xlsx (the Regression artifact) ships eight sheets in
+# the tab order that build_production._reorder_and_style_sheet_tabs applies:
+# the three data sheets, Version History, the three Regression workbench
+# sheets, then the LAMBDA_functions catalog last. (Pre-v3.0 the committed
+# artifact carried the Univariate sheet too; it moved to its own workbook in
+# the v3.0 split — see EXPECTED_UNIVARIATE_SHEETS below.)
 EXPECTED_REAL_SHEETS: tuple[str, ...] = (
-    "LAMBDA_functions",
-    "Life Expectancy Data",
     "Mileage Data",
-    "Regression Instructions",
-    "Diagnostic Guide",
+    "Life Expectancy Data",
+    "Production Lots",
     "Version History",
+    "Regression Instructions",
     "Regression",
+    "Diagnostic Guide",
+    "LAMBDA_functions",
+)
+
+# Real Lambda_Library_Univariate.xlsx (the standalone Univariate artifact from
+# v3.0) ships four sheets: the Univariate workbench front-most, its data
+# source, the Version History, then the LAMBDA_functions catalog last. It
+# carries the complete 126-function library (no subsetting) but none of the
+# Regression-side sheets.
+EXPECTED_UNIVARIATE_SHEETS: tuple[str, ...] = (
+    "Univariate",
+    "Life Expectancy Data",
+    "Version History",
+    "LAMBDA_functions",
 )
 
 # Synthetic 4-sheet fixture.
@@ -317,6 +332,7 @@ def _assert_sheet_inventory(package: WorkbookPackage, expected: tuple[str, ...])
 # ---------------------------------------------------------------------------
 
 REAL_WORKBOOK_PATH = Path(__file__).resolve().parents[1] / "Lambda_Library.xlsx"
+UNIVARIATE_WORKBOOK_PATH = Path(__file__).resolve().parents[1] / "Lambda_Library_Univariate.xlsx"
 
 
 @pytest.fixture
@@ -345,6 +361,14 @@ def real_workbook_package() -> WorkbookPackage | None:
     if not REAL_WORKBOOK_PATH.exists():
         pytest.skip(f"Real workbook not present at {REAL_WORKBOOK_PATH}")
     return WorkbookPackage(REAL_WORKBOOK_PATH)
+
+
+@pytest.fixture(scope="module")
+def univariate_workbook_package() -> WorkbookPackage | None:
+    """Return a parsed view of the committed standalone Univariate workbook, or skip."""
+    if not UNIVARIATE_WORKBOOK_PATH.exists():
+        pytest.skip(f"Univariate workbook not present at {UNIVARIATE_WORKBOOK_PATH}")
+    return WorkbookPackage(UNIVARIATE_WORKBOOK_PATH)
 
 
 def _inject_calc_chain(workbook_path: Path) -> None:
@@ -639,4 +663,74 @@ class TestRealWorkbook:
         assert not missing, (
             "Chart/drawing relationship Targets don't resolve:\n  "
             + "\n  ".join(f"{part}: Id={rid!r} -> {t!r}" for part, rid, t in missing)
+        )
+
+
+@skip_real_workbook
+class TestRealUnivariateWorkbook:
+    """Real-workbook checks for the standalone Univariate artifact; opt-in via
+    RUN_EXCEL_INTEGRATION=1. Mirrors the Regression class but asserts the
+    four-sheet Univariate set and that the package is structurally sound
+    (no orphan names, no leaked error literals, consistent content types and
+    rels). The deep spec-driven check (build_qc.verify_test_sheets with
+    skip_regression=True) is the source of truth for cell-level correctness.
+    """
+
+    def test_sheet_inventory_matches_spec(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        """The Univariate workbook's sheet set must equal the documented
+        four-sheet inventory."""
+        _assert_sheet_inventory(univariate_workbook_package, EXPECTED_UNIVARIATE_SHEETS)
+
+    def test_no_orphan_named_ranges(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_no_orphan_named_ranges(univariate_workbook_package)
+
+    def test_no_error_literals_in_cached_values(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_no_error_literals_in_cached_values(univariate_workbook_package)
+
+    def test_content_types_consistent(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        """[Content_Types].xml must reference every actual worksheet part, and vice versa."""
+        namelist = univariate_workbook_package.namelist
+        actual_worksheets = {
+            f"/{name}"
+            for name in namelist
+            if name.startswith("xl/worksheets/") and name.endswith(".xml")
+        }
+        root = univariate_workbook_package.content_types_root
+        declared_worksheets = {
+            override.get("PartName")
+            for override in root.findall(_OVERRIDE_TAG)
+            if (override.get("ContentType") or "").endswith("worksheet+xml")
+        }
+        missing = actual_worksheets - declared_worksheets
+        extra = declared_worksheets - actual_worksheets
+        assert not missing and not extra, (
+            f"Worksheet <-> Content_Types mismatch: missing={missing!r}, extra={extra!r}"
+        )
+
+    def test_workbook_rels_consistent(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        """Every <Relationship> in xl/_rels/workbook.xml.rels must resolve to a zip member."""
+        namelist = univariate_workbook_package.namelist
+        rels = univariate_workbook_package.workbook_rels_root
+        missing: list[tuple[str, str]] = []
+        for rel in rels.findall(_RELATIONSHIP_TAG):
+            target = rel.get("Target") or ""
+            if target.startswith("/"):
+                resolved = target.lstrip("/")
+            else:
+                resolved = f"xl/{target}"
+            if resolved not in namelist:
+                missing.append((rel.get("Id", "?"), resolved))
+        assert not missing, (
+            "xl/_rels/workbook.xml.rels references parts not in the zip:\n  "
+            + "\n  ".join(f"Id={rid!r} Target={t!r}" for rid, t in missing)
         )

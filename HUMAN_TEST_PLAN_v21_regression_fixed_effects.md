@@ -17,7 +17,7 @@ shipped default (Auto MPG has no natural panel-unit variable). Build or
 retarget with:
 
 ```
-python build_production.py --regression-dataset life_expectancy --verify --no-launch --skip-data-table-calculations --skip-univariate
+python build_production.py --regression-dataset life_expectancy --verify --no-launch
 ```
 
 **Baseline facts:** 2,938 data rows; 2,482 rows complete on Life expectancy +

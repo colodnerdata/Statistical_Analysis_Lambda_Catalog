@@ -146,7 +146,23 @@ class RecordingRangeApi:
         return self._state.formula2
 
     @Formula2.setter
-    def Formula2(self, value: str) -> None:
+    def Formula2(self, value: Any) -> None:
+        # Distribute a 2D list across the constituent cells, mirroring how
+        # Excel expands a multi-cell ``Range.Formula2`` assignment.  Lets a
+        # headless test assert ``sheet.cell(r, c).api.Formula2`` per cell after
+        # the writer writes a whole grid block in one COM call.
+        if (
+            isinstance(value, list)
+            and value
+            and isinstance(value[0], list)
+            and len(self.address) == 2
+            and isinstance(self.address[0], tuple)
+            and isinstance(self.address[1], tuple)
+        ):
+            (r1, c1), _ = self.address
+            for i, row_vals in enumerate(value):
+                for j, cell_value in enumerate(row_vals):
+                    self._sheet.cell(r1 + i, c1 + j).api._state.formula2 = cell_value
         self._state.formula2 = value
 
     @property

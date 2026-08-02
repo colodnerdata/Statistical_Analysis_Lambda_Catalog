@@ -8,8 +8,10 @@ MLE throughout.  For Normal, Lognormal, and Exponential the MLE estimators are
 closed-form (sample mean/SD on the raw or log-transformed data).  For
 Triangular and BetaPERT the likelihood is non-differentiable at the mode, so
 direct min/mode/max estimation is used — the result is a valid parameter set
-that the NLL formula evaluates against.  Weibull, Gamma, and Beta use two-stage,
-two-input Data Table grid searches.
+that the NLL formula evaluates against.  Weibull, Gamma, and Beta use two-stage
+grid searches.  Beta uses two-input Data Tables; Weibull and Gamma use static
+formula grids (each body cell an explicit NLL formula) — their Data Tables are
+disabled pending the grid-shrink migration to 1-D profile line charts.
 
 Sheet layout
 ────────────
@@ -51,9 +53,9 @@ Sheet-scoped named ranges
   UV_*_<Dist>_Expected — histogram CDF-delta column × Count stat cell (expected
                    counts); feeds the fitted-distribution overlay line series
   UV_QQ_Sample, UV_QQ_<Dist> — OFFSET-based Q-Q chart column ranges
-  UV_WB_S1/S2   — Stage 1/2 Weibull Data Table bodies
-  UV_GAMMA_S1/S2 — Stage 1/2 Gamma Data Table bodies
-  UV_BETA_S1/S2  — Stage 1/2 Beta Data Table bodies
+  UV_WB_S1/S2    — Stage 1/2 Weibull grid bodies (formula grid; no Data Table)
+  UV_GAMMA_S1/S2  — Stage 1/2 Gamma grid bodies (formula grid; no Data Table)
+  UV_BETA_S1/S2   — Stage 1/2 Beta Data Table bodies
 """
 from __future__ import annotations
 
@@ -1262,12 +1264,24 @@ def _write_grid_stage(
     p2_min,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     p2_max,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     editable_bounds: bool = True,
+    use_data_table: bool = True,
 ) -> dict:
     """Write one 20×20 NLL grid-search stage for a two-parameter fit.
 
     Returns absolute A1 references used by the refined Stage 2 search and by
     the distribution-fitting summary: best_p1, best_p2, min_p1, max_p1,
     min_p2, max_p2, step_p1, step_p2, n_grid, corner, p1_seq, and p2_seq.
+
+    When ``use_data_table`` is True (the default) the body is a two-input
+    Excel Data Table wired via ``Range.Table`` — the corner NLL formula is
+    substituted across the row/column axes.  When False the body is a static
+    **formula grid**: each cell holds an explicit NLL formula referencing the
+    row/column SEQUENCE axis cells.  Both populate the same body named range
+    that ``Grid_Argument_Minimum`` / ``Grid_Search_Optimum`` read, so the fit
+    result is identical, but the formula grid creates no Data Table object —
+    it does not force workbook-wide SEMIAUTOMATIC calculation and recalculates
+    as ordinary formulas.  Used for the distributions slated to become 1-D
+    profile line charts (Weibull, Gamma); Beta keeps its Data Table.
     """
     sname = sheet.name
     n = _N_GRID
@@ -1411,17 +1425,36 @@ def _write_grid_stage(
         ),
     )
 
-    full_table_range = sheet.range(
-        rc(hdr_row, c0),
-        rc(body_row_end, body_col_end),
-    )
-    try:
-        full_table_range.api.Table(
-            RowInput=sheet.range(rc(p1_row, c0 + _GS_C_INPUT)).api,
-            ColumnInput=sheet.range(rc(p2_row, c0 + _GS_C_INPUT)).api,
+    if use_data_table:
+        full_table_range = sheet.range(
+            rc(hdr_row, c0),
+            rc(body_row_end, body_col_end),
         )
-    except Exception as e:
-        raise RuntimeError(f"Failed to wire two-input Data Table for stage {title!r}") from e
+        try:
+            full_table_range.api.Table(
+                RowInput=sheet.range(rc(p1_row, c0 + _GS_C_INPUT)).api,
+                ColumnInput=sheet.range(rc(p2_row, c0 + _GS_C_INPUT)).api,
+            )
+        except Exception as e:
+            raise RuntimeError(f"Failed to wire two-input Data Table for stage {title!r}") from e
+    else:
+        # Formula grid: write an explicit NLL formula into each body cell,
+        # referencing the column-axis (shape) and row-axis (scale) SEQUENCE
+        # cells.  No Data Table object is created.  The whole 20×20 block is
+        # written in one COM call via ``Range.Formula2`` accepting a 2D list
+        # (a per-cell ``f`` loop here costs ~1,600 COM round-trips and made
+        # the sheet-writing phase take >10 min; the 2D write is instant).
+        body_formulas = [
+            [
+                nll_formula(
+                    f"${col_letter(c0 + 1 + j)}${hdr_row}",      # column axis: p1 (shape)
+                    f"${col_letter(c0)}${body_row_start + i}",   # row axis: p2 (scale)
+                )
+                for j in range(n)
+            ]
+            for i in range(n)
+        ]
+        body_range.api.Formula2 = body_formulas
 
     body_range.number_format = _FMT_SCI_1DP
 
@@ -1524,6 +1557,7 @@ def _write_two_stage_grid_search(
     p1_max,
     p2_min,
     p2_max,
+    use_data_table: bool = True,
 ) -> None:
     """Write Stage 1 and Stage 2 grid-search blocks for one distribution."""
     s1 = _write_grid_stage(
@@ -1540,6 +1574,7 @@ def _write_two_stage_grid_search(
         p2_min      = p2_min,
         p2_max      = p2_max,
         editable_bounds = True,
+        use_data_table = use_data_table,
     )
 
     _write_grid_stage(
@@ -1556,6 +1591,7 @@ def _write_two_stage_grid_search(
         p2_min      = f"=MAX(0.001,{s1['best_p2']}-{s1['step_p2']})",
         p2_max      = f"={s1['best_p2']}+{s1['step_p2']}",
         editable_bounds = False,
+        use_data_table = use_data_table,
     )
 
     # Section heading label over the gap column between stages.
@@ -1563,7 +1599,13 @@ def _write_two_stage_grid_search(
 
 
 def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
-    """Write two-stage grid-search MLE blocks for all two-parameter fits."""
+    """Write two-stage grid-search MLE blocks for all two-parameter fits.
+
+    Weibull and Gamma use static formula grids (``use_data_table=False``) —
+    these two are slated to become 1-D profile line charts, so their 2-D
+    Data Tables are disabled pending that migration.  Beta keeps its Data
+    Table (it stays two-dimensional under the grid shrink).
+    """
     _write_two_stage_grid_search(
         sheet,
         row_start   = _ROW_GS_WB,
@@ -1576,6 +1618,7 @@ def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
         p1_max      = 10.0,
         p2_min      = 0.1,
         p2_max      = "=IFERROR(2*AVERAGE(FILTER(UV_Data,UV_Include)),10)",
+        use_data_table = False,
     )
 
     _write_two_stage_grid_search(
@@ -1590,6 +1633,7 @@ def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
         p1_max      = 100.0,
         p2_min      = 0.001,
         p2_max      = 2.0,
+        use_data_table = False,
     )
 
     _write_two_stage_grid_search(
@@ -1604,6 +1648,7 @@ def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
         p1_max      = 50.0,
         p2_min      = 0.2,
         p2_max      = 50.0,
+        use_data_table = True,
     )
 
 

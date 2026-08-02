@@ -74,7 +74,7 @@ _VERIFY_CALC_SHEET_NAMES = (
 
 
 def _verification_calc_sheet_names(
-    *, skip_dummy: bool, skip_univariate: bool = False
+    *, skip_dummy: bool, skip_univariate: bool = False, skip_regression: bool = False
 ) -> tuple[str, ...]:
     """Return workbook sheets that must be force-calculated before verify."""
     names = _VERIFY_CALC_SHEET_NAMES
@@ -82,6 +82,15 @@ def _verification_calc_sheet_names(
         names = tuple(name for name in names if name != "Dummy_Test")
     if skip_univariate:
         names = tuple(name for name in names if name != "Univariate")
+    if skip_regression:
+        # The Univariate artifact has no Regression / Mileage / Production Lots
+        # sheets — drop them from the force-calc set so their absence is not
+        # treated as a missing required sheet.
+        names = tuple(
+            name
+            for name in names
+            if name not in ("Regression", MILEAGE.sheet_name, PRODUCTION_LOTS.sheet_name)
+        )
     return names
 
 
@@ -117,9 +126,12 @@ def _calculate_verification_sheets(
     *,
     skip_dummy: bool,
     skip_univariate: bool = False,
+    skip_regression: bool = False,
 ) -> None:
     sheet_names = _verification_calc_sheet_names(
-        skip_dummy=skip_dummy, skip_univariate=skip_univariate
+        skip_dummy=skip_dummy,
+        skip_univariate=skip_univariate,
+        skip_regression=skip_regression,
     )
     workbook_sheet_names = {sheet.name for sheet in workbook.sheets}
     missing_sheets = [name for name in sheet_names if name not in workbook_sheet_names]
@@ -270,7 +282,7 @@ def _verify_production_lots_full_data(
 
 def verify_test_sheets(
     workbook: xw.Book,
-    regression_sheet_configs: list,
+    regression_sheet_configs: list | None,
     csv_path: Path,
     verbose: bool = False,
     *,
@@ -278,6 +290,7 @@ def verify_test_sheets(
     production_lots_path: Path = PRODUCTION_LOTS.default_csv_path,
     skip_dummy: bool = False,
     skip_univariate: bool = False,
+    skip_regression: bool = False,
     failures_out: list[str] | None = None,
 ) -> None:
     """Compare live workbook output against Python-computed QC oracle values.
@@ -286,8 +299,10 @@ def verify_test_sheets(
     ----------
     workbook : xw.Book
         The live xlwings workbook to verify.
-    regression_sheet_configs : list
+    regression_sheet_configs : list | None
         Per-config Python oracle (from ``build_regression_spec_qc_configs``).
+        May be ``None`` when ``skip_regression`` is set (the Univariate
+        artifact has no Regression sheet to compare against).
     csv_path : Path
         Path to the canonical CSV used for Full_Data comparison.
     verbose : bool
@@ -306,17 +321,23 @@ def verify_test_sheets(
     skip_univariate : bool
         When True, skip the Univariate sheet check
         (``read_univariate_failures``). Used by
-        ``build_production.py --verify --skip-univariate`` which produces
-        a workbook without a ``Univariate`` sheet. Defaults to False. Even
-        when False, a workbook that is missing the ``Univariate`` sheet
-        (e.g. built earlier with --skip-univariate) is handled the same
-        way — the check is skipped with a warning rather than raising,
-        since the sheet's absence is expected in that case, not a build
-        failure.
+        ``build_production.py --verify`` which produces a Regression workbook
+        without a ``Univariate`` sheet. Defaults to False. Even when False, a
+        workbook that is missing the ``Univariate`` sheet is handled the same
+        way — the check is skipped with a warning rather than raising, since
+        the sheet's absence is expected in that case, not a build failure.
+    skip_regression : bool
+        When True, skip every Regression-side check (the Mileage and
+        Production Lots Full_Data comparisons, the Regression spec-block
+        check, and the Regression DF comparison against
+        ``regression_sheet_configs``). Used by ``build_univariate.py --verify``
+        which produces a Univariate-only workbook with no Regression / Mileage
+        / Production Lots sheets. Defaults to False. The Life Expectancy
+        Full_Data check and the Univariate sheet check still run.
     failures_out : list[str] | None
         Optional external list. When supplied, every captured failure message
-        is appended to it before the function raises on drift. Used by
-        ``build_production.py --verify`` to populate a ``VerifyReport`` for
+        is appended to it before the function raises on drift. Used by the
+        build scripts' ``--verify`` to populate a ``VerifyReport`` for
         downstream structured rendering. The internal ``failures`` list is
         the source of truth; this is a write-through mirror.
     """
@@ -328,46 +349,48 @@ def verify_test_sheets(
         phase_start,
         skip_dummy=skip_dummy,
         skip_univariate=skip_univariate,
+        skip_regression=skip_regression,
     )
     _verify_life_expectancy_full_data(workbook, csv_path, failures)
-    _verify_mileage_full_data(workbook, mileage_path, failures)
-    _verify_production_lots_full_data(workbook, production_lots_path, failures)
+    if not skip_regression:
+        _verify_mileage_full_data(workbook, mileage_path, failures)
+        _verify_production_lots_full_data(workbook, production_lots_path, failures)
 
-    _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
-    for failure in read_regression_spec_block_failures(workbook, mileage_path):
-        _report_qc_failure(failures, failure)
-    _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block done")
+        _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
+        for failure in read_regression_spec_block_failures(workbook, mileage_path):
+            _report_qc_failure(failures, failure)
+        _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block done")
 
-    reg_mod = _load_module(
-        "inspect_regression_sheet",
-        ROOT_DIR / "tools" / "inspect_regression_sheet.py",
-    )
+        reg_mod = _load_module(
+            "inspect_regression_sheet",
+            ROOT_DIR / "tools" / "inspect_regression_sheet.py",
+        )
 
-    _verbose_checkpoint(verbose, phase_start, "Verify: regression start")
-    reg_dfs = reg_mod.read_regression_df(workbook, regression_sheet_configs)
-    _verbose_checkpoint(verbose, phase_start, "Verify: regression done")
+        _verbose_checkpoint(verbose, phase_start, "Verify: regression start")
+        reg_dfs = reg_mod.read_regression_df(workbook, regression_sheet_configs)
+        _verbose_checkpoint(verbose, phase_start, "Verify: regression done")
 
-    section_df_keys = [
-        ("scalars", ["config_name", "allow_intercept", "stat_name"]),
-        ("predictors", ["config_name", "allow_intercept", "predictor_name", "stat_name"]),
-        ("coefficients", ["config_name", "allow_intercept", "term_name", "stat_name"]),
-        ("prediction_interval", ["config_name", "allow_intercept", "stat_name"]),
-        ("residuals", ["config_name", "allow_intercept", "row_idx", "stat_name"]),
-    ]
-    for section_key, id_cols in section_df_keys:
-        df = reg_dfs[section_key]
-        for _, row in df.iterrows():
-            fdd = row["first_digit_deviation"]
-            if fdd is not None and fdd <= reg_mod.TOLERANCE_DECIMALS:
-                identity = " ".join(
-                    f"{col}={row[col]!r}" for col in id_cols if col in row.index
-                )
-                _report_qc_failure(
-                    failures,
-                    f"[Regression/{section_key}] {identity}: "
-                    f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
-                    f"abs_diff={row['abs_diff']!r}, fdd={fdd}",
-                )
+        section_df_keys = [
+            ("scalars", ["config_name", "allow_intercept", "stat_name"]),
+            ("predictors", ["config_name", "allow_intercept", "predictor_name", "stat_name"]),
+            ("coefficients", ["config_name", "allow_intercept", "term_name", "stat_name"]),
+            ("prediction_interval", ["config_name", "allow_intercept", "stat_name"]),
+            ("residuals", ["config_name", "allow_intercept", "row_idx", "stat_name"]),
+        ]
+        for section_key, id_cols in section_df_keys:
+            df = reg_dfs[section_key]
+            for _, row in df.iterrows():
+                fdd = row["first_digit_deviation"]
+                if fdd is not None and fdd <= reg_mod.TOLERANCE_DECIMALS:
+                    identity = " ".join(
+                        f"{col}={row[col]!r}" for col in id_cols if col in row.index
+                    )
+                    _report_qc_failure(
+                        failures,
+                        f"[Regression/{section_key}] {identity}: "
+                        f"expected={row['expected']!r}, excel_calc={row['excel_calc']!r}, "
+                        f"abs_diff={row['abs_diff']!r}, fdd={fdd}",
+                    )
 
     workbook_sheet_names = {sheet.name for sheet in workbook.sheets}
     if skip_univariate or "Univariate" not in workbook_sheet_names:

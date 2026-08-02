@@ -1064,10 +1064,14 @@ only — no formula, no input cell, and no named range changes meaning. Per the
 public-interface definition in [ROADMAP.md](ROADMAP.md), every specification
 valid before the split produces the same result after it.
 
-**Mechanism already half-built.** `--skip-univariate` and
-`--skip-data-table-calculations` already exist in `build_production.py`;
-formalizing them into two build targets is most of the work. Resolves
-REVIEW.md F4.
+**Mechanism — shipped.** The two build targets now exist:
+`build_production.py` emits the Regression artifact (`Lambda_Library.xlsx`,
+Regression-only, full Automatic) and `build_univariate.py` emits the Univariate
+artifact (`Lambda_Library_Univariate.xlsx`, full Automatic including Data
+Tables). Shared build scaffolding lives in `lambda_catalog/build_common.py`,
+and the verifier carries a `skip_regression` mode so a Univariate-only workbook
+is checked without its absent Regression / Mileage / Production Lots sheets.
+Resolves REVIEW.md F4.
 
 ### The grid shrink ships as a later release of the Univariate artifact
 
@@ -1734,10 +1738,15 @@ It answers a question about a user's saved inputs, and inputs are a property of 
 workbook's sheets. A library-version bump that adds a function breaks nothing.
 
 Consequences, recorded so the two-number scheme is unambiguous at its first two
-uses: the Univariate split is **non-breaking for both artifacts** and moves neither
-workbook's major; the grid shrink is **MAJOR for the Univariate workbook version
-only** and does not move the Regression workbook version. The full display and
-changelog conventions are in
+uses: the Univariate split is **non-breaking for both artifacts**. On the
+Regression side the split ships *bundled into the 3.0.0 release* — the 3.0.0
+MAJOR marks the architectural milestone (the bounded `Model_Context`, the
+constructor pipeline, and the split itself), not a public-interface break; every
+specification valid before 3.0.0 produces the same result after it, so the split
+alone would have moved no version. On the Univariate side the split *is* the
+1.0.0 initial release, the artifact's first existence. The grid shrink is
+**MAJOR for the Univariate workbook version only** and does not move the
+Regression workbook version. The full display and changelog conventions are in
 [ROADMAP.md § Versioning](ROADMAP.md#versioning--release-conventions). Resolves
 REVIEW.md F8.
 
@@ -1851,19 +1860,23 @@ extends the same framing to the rest. (The count is a text-match of function nam
 against `write_sheet_*.py` and moves as sheets change; it is illustrative, not a
 tracked invariant.)
 
-### v3.0 ships in three stages
+### v3.0 shipped in two stages; the layout break is deferred to a future MAJOR
 
 **Question:** the scope entry in [ROADMAP.md](ROADMAP.md) settled *what* v3.0
 contains but not how it lands. All of it in one change is a diff nobody can review
 against a workbook nobody can rebuild in CI.
 
-**Resolution:** three pull requests, in dependency order.
+**Resolution:** the release landed in reviewable pull requests, in dependency
+order. Stages 1 and 2 (the constructor pipeline + intercept relocation, then the
+`Model_Context` / `[Context]` collapse) shipped, and the two-artifact split
+shipped with them as **v3.0.0** (2026-08-02). The originally-planned third stage
+— the layout break — is deferred to a future MAJOR release (see below).
 
-| Stage | Contents |
-|---|---|
-| 1 | The constructor pipeline and the intercept relocation |
-| 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; the two-name split (`Model_Context` constructor / `Fit_Context` reader) keeps `Model_Context` unshadowed; four `Context_*` accessors make the row order a contract enforced in one place; all four context rows materialized (1-2 feed the engines, 3-4 populated from the spec block for v3.3); `Sample_Include` placed at its final §4b position as a reserved placeholder (thunk materialization deferred to an Excel-verified follow-up) |
-| 3 | Layout — interaction spec columns M/N reserved, the Design Columns audit column, the Constructed Design Matrix zone and its width guard |
+| Stage | Contents | Status |
+|---|---|---|
+| 1 | The constructor pipeline and the intercept relocation | **Shipped** (#148) |
+| 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; the two-name split (`Model_Context` constructor / `Fit_Context` reader) keeps `Model_Context` unshadowed; four `Context_*` accessors make the row order a contract enforced in one place; all four context rows materialized (1-2 feed the engines, 3-4 populated from the spec block for v3.3); `Sample_Include` placed at its final §4b position as a reserved placeholder (thunk materialization deferred to an Excel-verified follow-up) | **Shipped** (#150) |
+| 3 | Layout — interaction spec columns M/N reserved, the Design Columns audit column, the Constructed Design Matrix zone and its width guard | **Deferred to a future MAJOR** |
 
 **Rationale:** the order is forced by the dependencies the scope entry already
 names — the bounded context requires the intercept relocation, which requires the
@@ -1874,8 +1887,18 @@ fitted, so the spec-driven QC pass must report zero mismatches across all twelve
 cases. Any mismatch is a bug rather than an expected delta, which is the cleanest
 gate available for the stage that touches the most functions.
 
-**The version number does not move until stage three.** v3.0 is not reached
-part-way through.
+**v3.0 is non-breaking at the public interface; the 3.0.0 MAJOR marks the
+architectural milestone, not a user-facing break.** Stages 1 and 2 restructure
+the *engine* — the constructor pipeline and the bounded `[Context]` argument —
+but they leave the user-typed spec block and its results unchanged: a Regression
+spec saved under 2.0.0 produces identical output under 3.0.0 (stage one's QC
+gate reported zero mismatches across all twelve cases, and stage two's gate is
+green). The two-artifact split is packaging only. The 3.0.0 MAJOR is therefore
+the architectural-milestone number for the engine-interface release, not the
+"your saved inputs break" signal — that signal is the `Breaking?` flag, which is
+**No** for 3.0.0. The genuine interface break is the **stage-3 layout work**
+(column insertions that shift every spec-block column to their right); it is
+deferred to a future MAJOR release whose number is to be set when it lands.
 
 ### `R_Squared` is the third LINEST `const` site — and the one that fails silently
 

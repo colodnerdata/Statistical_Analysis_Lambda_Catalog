@@ -13,6 +13,7 @@ Usage:
     python tools/verify_workbook.py Lambda_Library.xlsx
     python tools/verify_workbook.py Lambda_Library.xlsx --csv path/to/data.csv
     python tools/verify_workbook.py Lambda_Library.xlsx --json
+    python tools/verify_workbook.py Lambda_Library_Univariate.xlsx --skip-regression
 """
 from __future__ import annotations
 
@@ -63,6 +64,7 @@ def verify_workbook(
     *,
     mileage_path: Path = DEFAULT_MILEAGE_CSV_PATH,
     verbose: bool = False,
+    skip_regression: bool = False,
 ) -> VerifyReport:
     """Run the spec-driven verifier against ``workbook_path`` and return a report.
 
@@ -87,13 +89,19 @@ def verify_workbook(
         try:
             captured: list[str] = []
             try:
+                regression_sheet_configs = (
+                    None
+                    if skip_regression
+                    else build_qc.build_regression_spec_qc_configs(mileage_path)
+                )
                 build_qc.verify_test_sheets(
                     workbook,
-                    build_qc.build_regression_spec_qc_configs(mileage_path),
+                    regression_sheet_configs,
                     csv_path,
                     mileage_path=mileage_path,
                     verbose=verbose,
                     skip_dummy=True,
+                    skip_regression=skip_regression,
                     failures_out=captured,
                 )
             except RuntimeError as exc:
@@ -171,6 +179,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Print per-phase checkpoints from the spec-driven verifier.",
     )
+    parser.add_argument(
+        "--skip-regression",
+        action="store_true",
+        help=(
+            "Skip every Regression-sheet, Mileage-Data, and Production-Lots "
+            "check. Use this to verify a standalone Univariate workbook "
+            "(Lambda_Library_Univariate.xlsx), which carries none of those "
+            "sheets; the Life Expectancy Data and Univariate checks still run."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -185,6 +203,7 @@ def main() -> None:
         csv_path=args.csv,
         mileage_path=args.mileage,
         verbose=args.verbose,
+        skip_regression=args.skip_regression,
     )
     if args.as_json:
         print(render_json(report))

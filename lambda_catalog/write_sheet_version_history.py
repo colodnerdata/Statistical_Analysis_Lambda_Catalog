@@ -93,11 +93,81 @@ _VERSIONS = [
             "the full-height row-mask contract."
         ),
     },
+    {
+        "version": "3.0.0",
+        "date": "2026-08-02",
+        "breaking": "No",
+        "summary": (
+            "v3.0: bounded model context, constructor pipeline, and the "
+            "two-workbook split. The Regression fit chain is rebuilt around a "
+            "bounded [Context] argument (Has_Intercept, DF_Absorbed, response "
+            "and predictor transforms) threaded through a single Model_Context "
+            "constructor with Context_* field accessors, and Design_Columns / "
+            "Design_Response construct the fit-time design matrix (the within "
+            "estimator's demean-by-group stage lives here, not in the engines). "
+            "Univariate Analysis moves to its own workbook "
+            "(Lambda_Library_Univariate.xlsx) so each artifact can set its own "
+            "calculation mode; the Regression workbook returns to full "
+            "Automatic. The split is packaging only — no specification, input "
+            "cell, or named range changes meaning, so every model valid before "
+            "3.0.0 produces the same result after it."
+        ),
+    },
 ]
 
 
-def write_version_history_sheet(workbook: xw.Book) -> None:
-    """Create or refresh the Version History sheet."""
+# The Univariate artifact's own version lineage. It starts at 1.0.0 with the
+# v3.0 split (Univariate Analysis becoming its own workbook) — see DECISIONS.md
+# § v3.0 "Univariate becomes its own workbook" and the two-version scheme in
+# README.md ("Univariate Workbook 1.0.0 · Function Library 3.0.0"). The
+# pre-split Univariate history (1.1.0's "Univariate Analysis release" onward)
+# belongs to the Regression workbook's lineage, which carried the sheet until
+# 3.0.0; this artifact's history begins at the split.
+_UNIVARIATE_VERSIONS = [
+    {
+        "version": "1.0.0",
+        "date": "2026-08-02",
+        "breaking": "No",
+        "summary": (
+            "Initial release of the standalone Univariate workbook. Ships "
+            "Univariate Analysis in its own file so its six two-input Data "
+            "Tables (Weibull, Gamma, Beta across two stages; 2,400 NLL "
+            "evaluations per recalculation) can run in full Automatic "
+            "calculation — distribution-fit results are never stale pending a "
+            "manual Ctrl+Alt+F9. Carries the complete 126-function LAMBDA "
+            "library, the Life Expectancy Data sheet the Univariate data zone "
+            "reads, and this Version History. The sheet content is unchanged "
+            "from the Univariate Analysis that shipped inside Lambda_Library.xlsx "
+            "through 3.0.0; only the packaging (own workbook, own calc mode) is new."
+        ),
+    },
+]
+
+
+def write_version_history_sheet(workbook: xw.Book, *, artifact: str = "regression") -> None:
+    """Create or refresh the Version History sheet.
+
+    Parameters
+    ----------
+    workbook : xw.Book
+        The target workbook.
+    artifact : str, optional
+        Which artifact's version lineage to write: ``"regression"`` (default)
+        for the Regression workbook (Lambda_Library.xlsx) or ``"univariate"``
+        for the standalone Univariate workbook (Lambda_Library_Univariate.xlsx).
+        The two artifacts have independent version lines under the two-version
+        scheme (shared function-library version + per-workbook version); see
+        README.md "Versions".
+    """
+    if artifact == "univariate":
+        versions = _UNIVARIATE_VERSIONS
+    elif artifact == "regression":
+        versions = _VERSIONS
+    else:
+        raise ValueError(
+            f"artifact must be 'regression' or 'univariate', got {artifact!r}"
+        )
+
     sheet = get_or_create_sheet(workbook, SHEET_NAME)
     reset_generated_sheet(sheet)
 
@@ -114,7 +184,7 @@ def write_version_history_sheet(workbook: xw.Book) -> None:
         cell.api.Font.Bold = True
         cell.color = _TABLE_HEADER_COLOR
 
-    for row_offset, entry in enumerate(_VERSIONS):
+    for row_offset, entry in enumerate(versions):
         row = 3 + row_offset
         sheet.range((row, 1)).value = entry["version"]
         sheet.range((row, 2)).value = entry["date"]

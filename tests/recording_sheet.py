@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from types import SimpleNamespace
-from typing import Any
+from typing import Any, cast
 
 
 class RecordingName:
@@ -122,6 +122,7 @@ class RecordingRangeApi:
         self._state = state
         self._sheet = sheet
         self.address = address
+        self._block_formula2 = False
         self._borders: dict[int, Any] = {}
         self.Font = SimpleNamespace(Bold=None, Color=None, Strikethrough=None)
         self.Interior = SimpleNamespace(Color=None)
@@ -141,8 +142,29 @@ class RecordingRangeApi:
             SimpleNamespace(LineStyle=None, Weight=None),
         )
 
+    def _block_bounds(self) -> tuple[int, int, int, int] | None:
+        """``(r1, c1, r2, c2)`` when this range spans a ``(top_left, bottom_right)`` block."""
+        if (
+            len(self.address) == 2
+            and isinstance(self.address[0], tuple)
+            and isinstance(self.address[1], tuple)
+        ):
+            (r1, c1), (r2, c2) = self.address
+            return r1, c1, r2, c2
+        return None
+
     @property
-    def Formula2(self) -> str | None:
+    def Formula2(self) -> Any:
+        # Excel returns a scalar formula string for a single cell and a 2D
+        # tuple for a multi-cell range; mirror that.  The block form is
+        # reconstructed from the constituent cells so the per-cell states stay
+        # the single record of what was written.
+        if self._block_formula2:
+            r1, c1, r2, c2 = cast(tuple[int, int, int, int], self._block_bounds())
+            return tuple(
+                tuple(self._sheet.cell(r, c).api._state.formula2 for c in range(c1, c2 + 1))
+                for r in range(r1, r2 + 1)
+            )
         return self._state.formula2
 
     @Formula2.setter
@@ -150,19 +172,23 @@ class RecordingRangeApi:
         # Distribute a 2D list across the constituent cells, mirroring how
         # Excel expands a multi-cell ``Range.Formula2`` assignment.  Lets a
         # headless test assert ``sheet.cell(r, c).api.Formula2`` per cell after
-        # the writer writes a whole grid block in one COM call.
+        # the writer writes a whole grid block in one COM call.  The 2D list is
+        # deliberately NOT stored on this range's own ``RecordingRangeState``,
+        # whose ``formula2`` field is the per-cell formula string.
+        bounds = self._block_bounds()
         if (
-            isinstance(value, list)
+            bounds is not None
+            and isinstance(value, list)
             and value
             and isinstance(value[0], list)
-            and len(self.address) == 2
-            and isinstance(self.address[0], tuple)
-            and isinstance(self.address[1], tuple)
         ):
-            (r1, c1), _ = self.address
+            r1, c1, _, _ = bounds
             for i, row_vals in enumerate(value):
                 for j, cell_value in enumerate(row_vals):
                     self._sheet.cell(r1 + i, c1 + j).api._state.formula2 = cell_value
+            self._block_formula2 = True
+            return
+        self._block_formula2 = False
         self._state.formula2 = value
 
     @property

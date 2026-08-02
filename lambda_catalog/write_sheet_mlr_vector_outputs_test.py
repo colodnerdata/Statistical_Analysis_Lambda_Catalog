@@ -68,15 +68,22 @@ def _reference_map(k: int, has_intercept: bool, func_name: str) -> dict[str, str
     ``X`` and ``Predictors`` deliberately resolve differently: the collinearity
     diagnostics take pre-intercept columns, and handing them a design matrix
     would put a constant column into a correlation matrix.
+
+    ``context`` is the v3.0 engine's [Context] argument. These test sheets
+    declare no Fixed Effects, so the context carries just the per-section
+    intercept flag (absorbed df defaults to 0 inside the constructor) via the
+    workbook ``Model_Context`` function — the free-form-caller path the
+    [Context] argument expects outside the Regression sheet, where the context
+    is instead materialized once and read back through a sheet-scoped thunk.
     """
+    del k  # retained in the signature for parity with the other QC sheets
     return {
         "x": "X",
         "predictors": "predictors",
         "y": "y",
         "include": "Regression_Sample_Include",
-        "has_intercept": "TRUE" if has_intercept else "FALSE",
         "alpha": str(_ALPHA) if func_name in _CI_FUNCS else None,
-        "df_absorbed": None,
+        "context": f"Model_Context({'TRUE' if has_intercept else 'FALSE'})",
     }
 
 

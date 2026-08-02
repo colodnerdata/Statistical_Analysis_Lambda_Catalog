@@ -91,6 +91,50 @@ def test_se_coefficients_mirror_matches_independent_lsdv_bse() -> None:
     assert np.allclose(beta_mirrored, lsdv_fit.params.to_numpy()[1 : 1 + k], rtol=1e-6)
 
 
+def test_df_absorbed_routed_through_a_context_array_still_matches_lsdv() -> None:
+    # The stage-two context packaging: the absorbed df lives in element 2 of
+    # the 4x1 context, and every carrier reads it through Context_DF_Absorbed
+    # (an INDEX). Routing df_absorbed through that packaged-element path must
+    # not change the corrected SE relative to threading the scalar directly.
+    # If it did, the sheet's engines (which pass Fit_Context(), not a scalar)
+    # would diverge from the LSDV ground truth the moment they switched to the
+    # context array.
+    groups, _years, y, x = _load_fe_panel()
+    df_absorbed = absorbed_degrees_of_freedom_mirror(groups)
+
+    x_within = x_s_within_mirror(x, fe_active=True, group=groups)
+    y_within = y_s_mirror(y, fe_active=True, group=groups)
+
+    # Pack df_absorbed into element 2 of a Model_Context()-shaped array and read
+    # it back the way Context_DF_Absorbed(context) does: INDEX(Context, 2).
+    context = np.array(
+        [[1], [df_absorbed], ["None"], ["None"]], dtype=object
+    )
+    df_absorbed_via_context = int(context[1, 0])  # 1-based -> 0-based
+
+    se_via_context, beta_via_context, true_df = se_coefficients_mirror(
+        x_within, y_within, df_absorbed_via_context
+    )
+
+    import pandas as pd  # pylint: disable=import-outside-toplevel
+    import statsmodels.api as sm  # pylint: disable=import-outside-toplevel
+
+    dummies = pd.get_dummies(pd.Series(groups), drop_first=True, dtype=float)
+    design = sm.add_constant(pd.concat([pd.DataFrame(x), dummies], axis=1))
+    lsdv_fit = sm.OLS(pd.Series(y), design).fit()
+
+    k = x.shape[1]
+    lsdv_se = lsdv_fit.bse.to_numpy()[1 : 1 + k]
+    assert np.allclose(se_via_context, lsdv_se, rtol=1e-6, atol=1e-8)
+    assert true_df == lsdv_fit.df_resid
+    assert np.allclose(beta_via_context, lsdv_fit.params.to_numpy()[1 : 1 + k], rtol=1e-6)
+
+    # And the context-path SE must equal the scalar-path SE bit for bit — the
+    # accessor indirection is numerically transparent.
+    se_scalar, _, _ = se_coefficients_mirror(x_within, y_within, df_absorbed)
+    assert np.allclose(se_via_context, se_scalar, rtol=0, atol=0)
+
+
 def test_t_and_p_values_match_independent_lsdv() -> None:
     groups, _years, y, x = _load_fe_panel()
     df_absorbed = absorbed_degrees_of_freedom_mirror(groups)
@@ -234,19 +278,25 @@ _DF_ABSORBED_FUNCTIONS = (
 )
 
 
-def test_every_df_dependent_function_has_a_trailing_optional_df_absorbed() -> None:
+def test_every_df_dependent_function_has_a_trailing_optional_context() -> None:
+    # Stage two folds [DF_Absorbed] (with [Has_Intercept]) into a single trailing
+    # [Context] argument. The absorbed df is element 2 of that context.
     functions = _catalog_functions()
     for name in _DF_ABSORBED_FUNCTIONS:
         fn = functions[name]
         args = fn["arguments"]
-        assert args[-1]["name"] == "DF_Absorbed", name
+        assert args[-1]["name"] == "Context", name
         assert args[-1].get("optional") is True, name
-        assert "DF_Absorbed" in fn["formula_display"], name
+        assert "Context" in fn["formula_display"], name
 
 
 def test_residual_degrees_of_freedom_defaults_df_absorbed_to_zero() -> None:
     formula = _formula("Residual_Degrees_Of_Freedom")
-    assert "absorbed_arg,IF(ISOMITTED(DF_Absorbed),0,DF_Absorbed)" in formula
+    # absorbed df is element 2 of the context, read through the
+    # Context_DF_Absorbed accessor; the omitted-[Context] default routes
+    # through Model_Context(), whose DF_Absorbed defaults to 0.
+    assert "context_arg,IF(ISOMITTED(Context),Model_Context(),Context)" in formula
+    assert "absorbed_arg,Context_DF_Absorbed(context_arg)" in formula
     assert formula.rstrip(")").endswith("-absorbed_arg")
 
 
@@ -274,14 +324,14 @@ def test_f_statistic_does_not_correct_the_numerator_degrees_of_freedom() -> None
     # regression (numerator) df counts estimated slope coefficients, which
     # absorbed FE groups are not. F_Statistic is now the plain MS ratio, so
     # the property is checked where each mean square is actually formed.
-    assert "MS_Regression(X,Y,has_arg,filt_arg)/MS_Residual(X,Y,filt_arg,absorbed_arg)" in _formula("F_Statistic")
+    assert "MS_Regression(X,Y,filt_arg,context_arg)/MS_Residual(X,Y,filt_arg,context_arg)" in _formula("F_Statistic")
 
     numerator = _formula("MS_Regression")
-    assert "Regression_Degrees_Of_Freedom(X,has_arg)" in numerator
+    assert "Regression_Degrees_Of_Freedom(X,context_arg)" in numerator
     assert "absorbed_arg" not in numerator
 
     denominator = _formula("MS_Residual")
-    assert "Residual_Degrees_Of_Freedom(X,Y,filt_arg,absorbed_arg)" in denominator
+    assert "Residual_Degrees_Of_Freedom(X,Y,filt_arg,context_arg)" in denominator
 
 
 def main() -> None:  # pragma: no cover - standalone runner

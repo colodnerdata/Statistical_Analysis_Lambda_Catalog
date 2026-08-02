@@ -122,140 +122,19 @@ dropdown, the CI+PI prediction layout, and the engine are gated to ship
 as a single release so users never see "FE is in the dropdown but the
 engine is forthcoming."
 
-### Pending (in ship order; #1 prerequisite, #2/#3/#9 gated to #5)
+### Done — engine and sheet work (TODOs #1–#10)
 
-- DONE: **#1 — Sequence axis auto-detection and override.** Column I
-  is **`Sequence Period`** (the typed override input), column J is
-  **`Period In Use`** (computed-with-override display), following the
-  Reference Level / Reference In Use pattern. Verified directly: no
-  stale `Spec_Base_Period_Delta` reference remains anywhere in the
-  codebase (fully renamed to `Spec_Sequence_Period`), the spec layout
-  constants (`_C_SEQUENCE_PERIOD`, `_C_PERIOD_IN_USE`) are wired
-  consistently, and the feature is live in shipped workbooks (confirmed
-  against a real built `Regression` sheet).
-  Two sub-items resolved differently than originally envisioned, not
-  left undone: the spill-collision risk is structurally moot — `Spec_Sequence`/
-  `Spec_Sequence_Period`/`Spec_Period_In_Use` are `SpecTable[[#Data],[...]]`
-  structured references, which auto-bound to the live table rows (the
-  same auto-extend behavior ARCHITECTURE.md § 4 documents for the whole
-  spec block), rather than needing a manual `TAKE(...,COLUMNS(Source_Data))`
-  bound — and "update the QC analyzers" turned out to mean the
-  RecordingSheet unit-test layer (`test_spec_ranges_cover_the_standard_input_band`,
-  `test_spec_feedback_writes_delta_count_verdict_with_priority_cf` in
-  `tests/test_model_construction_writer.py`), not the xlwings-based
-  `analyze_regression_spec.py` oracle, which never modeled this feature
-  and doesn't need to. The on-sheet override-status display the Sequence
-  Spacing block used to carry now lives in the I2 combined Verdict cell
-  (off-grid/regularity/no-natural-base-period messages driven by
-  `Spec_Period_In_Use` vs. `Sequence_Deltas()`) — a data-quality check
-  that serves the same "is the declared Δ trustworthy" need, not a
-  literal "you typed an override" flag.
-  The full design rationale (spill-collision risk, the
-  reference-level pattern parallel, override-flagging location) is in
-  [DECISIONS.md § v2.1 #1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
-
-- DONE: **#2 — FE Role dropdown + status-block validation.**
-  `Fixed Effects` is in the Role axis (`_ROLE_VALIDATION_LIST`,
-  `write_sheet_model_construction.py`); status-block cells for the active
-  FE variable, group count, and absorbed df are live (no more "engine
-  forthcoming" token — the engine backs them); a B1 cardinality error
-  fires at 2+ FE rows (same pattern as the Sequence E1 check); the
-  intercept × FE red flag is on the C2 toggle. The Role-axis design
-  (cardinality, what FE contributes) is in
-  [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
-  Tests: `tests/test_model_construction_writer.py`.
-
-- DONE: **#3 — Surface BOTH intervals in adjacent cells of the
-  prediction outputs section.** Nine rows: point · SE (Mean) · SE (New
-  Obs) · t Critical · CI Lower/Upper · PI Lower/Upper · Confidence
-  Level, via `Group_Prediction_Interval` (`lambda_functions.json`),
-  wired at `write_sheet_regression.py::_write_prediction_interval`. The
-  full math (the two variance terms, the group-specific width) is in
-  [DECISIONS.md § v2.1 prediction interval](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
-  Tests: `tests/test_group_prediction_interval.py` (verified against an
-  explicit LSDV `get_prediction()` reference and, for the no-FE case,
-  bit-identical to the pre-v2.1 `Prediction_Interval()` numbers).
-
-- DONE: **#4 — `Demean_By(x, group, [include])` and
-  `Group_Mean(x, group, [include])`** (constructor internals, also
-  user-callable transforms). The taxonomy and the v2.1 ship schedule
-  are in [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
-  Tests: `tests/test_group_panel_transforms.py`.
-
-- DONE: **#5 — `Is_Balanced_Panel(group, time, [include])`** —
-  one-way/panel diagnostic; shipped with `Demean_By` (shares the "valid
-  group set" primitive). Tests: `tests/test_group_panel_transforms.py`.
-
-- DONE: **#6 — `Absorbed_Degrees_Of_Freedom()`** — G−1 via
-  `Dummy_Levels` on the FE column, a Regression-sheet closure (not a
-  standalone `(spec)`-argument function — reads `Spec_Role`/`Source_Data`
-  directly, the same pattern as `Fixed_Effects_Column()`).
-
-- DONE: **#7 — `y_s()`** and its predictor-side sibling `X_s_Within()`
-  — new sheet-scoped closures, not replacements wired into existing
-  no-FE call sites (`Response_Column()`/`X_s()` keep their other raw
-  consumers — Predictor Summary, `Constructed_Column_Names()` labeling,
-  `Intercept_Only_*`). Tests: `tests/test_within_estimator.py`.
-
-- DONE: **#8 — `[DF_Absorbed]` argument (default 0) threaded through
-  df / MS-residual / t-critical**, plus AIC/BIC/AICc's parameter count,
-  across 23 engine functions. `SE_Coefficients` needed an exact
-  rescaling (`SQRT(naive_df/true_df)`) rather than a direct threading,
-  since Excel's `LINEST` always computes its own df. Bit-equality of
-  every existing no-FE case confirmed by construction (default 0 ⇒
-  rescale factor 1 / subtraction no-op) and numerically; FE-active SE/t/
-  p/CI/AIC match an independent `statsmodels` LSDV fit. The default-0 →
-  identical no-FE pattern (the "non-breaking MINOR" guarantee) is in
-  [DECISIONS.md § v2.1 df plumbing](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
-  Tests: `tests/test_df_absorbed_threading.py`.
-
-- DONE: **#9 — FE group selection + ȳᵢ / Tᵢ cells** (x̄ᵢ is computed
-  internally by `Group_Prediction_Interval`/`xbar_i` rather than also
-  surfaced per-predictor on the sheet — column AJ is the fixed
-  Prediction-Outputs/Residual-Output gap column, so there was no fourth
-  column available without breaking the outline-grouping architecture;
-  a deliberate scope trim, not an oversight). `Group_Mean_At`/
-  `Group_Count_At`/`Prediction_Group_Column` back both the group-mean
-  form and the visible Group Mean (y) / Group Count readouts; the BFN
-  cell already flips from `n/a — no fixed effects` to active (this was
-  forward-wired before v2.1, confirmed working once #2 made the Role
-  selectable). The group-mean-recovery form is in
-  [DECISIONS.md § v2.1 FE point prediction](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
-
-- DONE: **#10 — QC-oracle rebuild for the v2.1 Prediction Interval shape.**
-  `regression_shared.RegressionPredictionInterval`, `analyze_regression_sheet.py`,
-  `analysis_cache.py` (schema v16), and `tools/inspect_regression_sheet.py`
-  moved from the pre-v2.1 6-value single-CI shape to the shipped 9-value
-  CI+PI/group-mean-recovery form (point, se_mean, se_new, t_critical,
-  ci_lower, ci_upper, pi_lower, pi_upper, confidence_level) plus
-  `group_mean`/`group_count` for the AH13/AH14 readouts, via
-  `Group_Prediction_Interval`'s own formula (group-mean recovery: refit on
-  the group-demeaned pair — even a no-FE case demeans by one constant
-  `"(all)"` group — then `ybar_i + (x_new - xbar_i)'beta`). This closed the
-  58 automated `Regression/prediction_interval` mismatches `build_qc.py
-  --verify` was reporting (confirmed pre-existing/independent of the
-  Production Lots/Fixed Effects QC work, PR #133, via a clean `origin/main`
-  baseline run before starting this fix).
-  `RegressionSpecCase` gained a `prediction_group: str | None` field (`None`
-  → the sheet's own default, the alphabetically-first observed group);
-  `tools/inspect_regression_sheet.py::_apply_spec_case` writes the
-  resolved group into the sheet's own `$AH$12` cell — positioned above the
-  variable-size Prediction Inputs band (rows 19+), so this only ever
-  overwrites a fixed cell, never something that needs to grow. One bug
-  caught along the way: `beta`/`sigma` can only be shortcut through the
-  main fit's coefficients/SE when an intercept is present (centering
-  doesn't move an intercept-included fit's slopes or residuals by FWL,
-  but does for a through-the-origin no-intercept fit) — first pass
-  reused the shortcut unconditionally and broke exactly the three
-  `*_no_intercept` cases; fixed by always refitting on the group-demeaned
-  pair rather than assuming an equivalence that only sometimes holds.
-  Verified against two independent sources before landing (bit-exact to
-  every T1 reference number in `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md`
-  and an independent statsmodels LSDV cross-check), then a full spec-case
-  sweep against a live Regression sheet: 0 mismatches across all 12 cases
-  (132 `prediction_interval` rows), 0 elsewhere. Tests:
-  `tests/test_group_prediction_interval.py` (the reference math),
-  `tests/test_independent_verification.py`, `tests/test_qc_configs.py`.
+All ten items are DONE and verified against a live build (0 mismatches
+across all 12 spec-driven QC cases). Design rationale for each lives in
+[DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects);
+verification evidence lives in the named test modules and git history. In
+ship order: #1 Sequence Period / Period In Use split, #2 FE Role dropdown
++ status-block validation, #3 CI+PI prediction layout, #4 `Demean_By` /
+`Group_Mean`, #5 `Is_Balanced_Panel`, #6 `Absorbed_Degrees_Of_Freedom`, #7
+`y_s` / `X_s_Within` (renamed at v3.0 to `Design_Response` /
+`Design_Columns`), #8 `[DF_Absorbed]` threading across 23 engine
+functions, #9 FE group selection + group-mean readouts, #10 QC-oracle
+rebuild for the 9-value Prediction Interval shape.
 
 ### Follow-on polish (ships with 2.1.0 if there's room)
 
@@ -279,67 +158,46 @@ engine is forthcoming."
 
 ### Transform wiring (spec column G)
 
-- ~~`Transform` dropdown gains `Log`; wire `X_s()` /
-  `Constructed_Column_Names()` / prediction to read column G.~~ —
-  **DONE.** Column G's dropdown is `None`/`Log`; `Log` is read by
-  `Response_Column()` (Response row) and `X_s()`'s Continuous branch
-  (Predictor rows), both modified in place rather than wrapped, so every
-  existing consumer (including the v2.1 FE wrappers `y_s()`/`X_s_Within()`,
-  unchanged) inherits log-space data automatically. `Constructed_Column_Names()`
-  relabels a logged column `Ln(name)`; a new structural twin,
-  `Constructed_Column_Transforms()`, gives the per-constructed-column
-  Log/None flag the Prediction Inputs band needs (a Categorical
-  Predictor's dummy columns always read `None`). Log is disallowed —
-  flagged red, not silently ignored — on Categorical Predictors. The
-  Prediction Inputs band takes a raw value and auto-logs it internally
-  (never a typed ln(x)); the Training Mean spill emits the geometric mean
-  for a logged column to avoid double-logging the default. Residual-output
-  headers and the audit-strip response name gain a `(Log)` suffix when
-  active. New catalog function `Ln_Positive(x, [include])` backs all of
-  this (`NA()` on an included non-positive/non-numeric value, `""` on an
-  excluded row). Scope explicitly excludes the unit-space dispatcher and
-  Duan back-transformation below — those remain open. Verified against a
-  real learning-curve model: a new QC case
-  (`production_lots_log_transform`, raw `Cumulative_Units`/`Unit_Cost_BY`
-  with `transform="Log"`) matches the pre-existing
-  `production_lots_fixed_effects` case (precomputed log columns) to
-  floating-point precision — `tests/test_transform_threading.py`,
-  `tests/test_ln_positive_verification.py`. Full design rationale in
-  [DECISIONS.md § v2.2 Transform column wiring](DECISIONS.md#v22--transforms--unit-space-comparability).
-
-
+Column-G `Log` wiring shipped at v2.2 — `Response_Column()` / `X_s()`
+read column G, `Constructed_Column_Names()` / `Constructed_Column_Transforms()`
+relabel and carry the per-column Log/None flag, the Prediction Inputs band
+auto-logs, and `Ln_Positive` is in the catalog. Verified against a real
+learning-curve model; design rationale in
+[DECISIONS.md § v2.2 Transform column wiring](DECISIONS.md#v22--transforms--unit-space-comparability).
+The unfinished remainder (unit-space dispatcher, prediction
+back-transformation, standalone transform library) moved to v3.3 below.
 
 ## v3.0 — The engine-interface release (in progress)
 
-Delivered in three stages, in dependency order. Stage 1 is code complete
-and awaiting its QC gate; the scope decision and the stage table live in
+Delivered in three stages, in dependency order. Stages 1 and 2 are code
+complete and awaiting their QC gate; the scope decision and the stage table
+live in
 [ROADMAP.md](ROADMAP.md) and
 [DECISIONS.md § v3.0 ships in three stages](DECISIONS.md#v30-ships-in-three-stages).
 
-### Stage 1 — constructor pipeline + intercept relocation — CODE COMPLETE, **VERIFICATION GATE OUTSTANDING**
+### Stage 1 — constructor pipeline + intercept relocation — BUILT AND VERIFIED
 
-Not "built and verified" in the sense the v2.1 row uses. The code is written
-and the headless layers pass; the spec-driven Excel gate below has **not**
-been run, and stage 1 is not finished until it has.
+The code is written, the headless layers pass, and the spec-driven Excel gate
+has reported **0 mismatches across all 12 QC cases** on a developer machine —
+the standard the v2.1 row uses. Stage 1 shipped merged as #148.
 
-- DONE: `X_s()` / `X_s_Within()` / `y_s()` renamed to
-  `Predictor_Columns()` / `Design_Columns()` / `Design_Response()`, with
-  the `encode → transform → demean → intercept → weight` stage order
-  made explicit in `Design_Columns()`. The weight stage is declared and
-  inert until v3.7.
-- DONE: the intercept moved into the constructor. `Design_Matrix` stops
-  synthesizing it, LINEST runs `const = FALSE` at all three call sites,
-  `SS_Total` became the intercept-only residual sum of squares, and
-  `[Allow_Intercept]` left all 48 signatures — 13 now carry
-  `[Has_Intercept]` as an identifier.
-- DONE: the QC test-sheet writers render formulas from declared argument
-  names (`make_test_sheet.build_call`) rather than positional lists.
+- DONE: Stage 1 — the constructor pipeline + intercept relocation
+  landed (merged as #148): the `X_s()`/`X_s_Within()`/`y_s()` →
+  `Predictor_Columns()`/`Design_Columns()`/`Design_Response()` rename with
+  the `encode → transform → demean → intercept → weight` order made
+  explicit; the intercept moved into the constructor (`Design_Matrix` no
+  longer synthesizes it, LINEST runs `const = FALSE` at all three sites,
+  `SS_Total` became the intercept-only residual SS, `[Allow_Intercept]`
+  left all 48 signatures — 13 now carry `[Has_Intercept]` as an
+  identifier); and the QC test-sheet writers render formulas from declared
+  argument names (`make_test_sheet.build_call`). Design rationale in
+  [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
-- TODO: **Run the spec-driven verifier on a machine with Excel** —
+- DONE: **Spec-driven verifier passed on a machine with Excel** —
   `python build_production.py --verify --no-launch
-  --skip-data-table-calculations --skip-univariate`. Stage 1 must report
-  **0 mismatches across all 12 QC cases**: it changes where the intercept
-  is created, not what is fitted, so any mismatch is a bug rather than an
+  --skip-data-table-calculations --skip-univariate` reported 0 mismatches
+  across all 12 QC cases. Stage 1 changes where the intercept is created,
+  not what is fitted, so any mismatch would have been a bug rather than an
   expected delta. Not runnable in CI (no Office on the GitHub-hosted
   runner) — see [CONTRIBUTING.md](CONTRIBUTING.md) → *Verifying builds*.
 
@@ -352,13 +210,109 @@ been run, and stage 1 is not finished until it has.
   behaviour was verified against it; retire it only with a QC pass
   behind it.
 
-### Stage 2 — `Model_Context` — PLANNED
+### Stage 2 — `Model_Context` — CODE COMPLETE, **VERIFICATION GATE OUTSTANDING**
 
-- TODO: Collapse `[Has_Intercept]` and `[DF_Absorbed]` into a single
-  `[Context]` argument across the 13 + 24 carriers; materialize
-  `Model_Context` and `Sample_Include` as spill ranges on the Regression
-  sheet, with a build assertion that `ROWS(Model_Context())` is a
-  build-time constant.
+Not "built and verified" — the code is written and the headless layers
+pass; the spec-driven Excel gate below has **not** been run on the aligned
+form, and stage 2 is not finished until it has. (Same standard as stage 1.)
+
+- DONE: Engine — the 32 carriers (13 `[Has_Intercept]`-only + 19
+  `[DF_Absorbed]`-only + 5 dual) collapsed `[Has_Intercept]` and
+  `[DF_Absorbed]` into a single trailing `[Context]` argument. Each
+  carrier's LET binds `context_arg, IF(ISOMITTED(Context), Model_Context(),
+  Context)` once and reads `has_arg, Context_Has_Intercept(context_arg)` /
+  `absorbed_arg, Context_DF_Absorbed(context_arg)` — never a bare
+  `INDEX(context_arg, N)`, so the context row order is a contract enforced
+  in one place (the accessors), not 32 hard-coded positional indices. The
+  omitted-`[Context]` default routes through the `Model_Context()`
+  constructor (one definition of the default), not a per-carrier inline
+  `VSTACK`. Inter-carrier calls drop the two tokens and append
+  `context_arg`. The workbook `Model_Context` constructor (category
+  *Model Construction*, subcategory *Context Constructor*, scope defaults
+  *workbook*) builds the 4×1 array `[Has_Intercept, DF_Absorbed,
+  Response_Transform, Predictor_Transform]`. `Design_Columns` (the only
+  Regression-scoped closure that reads the context) reads
+  `Context_Has_Intercept(Fit_Context())=1` (was
+  `INDEX(Model_Context(),1)=1`, which after the unshadowing below would
+  have resolved to the always-TRUE constructor — a correctness fix that is
+  a direct consequence of the two-name split). Pinned by
+  `test_intercept_relocation` and `test_df_absorbed_threading`.
+
+- DONE: Accessors — four workbook-scoped one-line functions
+  `Context_Has_Intercept` / `Context_DF_Absorbed` /
+  `Context_Response_Transform` / `Context_Predictor_Transform`, each
+  `=LAMBDA(Context, INDEX(Context, N))` for N = 1..4 (category *Model
+  Construction*, subcategory *Context Accessor*). Every context read goes
+  through them; a future row insertion changes one accessor, not 32
+  indices. The catalog is now 131 functions. Pinned by
+  `test_context_accessors_index_rows_one_through_four` and
+  `test_no_carrier_reads_the_context_with_a_bare_positional_index`.
+
+- DONE: Sheet — the two-name split. `Model_Context(...)` stays the
+  workbook-scoped constructor (the omitted-`[Context]` default and the MLR
+  test-sheet path); `Fit_Context()` is the SHEET-scoped reader — a zero-arg
+  thunk over the FIXED range holding the materialized 4×1 spill. The ~30
+  Regression sheet call sites pass `Fit_Context()` so they read the actual
+  spec-derived context, not the constructor default. Splitting the names
+  keeps `Model_Context` unshadowed: a single sheet-scoped thunk named
+  `Model_Context` would make `Model_Context()` in a sheet cell resolve to
+  the materialized values while the same token in a carrier's
+  omitted-default resolved to the workbook constructor — the invisible
+  shadowing the v3.0 release exists to remove. The spill materializes all
+  four rows: elements 1-2 (the C2 `Allow_Intercept` toggle and the
+  `Absorbed_Degrees_Of_Freedom()` closure) feed today's engines; elements
+  3-4 (the response transform, and the None/Log/Mixed summary over the
+  included Continuous predictors) have no engine reader until the v3.3
+  unit-space dispatcher but land now so the row order is fixed. The guard
+  cell asserts `=ROWS(Fit_Context())=_MODEL_CONTEXT_ROWS`. No `#` inside
+  the LAMBDA `RefersTo` — the height is a structural constant, so a fixed
+  range sidesteps the dynamic-array-in-a-name question entirely. An error
+  in an unconsumed row 3/4 is contained (the engines read only elements
+  1-2 through the accessors). Pinned by
+  `test_materialization_zone_materializes_model_context`.
+
+- DONE: QC harness — all three MLR test-sheet writers
+  (`write_sheet_mlr_{scalar,observation,vector_outputs}_test.py`) thread
+  `context` through their `build_call` `reference_map` via the workbook
+  `Model_Context` constructor (the scalar sheet carries the per-row
+  `[@[Has_Intercept]]`; the observation/vector sheets carry a per-section
+  `TRUE`/`FALSE` literal). Without this, `build_call` raises `KeyError` on
+  the carriers' new trailing `[Context]` argument — a regression the headless
+  suite did not catch (it only exercised non-carrier functions). Pinned by
+  the `test_*_formula_threads_context_*` tests.
+
+- DONE: Numeric + contract coverage — the relocated chain reproduces the
+  pre-relocation numbers through the context-accessor path (200 datasets,
+  both intercept states — packaging the flag into a 4×1 context and
+  reading it via `INDEX(Context,1)` moves nothing); and the FE correction
+  matches LSDV when `DF_Absorbed` is routed through element 2 of the same
+  context array. Plus the contract assertions: only `Model_Context`
+  declares `Has_Intercept`/`DF_Absorbed`; no formula anywhere contains a
+  bare `INDEX(context_arg,`; `ROWS(Model_Context())` is 4. Pinned by
+  `test_the_relocated_chain_is_unchanged_through_the_context_accessor_path`,
+  `test_df_absorbed_routed_through_a_context_array_still_matches_lsdv`,
+  `test_only_model_context_declares_df_absorbed`, and
+  `test_model_context_constructor_is_a_four_row_vstack`.
+
+- DEFERRED: Promote `Sample_Include()` from a live closure to a thunk over a
+  materialized spill. The column is placed at its final §4b position
+  (BQ) now — as a RESERVED placeholder — so stage 3 only adds the
+  Constructed Design Matrix zone behind it. The thunk materialization needs
+  the dynamic-array spill operator (`#`) inside a `LAMBDA` defined-name
+  `RefersTo`, a combination not used anywhere in this workbook and only
+  verifiable with Excel present. A wrong guess would break the row-mask
+  contract that keeps every spilled array row-aligned, so it lands as a
+  separate Excel-verified follow-up, not blind. The live closure is
+  untouched and remains the row mask until then.
+
+- TODO: **Run the spec-driven verifier on a machine with Excel** —
+  `python build_production.py --verify --no-launch
+  --skip-data-table-calculations --skip-univariate`. Stage 2 must report
+  **0 mismatches across all 12 QC cases**: the collapse is behaviour-
+  preserving (`context_arg` carries exactly the two scalars the dropped
+  arguments carried), so any mismatch is a bug, not an expected delta. Not
+  runnable in CI (no Office on the GitHub-hosted runner) — see
+  [CONTRIBUTING.md](CONTRIBUTING.md) → *Verifying builds*.
 
 ### Stage 3 — layout — PLANNED
 

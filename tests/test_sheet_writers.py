@@ -10,8 +10,11 @@ from lambda_catalog.sheet_styles import (
     HEADER_COLOR,
     INPUT_COLOR,
 )
-from lambda_catalog.workbook_helpers import add_expression_format, excel_color, rc
+from lambda_catalog.catalog_schema import catalog_argument_names
+from lambda_catalog.workbook_helpers import add_expression_format, col_letter, excel_color, rc
+from lambda_catalog.write_sheet_mlr_observation_test import _calc_formula as _observation_calc_formula
 from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
+from lambda_catalog.write_sheet_mlr_vector_outputs_test import _calc_formula as _vector_calc_formula
 from lambda_catalog.write_sheet_regression import (
     _C_X,
     _C_Y,
@@ -29,10 +32,16 @@ from lambda_catalog.write_sheet_regression import (
     _C_AO,
     _C_AU,
     _C_AV,
+    _C_GUTTER_AFTER_CHARTS,
+    _C_GUTTER_AFTER_CONTEXT,
+    _C_GUTTER_AFTER_SAMPLE_INCLUDE,
+    _C_MODEL_CONTEXT,
+    _C_SAMPLE_INCLUDE_MATERIALIZED,
     _C_CHART_LABEL_NAME,
     _C_CHART_TITLE,
     _C_CHART_XLABEL,
     _C_CHART_YLABEL,
+    _MODEL_CONTEXT_ROWS,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
     _NOTE_MAX_WIDTH,
@@ -49,6 +58,7 @@ from lambda_catalog.write_sheet_regression import (
     _write_prediction_inputs,
     _write_regression_outputs_header,
     _write_residuals,
+    _write_materialization_zone,
 )
 from lambda_catalog.write_sheet_mlr_scalar_test import _actual_formula
 from lambda_catalog.write_sheet_univariate import (
@@ -103,6 +113,55 @@ def test_observation_y_only_formulas_reuse_first_spill() -> None:
         "=LET(X,OFFSET(y,0,1,ROWS(y),5),"
         "Predictions(X,y,Regression_Sample_Include))"
     )
+
+
+# ── v3.0 stage two: the [Context] argument reaches the QC harness ─────────────
+#
+# build_call resolves a function's DECLARED arguments against a reference_map and
+# raises KeyError on any argument with no entry, so a carrier that now declares
+# a trailing [Context] breaks the MLR test sheets unless each reference_map
+# threads a context. These tests exercise the builders with REAL catalog argument
+# lists (via catalog_argument_names), so a signature change in lambda_functions.json
+# reaches them automatically — the same property build_call exists to preserve.
+
+
+def test_scalar_formula_threads_context_from_the_per_row_intercept_flag() -> None:
+    # The scalar sheet varies Has_Intercept per row, so the context's intercept
+    # flag must be the per-row structured reference, not a build-time literal.
+    formula = _actual_formula("R_Squared", catalog_argument_names("R_Squared"))
+    assert "R_Squared(X,y,Regression_Sample_Include,Model_Context([@[Has_Intercept]]))" in formula
+
+
+def test_observation_formula_threads_context_from_the_section_intercept_flag() -> None:
+    # Scaled_Residuals is a carrier (declares [Context]); the observation sheet
+    # fixes the intercept per section, so the context flag is a literal that
+    # matches whether design_expression stacked an intercept column onto X.
+    with_intercept = _observation_calc_formula(5, True, "Scaled_Residuals")
+    without_intercept = _observation_calc_formula(5, False, "Scaled_Residuals")
+    assert "Scaled_Residuals(X,y,Regression_Sample_Include,Model_Context(TRUE))" in with_intercept
+    assert "Scaled_Residuals(X,y,Regression_Sample_Include,Model_Context(FALSE))" in without_intercept
+
+
+def test_vector_outputs_formula_threads_context_for_a_df_absorbed_carrier() -> None:
+    # SE_Coefficients reads DF_Absorbed out of the context (element 2); with no
+    # Fixed Effects on this sheet, Model_Context(<flag>) leaves absorbed df at
+    # its 0 default inside the constructor.
+    formula = _vector_calc_formula(5, True, "SE_Coefficients")
+    assert "SE_Coefficients(X,y,Regression_Sample_Include,Model_Context(TRUE))" in formula
+    # Confidence_Interval_Lower also takes [Alpha] before [Context]; alpha must
+    # not displace the context from the trailing position.
+    ci = _vector_calc_formula(5, False, "Confidence_Interval_Lower")
+    assert "Confidence_Interval_Lower(X,y,Regression_Sample_Include,0.05,Model_Context(FALSE))" in ci
+
+
+def test_non_carriers_on_the_mlr_sheets_still_omit_a_context() -> None:
+    # A function that never declared [Has_Intercept]/[DF_Absorbed] (Predictions)
+    # gained no [Context] argument, so build_call never reads the context entry
+    # and the call is unchanged. This guards against over-threading: the context
+    # key is harmless for non-carriers but must not be appended to them.
+    formula = _observation_calc_formula(5, True, "Predictions")
+    assert "Model_Context" not in formula
+    assert formula.endswith("Predictions(X,y,Regression_Sample_Include))")
 
 
 def test_note_dimensions_clamps_width_to_configured_bounds() -> None:
@@ -285,8 +344,8 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     assert 'pred_input,IF(trn="Log",Ln_Positive(raw),raw),' in formula
     assert (
         "Group_Prediction_Interval(Predictor_Columns(),Response_Column(),pred_input,"
-        "Prediction_Group_Column(),$AH$12,Allow_Intercept,"
-        "Sample_Include(),alpha,Absorbed_Degrees_Of_Freedom())"
+        "Prediction_Group_Column(),$AH$12,"
+        "Sample_Include(),alpha,Fit_Context())"
     ) in formula
     assert "Intercept_Only_Point()" in formula
     # The zero-predictor closed form also splits mean-CI from new-obs-PI now.
@@ -319,6 +378,80 @@ def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
     assert sheet.cell(14, _C_AH).api.Formula2 == (
         "=Group_Count_At(Prediction_Group_Column(),$AH$12,Sample_Include())"
     )
+
+
+def test_materialization_zone_materializes_model_context() -> None:
+    # The §4b band materializes the 4x1 context ONCE into a spill and exposes it
+    # through a sheet-scoped reader name (Fit_Context), so the ~30 engine call
+    # sites that pass Fit_Context() all read the one materialized cell instead of
+    # rebuilding the context ~30 times. Model_Context stays the workbook-scoped
+    # constructor (the omitted-[Context] default); the split keeps it unshadowed.
+    # Plain cell writes + one Names.Add only (no COM chart API), so this runs
+    # headless via RecordingSheet. ``closures=()`` skips the catalog disk load the
+    # default path would do (the writes don't use it).
+    sheet = RecordingSheet(name="Regression")
+
+    _write_materialization_zone(_as_xw_sheet(sheet), closures=())
+
+    ctx_col = col_letter(_C_MODEL_CONTEXT)
+
+    # Section headings at row 1, styled as section headings.
+    assert sheet.cell(1, _C_MODEL_CONTEXT).value == "Model Context"
+    assert sheet.cell(1, _C_MODEL_CONTEXT).color == HEADER_COLOR
+    assert sheet.cell(1, _C_SAMPLE_INCLUDE_MATERIALIZED).value == "Sample Include"
+
+    # The materialized 4x1 spill. Elements 1-2 (Allow_Intercept toggle, the
+    # Absorbed_Degrees_Of_Freedom() closure) feed today's engines; elements 3-4
+    # are the spec-block transform summaries that have no reader until v3.3 but
+    # land now so the row order is fixed. The spill must NOT be the old
+    # '="None","None"' tail — that would mean rows 3-4 regressed to placeholders.
+    spill = sheet.cell(2, _C_MODEL_CONTEXT).api.Formula2
+    assert spill.startswith("=VSTACK(Allow_Intercept,Absorbed_Degrees_Of_Freedom(),")
+    assert '"None","None")' not in spill
+    # Row 3 (Response_Transform): INDEX/XMATCH over the spec rows for the
+    # response role, mirroring _RESPONSE_LOG_FORMULA, with an IFERROR->"None".
+    assert 'XMATCH("Response (y)",TAKE(Spec_Role,COLUMNS(Source_Data)))' in spill
+    assert "INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data))" in spill
+    # Row 4 (Predictor_Transform): a LET summarising the INCLUDED CONTINUOUS
+    # predictors as None/Log/Mixed, masked to Continuous so a Categorical dummy
+    # can't manufacture a false "Mixed".
+    assert "LET(n_c,COLUMNS(Source_Data)," in spill
+    assert '(rl="Predictor (x)")*(inc=TRUE)*(typ="Continuous")' in spill
+    assert 'IF(nL=0,"None",IF(nN=0,"Log","Mixed")' in spill
+
+    # The sheet-scoped reader Fit_Context reads the FIXED materialized range —
+    # no spill operator inside the LAMBDA RefersTo, so the dynamic-array-in-a-
+    # name question is sidestepped and the height is a structural constant. The
+    # legacy "Model_Context" sheet name is dropped (a pre-split build would have
+    # left one) so a rebuild never leaves a shadow alongside Fit_Context.
+    assert sheet.api.Names.by_short_name("Fit_Context").RefersTo == (
+        f"=LAMBDA('Regression'!${ctx_col}$2:${ctx_col}${1 + _MODEL_CONTEXT_ROWS})"
+    )
+    assert "Model_Context" not in {
+        item.Name.split("!", 1)[-1] for item in sheet.api.Names.items
+    }
+
+    # Build-time invariant: ROWS(Fit_Context()) is the build-time constant
+    # pinned by _MODEL_CONTEXT_ROWS, written one row below the spill so a future
+    # edit that changes the context height fails loudly.
+    assert (
+        sheet.cell(2 + _MODEL_CONTEXT_ROWS, _C_MODEL_CONTEXT).api.Formula2
+        == f"=ROWS(Fit_Context())={_MODEL_CONTEXT_ROWS}"
+    )
+
+    # Sample_Include is placed at its final §4b position as a RESERVED
+    # placeholder — promoting the live closure to a thunk over a spill is
+    # deferred (Excel-verified, not blind), so the column is documented, not
+    # silently empty.
+    assert sheet.cell(2, _C_SAMPLE_INCLUDE_MATERIALIZED).value == "reserved"
+
+    # The zone sits past the chart footprint with a structural gutter after
+    # the charts; the context and sample-include blocks are the two bounded
+    # zones, each one column, separated by width-2 ungrouped gutters.
+    assert _C_GUTTER_AFTER_CHARTS < _C_MODEL_CONTEXT < _C_GUTTER_AFTER_CONTEXT
+    assert _C_GUTTER_AFTER_CONTEXT < _C_SAMPLE_INCLUDE_MATERIALIZED < _C_GUTTER_AFTER_SAMPLE_INCLUDE
+    assert _C_GUTTER_AFTER_CONTEXT - _C_MODEL_CONTEXT == 1
+    assert _C_SAMPLE_INCLUDE_MATERIALIZED - _C_GUTTER_AFTER_CONTEXT == 1
 
 
 def test_prediction_prefills_index_the_single_training_mean_spill() -> None:

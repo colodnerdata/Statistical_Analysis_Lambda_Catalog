@@ -550,8 +550,14 @@ def test_main_forwards_skip_univariate_to_deep_verify(
 ) -> None:
     """--verify combined with --skip-univariate must not crash trying to
     verify a sheet that was never written; the flag has to reach the
-    verifier so it knows to skip the Univariate check instead."""
+    verifier so it knows to skip the Univariate check instead. Also: with
+    --skip-univariate set, the final CalculateFullRebuild always runs even
+    though --skip-data-table-calculations is also set — the Univariate Data
+    Tables it would skip aren't built, and the Regression sheet needs the
+    rebuild (the verifier's per-sheet Calculate doesn't rebuild the
+    dependency tree after a name sync)."""
     verify_kwargs: list[dict] = []
+    recalc_calls: list = []
 
     def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False, skip_univariate=False):
         del csv_path, verbose
@@ -589,6 +595,11 @@ def test_main_forwards_skip_univariate_to_deep_verify(
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
+    monkeypatch.setattr(
+        build_production,
+        "_recalculate_and_save",
+        lambda workbook_path: recalc_calls.append(workbook_path),
+    )
     monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
     monkeypatch.setattr(
         build_production.subprocess,
@@ -599,6 +610,8 @@ def test_main_forwards_skip_univariate_to_deep_verify(
     build_production.main()
 
     assert verify_kwargs == [{"skip_univariate": True}]
+    # --skip-univariate forces the rebuild despite --skip-data-table-calculations.
+    assert len(recalc_calls) == 1
 
 
 def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(

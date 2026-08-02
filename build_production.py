@@ -531,7 +531,11 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Skip the final Excel CalculateFullRebuild phase that evaluates "
             "Data Tables. The workbook is still written, names are synced, "
-            "and formulas/Data Tables can calculate later in Excel."
+            "and formulas/Data Tables can calculate later in Excel. Has no "
+            "effect when --skip-univariate is also set: the Univariate sheet "
+            "(and its Data Tables) aren't built, so the rebuild is cheap, and "
+            "the Regression sheet needs it (the verifier's per-sheet Calculate "
+            "doesn't rebuild the dependency tree after a name sync)."
         ),
     )
     parser.add_argument(
@@ -657,7 +661,17 @@ def main() -> None:
     # Phase 2: recalculate Data Tables and save.
     # This is a quick step; if the workbook is open in Excel now (e.g. the user
     # opened it to inspect progress), only this step is retried — not the full build.
-    if args.skip_data_table_calculations:
+    #
+    # --skip-data-table-calculations skips the full CalculateFullRebuild (the slow
+    # Data-Table eval on the Univariate sheet). But the spec-driven verifier only
+    # does a per-sheet Calculate(), which does NOT rebuild the dependency tree
+    # after 100+ workbook names are re-synced — so skipping the rebuild leaves the
+    # Regression engines uncomputed and every QC value reads nan. The rebuild is
+    # only expensive because of the Univariate Data Tables; when --skip-univariate
+    # is set those tables aren't built, the rebuild is cheap, and the Regression
+    # sheet needs it. So always rebuild under --skip-univariate regardless of
+    # --skip-data-table-calculations.
+    if args.skip_data_table_calculations and not args.skip_univariate:
         if args.verbose:
             print("  Recalculate:    skipped", flush=True)
         recalc_elapsed = None

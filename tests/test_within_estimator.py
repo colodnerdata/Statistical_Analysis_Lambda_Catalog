@@ -162,6 +162,17 @@ def test_design_columns_applies_the_intercept_stage_after_demeaning() -> None:
     formula = _formula("Design_Columns")
     assert "IF(has_int,HSTACK(ones,demeaned),demeaned)" in formula
     assert "ones,SEQUENCE(ROWS(Source_Data),1,1,0)" in formula
+    # Design_Columns is the CONSTRUCTOR (spec-reading layer), not an engine
+    # consuming the context, so it reads the Allow_Intercept toggle directly —
+    # not via Context_Has_Intercept(Fit_Context()). Routing this read through
+    # Fit_Context() (a LAMBDA thunk over the Model_Context spill) makes a
+    # large spill (Design_Columns) depend on another spill (BO2:BO5) via a
+    # thunk, which Excel's per-sheet Worksheet.Calculate does not resolve
+    # reliably — the spec-driven verifier gate fails with ~25k mismatches
+    # (Design_Columns() errors -> every X-dependent engine mismatches). The
+    # plain-cell read is stable, and the context still carries the identical
+    # value (the spill's element 1 IS Allow_Intercept), so the constructor and
+    # the engines agree by construction. See project_v3_stage2_gate_fails.
     assert "has_int,N(Allow_Intercept)=1" in formula
     # The demeaning stage never sees the ones column.
     demean_stage = formula.split("demeaned,")[1].split("IF(has_int,HSTACK")[0]

@@ -66,26 +66,94 @@ def test_no_function_declares_allow_intercept() -> None:
     assert offenders == []
 
 
-def test_has_intercept_carriers_are_exactly_the_expected_set() -> None:
-    # A new carrier is not automatically wrong, but it is a decision: every one
-    # of these becomes an element read out of Model_Context at stage two.
-    carriers = {
+def test_has_intercept_carriers_are_folded_into_context() -> None:
+    # Stage two folds the thirteen has-intercept carriers into the bounded
+    # Model_Context: each declares [Context] and extracts has_arg from element
+    # 1. No engine function re-acquires Has_Intercept as an argument; only the
+    # Model_Context constructor itself takes it.
+    for name in _EXPECTED_HAS_INTERCEPT_CARRIERS:
+        fn = _functions()[name]
+        arg_names = {a["name"] for a in fn["arguments"]}
+        assert "Has_Intercept" not in arg_names, name
+        assert "Context" in arg_names, name
+
+    has_intercept_declaring = {
         name
         for name, fn in _functions().items()
         if any(arg["name"] == "Has_Intercept" for arg in fn["arguments"])
     }
-    assert carriers == _EXPECTED_HAS_INTERCEPT_CARRIERS
+    assert has_intercept_declaring == {"Model_Context"}
 
 
 def test_has_intercept_is_always_optional_and_defaults_to_true() -> None:
     for name in _EXPECTED_HAS_INTERCEPT_CARRIERS:
         fn = _functions()[name]
-        declared = next(a for a in fn["arguments"] if a["name"] == "Has_Intercept")
+        declared = next(a for a in fn["arguments"] if a["name"] == "Context")
         assert declared.get("optional") is True, name
+        compact = _compact(fn["formula_display"])
+        # The omitted-[Context] default routes through the Model_Context()
+        # constructor (one definition of the default, not a per-carrier inline
+        # VSTACK), so a free-form caller still sees "intercept model with no
+        # absorbed df". has_arg is read through the Context_Has_Intercept
+        # accessor, not a hard-coded positional index.
         assert (
-            "has_arg,IF(ISOMITTED(Has_Intercept),TRUE,Has_Intercept)"
-            in _compact(fn["formula_display"])
+            "context_arg,IF(ISOMITTED(Context),Model_Context(),Context)"
+            in compact
         ), name
+        assert "has_arg,Context_Has_Intercept(context_arg)" in compact, name
+
+
+def test_only_model_context_declares_df_absorbed() -> None:
+    # The DF_Absorbed carrier set is folded into the same bounded context: each
+    # declares [Context] and extracts df_arg from element 2. No engine function
+    # re-acquires DF_Absorbed as an argument; only the Model_Context constructor
+    # itself takes it.
+    df_absorbed_declaring = {
+        name
+        for name, fn in _functions().items()
+        if any(arg["name"] == "DF_Absorbed" for arg in fn["arguments"])
+    }
+    assert df_absorbed_declaring == {"Model_Context"}
+
+
+def test_no_carrier_reads_the_context_with_a_bare_positional_index() -> None:
+    # The row order of the 4x1 context is a contract that lives in one place:
+    # the Context_* accessors. A carrier that reads `INDEX(context_arg, N)`
+    # directly bypasses that contract and would silently keep working while
+    # diverging from every other carrier the day a row is inserted. After the
+    # stage-two alignment, every context read goes through an accessor, so no
+    # formula anywhere in the catalog contains a bare `INDEX(context_arg,`.
+    for name, fn in _functions().items():
+        assert "INDEX(context_arg" not in _compact(fn["formula_display"]), name
+
+
+def test_model_context_constructor_is_a_four_row_vstack() -> None:
+    # The context height is a build-time constant (_MODEL_CONTEXT_ROWS = 4 on
+    # the sheet side). The constructor's VSTACK must have exactly four elements
+    # — one per versioned, append-only row — so ROWS(Model_Context()) is 4 and
+    # the sheet's =ROWS(Fit_Context())=4 guard holds.
+    formula = _compact(_functions()["Model_Context"]["formula_display"])
+    assert "VSTACK(has_arg,df_arg,rt_arg,pt_arg)" in formula
+
+
+def test_context_accessors_index_rows_one_through_four() -> None:
+    # Four workbook-scoped accessors, one per context row, each a one-line
+    # INDEX. They are the single source of the row order: routing every
+    # carrier read through them means a future row insertion changes one
+    # accessor instead of 32 hard-coded positional indices.
+    accessors = {
+        "Context_Has_Intercept": 1,
+        "Context_DF_Absorbed": 2,
+        "Context_Response_Transform": 3,
+        "Context_Predictor_Transform": 4,
+    }
+    for name, row in accessors.items():
+        fn = _functions()[name]
+        assert fn.get("scope") in (None, ""), name  # workbook-scoped
+        arg_names = [a["name"] for a in fn["arguments"]]
+        assert arg_names == ["Context"], name
+        assert fn["arguments"][0].get("optional") is False, name
+        assert _compact(fn["formula_display"]) == f"LAMBDA(Context,INDEX(Context,{row}))", name
 
 
 def test_every_linest_call_disables_its_own_intercept() -> None:
@@ -108,7 +176,7 @@ def test_every_linest_call_disables_its_own_intercept() -> None:
 def test_r_squared_is_derived_from_the_sums_of_squares_not_from_linest() -> None:
     formula = _compact(_functions()["R_Squared"]["formula_display"])
     assert "LINEST" not in formula
-    assert "1-SS_Residual(X,Y,filt_arg)/SS_Total(X,Y,has_arg,filt_arg)" in formula
+    assert "1-SS_Residual(X,Y,filt_arg)/SS_Total(X,Y,filt_arg,context_arg)" in formula
 
 
 def test_the_sums_of_squares_chain_is_acyclic() -> None:
@@ -123,7 +191,7 @@ def test_the_sums_of_squares_chain_is_acyclic() -> None:
 
     ss_regression = _compact(functions["SS_Regression"]["formula_display"])
     assert "R_Squared" not in ss_regression
-    assert "SS_Total(X,Y,has_arg,filt_arg)-SS_Residual(X,Y,filt_arg)" in ss_regression
+    assert "SS_Total(X,Y,filt_arg,context_arg)-SS_Residual(X,Y,filt_arg)" in ss_regression
 
 
 def test_ss_total_projects_the_response_off_the_intercept_column() -> None:
@@ -273,6 +341,60 @@ def test_the_relocated_chain_reproduces_every_pre_relocation_number() -> None:
                 assert np.isclose(expected, new[key], rtol=1e-10, atol=1e-9), (
                     f"{key} moved with has_intercept={has_intercept}: "
                     f"{expected} -> {new[key]}"
+                )
+
+
+def _context(has_intercept, df_absorbed=0):
+    """Mirror of Model_Context(): a 4x1 array, row order the append-only contract.
+
+    Has_Intercept (row 1), DF_Absorbed (row 2), then the two transform summaries
+    that have no engine reader until v3.3. Reading element 1 via ``INDEX`` is
+    exactly what ``Context_Has_Intercept(context)`` does in the catalog.
+    """
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    return np.array([[has_intercept], [df_absorbed], ["None"], ["None"]], dtype=object)
+
+
+def _new_chain_via_context(y, X, context):
+    """Post-relocation chain, but the intercept flag is read from element 1 of
+    a packaged context (the accessor path the sheet calls actually take via
+    ``Fit_Context()`` + ``Context_Has_Intercept``), not passed as a scalar.
+
+    If packaging the flag into the context array and reading it back through an
+    INDEX moved a single number, the sheet's engines would diverge from the
+    stage-one path the moment they switched from a scalar arg to the context.
+    """
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    has_intercept = bool(context[0, 0])  # INDEX(Context, 1), 1-based -> 0-based
+    return _new_chain(y, X, has_intercept)
+
+
+def test_the_relocated_chain_is_unchanged_through_the_context_accessor_path() -> None:
+    # The whole point of the stage-two context packaging: routing the intercept
+    # flag through a 4x1 context array and the Context_Has_Intercept accessor
+    # must not move a single number relative to the scalar-flag path. Same 200
+    # datasets, both intercept states, as the stage-one equivalence test above.
+    import numpy as np  # pylint: disable=import-outside-toplevel
+
+    rng = np.random.default_rng(20260801)
+    for _ in range(200):
+        n = int(rng.integers(20, 60))
+        k = int(rng.integers(1, 6))
+        predictors = rng.normal(size=(n, k))
+        response = (
+            predictors @ rng.normal(size=k) + rng.normal(scale=0.5, size=n) + 3.0
+        )
+        for has_intercept in (True, False):
+            scalar_path = _new_chain(response, predictors, has_intercept)
+            context_path = _new_chain_via_context(
+                response, predictors, _context(has_intercept)
+            )
+            for key, expected in scalar_path.items():
+                assert np.isclose(expected, context_path[key], rtol=1e-12, atol=1e-12), (
+                    f"{key} moved when packaged in a context with "
+                    f"has_intercept={has_intercept}: {expected} -> {context_path[key]}"
                 )
 
 

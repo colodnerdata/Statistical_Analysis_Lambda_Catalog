@@ -337,7 +337,7 @@ def read_regression_df(
             # workbook for every QC config and can take several minutes.
             sheet.api.Calculate()
 
-            # ── Scalars: Regression Statistics (column Y) ─────────────────────
+            # ── Scalars: Regression Statistics (column AB) ────────────────────
             scalar_specs: list[tuple[str, float, int, int]] = [
                 ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_AB),
                 ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_AB),
@@ -346,7 +346,7 @@ def read_regression_df(
                 ("Observations",  float(summary.observations), _ROW_OBS,  _C_AB),
             ]
 
-            # Diagnostics (column AB)
+            # Diagnostics (column AE)
             press_r2 = 1.0 - summary.press / summary.ss_total
             mean_lev = (summary.df_regression + (1 if allow_intercept else 0)) / summary.observations
             ms_reg = summary.ss_regression / summary.df_regression
@@ -390,7 +390,7 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-            # ── Predictor Summary (columns Q–V, rows 3 to 3+k-1) ─────────────
+            # ── Predictor Summary (columns T–Y, rows 3 to 3+k-1) ─────────────
             pred_stat_names = ["Pearson_R", "Spearman_R", "Skewness", "Kurtosis", "GVIF", "Tolerance"]
             pred_exp_tuples = [ps.pearson_r, ps.spearman_r, ps.skewness, ps.kurtosis, ps.gvif, ps.tolerance]
             pred_col_indices = [_C_T, _C_U, _C_V, _C_W, _C_X, _C_Y]
@@ -456,7 +456,7 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-            # ── Prediction Interval (column AH, rows 3–14) ────────────────────
+            # ── Prediction Interval (column AK, rows 3–14) ────────────────────
             # Group_Prediction_Interval's 9-value CI+PI box plus the Group
             # Mean/Count readouts. $AK$12 (the FE Group selector) was already
             # written to expected.resolved_prediction_group in _apply_spec_case,

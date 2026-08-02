@@ -83,7 +83,7 @@ class RegressionSpecCase:
     # Every case sets this explicitly (not Optional) so the QC harness resets
     # it on each case regardless of run order — no state leaks between cases.
     source_table_ref: str = "=MileageData[#All]"
-    # Which group the Prediction Interval box (AH3:AH14) is anchored to —
+    # Which group the Prediction Interval box (AK3:AK14) is anchored to —
     # written into the sheet's own $AK$12 cell before reading the box back.
     # None mirrors the sheet's own default (AK12's formula, the
     # alphabetically-first observed group) rather than hardcoding it here.

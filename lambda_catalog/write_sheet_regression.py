@@ -1279,7 +1279,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
 
 
 def _write_alpha(sheet: xw.Sheet) -> None:
-    """Alpha input cell at Y12 — controls prediction interval confidence level."""
+    """Alpha input cell at AB12 — controls prediction interval confidence level."""
     val(sheet, 12, _C_AA, "Alpha")
     bold(sheet, 12, _C_AA)
     val(sheet, 12, _C_AB, 0.05)

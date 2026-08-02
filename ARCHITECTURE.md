@@ -26,7 +26,7 @@ the sheet as it is, not as it is planned. Where a §4a example shows a
 sheet-scoped reader `Fit_Context()`; a free-form caller outside the sheet passes
 the workbook-scoped constructor `Model_Context()`. One thing in §4b is still
 forward-looking and is marked where it appears: the Constructed Design Matrix zone
-is positioned, bounded, and guarded, but the spill that fills it lands at v3.1.
+is positioned, bounded, and guarded, but the spill that fills it lands at v3.2.
 
 ---
 
@@ -567,7 +567,7 @@ displaced by an ordinary modeling choice.
   zone, its collapse behaviour, and the width guard are what a later release
   cannot add without moving columns a second time, so they land with the layout
   break. Materializing `Design_Columns()` into it is a formula change against a
-  column that already exists, and lands at v3.1 — the same reserved-position
+  column that already exists, and lands at v3.2 — the same reserved-position
   treatment `Sample_Include` got, for the same reason.
 
 ### The width guard

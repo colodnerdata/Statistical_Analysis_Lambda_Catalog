@@ -160,7 +160,7 @@ def calculate_regression_results_from_matrix(
     "both missing", not a mismatch.
 
     ``selected_group`` picks which group's mean/count the Prediction
-    Interval box (AH3:AH14 on the sheet) is anchored to via
+    Interval box (AK3:AK14 on the sheet) is anchored to via
     ``Group_Prediction_Interval``'s group-mean-recovery form — the sheet's
     own ``$AK$12`` cell, which defaults to the alphabetically-first observed
     group when nothing is typed. ``None`` (the default here) mirrors that:

@@ -616,6 +616,57 @@ _SEQUENCE_PERIOD_NOTE = (
     "Spacing block below the spec for the delta spectrum and verdicts."
 )
 
+# Plain-language tooltips for the spec-block column headers. Eight of the
+# twelve spec headers get their own note; the other four (Order, Transform,
+# Sequence, Sequence Period) use the longer notes defined above. Tone
+# matches the existing notes: one short paragraph, no formula jargon.
+_LABEL_NOTE = (
+    "The header names from your Source_Table, in source order. Edit the "
+    "table headers in Name Manager or on the data sheet, not this column "
+    "— these cells spill from Header_Names and are read-only."
+)
+_ROLE_NOTE = (
+    "What this column is used as: Response (y), Predictor (x), Identifier "
+    "(row label), Filter (sample mask), Fixed Effects (panel group), or "
+    "Omit (ignored). Exactly one Response is allowed; at most one Fixed "
+    "Effects; zero or many of the others."
+)
+_INCLUDE_NOTE = (
+    "TRUE/FALSE on/off switch. When FALSE, this variable is excluded from "
+    "the model without losing its column on the data sheet. The C2 cell "
+    "above the table is the model-level Intercept toggle."
+)
+_TYPE_NOTE = (
+    "Continuous, Categorical, or Identifier. Continuous goes in raw; "
+    "Categorical is dummy-coded with the level in column E as the "
+    "reference. Identifier rows contribute no model terms and are not "
+    "counted in the degrees of freedom."
+)
+_REFERENCE_NOTE = (
+    "For Categorical predictors, the level whose value the intercept "
+    "absorbs. Defaults to the first-in-sort-order level; type any level to "
+    "override. The cell turns red if the typed level is not present in the "
+    "analysis sample."
+)
+_PERIOD_IN_USE_NOTE = (
+    "The Base Period Δ actually in effect on the Sequence-flagged row: "
+    "your typed override from column I, or the computed candidate from "
+    "Sequence_Delta_Spectrum() (the most common gap within the FE group) "
+    "when I is blank. Lag_By and Difference_By read this cell."
+)
+_LEVELS_NOTE = (
+    "Count of distinct non-blank values of this Categorical predictor in "
+    "the analysis sample. A value of 1 on a Categorical row means a "
+    "single-level predictor, which contributes no columns — the cell is "
+    "flagged red so you can drop the row or widen the filter."
+)
+_REF_IN_USE_NOTE = (
+    "The level that is actually serving as the reference for dummy "
+    "coding: the typed value from column E if you supplied one, else the "
+    "first-in-sort-order default. Read this cell when an unexpected level "
+    "shows up as the comparison baseline."
+)
+
 # Count of Sequence flags across the live spec rows — the zero-or-one
 # validation shared by the H2 status line, the audit strip, and the
 # multi-flag conditional format (same TAKE-trimmed idiom as the
@@ -1630,11 +1681,21 @@ def write_model_construction_sheet(
     _write_filtered_zones(sheet)
 
     # Reserved-column and Sequence notes are COM comment calls; keep them
-    # out of the RecordingSheet-testable spec block.
-    _set_note(sheet, _FIRST_DATA_ROW, _C_ORDER, _RESERVED_NOTE)
-    _set_note(sheet, _FIRST_DATA_ROW, _C_TRANSFORM, _TRANSFORM_NOTE)
-    _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE, _SEQUENCE_NOTE)
-    _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
+    # out of the RecordingSheet-testable spec block. They attach to the
+    # header row (row 3) so the tooltip appears when the user hovers the
+    # column heading the notes describe, not the first variable row.
+    _set_note(sheet, _HEADER_ROW, _C_LABEL, _LABEL_NOTE, label="Variable")
+    _set_note(sheet, _HEADER_ROW, _C_ROLE, _ROLE_NOTE, label="Role")
+    _set_note(sheet, _HEADER_ROW, _C_INCLUDE, _INCLUDE_NOTE, label="Include")
+    _set_note(sheet, _HEADER_ROW, _C_TYPE, _TYPE_NOTE, label="Type")
+    _set_note(sheet, _HEADER_ROW, _C_REFERENCE, _REFERENCE_NOTE, label="Reference Level")
+    _set_note(sheet, _HEADER_ROW, _C_ORDER, _RESERVED_NOTE, label="Order")
+    _set_note(sheet, _HEADER_ROW, _C_TRANSFORM, _TRANSFORM_NOTE, label="Transform")
+    _set_note(sheet, _HEADER_ROW, _C_SEQUENCE, _SEQUENCE_NOTE, label="Sequence")
+    _set_note(sheet, _HEADER_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE, label="Sequence Period")
+    _set_note(sheet, _HEADER_ROW, _C_PERIOD_IN_USE, _PERIOD_IN_USE_NOTE, label="Period In Use")
+    _set_note(sheet, _HEADER_ROW, _C_LEVELS, _LEVELS_NOTE, label="Levels")
+    _set_note(sheet, _HEADER_ROW, _C_REF_IN_USE, _REF_IN_USE_NOTE, label="Reference In Use")
 
     _set_spec_block_column_widths(sheet)
     return sheet

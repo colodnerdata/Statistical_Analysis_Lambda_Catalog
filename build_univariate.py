@@ -319,7 +319,7 @@ def build_univariate_workbook(
                 workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS
             write_catalog_sheet(workbook, document.functions)
             write_csv_dataset_sheet(workbook, csv_headers, csv_rows, LIFE_EXPECTANCY)
-            write_univariate_sheet(workbook)
+            write_univariate_sheet(workbook, document.univariate_sheet_notes)
             write_version_history_sheet(workbook, artifact="univariate")
             _reorder_and_style_sheet_tabs(workbook)
             app.api.Calculation = XL_CALCULATION_AUTOMATIC

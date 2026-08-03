@@ -84,6 +84,13 @@ from .workbook_helpers import (
 from .write_sheet_model_construction import (
     SPEC_DATASET_PROFILES,
     SpecDatasetProfile,
+    _INCLUDE_NOTE,
+    _LABEL_NOTE,
+    _LEVELS_NOTE,
+    _PERIOD_IN_USE_NOTE,
+    _REF_IN_USE_NOTE,
+    _REFERENCE_NOTE,
+    _ROLE_NOTE,
     _SEQUENCE_PERIOD_NOTE,
     _FIXED_EFFECTS_COUNT_FORMULA,
     _FIXED_EFFECTS_NAME_FORMULA,
@@ -95,12 +102,21 @@ from .write_sheet_model_construction import (
     _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
     _TRANSFORM_NOTE,
+    _TYPE_NOTE,
+    _C_INCLUDE as _C_SPEC_INCLUDE,
+    _C_LABEL as _C_SPEC_LABEL,
+    _C_LEVELS as _C_SPEC_LEVELS,
+    _C_PERIOD_IN_USE as _C_SPEC_PERIOD_IN_USE,
+    _C_REFERENCE as _C_SPEC_REFERENCE,
+    _C_ROLE as _C_SPEC_ROLE,
     _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
     _C_ORDER as _C_SPEC_ORDER,
     _C_REF_IN_USE as _C_SPEC_REF_IN_USE,
     _C_SEQUENCE as _C_SPEC_SEQUENCE,
     _C_TRANSFORM as _C_SPEC_TRANSFORM,
+    _C_TYPE as _C_SPEC_TYPE,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
+    _HEADER_ROW as _SPEC_HEADER_ROW,
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _set_spec_block_column_widths,
     _write_intercept_control,
@@ -457,11 +473,17 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (20, _C_AE, "Beta Weight"),
         (17, _C_AI, "Training Mean"),
         (3, _C_AG, "Point Estimate"),
-        (4, _C_AG, "SE Prediction"),
-        (5, _C_AG, "t Critical"),
-        (6, _C_AG, "Lower 95%"),
-        (7, _C_AG, "Upper 95%"),
-        (8, _C_AG, "Confidence Level"),
+        (4, _C_AG, "SE (Mean)"),
+        (5, _C_AG, "SE (New Obs)"),
+        (6, _C_AG, "t Critical"),
+        (7, _C_AG, "CI Lower"),
+        (8, _C_AG, "CI Upper"),
+        (9, _C_AG, "PI Lower"),
+        (10, _C_AG, "PI Upper"),
+        (11, _C_AG, "Confidence Level"),
+        (12, _C_AG, "FE Group"),
+        (13, _C_AG, "Group Mean (y)"),
+        (14, _C_AG, "Group Count"),
         (2, _C_AL, "Y"),
         (2, _C_AM, "Predicted Y"),
         (2, _C_AN, "Residuals"),
@@ -472,6 +494,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (2, _C_AS, "Studentized Residuals Ranked"),
         (2, _C_AT, "Scale-Location"),
         (2, _C_AU, "PRESS Residual"),
+        (2, _C_AV, "Cook's Distance (Flagged)"),
     ]
 
     for row, col, key in note_cells:
@@ -872,13 +895,27 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     section_heading(sheet, 1, _C_A, "MODEL SPECIFICATION")
     _write_spec_feedback(sheet)
     _write_intercept_control(sheet)
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE, label="Reserved")
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _TRANSFORM_NOTE, label="Transform")
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE, _SEQUENCE_NOTE, label="Sequence")
+    # Spec-block notes anchor on the header row (row 3) so the tooltip
+    # appears when the user hovers the column heading the notes describe,
+    # not the first variable row. All twelve spec-block headers carry a
+    # plain-language note; the four (Order, Transform, Sequence, Sequence
+    # Period) that double as the shipped spec-feature headers use the
+    # longer notes defined in write_sheet_model_construction.py.
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_LABEL, _LABEL_NOTE, label="Variable")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_ROLE, _ROLE_NOTE, label="Role")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_INCLUDE, _INCLUDE_NOTE, label="Include")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_TYPE, _TYPE_NOTE, label="Type")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_REFERENCE, _REFERENCE_NOTE, label="Reference Level")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_ORDER, _RESERVED_NOTE, label="Order")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_TRANSFORM, _TRANSFORM_NOTE, label="Transform")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_SEQUENCE, _SEQUENCE_NOTE, label="Sequence")
     _set_note(
-        sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE,
+        sheet, _SPEC_HEADER_ROW, _C_SPEC_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE,
         label="Sequence Period",
     )
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_PERIOD_IN_USE, _PERIOD_IN_USE_NOTE, label="Period In Use")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_LEVELS, _LEVELS_NOTE, label="Levels")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_REF_IN_USE, _REF_IN_USE_NOTE, label="Reference In Use")
 
 
 def _write_predictor_summary(sheet: xw.Sheet) -> None:

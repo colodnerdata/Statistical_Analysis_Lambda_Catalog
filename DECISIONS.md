@@ -1578,6 +1578,12 @@ guard below needs.
 must stay structurally identical to the constructor, per the existing rule that
 names and columns cannot disagree.
 
+> **The colon is SUPERSEDED at v3.1** by one symbol per operation
+> (`GDP × Schooling`). R's `:` works because R's interaction is a single
+> operation; this library has three, so a shared separator names the operands
+> without naming what was done to them. See
+> [§ v3.1](#one-symbol-per-operation-not-a-shared-colon).
+
 ### Materialize the design matrix as the terminal zone
 
 **Question:** the constructor is called inside every engine function, so the
@@ -2127,6 +2133,176 @@ layout constants, so the shift is mechanical.
 
 ---
 
+## v3.1 — Interaction wiring
+
+The release that consumes the M/N pair v3.0 stage 3 reserved. The
+representation, the operation vocabulary and its symmetry attribute, the four
+operand Role/Include cases, the two-way limit, and the self-interaction rule
+were all settled at v3.0 and are unchanged — see
+[§ v3.0 interactions](#interactions-are-declared-with-two-spec-columns) and the
+four entries that follow it. Recorded below are the questions the
+*implementation* had to answer that the representation decision did not.
+
+### An interaction's columns follow their own spec row
+
+**Question:** the constructor walks the spec in table order, emitting each
+included Predictor's columns. Where do a row's interaction columns go — beside
+that row's own block, or appended after every main effect?
+
+**Resolution:** immediately after the declaring row's own block.
+
+**Rationale.** The Design Columns audit is a **per-row** display, so a per-row
+emission is what makes its number mean what it says: column O reads `k(row) +
+k(row)×k(operand)`, and the columns those two terms describe are adjacent in the
+matrix. Appending interactions at the end would be equally k-correct and would
+break that correspondence — the audit would report a count for a row whose
+columns are elsewhere. It also preserves the one ordering property every zone
+right of the spec block already relies on: the constructed columns are in spec
+order, so the predictor-summary and residual zones can be read against the spec
+block row by row.
+
+### An unusable operand degrades to the main effect; it does not error
+
+**Question:** DECISIONS records a non-Predictor operand as an "Error". Does the
+constructor refuse to build the matrix, or skip the interaction?
+
+**Resolution:** skip the interaction, keep the main effect, leave the red flag
+on the cell.
+
+**Rationale.** This is the established precedent for an invalid spec entry on
+this sheet, not a new policy: an invalid Reference Level makes `Dummy_Levels`
+return `#N/A`, and the constructor's `acc` passthrough drops that variable while
+the E cell shows red. Erroring the whole design matrix on a mistyped operand
+name would take the entire sheet — every fit statistic, diagnostic, and chart —
+down for one bad cell, and would hide the *other* red flags a user needs to see
+to fix it. The audit column is where the consequence surfaces: the row reports
+its main-effect count only, so "I declared an interaction and the count did not
+move" is visible in the same glance that shows the red cell.
+
+The same reasoning covers a **degenerate operand** (a Categorical whose masked
+levels collapse to one). It contributes nothing, and `k(row) × 0 = 0` falls out
+of the audit arithmetic with no special case.
+
+### Interaction headers compose the library's own column names
+
+**Question:** v3.0 specified "R's colon form — `GDP:Schooling`, level-qualified
+as `GDP:StatusDeveloping`". R names dummy columns `StatusDeveloping`; this
+library names them `Status: Developing`. Which wins in the composed name?
+
+**Resolution:** compose **this library's own** constructed names.
+
+**Rationale.** The v3.0 example is R's *output*, cited to fix the separator, not
+to import R's dummy-naming. Composing the library's own names keeps the property
+that matters: an interaction header always decomposes back into two headers that
+appear elsewhere in the same strip, so a user reading a coefficient can find both
+operands. Adopting R's dummy form would have meant `Constructed_Column_Names()`
+emitting one spelling for a main effect and a different spelling for the same
+column inside an interaction. The composed form is noisier than R's; that is the
+cost of the names being traceable, and it is the right trade for a sheet whose
+whole premise is that a result can be interrogated by clicking through it.
+
+### One symbol per operation, not a shared colon
+
+**Question:** v3.0 fixed the separator as a colon, from R. Does that survive
+three operations?
+
+**Resolution:** no. Each operation renders its own operator — ` × ` for Product,
+` − ` for Difference, ` ÷ ` for Ratio — with ` ? ` for anything else.
+`_INTERACTION_HEADER_SYMBOLS` in `write_sheet_model_construction.py` is the
+single source, and `test_interaction_header_symbols_match_the_catalog_formula`
+pins it to the `SWITCH` inside `Constructed_Column_Names()`.
+
+**Rationale.** R's `:` is unambiguous *in R*, where interaction is one
+operation. Here it is not: `Weight:Displacement` could be a product, a
+difference, or a ratio, and those are three different models. A header that
+names the operands but not what was done to them fails the same test the
+`Ln(name)` relabel passes — the output has to say what was fitted.
+
+The colon was also **doubly** ambiguous, which is what made this worth fixing
+rather than tolerating. A level-qualified categorical name already contains
+`": "`, so `Weight:Status: Developing` reads as one name with two colons and no
+indication which is the join.
+
+`−` is U+2212 MINUS SIGN, not a hyphen: a hyphen is a legal character in a
+source column name, so `Unit-Cost - Weight` would be unparseable by eye. The
+symbols are spaced because operand names contain spaces.
+
+**Why ` ? ` rather than nothing for an unrecognized operation.** The header
+strip must stay exactly as wide as the design matrix — the twin invariant — so
+an unrecognized operation still needs *a* header. Pairing a visibly wrong header
+with the `NA()` column `Predictor_Columns()` emits for the same input makes the
+failure legible from the strip alone.
+
+### The Python mirror matches Excel's comparison semantics, not Python's
+
+**Question:** `mate()` resolves the operand with `XMATCH` and the operation
+dispatches on `SWITCH`. The Python oracle used `==` for both. Is that the same
+thing?
+
+**Resolution:** no — both Excel functions compare text **case-insensitively**,
+and the mirror now case-folds to match. Case folding only: `XMATCH` is neither
+accent-insensitive nor whitespace-trimming, so the mirror is neither.
+
+**Rationale.** The failure this prevents is worse than either behaviour alone:
+with a case-sensitive mirror, a user who pastes `weight` where the header reads
+`Weight` gets an interaction column on the sheet and an oracle that predicts
+none — so the QC pass reports a mismatch on a *correctly built* matrix, and the
+oracle is wrong about the thing it exists to describe. **A mirror's job is to
+reproduce Excel's semantics, including the ones Python does not share.** Any
+future mirror of a formula that compares text has the same obligation;
+`_retained_levels` (mirroring `Dummy_Levels`) and `_compute_mask` are the other
+two places this rule bears on.
+
+Found in review of the v3.1 wiring, not by a test — which is why it is recorded
+as a rule rather than a fix.
+
+### `Ratio` is an explicit `SWITCH` case, so the default can be `NA()`
+
+**Question:** `SWITCH`'s trailing argument is its *default*. Writing the three
+operations as `SWITCH(o, "Product", …, "Difference", …, <ratio>)` is one
+character shorter than naming `Ratio`. Does it matter?
+
+**Resolution:** name `Ratio` explicitly and make the default `NA()`.
+
+**Rationale.** With `Ratio` as the fallthrough, *every* unrecognized value —
+not just the three on the dropdown — silently computes a ratio. That is
+reachable: Excel's data validation does not block a paste, so a value the
+dropdown would refuse can still land in N. Silently computing a ratio for a
+value the user did not choose is precisely the "silently switch" failure the
+closed-vocabulary decision exists to prevent, and it would be invisible — the
+column builds, the fit succeeds, and the number is for a model nobody
+specified. `NA()` fails visibly instead, and the Python mirror raises for the
+same input, so neither side guesses.
+
+### Prediction Inputs does not recompute interaction rows
+
+**Question:** the Prediction Inputs band writes one overridable value per
+constructed column, defaulting to that column's training mean. An interaction
+column is *derived* from two others. Should the band recompute it when an
+operand row changes?
+
+**Resolution:** no. The interaction row is an independent input like every other
+row, and the band's header note says so explicitly.
+
+**Rationale.** Recomputing would mean one user input silently rewriting another,
+which is the "flag and instruct, never silently switch" line this library holds
+everywhere else. It is also not obviously *correct* — a user exploring a
+scenario may legitimately want to hold an interaction at its training mean while
+moving an operand. What the band must not do is leave the inconsistency
+undiscoverable, hence the note.
+
+The default state is self-consistent without any of this: leave every row at its
+Training Mean and the prediction sits on the design matrix's own centroid,
+interaction columns included. The inconsistency only arises from a partial
+override, which is exactly what the note describes.
+
+**Deferred, not rejected:** a band that knows which constructed columns are
+derived and from which operands could offer a derive-on-change toggle. That
+needs a fourth structural twin carrying each column's provenance, which is real
+scope and no part of what v3.1 set out to do.
+
+---
+
 ## Aliases
 
 A separate, optional layer of short, ALL-CAPS aliases may be added in
@@ -2245,6 +2421,10 @@ Decisions that were made and later replaced by a later decision. The
 superseding decision lives at its version's section above; this log
 just records what was replaced, when, and by what.
 
+- **The colon as the interaction-header separator** (v3.0) → SUPERSEDED at
+  v3.1 by one symbol per operation (` × ` / ` − ` / ` ÷ `). A shared separator
+  named the operands without naming the operation, and collided with the `": "`
+  already inside a level-qualified categorical name.
 - **Separate Factor / Panel Regression sheets** (v1 planning) →
   SUPERSEDED at v2.0 by the one spec-driven sheet. Factor and panel
   become documented walkthroughs in the Regression Instructions

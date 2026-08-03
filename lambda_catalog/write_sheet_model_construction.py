@@ -196,8 +196,8 @@ from .sheet_styles import (
     CF_DARK_YELLOW_TEXT,
     CF_LIGHT_RED_FILL,
     CF_YELLOW_FILL,
+    HEADER_COLOR,
     INPUT_COLOR,
-    SUBHDR_COLOR,
 )
 from .workbook_helpers import (
     XL_SRC_RANGE,
@@ -208,6 +208,7 @@ from .workbook_helpers import (
     bold_row,
     col_letter,
     drop_local_name,
+    excel_color,
     f,
     f_structured,
     format_input,
@@ -690,6 +691,30 @@ _INTERACTION_SYMMETRIC_OPERATIONS = (
     _INTERACTION_DIFFERENCE,
 )
 
+# The operator each operation contributes to an interaction column's HEADER
+# (v3.1). One symbol per operation, because a single separator cannot say
+# which of the three built the column — and the colon this replaced was
+# doubly ambiguous, since a level-qualified categorical name already contains
+# ": " ("Weight:Status: Developing" reads as one name with two colons).
+#
+# U+2212 MINUS SIGN, not a hyphen: a hyphen is a legal character in a source
+# column name, so "Unit-Cost - Weight" would be unreadable with one. The
+# symbols are spaced so they stay legible beside names that contain spaces.
+#
+# `Constructed_Column_Names()` renders these via a SWITCH over the same
+# operation strings; `test_interaction_header_symbols_match_the_catalog_formula`
+# pins the two together so this table cannot drift from the formula.
+_INTERACTION_HEADER_SYMBOLS = {
+    _INTERACTION_PRODUCT: " × ",
+    _INTERACTION_DIFFERENCE: " − ",
+    _INTERACTION_RATIO: " ÷ ",
+}
+# Rendered when the operation is none of the three — reachable only by a
+# paste past the dropdown, and paired with the NA() column Predictor_Columns()
+# emits for the same input. The header still exists so the strip stays exactly
+# as wide as the design matrix.
+_INTERACTION_HEADER_UNKNOWN = " ? "
+
 # Interaction Term (M): the dropdown source is the variable-name spill at
 # A{_FIRST_DATA_ROW}, referenced with the spill operator so the list is
 # exactly the dataset's columns and resizes with a retarget — no fixed
@@ -744,9 +769,10 @@ _INTERACTION_TERM_NOTE = (
     "deliberate, and blocking it would be the library deciding a "
     "modeling question. Pointing at this row's OWN variable with "
     "Operation = Product is the documented way to declare a quadratic "
-    "(x squared) term. RESERVED: validated and flagged now, read by no "
-    "constructor until the interaction wiring release — the Design "
-    "Columns audit therefore still counts main effects only."
+    "(x squared) term. The columns this adds are counted in the Design "
+    "Columns audit: one for Continuous x Continuous, one per retained "
+    "level for Continuous x Categorical, and the full product for "
+    "Categorical x Categorical."
 )
 _INTERACTION_OPERATION_NOTE = (
     "Interaction Operation — how the two operands combine: Product "
@@ -756,17 +782,18 @@ _INTERACTION_OPERATION_NOTE = (
     "— the reciprocal produces a duplicate or exact-negative column and a "
     "singular Gram matrix, and it is flagged, never silently "
     "deduplicated. Ratio is asymmetric, so its reciprocal is a different "
-    "column and is allowed. RESERVED alongside Interaction Term: read by "
-    "no constructor until the interaction wiring release."
+    "column and is allowed. Ratio returns #N/A where the denominator is "
+    "zero, rather than a divide-by-zero error."
 )
 _DESIGN_COLUMNS_NOTE = (
     "Design Columns — how many columns THIS spec row contributes to the "
     "constructed design matrix. Blank when the row is not a Predictor; 0 "
     "when it is excluded or degenerate; 1 for a Continuous Predictor; "
-    "L-1 for a Categorical one, where L is the Levels count beside it. "
-    "This is the column where one dropdown change becomes visible: "
-    "switching a high-cardinality variable to Categorical can add "
-    "hundreds of columns. A computed display — no constructor reads it — "
+    "L-1 for a Categorical one, where L is the Levels count beside it — "
+    "plus this row's interaction columns, which are its own count times "
+    "the operand's. This is the column where one dropdown change becomes "
+    "visible: switching a high-cardinality variable to Categorical, or "
+    "interacting two of them, can add hundreds of columns. A computed display — no constructor reads it — "
     "and the pre-flight number behind the design-matrix width guard "
     "above, which is why the check is answerable from the spec instead "
     "of by building a matrix that turns out not to fit."
@@ -896,19 +923,37 @@ _RESPONSE_LOG_FORMULA = (
 # closure the constructor reads makes them provably consistent, which is
 # the "one source of truth is the FUNCTION" rule from ARCHITECTURE §4.
 #
-# Interactions are not counted: M/N are reserved-and-unwired at this
-# release, so the constructor builds main effects only and an audit that
-# anticipated interaction columns would be reporting a matrix that does
-# not exist. Wiring them adds a term here in the same edit that teaches
-# the constructor to build them.
+# From v3.1 the row's INTERACTION columns are counted too, because the
+# constructor now builds them. The count is k(row) * k(operand), the width
+# of the pairwise combination Predictor_Columns() emits, and it reuses the
+# SAME per-row width helper (``kk``) for both operands — so the audit cannot
+# disagree with the constructor about how wide a categorical operand is.
+# The gating mirrors the constructor's mate() exactly: blank M or blank N,
+# a name matching no column, or an operand whose Role is not Predictor all
+# contribute 0, leaving the row's main-effect count alone. An operand that
+# is a Predictor with Include = FALSE still counts — that is the
+# flagged-amber marginality case, which builds columns.
+#
+# A degenerate row needs no special case in either direction: kk returns 0,
+# and 0 * anything is 0, which is exactly what the constructor's skip does.
 _DESIGN_COLUMNS_ROW_FORMULA = (
     f'=IF([@Role]<>"{_ROLE_PREDICTOR}","",'
     "IF([@Include]<>TRUE,0,"
-    'IF([@Type]<>"Categorical",1,'
-    "IFERROR(COLUMNS(Dummy_Levels("
-    f"INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
-    'IF(LEN([@[Reference Level]]&"")=0,"",[@[Reference Level]]),'
-    "Sample_Include())),0))))"
+    "LET(nc,COLUMNS(Source_Data),"
+    "typ,TAKE(Spec_Type,nc),"
+    "refs,TAKE(Spec_Reference,nc),"
+    "rl,TAKE(Spec_Role,nc),"
+    'kk,LAMBDA(x,IF(INDEX(typ,x)<>"Categorical",1,'
+    "IFERROR(COLUMNS(Dummy_Levels(INDEX(Source_Data,0,x),"
+    'IF(LEN(INDEX(refs,x)&"")=0,"",INDEX(refs,x)),'
+    "Sample_Include())),0))),"
+    f"k,kk(ROW()-{_ROW_TO_COL_OFFSET}),"
+    "t,[@[Interaction Term]],"
+    "o,[@[Interaction Operation]],"
+    "q,IFERROR(XMATCH(t,TOROW(Header_Names)),0),"
+    'ki,IF(OR(LEN(t&"")=0,LEN(o&"")=0,q=0),0,'
+    f'IF(INDEX(rl,q)<>"{_ROLE_PREDICTOR}",0,k*kk(q))),'
+    "k+ki)))"
 )
 
 # Verdict messages. Blank cell = quiet; conditional formatting keys on
@@ -1213,14 +1258,13 @@ def _write_spec_block(
     # to a ListObject with the referenced headers.
     _create_spec_table(sheet, profile)
 
-    # TableStyle overrides the header row's fill; re-pin it to SUBHDR_COLOR
-    # (the shared column-sub-header convention) so the header reads
-    # consistently with every other sheet regardless of the table style
-    # underneath. Covers column A's header too (outside the ListObject, so
-    # untouched by TableStyle) for a uniform row.
-    sheet.range(
-        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST)
-    ).color = SUBHDR_COLOR
+    # TableStyle overrides ListObject header styling. Re-pin the full
+    # specification header row after table creation so the Regression sheet's
+    # visible headers keep the intended style regardless of table theme.
+    header_range = sheet.range((_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST))
+    header_range.color = HEADER_COLOR
+    header_range.api.Font.Bold = True
+    header_range.api.Font.Color = excel_color((0, 0, 0))
 
     # A: variable names spill straight from the table's header row via the
     # Header_Names indirection (dataset-agnostic; reads no other sheet).

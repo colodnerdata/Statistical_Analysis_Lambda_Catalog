@@ -471,6 +471,22 @@ class ModelContextElement(NamedTuple):
 # Absorbed_Degrees_Of_Freedom() closure) feed today's engines; elements 3-4
 # (the spec-block transform summaries) have no engine reader until the v3.3
 # unit-space dispatcher but land now so the row order is fixed.
+# Header note for the Prediction Inputs band. Interaction columns (spec M/N,
+# wired at v3.1) appear here as ordinary rows named "left:right", and their
+# value is an independent input like every other row's.
+_PREDICTION_INPUT_NOTE = (
+    "Prediction Inputs — one row per constructed design-matrix column, "
+    "pre-filled with that column's Training Mean. Type a raw, real-world "
+    "value; a Log-transformed row is logged for you.\n\n"
+    "Interaction rows (named \"left \u00d7 right\", or with \u2212 / \u00f7 "
+    "for a Difference or Ratio) are independent inputs, NOT "
+    "recomputed from the two operand rows. Leave the whole band at its "
+    "defaults and the prediction sits on the model's own centre. If you "
+    "override an operand, override its interaction rows to match — "
+    "otherwise the prediction mixes a new operand value with the old "
+    "interaction value."
+)
+
 _MODEL_CONTEXT_ELEMENTS: tuple[ModelContextElement, ...] = (
     ModelContextElement("Has_Intercept", "Allow Intercept", "Allow_Intercept"),
     ModelContextElement(
@@ -1076,6 +1092,16 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_INTERACTION_TERM, _INTERACTION_TERM_NOTE, label="Interaction Term")
     _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_INTERACTION_OPERATION, _INTERACTION_OPERATION_NOTE, label="Interaction Operation")
     _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_DESIGN_COLUMNS, _DESIGN_COLUMNS_NOTE, label="Design Columns")
+    # Prediction Inputs (AJ17). An interaction column (v3.1) gets its own
+    # row there like any other constructed column, and its Prediction Value
+    # is NOT derived from the two operand rows. Leaving the whole band at
+    # its Training Mean defaults is self-consistent (it sits on the design
+    # matrix's own centroid); overriding an operand without also overriding
+    # the interaction row is not. The band cannot silently recompute it — a
+    # prediction row is a user input, and rewriting one input because
+    # another changed is the "silently switch" behaviour the spec block
+    # exists to avoid — so it says so instead.
+    _set_note(sheet, 17, _C_AJ, _PREDICTION_INPUT_NOTE, label="Predictor")
 
 
 def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
@@ -1593,6 +1619,9 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     val(sheet, 17, _C_AJ, "Predictor")
     val(sheet, 17, _C_AK, "Prediction Value")
     bold_row(sheet, 17, _C_AJ, _C_AL)
+    # The band's header note lives in _write_model_specification alongside
+    # every other note: AddComment is a COM-only call, and keeping it out of
+    # here is what lets this writer stay exercisable through RecordingSheet.
 
     # AJ19: spill formula — level-qualified names, one per constructed column
     f(sheet, _PRED_INPUT_FIRST_ROW, _C_AJ, "=TRANSPOSE(Constructed_Column_Names())")

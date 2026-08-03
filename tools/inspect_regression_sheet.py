@@ -30,6 +30,8 @@ from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_ac
 from lambda_catalog.write_sheet_csv_dataset import MILEAGE
 from lambda_catalog.write_sheet_model_construction import (
     _C_INCLUDE as _C_SPEC_INCLUDE,
+    _C_INTERACTION_OPERATION as _C_SPEC_INTERACTION_OPERATION,
+    _C_INTERACTION_TERM as _C_SPEC_INTERACTION_TERM,
     _C_REFERENCE as _C_SPEC_REFERENCE,
     _C_ROLE as _C_SPEC_ROLE,
     _C_SEQUENCE as _C_SPEC_SEQUENCE,
@@ -202,6 +204,8 @@ def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
             _C_SPEC_REFERENCE,
             _C_SPEC_SEQUENCE,
             _C_SPEC_TRANSFORM,
+            _C_SPEC_INTERACTION_TERM,
+            _C_SPEC_INTERACTION_OPERATION,
         ):
             sheet.range(row, col).clear_contents()
 
@@ -213,6 +217,19 @@ def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
         sheet.range(row, _C_SPEC_REFERENCE).value = variable.reference
         sheet.range(row, _C_SPEC_SEQUENCE).value = variable.sequence
         sheet.range(row, _C_SPEC_TRANSFORM).value = variable.transform
+        # v3.1: M/N are live inputs now, so a case that declares an
+        # interaction has to reach the sheet, and a case that does not has
+        # to leave both cells genuinely blank (cleared above) rather than
+        # writing "" — mate() gates on LEN(t&"")=0, which both satisfy, but
+        # a written "" would defeat the dropdown's own blank default.
+        if variable.interaction_term:
+            sheet.range(row, _C_SPEC_INTERACTION_TERM).value = (
+                variable.interaction_term
+            )
+        if variable.interaction_operation:
+            sheet.range(row, _C_SPEC_INTERACTION_OPERATION).value = (
+                variable.interaction_operation
+            )
 
 
 def _set_pred_inputs(

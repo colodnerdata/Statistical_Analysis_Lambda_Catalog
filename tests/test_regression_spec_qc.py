@@ -30,6 +30,9 @@ _EXPECTED_CASE_NAMES = [
     "origin_invalid_reference",
     "model_year_origin_categorical",
     "usa_filter_degenerate_origin",
+    "interaction_continuous_product",
+    "interaction_quadratic_self_product",
+    "interaction_categorical_broadcast",
     "production_lots_fixed_effects",
     "production_lots_log_transform",
 ]

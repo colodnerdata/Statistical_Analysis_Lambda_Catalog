@@ -270,8 +270,8 @@ alternative shifts eight columns to preserve a reading convention. See
 | J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). No other on-sheet formula reads J; the workbook-scoped `Base_Period_Delta()` accessor (lambda_functions.json) separately provides the omitted-`[delta]` default for `Lag_By`/`Difference_By`. The J cell stays plain, with no on-sheet override-flagging display. |
 | K | **Levels** | **Computed display**: distinct level count over the mask-included rows, shown only for Categorical Predictors. Live against stratification. CF: **red when L ≤ 1 while included** (contributes L−1 = 0 columns). Large L needs no flag — the visible count is the warning. |
 | L | **Reference In Use** | **Computed display**: the reference level the constructor will actually drop, surfaced even when defaulted. |
-| M | **Interaction Term** *(v3.0)* | Orange input, dropdown sourced from the variable-name column: names the **other operand** of an interaction involving this row. Blank by default (no interaction). Only a Predictor may be an operand — any other Role on the target is an error. A target that is a Predictor with Include = FALSE is **allowed and flagged amber** (an interaction without its main effect is a marginality violation, usually a mistake but occasionally deliberate; blocking it would be the library deciding a modeling question). Pointing at its own row with Operation = `Product` yields x² and is the documented way to declare a quadratic term. |
-| N | **Interaction Operation** *(v3.0)* | Dropdown, **closed** in the same sense as Predictor Type: `Product` · `Difference` · `Ratio`, blank by default. Each carries a symmetry attribute governing reciprocal declarations — `Product` is symmetric and `Difference` antisymmetric, so declaring B on A *as well as* A on B produces a duplicate or exact-negative column and a singular Gram matrix (**flagged red**, never silently deduplicated); `Ratio` is asymmetric, so the reciprocal is legitimate and **allowed**. |
+| M | **Interaction Term** *(live — v3.1 wiring)* | Orange input, dropdown sourced from the variable-name column: names the **other operand** of an interaction involving this row. Blank by default (no interaction). Only a Predictor may be an operand — any other Role on the target is an error. A target that is a Predictor with Include = FALSE is **allowed and flagged amber** (an interaction without its main effect is a marginality violation, usually a mistake but occasionally deliberate; blocking it would be the library deciding a modeling question). Pointing at its own row with Operation = `Product` yields x² and is the documented way to declare a quadratic term. |
+| N | **Interaction Operation** *(live — v3.1 wiring)* | Dropdown, **closed** in the same sense as Predictor Type: `Product` · `Difference` · `Ratio`, blank by default. `Ratio` returns `NA()` on a zero denominator rather than a bare `#DIV/0!`. Each carries a symmetry attribute governing reciprocal declarations — `Product` is symmetric and `Difference` antisymmetric, so declaring B on A *as well as* A on B produces a duplicate or exact-negative column and a singular Gram matrix (**flagged red**, never silently deduplicated); `Ratio` is asymmetric, so the reciprocal is legitimate and **allowed**. |
 
 ### The Design Columns audit column (O, built at v3.0)
 
@@ -296,10 +296,17 @@ row is not a Predictor, 0 when it is excluded, 1 for a Continuous one, and
 another; reading the same closure the constructor reads makes them provably
 consistent, which is the "one source of truth is the *function*" rule below.
 
-Interactions are not yet counted, because the constructor does not yet build them
-— an audit that anticipated interaction columns would be reporting a matrix that
-does not exist. Wiring them (v3.1) adds a term here in the same edit that teaches
-the constructor to build them.
+**Interactions are counted from v3.1**, added in the same edit that taught the
+constructor to build them. The term is `k(row) × k(operand)` — the width of the
+pairwise combination — and it reuses the **same per-row width helper** for both
+operands, so the audit cannot disagree with the constructor about how wide a
+categorical operand is. The gating mirrors the constructor's `mate()` exactly:
+a blank M, a blank N, a name matching no column, or an operand whose Role is
+not Predictor all contribute 0, leaving the row's main-effect count alone. An
+operand that is a Predictor with Include = FALSE **does** count — that is the
+flagged-amber marginality case, which builds columns. A degenerate row needs no
+special case in either direction: its own count is 0, and 0 × anything is 0,
+which is exactly what the constructor's skip does.
 
 The column is a computed display and is bound by "Display derives, never feeds"
 like J, K, and L — no constructor may read it. Its **total** — Σ(column O) plus
@@ -307,24 +314,33 @@ the intercept, i.e. exactly `COLUMNS(Design_Columns())` — sits above it at O1 
 the width-guard status at M2, and is likewise read only by the guard, which is
 itself a display.
 
-### Reserved-column policy (F, M, N)
+### Reserved-column policy (F)
 
 `Spec_Order` remains reserved and read by no formula — confirmed by
 construction, not by convention: `Predictor_Columns()`, `Constructed_Column_Names()`,
 `Row_Labels()`, and `Sample_Include()` must not reference it (and may not
 reference `Spec_Sequence` or `Spec_Sequence_Period` either — those names
 are consumed only by the zero-or-one validation and the base-period
-layer, never by a constructor). `Spec_Interaction_Term` and
-`Spec_Interaction_Operation` join it under the same rule from v3.0:
-bound so the grid shape is final and so the conditional-format rules on the
-pair have a band to read, referenced by no defined name and no cell formula
-until the interaction wiring release. Conditional-formatting expressions
-are neither, which is why the flags on M and N can be live while the bands
-stay unread. The column exists purely so the *sheet
+layer, never by a constructor). The column exists purely so the *sheet
 layout* absorbs the future feature now; wiring it in a later release is
 additive (a formula change), not a second column-insertion breaking the
-sheet a second time — exactly how column I went live in the base-period
-release, and how column G (Transform) went live at v2.2.
+sheet a second time.
+
+**M and N are no longer reserved.** They shipped bound-but-unread at v3.0
+stage 3 — the grid shape final and the conditional-format rules live, the
+bands referenced by no defined name and no cell formula — and went live at
+v3.1 exactly as the policy predicts: a formula change against columns that
+already existed, with no second layout break behind it. That is the third
+worked example of the pattern, after column I (base-period release) and
+column G (Transform, v2.2). What the reserved period bought is visible in
+the diff: the release that *used* M and N touched three LAMBDA definitions
+and one audit formula, and moved no column.
+
+The wiring respects "display derives, never feeds" on the other side: M and
+N are read by `Predictor_Columns()` and its two twins **and by nothing else**.
+`Sample_Include()`, `Row_Labels()`, and `Response_Column()` must never
+reference them — an interaction changes the design matrix's *width*, and the
+row mask is what every spilled array is aligned to.
 
 `Spec_Transform` (column G) is the worked example of that additive wiring:
 it is now read by exactly four constructors — `Response_Column()`, `Predictor_Columns()`,
@@ -439,7 +455,7 @@ stages in a fixed order**, replacing the `X_s()` / `X_s_Within()` name fork.
 
 ### The stage order is a hard constraint
 
-    encode → transform → demean → intercept → weight
+    encode → transform → interact → demean → intercept → weight
 
 **A column of ones demeaned by group is a column of zeros**, giving a singular
 Gram matrix. Through v2.2 the code was safe by accident: `Design_Matrix`
@@ -458,6 +474,14 @@ one constraint made explicit rather than a new one invented:
   intercept in the design matrix, scaling everything by √w yields the exact WLS
   estimator, standard errors, leverage, and Cook's distance, because the
   intercept column correctly becomes √w rather than remaining ones.
+- **interact after transform, before demean** (v3.1) — an interaction combines
+  two operands *as they enter the model*, so each operand is encoded and
+  transformed first: `Log` on a predictor makes the product `x·ln(z)`, never
+  `ln(x·z)`. And demeaning has to come after, because the within transformation
+  of a product is not the product of the within transformations — demeaning the
+  operands first and multiplying would silently fit a different model. The
+  interact stage is where the matrix's width stops being one-column-per-spec-row,
+  which is why the Design Columns audit (§4) exists.
 
 **Out of scope, recorded so it is not assumed away:** weighted fixed effects
 should demean using *weighted* group means. Not part of v3.0.
@@ -466,9 +490,9 @@ should demean using *weighted* group means. Not part of v3.0.
 
 | Name | Stages applied | Taken by |
 |---|---|---|
-| `Design_Columns()` | encode → transform → demean → intercept → weight | every fit and inference statistic |
+| `Design_Columns()` | encode → transform → interact → demean → intercept → weight | every fit and inference statistic |
 | `Design_Response()` | transform → demean → weight | the same, as the response |
-| `Predictor_Columns()` | encode → transform only | the predictor-summary zone — the escape hatch |
+| `Predictor_Columns()` | encode → transform → interact | the predictor-summary zone — the escape hatch |
 | `Response_Column()` | transform only | the intercept-only fit, correlation cells |
 
 The escape hatch exists because collinearity and marginal diagnostics

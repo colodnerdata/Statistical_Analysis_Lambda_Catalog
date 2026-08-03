@@ -19,6 +19,7 @@ import pytest
 
 from lambda_catalog.analyze_model_construction import (
     SpecVariable,
+    interaction_header_operator,
     load_source_rows,
     resolve_interaction_operand,
 )
@@ -30,6 +31,8 @@ from lambda_catalog.analyze_regression_spec import (
     build_spec_design,
 )
 from lambda_catalog.write_sheet_model_construction import (
+    _INTERACTION_HEADER_SYMBOLS,
+    _INTERACTION_HEADER_UNKNOWN,
     _ROLE_IDENTIFIER,
     _ROLE_OMIT,
     _ROLE_PREDICTOR,
@@ -79,6 +82,27 @@ def _column(design, name: str) -> np.ndarray:
     return design.x_features[:, design.constructed_column_names.index(name)]
 
 
+def _interaction_headers(design) -> list[str]:
+    """Every constructed header that is an interaction, by its operator."""
+    operators = (*_INTERACTION_HEADER_SYMBOLS.values(), _INTERACTION_HEADER_UNKNOWN)
+    return [
+        name
+        for name in design.constructed_column_names
+        if any(op in name for op in operators)
+    ]
+
+
+def _header(left: str, right: str, operation: str = "Product") -> str:
+    """The interaction header these two operands produce under `operation`.
+
+    Built through `interaction_header_operator` rather than spelled out, so
+    these tests assert the *composition* rule and a symbol change lands in one
+    place. `test_interaction_header_symbols_are_distinct_and_operation_specific`
+    is what pins the symbols themselves.
+    """
+    return f"{left}{interaction_header_operator(operation)}{right}"
+
+
 # ── Width regimes ────────────────────────────────────────────────────────────
 
 def test_continuous_by_continuous_is_one_column(rows) -> None:
@@ -88,10 +112,10 @@ def test_continuous_by_continuous_is_one_column(rows) -> None:
         "Displacement",
         "Horsepower",
         "Weight",
-        "Weight:Displacement",
+        _header("Weight", "Displacement"),
     )
     assert np.allclose(
-        _column(design, "Weight:Displacement"),
+        _column(design, _header("Weight", "Displacement")),
         _column(design, "Weight") * _column(design, "Displacement"),
     )
 
@@ -104,12 +128,16 @@ def test_continuous_by_categorical_broadcasts_to_l_minus_one(rows) -> None:
         _declare("Origin", categorical_operand=True), rows
     )
 
+    operator = interaction_header_operator("Product")
     interaction = [
-        name for name in design.constructed_column_names if name.startswith("Weight:")
+        name for name in design.constructed_column_names if operator in name
     ]
-    assert interaction == ["Weight:Origin: Europe", "Weight:Origin: US"]
+    assert interaction == [
+        _header("Weight", "Origin: Europe"),
+        _header("Weight", "Origin: US"),
+    ]
     for name in interaction:
-        level = name.split(":", 1)[1]
+        level = name.split(operator, 1)[1]
         assert np.allclose(
             _column(design, name),
             _column(design, "Weight") * _column(design, level),
@@ -131,8 +159,8 @@ def test_interaction_columns_follow_their_own_row_not_the_end_of_the_matrix(
         "Displacement",
         "Horsepower",
         "Weight",
-        "Weight:Origin: Europe",
-        "Weight:Origin: US",
+        _header("Weight", "Origin: Europe"),
+        _header("Weight", "Origin: US"),
         "Origin: Europe",
         "Origin: US",
     )
@@ -151,7 +179,7 @@ def test_product_difference_and_ratio_each_compute_their_own_arithmetic(
     for operation, apply in expectations.items():
         design = build_spec_design(_declare("Displacement", operation), rows)
         assert np.allclose(
-            _column(design, "Weight:Displacement"),
+            _column(design, _header("Weight", "Displacement", operation)),
             apply(_column(design, "Weight"), _column(design, "Displacement")),
         ), operation
 
@@ -163,7 +191,7 @@ def test_the_operation_match_is_case_insensitive_like_switch(rows) -> None:
     for typed in ("Product", "product", "PRODUCT"):
         design = build_spec_design(_declare("Displacement", typed), rows)
         assert np.allclose(
-            _column(design, "Weight:Displacement"),
+            _column(design, _header("Weight", "Displacement", typed)),
             _column(design, "Weight") * _column(design, "Displacement"),
         ), typed
 
@@ -216,7 +244,7 @@ def test_an_excluded_predictor_operand_still_builds_the_interaction(rows) -> Non
     design = build_spec_design(spec, rows)
 
     assert "Cylinders" not in design.constructed_column_names
-    assert "Weight:Cylinders" in design.constructed_column_names
+    assert _header("Weight", "Cylinders") in design.constructed_column_names
 
 
 def test_a_non_predictor_operand_contributes_nothing(rows) -> None:
@@ -229,9 +257,7 @@ def test_a_non_predictor_operand_contributes_nothing(rows) -> None:
             other=_spec_var("Cylinders", role),
         )
         design = build_spec_design(spec, rows)
-        assert not [
-            name for name in design.constructed_column_names if ":" in name
-        ], role
+        assert not _interaction_headers(design), role
 
 
 def test_an_unmatched_operand_name_contributes_nothing(rows) -> None:
@@ -268,7 +294,7 @@ def test_both_m_and_n_are_required(rows, missing: str) -> None:
     )
     design = build_spec_design(spec, rows)
 
-    assert not [name for name in design.constructed_column_names if ":" in name]
+    assert not _interaction_headers(design)
 
 
 # ── The documented quadratic, and the two-way limit ──────────────────────────
@@ -278,9 +304,10 @@ def test_a_row_pointing_at_itself_under_product_is_the_quadratic_term(
 ) -> None:
     design = build_spec_design(_declare("Weight"), rows)
 
-    assert "Weight:Weight" in design.constructed_column_names
+    assert _header("Weight", "Weight") in design.constructed_column_names
     assert np.allclose(
-        _column(design, "Weight:Weight"), _column(design, "Weight") ** 2
+        _column(design, _header("Weight", "Weight")),
+        _column(design, "Weight") ** 2,
     )
 
 
@@ -305,14 +332,14 @@ def test_an_operand_that_declares_its_own_interaction_contributes_only_its_block
 
     assert design.constructed_column_names == (
         "Displacement",
-        "Displacement:Horsepower",
+        _header("Displacement", "Horsepower"),
         "Horsepower",
         "Weight",
-        "Weight:Displacement",
+        _header("Weight", "Displacement"),
     )
     # The pairing used Displacement's own column, NOT its interaction column.
     assert np.allclose(
-        _column(design, "Weight:Displacement"),
+        _column(design, _header("Weight", "Displacement")),
         _column(design, "Weight") * _column(design, "Displacement"),
     )
 
@@ -343,9 +370,9 @@ def test_a_logged_operand_is_combined_after_its_own_log(rows) -> None:
     )
     design = build_spec_design(spec, rows)
 
-    assert "Weight:Ln(Displacement)" in design.constructed_column_names
+    assert _header("Weight", "Ln(Displacement)") in design.constructed_column_names
     assert np.allclose(
-        _column(design, "Weight:Ln(Displacement)"),
+        _column(design, _header("Weight", "Ln(Displacement)")),
         _column(design, "Weight") * _column(design, "Ln(Displacement)"),
     )
 
@@ -369,7 +396,7 @@ def test_every_interaction_column_reads_transform_none(rows) -> None:
         zip(design.constructed_column_names, design.constructed_column_transforms)
     )
     assert flags["Ln(Displacement)"] == "Log"
-    assert flags["Weight:Ln(Displacement)"] == "None"
+    assert flags[_header("Weight", "Ln(Displacement)")] == "None"
 
 
 # ── mate(), the operand resolver ─────────────────────────────────────────────

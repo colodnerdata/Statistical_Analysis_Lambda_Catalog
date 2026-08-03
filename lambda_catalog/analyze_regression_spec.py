@@ -21,6 +21,7 @@ from .analyze_model_construction import (
     _retained_levels,
     build_default_spec,
     calculate_model_construction_expectations,
+    interaction_header_operator,
     load_source_rows,
     resolve_interaction_operand,
 )
@@ -345,9 +346,10 @@ def build_spec_design(
         if other is None:
             continue
         other_names, _, other_columns = other
+        operator = interaction_header_operator(variable.interaction_operation)
         for left_name, left_column in zip(own_names, own_columns):
             for right_name, right_column in zip(other_names, other_columns):
-                name = f"{left_name}:{right_name}"
+                name = f"{left_name}{operator}{right_name}"
                 constructed_names.append(name)
                 matrix_columns.append(
                     _combine(

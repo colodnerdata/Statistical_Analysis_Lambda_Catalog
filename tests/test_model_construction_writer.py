@@ -53,6 +53,8 @@ from lambda_catalog.write_sheet_model_construction import (
     _CLOSURE_SCOPE,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
+    _INTERACTION_HEADER_SYMBOLS,
+    _INTERACTION_HEADER_UNKNOWN,
     _HEADER_ROW,
     _INTERCEPT_ROW,
     _VALIDATION_LAST_ROW,
@@ -419,8 +421,11 @@ def test_the_three_twins_gate_interactions_identically() -> None:
     # any unrecognized operation as a ratio — and data validation does not
     # block a paste into N. The default is NA(): refuse, never guess.
     assert '"Ratio",IFERROR(INDEX(a,0,ai)/INDEX(b,0,bi),NA()),NA())' in columns
-    # R's colon form over this library's own constructed names.
-    assert 'INDEX(a,0,ai)&":"&INDEX(b,0,bi)' in names
+    # The operands' own names joined by the OPERATION's own symbol — a single
+    # separator could not say which of the three built the column, and a colon
+    # additionally collided with the ": " inside a level-qualified name.
+    assert "INDEX(a,0,ai)&SWITCH(o," in names
+    assert "&INDEX(b,0,bi)" in names
     # Transforms needs no pairwise walk — COLUMNS(a)*COLUMNS(b) is exactly
     # the width that walk emits, and every interaction column reads "None"
     # (the transform lives on each operand's column, applied before they
@@ -1299,3 +1304,37 @@ def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
         assert sheet.cell(_FIRST_DATA_ROW, col).api.Formula2 == (
             f'=IFERROR(FILTER({source},Sample_Include()),"(empty model)")'
         ), source
+
+
+def test_interaction_header_symbols_match_the_catalog_formula() -> None:
+    # _INTERACTION_HEADER_SYMBOLS is what the Python QC mirror renders;
+    # Constructed_Column_Names() is what the sheet renders. They are two
+    # spellings of one rule, so drift between them would make the oracle
+    # disagree with the sheet about a column NAME while agreeing about its
+    # values — a mismatch that reads like a formula bug and is not one.
+    sheet = _named_sheet()
+    names = _refers_to(sheet, "Constructed_Column_Names")
+
+    for operation, symbol in _INTERACTION_HEADER_SYMBOLS.items():
+        assert f'"{operation}","{symbol}"' in names, operation
+    # The fall-through: an operation that is none of the three still yields a
+    # header, so the strip stays exactly as wide as the design matrix, and it
+    # is visibly not one of the three.
+    assert f'"{_INTERACTION_HEADER_UNKNOWN}")' in names
+
+
+def test_interaction_header_symbols_are_distinct_and_operation_specific() -> None:
+    # The point of the change: one symbol per operation, none of them a
+    # substring of another, and none of them a character that can appear in a
+    # source column name (a hyphen can, which is why Difference uses U+2212
+    # MINUS SIGN and not "-").
+    symbols = list(_INTERACTION_HEADER_SYMBOLS.values())
+    assert len(set(symbols)) == len(symbols)
+    assert set(_INTERACTION_HEADER_SYMBOLS) == {"Product", "Difference", "Ratio"}
+    assert _INTERACTION_HEADER_UNKNOWN not in symbols
+    for symbol in symbols:
+        assert "-" not in symbol, symbol
+        assert ":" not in symbol, symbol
+        for other in symbols:
+            if other != symbol:
+                assert symbol.strip() not in other, (symbol, other)

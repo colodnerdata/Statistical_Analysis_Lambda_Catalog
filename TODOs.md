@@ -416,8 +416,9 @@ declared interaction columns, and the Design Columns audit counts them. See
 
 - DONE: `Constructed_Column_Names()` and `Constructed_Column_Transforms()`
   extended in the same edit, gating interactions identically so the three stay
-  width-identical. Interaction headers are `left:right` over the operands' own
-  constructed names; interaction columns always read Transform `None`.
+  width-identical. Interaction headers join the operands' own constructed names
+  with the operation's own symbol (` × ` / ` − ` / ` ÷ `, ` ? ` for anything
+  else); interaction columns always read Transform `None`.
 
 - DONE: The column O audit gained its `k(row) × k(operand)` term off the same
   per-row width helper both operands use, so audit and constructor agree by

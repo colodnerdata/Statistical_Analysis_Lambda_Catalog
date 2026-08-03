@@ -56,6 +56,8 @@ from .write_sheet_model_construction import (
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
     _HEADER_ROW,
+    _INTERACTION_HEADER_SYMBOLS,
+    _INTERACTION_HEADER_UNKNOWN,
     _ROLE_FILTER,
     _ROLE_IDENTIFIER,
     _ROLE_PREDICTOR,
@@ -308,15 +310,32 @@ def block_column_names(
     return [f"{variable.name}: {_format_value(level)}" for level in retained]
 
 
-def interaction_column_names(left: Sequence[str], right: Sequence[str]) -> list[str]:
+def interaction_header_operator(operation: str) -> str:
+    """The operator an interaction header renders for ``operation``.
+
+    Mirrors the ``SWITCH`` in ``Constructed_Column_Names()``, including its
+    case-insensitivity and its fall-through for an operation that is none of
+    the three.
+    """
+    folded = operation.casefold()
+    for name, symbol in _INTERACTION_HEADER_SYMBOLS.items():
+        if name.casefold() == folded:
+            return symbol
+    return _INTERACTION_HEADER_UNKNOWN
+
+
+def interaction_column_names(
+    left: Sequence[str], right: Sequence[str], operation: str
+) -> list[str]:
     """Pairwise interaction headers, in the constructor's emission order.
 
-    R's colon form over this library's own constructed names, so an
-    interaction header always decomposes back into the two operand columns
-    that produced it: ``GDP:Schooling``, or ``GDP:Status: Developing`` when
-    one side is level-qualified.
+    The two operands' own constructed names joined by the **operation's own
+    symbol**, so a header says what built it as well as what it came from:
+    ``GDP × Schooling``, ``GDP ÷ Schooling``, or ``GDP × Status: Developing``
+    when one side is level-qualified.
     """
-    return [f"{a}:{b}" for a in left for b in right]
+    operator = interaction_header_operator(operation)
+    return [f"{a}{operator}{b}" for a in left for b in right]
 
 
 def calculate_model_construction_expectations(
@@ -367,7 +386,9 @@ def calculate_model_construction_expectations(
         other = block_column_names(spec[operand_index], rows, mask)
         if other is None:
             continue
-        constructed.extend(interaction_column_names(own, other))
+        constructed.extend(
+            interaction_column_names(own, other, variable.interaction_operation)
+        )
 
     response_names = [v.name for v in spec if v.role == _ROLE_RESPONSE]
     response_name = response_names[0] if response_names else "(none)"

@@ -690,6 +690,30 @@ _INTERACTION_SYMMETRIC_OPERATIONS = (
     _INTERACTION_DIFFERENCE,
 )
 
+# The operator each operation contributes to an interaction column's HEADER
+# (v3.1). One symbol per operation, because a single separator cannot say
+# which of the three built the column — and the colon this replaced was
+# doubly ambiguous, since a level-qualified categorical name already contains
+# ": " ("Weight:Status: Developing" reads as one name with two colons).
+#
+# U+2212 MINUS SIGN, not a hyphen: a hyphen is a legal character in a source
+# column name, so "Unit-Cost - Weight" would be unreadable with one. The
+# symbols are spaced so they stay legible beside names that contain spaces.
+#
+# `Constructed_Column_Names()` renders these via a SWITCH over the same
+# operation strings; `test_interaction_header_symbols_match_the_catalog_formula`
+# pins the two together so this table cannot drift from the formula.
+_INTERACTION_HEADER_SYMBOLS = {
+    _INTERACTION_PRODUCT: " × ",
+    _INTERACTION_DIFFERENCE: " − ",
+    _INTERACTION_RATIO: " ÷ ",
+}
+# Rendered when the operation is none of the three — reachable only by a
+# paste past the dropdown, and paired with the NA() column Predictor_Columns()
+# emits for the same input. The header still exists so the strip stays exactly
+# as wide as the design matrix.
+_INTERACTION_HEADER_UNKNOWN = " ? "
+
 # Interaction Term (M): the dropdown source is the variable-name spill at
 # A{_FIRST_DATA_ROW}, referenced with the spill operator so the list is
 # exactly the dataset's columns and resizes with a retarget — no fixed

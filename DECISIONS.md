@@ -1578,6 +1578,12 @@ guard below needs.
 must stay structurally identical to the constructor, per the existing rule that
 names and columns cannot disagree.
 
+> **The colon is SUPERSEDED at v3.1** by one symbol per operation
+> (`GDP × Schooling`). R's `:` works because R's interaction is a single
+> operation; this library has three, so a shared separator names the operands
+> without naming what was done to them. See
+> [§ v3.1](#one-symbol-per-operation-not-a-shared-colon).
+
 ### Materialize the design matrix as the terminal zone
 
 **Question:** the constructor is called inside every engine function, so the
@@ -2183,9 +2189,7 @@ of the audit arithmetic with no special case.
 as `GDP:StatusDeveloping`". R names dummy columns `StatusDeveloping`; this
 library names them `Status: Developing`. Which wins in the composed name?
 
-**Resolution:** compose **this library's own** constructed names with a colon —
-`GDP:Schooling` for the continuous pair, `GDP:Status: Developing` when one side
-is level-qualified.
+**Resolution:** compose **this library's own** constructed names.
 
 **Rationale.** The v3.0 example is R's *output*, cited to fix the separator, not
 to import R's dummy-naming. Composing the library's own names keeps the property
@@ -2193,9 +2197,41 @@ that matters: an interaction header always decomposes back into two headers that
 appear elsewhere in the same strip, so a user reading a coefficient can find both
 operands. Adopting R's dummy form would have meant `Constructed_Column_Names()`
 emitting one spelling for a main effect and a different spelling for the same
-column inside an interaction. The level-qualified form is noisier than R's; that
-is the cost of the names being traceable, and it is the right trade for a sheet
-whose whole premise is that a result can be interrogated by clicking through it.
+column inside an interaction. The composed form is noisier than R's; that is the
+cost of the names being traceable, and it is the right trade for a sheet whose
+whole premise is that a result can be interrogated by clicking through it.
+
+### One symbol per operation, not a shared colon
+
+**Question:** v3.0 fixed the separator as a colon, from R. Does that survive
+three operations?
+
+**Resolution:** no. Each operation renders its own operator — ` × ` for Product,
+` − ` for Difference, ` ÷ ` for Ratio — with ` ? ` for anything else.
+`_INTERACTION_HEADER_SYMBOLS` in `write_sheet_model_construction.py` is the
+single source, and `test_interaction_header_symbols_match_the_catalog_formula`
+pins it to the `SWITCH` inside `Constructed_Column_Names()`.
+
+**Rationale.** R's `:` is unambiguous *in R*, where interaction is one
+operation. Here it is not: `Weight:Displacement` could be a product, a
+difference, or a ratio, and those are three different models. A header that
+names the operands but not what was done to them fails the same test the
+`Ln(name)` relabel passes — the output has to say what was fitted.
+
+The colon was also **doubly** ambiguous, which is what made this worth fixing
+rather than tolerating. A level-qualified categorical name already contains
+`": "`, so `Weight:Status: Developing` reads as one name with two colons and no
+indication which is the join.
+
+`−` is U+2212 MINUS SIGN, not a hyphen: a hyphen is a legal character in a
+source column name, so `Unit-Cost - Weight` would be unparseable by eye. The
+symbols are spaced because operand names contain spaces.
+
+**Why ` ? ` rather than nothing for an unrecognized operation.** The header
+strip must stay exactly as wide as the design matrix — the twin invariant — so
+an unrecognized operation still needs *a* header. Pairing a visibly wrong header
+with the `NA()` column `Predictor_Columns()` emits for the same input makes the
+failure legible from the strip alone.
 
 ### The Python mirror matches Excel's comparison semantics, not Python's
 
@@ -2385,6 +2421,10 @@ Decisions that were made and later replaced by a later decision. The
 superseding decision lives at its version's section above; this log
 just records what was replaced, when, and by what.
 
+- **The colon as the interaction-header separator** (v3.0) → SUPERSEDED at
+  v3.1 by one symbol per operation (` × ` / ` − ` / ` ÷ `). A shared separator
+  named the operands without naming the operation, and collided with the `": "`
+  already inside a level-qualified categorical name.
 - **Separate Factor / Panel Regression sheets** (v1 planning) →
   SUPERSEDED at v2.0 by the one spec-driven sheet. Factor and panel
   become documented walkthroughs in the Regression Instructions

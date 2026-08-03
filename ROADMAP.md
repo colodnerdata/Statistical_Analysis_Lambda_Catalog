@@ -611,7 +611,11 @@ combines the two blocks pairwise under the operation in N:
 
 The columns land immediately after the declaring row's own block, so the matrix
 stays in spec order and the per-row audit describes adjacent columns. Headers are
-the two operands' own names joined with a colon (`Weight:Origin: US`).
+the two operands' own names joined by the **operation's own symbol** —
+`Weight × Origin: US`, `Weight ÷ Displacement` — so a header says what was done
+as well as what it was done to. (v3.0 specified R's colon; three operations make
+one shared separator ambiguous, and it collided with the `": "` already inside a
+level-qualified name. Superseded — see DECISIONS.)
 `Constructed_Column_Names()` and `Constructed_Column_Transforms()` gate
 interactions identically — the twin property is what keeps the header strip and
 the transform strip exactly as wide as the matrix.

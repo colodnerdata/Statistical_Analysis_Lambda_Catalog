@@ -64,7 +64,7 @@ question for two artifacts with entirely different input surfaces. The scheme:
 
 | Number | Covers | Moves when |
 |---|---|---|
-| **Library version** | The shared function catalog — all 126 LAMBDA definitions, identical in both workbooks | A function is added, renamed, or changes what it returns |
+| **Library version** | The shared function catalog — all 131 LAMBDA definitions, identical in both workbooks | A function is added, renamed, or changes what it returns |
 | **Workbook version** *(one per artifact)* | That artifact's sheets, input cells, control blocks, and sheet-scoped names | That workbook's input surface changes |
 
 **Why split this way.** Both workbooks carry the identical complete function
@@ -114,8 +114,8 @@ Rationale in
 | v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries. The two post-release leftovers (per-distribution Q-Q plots and combo-chart overlay lines built on those CDF-delta columns) shipped with the next workbook build |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
-| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Built and verified** — every TODOs #1–#10 item is DONE, verified against a live build (0 mismatches across all 12 spec-driven QC cases). `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Awaiting only the human sign-off run of `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` and the 2.1.0 Version History entry, plus DEFERRED follow-on polish |
-| v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()`/`Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open and ship as **v3.3**, after v3.0 |
+| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Shipped inside the 3.0.0 artifact** — every TODOs #1–#10 item is DONE and verified against a live build (0 mismatches across all 12 spec-driven QC cases), with the FE engine independently pinned against `statsmodels` LSDV by `test_within_estimator`, `test_df_absorbed_threading`, and `test_group_prediction_interval`. `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Never got its own release build — the features reached users inside 3.0.0, and the **2.1.0 Version History entry was never written** (see TODOs § Documentation). DEFERRED follow-on polish remains |
+| v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR, and likewise shipped inside the 3.0.0 artifact with **no 2.2.0 Version History entry**. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()` — renamed `Predictor_Columns()` at v3.0 — plus `Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open and ship as **v3.3**, after v3.0 |
 | **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the two-artifact split, and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
 | v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | Planned — MINOR. A follow-on to the layout break, not a feature-train milestone: the two spec columns already exist reserved-and-unwired, so this is a formula change against columns that ship empty. The Design Columns audit gains its interaction term in the same edit that teaches the constructor to build them |
 | v3.2 | Full materialization of the design matrix | No | Planned — MINOR. The other follow-on: stage 3 established the terminal zone and its width guard; this fills it. Also carries the deferred `Sample_Include()` thunk-over-a-spill promotion, which needs the `#` spill operator inside a `LAMBDA` defined-name and is only verifiable with Excel present |
@@ -330,7 +330,7 @@ Design rationale and resolved decisions: [DECISIONS.md § v2.0](DECISIONS.md#v20
 
 ---
 
-## v2.1 — Sequence, fixed effects, and the forward-wiring chain — BUILT, AWAITING SIGN-OFF
+## v2.1 — Sequence, fixed effects, and the forward-wiring chain — SHIPPED WITHIN 3.0.0
 
 The 2.1 milestone bundles three coherent pieces that share the Sequence axis
 and the FE Role: the Sequence/Base Period/longitudinal/serial-correlation chain
@@ -368,24 +368,34 @@ see a workbook that says "FE is in the dropdown but the engine is forthcoming."
 - Build-time sheet tab order and colors; Auto MPG `Origin` values decoded to region labels (US/Europe/Asia) in the source dataset. **(pre-#128 commits)**
 - `safe_activate()` / `safe_freeze_top_row()` guards so a headless/no-focus Excel session (no interactive desktop, focus denied by the OS) cannot abort the build when a sheet writer activates its sheet or freezes its header row. **(PR #135)**
 
-**Pending — follow-on polish, human sign-off, and the changelog entry:**
+**The verification gate — met by the automated evidence.**
 
 Every numbered TODOs #1–#10 item is DONE and verified against a live build
-(0 mismatches across all 12 spec-driven QC cases). What remains before the
-2.1.0 Version History entry:
+(0 mismatches across all 12 spec-driven QC cases), and the FE engine is pinned
+independently against `statsmodels` LSDV fits by `test_within_estimator`,
+`test_df_absorbed_threading`, and `test_group_prediction_interval`. A written
+human test plan for the FE engine existed and was **retired unrun**: by the
+time it would have been executed, v2.1's features had already shipped to users
+inside the 3.0.0 artifact, behind that artifact's own verifier pass. A hand-run
+gate for code that is already released gates nothing. The v2.0 spec-block plan
+was executed and signed off PASS on 2026-07-05 before its release; that record
+lives in the git history of this file and in the T0–T19 cases now carried by
+`tests/test_difference_by_verification.py` and
+`tests/test_analyze_model_construction.py`.
 
-- **Follow-on polish** (ships with 2.1.0 if there's room, otherwise slips to
-  a 2.1.x patch): BFN critical values (**DEFERRED** — N,T-dependent bounds),
-  Categorical × FE prediction encoding (**DEFERRED** — encode `x_new`/`x̄ᵢ`
-  through `Dummy_Code` before the FE formula), and a residual-output
-  relabel + Diagnostic Guide paragraph on residuals under FE
+**Still pending:**
+
+- **Follow-on polish**: BFN critical values (**DEFERRED** — N,T-dependent
+  bounds), Categorical × FE prediction encoding (**DEFERRED** — encode
+  `x_new`/`x̄ᵢ` through `Dummy_Code` before the FE formula), and a
+  residual-output relabel + Diagnostic Guide paragraph on residuals under FE
   (documentation-only). Full list in
-  [TODOs.md § v2.1 follow-on polish](TODOs.md#follow-on-polish-ships-with-210-if-theres-room).
-- **Human sign-off** — execute
-  `HUMAN_TEST_PLAN_v21_regression_fixed_effects.md` (T0–T4) end-to-end in
-  Excel and record a PASS, the same gate `HUMAN_TEST_PLAN_v20_model_construction.md`
-  passed for the spec block at v2.0/v2.1 #1.
-- **The Version History entry** — write the 2.1.0 row once the above lands.
+  [TODOs.md § v2.1 follow-on polish](TODOs.md#follow-on-polish-deferred).
+- **The Version History entry** — the 2.1.0 row was never written, and neither
+  was 2.2.0. The workbook's shipped changelog jumps 2.0.0 → 3.0.0, so Fixed
+  Effects, the Sequence axis, GVIF, and the Log transform reached users with no
+  entry describing them. This is the changelog non-git users read. Tracked in
+  [TODOs.md § Documentation](TODOs.md#documentation).
 
 Design rationale and resolved decisions: [DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
@@ -411,7 +421,8 @@ Model Comparison convenience layer.
 
 **Shipped:**
 
-- **Column-G Log wiring** — `Response_Column()` and `X_s()` apply
+- **Column-G Log wiring** — `Response_Column()` and `X_s()` (renamed
+  `Predictor_Columns()` by the v3.0 constructor pipeline) apply
   `Ln_Positive` in place when a Response or Continuous Predictor row
   declares `Log`; `Constructed_Column_Names()` relabels the column
   `Ln(name)`; the new structural twin `Constructed_Column_Transforms()`
@@ -765,7 +776,7 @@ v3.x slot nor block one. The split shipped with v3.0 as the Univariate artifact'
 v3.0 release). The grid shrink is MAJOR for the Univariate workbook alone.
 
 **The split** moves Univariate Analysis into its own workbook. Both artifacts
-carry the complete 126-function library — there is no bundling, no dependency
+carry the complete 131-function library — there is no bundling, no dependency
 closure, and no per-artifact function subsetting; they differ only in which sheets
 they contain. It is **non-breaking for both**.
 
@@ -810,9 +821,9 @@ survives in comments and docstrings across `write_sheet_model_construction.py`,
 where "v3.0" means the spec-block changeover.
 
 **v3.0 now means the engine-interface release.** The two are unrelated, and the
-collision is live. `write_sheet_model_construction.py`'s docstring and the human
-test plan filename (`HUMAN_TEST_PLAN_v20_model_construction.md`) are corrected;
-the remaining comment references are tracked as a cleanup item in
+collision is live. `write_sheet_model_construction.py`'s docstring is corrected,
+and the human test plan that carried the old label in its filename has been
+retired; the remaining comment references are tracked as a cleanup item in
 [TODOs.md](TODOs.md). They are comments only — no executable logic reads the
 label.
 

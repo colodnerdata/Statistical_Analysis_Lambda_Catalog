@@ -30,12 +30,15 @@ corrected rather than as decided.
 **Still open: F7 alone.** Documentation drift is a standing condition rather
 than something a single pass closes — and F5 is now itself an instance of it.
 
-**Method.** Read: `lambda_functions.json` (126 functions), `ARCHITECTURE.md`,
-`DECISIONS.md`, `TODOs.md`, `ROADMAP.md`, `HUMAN_TEST_PLAN_v20_model_construction.md`,
+**Method.** Read: `lambda_functions.json` (126 functions at the time of writing;
+131 as of the v3.0 polish pass), `ARCHITECTURE.md`,
+`DECISIONS.md`, `TODOs.md`, `ROADMAP.md`,
 `build_production.py`, `build_qc.py`, `write_sheet_regression.py`,
-`write_sheet_univariate.py`, `write_sheet_model_construction.py`. Counts and
-quotes below are from those sources, not from the README (which is stale — see
-F7).
+`write_sheet_univariate.py`, `write_sheet_model_construction.py`,
+`tests/test_analyze_model_construction.py`, `tests/test_difference_by_verification.py`
+(the automated test modules that supersede the retired v2.0 human test plan).
+Counts and quotes below are from those sources, not from the README (which is
+stale — see F7).
 
 ---
 
@@ -329,9 +332,9 @@ the next one. Row by row:
 
 | Row | Now |
 |---|---|
-| v2.1 "Planned" | Fixed — ladder reads built and verified, awaiting human sign-off |
-| Spec block A–I | Was already A–L in ROADMAP before this pass; now A–N with the v3.0 interaction columns |
-| Spec-driven regression is v2.0 vs v3.0 | Partly fixed — test plan renamed to `HUMAN_TEST_PLAN_v20_model_construction.md`, `write_sheet_model_construction.py` docstring corrected. The label survives in comments in three test modules, `build_production.py`, and `analyze_regression_spec_block.py`; tracked in TODOs.md |
+| v2.1 "Planned" | Fixed — the ladder now reads shipped inside the 3.0.0 artifact, with the automated gate that was actually met named in place of the retired hand-run plan |
+| Spec block A–I | Was already A–L in ROADMAP before this pass; **A–O** since v3.0 stage 3 — M and N (the interaction pair) *and* O (the Design Columns audit) |
+| Spec-driven regression is v2.0 vs v3.0 | Partly fixed — `write_sheet_model_construction.py`'s docstring is corrected and the test plan that carried the old label in its filename is retired. The label survives in comments in three test modules, `build_production.py`, and `analyze_regression_spec_block.py`; tracked in TODOs.md |
 | `F_Stat`, `P_Value_F`, … | Already corrected upstream — the current README carries no function reference table at all |
 | `GVIF` / `Generalized_Tolerance` | Fixed — named in the v2.1 ladder row |
 
@@ -349,11 +352,33 @@ instead of reading one import statement. Drift is not only docs falling behind
 code; it is also the absence of any check that a claim *about* the code still
 holds.
 
-One instance found and **not** fixed, because the file is outside the
-documentation set: **CLAUDE.md / AGENTS.md describe the Regression sheet's zones
-as A–L / N–T / V–AC / AE–AG / AI–AS with gap columns M, U, AD, AH.** The code
-says A–N / P–V / X–AE / AG–AI / AK–AV with gaps O, W, AF, AJ. Those files are
-project-instruction tier and were left untouched.
+One instance was found and **not** fixed at the time, because the file is
+outside the documentation set: CLAUDE.md / AGENTS.md described the Regression
+sheet's zones with stale column letters. **That one has since closed** — the
+v3.0 stage 3 layout break rewrote both files, and they now read A–Q / S–Y /
+AA–AH / AJ–AL / AN–AY with gap columns R, Z, AI, AM, matching `_ZONES` in
+`write_sheet_regression.py`.
+
+### Status after the 2026-08-03 review — **STILL OPEN**
+
+A second reconciliation pass, run against the post-v3.0 tree, found six more
+instances. All are now fixed; none were caught by anything other than reading
+the source:
+
+| Instance | Was | Is |
+|---|---|---|
+| Catalog size | "126 LAMBDA definitions", in README ×2, ROADMAP ×2, CONTRIBUTING ×2, DECISIONS, and this file | **131** — v3.0 stage 2 added `Model_Context` plus the four `Context_*` accessors |
+| `X_s` | Named as a live sheet-scoped closure in README and CLAUDE/AGENTS | Renamed `Predictor_Columns` at v3.0 stage 1; `X_s` is not in the catalog |
+| §4b gap columns | ARCHITECTURE cited `_C_O` / `_C_W` / `_C_AF` / `_C_AJ` | `_C_R` / `_C_Z` / `_C_AI` / `_C_AM` — the pre-stage-3 letters, in prose |
+| Univariate Data Tables | CONTRIBUTING's Univariate-build section said "Weibull/Gamma/Beta Data-Table grid-search" | Weibull and Gamma were demoted to formula grids at v3.0; Beta alone uses Data Tables |
+| Headless verifier | CLAUDE/AGENTS/CONTRIBUTING said Layer 1 is discovered "once it lands" | It landed; `tests/test_workbook_invariants.py` runs in CI on every push |
+| TODOs stage 2 | Heading read "VERIFICATION GATE OUTSTANDING" while a bullet in the same section recorded the gate as passed | Section contradicted itself; heading corrected to match stage 1 |
+
+**This file was itself an instance.** The row above reading "now A–N with the
+v3.0 interaction columns" was wrong (it is A–O), and the "not fixed" paragraph
+above claimed a live CLAUDE/AGENTS defect that had already been repaired. F7 is
+the finding about documentation drift, and the record *of* F7 had drifted —
+which is the same lesson F5 taught, arriving a second time.
 
 **Why the finding stays open.** Every fix above was made by hand, by reading the
 source. That is exactly the mechanism the finding says does not scale. Two
@@ -362,6 +387,11 @@ mechanical checks are proposed in
 — function names resolving against the JSON, and cross-document anchors
 resolving against real headings. Neither is built. Until one is, this finding is
 a standing condition.
+
+The 2026-08-03 pass ran the anchor check by hand over every `.md` in the repo
+and found **zero** unresolved targets — and then deleted three files, which is
+precisely the change that breaks anchors silently. The check found nothing
+because it was run; it is not running on its own, which is the point.
 
 ---
 

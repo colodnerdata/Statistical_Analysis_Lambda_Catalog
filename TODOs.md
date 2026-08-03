@@ -52,8 +52,11 @@ relevant DECISIONS entry for context on *why* — TODOs only holds
 
 ## v2.0 — Specification-Driven Regression (shipped; leftovers)
 
-Human test plan fully executed and signed off PASS 2026-07-05 (T0–T16).
-One open decision remains from it, plus one numbering-cleanup item:
+The human test plan for this milestone was fully executed and signed off PASS
+2026-07-05 (T0–T16), and has since been retired — its cases live on in
+`tests/test_analyze_model_construction.py` and
+`tests/test_difference_by_verification.py`. One open decision remains from it,
+plus one numbering-cleanup item:
 
 - TODO: **Rename `write_sheet_model_construction.py` to match what it is.**
   It no longer writes a shipped sheet — both `build_production.py` and
@@ -90,8 +93,9 @@ One open decision remains from it, plus one numbering-cleanup item:
   This changeover was planned as v3.0 and renumbered to v2.0 before
   release; v3.0 now means the engine-interface release (see
   [ROADMAP.md](ROADMAP.md)), so the old label is a live collision. The
-  docstring in `write_sheet_model_construction.py` and the human test
-  plan filename are corrected. Still carrying the old label in
+  docstring in `write_sheet_model_construction.py` is corrected, and the
+  human test plan that carried the old label in its filename is retired.
+  Still carrying the old label in
   **comments only** — no executable logic reads it:
   `write_sheet_model_construction.py` (several inline comments),
   `analyze_regression_spec_block.py` (module docstring),
@@ -105,22 +109,23 @@ One open decision remains from it, plus one numbering-cleanup item:
   role-aware completeness layer requires numeric Response and numeric
   included Continuous Predictors, but Categorical Predictors impose no
   non-blank condition; a blank category value encodes as all-zero
-  dummies (indistinguishable from the reference level). Run the caveat
-  verification step in `HUMAN_TEST_PLAN_v20_model_construction.md` and
+  dummies (indistinguishable from the reference level). Verify against a live
+  build — declare a Categorical Predictor whose column has a blank value on at
+  least one otherwise-complete row, confirm the row is included and encodes as
+  the reference level, and check whether the fitted coefficients shift — then
   record the decision: accept as documented behavior, or extend
   `Sample_Include()` with a non-blank condition for included
   Categorical Predictors. Interim workaround: a completeness column
   declared as a Filter. **OPEN** — see
   [DECISIONS.md § v2.0 auto-completeness](DECISIONS.md#v20--specification-driven-regression).
 
-## v2.1 — Sequence, gap-aware longitudinal, serial-correlation diagnostics, fixed effects (in progress)
+## v2.1 — Sequence, gap-aware longitudinal, serial-correlation diagnostics, fixed effects (shipped within 3.0.0; leftovers)
 
-Two-way FE is deliberately deferred until this framework is finished — see
-the v3.8+ section. Items below are in the locked ship order: the
-Sequence fix is the prerequisite for the 2.1.0 entry; the FE Role
-dropdown, the CI+PI prediction layout, and the engine are gated to ship
-as a single release so users never see "FE is in the dropdown but the
-engine is forthcoming."
+The engine and sheet work is done and shipped — it reached users inside the
+3.0.0 artifact, never as its own release build, which is why the 2.1.0
+Version History entry is still missing (see § Documentation at the end of
+this file). Two-way FE is deliberately deferred until this framework is
+finished — see the v3.8+ section. What remains here is DEFERRED polish.
 
 ### Done — engine and sheet work (TODOs #1–#10)
 
@@ -136,7 +141,7 @@ ship order: #1 Sequence Period / Period In Use split, #2 FE Role dropdown
 functions, #9 FE group selection + group-mean readouts, #10 QC-oracle
 rebuild for the 9-value Prediction Interval shape.
 
-### Follow-on polish (ships with 2.1.0 if there's room)
+### Follow-on polish (deferred)
 
 - TODO: **BFN critical values**. **DEFERRED** — N,T-dependent bounds
   per Bhargava et al. 1982 tables; do NOT present standard DW bounds
@@ -209,11 +214,11 @@ the standard the v2.1 row uses. Stage 1 shipped merged as #148.
   behaviour was verified against it; retire it only with a QC pass
   behind it.
 
-### Stage 2 — `Model_Context` — CODE COMPLETE, **VERIFICATION GATE OUTSTANDING**
+### Stage 2 — `Model_Context` — BUILT AND VERIFIED
 
-Not "built and verified" — the code is written and the headless layers
-pass; the spec-driven Excel gate below has **not** been run on the aligned
-form, and stage 2 is not finished until it has. (Same standard as stage 1.)
+The code is written, the headless layers pass, and the spec-driven Excel gate
+below has been run and passed on a developer machine — the same standard stage 1
+cleared. Stage 2 shipped merged as #150.
 
 - DONE: Engine — the 32 carriers (13 `[Has_Intercept]`-only + 19
   `[DF_Absorbed]`-only + 5 dual) collapsed `[Has_Intercept]` and
@@ -396,6 +401,68 @@ form, and stage 2 is not finished until it has. (Same standard as stage 1.)
   filtered-display zones remain Model-Construction-only, which is correct —
   the Regression sheet displays the same facts through its own zones.
 
+## v3.1 — Interaction wiring (next milestone)
+
+The follow-on that v3.0 stage 3 bought room for. Spec columns M
+(Interaction Term) and N (Interaction Operation) already exist, validated
+and conditionally formatted but **read by no constructor** — so this is a
+formula change against columns that ship empty, with no second layout break
+behind it. The declared semantics are settled; see
+[DECISIONS.md § v3.0 interactions](DECISIONS.md#interactions-are-declared-with-two-spec-columns),
+[§ operation vocabulary](DECISIONS.md#interaction-operation-vocabulary--closed-with-a-symmetry-attribute),
+[§ self-interaction](DECISIONS.md#self-interaction-is-allowed-and-documented),
+[§ operand Role and Include](DECISIONS.md#operand-role-and-include-semantics--four-cases),
+and [§ two-way only](DECISIONS.md#two-way-interactions-only).
+
+- TODO: Teach `Predictor_Columns()` to read `Spec_Interaction_Term` /
+  `Spec_Interaction_Operation` and build the interaction columns, honoring
+  the closed `Product | Difference | Ratio` vocabulary and its symmetry
+  attribute. Continuous × Continuous is one column; Continuous ×
+  Categorical broadcasts to L−1; Categorical × Categorical to
+  (L₁−1)(L₂−1). Two-way only. A self-reference under `Product` is the
+  documented quadratic term.
+
+- TODO: Extend `Constructed_Column_Names()` in the **same edit**. The
+  constructor and its name twin must stay width-identical — that invariant
+  is pinned by `tests/test_model_construction_writer.py` and is what every
+  downstream zone's row alignment rests on. Decide the label form for an
+  interaction column while doing it.
+
+- TODO: Add the interaction term to the **column O Design Columns audit**,
+  which today counts main effects only by design — an audit that
+  anticipated columns the constructor did not build would report a matrix
+  that does not exist. The audit must keep mirroring the constructor's own
+  iteration predicate and degenerate skip rather than re-deriving the
+  count, per
+  [ARCHITECTURE.md § 4](ARCHITECTURE.md#the-design-columns-audit-column-o-built-at-v30).
+  The O1 total feeds the pre-flight width guard, so this is what makes the
+  guard correct for the case that motivated it: Status × Country on the WHO
+  data is 155 columns from a single spec row.
+
+- TODO: Retire `test_interaction_bands_are_declared_but_read_by_no_constructor`
+  — it asserts precisely the reserved-and-unwired state this milestone
+  ends. Replace it with coverage of the built columns.
+
+## v3.2 — Full materialization of the design matrix
+
+The other stage-3 follow-on. The terminal Constructed Design Matrix zone, its
+collapse behaviour, and its width guard all shipped; what is missing is the
+spill that fills it.
+
+- TODO: Materialize `Design_Columns()` into the reserved terminal zone.
+  Position, collapse state, and guard are already established, so this is a
+  formula change against a column that exists — the same reserved-position
+  treatment `Sample_Include` got. See
+  [ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone).
+
+- TODO: Promote `Sample_Include()` from a live closure to a thunk over a
+  materialized spill — deferred out of v3.0 stage 2 (see the DEFERRED entry
+  in the stage 2 list above). Needs the dynamic-array spill operator (`#`)
+  inside a `LAMBDA` defined-name `RefersTo`, a combination used nowhere else
+  in this workbook and verifiable only with Excel present. A wrong guess
+  breaks the row-mask contract that keeps every spilled array row-aligned,
+  so it lands Excel-verified, not blind.
+
 ## v3.3 — Transforms remainder
 
 Planned as the second half of v2.2; moved after v3.0 when the feature train
@@ -444,7 +511,8 @@ already shipped at v2.2.
   (candidate-with-override display → Period In Use) plus the Sequence
   Spacing block (delta spectrum, Regularity/Off-grid flags,
   calendar-signature guidance). Verification:
-  `tests/test_difference_by_verification.py`; human test plan T17–T19.
+  `tests/test_difference_by_verification.py`, which carries the T17–T19
+  cases from the since-retired human test plan.
   The shipped semantics and the `NA()` exception are in
   [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy)
   and
@@ -648,3 +716,34 @@ stay in this unordered bucket.
   addition-by-demand decision, not a planned milestone.
 - **Decision analysis** — long-tail (loss functions, cost/risk
   oriented). Not on the planning horizon.
+
+---
+
+## Documentation
+
+Version-independent items. Not tied to a milestone; both stay open until done.
+
+- TODO: **Write the missing 2.1.0 and 2.2.0 Version History entries.**
+  `_VERSIONS` in `lambda_catalog/write_sheet_version_history.py` runs
+  1.0.0 → 1.1.0 → 1.2.0 → 2.0.0 → **3.0.0**. There is no 2.1.0 row and no
+  2.2.0 row, so Fixed Effects, the Sequence axis, the gap-aware
+  longitudinal layer, GVIF, and the column-G Log transform all reached
+  users with nothing in the workbook's own changelog describing them. That
+  sheet exists precisely so the history travels with the file for non-git
+  users (cost estimators), which is who this gap hurts. Both entries are
+  non-breaking (`Breaking?` = No) and both are Regression-workbook events.
+  Requires a rebuild of both artifacts to take effect, so it needs Excel —
+  fold it into the next build rather than doing it standalone.
+
+- TODO: **Build one of the two mechanical drift checks** proposed in
+  [CONTRIBUTING.md § Documentation drift](CONTRIBUTING.md#documentation-drift-proposed-check--not-yet-implemented)
+  and tracked as [REVIEW.md F7](REVIEW.md#f7--documentation-drift-is-measurable),
+  the one finding still open. The cheaper and higher-yield of the two is the
+  **cross-document anchor check**: every `](FILE.md#anchor)` and `](#anchor)`
+  resolves to a real heading in the target file. Roughly 40 lines of `re`
+  plus a pytest case, no Excel, runs in the existing Linux CI job. The
+  2026-08-03 review ran it by hand (zero unresolved targets) and then
+  deleted three documents — exactly the change that breaks anchors with no
+  error anywhere. The second check (function names in docs resolving
+  against `lambda_functions.json`) would have caught the stale `X_s`
+  references and the 126-vs-131 count drift that same review found by hand.

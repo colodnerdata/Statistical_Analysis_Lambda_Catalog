@@ -1191,17 +1191,21 @@ def test_profile_stage_formulas_reference_visible_controls() -> None:
 
     # One column of trial shapes, one column of profile NLL beside it.
     assert sheet.cell(6, 57).api.Formula2 == "=SEQUENCE($BF$3,1,$BJ$3,$BL$3)"
+    # The sample is bound once per cell and passed to both the partner and the
+    # NLL call — the naive form re-filters the full input range twice per cell.
+    # NLL's optional [filter] is omitted because x is already the included
+    # numeric sample, so its ISNUMBER default filters nothing.
     assert sheet.cell(6, 58).api.Formula2 == (
-        "=NLL_Weibull(UV_Data,$BE$6,"
-        "((AVERAGE(FILTER(UV_Data,UV_Include)^$BE$6))^(1/$BE$6)),UV_Include)"
+        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BE$6,"
+        "NLL_Weibull(x,p,((AVERAGE(x^p))^(1/p)))),1E+15)"
     )
     assert sheet.cell(25, 58).api.Formula2 == (
-        "=NLL_Weibull(UV_Data,$BE$25,"
-        "((AVERAGE(FILTER(UV_Data,UV_Include)^$BE$25))^(1/$BE$25)),UV_Include)"
+        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BE$25,"
+        "NLL_Weibull(x,p,((AVERAGE(x^p))^(1/p)))),1E+15)"
     )
     assert sheet.cell(32, 58).api.Formula2 == (
-        "=NLL_Gamma(UV_Data,$BE$32,"
-        "($BE$32/AVERAGE(FILTER(UV_Data,UV_Include))),UV_Include)"
+        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BE$32,"
+        "NLL_Gamma(x,p,(p/AVERAGE(x)))),1E+15)"
     )
 
     assert sheet.cell(3, 57).api.Formula2 == (

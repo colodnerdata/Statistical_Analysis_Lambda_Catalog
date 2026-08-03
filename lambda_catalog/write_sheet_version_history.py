@@ -250,7 +250,7 @@ _UNIVARIATE_VERSIONS = [
         "summary": (
             "The grid shrink, Weibull and Gamma half. Both fits now profile "
             "their scale/rate parameter out in closed form (Weibull "
-            "lambda(k) = ((1/n)*sum(x^k))^(1/k); Gamma beta(a) = a/mean(x)) "
+            "λ(k) = ((1/n)·Σ x^k)^(1/k); Gamma β(α) = α/mean(x)) "
             "and search a 20-point Profile NLL column per stage, replacing "
             "four 20x20 grid blocks — 40 negative-log-likelihood evaluations "
             "per fit instead of 800. Each Stage 1 brackets a closed-form "
@@ -262,7 +262,7 @@ _UNIVARIATE_VERSIONS = [
             "joint maximizer — and on the shipped Life Expectancy sample "
             "both fits land closer to the true optimum than the grids they "
             "replace (Gamma by 6.8 NLL, worth about 13.7 of AIC). "
-            "BREAKING for this workbook: the Scale (lambda) and Rate (beta) "
+            "BREAKING for this workbook: the Scale (λ) and Rate (β) "
             "rows lose their Min, Max, and Step Size input cells — those "
             "parameters are solved, not searched — so saved bounds for them "
             "no longer mean anything. The Shape Min/Max cells remain "

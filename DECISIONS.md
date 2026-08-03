@@ -2413,6 +2413,21 @@ generated from one helper (`_weibull_profile_scale`, `_gamma_profile_rate`) —
 in the body formula and in the `Best` cell that reports it. There is no third
 place for the two to drift apart.
 
+**The sample is bound once per body cell**, as `LET(x, FILTER(UV_Data,
+UV_Include), …)`, and passed to both the partner helper and the NLL call. Two
+full-range `FILTER`s per cell is what the naive form costs — the partner
+re-filters the 2,000-row input range and the catalog NLL LAMBDA filters its
+`data` argument again internally — and at ~2,900 included rows that is
+comparable to the likelihood evaluation the cell exists to perform, so it would
+have given back a real fraction of the shrink. Both helpers therefore take the
+sample as an expression (defaulting to `FILTER(UV_Data,UV_Include)` for the
+standalone `Best` cells, which evaluate once and need no binding), and the NLL
+call omits its optional `[filter]`: `UV_Include` *is* `ISNUMBER(...)`, so `x` is
+already the included numeric sample and the LAMBDA's `ISNUMBER(x)` default
+filters nothing. The body carries an explicit `IFERROR(…, 1E+15)` because `LET`
+propagates an error in `x` past the sentinel inside the NLL LAMBDAs, which is
+where the 2-D bodies get theirs.
+
 ### The Weibull start builds its own Hazen positions, not `Rank_Fraction`
 
 **Question:** the v3.0 entry specified the Weibull starting value as the

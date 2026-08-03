@@ -1655,16 +1655,20 @@ def _write_two_stage_grid_search(
 #   *_S1_Axis / *_S2_Axis = stage searched-parameter axis (N×1)
 
 
-def _weibull_profile_scale(shape_ref: str) -> str:
+# The included sample, as an expression.  Body cells bind it to a LET name
+# once and pass that name down; the standalone `Best` cells, which evaluate the
+# partner a single time, inline it.
+_FILTERED_DATA = "FILTER(UV_Data,UV_Include)"
+
+
+def _weibull_profile_scale(shape_ref: str, data: str = _FILTERED_DATA) -> str:
     """Closed-form Weibull scale at a given shape: λ̂(k) = ((1/n)·Σxᵢᵏ)^(1/k)."""
-    return (
-        f"((AVERAGE(FILTER(UV_Data,UV_Include)^{shape_ref}))^(1/{shape_ref}))"
-    )
+    return f"((AVERAGE({data}^{shape_ref}))^(1/{shape_ref}))"
 
 
-def _gamma_profile_rate(shape_ref: str) -> str:
+def _gamma_profile_rate(shape_ref: str, data: str = _FILTERED_DATA) -> str:
     """Closed-form Gamma rate at a given shape: β̂(α) = α / x̄."""
-    return f"({shape_ref}/AVERAGE(FILTER(UV_Data,UV_Include)))"
+    return f"({shape_ref}/AVERAGE({data}))"
 
 
 # Closed-form starting values for the searched parameter.  Both are plug-in
@@ -1710,9 +1714,11 @@ def _write_profile_stage(
 ) -> dict:
     """Write one 20-point profile-NLL search stage for a two-parameter fit.
 
-    ``partner_formula(ref)`` returns the Excel expression (no leading ``=``)
-    for the profiled-out parameter at the searched value ``ref``;
-    ``nll_formula(p1, p2)`` is the same callable the 2-D grid stages take.
+    ``partner_formula(ref, data)`` returns the Excel expression (no leading
+    ``=``) for the profiled-out parameter at the searched value ``ref``, over
+    the sample expression ``data``.  ``nll_formula(data, p1, p2)`` returns the
+    catalog NLL call over an **already-filtered** sample, so its ``[filter]``
+    argument is omitted.
 
     Returns the absolute A1 references the refined Stage 2 and the fitting
     summary read: best_p1, best_p2, min_p1, max_p1, step_p1, n_points, axis,
@@ -1807,13 +1813,27 @@ def _write_profile_stage(
         )
 
     # One NLL call per trial value, with the partner parameter substituted in
-    # closed form.  Written as a single N×1 ``Formula2`` array so the stage
-    # costs one COM round-trip rather than N.
+    # closed form.  The included sample is bound once per cell as `x` and
+    # passed to both the partner and the NLL call: the partner would otherwise
+    # re-filter the full 2,000-row input range, and the catalog NLL LAMBDA
+    # filters its `data` argument again internally, so the naive form pays two
+    # full-range FILTERs per cell — comparable to the likelihood evaluation
+    # itself.  `x` is already the numeric included sample (UV_Include *is*
+    # `ISNUMBER(...)`), so omitting NLL's optional `[filter]` leaves its
+    # `ISNUMBER(x)` default filtering nothing.  The outer IFERROR is the same
+    # undefined-NLL sentinel the 2-D bodies inherit from the NLL LAMBDAs; it is
+    # explicit here because LET propagates an error in `x` past them.
+    # Written as a single N×1 ``Formula2`` array so the stage costs one COM
+    # round-trip rather than N.
     axis_cell_refs = [
         f"${col_letter(axis_col)}${body_row_start + i}" for i in range(n)
     ]
     body_range.api.Formula2 = [
-        [nll_formula(ref, partner_formula(ref))] for ref in axis_cell_refs
+        [
+            f"=IFERROR(LET(x,{_FILTERED_DATA},p,{ref},"
+            f"{nll_formula('x', 'p', partner_formula('p', 'x'))}),1E+15)"
+        ]
+        for ref in axis_cell_refs
     ]
     body_range.number_format = _FMT_SCI_1DP
 
@@ -1961,6 +1981,9 @@ def _write_two_stage_profile_search(
     return s1
 
 
+# ``nll_formula`` takes the sample expression as its first argument and omits
+# the catalog LAMBDA's optional ``[filter]``: the profile bodies pass an
+# already-filtered sample, so re-applying a mask would only cost a second pass.
 _PROFILE_SEARCHES = [
     {
         "row_start": _ROW_GS_WB,
@@ -1968,7 +1991,7 @@ _PROFILE_SEARCHES = [
         "body_prefix": "UV_WB",
         "p1_label": "Shape (k)",
         "p2_label": "Scale (λ)",
-        "nll_formula": lambda p1, p2: f"=NLL_Weibull(UV_Data,{p1},{p2},UV_Include)",
+        "nll_formula": lambda data, p1, p2: f"NLL_Weibull({data},{p1},{p2})",
         "partner_formula": _weibull_profile_scale,
         "p1_start": _WEIBULL_SHAPE_START,
     },
@@ -1978,7 +2001,7 @@ _PROFILE_SEARCHES = [
         "body_prefix": "UV_GAMMA",
         "p1_label": "Shape (α)",
         "p2_label": "Rate (β)",
-        "nll_formula": lambda p1, p2: f"=NLL_Gamma(UV_Data,{p1},{p2},UV_Include)",
+        "nll_formula": lambda data, p1, p2: f"NLL_Gamma({data},{p1},{p2})",
         "partner_formula": _gamma_profile_rate,
         "p1_start": _GAMMA_SHAPE_START,
     },

@@ -20,13 +20,13 @@ keeps the Gram matrix non-singular, and the materialization ordering rule is
 what keeps the sheet's right edge from being consumed. Their rationale lives in
 [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
-v3.0 ships in three stages. **§4a is built**; §4b is stage three, so its layout
-is specification rather than description until then. Where a §4a example shows a
-`Fit_Context()` argument, that is the stage-two signature — stage one threads
-an explicit `[Has_Intercept]` in its place, and stage two folds it into a
-trailing `[Context]`. The sheet call passes the sheet-scoped reader
-`Fit_Context()`; a free-form caller outside the sheet passes the workbook-scoped
-constructor `Model_Context()`.
+v3.0 shipped in three stages and **both sections are now built** — they describe
+the sheet as it is, not as it is planned. Where a §4a example shows a
+`Fit_Context()` argument, that is the current signature. The sheet call passes the
+sheet-scoped reader `Fit_Context()`; a free-form caller outside the sheet passes
+the workbook-scoped constructor `Model_Context()`. One thing in §4b is still
+forward-looking and is marked where it appears: the Constructed Design Matrix zone
+is positioned, bounded, and guarded, but the spill that fills it lands at v3.2.
 
 ---
 
@@ -242,18 +242,18 @@ axis (v2.1), and the Type axis becomes permanently Continuous/Categorical.
 
 ---
 
-## 4. The Model Spec block (A–N)
+## 4. The Model Spec block (A–O)
 
 The spec spans **every column of the source table**, one row per column.
 
-**A–L are the v2.0–v2.2 columns and keep their letters; M and N are the v3.0
-interaction pair.** Appending rather than inserting is deliberate: even inside a
-MAJOR, every cell a user already filled in keeps both its address and its
-meaning, so a saved spec's A–L survives the upgrade. The cost is that two
-*inputs* now sit right of the J/K/L computed displays, which reads slightly
-against the block's otherwise inputs-then-displays order. That was judged the
-cheaper of the two — the alternative shifts eight columns to preserve a reading
-convention. See
+**A–L are the v2.0–v2.2 columns and keep their letters; M, N, and O are the v3.0
+additions — the interaction pair and the Design Columns audit.** Appending rather
+than inserting is deliberate: even inside a MAJOR, every cell a user already
+filled in keeps both its address and its meaning, so a saved spec's A–L survives
+the upgrade. The cost is that two *inputs* now sit right of the J/K/L computed
+displays, which reads slightly against the block's otherwise
+inputs-then-displays order. That was judged the cheaper of the two — the
+alternative shifts eight columns to preserve a reading convention. See
 [DECISIONS.md § v3.0 interactions](DECISIONS.md#interactions-are-declared-with-two-spec-columns).
 
 | Col | Contents | UX |
@@ -273,12 +273,11 @@ convention. See
 | M | **Interaction Term** *(v3.0)* | Orange input, dropdown sourced from the variable-name column: names the **other operand** of an interaction involving this row. Blank by default (no interaction). Only a Predictor may be an operand — any other Role on the target is an error. A target that is a Predictor with Include = FALSE is **allowed and flagged amber** (an interaction without its main effect is a marginality violation, usually a mistake but occasionally deliberate; blocking it would be the library deciding a modeling question). Pointing at its own row with Operation = `Product` yields x² and is the documented way to declare a quadratic term. |
 | N | **Interaction Operation** *(v3.0)* | Dropdown, **closed** in the same sense as Predictor Type: `Product` · `Difference` · `Ratio`, blank by default. Each carries a symmetry attribute governing reciprocal declarations — `Product` is symmetric and `Difference` antisymmetric, so declaring B on A *as well as* A on B produces a duplicate or exact-negative column and a singular Gram matrix (**flagged red**, never silently deduplicated); `Ratio` is asymmetric, so the reciprocal is legitimate and **allowed**. |
 
-### The Design Columns audit column (required from v3.0)
+### The Design Columns audit column (O, built at v3.0)
 
 Through v2.2 the gap column right of the spec block merely *reserved* a Design
 Columns slot, and the Σ(design columns) = `COLUMNS(x_s())` audit lived only in
-the status strip's `k` cell. **From v3.0 the per-row audit column must be
-built.**
+the status strip's `k` cell. **From v3.0 it is a real column.**
 
 Interactions are what force it. Continuous × Categorical broadcasts to L−1
 columns and Categorical × Categorical to (L₁−1)(L₂−1) — Status × Country on the
@@ -289,17 +288,39 @@ width number for the guard in §4b: the check has to read a number computed from
 the spec, because constructing a 16,000-column array in order to discover it
 does not fit is the failure being prevented.
 
-The column is a computed display and is bound by "Display derives, never feeds"
-like J, K, and L — no constructor may read it.
+The column mirrors `Predictor_Columns()`'s own iteration predicate and degenerate
+skip rather than re-deriving the count from the K (Levels) display: blank when the
+row is not a Predictor, 0 when it is excluded, 1 for a Continuous one, and
+`COLUMNS(Dummy_Levels(…))` — that is, L−1, and 0 when `Dummy_Levels` signals
+`#N/A` — for a Categorical one. Reading K instead would make one display depend on
+another; reading the same closure the constructor reads makes them provably
+consistent, which is the "one source of truth is the *function*" rule below.
 
-### Reserved-column policy (F)
+Interactions are not yet counted, because the constructor does not yet build them
+— an audit that anticipated interaction columns would be reporting a matrix that
+does not exist. Wiring them (v3.1) adds a term here in the same edit that teaches
+the constructor to build them.
+
+The column is a computed display and is bound by "Display derives, never feeds"
+like J, K, and L — no constructor may read it. Its **total** — Σ(column O) plus
+the intercept, i.e. exactly `COLUMNS(Design_Columns())` — sits above it at O1 with
+the width-guard status at M2, and is likewise read only by the guard, which is
+itself a display.
+
+### Reserved-column policy (F, M, N)
 
 `Spec_Order` remains reserved and read by no formula — confirmed by
 construction, not by convention: `Predictor_Columns()`, `Constructed_Column_Names()`,
 `Row_Labels()`, and `Sample_Include()` must not reference it (and may not
 reference `Spec_Sequence` or `Spec_Sequence_Period` either — those names
 are consumed only by the zero-or-one validation and the base-period
-layer, never by a constructor). The column exists purely so the *sheet
+layer, never by a constructor). `Spec_Interaction_Term` and
+`Spec_Interaction_Operation` join it under the same rule from v3.0:
+bound so the grid shape is final and so the conditional-format rules on the
+pair have a band to read, referenced by no defined name and no cell formula
+until the interaction wiring release. Conditional-formatting expressions
+are neither, which is why the flags on M and N can be live while the bands
+stay unread. The column exists purely so the *sheet
 layout* absorbs the future feature now; wiring it in a later release is
 additive (a formula change), not a second column-insertion breaking the
 sheet a second time — exactly how column I went live in the base-period
@@ -489,8 +510,12 @@ memoize a name whose Refers To is a formula — it re-evaluates at every use sit
 
 ```
 … existing zones … │ charts │ gutter │ Model_Context │ gutter │ Sample_Include │ gutter │ Constructed Design Matrix →
-                                        (4 × 1)                  (n × 1)                  (n × k, unbounded)
+                              BQ         BR (4 × 1)     BS        BT (n × 1)      BU       BV (n × k, unbounded)
 ```
+
+The column letters are illustrative, not the contract: every one of them is
+derived in `write_sheet_regression.py` from `_LAST_CHART_COLUMN`, which itself
+tracks the chart anchor. Read the constants, not this diagram.
 
 ### The ordering rule
 
@@ -519,17 +544,31 @@ displaced by an ordinary modeling choice.
 - **Collapse state differs by zone.** `Model_Context` and `Sample_Include` are
   one column each and ship **expanded**; the Constructed Design Matrix ships
   **collapsed by default**, because an unbounded-width zone that cannot be
-  collapsed is a scrolling hazard.
+  collapsed is a scrolling hazard. Its outline group covers a bounded band —
+  an outline has to name its columns, and grouping out to column 16,384 would
+  bloat the sheet for a width no usable model reaches — sized to the soft
+  column threshold below, past which the guard has already fired.
 - **All zones share a first data row**, asserted in the build. Read-across is
   the point — the mask value beside its design-matrix row, both aligned to the
   source table rows, with the gutters as visual separators.
-- **The chart footprint needs an explicit bound.** `_C_AW` is the chart
+- **The chart footprint needs an explicit bound.** `_C_AZ` is the chart
   *anchor*, not the chart *extent*: the seven diagnostic charts are floating
-  objects tiled in a 4×2 grid roughly 640 points wide from AW's left edge, and
-  AX–BA carry the chart title and axis-label formula cells. Nothing currently
-  records where that footprint ends. A named last-chart-column constant with a
-  build assertion is required — without it a chart resize silently overlaps the
-  context block, and the zone start column cannot be computed.
+  objects tiled in a 4×2 grid roughly 640 points wide from the anchor's left
+  edge, and the four columns after it carry the chart title and axis-label
+  formula cells. `_LAST_CHART_COLUMN` is the named bound, and a guarded
+  build-time assertion checks the column past it actually clears the measured
+  chart right edge — without that, a chart resize silently overlaps the context
+  block, and the zone start column cannot be computed. The geometry *lookup* is
+  best-effort (COM geometry is unavailable headless), but the *assertion* is
+  deliberately outside the guard, so it cannot become a no-op in Excel, the one
+  place it can run.
+
+- **The zone is established; the spill that fills it is not.** Positioning the
+  zone, its collapse behaviour, and the width guard are what a later release
+  cannot add without moving columns a second time, so they land with the layout
+  break. Materializing `Design_Columns()` into it is a formula change against a
+  column that already exists, and lands at v3.2 — the same reserved-position
+  treatment `Sample_Include` got, for the same reason.
 
 ### The width guard
 

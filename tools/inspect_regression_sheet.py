@@ -38,7 +38,38 @@ from lambda_catalog.write_sheet_model_construction import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
     _INTERCEPT_ROW,
 )
-from lambda_catalog.write_sheet_regression import REGRESSION_SHEET_NAME
+from lambda_catalog.write_sheet_regression import (  # noqa: F401  (re-exported layout)
+    REGRESSION_SHEET_NAME,
+    _C_AA,
+    _C_AB,
+    _C_AC,
+    _C_AD,
+    _C_AE,
+    _C_AF,
+    _C_AG,
+    _C_AH,
+    _C_AJ,
+    _C_AK,
+    _C_AL,
+    _C_AN,
+    _C_AO,
+    _C_AP,
+    _C_AQ,
+    _C_AR,
+    _C_AS,
+    _C_AT,
+    _C_AU,
+    _C_AV,
+    _C_AW,
+    _C_AX,
+    _C_S,
+    _C_T,
+    _C_U,
+    _C_V,
+    _C_W,
+    _C_X,
+    _C_Y,
+)
 
 DATA_SHEET_NAME = MILEAGE.sheet_name
 DATA_TABLE_NAME = MILEAGE.table_name
@@ -47,43 +78,15 @@ DATA_TABLE_NAME = MILEAGE.table_name
 _D = 3
 TOLERANCE_DECIMALS = _D * 2  # 6
 
-# ── Column indices (1-based, must match write_sheet_regression.py constants) ─
-# Layout: A–L spec, M/N spec feedback + I Verdict overlay, O gap, P–V
-# predictor summary, W gap, X–AE regression outputs, AF gap, AG–AI
-# prediction outputs, AJ gap, AK–AV residual output. The constants below
-# mirror write_sheet_regression.py's column letters (i.e. _C_P is column P).
-_C_P = 16   # constructed column names (predictor summary)
-_C_Q = 17   # Pearson R
-_C_R = 18   # Spearman R
-_C_S = 19   # Skewness
-_C_T = 20   # Kurtosis
-_C_U = 21   # GVIF
-_C_V = 22   # Tolerance
-_C_X = 24   # labels (stats / ANOVA / coefficients)
-_C_Y = 25   # stat values / ANOVA df / coefficient values
-_C_Z = 26   # ANOVA SS / coefficient SE
-_C_AA = 27  # diagnostics labels / ANOVA MS / coefficient t-stat
-_C_AB = 28  # Predicted Variable label (AB2) / diagnostics values / ANOVA F / coefficient p-value
-_C_AC = 29  # predicted variable readout (AC2) / ANOVA Sig F / coefficient CI lower
-_C_AD = 30  # coefficient CI upper
-_C_AE = 31  # Beta Weights
-_C_AG = 33  # prediction interval labels / prediction input labels
-_C_AH = 34  # prediction interval values / prediction input values
-_C_AI = 35  # Training Mean
-_C_AK = 37  # row identifiers (Row_Labels)
-_C_AL = 38  # Y (filtered dependent var)
-_C_AM = 39  # Predicted Y
-_C_AN = 40  # Residuals
-_C_AO = 41  # Hat Diagonal
-_C_AP = 42  # Studentized Residuals
-_C_AQ = 43  # Cook's Distance
-_C_AR = 44  # Normal Scores Ranked
-_C_AS = 45  # Studentized Residuals Ranked
-_C_AT = 46  # Scale-Location
-_C_AU = 47  # PRESS Residual
+# ── Column indices ────────────────────────────────────────────────────────────
+# IMPORTED from write_sheet_regression, not restated. This file used to keep
+# its own copy of the whole map "to match" the writer's — which meant the
+# layout-break MAJOR silently pointed this inspector at the wrong columns
+# until the copy was hand-updated. One source of truth, per the same rule the
+# writer's own constants follow.
 
 # ── Row positions (1-based) ───────────────────────────────────────────────────
-_ROW_SUMMARY_FIRST = 3   # P3 spills constructed names; Q3–V3 spill the stats
+_ROW_SUMMARY_FIRST = 3   # S3 spills constructed names; T3–Y3 spill the stats
 
 _ROW_MULTIPLE_R = 4
 _ROW_R_SQUARED = 5
@@ -114,8 +117,8 @@ _ROW_ANOVA_TOT = 17
 # formula — a no-FE case selects the constant "(all)" group, which collapses
 # to the pre-v2.1 single-PI numbers exactly (see
 # tests/test_group_prediction_interval.py).
-_ROW_COEFF_DATA = 21   # X21 spills coefficient labels (k+1 rows)
-_ROW_PI_POINT = 3      # AH3 = point estimate
+_ROW_COEFF_DATA = 21   # AA21 spills coefficient labels (k+1 rows)
+_ROW_PI_POINT = 3      # AK3 = point estimate
 _ROW_PI_SE_MEAN = 4
 _ROW_PI_SE_NEW = 5
 _ROW_PI_T = 6
@@ -124,10 +127,10 @@ _ROW_PI_CI_UPPER = 8
 _ROW_PI_PI_LOWER = 9
 _ROW_PI_PI_UPPER = 10
 _ROW_PI_CONF = 11
-_ROW_FE_GROUP = 12     # AH12 = FE Group selector (input — written per case)
-_ROW_GROUP_MEAN = 13   # AH13 = Group Mean (y)
-_ROW_GROUP_COUNT = 14  # AH14 = Group Count
-_ROW_PRED_INPUT_FIRST = 19  # AH19 = first user-editable predictor value (was 13)
+_ROW_FE_GROUP = 12     # AK12 = FE Group selector (input — written per case)
+_ROW_GROUP_MEAN = 13   # AK13 = Group Mean (y)
+_ROW_GROUP_COUNT = 14  # AK14 = Group Count
+_ROW_PRED_INPUT_FIRST = 19  # AK19 = first user-editable predictor value (was 13)
 _ROW_PRED_INPUT_LAST = 62   # end of the guarded prefill band
 
 _ROW_RESID_FIRST = 3   # residual output starts at row 3
@@ -174,14 +177,14 @@ def _apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
     sheet.api.Names.Item("Source_Table").RefersTo = expected.case.source_table_ref
     sheet.range((_INTERCEPT_ROW, _C_SPEC_INCLUDE)).value = expected.case.allow_intercept
 
-    # FE Group selector ($AH$12): always written explicitly to
+    # FE Group selector ($AK$12): always written explicitly to
     # expected.resolved_prediction_group (never left at whatever the
     # PREVIOUS case's write left behind, and never blank — typing a value
     # into this cell replaces its default-computing formula, so "leave it
     # alone" would silently carry the last case's group forward). This is
     # the fixed cell above the variable-size Prediction Inputs band (rows
     # 19+) that the group choice belongs in, not a new slot below it.
-    sheet.range(_ROW_FE_GROUP, _C_AH).value = expected.resolved_prediction_group
+    sheet.range(_ROW_FE_GROUP, _C_AK).value = expected.resolved_prediction_group
 
     # Clear only the spec rows (plus one blank row) so we don't wipe the
     # Sequence Spacing block that lives under the spec on the Regression sheet.
@@ -234,12 +237,12 @@ def _set_pred_inputs(
     Training Mean spill's own geometric-mean fix in write_sheet_regression.py.
     """
     sheet.range(
-        (_ROW_PRED_INPUT_FIRST, _C_AH), (_ROW_PRED_INPUT_LAST, _C_AH)
+        (_ROW_PRED_INPUT_FIRST, _C_AK), (_ROW_PRED_INPUT_LAST, _C_AK)
     ).clear_contents()
     for i, value in enumerate(pred_input_values):
         if constructed_column_transforms[i] == "Log":
             value = math.exp(value)
-        sheet.range(_ROW_PRED_INPUT_FIRST + i, _C_AH).value = value
+        sheet.range(_ROW_PRED_INPUT_FIRST + i, _C_AK).value = value
 
 
 def _read_cell(sheet: xw.Sheet, row: int, col: int) -> float | None:
@@ -334,44 +337,44 @@ def read_regression_df(
             # workbook for every QC config and can take several minutes.
             sheet.api.Calculate()
 
-            # ── Scalars: Regression Statistics (column Y) ─────────────────────
+            # ── Scalars: Regression Statistics (column AB) ────────────────────
             scalar_specs: list[tuple[str, float, int, int]] = [
-                ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_Y),
-                ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_Y),
-                ("Adjusted_R_Squared",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_Y),
-                ("SE_Regression", summary.se_regression, _ROW_SE_REG,     _C_Y),
-                ("Observations",  float(summary.observations), _ROW_OBS,  _C_Y),
+                ("Multiple_R",    summary.multiple_r,    _ROW_MULTIPLE_R, _C_AB),
+                ("R_Squared",     summary.r_squared,     _ROW_R_SQUARED,  _C_AB),
+                ("Adjusted_R_Squared",   summary.adjusted_r2,   _ROW_ADJ_R2,     _C_AB),
+                ("SE_Regression", summary.se_regression, _ROW_SE_REG,     _C_AB),
+                ("Observations",  float(summary.observations), _ROW_OBS,  _C_AB),
             ]
 
-            # Diagnostics (column AB)
+            # Diagnostics (column AE)
             press_r2 = 1.0 - summary.press / summary.ss_total
             mean_lev = (summary.df_regression + (1 if allow_intercept else 0)) / summary.observations
             ms_reg = summary.ss_regression / summary.df_regression
             ms_res = summary.ss_residual / summary.df_residual
 
             scalar_specs += [
-                ("PRESS",         summary.press,     _ROW_PRESS,    _C_AB),
-                ("PRESS_R2",      press_r2,          _ROW_PRESS_R2, _C_AB),
-                ("Mean_Leverage", mean_lev,          _ROW_MEAN_LEV, _C_AB),
-                ("AIC",           summary.aic,       _ROW_AIC,      _C_AB),
-                ("BIC",           summary.bic,       _ROW_BIC,      _C_AB),
-                ("AICc",          summary.aicc,      _ROW_AICC,     _C_AB),
-                ("QQ_Correlation",summary.qq_correlation, _ROW_QQ_CORR, _C_AB),
-                ("Durbin_Watson",  summary.durbin_watson, _ROW_DURBIN_WATSON, _C_AB),
+                ("PRESS",         summary.press,     _ROW_PRESS,    _C_AE),
+                ("PRESS_R2",      press_r2,          _ROW_PRESS_R2, _C_AE),
+                ("Mean_Leverage", mean_lev,          _ROW_MEAN_LEV, _C_AE),
+                ("AIC",           summary.aic,       _ROW_AIC,      _C_AE),
+                ("BIC",           summary.bic,       _ROW_BIC,      _C_AE),
+                ("AICc",          summary.aicc,      _ROW_AICC,     _C_AE),
+                ("QQ_Correlation",summary.qq_correlation, _ROW_QQ_CORR, _C_AE),
+                ("Durbin_Watson",  summary.durbin_watson, _ROW_DURBIN_WATSON, _C_AE),
             ]
 
             # ANOVA
             scalar_specs += [
-                ("Regression_Degrees_Of_Freedom",  float(summary.df_regression), _ROW_ANOVA_REG, _C_Y),
-                ("SS_Regression",  summary.ss_regression,        _ROW_ANOVA_REG, _C_Z),
-                ("MS_Regression",  ms_reg,                       _ROW_ANOVA_REG, _C_AA),
-                ("F_Statistic",         summary.f_stat,               _ROW_ANOVA_REG, _C_AB),
-                ("F_Statistic_P_Value",      summary.p_value_f,            _ROW_ANOVA_REG, _C_AC),
-                ("Residual_Degrees_Of_Freedom",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_Y),
-                ("SS_Residual",    summary.ss_residual,          _ROW_ANOVA_RES, _C_Z),
-                ("MS_Residual",    ms_res,                       _ROW_ANOVA_RES, _C_AA),
-                ("Total_Degrees_Of_Freedom",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_Y),
-                ("SS_Total",       summary.ss_total,             _ROW_ANOVA_TOT, _C_Z),
+                ("Regression_Degrees_Of_Freedom",  float(summary.df_regression), _ROW_ANOVA_REG, _C_AB),
+                ("SS_Regression",  summary.ss_regression,        _ROW_ANOVA_REG, _C_AC),
+                ("MS_Regression",  ms_reg,                       _ROW_ANOVA_REG, _C_AD),
+                ("F_Statistic",         summary.f_stat,               _ROW_ANOVA_REG, _C_AE),
+                ("F_Statistic_P_Value",      summary.p_value_f,            _ROW_ANOVA_REG, _C_AF),
+                ("Residual_Degrees_Of_Freedom",    float(summary.df_residual),   _ROW_ANOVA_RES, _C_AB),
+                ("SS_Residual",    summary.ss_residual,          _ROW_ANOVA_RES, _C_AC),
+                ("MS_Residual",    ms_res,                       _ROW_ANOVA_RES, _C_AD),
+                ("Total_Degrees_Of_Freedom",       float(summary.df_total),      _ROW_ANOVA_TOT, _C_AB),
+                ("SS_Total",       summary.ss_total,             _ROW_ANOVA_TOT, _C_AC),
             ]
 
             for stat_name, exp_val, row, col in scalar_specs:
@@ -387,10 +390,10 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-            # ── Predictor Summary (columns Q–V, rows 3 to 3+k-1) ─────────────
+            # ── Predictor Summary (columns T–Y, rows 3 to 3+k-1) ─────────────
             pred_stat_names = ["Pearson_R", "Spearman_R", "Skewness", "Kurtosis", "GVIF", "Tolerance"]
             pred_exp_tuples = [ps.pearson_r, ps.spearman_r, ps.skewness, ps.kurtosis, ps.gvif, ps.tolerance]
-            pred_col_indices = [_C_Q, _C_R, _C_S, _C_T, _C_U, _C_V]
+            pred_col_indices = [_C_T, _C_U, _C_V, _C_W, _C_X, _C_Y]
 
             for stat_name, exp_tuple, col in zip(pred_stat_names, pred_exp_tuples, pred_col_indices):
                 xl_vals = _read_col(sheet, _ROW_SUMMARY_FIRST, col, k)
@@ -414,7 +417,7 @@ def read_regression_df(
             # intercept models. Drop that one display row before comparison.
             n_coef_rows = k + 1
             coef_stat_names = ["Coefficients", "SE_Coefficients", "T_Statistics", "P_Values", "Confidence_Interval_Lower", "Confidence_Interval_Upper"]
-            coef_col_indices = [_C_Y, _C_Z, _C_AA, _C_AB, _C_AC, _C_AD]
+            coef_col_indices = [_C_AB, _C_AC, _C_AD, _C_AE, _C_AF, _C_AG]
             coef_exp_tuples = [
                 vectors.coefficients, vectors.std_errors, vectors.t_stats,
                 vectors.p_values, vectors.ci_lower, vectors.ci_upper,
@@ -437,7 +440,7 @@ def read_regression_df(
                         "first_digit_deviation": fdd_val,
                     })
 
-            beta_vals_all = _read_col(sheet, _ROW_COEFF_DATA, _C_AE, n_coef_rows)
+            beta_vals_all = _read_col(sheet, _ROW_COEFF_DATA, _C_AH, n_coef_rows)
             beta_vals = beta_vals_all[1:]
             for i, (exp_val, xl_val) in enumerate(zip(vectors.beta_weights, beta_vals)):
                 term = ps.predictor_names[i]
@@ -453,9 +456,9 @@ def read_regression_df(
                     "first_digit_deviation": fdd_val,
                 })
 
-            # ── Prediction Interval (column AH, rows 3–14) ────────────────────
+            # ── Prediction Interval (column AK, rows 3–14) ────────────────────
             # Group_Prediction_Interval's 9-value CI+PI box plus the Group
-            # Mean/Count readouts. $AH$12 (the FE Group selector) was already
+            # Mean/Count readouts. $AK$12 (the FE Group selector) was already
             # written to expected.resolved_prediction_group in _apply_spec_case,
             # above the variable-size Prediction Inputs band written below.
             pi_specs: list[tuple[str, float]] = [
@@ -469,7 +472,7 @@ def read_regression_df(
                 ("PI_Upper",         pi.pi_upper),
                 ("Confidence_Level", pi.confidence_level),
             ]
-            pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AH, 9)
+            pi_rows_data = _read_col(sheet, _ROW_PI_POINT, _C_AK, 9)
             for (stat_name, exp_val), xl_val in zip(pi_specs, pi_rows_data):
                 diff, fdd_val = compare_values(exp_val, xl_val)
                 pi_rows.append({
@@ -486,7 +489,7 @@ def read_regression_df(
                 ("Group_Mean", pi.group_mean, _ROW_GROUP_MEAN),
                 ("Group_Count", float(pi.group_count), _ROW_GROUP_COUNT),
             ]:
-                xl_val = _read_cell(sheet, row, _C_AH)
+                xl_val = _read_cell(sheet, row, _C_AK)
                 diff, fdd_val = compare_values(exp_val, xl_val)
                 pi_rows.append({
                     "config_name": config_name,
@@ -512,7 +515,7 @@ def read_regression_df(
                 fr.scale_location, fr.loocv_residuals,  # loocv_residuals = e/(1-h) = PRESS
             ]
             # Block: columns AL(38) through AU(47) = 10 columns, n rows
-            block = _read_block(sheet, _ROW_RESID_FIRST, _C_AL, _C_AU, n)
+            block = _read_block(sheet, _ROW_RESID_FIRST, _C_AO, _C_AX, n)
             for row_idx, xl_row in enumerate(block):
                 for stat_name, exp_tuple, xl_val in zip(resid_stat_names, resid_exp_tuples, xl_row):
                     exp_val: float | None = float(exp_tuple[row_idx]) if row_idx < len(exp_tuple) else None

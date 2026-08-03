@@ -73,7 +73,7 @@ One open decision remains from it, plus one numbering-cleanup item:
 
   **Keep** `_write_audit_row` and `_write_filtered_zones`. They are the
   working reference implementations of the Design Columns audit column
-  (now required — [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an))
+  (now required — [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao))
   and the V/W filtered-display pattern the Constructed Design Matrix
   promotes to production
   ([ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone)).
@@ -169,11 +169,11 @@ back-transformation, standalone transform library) moved to v3.3 below.
 
 ## v3.0 — The engine-interface release (in progress)
 
-Delivered in three stages, in dependency order. Stages 1 and 2 are code
-complete and awaiting their QC gate; the scope decision and the stage table
-live in
+Delivered in three stages plus the two-artifact split, in dependency order, all
+under one version number. Every stage has cleared its gate; the scope decision
+and the stage table live in
 [ROADMAP.md](ROADMAP.md) and
-[DECISIONS.md § v3.0 ships in three stages](DECISIONS.md#v30-ships-in-three-stages).
+[DECISIONS.md § v3.0 shipped in stages](DECISIONS.md#v30-shipped-in-stages-the-layout-break-lands-last).
 
 ### Stage 1 — constructor pipeline + intercept relocation — BUILT AND VERIFIED
 
@@ -294,9 +294,9 @@ form, and stage 2 is not finished until it has. (Same standard as stage 1.)
   `test_model_context_constructor_is_a_four_row_vstack`.
 
 - DEFERRED: Promote `Sample_Include()` from a live closure to a thunk over a
-  materialized spill. The column is placed at its final §4b position
-  (BQ) now — as a RESERVED placeholder — so stage 3 only adds the
-  Constructed Design Matrix zone behind it. The thunk materialization needs
+  materialized spill. The column sits at its final §4b position — as a
+  RESERVED placeholder — with the Constructed Design Matrix zone behind it
+  since stage 3. The thunk materialization needs
   the dynamic-array spill operator (`#`) inside a `LAMBDA` defined-name
   `RefersTo`, a combination not used anywhere in this workbook and only
   verifiable with Excel present. A wrong guess would break the row-mask
@@ -304,25 +304,88 @@ form, and stage 2 is not finished until it has. (Same standard as stage 1.)
   separate Excel-verified follow-up, not blind. The live closure is
   untouched and remains the row mask until then.
 
-- TODO: **Run the spec-driven verifier on a machine with Excel** —
-  `python build_production.py --verify --no-launch`. Stage 2 must report
-  **0 mismatches across all 12 QC cases**: the collapse is behaviour-
+- DONE: **Ran the spec-driven verifier on a machine with Excel** —
+  `python build_production.py --verify --no-launch` passed. Stage 2 had to
+  report **0 mismatches across all 12 QC cases**: the collapse is behaviour-
   preserving (`context_arg` carries exactly the two scalars the dropped
-  arguments carried), so any mismatch is a bug, not an expected delta. Not
-  runnable in CI (no Office on the GitHub-hosted runner) — see
+  arguments carried), so any mismatch would have been a bug, not an expected
+  delta. Not runnable in CI (no Office on the GitHub-hosted runner) — see
   [CONTRIBUTING.md](CONTRIBUTING.md) → *Verifying builds*.
 
-### Stage 3 — layout — PLANNED
+### Stage 3 — layout — DONE
 
-- TODO: Insert spec columns M (Interaction Term) and N (Interaction
-  Operation), reserved-and-unwired; build the Design Columns audit
-  column; establish the Constructed Design Matrix zone and its two-
-  threshold width guard; move the version number to 3.0.
+- DONE: Spec columns **M (Interaction Term)** and **N (Interaction
+  Operation)**, appended rather than inserted so A–L keep both their
+  addresses and their meanings and a saved spec survives the upgrade.
+  Reserved-and-unwired: M's dropdown sources the variable-name spill
+  (`=$A$4#`, which Excel stores as `ANCHORARRAY`, so the list resizes with
+  the dataset and needs no volatile OFFSET), N's is the closed
+  `Product | Difference | Ratio` axis, and three conditional-format rules
+  are live — red on M when the named operand is not a Predictor (or not a
+  variable at all), amber on M when it IS a Predictor but is excluded (the
+  marginality violation: flagged, never blocked), and red on N on a
+  reciprocal declaration under a symmetric or antisymmetric operation
+  (Ratio excluded, self-reference excluded — that is the documented
+  quadratic term). The bands `Spec_Interaction_Term` /
+  `Spec_Interaction_Operation` are read by no defined name and no cell
+  formula. Pinned by `test_interaction_bands_are_declared_but_read_by_no_constructor`
+  and `test_interaction_flags_key_on_the_named_operands_own_spec_row`.
 
-- TODO: Promote `_write_audit_row` and `_write_filtered_zones` from
-  `write_sheet_model_construction.py` into the Regression writer rather
-  than rewriting them — they are the working reference implementations
-  of the audit column and the filtered-display pattern.
+- DONE: Spec column **O (Design Columns)** — the per-row audit. Mirrors
+  `Predictor_Columns()`'s own iteration predicate, Continuous/Categorical
+  split, reference normalization, and degenerate skip, so the two agree by
+  construction rather than by coincidence; deliberately NOT derived from
+  the K (Levels) display, which would make one display depend on another.
+  Interactions are not counted while M/N are unwired — an audit that
+  anticipated columns the constructor does not build would be reporting a
+  matrix that does not exist. Pinned by
+  `test_design_columns_audit_mirrors_the_constructors_own_skip_rules` and
+  `test_design_columns_audit_is_read_only_by_the_width_guard`.
+
+- DONE: The **pre-flight width guard** — total at O1 (Σ column O plus the
+  intercept, i.e. exactly `COLUMNS(Design_Columns())`), status at M2. Hard
+  error at `16,384 − (last_chart_column + 5)`, derived from the layout
+  constants rather than hard-coded, so moving a zone moves the limit with
+  it; soft warning at k = 200 constructed columns or 500,000 materialized
+  cells, whichever trips first. Both read the SPEC, never
+  `COLUMNS(Design_Columns())` — a matrix too wide to fit cannot be built in
+  order to be measured, which is the failure the guard exists to prevent.
+  All three branches evaluated against live Excel. Pinned by
+  `test_width_guard_reads_the_spec_not_the_constructed_matrix`.
+
+- DONE: The **Constructed Design Matrix zone**, terminating the §4b band,
+  collapsed by default. Established as a RESERVED position — the same
+  treatment `Sample_Include` got at stage 2, and for the same reason: the
+  position, the collapse behaviour, and the guard are what a later release
+  cannot add without moving columns a second time; the spill that fills it
+  is a formula change against a column that already exists (v3.2). Pinned
+  by `test_design_matrix_zone_ships_collapsed_and_the_others_expanded`.
+
+- DONE: Every zone right of the spec block shifted three columns, and every
+  hard-coded A1 address in a formula string went with it — the CF
+  expressions, the OFFSET-based chart named ranges, the chart title
+  formulas, the prediction-input band, and the `alpha` name are now BUILT
+  from the `_C_*` constants via `_abs_ref` / `_band` and the `_A_*` anchors.
+  Spelling those letters out by hand is what makes a column insertion a
+  silent-wrong-answer bug rather than a build failure: the formula still
+  parses, it just reads a different cell. `tools/inspect_regression_sheet.py`
+  likewise now IMPORTS the column map instead of keeping its own copy "to
+  match" it.
+
+- DONE: Verified against live Excel — `python build_production.py --verify
+  --no-launch` passed, and the built workbook's cached values confirm the
+  audit column (16 predictor columns on the shipped spec, 17 with the
+  intercept), the relocated feedback block, and the three §4b zone headers.
+
+- NOT DONE (and not needed): promote `_write_audit_row` /
+  `_write_filtered_zones` from `write_sheet_model_construction.py` into the
+  Regression writer. The earlier plan assumed the audit column would be
+  built by copying the Model Construction sheet's audit-strip machinery.
+  It was not: the audit is a per-row calculated column INSIDE `SpecTable`,
+  written by the shared `_write_spec_block`, so the Regression sheet
+  inherits it by already calling that writer. The row-1 audit strip and the
+  filtered-display zones remain Model-Construction-only, which is correct —
+  the Regression sheet displays the same facts through its own zones.
 
 ## v3.3 — Transforms remainder
 

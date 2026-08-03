@@ -7,6 +7,7 @@ import xlwings as xw
 from lambda_catalog.sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_LIGHT_RED_FILL,
+    CF_YELLOW_FILL,
     HEADER_COLOR,
     INPUT_COLOR,
 )
@@ -16,22 +17,31 @@ from lambda_catalog.write_sheet_mlr_observation_test import _calc_formula as _ob
 from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
 from lambda_catalog.write_sheet_mlr_vector_outputs_test import _calc_formula as _vector_calc_formula
 from lambda_catalog.write_sheet_regression import (
-    _C_X,
-    _C_Y,
-    _C_Z,
     _C_AA,
     _C_AB,
     _C_AC,
+    _C_AD,
     _C_AE,
-    _C_AG,
+    _C_AF,
     _C_AH,
-    _C_AI,
+    _C_AJ,
     _C_AK,
     _C_AL,
     _C_AN,
     _C_AO,
-    _C_AU,
-    _C_AV,
+    _C_AQ,
+    _C_AR,
+    _C_AX,
+    _C_AY,
+    _C_DESIGN_MATRIX,
+    _C_SPEC_DESIGN_COLUMNS,
+    _C_SPEC_INTERACTION_OPERATION,
+    _C_SPEC_INTERACTION_TERM,
+    _DESIGN_MATRIX_GROUPED_COLUMNS,
+    _DESIGN_MATRIX_MAX_COLUMNS,
+    _DESIGN_MATRIX_SOFT_CELLS,
+    _DESIGN_MATRIX_SOFT_COLUMNS,
+    _MATERIALIZATION_FIRST_ROW,
     _C_GUTTER_AFTER_CHARTS,
     _C_GUTTER_AFTER_CONTEXT,
     _C_GUTTER_AFTER_SAMPLE_INCLUDE,
@@ -54,6 +64,7 @@ from lambda_catalog.write_sheet_regression import (
     _write_chart_label_cells,
     _write_coefficients,
     _write_diagnostics,
+    _write_design_matrix_width_guard,
     _write_prediction_interval,
     _write_prediction_inputs,
     _write_regression_outputs_header,
@@ -223,7 +234,7 @@ def test_regression_names_register_spec_wiring_and_constructors() -> None:
     assert sheet.api.Names.by_short_name("Allow_Intercept").RefersTo == (
         "='Regression'!$C$2"
     )
-    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$Y$12"
+    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$AB$12"
 
 
 def test_regression_chart_names_size_to_the_observation_cell() -> None:
@@ -233,15 +244,15 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
 
     fit_y = sheet.api.Names.by_short_name("RegChartFitY").RefersTo
     assert fit_y == (
-        "=OFFSET('Regression'!$AM$2,1,0,"
-        "MAX(IFERROR('Regression'!$Y$8,1),1),1)"
+        "=OFFSET('Regression'!$AP$2,1,0,"
+        "MAX(IFERROR('Regression'!$AB$8,1),1),1)"
     )
     press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
-    assert "$AU$2" in press
+    assert "$AX$2" in press
     cooks_flag = sheet.api.Names.by_short_name("RegChartCookDistFlag").RefersTo
-    assert "$AV$2" in cooks_flag
+    assert "$AY$2" in cooks_flag
     obs_label = sheet.api.Names.by_short_name("RegChartObsLabel").RefersTo
-    assert "$AK$2" in obs_label
+    assert "$AN$2" in obs_label
     assert {
         name: sheet.api.Names.by_short_name(name).Comment
         for name in (
@@ -301,15 +312,15 @@ def test_chart_label_cells_reference_live_statistics_and_stay_ordered() -> None:
 
     cooks_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Cook's Distance")
     cooks_title = sheet.ranges[((cooks_row, _C_CHART_TITLE),)].state.formula2
-    assert "MIN(4/$Y$8,0.9)" in cooks_title
+    assert "MIN(4/$AB$8,0.9)" in cooks_title
 
     qq_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Normal Q-Q")
     qq_title = sheet.ranges[((qq_row, _C_CHART_TITLE),)].state.formula2
-    assert "$AB$10" in qq_title
+    assert "$AE$10" in qq_title
 
     fitted_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Residuals vs. Fitted")
     fitted_title = sheet.ranges[((fitted_row, _C_CHART_TITLE),)].state.formula2
-    assert "$AC$2" in fitted_title
+    assert "$AF$2" in fitted_title
 
 
 def test_intercept_only_n_does_not_depend_on_filter() -> None:
@@ -329,7 +340,7 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
 
     _write_prediction_interval(_as_xw_sheet(sheet))
 
-    formula = sheet.cell(3, 34).api.Formula2
+    formula = sheet.cell(3, _C_AK).api.Formula2
     assert formula is not None
     assert formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert "IFERROR" not in formula
@@ -338,13 +349,16 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     # wiring: whichever of those raw values belong to a Log-transformed
     # column are Ln_Positive-transformed before the call, per the
     # per-constructed-column flag from Constructed_Column_Transforms()
-    # (TRANSPOSE'd to match the AH band's column-vector shape).
-    assert f"LET(raw,TAKE($AH${_PRED_INPUT_FIRST_ROW}:$AH${_PRED_INPUT_LAST_ROW},COLUMNS(Predictor_Columns()))," in formula
+    # (TRANSPOSE'd to match the AK band's column-vector shape).
+    assert (
+        f"LET(raw,TAKE($AK${_PRED_INPUT_FIRST_ROW}:"
+        f"$AK${_PRED_INPUT_LAST_ROW},COLUMNS(Predictor_Columns()))," in formula
+    )
     assert "trn,TRANSPOSE(Constructed_Column_Transforms())," in formula
     assert 'pred_input,IF(trn="Log",Ln_Positive(raw),raw),' in formula
     assert (
         "Group_Prediction_Interval(Predictor_Columns(),Response_Column(),pred_input,"
-        "Prediction_Group_Column(),$AH$12,"
+        "Prediction_Group_Column(),$AK$12,"
         "Sample_Include(),alpha,Fit_Context())"
     ) in formula
     assert "Intercept_Only_Point()" in formula
@@ -358,25 +372,26 @@ def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
 
     _write_prediction_interval(_as_xw_sheet(sheet))
 
-    assert sheet.cell(12, _C_AG).value == "FE Group"
-    fe_group = sheet.cell(12, _C_AH).api.Formula2
+    assert sheet.cell(12, _C_AJ).value == "FE Group"
+    fe_group = sheet.cell(12, _C_AK).api.Formula2
     assert fe_group == (
         "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Sample_Include()))),1,1)"
     )
-    conditions = sheet.range("$AH$12").api.FormatConditions.items
+    conditions = sheet.range("$AK$12").api.FormatConditions.items
     assert [c.Formula1 for c in conditions] == [
-        "=ISNA(MATCH($AH$12,Prediction_Group_Column(),0))"
+        "=ISNA(MATCH($AK$12,Prediction_Group_Column(),0))"
     ]
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
-    assert sheet.cell(13, _C_AG).value == "Group Mean (y)"
-    assert sheet.cell(13, _C_AH).api.Formula2 == (
-        "=Group_Mean_At(Response_Column(),Prediction_Group_Column(),$AH$12,Sample_Include())"
+    assert sheet.cell(13, _C_AJ).value == "Group Mean (y)"
+    assert sheet.cell(13, _C_AK).api.Formula2 == (
+        "=Group_Mean_At(Response_Column(),Prediction_Group_Column(),"
+        "$AK$12,Sample_Include())"
     )
-    assert sheet.cell(14, _C_AG).value == "Group Count"
-    assert sheet.cell(14, _C_AH).api.Formula2 == (
-        "=Group_Count_At(Prediction_Group_Column(),$AH$12,Sample_Include())"
+    assert sheet.cell(14, _C_AJ).value == "Group Count"
+    assert sheet.cell(14, _C_AK).api.Formula2 == (
+        "=Group_Count_At(Prediction_Group_Column(),$AK$12,Sample_Include())"
     )
 
 
@@ -453,6 +468,80 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert _C_GUTTER_AFTER_CONTEXT - _C_MODEL_CONTEXT == 1
     assert _C_SAMPLE_INCLUDE_MATERIALIZED - _C_GUTTER_AFTER_CONTEXT == 1
 
+    # The terminal zone: the Constructed Design Matrix, reserved at its final
+    # position. §4b's ordering rule is that the band runs in increasing width
+    # and TERMINATES here — nothing may ever be placed to its right, because
+    # its width is unbounded and one dropdown away.
+    assert sheet.cell(1, _C_DESIGN_MATRIX).value == "Constructed Design Matrix"
+    assert sheet.cell(1, _C_DESIGN_MATRIX).color == HEADER_COLOR
+    assert sheet.cell(2, _C_DESIGN_MATRIX).value == "reserved"
+    assert _C_DESIGN_MATRIX - _C_GUTTER_AFTER_SAMPLE_INCLUDE == 1
+    # Every zone in the band starts on the same row, so it reads across.
+    assert _MATERIALIZATION_FIRST_ROW == 2
+
+
+def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
+    # Collapse state differs by zone (§4b): the two bounded one-column zones
+    # ship EXPANDED, the unbounded terminal zone ships COLLAPSED — a zone
+    # whose width is one dropdown away from hundreds of columns and cannot
+    # be collapsed is a scrolling hazard.
+    sheet = RecordingSheet(name="Regression")
+
+    _write_materialization_zone(_as_xw_sheet(sheet), closures=())
+
+    matrix_band = (
+        f"{col_letter(_C_DESIGN_MATRIX)}:"
+        f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
+    )
+    assert sheet.column_groups == [
+        f"{col_letter(_C_MODEL_CONTEXT)}:{col_letter(_C_MODEL_CONTEXT)}",
+        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}:"
+        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}",
+        matrix_band,
+    ]
+    assert sheet.column_show_detail == {matrix_band: False}
+
+
+def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:
+    # The whole point of the pre-flight guard: a matrix too wide to fit
+    # cannot be built in order to be measured. Both thresholds therefore
+    # read the spec block's own Design Columns audit total, never
+    # COLUMNS(Design_Columns()).
+    sheet = RecordingSheet(name="Regression")
+
+    _write_design_matrix_width_guard(_as_xw_sheet(sheet))
+
+    total = _formula(sheet, 1, _C_SPEC_DESIGN_COLUMNS)
+    assert total == (
+        "=SUM(TAKE(Spec_Design_Columns,COLUMNS(Source_Data)))+N(Allow_Intercept)"
+    )
+    assert sheet.cell(1, _C_SPEC_INTERACTION_OPERATION).value == "Σ Design Columns"
+
+    status = _formula(sheet, 2, _C_SPEC_INTERACTION_TERM)
+    assert "Design_Columns()" not in status
+    assert "$O$1" in status                      # reads the audit total
+    assert "n,ROWS(Source_Data)" in status       # cell count needs n as well
+    assert f"IF(k>{_DESIGN_MATRIX_MAX_COLUMNS}," in status
+    assert f"OR(k>{_DESIGN_MATRIX_SOFT_COLUMNS},n*k>{_DESIGN_MATRIX_SOFT_CELLS})" in status
+    assert status.endswith('"")))')
+
+    # The hard limit is DERIVED from the layout constants — it is exactly the
+    # column budget left of Excel's right edge once the materialization band
+    # is placed, so moving a zone moves the limit with it.
+    assert _DESIGN_MATRIX_MAX_COLUMNS == 16384 - _C_DESIGN_MATRIX + 1
+
+    # Red outranks yellow via StopIfTrue, and both the status line and the
+    # total carry the flag — the total is the number a user actually reads.
+    for cell in ("$M$2", "$O$1"):
+        rules = sheet.range(cell).api.FormatConditions.items
+        assert [c.Formula1 for c in rules] == [
+            '=ISNUMBER(SEARCH("ERROR",$M$2))',
+            '=ISNUMBER(SEARCH("WARNING",$M$2))',
+        ], cell
+        assert rules[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+        assert rules[0].StopIfTrue is True
+        assert rules[1].Interior.Color == excel_color(CF_YELLOW_FILL)
+
 
 def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     sheet = RecordingSheet(name="Regression")
@@ -462,8 +551,8 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # The Training Mean spill is the ONE Predictor_Columns() evaluation for the whole
     # prefill band; it owns column AI downward so it can never collide with
     # another spill when the source data or spec changes.
-    assert sheet.cell(17, _C_AI).value == "Training Mean"
-    means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AI)
+    assert sheet.cell(17, _C_AL).value == "Training Mean"
+    means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AL)
     # v2.2 Log wiring: a Log-transformed column's mean is EXP'd back to
     # input space (the geometric mean) so the AH prefill — which just
     # INDEXes this spill — doesn't get double-logged when the row-3
@@ -478,10 +567,10 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # call, so no prefill cell may invoke it — 50 cells × 2 calls made the
     # workbook's first full calculation take ~20 minutes.
     for row in (_PRED_INPUT_FIRST_ROW, _PRED_INPUT_LAST_ROW):
-        prefill = _formula(sheet, row, _C_AH)
+        prefill = _formula(sheet, row, _C_AK)
         assert "Predictor_Columns()" not in prefill
-        assert f"INDEX($AI${_PRED_INPUT_FIRST_ROW}#" in prefill
-        assert f"IFERROR(ROWS($AI${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
+        assert f"INDEX($AL${_PRED_INPUT_FIRST_ROW}#" in prefill
+        assert f"IFERROR(ROWS($AL${_PRED_INPUT_FIRST_ROW}#),0)" in prefill
 
 
 def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
@@ -489,20 +578,20 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     _write_coefficients(_as_xw_sheet(sheet))
 
-    label_formula = _formula(sheet, 21, _C_X)
+    label_formula = _formula(sheet, 21, _C_AA)
     assert label_formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert 'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA())' in label_formula
     # Level-qualified names come from the constructor twin (a row vector).
     assert 'VSTACK("Intercept",TRANSPOSE(Constructed_Column_Names()))' in label_formula
 
-    coefficient_formula = _formula(sheet, 21, _C_Y)
+    coefficient_formula = _formula(sheet, 21, _C_AB)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
     assert "Coefficients(Design_Columns(),Design_Response(),Sample_Include())" in coefficient_formula
 
-    se_formula = _formula(sheet, 21, _C_Z)
+    se_formula = _formula(sheet, 21, _C_AC)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
 
-    beta_formula = _formula(sheet, 21, _C_AE)
+    beta_formula = _formula(sheet, 21, _C_AH)
     assert 'IF(Allow_Intercept,"",NA())' in beta_formula
 
 
@@ -511,19 +600,19 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
 
     _write_regression_outputs_header(_as_xw_sheet(sheet))
 
-    assert sheet.cell(2, _C_AB).value == "Predicted Variable"
-    assert sheet.cell(2, _C_AB).api.Font.Bold is True
-    assert sheet.cell(2, _C_AB).color == HEADER_COLOR
+    assert sheet.cell(2, _C_AE).value == "Predicted Variable"
+    assert sheet.cell(2, _C_AE).api.Font.Bold is True
+    assert sheet.cell(2, _C_AE).color == HEADER_COLOR
     # Derived response name — the header of the Role=Response spec row.
-    readout = sheet.cell(2, _C_AC).api.Formula2
+    readout = sheet.cell(2, _C_AF).api.Formula2
     assert readout is not None
     assert readout.startswith("=LET(n_c,COLUMNS(Source_Data),")
     assert 'XMATCH("Response (y)"' in readout
     # v2.2 Log wiring: relabelled Ln(name) when the Response row's
     # Transform is Log, so the readout never lies about what's fitted.
     assert 'IF(INDEX(TAKE(Spec_Transform,n_c),p)="Log","Ln("&h&")",h)' in readout
-    assert sheet.cell(2, _C_AC).api.Font.Bold is True
-    assert sheet.cell(2, _C_AC).color == HEADER_COLOR
+    assert sheet.cell(2, _C_AF).api.Font.Bold is True
+    assert sheet.cell(2, _C_AF).color == HEADER_COLOR
 
 
 def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
@@ -533,8 +622,8 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
 
     # Static header; Row_Labels() supplies its own per-row content and
     # no-Identifier fallback, so only an all-FALSE mask is absorbed here.
-    assert sheet.cell(2, _C_AK).value == "Observation"
-    assert sheet.cell(3, _C_AK).api.Formula2 == (
+    assert sheet.cell(2, _C_AN).value == "Observation"
+    assert sheet.cell(3, _C_AN).api.Formula2 == (
         "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
@@ -546,7 +635,7 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # Within transform only subtracts the group mean, it never divides by a
     # standard deviation, so "Within" alone would be accurate but vaguer,
     # and a "St Devs" framing would be outright wrong).
-    header_formula = sheet.cell(2, _C_AL).api.Formula2
+    header_formula = sheet.cell(2, _C_AO).api.Formula2
     assert header_formula is not None
     assert '"Y"&" (Deviation from "' in header_formula
     assert '" Avg., Log)"' in header_formula
@@ -569,7 +658,7 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # it isn't in response units either way, so a Log-transformed response
     # must not relabel it. Its suffix names the FE variable ("Within
     # Country"), not the bare "(Within)" token.
-    hat_header = sheet.cell(2, _C_AO).api.Formula2
+    hat_header = sheet.cell(2, _C_AR).api.Formula2
     assert hat_header == (
         '=IF(SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))>0,'
         '"Hat Diagonal"&" (Within "&IFERROR(INDEX(TOROW(Header_Names),'
@@ -577,22 +666,22 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
         '"Hat Diagonal")'
     )
     assert "Spec_Transform" not in hat_header
-    assert sheet.cell(3, _C_AL).api.Formula2 == (
+    assert sheet.cell(3, _C_AO).api.Formula2 == (
         "=Dependent_Variable(Design_Response(),Sample_Include())"
     )
-    assert sheet.cell(3, _C_AN).api.Formula2 == (
+    assert sheet.cell(3, _C_AQ).api.Formula2 == (
         "=Residuals(Design_Columns(),Design_Response(),Sample_Include())"
     )
-    assert sheet.cell(3, _C_AO).api.Formula2 == (
+    assert sheet.cell(3, _C_AR).api.Formula2 == (
         "=Hat_Diagonal(Design_Columns(),Sample_Include())"
     )
-    assert sheet.cell(3, _C_AU).api.Formula2 == (
+    assert sheet.cell(3, _C_AX).api.Formula2 == (
         "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())"
     )
     # Cook's Distance (Flagged): NA()'d below both influence cutoffs, so the
     # Cook's Distance chart's overlay series only labels flagged points.
-    assert sheet.cell(3, _C_AV).api.Formula2 == (
-        "=IF(AQ3#>MIN(4/$Y$8,0.9),AQ3#,NA())"
+    assert sheet.cell(3, _C_AY).api.Formula2 == (
+        "=IF(AT3#>MIN(4/$AB$8,0.9),AT3#,NA())"
     )
 
 
@@ -601,8 +690,8 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
 
     _write_diagnostics(_as_xw_sheet(sheet))
 
-    assert sheet.cell(11, _C_AA).value == "Durbin-Watson"
-    dw_formula = cast(str, sheet.cell(11, _C_AB).api.Formula2)
+    assert sheet.cell(11, _C_AD).value == "Durbin-Watson"
+    dw_formula = cast(str, sheet.cell(11, _C_AE).api.Formula2)
     # All off-spec states show an explicit text token, never NA() or "".
     assert '"n/a — requires Sequence"' in dw_formula      # zero flags
     assert '"n/a — multiple Sequence flags"' in dw_formula  # two-plus flags
@@ -624,7 +713,7 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
         "Sample_Include())"
     ) in dw_formula
     # Scalar numeric cell (the token is text and ignores the format).
-    assert sheet.range(rc(11, _C_AB), rc(11, _C_AB)).number_format == "0.000"
+    assert sheet.range(rc(11, _C_AE), rc(11, _C_AE)).number_format == "0.000"
 
 
 def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
@@ -635,8 +724,8 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
 
     _write_diagnostics(_as_xw_sheet(sheet))
 
-    assert sheet.cell(12, _C_AA).value == "BFN Panel Durbin-Watson"
-    bfn_formula = cast(str, sheet.cell(12, _C_AB).api.Formula2)
+    assert sheet.cell(12, _C_AD).value == "BFN Panel Durbin-Watson"
+    bfn_formula = cast(str, sheet.cell(12, _C_AE).api.Formula2)
     # The four trigger-matrix states, each an explicit token (never NA()/""):
     assert '"n/a — requires Sequence"' in bfn_formula       # no Sequence axis
     assert '"n/a — multiple Sequence flags"' in bfn_formula  # spec error
@@ -663,7 +752,7 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
         "Sample_Include())"
     ) in bfn_formula
     assert "Fixed_Effects_Column()" not in bfn_formula
-    assert sheet.range(rc(12, _C_AB), rc(12, _C_AB)).number_format == "0.000"
+    assert sheet.range(rc(12, _C_AE), rc(12, _C_AE)).number_format == "0.000"
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:

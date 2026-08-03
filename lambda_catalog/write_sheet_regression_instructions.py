@@ -76,7 +76,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
     (7, "", None),
     (
         8,
-        "Define your model in the MODEL SPECIFICATION block (columns A–L):",
+        "Define your model in the MODEL SPECIFICATION block (columns A–O):",
         "heading",
     ),
     (
@@ -144,7 +144,21 @@ _ROWS: list[tuple[int, str, str | None]] = [
             "otherwise the computed candidate (the most common gap between "
             "consecutive periods within a group). Lag_By and Difference_By fall "
             "back to Base_Period_Delta() when their [delta] argument is omitted "
-            "— never a silent 1."
+            "— never a silent 1. The Interaction Term (M) and Interaction "
+            "Operation (N) columns declare an interaction between this row "
+            "and another Predictor — pick the other variable and one of "
+            "Product, Difference, or Ratio. They are placeholders in this "
+            "release: the dropdowns, the marginality warning (amber when "
+            "the named Predictor is excluded), and the duplicate-column "
+            "error (red when two rows declare the same symmetric "
+            "interaction of each other) are all live, but no constructor "
+            "builds the columns yet. The Design Columns column (O) shows how "
+            "many design-matrix columns each row contributes — 1 for a "
+            "Continuous predictor, one less than the Levels count for a "
+            "Categorical one. The total above it, with the intercept added, "
+            "is the full width of the constructed design matrix; it turns "
+            "amber on a model wide enough to be slow and red on one too wide "
+            "for the sheet."
         ),
         "body",
     ),
@@ -181,7 +195,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
         20,
         (
             "Enter a value for each design-matrix column in the orange cells under "
-            "PREDICTION INPUTS (column AH) — one row per constructed column, "
+            "PREDICTION INPUTS (column AK) — one row per constructed column, "
             "including one per dummy (use 1 for the scenario's level, 0 for its "
             "siblings; no Intercept row — the model's own baseline is handled "
             "automatically). The Training Mean column beside the inputs shows each "
@@ -190,7 +204,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
             "appear in the PREDICTION OUTPUTS box above as both a mean-response "
             "confidence interval (CI) and a wider new-observation prediction "
             "interval (PI); the confidence level is controlled by the Alpha cell "
-            "(Y12) in REGRESSION OUTPUTS. If a Fixed Effects variable is declared, "
+            "(AB12) in REGRESSION OUTPUTS. If a Fixed Effects variable is declared, "
             "the FE Group cell above the inputs selects which group's own average "
             "the prediction is anchored to."
         ),

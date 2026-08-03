@@ -12,22 +12,25 @@ verification at all.
 This is the Model Construction verifier ported to the Regression sheet. The
 expectation side is reused verbatim (``analyze_model_construction``'s
 calculator is pure Python and sheet-agnostic), and the spec block occupies
-identical coordinates on both sheets (columns A–L; intercept row 2, headers
+identical coordinates on both sheets (columns A–O; intercept row 2, headers
 row 3, the spec data rows below that — the writers are shared), so the
 Levels / Reference In Use reads port unchanged. Only the assertions against
 the Model Construction sheet's display zones are remapped onto the
 Regression sheet's own display of the same facts:
 
-    MC audit k / twin tripwire   → N3 constructed-names spill width, and the
-                                   V21 coefficient-label spill (k+1 rows with
+    MC audit k / twin tripwire   → S3 constructed-names spill width, and the
+                                   AA21 coefficient-label spill (k+1 rows with
                                    the default intercept ON)
-    MC header strip names        → N3 spill contents (vertical)
-    MC audit response            → AA2 Predicted Variable readout
-    MC audit included rows       → W8 Observations cell
-    MC first filtered label      → AI3 (first residual-output row label)
-    MC filtered zone heights     → AI3 spill height
+    MC header strip names        → S3 spill contents (vertical)
+    MC audit response            → AF2 Predicted Variable readout
+    MC audit included rows       → AB8 Observations cell
+    MC first filtered label      → AN3 (first residual-output row label)
+    MC filtered zone heights     → AN3 spill height
     MC audit sequence flags      → H2 Sequence status line (blank while the
                                    spec carries zero-or-one flags)
+
+Every coordinate above is imported from ``write_sheet_regression`` rather
+than spelled out, and pinned in tests/test_analyze_regression_spec_block.py.
 
 The full-height contract, filtered-y column, y-header, and responses-count
 assertions are dropped: the Regression sheet displays none of them, and the
@@ -79,11 +82,11 @@ from .write_sheet_model_construction import (
 )
 from .write_sheet_regression import (
     REGRESSION_SHEET_NAME,
-    _C_AC,
-    _C_AK,
-    _C_P,
-    _C_X,
-    _C_Y,
+    _C_AF,
+    _C_AN,
+    _C_S,
+    _C_AA,
+    _C_AB,
 )
 
 DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
@@ -93,11 +96,11 @@ _QC_PREFIX = "[Regression Spec]"
 
 # Row anchors on the Regression sheet (1-based; must match
 # write_sheet_regression.py's section writers).
-_ROW_RESPONSE_READOUT = 2   # AC2 = derived response name
-_ROW_NAMES_SPILL = 3        # P3 = TRANSPOSE(Constructed_Column_Names())
-_ROW_RESID_FIRST = 3        # AK3 = FILTER(Row_Labels(), Sample_Include())
-_ROW_OBSERVATIONS = 8       # Y8 = Observations(...)
-_ROW_COEFF_FIRST = 21       # X21 = coefficient label spill (k+1 with intercept)
+_ROW_RESPONSE_READOUT = 2   # AF2 = derived response name
+_ROW_NAMES_SPILL = 3        # S3 = TRANSPOSE(Constructed_Column_Names())
+_ROW_RESID_FIRST = 3        # AN3 = FILTER(Row_Labels(), Sample_Include())
+_ROW_OBSERVATIONS = 8       # AB8 = Observations(...)
+_ROW_COEFF_FIRST = 21       # AA21 = coefficient label spill (k+1 with intercept)
 
 
 @dataclass(frozen=True)
@@ -125,12 +128,12 @@ def read_observed_spec_values(
     shows up as a height/width mismatch instead of being clipped.
     """
     names = _read_column(
-        sheet, _C_P, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
+        sheet, _C_S, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
     )
     constructed_names = tuple(names[: _contiguous_height(names)])
 
     coeff_labels = _read_column(
-        sheet, _C_X, _ROW_COEFF_FIRST, k_bound + 1 + _READ_MARGIN
+        sheet, _C_AA, _ROW_COEFF_FIRST, k_bound + 1 + _READ_MARGIN
     )
 
     level_cells = {
@@ -145,14 +148,14 @@ def read_observed_spec_values(
     }
 
     resid_labels = _read_column(
-        sheet, _C_AK, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
+        sheet, _C_AN, _ROW_RESID_FIRST, total_rows + _READ_MARGIN
     )
 
     return RegressionSpecObserved(
         constructed_names=constructed_names,
         coeff_label_height=_contiguous_height(coeff_labels),
-        response_readout=sheet.range((_ROW_RESPONSE_READOUT, _C_AC)).value,
-        observations_cell=sheet.range((_ROW_OBSERVATIONS, _C_Y)).value,
+        response_readout=sheet.range((_ROW_RESPONSE_READOUT, _C_AF)).value,
+        observations_cell=sheet.range((_ROW_OBSERVATIONS, _C_AB)).value,
         level_cells=level_cells,
         reference_cells=reference_cells,
         resid_labels_height=_contiguous_height(resid_labels),
@@ -178,15 +181,15 @@ def compare_spec_observed_to_expected(
                 f"expected={expected_value!r}, excel_calc={actual_value!r}"
             )
 
-    # The constructor twin, displayed: the M3 spill IS
+    # The constructor twin, displayed: the S3 spill IS
     # Constructed_Column_Names(), so content equality pins both the width
     # (k) and the level-qualified names in one assertion.
     check(
-        "constructed names (M spill)",
+        "constructed names (S spill)",
         expected.constructed_column_names,
         observed.constructed_names,
     )
-    # Twin tripwire against the engine side: the V21 coefficient-label spill
+    # Twin tripwire against the engine side: the AA21 coefficient-label spill
     # is VSTACK("Intercept", names...) under the shipped intercept-ON
     # default, so its height must be exactly k+1.
     check(

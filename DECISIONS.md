@@ -1175,7 +1175,7 @@ transforms from `Spec_Transform`.
 The context block introduces **no new state**. It is a materialized cache of a
 pure function of state that already exists. No user types into it. It belongs to
 the same family as the computed-display cells J, K, and L in
-[ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an) — cached for
+[ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao) — cached for
 performance rather than shown for display. Recorded explicitly so it is not later
 cited as precedent for putting genuine user input into a computed block: a cell
 whose value a user can change is an input, wherever it sits, and inputs belong in
@@ -1460,6 +1460,15 @@ closed, and Role describes what a column *is*. Where do interactions live?
 (naming the other operand) and an **Interaction Operation** column — both
 defaulting to none/blank.
 
+**Built at v3.0 stage three, as M and N**, appended to the block so A–L keep
+their addresses. They ship reserved: the dropdowns, the marginality flag, and the
+reciprocal-declaration flag are live, but `Spec_Interaction_Term` and
+`Spec_Interaction_Operation` are read by no defined name and no cell formula
+until the wiring release. Conditional-formatting expressions are neither, which
+is what lets the flags be useful while the bands stay unread — the validation
+that catches a typo is worth having from the day the column exists, not the day
+the constructor learns to build it.
+
 **Rejected alternative: a second spec section below the per-column block.** The
 source table's column count is variable, so anything positioned below the
 per-column block has no fixed address. The spec block auto-extends as a real Excel
@@ -1551,7 +1560,7 @@ layout, so a future reader does not mistake the limit for an oversight.
 
 ### Interactions make the Design Columns audit column required
 
-**Question:** [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-an)
+**Question:** [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao)
 notes that the gap column right of the spec block "visually reserves a future
 Design Columns slot." Does interaction support change its status?
 
@@ -1715,11 +1724,15 @@ spill is a separate, Excel-verified follow-up.
   works, and nothing about stage three's layout needs it materialized. So it
   lands where it can be Excel-verified, not blind.
 
-**Consequence for stage three:** the `Sample_Include` column already occupies
-its final §4b position, so stage three only adds the Constructed Design Matrix
-zone (and its width guard) behind the existing reserved column — no relocation.
-The placeholder is labelled "reserved" on the sheet and carries a cell comment
-documenting the deferral so it is not mistaken for an oversight.
+**Consequence for stage three, as it played out:** the `Sample_Include` column
+already occupied its final §4b position, so stage three added the Constructed
+Design Matrix zone and its width guard behind the existing reserved column with
+no relocation. The placeholder is labelled "reserved" on the sheet and carries a
+cell comment documenting the deferral so it is not mistaken for an oversight —
+and stage three gave the terminal zone exactly the same treatment for the same
+reason, so the band now carries two reserved positions and one live spill. The
+promotion lands at v3.2 alongside the design matrix's own materialization, since
+both need the same Excel-verified `#`-inside-a-`LAMBDA` answer.
 
 ### Versioning across two artifacts
 
@@ -1862,23 +1875,22 @@ extends the same framing to the rest. (The count is a text-match of function nam
 against `write_sheet_*.py` and moves as sheets change; it is illustrative, not a
 tracked invariant.)
 
-### v3.0 shipped in two stages; the layout break is deferred to a future MAJOR
+### v3.0 shipped in stages; the layout break lands last
 
 **Question:** the scope entry in [ROADMAP.md](ROADMAP.md) settled *what* v3.0
 contains but not how it lands. All of it in one change is a diff nobody can review
 against a workbook nobody can rebuild in CI.
 
-**Resolution:** the release landed in reviewable pull requests, in dependency
-order. Stages 1 and 2 (the constructor pipeline + intercept relocation, then the
-`Model_Context` / `[Context]` collapse) shipped, and the two-artifact split
-shipped with them as **v3.0.0** (2026-08-02). The originally-planned third stage
-— the layout break — is deferred to a future MAJOR release (see below).
+**Resolution:** the release landed in four reviewable pull requests, in dependency
+order, all under **v3.0.0** (2026-08-02). Staging the work did not stage the
+version: the four changes answer one question together, so they carry one number.
 
 | Stage | Contents | Status |
 |---|---|---|
 | 1 | The constructor pipeline and the intercept relocation | **Shipped** (#148) |
 | 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; the two-name split (`Model_Context` constructor / `Fit_Context` reader) keeps `Model_Context` unshadowed; four `Context_*` accessors make the row order a contract enforced in one place; all four context rows materialized (1-2 feed the engines, 3-4 populated from the spec block for v3.3); `Sample_Include` placed at its final §4b position as a reserved placeholder (thunk materialization deferred to an Excel-verified follow-up) | **Shipped** (#150) |
-| 3 | Layout — interaction spec columns M/N reserved, the Design Columns audit column, the Constructed Design Matrix zone and its width guard | **Deferred to a future MAJOR** |
+| + split | Univariate Analysis becomes its own workbook; the Regression workbook returns to full Automatic | **Shipped** (#151) |
+| 3 | Layout — interaction spec columns M/N reserved, the Design Columns audit column and its pre-flight width guard, the Constructed Design Matrix zone | **Shipped** |
 
 **Rationale:** the order is forced by the dependencies the scope entry already
 names — the bounded context requires the intercept relocation, which requires the
@@ -1889,18 +1901,51 @@ fitted, so the spec-driven QC pass must report zero mismatches across all twelve
 cases. Any mismatch is a bug rather than an expected delta, which is the cleanest
 gate available for the stage that touches the most functions.
 
-**v3.0 is non-breaking at the public interface; the 3.0.0 MAJOR marks the
-architectural milestone, not a user-facing break.** Stages 1 and 2 restructure
-the *engine* — the constructor pipeline and the bounded `[Context]` argument —
-but they leave the user-typed spec block and its results unchanged: a Regression
-spec saved under 2.0.0 produces identical output under 3.0.0 (stage one's QC
-gate reported zero mismatches across all twelve cases, and stage two's gate is
-green). The two-artifact split is packaging only. The 3.0.0 MAJOR is therefore
-the architectural-milestone number for the engine-interface release, not the
-"your saved inputs break" signal — that signal is the `Breaking?` flag, which is
-**No** for 3.0.0. The genuine interface break is the **stage-3 layout work**
-(column insertions that shift every spec-block column to their right); it is
-deferred to a future MAJOR release whose number is to be set when it lands.
+Stage three went last for the same reason and gained a second benefit from it.
+With the numbers pinned by stages 1-2, the layout stage's own verification gate
+becomes unambiguous: it moves columns and nothing else, so any mismatch it
+produced could only have come from the layout. It passed.
+
+### The v3.0 break is an ADDRESS break, not a meaning break
+
+**Question:** 3.0.0's `Breaking?` flag. Stages 1-2 and the split are non-breaking
+by construction; stage three moves columns. Does that make the release breaking,
+and if so, breaking in what sense?
+
+**Resolution: yes, and the distinction is worth stating rather than collapsing.**
+The flag is **Yes**, because a workbook built against 2.0.0 has formulas that stop
+pointing where they used to. But two very different things could have earned that
+flag, and only the milder one happened.
+
+A **meaning break** is what 2.0.0 was: the same cell still exists, still holds the
+user's value, and now means something else. Nothing detects it; the model just
+quietly computes a different answer. An **address break** is what 3.0.0 is: no
+cell changes meaning, and no fitted number moves — cells are simply somewhere
+else. A formula pointing at a moved cell reads the wrong thing *visibly*, or
+`#REF!`s outright.
+
+Stage three keeps the break in the milder category deliberately, by **appending**
+its three columns rather than inserting them. A–L keep both their letters and
+their meanings, so a saved specification — the thing users actually invest in —
+survives untouched. The cost is that two *inputs* (M/N) now sit to the right of
+the J/K/L computed displays, reading slightly against the block's
+inputs-then-displays order. That was judged the cheaper of the two: the
+alternative shifts eight columns to preserve a reading convention. What does move
+is every zone right of the spec block, three columns over — the Alpha input from
+Y12 to AB12, the Prediction Inputs band from AH to AK, the Residual Output from AK
+to AN. A user who only fills in the spec block notices nothing; a user with their
+own formulas against this sheet has to re-point them, and the Version History entry
+names the moved anchors so they can.
+
+**The break was made once, on purpose.** REVIEW.md's sequencing note observed that
+the interaction columns, the audit column, and the materialization zone "all want
+the same breaking change — resolving them separately spends three layout breaks
+where one would do." All three landed in the single stage-three change, and each
+ships **reserved**: M/N are validated and flagged but read by no constructor, and
+the Constructed Design Matrix zone is positioned, bounded, and guarded but not yet
+filled. Wiring them (v3.1, v3.2) is then a formula change against columns that
+already exist, which is exactly the reserved-column pattern column G went live
+under at v2.2 — additive MINOR work with no second break behind it.
 
 ### `R_Squared` is the third LINEST `const` site — and the one that fails silently
 

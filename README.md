@@ -75,7 +75,7 @@ This README is intentionally short — it tells you what the library is and how 
 | File | What's in it | When to read it |
 |---|---|---|
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Dev guide: setup, tests, build, file structure, adding a new LAMBDA function, Regression sheet chart conventions | You're contributing to the codebase |
-| [ARCHITECTURE.md](ARCHITECTURE.md) | Foundational patterns: naming convention, function categories, the Role / Type / Sequence taxonomy, the Model Spec block (A–L), the data-transformation taxonomy, the reserved-spec-column pattern | You're adding a feature that has to honor the library's design |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | Foundational patterns: naming convention, function categories, the Role / Type / Sequence taxonomy, the Model Spec block (A–O), the data-transformation taxonomy, the reserved-spec-column pattern | You're adding a feature that has to honor the library's design |
 | [ROADMAP.md](ROADMAP.md) | Version plan: the public-interface definition, the version ladder, what's shipped, what's next, ToolPak parity reference | You want to know what's planned or whether a change breaks the public interface |
 | [DECISIONS.md](DECISIONS.md) | Resolved design decisions with their rationale, indexed by version, plus the supersession log and the alias-layer table | You want to know *why* a design choice was made |
 | [TODOs.md](TODOs.md) | Active work only, with cross-links to DECISIONS for the "why" | You want to know what to work on next |

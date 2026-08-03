@@ -108,6 +108,16 @@ def _name_ref(local_name: str) -> str:
 
 All OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix. This distinguishes them from the constructor closures (`Predictor_Columns`, `Design_Columns`, `Sample_Include`, etc.) and formula-helper names. The post-v2.0 name-to-column map (and the `$Y$8` anchor) lives in the loop in `_setup_local_names` in `lambda_catalog/write_sheet_regression.py` — that loop is the single source of truth for the column letters. When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
 
+### Workbook scope belongs to the catalog
+
+Every named range a sheet writer creates is **sheet-scoped** — `sheet.api.Names.Add` on the owning sheet, never `book.names.add`. `RegChart*`, `UV_*` and the spec wiring all live there. Workbook scope belongs exclusively to the catalog's LAMBDA functions (`lambda_functions.json`, `scope: "workbook"`), and `sync_workbook_names` enforces that literally: on every build it drops **every** workbook-scoped `<definedName>` that is not a catalog function or one of Excel's reserved `_xlnm.*` names, then rewrites the catalog entries.
+
+That rule exists because the v3.0 split left each artifact carrying the other one's ranges at workbook scope — twelve `RegChart*` entries reading `OFFSET(#REF!,…)` in the Univariate workbook, forty-two `UV_*` entries in the Regression workbook. The live sheet-scoped names were correct throughout; it was the stale workbook-scoped copies that produced the broken links. Don't reintroduce a narrower rule that inspects the body text (an error literal *inside* an `OFFSET(...)` is not an error-literal body) — "workbook-scoped and not in the catalog" is the exact characterization of residue.
+
+A catalog function whose body names a worksheet the target workbook does not have is **skipped**, not written: Excel rebinds such a reference to an external workbook (`Regression!Source_Data` → `[1]!Source_Data`), writes an `xlPathMissing` external-link part, and prompts about broken links on every open. `Base_Period_Delta` is the one such function today — Regression-coupled by design, so the Univariate artifact does not carry it, and the build prints the skip. When adding a workbook-scoped catalog LAMBDA, keep it sheet-agnostic unless you intend it to be Regression-only.
+
+`tests/test_workbook_invariants.py::TestRealWorkbookNameScope` asserts all of this against both committed artifacts on every commit (pure zipfile, no Excel). To re-apply the cleanup to a built artifact without rebuilding it, run `python tools/resync_workbook_names.py <workbook.xlsx>`.
+
 ## Charts — patterns and pitfalls
 
 ### Use xlwings COM API for all chart creation — never openpyxl

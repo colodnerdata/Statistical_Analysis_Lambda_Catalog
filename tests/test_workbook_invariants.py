@@ -6,6 +6,12 @@ existing `RecordingSheet` unit tests cannot see:
 
   * sheet-name drift against the spec
   * orphan defined names (empty body, invalid characters, duplicates)
+  * workbook-scope ownership: only catalog functions and Excel's `_xlnm.*`
+    names may be workbook-scoped, no defined-name body may carry an error
+    literal, and neither artifact may link to another workbook (the v3.0 split
+    left the other artifact's chart ranges at workbook scope in both files, and
+    a Regression-coupled catalog LAMBDA left a broken external link in the
+    Univariate one)
   * localSheetId values that fall outside [0, sheet_count)
   * #REF! / #NAME? / #VALUE! / #NULL! / #DIV/0! / #N/A / #NUM! literals leaking
     into cached cell values (the writers' LAMBDA formulas legitimately wrap
@@ -16,11 +22,12 @@ existing `RecordingSheet` unit tests cannot see:
     calcChain part or relationship behind
 
 The synthetic 4-sheet fixture (``build_headless_fixture``) is the always-on
-source of truth for these invariants. A separate ``TestRealWorkbook`` class
-also runs the same checks against the committed ``Lambda_Library.xlsx`` but
-is opt-in via ``RUN_EXCEL_INTEGRATION=1`` because the committed artifact
-currently has workbook-scoped defined-name duplicates from a previous build
-that the in-flight bug fix in ``workbook_builder.py`` will address.
+source of truth for these invariants, alongside ``TestRealWorkbookNameScope``,
+which runs the workbook-scope and external-link checks against both committed
+artifacts on every commit. The broader ``TestRealWorkbook`` /
+``TestRealUnivariateWorkbook`` classes are opt-in via
+``RUN_EXCEL_INTEGRATION=1``: their cached-value scan still flags the ``#N/A``
+values ``Difference_By`` and ``Lag_By`` legitimately return at gap rows.
 
 The deep spec-driven check (``build_qc.verify_test_sheets``, xlwings + Excel
 required) is the source of truth for cell-level correctness. These invariants
@@ -42,6 +49,7 @@ from pathlib import Path
 import lxml.etree as etree  # type: ignore[import-untyped]
 import pytest
 
+from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import drop_workbook_names
 
 # ---------------------------------------------------------------------------
@@ -319,6 +327,70 @@ def _assert_no_error_literals_in_cached_values(package: WorkbookPackage) -> None
     )
 
 
+def _assert_workbook_scope_belongs_to_the_catalog(package: WorkbookPackage) -> None:
+    """Workbook scope holds catalog names and Excel's ``_xlnm.*`` names, nothing else.
+
+    Every range the sheet writers create (``RegChart*``, ``UV_*``, the spec
+    wiring) is sheet-scoped. A workbook-scoped entry outside the catalog is
+    therefore residue — most damagingly the other artifact's ranges, which the
+    v3.0 split left pointing at ``#REF!`` in both workbooks.
+    ``workbook_builder.sync_workbook_names`` clears them on every build.
+    """
+    catalog_names = {definition.name for definition in _catalog_workbook_names()}
+    offenders = [
+        name_element.get("name")
+        for name_element in package.workbook_root.iter(_DEFINED_NAME_TAG)
+        if name_element.get("localSheetId") is None
+        and not (name_element.get("name") or "").startswith("_xlnm.")
+        and name_element.get("name") not in catalog_names
+    ]
+    assert not offenders, (
+        "Workbook-scoped defined names that are not catalog functions "
+        f"({len(offenders)}): {sorted(offenders)!r}. These are residue from a "
+        "previous build; sync_workbook_names should have cleared them."
+    )
+
+
+def _assert_no_error_literals_in_defined_names(package: WorkbookPackage) -> None:
+    """No defined-name body, at either scope, contains an Excel error literal.
+
+    ``#N/A`` is excluded: the catalog's LAMBDA bodies legitimately call ``NA()``
+    and several return it by design. A ``#REF!`` inside an ``OFFSET(...)`` body
+    is the residue signature this check exists for.
+    """
+    offenders: list[str] = []
+    for name_element in package.workbook_root.iter(_DEFINED_NAME_TAG):
+        body = name_element.text or ""
+        for literal in EXCEL_ERROR_LITERALS:
+            if literal == "#N/A":
+                continue
+            if literal in body:
+                offenders.append(f"{name_element.get('name')!r}: {literal}")
+    assert not offenders, (
+        "Defined names with error literals in their body:\n  " + "\n  ".join(offenders)
+    )
+
+
+def _assert_no_external_links(package: WorkbookPackage) -> None:
+    """The artifact links to no other workbook.
+
+    Both artifacts are self-contained. An external link here is never
+    deliberate: it is Excel rebinding a reference to a sheet this workbook does
+    not have (``Regression!Source_Data`` -> ``[1]!Source_Data``), and it makes
+    Excel prompt about broken links on every open.
+    """
+    external_parts = sorted(
+        name for name in package.namelist if name.startswith("xl/externalLinks/")
+    )
+    assert not external_parts, f"External link parts present: {external_parts!r}"
+
+    external_references = package.workbook_root.findall(f"{_WB}externalReferences")
+    assert not external_references, (
+        "workbook.xml declares <externalReferences>; the artifact must not link "
+        "to another workbook."
+    )
+
+
 def _assert_sheet_inventory(package: WorkbookPackage, expected: tuple[str, ...]) -> None:
     sheets = [s.get("name") for s in package.workbook_root.iter(_SHEET_TAG)]
     assert tuple(sheets) == expected, (
@@ -333,6 +405,12 @@ def _assert_sheet_inventory(package: WorkbookPackage, expected: tuple[str, ...])
 
 REAL_WORKBOOK_PATH = Path(__file__).resolve().parents[1] / "Lambda_Library.xlsx"
 UNIVARIATE_WORKBOOK_PATH = Path(__file__).resolve().parents[1] / "Lambda_Library_Univariate.xlsx"
+CATALOG_PATH = Path(__file__).resolve().parents[1] / "lambda_functions.json"
+
+
+def _catalog_workbook_names():
+    """Return the catalog's workbook-scoped functions (pure Python, no xlwings)."""
+    return load_catalog_document(CATALOG_PATH).workbook_functions
 
 
 @pytest.fixture
@@ -514,6 +592,48 @@ def test_fault_inject_ref_literal_in_cached_value_causes_check_to_fail(
         _assert_no_error_literals_in_cached_values(package)
 
 
+def test_fault_inject_non_catalog_workbook_scoped_name_is_rejected(
+    synthetic_workbook: WorkbookPackage,
+) -> None:
+    """The fixture's workbook-scoped ``Real_Name`` stands in for build residue."""
+    with pytest.raises(AssertionError, match="not catalog functions"):
+        _assert_workbook_scope_belongs_to_the_catalog(synthetic_workbook)
+
+
+def test_fault_inject_ref_literal_in_defined_name_body_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """An ``OFFSET(#REF!,…)`` body is the cross-artifact residue signature."""
+    workbook_path = build_headless_fixture(tmp_path)
+    with zipfile.ZipFile(workbook_path) as zf:
+        root = etree.fromstring(zf.read("xl/workbook.xml"))
+    residue = etree.SubElement(root.find(_DEFINED_NAMES_TAG), _DEFINED_NAME_TAG)
+    residue.set("name", "RegChartFitY")
+    residue.text = "OFFSET(#REF!,1,0,MAX(IFERROR(#REF!,1),1),1)"
+    _replace_member(
+        workbook_path,
+        "xl/workbook.xml",
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        + etree.tostring(root, encoding="UTF-8"),
+    )
+
+    package = WorkbookPackage(workbook_path)
+    with pytest.raises(AssertionError, match="error literals in their body"):
+        _assert_no_error_literals_in_defined_names(package)
+
+
+def test_fault_inject_external_link_is_rejected(tmp_path: Path) -> None:
+    """An externalLink part means Excel will prompt about broken links."""
+    workbook_path = build_headless_fixture(tmp_path)
+    _replace_member(
+        workbook_path, "xl/externalLinks/externalLink1.xml", b"<externalLink/>"
+    )
+
+    package = WorkbookPackage(workbook_path)
+    with pytest.raises(AssertionError, match="External link parts present"):
+        _assert_no_external_links(package)
+
+
 def test_fault_inject_extra_sheet_causes_inventory_check_to_fail(
     tmp_path: Path,
 ) -> None:
@@ -556,6 +676,49 @@ def _replace_member(workbook_path: Path, member_name: str, new_bytes: bytes) -> 
             output_zip.writestr(member_name, new_bytes)
 
     Path(temp_name).replace(workbook_path)
+
+
+# ---------------------------------------------------------------------------
+# Always-on real-workbook tests. Unlike the opt-in classes below, these run on
+# every commit against both committed artifacts: they are the regression guard
+# for the v3.0 split's cross-artifact leakage (the other artifact's chart
+# ranges promoted to workbook scope, and the external link a Regression-coupled
+# catalog LAMBDA produced in the Univariate workbook).
+# ---------------------------------------------------------------------------
+
+
+class TestRealWorkbookNameScope:
+    """Workbook scope and link hygiene for both committed artifacts."""
+
+    def test_regression_workbook_scope_belongs_to_the_catalog(
+        self, real_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_workbook_scope_belongs_to_the_catalog(real_workbook_package)
+
+    def test_univariate_workbook_scope_belongs_to_the_catalog(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_workbook_scope_belongs_to_the_catalog(univariate_workbook_package)
+
+    def test_regression_defined_names_have_no_error_literals(
+        self, real_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_no_error_literals_in_defined_names(real_workbook_package)
+
+    def test_univariate_defined_names_have_no_error_literals(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_no_error_literals_in_defined_names(univariate_workbook_package)
+
+    def test_regression_workbook_has_no_external_links(
+        self, real_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_no_external_links(real_workbook_package)
+
+    def test_univariate_workbook_has_no_external_links(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_no_external_links(univariate_workbook_package)
 
 
 # ---------------------------------------------------------------------------

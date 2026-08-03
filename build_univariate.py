@@ -37,6 +37,7 @@ from lambda_catalog.build_common import (
     _quit_app_quietly,
     _recalculate_and_save,
     _retry_on_open,
+    print_name_sync_summary,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.verify_report import (
@@ -507,8 +508,7 @@ def main() -> None:
     print("Sheet updated: Life Expectancy Data")
     print("Sheet updated: Univariate")
     print("Sheet updated: Version History")
-    print(f"Created names: {result.created}")
-    print(f"Updated names: {result.updated}")
+    print_name_sync_summary(result)
     if args.validate_reopen:
         print("Reopen validation: passed")
 

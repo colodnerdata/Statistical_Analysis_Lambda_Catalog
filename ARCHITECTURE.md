@@ -787,7 +787,12 @@ the gap-aware semantics recorded in
   failure). Companion sheet-scoped closures `Sequence_Deltas` /
   `Base_Period_Delta_Candidate` / `Sequence_Delta_Spectrum` remain
   available in the catalog but are not currently surfaced by any on-sheet
-  display.
+  display. It is workbook-scoped (its callers are), but its body reads the
+  Regression sheet, so it is the one catalog function the **standalone
+  Univariate artifact does not carry** — writing it into a workbook with no
+  Regression sheet makes Excel rebind the reference to a missing external
+  workbook. See DECISIONS.md → v3.1 *"The Univariate artifact does not carry
+  `Base_Period_Delta`"*.
 
 ### The row-aligned `""` convention
 

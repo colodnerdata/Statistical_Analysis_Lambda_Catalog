@@ -537,7 +537,7 @@ This starts one row below the column header (row 2) and extends exactly `$Y$8` r
 | `RegChartCookDistFlag` | AV | Cook's Distance, `NA()`'d below both influence cutoffs (`D > 4/n` or `D > 0.9`) — feeds the Cook's Distance chart's data-label overlay series |
 | `RegChartObsLabel` | AK | Row identifier (Row_Labels()) — the flagged-point overlay series' `XValues`, so its data labels read as the observation identifier rather than a bare index |
 
-**Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
+**Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`), and so is every other range a sheet writer creates. Workbook scope is the catalog's alone — see [Workbook scope belongs to the catalog](#workbook-scope-belongs-to-the-catalog) below. Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 
 ```excel
 Series X values: ='Regression'!RegChartFitY
@@ -552,3 +552,26 @@ def _name_ref(local_name: str) -> str:
 ```
 
 When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
+
+### Workbook scope belongs to the catalog
+
+Two scopes, two owners, no overlap:
+
+| Scope | Owner | Created by | Examples |
+|---|---|---|---|
+| Worksheet | the sheet writers | `sheet.api.Names.Add` during the write phase | `RegChart*`, `UV_*`, `Source_Data`, `Spec_*`, the constructor closures |
+| Workbook | `lambda_functions.json` | `sync_workbook_names` patching `xl/workbook.xml` after the write phase | every catalog LAMBDA with `scope: "workbook"` |
+
+`sync_workbook_names` enforces the second row literally. On every build it removes **every** workbook-scoped `<definedName>` that is neither a catalog function nor one of Excel's reserved `_xlnm.*` names, then writes the catalog entries fresh. Sheet-scoped entries are never touched.
+
+Anything workbook-scoped and outside the catalog is residue from an earlier build, and the v3.0 split produced a lot of it: each artifact was carrying the other one's chart ranges at workbook scope, pointing at `#REF!` (twelve `RegChart*` entries in the Univariate workbook, forty-two `UV_*` entries in the Regression workbook), plus twenty-one LAMBDA names the catalog had retired. The sheet-scoped originals were correct the whole time — only the stale workbook-scoped copies were broken, which is why the workbooks still rendered their charts.
+
+**A catalog function that names a missing worksheet is skipped, not written.** Excel does not leave such a reference unresolved: it rebinds it to an external workbook (`Regression!Source_Data` becomes `[1]!Source_Data`), writes an `xlExternalLinkPath/xlPathMissing` external-link part, and prompts about broken links every time the file is opened. `Base_Period_Delta` — whose body reads `'Regression'!Source_Data` / `Spec_Sequence` / `Spec_Sequence_Period` — is the one catalog function this applies to, so the standalone Univariate artifact does not carry it. The build prints `Skipped names: …` when it happens. When the last external reference goes, the orphaned external-link parts, relationships and content-type overrides are stripped with it.
+
+Keep a new workbook-scoped catalog LAMBDA sheet-agnostic unless it is deliberately Regression-only. If it must read the spec block, expect it to be skipped in the Univariate artifact.
+
+**Checks and repair.** `tests/test_workbook_invariants.py::TestRealWorkbookNameScope` asserts workbook-scope ownership, error-free defined-name bodies, and the absence of external links against both committed artifacts on every commit — pure zipfile + lxml, so it runs in CI without Excel. To re-apply the cleanup to a built artifact without a full rebuild (also Excel-free):
+
+```bash
+python tools/resync_workbook_names.py Lambda_Library.xlsx Lambda_Library_Univariate.xlsx
+```

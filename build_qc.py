@@ -19,6 +19,7 @@ from lambda_catalog.analyze_production_lots import calculate_production_lots_com
 from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
 from lambda_catalog.analyze_regression_spec_block import read_regression_spec_block_failures
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH
+from lambda_catalog.build_common import print_name_sync_summary
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
@@ -758,8 +759,7 @@ def _run_main(args: argparse.Namespace) -> None:
         print("Sheet verified: Regression")
         print("Sheet verified: Univariate")
         print("Sheet verified: Dummy_Test")
-    print(f"Created names: {result.created}")
-    print(f"Updated names: {result.updated}")
+    print_name_sync_summary(result)
     if args.validate_reopen:
         print("Reopen validation: passed")
     print(f"Timing: prep          {timings['prep_seconds']:.1f}s")

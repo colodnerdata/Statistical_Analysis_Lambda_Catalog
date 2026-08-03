@@ -440,6 +440,20 @@ declared interaction columns, and the Design Columns audit counts them. See
   post-split artifact layout; that verifier warning/error-path cleanup is
   tracked for a follow-up PR.
 
+- DONE: **Workbook-scope cleanup after the v3.0 split.** `sync_workbook_names`
+  now owns workbook scope outright — anything workbook-scoped that is not a
+  catalog function or an `_xlnm.*` reserved name is dropped on every build —
+  and skips a catalog definition whose body names a worksheet the target
+  artifact lacks. That clears the split's cross-artifact residue (twelve
+  `RegChart*` `OFFSET(#REF!,…)` entries in the Univariate workbook,
+  forty-two `UV_*` entries plus twenty-one retired LAMBDA names in the
+  Regression workbook) and the broken external link `Base_Period_Delta`
+  produced in the Univariate artifact. Both committed artifacts were cleaned
+  in place with `tools/resync_workbook_names.py` (name manager only — the
+  rebuild below is still outstanding), and
+  `TestRealWorkbookNameScope` guards it in CI. See
+  [DECISIONS.md § v3.1](DECISIONS.md#workbook-scope-belongs-to-the-catalog).
+
 - TODO: **Rebuild and commit both artifacts.** The 2.1.0 / 2.2.0 / 3.1.0
   Version History entries and the new constructor formulas only reach users
   through a rebuild.

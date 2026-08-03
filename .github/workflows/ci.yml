@@ -33,7 +33,7 @@ jobs:
 
       - name: Run static checks
         if: matrix.python-version == '3.12'
-        run: uv run --frozen pylint --errors-only lambda_catalog build_production.py build_qc.py tools
+        run: uv run --frozen pylint --errors-only lambda_catalog build_production.py build_qc.py build_univariate.py tools
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'

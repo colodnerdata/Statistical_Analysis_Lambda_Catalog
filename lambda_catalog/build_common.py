@@ -19,6 +19,7 @@ from pathlib import Path
 import xlwings as xw
 
 from lambda_catalog.workbook_builder import (
+    NameSyncResult,
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
 )
@@ -56,6 +57,28 @@ def _quit_app_quietly(app: xw.App | None) -> None:
         app.quit()
     except OPEN_WORKBOOK_ERRORS:
         pass
+
+
+def print_name_sync_summary(result: NameSyncResult) -> None:
+    """Print the workbook-scope sync counts every build script reports.
+
+    ``Removed names`` and ``Skipped names`` are the interesting two: the first
+    counts workbook-scoped residue the sync cleared out (a name the catalog
+    retired, or one belonging to the other artifact), the second names the
+    catalog entries this artifact cannot carry because they reference a
+    worksheet it does not have. Both are normal on the first build after a
+    change and should settle to 0 / none on a rebuild — except the Univariate
+    artifact's permanent ``Base_Period_Delta`` skip.
+    """
+    print(f"Created names: {result.created}")
+    print(f"Updated names: {result.updated}")
+    print(f"Removed names: {result.removed}")
+    if result.skipped:
+        print(
+            "Skipped names: "
+            + ", ".join(result.skipped)
+            + " (reference a worksheet this workbook does not have)"
+        )
 
 
 def _recalculate_and_save(

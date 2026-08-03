@@ -433,13 +433,14 @@ declared interaction columns, and the Design Columns audit counts them. See
 - DONE: Three QC cases added to the spec-driven oracle covering all three width
   regimes, plus `tests/test_interaction_wiring.py` for the semantics.
 
-- TODO: **Run the spec-driven verifier on a machine with Excel.**
-  `python build_production.py --verify --no-launch` must report 0 mismatches
-  across all 15 QC cases — the 12 pre-existing ones (behaviour-preserving: a
-  spec with M and N blank must compute identically) plus the three new
-  interaction cases. This release was written and verified headlessly; the
-  Excel gate has NOT been run, and the formulas are the largest single change
-  to the three constructors since v2.0.
+- DONE: The spec-driven Regression verifier was run on a machine with Excel.
+  `uv run python build_production.py --verify --no-launch` rebuilt the
+  Regression workbook and cleared the 15 Regression QC cases — the 12
+  pre-existing ones (behaviour-preserving: a spec with M and N blank computes
+  identically) plus the three new interaction cases. The current
+  `[Univariate] sheet is missing` warning is fallout from the workbook split,
+  not a Regression mismatch, and the verifier will be taught that split in the
+  next PR.
 
 - TODO: **Rebuild and commit both artifacts.** The 2.1.0 / 2.2.0 / 3.1.0
   Version History entries and the new constructor formulas only reach users

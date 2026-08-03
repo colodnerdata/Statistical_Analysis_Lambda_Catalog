@@ -412,7 +412,7 @@ parallel-function-set debate; and the single-axis "Predictor Type" design?
 ## v2.1 — Sequence, gap-aware longitudinal, serial-correlation diagnostics, fixed effects
 
 The full v2.1 ship list is in
-[TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-in-progress).
+[TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-shipped-within-300-leftovers).
 This file records the *decisions* — what was resolved and why.
 
 ### df plumbing — optional `[DF_Absorbed]` argument
@@ -614,7 +614,7 @@ only (near 2 ⇒ no first-order autocorrelation in the within residuals).
 **Rationale:** BFN significance bounds are N,T-dependent (Bhargava et
 al. 1982 tables), and the standard DW bounds must not be presented
 next to it. Surfacing proper BFN bounds is the recorded open item.
-Tracked in [TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-in-progress).
+Tracked in [TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-shipped-within-300-leftovers).
 
 ### Categorical × FE prediction encoding — DEFERRED
 
@@ -627,7 +627,7 @@ the *constructed* design-matrix space (dummies encoded through the
 same `Dummy_Code` path `x_s()` uses), not raw input space. Largely
 subsumed by v2.0 categorical prediction; recorded so the encoding
 step is not forgotten. Tracked in
-[TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-in-progress).
+[TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-shipped-within-300-leftovers).
 
 ---
 
@@ -1042,7 +1042,7 @@ keep emitting one artifact?
 
 **Resolution:** the build emits **two workbooks**. Univariate Analysis moves to
 its own artifact; the Regression workbook keeps every other sheet. **Both
-workbooks carry the complete function library** — all 126 catalog functions ship
+workbooks carry the complete function library** — all 131 catalog functions ship
 in both Name Managers. There is no bundling, no dependency closure, and no
 per-artifact function subsetting; the workbooks differ only in which sheets they
 contain. Splitting lets each artifact set its own calculation mode, and the

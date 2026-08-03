@@ -85,11 +85,13 @@ Tests live in `tests/`. The current test files are:
 | `test_qc_configs.py` | QC config generation, cross-consistency between scalar/vector/observation configs, regression sheet diagnostics, cache round-trips |
 | `test_bfn_panel_durbin_watson_verification.py` | `BFN_Panel_Durbin_Watson` against the WHO panel — within-group differencing via `Difference_By`, mutual gating with `Durbin_Watson_By` |
 | `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the reserved-spec-column pattern) |
-| `test_difference_by_verification.py` | Gap-aware `Difference_By` (WHO exact counts plus the punched-out-year and calendar-date synthetic cases per `HUMAN_TEST_PLAN_v20_model_construction.md` T17–T19) |
+| `test_difference_by_verification.py` | Gap-aware `Difference_By` — WHO exact counts plus the punched-out-year and calendar-date synthetic cases (the automated form of the retired v2.0 test plan's T17–T19) |
 | `test_analyze_regression_spec_block.py` | Post-changeover spec-block QC analyzer (predicted counts and values, regression sheet spec state) |
 | `test_regression_spec_qc.py` | Spec-driven Regression QC oracle (`analyze_regression_spec.py` case definitions) |
 | `test_csv_dataset_loader.py` | `load_csv_rows` (`write_sheet_csv_dataset.py`) against all three `CsvDatasetConfig`s and the committed sample CSVs |
 | `test_mileage_completeness_qc.py` | `calculate_mileage_completeness_flags` (`analyze_mileage.py`) against the Auto MPG dataset |
+| `test_intercept_relocation.py` | v3.0 stage 1 — the relocated intercept read back through the context-accessor path (200 datasets, both intercept states), the FE correction routed through element 2 of the same context array, plus the contract assertions: only `Model_Context` declares `Has_Intercept`/`DF_Absorbed`, no carrier reads the context with a bare positional index, `ROWS(Model_Context())` is 4 |
+| `test_recording_sheet.py` | The `RecordingSheet` test double itself (`tests/recording_sheet.py`) — the mock every Excel-free sheet-writer test is built on |
 | `test_within_estimator.py` | v2.1 Fixed Effects phase 2 — the constructor pipeline — the fit-time pair `Design_Response()`/`Design_Columns()` and its stage order, against an independent `statsmodels` LSDV fit |
 | `test_group_panel_transforms.py` | v2.1 Fixed Effects phase 1 — `Group_Mean`, `Demean_By`, `Is_Balanced_Panel`, `Absorbed_Degrees_Of_Freedom` |
 | `test_df_absorbed_threading.py` | v2.1 Fixed Effects phase 3 — `[DF_Absorbed]` threaded through SE/t/p/CI/MS-Residual/AIC/BIC/AICc, against an independent `statsmodels` LSDV fit |
@@ -138,7 +140,7 @@ There are two separate build scripts with distinct purposes. From v3.0 the produ
 | Regression | `Lambda_Library.xlsx` | **Automatic** (full) | Catalog, three sample datasets, Regression, the two reference sheets, Version History |
 | Univariate | `Lambda_Library_Univariate.xlsx` | **Automatic (Beta's two two-input Data Tables; the other seven fits are formula grids)** | Catalog, Life Expectancy Data, Univariate Analysis, Version History |
 
-**Both artifacts carry the complete function library.** All 126 LAMBDA definitions are written into both Name Managers. There is no bundling step, no dependency closure, and no per-artifact function subsetting — the artifacts differ only in which sheets they contain. When you add a function, it lands in both; there is no list to update.
+**Both artifacts carry the complete function library.** All 131 LAMBDA definitions are written into both Name Managers. There is no bundling step, no dependency closure, and no per-artifact function subsetting — the artifacts differ only in which sheets they contain. When you add a function, it lands in both; there is no list to update.
 
 **Why the split exists.** Excel's calculation mode is a workbook-level setting, and "Automatic except Data Tables" is the only mode under which a workbook with any Data Table can ship. Even with Weibull and Gamma demoted to static formula grids, Beta still uses two two-input Data Tables for the two-stage grid search. A combined workbook would have to either: (a) ship "Automatic except Data Tables" so the Regression user can recalculate, leaving Univariate's Beta fits **stale until the user presses Ctrl+Alt+F9** (a live correctness bug against the library's visible-failure philosophy), or (b) ship "Automatic including Data Tables" so the Beta fits are live, but Data Tables are workbook-level and would affect every user of either sheet. Two artifacts, two calculation modes, no compromise. See [DECISIONS.md § v3.0](DECISIONS.md#univariate-becomes-its-own-workbook).
 
@@ -210,7 +212,7 @@ uv run python build_production.py --verify --no-launch
 uv run python build_univariate.py
 ```
 
-Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artifact committed to the repo. Writes four sheets: **LAMBDA_functions**, **Life Expectancy Data** (the dataset the Univariate data zone reads via `LifeExpectancyData[Life expectancy]`), **Univariate** (descriptive statistics, histogram binning, and the two-stage Weibull/Gamma/Beta Data-Table grid-search fitting), and **Version History** (the Univariate artifact's own lineage, starting at 1.0.0). Carries the complete 126-function library; no Regression-side sheets.
+Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artifact committed to the repo. Writes four sheets: **LAMBDA_functions**, **Life Expectancy Data** (the dataset the Univariate data zone reads via `LifeExpectancyData[Life expectancy]`), **Univariate** (descriptive statistics, histogram binning, and the two-stage grid-search fitting — Beta via two two-input Data Tables, the other seven distributions via static formula grids), and **Version History** (the Univariate artifact's own lineage, starting at 1.0.0). Carries the complete 131-function library; no Regression-side sheets.
 
 **All `build_univariate.py` options:**
 
@@ -346,7 +348,7 @@ make verify-deep-univariate  # Layer 2, Univariate artifact
 
 ### CI
 
-GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every push and pull request via `.github/workflows/ci.yml`. The spec-driven verifier (Layer 2) is **not** run in CI: the GitHub-hosted `windows-latest` runner image does not include Microsoft Office, so xlwings fails to dispatch `Excel.Application` (`pywintypes.com_error: (-2147221005, 'Invalid class string')`). Until a self-hosted runner with Office is wired in, Layer 2 must be run on a developer machine (or any Windows box with desktop Excel) — the agentic workflow runs it before pushing. The `windows-verify` job was removed for that reason; see the comment block at the bottom of `ci.yml`. Layer 1 (the headless `tests/test_workbook_invariants.py` suite) is auto-discovered by the existing Linux job once it lands.
+GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every push and pull request via `.github/workflows/ci.yml`. The spec-driven verifier (Layer 2) is **not** run in CI: the GitHub-hosted `windows-latest` runner image does not include Microsoft Office, so xlwings fails to dispatch `Excel.Application` (`pywintypes.com_error: (-2147221005, 'Invalid class string')`). Until a self-hosted runner with Office is wired in, Layer 2 must be run on a developer machine (or any Windows box with desktop Excel) — the agentic workflow runs it before pushing. The `windows-verify` job was removed for that reason; see the comment block at the bottom of `ci.yml`. Layer 1 (the headless `tests/test_workbook_invariants.py` suite) needs no Excel and is auto-discovered by the existing Linux job, so it runs on every push and pull request.
 
 ## File structure
 

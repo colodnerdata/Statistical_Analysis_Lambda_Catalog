@@ -784,7 +784,8 @@ non-numeric value) returns `NA()`, not `""` — it is a visible
 incomputable observation, not an excluded row. `""` remains the
 excluded-row return. Verification: `tests/test_difference_by_verification.py`
 (WHO exact counts plus the punched-out-year and calendar-date synthetic
-cases); human test plan T17–T19.
+cases) — the automated form of the T17–T19 cases from the since-retired
+human test plan.
 
 ---
 

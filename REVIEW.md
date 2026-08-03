@@ -35,7 +35,7 @@ than something a single pass closes — and F5 is now itself an instance of it.
 `DECISIONS.md`, `TODOs.md`, `ROADMAP.md`,
 `build_production.py`, `build_qc.py`, `write_sheet_regression.py`,
 `write_sheet_univariate.py`, `write_sheet_model_construction.py`,
-`test_analyze_model_construction.py`, `test_difference_by_verification.py`
+`tests/test_analyze_model_construction.py`, `tests/test_difference_by_verification.py`
 (the automated test modules that supersede the retired v2.0 human test plan).
 Counts and quotes below are from those sources, not from the README (which is
 stale — see F7).

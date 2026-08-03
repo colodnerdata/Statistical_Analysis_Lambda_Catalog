@@ -511,7 +511,8 @@ already shipped at v2.2.
   (candidate-with-override display → Period In Use) plus the Sequence
   Spacing block (delta spectrum, Regularity/Off-grid flags,
   calendar-signature guidance). Verification:
-  `tests/test_difference_by_verification.py`; human test plan T17–T19.
+  `tests/test_difference_by_verification.py`, which carries the T17–T19
+  cases from the since-retired human test plan.
   The shipped semantics and the `NA()` exception are in
   [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy)
   and

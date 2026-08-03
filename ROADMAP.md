@@ -643,11 +643,21 @@ than silently rewriting one user input because another changed. Rationale, and
 the deferred derive-on-change design, in
 [DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring).
 
-**Verification.** Three QC cases (`interaction_continuous_product`,
-`interaction_quadratic_self_product`, `interaction_categorical_broadcast`) join
-the spec-driven oracle, so the Excel gate covers all three width regimes;
-`tests/test_interaction_wiring.py` pins the semantics headlessly against the
-Python mirror.
+**Verification — the Excel gate ran and cleared.** Three QC cases
+(`interaction_continuous_product`, `interaction_quadratic_self_product`,
+`interaction_categorical_broadcast`) join the spec-driven oracle, covering all
+three width regimes, and `tests/test_interaction_wiring.py` pins the semantics
+headlessly against the Python mirror. `build_production.py --verify --no-launch`
+was then run on a machine with Excel and reported **no spec-driven QC
+mismatch** — neither on the three new cases nor on the twelve pre-existing ones,
+which is the behaviour-preserving property this release had to hold: a spec with
+M and N blank must compute exactly what it computed under 3.0.0.
+
+The run's one reported failure, `[Univariate] sheet is missing`, is the verifier
+checking a sheet this artifact stopped carrying at v3.0. It is a false positive
+against the post-split layout, not a result — `skip_univariate` reaches the
+force-calc list but does not yet guard the check itself. Tracked as its own
+follow-up; see [TODOs.md](TODOs.md#v31--interaction-wiring--shipped).
 
 Design rationale: [DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring),
 building on the representation decisions in

@@ -20,6 +20,9 @@ existing `RecordingSheet` unit tests cannot see:
   * chart-relationship Targets that don't resolve to a real zip member
   * workbook_builder.py: post-`sync_workbook_names` rebuilds must leave no
     calcChain part or relationship behind
+  * the shipped Univariate distribution fits are at the maximum likelihood, and
+    the shipped workbook is the one the current writer produces
+    (``TestShippedUnivariateFits`` / ``TestShippedUnivariateLayout``)
 
 The synthetic 4-sheet fixture (``build_headless_fixture``) is the always-on
 source of truth for these invariants, alongside ``TestRealWorkbookNameScope``,
@@ -30,8 +33,15 @@ artifacts on every commit. The broader ``TestRealWorkbook`` /
 values ``Difference_By`` and ``Lag_By`` legitimately return at gap rows.
 
 The deep spec-driven check (``build_qc.verify_test_sheets``, xlwings + Excel
-required) is the source of truth for cell-level correctness. These invariants
-are the cheap, always-on packaging screen.
+required) is the source of truth for cell-level correctness — *except* for the
+Univariate fitting table, which it does not read at all. It checks the twelve
+descriptive statistics and the three histogram blocks and stops there, so a
+passing ``build_univariate.py --verify`` says nothing about whether the
+distribution fits are right. That is the gap the two ``TestShipped*`` classes
+close, and they close it headlessly: a built .xlsx caches every formula's last
+computed result, so the shipped parameters can be read out of the zip and
+checked against the reference MLEs in ``analyze_univariate`` with no Excel.
+Those two are the only checks here that do numeric work rather than structural.
 """
 # Pytest fixtures intentionally share names with the parameters they inject.
 # pylint: disable=redefined-outer-name
@@ -76,6 +86,9 @@ skip_real_workbook = pytest.mark.skipif(
 WORKBOOK_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
 RELS_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+# The r:id attribute on <sheet> lives in the officeDocument namespace, which is
+# a different one from the package namespace the .rels parts themselves use.
+OFFICE_RELS_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
 
 EXCEL_ERROR_LITERALS = ("#REF!", "#NAME?", "#VALUE!", "#NULL!", "#DIV/0!", "#N/A", "#NUM!")
 _VALID_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_.]*$")
@@ -243,6 +256,36 @@ class WorkbookPackage:
     def workbook_rels_root(self):
         with zipfile.ZipFile(self.path) as zf:
             return etree.fromstring(zf.read("xl/_rels/workbook.xml.rels"))
+
+    def sheet_part_for(self, sheet_name: str) -> str:
+        """Return the zip member holding a named worksheet, via workbook rels."""
+        rels = {
+            rel.get("Id"): rel.get("Target")
+            for rel in self.workbook_rels_root
+        }
+        for sheet in self.workbook_root.findall(f".//{_WB}sheets/{_WB}sheet"):
+            if sheet.get("name") == sheet_name:
+                rid = sheet.get(f"{{{OFFICE_RELS_NS}}}id")
+                target = rels[rid]
+                return posixpath.normpath(posixpath.join("xl", target))
+        raise KeyError(f"sheet {sheet_name!r} not in {self.path.name}")
+
+    def cell_values(self, sheet_part: str) -> dict[str, str]:
+        """Return {A1 address: cached <v> text} for one worksheet.
+
+        ``worksheet_cached_values`` flattens every value in the sheet, which
+        cannot answer "what is in I8". A built workbook stores each formula's
+        last computed result, so this is how the shipped fit parameters are
+        read without Excel.
+        """
+        with zipfile.ZipFile(self.path) as zf:
+            root = etree.fromstring(zf.read(sheet_part))
+        values: dict[str, str] = {}
+        for cell in root.iter(f"{_WB}c"):
+            value = cell.find(f"{_WB}v")
+            if value is not None and value.text is not None:
+                values[cell.get("r")] = value.text
+        return values
 
     def worksheet_cached_values(self, sheet_part: str) -> list[str]:
         """Return the text of every <v> and <t> element in the given worksheet."""
@@ -719,6 +762,252 @@ class TestRealWorkbookNameScope:
         self, univariate_workbook_package: WorkbookPackage
     ) -> None:
         _assert_no_external_links(univariate_workbook_package)
+
+
+# ---------------------------------------------------------------------------
+# Shipped-Univariate checks. Always on, like TestRealWorkbookNameScope above —
+# deliberately NOT under skip_real_workbook, because these two guard the one
+# thing no automated check covered before: whether the workbook we ship is the
+# one the current writer produces, and whether its fits are right.
+#
+# The spec-driven verifier (build_qc.verify_test_sheets, Excel required) reads
+# only the descriptive statistics and the three histogram blocks — it never
+# touches the fitting table. So a passing `build_univariate.py --verify` says
+# nothing about the distribution fits. A built .xlsx caches every formula's
+# last computed result, which is what lets these run headlessly in CI.
+# ---------------------------------------------------------------------------
+
+# How far above the reference MLE's NLL a shipped fit may sit. The two-stage
+# search is a grid, so it lands near the optimum, not on it: measured 0.091 for
+# Weibull and 0.0025 for Gamma on the shipped sample, and never worse than 0.09
+# across simulated Weibull shapes 0.4-30 and Gamma shapes 0.3-200. The failure
+# this guards against is coarser by two orders of magnitude — the pre-shrink 2-D
+# Gamma grid shipped a fit 6.8 NLL above the optimum, worth ~13.7 of AIC.
+_FIT_NLL_TOLERANCE = 0.5
+
+# The IFERROR sentinel every NLL LAMBDA falls back to on undefined likelihood.
+_NLL_SENTINEL = 1e15
+
+UNIVARIATE_SHEET = "Univariate"
+LIFE_EXPECTANCY_CSV = (
+    Path(__file__).resolve().parents[1] / "sample_data" / "Life Expectancy Data.csv"
+)
+
+
+def _life_expectancy_column() -> list[float | None]:
+    """The dataset column the Univariate sheet fits.
+
+    Same three steps as ``tools/inspect_univariate_sheet._load_source_data``,
+    off the same ``load_csv_rows`` / ``LIFE_EXPECTANCY`` pair, so this test and
+    the spec verifier cannot disagree about which rows are in the sample. Kept
+    inline rather than importing that module because it pulls in xlwings, which
+    these headless invariants deliberately never touch.
+    """
+    from lambda_catalog.write_sheet_csv_dataset import LIFE_EXPECTANCY, load_csv_rows
+
+    headers, rows = load_csv_rows(LIFE_EXPECTANCY_CSV, LIFE_EXPECTANCY)
+    column = headers.index("Life expectancy")
+    return [row[column] if column < len(row) else None for row in rows]
+
+
+def _defined_name_bodies(package: WorkbookPackage) -> list[tuple[str, str]]:
+    """Every defined name in the package as (name, body) pairs."""
+    return [
+        (element.get("name") or "", (element.text or "").strip())
+        for element in package.workbook_root.iter(_DEFINED_NAME_TAG)
+    ]
+
+
+def _shipped_fit_row(distribution: str) -> int:
+    """Row of a distribution in the fitting table, from the writer's own spec."""
+    from lambda_catalog.write_sheet_univariate import _ROW_DIST_START, _dist_rows
+
+    for row, name, *_ in _dist_rows(_ROW_DIST_START):
+        if name == distribution:
+            return row
+    raise KeyError(f"{distribution!r} is not a row in the fitting table")
+
+
+def _shipped_cells(
+    package: WorkbookPackage, distribution: str, columns: tuple[int, ...]
+) -> tuple[float, ...]:
+    """Read cached values from one fitting-table row.
+
+    Addresses come from the writer's column constants, so a column move breaks
+    this loudly rather than silently reading the wrong cell.
+    """
+    from lambda_catalog.workbook_helpers import col_letter
+
+    values = package.cell_values(package.sheet_part_for(UNIVARIATE_SHEET))
+    row = _shipped_fit_row(distribution)
+    out = []
+    for col in columns:
+        address = f"{col_letter(col)}{row}"
+        raw = values.get(address)
+        assert raw is not None, (
+            f"{distribution} {address} has no cached value in the shipped workbook — "
+            "it was saved without calculating, or the fitting table moved"
+        )
+        out.append(float(raw))
+    return tuple(out)
+
+
+def _shipped_two_parameter_fit(
+    package: WorkbookPackage, distribution: str
+) -> tuple[float, float, float]:
+    """Return (theta1, theta2, NLL) for a two-parameter fit."""
+    from lambda_catalog.write_sheet_univariate import _C_NLL, _C_T1_VAL, _C_T2_VAL
+
+    theta1, theta2, nll = _shipped_cells(
+        package, distribution, (_C_T1_VAL, _C_T2_VAL, _C_NLL)
+    )
+    return theta1, theta2, nll
+
+
+def _shipped_nll(package: WorkbookPackage, distribution: str) -> float:
+    """Return just the NLL, for rows whose parameter count varies.
+
+    Exponential fills only theta1 and Triangular/BetaPERT fill three, so the
+    NLL column is the one cell every row is guaranteed to have.
+    """
+    from lambda_catalog.write_sheet_univariate import _C_NLL
+
+    return _shipped_cells(package, distribution, (_C_NLL,))[0]
+
+
+class TestShippedUnivariateFits:
+    """The fits in the committed artifact are the ones the data supports.
+
+    Guards the search itself: a wrong profile formula, a bad bracket, or a
+    boundary-pinned optimum all show up as an NLL well above the reference MLE.
+    """
+
+    def test_weibull_fit_is_at_the_maximum_likelihood(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        from lambda_catalog.analyze_univariate import mle_weibull, nll_weibull
+
+        shape, scale, cached_nll = _shipped_two_parameter_fit(
+            univariate_workbook_package, "Weibull"
+        )
+        data = _life_expectancy_column()
+
+        assert 0.0 < shape < _NLL_SENTINEL and 0.0 < scale < _NLL_SENTINEL
+        # The cached NLL cell must agree with the parameters beside it.
+        assert cached_nll == pytest.approx(nll_weibull(data, shape, scale), rel=1e-9)
+
+        best_shape, best_scale = mle_weibull(data)
+        excess = nll_weibull(data, shape, scale) - nll_weibull(data, best_shape, best_scale)
+        assert excess == pytest.approx(0.0, abs=_FIT_NLL_TOLERANCE), (
+            f"shipped Weibull fit (k={shape:.4f}, lambda={scale:.4f}) sits {excess:.4f} "
+            f"NLL above the MLE (k={best_shape:.4f}, lambda={best_scale:.4f})"
+        )
+
+    def test_gamma_fit_is_at_the_maximum_likelihood(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        from lambda_catalog.analyze_univariate import mle_gamma, nll_gamma
+
+        shape, rate, cached_nll = _shipped_two_parameter_fit(
+            univariate_workbook_package, "Gamma"
+        )
+        data = _life_expectancy_column()
+
+        assert 0.0 < shape < _NLL_SENTINEL and 0.0 < rate < _NLL_SENTINEL
+        assert cached_nll == pytest.approx(nll_gamma(data, shape, rate), rel=1e-9)
+
+        best_shape, best_rate = mle_gamma(data)
+        excess = nll_gamma(data, shape, rate) - nll_gamma(data, best_shape, best_rate)
+        assert excess == pytest.approx(0.0, abs=_FIT_NLL_TOLERANCE), (
+            f"shipped Gamma fit (alpha={shape:.4f}, beta={rate:.4f}) sits {excess:.4f} "
+            f"NLL above the MLE (alpha={best_shape:.4f}, beta={best_rate:.4f})"
+        )
+
+    def test_beta_fit_is_finite_and_not_the_error_sentinel(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        """Beta has no closed-form MLE to compare against, so this is the
+        weaker invariant: the grid search returned real parameters rather than
+        collapsing to the IFERROR sentinel."""
+        alpha, beta, cached_nll = _shipped_two_parameter_fit(
+            univariate_workbook_package, "Beta"
+        )
+
+        assert 0.0 < alpha < _NLL_SENTINEL and 0.0 < beta < _NLL_SENTINEL
+        assert cached_nll < _NLL_SENTINEL, (
+            f"shipped Beta NLL is the {_NLL_SENTINEL:g} sentinel — the grid search "
+            "found no admissible parameter pair"
+        )
+
+    def test_every_fit_beats_the_worst_and_none_is_the_sentinel(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        """No distribution row may ship the sentinel: it would rank first or
+        last in the AIC/BIC comparison for the wrong reason."""
+        for distribution in (
+            "Normal", "Lognormal", "Exponential", "Weibull",
+            "Gamma", "Triangular", "Beta", "BetaPERT",
+        ):
+            cached_nll = _shipped_nll(univariate_workbook_package, distribution)
+            assert cached_nll < _NLL_SENTINEL, (
+                f"{distribution} ships the {_NLL_SENTINEL:g} NLL sentinel"
+            )
+
+
+class TestShippedUnivariateLayout:
+    """The committed artifact is the one the current writer produces.
+
+    Pairs with TestShippedUnivariateFits: a stale workbook can still hold
+    perfectly good fit values, so numeric correctness alone cannot catch a
+    forgotten rebuild. Both sides of every assertion derive from the writer's
+    zone table, so this compares artifact against writer rather than against a
+    transcribed constant.
+    """
+
+    def test_fit_zone_bodies_match_the_writer(
+        self, univariate_workbook_package: WorkbookPackage
+    ) -> None:
+        from lambda_catalog.workbook_helpers import col_letter
+        from lambda_catalog.write_sheet_univariate import (
+            _BAND_COL, _GS_R_BODY, _N_GRID, _N_PROFILE, _PS_BODY_COLS,
+            _PS_R_BODY, _ROW_FIT_ZONE,
+        )
+
+        (s1_axis, s1_body), _ = _PS_BODY_COLS
+        first = _ROW_FIT_ZONE + _PS_R_BODY
+        last = first + _N_PROFILE - 1
+        beta_first = _ROW_FIT_ZONE + _GS_R_BODY
+        expected = {}
+        for name, zone in (("UV_WB", "weibull"), ("UV_GAMMA", "gamma")):
+            c0 = _BAND_COL[zone]
+            expected[f"{name}_S1"] = (
+                f"Univariate!${col_letter(c0 + s1_body)}${first}"
+                f":${col_letter(c0 + s1_body)}${last}"
+            )
+            expected[f"{name}_S1_Axis"] = (
+                f"Univariate!${col_letter(c0 + s1_axis)}${first}"
+                f":${col_letter(c0 + s1_axis)}${last}"
+            )
+        beta = _BAND_COL["beta"]
+        expected["UV_BETA_S1"] = (
+            f"Univariate!${col_letter(beta + 1)}${beta_first}"
+            f":${col_letter(beta + _N_GRID)}${beta_first + _N_GRID - 1}"
+        )
+
+        actual = {
+            name.split("!", 1)[-1]: body
+            for name, body in _defined_name_bodies(univariate_workbook_package)
+        }
+        mismatched = {
+            key: (want, actual.get(key))
+            for key, want in expected.items()
+            if actual.get(key) != want
+        }
+        assert not mismatched, (
+            "the committed Lambda_Library_Univariate.xlsx does not match the "
+            "current writer — rebuild it with `python build_univariate.py "
+            f"--verify --no-launch` on a machine with Excel and commit it. {mismatched}"
+        )
 
 
 # ---------------------------------------------------------------------------

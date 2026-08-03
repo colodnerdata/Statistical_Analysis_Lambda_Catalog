@@ -73,15 +73,19 @@ still runs the artifact's only two Data Tables at 20×20, so the total is
   [DECISIONS.md § Univariate 2.0.0](DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half)
   for how the 1-D half resolved the equivalent questions.
 
-- TODO: **Rebuild and commit `Lambda_Library_Univariate.xlsx`, then delete
-  `Lambda_Library_Univariate_rearranged.xlsx`.** The 2.0.0 writer changes
-  have not been rendered into the committed artifact — that needs a machine
-  with Microsoft Excel (`python build_univariate.py --verify --no-launch`).
-  Until then the committed workbook still carries the four 20×20
-  Weibull/Gamma formula grids, their `UV_WB_*` / `UV_GAMMA_*` bodies at the
-  old 21-column extents, no `UV_Profile_*` names or profile charts, and the
-  old stage-major band. The headless invariant tests pass against it because
-  they check package structure, not sheet layout.
+- TODO: **Commit the rebuilt `Lambda_Library_Univariate.xlsx`, then delete
+  `Lambda_Library_Univariate_rearranged.xlsx`.** The build and the spec
+  verifier have both been run against the rearranged writer on a machine with
+  Excel and passed (114 names updated, 0 created, 0 removed,
+  `Base_Period_Delta` skipped as designed) — what remains is committing the
+  resulting workbook. The committed artifact currently carries the profile
+  search, all four `UV_Profile_*` names, and the 13 chart parts, but still the
+  **old stage-major band** (`UV_WB_S1` at `$BF$6:$BF$25`, `UV_BETA_S1` at
+  `$BF$58:$BY$77`).
+
+  `TestShippedUnivariateLayout` in `tests/test_workbook_invariants.py` is the
+  mechanical signal: it fails today, naming every stale range, and goes green
+  on its own once the rebuilt workbook lands. No code change closes it.
 
   `Lambda_Library_Univariate_rearranged.xlsx` is the reference the band
   rearrangement was built from and stays committed until that rebuild lands.

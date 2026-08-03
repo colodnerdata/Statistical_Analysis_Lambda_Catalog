@@ -196,8 +196,8 @@ from .sheet_styles import (
     CF_DARK_YELLOW_TEXT,
     CF_LIGHT_RED_FILL,
     CF_YELLOW_FILL,
+    HEADER_COLOR,
     INPUT_COLOR,
-    SUBHDR_COLOR,
 )
 from .workbook_helpers import (
     XL_SRC_RANGE,
@@ -208,6 +208,7 @@ from .workbook_helpers import (
     bold_row,
     col_letter,
     drop_local_name,
+    excel_color,
     f,
     f_structured,
     format_input,
@@ -1257,14 +1258,13 @@ def _write_spec_block(
     # to a ListObject with the referenced headers.
     _create_spec_table(sheet, profile)
 
-    # TableStyle overrides the header row's fill; re-pin it to SUBHDR_COLOR
-    # (the shared column-sub-header convention) so the header reads
-    # consistently with every other sheet regardless of the table style
-    # underneath. Covers column A's header too (outside the ListObject, so
-    # untouched by TableStyle) for a uniform row.
-    sheet.range(
-        (_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST)
-    ).color = SUBHDR_COLOR
+    # TableStyle overrides ListObject header styling. Re-pin the full
+    # specification header row after table creation so the Regression sheet's
+    # visible headers keep the intended style regardless of table theme.
+    header_range = sheet.range((_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST))
+    header_range.color = HEADER_COLOR
+    header_range.api.Font.Bold = True
+    header_range.api.Font.Color = excel_color((0, 0, 0))
 
     # A: variable names spill straight from the table's header row via the
     # Header_Names indirection (dataset-agnostic; reads no other sheet).

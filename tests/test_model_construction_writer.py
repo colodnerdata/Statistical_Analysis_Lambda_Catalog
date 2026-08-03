@@ -19,6 +19,7 @@ from lambda_catalog.sheet_styles import (
     CF_DARK_YELLOW_TEXT,
     CF_LIGHT_RED_FILL,
     CF_YELLOW_FILL,
+    HEADER_COLOR,
     INPUT_COLOR,
 )
 from lambda_catalog.workbook_helpers import excel_color
@@ -561,6 +562,10 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
 
     assert _N_VARIABLES == 12
     assert sheet.cell(_FIRST_DATA_ROW, 1).api.Formula2 == "=TRANSPOSE(Header_Names)"
+    header_row = sheet.range((_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST))
+    assert header_row.color == HEADER_COLOR
+    assert header_row.api.Font.Bold is True
+    assert header_row.api.Font.Color == excel_color((0, 0, 0))
     for offset, variable in enumerate(_VARIABLES):
         row = _FIRST_DATA_ROW + offset
         role, include, ptype = _DEFAULT_SPEC.get(variable, _FALLBACK_SPEC)

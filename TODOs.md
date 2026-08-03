@@ -172,7 +172,7 @@ learning-curve model; design rationale in
 The unfinished remainder (unit-space dispatcher, prediction
 back-transformation, standalone transform library) moved to v3.3 below.
 
-## v3.0 — The engine-interface release (in progress)
+## v3.0 — The engine-interface release (shipped 2026-08-02)
 
 Delivered in three stages plus the two-artifact split, in dependency order, all
 under one version number. Every stage has cleared its gate; the scope decision
@@ -401,47 +401,48 @@ cleared. Stage 2 shipped merged as #150.
   filtered-display zones remain Model-Construction-only, which is correct —
   the Regression sheet displays the same facts through its own zones.
 
-## v3.1 — Interaction wiring (next milestone)
+## v3.1 — Interaction wiring — SHIPPED
 
-The follow-on that v3.0 stage 3 bought room for. Spec columns M
-(Interaction Term) and N (Interaction Operation) already exist, validated
-and conditionally formatted but **read by no constructor** — so this is a
-formula change against columns that ship empty, with no second layout break
-behind it. The declared semantics are settled; see
-[DECISIONS.md § v3.0 interactions](DECISIONS.md#interactions-are-declared-with-two-spec-columns),
-[§ operation vocabulary](DECISIONS.md#interaction-operation-vocabulary--closed-with-a-symmetry-attribute),
-[§ self-interaction](DECISIONS.md#self-interaction-is-allowed-and-documented),
-[§ operand Role and Include](DECISIONS.md#operand-role-and-include-semantics--four-cases),
-and [§ two-way only](DECISIONS.md#two-way-interactions-only).
+Spec columns M/N are wired: `Predictor_Columns()` and its two twins build the
+declared interaction columns, and the Design Columns audit counts them. See
+[ROADMAP.md](ROADMAP.md#v31--interaction-wiring--shipped-2026-08-03) and
+[DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring).
 
-- TODO: Teach `Predictor_Columns()` to read `Spec_Interaction_Term` /
-  `Spec_Interaction_Operation` and build the interaction columns, honoring
-  the closed `Product | Difference | Ratio` vocabulary and its symmetry
-  attribute. Continuous × Continuous is one column; Continuous ×
-  Categorical broadcasts to L−1; Categorical × Categorical to
-  (L₁−1)(L₂−1). Two-way only. A self-reference under `Product` is the
-  documented quadratic term.
+- DONE: `Predictor_Columns()` reads `Spec_Interaction_Term` /
+  `Spec_Interaction_Operation` through a LET-bound `mate()` and combines the
+  declaring row's block with the operand's — both from the same `blk()` — under
+  the closed `Product | Difference | Ratio` vocabulary. `Ratio` returns `NA()`
+  on a zero denominator.
 
-- TODO: Extend `Constructed_Column_Names()` in the **same edit**. The
-  constructor and its name twin must stay width-identical — that invariant
-  is pinned by `tests/test_model_construction_writer.py` and is what every
-  downstream zone's row alignment rests on. Decide the label form for an
-  interaction column while doing it.
+- DONE: `Constructed_Column_Names()` and `Constructed_Column_Transforms()`
+  extended in the same edit, gating interactions identically so the three stay
+  width-identical. Interaction headers join the operands' own constructed names
+  with the operation's own symbol (` × ` / ` − ` / ` ÷ `, ` ? ` for anything
+  else); interaction columns always read Transform `None`.
 
-- TODO: Add the interaction term to the **column O Design Columns audit**,
-  which today counts main effects only by design — an audit that
-  anticipated columns the constructor did not build would report a matrix
-  that does not exist. The audit must keep mirroring the constructor's own
-  iteration predicate and degenerate skip rather than re-deriving the
-  count, per
-  [ARCHITECTURE.md § 4](ARCHITECTURE.md#the-design-columns-audit-column-o-built-at-v30).
-  The O1 total feeds the pre-flight width guard, so this is what makes the
-  guard correct for the case that motivated it: Status × Country on the WHO
-  data is 155 columns from a single spec row.
+- DONE: The column O audit gained its `k(row) × k(operand)` term off the same
+  per-row width helper both operands use, so audit and constructor agree by
+  construction.
 
-- TODO: Retire `test_interaction_bands_are_declared_but_read_by_no_constructor`
-  — it asserts precisely the reserved-and-unwired state this milestone
-  ends. Replace it with coverage of the built columns.
+- DONE: `test_interaction_bands_are_declared_but_read_by_no_constructor`
+  retired and replaced by
+  `test_interaction_bands_are_read_by_the_three_constructor_twins`, which pins
+  that exactly those three read the bands — `Sample_Include()`, `Row_Labels()`,
+  and `Response_Column()` must not.
+
+- DONE: Three QC cases added to the spec-driven oracle covering all three width
+  regimes, plus `tests/test_interaction_wiring.py` for the semantics.
+
+- DONE: **Spec-driven verifier run on a machine with Excel.**
+  `uv run python build_production.py --verify --no-launch` was run and the
+  v3.1 interaction-wiring checks cleared for the Regression workbook scope.
+  The current output still reports the Univariate sheet as missing under the
+  post-split artifact layout; that verifier warning/error-path cleanup is
+  tracked for a follow-up PR.
+
+- TODO: **Rebuild and commit both artifacts.** The 2.1.0 / 2.2.0 / 3.1.0
+  Version History entries and the new constructor formulas only reach users
+  through a rebuild.
 
 ## v3.2 — Full materialization of the design matrix
 
@@ -723,17 +724,14 @@ stay in this unordered bucket.
 
 Version-independent items. Not tied to a milestone; both stay open until done.
 
-- TODO: **Write the missing 2.1.0 and 2.2.0 Version History entries.**
-  `_VERSIONS` in `lambda_catalog/write_sheet_version_history.py` runs
-  1.0.0 → 1.1.0 → 1.2.0 → 2.0.0 → **3.0.0**. There is no 2.1.0 row and no
-  2.2.0 row, so Fixed Effects, the Sequence axis, the gap-aware
-  longitudinal layer, GVIF, and the column-G Log transform all reached
-  users with nothing in the workbook's own changelog describing them. That
-  sheet exists precisely so the history travels with the file for non-git
-  users (cost estimators), which is who this gap hurts. Both entries are
-  non-breaking (`Breaking?` = No) and both are Regression-workbook events.
-  Requires a rebuild of both artifacts to take effect, so it needs Excel —
-  fold it into the next build rather than doing it standalone.
+- DONE: **The missing 2.1.0 and 2.2.0 Version History entries are written.**
+  `_VERSIONS` in `lambda_catalog/write_sheet_version_history.py` ran
+  1.0.0 → 1.1.0 → 1.2.0 → 2.0.0 → 3.0.0, so Fixed Effects, the Sequence
+  axis, the gap-aware longitudinal layer, GVIF, and the column-G Log
+  transform all reached users with nothing in the workbook's own changelog
+  describing them. Both entries are non-breaking and both are
+  Regression-workbook events. **They only reach users on a rebuild** — see
+  the rebuild item under v3.1.
 
 - TODO: **Build one of the two mechanical drift checks** proposed in
   [CONTRIBUTING.md § Documentation drift](CONTRIBUTING.md#documentation-drift-proposed-check--not-yet-implemented)

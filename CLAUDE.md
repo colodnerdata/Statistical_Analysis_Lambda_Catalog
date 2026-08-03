@@ -32,6 +32,17 @@ The `as _NAME` alias keeps local helper functions (`_subheader_row`, etc.) uncha
 
 Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COLOR` in `write_sheet_diagnostic_guide.py`) remain as local constants in the relevant file.
 
+**Exception — the Regression spec block's header row uses `HEADER_COLOR`, not
+`SUBHDR_COLOR`.** By the table above it is a column sub-header row and would
+take `SUBHDR_COLOR`; it is deliberately pinned to `HEADER_COLOR` (`#CAEDFB`)
+with black bold text in `_write_spec_block`, because that row heads the sheet's
+primary *input* surface and reads as a zone heading rather than a subdivision of
+one. The pin has to be applied **after** `_create_spec_table`: creating the
+ListObject applies a TableStyle that overrides header fill and font, so styling
+it earlier is silently undone. `test_spec_block_prefills_the_t0_default_configuration`
+asserts all three properties so a future TableStyle change cannot quietly take
+them back.
+
 ### Section heading style
 
 A **section heading** is bold text with `HEADER_COLOR` fill at the default font size. The sheet title ("Univariate Analysis") is 14 pt bold with no fill — that is the only cell with a custom font size.

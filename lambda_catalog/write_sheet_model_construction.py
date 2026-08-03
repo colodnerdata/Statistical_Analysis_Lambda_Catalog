@@ -203,6 +203,7 @@ from .workbook_helpers import (
     XL_SRC_RANGE,
     XL_YES,
     add_expression_format,
+    anchor_comment_right_of_cell,
     bold,
     bold_row,
     col_letter,
@@ -211,6 +212,8 @@ from .workbook_helpers import (
     f_structured,
     format_input,
     get_or_create_sheet,
+    group_and_hide_columns,
+    note_dimensions,
     open_or_create_workbook,
     rc,
     reset_generated_sheet,
@@ -337,6 +340,48 @@ _SPEC_COLUMN_WIDTHS: dict[int, float] = {
 
 def _set_spec_block_column_widths(sheet: xw.Sheet) -> None:
     set_column_widths(sheet, _SPEC_COLUMN_WIDTHS.items())
+
+
+# Spec-block optional columns. The first four columns (Variable, Role,
+# Include, Type) are what a regular MLR user actually edits; the rest
+# (Reference Level, Order, Transform, Sequence, Sequence Period, Period
+# In Use, Levels, Reference In Use, plus the Interaction Term /
+# Interaction Operation / Design Columns audit columns) only matter for
+# Categorical predictors, the Transform feature, the Sequence axis, panel
+# data, and the interaction-pair / audit workflow. The Regression sheet's
+# zone-level outline group already wraps A:O as one collapsible block;
+# this sub-group nests underneath it so the user can collapse the optional
+# columns down to the MLR essentials on demand. The sub-group is collapsed
+# by default (columns hidden) so the shipped artifact shows only what a
+# regular MLR user needs; click the "+" to expand when Reference Level,
+# Sequence, the interaction pair, or the Design Columns audit is in play.
+_SPEC_OPTIONAL_FIRST_COL = 5    # E — Reference Level
+_SPEC_OPTIONAL_LAST_COL = _C_DESIGN_COLUMNS  # O — Design Columns audit
+
+
+def _set_spec_block_optional_outline_group(sheet: xw.Sheet) -> None:
+    """Group the optional spec columns (E:O) into a sub-outline and collapse.
+
+    Layered under the Regression sheet's zone-level A:O outline group, so
+    the spec block has two outline levels: the outer one collapses the
+    whole zone, this inner one collapses only the optional part. Collapsed
+    by default — the first MLR experience is four visible columns
+    (Variable, Role, Include, Type) plus the zone title and intercept
+    toggle. The optional columns (Reference Level, Order, Transform,
+    Sequence, Sequence Period, Period In Use, Levels, Reference In Use,
+    Interaction Term, Interaction Operation, Design Columns) and the
+    P/Q spec feedback are all hidden behind the same outline button, so
+    the Sequence / interaction / audit workflows are one click away.
+
+    F (Order) is width 0 already; including it in the group is harmless.
+    SpecTable is a ListObject on B3:O15 — ListObjects tolerate hidden
+    columns (structured references resolve by name, not by position),
+    so hiding the spec's optional columns does not break the Spec_*
+    band names or the constructor closures that read them.
+    """
+    group_and_hide_columns(
+        sheet, _SPEC_OPTIONAL_FIRST_COL, _SPEC_OPTIONAL_LAST_COL
+    )
 
 
 # Spec feedback zone (P, Q, I — the verdict overlay): the delta spectrum
@@ -727,6 +772,57 @@ _DESIGN_COLUMNS_NOTE = (
     "of by building a matrix that turns out not to fit."
 )
 
+# Plain-language tooltips for the spec-block column headers. Eight of the
+# twelve spec headers get their own note; the other four (Order, Transform,
+# Sequence, Sequence Period) use the longer notes defined above. Tone
+# matches the existing notes: one short paragraph, no formula jargon.
+_LABEL_NOTE = (
+    "The header names from your Source_Table, in source order. Edit the "
+    "table headers in Name Manager or on the data sheet, not this column "
+    "— these cells spill from Header_Names and are read-only."
+)
+_ROLE_NOTE = (
+    "What this column is used as: Response (y), Predictor (x), Identifier "
+    "(row label), Filter (sample mask), Fixed Effects (panel group), or "
+    "Omit (ignored). Exactly one Response is allowed; at most one Fixed "
+    "Effects; zero or many of the others."
+)
+_INCLUDE_NOTE = (
+    "TRUE/FALSE on/off switch. When FALSE, this variable is excluded from "
+    "the model without losing its column on the data sheet. The C2 cell "
+    "above the table is the model-level Intercept toggle."
+)
+_TYPE_NOTE = (
+    "Continuous, Categorical, or Identifier. Continuous goes in raw; "
+    "Categorical is dummy-coded with the level in column E as the "
+    "reference. Identifier rows contribute no model terms and are not "
+    "counted in the degrees of freedom."
+)
+_REFERENCE_NOTE = (
+    "For Categorical predictors, the level whose value the intercept "
+    "absorbs. Defaults to the first-in-sort-order level; type any level to "
+    "override. The cell turns red if the typed level is not present in the "
+    "analysis sample."
+)
+_PERIOD_IN_USE_NOTE = (
+    "The Base Period Δ actually in effect on the Sequence-flagged row: "
+    "your typed override from column I, or the computed candidate from "
+    "Sequence_Delta_Spectrum() (the most common gap within the FE group) "
+    "when I is blank. Lag_By and Difference_By read this cell."
+)
+_LEVELS_NOTE = (
+    "Count of distinct non-blank values of this Categorical predictor in "
+    "the analysis sample. A value of 1 on a Categorical row means a "
+    "single-level predictor, which contributes no columns — the cell is "
+    "flagged red so you can drop the row or widen the filter."
+)
+_REF_IN_USE_NOTE = (
+    "The level that is actually serving as the reference for dummy "
+    "coding: the typed value from column E if you supplied one, else the "
+    "first-in-sort-order default. Read this cell when an unexpected level "
+    "shows up as the comparison baseline."
+)
+
 # Count of Sequence flags across the live spec rows — the zero-or-one
 # validation shared by the H2 status line, the audit strip, and the
 # multi-flag conditional format (same TAKE-trimmed idiom as the
@@ -962,15 +1058,30 @@ def _add_list_validation(sheet: xw.Sheet, col: int, formula: str) -> None:
     rng.Validation.IgnoreBlank = True
 
 
-def _set_note(sheet: xw.Sheet, row: int, col: int, text: str) -> None:
-    """Replace the cell's note/comment text."""
-    cell_api = sheet.range(rc(row, col)).api
+def _set_note(
+    sheet: xw.Sheet, row: int, col: int, text: str, *, label: str | None = None
+) -> None:
+    """Replace the cell's note/comment text.
+
+    Sized and anchored to the right of the cell via the shared
+    `note_dimensions` + `anchor_comment_right_of_cell` helpers (same
+    heuristic as the regression sheet's notes). The ``label`` keyword
+    mirrors the regression sheet's signature so a notes override map
+    can be threaded through if any of the spec-block notes clip.
+    """
+    cell = sheet.range(rc(row, col))
+    cell_api = cell.api
     try:
         cell_api.ClearComments()
     except Exception:  # pylint: disable=broad-exception-caught
         pass
     cell_api.AddComment(text)
-    cell_api.Comment.Visible = False
+    try:
+        cell_api.Comment.Visible = False
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+    width, height = note_dimensions(label if label is not None else text, text)
+    anchor_comment_right_of_cell(sheet, row, col, width, height)
 
 
 def _interaction_error_formats(sheet: xw.Sheet) -> None:
@@ -1932,23 +2043,27 @@ def write_model_construction_sheet(
     _write_filtered_zones(sheet)
 
     # Reserved-column and Sequence notes are COM comment calls; keep them
-    # out of the RecordingSheet-testable spec block.
-    _set_note(sheet, _FIRST_DATA_ROW, _C_ORDER, _RESERVED_NOTE)
-    _set_note(sheet, _FIRST_DATA_ROW, _C_TRANSFORM, _TRANSFORM_NOTE)
-    _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE, _SEQUENCE_NOTE)
-    _set_note(sheet, _FIRST_DATA_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE)
-    _set_note(
-        sheet, _FIRST_DATA_ROW, _C_INTERACTION_TERM, _INTERACTION_TERM_NOTE
-    )
-    _set_note(
-        sheet,
-        _FIRST_DATA_ROW,
-        _C_INTERACTION_OPERATION,
-        _INTERACTION_OPERATION_NOTE,
-    )
-    _set_note(sheet, _FIRST_DATA_ROW, _C_DESIGN_COLUMNS, _DESIGN_COLUMNS_NOTE)
+    # out of the RecordingSheet-testable spec block. They attach to the
+    # header row (row 3) so the tooltip appears when the user hovers the
+    # column heading the notes describe, not the first variable row.
+    _set_note(sheet, _HEADER_ROW, _C_LABEL, _LABEL_NOTE, label="Variable")
+    _set_note(sheet, _HEADER_ROW, _C_ROLE, _ROLE_NOTE, label="Role")
+    _set_note(sheet, _HEADER_ROW, _C_INCLUDE, _INCLUDE_NOTE, label="Include")
+    _set_note(sheet, _HEADER_ROW, _C_TYPE, _TYPE_NOTE, label="Type")
+    _set_note(sheet, _HEADER_ROW, _C_REFERENCE, _REFERENCE_NOTE, label="Reference Level")
+    _set_note(sheet, _HEADER_ROW, _C_ORDER, _RESERVED_NOTE, label="Order")
+    _set_note(sheet, _HEADER_ROW, _C_TRANSFORM, _TRANSFORM_NOTE, label="Transform")
+    _set_note(sheet, _HEADER_ROW, _C_SEQUENCE, _SEQUENCE_NOTE, label="Sequence")
+    _set_note(sheet, _HEADER_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE, label="Sequence Period")
+    _set_note(sheet, _HEADER_ROW, _C_PERIOD_IN_USE, _PERIOD_IN_USE_NOTE, label="Period In Use")
+    _set_note(sheet, _HEADER_ROW, _C_LEVELS, _LEVELS_NOTE, label="Levels")
+    _set_note(sheet, _HEADER_ROW, _C_REF_IN_USE, _REF_IN_USE_NOTE, label="Reference In Use")
+    _set_note(sheet, _HEADER_ROW, _C_INTERACTION_TERM, _INTERACTION_TERM_NOTE, label="Interaction Term")
+    _set_note(sheet, _HEADER_ROW, _C_INTERACTION_OPERATION, _INTERACTION_OPERATION_NOTE, label="Interaction Operation")
+    _set_note(sheet, _HEADER_ROW, _C_DESIGN_COLUMNS, _DESIGN_COLUMNS_NOTE, label="Design Columns")
 
     _set_spec_block_column_widths(sheet)
+    _set_spec_block_optional_outline_group(sheet)
     return sheet
 
 

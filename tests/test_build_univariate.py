@@ -113,6 +113,7 @@ def _stub_writers(monkeypatch, writer_calls: list[str]) -> None:
         lambda _: SimpleNamespace(
             functions=(),
             workbook_functions=(),
+            univariate_sheet_notes={},
         ),
     )
     monkeypatch.setattr(
@@ -183,7 +184,7 @@ def test_build_passes_univariate_artifact_to_version_history(monkeypatch, tmp_pa
     monkeypatch.setattr(
         build_univariate,
         "load_catalog_document",
-        lambda _: SimpleNamespace(functions=(), workbook_functions=()),
+        lambda _: SimpleNamespace(functions=(), workbook_functions=(), univariate_sheet_notes={}),
     )
     monkeypatch.setattr(build_univariate, "load_csv_rows", lambda *_a, **_k: ([], []))
     monkeypatch.setattr(build_univariate, "write_catalog_sheet", lambda *_, **__: None)

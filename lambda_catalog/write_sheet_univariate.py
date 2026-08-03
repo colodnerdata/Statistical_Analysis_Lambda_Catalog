@@ -65,8 +65,9 @@ import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
-    OPEN_WORKBOOK_ERRORS, a1, border_box, col_letter, drop_local_name,
-    excel_color, f, rc, section_heading, set_column_widths, val,
+    OPEN_WORKBOOK_ERRORS, a1, anchor_comment_right_of_cell, border_box,
+    col_letter, drop_local_name, excel_color, f, note_dimensions, rc,
+    section_heading, set_column_widths, val,
 )
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
@@ -1659,6 +1660,64 @@ def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
 
 # ── Row height and freeze ─────────────────────────────────────────────────────
 
+def _set_note(
+    sheet: xw.Sheet, row: int, col: int, text: str, *, label: str | None = None
+) -> None:
+    """Replace the cell's note/comment text with a plain-language explanation.
+
+    Sized and anchored to the right of the cell via the shared
+    `note_dimensions` + `anchor_comment_right_of_cell` helpers (same
+    heuristic as the regression sheet's notes). The Univariate notes run
+    130–260 characters, so without explicit sizing the default Excel
+    comment box clips them.
+    """
+    cell = sheet.range(rc(row, col))
+    cell_api = cell.api
+    try:
+        cell_api.ClearComments()
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+    cell_api.AddComment(text)
+    try:
+        cell_api.Comment.Visible = False
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+    width, height = note_dimensions(label if label is not None else text, text)
+    anchor_comment_right_of_cell(sheet, row, col, width, height)
+
+
+def _annotate_univariate_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> None:
+    """Attach plain-language notes to key labels on the Univariate sheet.
+
+    Sites are restricted to column headers and zone headings (per the
+    project convention: notes go on labels, never on data cells). Method
+    labels, fitting-table headers, Q-Q zone headers, and the grid-search
+    control labels each get one short note pulled from sheet_notes.
+    """
+    note_cells = [
+        # Three histogram method labels (row 2, one per binning block)
+        (_ROW_METHOD_HDR, _C_STUR, "Sturges"),
+        (_ROW_METHOD_HDR, _C_SCOTT, "Scott"),
+        (_ROW_METHOD_HDR, _C_FD, "FD"),
+        # Distribution fitting table — acronym headers in row 4
+        (_ROW_COL_HDRS, _C_NLL, "NLL"),
+        (_ROW_COL_HDRS, _C_K_PARAM, "k"),
+        (_ROW_COL_HDRS, _C_AIC, "AIC"),
+        (_ROW_COL_HDRS, _C_BIC, "BIC"),
+        (_ROW_COL_HDRS, _C_AD, "A-D"),
+        (_ROW_COL_HDRS, _C_KS, "K-S"),
+        # Q-Q plot data zone (row 1 zone heading, row 4 column sub-headers)
+        (_ROW_TITLE, _C_QQ, "Q-Q Plot Data"),
+        (_ROW_COL_HDRS, _C_QQ + _QQ_P, "P"),
+        (_ROW_COL_HDRS, _C_QQ + _QQ_SAMPLE, "Sample"),
+    ]
+
+    for row, col, key in note_cells:
+        note_text = sheet_notes.get(key)
+        if note_text is not None:
+            _set_note(sheet, row, col, note_text, label=key)
+
+
 def _finalize_sheet(sheet: xw.Sheet) -> None:
     sheet.range(rc(1, 1)).api.EntireRow.RowHeight = 20
     sheet.range(rc(_ROW_METHOD_HDR, 1)).api.EntireRow.RowHeight = 18
@@ -1671,13 +1730,22 @@ def _finalize_sheet(sheet: xw.Sheet) -> None:
 
 # ── Main entry point ──────────────────────────────────────────────────────────
 
-def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
+def write_univariate_sheet(
+    workbook: xw.Book,
+    sheet_notes: dict[str, str] | None = None,
+) -> xw.Sheet:
     """Create or replace the Univariate sheet and write all content.
 
     Parameters
     ----------
     workbook : xw.Book
         Open xlwings workbook to write into.
+    sheet_notes : dict[str, str] | None
+        Plain-language tooltips for column headers and zone labels,
+        keyed by label text. Pulled from the ``univariate_sheet_notes``
+        key in lambda_functions.json by the build script. Optional —
+        no notes are attached when ``None`` or empty (the caller's
+        ``{}`` fallback keeps the standalone build free of dict wiring).
 
     Returns
     -------
@@ -1720,6 +1788,10 @@ def write_univariate_sheet(workbook: xw.Book) -> xw.Sheet:
         _write_qq_charts(sheet)
     except Exception:
         pass
+
+    # Notes attach after the labels are on the sheet, but before freeze
+    # panes so the comment anchors are not displaced by a later resize.
+    _annotate_univariate_terms(sheet, sheet_notes or {})
 
     _finalize_sheet(sheet)
 

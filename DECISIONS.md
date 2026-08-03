@@ -1048,16 +1048,18 @@ per-artifact function subsetting; the workbooks differ only in which sheets they
 contain. Splitting lets each artifact set its own calculation mode, and the
 Regression workbook returns to full Automatic.
 
-**Rationale:** the semiautomatic mode is forced by the Univariate sheet's six
-two-input Data Tables (Weibull, Gamma, Beta × two stages, 20×20 each —
-2,400 NLL evaluations per full recalculation). Two consequences shipped with it.
-First, every Regression user receives a non-default calculation mode as a side
-effect of a sheet they may never open. Second, and far more serious, **Univariate
-fit results are stale until the user presses Ctrl+Alt+F9** — the flagship
-distribution-fitting sheet silently displays a previous answer. That is a direct
-violation of the live-recalculation and visible-failure philosophy, in the one
-place the philosophy exists to prevent it. Keeping the two sheets in one file
-means one calculation mode has to be wrong for one of them.
+**Rationale:** the semiautomatic mode is forced by any workbook that contains
+a Data Table. Even after Weibull and Gamma were demoted to static formula
+grids (a hardening change shipped with v3.0, not separately logged), Beta's
+two-stage grid search still uses two two-input Data Tables (20×20 each).
+Two consequences would ship with a combined workbook. First, every Regression
+user receives a non-default calculation mode as a side effect of a sheet they
+may never open. Second, and far more serious, **Univariate fit results are
+stale until the user presses Ctrl+Alt+F9** — the flagship distribution-fitting
+sheet silently displays a previous answer. That is a direct violation of the
+live-recalculation and visible-failure philosophy, in the one place the
+philosophy exists to prevent it. Keeping the two sheets in one file means
+one calculation mode has to be wrong for one of them.
 
 **Breakage class: non-breaking, for both artifacts.** The split is packaging
 only — no formula, no input cell, and no named range changes meaning. Per the

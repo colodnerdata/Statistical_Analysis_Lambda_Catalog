@@ -12,7 +12,15 @@ from lambda_catalog.sheet_styles import (
     INPUT_COLOR,
 )
 from lambda_catalog.catalog_schema import catalog_argument_names
-from lambda_catalog.workbook_helpers import add_expression_format, col_letter, excel_color, rc
+from lambda_catalog.workbook_helpers import (
+    _NOTE_MAX_WIDTH,
+    _NOTE_MIN_WIDTH,
+    add_expression_format,
+    col_letter,
+    excel_color,
+    note_dimensions as _note_dimensions,
+    rc,
+)
 from lambda_catalog.write_sheet_mlr_observation_test import _calc_formula as _observation_calc_formula
 from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
 from lambda_catalog.write_sheet_mlr_vector_outputs_test import _calc_formula as _vector_calc_formula
@@ -54,12 +62,9 @@ from lambda_catalog.write_sheet_regression import (
     _MODEL_CONTEXT_ROWS,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
-    _NOTE_MAX_WIDTH,
-    _NOTE_MIN_WIDTH,
     _NOTE_SIZE_OVERRIDES,
     _ROW_CHART_LABELS,
     _diagnostic_chart_specs,
-    _note_dimensions,
     _setup_local_names as _setup_regression_names,
     _write_chart_label_cells,
     _write_coefficients,
@@ -198,7 +203,7 @@ def test_note_dimensions_override_replaces_only_the_given_axis() -> None:
 
     _NOTE_SIZE_OVERRIDES[label] = (default_width + 50.0, None)
     try:
-        width, height = _note_dimensions(label, text)
+        width, height = _note_dimensions(label, text, _NOTE_SIZE_OVERRIDES)
     finally:
         del _NOTE_SIZE_OVERRIDES[label]
 

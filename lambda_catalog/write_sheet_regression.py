@@ -74,7 +74,6 @@ write_sheet_model_construction so the two sheets can never drift.
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
-import math
 from pathlib import Path
 from typing import Any
 
@@ -90,13 +89,20 @@ from .sheet_styles import (
     INPUT_COLOR as _INPUT,
 )
 from .workbook_helpers import (
-    MAX_EXCEL_ROW, a1, add_expression_format, bold, bold_row, border_box,
-    col_letter, drop_local_name, excel_color, f, format_input, rc,
-    safe_activate, section_heading, val,
+    MAX_EXCEL_ROW, a1, add_expression_format, anchor_comment_right_of_cell,
+    bold, bold_row, border_box, col_letter, drop_local_name, excel_color, f,
+    format_input, note_dimensions, rc, safe_activate, section_heading, val,
 )
 from .write_sheet_model_construction import (
     SPEC_DATASET_PROFILES,
     SpecDatasetProfile,
+    _INCLUDE_NOTE,
+    _LABEL_NOTE,
+    _LEVELS_NOTE,
+    _PERIOD_IN_USE_NOTE,
+    _REF_IN_USE_NOTE,
+    _REFERENCE_NOTE,
+    _ROLE_NOTE,
     _SEQUENCE_PERIOD_NOTE,
     _DESIGN_COLUMNS_NOTE,
     _FIXED_EFFECTS_COUNT_FORMULA,
@@ -111,6 +117,13 @@ from .write_sheet_model_construction import (
     _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
     _TRANSFORM_NOTE,
+    _TYPE_NOTE,
+    _C_INCLUDE as _C_SPEC_INCLUDE,
+    _C_LABEL as _C_SPEC_LABEL,
+    _C_LEVELS as _C_SPEC_LEVELS,
+    _C_PERIOD_IN_USE as _C_SPEC_PERIOD_IN_USE,
+    _C_REFERENCE as _C_SPEC_REFERENCE,
+    _C_ROLE as _C_SPEC_ROLE,
     _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
     _C_DESIGN_COLUMNS as _C_SPEC_DESIGN_COLUMNS,
     _C_INTERACTION_OPERATION as _C_SPEC_INTERACTION_OPERATION,
@@ -120,9 +133,12 @@ from .write_sheet_model_construction import (
     _C_SEQUENCE as _C_SPEC_SEQUENCE,
     _C_SPEC_LAST,
     _C_TRANSFORM as _C_SPEC_TRANSFORM,
+    _C_TYPE as _C_SPEC_TYPE,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
+    _HEADER_ROW as _SPEC_HEADER_ROW,
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _set_spec_block_column_widths,
+    _set_spec_block_optional_outline_group,
     _write_intercept_control,
     _write_spec_block,
     _write_spec_feedback,
@@ -458,48 +474,14 @@ def _input_range(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
 # plain-language notes on this sheet, so every note is explicitly sized and
 # positioned instead of left at the Excel default. Width/height are guessed
 # from the text length (see _note_dimensions); either axis can be overridden
-# per note here for manual tuning without touching the sizing heuristic.
-# Key is the note's label — the sheet_notes key for statistical-term notes
-# (e.g. "Durbin-Watson"), or the human-readable label passed at the four
-# Model Specification call sites below (e.g. "Reserved", "Transform").
-_NOTE_MIN_WIDTH = 150.0     # points
-_NOTE_MAX_WIDTH = 320.0     # points
-_NOTE_BASE_WIDTH = 200.0    # width used for a ~80-char note before scaling
-_NOTE_CHARS_PER_LINE_PER_POINT = 1.0 / 5.2  # ~5.2pt per character at 8pt Tahoma
-_NOTE_LINE_HEIGHT = 12.0    # points per wrapped line
-_NOTE_MIN_HEIGHT = 32.0     # points
-_NOTE_VERTICAL_PADDING = 10.0  # points added above/below the wrapped text
-
+# Per-note size overrides for the Regression sheet's notes. Key is the note's
+# label — the sheet_notes key for statistical-term notes (e.g. "Durbin-Watson"),
+# or the human-readable label passed at the spec-block call sites (e.g. "Reserved",
+# "Transform"). The shared heuristic in `workbook_helpers.note_dimensions` handles
+# the rest; this dict is just the hand-tuning knob for outliers.
 _NOTE_SIZE_OVERRIDES: dict[str, tuple[float | None, float | None]] = {
     # "Durbin-Watson": (320.0, 170.0),  # example manual override (width, height)
 }
-
-
-def _note_dimensions(label: str, text: str) -> tuple[float, float]:
-    """Guess a (width, height) in points that fits `text` without clipping.
-
-    Width grows with text length (clamped to a readable range); height is
-    then derived from how many lines that width wraps the text into. A
-    per-`label` entry in _NOTE_SIZE_OVERRIDES replaces either axis (or
-    both) for hand-tuning notes the heuristic guesses wrong for.
-    """
-    length = len(text)
-    width = min(
-        _NOTE_MAX_WIDTH,
-        max(_NOTE_MIN_WIDTH, _NOTE_BASE_WIDTH + (length - 80) * 0.35),
-    )
-    chars_per_line = max(1, int(width * _NOTE_CHARS_PER_LINE_PER_POINT))
-    lines = sum(
-        max(1, math.ceil(len(paragraph) / chars_per_line))
-        for paragraph in text.split("\n")
-    )
-    height = max(_NOTE_MIN_HEIGHT, lines * _NOTE_LINE_HEIGHT + _NOTE_VERTICAL_PADDING)
-
-    override_width, override_height = _NOTE_SIZE_OVERRIDES.get(label, (None, None))
-    return (
-        override_width if override_width is not None else width,
-        override_height if override_height is not None else height,
-    )
 
 
 def _set_note(
@@ -507,7 +489,7 @@ def _set_note(
 ) -> None:
     """Replace the cell's note/comment text with a plain-language explanation.
 
-    The note box is sized to fit `text` (see _note_dimensions) and anchored
+    The note box is sized to fit `text` (via `note_dimensions`) and anchored
     directly to the right of the cell, rather than left at Excel's small
     default box and default offset position.
     """
@@ -518,17 +500,14 @@ def _set_note(
     except Exception:  # pylint: disable=broad-exception-caught
         pass
     cell_api.AddComment(text)
-    comment = cell_api.Comment
-    comment.Visible = False
-    width, height = _note_dimensions(label if label is not None else text, text)
     try:
-        comment_shape = comment.Shape
-        comment_shape.Width = width
-        comment_shape.Height = height
-        comment_shape.Left = cell.left + cell.width
-        comment_shape.Top = cell.top
+        cell_api.Comment.Visible = False
     except Exception:  # pylint: disable=broad-exception-caught
         pass
+    width, height = note_dimensions(
+        label if label is not None else text, text, _NOTE_SIZE_OVERRIDES
+    )
+    anchor_comment_right_of_cell(sheet, row, col, width, height)
 
 
 def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> None:
@@ -572,11 +551,17 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (20, _C_AH, "Beta Weight"),
         (17, _C_AL, "Training Mean"),
         (3, _C_AJ, "Point Estimate"),
-        (4, _C_AJ, "SE Prediction"),
-        (5, _C_AJ, "t Critical"),
-        (6, _C_AJ, "Lower 95%"),
-        (7, _C_AJ, "Upper 95%"),
-        (8, _C_AJ, "Confidence Level"),
+        (4, _C_AJ, "SE (Mean)"),
+        (5, _C_AJ, "SE (New Obs)"),
+        (6, _C_AJ, "t Critical"),
+        (7, _C_AJ, "CI Lower"),
+        (8, _C_AJ, "CI Upper"),
+        (9, _C_AJ, "PI Lower"),
+        (10, _C_AJ, "PI Upper"),
+        (11, _C_AJ, "Confidence Level"),
+        (12, _C_AJ, "FE Group"),
+        (13, _C_AJ, "Group Mean (y)"),
+        (14, _C_AJ, "Group Count"),
         (2, _C_AO, "Y"),
         (2, _C_AP, "Predicted Y"),
         (2, _C_AQ, "Residuals"),
@@ -587,6 +572,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (2, _C_AV, "Studentized Residuals Ranked"),
         (2, _C_AW, "Scale-Location"),
         (2, _C_AX, "PRESS Residual"),
+        (2, _C_AY, "Cook's Distance (Flagged)"),
     ]
 
     for row, col, key in note_cells:
@@ -1006,25 +992,27 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     _write_spec_feedback(sheet)
     _write_intercept_control(sheet)
     _write_design_matrix_width_guard(sheet)
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_ORDER, _RESERVED_NOTE, label="Reserved")
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_TRANSFORM, _TRANSFORM_NOTE, label="Transform")
-    _set_note(sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE, _SEQUENCE_NOTE, label="Sequence")
-    _set_note(
-        sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE,
-        label="Sequence Period",
-    )
-    _set_note(
-        sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_INTERACTION_TERM,
-        _INTERACTION_TERM_NOTE, label="Interaction Term",
-    )
-    _set_note(
-        sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_INTERACTION_OPERATION,
-        _INTERACTION_OPERATION_NOTE, label="Interaction Operation",
-    )
-    _set_note(
-        sheet, _SPEC_FIRST_DATA_ROW, _C_SPEC_DESIGN_COLUMNS,
-        _DESIGN_COLUMNS_NOTE, label="Design Columns",
-    )
+    # Spec-block notes anchor on the header row (row 3) so the tooltip
+    # appears when the user hovers the column heading the notes describe,
+    # not the first variable row. All twelve spec-block headers carry a
+    # plain-language note; the four (Order, Transform, Sequence, Sequence
+    # Period) that double as the shipped spec-feature headers use the
+    # longer notes defined in write_sheet_model_construction.py.
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_LABEL, _LABEL_NOTE, label="Variable")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_ROLE, _ROLE_NOTE, label="Role")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_INCLUDE, _INCLUDE_NOTE, label="Include")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_TYPE, _TYPE_NOTE, label="Type")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_REFERENCE, _REFERENCE_NOTE, label="Reference Level")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_ORDER, _RESERVED_NOTE, label="Order")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_TRANSFORM, _TRANSFORM_NOTE, label="Transform")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_SEQUENCE, _SEQUENCE_NOTE, label="Sequence")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE, label="Sequence Period")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_PERIOD_IN_USE, _PERIOD_IN_USE_NOTE, label="Period In Use")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_LEVELS, _LEVELS_NOTE, label="Levels")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_REF_IN_USE, _REF_IN_USE_NOTE, label="Reference In Use")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_INTERACTION_TERM, _INTERACTION_TERM_NOTE, label="Interaction Term")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_INTERACTION_OPERATION, _INTERACTION_OPERATION_NOTE, label="Interaction Operation")
+    _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_DESIGN_COLUMNS, _DESIGN_COLUMNS_NOTE, label="Design Columns")
 
 
 def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
@@ -2392,6 +2380,18 @@ def write_regression_output_sheet(
         sheet.api.Columns(
             f"{col_letter(first_col)}:{col_letter(last_col)}"
         ).Group()
+
+    # Spec-block optional sub-group (E:N). Nested inside the A:N zone group
+    # so the regular-MLR essentials (A: Variable, B: Role, C: Include, D:
+    # Type) stay visible by default while the optional columns
+    # (Reference Level, Order, Transform, Sequence, Sequence Period,
+    # Period In Use, Levels, Reference In Use, plus the M/N spec feedback
+    # and the I Verdict overlay) collapse to a single "+" button. One
+    # click expands them when a Categorical predictor, a Transform, or a
+    # Sequence axis enters the spec. Order matters: this must run AFTER
+    # the zone-level group above so Excel assigns it outline level 2
+    # underneath the level-1 A:N parent.
+    _set_spec_block_optional_outline_group(sheet)
 
     # Size the sub-header row to its wrapped contents (two lines for the
     # longer residual headers). Must run after the column widths above,

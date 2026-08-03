@@ -11,7 +11,7 @@ From v3.0 the build emits **two workbooks**. Both carry the **complete function 
 | **`Lambda_Library.xlsx`** | The Regression workbench, the three sample datasets, and the reference sheets | You are fitting models — regression, fixed effects, prediction, diagnostics. **This is the default.** |
 | **`Lambda_Library_Univariate.xlsx`** | The Univariate Analysis sheet — descriptive statistics, histogram binning, distribution fitting | You are characterizing a single variable's distribution, or fitting a distribution for cost/risk work |
 
-**Why two.** The Univariate sheet fits distributions using native two-input Data Tables — 2,400 negative-log-likelihood evaluations per full recalculation. Excel can only be told to skip Data Tables workbook-wide, so a single workbook forced one of two bad outcomes: either every Regression user paid that cost, or Univariate's results sat stale until the user pressed Ctrl+Alt+F9. Splitting lets each workbook set its own calculation mode. The Regression workbook now recalculates fully automatically, and Univariate's fits are live.
+**Why two.** The Univariate sheet's Beta distribution still uses native two-input Data Tables for the two-stage grid search — the other seven fits (including Weibull and Gamma) use static formula grids. Excel can only be told to skip Data Tables workbook-wide, so a single workbook would force one of two bad outcomes: either every Regression user paid the Data-Table cost, or Univariate's fits sat stale until the user pressed Ctrl+Alt+F9. Splitting lets each workbook set its own calculation mode. The Regression workbook now recalculates fully automatically, and Univariate's fits are live.
 
 Nothing is lost by choosing one: the function library is the same in both, and you can open both at once if you want both sets of sheets.
 
@@ -25,7 +25,7 @@ Most functions are defined as workbook-scoped names, so they work in any cell fo
 
 Around 30 catalog functions are called by no pre-built sheet. That is deliberate: they are the **standalone user-callable layer** — `Correlation_Matrix`, `Lag_By`, `Descriptive_Statistics`, `Design_Matrix` and others you call in your own cells on your own data. The pre-built sheets demonstrate the library; they are not the whole of it.
 
-To use these functions in a different workbook, open both files in Excel at the same time. You can reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
+To use these functions in a different workbook, you have two options. **The easy one:** if you are using one of the pre-built sheets (the Regression workbench or the Univariate Analysis sheet), copy the sheet into your own workbook. The sheet's named-range dependencies come with it — the **workbook-scoped LAMBDA definitions** (the ~120 portable functions) and the **sheet-scoped definitions** (the Regression sheet's constructor closures like `X_s`, `Sample_Include`, `Design_Columns`; the Univariate sheet's `UV_Data`, `UV_Include`, `GoF_AIC`) travel inside the sheet-copy and are renamed automatically. Open your workbook, the sheet calculates, and every function is ready in formulas. **The other one:** if you only want a single function, or you would rather not pull in the pre-built sheet at all, open both files in Excel at the same time and reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
 
 ## Versions
 
@@ -64,7 +64,7 @@ Includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000�
 
 The same **LAMBDA_functions** catalog and **Version History** sheets, plus:
 
-- **Univariate Analysis** — descriptive statistics, three side-by-side histogram binning methods (Sturges, Scott, Freedman-Diaconis), and two-stage grid-search distribution fitting via native Data Tables across eight candidate distributions. The fitted-distribution Q-Q plots and the histogram distribution overlays live alongside.
+- **Univariate Analysis** — descriptive statistics, three side-by-side histogram binning methods (Sturges, Scott, Freedman-Diaconis), and two-stage grid-search distribution fitting across eight candidate distributions. Beta uses native two-input Data Tables; the other seven (Weibull, Gamma, Normal, Log-Normal, Exponential, Triangular, BetaPERT) use static formula grids. The fitted-distribution Q-Q plots and the histogram distribution overlays live alongside.
 
 This workbook ships in full **Automatic** calculation mode including Data Tables, so fitted parameters update live as you change the input column — which is exactly what a single combined workbook could not deliver.
 

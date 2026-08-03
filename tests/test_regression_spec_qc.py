@@ -123,9 +123,10 @@ def test_build_qc_verification_calc_sheet_names_respects_skip_univariate_flag() 
 
 
 def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate_missing() -> None:
-    """A workbook built with --skip-univariate never gets a Univariate sheet.
-    Verification must skip it with a warning, not raise, regardless of
-    whether skip_univariate was explicitly passed for this call."""
+    """The Regression workbook (built by build_production.py) never contains
+    a Univariate sheet post-v3.0. Verification must skip it with a warning,
+    not raise, regardless of whether skip_univariate was explicitly passed
+    for this call."""
     import build_qc
 
     calls: list[str] = []

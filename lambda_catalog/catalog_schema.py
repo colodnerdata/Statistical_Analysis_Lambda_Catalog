@@ -157,10 +157,13 @@ class CatalogDocument:
         Ordered sequence of all function definitions.
     regression_sheet_notes : dict[str, str]
         Mapping of sheet label to plain-language note text.
+    univariate_sheet_notes : dict[str, str]
+        Mapping of Univariate sheet label to plain-language note text.
     """
 
     functions: tuple[CatalogFunction, ...]
     regression_sheet_notes: dict[str, str]
+    univariate_sheet_notes: dict[str, str]
 
     @property
     def workbook_functions(self) -> tuple[CatalogFunction, ...]:
@@ -262,7 +265,8 @@ def load_catalog_document(
     ValueError
         If the JSON structure is invalid, required fields are missing or blank,
         function names are duplicated, any test_table tag fails validation, or
-        regression_sheet_notes is not a string-to-string mapping.
+        regression_sheet_notes / univariate_sheet_notes are not string-to-string
+        mappings.
     """
     if payload is None:
         with path.open("r", encoding="utf-8") as handle:
@@ -392,9 +396,22 @@ def load_catalog_document(
                 f"got {type(value).__name__}."
             )
 
+    uv_notes_raw = payload.get("univariate_sheet_notes", {})
+    if not isinstance(uv_notes_raw, dict):
+        raise ValueError(
+            "univariate_sheet_notes in lambda_functions.json must be an object."
+        )
+    for key, value in uv_notes_raw.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            raise ValueError(
+                f"univariate_sheet_notes entry {key!r} must have string key and string value; "
+                f"got {type(value).__name__}."
+            )
+
     return CatalogDocument(
         functions=tuple(functions),
         regression_sheet_notes=dict(notes_raw),
+        univariate_sheet_notes=dict(uv_notes_raw),
     )
 
 

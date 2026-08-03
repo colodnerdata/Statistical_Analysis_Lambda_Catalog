@@ -38,6 +38,7 @@ from lambda_catalog.build_common import (
     _recalculate_and_save,
     _retry_on_open,
     print_name_sync_summary,
+    set_calculate_before_save,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.verify_report import (
@@ -249,6 +250,7 @@ def build_univariate_workbook(
     validate_reopen: bool = False,
     verbose: bool = False,
     recalculate: bool = True,
+    calculate: bool = True,
 ) -> NameSyncResult:
     """Build the standalone Univariate workbook and sync the LAMBDA name manager.
 
@@ -273,6 +275,20 @@ def build_univariate_workbook(
         the caller manages the recalculate step separately, or for fast
         iteration where the ~2,400 NLL evaluations per recalc would dominate
         build time.
+    calculate : bool, optional
+        If True (default), the workbook is switched to Automatic before the
+        save, which is what makes the shipped artifact recalculate on edit.
+        Pass False (or use ``--no-calculation``) to keep Excel in Manual for
+        the whole run and never calculate: Automatic is never set, Excel's
+        "recalculate before saving" is suppressed for the duration, and the
+        final rebuild is skipped whatever ``recalculate`` says.
+
+        This is the flag for inspecting structure — the name manager, the
+        sheet layout, the spill anchors — without paying for the grid
+        searches. What it costs is that **every computed cell in the saved
+        file is stale and the file is saved in Manual mode**, so an artifact
+        built this way must not be shipped. A normal build sets Automatic
+        before saving and runs the rebuild, so the next one heals both.
 
     Returns
     -------
@@ -314,8 +330,14 @@ def build_univariate_workbook(
             if sheet.name not in _TARGET_SHEET_NAMES and sheet.name != "Sheet1":
                 sheet.delete()
 
+        previous_calculate_before_save: bool | None = None
         try:
             app.api.Calculation = XL_CALCULATION_MANUAL
+            if not calculate:
+                # Under Manual, Excel still calculates on save unless this is
+                # off — the one calculation a Manual-mode build would
+                # otherwise still pay for.
+                previous_calculate_before_save = set_calculate_before_save(app, False)
             if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                 workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS
             write_catalog_sheet(workbook, document.functions)
@@ -323,9 +345,15 @@ def build_univariate_workbook(
             write_univariate_sheet(workbook, document.univariate_sheet_notes)
             write_version_history_sheet(workbook, artifact="univariate")
             _reorder_and_style_sheet_tabs(workbook)
-            app.api.Calculation = XL_CALCULATION_AUTOMATIC
+            if calculate:
+                # Setting Automatic on an open workbook calculates it there and
+                # then — the Beta Data Tables included. That is the point when
+                # building for real, and the cost --no-calculation avoids.
+                app.api.Calculation = XL_CALCULATION_AUTOMATIC
             workbook.save(str(workbook_path))
         finally:
+            if previous_calculate_before_save is not None:
+                set_calculate_before_save(app, previous_calculate_before_save)
             _close_workbook_quietly(workbook)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "open or save", exc)
@@ -344,7 +372,7 @@ def build_univariate_workbook(
     if verbose:
         print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
 
-    if recalculate:
+    if recalculate and calculate:
         _t = time.monotonic()
         _recalculate_and_save(workbook_path)
         if verbose:
@@ -416,6 +444,22 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--no-calculation",
+        action="store_true",
+        help=(
+            "Never calculate. Excel stays in Manual for the whole run: the "
+            "build does not switch to Automatic before saving, suppresses "
+            "Excel's recalculate-before-saving for the duration, and skips the "
+            "final rebuild. Use it to inspect structure — the name manager, "
+            "the sheet layout, the spill anchors — without paying for the grid "
+            "searches. Stronger than --skip-data-table-calculations, which "
+            "still pays a full calculation when the build switches to "
+            "Automatic ahead of the save. The workbook it leaves behind has "
+            "stale computed cells and is saved in Manual mode, so do not ship "
+            "it; the next ordinary build fixes both."
+        ),
+    )
+    parser.add_argument(
         "--verify",
         action="store_true",
         default=False,
@@ -457,6 +501,18 @@ def main() -> None:
     total_start = time.monotonic()
     recalc_elapsed: float | None = None
 
+    # Said up front rather than after the multi-minute write: --verify compares
+    # computed cells, and under --no-calculation there are none to compare, so
+    # every fit-value check would report a mismatch that means nothing.
+    if args.no_calculation and args.verify:
+        print(
+            "Warning: --verify with --no-calculation checks a workbook that "
+            "was never calculated; expect spurious mismatches on every "
+            "computed value. Drop --no-calculation to verify for real.",
+            file=sys.stderr,
+            flush=True,
+        )
+
     # Phase 1: write all sheets + sync names.
     # If the workbook is open in Excel at this point the entire write must be retried.
     result: NameSyncResult | None = None
@@ -470,6 +526,7 @@ def main() -> None:
             validate_reopen=False,  # handled below after recalculate
             verbose=args.verbose,
             recalculate=False,      # handled separately so only this step retries
+            calculate=not args.no_calculation,
         )
 
     build_phase_start = time.monotonic()
@@ -487,7 +544,14 @@ def main() -> None:
     # inspect progress — so it gets its own retry phase, separate from the
     # multi-minute write. Skipping it (--skip-data-table-calculations) leaves
     # the Data Tables uncomputed; the shipped artifact is built without it.
-    if not args.skip_data_table_calculations:
+    # --no-calculation skips it too — that flag's contract is that the run
+    # calculates nothing at all, so it cannot make an exception for the rebuild.
+    if args.no_calculation:
+        print(
+            "Recalculate:    skipped (--no-calculation; workbook saved in "
+            "Manual mode with stale computed cells — do not ship it)"
+        )
+    elif not args.skip_data_table_calculations:
         _t = time.monotonic()
         _retry_on_open(
             f"{args.workbook.name} is open in Excel",

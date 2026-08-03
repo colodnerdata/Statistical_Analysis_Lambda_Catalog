@@ -48,9 +48,10 @@ single ungrouped GAP column so the zones collapse independently; see the
   Col BA–BD      — chart title / axis-label formula cells (below the chart grid)
   Col BQ →       — the ARCHITECTURE §4b materialization band: the Model
                    Context block (a boxed, fixed-size label/value pair, one
-                   labelled cell per context element), the reserved
-                   Sample_Include column, and the terminal Constructed Design
-                   Matrix, each in its own outline group separated by
+                   labelled cell per context element), the materialized
+                   Sample_Include row mask, and the terminal Constructed
+                   Design Matrix — the last two headed on row 2 and spilling
+                   from row 3 — each in its own outline group separated by
                    ungrouped gutters. Nothing may ever be placed right of the
                    design matrix.
 
@@ -351,6 +352,30 @@ _CHART_WIDTH = 310.0         # points
 _CHART_HEIGHT = 310.0        # points
 _CHART_GAP = 10.0            # gap between charts in points
 
+# Y-axis tick-label number format, per chart. Keyed by the chart_specs key,
+# with _CHART_Y_TICK_FORMAT_DEFAULT for anything not listed — declarative
+# rather than a chain of `if key ==` overrides, so the format a chart gets is
+# readable in one place and pinnable by a unit test (the chart writer itself
+# is COM-only and cannot run headless).
+#
+# The default "0" suits the charts whose y values span the response's own
+# scale. It is wrong for any chart whose y values live in a narrow band near
+# zero, where integer ticks collapse the axis to two or three labels:
+#
+#   Scale-Location   sqrt(|studentized residual|), almost always inside 0-2 —
+#                    "0" renders 0/1/2 and throws away the spread the chart
+#                    exists to show. One decimal is the right resolution: the
+#                    diagnostic reads the TREND in that spread, not exact
+#                    values, and the CF thresholds on the source column sit at
+#                    1.414 / 1.732.
+#   Cook's Distance  typically 1e-4 to 1e-1 and heavily right-skewed, so it
+#                    takes scientific notation instead.
+_CHART_Y_TICK_FORMAT_DEFAULT = "0"
+_CHART_Y_TICK_FORMATS: dict[str, str] = {
+    "Scale-Location": "0.0",
+    "Cook's Distance": "0.0E+00",
+}
+
 # Chart label formula cells — one row per diagnostic chart, well below the
 # 2-col x 4-row chart grid's pixel footprint (row_step=320pt starting at row
 # 3, ~85 rows at default row height) so nothing ever renders on top of them.
@@ -410,11 +435,42 @@ _C_GUTTER_AFTER_CONTEXT = _C_MODEL_CONTEXT + 1
 _C_SAMPLE_INCLUDE_MATERIALIZED = _C_GUTTER_AFTER_CONTEXT + 1         # n x 1 spill
 _C_GUTTER_AFTER_SAMPLE_INCLUDE = _C_SAMPLE_INCLUDE_MATERIALIZED + 1
 _C_DESIGN_MATRIX = _C_GUTTER_AFTER_SAMPLE_INCLUDE + 1                # n x k, terminal
+# Header cell for the constructed column names, one column right of the
+# matrix anchor — the anchor's own header cell names the intercept column.
+_C_DESIGN_MATRIX_NAMES = _C_DESIGN_MATRIX + 1
 
-# All §4b zones share a first data row so the band reads across — the mask
-# value beside its design-matrix row, both aligned to the source table rows,
-# with the gutters as visual separators. Asserted in the build.
+# The band's first occupied row, under the row-1 zone headings. What that row
+# HOLDS differs by zone, because the zones are different kinds of thing:
+#
+#   Model Context      fixed-height label/value table, no column header, so
+#                      this is its first ELEMENT row (rows continue down
+#                      through _MODEL_CONTEXT_LAST_ROW)
+#   Sample_Include     column-header row, spilling from the row beneath
+#   Design Matrix      column-header row, spilling from the row beneath
+#
+# so this is deliberately NOT "the first data row" of every zone.
 _MATERIALIZATION_FIRST_ROW = 2
+
+# The read-across contract lives on the SPILL row, not the header row: the two
+# data-dependent zones spill full-height and row-aligned with the source table,
+# so the mask value sits beside its own design-matrix row with the gutters as
+# visual separators. Both zones must therefore start their spill on the same
+# row — asserted in the build.
+_MATERIALIZATION_HEADER_ROW = _MATERIALIZATION_FIRST_ROW
+_MATERIALIZATION_SPILL_ROW = _MATERIALIZATION_HEADER_ROW + 1
+
+# Header text over the materialized row mask.
+_SAMPLE_INCLUDE_HEADER = "In Sample"
+
+# The design matrix's header row is split across two cells because
+# Design_Columns() is one column WIDER than Constructed_Column_Names() when
+# the intercept is on: the constructor prepends the ones column (see the
+# HSTACK(ones, demeaned) branch of Design_Columns), and the names closure
+# describes the constructed predictor columns only — the same asymmetry the
+# coefficients table resolves with VSTACK("Intercept",...). So the first
+# design-matrix column gets its own header cell and the names spill starts one
+# column right of it.
+_DESIGN_MATRIX_INTERCEPT_HEADER = '=IF(Allow_Intercept,"Intercept","")'
 
 
 # ── The model context block ───────────────────────────────────────────────────
@@ -1966,14 +2022,33 @@ def _write_materialization_zone(
     surfaces as a visible cell error (caught by the headless verifier and by
     the block's own health-check row) without shifting a single fitted number.
 
-    The ``Sample_Include`` column is placed at its final §4b position as a
-    RESERVED placeholder. Promoting the live ``Sample_Include()`` closure to a
-    thunk over a materialized spill is deferred: it needs the dynamic-array
-    spill operator (``#``) inside a ``LAMBDA`` defined-name RefersTo, a
-    combination not yet used anywhere in this workbook and only verifiable with
-    Excel present. A wrong guess would break the row-mask contract that keeps
-    every spilled array row-aligned, so the optimization is landed separately
-    where it can be Excel-verified, not blind. The live closure is untouched.
+    The two data-dependent zones — the ``Sample_Include`` row mask and the
+    terminal Constructed Design Matrix — are SURFACED here: each carries a
+    column-header row at ``_MATERIALIZATION_HEADER_ROW`` and spills from
+    ``_MATERIALIZATION_SPILL_ROW``, full height and row-aligned with the source
+    table, so the mask reads straight across into the design-matrix row beside
+    it. Both replaced a ``"reserved"`` placeholder that held the position while
+    stage 3 established the layout, the outline behaviour, and the pre-flight
+    width guard.
+
+    Surfacing the values is NOT the same as rewiring the readers, and only the
+    first half lands here. ``Sample_Include()`` and ``Design_Columns()`` remain
+    live closures evaluated per call site; promoting either to a thunk over its
+    spill is still deferred, because that needs the dynamic-array spill
+    operator (``#``) inside a ``LAMBDA`` defined-name RefersTo — a combination
+    used nowhere else in this workbook and verifiable only with Excel present.
+    A wrong guess would break the row-mask contract that keeps every spilled
+    array row-aligned, so the optimization lands separately, Excel-verified
+    rather than blind. Nothing on the sheet reads these two spills today.
+
+    The design matrix's header row is split across two cells:
+    ``Design_Columns()`` is one column wider than
+    ``Constructed_Column_Names()`` when the intercept is on, because the
+    constructor prepends the ones column, so the anchor cell names that column
+    and the names spill starts beside it. With ``Allow_Intercept`` FALSE there
+    is no ones column and the names sit one column right of the values they
+    label — a labelling offset in an otherwise unread display zone, called out
+    on the heading cell's note.
 
     Plain cell writes + defined-name registration only; no chart/COM API, so
     this is exercised in unit tests via ``RecordingSheet`` without Excel. The
@@ -2040,21 +2115,40 @@ def _write_materialization_zone(
         sheet, 1, _C_MODEL_CONTEXT_LABEL, _ROW_MODEL_CONTEXT_CHECK, _C_MODEL_CONTEXT
     )
 
-    # ── Sample_Include (reserved) ────────────────────────────────────────────
+    # ── Sample_Include (materialized row mask) ───────────────────────────────
+    # The mask spills full-height and row-aligned with the source table (the
+    # row-mask contract), so it reads straight across into the design-matrix
+    # rows beside it. This SURFACES the value; it does not rewire the closure —
+    # Sample_Include() is still evaluated per call site, and promoting it to a
+    # thunk over this spill stays deferred (see the docstring).
     section_heading(sheet, 1, _C_SAMPLE_INCLUDE_MATERIALIZED, "Sample Include")
     val(
         sheet,
-        2,
+        _MATERIALIZATION_HEADER_ROW,
         _C_SAMPLE_INCLUDE_MATERIALIZED,
-        "reserved",
+        _SAMPLE_INCLUDE_HEADER,
     )
-    # Document the deferral on the header cell so the reserved column is not
-    # mistaken for an oversight.
+    bold_row(
+        sheet,
+        _MATERIALIZATION_HEADER_ROW,
+        _C_SAMPLE_INCLUDE_MATERIALIZED,
+        _C_SAMPLE_INCLUDE_MATERIALIZED,
+    )
+    f(
+        sheet,
+        _MATERIALIZATION_SPILL_ROW,
+        _C_SAMPLE_INCLUDE_MATERIALIZED,
+        "=Sample_Include()",
+    )
+    # Document what the column is for on the heading cell — it is a read-only
+    # view of the mask every engine applies, not a second place to edit it.
     try:
         sheet.range(rc(1, _C_SAMPLE_INCLUDE_MATERIALIZED)).api.AddComment(
-            "Reserved §4b position. Sample_Include() is materialized here as a "
-            "thunk over a spill in a follow-up (Excel-verified), not blind; the "
-            "live closure remains the row mask until then."
+            "TRUE for every source row the model is fitted on. Read-only view "
+            "of the row mask the engines apply — change it through the spec "
+            "block (Include, and any Role=Filter column), not here. Full "
+            "height and row-aligned with the source table, so it reads "
+            "straight across into the design matrix to its right."
         )
     except Exception:  # pylint: disable=broad-except
         pass
@@ -2067,32 +2161,54 @@ def _write_materialization_zone(
     # expanded: an unbounded-width zone that cannot be collapsed is a
     # scrolling hazard.
     #
-    # Establishing the zone and MATERIALIZING into it are deliberately
-    # separate steps. The position, the outline behaviour, and the width
-    # guard that reads the spec's pre-flight column count are what a later
-    # release cannot add without moving columns again, so they land now; the
-    # spill itself is a formula change into a column that already exists.
-    # Same reserved-position treatment the Sample_Include column above got,
-    # for the same reason.
+    # Establishing the zone and MATERIALIZING into it were deliberately
+    # separate steps: the position, the outline behaviour, and the width guard
+    # that reads the spec's pre-flight column count are what a later release
+    # could not add without moving columns again, so they landed first and the
+    # spill is a formula change into columns that already exist.
+    #
+    # The header row is split across two cells because the matrix is one
+    # column wider than its names when the intercept is on — the anchor cell
+    # names the constructor's ones column and the names spill starts beside
+    # it. See _DESIGN_MATRIX_INTERCEPT_HEADER.
     section_heading(sheet, 1, _C_DESIGN_MATRIX, "Constructed Design Matrix")
-    val(sheet, _MATERIALIZATION_FIRST_ROW, _C_DESIGN_MATRIX, "reserved")
+    f(
+        sheet,
+        _MATERIALIZATION_HEADER_ROW,
+        _C_DESIGN_MATRIX,
+        _DESIGN_MATRIX_INTERCEPT_HEADER,
+    )
+    f(
+        sheet,
+        _MATERIALIZATION_HEADER_ROW,
+        _C_DESIGN_MATRIX_NAMES,
+        "=Constructed_Column_Names()",
+    )
+    bold_row(
+        sheet, _MATERIALIZATION_HEADER_ROW, _C_DESIGN_MATRIX, _C_DESIGN_MATRIX_NAMES
+    )
+    f(sheet, _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX, "=Design_Columns()")
     try:
         sheet.range(rc(1, _C_DESIGN_MATRIX)).api.AddComment(
-            "Reserved §4b terminal position. Nothing may ever be placed to "
-            "the right of this zone: the design matrix's width is unbounded "
-            "and one dropdown away, so any zone after it would be displaced "
-            "by an ordinary modelling choice. Design_Columns() is "
-            "materialized here in a follow-up release; until then the "
-            "constructor is evaluated per call site, and the pre-flight "
-            "width guard in the spec block already reports what this zone "
-            "would occupy."
+            "The design matrix the engines actually fit: Design_Columns(), "
+            "full height and row-aligned with the source table and with the "
+            "Sample Include mask to its left (the engines apply that mask "
+            "themselves). Terminal §4b zone — nothing may ever be placed to "
+            "its right, because its width is unbounded and one dropdown away. "
+            "Ships collapsed for that reason.\n\n"
+            "Header row: the anchor cell names the intercept column the "
+            "constructor prepends, and Constructed_Column_Names() spills from "
+            "the column beside it. With Allow Intercept FALSE there is no "
+            "ones column, so the names sit one column right of the values "
+            "they label."
         )
     except Exception:  # pylint: disable=broad-except
         pass
 
-    # Every zone in the band starts on the same row so it reads across — the
-    # mask value beside its design-matrix row, both aligned to the source
-    # table rows. Asserted rather than merely intended.
+    # Both data-dependent zones spill from the same row so the band reads
+    # across — the mask value beside its design-matrix row, both aligned to
+    # the source table rows. Asserted rather than merely intended.
+    assert _MATERIALIZATION_SPILL_ROW == _MATERIALIZATION_HEADER_ROW + 1
     assert _MATERIALIZATION_FIRST_ROW == 2
 
     # ── Column widths + outline groups ───────────────────────────────────────
@@ -2282,14 +2398,16 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
         y_axis = chart.Axes(_XL_VALUE)
         y_axis.HasTitle = True
         y_axis.AxisTitle.Formula = _label_ref(_C_CHART_YLABEL, label_row)
-        y_axis.TickLabels.NumberFormat = "0"
+        # One unconditional assignment from the per-chart table, so a chart's
+        # y-axis format is whatever _CHART_Y_TICK_FORMATS says it is.
+        y_tick_format = _CHART_Y_TICK_FORMATS.get(key, _CHART_Y_TICK_FORMAT_DEFAULT)
+        y_axis.TickLabels.NumberFormat = y_tick_format
 
         gridline_mode = gridline_modes.get(key, "none")
         x_axis.HasMajorGridlines = gridline_mode == "both"
         y_axis.HasMajorGridlines = gridline_mode in {"y", "both"}
 
         if key == "Cook's Distance":
-            y_axis.TickLabels.NumberFormat = "0.0E+00"
             x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
 
             # Overlay series for selective data labels: NA()'d rows in
@@ -2310,7 +2428,7 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
             dls = flag_series.DataLabels()
             dls.ShowCategoryName = True  # observation identifier, e.g. "United States"
             dls.ShowValue = True         # ...plus the Cook's D value
-            dls.NumberFormat = "0.0E+00"  # matches the y-axis format
+            dls.NumberFormat = y_tick_format  # same format as the y-axis ticks
             dls.Position = 0              # xlLabelPositionAbove
         if key == "Studentized Residuals vs. Leverage":
             x_axis.TickLabels.NumberFormat = "0.00"
@@ -2518,9 +2636,10 @@ def write_regression_output_sheet(
     except Exception:
         pass
 
-    # §4b materialization zone: Model_Context (4x1, materialized spill) read via
-    # and the reserved Sample_Include column, placed at their final far-right
-    # positions with gutters. Runs after the column widths and zone groups so
+    # §4b materialization zone: the boxed Model Context block read via
+    # Fit_Context, the Sample_Include row mask, and the terminal Constructed
+    # Design Matrix, at their final far-right positions with gutters between
+    # them. Runs after the column widths and zone groups so
     # the chart-footprint clearance assertion sees the final geometry. Plain
     # cell writes + defined-name registration only (the COM-geometry assertion
     # is guarded), so it is headless-safe.

@@ -25,8 +25,10 @@ the sheet as it is, not as it is planned. Where a §4a example shows a
 `Fit_Context()` argument, that is the current signature. The sheet call passes the
 sheet-scoped reader `Fit_Context()`; a free-form caller outside the sheet passes
 the workbook-scoped constructor `Model_Context()`. One thing in §4b is still
-forward-looking and is marked where it appears: the Constructed Design Matrix zone
-is positioned, bounded, and guarded, but the spill that fills it lands at v3.2.
+forward-looking and is marked where it appears: the `Sample_Include` and
+Constructed Design Matrix zones are now filled, but their spills are only
+*displayed* — both closures are still evaluated per call site, and promoting
+either to a thunk over its spill is Excel-verified work that lands separately.
 
 ---
 
@@ -610,12 +612,29 @@ displaced by an ordinary modeling choice.
   deliberately outside the guard, so it cannot become a no-op in Excel, the one
   place it can run.
 
-- **The zone is established; the spill that fills it is not.** Positioning the
-  zone, its collapse behaviour, and the width guard are what a later release
-  cannot add without moving columns a second time, so they land with the layout
-  break. Materializing `Design_Columns()` into it is a formula change against a
-  column that already exists, and lands at v3.2 — the same reserved-position
-  treatment `Sample_Include` got, for the same reason.
+- **Surfacing a spill is not the same as rewiring its readers.** Positioning the
+  zone, its collapse behaviour, and the width guard were what a later release
+  could not add without moving columns a second time, so they landed with the
+  layout break; filling the zone was then a formula change against columns that
+  already existed. `Sample_Include()` and `Design_Columns()` now spill into
+  their zones — each headed on row 2 and spilling from row 3, full height and
+  row-aligned with the source table — but they are still **live closures
+  evaluated per call site**. Nothing on the sheet reads either spill. Promoting
+  either to a thunk over its own spill needs the dynamic-array spill operator
+  (`#`) inside a `LAMBDA` defined-name `Refers To`, a combination used nowhere
+  else in this workbook and verifiable only with Excel present, so it lands
+  separately and Excel-verified rather than blind.
+
+- **The design matrix's header row is split across two cells.**
+  `Design_Columns()` is one column wider than `Constructed_Column_Names()`
+  whenever the intercept is on — the constructor prepends the ones column,
+  while the names closure describes the constructed predictor columns only, the
+  same asymmetry the coefficients table resolves with
+  `VSTACK("Intercept", …)`. So the zone's anchor cell names the ones column
+  (`=IF(Allow_Intercept,"Intercept","")`) and the names spill starts in the
+  column beside it. With `Allow_Intercept` FALSE there is no ones column, so
+  the names sit one column right of the values they label; the heading cell's
+  note says so.
 
 ### The width guard
 

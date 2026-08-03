@@ -42,14 +42,19 @@ from lambda_catalog.write_sheet_regression import (
     _C_AX,
     _C_AY,
     _C_DESIGN_MATRIX,
+    _C_DESIGN_MATRIX_NAMES,
     _C_SPEC_DESIGN_COLUMNS,
     _C_SPEC_INTERACTION_OPERATION,
     _C_SPEC_INTERACTION_TERM,
     _DESIGN_MATRIX_GROUPED_COLUMNS,
+    _DESIGN_MATRIX_INTERCEPT_HEADER,
     _DESIGN_MATRIX_MAX_COLUMNS,
     _DESIGN_MATRIX_SOFT_CELLS,
     _DESIGN_MATRIX_SOFT_COLUMNS,
     _MATERIALIZATION_FIRST_ROW,
+    _MATERIALIZATION_HEADER_ROW,
+    _MATERIALIZATION_SPILL_ROW,
+    _SAMPLE_INCLUDE_HEADER,
     _C_GUTTER_AFTER_CHARTS,
     _C_GUTTER_AFTER_CONTEXT,
     _C_GUTTER_AFTER_SAMPLE_INCLUDE,
@@ -60,6 +65,8 @@ from lambda_catalog.write_sheet_regression import (
     _C_CHART_TITLE,
     _C_CHART_XLABEL,
     _C_CHART_YLABEL,
+    _CHART_Y_TICK_FORMATS,
+    _CHART_Y_TICK_FORMAT_DEFAULT,
     _MODEL_CONTEXT_ELEMENTS,
     _MODEL_CONTEXT_LAST_ROW,
     _MODEL_CONTEXT_ROWS,
@@ -332,6 +339,27 @@ def test_chart_label_cells_reference_live_statistics_and_stay_ordered() -> None:
     assert "$AF$2" in fitted_title
 
 
+def test_scale_location_y_axis_always_shows_one_decimal() -> None:
+    # Scale-Location plots sqrt(|studentized residual|), which almost always
+    # sits inside 0-2. Under the default "0" tick format the axis renders
+    # 0/1/2 and throws away the spread the chart exists to show, so it is
+    # pinned to one decimal. The chart writer is COM-only and cannot run
+    # headless, so the format TABLE is what gets asserted — which is the
+    # reason the formats are a declarative dict rather than a chain of
+    # `if key ==` overrides inside the writer.
+    assert _CHART_Y_TICK_FORMATS["Scale-Location"] == "0.0"
+
+    # Every key in the table must name a real chart, or a renamed chart would
+    # silently fall back to the default instead of failing.
+    keys = {spec[0] for spec in _diagnostic_chart_specs()}
+    assert set(_CHART_Y_TICK_FORMATS) <= keys
+
+    # Everything else keeps the default; Cook's Distance is the one other
+    # exception (1e-4 to 1e-1 and heavily right-skewed, so scientific).
+    assert _CHART_Y_TICK_FORMAT_DEFAULT == "0"
+    assert set(_CHART_Y_TICK_FORMATS) == {"Scale-Location", "Cook's Distance"}
+
+
 def test_intercept_only_n_does_not_depend_on_filter() -> None:
     sheet = RecordingSheet(name="Regression")
 
@@ -503,11 +531,18 @@ def test_materialization_zone_materializes_model_context() -> None:
     ).api
     assert set(box._borders) == {7, 8, 9, 10}
 
-    # Sample_Include is placed at its final §4b position as a RESERVED
-    # placeholder — promoting the live closure to a thunk over a spill is
-    # deferred (Excel-verified, not blind), so the column is documented, not
-    # silently empty.
-    assert sheet.cell(2, _C_SAMPLE_INCLUDE_MATERIALIZED).value == "reserved"
+    # Sample_Include is SURFACED at its final §4b position: a header row and a
+    # full-height spill of the live closure. Surfacing the value is not the
+    # same as rewiring the reader — promoting the closure to a thunk over this
+    # spill stays deferred (Excel-verified, not blind), so nothing on the sheet
+    # reads this column and Sample_Include() is still evaluated per call site.
+    assert (
+        sheet.cell(_MATERIALIZATION_HEADER_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED).value
+        == _SAMPLE_INCLUDE_HEADER
+    )
+    assert _formula(
+        sheet, _MATERIALIZATION_SPILL_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED
+    ) == "=Sample_Include()"
 
     # The zone sits past the chart footprint with a structural gutter after
     # the charts; Model Context is a label/value pair and Sample_Include is one
@@ -519,16 +554,40 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert _C_GUTTER_AFTER_CONTEXT - _C_MODEL_CONTEXT == 1
     assert _C_SAMPLE_INCLUDE_MATERIALIZED - _C_GUTTER_AFTER_CONTEXT == 1
 
-    # The terminal zone: the Constructed Design Matrix, reserved at its final
+    # The terminal zone: the Constructed Design Matrix, spilled at its final
     # position. §4b's ordering rule is that the band runs in increasing width
     # and TERMINATES here — nothing may ever be placed to its right, because
     # its width is unbounded and one dropdown away.
     assert sheet.cell(1, _C_DESIGN_MATRIX).value == "Constructed Design Matrix"
     assert sheet.cell(1, _C_DESIGN_MATRIX).color == HEADER_COLOR
-    assert sheet.cell(2, _C_DESIGN_MATRIX).value == "reserved"
+    assert _formula(
+        sheet, _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX
+    ) == "=Design_Columns()"
     assert _C_DESIGN_MATRIX - _C_GUTTER_AFTER_SAMPLE_INCLUDE == 1
-    # Every zone in the band starts on the same row, so it reads across.
+
+    # The header row is SPLIT across two cells, because Design_Columns() is one
+    # column wider than Constructed_Column_Names() whenever the intercept is
+    # on: the constructor prepends the ones column, and the names closure
+    # describes the constructed predictor columns only. The anchor cell names
+    # that ones column; the names spill starts in the column beside it.
+    assert _formula(sheet, _MATERIALIZATION_HEADER_ROW, _C_DESIGN_MATRIX) == (
+        _DESIGN_MATRIX_INTERCEPT_HEADER
+    )
+    assert "Allow_Intercept" in _DESIGN_MATRIX_INTERCEPT_HEADER
+    assert _C_DESIGN_MATRIX_NAMES - _C_DESIGN_MATRIX == 1
+    assert _formula(
+        sheet, _MATERIALIZATION_HEADER_ROW, _C_DESIGN_MATRIX_NAMES
+    ) == "=Constructed_Column_Names()"
+
+    # Both data-dependent zones head on one row and spill from the next, so
+    # the band reads across — the mask value beside its design-matrix row.
     assert _MATERIALIZATION_FIRST_ROW == 2
+    assert _MATERIALIZATION_HEADER_ROW == _MATERIALIZATION_FIRST_ROW
+    assert _MATERIALIZATION_SPILL_ROW == _MATERIALIZATION_HEADER_ROW + 1
+    # The fixed-height Model Context block needs no header row, so it still
+    # starts its elements on the band's first row — its last element row and
+    # health check sit below the spills' header row, in their own columns.
+    assert _MODEL_CONTEXT_LAST_ROW >= _MATERIALIZATION_SPILL_ROW
 
 
 def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:

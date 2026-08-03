@@ -308,8 +308,9 @@ cleared. Stage 2 shipped merged as #150.
   `test_model_context_constructor_is_a_four_row_vstack`.
 
 - DEFERRED: Promote `Sample_Include()` from a live closure to a thunk over a
-  materialized spill. The column sits at its final §4b position — as a
-  RESERVED placeholder — with the Constructed Design Matrix zone behind it
+  materialized spill. The column sits at its final §4b position — since v3.2
+  it displays the spill rather than a `"reserved"` placeholder, but nothing
+  reads it — with the Constructed Design Matrix zone behind it
   since stage 3. The thunk materialization needs
   the dynamic-array spill operator (`#`) inside a `LAMBDA` defined-name
   `RefersTo`, a combination not used anywhere in this workbook and only
@@ -372,8 +373,9 @@ cleared. Stage 2 shipped merged as #150.
   treatment `Sample_Include` got at stage 2, and for the same reason: the
   position, the collapse behaviour, and the guard are what a later release
   cannot add without moving columns a second time; the spill that fills it
-  is a formula change against a column that already exists (v3.2). Pinned
-  by `test_design_matrix_zone_ships_collapsed_and_the_others_expanded`.
+  was a formula change against a column that already existed, and landed at
+  v3.2. Pinned by
+  `test_design_matrix_zone_ships_collapsed_and_the_others_expanded`.
 
 - DONE: Every zone right of the spec block shifted three columns, and every
   hard-coded A1 address in a formula string went with it — the CF
@@ -467,11 +469,24 @@ The other stage-3 follow-on. The terminal Constructed Design Matrix zone, its
 collapse behaviour, and its width guard all shipped; what is missing is the
 spill that fills it.
 
-- TODO: Materialize `Design_Columns()` into the reserved terminal zone.
-  Position, collapse state, and guard are already established, so this is a
-  formula change against a column that exists — the same reserved-position
-  treatment `Sample_Include` got. See
+- DONE: Spill `Design_Columns()` into the terminal zone and `Sample_Include()`
+  into its own, replacing both `"reserved"` placeholders. Position, collapse
+  state, and guard were already established, so this was a formula change
+  against columns that existed. Each zone is headed on
+  `_MATERIALIZATION_HEADER_ROW` and spills from `_MATERIALIZATION_SPILL_ROW`,
+  full height and row-aligned with the source table so the mask reads straight
+  across into the design-matrix row beside it. The design matrix's header row
+  is split across two cells — the anchor names the intercept column the
+  constructor prepends, `Constructed_Column_Names()` spills from the column
+  beside it. See
   [ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone).
+
+- TODO: Point the readers at the spills. Surfacing the values did not rewire
+  anything: `Design_Columns()` is still a live closure evaluated at each of its
+  ~30 engine call sites, so the performance win the zone exists for is not yet
+  banked. Same `#`-inside-a-`LAMBDA`-`RefersTo` question as the
+  `Sample_Include` promotion below, and the same answer — it lands
+  Excel-verified, not blind.
 
 - TODO: Promote `Sample_Include()` from a live closure to a thunk over a
   materialized spill — deferred out of v3.0 stage 2 (see the DEFERRED entry

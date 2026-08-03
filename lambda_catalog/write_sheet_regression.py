@@ -415,18 +415,25 @@ _C_DESIGN_MATRIX = _C_GUTTER_AFTER_SAMPLE_INCLUDE + 1                # n x k, te
 # matrix anchor — the anchor's own header cell names the intercept column.
 _C_DESIGN_MATRIX_NAMES = _C_DESIGN_MATRIX + 1
 
-# All §4b zones share a first data row so the band reads across — the mask
-# value beside its design-matrix row, both aligned to the source table rows,
-# with the gutters as visual separators. Asserted in the build.
+# The band's first occupied row, under the row-1 zone headings. What that row
+# HOLDS differs by zone, because the zones are different kinds of thing:
+#
+#   Model Context      fixed-height label/value table, no column header, so
+#                      this is its first ELEMENT row (rows continue down
+#                      through _MODEL_CONTEXT_LAST_ROW)
+#   Sample_Include     column-header row, spilling from the row beneath
+#   Design Matrix      column-header row, spilling from the row beneath
+#
+# so this is deliberately NOT "the first data row" of every zone.
 _MATERIALIZATION_FIRST_ROW = 2
 
-# The two data-dependent zones (Sample_Include, the design matrix) carry a
-# column-header row and spill from the row under it. The Model Context block
-# is a fixed-height label/value table and needs no header row, so it keeps
-# _MATERIALIZATION_FIRST_ROW as its own first element row — the band's two
-# spills are what have to stay row-aligned with each other, and they do.
+# The read-across contract lives on the SPILL row, not the header row: the two
+# data-dependent zones spill full-height and row-aligned with the source table,
+# so the mask value sits beside its own design-matrix row with the gutters as
+# visual separators. Both zones must therefore start their spill on the same
+# row — asserted in the build.
 _MATERIALIZATION_HEADER_ROW = _MATERIALIZATION_FIRST_ROW
-_MATERIALIZATION_SPILL_ROW = _MATERIALIZATION_FIRST_ROW + 1
+_MATERIALIZATION_SPILL_ROW = _MATERIALIZATION_HEADER_ROW + 1
 
 # Header text over the materialized row mask.
 _SAMPLE_INCLUDE_HEADER = "In Sample"

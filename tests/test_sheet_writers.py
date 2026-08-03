@@ -1167,24 +1167,60 @@ def test_band_zones_are_derived_in_order_from_one_table() -> None:
 
 
 def test_profile_chart_ranges_are_offset_sized_by_the_grid_point_cell() -> None:
-    """The two profile-NLL charts read OFFSET ranges over their stage 1 curve."""
+    """Each profile-NLL chart reads OFFSET ranges over BOTH of its curves.
+
+    Stage 2 re-samples 20 points across ±1 stage-1 step, so it is the region the
+    search actually resolved; the chart plots it as a second series. Each range
+    is sized by its own stage's Grid Points cell — stage 1 by row 3, stage 2 by
+    row 8, five rows down where that control block sits.
+    """
     sheet = RecordingSheet()
 
     _write_weibull_grid_search(_as_xw_sheet(sheet))
 
     names = sheet.api.Names
-    assert names.by_short_name("UV_Profile_WB_Axis").RefersTo == (
+    assert names.by_short_name("UV_Profile_WB_S1_Axis").RefersTo == (
         "=OFFSET('Univariate'!$BP$11,1,0,MAX(IFERROR('Univariate'!$BQ$3,1),1),1)"
     )
-    assert names.by_short_name("UV_Profile_WB_NLL").RefersTo == (
+    assert names.by_short_name("UV_Profile_WB_S1_NLL").RefersTo == (
         "=OFFSET('Univariate'!$BQ$11,1,0,MAX(IFERROR('Univariate'!$BQ$3,1),1),1)"
     )
-    assert names.by_short_name("UV_Profile_GAMMA_Axis").RefersTo == (
+    assert names.by_short_name("UV_Profile_WB_S2_Axis").RefersTo == (
+        "=OFFSET('Univariate'!$BS$11,1,0,MAX(IFERROR('Univariate'!$BQ$8,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_WB_S2_NLL").RefersTo == (
+        "=OFFSET('Univariate'!$BT$11,1,0,MAX(IFERROR('Univariate'!$BQ$8,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_GAMMA_S1_Axis").RefersTo == (
         "=OFFSET('Univariate'!$BZ$11,1,0,MAX(IFERROR('Univariate'!$CA$3,1),1),1)"
     )
-    assert names.by_short_name("UV_Profile_GAMMA_NLL").RefersTo == (
+    assert names.by_short_name("UV_Profile_GAMMA_S1_NLL").RefersTo == (
         "=OFFSET('Univariate'!$CA$11,1,0,MAX(IFERROR('Univariate'!$CA$3,1),1),1)"
     )
+    assert names.by_short_name("UV_Profile_GAMMA_S2_Axis").RefersTo == (
+        "=OFFSET('Univariate'!$CC$11,1,0,MAX(IFERROR('Univariate'!$CA$8,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_GAMMA_S2_NLL").RefersTo == (
+        "=OFFSET('Univariate'!$CD$11,1,0,MAX(IFERROR('Univariate'!$CA$8,1),1),1)"
+    )
+
+
+def test_profile_charts_anchor_one_clear_row_below_their_zone() -> None:
+    """The charts sit under their own fit zone, not in the G:T chart band.
+
+    Bodies end at row 31, row 32 stays blank, so the anchor is row 33 — Weibull
+    at BP33 and Gamma at BZ33, each at its zone's first column. Pinned because
+    the anchor is derived; an off-by-one would silently overlap the last body
+    row or leave a two-row gap.
+    """
+    from lambda_catalog.write_sheet_univariate import (
+        _BAND_COL, _N_PROFILE, _PS_R_BODY, _ROW_FIT_ZONE, _ROW_PROFILE_CHART,
+    )
+
+    last_body_row = _ROW_FIT_ZONE + _PS_R_BODY + _N_PROFILE - 1
+    assert last_body_row == 31
+    assert _ROW_PROFILE_CHART == last_body_row + 2 == 33
+    assert (_BAND_COL["weibull"], _BAND_COL["gamma"]) == (68, 78)  # BP, BZ
 
 
 def test_profile_stage_formulas_reference_visible_controls() -> None:

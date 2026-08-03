@@ -106,7 +106,7 @@ Row and column positions come from the `_BAND_ZONES` table and the `_GS_R_*` / `
 
 A 1-D stage cannot use `Grid_Search_Optimum` — on a single-column grid its column-parameter half reads the cell above the body, which is the `Profile NLL` header, not a parameter value. Use `INDEX(<axis name>, INDEX(Grid_Argument_Minimum(<body name>),1,2))`, as `_write_profile_stage` does.
 
-Zone 5 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts, per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges, and the two Weibull / Gamma profile-NLL line charts fed by `UV_Profile_*`.
+Zone 5 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts and per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges. The two Weibull / Gamma profile-NLL charts are **not** in that band: each is anchored under its own fit zone (BP33, BZ33 — one clear row below the bodies, one zone wide), and each plots *both* stages from `UV_Profile_<dist>_<S1|S2>_<Axis|NLL>`, with `+` markers on Stage 2 so the refined region stays visible where it overlaps the wide Stage 1 curve.
 
 ### Regression sheet heading hierarchy
 

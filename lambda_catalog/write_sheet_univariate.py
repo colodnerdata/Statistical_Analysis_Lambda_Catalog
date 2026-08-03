@@ -68,8 +68,10 @@ Sheet layout
     G14, G34, G54          — histogram combo charts (count bars + 8 fitted overlay lines)
     rows 74-153            — eight per-distribution Q-Q plots in a 4×2 grid
                              (left chart G:O, right chart P:T per row)
-    rows 154-173           — Weibull and Gamma profile-NLL line charts
-                             (left chart G:O, right chart P:T)
+
+  Charts anchored under their own fit zone, one clear row below the bodies:
+    BP33, BZ33             — Weibull and Gamma profile-NLL charts, one zone wide,
+                             each plotting both stages (Stage 2 with + markers)
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -85,8 +87,9 @@ Sheet-scoped named ranges
   UV_GAMMA_S1/S2  — Stage 1/2 Gamma profile-NLL bodies (20×1), side by side
   UV_GAMMA_S1/S2_Axis — Stage 1/2 Gamma shape axes (20×1)
   UV_BETA_S1/S2   — Stage 1/2 Beta Data Table bodies (20×20)
-  UV_Profile_WB_*, UV_Profile_GAMMA_* — OFFSET-based stage-1 axis/NLL ranges
-                   feeding the two profile-NLL line charts
+  UV_Profile_<WB|GAMMA>_<S1|S2>_<Axis|NLL> — OFFSET-based chart ranges, one
+                   pair per stage, each sized by its own stage's Grid Points
+                   cell; the two series of that fit's profile-NLL chart
 """
 from __future__ import annotations
 
@@ -234,6 +237,10 @@ _PS_C_STEP   = _GS_C_STEP     # endpoint-inclusive step size
 _PS_C_BEST   = _GS_C_BEST     # best searched / profiled parameter values
 _PS_W        = _PS_C_BEST + 1   # columns a profile zone occupies (9)
 
+# Every fit zone's row anchor. The zones sit side by side, so they all start
+# on the same row and differ only in column.
+_ROW_FIT_ZONE = 1
+
 # Profile-stage row offsets from the zone's row anchor.  A control block is
 # four rows (title, header, searched param, profiled param); the stages stack
 # with one blank row between, then one blank row before the shared body.
@@ -348,6 +355,7 @@ _XL_CATEGORY         = 1    # horizontal axis type
 _XL_VALUE            = 2    # vertical axis type
 _XL_LEGEND_BOTTOM    = -4107   # xlLegendPositionBottom
 _XL_MARKER_NONE      = -4142   # xlMarkerStyleNone
+_XL_MARKER_PLUS      = 9       # xlMarkerStylePlus — the refined Stage 2 series
 
 # Chart title cells — row where chart title formula and chart block begin
 _ROW_CHART1_TITLE = 14   # G14 — Sturges histogram chart title
@@ -364,11 +372,12 @@ _QQ_CHART_BANDS = (
     (16, 20),   # P:T — right chart of each pair
 )
 
-# The two profile-NLL line charts (Weibull, Gamma) sit in one more row of the
-# same two bands, directly under the last Q-Q pair.
-_N_QQ_CHART_ROWS_USED = 4
-_ROW_PROFILE_CHART_START = _ROW_QQ_CHART_START + _N_QQ_CHART_ROWS_USED * _QQ_CHART_ROWS
-_PROFILE_CHART_ROWS = _QQ_CHART_ROWS
+# Each profile-NLL chart sits directly under its own fit zone rather than in
+# the chart band with the histograms and Q-Q plots: the curve it draws is the
+# column immediately above it, so the two read together. One clear row separates
+# the last body row from the chart, and the chart is one zone wide.
+_ROW_PROFILE_CHART  = _ROW_FIT_ZONE + _PS_R_BODY + _N_PROFILE + 1   # 33
+_PROFILE_CHART_ROWS = 21
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
@@ -973,9 +982,6 @@ _STAGE2_ANCHORS: dict[str, tuple[int, int]] = {
     "Beta": (_C_GS_BETA, _GS_R_STAGE2),
 }
 
-# Every fit zone's row anchor. The zones sit side by side, so they all start
-# on the same row and differ only in column.
-_ROW_FIT_ZONE = 1
 
 
 def _final_grid_best_refs(distribution: str) -> tuple[str, str]:
@@ -2035,7 +2041,8 @@ def _write_two_stage_profile_search(
     their bodies sit side by side beneath, sharing the same rows so the two
     curves can be read against each other.
 
-    Returns the Stage 1 references the profile-NLL chart plots.
+    Returns ``{"s1": ..., "s2": ...}`` — both stages' reference dicts, which the
+    profile-NLL chart plots as its two series.
     """
     r0 = _ROW_FIT_ZONE
     c0 = col_start
@@ -2063,7 +2070,7 @@ def _write_two_stage_profile_search(
         editable_bounds = True,
     )
 
-    _write_profile_stage(
+    s2 = _write_profile_stage(
         sheet,
         row_start   = r0 + _PS_R_STAGE_STRIDE,
         col_start   = c0,
@@ -2081,25 +2088,29 @@ def _write_two_stage_profile_search(
         editable_bounds = False,
     )
 
-    # OFFSET-based chart ranges over the Stage 1 curve — the wide search, where
-    # the basin, the interior minimum, and any boundary hit are visible.  Sized
-    # by the Grid Points cell so a change there resizes the plotted series,
-    # following the Regression sheet's RegChart* pattern.
+    # OFFSET-based chart ranges over both curves.  The chart plots them together:
+    # Stage 1 is the wide bracket that locates the basin, Stage 2 re-samples the
+    # same 20 points across ±1 Stage 1 step around the winner, so plotting both
+    # shows where the search actually spent its resolution.  Each range is sized
+    # by its own stage's Grid Points cell, following the Regression sheet's
+    # RegChart* pattern.
     sname = sheet.name
-    size = f"MAX(IFERROR('{sname}'!{s1['n_points']},1),1)"
-    for suffix, header_ref in (
-        ("Axis", s1["axis_hdr"]),
-        ("NLL", s1["body_hdr"]),
-    ):
-        name = f"UV_Profile_{body_prefix.removeprefix('UV_')}_{suffix}"
-        _drop_wb_name(sheet, name)
-        drop_local_name(sheet, name)
-        sheet.api.Names.Add(
-            Name=name,
-            RefersTo=f"=OFFSET('{sname}'!{header_ref},1,0,{size},1)",
-        )
+    stem = body_prefix.removeprefix("UV_")
+    for stage, refs in (("S1", s1), ("S2", s2)):
+        size = f"MAX(IFERROR('{sname}'!{refs['n_points']},1),1)"
+        for suffix, header_ref in (
+            ("Axis", refs["axis_hdr"]),
+            ("NLL", refs["body_hdr"]),
+        ):
+            name = f"UV_Profile_{stem}_{stage}_{suffix}"
+            _drop_wb_name(sheet, name)
+            drop_local_name(sheet, name)
+            sheet.api.Names.Add(
+                Name=name,
+                RefersTo=f"=OFFSET('{sname}'!{header_ref},1,0,{size},1)",
+            )
 
-    return s1
+    return {"s1": s1, "s2": s2}
 
 
 # ``nll_formula`` takes the sample expression as its first argument and omits
@@ -2164,19 +2175,28 @@ def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
 def _write_profile_charts(sheet: xw.Sheet) -> None:
     """Insert the Weibull and Gamma profile-NLL line charts.
 
-    One chart per one-dimensional fit, plotting Stage 1's profile NLL against
-    the searched parameter. This is what replaces the 2-D NLL heatmap those two
-    distributions used to carry: a 1-D search would reduce the heatmap to a
-    single colour strip, whereas the curve shows the basin, the interior
-    minimum, and a boundary hit directly.
+    One chart per one-dimensional fit, anchored directly under that fit's own
+    zone — one clear row below the last body row, one zone wide — so the curve
+    and the column it is drawn from read together.
+
+    This is what replaces the 2-D NLL heatmap those two distributions used to
+    carry: a 1-D search would reduce the heatmap to a single colour strip,
+    whereas the curve shows the basin, the interior minimum, and a boundary hit
+    directly.
+
+    Each chart carries **both stages**. Stage 1 is the wide bracket that locates
+    the basin; Stage 2 re-samples 20 points across ±1 Stage 1 step around the
+    winner and is what actually fixes the reported parameter. Plotting both, with
+    ``+`` markers on Stage 2, shows where the search spent its resolution — the
+    refined region is otherwise invisible, being a couple of pixels of the
+    Stage 1 curve.
     """
     sname = sheet.name
-    for i, spec in enumerate(_PROFILE_SEARCHES):
-        col_first, col_last = _QQ_CHART_BANDS[i % len(_QQ_CHART_BANDS)]
-        row_start = _ROW_PROFILE_CHART_START + (i // len(_QQ_CHART_BANDS)) * _PROFILE_CHART_ROWS
+    for spec in _PROFILE_SEARCHES:
+        zone_col = spec["col_start"]
         chart_range = sheet.range(
-            rc(row_start, col_first),
-            rc(row_start + _PROFILE_CHART_ROWS - 1, col_last),
+            rc(_ROW_PROFILE_CHART, zone_col),
+            rc(_ROW_PROFILE_CHART + _PROFILE_CHART_ROWS - 1, zone_col + _PS_W - 1),
         )
         co = sheet.api.ChartObjects().Add(
             chart_range.left, chart_range.top, chart_range.width, chart_range.height
@@ -2189,11 +2209,20 @@ def _write_profile_charts(sheet: xw.Sheet) -> None:
         chart.ChartType = _XL_XY_SCATTER_LINES
 
         stem = spec["body_prefix"].removeprefix("UV_")
-        series = chart.SeriesCollection().NewSeries()
-        series.XValues = f"='{sname}'!UV_Profile_{stem}_Axis"
-        series.Values = f"='{sname}'!UV_Profile_{stem}_NLL"
-        series.Name = f"{spec['dist_name']} profile NLL"
-        series.MarkerSize = 4
+        stage1 = chart.SeriesCollection().NewSeries()
+        stage1.XValues = f"='{sname}'!UV_Profile_{stem}_S1_Axis"
+        stage1.Values = f"='{sname}'!UV_Profile_{stem}_S1_NLL"
+        stage1.Name = f"{spec['dist_name']} profile NLL"
+        stage1.MarkerSize = 4
+
+        # Stage 2 over the same axes, marked with + so the refined region is
+        # distinguishable where it overlaps the Stage 1 curve.
+        stage2 = chart.SeriesCollection().NewSeries()
+        stage2.XValues = f"='{sname}'!UV_Profile_{stem}_S2_Axis"
+        stage2.Values = f"='{sname}'!UV_Profile_{stem}_S2_NLL"
+        stage2.Name = f"{spec['dist_name']} profile NLL — refined"
+        stage2.MarkerStyle = _XL_MARKER_PLUS
+        stage2.MarkerSize = 5
 
         chart.HasLegend = False
         chart.HasTitle = True

@@ -1133,14 +1133,27 @@ grid. What replaces it once Weibull and Gamma search one parameter?
 parameter. Beta keeps its heatmap. Both existing grid guards — the boundary-hit
 flag and the `IFERROR` sentinel for undefined NLL — carry forward unchanged.
 
-**Shipped at Univariate 2.0.0.** Two XY-scatter-with-lines charts under the Q-Q
-grid, fed by the OFFSET-based `UV_Profile_WB_*` / `UV_Profile_GAMMA_*` names
-over each distribution's **Stage 1** curve — the wide search, where the basin
-and a boundary hit are what there is to see; Stage 2 is a narrow refinement a
-line chart adds nothing to. The green→yellow→red colour scale carries over onto
-the profile column as well, so the body reads at a glance without the chart.
-The boundary-hit flag now sits on the searched parameter's `Best` cell only: the
-profiled-out partner is solved, not searched, so it has no grid edge to land on.
+**Shipped at Univariate 2.0.0.** Two XY-scatter-with-lines charts, each anchored
+directly under its own fit zone (BP33, BZ33 — one clear row below the bodies,
+one zone wide) rather than in the chart band with the histograms and Q-Q plots.
+The curve and the column it is drawn from then read together; from the far chart
+band a reader had to scroll between them.
+
+**Both stages are plotted, not just Stage 1.** An earlier draft charted the wide
+Stage 1 bracket alone, on the reasoning that Stage 2 is a narrow refinement a
+line chart adds nothing to. That has it backwards: Stage 2 re-samples 20 points
+across ±1 Stage 1 step around the winner, so it is the region the search
+actually resolved and the one that fixes the reported parameter — and at Stage 1
+scale it is a couple of pixels wide, which is exactly why it needs its own
+series. Stage 2 carries `+` markers so it stays distinguishable where it
+overlaps the Stage 1 curve. Each series reads OFFSET-based
+`UV_Profile_<dist>_<S1|S2>_<Axis|NLL>` names sized by *that stage's* Grid Points
+cell, so changing either stage's point count resizes only its own series.
+
+The green→yellow→red colour scale carries over onto the profile column as well,
+so the body reads at a glance without the chart. The boundary-hit flag now sits
+on the searched parameter's `Best` cell only: the profiled-out partner is solved,
+not searched, so it has no grid edge to land on.
 
 **Rationale:** this is an upgrade in legibility, not a downgrade. The basin, the
 interior minimum, and any boundary-hit are all more directly visible in a line

@@ -2496,6 +2496,53 @@ itself as reading a two-input Data Table body. Nothing new is added to the
 catalog: the shrink is entirely a sheet-writer change, so the function-library
 version does not move.
 
+### The fit band is distribution-major, and the fit zones go last
+
+**Question:** the search band was **stage-major** — Stage 1 in one 21-column
+band, Stage 2 in a second, with the three distributions stacked vertically
+inside them. Does that survive the shrink?
+
+**Resolution:** no. The band is now **distribution-major**: one column zone per
+fit, sized to what that fit needs, with its two stages stacked inside it. The
+band runs Q-Q data → Weibull (9 cols) → Gamma (9) → Beta (21).
+
+**Rationale.** Stage-major was right when all three fits were 20×20 grids of
+identical width. The shrink broke both of its premises at once. The two profile
+fits now need 9 of each band's 21 columns, so twelve columns per band per fit
+sat empty; and a single distribution's two stages ended up 22 columns apart, so
+you could not see a fit's Stage 1 and Stage 2 without scrolling past an
+unrelated distribution. Distribution-major restores the thing a reader actually
+wants adjacent — one fit's two stages — and lets each zone be the width it
+needs. The band is 26 rows shorter and the sheet ends at DD instead of DF.
+
+Within a profile zone the two stages' **control blocks stack vertically** while
+their **bodies sit side by side** on shared rows, each under one half of the
+control block. That is not decoration: the two profile-NLL curves are the wide
+search and its refinement of the same parameter, so reading them against each
+other is the point, and sharing the body rows is what makes that possible.
+
+**The fit zones come last, and must stay last.** They are the only zones in the
+band whose width is a tunable — `_N_GRID` and `_N_PROFILE` set it, and Beta's
+still-open shrink to a ~12×12 grid will change its width by nine columns. With
+them at the end, a resize displaces nothing; with the Q-Q data after them, every
+Q-Q column and named range would move on an ordinary grid-size change. This is
+the same rule as the Regression sheet's "nothing may ever be placed to the right
+of the design-matrix zone," for the same reason.
+
+**Consequence — `_final_grid_best_refs` is no longer one formula.** Under
+stage-major all three fits shared a Stage 2 Best column, so the fitting table
+read them with a single helper parameterised only by row. With one zone per fit,
+each distribution has its own Best column *and* its own Stage 2 row (5 rows down
+for a profile fit, 26 for Beta). The helper now reads `_STAGE2_ANCHORS`, a dict
+the profile specs, the Beta call, and `_dist_rows` all share — so the fitting
+table cannot reference a block the search writers did not produce. Giving up the
+shared column was the accepted cost of per-fit sizing; routing both through one
+dict is what keeps it from becoming a drift risk.
+
+Zone geometry derives from one ordered `_BAND_ZONES` table
+(`_derive_band_columns()`), so reordering the band means reordering that list
+and nothing else. No column letter in the band is hard-coded.
+
 ---
 
 ## Aliases

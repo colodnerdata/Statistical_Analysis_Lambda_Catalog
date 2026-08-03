@@ -73,14 +73,23 @@ still runs the artifact's only two Data Tables at 20×20, so the total is
   [DECISIONS.md § Univariate 2.0.0](DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half)
   for how the 1-D half resolved the equivalent questions.
 
-- TODO: **Rebuild and commit `Lambda_Library_Univariate.xlsx`.** The 2.0.0
-  writer changes have not been rendered into the committed artifact — that
-  needs a machine with Microsoft Excel (`python build_univariate.py
-  --verify --no-launch`). Until then the committed workbook still carries
-  the four 20×20 Weibull/Gamma formula grids, their `UV_WB_*` / `UV_GAMMA_*`
-  bodies at the old 21-column extents, and no `UV_Profile_*` names or
-  profile charts. The headless invariant tests pass against it because they
-  check package structure, not sheet layout.
+- TODO: **Rebuild and commit `Lambda_Library_Univariate.xlsx`, then delete
+  `Lambda_Library_Univariate_rearranged.xlsx`.** The 2.0.0 writer changes
+  have not been rendered into the committed artifact — that needs a machine
+  with Microsoft Excel (`python build_univariate.py --verify --no-launch`).
+  Until then the committed workbook still carries the four 20×20
+  Weibull/Gamma formula grids, their `UV_WB_*` / `UV_GAMMA_*` bodies at the
+  old 21-column extents, no `UV_Profile_*` names or profile charts, and the
+  old stage-major band. The headless invariant tests pass against it because
+  they check package structure, not sheet layout.
+
+  `Lambda_Library_Univariate_rearranged.xlsx` is the reference the band
+  rearrangement was built from and stays committed until that rebuild lands.
+  Note it is a guide to **zone internals, not zone order**: the shipped
+  layout leads with the Q-Q data (BE–BN) and puts the fit zones last, where
+  the reference has the fits first and Q-Q at CU. Its body formulas also
+  predate the `LET` binding. Every fit zone's internal structure — which
+  offsets carry which formula — matches it exactly.
 
 ## v2.0 — Specification-Driven Regression (shipped; leftovers)
 

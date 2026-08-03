@@ -22,7 +22,7 @@ Profiling is still genuine MLE — the profile maximizer is the joint maximizer 
 so the two returned parameters are the same estimates the 2-D grid produced,
 at 20 evaluations per stage instead of 400.  Each stage 1 brackets a
 closed-form starting value (Weibull: probability-plot regression of
-ln(−ln(1−F̂)) on ln x, F̂ the Hazen positions Zone 6 already uses; Gamma:
+ln(−ln(1−F̂)) on ln x, F̂ the Hazen positions Zone 5 already uses; Gamma:
 Minka's approximation from s = ln(AM/GM)); stage 2 refines to ±1 stage-1 step.  The two-dimensional
 NLL heatmap is replaced by a **profile-NLL line chart** per distribution.
 
@@ -50,12 +50,19 @@ Sheet layout
   Col AR         — thin gap (width 2)
   Col AS–BC      — Freedman-Diaconis histogram (11 cols)
   Col BD         — thin gap (width 2)
-  Col BE–BY      — Stage 1 controls and body (Beta: 20×20 Data Table across the
-                   full band; Weibull/Gamma: 1-D profile search, BE–BM only)
-  Col BZ         — thin gap between search stages
-  Col CA–CU      — Stage 2 controls and body (same split; CA–CI for the 1-D stages)
-  Col CV         — thin gap (width 2)
-  Col CW–DF      — Q-Q plot data (P, sorted Sample, 8 theoretical-quantile columns)
+
+  The band from BE right is one zone per topic, each followed by a gap column,
+  all derived from the ordered _BAND_ZONES table — never hard-code these:
+
+  Col BE–BN      — Q-Q plot data (P, sorted Sample, 8 theoretical-quantile columns)
+  Col BP–BX      — Weibull fit zone: both profile stages (9 cols, rows 1–31)
+  Col BZ–CH      — Gamma fit zone: both profile stages (9 cols, rows 1–31)
+  Col CJ–DD      — Beta fit zone: both 20×20 Data Table stages (21 cols, rows 1–51)
+
+  One zone per distribution, with that fit's two stages stacked inside it, so a
+  fit reads as a single self-contained block.  The fit zones come last because
+  they are the only ones whose width is a tunable (_N_GRID / _N_PROFILE), so a
+  resize displaces nothing.
 
   Charts anchored under the fitting table:
     G14, G34, G54          — histogram combo charts (count bars + 8 fitted overlay lines)
@@ -73,9 +80,9 @@ Sheet-scoped named ranges
   UV_*_<Dist>_Expected — histogram CDF-delta column × Count stat cell (expected
                    counts); feeds the fitted-distribution overlay line series
   UV_QQ_Sample, UV_QQ_<Dist> — OFFSET-based Q-Q chart column ranges
-  UV_WB_S1/S2    — Stage 1/2 Weibull profile-NLL bodies (20×1)
-  UV_WB_S1/S2_Axis — Stage 1/2 Weibull shape axes (20×1), left of the body
-  UV_GAMMA_S1/S2  — Stage 1/2 Gamma profile-NLL bodies (20×1)
+  UV_WB_S1/S2    — Stage 1/2 Weibull profile-NLL bodies (20×1), side by side
+  UV_WB_S1/S2_Axis — Stage 1/2 Weibull shape axes (20×1), left of each body
+  UV_GAMMA_S1/S2  — Stage 1/2 Gamma profile-NLL bodies (20×1), side by side
   UV_GAMMA_S1/S2_Axis — Stage 1/2 Gamma shape axes (20×1)
   UV_BETA_S1/S2   — Stage 1/2 Beta Data Table bodies (20×20)
   UV_Profile_WB_*, UV_Profile_GAMMA_* — OFFSET-based stage-1 axis/NLL ranges
@@ -178,12 +185,9 @@ _HIST_BLOCKS = [
     ("UV_FD", _C_FD),
 ]
 
-# Zone 5: two-parameter Grid-Search MLE (starts at BE = col 57)
+# Zone 6: two-parameter MLE search — Beta's 2-D grid dimensions
 _N_GRID   = 20             # grid points per axis per stage (20×20 = 400/stage)
-_C_GS     = 57             # col BE — first col of grid-search region (BD=56 is gap)
-_GS_W     = _N_GRID + 1   # cols per stage = 21  (1 param2 col + N param1 cols)
-_GS_GAP_C = 1              # gap col between Stage 1 and Stage 2
-_C_GS_S2  = _C_GS + _GS_W + _GS_GAP_C   # col CA = 79
+_GS_W     = _N_GRID + 1   # cols per Beta stage = 21  (1 row-axis col + N body cols)
 
 # Within-stage row offsets from block row_start
 _GS_R_CONTROL_HDR = 1   # Min NLL label + parameter-table headers
@@ -192,12 +196,10 @@ _GS_R_P2          = 3   # row parameter row
 _GS_R_HDR         = 4   # Data Table corner + column-parameter SEQUENCE
 _GS_R_BODY        = 5   # first Data Table body row
 
-# Grid-search block row anchors (stage title rows)
+# Beta's two stages stack vertically inside its own column zone.
 _GS_BLOCK_H      = _GS_R_BODY + _N_GRID
 _GS_BLOCK_GAP_R  = 1
-_ROW_GS_WB       = 1
-_ROW_GS_GAMMA    = _ROW_GS_WB + _GS_BLOCK_H + _GS_BLOCK_GAP_R
-_ROW_GS_BETA     = _ROW_GS_GAMMA + _GS_BLOCK_H + _GS_BLOCK_GAP_R
+_GS_R_STAGE2     = _GS_BLOCK_H + _GS_BLOCK_GAP_R   # 26 rows below Stage 1
 
 # Fixed-area column offsets relative to stage col_start
 _GS_C_MINNLL = 0   # two-cell vertical Min NLL table
@@ -210,15 +212,17 @@ _GS_C_MAX    = 6   # parameter range maximum
 _GS_C_STEP   = 7   # endpoint-inclusive parameter step size
 _GS_C_BEST   = 8   # Grid_Search_Optimum spill anchor / result column
 
-# ── Zone 5b: one-dimensional profile-NLL search (Weibull, Gamma) ─────────────
+# ── One-dimensional profile-NLL search (Weibull, Gamma) ──────────────────────
 #
-# The 1-D stages sit in the same two column bands as the 2-D Beta stages and
-# reuse the _GS_R_* row offsets, so the Best column lands on the same two rows
-# for every distribution — that is what lets _final_grid_best_refs stay a
-# single formula for all three fits.  Only the column offsets differ: the Data
-# Table substitution cell (_GS_C_INPUT) becomes the closed-form Start value,
-# and the profiled-out parameter's Min/Max/Step cells are left empty because
-# it is not searched.
+# A profile zone reuses the 2-D stage's column offsets so the two writers read
+# alike; only offset 4 differs in meaning (the Data Table substitution `Input`
+# becomes the closed-form `Start`).  The profiled-out parameter's Min/Max/Step
+# cells are left empty because it is solved, not searched.
+#
+# Unlike the 2-D stage, a profile stage's control block and its body do not
+# share a column origin: the two stages' control blocks stack vertically in one
+# 9-column band, and their two bodies sit side by side underneath, each under
+# one half of the control block and sharing its offset-2 spacer.
 _N_PROFILE   = 20   # profile points per stage (20 per stage, not 20×20)
 _PS_C_MINNLL = _GS_C_MINNLL   # Min NLL label/value
 _PS_C_POINTS = _GS_C_N_GRID   # "Grid Points" label/value
@@ -228,7 +232,23 @@ _PS_C_MIN    = _GS_C_MIN      # searched-parameter range minimum
 _PS_C_MAX    = _GS_C_MAX      # searched-parameter range maximum
 _PS_C_STEP   = _GS_C_STEP     # endpoint-inclusive step size
 _PS_C_BEST   = _GS_C_BEST     # best searched / profiled parameter values
-_PS_W        = _PS_C_BEST + 1   # columns a 1-D stage actually occupies (9)
+_PS_W        = _PS_C_BEST + 1   # columns a profile zone occupies (9)
+
+# Profile-stage row offsets from the zone's row anchor.  A control block is
+# four rows (title, header, searched param, profiled param); the stages stack
+# with one blank row between, then one blank row before the shared body.
+_PS_R_CONTROL_H    = _GS_R_P2 + 1              # 4
+_PS_R_STAGE_STRIDE = _PS_R_CONTROL_H + 1       # 5 — Stage 2 title row offset
+_PS_R_BODY_HDR     = 2 * _PS_R_STAGE_STRIDE    # 10 — axis / Profile NLL headers
+_PS_R_BODY         = _PS_R_BODY_HDR + 1        # 11 — first body row
+
+# Body column pairs (axis, NLL) per stage, relative to the zone's first column.
+# Stage 1 sits under the Min NLL / Grid Points half of the control block and
+# Stage 2 under the Parameter / Start half, sharing the offset-2 spacer.
+_PS_BODY_COLS = (
+    (_PS_C_MINNLL, _PS_C_POINTS),
+    (_PS_C_PARAM, _PS_C_START),
+)
 
 # Stage 1 brackets the closed-form start by this multiplicative factor either
 # side.  Both starting estimates land within a few percent of the MLE, so 3×
@@ -236,14 +256,57 @@ _PS_W        = _PS_C_BEST + 1   # columns a 1-D stage actually occupies (9)
 # sample where it is not, and the Min/Max cells stay editable overrides.
 _PROFILE_BRACKET = 3
 
-# Body column offset for a 1-D stage: the searched-parameter axis sits at
-# col_start and the profile NLL immediately to its right.
-_PS_C_AXIS = 0
-_PS_C_BODY = 1
+# ── Right-hand zone band ─────────────────────────────────────────────────────
+#
+# One ordered table is the single source of truth for every column in the band
+# right of the histograms: zone starts, gap columns, and the sheet's last
+# column all derive from it, and reordering the band means reordering this list
+# and nothing else.  Never hard-code a column letter from it.
+#
+# The three fit zones come last on purpose.  They are the only zones whose
+# width is a tunable — _N_GRID and _N_PROFILE set it, and Beta's pending shrink
+# to a ~12×12 grid will change its width by nine columns — so keeping them at
+# the end means a resize displaces nothing.  Same reasoning as the Regression
+# sheet's rule that nothing may sit right of the design-matrix zone.  The Q-Q
+# data is a fixed 10 columns and is read alongside the fitting table, so it
+# leads.  Each zone is followed by one gap column; the histogram band's own
+# trailing gap (BD) serves as the leading one.
+#
+# The band is Zone 5 (Q-Q data) then Zone 6 (the three fit zones) — the two
+# swapped physical order when Q-Q moved ahead of the fits, and the numbering
+# was swapped with them so it still reads left to right.
+_QQ_W = 10   # Zone 5 width: P, Sample, 8 theoretical-quantile columns
 
-# Zone 6: Q-Q plot data (CV = 100 is a gap col; CW–DF = 101-110)
-_C_QQ = _C_GS_S2 + _GS_W + 1   # 101 (CW)
-_QQ_W = 10   # P, Sample, 8 theoretical-quantile columns
+_BAND_FIRST_COL = 57   # BE — first column after the FD histogram block's gap
+_BAND_GAP_W = 1
+_BAND_ZONES = (
+    ("qq", _QQ_W),        # BE–BN
+    ("weibull", _PS_W),   # BP–BX
+    ("gamma", _PS_W),     # BZ–CH
+    ("beta", _GS_W),      # CJ–DD
+)
+
+
+def _derive_band_columns() -> tuple[dict[str, int], tuple[int, ...], int]:
+    """Return (zone first columns, gap columns, last populated column)."""
+    starts: dict[str, int] = {}
+    gaps: list[int] = []
+    col = _BAND_FIRST_COL
+    for index, (name, width) in enumerate(_BAND_ZONES):
+        starts[name] = col
+        col += width
+        if index < len(_BAND_ZONES) - 1:
+            gaps.append(col)
+            col += _BAND_GAP_W
+    return starts, tuple(gaps), col - 1
+
+
+_BAND_COL, _BAND_GAP_COLS, _BAND_LAST_COL = _derive_band_columns()
+
+_C_QQ        = _BAND_COL["qq"]        # 57  (BE)
+_C_GS_WB     = _BAND_COL["weibull"]   # 68  (BP)
+_C_GS_GAMMA  = _BAND_COL["gamma"]     # 78  (BZ)
+_C_GS_BETA   = _BAND_COL["beta"]      # 88  (CJ)
 
 # Within the Q-Q block: (offset, header, name suffix, distribution)
 _QQ_P      = 0   # Hazen plotting positions (i - 0.5)/n
@@ -365,41 +428,42 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         gap_col = block_start + _HIST_W
         set_column_widths(sheet, ((gap_col, 2),))
 
-    # Search stages: compact fixed-area controls above the narrow bodies.
-    # Stage 1: BE–BY; gap BZ; Stage 2: CA–CU. The 1-D profile stages occupy
-    # only the first _PS_W columns of each band; the rest carry Beta's grid.
-    for stage_start in (_C_GS, _C_GS_S2):
-        set_column_widths(sheet, ((c, 6) for c in range(stage_start, stage_start + _N_GRID + 1)))
+    # Q-Q plot data block (the histogram band's trailing gap precedes it).
+    set_column_widths(sheet, ((_C_QQ + offset, 12) for offset in range(_QQ_W)))
+
+    # Fit zones: compact fixed-area controls above the narrow bodies. Every
+    # zone shares the same control-column offsets, so one loop covers the two
+    # 9-column profile zones and Beta's 21-column grid zone; only Beta has
+    # columns past _PS_W, and those are its Data Table body.
+    for zone_start, zone_width in (
+        (_C_GS_WB, _PS_W),
+        (_C_GS_GAMMA, _PS_W),
+        (_C_GS_BETA, _GS_W),
+    ):
+        set_column_widths(sheet, ((c, 6) for c in range(zone_start, zone_start + zone_width)))
         set_column_widths(
             sheet,
             (
-                (stage_start, 12),                   # Min NLL / row axis / profile axis
-                (stage_start + _GS_C_N_GRID, 14),     # Rows/Columns / Grid Points / profile NLL
-                (stage_start + _GS_C_PARAM, 13),      # Parameter
+                (zone_start, 12),                    # Min NLL / row axis / profile axis
+                (zone_start + _GS_C_N_GRID, 14),      # Rows/Columns / Grid Points / profile NLL
+                (zone_start + _GS_C_PARAM, 13),       # Parameter / profile Stage 2 axis
             ),
         )
         set_column_widths(
-            sheet, ((stage_start + dc, 10) for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_STEP, _GS_C_BEST))
+            sheet, ((zone_start + dc, 10) for dc in (_GS_C_INPUT, _GS_C_MIN, _GS_C_MAX, _GS_C_STEP, _GS_C_BEST))
         )
 
-    # Gap col BZ between Stage 1 and Stage 2.
-    set_column_widths(sheet, ((_C_GS + _GS_W, 2),))
-
-    # Q-Q plot data block (gap col CV before it).
-    set_column_widths(sheet, ((_C_QQ - 1, 2),))
-    set_column_widths(sheet, ((_C_QQ + offset, 12) for offset in range(_QQ_W)))
+    set_column_widths(sheet, ((gap_col, 2) for gap_col in _BAND_GAP_COLS))
 
 
 def _autofit_column_widths(sheet: xw.Sheet) -> None:
     """Autofit all populated layout columns, then restore intentional gaps."""
-    last_col = _C_QQ + _QQ_W - 1
-    sheet.range(rc(_ROW_TITLE, _C_A), rc(_DATA_END, last_col)).columns.autofit()
+    sheet.range(rc(_ROW_TITLE, _C_A), rc(_DATA_END, _BAND_LAST_COL)).columns.autofit()
 
     gap_cols = [3, 6, 20]  # C, F, T
     for block_start in (_C_STUR, _C_SCOTT, _C_FD):
         gap_cols.append(block_start + _HIST_W)  # AF, AR, BD
-    gap_cols.append(_C_GS + _GS_W)  # BZ
-    gap_cols.append(_C_QQ - 1)      # CV
+    gap_cols.extend(_BAND_GAP_COLS)             # BO, BY, CI
     for col in gap_cols:
         sheet.range(rc(1, col), rc(1, col)).column_width = 2
 
@@ -765,7 +829,7 @@ def _write_histograms(sheet: xw.Sheet) -> None:
     _write_histogram_table(sheet, _C_FD, "FD")
 
 
-# ── Zone 6: Q-Q plot data ─────────────────────────────────────────────────────
+# ── Zone 5: Q-Q plot data ─────────────────────────────────────────────────────
 
 def _qq_column_formula(p_spill_ref: str, distribution: str) -> str:
     """Build a single-column spill formula of theoretical quantiles.
@@ -897,12 +961,37 @@ _FIT_NUMBER_FORMATS: dict[int, str] = {
 }
 
 
-def _final_grid_best_refs(row_start: int) -> tuple[str, str]:
-    """Return final-stage best column- and row-parameter cells for a grid block."""
-    best_col = col_letter(_C_GS_S2 + _GS_C_BEST)
+# Where each fit's Stage 2 control block sits: (zone first column, Stage 2 row).
+# This is the one place the fitting table and the search writers agree on, so
+# the table can never reference a block the writers did not put there.  Both
+# halves are per-distribution now: with one column zone per fit, the Best column
+# differs across fits, and Beta's Stage 2 is 26 rows down where the profile
+# fits' is 5.
+_STAGE2_ANCHORS: dict[str, tuple[int, int]] = {
+    "Weibull": (_C_GS_WB, _PS_R_STAGE_STRIDE),
+    "Gamma": (_C_GS_GAMMA, _PS_R_STAGE_STRIDE),
+    "Beta": (_C_GS_BETA, _GS_R_STAGE2),
+}
+
+# Every fit zone's row anchor. The zones sit side by side, so they all start
+# on the same row and differ only in column.
+_ROW_FIT_ZONE = 1
+
+
+def _final_grid_best_refs(distribution: str) -> tuple[str, str]:
+    """Return the Stage 2 Best cells for a fit, as fitting-table formulas.
+
+    Reads ``_STAGE2_ANCHORS`` so the reference follows the zone the search
+    writer actually produced.  The two rows within a stage are shared by both
+    stage writers (``_GS_R_P1`` / ``_GS_R_P2``); the column and the stage row
+    are per-distribution.
+    """
+    zone_col, stage2_row = _STAGE2_ANCHORS[distribution]
+    best_col = col_letter(zone_col + _GS_C_BEST)
+    title_row = _ROW_FIT_ZONE + stage2_row
     return (
-        f"=${best_col}${row_start + _GS_R_P1}",
-        f"=${best_col}${row_start + _GS_R_P2}",
+        f"=${best_col}${title_row + _GS_R_P1}",
+        f"=${best_col}${title_row + _GS_R_P2}",
     )
 
 
@@ -935,9 +1024,9 @@ def _dist_rows(base_row: int) -> list[tuple]:
     def _n(row: int) -> str:
         return f"${col_letter(_C_K_PARAM)}${row}"
 
-    weibull_shape_ref, weibull_scale_ref = _final_grid_best_refs(_ROW_GS_WB)
-    gamma_shape_ref, gamma_rate_ref = _final_grid_best_refs(_ROW_GS_GAMMA)
-    beta_alpha_ref, beta_beta_ref = _final_grid_best_refs(_ROW_GS_BETA)
+    weibull_shape_ref, weibull_scale_ref = _final_grid_best_refs("Weibull")
+    gamma_shape_ref, gamma_rate_ref = _final_grid_best_refs("Gamma")
+    beta_alpha_ref, beta_beta_ref = _final_grid_best_refs("Beta")
 
     rows: list[tuple] = []
     dist_specs = [
@@ -969,7 +1058,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
             lambda r: f"EXPON.DIST(UV_Data,{_r(r)},TRUE)",
         ),
         (
-            # Params come from Stage 2 grid-search MLE (see Zone 5)
+            # Params come from Stage 2 grid-search MLE (see Zone 6)
             "Weibull",
             "shape",
             weibull_shape_ref,
@@ -981,7 +1070,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
             lambda r: f"WEIBULL.DIST(UV_Data,{_r(r)},{_t(r)},TRUE)",
         ),
         (
-            # Params come from Stage 2 grid-search MLE (see Zone 5)
+            # Params come from Stage 2 grid-search MLE (see Zone 6)
             "Gamma",
             "shape",
             gamma_shape_ref,
@@ -1281,7 +1370,7 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
 
 
 
-# ── Zone 5: two-parameter grid-search MLE ────────────────────────────────────
+# ── Zone 6: two-parameter grid-search MLE ────────────────────────────────────
 #
 # Layout within one stage block (row_start, col_start):
 #   row+0  : section heading merged across the full stage width
@@ -1301,8 +1390,10 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
 # The visible Input cells are the actual RowInput and ColumnInput cells supplied
 # to Excel's two-input Data Table object.  No hidden auxiliary row is required.
 #
-# Stage 1: col_start = _C_GS = 57 (BE); body = BF6:BY25
-# Stage 2: col_start = _C_GS_S2 = 79 (CA); body = CB6:CU25
+# Beta is the only fit using this writer.  Both its stages share the Beta zone
+# (_C_GS_BETA) and stack vertically, Stage 2 _GS_R_STAGE2 rows below Stage 1:
+#   Stage 1: row 1,  body = CK6:DD25
+#   Stage 2: row 27, body = CK32:DD51
 #
 # Named ranges registered here:
 #   *_S1 = Stage 1 Data Table body only
@@ -1586,7 +1677,7 @@ def _write_grid_stage(
 
 def _write_two_stage_grid_search(
     sheet: xw.Sheet,
-    row_start: int,
+    col_start: int,
     dist_name: str,
     body_prefix: str,
     p1_label: str,
@@ -1597,11 +1688,16 @@ def _write_two_stage_grid_search(
     p2_min,
     p2_max,
 ) -> None:
-    """Write Stage 1 and Stage 2 grid-search blocks for one distribution."""
+    """Write Stage 1 and Stage 2 grid-search blocks for one distribution.
+
+    Both stages share this fit's own column zone and stack vertically, Stage 2
+    ``_GS_R_STAGE2`` rows below Stage 1 — a full grid block plus one gap row.
+    """
+    r0 = _ROW_FIT_ZONE
     s1 = _write_grid_stage(
         sheet,
-        row_start   = row_start,
-        col_start   = _C_GS,
+        row_start   = r0,
+        col_start   = col_start,
         title       = f"{dist_name} Grid-Search MLE  —  Stage 1  ({p1_label} × {p2_label})",
         body_name   = f"{body_prefix}_S1",
         p1_label    = p1_label,
@@ -1616,8 +1712,8 @@ def _write_two_stage_grid_search(
 
     _write_grid_stage(
         sheet,
-        row_start   = row_start,
-        col_start   = _C_GS_S2,
+        row_start   = r0 + _GS_R_STAGE2,
+        col_start   = col_start,
         title       = f"{dist_name} Grid-Search MLE  —  Stage 2  (refined)",
         body_name   = f"{body_prefix}_S2",
         p1_label    = p1_label,
@@ -1630,20 +1726,25 @@ def _write_two_stage_grid_search(
         editable_bounds = False,
     )
 
-    # Section heading label over the gap column between stages.
-    val(sheet, row_start, _C_GS + _GS_W, "")
 
-
-# ── Zone 5b: one-dimensional profile-NLL search ──────────────────────────────
+# ── One-dimensional profile-NLL search ───────────────────────────────────────
 #
-# Layout within one 1-D stage block (row_start, col_start):
-#   row+0  : section heading merged across col+0…col+_PS_W-1
-#   row+1  : Min NLL and Grid Points labels; blank col+2; parameter headers
-#   row+2  : control values; searched parameter: Parameter | Start | Min | Max |
-#            Step Size | Best
-#   row+3  : profiled-out parameter: Parameter | (no bounds) | Best
-#   row+4  : axis header at col+0, "Profile NLL" body header at col+1
-#   row+5…+4+N : searched-parameter SEQUENCE at col+0; profile NLL at col+1
+# A fit's whole zone (col_start = c0, rows from _ROW_FIT_ZONE = r0).  Both
+# stages' control blocks stack in the same 9 columns; both bodies share rows
+# and sit side by side beneath, each under one half of the control block.
+#
+#   r0+0  : Stage 1 heading merged across c0…c0+_PS_W-1
+#   r0+1  : Min NLL and Grid Points labels; blank c0+2; parameter headers
+#   r0+2  : control values; searched parameter: Parameter | Start | Min | Max |
+#           Step Size | Best
+#   r0+3  : profiled-out parameter: Parameter | (no bounds) | Best
+#   r0+5…+8 : Stage 2, the same four rows _PS_R_STAGE_STRIDE lower
+#   r0+10 : body headers — Stage 1 axis/NLL at c0+0/c0+1, Stage 2 at c0+3/c0+4
+#   r0+11…+10+N : both stages' axis SEQUENCE and profile NLL, side by side
+#
+# Splitting the control anchor from the body anchor is what allows this: the
+# stage writer takes `row_start`/`col_start` for its controls and a separate
+# `body_row_start`/`body_cols` for its curve.
 #
 # The searched parameter's partner is eliminated in closed form, so each body
 # cell is a single NLL call at (trial value, partner(trial value)) — the same
@@ -1674,7 +1775,7 @@ def _gamma_profile_rate(shape_ref: str, data: str = _FILTERED_DATA) -> str:
 # Closed-form starting values for the searched parameter.  Both are plug-in
 # estimators accurate to a few percent, which is what makes a 20-point bracket
 # enough; each falls back to a neutral constant if the sample cannot support it.
-# The plotting positions are built the way Zone 6's `P` column builds them —
+# The plotting positions are built the way Zone 5's `P` column builds them —
 # SORT once, then Hazen (i-0.5)/n — rather than through `Rank_Fraction`.  Two
 # reasons: `Rank_Fraction` returns i/n, which is exactly 1 at the sample
 # maximum and makes LN(-LN(1-p)) an error on every sample; and it is O(n²)
@@ -1710,6 +1811,8 @@ def _write_profile_stage(
     p1_start,   # Excel formula string for the searched parameter's start value
     p1_min,     # Excel formula string
     p1_max,     # Excel formula string
+    body_row_start: int,
+    body_cols: tuple[int, int],   # (axis, profile-NLL) columns, absolute
     editable_bounds: bool = True,
 ) -> dict:
     """Write one 20-point profile-NLL search stage for a two-parameter fit.
@@ -1719,6 +1822,12 @@ def _write_profile_stage(
     the sample expression ``data``.  ``nll_formula(data, p1, p2)`` returns the
     catalog NLL call over an **already-filtered** sample, so its ``[filter]``
     argument is omitted.
+
+    Unlike ``_write_grid_stage``, the control block and the body are positioned
+    independently: ``row_start`` / ``col_start`` place the control block, while
+    ``body_row_start`` and ``body_cols`` place the axis and profile-NLL columns.
+    Both stages of a fit share one column zone and one set of body rows, so
+    their control blocks stack vertically while their bodies sit side by side.
 
     Returns the absolute A1 references the refined Stage 2 and the fitting
     summary read: best_p1, best_p2, min_p1, max_p1, step_p1, n_points, axis,
@@ -1783,11 +1892,11 @@ def _write_profile_stage(
     ).number_format = _FMT_1DP
 
     # ── Axis and profile-NLL body ────────────────────────────────────────────
-    hdr_row = r0 + _GS_R_HDR
-    body_row_start = r0 + _GS_R_BODY
+    # Positioned from the caller's body anchors, not from the control block:
+    # the two stages of a fit share these rows and sit in adjacent column pairs.
+    hdr_row = body_row_start - 1
     body_row_end = body_row_start + n - 1
-    axis_col = c0 + _PS_C_AXIS
-    body_col = c0 + _PS_C_BODY
+    axis_col, body_col = body_cols
 
     val(sheet, hdr_row, axis_col, p1_label)
     val(sheet, hdr_row, body_col, "Profile NLL")
@@ -1903,14 +2012,14 @@ def _write_profile_stage(
         "n_points": n_points_ref,
         "axis": axis_name,
         "body": body_name,
-        "axis_hdr": _gs_a1(r0, c0, _GS_R_HDR, _PS_C_AXIS),
-        "body_hdr": _gs_a1(r0, c0, _GS_R_HDR, _PS_C_BODY),
+        "axis_hdr": f"${col_letter(axis_col)}${hdr_row}",
+        "body_hdr": f"${col_letter(body_col)}${hdr_row}",
     }
 
 
 def _write_two_stage_profile_search(
     sheet: xw.Sheet,
-    row_start: int,
+    col_start: int,
     dist_name: str,
     body_prefix: str,
     p1_label: str,
@@ -1921,14 +2030,25 @@ def _write_two_stage_profile_search(
 ) -> dict:
     """Write Stage 1 and Stage 2 profile-search blocks for one distribution.
 
+    Both stages live in this fit's own 9-column zone: their control blocks
+    stack vertically (Stage 2 ``_PS_R_STAGE_STRIDE`` rows below Stage 1) and
+    their bodies sit side by side beneath, sharing the same rows so the two
+    curves can be read against each other.
+
     Returns the Stage 1 references the profile-NLL chart plots.
     """
-    start_ref = _gs_a1(row_start, _C_GS, _GS_R_P1, _PS_C_START)
+    r0 = _ROW_FIT_ZONE
+    c0 = col_start
+    body_row_start = r0 + _PS_R_BODY
+    s1_body_cols, s2_body_cols = (
+        (c0 + axis, c0 + body) for axis, body in _PS_BODY_COLS
+    )
+    start_ref = _gs_a1(r0, c0, _GS_R_P1, _PS_C_START)
 
     s1 = _write_profile_stage(
         sheet,
-        row_start   = row_start,
-        col_start   = _C_GS,
+        row_start   = r0,
+        col_start   = c0,
         title       = f"{dist_name} Profile-NLL MLE  —  Stage 1  ({p1_label}; {p2_label} profiled out)",
         body_name   = f"{body_prefix}_S1",
         p1_label    = p1_label,
@@ -1938,13 +2058,15 @@ def _write_two_stage_profile_search(
         p1_start    = p1_start,
         p1_min      = f"=MAX(0.001,{start_ref}/{_PROFILE_BRACKET})",
         p1_max      = f"={start_ref}*{_PROFILE_BRACKET}",
+        body_row_start = body_row_start,
+        body_cols   = s1_body_cols,
         editable_bounds = True,
     )
 
     _write_profile_stage(
         sheet,
-        row_start   = row_start,
-        col_start   = _C_GS_S2,
+        row_start   = r0 + _PS_R_STAGE_STRIDE,
+        col_start   = c0,
         title       = f"{dist_name} Profile-NLL MLE  —  Stage 2  (refined)",
         body_name   = f"{body_prefix}_S2",
         p1_label    = p1_label,
@@ -1954,11 +2076,10 @@ def _write_two_stage_profile_search(
         p1_start    = f"={s1['best_p1']}",
         p1_min      = f"=MAX(0.001,{s1['best_p1']}-{s1['step_p1']})",
         p1_max      = f"={s1['best_p1']}+{s1['step_p1']}",
+        body_row_start = body_row_start,
+        body_cols   = s2_body_cols,
         editable_bounds = False,
     )
-
-    # Section heading label over the gap column between stages.
-    val(sheet, row_start, _C_GS + _GS_W, "")
 
     # OFFSET-based chart ranges over the Stage 1 curve — the wide search, where
     # the basin, the interior minimum, and any boundary hit are visible.  Sized
@@ -1986,7 +2107,7 @@ def _write_two_stage_profile_search(
 # already-filtered sample, so re-applying a mask would only cost a second pass.
 _PROFILE_SEARCHES = [
     {
-        "row_start": _ROW_GS_WB,
+        "col_start": _C_GS_WB,
         "dist_name": "Weibull",
         "body_prefix": "UV_WB",
         "p1_label": "Shape (k)",
@@ -1996,7 +2117,7 @@ _PROFILE_SEARCHES = [
         "p1_start": _WEIBULL_SHAPE_START,
     },
     {
-        "row_start": _ROW_GS_GAMMA,
+        "col_start": _C_GS_GAMMA,
         "dist_name": "Gamma",
         "body_prefix": "UV_GAMMA",
         "p1_label": "Shape (α)",
@@ -2022,7 +2143,7 @@ def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
 
     _write_two_stage_grid_search(
         sheet,
-        row_start   = _ROW_GS_BETA,
+        col_start   = _C_GS_BETA,
         dist_name   = "Beta",
         body_prefix = "UV_BETA",
         p1_label    = "Alpha (α)",
@@ -2140,13 +2261,14 @@ def _annotate_univariate_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> 
     ]
 
     # Profile-search control and body headers, Stage 1 of each 1-D fit.
+    s1_axis_col, s1_body_col = _PS_BODY_COLS[0]
     for spec in _PROFILE_SEARCHES:
-        stage_row = spec["row_start"]
+        zone_col = spec["col_start"]
         note_cells.append(
-            (stage_row + _GS_R_CONTROL_HDR, _C_GS + _PS_C_START, "Start")
+            (_ROW_FIT_ZONE + _GS_R_CONTROL_HDR, zone_col + _PS_C_START, "Start")
         )
         note_cells.append(
-            (stage_row + _GS_R_HDR, _C_GS + _PS_C_BODY, "Profile NLL")
+            (_ROW_FIT_ZONE + _PS_R_BODY_HDR, zone_col + s1_body_col, "Profile NLL")
         )
 
     for row, col, key in note_cells:

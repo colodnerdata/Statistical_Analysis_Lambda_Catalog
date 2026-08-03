@@ -61,9 +61,24 @@ Zones 1–4 (cols A–Z) use the standard row layout:
 | 4 | Column sub-headers ("Upper Edge", "Count", "Distribution", …) | `_subheader_row` |
 | 5+ | Data / spill formulas | — |
 
-Zone 5 holds the two-stage MLE searches (Weibull / Gamma / Beta, vertically stacked), in two column bands: Stage 1 from `_C_GS`, Stage 2 from `_C_GS_S2`. **The three fits use two different stage writers**, and both bands are sized by the wider one.
+### Univariate right-hand band — one ordered zone table
 
-**Beta — `_write_grid_stage`, a 2-D two-input Data Table** spanning 21 columns (1 row-axis col + 20 body cols). These two stages are the artifact's **only** Data Tables:
+Everything right of the histograms is **one zone per topic**, each followed by a single gap column, all derived from the ordered `_BAND_ZONES` table via `_derive_band_columns()`. Zone starts (`_C_QQ`, `_C_GS_WB`, `_C_GS_GAMMA`, `_C_GS_BETA`), the gap columns, and the sheet's last column all come from it. **Never hard-code a column letter in this band** — reordering it means reordering that list and nothing else.
+
+| Zone | Columns | Width | Rows |
+|---|---|---|---|
+| 5 — Q-Q plot data | BE–BN | 10 | — |
+| 6 — Weibull fit | BP–BX | 9 | 1–31 |
+| 6 — Gamma fit | BZ–CH | 9 | 1–31 |
+| 6 — Beta fit | CJ–DD | 21 | 1–51 |
+
+**The fit zones must stay last.** They are the only zones whose width is a tunable (`_N_GRID`, `_N_PROFILE` — and Beta's pending shrink to a ~12×12 grid will change its width by nine columns), so keeping them at the end means a resize displaces nothing. Same principle as the Regression sheet's rule that nothing may sit right of the design-matrix zone. Zones 5 and 6 swapped numbers when Q-Q moved ahead of the fits, so the numbering still reads left to right.
+
+### Univariate fit zones
+
+**One zone per distribution, with that fit's two stages stacked inside it** — not one band per stage. **The three fits use two different stage writers.**
+
+**Beta — `_write_grid_stage`, a 2-D two-input Data Table** spanning 21 columns (1 row-axis col + 20 body cols). These two stages are the artifact's **only** Data Tables. Stage 2 sits `_GS_R_STAGE2` (26) rows below Stage 1 — a full grid block plus a gap row:
 
 | dr | Row | Contents |
 |---|---|---|
@@ -74,24 +89,24 @@ Zone 5 holds the two-stage MLE searches (Weibull / Gamma / Beta, vertically stac
 | 4 | row 5 | corner NLL cell (c0); Alpha SEQUENCE spills right across 20 columns |
 | 5–24 | rows 6–25 | Beta SEQUENCE (c0); Data Table body (c0+1:c0+20) |
 
-**Weibull and Gamma — `_write_profile_stage`, a 1-D profile-NLL column** occupying only the first `_PS_W` (9) columns of the same band. The scale / rate parameter is profiled out in closed form (`_weibull_profile_scale`, `_gamma_profile_rate`), so a stage is 20 evaluations, not 400:
+**Weibull and Gamma — `_write_profile_stage`, a 1-D profile-NLL column** in a 9-column (`_PS_W`) zone. The scale / rate parameter is profiled out in closed form (`_weibull_profile_scale`, `_gamma_profile_rate`), so a stage is 20 evaluations, not 400. **A profile stage's control block and its body are positioned independently**: the two stages' control blocks stack vertically (`_PS_R_STAGE_STRIDE` = 5 rows apart) while their two bodies sit side by side on shared rows, each under one half of the control block, reusing its offset-2 spacer (`_PS_BODY_COLS`):
 
 | dr | Row | Contents |
 |---|---|---|
-| 0 | row 1 | stage title merged across c0:c0+8 with `_HEADER` fill |
-| 1 | row 2 | `Min NLL` (c0), `Grid Points` (c0+1), blank spacer (c0+2), parameter headers (c0+3:c0+8) |
-| 2 | row 3 | Min NLL and point-count values; searched row: `Parameter | Start | Min | Max | Step Size | Best` |
-| 3 | row 4 | profiled-out row — `Parameter` and `Best` only; it is solved, not searched, so it has no bounds, no step, and no boundary rule |
-| 4 | row 5 | axis header (c0) and `Profile NLL` body header (c0+1) |
-| 5–24 | rows 6–25 | searched-parameter SEQUENCE (c0); profile NLL (c0+1) |
+| 0 / 5 | rows 1, 6 | Stage 1 / Stage 2 title merged across c0:c0+8 with `_HEADER` fill |
+| 1 / 6 | rows 2, 7 | `Min NLL` (c0), `Grid Points` (c0+1), blank spacer (c0+2), parameter headers (c0+3:c0+8) |
+| 2 / 7 | rows 3, 8 | Min NLL and point-count values; searched row: `Parameter | Start | Min | Max | Step Size | Best` |
+| 3 / 8 | rows 4, 9 | profiled-out row — `Parameter` and `Best` only; it is solved, not searched, so it has no bounds, no step, and no boundary rule |
+| 10 | row 11 | body headers: Stage 1 axis + `Profile NLL` (c0+0/c0+1), Stage 2 axis + `Profile NLL` (c0+3/c0+4) |
+| 11–30 | rows 12–31 | both stages' searched-parameter SEQUENCE and profile NLL, side by side |
 
-The two writers **share the `_GS_R_*` row offsets on purpose**: the Best column lands on the same two rows for every distribution, which is what lets `_final_grid_best_refs` stay one formula for all three fits and keeps the fitting table's parameter references unchanged. `_PS_C_*` mirrors `_GS_C_*` for the same reason — only the meaning of offset 4 differs (Data Table substitution `Input` vs. closed-form `Start`).
+Both writers **share the `_GS_R_*` row offsets within a stage**, and `_PS_C_*` mirrors `_GS_C_*` — only the meaning of offset 4 differs (Data Table substitution `Input` vs. closed-form `Start`). What they no longer share is a Best *column*: with one zone per fit, each distribution's Best column and Stage 2 row differ, so **`_final_grid_best_refs` is per-distribution**, reading `_STAGE2_ANCHORS`. That dict is the single point of agreement between the fitting table and the search writers — the table cannot reference a block the writers did not produce.
 
-Column letters and row anchors are defined as `_C_GS`, `_C_GS_S2`, and the `_GS_R_*` / `_GS_C_*` / `_PS_C_*` constants at the top of `write_sheet_univariate.py` — never hard-code row or column positions inside either stage writer; the constants are the single source of truth for the zone layout. Beta's visible Alpha and Beta Input cells are its Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` (`Grid Points` from `_N_PROFILE`) and documents the physical body size; editing it does not resize the Data Table.
+Row and column positions come from the `_BAND_ZONES` table and the `_GS_R_*` / `_GS_C_*` / `_PS_C_*` / `_PS_R_*` constants at the top of `write_sheet_univariate.py` — never hard-code them inside either stage writer. Beta's visible Alpha and Beta Input cells are its Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` (`Grid Points` from `_N_PROFILE`) and documents the physical body size; editing it does not resize the Data Table.
 
 A 1-D stage cannot use `Grid_Search_Optimum` — on a single-column grid its column-parameter half reads the cell above the body, which is the `Profile NLL` header, not a parameter value. Use `INDEX(<axis name>, INDEX(Grid_Argument_Minimum(<body name>),1,2))`, as `_write_profile_stage` does.
 
-Zone 6 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts, per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges, and the two Weibull / Gamma profile-NLL line charts fed by `UV_Profile_*`.
+Zone 5 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts, per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges, and the two Weibull / Gamma profile-NLL line charts fed by `UV_Profile_*`.
 
 ### Regression sheet heading hierarchy
 

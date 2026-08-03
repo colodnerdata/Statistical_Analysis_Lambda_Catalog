@@ -3,11 +3,14 @@
 ``sync_workbook_names`` is pure zipfile + lxml, so the workbook-scope cleanup a
 normal build performs can also be applied to an already-built .xlsx on a
 machine with no Excel — a Linux CI box, or a checkout where rebuilding the
-artifact is not worth a full Excel run. It rewrites workbook.xml only: the
-catalog's workbook-scoped LAMBDA names are replaced from
-``lambda_functions.json``, every other workbook-scoped entry is dropped as
-residue, and orphaned external links go with them. Sheet-scoped names, cell
-values, charts and formatting are untouched.
+artifact is not worth a full Excel run. In ``xl/workbook.xml`` the catalog's
+workbook-scoped LAMBDA names are replaced from ``lambda_functions.json`` and
+every other workbook-scoped entry is dropped as residue. The package metadata
+moves with them: the stale ``xl/calcChain.xml`` is dropped (Excel rebuilds it on
+open), and when the purge leaves no formula referencing an external workbook,
+the ``xl/externalLinks/*`` parts go too — along with their entries in
+``xl/_rels/workbook.xml.rels`` and ``[Content_Types].xml``. Sheet-scoped names,
+worksheets, cell values, charts and formatting are untouched.
 
 This is a maintenance tool, not a build step. The builds
 (``build_production.py`` / ``build_univariate.py``) already call

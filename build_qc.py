@@ -136,11 +136,11 @@ def _calculate_verification_sheets(
     workbook_sheet_names = {sheet.name for sheet in workbook.sheets}
     missing_sheets = [name for name in sheet_names if name not in workbook_sheet_names]
 
-    # A sheet named here can be legitimately absent (e.g. a workbook built
-    # with --skip-univariate never got a Univariate sheet at all) even when
-    # the caller didn't pass the matching skip flag — warn and skip
-    # calculating it rather than crashing. Any other missing sheet indicates
-    # a real build problem and still hard-fails.
+    # A sheet named here can be legitimately absent: in the v3.0 split, the
+    # Regression workbook (build_production.py) ships no Univariate sheet by
+    # design — that's the post-split state, not a missing build flag. Warn
+    # and skip calculating it rather than crashing. Any other missing sheet
+    # indicates a real build problem and still hard-fails.
     required_missing = [
         name for name in missing_sheets if name not in _OPTIONAL_VERIFY_SHEET_NAMES
     ]
@@ -320,12 +320,16 @@ def verify_test_sheets(
         behaviour).
     skip_univariate : bool
         When True, skip the Univariate sheet check
-        (``read_univariate_failures``). Used by
-        ``build_production.py --verify`` which produces a Regression workbook
-        without a ``Univariate`` sheet. Defaults to False. Even when False, a
-        workbook that is missing the ``Univariate`` sheet is handled the same
-        way — the check is skipped with a warning rather than raising, since
-        the sheet's absence is expected in that case, not a build failure.
+        (``read_univariate_failures``). Hardcoded to True by
+        ``build_production._run_deep_verify`` (the Regression workbook ships
+        no Univariate sheet post-v3.0 split; see DECISIONS.md § v3.0
+        "Univariate becomes its own workbook"). The only path that passes
+        False is the standalone QC build (``build_qc.py`` itself), which
+        does carry a Univariate sheet. Even when False, a workbook that is
+        missing the ``Univariate`` sheet is handled the same way — the
+        check is skipped silently (the missing-sheet warning lives on the
+        calculate side, not the verify side) rather than raising, since
+        the sheet's absence is the post-split norm, not a build failure.
     skip_regression : bool
         When True, skip every Regression-side check (the Mileage and
         Production Lots Full_Data comparisons, the Regression spec-block
@@ -393,10 +397,17 @@ def verify_test_sheets(
                     )
 
     workbook_sheet_names = {sheet.name for sheet in workbook.sheets}
-    if skip_univariate or "Univariate" not in workbook_sheet_names:
+    # Only warn when the Univariate sheet is *unexpectedly* missing from a
+    # workbook that should carry it. The Regression build (build_production.py)
+    # passes skip_univariate=True precisely because the Univariate sheet lives
+    # in its own artifact (Lambda_Library_Univariate.xlsx) since the v3.0
+    # split - so the absence is by design, not a bug. Warn only when the
+    # caller did not opt out (i.e. the Univariate build) AND the sheet is
+    # actually missing.
+    if "Univariate" not in workbook_sheet_names and not skip_univariate:
         print(
             "WARNING Univariate sheet not verified "
-            "(missing from workbook or --skip-univariate was used).",
+            "(missing from workbook).",
             flush=True,
         )
     else:

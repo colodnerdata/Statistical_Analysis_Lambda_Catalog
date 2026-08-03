@@ -119,6 +119,7 @@ from .write_sheet_model_construction import (
     _HEADER_ROW as _SPEC_HEADER_ROW,
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _set_spec_block_column_widths,
+    _set_spec_block_optional_outline_group,
     _write_intercept_control,
     _write_spec_block,
     _write_spec_feedback,
@@ -2142,6 +2143,18 @@ def write_regression_output_sheet(
         sheet.api.Columns(
             f"{col_letter(first_col)}:{col_letter(last_col)}"
         ).Group()
+
+    # Spec-block optional sub-group (E:N). Nested inside the A:N zone group
+    # so the regular-MLR essentials (A: Variable, B: Role, C: Include, D:
+    # Type) stay visible by default while the optional columns
+    # (Reference Level, Order, Transform, Sequence, Sequence Period,
+    # Period In Use, Levels, Reference In Use, plus the M/N spec feedback
+    # and the I Verdict overlay) collapse to a single "+" button. One
+    # click expands them when a Categorical predictor, a Transform, or a
+    # Sequence axis enters the spec. Order matters: this must run AFTER
+    # the zone-level group above so Excel assigns it outline level 2
+    # underneath the level-1 A:N parent.
+    _set_spec_block_optional_outline_group(sheet)
 
     # Size the sub-header row to its wrapped contents (two lines for the
     # longer residual headers). Must run after the column widths above,

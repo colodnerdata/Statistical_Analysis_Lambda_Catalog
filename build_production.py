@@ -127,8 +127,10 @@ def _run_deep_verify(
     without unwinding the build pipeline. Other exceptions propagate.
 
     ``skip_univariate=True`` is hardcoded: the Regression workbook ships no
-    Univariate sheet (it moved to its own artifact in v3.0), so the verifier
-    skips its Univariate checks with a warning instead of crashing.
+    Univariate sheet (it moved to its own artifact in v3.0; see
+    DECISIONS.md § v3.0 "Univariate becomes its own workbook"). The
+    verifier therefore skips its Univariate checks silently — no warning
+    is printed because the absence is by design, not a build regression.
     """
     start = time.monotonic()
     build_qc = _load_build_qc_module()

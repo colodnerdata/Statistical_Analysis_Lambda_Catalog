@@ -25,7 +25,7 @@ Most functions are defined as workbook-scoped names, so they work in any cell fo
 
 Around 30 catalog functions are called by no pre-built sheet. That is deliberate: they are the **standalone user-callable layer** — `Correlation_Matrix`, `Lag_By`, `Descriptive_Statistics`, `Design_Matrix` and others you call in your own cells on your own data. The pre-built sheets demonstrate the library; they are not the whole of it.
 
-To use these functions in a different workbook, open both files in Excel at the same time. You can reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
+To use these functions in a different workbook, you have two options. **The easy one:** if you are using one of the pre-built sheets (the Regression workbench or the Univariate Analysis sheet), copy the sheet into your own workbook. The sheet's named-range dependencies come with it — the **workbook-scoped LAMBDA definitions** (the ~120 portable functions) and the **sheet-scoped definitions** (the Regression sheet's constructor closures like `X_s`, `Sample_Include`, `Design_Columns`; the Univariate sheet's `UV_Data`, `UV_Include`, `GoF_AIC`) travel inside the sheet-copy and are renamed automatically. Open your workbook, the sheet calculates, and every function is ready in formulas. **The other one:** if you only want a single function, or you would rather not pull in the pre-built sheet at all, open both files in Excel at the same time and reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
 
 ## Versions
 

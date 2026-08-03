@@ -196,6 +196,7 @@ from .workbook_helpers import (
     f_structured,
     format_input,
     get_or_create_sheet,
+    group_and_hide_columns,
     open_or_create_workbook,
     rc,
     reset_generated_sheet,
@@ -296,6 +297,45 @@ _SPEC_COLUMN_WIDTHS: dict[int, float] = {
 
 def _set_spec_block_column_widths(sheet: xw.Sheet) -> None:
     set_column_widths(sheet, _SPEC_COLUMN_WIDTHS.items())
+
+
+# Spec-block optional columns. The first four columns (Variable, Role,
+# Include, Type) are what a regular MLR user actually edits; the rest
+# (Reference Level, Order, Transform, Sequence, Sequence Period, Period
+# In Use, Levels, Reference In Use, plus the M/N spec-feedback zone) only
+# matter for Categorical predictors, the Transform feature, the Sequence
+# axis, and panel data. The Regression sheet's zone-level outline group
+# already wraps A:N as one collapsible block; this sub-group nests
+# underneath it so the user can collapse the optional columns down to
+# the MLR essentials on demand. The sub-group is collapsed by default
+# (columns hidden) so the shipped artifact shows only what a regular
+# MLR user needs; click the "+" to expand when Reference Level, Sequence,
+# or the delta-spectrum feedback is in play.
+_SPEC_OPTIONAL_FIRST_COL = 5   # E — Reference Level
+_SPEC_OPTIONAL_LAST_COL = 14   # N — Count feedback (Sequence_Delta_Spectrum column 2)
+
+
+def _set_spec_block_optional_outline_group(sheet: xw.Sheet) -> None:
+    """Group the optional spec columns (E:N) into a sub-outline and collapse.
+
+    Layered under the Regression sheet's zone-level A:N outline group, so
+    the spec block has two outline levels: the outer one collapses the
+    whole zone, this inner one collapses only the optional part. Collapsed
+    by default — the first MLR experience is four visible columns
+    (Variable, Role, Include, Type) plus the zone title and intercept
+    toggle. The Verdict overlay (column I rows 1-2) and the M/N Δ
+    spectrum are all hidden behind the same outline button, so the
+    Sequence workflow is one click away.
+
+    F (Order) is width 0 already; including it in the group is harmless.
+    SpecTable is a ListObject on B3:L15 — ListObjects tolerate hidden
+    columns (structured references resolve by name, not by position),
+    so hiding the spec's optional columns does not break the Spec_*
+    band names or the constructor closures that read them.
+    """
+    group_and_hide_columns(
+        sheet, _SPEC_OPTIONAL_FIRST_COL, _SPEC_OPTIONAL_LAST_COL
+    )
 
 
 # Spec feedback zone (M, N, I — the verdict overlay): the delta spectrum
@@ -1698,6 +1738,7 @@ def write_model_construction_sheet(
     _set_note(sheet, _HEADER_ROW, _C_REF_IN_USE, _REF_IN_USE_NOTE, label="Reference In Use")
 
     _set_spec_block_column_widths(sheet)
+    _set_spec_block_optional_outline_group(sheet)
     return sheet
 
 

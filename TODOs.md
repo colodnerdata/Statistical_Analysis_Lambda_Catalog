@@ -50,6 +50,38 @@ relevant DECISIONS entry for context on *why* — TODOs only holds
   Geometric, Negative Binomial, Hypergeometric, Poisson, Uniform,
   Chi-Square, Student-t.
 
+## Univariate artifact 2.1 — the Beta half of the grid shrink
+
+The Weibull and Gamma half shipped as Univariate 2.0.0: both fits profile
+their scale / rate parameter out in closed form and search a 20-point
+profile-NLL column per stage. Beta was deliberately out of that scope and
+still runs the artifact's only two Data Tables at 20×20, so the total is
+~880 evaluations rather than the ~370 the shrink was costed at.
+
+- TODO: **Give Beta a method-of-moments start and a ~12×12 grid.** On the
+  rescaled data with mean m and variance v: α₀ = m·(m(1−m)/v − 1),
+  β₀ = (1−m)·α₀/m. Bracket both axes around that start the way
+  `_write_profile_stage` brackets its 1-D start (`_PROFILE_BRACKET`), then
+  drop `_N_GRID` from 20 to ~12. Beta stays two-dimensional — both of its
+  conditional MLEs involve digamma, so neither parameter profiles out —
+  and keeps `_write_grid_stage`, its two Data Tables, its heatmap, and both
+  boundary rules. Breakage class: **MAJOR for the Univariate workbook
+  version** if the Alpha/Beta Min/Max cells stop being plain typed inputs,
+  the same call made for the Weibull/Gamma bounds at 2.0.0. See
+  [DECISIONS.md § the grid shrink](DECISIONS.md#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)
+  for the estimator and
+  [DECISIONS.md § Univariate 2.0.0](DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half)
+  for how the 1-D half resolved the equivalent questions.
+
+- TODO: **Rebuild and commit `Lambda_Library_Univariate.xlsx`.** The 2.0.0
+  writer changes have not been rendered into the committed artifact — that
+  needs a machine with Microsoft Excel (`python build_univariate.py
+  --verify --no-launch`). Until then the committed workbook still carries
+  the four 20×20 Weibull/Gamma formula grids, their `UV_WB_*` / `UV_GAMMA_*`
+  bodies at the old 21-column extents, and no `UV_Profile_*` names or
+  profile charts. The headless invariant tests pass against it because they
+  check package structure, not sheet layout.
+
 ## v2.0 — Specification-Driven Regression (shipped; leftovers)
 
 The human test plan for this milestone was fully executed and signed off PASS

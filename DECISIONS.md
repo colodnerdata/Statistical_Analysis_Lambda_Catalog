@@ -1086,6 +1086,12 @@ version only** — the Scale Min/Max/Step input cells change or disappear, so a
 user's saved bounds stop meaning anything. It does not move the Regression
 workbook version.
 
+**Status:** the Weibull and Gamma half shipped as **Univariate 2.0.0** — see
+[§ Univariate 2.0.0](#univariate-200--the-grid-shrink-weibull-and-gamma-half)
+for the three implementation questions this entry did not answer. Beta's
+method-of-moments start and ~12×12 grid are still open, so the total is ~880
+evaluations rather than the ~370 below.
+
 **Weibull and Gamma collapse to one-dimensional searches** by profiling out the
 scale/rate parameter in closed form.
 
@@ -1126,6 +1132,15 @@ grid. What replaces it once Weibull and Gamma search one parameter?
 **Resolution:** a **profile-NLL line chart** plotting NLL against the searched
 parameter. Beta keeps its heatmap. Both existing grid guards — the boundary-hit
 flag and the `IFERROR` sentinel for undefined NLL — carry forward unchanged.
+
+**Shipped at Univariate 2.0.0.** Two XY-scatter-with-lines charts under the Q-Q
+grid, fed by the OFFSET-based `UV_Profile_WB_*` / `UV_Profile_GAMMA_*` names
+over each distribution's **Stage 1** curve — the wide search, where the basin
+and a boundary hit are what there is to see; Stage 2 is a narrow refinement a
+line chart adds nothing to. The green→yellow→red colour scale carries over onto
+the profile column as well, so the body reads at a glance without the chart.
+The boundary-hit flag now sits on the searched parameter's `Best` cell only: the
+profiled-out partner is solved, not searched, so it has no grid edge to land on.
 
 **Rationale:** this is an upgrade in legibility, not a downgrade. The basin, the
 interior minimum, and any boundary-hit are all more directly visible in a line
@@ -2366,6 +2381,108 @@ diagnostics they serve are Regression-sheet features.
 
 ---
 
+## Univariate 2.0.0 — the grid shrink, Weibull and Gamma half
+
+The design settled at v3.0 — see
+[§ the grid shrink ships as a later release](#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)
+and [§ profile-NLL line charts](#profile-nll-line-charts-replace-the-weibull-and-gamma-heatmaps).
+Weibull and Gamma now profile their scale / rate parameter out in closed form
+and search a 20-point profile-NLL column per stage, replacing four 20×20 grid
+blocks (`_write_profile_stage` in `write_sheet_univariate.py`). **Beta is
+unchanged** — it keeps its two two-input Data Tables, and its method-of-moments
+start and ~12×12 grid are still open. Recorded below are the three questions the
+implementation had to answer that the design decision did not.
+
+### The profiled-out parameter is substituted into the catalog NLL, not into an analytic profile log-likelihood
+
+**Question:** the v3.0 entry wrote out ℓ_p(k) and ℓ_p(α) in closed form, with
+their fixed sample statistics (x̄, Σln xᵢ) computed once. Should each body cell
+evaluate that expression?
+
+**Resolution:** no. Each body cell calls the same catalog NLL LAMBDA the
+fitting table reports — `NLL_Weibull(UV_Data, k, λ̂(k), UV_Include)` — with only
+the *partner* parameter substituted in closed form. The two forms are
+algebraically identical; this one is what makes the curve's minimum and the
+fitting table's NLL **the same number by construction** rather than by two
+derivations agreeing. The analytic form's advantage was hoisting the fixed
+statistics out of the inner loop, and at 20 evaluations per stage instead of
+400 that is not a cost worth buying correctness risk with.
+
+Consequence: the profiled-out parameter appears exactly twice per stage, both
+generated from one helper (`_weibull_profile_scale`, `_gamma_profile_rate`) —
+in the body formula and in the `Best` cell that reports it. There is no third
+place for the two to drift apart.
+
+### The Weibull start builds its own Hazen positions, not `Rank_Fraction`
+
+**Question:** the v3.0 entry specified the Weibull starting value as the
+probability-plot regression of ln(−ln(1−F̂)) on ln x, "with F̂ from the existing
+`Rank_Fraction()`."
+
+**Resolution:** the formula instead builds the plotting positions the way Zone
+6's `P` column already does — `SORT` once, then `(SEQUENCE(n)-0.5)/n` — for two
+independent reasons.
+
+*Correctness:* `Rank_Fraction` returns i/n, which is exactly 1 at the sample
+maximum, so ln(−ln(1−F̂)) is an error there. The raw form would have thrown on
+**every** sample, not an unlucky one, falling back to the constant k₀ = 2 and
+quietly disabling the start it was supposed to provide. The Hazen adjustment
+(i−0.5)/n is what makes the expression evaluable at all, and it is the
+convention Zone 6 and the Regression sheet's Normal Q-Q machinery already use,
+so the start is consistent with the plots a user compares it against.
+
+*Cost:* `Rank_Fraction` is `BYROW` over `SUMPRODUCT` — O(n²), or ~8.6M
+comparisons on the shipped 2,928-row sample, in a cell that recalculates on
+every data change. The sorted form is O(n log n) and is already being computed
+one zone over.
+
+The whole expression still carries an `IFERROR` fallback (k₀ = 2) for a sample
+that cannot support the regression at all.
+
+### Stage 1's bounds are formulas in an input-coloured cell
+
+**Question:** the searched parameter's Min/Max were user-typed numeric
+defaults. With a closed-form start available, should they become derived?
+
+**Resolution:** both. Stage 1's Min and Max hold formulas bracketing the start
+(`start/3`, `start*3`) and **stay input-coloured**: the shipped default needs no
+user judgement about a plausible range, and a user whose sample trips the
+boundary guard can still type a literal over either cell. This is the one place
+in the search a user has a decision to make, so removing the cell entirely — the
+other reading of "the bounds become derived" — would have left a red boundary
+flag with no remedy.
+
+The bracket is wide relative to the starts' accuracy. Across simulated Weibull
+shapes 0.4–30 and Gamma shapes 0.3–200 at n = 60 and n = 2000, the two stages
+never landed on a boundary and never finished more than 0.09 NLL above the
+scipy MLE. On the shipped Life Expectancy sample both fits came out *better*
+than the grids they replaced: Weibull 10608.12 vs. 10608.22, and Gamma 10854.86
+vs. **10861.68** — the old 2-D Gamma bracket ([0.5, 100] × [0.001, 2] in 20
+steps) was too coarse to resolve α ≈ 48.5, and had been shipping a fit 6.8 NLL
+units off the optimum, worth ~13.7 of AIC. The shrink is not a
+speed-for-accuracy trade here; it is both.
+
+### The 1-D stage cannot use `Grid_Search_Optimum`
+
+**Question:** the 2-D stages read their result with
+`Grid_Search_Optimum(body)`. Does it carry over?
+
+**Resolution:** no, and this is a silent-wrong-answer trap rather than an error.
+`Grid_Search_Optimum` returns `VSTACK(OFFSET(grid,-1,col−1,1,1),
+OFFSET(grid,row−1,-1,1,1))` — the cell above the body and the cell to its left.
+On a single-column body the first of those is the `Profile NLL` **header text**,
+not a parameter value, and the call returns a two-element stack whose first
+element is a label. The 1-D stage instead reads
+`INDEX(<axis name>, INDEX(Grid_Argument_Minimum(<body>),1,2))`;
+`Grid_Argument_Minimum` is dimension-agnostic and needs no change.
+
+`Grid_Search_Optimum`'s catalog entry is unchanged and correct — it documents
+itself as reading a two-input Data Table body. Nothing new is added to the
+catalog: the shrink is entirely a sheet-writer change, so the function-library
+version does not move.
+
+---
+
 ## Aliases
 
 A separate, optional layer of short, ALL-CAPS aliases may be added in
@@ -2579,6 +2696,14 @@ just records what was replaced, when, and by what.
   per-workbook version, once the build began emitting two artifacts.
   The `Breaking?` flag moves to the workbook version, where the
   question it answers actually lives.
+- **Weibull and Gamma NLL as static 20×20 formula grids** (v3.0) →
+  SUPERSEDED at Univariate 2.0.0 by the 1-D profile search. The formula
+  grid was a holding position — it removed the Data Table object while
+  the search stayed two-dimensional, so it still paid 400 evaluations
+  per stage for a surface one of whose axes has a closed-form solution.
+  Profiling the scale/rate parameter out drops each stage to 20
+  evaluations and, on the shipped sample, lands closer to the MLE than
+  the grid it replaces.
 - **`Model_Context` materialized as a single `VSTACK` spill** (v3.0
   stage two) → SUPERSEDED by the decomposed block: one labelled cell
   per context element, headed and border-boxed. A spill sizes output

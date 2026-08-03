@@ -11,7 +11,7 @@ From v3.0 the build emits **two workbooks**. Both carry the **complete function 
 | **`Lambda_Library.xlsx`** | The Regression workbench, the three sample datasets, and the reference sheets | You are fitting models — regression, fixed effects, prediction, diagnostics. **This is the default.** |
 | **`Lambda_Library_Univariate.xlsx`** | The Univariate Analysis sheet — descriptive statistics, histogram binning, distribution fitting | You are characterizing a single variable's distribution, or fitting a distribution for cost/risk work |
 
-**Why two.** The Univariate sheet's Beta distribution still uses native two-input Data Tables for the two-stage grid search — the other seven fits (including Weibull and Gamma) use static formula grids. Excel can only be told to skip Data Tables workbook-wide, so a single workbook would force one of two bad outcomes: either every Regression user paid the Data-Table cost, or Univariate's fits sat stale until the user pressed Ctrl+Alt+F9. Splitting lets each workbook set its own calculation mode. The Regression workbook now recalculates fully automatically, and Univariate's fits are live.
+**Why two.** The Univariate sheet's Beta distribution still uses native two-input Data Tables for its two-stage grid search — the other seven fits need none (Weibull and Gamma search a 1-D profile-NLL column; the remaining five are closed-form). Excel can only be told to skip Data Tables workbook-wide, so a single workbook would force one of two bad outcomes: either every Regression user paid the Data-Table cost, or Univariate's fits sat stale until the user pressed Ctrl+Alt+F9. Splitting lets each workbook set its own calculation mode. The Regression workbook now recalculates fully automatically, and Univariate's fits are live.
 
 Nothing is lost by choosing one: the function library is the same in both, and you can open both at once if you want both sets of sheets.
 
@@ -21,7 +21,7 @@ Nothing is lost by choosing one: the function library is the same in both, and y
 2. Open it in Excel 365 (Windows or Mac).
 3. Enter your data in columns on any sheet, then call any function by name.
 
-Most functions are defined as workbook-scoped names, so they work in any cell formula within either workbook. The **Regression** sheet (Regression workbook) also installs a small set of sheet-scoped constructor names for the spec block and provides a ready-to-use analysis interface: declare each table column's Role and Type on the spec block, and the sheet derives the row mask, the constructed design matrix, and the full regression output automatically. The **Univariate Analysis** sheet (Univariate workbook) demonstrates descriptive statistics, histogram binning, and distribution fitting via grid-search MLE. The **LAMBDA_functions** sheet ships in both and is the canonical, always-in-sync function catalog — see [Documentation map](#documentation-map) below.
+Most functions are defined as workbook-scoped names, so they work in any cell formula within either workbook. The **Regression** sheet (Regression workbook) also installs a small set of sheet-scoped constructor names for the spec block and provides a ready-to-use analysis interface: declare each table column's Role and Type on the spec block, and the sheet derives the row mask, the constructed design matrix, and the full regression output automatically. The **Univariate Analysis** sheet (Univariate workbook) demonstrates descriptive statistics, histogram binning, and distribution fitting via search-based MLE. The **LAMBDA_functions** sheet ships in both and is the canonical, always-in-sync function catalog — see [Documentation map](#documentation-map) below.
 
 Around 30 catalog functions are called by no pre-built sheet. That is deliberate: they are the **standalone user-callable layer** — `Correlation_Matrix`, `Lag_By`, `Descriptive_Statistics`, `Design_Matrix` and others you call in your own cells on your own data. The pre-built sheets demonstrate the library; they are not the whole of it.
 
@@ -38,7 +38,7 @@ Each workbook's **Version History** sheet shows both, with its own workbook vers
 
 ```
 Regression Workbook 3.1.0   ·   Function Library 3.1.0
-Univariate Workbook 1.0.0   ·   Function Library 3.1.0
+Univariate Workbook 2.0.0   ·   Function Library 3.1.0
 ```
 
 The **`Breaking?` flag belongs to the workbook version**, since it answers a question about your saved inputs. A library-version bump that adds a function breaks nothing. A change to the Univariate workbook's inputs does not move the number a Regression user reads.
@@ -64,7 +64,7 @@ Includes the WHO Life Expectancy dataset (2,938 rows across 193 countries, 2000�
 
 The same **LAMBDA_functions** catalog and **Version History** sheets, plus:
 
-- **Univariate Analysis** — descriptive statistics, three side-by-side histogram binning methods (Sturges, Scott, Freedman-Diaconis), and two-stage grid-search distribution fitting across eight candidate distributions. Beta uses native two-input Data Tables; the other seven (Weibull, Gamma, Normal, Log-Normal, Exponential, Triangular, BetaPERT) use static formula grids. The fitted-distribution Q-Q plots and the histogram distribution overlays live alongside.
+- **Univariate Analysis** — descriptive statistics, three side-by-side histogram binning methods (Sturges, Scott, Freedman-Diaconis), and two-stage distribution fitting across eight candidate distributions. Weibull and Gamma profile their scale/rate parameter out in closed form and search a 20-point profile-NLL curve per stage; Beta stays two-dimensional on native two-input Data Tables; Normal, Log-Normal, Exponential, Triangular, and BetaPERT are closed-form. The fitted-distribution Q-Q plots, the Weibull and Gamma profile-NLL line charts, and the histogram distribution overlays live alongside.
 
 This workbook ships in full **Automatic** calculation mode including Data Tables, so fitted parameters update live as you change the input column — which is exactly what a single combined workbook could not deliver.
 

@@ -3321,7 +3321,9 @@
     "Q-Q Plot Data": "The plotting positions, sorted sample, and per-distribution theoretical quantiles used by the Q-Q charts below. The plotting positions are Hazen, (i - 0.5) / n.",
     "P": "Hazen plotting position (i - 0.5) / n, where i is the rank of each sorted sample value and n is the count of included rows. The same convention the Normal Q-Q machinery uses in the regression sheet.",
     "Sample": "The included sample, sorted smallest to largest. Built as SORT(FILTER(UV_Data, UV_Include)) — only rows passing the filter, in rank order.",
-    "Min NLL": "The negative log-likelihood at the best-fit parameter values found by the grid search. The number the parameter columns (Input, Best) are tuned against.",
-    "Best": "The best-fit value of the corresponding parameter, found at the corner of the (Min, Max, Step Size) grid that minimizes the NLL. Read this as the MLE for the parameter — the Input cell is the grid cell currently feeding the Data Table (or formula grid)."
+    "Min NLL": "The negative log-likelihood at the best-fit parameter values found by the search. The number the parameter columns are tuned against.",
+    "Best": "The best-fit value of the corresponding parameter — read it as the MLE. For Weibull and Gamma the searched parameter is the minimum of the 20-point Profile NLL column and its partner is the closed-form value at that minimum; for Beta both come from the corner of the (Min, Max, Step Size) Data Table grid that minimizes the NLL. A red fill means the minimum landed on an end of the search range — widen Min/Max and re-read.",
+    "Start": "Closed-form starting value for the searched parameter, used to bracket Stage 1: Weibull from a probability-plot regression of ln(-ln(1-F)) on ln x, Gamma from Minka's approximation. Stage 1's Min and Max default to one third and three times this value; type over them to widen the search.",
+    "Profile NLL": "Negative log-likelihood at each trial value of the searched parameter, with the other parameter eliminated in closed form (Weibull scale, Gamma rate). The minimum of this curve is the joint MLE, so one 20-point column replaces a 20x20 grid. Charted below as the profile-NLL line chart."
   }
 }

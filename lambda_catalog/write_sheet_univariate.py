@@ -9,9 +9,26 @@ closed-form (sample mean/SD on the raw or log-transformed data).  For
 Triangular and BetaPERT the likelihood is non-differentiable at the mode, so
 direct min/mode/max estimation is used — the result is a valid parameter set
 that the NLL formula evaluates against.  Weibull, Gamma, and Beta use two-stage
-grid searches.  Beta uses two-input Data Tables; Weibull and Gamma use static
-formula grids (each body cell an explicit NLL formula) — their Data Tables are
-disabled pending the grid-shrink migration to 1-D profile line charts.
+searches.
+
+**Weibull and Gamma search one dimension** (the grid shrink).  Their scale /
+rate parameter is *profiled out* in closed form at every trial shape, so each
+stage evaluates a 20-point profile-NLL curve rather than a 20×20 surface:
+
+  Weibull   λ̂(k) = ((1/n)·Σxᵢᵏ)^(1/k)
+  Gamma     β̂(α) = α / x̄
+
+Profiling is still genuine MLE — the profile maximizer is the joint maximizer —
+so the two returned parameters are the same estimates the 2-D grid produced,
+at 20 evaluations per stage instead of 400.  Each stage 1 brackets a
+closed-form starting value (Weibull: probability-plot regression of
+ln(−ln(1−F̂)) on ln x, F̂ the Hazen positions Zone 6 already uses; Gamma:
+Minka's approximation from s = ln(AM/GM)); stage 2 refines to ±1 stage-1 step.  The two-dimensional
+NLL heatmap is replaced by a **profile-NLL line chart** per distribution.
+
+**Beta stays two-dimensional** — both conditional MLEs involve digamma — and
+keeps its two two-input Data Tables.  They are the only Data Tables in the
+artifact.
 
 Sheet layout
 ────────────
@@ -33,9 +50,10 @@ Sheet layout
   Col AR         — thin gap (width 2)
   Col AS–BC      — Freedman-Diaconis histogram (11 cols)
   Col BD         — thin gap (width 2)
-  Col BE–BY      — Stage 1 controls and 20×20 Data Table
-  Col BZ         — thin gap between grid-search stages
-  Col CA–CU      — Stage 2 controls and 20×20 Data Table
+  Col BE–BY      — Stage 1 controls and body (Beta: 20×20 Data Table across the
+                   full band; Weibull/Gamma: 1-D profile search, BE–BM only)
+  Col BZ         — thin gap between search stages
+  Col CA–CU      — Stage 2 controls and body (same split; CA–CI for the 1-D stages)
   Col CV         — thin gap (width 2)
   Col CW–DF      — Q-Q plot data (P, sorted Sample, 8 theoretical-quantile columns)
 
@@ -43,6 +61,8 @@ Sheet layout
     G14, G34, G54          — histogram combo charts (count bars + 8 fitted overlay lines)
     rows 74-153            — eight per-distribution Q-Q plots in a 4×2 grid
                              (left chart G:O, right chart P:T per row)
+    rows 154-173           — Weibull and Gamma profile-NLL line charts
+                             (left chart G:O, right chart P:T)
 
 Sheet-scoped named ranges
 ─────────────────────────
@@ -53,9 +73,13 @@ Sheet-scoped named ranges
   UV_*_<Dist>_Expected — histogram CDF-delta column × Count stat cell (expected
                    counts); feeds the fitted-distribution overlay line series
   UV_QQ_Sample, UV_QQ_<Dist> — OFFSET-based Q-Q chart column ranges
-  UV_WB_S1/S2    — Stage 1/2 Weibull grid bodies (formula grid; no Data Table)
-  UV_GAMMA_S1/S2  — Stage 1/2 Gamma grid bodies (formula grid; no Data Table)
-  UV_BETA_S1/S2   — Stage 1/2 Beta Data Table bodies
+  UV_WB_S1/S2    — Stage 1/2 Weibull profile-NLL bodies (20×1)
+  UV_WB_S1/S2_Axis — Stage 1/2 Weibull shape axes (20×1), left of the body
+  UV_GAMMA_S1/S2  — Stage 1/2 Gamma profile-NLL bodies (20×1)
+  UV_GAMMA_S1/S2_Axis — Stage 1/2 Gamma shape axes (20×1)
+  UV_BETA_S1/S2   — Stage 1/2 Beta Data Table bodies (20×20)
+  UV_Profile_WB_*, UV_Profile_GAMMA_* — OFFSET-based stage-1 axis/NLL ranges
+                   feeding the two profile-NLL line charts
 """
 from __future__ import annotations
 
@@ -186,6 +210,37 @@ _GS_C_MAX    = 6   # parameter range maximum
 _GS_C_STEP   = 7   # endpoint-inclusive parameter step size
 _GS_C_BEST   = 8   # Grid_Search_Optimum spill anchor / result column
 
+# ── Zone 5b: one-dimensional profile-NLL search (Weibull, Gamma) ─────────────
+#
+# The 1-D stages sit in the same two column bands as the 2-D Beta stages and
+# reuse the _GS_R_* row offsets, so the Best column lands on the same two rows
+# for every distribution — that is what lets _final_grid_best_refs stay a
+# single formula for all three fits.  Only the column offsets differ: the Data
+# Table substitution cell (_GS_C_INPUT) becomes the closed-form Start value,
+# and the profiled-out parameter's Min/Max/Step cells are left empty because
+# it is not searched.
+_N_PROFILE   = 20   # profile points per stage (20 per stage, not 20×20)
+_PS_C_MINNLL = _GS_C_MINNLL   # Min NLL label/value
+_PS_C_POINTS = _GS_C_N_GRID   # "Grid Points" label/value
+_PS_C_PARAM  = _GS_C_PARAM    # Parameter
+_PS_C_START  = _GS_C_INPUT    # closed-form starting value for the searched parameter
+_PS_C_MIN    = _GS_C_MIN      # searched-parameter range minimum
+_PS_C_MAX    = _GS_C_MAX      # searched-parameter range maximum
+_PS_C_STEP   = _GS_C_STEP     # endpoint-inclusive step size
+_PS_C_BEST   = _GS_C_BEST     # best searched / profiled parameter values
+_PS_W        = _PS_C_BEST + 1   # columns a 1-D stage actually occupies (9)
+
+# Stage 1 brackets the closed-form start by this multiplicative factor either
+# side.  Both starting estimates land within a few percent of the MLE, so 3×
+# is a wide bracket; the boundary-hit guard on the Best cell flags the rare
+# sample where it is not, and the Min/Max cells stay editable overrides.
+_PROFILE_BRACKET = 3
+
+# Body column offset for a 1-D stage: the searched-parameter axis sits at
+# col_start and the profile NLL immediately to its right.
+_PS_C_AXIS = 0
+_PS_C_BODY = 1
+
 # Zone 6: Q-Q plot data (CV = 100 is a gap col; CW–DF = 101-110)
 _C_QQ = _C_GS_S2 + _GS_W + 1   # 101 (CW)
 _QQ_W = 10   # P, Sample, 8 theoretical-quantile columns
@@ -224,6 +279,7 @@ _DATA_END  = _ROW_DATA_START + _DATA_ROWS - 1   # last data row = 2003
 _XL_COLUMN_CLUSTERED = 51      # xlColumnClustered
 _XL_LINE             = 4       # xlLine — overlay series in the histogram combo charts
 _XL_XY_SCATTER       = -4169   # xlXYScatter — Q-Q plots
+_XL_XY_SCATTER_LINES = 74      # xlXYScatterLines — profile-NLL curves
 _XL_XY_SCATTER_LINES_NO_MARKERS = 75   # identity reference series on Q-Q plots
 _XL_CATEGORY         = 1    # horizontal axis type
 _XL_VALUE            = 2    # vertical axis type
@@ -244,6 +300,12 @@ _QQ_CHART_BANDS = (
     (7, 15),    # G:O — left chart of each pair
     (16, 20),   # P:T — right chart of each pair
 )
+
+# The two profile-NLL line charts (Weibull, Gamma) sit in one more row of the
+# same two bands, directly under the last Q-Q pair.
+_N_QQ_CHART_ROWS_USED = 4
+_ROW_PROFILE_CHART_START = _ROW_QQ_CHART_START + _N_QQ_CHART_ROWS_USED * _QQ_CHART_ROWS
+_PROFILE_CHART_ROWS = _QQ_CHART_ROWS
 
 UNIVARIATE_SHEET_NAME = "Univariate"
 
@@ -303,15 +365,16 @@ def _set_column_widths(sheet: xw.Sheet) -> None:
         gap_col = block_start + _HIST_W
         set_column_widths(sheet, ((gap_col, 2),))
 
-    # Grid-search stages: compact fixed-area controls above narrow Data Tables.
-    # Stage 1: BE–BY; gap BZ; Stage 2: CA–CU.
+    # Search stages: compact fixed-area controls above the narrow bodies.
+    # Stage 1: BE–BY; gap BZ; Stage 2: CA–CU. The 1-D profile stages occupy
+    # only the first _PS_W columns of each band; the rest carry Beta's grid.
     for stage_start in (_C_GS, _C_GS_S2):
         set_column_widths(sheet, ((c, 6) for c in range(stage_start, stage_start + _N_GRID + 1)))
         set_column_widths(
             sheet,
             (
-                (stage_start, 12),                   # Min NLL / row axis
-                (stage_start + _GS_C_N_GRID, 14),     # Rows/Columns
+                (stage_start, 12),                   # Min NLL / row axis / profile axis
+                (stage_start + _GS_C_N_GRID, 14),     # Rows/Columns / Grid Points / profile NLL
                 (stage_start + _GS_C_PARAM, 13),      # Parameter
             ),
         )
@@ -1265,7 +1328,6 @@ def _write_grid_stage(
     p2_min,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     p2_max,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     editable_bounds: bool = True,
-    use_data_table: bool = True,
 ) -> dict:
     """Write one 20×20 NLL grid-search stage for a two-parameter fit.
 
@@ -1273,16 +1335,11 @@ def _write_grid_stage(
     the distribution-fitting summary: best_p1, best_p2, min_p1, max_p1,
     min_p2, max_p2, step_p1, step_p2, n_grid, corner, p1_seq, and p2_seq.
 
-    When ``use_data_table`` is True (the default) the body is a two-input
-    Excel Data Table wired via ``Range.Table`` — the corner NLL formula is
-    substituted across the row/column axes.  When False the body is a static
-    **formula grid**: each cell holds an explicit NLL formula referencing the
-    row/column SEQUENCE axis cells.  Both populate the same body named range
-    that ``Grid_Argument_Minimum`` / ``Grid_Search_Optimum`` read, so the fit
-    result is identical, but the formula grid creates no Data Table object —
-    it does not force workbook-wide SEMIAUTOMATIC calculation and recalculates
-    as ordinary formulas.  Used for the distributions slated to become 1-D
-    profile line charts (Weibull, Gamma); Beta keeps its Data Table.
+    The body is a two-input Excel Data Table wired via ``Range.Table`` — the
+    corner NLL formula is substituted across the row and column axes.  Beta is
+    the only distribution that still needs a two-dimensional search (both of
+    its conditional MLEs involve digamma, so neither parameter profiles out in
+    closed form); Weibull and Gamma go through ``_write_profile_stage``.
     """
     sname = sheet.name
     n = _N_GRID
@@ -1426,36 +1483,17 @@ def _write_grid_stage(
         ),
     )
 
-    if use_data_table:
-        full_table_range = sheet.range(
-            rc(hdr_row, c0),
-            rc(body_row_end, body_col_end),
+    full_table_range = sheet.range(
+        rc(hdr_row, c0),
+        rc(body_row_end, body_col_end),
+    )
+    try:
+        full_table_range.api.Table(
+            RowInput=sheet.range(rc(p1_row, c0 + _GS_C_INPUT)).api,
+            ColumnInput=sheet.range(rc(p2_row, c0 + _GS_C_INPUT)).api,
         )
-        try:
-            full_table_range.api.Table(
-                RowInput=sheet.range(rc(p1_row, c0 + _GS_C_INPUT)).api,
-                ColumnInput=sheet.range(rc(p2_row, c0 + _GS_C_INPUT)).api,
-            )
-        except Exception as e:
-            raise RuntimeError(f"Failed to wire two-input Data Table for stage {title!r}") from e
-    else:
-        # Formula grid: write an explicit NLL formula into each body cell,
-        # referencing the column-axis (shape) and row-axis (scale) SEQUENCE
-        # cells.  No Data Table object is created.  The whole 20×20 block is
-        # written in one COM call via ``Range.Formula2`` accepting a 2D list
-        # (a per-cell ``f`` loop here costs ~1,600 COM round-trips and made
-        # the sheet-writing phase take >10 min; the 2D write is instant).
-        body_formulas = [
-            [
-                nll_formula(
-                    f"${col_letter(c0 + 1 + j)}${hdr_row}",      # column axis: p1 (shape)
-                    f"${col_letter(c0)}${body_row_start + i}",   # row axis: p2 (scale)
-                )
-                for j in range(n)
-            ]
-            for i in range(n)
-        ]
-        body_range.api.Formula2 = body_formulas
+    except Exception as e:
+        raise RuntimeError(f"Failed to wire two-input Data Table for stage {title!r}") from e
 
     body_range.number_format = _FMT_SCI_1DP
 
@@ -1558,7 +1596,6 @@ def _write_two_stage_grid_search(
     p1_max,
     p2_min,
     p2_max,
-    use_data_table: bool = True,
 ) -> None:
     """Write Stage 1 and Stage 2 grid-search blocks for one distribution."""
     s1 = _write_grid_stage(
@@ -1575,7 +1612,6 @@ def _write_two_stage_grid_search(
         p2_min      = p2_min,
         p2_max      = p2_max,
         editable_bounds = True,
-        use_data_table = use_data_table,
     )
 
     _write_grid_stage(
@@ -1592,50 +1628,374 @@ def _write_two_stage_grid_search(
         p2_min      = f"=MAX(0.001,{s1['best_p2']}-{s1['step_p2']})",
         p2_max      = f"={s1['best_p2']}+{s1['step_p2']}",
         editable_bounds = False,
-        use_data_table = use_data_table,
     )
 
     # Section heading label over the gap column between stages.
     val(sheet, row_start, _C_GS + _GS_W, "")
 
 
-def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
-    """Write two-stage grid-search MLE blocks for all two-parameter fits.
+# ── Zone 5b: one-dimensional profile-NLL search ──────────────────────────────
+#
+# Layout within one 1-D stage block (row_start, col_start):
+#   row+0  : section heading merged across col+0…col+_PS_W-1
+#   row+1  : Min NLL and Grid Points labels; blank col+2; parameter headers
+#   row+2  : control values; searched parameter: Parameter | Start | Min | Max |
+#            Step Size | Best
+#   row+3  : profiled-out parameter: Parameter | (no bounds) | Best
+#   row+4  : axis header at col+0, "Profile NLL" body header at col+1
+#   row+5…+4+N : searched-parameter SEQUENCE at col+0; profile NLL at col+1
+#
+# The searched parameter's partner is eliminated in closed form, so each body
+# cell is a single NLL call at (trial value, partner(trial value)) — the same
+# catalog NLL LAMBDA the fitting table reports, which is what guarantees the
+# curve's minimum and the table's NLL agree exactly.
+#
+# Named ranges registered here:
+#   *_S1 / *_S2        = stage profile-NLL body (N×1)
+#   *_S1_Axis / *_S2_Axis = stage searched-parameter axis (N×1)
 
-    Weibull and Gamma use static formula grids (``use_data_table=False``) —
-    these two are slated to become 1-D profile line charts, so their 2-D
-    Data Tables are disabled pending that migration.  Beta keeps its Data
-    Table (it stays two-dimensional under the grid shrink).
+
+def _weibull_profile_scale(shape_ref: str) -> str:
+    """Closed-form Weibull scale at a given shape: λ̂(k) = ((1/n)·Σxᵢᵏ)^(1/k)."""
+    return (
+        f"((AVERAGE(FILTER(UV_Data,UV_Include)^{shape_ref}))^(1/{shape_ref}))"
+    )
+
+
+def _gamma_profile_rate(shape_ref: str) -> str:
+    """Closed-form Gamma rate at a given shape: β̂(α) = α / x̄."""
+    return f"({shape_ref}/AVERAGE(FILTER(UV_Data,UV_Include)))"
+
+
+# Closed-form starting values for the searched parameter.  Both are plug-in
+# estimators accurate to a few percent, which is what makes a 20-point bracket
+# enough; each falls back to a neutral constant if the sample cannot support it.
+# The plotting positions are built the way Zone 6's `P` column builds them —
+# SORT once, then Hazen (i-0.5)/n — rather than through `Rank_Fraction`.  Two
+# reasons: `Rank_Fraction` returns i/n, which is exactly 1 at the sample
+# maximum and makes LN(-LN(1-p)) an error on every sample; and it is O(n²)
+# (BYROW over SUMPRODUCT), where the sorted form is O(n log n).
+_WEIBULL_SHAPE_START = (
+    "=IFERROR(LET("
+    "x,SORT(FILTER(UV_Data,UV_Include)),"
+    "n,ROWS(x),"
+    "p,(SEQUENCE(n)-0.5)/n,"
+    "SLOPE(LN(-LN(1-p)),LN(x))"
+    "),2)"
+)
+
+_GAMMA_SHAPE_START = (
+    "=IFERROR(LET("
+    "x,FILTER(UV_Data,UV_Include),"
+    "s,LN(AVERAGE(x))-AVERAGE(LN(x)),"
+    "IF(s<=0,1,(3-s+SQRT((s-3)^2+24*s))/(12*s))"
+    "),1)"
+)
+
+
+def _write_profile_stage(
+    sheet: xw.Sheet,
+    row_start: int,
+    col_start: int,
+    title: str,
+    body_name: str,
+    p1_label: str,
+    p2_label: str,
+    nll_formula,
+    partner_formula,
+    p1_start,   # Excel formula string for the searched parameter's start value
+    p1_min,     # Excel formula string
+    p1_max,     # Excel formula string
+    editable_bounds: bool = True,
+) -> dict:
+    """Write one 20-point profile-NLL search stage for a two-parameter fit.
+
+    ``partner_formula(ref)`` returns the Excel expression (no leading ``=``)
+    for the profiled-out parameter at the searched value ``ref``;
+    ``nll_formula(p1, p2)`` is the same callable the 2-D grid stages take.
+
+    Returns the absolute A1 references the refined Stage 2 and the fitting
+    summary read: best_p1, best_p2, min_p1, max_p1, step_p1, n_points, axis,
+    and body.
     """
-    _write_two_stage_grid_search(
+    sname = sheet.name
+    n = _N_PROFILE
+    r0, c0 = row_start, col_start
+    last_col = c0 + _PS_W - 1
+
+    # ── Stage title ──────────────────────────────────────────────────────────
+    val(sheet, r0, c0, title)
+    sheet.range(rc(r0, c0), rc(r0, last_col)).merge()
+    sheet.range(rc(r0, c0)).api.Font.Bold = True
+    sheet.range(rc(r0, c0)).color = _HEADER
+
+    control_hdr_row = r0 + _GS_R_CONTROL_HDR
+    p1_row = r0 + _GS_R_P1
+    p2_row = r0 + _GS_R_P2
+
+    # ── Fixed-area tables ────────────────────────────────────────────────────
+    val(sheet, control_hdr_row, c0 + _PS_C_MINNLL, "Min NLL:")
+    val(sheet, control_hdr_row, c0 + _PS_C_POINTS, "Grid Points")
+    _subheader_row(sheet, control_hdr_row, c0 + _PS_C_MINNLL, c0 + _PS_C_POINTS)
+    val(sheet, p1_row, c0 + _PS_C_POINTS, n)
+    sheet.range(rc(p1_row, c0 + _PS_C_POINTS)).number_format = _FMT_INT
+    n_points_ref = _gs_a1(r0, c0, _GS_R_P1, _PS_C_POINTS)
+
+    for dc, label in [
+        (_PS_C_PARAM, "Parameter"),
+        (_PS_C_START, "Start"),
+        (_PS_C_MIN, "Min"),
+        (_PS_C_MAX, "Max"),
+        (_PS_C_STEP, "Step Size"),
+        (_PS_C_BEST, "Best"),
+    ]:
+        val(sheet, control_hdr_row, c0 + dc, label)
+    _subheader_row(sheet, control_hdr_row, c0 + _PS_C_PARAM, c0 + _PS_C_BEST)
+
+    val(sheet, p1_row, c0 + _PS_C_PARAM, p1_label)
+    val(sheet, p2_row, c0 + _PS_C_PARAM, p2_label)
+
+    # Searched-parameter start and bracket.  The Min/Max cells hold formulas
+    # but stay input-coloured on Stage 1: they are the one place a user can
+    # widen the search when the boundary guard fires, by typing over them.
+    f(sheet, p1_row, c0 + _PS_C_START, p1_start)
+    f(sheet, p1_row, c0 + _PS_C_MIN, p1_min)
+    f(sheet, p1_row, c0 + _PS_C_MAX, p1_max)
+    if editable_bounds:
+        sheet.range(rc(p1_row, c0 + _PS_C_MIN)).color = _INPUT
+        sheet.range(rc(p1_row, c0 + _PS_C_MAX)).color = _INPUT
+
+    min_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _PS_C_MIN)
+    max_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _PS_C_MAX)
+    step_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _PS_C_STEP)
+    f(sheet, p1_row, c0 + _PS_C_STEP,
+      f"=({max_p1_ref}-{min_p1_ref})/({n_points_ref}-1)")
+
+    sheet.range(
+        rc(p1_row, c0 + _PS_C_START),
+        rc(p2_row, c0 + _PS_C_BEST),
+    ).number_format = _FMT_1DP
+
+    # ── Axis and profile-NLL body ────────────────────────────────────────────
+    hdr_row = r0 + _GS_R_HDR
+    body_row_start = r0 + _GS_R_BODY
+    body_row_end = body_row_start + n - 1
+    axis_col = c0 + _PS_C_AXIS
+    body_col = c0 + _PS_C_BODY
+
+    val(sheet, hdr_row, axis_col, p1_label)
+    val(sheet, hdr_row, body_col, "Profile NLL")
+    _subheader_row(sheet, hdr_row, axis_col, body_col)
+
+    f(sheet, body_row_start, axis_col,
+      f"=SEQUENCE({n_points_ref},1,{min_p1_ref},{step_p1_ref})")
+    axis_range = sheet.range(rc(body_row_start, axis_col), rc(body_row_end, axis_col))
+    axis_range.number_format = _FMT_1DP
+
+    body_range = sheet.range(rc(body_row_start, body_col), rc(body_row_end, body_col))
+
+    axis_name = f"{body_name}_Axis"
+    for name, first_col in ((body_name, body_col), (axis_name, axis_col)):
+        _drop_wb_name(sheet, name)
+        drop_local_name(sheet, name)
+        sheet.api.Names.Add(
+            Name=name,
+            RefersTo=(
+                f"='{sname}'!${col_letter(first_col)}${body_row_start}"
+                f":${col_letter(first_col)}${body_row_end}"
+            ),
+        )
+
+    # One NLL call per trial value, with the partner parameter substituted in
+    # closed form.  Written as a single N×1 ``Formula2`` array so the stage
+    # costs one COM round-trip rather than N.
+    axis_cell_refs = [
+        f"${col_letter(axis_col)}${body_row_start + i}" for i in range(n)
+    ]
+    body_range.api.Formula2 = [
+        [nll_formula(ref, partner_formula(ref))] for ref in axis_cell_refs
+    ]
+    body_range.number_format = _FMT_SCI_1DP
+
+    # ── LAMBDA-driven outputs ────────────────────────────────────────────────
+    f(
         sheet,
-        row_start   = _ROW_GS_WB,
-        dist_name   = "Weibull",
-        body_prefix = "UV_WB",
-        p1_label    = "Shape (k)",
-        p2_label    = "Scale (λ)",
-        nll_formula = lambda p1, p2: f"=NLL_Weibull(UV_Data,{p1},{p2},UV_Include)",
-        p1_min      = 0.5,
-        p1_max      = 10.0,
-        p2_min      = 0.1,
-        p2_max      = "=IFERROR(2*AVERAGE(FILTER(UV_Data,UV_Include)),10)",
-        use_data_table = False,
+        p1_row,
+        c0 + _PS_C_MINNLL,
+        f'=IFERROR(TAKE(Grid_Argument_Minimum({body_name}),,1),"—")',
+    )
+    sheet.range(rc(p1_row, c0 + _PS_C_MINNLL)).number_format = _FMT_SCI_1DP
+
+    # A single-column grid puts the minimum's location in the row slot, so the
+    # searched value is INDEX(axis, row_location).  Grid_Search_Optimum is not
+    # usable here: its column-parameter half reads the cell above the body,
+    # which on a 1-D stage is the "Profile NLL" header, not a parameter value.
+    row_location = f"INDEX(Grid_Argument_Minimum({body_name}),1,2)"
+    best_p1_ref = _gs_a1(r0, c0, _GS_R_P1, _PS_C_BEST)
+    f(
+        sheet,
+        p1_row,
+        c0 + _PS_C_BEST,
+        f'=IFERROR(INDEX({axis_name},{row_location}),"—")',
+    )
+    f(
+        sheet,
+        p2_row,
+        c0 + _PS_C_BEST,
+        f'=IFERROR({partner_formula(best_p1_ref)},"—")',
     )
 
-    _write_two_stage_grid_search(
-        sheet,
-        row_start   = _ROW_GS_GAMMA,
-        dist_name   = "Gamma",
-        body_prefix = "UV_GAMMA",
-        p1_label    = "Shape (α)",
-        p2_label    = "Rate (β)",
-        nll_formula = lambda p1, p2: f"=NLL_Gamma(UV_Data,{p1},{p2},UV_Include)",
-        p1_min      = 0.5,
-        p1_max      = 100.0,
-        p2_min      = 0.001,
-        p2_max      = 2.0,
-        use_data_table = False,
+    # Boundary guard: red fill when the optimum lies on an end of the bracket.
+    # Only the searched parameter can hit a boundary — the partner is solved,
+    # not searched, so it has no grid edge to land on.
+    cf = sheet.range(rc(p1_row, c0 + _PS_C_BEST)).api.FormatConditions.Add(
+        Type=2,  # xlExpression
+        Formula1=f"=OR({row_location}=1,{row_location}={n_points_ref})",
     )
+    cf.Interior.Color = 0x0000FF   # red (BGR)
+    cf.Font.Color = 0xFFFFFF       # white
+
+    # Same green→yellow→red scale the 2-D heatmap uses, read down the curve.
+    try:
+        body_range.api.FormatConditions.Delete()
+        cs = body_range.api.FormatConditions.AddColorScale(3)
+        cs.ColorScaleCriteria(1).Type = 1
+        cs.ColorScaleCriteria(1).FormatColor.Color = 0x63BE7B
+        cs.ColorScaleCriteria(2).Type = 5
+        cs.ColorScaleCriteria(2).Value = 50
+        cs.ColorScaleCriteria(2).FormatColor.Color = 0xFFEB84
+        cs.ColorScaleCriteria(3).Type = 2
+        cs.ColorScaleCriteria(3).FormatColor.Color = 0xF8696B
+    except Exception:
+        pass
+
+    border_box(sheet, control_hdr_row, c0 + _PS_C_MINNLL, p1_row, c0 + _PS_C_MINNLL)
+    border_box(sheet, control_hdr_row, c0 + _PS_C_POINTS, p1_row, c0 + _PS_C_POINTS)
+    border_box(sheet, control_hdr_row, c0 + _PS_C_PARAM, p2_row, c0 + _PS_C_BEST)
+    border_box(sheet, hdr_row, axis_col, body_row_end, body_col)
+
+    return {
+        "best_p1": best_p1_ref,
+        "best_p2": _gs_a1(r0, c0, _GS_R_P2, _PS_C_BEST),
+        "min_p1": min_p1_ref,
+        "max_p1": max_p1_ref,
+        "step_p1": step_p1_ref,
+        "n_points": n_points_ref,
+        "axis": axis_name,
+        "body": body_name,
+        "axis_hdr": _gs_a1(r0, c0, _GS_R_HDR, _PS_C_AXIS),
+        "body_hdr": _gs_a1(r0, c0, _GS_R_HDR, _PS_C_BODY),
+    }
+
+
+def _write_two_stage_profile_search(
+    sheet: xw.Sheet,
+    row_start: int,
+    dist_name: str,
+    body_prefix: str,
+    p1_label: str,
+    p2_label: str,
+    nll_formula,
+    partner_formula,
+    p1_start: str,
+) -> dict:
+    """Write Stage 1 and Stage 2 profile-search blocks for one distribution.
+
+    Returns the Stage 1 references the profile-NLL chart plots.
+    """
+    start_ref = _gs_a1(row_start, _C_GS, _GS_R_P1, _PS_C_START)
+
+    s1 = _write_profile_stage(
+        sheet,
+        row_start   = row_start,
+        col_start   = _C_GS,
+        title       = f"{dist_name} Profile-NLL MLE  —  Stage 1  ({p1_label}; {p2_label} profiled out)",
+        body_name   = f"{body_prefix}_S1",
+        p1_label    = p1_label,
+        p2_label    = p2_label,
+        nll_formula = nll_formula,
+        partner_formula = partner_formula,
+        p1_start    = p1_start,
+        p1_min      = f"=MAX(0.001,{start_ref}/{_PROFILE_BRACKET})",
+        p1_max      = f"={start_ref}*{_PROFILE_BRACKET}",
+        editable_bounds = True,
+    )
+
+    _write_profile_stage(
+        sheet,
+        row_start   = row_start,
+        col_start   = _C_GS_S2,
+        title       = f"{dist_name} Profile-NLL MLE  —  Stage 2  (refined)",
+        body_name   = f"{body_prefix}_S2",
+        p1_label    = p1_label,
+        p2_label    = p2_label,
+        nll_formula = nll_formula,
+        partner_formula = partner_formula,
+        p1_start    = f"={s1['best_p1']}",
+        p1_min      = f"=MAX(0.001,{s1['best_p1']}-{s1['step_p1']})",
+        p1_max      = f"={s1['best_p1']}+{s1['step_p1']}",
+        editable_bounds = False,
+    )
+
+    # Section heading label over the gap column between stages.
+    val(sheet, row_start, _C_GS + _GS_W, "")
+
+    # OFFSET-based chart ranges over the Stage 1 curve — the wide search, where
+    # the basin, the interior minimum, and any boundary hit are visible.  Sized
+    # by the Grid Points cell so a change there resizes the plotted series,
+    # following the Regression sheet's RegChart* pattern.
+    sname = sheet.name
+    size = f"MAX(IFERROR('{sname}'!{s1['n_points']},1),1)"
+    for suffix, header_ref in (
+        ("Axis", s1["axis_hdr"]),
+        ("NLL", s1["body_hdr"]),
+    ):
+        name = f"UV_Profile_{body_prefix.removeprefix('UV_')}_{suffix}"
+        _drop_wb_name(sheet, name)
+        drop_local_name(sheet, name)
+        sheet.api.Names.Add(
+            Name=name,
+            RefersTo=f"=OFFSET('{sname}'!{header_ref},1,0,{size},1)",
+        )
+
+    return s1
+
+
+_PROFILE_SEARCHES = [
+    {
+        "row_start": _ROW_GS_WB,
+        "dist_name": "Weibull",
+        "body_prefix": "UV_WB",
+        "p1_label": "Shape (k)",
+        "p2_label": "Scale (λ)",
+        "nll_formula": lambda p1, p2: f"=NLL_Weibull(UV_Data,{p1},{p2},UV_Include)",
+        "partner_formula": _weibull_profile_scale,
+        "p1_start": _WEIBULL_SHAPE_START,
+    },
+    {
+        "row_start": _ROW_GS_GAMMA,
+        "dist_name": "Gamma",
+        "body_prefix": "UV_GAMMA",
+        "p1_label": "Shape (α)",
+        "p2_label": "Rate (β)",
+        "nll_formula": lambda p1, p2: f"=NLL_Gamma(UV_Data,{p1},{p2},UV_Include)",
+        "partner_formula": _gamma_profile_rate,
+        "p1_start": _GAMMA_SHAPE_START,
+    },
+]
+
+
+def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
+    """Write the two-stage MLE search blocks for all two-parameter fits.
+
+    Weibull and Gamma search one dimension: their scale / rate parameter is
+    profiled out in closed form, so each stage is a 20-point profile-NLL curve
+    (``_write_profile_stage``) rather than a 20×20 surface.  Beta stays
+    two-dimensional — both of its conditional MLEs involve digamma — and keeps
+    the artifact's only two Data Tables (``_write_grid_stage``).
+    """
+    for spec in _PROFILE_SEARCHES:
+        _write_two_stage_profile_search(sheet, **spec)
 
     _write_two_stage_grid_search(
         sheet,
@@ -1649,13 +2009,57 @@ def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
         p1_max      = 50.0,
         p2_min      = 0.2,
         p2_max      = 50.0,
-        use_data_table = True,
     )
 
 
 def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
     """Compatibility wrapper for the two-parameter grid-search section."""
     _write_two_parameter_grid_search(sheet)
+
+
+def _write_profile_charts(sheet: xw.Sheet) -> None:
+    """Insert the Weibull and Gamma profile-NLL line charts.
+
+    One chart per one-dimensional fit, plotting Stage 1's profile NLL against
+    the searched parameter. This is what replaces the 2-D NLL heatmap those two
+    distributions used to carry: a 1-D search would reduce the heatmap to a
+    single colour strip, whereas the curve shows the basin, the interior
+    minimum, and a boundary hit directly.
+    """
+    sname = sheet.name
+    for i, spec in enumerate(_PROFILE_SEARCHES):
+        col_first, col_last = _QQ_CHART_BANDS[i % len(_QQ_CHART_BANDS)]
+        row_start = _ROW_PROFILE_CHART_START + (i // len(_QQ_CHART_BANDS)) * _PROFILE_CHART_ROWS
+        chart_range = sheet.range(
+            rc(row_start, col_first),
+            rc(row_start + _PROFILE_CHART_ROWS - 1, col_last),
+        )
+        co = sheet.api.ChartObjects().Add(
+            chart_range.left, chart_range.top, chart_range.width, chart_range.height
+        )
+        chart = co.Chart
+
+        while chart.SeriesCollection().Count > 0:
+            chart.SeriesCollection(1).Delete()
+
+        chart.ChartType = _XL_XY_SCATTER_LINES
+
+        stem = spec["body_prefix"].removeprefix("UV_")
+        series = chart.SeriesCollection().NewSeries()
+        series.XValues = f"='{sname}'!UV_Profile_{stem}_Axis"
+        series.Values = f"='{sname}'!UV_Profile_{stem}_NLL"
+        series.Name = f"{spec['dist_name']} profile NLL"
+        series.MarkerSize = 4
+
+        chart.HasLegend = False
+        chart.HasTitle = True
+        chart.ChartTitle.Text = f"{spec['dist_name']} Profile NLL"
+        x_axis = chart.Axes(_XL_CATEGORY)
+        x_axis.HasTitle = True
+        x_axis.AxisTitle.Text = spec["p1_label"]
+        y_axis = chart.Axes(_XL_VALUE)
+        y_axis.HasTitle = True
+        y_axis.AxisTitle.Text = "Profile NLL"
 
 
 # ── Row height and freeze ─────────────────────────────────────────────────────
@@ -1711,6 +2115,16 @@ def _annotate_univariate_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> 
         (_ROW_COL_HDRS, _C_QQ + _QQ_P, "P"),
         (_ROW_COL_HDRS, _C_QQ + _QQ_SAMPLE, "Sample"),
     ]
+
+    # Profile-search control and body headers, Stage 1 of each 1-D fit.
+    for spec in _PROFILE_SEARCHES:
+        stage_row = spec["row_start"]
+        note_cells.append(
+            (stage_row + _GS_R_CONTROL_HDR, _C_GS + _PS_C_START, "Start")
+        )
+        note_cells.append(
+            (stage_row + _GS_R_HDR, _C_GS + _PS_C_BODY, "Profile NLL")
+        )
 
     for row, col, key in note_cells:
         note_text = sheet_notes.get(key)
@@ -1786,6 +2200,10 @@ def write_univariate_sheet(
         pass
     try:
         _write_qq_charts(sheet)
+    except Exception:
+        pass
+    try:
+        _write_profile_charts(sheet)
     except Exception:
         pass
 

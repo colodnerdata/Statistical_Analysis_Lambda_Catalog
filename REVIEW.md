@@ -370,7 +370,7 @@ the source:
 | Catalog size | "126 LAMBDA definitions", in README ×2, ROADMAP ×2, CONTRIBUTING ×2, DECISIONS, and this file | **131** — v3.0 stage 2 added `Model_Context` plus the four `Context_*` accessors |
 | `X_s` | Named as a live sheet-scoped closure in README and CLAUDE/AGENTS | Renamed `Predictor_Columns` at v3.0 stage 1; `X_s` is not in the catalog |
 | §4b gap columns | ARCHITECTURE cited `_C_O` / `_C_W` / `_C_AF` / `_C_AJ` | `_C_R` / `_C_Z` / `_C_AI` / `_C_AM` — the pre-stage-3 letters, in prose |
-| Univariate Data Tables | CONTRIBUTING's Univariate-build section said "Weibull/Gamma/Beta Data-Table grid-search" | Weibull and Gamma were demoted to formula grids at v3.0; Beta alone uses Data Tables |
+| Univariate Data Tables | CONTRIBUTING's Univariate-build section said "Weibull/Gamma/Beta Data-Table grid-search" | Weibull and Gamma were demoted to formula grids at v3.0 and became 1-D profile searches at Univariate 2.0.0; Beta alone uses Data Tables |
 | Headless verifier | CLAUDE/AGENTS/CONTRIBUTING said Layer 1 is discovered "once it lands" | It landed; `tests/test_workbook_invariants.py` runs in CI on every push |
 | TODOs stage 2 | Heading read "VERIFICATION GATE OUTSTANDING" while a bullet in the same section recorded the gate as passed | Section contradicted itself; heading corrected to match stage 1 |
 

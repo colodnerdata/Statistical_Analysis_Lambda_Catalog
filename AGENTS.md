@@ -6,7 +6,7 @@
 
 **Automated verification.** Use `python build_production.py --verify --no-launch` to build and verify the Regression workbook in one shot during regression-focused iteration, or `python build_univariate.py --verify --no-launch` for the standalone Univariate workbook. The spec-driven verifier reuses `build_qc.verify_test_sheets(..., skip_dummy=True)` (with `skip_univariate=True` for the Regression artifact and `skip_regression=True` for the Univariate artifact); on drift it prints a structured `VerifyReport` and `sys.exit(1)`, so a stale build never opens in Excel. The fast headless screen (`make verify-headless`, pure `zipfile` + `lxml`) needs no Excel and is auto-discovered by the Linux CI job, so it runs on every push. **The spec-driven verifier is not run in CI** — the GitHub-hosted `windows-latest` image does not include Microsoft Office, so xlwings fails to dispatch `Excel.Application` (`Invalid class string`). It is a developer-machine step until a self-hosted runner with Office is wired in. See `CONTRIBUTING.md` → *Verifying builds* for the full pipeline.
 
-**Always recalculate the Regression workbook.** The build's final `CalculateFullRebuild` is what recomputes the Regression engines after a name sync; the verifier only does a per-sheet `Calculate()`, which doesn't rebuild the dependency tree, so skipping the rebuild leaves every QC value reading `nan`. The Regression workbook has no Data Tables, so the rebuild is cheap — `build_production.py` always runs it regardless of `--skip-data-table-calculations` (which is a no-op for the Regression artifact). The Univariate workbook is different: Beta's two two-input Data Tables (the only Data Tables in the artifact, the other seven fits are formula grids) make `CalculateFullRebuild` slow, so `build_univariate.py` runs the rebuild by default (so the shipped artifact's fits are not stale) but honors `--skip-data-table-calculations` to skip it for fast iteration — this is that flag's now-primary purpose. A third mode, `--no-calculation`, calculates *nothing*: it never sets Automatic (which would calculate the open workbook on the spot — the cost `--skip-data-table-calculations` does not avoid), suppresses `Application.CalculateBeforeSave` for the duration and restores it after, and skips the rebuild. It is for inspecting the name manager or the layout, and its output is saved in Manual mode with stale cells — never ship an artifact built with it.
+**Always recalculate the Regression workbook.** The build's final `CalculateFullRebuild` is what recomputes the Regression engines after a name sync; the verifier only does a per-sheet `Calculate()`, which doesn't rebuild the dependency tree, so skipping the rebuild leaves every QC value reading `nan`. The Regression workbook has no Data Tables, so the rebuild is cheap — `build_production.py` always runs it regardless of `--skip-data-table-calculations` (which is a no-op for the Regression artifact). The Univariate workbook is different: Beta's two two-input Data Tables (the only Data Tables in the artifact — Weibull and Gamma are 1-D profile-NLL columns, the other five fits are closed-form) make `CalculateFullRebuild` slow, so `build_univariate.py` runs the rebuild by default (so the shipped artifact's fits are not stale) but honors `--skip-data-table-calculations` to skip it for fast iteration — this is that flag's now-primary purpose. A third mode, `--no-calculation`, calculates *nothing*: it never sets Automatic (which would calculate the open workbook on the spot — the cost `--skip-data-table-calculations` does not avoid), suppresses `Application.CalculateBeforeSave` for the duration and restores it after, and skips the rebuild. It is for inspecting the name manager or the layout, and its output is saved in Manual mode with stale cells — never ship an artifact built with it.
 
 ## Cell styling
 
@@ -61,20 +61,37 @@ Zones 1–4 (cols A–Z) use the standard row layout:
 | 4 | Column sub-headers ("Upper Edge", "Count", "Distribution", …) | `_subheader_row` |
 | 5+ | Data / spill formulas | — |
 
-Zone 5 holds the two-stage grid searches (Weibull / Gamma / Beta, vertically stacked). Each stage (`_write_grid_stage`) spans 21 columns (1 row-axis col + 20 Data Table body cols):
+Zone 5 holds the two-stage MLE searches (Weibull / Gamma / Beta, vertically stacked), in two column bands: Stage 1 from `_C_GS`, Stage 2 from `_C_GS_S2`. **The three fits use two different stage writers**, and both bands are sized by the wider one.
+
+**Beta — `_write_grid_stage`, a 2-D two-input Data Table** spanning 21 columns (1 row-axis col + 20 body cols). These two stages are the artifact's **only** Data Tables:
 
 | dr | Row | Contents |
 |---|---|---|
 | 0 | row 1 | stage title merged across c0:c0+20 with `_HEADER` fill |
 | 1 | row 2 | `Min NLL` (c0), `Rows/Columns` (c0+1), blank spacer (c0+2), parameter headers (c0+3:c0+8) |
-| 2 | row 3 | Min NLL and grid-count values; Shape row: `Parameter | Input | Min | Max | Step Size | Best` |
-| 3 | row 4 | Scale row in the same six-column parameter table |
-| 4 | row 5 | corner NLL cell (c0); Shape SEQUENCE spills right across 20 columns |
-| 5–24 | rows 6–25 | Scale SEQUENCE (c0); Data Table body (c0+1:c0+20) |
+| 2 | row 3 | Min NLL and grid-count values; Alpha row: `Parameter | Input | Min | Max | Step Size | Best` |
+| 3 | row 4 | Beta row in the same six-column parameter table |
+| 4 | row 5 | corner NLL cell (c0); Alpha SEQUENCE spills right across 20 columns |
+| 5–24 | rows 6–25 | Beta SEQUENCE (c0); Data Table body (c0+1:c0+20) |
 
-Column letters and row anchors are defined as `_C_GS`, `_C_GS_S2`, and the `_GS_R_*` / `_GS_C_*` constants at the top of `write_sheet_univariate.py` — never hard-code row or column positions inside `_write_grid_stage`; the constants are the single source of truth for the zone layout. The visible Shape and Scale Input cells are the Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` and documents the physical table size; editing it does not resize the Data Table.
+**Weibull and Gamma — `_write_profile_stage`, a 1-D profile-NLL column** occupying only the first `_PS_W` (9) columns of the same band. The scale / rate parameter is profiled out in closed form (`_weibull_profile_scale`, `_gamma_profile_rate`), so a stage is 20 evaluations, not 400:
 
-Zone 6 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts and per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges.
+| dr | Row | Contents |
+|---|---|---|
+| 0 | row 1 | stage title merged across c0:c0+8 with `_HEADER` fill |
+| 1 | row 2 | `Min NLL` (c0), `Grid Points` (c0+1), blank spacer (c0+2), parameter headers (c0+3:c0+8) |
+| 2 | row 3 | Min NLL and point-count values; searched row: `Parameter | Start | Min | Max | Step Size | Best` |
+| 3 | row 4 | profiled-out row — `Parameter` and `Best` only; it is solved, not searched, so it has no bounds, no step, and no boundary rule |
+| 4 | row 5 | axis header (c0) and `Profile NLL` body header (c0+1) |
+| 5–24 | rows 6–25 | searched-parameter SEQUENCE (c0); profile NLL (c0+1) |
+
+The two writers **share the `_GS_R_*` row offsets on purpose**: the Best column lands on the same two rows for every distribution, which is what lets `_final_grid_best_refs` stay one formula for all three fits and keeps the fitting table's parameter references unchanged. `_PS_C_*` mirrors `_GS_C_*` for the same reason — only the meaning of offset 4 differs (Data Table substitution `Input` vs. closed-form `Start`).
+
+Column letters and row anchors are defined as `_C_GS`, `_C_GS_S2`, and the `_GS_R_*` / `_GS_C_*` / `_PS_C_*` constants at the top of `write_sheet_univariate.py` — never hard-code row or column positions inside either stage writer; the constants are the single source of truth for the zone layout. Beta's visible Alpha and Beta Input cells are its Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` (`Grid Points` from `_N_PROFILE`) and documents the physical body size; editing it does not resize the Data Table.
+
+A 1-D stage cannot use `Grid_Search_Optimum` — on a single-column grid its column-parameter half reads the cell above the body, which is the `Profile NLL` header, not a parameter value. Use `INDEX(<axis name>, INDEX(Grid_Argument_Minimum(<body name>),1,2))`, as `_write_profile_stage` does.
+
+Zone 6 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts, per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges, and the two Weibull / Gamma profile-NLL line charts fed by `UV_Profile_*`.
 
 ### Regression sheet heading hierarchy
 

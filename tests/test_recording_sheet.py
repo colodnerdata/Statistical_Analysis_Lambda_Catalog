@@ -1,7 +1,7 @@
 """Unit coverage for the ``RecordingSheet`` COM double's ``Formula2`` semantics.
 
-The Weibull/Gamma formula grids write a whole 20x20 block in one
-``Range.Formula2`` COM call (see ``_write_grid_stage`` in
+The Weibull/Gamma profile stages write a whole 20x1 body in one
+``Range.Formula2`` COM call (see ``_write_profile_stage`` in
 ``write_sheet_univariate.py``), so the recorder has to expand that write the
 way Excel does: per constituent cell, with the per-cell state holding a
 formula string rather than the 2D list.

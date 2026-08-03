@@ -203,6 +203,7 @@ from .workbook_helpers import (
     XL_SRC_RANGE,
     XL_YES,
     add_expression_format,
+    anchor_comment_right_of_cell,
     bold,
     bold_row,
     col_letter,
@@ -212,6 +213,7 @@ from .workbook_helpers import (
     format_input,
     get_or_create_sheet,
     group_and_hide_columns,
+    note_dimensions,
     open_or_create_workbook,
     rc,
     reset_generated_sheet,
@@ -1061,18 +1063,25 @@ def _set_note(
 ) -> None:
     """Replace the cell's note/comment text.
 
-    The ``label`` keyword mirrors the regression sheet's helper so the
-    call sites can pass the header label for sizing/anchoring uniformity;
-    the Model Construction sheet's smaller spec block fits Excel's default
-    comment box without resizing, so it is currently a no-op here.
+    Sized and anchored to the right of the cell via the shared
+    `note_dimensions` + `anchor_comment_right_of_cell` helpers (same
+    heuristic as the regression sheet's notes). The ``label`` keyword
+    mirrors the regression sheet's signature so a notes override map
+    can be threaded through if any of the spec-block notes clip.
     """
-    cell_api = sheet.range(rc(row, col)).api
+    cell = sheet.range(rc(row, col))
+    cell_api = cell.api
     try:
         cell_api.ClearComments()
     except Exception:  # pylint: disable=broad-exception-caught
         pass
     cell_api.AddComment(text)
-    cell_api.Comment.Visible = False
+    try:
+        cell_api.Comment.Visible = False
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+    width, height = note_dimensions(label if label is not None else text, text)
+    anchor_comment_right_of_cell(sheet, row, col, width, height)
 
 
 def _interaction_error_formats(sheet: xw.Sheet) -> None:

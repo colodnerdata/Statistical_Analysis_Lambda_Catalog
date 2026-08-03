@@ -21,6 +21,7 @@ except ImportError:  # pragma: no cover - non-Windows environments
             )
 
     pywintypes = _PyWinTypesFallback()
+import math
 import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT
@@ -432,6 +433,75 @@ def add_expression_format(
 
 
 # ── Name management ───────────────────────────────────────────────────────────
+
+# ── Comment/Note shape sizing ─────────────────────────────────────────────────
+# Excel's default comment box is small (~150x60 pt) and clips multi-sentence
+# notes. Both writers use anchored, sized comment shapes instead. The width
+# scales with text length; height grows to fit the wrapped line count. A
+# per-`label` SIZE_OVERRIDES entry (regression-local, in write_sheet_regression)
+# replaces either axis for individual notes the heuristic guesses wrong for.
+
+_NOTE_MIN_WIDTH = 150.0     # points
+_NOTE_MAX_WIDTH = 320.0     # points
+_NOTE_BASE_WIDTH = 200.0    # width used for a ~80-char note before scaling
+_NOTE_CHARS_PER_LINE_PER_POINT = 1.0 / 5.2  # ~5.2pt per character at 8pt Tahoma
+_NOTE_LINE_HEIGHT = 12.0    # points per wrapped line
+_NOTE_MIN_HEIGHT = 32.0     # points
+_NOTE_VERTICAL_PADDING = 10.0  # points added above/below the wrapped text
+
+
+def note_dimensions(
+    label: str,
+    text: str,
+    size_overrides: dict[str, tuple[float | None, float | None]] | None = None,
+) -> tuple[float, float]:
+    """Guess a (width, height) in points that fits `text` without clipping.
+
+    Width grows with text length (clamped to a readable range); height is
+    then derived from how many lines that width wraps the text into. A
+    per-`label` entry in `size_overrides` replaces either axis (or both)
+    for hand-tuning notes the heuristic guesses wrong for. Pass `None` to
+    use purely the heuristic (no overrides).
+    """
+    length = len(text)
+    width = min(
+        _NOTE_MAX_WIDTH,
+        max(_NOTE_MIN_WIDTH, _NOTE_BASE_WIDTH + (length - 80) * 0.35),
+    )
+    chars_per_line = max(1, int(width * _NOTE_CHARS_PER_LINE_PER_POINT))
+    lines = sum(
+        max(1, math.ceil(len(paragraph) / chars_per_line))
+        for paragraph in text.split("\n")
+    )
+    height = max(_NOTE_MIN_HEIGHT, lines * _NOTE_LINE_HEIGHT + _NOTE_VERTICAL_PADDING)
+
+    override_width, override_height = (None, None)
+    if size_overrides is not None:
+        override_width, override_height = size_overrides.get(label, (None, None))
+    return (
+        override_width if override_width is not None else width,
+        override_height if override_height is not None else height,
+    )
+
+
+def anchor_comment_right_of_cell(
+    sheet: xw.Sheet, row: int, col: int, width: float, height: float,
+) -> None:
+    """Position the cell's comment box immediately to the cell's right.
+
+    Best-effort: wrapped in a try/except so the build succeeds even when
+    the COM API for Shape.Left/Top/Width/Height is unavailable (CI/headless).
+    """
+    cell = sheet.range(rc(row, col))
+    try:
+        comment_shape = cell.api.Comment.Shape
+        comment_shape.Width = width
+        comment_shape.Height = height
+        comment_shape.Left = cell.left + cell.width
+        comment_shape.Top = cell.top
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+
 
 def drop_local_name(sheet: xw.Sheet, name: str) -> None:
     for idx in range(sheet.api.Names.Count, 0, -1):

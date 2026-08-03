@@ -65,8 +65,9 @@ import xlwings as xw
 
 from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
-    OPEN_WORKBOOK_ERRORS, a1, border_box, col_letter, drop_local_name,
-    excel_color, f, rc, section_heading, set_column_widths, val,
+    OPEN_WORKBOOK_ERRORS, a1, anchor_comment_right_of_cell, border_box,
+    col_letter, drop_local_name, excel_color, f, note_dimensions, rc,
+    section_heading, set_column_widths, val,
 )
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────
@@ -1664,10 +1665,11 @@ def _set_note(
 ) -> None:
     """Replace the cell's note/comment text with a plain-language explanation.
 
-    Sized and anchored to the right of the cell, mirroring the regression
-    sheet's _set_note helper. The Univariate writer does not need
-    width/height overrides (the comment text is short), so a slimmer
-    helper than the regression version is sufficient.
+    Sized and anchored to the right of the cell via the shared
+    `note_dimensions` + `anchor_comment_right_of_cell` helpers (same
+    heuristic as the regression sheet's notes). The Univariate notes run
+    130–260 characters, so without explicit sizing the default Excel
+    comment box clips them.
     """
     cell = sheet.range(rc(row, col))
     cell_api = cell.api
@@ -1680,6 +1682,8 @@ def _set_note(
         cell_api.Comment.Visible = False
     except Exception:  # pylint: disable=broad-exception-caught
         pass
+    width, height = note_dimensions(label if label is not None else text, text)
+    anchor_comment_right_of_cell(sheet, row, col, width, height)
 
 
 def _annotate_univariate_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> None:

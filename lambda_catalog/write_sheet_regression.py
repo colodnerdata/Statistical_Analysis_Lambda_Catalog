@@ -74,7 +74,6 @@ write_sheet_model_construction so the two sheets can never drift.
 # pylint: disable=too-many-lines
 from __future__ import annotations
 
-import math
 from pathlib import Path
 from typing import Any
 
@@ -90,9 +89,9 @@ from .sheet_styles import (
     INPUT_COLOR as _INPUT,
 )
 from .workbook_helpers import (
-    MAX_EXCEL_ROW, a1, add_expression_format, bold, bold_row, border_box,
-    col_letter, drop_local_name, excel_color, f, format_input, rc,
-    safe_activate, section_heading, val,
+    MAX_EXCEL_ROW, a1, add_expression_format, anchor_comment_right_of_cell,
+    bold, bold_row, border_box, col_letter, drop_local_name, excel_color, f,
+    format_input, note_dimensions, rc, safe_activate, section_heading, val,
 )
 from .write_sheet_model_construction import (
     SPEC_DATASET_PROFILES,
@@ -475,48 +474,14 @@ def _input_range(sheet: xw.Sheet, r1: int, c1: int, r2: int, c2: int) -> None:
 # plain-language notes on this sheet, so every note is explicitly sized and
 # positioned instead of left at the Excel default. Width/height are guessed
 # from the text length (see _note_dimensions); either axis can be overridden
-# per note here for manual tuning without touching the sizing heuristic.
-# Key is the note's label — the sheet_notes key for statistical-term notes
-# (e.g. "Durbin-Watson"), or the human-readable label passed at the four
-# Model Specification call sites below (e.g. "Reserved", "Transform").
-_NOTE_MIN_WIDTH = 150.0     # points
-_NOTE_MAX_WIDTH = 320.0     # points
-_NOTE_BASE_WIDTH = 200.0    # width used for a ~80-char note before scaling
-_NOTE_CHARS_PER_LINE_PER_POINT = 1.0 / 5.2  # ~5.2pt per character at 8pt Tahoma
-_NOTE_LINE_HEIGHT = 12.0    # points per wrapped line
-_NOTE_MIN_HEIGHT = 32.0     # points
-_NOTE_VERTICAL_PADDING = 10.0  # points added above/below the wrapped text
-
+# Per-note size overrides for the Regression sheet's notes. Key is the note's
+# label — the sheet_notes key for statistical-term notes (e.g. "Durbin-Watson"),
+# or the human-readable label passed at the spec-block call sites (e.g. "Reserved",
+# "Transform"). The shared heuristic in `workbook_helpers.note_dimensions` handles
+# the rest; this dict is just the hand-tuning knob for outliers.
 _NOTE_SIZE_OVERRIDES: dict[str, tuple[float | None, float | None]] = {
     # "Durbin-Watson": (320.0, 170.0),  # example manual override (width, height)
 }
-
-
-def _note_dimensions(label: str, text: str) -> tuple[float, float]:
-    """Guess a (width, height) in points that fits `text` without clipping.
-
-    Width grows with text length (clamped to a readable range); height is
-    then derived from how many lines that width wraps the text into. A
-    per-`label` entry in _NOTE_SIZE_OVERRIDES replaces either axis (or
-    both) for hand-tuning notes the heuristic guesses wrong for.
-    """
-    length = len(text)
-    width = min(
-        _NOTE_MAX_WIDTH,
-        max(_NOTE_MIN_WIDTH, _NOTE_BASE_WIDTH + (length - 80) * 0.35),
-    )
-    chars_per_line = max(1, int(width * _NOTE_CHARS_PER_LINE_PER_POINT))
-    lines = sum(
-        max(1, math.ceil(len(paragraph) / chars_per_line))
-        for paragraph in text.split("\n")
-    )
-    height = max(_NOTE_MIN_HEIGHT, lines * _NOTE_LINE_HEIGHT + _NOTE_VERTICAL_PADDING)
-
-    override_width, override_height = _NOTE_SIZE_OVERRIDES.get(label, (None, None))
-    return (
-        override_width if override_width is not None else width,
-        override_height if override_height is not None else height,
-    )
 
 
 def _set_note(
@@ -524,7 +489,7 @@ def _set_note(
 ) -> None:
     """Replace the cell's note/comment text with a plain-language explanation.
 
-    The note box is sized to fit `text` (see _note_dimensions) and anchored
+    The note box is sized to fit `text` (via `note_dimensions`) and anchored
     directly to the right of the cell, rather than left at Excel's small
     default box and default offset position.
     """
@@ -535,17 +500,14 @@ def _set_note(
     except Exception:  # pylint: disable=broad-exception-caught
         pass
     cell_api.AddComment(text)
-    comment = cell_api.Comment
-    comment.Visible = False
-    width, height = _note_dimensions(label if label is not None else text, text)
     try:
-        comment_shape = comment.Shape
-        comment_shape.Width = width
-        comment_shape.Height = height
-        comment_shape.Left = cell.left + cell.width
-        comment_shape.Top = cell.top
+        cell_api.Comment.Visible = False
     except Exception:  # pylint: disable=broad-exception-caught
         pass
+    width, height = note_dimensions(
+        label if label is not None else text, text, _NOTE_SIZE_OVERRIDES
+    )
+    anchor_comment_right_of_cell(sheet, row, col, width, height)
 
 
 def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> None:

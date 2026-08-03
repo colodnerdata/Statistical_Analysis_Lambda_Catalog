@@ -298,12 +298,18 @@ def build_spec_design(
     def _combine(
         left: list[float], right: list[float], operation: str, column: str
     ) -> list[float]:
-        """Pairwise operand combination — the closed Product/Difference/Ratio axis."""
-        if operation == "Product":
+        """Pairwise operand combination — the closed Product/Difference/Ratio axis.
+
+        Case-insensitive, because the sheet dispatches on ``SWITCH``, whose
+        text comparison ignores case. An unrecognized operation raises here and
+        evaluates to ``NA()`` on the sheet — both refuse, neither guesses.
+        """
+        operation = operation.casefold()
+        if operation == "product":
             return [a * b for a, b in zip(left, right)]
-        if operation == "Difference":
+        if operation == "difference":
             return [a - b for a, b in zip(left, right)]
-        if operation == "Ratio":
+        if operation == "ratio":
             if any(b == 0 for b in right):
                 # Parity with the sheet, which returns NA() here rather than
                 # a bare #DIV/0!. A QC case must describe a legal, fully

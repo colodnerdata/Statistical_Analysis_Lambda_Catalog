@@ -414,7 +414,11 @@ def test_the_three_twins_gate_interactions_identically() -> None:
     # The closed operation vocabulary, on the columns side only.
     assert 'SWITCH(o,"Product",INDEX(a,0,ai)*INDEX(b,0,bi)' in columns
     assert '"Difference",INDEX(a,0,ai)-INDEX(b,0,bi)' in columns
-    assert "IFERROR(INDEX(a,0,ai)/INDEX(b,0,bi),NA())" in columns
+    # Ratio is an EXPLICIT case, not the trailing fallthrough. SWITCH's last
+    # argument is its DEFAULT, so leaving Ratio implicit would silently treat
+    # any unrecognized operation as a ratio — and data validation does not
+    # block a paste into N. The default is NA(): refuse, never guess.
+    assert '"Ratio",IFERROR(INDEX(a,0,ai)/INDEX(b,0,bi),NA()),NA())' in columns
     # R's colon form over this library's own constructed names.
     assert 'INDEX(a,0,ai)&":"&INDEX(b,0,bi)' in names
     # Transforms needs no pairwise walk — COLUMNS(a)*COLUMNS(b) is exactly

@@ -269,11 +269,20 @@ def resolve_interaction_operand(
     whose Role is not Predictor. An operand that IS a Predictor but has
     Include = FALSE resolves normally; that is the flagged-amber marginality
     case, which builds columns.
+
+    The name match is **case-insensitive**, because ``mate()`` resolves the
+    operand with ``XMATCH``, and Excel's exact-match text comparison ignores
+    case. A case-sensitive mirror would disagree with the sheet the moment a
+    user pasted or retyped a header in different case — the sheet would build
+    the interaction and this oracle would predict none. Case folding only:
+    ``XMATCH`` is not accent- or whitespace-insensitive, so neither is this.
+    First match wins, as ``XMATCH`` does.
     """
     if not variable.interaction_term or not variable.interaction_operation:
         return None
+    target = variable.interaction_term.casefold()
     for index, candidate in enumerate(spec):
-        if candidate.name == variable.interaction_term:
+        if candidate.name.casefold() == target:
             return index if candidate.role == _ROLE_PREDICTOR else None
     return None
 

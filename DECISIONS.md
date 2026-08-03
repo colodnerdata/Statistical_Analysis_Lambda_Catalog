@@ -2197,6 +2197,47 @@ column inside an interaction. The level-qualified form is noisier than R's; that
 is the cost of the names being traceable, and it is the right trade for a sheet
 whose whole premise is that a result can be interrogated by clicking through it.
 
+### The Python mirror matches Excel's comparison semantics, not Python's
+
+**Question:** `mate()` resolves the operand with `XMATCH` and the operation
+dispatches on `SWITCH`. The Python oracle used `==` for both. Is that the same
+thing?
+
+**Resolution:** no — both Excel functions compare text **case-insensitively**,
+and the mirror now case-folds to match. Case folding only: `XMATCH` is neither
+accent-insensitive nor whitespace-trimming, so the mirror is neither.
+
+**Rationale.** The failure this prevents is worse than either behaviour alone:
+with a case-sensitive mirror, a user who pastes `weight` where the header reads
+`Weight` gets an interaction column on the sheet and an oracle that predicts
+none — so the QC pass reports a mismatch on a *correctly built* matrix, and the
+oracle is wrong about the thing it exists to describe. **A mirror's job is to
+reproduce Excel's semantics, including the ones Python does not share.** Any
+future mirror of a formula that compares text has the same obligation;
+`_retained_levels` (mirroring `Dummy_Levels`) and `_compute_mask` are the other
+two places this rule bears on.
+
+Found in review of the v3.1 wiring, not by a test — which is why it is recorded
+as a rule rather than a fix.
+
+### `Ratio` is an explicit `SWITCH` case, so the default can be `NA()`
+
+**Question:** `SWITCH`'s trailing argument is its *default*. Writing the three
+operations as `SWITCH(o, "Product", …, "Difference", …, <ratio>)` is one
+character shorter than naming `Ratio`. Does it matter?
+
+**Resolution:** name `Ratio` explicitly and make the default `NA()`.
+
+**Rationale.** With `Ratio` as the fallthrough, *every* unrecognized value —
+not just the three on the dropdown — silently computes a ratio. That is
+reachable: Excel's data validation does not block a paste, so a value the
+dropdown would refuse can still land in N. Silently computing a ratio for a
+value the user did not choose is precisely the "silently switch" failure the
+closed-vocabulary decision exists to prevent, and it would be invisible — the
+column builds, the fit succeeds, and the number is for a model nobody
+specified. `NA()` fails visibly instead, and the Python mirror raises for the
+same input, so neither side guesses.
+
 ### Prediction Inputs does not recompute interaction rows
 
 **Question:** the Prediction Inputs band writes one overridable value per

@@ -156,9 +156,24 @@ def test_product_difference_and_ratio_each_compute_their_own_arithmetic(
         ), operation
 
 
-def test_an_unknown_operation_raises_rather_than_silently_skipping(rows) -> None:
-    # The N dropdown is closed, so this is unreachable from the sheet — but
-    # the mirror must not quietly emit a wrong column if it ever is.
+def test_the_operation_match_is_case_insensitive_like_switch(rows) -> None:
+    # The sheet dispatches on SWITCH, whose text comparison ignores case, and
+    # the N dropdown does not block a paste. A case-sensitive mirror would
+    # refuse a spec the sheet computes.
+    for typed in ("Product", "product", "PRODUCT"):
+        design = build_spec_design(_declare("Displacement", typed), rows)
+        assert np.allclose(
+            _column(design, "Weight:Displacement"),
+            _column(design, "Weight") * _column(design, "Displacement"),
+        ), typed
+
+
+def test_an_unknown_operation_raises_rather_than_guessing(rows) -> None:
+    # Data validation does not block a paste, so this IS reachable. Both sides
+    # refuse: the mirror raises, and the sheet's SWITCH falls through to NA().
+    # Ratio is an EXPLICIT case in that SWITCH precisely so the trailing
+    # default is NA() and not "silently treat anything unrecognized as a
+    # ratio", which is what a bare fallthrough would have done.
     with pytest.raises(ValueError, match="Unknown interaction operation"):
         build_spec_design(_declare("Displacement", "Sum"), rows)
 
@@ -381,3 +396,45 @@ def test_resolve_interaction_operand_mirrors_the_sheets_gating() -> None:
     assert resolve_interaction_operand(declare("nope", "Product"), spec) is None
     # B exists but is Role=Omit.
     assert resolve_interaction_operand(declare("B", "Product"), spec) is None
+
+
+def test_the_operand_name_match_is_case_insensitive_like_xmatch() -> None:
+    # mate() resolves the operand with XMATCH, and Excel's exact-match text
+    # comparison ignores case. A case-sensitive mirror would predict "no
+    # interaction" for a spec the sheet happily builds — the oracle would be
+    # wrong about the sheet, which is worse than either behaviour alone.
+    spec = [
+        _spec_var("Weight", _ROLE_PREDICTOR, True, "Continuous"),
+        _spec_var("Ünit Cost", _ROLE_PREDICTOR, True, "Continuous"),
+    ]
+
+    def declare(term: str) -> SpecVariable:
+        return _spec_var(
+            "Weight",
+            _ROLE_PREDICTOR,
+            True,
+            "Continuous",
+            interaction_term=term,
+            interaction_operation="Product",
+        )
+
+    for typed in ("Weight", "weight", "WEIGHT", "WeIgHt"):
+        assert resolve_interaction_operand(declare(typed), spec) == 0, typed
+    assert resolve_interaction_operand(declare("ünit cost"), spec) == 1
+
+    # Case folding ONLY. XMATCH is not accent-insensitive and does not trim,
+    # so neither does the mirror — matching those would make the oracle
+    # over-permissive relative to the sheet, the same class of bug in reverse.
+    assert resolve_interaction_operand(declare("Unit Cost"), spec) is None
+    assert resolve_interaction_operand(declare(" Weight"), spec) is None
+    assert resolve_interaction_operand(declare("Weight "), spec) is None
+
+
+def test_a_case_insensitive_match_builds_the_same_columns(rows) -> None:
+    # End to end, not just the resolver: a differently-cased operand name
+    # produces the identical design matrix.
+    exact = build_spec_design(_declare("Displacement"), rows)
+    mixed = build_spec_design(_declare("dISPLACEMENT"), rows)
+
+    assert mixed.constructed_column_names == exact.constructed_column_names
+    assert np.allclose(mixed.x_features, exact.x_features)

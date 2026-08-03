@@ -436,9 +436,12 @@ declared interaction columns, and the Design Columns audit counts them. See
 - DONE: **Spec-driven verifier run on a machine with Excel.**
   `uv run python build_production.py --verify --no-launch` was run and the
   v3.1 interaction-wiring checks cleared for the Regression workbook scope.
-  The current output still reports the Univariate sheet as missing under the
-  post-split artifact layout; that verifier warning/error-path cleanup is
-  tracked for a follow-up PR.
+  The Univariate-sheet-missing error in that output is fixed: `build_qc`'s
+  Univariate stage fell through to the check when `skip_univariate=True` and
+  the sheet was absent — the Regression artifact's normal state since the
+  split — reporting `[Univariate] sheet is missing` as a QC failure and
+  exiting 1 on a good workbook. `_univariate_verification_action` now returns
+  skip / warn / check explicitly.
 
 - DONE: **Workbook-scope cleanup after the v3.0 split.** `sync_workbook_names`
   now owns workbook scope outright — anything workbook-scoped that is not a

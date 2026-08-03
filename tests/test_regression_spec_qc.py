@@ -167,6 +167,51 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
     assert calls == ["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression"]
 
 
+def test_univariate_stage_is_silent_when_the_caller_opted_out() -> None:
+    """skip_univariate=True must skip the stage outright, not fall through to it.
+
+    This is the bug that made `build_production.py --verify` exit 1 on a
+    perfectly good Regression artifact. The old branch read
+
+        if "Univariate" not in sheets and not skip_univariate:  warn
+        else:                                                   check
+
+    so the Regression case — sheet absent *and* skip_univariate=True — landed
+    in the else and ran the check anyway, which reported
+    "[Univariate] sheet is missing" as a QC failure. The absence is by design
+    since the v3.0 split: nothing to check, nothing to warn about.
+    """
+    import build_qc
+
+    assert build_qc._univariate_verification_action(
+        {"Regression", "Mileage Data"}, skip_univariate=True
+    ) == "skip"
+
+
+def test_univariate_stage_warns_when_the_sheet_is_unexpectedly_missing() -> None:
+    """A caller that did NOT opt out and has no Univariate sheet gets a warning
+    — worth saying out loud, but not a QC failure."""
+    import build_qc
+
+    assert build_qc._univariate_verification_action(
+        {"Regression"}, skip_univariate=False
+    ) == "warn"
+
+
+def test_univariate_stage_checks_when_the_sheet_is_present() -> None:
+    """The Univariate artifact's own verify run must actually run the check."""
+    import build_qc
+
+    assert build_qc._univariate_verification_action(
+        {"Univariate", "Life Expectancy Data"}, skip_univariate=False
+    ) == "check"
+    # Opting out wins even when the sheet is there, so a caller can always
+    # bound what it verifies.
+    assert build_qc._univariate_verification_action(
+        {"Univariate"}, skip_univariate=True
+    ) == "skip"
+
+
 def test_calculate_verification_sheets_still_requires_regression_sheet() -> None:
     """Missing sheets that are never legitimately optional (Regression) must
     still hard-fail — only Univariate gets the lenient warn-and-skip path."""

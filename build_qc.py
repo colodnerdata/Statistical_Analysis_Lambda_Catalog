@@ -48,7 +48,10 @@ from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
     write_regression_instructions_sheet,
 )
-from lambda_catalog.write_sheet_univariate import write_univariate_sheet
+from lambda_catalog.write_sheet_univariate import (
+    UNIVARIATE_SHEET_NAME,
+    write_univariate_sheet,
+)
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
 
 
@@ -118,6 +121,40 @@ def _report_qc_failure(failures: list[str], message: str) -> None:
 
 
 _OPTIONAL_VERIFY_SHEET_NAMES = ("Univariate",)
+
+
+def _univariate_verification_action(
+    workbook_sheet_names: set[str], *, skip_univariate: bool
+) -> str:
+    """Decide what the Univariate stage of verify should do.
+
+    Three outcomes, and the one that matters is the difference between the
+    first two:
+
+    * ``"skip"`` — the caller opted out. Since the v3.0 split the Regression
+      artifact has no Univariate sheet *by design*, so its absence is neither
+      checked nor announced.
+    * ``"warn"`` — the caller expected the sheet and the workbook does not have
+      it. Worth saying out loud, but not a QC failure.
+    * ``"check"`` — run the Univariate comparison.
+
+    Parameters
+    ----------
+    workbook_sheet_names : set[str]
+        Sheet names present in the workbook under verification.
+    skip_univariate : bool
+        True when the caller has opted out of the Univariate stage.
+
+    Returns
+    -------
+    str
+        One of ``"skip"``, ``"warn"``, ``"check"``.
+    """
+    if skip_univariate:
+        return "skip"
+    if UNIVARIATE_SHEET_NAME not in workbook_sheet_names:
+        return "warn"
+    return "check"
 
 
 def _calculate_verification_sheets(
@@ -398,20 +435,16 @@ def verify_test_sheets(
                     )
 
     workbook_sheet_names = {sheet.name for sheet in workbook.sheets}
-    # Only warn when the Univariate sheet is *unexpectedly* missing from a
-    # workbook that should carry it. The Regression build (build_production.py)
-    # passes skip_univariate=True precisely because the Univariate sheet lives
-    # in its own artifact (Lambda_Library_Univariate.xlsx) since the v3.0
-    # split - so the absence is by design, not a bug. Warn only when the
-    # caller did not opt out (i.e. the Univariate build) AND the sheet is
-    # actually missing.
-    if "Univariate" not in workbook_sheet_names and not skip_univariate:
+    univariate_action = _univariate_verification_action(
+        workbook_sheet_names, skip_univariate=skip_univariate
+    )
+    if univariate_action == "warn":
         print(
             "WARNING Univariate sheet not verified "
             "(missing from workbook).",
             flush=True,
         )
-    else:
+    elif univariate_action == "check":
         uv_mod = _load_module(
             "inspect_univariate_sheet",
             ROOT_DIR / "tools" / "inspect_univariate_sheet.py",

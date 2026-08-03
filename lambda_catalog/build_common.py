@@ -19,6 +19,7 @@ from pathlib import Path
 import xlwings as xw
 
 from lambda_catalog.workbook_builder import (
+    NameSyncResult,
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
 )
@@ -56,6 +57,62 @@ def _quit_app_quietly(app: xw.App | None) -> None:
         app.quit()
     except OPEN_WORKBOOK_ERRORS:
         pass
+
+
+def print_name_sync_summary(result: NameSyncResult) -> None:
+    """Print the workbook-scope sync counts every build script reports.
+
+    ``Removed names`` and ``Skipped names`` are the interesting two: the first
+    counts workbook-scoped residue the sync cleared out (a name the catalog
+    retired, or one belonging to the other artifact), the second names the
+    catalog entries this artifact cannot carry because they reference a
+    worksheet it does not have. Both are normal on the first build after a
+    change and should settle to 0 / none on a rebuild — except the Univariate
+    artifact's permanent ``Base_Period_Delta`` skip.
+    """
+    print(f"Created names: {result.created}")
+    print(f"Updated names: {result.updated}")
+    print(f"Removed names: {result.removed}")
+    if result.skipped:
+        print(
+            "Skipped names: "
+            + ", ".join(result.skipped)
+            + " (reference a worksheet this workbook does not have)"
+        )
+
+
+def set_calculate_before_save(app: xw.App, value: bool) -> bool | None:
+    """Set Excel's "recalculate workbook before saving", returning the old value.
+
+    Under Manual calculation this setting is what decides whether
+    ``workbook.save()`` triggers a full calculation. It has to be off for a
+    genuinely calculation-free build; leaving it off would change the user's
+    Excel for every later session, so callers restore the returned value.
+
+    ``Application.CalculateBeforeSave`` is application-level and
+    environment-dependent, so a failure to read or write it is not a build
+    error — it just means there was nothing to suppress and nothing to
+    restore.
+
+    Parameters
+    ----------
+    app : xw.App
+        The Excel application whose setting to change.
+    value : bool
+        The new setting.
+
+    Returns
+    -------
+    bool or None
+        The previous setting, or None when Excel would not report or accept
+        it — in which case the caller has nothing to restore.
+    """
+    try:
+        previous = bool(app.api.CalculateBeforeSave)
+        app.api.CalculateBeforeSave = value
+        return previous
+    except Exception:  # pylint: disable=broad-except
+        return None
 
 
 def _recalculate_and_save(

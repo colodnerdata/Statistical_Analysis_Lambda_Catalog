@@ -2301,6 +2301,69 @@ derived and from which operands could offer a derive-on-change toggle. That
 needs a fourth structural twin carrying each column's provenance, which is real
 scope and no part of what v3.1 set out to do.
 
+### Workbook scope belongs to the catalog
+
+**Question:** the v3.0 split left each artifact carrying the *other* one's
+named ranges at workbook scope — twelve `RegChart*` entries reading
+`OFFSET(#REF!,…)` in the Univariate workbook, forty-two `UV_*` entries in the
+Regression workbook, alongside twenty-one LAMBDA names the catalog retired
+releases ago. `sync_workbook_names` already stripped workbook-scoped residue,
+but only when the body *was* an error literal, and none of these were: they
+wrap the `#REF!` inside an `OFFSET(...)`. What is the rule that catches all of
+them?
+
+**Resolution:** the catalog owns workbook scope outright. After
+`sync_workbook_names` runs, the only workbook-scoped `<definedName>` entries
+are the catalog's workbook functions plus Excel's reserved `_xlnm.*` names;
+every other workbook-scoped entry is dropped without inspecting its body.
+Sheet-scoped entries are never touched.
+
+**Rationale.** Every range the sheet writers create is created through
+`sheet.api.Names.Add` and is therefore sheet-scoped — that was already true of
+`RegChart*` and `UV_*` when the residue was found, which is why the *live*
+names in both artifacts were correct and only the stale copies were wrong.
+That makes "workbook-scoped and not in the catalog" an exact characterization
+of residue, where any body-shaped test is a guess about what the last broken
+build happened to leave behind. The rule also subsumes the two narrower ones it
+replaces (broken-body, duplicate-of-sheet-scoped) and needs no maintenance as
+name families come and go.
+
+**Enforcement:** `TestRealWorkbookNameScope` in
+`tests/test_workbook_invariants.py` asserts it against both committed
+artifacts on every commit — pure zipfile, no Excel, so it runs in CI.
+
+### The Univariate artifact does not carry `Base_Period_Delta`
+
+**Question:** `Base_Period_Delta()` is workbook-scoped (workbook-scoped
+callers like `Difference_By` and `BFN_Panel_Durbin_Watson` fall back to it when
+their `[delta]` argument is omitted, and a workbook-scoped name cannot resolve
+a sheet-scoped one unqualified), but its body reads the Regression sheet:
+`COLUMNS('Regression'!Source_Data)`, `'Regression'!Spec_Sequence`,
+`'Regression'!Spec_Sequence_Period`. The Univariate artifact has no Regression
+sheet. What happens to it there?
+
+**Resolution:** it is not written into that artifact. `sync_workbook_names`
+skips any definition naming a worksheet the target workbook does not have, and
+reports the skip in the build summary. The v3.0 "both workbooks carry the
+complete function library" rule stands with this one narrow exception, which
+the sync derives rather than a hand-maintained per-artifact list.
+
+**Rationale.** Excel does not leave a reference to a missing sheet unresolved.
+It rebinds it to an external workbook — `Regression!Source_Data` becomes
+`[1]!Source_Data` — writes an `xlExternalLinkPath/xlPathMissing` external link
+part, and prompts about broken links on every open of the shipped file. That is
+what the Univariate artifact was doing. The alternatives are worse: making the
+name sheet-scoped breaks its workbook-scoped callers in the *Regression*
+artifact, where it works correctly today, and shipping a deliberately broken
+name to keep an inventory count intact trades a real defect for a cosmetic one.
+`Base_Period_Delta()` reads the Regression spec block; in a workbook with no
+spec block there is nothing for it to mean.
+
+**Consequence:** in the Univariate workbook, `Difference_By` /
+`BFN_Panel_Durbin_Watson` / `Lag_By` called with `[delta]` omitted return
+`#NAME?` rather than a delta. No Univariate cell calls them, and the panel
+diagnostics they serve are Regression-sheet features.
+
 ---
 
 ## Aliases

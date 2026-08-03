@@ -100,7 +100,7 @@ Tests live in `tests/`. The current test files are:
 | `test_workbook_builder.py` | Workbook package-patching helpers (`sync_workbook_names` and friends) that don't require Excel |
 | `test_build_common.py` | Shared build scaffolding (`lambda_catalog.build_common`: recalculate-and-save calc-mode handling, retry-on-open) that doesn't require Excel |
 | `test_build_production.py` | `build_production.py`'s pure-Python logic (Regression-only sheet set, dataset selection, tab order/color, verify forwards `skip_univariate=True`) that doesn't require Excel |
-| `test_build_univariate.py` | `build_univariate.py`'s pure-Python logic (Univariate four-sheet set, default output path, Automatic calc mode, `--skip-data-table-calculations` gate, verify forwards `skip_regression=True`) that doesn't require Excel |
+| `test_build_univariate.py` | `build_univariate.py`'s pure-Python logic (Univariate four-sheet set, default output path, Automatic calc mode, `--skip-data-table-calculations` and `--no-calculation` gates, verify forwards `skip_regression=True`) that doesn't require Excel |
 | `test_version_history_writer.py` | `write_sheet_version_history`'s per-artifact version lineage (`artifact="regression"` vs `"univariate"`) and the bad-artifact guard |
 | `test_workbook_invariants.py` | Layer 1 headless structural check of a built `.xlsx` package (`zipfile` + `lxml`): dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken package parts, orphan chart-relationship targets, sheet drift — for both the Regression and Univariate artifacts — see [Verifying builds](#verifying-builds) |
 | `test_ln_positive_verification.py` | v2.2 Transform=Log — `Ln_Positive` pure-Python mirror (the `NA()`-exception contract, the geometric-mean round-trip the Prediction Inputs fix relies on) and implementation-shape assertions on the catalog formula |
@@ -223,6 +223,7 @@ Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artif
 | `--definitions PATH` | `lambda_functions.json` | Path to the JSON catalog of LAMBDA definitions. |
 | `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. |
 | `--skip-data-table-calculations` | off | Skip the final Excel `CalculateFullRebuild`. Beta's two two-input Data Tables (the only Data Tables in the artifact) make that rebuild slower than a plain formula recalc, so this is the primary fast-iteration flag for this artifact. Note: the verifier's per-sheet `Calculate` does not reliably resolve the Data Tables after a name sync, so combining this with `--verify` may report stale-fit mismatches a real rebuild would not. |
+| `--no-calculation` | off | **Never calculate.** Excel stays in Manual for the whole run: the build never switches to Automatic, suppresses Excel's recalculate-before-saving for the duration, and skips the final rebuild. Stronger than `--skip-data-table-calculations`, which still pays a full calculation when the build switches to Automatic ahead of the save — see the note below. For inspecting structure (name manager, sheet layout, spill anchors) without paying for the grid searches. The workbook it leaves has stale computed cells and is saved in Manual mode, so **do not ship it**; the next ordinary build fixes both. |
 | `--verify` | off | After the build, run the spec-driven verifier (`build_qc.verify_test_sheets` with `skip_regression=True`) against the Life Expectancy and Univariate sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. |
 | `--no-verify` | (default) | Explicitly disable the verifier pass. |
 | `--no-launch` | off | Suppress the post-build `cmd /c start <workbook>` Excel handoff. |
@@ -238,7 +239,29 @@ uv run python build_univariate.py --verify --no-launch
 
 # Fast iteration: write the sheets and sync names, skip the slow Data-Table rebuild.
 uv run python build_univariate.py --skip-data-table-calculations --no-launch
+
+# Structure only: write the sheets and sync names, calculating nothing at all.
+# Use this to inspect the name manager or the layout; the result is not shippable.
+uv run python build_univariate.py --no-calculation --no-launch
 ```
+
+**Why `--no-calculation` exists when `--skip-data-table-calculations` already
+skips the rebuild.** The rebuild is not the only calculation in the build.
+Before saving, `build_univariate_workbook` sets `Application.Calculation` to
+Automatic — and setting Automatic on an open workbook calculates it *there and
+then*, Beta's Data Tables included. `--skip-data-table-calculations` skips the
+phase-2 `CalculateFullRebuild` and still pays that one.
+`--no-calculation` is the flag that pays neither: Automatic is never set, and
+because Excel under Manual still recalculates on save unless told otherwise, it
+also turns `Application.CalculateBeforeSave` off for the duration and restores
+it afterwards (it is an Excel-wide setting, not a per-workbook one, so leaving
+it off would change every later session on that machine).
+
+If all you need is the **workbook-scoped** name manager, you do not need Excel
+at all — `python tools/resync_workbook_names.py Lambda_Library_Univariate.xlsx`
+rewrites and reports those names from the catalog in about a second. Reach for
+`--no-calculation` when you need the *sheet-scoped* names or the layout, which
+only the sheet writers produce.
 
 ### QC build
 
@@ -537,7 +560,7 @@ This starts one row below the column header (row 2) and extends exactly `$Y$8` r
 | `RegChartCookDistFlag` | AV | Cook's Distance, `NA()`'d below both influence cutoffs (`D > 4/n` or `D > 0.9`) — feeds the Cook's Distance chart's data-label overlay series |
 | `RegChartObsLabel` | AK | Row identifier (Row_Labels()) — the flagged-point overlay series' `XValues`, so its data labels read as the observation identifier rather than a bare index |
 
-**Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`). Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
+**Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`), and so is every other range a sheet writer creates. Workbook scope is the catalog's alone — see [Workbook scope belongs to the catalog](#workbook-scope-belongs-to-the-catalog) below. Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 
 ```excel
 Series X values: ='Regression'!RegChartFitY
@@ -552,3 +575,26 @@ def _name_ref(local_name: str) -> str:
 ```
 
 When adding a new diagnostic column or chart, add the corresponding `RegChart`-prefixed named range in `_setup_local_names` before writing the chart in `_write_diagnostic_charts`.
+
+### Workbook scope belongs to the catalog
+
+Two scopes, two owners, no overlap:
+
+| Scope | Owner | Created by | Examples |
+|---|---|---|---|
+| Worksheet | the sheet writers | `sheet.api.Names.Add` during the write phase | `RegChart*`, `UV_*`, `Source_Data`, `Spec_*`, the constructor closures |
+| Workbook | `lambda_functions.json` | `sync_workbook_names` patching `xl/workbook.xml` after the write phase | every catalog LAMBDA with `scope: "workbook"` |
+
+`sync_workbook_names` enforces the second row literally. On every build it removes **every** workbook-scoped `<definedName>` that is neither a catalog function nor one of Excel's reserved `_xlnm.*` names, then writes the catalog entries fresh. Sheet-scoped entries are never touched.
+
+Anything workbook-scoped and outside the catalog is residue from an earlier build, and the v3.0 split produced a lot of it: each artifact was carrying the other one's chart ranges at workbook scope, pointing at `#REF!` (twelve `RegChart*` entries in the Univariate workbook, forty-two `UV_*` entries in the Regression workbook), plus twenty-one LAMBDA names the catalog had retired. The sheet-scoped originals were correct the whole time — only the stale workbook-scoped copies were broken, which is why the workbooks still rendered their charts.
+
+**A catalog function that names a missing worksheet is skipped, not written.** Excel does not leave such a reference unresolved: it rebinds it to an external workbook (`Regression!Source_Data` becomes `[1]!Source_Data`), writes an `xlExternalLinkPath/xlPathMissing` external-link part, and prompts about broken links every time the file is opened. `Base_Period_Delta` — whose body reads `'Regression'!Source_Data` / `Spec_Sequence` / `Spec_Sequence_Period` — is the one catalog function this applies to, so the standalone Univariate artifact does not carry it. The build prints `Skipped names: …` when it happens. When the last external reference goes, the orphaned external-link parts, relationships and content-type overrides are stripped with it.
+
+Keep a new workbook-scoped catalog LAMBDA sheet-agnostic unless it is deliberately Regression-only. If it must read the spec block, expect it to be skipped in the Univariate artifact.
+
+**Checks and repair.** `tests/test_workbook_invariants.py::TestRealWorkbookNameScope` asserts workbook-scope ownership, error-free defined-name bodies, and the absence of external links against both committed artifacts on every commit — pure zipfile + lxml, so it runs in CI without Excel. To re-apply the cleanup to a built artifact without a full rebuild (also Excel-free):
+
+```bash
+python tools/resync_workbook_names.py Lambda_Library.xlsx Lambda_Library_Univariate.xlsx
+```

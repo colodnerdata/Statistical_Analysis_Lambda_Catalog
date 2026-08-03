@@ -54,12 +54,16 @@ from lambda_catalog.write_sheet_regression import (
     _C_GUTTER_AFTER_CONTEXT,
     _C_GUTTER_AFTER_SAMPLE_INCLUDE,
     _C_MODEL_CONTEXT,
+    _C_MODEL_CONTEXT_LABEL,
     _C_SAMPLE_INCLUDE_MATERIALIZED,
     _C_CHART_LABEL_NAME,
     _C_CHART_TITLE,
     _C_CHART_XLABEL,
     _C_CHART_YLABEL,
+    _MODEL_CONTEXT_ELEMENTS,
+    _MODEL_CONTEXT_LAST_ROW,
     _MODEL_CONTEXT_ROWS,
+    _ROW_MODEL_CONTEXT_CHECK,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
     _NOTE_SIZE_OVERRIDES,
@@ -401,9 +405,9 @@ def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
 
 
 def test_materialization_zone_materializes_model_context() -> None:
-    # The §4b band materializes the 4x1 context ONCE into a spill and exposes it
-    # through a sheet-scoped reader name (Fit_Context), so the ~30 engine call
-    # sites that pass Fit_Context() all read the one materialized cell instead of
+    # The §4b band materializes the context ONCE and exposes it through a
+    # sheet-scoped reader name (Fit_Context), so the ~30 engine call sites that
+    # pass Fit_Context() all read the one materialized block instead of
     # rebuilding the context ~30 times. Model_Context stays the workbook-scoped
     # constructor (the omitted-[Context] default); the split keeps it unshadowed.
     # Plain cell writes + one Names.Add only (no COM chart API), so this runs
@@ -415,49 +419,89 @@ def test_materialization_zone_materializes_model_context() -> None:
 
     ctx_col = col_letter(_C_MODEL_CONTEXT)
 
-    # Section headings at row 1, styled as section headings.
-    assert sheet.cell(1, _C_MODEL_CONTEXT).value == "Model Context"
+    # Section headings at row 1, styled as section headings. The Model Context
+    # heading names the block from its LABEL column and the value cell beside
+    # it carries the fill only, so the heading reads as one banner across the
+    # two-column block.
+    assert sheet.cell(1, _C_MODEL_CONTEXT_LABEL).value == "MODEL CONTEXT"
+    assert sheet.cell(1, _C_MODEL_CONTEXT_LABEL).color == HEADER_COLOR
+    assert sheet.cell(1, _C_MODEL_CONTEXT).value == ""
     assert sheet.cell(1, _C_MODEL_CONTEXT).color == HEADER_COLOR
     assert sheet.cell(1, _C_SAMPLE_INCLUDE_MATERIALIZED).value == "Sample Include"
 
-    # The materialized 4x1 spill. Elements 1-2 (Allow_Intercept toggle, the
-    # Absorbed_Degrees_Of_Freedom() closure) feed today's engines; elements 3-4
-    # are the spec-block transform summaries that have no reader until v3.3 but
-    # land now so the row order is fixed. The spill must NOT be the old
-    # '="None","None"' tail — that would mean rows 3-4 regressed to placeholders.
-    spill = sheet.cell(2, _C_MODEL_CONTEXT).api.Formula2
-    assert spill.startswith("=VSTACK(Allow_Intercept,Absorbed_Degrees_Of_Freedom(),")
-    assert '"None","None")' not in spill
-    # Row 3 (Response_Transform): INDEX/XMATCH over the spec rows for the
-    # response role, mirroring _RESPONSE_LOG_FORMULA, with an IFERROR->"None".
-    assert 'XMATCH("Response (y)",TAKE(Spec_Role,COLUMNS(Source_Data)))' in spill
-    assert "INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data))" in spill
-    # Row 4 (Predictor_Transform): a LET summarising the INCLUDED CONTINUOUS
-    # predictors as None/Log/Mixed, masked to Continuous so a Categorical dummy
-    # can't manufacture a false "Mixed".
-    assert "LET(n_c,COLUMNS(Source_Data)," in spill
-    assert '(rl="Predictor (x)")*(inc=TRUE)*(typ="Continuous")' in spill
-    assert 'IF(nL=0,"None",IF(nN=0,"Log","Mixed")' in spill
+    # Each context element is its OWN cell, labelled in the column to its left.
+    # Not a VSTACK spill: a spill is a single dependency node that Excel vacates
+    # and re-spills on every spec-block edit, and while it is vacated the fixed
+    # range behind Fit_Context is blank — every engine reading it would see a
+    # torn context. Independent cells never get vacated.
+    assert [element.contract_name for element in _MODEL_CONTEXT_ELEMENTS] == [
+        "Has_Intercept",
+        "DF_Absorbed",
+        "Response_Transform",
+        "Predictor_Transform",
+    ]
+    formulas = {}
+    for offset, element in enumerate(_MODEL_CONTEXT_ELEMENTS):
+        row = _MATERIALIZATION_FIRST_ROW + offset
+        assert sheet.cell(row, _C_MODEL_CONTEXT_LABEL).value == element.label
+        formula = sheet.cell(row, _C_MODEL_CONTEXT).api.Formula2
+        assert formula == f"={element.formula}"
+        assert "VSTACK" not in formula
+        formulas[element.contract_name] = formula
+
+    # Elements 1-2 (Allow_Intercept toggle, the Absorbed_Degrees_Of_Freedom()
+    # closure) feed today's engines; elements 3-4 are the spec-block transform
+    # summaries that have no reader until v3.3 but land now so the row order is
+    # fixed. They must NOT be the old '="None"' placeholders.
+    assert formulas["Has_Intercept"] == "=Allow_Intercept"
+    assert formulas["DF_Absorbed"] == "=Absorbed_Degrees_Of_Freedom()"
+    # Response_Transform: INDEX/XMATCH over the spec rows for the response
+    # role, mirroring _RESPONSE_LOG_FORMULA, with an IFERROR->"None".
+    response = formulas["Response_Transform"]
+    assert response != '="None"'
+    assert 'XMATCH("Response (y)",TAKE(Spec_Role,COLUMNS(Source_Data)))' in response
+    assert "INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data))" in response
+    # Predictor_Transform: a LET summarising the INCLUDED CONTINUOUS predictors
+    # as None/Log/Mixed, masked to Continuous so a Categorical dummy can't
+    # manufacture a false "Mixed".
+    predictor = formulas["Predictor_Transform"]
+    assert predictor != '="None"'
+    assert "LET(n_c,COLUMNS(Source_Data)," in predictor
+    assert '(rl="Predictor (x)")*(inc=TRUE)*(typ="Continuous")' in predictor
+    assert 'IF(nL=0,"None",IF(nN=0,"Log","Mixed")' in predictor
 
     # The sheet-scoped reader Fit_Context reads the FIXED materialized range —
     # no spill operator inside the LAMBDA RefersTo, so the dynamic-array-in-a-
     # name question is sidestepped and the height is a structural constant. The
     # legacy "Model_Context" sheet name is dropped (a pre-split build would have
     # left one) so a rebuild never leaves a shadow alongside Fit_Context.
+    assert _MODEL_CONTEXT_LAST_ROW == _MATERIALIZATION_FIRST_ROW + _MODEL_CONTEXT_ROWS - 1
     assert sheet.api.Names.by_short_name("Fit_Context").RefersTo == (
-        f"=LAMBDA('Regression'!${ctx_col}$2:${ctx_col}${1 + _MODEL_CONTEXT_ROWS})"
+        f"=LAMBDA('Regression'!${ctx_col}${_MATERIALIZATION_FIRST_ROW}"
+        f":${ctx_col}${_MODEL_CONTEXT_LAST_ROW})"
     )
     assert "Model_Context" not in {
         item.Name.split("!", 1)[-1] for item in sheet.api.Names.items
     }
 
-    # Build-time invariant: ROWS(Fit_Context()) is the build-time constant
-    # pinned by _MODEL_CONTEXT_ROWS, written one row below the spill so a future
-    # edit that changes the context height fails loudly.
-    assert (
-        sheet.cell(2 + _MODEL_CONTEXT_ROWS, _C_MODEL_CONTEXT).api.Formula2
-        == f"=ROWS(Fit_Context())={_MODEL_CONTEXT_ROWS}"
+    # Health check one row under the block: the height is the build-time
+    # invariant, and — the part decomposition made worth checking — every
+    # element resolved. With independent cells a broken spec name errors in one
+    # of them and leaves the other three looking fine.
+    assert _ROW_MODEL_CONTEXT_CHECK == _MODEL_CONTEXT_LAST_ROW + 1
+    assert sheet.cell(_ROW_MODEL_CONTEXT_CHECK, _C_MODEL_CONTEXT_LABEL).value == "Context OK"
+    assert sheet.cell(_ROW_MODEL_CONTEXT_CHECK, _C_MODEL_CONTEXT).api.Formula2 == (
+        f"=AND(ROWS(Fit_Context())={_MODEL_CONTEXT_ROWS},"
+        "SUMPRODUCT(--ISERROR(Fit_Context()))=0)"
     )
+
+    # The block is of FIXED size, so it is boxed like every other fixed-size
+    # block on this sheet — heading row through the health-check row, both
+    # columns.
+    box = sheet.range(
+        (1, _C_MODEL_CONTEXT_LABEL), (_ROW_MODEL_CONTEXT_CHECK, _C_MODEL_CONTEXT)
+    ).api
+    assert set(box._borders) == {7, 8, 9, 10}
 
     # Sample_Include is placed at its final §4b position as a RESERVED
     # placeholder — promoting the live closure to a thunk over a spill is
@@ -466,9 +510,11 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert sheet.cell(2, _C_SAMPLE_INCLUDE_MATERIALIZED).value == "reserved"
 
     # The zone sits past the chart footprint with a structural gutter after
-    # the charts; the context and sample-include blocks are the two bounded
-    # zones, each one column, separated by width-2 ungrouped gutters.
-    assert _C_GUTTER_AFTER_CHARTS < _C_MODEL_CONTEXT < _C_GUTTER_AFTER_CONTEXT
+    # the charts; Model Context is a label/value pair and Sample_Include is one
+    # column, separated by width-2 ungrouped gutters.
+    assert _C_GUTTER_AFTER_CHARTS < _C_MODEL_CONTEXT_LABEL < _C_MODEL_CONTEXT
+    assert _C_MODEL_CONTEXT < _C_GUTTER_AFTER_CONTEXT
+    assert _C_MODEL_CONTEXT_LABEL - _C_GUTTER_AFTER_CHARTS == 1
     assert _C_GUTTER_AFTER_CONTEXT < _C_SAMPLE_INCLUDE_MATERIALIZED < _C_GUTTER_AFTER_SAMPLE_INCLUDE
     assert _C_GUTTER_AFTER_CONTEXT - _C_MODEL_CONTEXT == 1
     assert _C_SAMPLE_INCLUDE_MATERIALIZED - _C_GUTTER_AFTER_CONTEXT == 1
@@ -486,10 +532,14 @@ def test_materialization_zone_materializes_model_context() -> None:
 
 
 def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
-    # Collapse state differs by zone (§4b): the two bounded one-column zones
-    # ship EXPANDED, the unbounded terminal zone ships COLLAPSED — a zone
-    # whose width is one dropdown away from hundreds of columns and cannot
-    # be collapsed is a scrolling hazard.
+    # Collapse state differs by zone (§4b): the two bounded zones ship
+    # EXPANDED, the unbounded terminal zone ships COLLAPSED — a zone whose
+    # width is one dropdown away from hundreds of columns and cannot be
+    # collapsed is a scrolling hazard.
+    #
+    # One outline group per ZONE, not per column: Model Context is grouped as
+    # the label/value pair so it collapses as a unit; grouping the value column
+    # alone would leave its labels stranded beside a collapsed column.
     sheet = RecordingSheet(name="Regression")
 
     _write_materialization_zone(_as_xw_sheet(sheet), closures=())
@@ -499,12 +549,21 @@ def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
         f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
     )
     assert sheet.column_groups == [
-        f"{col_letter(_C_MODEL_CONTEXT)}:{col_letter(_C_MODEL_CONTEXT)}",
+        f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT)}",
         f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}:"
         f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}",
         matrix_band,
     ]
     assert sheet.column_show_detail == {matrix_band: False}
+    # The gutters stay OUT of every group, or the zones would fuse into one
+    # outline and lose independent collapse.
+    for gutter in (
+        _C_GUTTER_AFTER_CHARTS,
+        _C_GUTTER_AFTER_CONTEXT,
+        _C_GUTTER_AFTER_SAMPLE_INCLUDE,
+    ):
+        letter = col_letter(gutter)
+        assert not any(letter in band.split(":") for band in sheet.column_groups)
 
 
 def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:

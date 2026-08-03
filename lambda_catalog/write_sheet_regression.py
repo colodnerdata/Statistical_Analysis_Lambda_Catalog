@@ -46,11 +46,13 @@ single ungrouped GAP column so the zones collapse independently; see the
                    Distance flagged-point overlay feeding chart data labels),
                    plus AZ gutter; spills downward from row 3
   Col BA–BD      — chart title / axis-label formula cells (below the chart grid)
-  Col BQ →       — the ARCHITECTURE §4b materialization band: Model_Context,
-                   the reserved Sample_Include column, and the terminal
-                   Constructed Design Matrix, each in its own outline group
-                   separated by ungrouped gutters. Nothing may ever be placed
-                   right of the design matrix.
+  Col BQ →       — the ARCHITECTURE §4b materialization band: the Model
+                   Context block (a boxed, fixed-size label/value pair, one
+                   labelled cell per context element), the reserved
+                   Sample_Include column, and the terminal Constructed Design
+                   Matrix, each in its own outline group separated by
+                   ungrouped gutters. Nothing may ever be placed right of the
+                   design matrix.
 
 Every A1 address quoted above is DERIVED in code from the _C_* column
 constants (see _abs_ref / _band and the _A_* anchors), never spelled out in a
@@ -75,7 +77,7 @@ write_sheet_model_construction so the two sheets can never drift.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, NamedTuple
 
 import xlwings as xw
 
@@ -367,15 +369,15 @@ _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 # functions runs ~30 times; a materialized cell runs once.
 #
 # Zone order (increasing width, terminating in the unbounded zone):
-#   charts | gutter | Model_Context | gutter | Sample_Include | gutter | matrix →
-#   (4 x 1)                    (n x 1)                       (n x k, unbounded)
+#   charts | gutter | Model Context | gutter | Sample_Include | gutter | matrix →
+#           (label + value, 4 rows)       (n x 1)            (n x k, unbounded)
 #
-# Model_Context and Sample_Include are one column each and ship EXPANDED; the
-# terminal Constructed Design Matrix ships COLLAPSED, because an
-# unbounded-width zone that cannot be collapsed is a scrolling hazard. Gutters
-# are width-2 ungrouped separators so each zone collapses independently — the
-# first gutter (after the charts) is structural, keeping the floating chart
-# anchors out of every collapsible outline group.
+# The Model Context zone is two columns (labels then values) and Sample_Include
+# is one; both ship EXPANDED. The terminal Constructed Design Matrix ships
+# COLLAPSED, because an unbounded-width zone that cannot be collapsed is a
+# scrolling hazard. Gutters are width-2 ungrouped separators so each zone
+# collapses independently — the first gutter (after the charts) is structural,
+# keeping the floating chart anchors out of every collapsible outline group.
 #
 # The chart footprint needs an explicit bound. _C_AZ is the chart ANCHOR, not
 # its extent: the seven diagnostic charts are floating objects tiled in a
@@ -402,35 +404,96 @@ _LAST_CHART_COLUMN = _C_AZ + 16   # BP
 # is one dropdown away from 156 columns and interactions multiply, so any zone
 # placed after it would be displaced by an ordinary modeling choice.
 _C_GUTTER_AFTER_CHARTS = _LAST_CHART_COLUMN + 1                      # structural
-_C_MODEL_CONTEXT = _C_GUTTER_AFTER_CHARTS + 1                        # 4 x 1 spill
+_C_MODEL_CONTEXT_LABEL = _C_GUTTER_AFTER_CHARTS + 1                  # element labels
+_C_MODEL_CONTEXT = _C_MODEL_CONTEXT_LABEL + 1                        # element values
 _C_GUTTER_AFTER_CONTEXT = _C_MODEL_CONTEXT + 1
 _C_SAMPLE_INCLUDE_MATERIALIZED = _C_GUTTER_AFTER_CONTEXT + 1         # n x 1 spill
 _C_GUTTER_AFTER_SAMPLE_INCLUDE = _C_SAMPLE_INCLUDE_MATERIALIZED + 1
 _C_DESIGN_MATRIX = _C_GUTTER_AFTER_SAMPLE_INCLUDE + 1                # n x k, terminal
 
-# Model_Context is a bounded, fixed-height cache. ROWS(Fit_Context()) is a
-# build-time constant asserted in _write_materialization_zone; the materialized
-# VSTACK below has exactly this many elements, so the assertion is structural.
-_MODEL_CONTEXT_ROWS = 4
-# The context's four elements, in versioned public-contract row order
-# (append-only, never insert): Has_Intercept, DF_Absorbed, Response_Transform,
-# Predictor_Transform. All four are materialized from the spec block in
-# _write_materialization_zone: elements 1-2 (the C2 Allow_Intercept toggle and
-# Absorbed_Degrees_Of_Freedom()) feed today's engines; elements 3-4 (the
-# response and predictor transform summaries) have no engine reader until the
-# v3.3 unit-space dispatcher but land now so the row order is fixed.
-_MODEL_CONTEXT_ELEMENT_LABELS = (
-    "Has_Intercept",
-    "DF_Absorbed",
-    "Response_Transform",
-    "Predictor_Transform",
-)
-assert len(_MODEL_CONTEXT_ELEMENT_LABELS) == _MODEL_CONTEXT_ROWS
-
 # All §4b zones share a first data row so the band reads across — the mask
 # value beside its design-matrix row, both aligned to the source table rows,
 # with the gutters as visual separators. Asserted in the build.
 _MATERIALIZATION_FIRST_ROW = 2
+
+
+# ── The model context block ───────────────────────────────────────────────────
+# The context is a FIXED-SIZE table, one row per element, written as INDEPENDENT
+# CELLS — deliberately not a single VSTACK spill.
+#
+# A spill buys nothing here (the height is a build-time constant, not data-
+# dependent) and costs correctness: one formula producing four cells means the
+# whole block is a single dependency node that Excel must vacate and re-spill
+# whenever the spec block changes. During that re-spill the four cells backing
+# Fit_Context's fixed range are transiently blank/#SPILL!, and the ~30 engine
+# call sites reading that range through Fit_Context() see the torn value — the
+# race this decomposition removes. Four independent cells recalculate
+# independently and are never vacated, so the range always holds four values.
+#
+# It also makes the block readable: each element gets its own labelled row
+# instead of four anonymous spilled cells, so the sheet shows what it computed.
+_RESPONSE_TRANSFORM_FORMULA = (
+    'IFERROR(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),'
+    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"None")'
+)
+# None/Log/Mixed over the INCLUDED CONTINUOUS predictors — masked to Continuous
+# so a Categorical dummy's transform never yields a false "Mixed".
+_PREDICTOR_TRANSFORM_FORMULA = (
+    "LET(n_c,COLUMNS(Source_Data),"
+    "rl,TAKE(Spec_Role,n_c),"
+    "inc,TAKE(Spec_Include,n_c),"
+    "typ,TAKE(Spec_Type,n_c),"
+    "trn,TAKE(Spec_Transform,n_c),"
+    f'mask,(rl="{_ROLE_PREDICTOR}")*(inc=TRUE)*(typ="Continuous"),'
+    'nL,SUMPRODUCT(mask*N(trn="Log")),'
+    'nN,SUMPRODUCT(mask*N(trn="None")),'
+    'IF(nL=0,"None",IF(nN=0,"Log","Mixed")))'
+)
+
+
+class ModelContextElement(NamedTuple):
+    """One row of the materialized model context.
+
+    ``contract_name`` is the versioned public-contract element name that the
+    workbook-scoped ``Context_*`` accessors index by position — append-only,
+    never insert. ``label`` is what the sheet's label column displays, and
+    ``formula`` is the expression materialized into the value cell. Keeping
+    all three in one record is what stops the displayed label from drifting
+    away from the value beside it.
+    """
+
+    contract_name: str
+    label: str
+    formula: str
+
+
+# Elements 1-2 (the C2 Allow_Intercept toggle and the
+# Absorbed_Degrees_Of_Freedom() closure) feed today's engines; elements 3-4
+# (the spec-block transform summaries) have no engine reader until the v3.3
+# unit-space dispatcher but land now so the row order is fixed.
+_MODEL_CONTEXT_ELEMENTS: tuple[ModelContextElement, ...] = (
+    ModelContextElement("Has_Intercept", "Allow Intercept", "Allow_Intercept"),
+    ModelContextElement(
+        "DF_Absorbed", "Absorbed DF", "Absorbed_Degrees_Of_Freedom()"
+    ),
+    ModelContextElement(
+        "Response_Transform", "Response Transform", _RESPONSE_TRANSFORM_FORMULA
+    ),
+    ModelContextElement(
+        "Predictor_Transform", "Predictor Transform", _PREDICTOR_TRANSFORM_FORMULA
+    ),
+)
+
+# Model Context is a bounded, fixed-height cache: the element table IS the
+# height, so Fit_Context's fixed range and the on-sheet health check below both
+# derive from it and a future element can never leave one of them behind.
+_MODEL_CONTEXT_ROWS = len(_MODEL_CONTEXT_ELEMENTS)
+_MODEL_CONTEXT_LAST_ROW = _MATERIALIZATION_FIRST_ROW + _MODEL_CONTEXT_ROWS - 1
+# Health-check row, immediately under the block and inside its border box.
+_ROW_MODEL_CONTEXT_CHECK = _MODEL_CONTEXT_LAST_ROW + 1
+
+_MODEL_CONTEXT_LABEL_WIDTH = 20.0
+_MODEL_CONTEXT_VALUE_WIDTH = 14.0
 
 # ── The design-matrix width guard ─────────────────────────────────────────────
 # Two thresholds, both computed PRE-FLIGHT from the spec block's Design
@@ -441,10 +504,10 @@ _MAX_EXCEL_COLUMN = 16384
 
 # HARD ERROR — the widest matrix that still fits on the sheet, derived from
 # the layout constants rather than hard-coded. Equivalently
-# 16,384 - (_LAST_CHART_COLUMN + 5), the five columns being the three gutters
-# plus the Model_Context and Sample_Include columns.
+# 16,384 - (_LAST_CHART_COLUMN + 6), the six columns being the three gutters
+# plus the Model Context label/value pair and the Sample_Include column.
 _DESIGN_MATRIX_MAX_COLUMNS = _MAX_EXCEL_COLUMN - _C_DESIGN_MATRIX + 1
-assert _DESIGN_MATRIX_MAX_COLUMNS == _MAX_EXCEL_COLUMN - (_LAST_CHART_COLUMN + 5)
+assert _DESIGN_MATRIX_MAX_COLUMNS == _MAX_EXCEL_COLUMN - (_LAST_CHART_COLUMN + 6)
 
 # SOFT WARNING — k constructed columns, or n x k materialized cells,
 # whichever trips first. Gram_Inverse is O(k^3) in MMULT, so the practical
@@ -1840,7 +1903,7 @@ def _write_materialization_zone(
     test sheets call with a per-row flag.
 
     ``Fit_Context()`` is the SHEET-scoped reader — a zero-arg thunk over the
-    FIXED range holding the materialized 4x1 spill. It is what the ~30
+    FIXED range holding the materialized context block. It is what the ~30
     Regression sheet call sites pass, so they read the actual spec-derived
     context (the C2 Allow_Intercept toggle, the Absorbed_Degrees_Of_Freedom()
     closure, the spec-block transform summaries) rather than the constructor
@@ -1850,19 +1913,29 @@ def _write_materialization_zone(
     a carrier's omitted-default resolved to the workbook constructor — the
     invisible shadowing the v3.0 release exists to remove.
 
-    The context is materialized ONCE into a spill cell (Excel does not memoize
-    a name whose RefersTo is a formula, so a constructor inside ~30 engine
-    calls runs ~30 times); ``Fit_Context`` reads that fixed range, so the ~30
-    call sites that pass ``Fit_Context()`` all read the one materialized cell.
+    The context is materialized ONCE (Excel does not memoize a name whose
+    RefersTo is a formula, so a constructor inside ~30 engine calls runs ~30
+    times); ``Fit_Context`` reads the fixed range those cells occupy, so the
+    ~30 call sites that pass ``Fit_Context()`` all read the one materialized
+    block.
+
+    The block is written as ONE CELL PER ELEMENT, each with its own label in
+    the column to its left, and boxed — it is a fixed-size table, not a data
+    range. It used to be a single ``VSTACK`` spill, which bought nothing (the
+    height is a build-time constant) and cost correctness: a spill is one
+    dependency node that Excel vacates and re-spills whenever the spec block
+    changes, and while it is vacated the range behind ``Fit_Context`` is
+    transiently blank, so every engine reading it sees a torn context. Four
+    independent cells recalculate independently and are never vacated.
 
     Elements 3-4 (Response_Transform, Predictor_Transform) are populated from
     the spec block now but have no engine reader until the v3.3 unit-space
     dispatcher; the row order is the contract that is expensive to change
     later, so all four rows land together. An error in an unconsumed row is
-    contained: ``VSTACK`` returns a 4-row array with the error in one cell, and
-    the engines read only elements 1-2 through the accessors, so a bad name
-    surfaces as a visible cell error (caught by the headless verifier) without
-    shifting a single fitted number.
+    contained to its own cell now that each element stands alone, and the
+    engines read only elements 1-2 through the accessors, so a bad name
+    surfaces as a visible cell error (caught by the headless verifier and by
+    the block's own health-check row) without shifting a single fitted number.
 
     The ``Sample_Include`` column is placed at its final §4b position as a
     RESERVED placeholder. Promoting the live ``Sample_Include()`` closure to a
@@ -1883,65 +1956,59 @@ def _write_materialization_zone(
             REGRESSION_SHEET_NAME
         )
 
-    # ── Model_Context (4x1) ──────────────────────────────────────────────────
+    # ── Model Context (fixed-size labelled block) ────────────────────────────
+    # One row per element, label left of value, heading on row 1, the whole
+    # thing boxed — the same treatment every other fixed-size block on this
+    # sheet gets (Regression Statistics, Diagnostics, Prediction Interval).
     # Element 1 is the C2 Allow_Intercept toggle (named range). Element 2 is
     # the Absorbed_Degrees_Of_Freedom() Regression closure. Elements 3-4 are
-    # the spec-block transform summaries: row 3 the single response transform
-    # (mirrors _RESPONSE_LOG_FORMULA's INDEX/XMATCH over the spec rows); row 4
-    # the None/Log/Mixed summary over the INCLUDED CONTINUOUS predictors — masked
-    # to Continuous so a Categorical dummy's transform never yields a false
-    # "Mixed". Both reference worksheet-scoped spec names on this sheet. The
-    # VSTACK length IS the build-time constant; the assert below pins it to
-    # _MODEL_CONTEXT_ROWS so a future edit that changes the context height
-    # fails the build loudly rather than shifting every engine call.
-    response_transform = (
-        'IFERROR(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),'
-        f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"None")'
-    )
-    predictor_transform = (
-        "LET(n_c,COLUMNS(Source_Data),"
-        "rl,TAKE(Spec_Role,n_c),"
-        "inc,TAKE(Spec_Include,n_c),"
-        "typ,TAKE(Spec_Type,n_c),"
-        "trn,TAKE(Spec_Transform,n_c),"
-        f'mask,(rl="{_ROLE_PREDICTOR}")*(inc=TRUE)*(typ="Continuous"),'
-        'nL,SUMPRODUCT(mask*N(trn="Log")),'
-        'nN,SUMPRODUCT(mask*N(trn="None")),'
-        'IF(nL=0,"None",IF(nN=0,"Log","Mixed")))'
-    )
-    context_elements = (
-        "Allow_Intercept",
-        "Absorbed_Degrees_Of_Freedom()",
-        response_transform,
-        predictor_transform,
-    )
-    assert len(context_elements) == _MODEL_CONTEXT_ROWS
-    spill_formula = "=VSTACK(" + ",".join(context_elements) + ")"
-
+    # the spec-block transform summaries (see _RESPONSE_TRANSFORM_FORMULA /
+    # _PREDICTOR_TRANSFORM_FORMULA), both reading worksheet-scoped spec names
+    # on this sheet. _MODEL_CONTEXT_ELEMENTS is the single source of the row
+    # order, the labels, and the height.
     ctx_col = col_letter(_C_MODEL_CONTEXT)
-    section_heading(sheet, 1, _C_MODEL_CONTEXT, "Model Context")
-    f(sheet, 2, _C_MODEL_CONTEXT, spill_formula)
-    # The materialized spill occupies rows 2 .. 1 + _MODEL_CONTEXT_ROWS; the
-    # sheet-scoped reader Fit_Context reads that fixed range (no spill operator
-    # — the height is a structural constant, so a fixed range is exact and
-    # avoids the dynamic-array-in-a-name question entirely). Drop both the
-    # legacy "Model_Context" sheet name (left by a pre-split build) and any
-    # stale "Fit_Context" before re-adding, so a rebuild never leaves a shadow.
-    ctx_ref = f"'{sname}'!${ctx_col}$2:${ctx_col}${1 + _MODEL_CONTEXT_ROWS}"
+    section_heading(sheet, 1, _C_MODEL_CONTEXT_LABEL, "MODEL CONTEXT")
+    # The value column's heading cell carries the fill but no text, so the
+    # heading reads as one banner across the two-column block.
+    section_heading(sheet, 1, _C_MODEL_CONTEXT, "")
+
+    for offset, element in enumerate(_MODEL_CONTEXT_ELEMENTS):
+        row = _MATERIALIZATION_FIRST_ROW + offset
+        val(sheet, row, _C_MODEL_CONTEXT_LABEL, element.label)
+        f(sheet, row, _C_MODEL_CONTEXT, f"={element.formula}")
+
+    # The materialized block occupies _MATERIALIZATION_FIRST_ROW ..
+    # _MODEL_CONTEXT_LAST_ROW; the sheet-scoped reader Fit_Context reads that
+    # fixed range (no spill operator — the height is a structural constant, so
+    # a fixed range is exact and avoids the dynamic-array-in-a-name question
+    # entirely). Drop both the legacy "Model_Context" sheet name (left by a
+    # pre-split build) and any stale "Fit_Context" before re-adding, so a
+    # rebuild never leaves a shadow.
+    ctx_ref = (
+        f"'{sname}'!${ctx_col}${_MATERIALIZATION_FIRST_ROW}"
+        f":${ctx_col}${_MODEL_CONTEXT_LAST_ROW}"
+    )
     drop_local_name(sheet, "Model_Context")
     drop_local_name(sheet, "Fit_Context")
     sheet.api.Names.Add(
         Name="Fit_Context",
         RefersTo=f"=LAMBDA({ctx_ref})",
     )
-    # Runtime build assertion: ROWS(Fit_Context()) is the build-time constant.
-    # Displays TRUE when the materialized context has exactly _MODEL_CONTEXT_ROWS
-    # rows; a verifier (or the user) reads this cell to confirm the invariant.
+    # Health check, one row under the block and inside its box. The height
+    # half is the build-time invariant (_MODEL_CONTEXT_ROWS); the error half
+    # is what decomposition made worth checking — with four independent cells
+    # a broken spec name errors in ONE of them and leaves the other three
+    # looking fine, so the block reports whether every element resolved.
+    val(sheet, _ROW_MODEL_CONTEXT_CHECK, _C_MODEL_CONTEXT_LABEL, "Context OK")
     f(
         sheet,
-        2 + _MODEL_CONTEXT_ROWS,
+        _ROW_MODEL_CONTEXT_CHECK,
         _C_MODEL_CONTEXT,
-        f"=ROWS(Fit_Context())={_MODEL_CONTEXT_ROWS}",
+        f"=AND(ROWS(Fit_Context())={_MODEL_CONTEXT_ROWS},"
+        "SUMPRODUCT(--ISERROR(Fit_Context()))=0)",
+    )
+    border_box(
+        sheet, 1, _C_MODEL_CONTEXT_LABEL, _ROW_MODEL_CONTEXT_CHECK, _C_MODEL_CONTEXT
     )
 
     # ── Sample_Include (reserved) ────────────────────────────────────────────
@@ -2000,22 +2067,31 @@ def _write_materialization_zone(
     assert _MATERIALIZATION_FIRST_ROW == 2
 
     # ── Column widths + outline groups ───────────────────────────────────────
-    # The two bounded zones are one column each and ship EXPANDED (per §4b);
-    # the terminal design-matrix zone ships COLLAPSED. The width-2 gutters
-    # stay ungrouped so the zones collapse independently, and the first
-    # gutter (after the charts) is structural — it keeps the floating chart
-    # anchors out of every collapsible outline group.
+    # The two bounded zones ship EXPANDED (per §4b); the terminal design-matrix
+    # zone ships COLLAPSED. The width-2 gutters stay ungrouped so the zones
+    # collapse independently, and the first gutter (after the charts) is
+    # structural — it keeps the floating chart anchors out of every collapsible
+    # outline group.
     for gutter in (
         _C_GUTTER_AFTER_CHARTS,
         _C_GUTTER_AFTER_CONTEXT,
         _C_GUTTER_AFTER_SAMPLE_INCLUDE,
     ):
         sheet.range(f"{col_letter(gutter)}:{col_letter(gutter)}").column_width = 2
-    for content in (_C_MODEL_CONTEXT, _C_SAMPLE_INCLUDE_MATERIALIZED):
-        sheet.range(
-            f"{col_letter(content)}:{col_letter(content)}"
-        ).column_width = 14
-        sheet.api.Columns(f"{col_letter(content)}:{col_letter(content)}").Group()
+    for content, width in (
+        (_C_MODEL_CONTEXT_LABEL, _MODEL_CONTEXT_LABEL_WIDTH),
+        (_C_MODEL_CONTEXT, _MODEL_CONTEXT_VALUE_WIDTH),
+        (_C_SAMPLE_INCLUDE_MATERIALIZED, 14),
+    ):
+        sheet.range(f"{col_letter(content)}:{col_letter(content)}").column_width = width
+    # One outline group per ZONE, not per column: the Model Context zone is the
+    # label/value pair and has to collapse as a unit, or its labels would be
+    # left stranded beside a collapsed value column.
+    for first, last in (
+        (_C_MODEL_CONTEXT_LABEL, _C_MODEL_CONTEXT),
+        (_C_SAMPLE_INCLUDE_MATERIALIZED, _C_SAMPLE_INCLUDE_MATERIALIZED),
+    ):
+        sheet.api.Columns(f"{col_letter(first)}:{col_letter(last)}").Group()
 
     matrix_band = (
         f"{col_letter(_C_DESIGN_MATRIX)}:"

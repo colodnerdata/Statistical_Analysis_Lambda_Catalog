@@ -250,25 +250,34 @@ form, and stage 2 is not finished until it has. (Same standard as stage 1.)
 - DONE: Sheet — the two-name split. `Model_Context(...)` stays the
   workbook-scoped constructor (the omitted-`[Context]` default and the MLR
   test-sheet path); `Fit_Context()` is the SHEET-scoped reader — a zero-arg
-  thunk over the FIXED range holding the materialized 4×1 spill. The ~30
+  thunk over the FIXED range holding the materialized context block. The ~30
   Regression sheet call sites pass `Fit_Context()` so they read the actual
   spec-derived context, not the constructor default. Splitting the names
   keeps `Model_Context` unshadowed: a single sheet-scoped thunk named
   `Model_Context` would make `Model_Context()` in a sheet cell resolve to
   the materialized values while the same token in a carrier's
   omitted-default resolved to the workbook constructor — the invisible
-  shadowing the v3.0 release exists to remove. The spill materializes all
-  four rows: elements 1-2 (the C2 `Allow_Intercept` toggle and the
+  shadowing the v3.0 release exists to remove. All four rows are
+  materialized: elements 1-2 (the C2 `Allow_Intercept` toggle and the
   `Absorbed_Degrees_Of_Freedom()` closure) feed today's engines; elements
   3-4 (the response transform, and the None/Log/Mixed summary over the
   included Continuous predictors) have no engine reader until the v3.3
-  unit-space dispatcher but land now so the row order is fixed. The guard
-  cell asserts `=ROWS(Fit_Context())=_MODEL_CONTEXT_ROWS`. No `#` inside
-  the LAMBDA `RefersTo` — the height is a structural constant, so a fixed
-  range sidesteps the dynamic-array-in-a-name question entirely. An error
-  in an unconsumed row 3/4 is contained (the engines read only elements
-  1-2 through the accessors). Pinned by
+  unit-space dispatcher but land now so the row order is fixed. No `#`
+  inside the LAMBDA `RefersTo` — the height is a structural constant, so a
+  fixed range sidesteps the dynamic-array-in-a-name question entirely. An
+  error in an unconsumed row 3/4 is contained (the engines read only
+  elements 1-2 through the accessors). Pinned by
   `test_materialization_zone_materializes_model_context`.
+  *Amended in v3.0 polish:* the block is written as one labelled cell per
+  element rather than a single `VSTACK` spill — a spill sizes output to
+  data and this height is a build-time constant, so it gained nothing while
+  making the four cells one dependency node that Excel vacates and
+  re-spills on every spec-block edit (blanking the range behind
+  `Fit_Context()` mid-recalc). `_MODEL_CONTEXT_ELEMENTS` is now the single
+  source of the row order, labels, and height; the old
+  `=ROWS(Fit_Context())=_MODEL_CONTEXT_ROWS` guard cell becomes a
+  `Context OK` row that checks the height *and* that no element errored.
+  See [DECISIONS.md § v3.0](DECISIONS.md#the-model-context-is-individual-cells-not-a-vstack-spill).
 
 - DONE: QC harness — all three MLR test-sheet writers
   (`write_sheet_mlr_{scalar,observation,vector_outputs}_test.py`) thread

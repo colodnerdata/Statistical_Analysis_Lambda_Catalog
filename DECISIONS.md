@@ -2071,6 +2071,60 @@ stage order [ARCHITECTURE.md § 4a](ARCHITECTURE.md#4a-the-constructor-pipeline)
 fixes for the constructor, applied for the same reason: a ones column demeaned by
 group is a column of zeros.
 
+### The model context is individual cells, not a `VSTACK` spill
+
+**Question:** stage two materialized the context as one `VSTACK` formula spilling
+into four cells. `Fit_Context` reads the fixed range those cells occupy. Is a
+spill the right shape for it?
+
+**Resolution:** no — SUPERSEDED. The block is four independent formula cells, one
+per context element, each labelled in the column to its left, under a section
+heading and inside a border box. `_MODEL_CONTEXT_ELEMENTS` carries the contract
+name, the displayed label, and the formula for each element in one record, and is
+the single source of the row order, the labels, and the height.
+
+**Rationale:** the spill was buying nothing and costing correctness.
+
+- **Nothing gained.** A spill exists to size output to data. This output is not
+  data-sized: `ROWS(Fit_Context())` is a build-time constant, and the fixed-range
+  read was already relying on that. Four cells produce the same range.
+- **Correctness lost.** One formula producing four cells is a single dependency
+  node. Any spec-block edit makes Excel vacate and re-spill the whole block, and
+  while it is vacated the fixed range behind `Fit_Context()` holds nothing — so
+  the ~30 engine call sites that read the context can observe it mid-flight. That
+  is a genuine race, not a cosmetic one, and it is entirely a consequence of
+  coupling four independent scalars into one node. Independent cells recalculate
+  independently and are never vacated.
+- **Readability gained.** Four anonymous spilled cells showed values with no
+  indication of which element was which. Labelled rows show what the sheet
+  computed, and the block is a fixed-size table, so it gets the heading + border
+  box every other fixed-size block on the sheet gets (Regression Statistics,
+  Diagnostics, Prediction Interval).
+
+The v3.0 rationale for a *fixed range* read — no `#` inside a `LAMBDA`
+`RefersTo` — is untouched and is in fact strengthened: it no longer depends on a
+spill landing where it was told to.
+
+One consequence is worth naming. With a spill, an error in any element poisoned
+the block as a unit and was impossible to miss; with independent cells a broken
+spec name errors in exactly one of them and leaves the other three looking
+correct. So the block carries a `Context OK` row directly beneath it, inside the
+box, reporting both the height invariant and that no element errored. The old
+`=ROWS(Fit_Context())=4` cell was tautological against a fixed range — it checked
+the range's shape, which the build had already fixed — so the error half is the
+only part of that check that was ever load-bearing.
+
+**Generalized in [ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone):**
+materialize a bounded, fixed-height artifact as cells; reserve spills for the
+data-dependent zones (`Sample_Include`, the design matrix), whose height genuinely
+follows the source table.
+
+Layout consequence: the zone is now two columns (labels then values), grouped as
+a pair so collapsing it never strands the labels beside a hidden value column.
+Every zone right of it shifts by one, and the design-matrix hard-error threshold
+moves from `16,384 − (last_chart_column + 5)` to `+ 6`. Both are derived from the
+layout constants, so the shift is mechanical.
+
 ---
 
 ## Aliases
@@ -2282,3 +2336,12 @@ just records what was replaced, when, and by what.
   per-workbook version, once the build began emitting two artifacts.
   The `Breaking?` flag moves to the workbook version, where the
   question it answers actually lives.
+- **`Model_Context` materialized as a single `VSTACK` spill** (v3.0
+  stage two) → SUPERSEDED by the decomposed block: one labelled cell
+  per context element, headed and border-boxed. A spill sizes output
+  to data, and this output is a build-time constant, so it gained
+  nothing; what it cost was a single dependency node that Excel
+  vacates and re-spills on every spec-block edit, leaving the fixed
+  range behind `Fit_Context()` transiently blank for all ~30 engine
+  call sites. The fixed-range read itself (no `#` inside a `LAMBDA`
+  `RefersTo`) is unchanged.

@@ -509,8 +509,9 @@ memoize a name whose Refers To is a formula — it re-evaluates at every use sit
 — so a constructor called inside thirty engine functions runs thirty times.
 
 ```
-… existing zones … │ charts │ gutter │ Model_Context │ gutter │ Sample_Include │ gutter │ Constructed Design Matrix →
-                              BQ         BR (4 × 1)     BS        BT (n × 1)      BU       BV (n × k, unbounded)
+… existing zones … │ charts │ gutter │  Model Context  │ gutter │ Sample_Include │ gutter │ Constructed Design Matrix →
+                              BQ       BR:BS (label +    BT        BU (n × 1)      BV       BW (n × k, unbounded)
+                                       value, 4 rows)
 ```
 
 The column letters are illustrative, not the contract: every one of them is
@@ -541,8 +542,28 @@ displaced by an ordinary modeling choice.
   inside a collapsed outline group get squashed. The gutter after the chart
   columns is what keeps the diagnostic-chart anchors outside every collapsible
   group.
-- **Collapse state differs by zone.** `Model_Context` and `Sample_Include` are
-  one column each and ship **expanded**; the Constructed Design Matrix ships
+- **A bounded zone is written as individual cells, not a spill.** The model
+  context is a *fixed-size* table — four elements, a build-time constant — so
+  it is four independent formula cells, each labelled in the column to its
+  left, under a section heading and inside a border box, exactly like the
+  other fixed-size blocks on the sheet (Regression Statistics, Diagnostics,
+  Prediction Interval). It was originally one `VSTACK` spill; a spill buys
+  nothing when the height is not data-dependent, and it costs correctness. One
+  formula producing four cells is a single dependency node that Excel must
+  vacate and re-spill whenever the spec block changes, and while it is vacated
+  the fixed range behind `Fit_Context()` is transiently blank — every engine
+  call site reading it then sees a torn context. Independent cells recalculate
+  independently and are never vacated. The rule generalises: **materialize a
+  bounded, fixed-height artifact as cells; reserve spills for the
+  data-dependent zones** (`Sample_Include`, the design matrix), whose height
+  genuinely follows the source table. `_MODEL_CONTEXT_ELEMENTS` is the single
+  source of the element order, the labels, and the height, and a `Context OK`
+  row under the block reports both the height invariant and that no element
+  errored — which is worth checking precisely because independent cells fail
+  independently.
+- **Collapse state differs by zone.** Model Context (two columns, grouped as a
+  pair so the labels never strand beside a collapsed value column) and
+  `Sample_Include` (one column) ship **expanded**; the Constructed Design Matrix ships
   **collapsed by default**, because an unbounded-width zone that cannot be
   collapsed is a scrolling hazard. Its outline group covers a bounded band —
   an outline has to name its columns, and grouping out to column 16,384 would
@@ -575,8 +596,9 @@ displaced by an ordinary modeling choice.
 Two thresholds, both computed **pre-flight** from the Design Columns audit
 total rather than from `COLUMNS(Design_Columns())`:
 
-- **Hard error** at `16,384 − (last_chart_column + 5)` — the five columns being
-  three gutters plus the `Model_Context` and `Sample_Include` columns. Derived
+- **Hard error** at `16,384 − (last_chart_column + 6)` — the six columns being
+  three gutters plus the Model Context label/value pair and the
+  `Sample_Include` column. Derived
   from the layout constants, never hard-coded. Surfaced as a spec-block-area
   error flag and in the status block's error state.
 - **Soft warning** at k = 200 constructed columns, or 500,000 materialized cells

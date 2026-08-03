@@ -22,6 +22,7 @@ from .analyze_model_construction import (
     build_default_spec,
     calculate_model_construction_expectations,
     load_source_rows,
+    resolve_interaction_operand,
 )
 from .analyze_regression_sheet import calculate_regression_results_from_matrix
 from .regression_shared import RegressionSheetResults
@@ -137,6 +138,8 @@ def _copy_spec(spec: tuple[SpecVariable, ...] | list[SpecVariable]) -> list[Spec
             item.reference,
             item.sequence,
             item.transform,
+            item.interaction_term,
+            item.interaction_operation,
         )
         for item in spec
     ]
@@ -158,8 +161,20 @@ def _spec_var(
     reference: object = "",
     sequence: bool = False,
     transform: str = "None",
+    interaction_term: str = "",
+    interaction_operation: str = "",
 ) -> SpecVariable:
-    return SpecVariable(name, role, include, var_type, reference, sequence, transform)
+    return SpecVariable(
+        name,
+        role,
+        include,
+        var_type,
+        reference,
+        sequence,
+        transform,
+        interaction_term,
+        interaction_operation,
+    )
 
 
 def _row_label(row: dict[str, object], identifiers: list[str], fallback_index: int) -> str:
@@ -235,17 +250,19 @@ def build_spec_design(
         y_values.append(numeric_value)
         labels.append(_row_label(rows[idx], identifiers, idx))
 
-    matrix_columns: list[list[float]] = []
-    constructed_names: list[str] = []
-    constructed_transforms: list[str] = []
-    for variable in spec_tuple:
-        if variable.role != _ROLE_PREDICTOR or not variable.include:
-            continue
+    def _block(
+        variable: SpecVariable,
+    ) -> tuple[list[str], list[str], list[list[float]]] | None:
+        """One spec row's own block: the Python mirror of the sheet's ``blk()``.
+
+        Returns (names, transform flags, columns), or None for the degenerate
+        Categorical case the constructor skips with its ``#N/A`` guard. Called
+        for the declaring row AND for an interaction operand, so an operand
+        encodes exactly as it would on its own — including its own reference
+        level and its own Log transform.
+        """
         if variable.var_type != "Categorical":
             is_log = variable.transform == "Log"
-            constructed_names.append(
-                f"Ln({variable.name})" if is_log else variable.name
-            )
             values = []
             for idx in included_indices:
                 raw = _numeric_cell(rows[idx], variable.name)
@@ -258,24 +275,86 @@ def build_spec_design(
                         )
                     raw = math.log(raw)
                 values.append(raw)
-            matrix_columns.append(values)
-            constructed_transforms.append("Log" if is_log else "None")
-            continue
+            name = f"Ln({variable.name})" if is_log else variable.name
+            return ([name], ["Log" if is_log else "None"], [values])
 
         retained = _retained_levels(variable, rows, list(mask))
         if retained is None:
-            continue
+            return None
+        names = []
+        columns = []
         for level in retained:
-            constructed_names.append(f"{variable.name}: {_format_value(level)}")
-            matrix_columns.append([
+            names.append(f"{variable.name}: {_format_value(level)}")
+            columns.append([
                 0.0 if _is_blank(rows[idx][variable.name])
                 else (1.0 if rows[idx][variable.name] == level else 0.0)
                 for idx in included_indices
             ])
-            # Log is disallowed on Categorical Predictors (flagged red on
-            # the sheet); every dummy column reads "None" unconditionally,
-            # mirroring Constructed_Column_Transforms()'s EXPAND branch.
-            constructed_transforms.append("None")
+        # Log is disallowed on Categorical Predictors (flagged red on the
+        # sheet); every dummy column reads "None" unconditionally, mirroring
+        # Constructed_Column_Transforms()'s EXPAND branch.
+        return (names, ["None"] * len(names), columns)
+
+    def _combine(
+        left: list[float], right: list[float], operation: str, column: str
+    ) -> list[float]:
+        """Pairwise operand combination — the closed Product/Difference/Ratio axis."""
+        if operation == "Product":
+            return [a * b for a, b in zip(left, right)]
+        if operation == "Difference":
+            return [a - b for a, b in zip(left, right)]
+        if operation == "Ratio":
+            if any(b == 0 for b in right):
+                # Parity with the sheet, which returns NA() here rather than
+                # a bare #DIV/0!. A QC case must describe a legal, fully
+                # computable model, so this raises instead of emitting NaN.
+                raise ValueError(
+                    f"Ratio interaction {column!r} divides by zero in the "
+                    "included sample"
+                )
+            return [a / b for a, b in zip(left, right)]
+        raise ValueError(f"Unknown interaction operation: {operation!r}")
+
+    matrix_columns: list[list[float]] = []
+    constructed_names: list[str] = []
+    constructed_transforms: list[str] = []
+    for variable in spec_tuple:
+        if variable.role != _ROLE_PREDICTOR or not variable.include:
+            continue
+        own = _block(variable)
+        if own is None:
+            continue
+        own_names, own_transforms, own_columns = own
+        constructed_names.extend(own_names)
+        constructed_transforms.extend(own_transforms)
+        matrix_columns.extend(own_columns)
+
+        # v3.1: the row's interaction columns follow its own block, in the
+        # same nested order the sheet's paired REDUCE emits (left operand
+        # outer, right operand inner).
+        operand_index = resolve_interaction_operand(variable, spec_tuple)
+        if operand_index is None:
+            continue
+        other = _block(spec_tuple[operand_index])
+        if other is None:
+            continue
+        other_names, _, other_columns = other
+        for left_name, left_column in zip(own_names, own_columns):
+            for right_name, right_column in zip(other_names, other_columns):
+                name = f"{left_name}:{right_name}"
+                constructed_names.append(name)
+                matrix_columns.append(
+                    _combine(
+                        left_column,
+                        right_column,
+                        variable.interaction_operation,
+                        name,
+                    )
+                )
+                # An interaction column is never itself Log-flagged: the
+                # transform lives on each operand's own column and has
+                # already been applied above.
+                constructed_transforms.append("None")
 
     if not matrix_columns:
         raise ValueError("Spec produced zero constructed columns")
@@ -409,6 +488,31 @@ def _model_year_origin_categorical_spec() -> list[SpecVariable]:
     )
 
 
+def _interaction_spec(
+    term: str, operation: str = "Product", *, categorical_operand: bool = False
+) -> list[SpecVariable]:
+    """Declare an interaction on the Weight row of the continuous subset.
+
+    Weight is an included Continuous Predictor that sits BEFORE Origin in the
+    Auto MPG column order, so the emitted interaction columns land between
+    Weight's own column and Origin's dummies — which is what pins the
+    constructor's emission order (each row's interaction follows its own
+    block, not appended at the end of the matrix).
+    """
+    base = _with_origin(_continuous_subset_spec()) if categorical_operand else _continuous_subset_spec()
+    return _replace_spec_vars(
+        base,
+        weight=_spec_var(
+            "Weight",
+            _ROLE_PREDICTOR,
+            True,
+            "Continuous",
+            interaction_term=term,
+            interaction_operation=operation,
+        ),
+    )
+
+
 _IS_USA = ExtraSpecColumn(
     name="Is_USA",
     excel_formula='=--([@Origin]="US")',
@@ -516,6 +620,18 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             ],
         ),
     ]
+    # v3.1 interaction wiring — the three width regimes the constructor has
+    # to get right: one column, the documented quadratic (a row pointing at
+    # itself), and the Continuous x Categorical broadcast to L-1 columns.
+    categorical_specs.extend([
+        ("interaction_continuous_product", _interaction_spec("Displacement")),
+        ("interaction_quadratic_self_product", _interaction_spec("Weight")),
+        (
+            "interaction_categorical_broadcast",
+            _interaction_spec("Origin", categorical_operand=True),
+        ),
+    ])
+
     for name, spec in categorical_specs:
         extra = (_IS_USA,) if name == "usa_filter_degenerate_origin" else ()
         cases.append(

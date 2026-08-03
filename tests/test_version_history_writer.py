@@ -68,17 +68,37 @@ def test_univariate_artifact_writes_univariate_lineage(stub_helpers) -> None:
 
 
 def test_regression_artifact_writes_regression_lineage(stub_helpers) -> None:
-    """artifact='regression' (the default) writes the Regression lineage, whose
-    top entry is 1.0.0 and whose latest (the v3.0 split) entry is 3.0.0."""
+    """artifact='regression' (the default) writes the Regression lineage, in
+    ascending order from 1.0.0 with no gaps."""
     vh.write_version_history_sheet(object())  # default artifact
 
     rows = _version_rows(stub_helpers)
     assert rows[0] == "1.0.0"
-    assert rows[-1] == "3.0.0"
+    assert rows[-1] == "3.1.0"
     # The Regression lineage carries the pre-split Univariate history
     # (1.1.0's "Univariate Analysis release"); the standalone Univariate
     # artifact's lineage does not — its history begins at the split.
     assert "1.1.0" in rows
+    # Every shipped minor has an entry. This sheet IS the changelog for
+    # non-git users, so a release reaching them with no row is the defect —
+    # 2.1.0 (Fixed Effects) and 2.2.0 (Transforms) both did exactly that
+    # until they were backfilled.
+    assert rows == [
+        "1.0.0", "1.1.0", "1.2.0", "2.0.0", "2.1.0", "2.2.0", "3.0.0", "3.1.0",
+    ]
+
+
+def test_no_shipped_version_is_missing_from_the_regression_changelog(
+    stub_helpers,
+) -> None:
+    # Ascending, strictly increasing, no duplicates — checked structurally so
+    # a future entry inserted in the wrong place fails here rather than
+    # shipping a changelog that reads out of order.
+    vh.write_version_history_sheet(object())
+
+    parsed = [tuple(int(part) for part in row.split(".")) for row in _version_rows(stub_helpers)]
+    assert parsed == sorted(parsed)
+    assert len(set(parsed)) == len(parsed)
 
 
 def test_unknown_artifact_raises_value_error(stub_helpers) -> None:

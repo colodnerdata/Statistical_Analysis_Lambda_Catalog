@@ -29,6 +29,7 @@ Two verification passes run against the open QC workbook:
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TypeGuard
@@ -104,6 +105,14 @@ class SpecVariable:
     # on a Categorical Predictor (the sheet flags that combination red
     # rather than applying it).
     transform: str = "None"
+    # Spec columns M / N (Interaction Term, Interaction Operation), wired
+    # at v3.1. ``interaction_term`` names the OTHER operand by its column
+    # name; ``interaction_operation`` is the closed Product | Difference |
+    # Ratio vocabulary. Both blank (the default) means no interaction —
+    # and either one blank is the same thing, matching the constructor's
+    # mate(), which requires both.
+    interaction_term: str = ""
+    interaction_operation: str = ""
 
 
 def build_default_spec() -> list[SpecVariable]:
@@ -249,6 +258,58 @@ def _retained_levels(
     return retained or None
 
 
+def resolve_interaction_operand(
+    variable: SpecVariable, spec: Sequence[SpecVariable]
+) -> int | None:
+    """Mirror the constructor's ``mate()``: the operand's spec index, or None.
+
+    None — meaning "this row contributes its main effect only" — covers every
+    case the sheet flags rather than builds: a blank Interaction Term, a blank
+    Interaction Operation, a name matching no source column, and an operand
+    whose Role is not Predictor. An operand that IS a Predictor but has
+    Include = FALSE resolves normally; that is the flagged-amber marginality
+    case, which builds columns.
+    """
+    if not variable.interaction_term or not variable.interaction_operation:
+        return None
+    for index, candidate in enumerate(spec):
+        if candidate.name == variable.interaction_term:
+            return index if candidate.role == _ROLE_PREDICTOR else None
+    return None
+
+
+def block_column_names(
+    variable: SpecVariable,
+    rows: list[dict[str, object]],
+    mask: list[bool],
+) -> list[str] | None:
+    """Mirror the constructor's ``blk()``: one spec row's own column headers.
+
+    A Continuous row is a single column, relabelled ``Ln(name)`` under
+    Transform = Log; a Categorical row is its reference-dropped level set.
+    ``None`` mirrors the ``#N/A`` degenerate skip — the row contributes
+    nothing at all, main effect and interaction alike.
+    """
+    if variable.var_type != "Categorical":
+        name = variable.name
+        return [f"Ln({name})" if variable.transform == "Log" else name]
+    retained = _retained_levels(variable, rows, mask)
+    if retained is None:
+        return None
+    return [f"{variable.name}: {_format_value(level)}" for level in retained]
+
+
+def interaction_column_names(left: Sequence[str], right: Sequence[str]) -> list[str]:
+    """Pairwise interaction headers, in the constructor's emission order.
+
+    R's colon form over this library's own constructed names, so an
+    interaction header always decomposes back into the two operand columns
+    that produced it: ``GDP:Schooling``, or ``GDP:Status: Developing`` when
+    one side is level-qualified.
+    """
+    return [f"{a}:{b}" for a in left for b in right]
+
+
 def calculate_model_construction_expectations(
     spec: list[SpecVariable], rows: list[dict[str, object]]
 ) -> ModelConstructionExpectations:
@@ -283,16 +344,21 @@ def calculate_model_construction_expectations(
                 references_in_use[variable.name] = levels[0] if levels else ""
         if variable.role != _ROLE_PREDICTOR or not variable.include:
             continue
-        if variable.var_type != "Categorical":
-            constructed.append(variable.name)
-            continue
-        retained = _retained_levels(variable, rows, mask)
-        if retained is None:
+        own = block_column_names(variable, rows, mask)
+        if own is None:
             degenerate.append(variable.name)
             continue
-        constructed.extend(
-            f"{variable.name}: {_format_value(level)}" for level in retained
-        )
+        constructed.extend(own)
+        # The row's interaction columns follow its own block, exactly as
+        # Predictor_Columns() emits them. A degenerate operand contributes
+        # nothing, which is the same skip the declaring row just passed.
+        operand_index = resolve_interaction_operand(variable, spec)
+        if operand_index is None:
+            continue
+        other = block_column_names(spec[operand_index], rows, mask)
+        if other is None:
+            continue
+        constructed.extend(interaction_column_names(own, other))
 
     response_names = [v.name for v in spec if v.role == _ROLE_RESPONSE]
     response_name = response_names[0] if response_names else "(none)"

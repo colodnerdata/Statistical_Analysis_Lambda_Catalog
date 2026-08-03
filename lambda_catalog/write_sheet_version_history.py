@@ -94,6 +94,58 @@ _VERSIONS = [
         ),
     },
     {
+        "version": "2.1.0",
+        "date": "2026-08-02",
+        "breaking": "No",
+        "summary": (
+            "Sequence axis, gap-aware longitudinal features, serial-correlation "
+            "diagnostics, and one-way Fixed Effects. The specification block "
+            "gains a Sequence flag marking the column that ORDERS the data "
+            "(at most one) plus a Sequence Period / Period In Use pair — the "
+            "period in use is the computed candidate unless you type an "
+            "override. Lag_By and Difference_By read that period and are "
+            "gap-aware: a missing prior period returns #N/A rather than "
+            "silently reaching back to the previous available row. Durbin-"
+            "Watson becomes sequence-aware, and a panel form (BFN) appears "
+            "when the data is grouped. Fixed Effects joins the Role dropdown: "
+            "the named column enters no design-matrix column of its own — the "
+            "response and every predictor are demeaned within its groups "
+            "instead, and the absorbed degrees of freedom are carried through "
+            "every standard error, t-statistic, p-value, confidence interval, "
+            "and information criterion, so the inference matches a "
+            "least-squares dummy-variable fit. Prediction gains a group-mean-"
+            "recovery form reporting both a mean-response confidence interval "
+            "and a new-observation prediction interval. Generalized VIF covers "
+            "the multi-level categorical case. A model with no Fixed Effects "
+            "Role computes exactly as it did under 2.0.0. Third sample "
+            "dataset: Production Lots, an unbalanced learning-curve panel with "
+            "a natural grouping column."
+        ),
+    },
+    {
+        "version": "2.2.0",
+        "date": "2026-08-02",
+        "breaking": "No",
+        "summary": (
+            "Transforms — the reserved Transform column (G) gains its first "
+            "real value. Set it to Log on the Response row and/or on "
+            "Continuous Predictor rows and the whole fit is computed in log "
+            "space: coefficients, R-squared, diagnostics, residuals, and the "
+            "prediction interval. The constructed column is relabelled "
+            "Ln(name) so the output says what was fitted. Log is disallowed "
+            "on a Categorical Predictor and flagged red rather than silently "
+            "applied. The Prediction Inputs band takes a raw value and logs it "
+            "internally, and its Training Mean default is the geometric mean "
+            "for a logged column, so the default prediction is not "
+            "double-logged. New function Ln_Positive returns #N/A for a "
+            "non-positive value instead of an error that would be mistaken "
+            "for a formula fault. Predictions are NOT back-transformed and "
+            "stay labelled (Log); unit-space comparability and Duan smearing "
+            "are a later release. Transform = None (the default) fits the raw "
+            "column, identically to 2.1.0."
+        ),
+    },
+    {
         "version": "3.0.0",
         "date": "2026-08-02",
         "breaking": "Yes",
@@ -130,6 +182,35 @@ _VERSIONS = [
             "column AH to AK, Residual Output from AK to AN), so any "
             "formula of your own that points at a cell on this sheet needs "
             "re-pointing."
+        ),
+    },
+    {
+        "version": "3.1.0",
+        "date": "2026-08-03",
+        "breaking": "No",
+        "summary": (
+            "Interaction wiring — the Interaction Term (M) and Interaction "
+            "Operation (N) columns 3.0.0 reserved now build real design-matrix "
+            "columns. Name another Predictor in M and pick Product, "
+            "Difference, or Ratio in N, and that spec row contributes its "
+            "interaction alongside its own column. Width follows the two "
+            "operands: one column for Continuous x Continuous, one per "
+            "retained level for Continuous x Categorical, and the full "
+            "product for Categorical x Categorical — the Design Columns "
+            "audit (O) now counts them, so a single dropdown that adds 155 "
+            "columns says so before anything is built. A row pointing at "
+            "itself under Product is the documented way to write a quadratic "
+            "term. An operand that is a Predictor with Include = FALSE still "
+            "builds (flagged amber — an interaction without its main effect); "
+            "an operand that is not a Predictor at all contributes nothing "
+            "and stays flagged red. Interaction columns are named "
+            "\"left:right\" from the two operands' own headers. NOT "
+            "AUTOMATIC: an interaction row in Prediction Inputs is an "
+            "independent value, not recomputed from its operand rows — "
+            "leave the band at its defaults, or override the interaction "
+            "rows to match when you change an operand. A specification with "
+            "M and N blank (the default) computes exactly as it did under "
+            "3.0.0."
         ),
     },
 ]

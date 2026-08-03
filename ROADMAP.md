@@ -81,8 +81,8 @@ workbook's sheets. A library-version bump that adds a function breaks nothing.
 own workbook version as the headline and the library version beside it:
 
 ```
-Regression Workbook 3.0.0   ·   Function Library 3.0.0
-Univariate Workbook 1.0.0   ·   Function Library 3.0.0
+Regression Workbook 3.1.0   ·   Function Library 3.1.0
+Univariate Workbook 1.0.0   ·   Function Library 3.1.0
 ```
 
 **One changelog serves both.** Entries stay in a single chronological list, each
@@ -117,7 +117,7 @@ Rationale in
 | v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Shipped inside the 3.0.0 artifact** — every TODOs #1–#10 item is DONE and verified against a live build (0 mismatches across all 12 spec-driven QC cases), with the FE engine independently pinned against `statsmodels` LSDV by `test_within_estimator`, `test_df_absorbed_threading`, and `test_group_prediction_interval`. `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Never got its own release build — the features reached users inside 3.0.0, and the **2.1.0 Version History entry was never written** (see TODOs § Documentation). DEFERRED follow-on polish remains |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR, and likewise shipped inside the 3.0.0 artifact with **no 2.2.0 Version History entry**. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()` — renamed `Predictor_Columns()` at v3.0 — plus `Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open and ship as **v3.3**, after v3.0 |
 | **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the two-artifact split, and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
-| v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | Planned — MINOR. A follow-on to the layout break, not a feature-train milestone: the two spec columns already exist reserved-and-unwired, so this is a formula change against columns that ship empty. The Design Columns audit gains its interaction term in the same edit that teaches the constructor to build them |
+| v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | **Shipped 2026-08-03** (workbook 3.1.0) — MINOR, and exactly the follow-on the reserved columns were for: three LAMBDA definitions and one audit formula changed, and no column moved. `Predictor_Columns()` and its two twins read M/N and emit the pairwise combination (1 column for Continuous × Continuous, L−1 for Continuous × Categorical, (L₁−1)(L₂−1) for Categorical × Categorical); the Design Columns audit gained its `k(row)×k(operand)` term in the same edit, off the same width helper. A spec with M and N blank computes identically to 3.0.0 |
 | v3.2 | Full materialization of the design matrix | No | Planned — MINOR. The other follow-on: stage 3 established the terminal zone and its width guard; this fills it. Also carries the deferred `Sample_Include()` thunk-over-a-spill promotion, which needs the `#` spill operator inside a `LAMBDA` defined-name and is only verifiable with Excel present |
 | v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the standalone transform library | No | Planned — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2 |
 | v3.4 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one |
@@ -587,6 +587,67 @@ an identifier, which the estimate did not anticipate), and `R_Squared` turned ou
 to be a **third** LINEST `const` site — the one that would have failed silently,
 since LINEST reports the uncentered R² under `const = FALSE`. Neither changes the
 design; both are why stage one is the one with the zero-mismatch gate.
+
+---
+
+## v3.1 — Interaction wiring — SHIPPED 2026-08-03
+
+The first of the two follow-ons v3.0 stage 3 bought room for, and the payoff on
+the reserved-column policy. Spec columns M (Interaction Term) and N (Interaction
+Operation) shipped at 3.0.0 validated, flagged, and **read by nothing**; this
+release makes the constructor read them. No column moved, no address changed, and
+a specification with M and N blank — every specification saved under 3.0.0 —
+computes identically. Workbook 3.1.0, library 3.1.0.
+
+**What it builds.** `Predictor_Columns()` resolves the operand named in M to its
+spec row, encodes it with the **same** `blk()` that encodes the declaring row, and
+combines the two blocks pairwise under the operation in N:
+
+| Operands | Columns |
+|---|---|
+| Continuous × Continuous | 1 |
+| Continuous × Categorical | L−1 |
+| Categorical × Categorical | (L₁−1)(L₂−1) |
+
+The columns land immediately after the declaring row's own block, so the matrix
+stays in spec order and the per-row audit describes adjacent columns. Headers are
+the two operands' own names joined with a colon (`Weight:Origin: US`).
+`Constructed_Column_Names()` and `Constructed_Column_Transforms()` gate
+interactions identically — the twin property is what keeps the header strip and
+the transform strip exactly as wide as the matrix.
+
+**What it enforces.** The operation axis stays closed (`Product` · `Difference` ·
+`Ratio`), with `Ratio` returning `NA()` on a zero denominator rather than a bare
+`#DIV/0!`. An operand that is an *excluded* Predictor still builds — the
+flagged-amber marginality case. An operand that is not a Predictor, or matches no
+column, contributes nothing and stays flagged red: the constructor degrades to
+the main effect rather than taking the whole sheet down for one mistyped cell,
+the same way an invalid Reference Level already degrades. A row pointing at
+itself under `Product` is the documented quadratic term. Two-way only.
+
+**The audit column earns its keep here.** Column O gained `k(row) × k(operand)`
+off the *same* per-row width helper it already used, so it cannot disagree with
+the constructor about how wide a categorical operand is — and the pre-flight
+width guard reads that total, so Status × Country on the WHO data announces its
+155 columns before anything is built.
+
+**One thing is deliberately not automatic.** An interaction row in the Prediction
+Inputs band is an independent input, not recomputed from its operand rows. The
+default state is self-consistent (the whole band sits on the design matrix's own
+centroid); a partial override is not, and the band's header note says so rather
+than silently rewriting one user input because another changed. Rationale, and
+the deferred derive-on-change design, in
+[DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring).
+
+**Verification.** Three QC cases (`interaction_continuous_product`,
+`interaction_quadratic_self_product`, `interaction_categorical_broadcast`) join
+the spec-driven oracle, so the Excel gate covers all three width regimes;
+`tests/test_interaction_wiring.py` pins the semantics headlessly against the
+Python mirror.
+
+Design rationale: [DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring),
+building on the representation decisions in
+[§ v3.0](DECISIONS.md#interactions-are-declared-with-two-spec-columns).
 
 ---
 

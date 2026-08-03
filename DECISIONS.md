@@ -2127,6 +2127,105 @@ layout constants, so the shift is mechanical.
 
 ---
 
+## v3.1 — Interaction wiring
+
+The release that consumes the M/N pair v3.0 stage 3 reserved. The
+representation, the operation vocabulary and its symmetry attribute, the four
+operand Role/Include cases, the two-way limit, and the self-interaction rule
+were all settled at v3.0 and are unchanged — see
+[§ v3.0 interactions](#interactions-are-declared-with-two-spec-columns) and the
+four entries that follow it. Recorded below are the questions the
+*implementation* had to answer that the representation decision did not.
+
+### An interaction's columns follow their own spec row
+
+**Question:** the constructor walks the spec in table order, emitting each
+included Predictor's columns. Where do a row's interaction columns go — beside
+that row's own block, or appended after every main effect?
+
+**Resolution:** immediately after the declaring row's own block.
+
+**Rationale.** The Design Columns audit is a **per-row** display, so a per-row
+emission is what makes its number mean what it says: column O reads `k(row) +
+k(row)×k(operand)`, and the columns those two terms describe are adjacent in the
+matrix. Appending interactions at the end would be equally k-correct and would
+break that correspondence — the audit would report a count for a row whose
+columns are elsewhere. It also preserves the one ordering property every zone
+right of the spec block already relies on: the constructed columns are in spec
+order, so the predictor-summary and residual zones can be read against the spec
+block row by row.
+
+### An unusable operand degrades to the main effect; it does not error
+
+**Question:** DECISIONS records a non-Predictor operand as an "Error". Does the
+constructor refuse to build the matrix, or skip the interaction?
+
+**Resolution:** skip the interaction, keep the main effect, leave the red flag
+on the cell.
+
+**Rationale.** This is the established precedent for an invalid spec entry on
+this sheet, not a new policy: an invalid Reference Level makes `Dummy_Levels`
+return `#N/A`, and the constructor's `acc` passthrough drops that variable while
+the E cell shows red. Erroring the whole design matrix on a mistyped operand
+name would take the entire sheet — every fit statistic, diagnostic, and chart —
+down for one bad cell, and would hide the *other* red flags a user needs to see
+to fix it. The audit column is where the consequence surfaces: the row reports
+its main-effect count only, so "I declared an interaction and the count did not
+move" is visible in the same glance that shows the red cell.
+
+The same reasoning covers a **degenerate operand** (a Categorical whose masked
+levels collapse to one). It contributes nothing, and `k(row) × 0 = 0` falls out
+of the audit arithmetic with no special case.
+
+### Interaction headers compose the library's own column names
+
+**Question:** v3.0 specified "R's colon form — `GDP:Schooling`, level-qualified
+as `GDP:StatusDeveloping`". R names dummy columns `StatusDeveloping`; this
+library names them `Status: Developing`. Which wins in the composed name?
+
+**Resolution:** compose **this library's own** constructed names with a colon —
+`GDP:Schooling` for the continuous pair, `GDP:Status: Developing` when one side
+is level-qualified.
+
+**Rationale.** The v3.0 example is R's *output*, cited to fix the separator, not
+to import R's dummy-naming. Composing the library's own names keeps the property
+that matters: an interaction header always decomposes back into two headers that
+appear elsewhere in the same strip, so a user reading a coefficient can find both
+operands. Adopting R's dummy form would have meant `Constructed_Column_Names()`
+emitting one spelling for a main effect and a different spelling for the same
+column inside an interaction. The level-qualified form is noisier than R's; that
+is the cost of the names being traceable, and it is the right trade for a sheet
+whose whole premise is that a result can be interrogated by clicking through it.
+
+### Prediction Inputs does not recompute interaction rows
+
+**Question:** the Prediction Inputs band writes one overridable value per
+constructed column, defaulting to that column's training mean. An interaction
+column is *derived* from two others. Should the band recompute it when an
+operand row changes?
+
+**Resolution:** no. The interaction row is an independent input like every other
+row, and the band's header note says so explicitly.
+
+**Rationale.** Recomputing would mean one user input silently rewriting another,
+which is the "flag and instruct, never silently switch" line this library holds
+everywhere else. It is also not obviously *correct* — a user exploring a
+scenario may legitimately want to hold an interaction at its training mean while
+moving an operand. What the band must not do is leave the inconsistency
+undiscoverable, hence the note.
+
+The default state is self-consistent without any of this: leave every row at its
+Training Mean and the prediction sits on the design matrix's own centroid,
+interaction columns included. The inconsistency only arises from a partial
+override, which is exactly what the note describes.
+
+**Deferred, not rejected:** a band that knows which constructed columns are
+derived and from which operands could offer a derive-on-change toggle. That
+needs a fourth structural twin carrying each column's provenance, which is real
+scope and no part of what v3.1 set out to do.
+
+---
+
 ## Aliases
 
 A separate, optional layer of short, ALL-CAPS aliases may be added in

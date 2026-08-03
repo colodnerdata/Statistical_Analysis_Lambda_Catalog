@@ -301,12 +301,20 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     x_s = _refers_to(sheet, "Predictor_Columns")
 
     assert x_s.startswith("=LAMBDA(LET(")
+    # Still bound exactly once, even though v3.1 evaluates blk() for two
+    # rows per iteration (the declaring row and its interaction operand) —
+    # one textual site is what keeps the two encodings identical.
     assert x_s.count("Dummy_Levels(") == 1
     assert 'lv,Dummy_Levels(col,r,Sample_Include())' in x_s
-    # Scalar skip guard: ISNA(INDEX(lv,1,1)), NOT ISNA(lv). lv is a 1x(L-1)
+    # Scalar skip guard: ISNA(INDEX(...,1,1)), NOT ISNA(lv). lv is a 1x(L-1)
     # row; an array condition in front of a wider HSTACK branch broadcasts to
-    # #N/A (the T6 header-strip bug). INDEX(lv,1,1) makes the test scalar.
-    assert "IF(ISNA(INDEX(lv,1,1)),acc,HSTACK(acc,--(col=lv)))" in x_s
+    # #N/A (the T6 header-strip bug). INDEX(...,1,1) makes the test scalar,
+    # and keep() applies it only on the Categorical branch — a Continuous
+    # column whose first cell is an error must not be mistaken for the
+    # degenerate-categorical sentinel.
+    assert "IF(ISNA(INDEX(lv,1,1)),NA(),--(col=lv))" in x_s
+    assert 'keep,LAMBDA(x,arr,IF(INDEX(typ,x)<>"Categorical",TRUE,' in x_s
+    assert "NOT(ISNA(INDEX(arr,1,1)))" in x_s
     assert "IF(ISNA(lv)," not in x_s
     # Empty E-cell normalization: INDEX reads a blank cell as 0; "" is the
     # "use the default" sentinel Dummy_Levels expects.
@@ -320,7 +328,7 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     # v2.2 Log wiring: a Continuous column is Ln_Positive-transformed when
     # its row's Transform is Log; the Categorical branch never reads trn.
     assert "trn,TAKE(Spec_Transform,n_c)" in x_s
-    assert 'HSTACK(acc,IF(INDEX(trn,j)="Log",Ln_Positive(col,Sample_Include()),col))' in x_s
+    assert 'IF(INDEX(trn,x)="Log",Ln_Positive(col,Sample_Include()),col)' in x_s
 
 
 def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
@@ -343,21 +351,78 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     assert 'lv,Dummy_Levels(col,r,Sample_Include())' in transforms
     assert transforms.count("Dummy_Levels(") == 1
     # Same scalar skip guard as Predictor_Columns (the twin must match).
-    assert "IF(ISNA(INDEX(lv,1,1)),acc," in names
-    assert "IF(ISNA(lv)," not in names
-    assert "IF(ISNA(INDEX(lv,1,1)),acc," in transforms
-    assert "IF(ISNA(lv)," not in transforms
+    for formula in (x_s, names, transforms):
+        assert "IF(ISNA(INDEX(lv,1,1)),NA()," in formula
+        assert "IF(ISNA(lv)," not in formula
+        assert "IF(NOT(keep(j,a)),acc," in formula
+        assert "IF(NOT(keep(q,b)),m," in formula
     # Level-qualified headers: "Status: Developing", "Year: 2001", ... —
     # relabelled "Ln(header)" for a Log-transformed Continuous predictor.
-    assert 'HSTACK(acc,h&": "&lv)' in names
+    assert 'INDEX(hdrs,1,x)&": "&lv' in names
     assert 'trn,TAKE(Spec_Transform,n_c)' in names
-    assert 'HSTACK(acc,IF(INDEX(trn,j)="Log","Ln("&h&")",h))' in names
+    assert 'IF(INDEX(trn,x)="Log","Ln("&INDEX(hdrs,1,x)&")",INDEX(hdrs,1,x))' in names
     assert names.endswith("DROP(built,,1)))")
     # Constructed_Column_Transforms: "Log"/"None" per Continuous column;
     # every dummy column from a Categorical Predictor reads "None"
     # unconditionally, regardless of its spec row's own Transform cell.
-    assert 't,IF(INDEX(trn,j)="Log","Log","None")' in transforms
-    assert 'HSTACK(acc,EXPAND("None",1,COLUMNS(lv),"None"))' in transforms
+    assert 'IF(INDEX(trn,x)="Log","Log","None")' in transforms
+    assert 'EXPAND("None",1,COLUMNS(lv),"None")' in transforms
+
+
+def test_the_three_twins_gate_interactions_identically() -> None:
+    # The twin property is what guarantees the header strip and the
+    # transform-flag strip stay exactly as wide as the design matrix. v3.1
+    # adds a second emission point per iteration, so the gating in front of
+    # it has to be identical in all three — a mismatch would silently
+    # desynchronise names from columns.
+    sheet = _named_sheet()
+    formulas = [
+        _refers_to(sheet, name)
+        for name in (
+            "Predictor_Columns",
+            "Constructed_Column_Names",
+            "Constructed_Column_Transforms",
+        )
+    ]
+
+    # mate(): the operand resolver, byte-identical across the three.
+    mate = (
+        "mate,LAMBDA(j,LET(t,INDEX(itm,j),o,INDEX(iop,j),"
+        "q,IFERROR(XMATCH(t,hdrs),0),"
+        'IF(OR(LEN(t&"")=0,LEN(o&"")=0,q=0),0,'
+        'IF(INDEX(rl,q)<>"Predictor (x)",0,q))))'
+    )
+    for formula in formulas:
+        assert mate in formula
+        # Both operands' blocks come from the SAME blk(), so an operand
+        # encodes exactly as it would as a main effect.
+        assert "a,blk(j)" in formula
+        assert "b,blk(q)" in formula
+        assert "q,mate(j)" in formula
+        # No interaction declared → the row's own block only.
+        assert "IF(q=0,m," in formula
+
+    columns, names, transforms = formulas
+    # Predictor_Columns and Constructed_Column_Names walk the pair with the
+    # same nested REDUCE, so the k-th name always describes the k-th column.
+    pairwise = (
+        "REDUCE(m,SEQUENCE(COLUMNS(a)),LAMBDA(p,ai,"
+        "REDUCE(p,SEQUENCE(COLUMNS(b)),LAMBDA(pp,bi,"
+    )
+    assert pairwise in columns
+    assert pairwise in names
+    # The closed operation vocabulary, on the columns side only.
+    assert 'SWITCH(o,"Product",INDEX(a,0,ai)*INDEX(b,0,bi)' in columns
+    assert '"Difference",INDEX(a,0,ai)-INDEX(b,0,bi)' in columns
+    assert "IFERROR(INDEX(a,0,ai)/INDEX(b,0,bi),NA())" in columns
+    # R's colon form over this library's own constructed names.
+    assert 'INDEX(a,0,ai)&":"&INDEX(b,0,bi)' in names
+    # Transforms needs no pairwise walk — COLUMNS(a)*COLUMNS(b) is exactly
+    # the width that walk emits, and every interaction column reads "None"
+    # (the transform lives on each operand's column, applied before they
+    # are combined).
+    assert 'EXPAND("None",1,COLUMNS(a)*COLUMNS(b),"None")' in transforms
+    assert "SWITCH(" not in transforms
     assert transforms.endswith("DROP(built,,1)))")
 
 
@@ -640,16 +705,31 @@ def test_design_columns_audit_mirrors_the_constructors_own_skip_rules() -> None:
     # contributes nothing, so the audit must read 0 and not error).
     assert formula.startswith('=IF([@Role]<>"Predictor (x)","",')
     assert "IF([@Include]<>TRUE,0," in formula
-    assert 'IF([@Type]<>"Categorical",1,' in formula
+    assert 'kk,LAMBDA(x,IF(INDEX(typ,x)<>"Categorical",1,' in formula
     assert "COLUMNS(Dummy_Levels(" in formula
-    assert 'IF(LEN([@[Reference Level]]&"")=0,"",[@[Reference Level]])' in formula
+    assert 'IF(LEN(INDEX(refs,x)&"")=0,"",INDEX(refs,x))' in formula
     assert "Sample_Include()" in formula
-    assert formula.endswith(",0))))")
     # First data row → Source_Data column 1, same mapping K and L use.
     assert f"ROW()-{_FIRST_DATA_ROW - 1}" in formula
     # Reading the Levels display instead would make one display depend on
     # another; the audit reads the same closure the constructor reads.
     assert "[@Levels]" not in formula
+
+    # v3.1: the interaction term. ONE width helper serves both operands, so
+    # the audit cannot disagree with the constructor about how wide a
+    # categorical operand is, and the count is the pairwise product.
+    assert formula.count("kk,LAMBDA(") == 1
+    assert f"k,kk(ROW()-{_FIRST_DATA_ROW - 1})" in formula
+    assert "k*kk(q)" in formula
+    assert "k+ki)))" in formula
+    # Gating mirrors the constructor's mate() exactly: blank M, blank N, a
+    # name matching no column, or a non-Predictor operand all contribute 0.
+    assert "q,IFERROR(XMATCH(t,TOROW(Header_Names)),0)" in formula
+    assert 'IF(OR(LEN(t&"")=0,LEN(o&"")=0,q=0),0,' in formula
+    assert 'IF(INDEX(rl,q)<>"Predictor (x)",0,' in formula
+    # Include is deliberately NOT tested on the operand — an excluded
+    # Predictor operand is the flagged-amber marginality case, which builds.
+    assert "INDEX(inc,q)" not in formula
 
 
 def test_design_columns_audit_is_read_only_by_the_width_guard() -> None:
@@ -670,23 +750,34 @@ def test_design_columns_audit_is_read_only_by_the_width_guard() -> None:
         assert band not in formula, formula
 
 
-def test_interaction_bands_are_declared_but_read_by_no_constructor() -> None:
-    # M/N ship RESERVED: validated and flagged on the sheet, consumed by
-    # nothing until the interaction wiring release. The conditional-format
-    # rules read the bands, but CF expressions are not defined names and
-    # not cell formulas, so neither check below sees them.
+def test_interaction_bands_are_read_by_the_three_constructor_twins() -> None:
+    # The v3.1 wiring release ends the RESERVED state established at v3.0
+    # stage 3: M/N are now consumed by the constructor and its two twins.
+    # Exactly those three — no other closure may read them, because an
+    # interaction is a property of the design matrix, not of the row mask
+    # or the row labels.
     sheet = _named_sheet()
     _write_all_zones(sheet)
 
+    expected = {
+        "Predictor_Columns",
+        "Constructed_Column_Names",
+        "Constructed_Column_Transforms",
+    }
     for band in ("Spec_Interaction_Term", "Spec_Interaction_Operation"):
-        readers = [
+        readers = {
             item.Name.split("!", 1)[-1]
             for item in sheet.api.Names.items
             if band in item.RefersTo and item.Name.split("!", 1)[-1] != band
-        ]
-        assert readers == [], band
-        for formula in _all_written_formulas(sheet):
-            assert band not in formula, (band, formula)
+        }
+        assert readers == expected, (band, sorted(readers))
+
+    # Sample_Include and Row_Labels must stay clear of them: the row mask is
+    # what every spilled array is aligned to, and it cannot depend on a
+    # declaration that only changes the matrix's width.
+    for name in ("Sample_Include", "Row_Labels", "Response_Column"):
+        refers_to = _refers_to(sheet, name)
+        assert "Spec_Interaction" not in refers_to, name
 
 
 def test_interaction_flags_key_on_the_named_operands_own_spec_row() -> None:

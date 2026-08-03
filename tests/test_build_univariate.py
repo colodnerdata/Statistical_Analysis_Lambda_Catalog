@@ -17,6 +17,7 @@ import build_univariate
 from lambda_catalog.verify_report import VerifyReport
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
+    XL_CALCULATION_MANUAL,
     NameSyncResult,
 )
 
@@ -27,6 +28,19 @@ class _FakeApi:
         self.DisplayAlerts = True
         self.AskToUpdateLinks = True
         self.calculation_values: list[int] = []
+        # Excel's default: under Manual, saving still recalculates first.
+        self._calculate_before_save = True
+        self.calculate_before_save_values: list[bool] = []
+
+    @property
+    def CalculateBeforeSave(self) -> bool:
+        return self._calculate_before_save
+
+    @CalculateBeforeSave.setter
+    def CalculateBeforeSave(self, value: bool) -> None:
+        self.events.append(("calculate_before_save", value))
+        self.calculate_before_save_values.append(value)
+        self._calculate_before_save = value
 
     @property
     def Calculation(self) -> int | None:
@@ -232,6 +246,185 @@ def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
     assert app.api.calculation_values[-1] == XL_CALCULATION_AUTOMATIC
 
 
+def test_no_calculation_never_leaves_manual_mode(monkeypatch, tmp_path) -> None:
+    """calculate=False must never set Automatic.
+
+    Setting Automatic on the open workbook is itself a full calculation — the
+    Beta Data Tables included — so it is the step that has to not happen, not
+    just the final rebuild. --skip-data-table-calculations does not cover it.
+    """
+    app = _FakeApp()
+    monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
+
+    writer_calls: list[str] = []
+    _stub_writers(monkeypatch, writer_calls)
+
+    build_univariate.build_univariate_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=False,
+        calculate=False,
+    )
+
+    assert XL_CALCULATION_AUTOMATIC not in app.api.calculation_values
+    assert app.api.calculation_values == [XL_CALCULATION_MANUAL]
+    # The sheets are still written — the point is inspecting them uncalculated.
+    assert "write_univariate_sheet" in writer_calls
+    assert app.book.saved_paths == [str(tmp_path / "Example.xlsx")]
+
+
+def test_no_calculation_suppresses_calculate_before_save_then_restores_it(
+    monkeypatch, tmp_path
+) -> None:
+    """Manual mode alone still calculates on save; the setting must go off.
+
+    And it must come back on: Application.CalculateBeforeSave is Excel-wide, so
+    leaving it off would silently change every later session on that machine.
+    """
+    app = _FakeApp()
+    monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
+    _stub_writers(monkeypatch, [])
+
+    build_univariate.build_univariate_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=False,
+        calculate=False,
+    )
+
+    assert app.api.calculate_before_save_values == [False, True]
+    assert app.api.CalculateBeforeSave is True
+
+    # The save happens while it is still suppressed, not after the restore.
+    save_index = app.events.index(("calculate_before_save", True))
+    assert ("calculate_before_save", False) in app.events[:save_index]
+
+
+def test_default_build_leaves_calculate_before_save_alone(monkeypatch, tmp_path) -> None:
+    """An ordinary build must not touch the user's Excel-wide setting at all."""
+    app = _FakeApp()
+    monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
+    _stub_writers(monkeypatch, [])
+
+    build_univariate.build_univariate_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=False,
+    )
+
+    assert app.api.calculate_before_save_values == []
+
+
+def test_no_calculation_skips_the_rebuild_even_when_recalculate_is_true(
+    monkeypatch, tmp_path
+) -> None:
+    """calculate=False wins over recalculate=True — nothing calculates."""
+    app = _FakeApp()
+    monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
+    _stub_writers(monkeypatch, [])
+
+    recalc_calls: list[Path] = []
+    monkeypatch.setattr(
+        build_univariate, "_recalculate_and_save", lambda path: recalc_calls.append(path)
+    )
+
+    build_univariate.build_univariate_workbook(
+        workbook_path=tmp_path / "Example.xlsx",
+        definitions_path=tmp_path / "lambda_functions.json",
+        csv_path=tmp_path / "life_expectancy.csv",
+        recalculate=True,
+        calculate=False,
+    )
+
+    assert recalc_calls == []
+
+
+def test_main_no_calculation_skips_rebuild_and_warns(monkeypatch, capsys) -> None:
+    """--no-calculation skips phase 2 and says the artifact is not shippable."""
+    recalc_calls: list[Path] = []
+    build_kwargs: dict = {}
+
+    monkeypatch.setattr(
+        build_univariate,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=False,
+            no_calculation=True,
+            verify=False,
+            no_launch=True,
+        ),
+    )
+
+    def capture_build(**kwargs):
+        build_kwargs.update(kwargs)
+        return NameSyncResult(created=0, updated=0)
+
+    monkeypatch.setattr(build_univariate, "build_univariate_workbook", capture_build)
+    monkeypatch.setattr(
+        build_univariate, "_recalculate_and_save", lambda path: recalc_calls.append(path)
+    )
+    monkeypatch.setattr(build_univariate.subprocess, "Popen", lambda args: None)
+
+    build_univariate.main()
+
+    assert build_kwargs["calculate"] is False
+    # Skipped despite --skip-data-table-calculations being off.
+    assert recalc_calls == []
+    out = capsys.readouterr().out
+    assert "--no-calculation" in out
+    assert "do not ship it" in out
+
+
+def test_main_warns_when_verify_is_combined_with_no_calculation(monkeypatch, capsys) -> None:
+    """Verifying a workbook that was never calculated compares nothing useful."""
+    monkeypatch.setattr(
+        build_univariate,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=True,
+            no_calculation=True,
+            verify=True,
+            no_launch=True,
+        ),
+    )
+    monkeypatch.setattr(
+        build_univariate,
+        "build_univariate_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(build_univariate, "_recalculate_and_save", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        build_univariate,
+        "_run_deep_verify",
+        lambda *_a, **_k: VerifyReport(
+            passed=True,
+            categories={},
+            failures=(),
+            elapsed_seconds=0.0,
+            mode="spec",
+            workbook="Example.xlsx",
+        ),
+    )
+    monkeypatch.setattr(build_univariate.subprocess, "Popen", lambda args: None)
+
+    build_univariate.main()
+
+    assert "spurious mismatches" in capsys.readouterr().err
+
+
 def test_build_drops_stray_regression_sheets_from_reused_file(monkeypatch, tmp_path) -> None:
     """If the output path is a reused workbook (e.g. a copied Lambda_Library.xlsx),
     build_univariate_workbook must delete every sheet that is not part of the
@@ -349,6 +542,7 @@ def test_main_recalculate_skipped_when_skip_data_table_calculations(
             validate_reopen=False,
             verbose=True,
             skip_data_table_calculations=True,
+            no_calculation=False,
             verify=False,
             no_launch=True,
         ),
@@ -386,6 +580,7 @@ def test_main_recalculate_runs_by_default(monkeypatch) -> None:
             validate_reopen=False,
             verbose=False,
             skip_data_table_calculations=False,
+            no_calculation=False,
             verify=False,
             no_launch=True,
         ),
@@ -475,6 +670,7 @@ def test_main_verify_forwards_skip_regression_true(monkeypatch) -> None:
             validate_reopen=False,
             verbose=False,
             skip_data_table_calculations=True,
+            no_calculation=False,
             verify=True,
             no_launch=True,
         ),

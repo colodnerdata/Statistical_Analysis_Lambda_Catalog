@@ -81,6 +81,40 @@ def print_name_sync_summary(result: NameSyncResult) -> None:
         )
 
 
+def set_calculate_before_save(app: xw.App, value: bool) -> bool | None:
+    """Set Excel's "recalculate workbook before saving", returning the old value.
+
+    Under Manual calculation this setting is what decides whether
+    ``workbook.save()`` triggers a full calculation. It has to be off for a
+    genuinely calculation-free build; leaving it off would change the user's
+    Excel for every later session, so callers restore the returned value.
+
+    ``Application.CalculateBeforeSave`` is application-level and
+    environment-dependent, so a failure to read or write it is not a build
+    error — it just means there was nothing to suppress and nothing to
+    restore.
+
+    Parameters
+    ----------
+    app : xw.App
+        The Excel application whose setting to change.
+    value : bool
+        The new setting.
+
+    Returns
+    -------
+    bool or None
+        The previous setting, or None when Excel would not report or accept
+        it — in which case the caller has nothing to restore.
+    """
+    try:
+        previous = bool(app.api.CalculateBeforeSave)
+        app.api.CalculateBeforeSave = value
+        return previous
+    except Exception:  # pylint: disable=broad-except
+        return None
+
+
 def _recalculate_and_save(
     workbook_path: Path,
     *,

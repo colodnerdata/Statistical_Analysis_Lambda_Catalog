@@ -352,6 +352,30 @@ _CHART_WIDTH = 310.0         # points
 _CHART_HEIGHT = 310.0        # points
 _CHART_GAP = 10.0            # gap between charts in points
 
+# Y-axis tick-label number format, per chart. Keyed by the chart_specs key,
+# with _CHART_Y_TICK_FORMAT_DEFAULT for anything not listed — declarative
+# rather than a chain of `if key ==` overrides, so the format a chart gets is
+# readable in one place and pinnable by a unit test (the chart writer itself
+# is COM-only and cannot run headless).
+#
+# The default "0" suits the charts whose y values span the response's own
+# scale. It is wrong for any chart whose y values live in a narrow band near
+# zero, where integer ticks collapse the axis to two or three labels:
+#
+#   Scale-Location   sqrt(|studentized residual|), almost always inside 0-2 —
+#                    "0" renders 0/1/2 and throws away the spread the chart
+#                    exists to show. One decimal is the right resolution: the
+#                    diagnostic reads the TREND in that spread, not exact
+#                    values, and the CF thresholds on the source column sit at
+#                    1.414 / 1.732.
+#   Cook's Distance  typically 1e-4 to 1e-1 and heavily right-skewed, so it
+#                    takes scientific notation instead.
+_CHART_Y_TICK_FORMAT_DEFAULT = "0"
+_CHART_Y_TICK_FORMATS: dict[str, str] = {
+    "Scale-Location": "0.0",
+    "Cook's Distance": "0.0E+00",
+}
+
 # Chart label formula cells — one row per diagnostic chart, well below the
 # 2-col x 4-row chart grid's pixel footprint (row_step=320pt starting at row
 # 3, ~85 rows at default row height) so nothing ever renders on top of them.
@@ -2374,14 +2398,16 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
         y_axis = chart.Axes(_XL_VALUE)
         y_axis.HasTitle = True
         y_axis.AxisTitle.Formula = _label_ref(_C_CHART_YLABEL, label_row)
-        y_axis.TickLabels.NumberFormat = "0"
+        # One unconditional assignment from the per-chart table, so a chart's
+        # y-axis format is whatever _CHART_Y_TICK_FORMATS says it is.
+        y_tick_format = _CHART_Y_TICK_FORMATS.get(key, _CHART_Y_TICK_FORMAT_DEFAULT)
+        y_axis.TickLabels.NumberFormat = y_tick_format
 
         gridline_mode = gridline_modes.get(key, "none")
         x_axis.HasMajorGridlines = gridline_mode == "both"
         y_axis.HasMajorGridlines = gridline_mode in {"y", "both"}
 
         if key == "Cook's Distance":
-            y_axis.TickLabels.NumberFormat = "0.0E+00"
             x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
 
             # Overlay series for selective data labels: NA()'d rows in
@@ -2402,7 +2428,7 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
             dls = flag_series.DataLabels()
             dls.ShowCategoryName = True  # observation identifier, e.g. "United States"
             dls.ShowValue = True         # ...plus the Cook's D value
-            dls.NumberFormat = "0.0E+00"  # matches the y-axis format
+            dls.NumberFormat = y_tick_format  # same format as the y-axis ticks
             dls.Position = 0              # xlLabelPositionAbove
         if key == "Studentized Residuals vs. Leverage":
             x_axis.TickLabels.NumberFormat = "0.00"

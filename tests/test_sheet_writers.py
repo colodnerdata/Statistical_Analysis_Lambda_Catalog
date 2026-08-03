@@ -65,6 +65,8 @@ from lambda_catalog.write_sheet_regression import (
     _C_CHART_TITLE,
     _C_CHART_XLABEL,
     _C_CHART_YLABEL,
+    _CHART_Y_TICK_FORMATS,
+    _CHART_Y_TICK_FORMAT_DEFAULT,
     _MODEL_CONTEXT_ELEMENTS,
     _MODEL_CONTEXT_LAST_ROW,
     _MODEL_CONTEXT_ROWS,
@@ -335,6 +337,27 @@ def test_chart_label_cells_reference_live_statistics_and_stay_ordered() -> None:
     fitted_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Residuals vs. Fitted")
     fitted_title = sheet.ranges[((fitted_row, _C_CHART_TITLE),)].state.formula2
     assert "$AF$2" in fitted_title
+
+
+def test_scale_location_y_axis_always_shows_one_decimal() -> None:
+    # Scale-Location plots sqrt(|studentized residual|), which almost always
+    # sits inside 0-2. Under the default "0" tick format the axis renders
+    # 0/1/2 and throws away the spread the chart exists to show, so it is
+    # pinned to one decimal. The chart writer is COM-only and cannot run
+    # headless, so the format TABLE is what gets asserted — which is the
+    # reason the formats are a declarative dict rather than a chain of
+    # `if key ==` overrides inside the writer.
+    assert _CHART_Y_TICK_FORMATS["Scale-Location"] == "0.0"
+
+    # Every key in the table must name a real chart, or a renamed chart would
+    # silently fall back to the default instead of failing.
+    keys = {spec[0] for spec in _diagnostic_chart_specs()}
+    assert set(_CHART_Y_TICK_FORMATS) <= keys
+
+    # Everything else keeps the default; Cook's Distance is the one other
+    # exception (1e-4 to 1e-1 and heavily right-skewed, so scientific).
+    assert _CHART_Y_TICK_FORMAT_DEFAULT == "0"
+    assert set(_CHART_Y_TICK_FORMATS) == {"Scale-Location", "Cook's Distance"}
 
 
 def test_intercept_only_n_does_not_depend_on_filter() -> None:

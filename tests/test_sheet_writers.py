@@ -31,6 +31,7 @@ from lambda_catalog.write_sheet_regression import (
     _C_AD,
     _C_AE,
     _C_AF,
+    _C_AG,
     _C_AH,
     _C_AJ,
     _C_AK,
@@ -41,6 +42,10 @@ from lambda_catalog.write_sheet_regression import (
     _C_AR,
     _C_AX,
     _C_AY,
+    _C_AZ,
+    _C_BA,
+    _C_BB,
+    _A_BACK_TRANSFORM_METHOD,
     _C_DESIGN_MATRIX,
     _C_DESIGN_MATRIX_NAMES,
     _C_SPEC_DESIGN_COLUMNS,
@@ -85,6 +90,7 @@ from lambda_catalog.write_sheet_regression import (
     _write_prediction_inputs,
     _write_regression_outputs_header,
     _write_residuals,
+    _write_unit_space_block,
     _write_materialization_zone,
 )
 from lambda_catalog.write_sheet_mlr_scalar_test import _actual_formula
@@ -805,6 +811,142 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # Cook's Distance chart's overlay series only labels flagged points.
     assert sheet.cell(3, _C_AY).api.Formula2 == (
         "=IF(AT3#>MIN(4/$AB$8,0.9),AT3#,NA())"
+    )
+
+
+def test_write_unit_space_block_writes_section_input_and_three_gof_cells() -> None:
+    """v3.3 unit-space block at AG3:AH9 — section heading, Method input,
+    Smearing Factor, R²/Adj R²/RMSE in original units, Response Space readout.
+    """
+    sheet = RecordingSheet(name="Regression")
+    _write_unit_space_block(_as_xw_sheet(sheet))
+
+    # Section heading on row 3 spans AG3 (a single value cell here — the
+    # section_heading helper writes it as a label, not a merge).
+    assert sheet.cell(3, _C_AG).value == "UNIT-SPACE FIT"
+    # Row 4: Back-Transform Method input. A LITERAL "Duan", never a formula —
+    # the cell is an input, and a formula reading its own $AH$4 address is a
+    # circular reference that Excel resolves to 0 with iterative calculation
+    # off, feeding an unrecognised method to every consumer below. The
+    # Duan/Naive constraint lives in the list validation, not in the cell.
+    assert sheet.cell(4, _C_AG).value == "Back-Transform"
+    assert sheet.cell(4, _C_AH).value == "Duan"
+    method_formula = sheet.cell(4, _C_AH).api.Formula2
+    assert method_formula is None or not str(method_formula).startswith("="), (
+        "AH4 must hold a literal default, not a self-referential formula"
+    )
+    # Rows 5–8: the four GoF statistics; each formula lifts the smearing
+    # factor's own X/Y/Include/Context wiring rather than re-stating it.
+    for row, label in [
+        (5, "Smearing Factor"),
+        (6, "R Square (Unit)"),
+        (7, "Adj R Square (Unit)"),
+        (8, "RMSE (Unit)"),
+    ]:
+        assert sheet.cell(row, _C_AG).value == label, row
+    smearing_formula = sheet.cell(5, _C_AH).api.Formula2
+    assert smearing_formula == (
+        "=Smearing_Factor(Design_Columns(),Design_Response(),"
+        "Sample_Include(),Fit_Context())"
+    )
+    # The three GoF cells pass the Method input back through the catalog
+    # entry-point so the Duan/Naive toggle actually changes the readout.
+    for row in (6, 7, 8):
+        formula = sheet.cell(row, _C_AH).api.Formula2
+        assert formula is not None
+        assert "Fit_Context()" in formula
+        assert _A_BACK_TRANSFORM_METHOD in formula  # the $AH$4 anchor
+    # Row 9: Response Space readout — "Original units (back-transformed)"
+    # under Log, "Same as fit space" otherwise.
+    assert sheet.cell(9, _C_AG).value == "Response Space"
+    response_space_formula = sheet.cell(9, _C_AH).api.Formula2
+    assert "Context_Response_Transform(Fit_Context())" in response_space_formula
+    assert '"Original units (back-transformed)"' in response_space_formula
+    assert '"Same as fit space"' in response_space_formula
+
+
+def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
+    """v3.3: Predicted Y (Original Units) and Residual (Original Units) on
+    columns AZ and BA. Plain labels (no (Log) / (Within) suffix), back-
+    transformation routed through Unit_Space_Predictions / Unit_Space_Residuals
+    with the AH4 Method input.
+    """
+    sheet = RecordingSheet(name="Regression")
+    _write_residuals(_as_xw_sheet(sheet))
+
+    # Static headers — no Log/Within conditional; the unit-space columns
+    # are by construction in original units, so the conditional suffix
+    # logic that decorates the AO–AY columns does not apply here.
+    assert sheet.cell(2, _C_AZ).value == "Predicted Y (Original Units)"
+    assert sheet.cell(2, _C_BA).value == "Residual (Original Units)"
+    # Neither header leaks the With_FE/Log conditional fragments.
+    for col in (_C_AZ, _C_BA):
+        header = sheet.cell(2, col).value
+        assert isinstance(header, str)
+        assert "(Log)" not in header
+        assert "(Within" not in header
+    # Row 3 formulas call the catalog Unit_Space_* functions and feed the
+    # Method toggle from the unit-space block.
+    az_formula = sheet.cell(3, _C_AZ).api.Formula2
+    ba_formula = sheet.cell(3, _C_BA).api.Formula2
+    assert az_formula == (
+        "=Unit_Space_Predictions(Design_Columns(),Design_Response(),"
+        "Response_Column(),Sample_Include(),Fit_Context(),"
+        f"{_A_BACK_TRANSFORM_METHOD})"
+    )
+    assert ba_formula == (
+        "=Unit_Space_Residuals(Design_Columns(),Design_Response(),"
+        "Response_Column(),Sample_Include(),Fit_Context(),"
+        f"{_A_BACK_TRANSFORM_METHOD})"
+    )
+
+
+def test_write_regression_outputs_header_writes_model_formula_cell() -> None:
+    """v3.3 Model Formula cell — AA2 label, AB2 the assembled formula string.
+    Built from `_RESPONSE_NAME_FORMULA` (which already emits "Ln(name)" when
+    Log), `Allow_Intercept`, `Constructed_Column_Names()`, and the FE-name
+    suffix gated by the Fixed Effects count.
+    """
+    sheet = RecordingSheet(name="Regression")
+    _write_regression_outputs_header(_as_xw_sheet(sheet))
+
+    # AA2 is the bold label; AB2 holds the formula.
+    assert sheet.cell(2, _C_AA).value == "Model Formula"
+    formula = sheet.cell(2, _C_AB).api.Formula2
+    assert formula is not None
+    # Response side — _RESPONSE_NAME_FORMULA already wraps in "Ln(...)" when Log.
+    assert "Header_Names" in formula  # the response-name lookup chain
+    assert '" ~ "' in formula
+    # RHS — always "1 + " with intercept, "0 + " without.
+    assert 'IF(Allow_Intercept,"1 + ","0 + ")' in formula
+    # Predictor list — TEXTJOIN over the constructed column names.
+    assert 'TEXTJOIN(" + "' in formula
+    assert "Constructed_Column_Names()" in formula
+    # FE suffix — gated on the Fixed Effects count, names the active variable.
+    assert "Spec_Role" in formula
+    assert '"Fixed Effects"' in formula
+    # No hard-coded column letters — the formula references Resolver names only.
+    assert "FE" in formula  # the IFERROR fallback when no FE row is declared
+
+
+def test_setup_local_names_registers_comparison_anchor_headline_and_formula() -> None:
+    """v3.3: Comparison_Anchor, Comparison_Headline_GoF, Comparison_Model_Formula
+    are sheet-scoped names that the v3.4 Model Comparison sheet reads from.
+    Comparison_Anchor → AF2 (the response-name readout), Comparison_Headline_GoF
+    → AH6:AH8 (the three unit-space GoF statistics), Comparison_Model_Formula
+    → AB2 (the assembled Model Formula cell).
+    """
+    sheet = RecordingSheet(name="Regression")
+    _setup_regression_names(_as_xw_sheet(sheet), closures=())
+
+    assert sheet.api.Names.by_short_name("Comparison_Anchor").RefersTo == (
+        "=Regression!$AF$2"
+    )
+    assert sheet.api.Names.by_short_name("Comparison_Headline_GoF").RefersTo == (
+        "=Regression!$AH$6:$AH$8"
+    )
+    assert sheet.api.Names.by_short_name("Comparison_Model_Formula").RefersTo == (
+        "=Regression!$AB$2"
     )
 
 

@@ -2788,3 +2788,227 @@ just records what was replaced, when, and by what.
   range behind `Fit_Context()` transiently blank for all ~30 engine
   call sites. The fixed-range read itself (no `#` inside a `LAMBDA`
   `RefersTo`) is unchanged.
+
+---
+
+## v3.3 — Transforms remainder (unit-space dispatch + Duan back-transformation + model formula label)
+
+Closes the unit-space gap that v2.2 left open: the v2.2 column-G `Log` wiring
+delivered a model that **fits** correctly in log space end to end, but stops
+there. The `Y`, `Predicted Y`, residual columns, and the whole Prediction
+Outputs block stay in log space, labelled `(Log)`; an R² computed on `Ln(y)`
+is not comparable with one computed on raw `y`. v3.3 closes that gap and,
+alongside it, ships the model-formula label — needed to head the unit-space
+block and read again by v3.4 Model Comparison.
+
+Six amendments to the v2.2/v2.3 design record:
+
+1. **The transform pair comes from `[Context]`, not from two positional
+   arguments.** The v2.2 resolution wrote `Unit_Space_R_Squared(model,
+   response_transform, predictor_transform)`; that predates the v3.0 context
+   array, which already carries both. Passing them again would be a second
+   source of truth. Signature becomes `Unit_Space_R_Squared(X, Y, Y_Full,
+   [Include], [Context], [Method])`, dispatching on
+   `Context_Response_Transform` / `Context_Predictor_Transform`. These are
+   the reader elements 3–4 of `Fit_Context()` were reserved for.
+
+2. **`Y_Full` is `Response_Column()`** — transformed but *not* demeaned —
+   passed alongside `Y` = `Design_Response()` (transformed *and* demeaned).
+   Their difference on the filtered sample is exactly the level the within
+   transformation removed, so the full-space fitted value is
+   `Predictions(X,Y,Include) + shift`. This is what makes Fixed
+   Effects + Log work without a `Group_Mean` call, an FE-detection branch
+   or a new closure — the level shift is zero whenever no FE row is
+   declared.
+
+   **The shift is gated on a Log response:** `shift = IF(rt="Log",
+   FILTER(Y_Full,Include) − FILTER(Y,Include), 0)`. It exists only so that
+   `EXP()` under FE exponentiates a predicted log response rather than a
+   group deviation, and nothing is exponentiated under `None`. Applying it
+   unconditionally silently converts the within-flavoured statistics into
+   total ones, so `Unit_Space_R_Squared` stops equalling `R_Squared` on an
+   FE model with no transform — the reduction invariant below, broken by a
+   number that still looks plausible.
+
+2a. **`Y_Full` is NOT the observed response in original units, and the
+   distinction is load-bearing.** It is fit space: `ln(y)` under a Log
+   Response row. Every unit-space statistic subtracts an observed value from
+   a back-transformed prediction, so reading the observed side straight off
+   `Y_Full` puts `ln(y)` and a response-unit prediction in one subtraction.
+   On a synthetic log-linear fit that returns **R² = −148.66 where the true
+   original-scale R² is 0.693** — a wrong number, not an error, in the cell
+   `Comparison_Headline_GoF` publishes to v3.4.
+
+   Resolved with a dedicated accessor, **`Unit_Space_Observed(Y, Y_Full,
+   [Include], [Context])`**, so the choice is made once rather than restated
+   at each of the three goodness-of-fit call sites. Both cases fall out of one
+   expression: `Back_Transform_Response(Dependent_Variable(Y, Include) +
+   shift, Context, "Naive", 1)`, reusing the same gated `shift`. Under `Log`,
+   `y_level` is `Y_Full` and the back-transform returns raw `y`; under `None`
+   the shift vanishes, the back-transform is a pass-through, and the observed
+   side stays the within-demeaned column the ordinary statistics use — which
+   is what keeps the reduction invariant true under Fixed Effects.
+
+   **The observed side is always `Naive`, never smeared.** Duan's factor
+   lifts a *prediction* from the conditional median to the conditional mean.
+   An observation is neither, and smearing one corrupts `SSE` and `SST`
+   alike.
+
+3. **The pair-SWITCH lives in `Unit_Space_Predictions` /
+   `Back_Transform_Response`, not repeated in each GoF name.** The
+   transform pair changes the *arithmetic* only at the back-transformation
+   step; R², Adjusted R² and RMSE are ordinary per-statistic names over
+   the back-transformed fitted values. Confines the combinatorial dispatch
+   to one place and keeps the `Unit_Space_*` names the ARCHITECTURE § 1
+   departure records.
+
+4. **The recognised pairs are `{None, Log} × {None, Log, Mixed}` — six, not
+   four.** The v2.2 text says "four possible combinations", written before
+   `_PREDICTOR_TRANSFORM_FORMULA` gained its `Mixed` value. Without a
+   `Mixed` branch a spec with one logged and one unlogged predictor falls
+   through to `NA()`. Anything outside the six is `NA()`. The predictor
+   half of the pair is **inert** for these three statistics — a
+   response-unit statistic cannot depend on predictor units — so it is
+   carried as *validation*, not as a computation input.
+
+5. **CI/PI bounds are back-transformed with `EXP` alone, never smeared.** A
+   monotone transform preserves coverage:
+   `P(L ≤ ln y ≤ U) = P(e^L ≤ y ≤ e^U)`. Multiplying both bounds by the
+   smearing factor would destroy it. Consequence the caveat row must state:
+   under `Duan` the point estimate (conditional **mean**) does not sit at
+   the centre of the interval, whose ends bracket the conditional
+   **median**.
+
+6. **Under FE + Log the unit-space statistics are *total*, not *within*.**
+   `exp()` of a within deviation predicts nothing, so the back-transformed
+   fitted value necessarily carries the group effect and `SST_unit` is
+   taken about the grand mean of raw `y`. Every other statistic on the
+   sheet reports the within flavour; this one cannot. State it on the
+   block's cell note. With `Transform = None` the dispatchers return the
+   ordinary statistic verbatim, so the within convention is untouched
+   there.
+
+### Catalog
+
+Seven new functions in `lambda_functions.json` under subcategory
+`Back-Transformation` (a new subcategory of `Model Construction`):
+
+- `Smearing_Factor(X, Y, [Include], [Context])` — scalar. `1` when the
+  response transform is `None`; `AVERAGE(EXP(Residuals(X,Y,Include)))` when
+  `Log`; `NA()` otherwise. Returning `1` rather than `NA()` on `None` is
+  what lets the sheet's cells stay uniform.
+- `Back_Transform_Response(Values, [Context], [Method], [Smearing])` —
+  elementwise. `None` → `Values` unchanged. `Log` + `Duan` → `EXP(Values) *
+  Smearing`. `Log` + `Naive` → `EXP(Values)`. Unrecognised transform or
+  method → `NA()`. `[Method]` defaults `"Duan"`, `[Smearing]` defaults `1`.
+- `Unit_Space_Predictions(X, Y, Y_Full, [Include], [Context], [Method])` —
+  n×1. `SWITCH` on the six recognised `(response, predictor)` pairs; each
+  branch back-transforms `Predictions(X,Y,Include) + shift`, with
+  `shift = IF(rt="Log", FILTER(Y_Full,Include) − FILTER(Y,Include), 0)`.
+  Computes its own smearing factor.
+- `Unit_Space_Observed(Y, Y_Full, [Include], [Context])` — n×1. The observed
+  response read in the **same space** `Unit_Space_Predictions` returns:
+  `Back_Transform_Response(Dependent_Variable(Y,Include) + shift, Context,
+  "Naive", 1)`. Raw `y` under `Log`; the within-demeaned fit-space column
+  under `None`. The single reason the three GoF names cannot disagree about
+  which space their observed side is in.
+- `Unit_Space_Residuals(X, Y, Y_Full, [Include], [Context], [Method])` — n×1.
+  `Unit_Space_Observed` minus `Unit_Space_Predictions`.
+- `Unit_Space_R_Squared(X, Y, Y_Full, [Include], [Context], [Method])` —
+  `1 − SSE_unit/SST_unit`; `SST_unit` about the mean with an intercept
+  (`Context_Has_Intercept`), about zero without — mirroring `SS_Total`.
+  May go negative; that is honest, do not clamp.
+- `Unit_Space_Adjusted_R_Squared(...)` — `1 − (1 − R²_unit) ·
+  Total_Degrees_Of_Freedom / Residual_Degrees_Of_Freedom`, reusing the
+  existing df functions so `Context_DF_Absorbed` is honoured.
+- `Unit_Space_RMSE(...)` — `SQRT(SSE_unit / Residual_Degrees_Of_Freedom(...))`
+  — the same divisor `SE_Regression` uses, so the `None` case reduces to it
+  exactly.
+
+**Reduction invariant (acceptance criterion):** with `Transform = None`
+everywhere, `Unit_Space_R_Squared ≡ R_Squared`, `Unit_Space_Adjusted_R_Squared
+≡ Adjusted_R_Squared`, `Unit_Space_RMSE ≡ SE_Regression`, and the two new
+residual columns equal `Predicted Y` / `Residuals`. Same non-breaking
+property v2.2 established.
+
+**It has to hold WITH Fixed Effects too**, and that is the version worth
+testing: with no FE the level shift is zero and every branch is trivially
+inert, so a no-FE-only invariant test passes against code that is wrong.
+`production_lots_fixed_effects` is the real case — FE declared, no transform —
+and both the gated shift (2) and `Unit_Space_Observed`'s `None` branch (2a)
+exist to keep it within-flavoured.
+
+**A mirror test cannot verify this family on its own.** The pure-Python
+mirrors and the catalog LAMBDAs share the same author and the same reading of
+what `Y_Full` means, so a wrong shared assumption produces a green suite and a
+wrong workbook — which is exactly what happened. Two kinds of test are
+therefore load-bearing here and must be kept: one that computes the expected
+`R²_unit` **straight from the raw response** without touching a mirror, and
+one that recomputes the QC oracle's unit-space block from its own already-
+verified residual columns. Neither shares a derivation path with the code it
+checks.
+
+### Sheet additions (`lambda_catalog/write_sheet_regression.py`)
+
+- **Unit-space block at `AG3:AH9`**: section heading on row 3; Back-Transform
+  Method input on row 4 (default `"Duan"`, list validation against
+  `Duan,Naive`); Smearing Factor, R² (Unit), Adj R² (Unit), RMSE (Unit) on
+  rows 5–8; Response Space readout on row 9. `border_box(3, AG, 9, AH)`.
+- **Original Units column in `AL` (Prediction Outputs)**: AK2 sub-header
+  `"Fit Space"`, AL2 sub-header `"Original Units"`. `AL3` point estimate via
+  `Back_Transform_Response(AK3, Fit_Context(), $AH$4, Smearing_Factor(...))`.
+  `AL4:AL6` blank (no SE/t-critical counterpart). `AL7:AL10` CI/PI bounds via
+  `Back_Transform_Response(AK{row}, Fit_Context(), "Naive", 1)`. Caveat row
+  at `AJ15:AL15` (merged, wrapped) explaining the asymmetric placement.
+- **Model Formula cell at `AA2:AB2`**: AA2 bold label, AB2 the assembled
+  string. Built from `_RESPONSE_NAME_FORMULA` (which already emits
+  `Ln(name)` when Log), `Allow_Intercept`, `Constructed_Column_Names()`,
+  and the FE-name suffix gated by the Fixed Effects count. The mixed
+  Log/None predictor case renders correctly with no extra work because
+  `Constructed_Column_Names()` already emits `Ln(name)` per logged
+  predictor, level-qualified dummy names, and `left × right` interaction
+  names.
+- **Residual Output zone extended to `AN:BA`**: AZ (`Predicted Y (Original
+  Units)`) and BA (`Residual (Original Units)`) added as content columns.
+  Headers carry NO `(Log)` / `(Within ...)` suffix — they are in original
+  units by construction. Row 3 formulas call `Unit_Space_Predictions` /
+  `Unit_Space_Residuals` with the Method toggle from `AH4`. Chart anchor
+  shifts from `_C_AZ` to `_C_BB` (so the chart letter BP — the end of the
+  chart-anchor constant `_LAST_CHART_COLUMN = _C_BB + 14` — is preserved).
+  The `_C_AZ`/`_C_BA`/`_C_BB` constants and the chart-label columns
+  (`_C_CHART_LABEL_NAME` through `_C_CHART_YLABEL`) all derive from the
+  anchor, not from literal letters.
+- **Sheet-scoped `Comparison_*` named ranges** registered in
+  `_setup_local_names`: `Comparison_Anchor` → `$AF$2` (response-name
+  readout); `Comparison_Headline_GoF` → `$AH$6:$AH$8` (the three
+  unit-space GoF statistics); `Comparison_Model_Formula` → `$AB$2` (the
+  assembled model formula string). All three are the v3.4 Model Comparison
+  sheet's reading surface — the public-interface commitment this milestone
+  ships.
+
+### QC oracle (`lambda_catalog/regression_shared.py` + `analyze_regression_spec.py`)
+
+`RegressionUnitSpace` dataclass holds the unit-space scalars and vectors
+mirrored against the workbook. The oracle computes the smearing factor, R²,
+Adjusted R², RMSE, predictions, residuals, and the model formula string. The
+Regression spec case list grows by three — `production_lots_log_no_fe`,
+`production_lots_log_mixed_predictors`, `production_lots_log_predictor_only`
+— covering the FE+Log, Log+Mixed, and (None, Log) pairs respectively. The
+cache schema version bumps to 17.
+
+### Tests
+
+- `tests/test_unit_space_dispatch.py` (new) — pure-Python mirror of each
+  catalog function cross-checked against a NumPy OLS reference; reduction
+  invariant and `Y_Full` level-shift assertions; catalog implementation-shape
+  checks (SWITCH on the six pairs, `EXP(Values) * smear_arg` under Duan, no
+  `(Log)` / `(Within)` leak in the new residual-output headers).
+- `tests/test_sheet_writers.py` (extended) — RecordingSheet tests pin the
+  unit-space block (`AG3:AH9`), the `AZ`/`BA` residual columns, the Model
+  Formula cell, and the `Comparison_*` named ranges.
+- `tests/test_workbook_invariants.py` — unchanged; the new workbook-scoped
+  catalog names and sheet-scoped names are picked up by the existing name-
+  scope checks.
+- `tests/test_catalog_schema.py` and `tests/test_lambda_catalog_plain_language.py`
+  — pick up the 7 new entries automatically.
+

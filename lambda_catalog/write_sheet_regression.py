@@ -254,7 +254,9 @@ _C_AV = 48  # Studentized Residuals Ranked
 _C_AW = 49  # Scale-Location
 _C_AX = 50  # PRESS Residual
 _C_AY = 51  # Cook's Distance (Flagged) — chart data-label helper column
-_C_AZ = 52  # non-content gutter column — wrap-text bound for row-2 header strip / diagnostic-chart anchor
+_C_AZ = 52  # Predicted Y (Original Units) — Residual Output zone (v3.3 unit-space)
+_C_BA = 53  # Residual (Original Units) — Residual Output zone (v3.3 unit-space)
+_C_BB = 54  # chart anchor — formerly _C_AZ; everything past it shifts right by 2
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
@@ -308,6 +310,16 @@ _A_QQ_CORRELATION = _abs_ref(_ROW_QQ_CORRELATION, _C_AE)
 _A_SIGNIFICANCE_F = _abs_ref(_ROW_SIGNIFICANCE_F, _C_AF)
 _A_RESPONSE_READOUT = _abs_ref(_ROW_RESPONSE_READOUT, _C_AF)
 _A_FE_GROUP = _abs_ref(_ROW_FE_GROUP, _C_AK)
+# Unit-space block anchors (v3.3). The Method cell lives at row 4 of the
+# block — sibling to the section heading at row 3 — so the rest of the block
+# (rows 5–9) and the prediction column (AL) can reference a single source.
+_A_BACK_TRANSFORM_METHOD = _abs_ref(4, _C_AH)
+# The two back-transform methods, and the default written into AH4 as a
+# LITERAL. The cell is an input: it must never hold a formula that reads its
+# own address (a circular reference), and the validation list below is what
+# constrains a typed value.
+_BACK_TRANSFORM_METHODS = ("Duan", "Naive")
+_BACK_TRANSFORM_DEFAULT = _BACK_TRANSFORM_METHODS[0]
 
 # Content zones as (first_col, last_col) spans — the single source of truth for
 # the outline groups. Each pair becomes one collapsible column group; the gap
@@ -321,7 +333,7 @@ _ZONES: tuple[tuple[int, int], ...] = (
     (_C_S, _C_Y),                 # S:Y   — Predictor Summary
     (_C_AA, _C_AH),               # AA:AH — Regression Outputs
     (_C_AJ, _C_AL),               # AJ:AL — Prediction Outputs
-    (_C_AN, _C_AY),               # AN:AY — Residual Output
+    (_C_AN, _C_BA),               # AN:BA — Residual Output (was AN:AY; v3.3 added AZ/BA)
 )
 
 # The ungrouped gap columns (width 2) that separate the zones above. Derived as
@@ -379,11 +391,13 @@ _CHART_Y_TICK_FORMATS: dict[str, str] = {
 # Chart label formula cells — one row per diagnostic chart, well below the
 # 2-col x 4-row chart grid's pixel footprint (row_step=320pt starting at row
 # 3, ~85 rows at default row height) so nothing ever renders on top of them.
-# Columns sit past _C_AZ, which stays a literal non-content gutter.
-_C_CHART_LABEL_NAME = _C_AZ + 1   # BA — human-readable chart name (doc only)
-_C_CHART_TITLE = _C_AZ + 2        # BB — Chart Title formula
-_C_CHART_XLABEL = _C_AZ + 3       # BC — X-Axis Title formula
-_C_CHART_YLABEL = _C_AZ + 4       # BD — Y-Axis Title formula
+# Columns sit past _C_BB (the chart anchor). v3.3 shifted BB to BB+14 (= 68)
+# to keep the chart anchor letter stable after the AZ/BA unit-space columns
+# replaced the pre-v3.3 AZ gutter.
+_C_CHART_LABEL_NAME = _C_BB + 1   # BC — human-readable chart name (doc only)
+_C_CHART_TITLE = _C_BB + 2        # BD — Chart Title formula
+_C_CHART_XLABEL = _C_BB + 3       # BE — X-Axis Title formula
+_C_CHART_YLABEL = _C_BB + 4       # BF — Y-Axis Title formula
 _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 
 # ── §4b materialization zone ──────────────────────────────────────────────────
@@ -404,10 +418,10 @@ _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 # collapses independently — the first gutter (after the charts) is structural,
 # keeping the floating chart anchors out of every collapsible outline group.
 #
-# The chart footprint needs an explicit bound. _C_AZ is the chart ANCHOR, not
+# The chart footprint needs an explicit bound. _C_BB is the chart ANCHOR, not
 # its extent: the seven diagnostic charts are floating objects tiled in a
 # _CHART_GRID_COLS x _CHART_GRID_ROWS grid, whose right edge sits
-# _CHART_RIGHT_OFFSET_PT points past AZ's left edge. _LAST_CHART_COLUMN is a
+# _CHART_RIGHT_OFFSET_PT points past BB's left edge. _LAST_CHART_COLUMN is a
 # conservative column index past which that footprint is clear, so the
 # full-height materialization spills are never drawn under a chart. A guarded
 # build-time assertion verifies the column past the footprint actually clears
@@ -421,7 +435,10 @@ _CHART_RIGHT_OFFSET_PT = (
 # Conservative clear-past-the-footprint bound; asserted against the measured
 # chart right edge in _write_materialization_zone. Tracks the chart anchor, so
 # a zone shift moves it automatically instead of silently under-reserving.
-_LAST_CHART_COLUMN = _C_AZ + 16   # BP
+# v3.3: BA absorbed two Residual-Output content columns (Predicted Y /
+# Residual Original Units), so BB=54 + 14 = 68 keeps the same BP
+# column-letter end value the chart footprint was sized against.
+_LAST_CHART_COLUMN = _C_BB + 14   # BP
 
 # Bounded materialization columns + their ungrouped gutters, then the terminal
 # Constructed Design Matrix, which runs unbounded to the sheet's right edge.
@@ -659,6 +676,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (6, _C_AA, "Adjusted R Square"),
         (7, _C_AA, "Standard Error"),
         (8, _C_AA, "Observations"),
+        (2, _C_AA, "Model Formula"),
         (4, _C_AD, "PRESS"),
         (5, _C_AD, "PRESS R²"),
         (6, _C_AD, "Mean Leverage"),
@@ -685,6 +703,12 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (20, _C_AG, "Upper 95%"),
         (20, _C_AH, "Beta Weight"),
         (17, _C_AL, "Training Mean"),
+        (4, _C_AG, "Back-Transform"),
+        (5, _C_AG, "Smearing Factor"),
+        (6, _C_AG, "R Square (Unit)"),
+        (7, _C_AG, "Adj R Square (Unit)"),
+        (8, _C_AG, "RMSE (Unit)"),
+        (9, _C_AG, "Response Space"),
         (3, _C_AJ, "Point Estimate"),
         (4, _C_AJ, "SE (Mean)"),
         (5, _C_AJ, "SE (New Obs)"),
@@ -697,6 +721,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (12, _C_AJ, "FE Group"),
         (13, _C_AJ, "Group Mean (y)"),
         (14, _C_AJ, "Group Count"),
+        (3, _C_AL, "Point Estimate (Original Units)"),
         (2, _C_AO, "Y"),
         (2, _C_AP, "Predicted Y"),
         (2, _C_AQ, "Residuals"),
@@ -708,6 +733,8 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (2, _C_AW, "Scale-Location"),
         (2, _C_AX, "PRESS Residual"),
         (2, _C_AY, "Cook's Distance (Flagged)"),
+        (2, _C_AZ, "Predicted Y (Original Units)"),
+        (2, _C_BA, "Residual (Original Units)"),
     ]
 
     for row, col, key in note_cells:
@@ -1105,6 +1132,35 @@ def _setup_local_names(
         )
         _nm.Comment = _comment
 
+    # ── v3.3 Comparison_* names (committed public interface for v3.4 Model
+    # Comparison). The unit-space block (AG3:AH9) and the Model Formula cell
+    # (AA2:AB2) are the surfaces v3.4 reads from — Comparison_Anchor is the
+    # response-name readout that pairs two models; Comparison_Headline_GoF
+    # is the three unit-space goodness-of-fit numbers (R², adjusted R²,
+    # RMSE in original units) so the comparison sheet can rank alternatives
+    # without rewriting the same formulas; Comparison_Model_Formula is the
+    # assembled formula string used as the comparison sheet's per-row label.
+    for _name, _refers_to, _comment in [
+        (
+            "Comparison_Anchor",
+            f"={sname}!{_A_RESPONSE_READOUT}",
+            "Response-name readout (the displayed response label) — pairs two models in v3.4 Model Comparison",
+        ),
+        (
+            "Comparison_Headline_GoF",
+            f"={sname}!$AH$6:$AH$8",
+            "Unit-space goodness-of-fit triplet (R², adjusted R², RMSE) — feeds the v3.4 Model Comparison headline row",
+        ),
+        (
+            "Comparison_Model_Formula",
+            f"={sname}!$AB$2",
+            "Assembled model formula string (response ~ predictors [| FE]) — feeds the v3.4 Model Comparison per-row label",
+        ),
+    ]:
+        drop_local_name(sheet, _name)
+        _nm = sheet.api.Names.Add(Name=_name, RefersTo=_refers_to)
+        _nm.Comment = _comment
+
 
 # ── Section writers ───────────────────────────────────────────────────────────
 
@@ -1280,6 +1336,31 @@ def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
     section_heading(sheet, 2, _C_AF, "")
     # Derived response name — the header of the Role=Response spec row.
     f(sheet, 2, _C_AF, f"={_RESPONSE_NAME_FORMULA}")
+
+    # Model Formula cell (v3.3) — AA2 label, AB2 the assembled string. Built
+    # entirely from existing pieces so the formula label is always exactly
+    # what the model itself is:
+    #   response side  = _RESPONSE_NAME_FORMULA (already emits "Ln(name)" when Log)
+    #   predictor side = "1 + " + TEXTJOIN(" + ", Constructed_Column_Names())
+    #                    (which already emits "Ln(name)" per logged predictor,
+    #                     level-qualified dummy names, and "left × right"
+    #                     interaction names — the mixed Log/None case renders
+    #                     correctly with no extra work)
+    #   FE suffix      = " | <FE name>" when a Fixed Effects row is declared
+    val(sheet, 2, _C_AA, "Model Formula")
+    bold(sheet, 2, _C_AA)
+    f(
+        sheet,
+        2,
+        _C_AB,
+        (
+            f"={_RESPONSE_NAME_FORMULA}"
+            '&" ~ "'
+            '&IF(Allow_Intercept,"1 + ","0 + ")'
+            '&IFERROR(TEXTJOIN(" + ",TRUE,Constructed_Column_Names()),"")'
+            f'&IF({_FIXED_EFFECTS_COUNT_FORMULA}>0," | "&{_FIXED_EFFECTS_NAME_FORMULA},"")'
+        ),
+    )
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
@@ -1543,6 +1624,110 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     ).number_format = "0.0E+00"
 
 
+def _write_unit_space_block(sheet: xw.Sheet) -> None:
+    """v3.3 unit-space / back-transformation block at AG3:AH9.
+
+    Sits between the Coefficients spill (rows 19+) and the Prediction Outputs
+    zone (AJ1+). Pair the catalog's `Unit_Space_*` LAMBDA functions with the
+    Back-Transform Method input on row 4 (default "Duan") so the prediction
+    column (AL) and the residual-zone original-units columns (AZ, BA) can
+    stitch onto a single source. Reads are gated by the response Transform
+    string read off Fit_Context(); the Response Space readout on row 9 makes
+    the active state visible at a glance.
+
+    Row layout:
+
+    | Row | AG                | AH                                         |
+    |-----|-------------------|--------------------------------------------|
+    | 3   | "UNIT-SPACE FIT"  | (section heading merged across AG3:AH3)    |
+    | 4   | "Back-Transform"  | input: "Duan" / "Naive" (default "Duan")   |
+    | 5   | "Smearing Factor" | =Smearing_Factor(Design_Columns(), ...)    |
+    | 6   | "R Square (Unit)" | =Unit_Space_R_Squared(...)                 |
+    | 7   | "Adj R Square (Unit)" | =Unit_Space_Adjusted_R_Squared(...)    |
+    | 8   | "RMSE (Unit)"     | =Unit_Space_RMSE(...)                      |
+    | 9   | "Response Space"  | readout (Fit_Context → "Log"/"None")       |
+    """
+    section_heading(sheet, 3, _C_AG, "UNIT-SPACE FIT")
+    val(sheet, 4, _C_AG, "Back-Transform")
+    format_input(sheet, 4, _C_AH)
+    # A LITERAL default, never a formula. This cell is an INPUT, and the
+    # earlier "=IF(OR($AH$4=..." form read its own address: a circular
+    # reference, which Excel resolves to 0 with iterative calculation off,
+    # so every consumer below (rows 6-8, AL3, AZ, BA) received an
+    # unrecognised method and returned #N/A. Same shape as the Alpha input
+    # at AB12 (val(sheet, 12, _C_AB, 0.05)) — a typed value is constrained
+    # by the list validation, not by the cell re-deriving itself.
+    val(sheet, 4, _C_AH, _BACK_TRANSFORM_DEFAULT)
+    # Restrict the input to the two supported methods via list validation.
+    try:
+        sheet.range(rc(4, _C_AH)).api.Validation.Delete()
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+    try:
+        sheet.range(rc(4, _C_AH)).api.Validation.Add(
+            Type=3,  # xlValidateList
+            AlertStyle=1,
+            Formula1=f'"{",".join(_BACK_TRANSFORM_METHODS)}"',
+        )
+        # IgnoreBlank would let a cleared cell through, and a blank method is
+        # not one of the six recognised states — it would silently #N/A the
+        # whole block rather than being rejected at entry.
+        sheet.range(rc(4, _C_AH)).api.Validation.IgnoreBlank = False
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+
+    for row, label, formula in [
+        (
+            5,
+            "Smearing Factor",
+            (
+                "=Smearing_Factor(Design_Columns(),Design_Response(),"
+                "Sample_Include(),Fit_Context())"
+            ),
+        ),
+        (
+            6,
+            "R Square (Unit)",
+            (
+                "=Unit_Space_R_Squared(Design_Columns(),Design_Response(),"
+                "Response_Column(),Sample_Include(),Fit_Context(),"
+                f"{_A_BACK_TRANSFORM_METHOD})"
+            ),
+        ),
+        (
+            7,
+            "Adj R Square (Unit)",
+            (
+                "=Unit_Space_Adjusted_R_Squared(Design_Columns(),Design_Response(),"
+                "Response_Column(),Sample_Include(),Fit_Context(),"
+                f"{_A_BACK_TRANSFORM_METHOD})"
+            ),
+        ),
+        (
+            8,
+            "RMSE (Unit)",
+            (
+                "=Unit_Space_RMSE(Design_Columns(),Design_Response(),"
+                "Response_Column(),Sample_Include(),Fit_Context(),"
+                f"{_A_BACK_TRANSFORM_METHOD})"
+            ),
+        ),
+    ]:
+        val(sheet, row, _C_AG, label)
+        f(sheet, row, _C_AH, formula)
+        sheet.range(rc(row, _C_AH), rc(row, _C_AH)).number_format = "0.0000"
+
+    val(sheet, 9, _C_AG, "Response Space")
+    f(
+        sheet,
+        9,
+        _C_AH,
+        '=IF(Context_Response_Transform(Fit_Context())="Log",'
+        '"Original units (back-transformed)","Same as fit space")',
+    )
+    border_box(sheet, 3, _C_AG, 9, _C_AH)
+
+
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
     """Zone AJ1:AK14: boxed prediction interval output, plus the FE group
     selector and its group-mean/count readouts.
@@ -1561,6 +1746,13 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     section_heading(sheet, 1, _C_AJ, "PREDICTION OUTPUTS")
     val(sheet, 2, _C_AJ, "PREDICTION INTERVAL")
     bold(sheet, 2, _C_AJ)
+    # Sub-headers row 2: AK is "Fit Space" (the log/identity values above),
+    # AL is "Original Units" (the back-transformed sibling). Both are
+    # unmerged so they read as the column header for the point estimate that
+    # follows directly underneath.
+    val(sheet, 2, _C_AK, "Fit Space")
+    val(sheet, 2, _C_AL, "Original Units")
+    bold_row(sheet, 2, _C_AJ, _C_AL)
     for row, label in [
         (3, "Point Estimate"),
         (4, "SE (Mean)"),
@@ -1611,6 +1803,42 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     )
     sheet.range(rc(3, _C_AK), rc(11, _C_AK)).number_format = "0.0000"
 
+    # Original Units column (AL): the back-transformed sibling of AK under a
+    # Log response. Point estimate (row 3) honors the Method toggle (Duan =
+    # conditional mean via smearing factor; Naive = textbook EXP(ŷ)). CI/PI
+    # bounds (rows 7–10) ALWAYS use Naive — bounds are quantiles, so EXP(L)
+    # to EXP(U) preserves the right coverage; multiplying by smearing would
+    # destroy it. Rows 4–6 (SE and t-critical) have no unit-space counterpart
+    # and stay blank.
+    f(
+        sheet,
+        3,
+        _C_AL,
+        (
+            "=Back_Transform_Response("
+            f"{_abs_ref(3, _C_AK)},"
+            "Fit_Context(),"
+            f"{_A_BACK_TRANSFORM_METHOD},"
+            "Smearing_Factor(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"
+            ")"
+        ),
+    )
+    for row in (7, 8, 9, 10):
+        f(
+            sheet,
+            row,
+            _C_AL,
+            (
+                "=Back_Transform_Response("
+                f"{_abs_ref(row, _C_AK)},"
+                "Fit_Context(),"
+                '"Naive",'
+                "1)"
+            ),
+        )
+    sheet.range(rc(3, _C_AL), rc(3, _C_AL)).number_format = "0.0000"
+    sheet.range(rc(7, _C_AL), rc(10, _C_AL)).number_format = "0.0000"
+
     # FE Group selector (row 12): computed-with-override, the same
     # reference-level pattern as the Categorical Reference Level (E) —
     # pre-filled with the alphabetically-first observed group (which is
@@ -1658,7 +1886,26 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     sheet.range(rc(13, _C_AK), rc(13, _C_AK)).number_format = "0.0000"
     sheet.range(rc(14, _C_AK), rc(14, _C_AK)).number_format = "0"
 
-    border_box(sheet, 1, _C_AJ, 14, _C_AK)
+    # Caveat row 15: explains the asymmetric CI/PI placement under Duan
+    # smearing. Always present (the text is honest under either method) so
+    # the user sees the gap between the point estimate and the bounds when
+    # the Method toggle is Duan — the visible "off-centre" placement is the
+    # plan's whole point.
+    sheet.range(rc(15, _C_AJ), rc(15, _C_AL)).merge()
+    f(
+        sheet,
+        15,
+        _C_AJ,
+        (
+            '="Duan = Duan (1983) smearing — estimates the conditional mean. '
+            "Naive = textbook EXP(ŷ) — the conditional median, biased for the "
+            "mean. CI/PI bounds are back-transformed with EXP alone, so under "
+            'Duan the point estimate does not sit at the interval centre."'
+        ),
+    )
+    sheet.range(rc(15, _C_AJ), rc(15, _C_AL)).api.WrapText = True
+
+    border_box(sheet, 1, _C_AJ, 15, _C_AL)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
@@ -1819,7 +2066,13 @@ def _write_residuals(sheet: xw.Sheet) -> None:
                 f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header}"&{within_suffix},"{header}")'
             )
         f(sheet, 2, col, formula)
-    bold_row(sheet, 2, _C_AN, _C_AY)
+    # v3.3 unit-space columns: AZ/BA are the original-units siblings of the
+    # fit-space Predicted Y / Residuals columns. They carry no (Log) or
+    # (Within …) suffix — they are in original units by construction, so the
+    # conditional suffix logic above does not apply to them.
+    val(sheet, 2, _C_AZ, "Predicted Y (Original Units)")
+    val(sheet, 2, _C_BA, "Residual (Original Units)")
+    bold_row(sheet, 2, _C_AN, _C_BA)
 
     # AN3: row labels — the spec-derived Row_Labels() filtered to the sample.
     # Row_Labels() has its own no-Identifier fallback ("Obs. n"), so the only
@@ -1863,10 +2116,33 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         sheet, 3, _C_AY,
         f"=IF({cooks_col}3#>MIN(4/{_A_OBSERVATIONS},0.9),{cooks_col}3#,NA())",
     )
+    # AZ: Predicted Y in original units — the unit-space siblings of AP/AR/AQ
+    # /AX. Method defaults to Duan smearing when the response is Log, which
+    # lifts EXP(ŷ) from a median predictor to a mean predictor; under
+    # `None` it reduces to the same Predicted Y as AP. BA: Residual in
+    # original units = observed response in original units minus the unit-
+    # space predicted. Both carry the Method toggle from `AH4` so flipping
+    # Duan → Naive propagates here.
+    f(
+        sheet, 3, _C_AZ,
+        (
+            "=Unit_Space_Predictions(Design_Columns(),Design_Response(),"
+            "Response_Column(),Sample_Include(),Fit_Context(),"
+            f"{_A_BACK_TRANSFORM_METHOD})"
+        ),
+    )
+    f(
+        sheet, 3, _C_BA,
+        (
+            "=Unit_Space_Residuals(Design_Columns(),Design_Response(),"
+            "Response_Column(),Sample_Include(),Fit_Context(),"
+            f"{_A_BACK_TRANSFORM_METHOD})"
+        ),
+    )
     # Format every numeric residual-output column — the actual Y (AO) through
-    # Cook's Distance (Flagged) (AY). Only the AN identifier column (text:
+    # Residual (Original Units) (BA). Only the AN identifier column (text:
     # country/Obs. labels) is left unformatted.
-    sheet.range(f"{col_letter(_C_AO)}:{col_letter(_C_AY)}").number_format = "0.0000"
+    sheet.range(f"{col_letter(_C_AO)}:{col_letter(_C_BA)}").number_format = "0.0000"
 
 
 def _diagnostic_chart_specs() -> list[tuple[str, str, str | None, str, str, str, str, int, int]]:
@@ -2267,7 +2543,7 @@ def _write_materialization_zone(
     # the guard, then assert outside it.
     try:
         chart_right = (
-            sheet.range(a1(1, _C_AZ)).left + _CHART_RIGHT_OFFSET_PT
+            sheet.range(a1(1, _C_BB)).left + _CHART_RIGHT_OFFSET_PT
         )
         clear_left = sheet.range(a1(1, _LAST_CHART_COLUMN + 1)).left
     except Exception:  # pylint: disable=broad-except — headless / no COM geometry
@@ -2283,7 +2559,7 @@ def _write_materialization_zone(
 
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
-    start_left = sheet.range(a1(1, _C_AZ)).left
+    start_left = sheet.range(a1(1, _C_BB)).left
     start_top = sheet.range("A3").top
 
     col_step = _CHART_WIDTH + _CHART_GAP
@@ -2512,21 +2788,22 @@ def write_regression_output_sheet(
     _write_anova(sheet)
     _write_coefficients(sheet)
     _write_significance_conditional_formatting(sheet)
+    _write_unit_space_block(sheet)
     _write_prediction_interval(sheet)
     _write_prediction_inputs(sheet)
     _write_residuals(sheet)
     _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
 
-    sheet.range(rc(2, _C_S), rc(2, _C_AZ)).api.WrapText = True
+    sheet.range(rc(2, _C_S), rc(2, _C_BA)).api.WrapText = True
 
     # A–O (spec block) widths are owned by write_sheet_model_construction.py
     # so the standalone and shared-block builds can never drift.
     _set_spec_block_column_widths(sheet)
 
-    # Content-column widths, per zone, plus the AW post-zone gutter (last entry).
-    # The gap columns (O, W, AF, AJ) are sized from _GAP_COLUMNS below so the
-    # layout stays declarative — one width there, not one per hard-coded gap letter.
+    # Content-column widths, per zone, plus the BB post-zone gutter (last entry).
+    # The gap columns are sized from _GAP_COLUMNS below so the layout stays
+    # declarative — one width there, not one per hard-coded gap letter.
     for column_letter, width in {
         # Spec feedback (M, N, plus the column-I Verdict overlay):
         # the M and N headers are bold on row 1, the I1 "Verdict" header
@@ -2559,18 +2836,22 @@ def write_regression_output_sheet(
         "AH": 16,       # prediction interval values + prediction input values
         "AI": 14,       # Training Mean header + values spill
 
-        # Residual Output (AK–AV): row identifiers (AK) + 11 diagnostics (AL–AV).
-        # AK holds Row_Labels() — country/identifier strings like "United States" (13).
-        "AK": 16,       # row identifiers (Row_Labels)
-        "AL": 10, "AM": 10, "AN": 9, "AO": 9, "AP": 9, "AQ": 12, "AR": 9,
+        # Residual Output (AN–BA): row identifiers (AN) + 11 diagnostics (AO–AY)
+        # + 2 v3.3 unit-space columns (AZ, BA). AN holds Row_Labels() —
+        # country/identifier strings like "United States" (13).
+        "AN": 16,       # row identifiers (Row_Labels)
+        "AO": 9, "AP": 9, "AQ": 12, "AR": 9,
         "AS": 14, "AT": 17, "AU": 14,
         "AV": 12,       # Cook's Distance (Flagged) — chart data-label helper column
+        "AW": 10, "AX": 12, "AY": 9,
+        "AZ": 12,       # Predicted Y (Original Units) — v3.3
+        "BA": 12,       # Residual (Original Units) — v3.3
 
-        # AW is NOT a content column and NOT a zone gap — it is the post-zone
-        # gutter that bounds the row-2 header wrap (_C_AZ) and anchors the
-        # diagnostic charts (they start at _C_AZ). Sized here so it reads as
-        # a deliberate margin rather than a default-width column.
-        "AW": 15,
+        # BB is NOT a content column and NOT a zone gap — it is the post-zone
+        # gutter that bounds the row-2 header wrap (last content column = BA)
+        # and anchors the diagnostic charts (they start at _C_BB). Sized here
+        # so it reads as a deliberate margin rather than a default-width column.
+        "BB": 15,
     }.items():
         sheet.range(f"{column_letter}:{column_letter}").column_width = width
 

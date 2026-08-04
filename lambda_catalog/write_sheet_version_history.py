@@ -215,6 +215,54 @@ _VERSIONS = [
             "3.0.0."
         ),
     },
+    {
+        "version": "3.3.0",
+        "date": "2026-08-03",
+        "breaking": "No",
+        "summary": (
+            "Transforms remainder — unit-space fit, Duan back-transformation, "
+            "and the model-formula label. The Regression sheet gains a "
+            "Unit-Space Fit block at AG3:AH9 with a per-cell Duan / Naive "
+            "back-transformation toggle (AH4, default Duan), a smearing "
+            "factor (AH5), R² / Adj R² / RMSE in original units (AH6:AH8), "
+            "and a response-space readout (AH9). A new Original Units column "
+            "(AL) in the Prediction Outputs block carries the back-"
+            "transformed point estimate (Duan by default, Naive on toggle) "
+            "and the four CI/PI bounds (always Naive — never smeared — "
+            "because multiplying a quantile by the smearing factor would "
+            "destroy coverage). The Residual Output zone gains two "
+            "Original-Units columns (AZ, BA): Predicted Y and Residual in "
+            "original units, dispatched on the AH4 toggle. The new Model "
+            "Formula cell at AA2:AB2 renders the saved spec as a readable "
+            "string (response name with Ln()-wrap on Log, intercept 1 with "
+            "the no-intercept flag, the constructed column names — which "
+            "already emit Ln(...) per logged predictor, level-qualified "
+            "dummies, and left × right interaction names — and a '| FE' "
+            "suffix when a Fixed Effects row is present). Three sheet-"
+            "scoped named ranges (Comparison_Anchor, Comparison_Headline_GoF, "
+            "Comparison_Model_Formula) are the v3.4 Model Comparison sheet's "
+            "reading surface. Seven new catalog functions under the "
+            "Back-Transformation subcategory (Smearing_Factor, "
+            "Back_Transform_Response, Unit_Space_Predictions, "
+            "Unit_Space_Residuals, Unit_Space_R_Squared, "
+            "Unit_Space_Adjusted_R_Squared, Unit_Space_RMSE) each SWITCH "
+            "on the (response_transform, predictor_transform) pair read off "
+            "Fit_Context() and return NA() outside the six recognised "
+            "pairs. Reduction invariant: with Transform = None throughout, "
+            "Unit_Space_R_Squared equals R_Squared to fp precision, "
+            "Unit_Space_Adjusted_R_Squared equals Adjusted_R_Squared, and "
+            "Unit_Space_RMSE equals SE_Regression — the same non-breaking "
+            "backward property v2.2 established. The default WHO and "
+            "Standard UN Population Practice demo (Transform = None "
+            "everywhere) shows no change. WHAT MOVES: nothing in the spec "
+            "block. The two new Residual Output columns push the chart "
+            "anchor and the entire §4b materialization band right by two "
+            "columns (the chart anchor letter BP at column 68 is preserved); "
+            "the Regression sheet's residual zone is now AN-BA instead of "
+            "AN-AY. Library version moves from 3.1.0 to 3.3.0; Univariate "
+            "stays at 2.0.0 — the unit-space machinery is Regression-only."
+        ),
+    },
 ]
 
 

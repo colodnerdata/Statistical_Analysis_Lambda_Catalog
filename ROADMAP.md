@@ -119,7 +119,7 @@ Rationale in
 | **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the two-artifact split, and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
 | v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | **Shipped 2026-08-03** (workbook 3.1.0) — MINOR, and exactly the follow-on the reserved columns were for: three LAMBDA definitions and one audit formula changed, and no column moved. `Predictor_Columns()` and its two twins read M/N and emit the pairwise combination (1 column for Continuous × Continuous, L−1 for Continuous × Categorical, (L₁−1)(L₂−1) for Categorical × Categorical); the Design Columns audit gained its `k(row)×k(operand)` term in the same edit, off the same width helper. A spec with M and N blank computes identically to 3.0.0 |
 | v3.2 | Full materialization of the design matrix | No | Partially delivered — MINOR. The other follow-on: stage 3 established the terminal zone and its width guard, and the spills that fill it — `Design_Columns()` into the design-matrix zone, `Sample_Include()` into its own — landed in the code, replacing both `"reserved"` placeholders. Still open: pointing the ~30 engine call sites at those spills (the performance win the zone exists for), the deferred `Sample_Include()` thunk-over-a-spill promotion, which needs the `#` spill operator inside a `LAMBDA` defined-name and is only verifiable with Excel present, and the artifact rebuild that carries any of it to users |
-| v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the standalone transform library | No | Planned — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2 |
+| v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the standalone transform library | No | SHIPPED for dispatcher + Duan back-transformation + model formula label (this milestone); standalone transform library still PLANNED — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2 |
 | v3.4 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one |
 | v3.5 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4.* Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The QC build seeds the table from the same SHA-derived seed as `analysis_cache.py` |
 | v3.6 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Claimed — next MINOR after v3.5. *Planned as v2.5.* F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix` |
@@ -666,44 +666,59 @@ building on the representation decisions in
 
 ---
 
-## v3.3 — Transforms remainder — PLANNED
+## v3.3 — Transforms remainder — SHIPPED (dispatcher + Duan + model formula label); standalone library still PLANNED
 
 *Planned as the second half of v2.2. Moved after v3.0 when the feature train was
 resequenced — see the [ladder rationale](#versioning--release-conventions).*
 
 The column-G `Log` wiring shipped at [v2.2](#v22--transforms--unit-space-comparability--partially-delivered);
-this milestone finishes the release. Until it ships, in-sample "Predicted Y" and the
-prediction outputs stay labelled `(Log)` rather than back-transformed, and an R²
-computed on `Ln(y)` is not comparable with one computed on raw `y` — which is why
-the Model Comparison sheet (v3.4) comes after this and not before.
+this milestone finishes the release. Unit-space dispatch (seven new catalog
+functions under the `Back-Transformation` subcategory), Duan back-transformation
+with the `[Method]` Duan/Naive toggle, the original-units Prediction Outputs
+column (AL), the original-units residual columns (AZ/BA), the Model Formula
+cell (AA2:AB2), and the `Comparison_*` sheet-scoped named ranges are now in
+production. The standalone transform library remainder (`Center`, `Zscore`,
+`Winsorize`, …) is still PLANNED.
 
-- **Unit-space dispatcher, RESOLVED (design only, not implemented)** — `Unit_Space_R_Squared(model,
-  response_transform, predictor_transform)` with argument order
-  model-then-response-then-predictor (matches the spec block's
-  column-G reading order). One canonical name per statistic, internal
-  `SWITCH` on the transform pair. The dispatcher is the first
-  deliberate departure from "one canonical name, one LAMBDA" —
-  justified by the combinatorial blow-up the exception avoids.
-- **Prediction back-transformation, RESOLVED (design only, not implemented)** — Duan's smearing
-  estimator as the default, with a per-cell `Back_Transform_Method`
-  toggle (`Duan` default | `Naive`). Naive is biased (Jensen's
-  inequality); Duan is unbiased under iid residuals. Caveat row
-  visible on the sheet. Until this ships, in-sample "Predicted Y" and
-  the prediction outputs are labelled `(Log)` rather than back-transformed.
-- **Statistics with a unit-space counterpart:** R², Adjusted R², RMSE.
-  AIC / AICc / BIC deferred (likelihood depends on the Jacobian of
-  the transformation; the "right" comparison is on the original
+- **Unit-space dispatcher, RESOLVED & SHIPPED** — seven catalog functions
+  (`Smearing_Factor`, `Back_Transform_Response`, `Unit_Space_Predictions`,
+  `Unit_Space_Residuals`, `Unit_Space_R_Squared`, `Unit_Space_Adjusted_R_Squared`,
+  `Unit_Space_RMSE`) under the `Back-Transformation` subcategory. The
+  transform pair is read off `Fit_Context()` rather than passed as
+  positional arguments. `SWITCH` on the six recognised `(response, predictor)`
+  pairs and `NA()` outside. The dispatcher is the first deliberate departure
+  from "one canonical name, one LAMBDA" — justified by the combinatorial
+  blow-up the exception avoids.
+- **Prediction back-transformation, RESOLVED & SHIPPED** — Duan's smearing
+  estimator as the default, with a per-cell `Back_Transform_Method` toggle
+  (`Duan` default | `Naive`). Naive is biased (Jensen's inequality); Duan is
+  unbiased under iid residuals. Caveat row visible on the sheet at AJ15:AL15.
+- **Model Formula label, RESOLVED & SHIPPED** — `AA2:AB2` cell, built from
+  the existing `_RESPONSE_NAME_FORMULA` (which already emits `Ln(name)` when
+  Log), `Allow_Intercept`, `Constructed_Column_Names()`, and the FE-name
+  suffix gated by the Fixed Effects count. The mixed Log/None predictor case
+  renders correctly with no extra work because `Constructed_Column_Names()`
+  already emits `Ln(name)` per logged predictor, level-qualified dummy
+  names, and `left × right` interaction names.
+- **`Comparison_*` named ranges, RESOLVED & SHIPPED** — sheet-scoped
+  `Comparison_Anchor` (`$AF$2`), `Comparison_Headline_GoF` (`$AH$6:$AH$8`),
+  `Comparison_Model_Formula` (`$AB$2`). v3.4 Model Comparison reads from
+  these surfaces.
+- **Statistics with a unit-space counterpart:** R², Adjusted R², RMSE
+  (SHIPPED). AIC / AICc / BIC deferred (likelihood depends on the Jacobian
+  of the transformation; the "right" comparison is on the original
   response's likelihood, not the transformed one's).
 - **Standalone transform library, remainder** —
   `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`,
   `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`,
   `Dummy_Column`, `Interact`, `Model_Matrix` (`Ln_Positive` shipped
-  early with the column-G wiring above). The full taxonomy
+  early with the column-G wiring above). Still PLANNED. The full taxonomy
   and the `""`-vs-`NA()` row-alignment convention are in
   [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
 
-Design rationale and resolved decisions: [DECISIONS.md § v2.2](DECISIONS.md#v22--transforms--unit-space-comparability),
-recorded there under the original milestone number.
+Design rationale and resolved decisions: [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label),
+recorded there under v3.3 (the original v2.2 entries describe the still-
+PLANNED standalone library).
 
 ---
 

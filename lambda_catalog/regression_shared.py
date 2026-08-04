@@ -136,6 +136,31 @@ class RegressionPredictionInterval:
 
 
 @dataclass(frozen=True)
+class RegressionUnitSpace:
+    """v3.3 unit-space / back-transformation outputs for the Regression sheet.
+
+    Mirrors the AG3:AH9 unit-space block plus the Original Units prediction
+    column (AL) and the two new residual columns (AZ/BA). The smearing
+    factor is the scalar that lifts EXP(ŷ) from a median predictor to a
+    mean predictor under a Log response; under ``None`` it is exactly 1 so
+    the reduction invariant (Unit_Space_* ≡ ordinary statistic) holds.
+    """
+
+    smearing_factor: float
+    r_squared_unit: float
+    adjusted_r2_unit: float
+    rmse_unit: float
+    prediction_point_unit: float
+    prediction_ci_lower_unit: float
+    prediction_ci_upper_unit: float
+    prediction_pi_lower_unit: float
+    prediction_pi_upper_unit: float
+    predictions_unit: tuple[float, ...]
+    residuals_unit: tuple[float, ...]
+    model_formula: str
+
+
+@dataclass(frozen=True)
 class RegressionSheetResults:
     """All expected values for one Regression sheet QC configuration."""
 
@@ -144,3 +169,4 @@ class RegressionSheetResults:
     predictor_summary: RegressionPredictorSummary
     full_residuals: RegressionFullResiduals
     prediction_interval: RegressionPredictionInterval
+    unit_space: RegressionUnitSpace

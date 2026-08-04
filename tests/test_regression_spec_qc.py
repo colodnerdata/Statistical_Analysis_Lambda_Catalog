@@ -35,6 +35,9 @@ _EXPECTED_CASE_NAMES = [
     "interaction_categorical_broadcast",
     "production_lots_fixed_effects",
     "production_lots_log_transform",
+    "production_lots_log_no_fe",
+    "production_lots_log_mixed_predictors",
+    "production_lots_log_predictor_only",
 ]
 
 _EXPECTED_T0_NAMES = (
@@ -478,3 +481,105 @@ def test_expected_outputs_are_internally_consistent() -> None:
         results.full_residuals.residuals,
     ):
         assert abs(y - (prediction + residual)) < 1e-8
+
+
+# ── v3.3 unit-space oracle cross-check ───────────────────────────────────────
+#
+# The mirrors in tests/test_unit_space_dispatch.py verify the catalog formulas
+# against a NumPy reference, but they cannot verify the ORACLE: that code has
+# its own copy of the arithmetic, and the only thing that compares the two is
+# the spec-driven verifier, which needs Excel and does not run in CI. That gap
+# is how a missing level shift and a fit-space observed column both shipped
+# green.
+#
+# This check recomputes the unit-space block from the oracle's own residual
+# columns — dependent_var (the fitted-on response, within-demeaned under FE),
+# predictions and residuals, all already covered by the existing QC — plus the
+# un-demeaned design.y_train. Different derivation path, same expected answer.
+
+_LOG_SPEC_CASES = (
+    "production_lots_log_transform",        # Log response + Log predictor + FE
+    "production_lots_log_no_fe",            # Log + Log, no FE
+    "production_lots_log_mixed_predictors",  # Log response, Log + None predictors
+    "production_lots_log_predictor_only",   # None response, Log predictor
+)
+
+
+def _expected_unit_space(design, results) -> dict:
+    """Independent recomputation of the v3.3 unit-space statistics."""
+    y_fit = np.asarray(results.full_residuals.dependent_var, dtype=float)
+    fitted = np.asarray(results.full_residuals.predictions, dtype=float)
+    resid = np.asarray(results.full_residuals.residuals, dtype=float)
+    y_train = np.asarray(design.y_train, dtype=float)
+
+    logged = design.response_transform == "Log"
+    # Only a Log response gets the level shift: nothing is exponentiated
+    # under None, and shifting there would turn the within-flavoured
+    # statistics into total ones.
+    shift = (y_train - y_fit) if logged else np.zeros_like(y_fit)
+    smearing = float(np.mean(np.exp(resid))) if logged else 1.0
+
+    if logged:
+        pred_unit = np.exp(fitted + shift) * smearing
+        y_unit = np.exp(y_fit + shift)
+    else:
+        pred_unit = fitted
+        y_unit = y_fit
+
+    sse = float(np.sum((y_unit - pred_unit) ** 2))
+    sst = float(np.sum((y_unit - np.mean(y_unit)) ** 2))
+    df_total = results.summary.df_total
+    df_residual = results.summary.df_residual
+    r2 = 1.0 - sse / sst
+    return {
+        "smearing_factor": smearing,
+        "r_squared_unit": r2,
+        "adjusted_r2_unit": 1.0 - (1.0 - r2) * df_total / df_residual,
+        "rmse_unit": math.sqrt(sse / df_residual),
+        "predictions_unit": pred_unit,
+        "residuals_unit": y_unit - pred_unit,
+    }
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.parametrize("case_name", _LOG_SPEC_CASES)
+def test_unit_space_oracle_matches_an_independent_recomputation(case_name: str) -> None:
+    expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
+    want = _expected_unit_space(expected.design, expected.results)
+    got = expected.results.unit_space
+
+    assert got.smearing_factor == pytest.approx(want["smearing_factor"], rel=1e-12)
+    assert got.r_squared_unit == pytest.approx(want["r_squared_unit"], rel=1e-10)
+    assert got.adjusted_r2_unit == pytest.approx(want["adjusted_r2_unit"], rel=1e-10)
+    assert got.rmse_unit == pytest.approx(want["rmse_unit"], rel=1e-10)
+    assert np.allclose(got.predictions_unit, want["predictions_unit"], rtol=1e-10)
+    assert np.allclose(got.residuals_unit, want["residuals_unit"], rtol=1e-8, atol=1e-8)
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.parametrize(
+    "case_name",
+    ("production_lots_fixed_effects", "production_lots_log_predictor_only"),
+)
+def test_unit_space_reduces_to_the_ordinary_statistics_without_a_response_transform(
+    case_name: str,
+) -> None:
+    """The reduction invariant on real spec cases, including one with Fixed
+    Effects: with the Response row untransformed, the unit-space statistics
+    ARE the ordinary statistics. A level shift leaking in under None would
+    turn these into total-flavoured numbers and fail here."""
+    expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
+    summary = expected.results.summary
+    unit = expected.results.unit_space
+
+    assert expected.design.response_transform == "None"
+    assert unit.smearing_factor == pytest.approx(1.0, rel=1e-15)
+    assert unit.r_squared_unit == pytest.approx(summary.r_squared, rel=1e-12)
+    assert unit.adjusted_r2_unit == pytest.approx(summary.adjusted_r2, rel=1e-12)
+    assert unit.rmse_unit == pytest.approx(summary.se_regression, rel=1e-12)
+    assert np.allclose(
+        unit.predictions_unit, expected.results.full_residuals.predictions, rtol=1e-12
+    )
+    assert np.allclose(
+        unit.residuals_unit, expected.results.full_residuals.residuals, atol=1e-9
+    )

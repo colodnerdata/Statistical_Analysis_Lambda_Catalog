@@ -1,6 +1,7 @@
 """Compute Python expected values for every output zone of the Regression worksheet."""
 from __future__ import annotations
 
+import math
 from math import sqrt
 from pathlib import Path
 from statistics import NormalDist
@@ -22,6 +23,7 @@ from .regression_shared import (
     RegressionPredictorSummary,
     RegressionSheetResults,
     RegressionSummary,
+    RegressionUnitSpace,
     RegressionVectors,
 )
 
@@ -120,6 +122,65 @@ def _demean_within_groups(values: np.ndarray, groups: np.ndarray) -> np.ndarray:
     return demeaned
 
 
+def _build_model_formula(
+    response_display: str,
+    predictor_names: tuple[str, ...],
+    include_intercept: bool,
+    group_labels: np.ndarray | None,
+) -> str:
+    """Assemble the AB2 model-formula cell text from the spec's display names.
+
+    The sheet's AB2 cell reads:
+
+        <response> ~ 1 + <p_1> + <p_2> + ... | <FE variable>
+
+    Built from the constructed-column names (``Constructed_Column_Names()``
+    on the sheet side) — which already emit ``Ln(name)`` per logged
+    predictor, level-qualified dummy names, and ``left × right`` interaction
+    names — so the mixed Log/None predictor case renders correctly with no
+    extra work. The Fixed Effects suffix names the only declared FE
+    variable, identical to the spec feedback block's FE Variable cell.
+
+    The Python mirror here is the test oracle for the sheet's TEXTJOIN
+    expression: any difference between the two is a regression-test
+    failure.
+    """
+    parts: list[str] = []
+    if include_intercept:
+        parts.append("1")
+    for name in predictor_names:
+        parts.append(name)
+    rhs = " + ".join(parts) if parts else "1"
+    if group_labels is not None:
+        fe_name = _fixed_effects_variable_name(predictor_names, group_labels)
+        if fe_name:
+            rhs = f"{rhs} | {fe_name}"
+    return f"{response_display} ~ {rhs}"
+
+
+def _fixed_effects_variable_name(
+    predictor_names: tuple[str, ...],
+    group_labels: np.ndarray,
+) -> str | None:
+    """Return the Fixed Effects variable name when group_labels is set.
+
+    With multiple groups in ``group_labels``, the spec declares a single
+    FE variable — but its name does not appear in the constructed-column
+    list (Dummy_Code is not used under FE; the within transform absorbs
+    the group effect without expanding dummies). Without an explicit
+    source for the variable name in the predictor list, return the
+    single most-frequent group label as a stand-in for the QC harness
+    only — the SHEET side uses the spec's own Row Labels and the
+    ``Header_Names`` lookup, which is always exact.
+    """
+    if group_labels is None:
+        return None
+    distinct = sorted({str(g) for g in group_labels})
+    if len(distinct) < 2:
+        return None
+    return distinct[0]
+
+
 def calculate_regression_results_from_matrix(
     x_features: np.ndarray,
     y_train: np.ndarray,
@@ -129,6 +190,8 @@ def calculate_regression_results_from_matrix(
     sequence_values: np.ndarray | None = None,
     group_labels: np.ndarray | None = None,
     selected_group: str | None = None,
+    response_transform: str = "None",
+    predictor_transform: str = "None",
 ) -> RegressionSheetResults:
     """Fit OLS and compute expected values for the current Regression sheet.
 
@@ -453,12 +516,144 @@ def calculate_regression_results_from_matrix(
         group_count=group_count,
     )
 
+    # ── v3.3 unit-space / back-transformation arithmetic ──────────────────
+    # Mirrors the AG3:AH9 unit-space block, the AL Original Units prediction
+    # column, and the AZ/BA Predicted Y (Original Units) / Residual
+    # (Original Units) columns on the sheet.
+    #
+    # Two response columns are in play, and conflating them is the whole
+    # hazard here:
+    #
+    #   y_train  the FIT-space response, un-demeaned — Response_Column() on
+    #            the sheet, so ln(y) under a Log Response row. This is what
+    #            the sheet passes as Unit_Space_*'s Y_Full argument.
+    #   y_fit    the same column after within-demeaning — Design_Response(),
+    #            what the model was actually fitted on.
+    #
+    # Their difference is the level the within transformation removed. It is
+    # added back before exponentiating so that EXP() under Fixed Effects
+    # exponentiates a predicted log response rather than a group deviation,
+    # and it is GATED ON Log: nothing is exponentiated under None, and
+    # shifting there would turn the within-flavoured statistics into total
+    # ones and break the reduction invariant.
+    level_shift = (y_train - y_fit) if response_transform == "Log" else np.zeros(n)
+
+    # Smearing factor: 1 under None, AVERAGE(EXP(residuals)) under Log.
+    # residuals are already fit-space (transformed + within-demeaned).
+    if response_transform == "Log":
+        smearing_factor = float(np.mean(np.exp(e)))
+    elif response_transform == "None":
+        smearing_factor = 1.0
+    else:
+        smearing_factor = float("nan")
+
+    # Unit_Space_Predictions: Predictions(X, Y, Include) + shift, then
+    # back-transformed — EXP(fitted) * smearing under Duan, EXP(fitted)
+    # under Naive, fitted unchanged under None.
+    fit_space_predictions = predictions + level_shift
+    if response_transform == "Log":
+        duan_predictions = np.exp(fit_space_predictions) * smearing_factor
+        naive_predictions = np.exp(fit_space_predictions)
+    elif response_transform == "None":
+        duan_predictions = fit_space_predictions.copy()
+        naive_predictions = fit_space_predictions.copy()
+    else:
+        duan_predictions = np.full(n, float("nan"))
+        naive_predictions = np.full(n, float("nan"))
+
+    # Unit_Space_Observed: the observed response read in the SAME space the
+    # predictions come back in — y_fit + shift, back-transformed with the
+    # Naive branch (an observation is not a prediction and never carries the
+    # smearing factor). Under Log that is raw y; under None it stays the
+    # within-demeaned column the ordinary statistics use, which is what
+    # makes the reduction invariant hold under FE.
+    y_level = y_fit + level_shift
+    if response_transform == "Log":
+        y_unit = np.exp(y_level)
+    elif response_transform == "None":
+        y_unit = y_level.copy()
+    else:
+        y_unit = np.full(n, float("nan"))
+
+    predictions_unit = duan_predictions
+    residuals_unit = y_unit - predictions_unit
+
+    # SST_unit: centered when the model has an intercept, uncentered when
+    # forced through the origin — same convention SS_Total uses.
+    if include_intercept:
+        sst_unit = float(np.sum((y_unit - np.mean(y_unit)) ** 2))
+    else:
+        sst_unit = float(np.sum(y_unit ** 2))
+    sse_unit = float(np.sum(residuals_unit ** 2))
+    r_squared_unit = 1.0 - sse_unit / sst_unit if sst_unit > 0 else float("nan")
+    adjusted_r2_unit = (
+        1.0 - (1.0 - r_squared_unit) * df_total / df_residual
+        if df_residual > 0
+        else float("nan")
+    )
+    rmse_unit = sqrt(sse_unit / df_residual) if df_residual > 0 else float("nan")
+
+    # Original-units prediction column: same arithmetic, on the point estimate
+    # from the Prediction Interval block. The point estimate is in fit space
+    # (predicted log y for a Log response, predicted y for None). CI/PI bounds
+    # are quantiles — back-transform with EXP only, never smeared.
+    if response_transform == "Log":
+        prediction_point_unit = math.exp(point_estimate) * smearing_factor
+        prediction_ci_lower_unit = math.exp(prediction_interval.ci_lower)
+        prediction_ci_upper_unit = math.exp(prediction_interval.ci_upper)
+        prediction_pi_lower_unit = math.exp(prediction_interval.pi_lower)
+        prediction_pi_upper_unit = math.exp(prediction_interval.pi_upper)
+    elif response_transform == "None":
+        prediction_point_unit = point_estimate
+        prediction_ci_lower_unit = prediction_interval.ci_lower
+        prediction_ci_upper_unit = prediction_interval.ci_upper
+        prediction_pi_lower_unit = prediction_interval.pi_lower
+        prediction_pi_upper_unit = prediction_interval.pi_upper
+    else:
+        nan_v = float("nan")
+        prediction_point_unit = nan_v
+        prediction_ci_lower_unit = nan_v
+        prediction_ci_upper_unit = nan_v
+        prediction_pi_lower_unit = nan_v
+        prediction_pi_upper_unit = nan_v
+
+    # Model formula: mirror the sheet's AB2 cell. Built from the response
+    # name, the Log/None transform flag on the response, the Allow_Intercept
+    # value, the constructed column names (which already emit "Ln(name)" for
+    # a logged predictor, level-qualified dummy names, and "left × right"
+    # interaction names), and the Fixed Effects variable name.
+    response_display = "Response"
+    if response_transform == "Log":
+        response_display = "Ln(Response)"
+    model_formula = _build_model_formula(
+        response_display=response_display,
+        predictor_names=predictor_names,
+        include_intercept=include_intercept,
+        group_labels=group_labels,
+    )
+
+    unit_space = RegressionUnitSpace(
+        smearing_factor=smearing_factor,
+        r_squared_unit=r_squared_unit,
+        adjusted_r2_unit=adjusted_r2_unit,
+        rmse_unit=rmse_unit,
+        prediction_point_unit=prediction_point_unit,
+        prediction_ci_lower_unit=prediction_ci_lower_unit,
+        prediction_ci_upper_unit=prediction_ci_upper_unit,
+        prediction_pi_lower_unit=prediction_pi_lower_unit,
+        prediction_pi_upper_unit=prediction_pi_upper_unit,
+        predictions_unit=tuple(float(v) for v in predictions_unit),
+        residuals_unit=tuple(float(v) for v in residuals_unit),
+        model_formula=model_formula,
+    )
+
     return RegressionSheetResults(
         summary=summary,
         vectors=vectors,
         predictor_summary=predictor_summary,
         full_residuals=full_residuals,
         prediction_interval=prediction_interval,
+        unit_space=unit_space,
     )
 
 

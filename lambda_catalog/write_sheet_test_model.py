@@ -21,9 +21,12 @@ verifying something other than what the QC harness fits.
 """
 from __future__ import annotations
 
+from dataclasses import replace
+
 import xlwings as xw
 
 from .analyze_regression_guard_states import GuardStateExpected
+from .analyze_model_construction import SpecVariable
 from .analyze_regression_spec import RegressionSpecExpected
 from .catalog_schema import CatalogFunction
 from .regression_spec_sheet_io import (
@@ -33,7 +36,7 @@ from .regression_spec_sheet_io import (
 )
 from .test_model_sheets import spec_table_name
 from .workbook_helpers import bold, val
-from .write_sheet_model_construction import SPEC_DATASET_PROFILES
+from .write_sheet_model_construction import SPEC_DATASET_PROFILES, _ROLE_OMIT
 from .write_sheet_regression import (
     _C_MODEL_CONTEXT,
     _C_MODEL_CONTEXT_LABEL,
@@ -78,6 +81,72 @@ def profile_key_for(source_table_ref: str) -> str:
         ) from None
 
 
+# Fixture columns this artifact adds to a shipped dataset's table, keyed by
+# SPEC_DATASET_PROFILES key. `Is_USA` exists for M15, which declares it as a
+# Filter to collapse Origin to one level.
+#
+# The legacy verifier adds such a column and deletes it again around the one
+# case that needs it, because it runs against a shipped artifact that must not
+# keep it. This workbook is itself a fixture, so the column is written once
+# and left in place — which makes it part of EVERY case's source table, and
+# therefore part of every case's spec block. See `effective_variables`.
+FIXTURE_COLUMNS: dict[str, dict[str, str]] = {
+    "auto_mpg": {"Is_USA": '=--([@Origin]="US")'},
+}
+
+
+def effective_variables(profile_key: str) -> tuple[str, ...]:
+    """The source table's real column list: shipped columns plus fixtures.
+
+    **A spec block must have exactly one row per Source_Table column.** Every
+    constructor starts `n_c = COLUMNS(Source_Data)` and then indexes the
+    `Spec_*` bands at `1..n_c`, so a table one row short of the data makes
+    `INDEX(rl, n_c)` run off the end — the mask errors, and every engine cell
+    downstream reads as an error rather than a number.
+
+    That is not hypothetical: the first successful build of this workbook
+    produced 74,065 mismatches for exactly this reason. `Is_USA` was added to
+    `MileageData` for M15's benefit, which widened the table to 13 columns
+    while every OTHER Auto MPG case still wrote a 12-row spec. M15 was the
+    one Auto MPG sheet that worked, because its spec happens to declare the
+    thirteenth column.
+    """
+    return (
+        *SPEC_DATASET_PROFILES[profile_key].variables,
+        *FIXTURE_COLUMNS.get(profile_key, {}),
+    )
+
+
+def pad_spec_to_source_table(
+    spec: tuple[SpecVariable, ...], profile_key: str
+) -> tuple[SpecVariable, ...]:
+    """Append an ``Omit`` row for every source column the spec does not name.
+
+    ``Omit`` is the right filler and not merely a convenient one: it
+    contributes no design column and imposes no mask condition, so a padded
+    spec fits exactly the same model as the unpadded one. The Python oracle
+    never sees these rows — its loader returns only the shipped columns — and
+    it does not need to, precisely because they change nothing.
+    """
+    declared = {variable.name for variable in spec}
+    padding = tuple(
+        SpecVariable(name, _ROLE_OMIT, False, "Continuous")
+        for name in effective_variables(profile_key)
+        if name not in declared
+    )
+    padded = (*spec, *padding)
+    expected_width = len(effective_variables(profile_key))
+    if len(padded) != expected_width:
+        raise ValueError(
+            f"Spec has {len(padded)} rows for a {expected_width}-column source "
+            f"table. Every constructor indexes the Spec_* bands at "
+            f"1..COLUMNS(Source_Data), so a mismatch makes the row mask error "
+            f"and every engine cell read as an error. Declared but not in the "
+            f"table: {sorted(declared - set(effective_variables(profile_key)))}"
+        )
+    return padded
+
+
 def _write_provenance(sheet: xw.Sheet, plan_id: str, name: str, covers: str) -> None:
     """Label the sheet with its plan ID, case name, and the corner it covers.
 
@@ -104,12 +173,20 @@ def _write_shell(
     closures: tuple[CatalogFunction, ...] | None,
 ) -> xw.Sheet:
     """Write the Regression sheet layout under a per-case identity."""
+    profile_key = profile_key_for(source_table_ref)
+    # SpecTable is sized to the table's REAL width — shipped columns plus any
+    # fixture column this artifact added — so the spec block always has one
+    # row per Source_Table column. See effective_variables.
+    profile = replace(
+        SPEC_DATASET_PROFILES[profile_key],
+        variables=effective_variables(profile_key),
+    )
     write_regression_output_sheet(
         workbook,
         sheet_notes,
         closures,
         source_table_ref=source_table_ref,
-        spec_profile=SPEC_DATASET_PROFILES[profile_key_for(source_table_ref)],
+        spec_profile=profile,
         sheet_name=sheet_name,
         # Charts are the single biggest cost in this build — roughly a dozen
         # COM chart objects per sheet across ~48 sheets — and no oracle reads
@@ -143,7 +220,7 @@ def write_test_model_sheet(
         sheet_notes=sheet_notes,
         closures=closures,
     )
-    apply_spec_case(sheet, expected)
+    apply_spec_case(sheet, _padded(expected))
     set_prediction_inputs(
         sheet,
         expected.results.prediction_interval.pred_input_values,
@@ -188,6 +265,23 @@ def write_guard_state_sheet(
     return sheet
 
 
+def _padded(expected: RegressionSpecExpected) -> RegressionSpecExpected:
+    """The same case with its spec padded to the source table's width.
+
+    Returned as a replaced dataclass rather than by giving `apply_spec_case`
+    an override parameter, so the one function that writes a spec onto a
+    sheet stays identical for the builder and both verifiers — the whole
+    reason it lives in regression_spec_sheet_io.
+    """
+    case = expected.case
+    padded = pad_spec_to_source_table(
+        case.spec, profile_key_for(case.source_table_ref)
+    )
+    if padded == case.spec:
+        return expected
+    return replace(expected, case=replace(case, spec=padded))
+
+
 def _apply_guard_spec(sheet: xw.Sheet, expected: GuardStateExpected) -> None:
     """Write a guard case's spec block, intercept toggle and Δ overrides.
 
@@ -203,7 +297,9 @@ def _apply_guard_spec(sheet: xw.Sheet, expected: GuardStateExpected) -> None:
     class _SpecView:  # pylint: disable=too-few-public-methods
         """The subset of RegressionSpecCase that apply_spec_case reads."""
 
-        spec = case.spec
+        spec = pad_spec_to_source_table(
+            case.spec, profile_key_for(case.source_table_ref)
+        )
         allow_intercept = case.allow_intercept
         source_table_ref = case.source_table_ref
         back_transform = "Duan"

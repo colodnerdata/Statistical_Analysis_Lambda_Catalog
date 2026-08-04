@@ -69,6 +69,7 @@ from lambda_catalog.write_sheet_csv_dataset import (
 )
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
 from lambda_catalog.write_sheet_test_model import (
+    FIXTURE_COLUMNS,
     write_guard_state_sheet,
     write_test_model_sheet,
 )
@@ -77,15 +78,17 @@ ROOT_DIR = Path(__file__).resolve().parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_TestModels.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 
-# Fixture columns some cases declare as Filters (Is_USA for M15). The legacy
-# verifier adds these to MileageData and deletes them again around each case,
-# because it runs against a shipped artifact that must not keep them. This
-# workbook is itself a fixture, so they are written once and left in place —
-# no add/delete dance, and no case order dependence.
-_FIXTURE_COLUMN_FORMULAS = {
-    MILEAGE.table_name: {
-        "Is_USA": '=--([@Origin]="US")',
-    },
+# Which shipped dataset each SPEC_DATASET_PROFILES key writes to. The fixture
+# columns themselves are declared once in write_sheet_test_model.FIXTURE_COLUMNS,
+# because the SPEC BLOCK has to know about them too: a column added here widens
+# Source_Data, and a spec block one row short of the data makes every
+# constructor's INDEX(band, COLUMNS(Source_Data)) run off the end. Two copies
+# of that list is exactly how this workbook produced 74,065 mismatches on its
+# first successful build.
+_CONFIG_BY_PROFILE_KEY = {
+    "auto_mpg": MILEAGE,
+    "life_expectancy": LIFE_EXPECTANCY,
+    "production_lots": PRODUCTION_LOTS,
 }
 
 
@@ -181,10 +184,8 @@ def _selected_cases(
 
 def _write_fixture_columns(workbook: xw.Book) -> None:
     """Add the fixture columns some specs declare, once, permanently."""
-    for config in (MILEAGE, LIFE_EXPECTANCY, PRODUCTION_LOTS):
-        columns = _FIXTURE_COLUMN_FORMULAS.get(config.table_name)
-        if not columns:
-            continue
+    for profile_key, columns in FIXTURE_COLUMNS.items():
+        config = _CONFIG_BY_PROFILE_KEY[profile_key]
         sheet = workbook.sheets[config.sheet_name]
         table = sheet.api.ListObjects(config.table_name)
         existing = {

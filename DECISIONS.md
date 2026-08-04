@@ -3314,3 +3314,40 @@ widens the unit, never the tolerance — both sides are divided by the same
 factor, so a genuinely wrong number still fails. Dropping `Population` was
 rejected: L05 exists to give the *shipped* profile an oracle, so changing its
 spec would stop it testing what users actually get.
+
+### A spec block must have exactly one row per Source_Table column
+
+**Question:** the first successful build of the test-model workbook produced
+74,065 mismatches, with entire cases reading `None`. Why, and what enforces
+it in future?
+
+**Resolution:** RESOLVED — the fixture column `Is_USA`, added to
+`MileageData` for M15's benefit, widened that table to 13 columns while every
+other Auto MPG case still wrote a 12-row spec block. Every constructor opens
+`n_c = COLUMNS(Source_Data)` and then indexes the `Spec_*` bands at `1..n_c`,
+so `INDEX(rl, 13)` on a 12-row band runs off the end: the row mask errors and
+every engine cell downstream reads as an error. M15 was the one Auto MPG
+sheet that worked, because its spec happens to declare the thirteenth column.
+
+Two things were wrong, and only one of them was the fixture. The **shape
+invariant** — one spec row per source column — was never written down or
+checked anywhere, even though every constructor depends on it. And the
+fixture list existed in **two places**: the driver knew to add the column to
+the data sheet, and the spec writer did not know it existed. Either alone
+would have been survivable; together they produced a build that succeeded,
+looked right, and was wrong in a way visible only to a verify run.
+
+The fix states the invariant and enforces it.
+`write_sheet_test_model.pad_spec_to_source_table` appends an `Omit` row for
+every source column a case does not name, and raises if the result is still
+the wrong width. `Omit` is the correct filler rather than a convenient one:
+it contributes no design column and imposes no mask condition, so a padded
+spec fits exactly the same model — which is precisely why the Python oracle
+can remain ignorant of fixture columns. `FIXTURE_COLUMNS` is now declared
+once and read by both the data-sheet writer and the spec block.
+
+REJECTED — giving M15 its own copy of the Mileage data sheet so the shared
+table stays clean. It isolates the fixture, but it leaves the shape invariant
+unstated and unchecked, so the next fixture column reintroduces the same
+class of failure. Padding fixes the general case; a private data sheet fixes
+one instance of it.

@@ -511,3 +511,83 @@ def test_progress_phases_print_even_without_verbose(capsys) -> None:
     output = capsys.readouterr().out
     assert "Sync names" in output
     assert "suppressed" not in output
+
+
+# ── One spec row per source-table column ─────────────────────────────────
+
+
+def test_every_case_spec_covers_its_whole_source_table() -> None:
+    """The invariant that 74,065 mismatches came from violating.
+
+    Every constructor on the sheet opens `n_c = COLUMNS(Source_Data)` and then
+    indexes the `Spec_*` bands at `1..n_c`. A spec block one row short of the
+    data therefore makes `INDEX(rl, n_c)` run off the end: the row mask
+    errors, and every engine cell downstream reads as an error rather than a
+    number. Nothing about that is loud — the build succeeds, the sheet looks
+    right, and the failure surfaces only as a verify run where an entire case
+    reads `None`.
+
+    It bit because `Is_USA` was added to `MileageData` for M15's benefit,
+    widening the table to 13 columns while every other Auto MPG case still
+    wrote a 12-row spec. M15 was the one Auto MPG sheet that worked.
+    """
+    from lambda_catalog.write_sheet_test_model import (
+        effective_variables,
+        pad_spec_to_source_table,
+        profile_key_for,
+    )
+
+    for case in _all_cases():
+        key = profile_key_for(case.source_table_ref)
+        padded = pad_spec_to_source_table(case.spec, key)
+        assert len(padded) == len(effective_variables(key)), case.name
+        # Positional: spec row i describes source column i, so padding must
+        # append in the table's own order, never interleave.
+        assert [item.name for item in padded] == list(effective_variables(key)), (
+            case.name
+        )
+
+
+def test_padding_is_omit_so_it_cannot_change_the_model() -> None:
+    """Omit contributes no design column and imposes no mask condition, which
+    is why the Python oracle can stay ignorant of the fixture columns."""
+    from lambda_catalog.write_sheet_test_model import pad_spec_to_source_table
+
+    case = next(
+        c for c in build_regression_spec_cases() if c.name == "default_t0_intercept"
+    )
+    padded = pad_spec_to_source_table(case.spec, "auto_mpg")
+    added = padded[len(case.spec):]
+    assert [item.name for item in added] == ["Is_USA"]
+    assert all(item.role == "Omit" and not item.include for item in added)
+    # The declared rows are untouched.
+    assert padded[: len(case.spec)] == tuple(case.spec)
+
+
+def test_a_spec_naming_a_column_the_table_lacks_is_rejected() -> None:
+    """Padding can only ADD rows, so a spec naming something not in the table
+    stays too long — caught here rather than as wrong numbers on a sheet."""
+    from lambda_catalog.analyze_model_construction import SpecVariable
+    from lambda_catalog.write_sheet_test_model import pad_spec_to_source_table
+
+    case = next(
+        c for c in build_regression_spec_cases() if c.name == "default_t0_intercept"
+    )
+    bogus = (*case.spec, SpecVariable("Not_A_Column", "Omit", False, "Continuous"))
+    with pytest.raises(ValueError, match="Not_A_Column"):
+        pad_spec_to_source_table(bogus, "auto_mpg")
+
+
+def test_fixture_columns_are_declared_once_for_both_writers() -> None:
+    """The data-sheet writer and the spec block must read ONE list. Two copies
+    is how the table grew a column the spec block did not know about."""
+    import build_test_models
+    from lambda_catalog.write_sheet_test_model import (
+        FIXTURE_COLUMNS,
+        effective_variables,
+    )
+
+    assert set(FIXTURE_COLUMNS) <= set(build_test_models._CONFIG_BY_PROFILE_KEY)
+    for profile_key, columns in FIXTURE_COLUMNS.items():
+        for name in columns:
+            assert name in effective_variables(profile_key)

@@ -309,10 +309,11 @@ mismatch counts and prints **per-case totals before the failure list**: the firs
 live run of the sibling verifier buried 12 real mismatches under 22,886 from a
 single case, and that summary line is what would have said so on sight.
 
-### Two bugs the first live run found
+### Three bugs the live runs found
 
-Neither was reachable headlessly, which is the argument for running the deep check
-before merging anything that touches the writers or a new dataset.
+None was reachable headlessly, which is the argument for running the deep check
+before merging anything that touches the writers or wires a new dataset. Each is
+now pinned by a unit test that fails against the old code.
 
 **Sheet names with spaces were never quoted.** `_setup_local_names` built
 `=M01 Baseline Categoricals!$AB$12`, which is not a valid formula, and Excel
@@ -321,6 +322,27 @@ unquoted — invisible for the life of the project because the only sheet it eve
 wrote was named `Regression`, a single word. `sname` now carries the quotes, so no
 call site can forget, and a test builds every name-registering writer against a
 spaced sheet name.
+
+**A fixture column widened the source table past the spec block.** `Is_USA`
+exists for M15, which declares it as a Filter. The legacy verifier adds it and
+deletes it again around that one case; this workbook keeps it, which makes it
+part of *every* Auto MPG case's source table. Every constructor opens
+`n_c = COLUMNS(Source_Data)` and then indexes the `Spec_*` bands at `1..n_c`, so
+a 12-row spec block against a 13-column table makes `INDEX(rl, n_c)` run off the
+end — the row mask errors and every engine cell downstream reads as an error.
+The build succeeds, the sheet looks right, and it surfaces only as a verify run
+where an entire case reads `None`. M15 was the one Auto MPG sheet that worked,
+because its spec happens to declare the thirteenth column.
+
+The rule is now explicit and enforced: **a spec block must have exactly one row
+per Source_Table column.** `write_sheet_test_model.pad_spec_to_source_table`
+appends an `Omit` row for every source column a case does not name — `Omit`
+contributes no design column and imposes no mask condition, so a padded spec
+fits exactly the same model, which is why the Python oracle can stay ignorant of
+fixture columns entirely. The fixture list is declared once, in
+`FIXTURE_COLUMNS`, and read by both the data-sheet writer and the spec block:
+two copies of it is what let the table grow a column the spec block did not know
+about.
 
 **Categorical levels sorted by code point, not by collation.** `Côte d'Ivoire`
 files after `Czechia` in Python (`ô` = U+00F4 > `z`) but between `Costa Rica` and

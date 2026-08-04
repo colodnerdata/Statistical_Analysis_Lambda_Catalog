@@ -34,17 +34,15 @@ tag is deliberate, not an entry someone forgot to finish tagging.
 
 ### Start here
 
-Three self-contained items, in ascending cost:
+Two self-contained items, in ascending cost:
 
-1. [Delete the rearranged Univariate reference workbook](#univariate-21--the-beta-half-of-the-grid-shrink) — its blocking condition cleared when the rebuilt artifact landed. `S · no Excel`
-2. [Retire the stale `v3.0` label](#v20-leftovers) — comments only, no executable logic reads it. `S · no Excel`
-3. [Build the cross-document anchor check](#documentation) — ~40 lines of `re` plus a pytest case, runs in the existing Linux CI job. `S · no Excel`
+1. [Retire the stale `v3.0` label](#v20-leftovers) — comments only, no executable logic reads it. `S · no Excel`
+2. [Build the cross-document anchor check](#documentation) — ~40 lines of `re` plus a pytest case, runs in the existing Linux CI job. `S · no Excel`
 
 ### Ready now — no Excel required
 
 | Task | Size | Milestone |
 |---|---|---|
-| [Delete `Lambda_Library_Univariate_rearranged.xlsx`](#univariate-21--the-beta-half-of-the-grid-shrink) | S | Univariate 2.1 |
 | [Retire the stale `v3.0` label in comments](#v20-leftovers) | S | v2.0 |
 | [Cross-document anchor check](#documentation) | S | Documentation |
 | [Rename `write_sheet_model_construction.py` → `write_spec_block.py`](#v20-leftovers) | M | v2.0 |
@@ -152,15 +150,6 @@ total is ~880 evaluations rather than the ~370 the shrink was costed at.
   for the estimator and
   [DECISIONS.md § Univariate 2.0.0](DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half)
   for how the 1-D half resolved the equivalent questions.
-
-- **READY · S · no Excel** — **Delete
-  `Lambda_Library_Univariate_rearranged.xlsx`.** It was the reference the band
-  rearrangement was built from and was held only until the rebuilt artifact
-  landed. That happened at #160, so the file is now 2.3 MB of superseded
-  reference: the shipped layout leads with the Q-Q data (BE–BN) and puts the fit
-  zones last, where the reference has the fits first and Q-Q at CU, and the
-  reference's body formulas predate the `LET` binding. Drop the file and any
-  reference to it in the docs.
 
 ## v2.0 leftovers
 
@@ -291,6 +280,11 @@ cross-artifact name residue. See
   current (2.1.0 / 2.2.0 / 3.1.0 entries are all present), so this is the
   materialization work and nothing else. The Univariate artifact is already
   rebuilt and committed (#160) — this item is Regression-only now.
+
+  A second, cosmetic reason has since joined it: the Normal Q-Q chart no longer
+  forces equal axis limits, so the shipped chart still carries the old scaling
+  until a rebuild. No input cell, named range, or fitted number moves, so no
+  version number moves with it.
 
 ## v3.2 — Full materialization of the design matrix
 

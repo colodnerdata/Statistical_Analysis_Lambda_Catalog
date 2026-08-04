@@ -2594,24 +2594,6 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
         "PRESS Residuals": "y",
     }
 
-    def _set_equal_axis_scale_from_named_ranges(
-        x_axis: Any,
-        y_axis: Any,
-        x_name: str,
-        y_name: str,
-    ) -> None:
-        """Set equal min/max scales on both axes using two sheet-scoped named ranges."""
-        common_min = float(sheet.api.Evaluate(f"=MIN('{sname}'!{x_name},'{sname}'!{y_name})"))
-        common_max = float(sheet.api.Evaluate(f"=MAX('{sname}'!{x_name},'{sname}'!{y_name})"))
-
-        if common_max <= common_min:
-            return
-
-        x_axis.MinimumScale = common_min
-        x_axis.MaximumScale = common_max
-        y_axis.MinimumScale = common_min
-        y_axis.MaximumScale = common_max
-
     def _add_identity_line(chart: Any, name_ref: str) -> None:
         """Add a dotted y=x reference series using one column for both axes.
 
@@ -2711,16 +2693,19 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
         if key == "PRESS Residuals":
             x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
 
+        # Both identity-line charts leave axis limits at Excel's defaults. The
+        # reference line is a real data series with XValues and Values pointed
+        # at the same range, so every point sits on y=x whatever the axes do —
+        # forcing the two scales equal only made it render at a visual 45°, and
+        # it did so from values read back via Evaluate() during the
+        # sheet-writing phase, which runs under XL_CALCULATION_MANUAL and so
+        # sees stale or unfit numbers.
         if key == "Normal Q-Q":
-            _set_equal_axis_scale_from_named_ranges(x_axis, y_axis, "RegChartQQX", "RegChartQQY")
             if x_addr is None:
                 raise AssertionError("Normal Q-Q chart requires an x-axis range")
             identity_ref: str = x_addr
             _add_identity_line(chart, identity_ref)
         if key == "Actual vs. Predicted":
-            # Axis limits are left at Excel's defaults (not forced equal via
-            # _set_equal_axis_scale_from_named_ranges) — the identity line
-            # below still reads correctly regardless of scale.
             if x_addr is None:
                 raise AssertionError("Actual vs. Predicted chart requires an x-axis range")
             identity_ref = x_addr

@@ -40,15 +40,34 @@ from .write_sheet_model_construction import SPEC_DATASET_PROFILES, _ROLE_OMIT
 from .write_sheet_regression import (
     _C_MODEL_CONTEXT,
     _C_MODEL_CONTEXT_LABEL,
+    _ROW_MODEL_CONTEXT_CHECK,
     write_regression_output_sheet,
 )
 
-# Where a generated sheet states what it is. The Model Context block's own
-# label/value column pair, four rows above its first element — inside the
-# §4b materialization band, well right of every zone a reader scrolls
-# through, so the provenance never displaces sheet content.
-_ROW_PROVENANCE_ID = 1
-_ROW_PROVENANCE_COVERS = 2
+# Where a generated sheet states what it is: the Model Context block's own
+# two columns, BELOW the block and its health-check row with a blank row
+# between.
+#
+# It was rows 1-2, which is inside the block — row 1 is its "MODEL CONTEXT"
+# heading and row 2 is the first of the four cells `Fit_Context()` reads as a
+# fixed range. Writing provenance text there replaced `Allow_Intercept` with a
+# string, so every one of the ~30 engine call sites that takes `Fit_Context()`
+# returned #VALUE!: Multiple R, R Square, Adjusted R Square, the whole ANOVA
+# block, SS Total, Beta Weights, PRESS R², and the fit-space prediction
+# outputs. The coefficients still computed, which is what made it look like a
+# subtle numerical problem rather than two clobbered cells.
+#
+# Derived from the block's own constants so the two can never drift back into
+# each other, and asserted below.
+_ROW_PROVENANCE_ID = _ROW_MODEL_CONTEXT_CHECK + 2
+_ROW_PROVENANCE_COVERS = _ROW_MODEL_CONTEXT_CHECK + 3
+
+# The provenance must sit strictly below the Model Context block, including
+# its health-check row. A build that violates this produces a workbook whose
+# engine is silently poisoned, so it fails at import rather than at Excel.
+assert _ROW_PROVENANCE_ID > _ROW_MODEL_CONTEXT_CHECK, (
+    "Provenance would overwrite the Model Context block that Fit_Context reads"
+)
 
 # Source_Table ref -> SPEC_DATASET_PROFILES key. The profile decides how many
 # rows the spec table gets, and a table sized for Auto MPG's 12 columns would

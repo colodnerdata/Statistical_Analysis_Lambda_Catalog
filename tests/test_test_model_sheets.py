@@ -591,3 +591,84 @@ def test_fixture_columns_are_declared_once_for_both_writers() -> None:
     for profile_key, columns in FIXTURE_COLUMNS.items():
         for name in columns:
             assert name in effective_variables(profile_key)
+
+
+# ── Provenance must not touch the Model Context block ────────────────────
+
+
+def test_provenance_leaves_the_fit_context_block_intact() -> None:
+    """The bug behind the #VALUE! wave.
+
+    Provenance was written at rows 1-2 of the Model Context columns. Row 1 is
+    that block's heading and row 2 is the FIRST of the four cells
+    `Fit_Context()` reads as a fixed range — so `Allow_Intercept` became the
+    string "M04 — continuous_subset_intercept", and every one of the ~30
+    engine call sites taking `Fit_Context()` returned #VALUE!: Multiple R,
+    R Square, Adjusted R Square, the ANOVA block, SS Total, Beta Weights,
+    PRESS R², the fit-space prediction outputs.
+
+    What made it hard to see is what still worked. The coefficients computed
+    fine, so the sheet looked like it had a subtle numerical problem rather
+    than two clobbered cells.
+
+    This builds the real materialization zone and then the real provenance
+    over the top, and asserts every context cell still holds its formula.
+    """
+    from lambda_catalog.write_sheet_regression import (
+        _C_MODEL_CONTEXT,
+        _C_MODEL_CONTEXT_LABEL,
+        _MATERIALIZATION_FIRST_ROW,
+        _MODEL_CONTEXT_ELEMENTS,
+        _MODEL_CONTEXT_LAST_ROW,
+        _ROW_MODEL_CONTEXT_CHECK,
+        _write_materialization_zone,
+    )
+    from lambda_catalog.write_sheet_test_model import (
+        _ROW_PROVENANCE_COVERS,
+        _ROW_PROVENANCE_ID,
+        _write_provenance,
+    )
+
+    sheet = RecordingSheet(name="M04 Excluded Candidates")
+    _write_materialization_zone(_as_xw_sheet(sheet), ())
+    _write_provenance(
+        _as_xw_sheet(sheet), "M04", "continuous_subset_intercept", "a note"
+    )
+
+    for offset, element in enumerate(_MODEL_CONTEXT_ELEMENTS):
+        row = _MATERIALIZATION_FIRST_ROW + offset
+        assert sheet.ranges[((row, _C_MODEL_CONTEXT),)].state.formula2 == (
+            f"={element.formula}"
+        ), element.name
+        assert sheet.ranges[((row, _C_MODEL_CONTEXT_LABEL),)].state.value == (
+            element.label
+        ), element.name
+
+    # And the provenance rows are clear of the block AND its health check.
+    for row in (_ROW_PROVENANCE_ID, _ROW_PROVENANCE_COVERS):
+        assert row > _ROW_MODEL_CONTEXT_CHECK
+        assert not (_MATERIALIZATION_FIRST_ROW <= row <= _MODEL_CONTEXT_LAST_ROW)
+
+
+def test_provenance_still_lands_on_the_sheet() -> None:
+    """Moving it must not silently drop it — the tab still explains itself."""
+    from lambda_catalog.write_sheet_regression import (
+        _C_MODEL_CONTEXT,
+        _C_MODEL_CONTEXT_LABEL,
+    )
+    from lambda_catalog.write_sheet_test_model import (
+        _ROW_PROVENANCE_COVERS,
+        _ROW_PROVENANCE_ID,
+        _write_provenance,
+    )
+
+    sheet = RecordingSheet(name="M04 Excluded Candidates")
+    _write_provenance(_as_xw_sheet(sheet), "M04", "continuous_subset_intercept", "why")
+
+    assert sheet.ranges[((_ROW_PROVENANCE_ID, _C_MODEL_CONTEXT_LABEL),)].state.value == (
+        "Test Model"
+    )
+    assert sheet.ranges[((_ROW_PROVENANCE_ID, _C_MODEL_CONTEXT),)].state.value == (
+        "M04 — continuous_subset_intercept"
+    )
+    assert sheet.ranges[((_ROW_PROVENANCE_COVERS, _C_MODEL_CONTEXT),)].state.value == "why"

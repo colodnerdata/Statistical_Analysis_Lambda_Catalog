@@ -386,7 +386,16 @@ class RecordingSheet:
         )
 
     def range(self, *addresses: Any) -> RecordingRange:
+        # xlwings accepts a single cell as either sheet.range(row, col) or
+        # sheet.range((row, col)) and means the same cell by both. Keying on
+        # the raw argument tuple made them two different slots here, so a
+        # writer using one spelling was invisible to an assertion using the
+        # other — `cell()` goes through the tuple form, and a write via the
+        # two-int form simply did not show up. Normalise so the recorder
+        # agrees with the API it stands in for.
         key = tuple(addresses)
+        if len(key) == 2 and all(isinstance(part, int) for part in key):
+            key = (key,)
         if key not in self.ranges:
             self.ranges[key] = RecordingRange(self, key)
         return self.ranges[key]

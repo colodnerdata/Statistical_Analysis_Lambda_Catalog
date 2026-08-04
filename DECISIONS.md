@@ -3554,3 +3554,91 @@ a COM call also silences the test double, so a writer whose only verification
 runs through `RecordingSheet` has no coverage at all inside such a block.
 Where a mock's signature is stricter than the API it stands in for, the guard
 turns that mismatch into silence.
+
+### Spec-case oracles are not cached — measured, not assumed
+
+**Question:** the QC oracles were to gain the disk-cache treatment
+`analysis_cache.py` already gives the legacy MLR/regression-sheet configs, so
+they are not recomputed on every run.
+
+**Resolution:** REJECTED, on measurement. Computing **every** oracle in the
+suite — all 33 fittable `RegressionSpecCase` results plus all 16
+`GuardStateCase` results, across all three datasets — takes **1.71 s**. The
+slowest single case is 0.15 s (L03, at 2938-row scale); the whole Life
+Expectancy block is about half the total.
+
+That is not worth a cache. The one the legacy path uses costs a schema
+version to maintain (already at 19, bumped six times for field changes), a
+serialize/deserialize pair per dataclass, a fingerprint check, and a class of
+staleness bug where a code change that is not a schema change silently serves
+a wrong expected value. Trading that for 1.7 s is a bad trade, and the risk
+lands precisely on the numbers the whole suite exists to be sure about.
+
+For scale: the artifact this feeds, `build_test_models.py`, takes **~82
+minutes** to write and recalculate its 48 sheets. The oracle phase is under
+0.04 % of it. Even the doubled cost in a `--verify` run — the build computes
+every oracle, then the verifier computes them again — is 3.4 s.
+
+**What the measurement does NOT say.** The legacy cached path costs about the
+same (1.65 s), so this is not a claim that the existing cache was a mistake;
+it is a claim that a second one buys nothing today. If a future milestone
+adds a genuinely expensive oracle — a bootstrap or permutation case under
+v3.11 Resampling, say, where the cost is in resamples rather than a single
+fit — revisit it for that case rather than for the suite.
+
+### BFN panel Durbin-Watson joins the compared scalars
+
+**Question:** the sheet's `AE12` BFN cell was compared by neither harness and
+had no oracle field. Was that deliberate?
+
+**Resolution:** RESOLVED — no; nothing in this file recorded a reason, and the
+gap left a real hole. `RegressionSummary` gains
+`bfn_panel_durbin_watson`, `analyze_regression_sheet` computes it, and
+`regression_spec_sheet_io` compares it at `ROW_BFN_PANEL_DW`.
+
+The hole was specific and worse than "one cell unchecked". `durbin_watson` is
+set to NaN whenever Fixed Effects are declared — correctly, because `AE11`
+then reads `n/a — FE active` — so on a Fixed Effects sheet the suite verified
+**no serial-correlation diagnostic at all**. The one cell holding a number
+was the one nobody read.
+
+**The oracle mirrors the sheet's gating rather than always computing.** The
+two cells are mutually exclusive and at most one is ever a number, so the
+oracle NaNs whichever one the sheet renders as text — otherwise it would
+offer a value for a cell displaying a string, and the mismatch would be
+blamed on the workbook. `test_dw_and_bfn_are_never_both_live_in_the_registry`
+asserts that across every fittable case, and that plain DW is live exactly
+when no FE row is declared.
+
+**Making the cell live required a typed Sequence Period, which is the
+interesting part.** `Base_Period_Delta()` is the *override* accessor — it
+reads the typed value in spec column I and returns `#N/A` when blank, never a
+silent 1 — and BFN passes it as Δ. No fittable case typed one, so BFN would
+have been `#N/A` everywhere and every comparison vacuously true.
+`RegressionSpecCase` gains `sequence_period`, and **P01/P02** declare 1:
+Production Lots is an annual panel, so it is a true statement about the data
+rather than wiring for its own sake, and the pair's cross-check now extends
+to BFN (they agree at 0.9854876217402373). **L08 deliberately leaves it
+untyped**, keeping one registered case on the honest `#N/A` path.
+`test_only_cases_that_need_a_period_declare_one` pins that a case typing a
+period has both a Sequence axis and Fixed Effects, so the field cannot spread
+by copy-paste the way the Sequence flag once did.
+
+**The oracle is checked against an independent value.**
+`tests/test_bfn_panel_durbin_watson_verification.py` already agreed on
+0.6362023311147436 for `Life expectancy ~ GDP + Schooling | Country` by two
+paths sharing no implementation (statsmodels LSDV residuals with an explicit
+per-group loop; a within-estimator fed through the `Difference_By` mirror).
+The new oracle is a third path and matches **exactly** — not to a tolerance,
+to the last bit.
+
+**Two test-double defects surfaced on the way, both the same shape.**
+`RecordingSheet.range` keyed its store on the raw argument tuple, so
+`range(row, col)` and `range((row, col))` were different slots for one cell —
+xlwings means the same cell by both, so a writer using one spelling was
+invisible to an assertion using the other. That is why the typed period
+appeared unwritten. Normalised. Together with the `Validation.Add(Operator=…)`
+mismatch fixed alongside it, the pattern is worth naming: **where the double's
+contract is narrower than the API it stands in for, the writer's own
+`except Exception: pass` turns the mismatch into silence rather than a
+failure.**

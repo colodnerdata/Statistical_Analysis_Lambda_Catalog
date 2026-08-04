@@ -37,7 +37,14 @@ DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
 # — a cached v15 entry has none of the new keys.
 # v17: RegressionSheetResults gained unit_space (v3.3 unit-space / back-
 # transformation outputs) — a cached v16 entry has no "unit_space" key.
-_CACHE_SCHEMA_VERSION = 18
+# v19: RegressionSummary gained bfn_panel_durbin_watson (the panel
+# Durbin-Watson, the diagnostic that carries the number whenever Fixed
+# Effects make the plain DW cell read "n/a — FE active"). The field has no
+# default, so a cached v18 entry raises TypeError in RegressionSummary(**s)
+# — caught by get_analysis_results' own except and recomputed, which is the
+# intended behaviour. The bump makes it a version check rather than an
+# exception.
+_CACHE_SCHEMA_VERSION = 19
 
 
 def _csv_fingerprint(csv_path: Path) -> str:

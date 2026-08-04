@@ -239,7 +239,28 @@ def write_test_model_sheet(
         sheet_notes=sheet_notes,
         closures=closures,
     )
-    apply_spec_case(sheet, _padded(expected))
+    padded = _padded(expected)
+    apply_spec_case(sheet, padded)
+    if case.sequence_period is not None:
+        # Type the case's Sequence Period into spec column I. Not optional
+        # wiring: Base_Period_Delta() reads the TYPED value and returns #N/A
+        # when the cell is blank, and the BFN panel Durbin-Watson cell passes
+        # it as its delta. Skipping this would leave AE12 at #N/A while the
+        # oracle held a real number — a guaranteed QC mismatch that looks
+        # like a broken statistic and is really a blank input cell.
+        #
+        # Keyed on the Sequence-flagged row, the same row XMATCH resolves
+        # inside Base_Period_Delta, so the sheet and the oracle read the
+        # same declaration.
+        apply_sequence_period_overrides(
+            sheet,
+            padded.case.spec,
+            {
+                item.name: case.sequence_period
+                for item in case.spec
+                if item.sequence
+            },
+        )
     set_prediction_inputs(
         sheet,
         expected.results.prediction_interval.pred_input_values,

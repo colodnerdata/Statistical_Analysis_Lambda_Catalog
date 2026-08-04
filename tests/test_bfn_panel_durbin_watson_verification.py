@@ -462,6 +462,127 @@ def test_fixed_effects_column_is_an_exact_match_role_accessor() -> None:
     assert "INDEX(Source_Data,0," in accessor
 
 
+# ── The spec-case oracle's own BFN, against the value verified above ────
+
+
+def _bfn_crosscheck_case():
+    """The module's model, expressed as a RegressionSpecCase.
+
+    Life expectancy ~ GDP + Schooling, FE = Country, Sequence = Year, Δ = 1
+    — the same fit the two independent paths above agree on. Built here
+    rather than registered in the suite: it exists to check the ORACLE, not
+    to add a worksheet, and it duplicates L08's high-cardinality-FE coverage.
+    """
+    from lambda_catalog.analyze_regression_spec import (
+        LIFE_EXPECTANCY_CSV_PATH,
+        RegressionSpecCase,
+        _life_spec,
+        _spec_var,
+        load_life_expectancy_source_rows,
+    )
+    from lambda_catalog.write_sheet_model_construction import (
+        _ROLE_FIXED_EFFECTS,
+        _ROLE_OMIT,
+        _ROLE_PREDICTOR,
+        _ROLE_RESPONSE,
+    )
+
+    return RegressionSpecCase(
+        name="bfn_crosscheck",
+        spec=tuple(
+            _life_spec(
+                country=_spec_var("Country", _ROLE_FIXED_EFFECTS),
+                year=_spec_var("Year", _ROLE_OMIT, sequence=True),
+                response=_spec_var("Life expectancy", _ROLE_RESPONSE),
+                gdp=_spec_var("GDP", _ROLE_PREDICTOR, True, "Continuous"),
+                schooling=_spec_var("Schooling", _ROLE_PREDICTOR, True, "Continuous"),
+            )
+        ),
+        allow_intercept=True,
+        source_csv_path=LIFE_EXPECTANCY_CSV_PATH,
+        row_loader=load_life_expectancy_source_rows,
+        source_table_ref="=LifeExpectancyData[#All]",
+        sequence_period=1.0,
+    )
+
+
+def test_spec_oracle_bfn_matches_the_independently_verified_value() -> None:
+    """The QC oracle's BFN == the value two other implementations agree on.
+
+    Paths (A) and (B) above share no code with each other; this adds a
+    third, `analyze_regression_sheet._bfn_panel_durbin_watson`, which is the
+    one the workbook is actually compared against. Without this assertion
+    the oracle could drift from the statistic it claims to compute and the
+    only symptom would be a sheet failing QC for the wrong reason.
+    """
+    from lambda_catalog.analyze_regression_spec import calculate_regression_spec_case
+
+    expected = calculate_regression_spec_case(_bfn_crosscheck_case())
+    # The mask has to land on the same rows first, or agreement downstream
+    # would be a coincidence rather than a check.
+    assert expected.design.included_rows == _EXPECTED_ROWS
+    assert len(set(expected.design.group_labels)) == _EXPECTED_COUNTRIES
+    assert expected.results.summary.bfn_panel_durbin_watson == _EXPECTED_BFN
+
+
+def test_a_fixed_effects_case_without_a_typed_period_yields_no_bfn() -> None:
+    """Δ unresolved ⇒ #N/A, not a silent 1.
+
+    `Base_Period_Delta()` reads the TYPED Sequence Period and returns #N/A
+    when none is present, so the BFN cell's delta is unresolved, every
+    Difference_By lookup misses, and the LAMBDA's n_terms guard returns
+    #N/A. The oracle must produce NaN there rather than quietly assuming a
+    period of 1 — assuming one would compare a fabricated number against a
+    cell showing an error.
+    """
+    from dataclasses import replace
+
+    from lambda_catalog.analyze_regression_spec import calculate_regression_spec_case
+
+    untyped = replace(_bfn_crosscheck_case(), sequence_period=None)
+    summary = calculate_regression_spec_case(untyped).results.summary
+    assert math.isnan(summary.bfn_panel_durbin_watson)
+    # And plain DW stays NaN too: FE is declared, so AE11 reads
+    # "n/a — FE active" regardless. Both cells being text is a legitimate
+    # state, and the oracle says so rather than inventing a reading.
+    assert math.isnan(summary.durbin_watson)
+
+
+def test_dw_and_bfn_are_never_both_live_in_the_registry() -> None:
+    """The two serial-correlation cells are mutually gated on the sheet.
+
+    Asserted across every fittable case, because the failure this guards
+    against is a spec edit quietly putting a sheet in a state where the
+    oracle offers a number for a cell displaying text — which reads as a QC
+    failure in the workbook rather than as the oracle bug it is.
+    """
+    from lambda_catalog.analyze_regression_spec import (
+        build_regression_spec_cases,
+        calculate_regression_spec_case,
+    )
+    from lambda_catalog.write_sheet_model_construction import _ROLE_FIXED_EFFECTS
+
+    live = []
+    for case in build_regression_spec_cases():
+        summary = calculate_regression_spec_case(case).results.summary
+        dw_live = not math.isnan(summary.durbin_watson)
+        bfn_live = not math.isnan(summary.bfn_panel_durbin_watson)
+        assert not (dw_live and bfn_live), (
+            f"{case.plan_id} has both DW and BFN live; the sheet shows one "
+            "of them as text"
+        )
+        has_fe = any(item.role == _ROLE_FIXED_EFFECTS for item in case.spec)
+        # Plain DW is live exactly when no Fixed Effects row is declared —
+        # the sheet's AE11 gate is on the FE COUNT, not on the Sequence flag.
+        assert dw_live == (not has_fe), f"{case.plan_id}: DW gate disagrees with FE"
+        if bfn_live:
+            live.append(case.plan_id)
+
+    # At least one case must actually exercise the statistic. An all-NaN
+    # column would make every BFN comparison vacuously pass.
+    assert live, "no fittable case makes the BFN cell live"
+
+
 def main() -> None:  # pragma: no cover - standalone runner
     """Run every verification directly (no pytest needed)."""
     checks = [

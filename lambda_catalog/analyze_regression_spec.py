@@ -118,6 +118,16 @@ class RegressionSpecCase:
     # under Transform=None they coincide, so every other case leaves it at
     # the default rather than asserting a difference that does not exist.
     back_transform: str = "Duan"
+    # The typed Sequence Period (spec column I) for the Sequence-flagged row.
+    # None leaves the cell blank, which is what most cases want.
+    #
+    # It is not cosmetic: Base_Period_Delta() reads the TYPED value and
+    # returns #N/A when none is present — it is the override accessor, never
+    # a silent 1 — and the BFN panel Durbin-Watson cell passes it as its
+    # delta. So a Fixed Effects case with no typed period leaves AE12 at
+    # #N/A by design, and the panel diagnostic is unverifiable there. A case
+    # that wants BFN live has to declare the period its panel actually has.
+    sequence_period: float | None = None
 
 
 @dataclass(frozen=True)
@@ -516,6 +526,7 @@ def calculate_regression_spec_case(
         response_name=response_name,
         fixed_effects_name=fixed_effects_name,
         back_transform=case.back_transform,
+        base_period_delta=case.sequence_period,
     )
     return RegressionSpecExpected(
         case=case,
@@ -1477,6 +1488,16 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             # harness actually writing a non-default group into $AK$12, not
             # just accepting whatever the sheet defaults to.
             prediction_group="Site B",
+            # Declares what the panel actually is: annual lots, Δ = 1. This
+            # is the pair that makes the BFN panel Durbin-Watson cell live —
+            # Base_Period_Delta() is the TYPED-override accessor and returns
+            # #N/A when nothing is typed, so without this the AE12 cell on
+            # every Fixed Effects sheet sits at #N/A and the panel
+            # diagnostic is compared against nothing. P01/P02 are the
+            # natural home: Fiscal_Year is a real, evenly spaced annual
+            # axis, so 1 is a true statement about the data rather than
+            # wiring for its own sake.
+            sequence_period=1.0,
         )
     )
     cases.append(
@@ -1488,6 +1509,10 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             row_loader=load_production_lots_source_rows,
             source_table_ref="=ProductionLotsData[#All]",
             prediction_group="Site B",
+            # Matches P01 — the pair must differ in exactly one thing (the
+            # route to the log columns), so the period is part of what is
+            # held fixed. It also extends the P01 == P02 cross-check to BFN.
+            sequence_period=1.0,
         )
     )
 

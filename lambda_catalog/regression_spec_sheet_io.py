@@ -89,6 +89,7 @@ ROW_BIC = 8
 ROW_AICC = 9
 ROW_QQ_CORR = 10
 ROW_DURBIN_WATSON = 11
+ROW_BFN_PANEL_DW = 12
 
 ROW_ANOVA_REG = 15
 ROW_ANOVA_RES = 16
@@ -340,6 +341,17 @@ def read_case_comparison_rows(
         ("AICc", summary.aicc, ROW_AICC, _C_AE),
         ("QQ_Correlation", summary.qq_correlation, ROW_QQ_CORR, _C_AE),
         ("Durbin_Watson", summary.durbin_watson, ROW_DURBIN_WATSON, _C_AE),
+        # The panel form at AE12, mutually gated with AE11 above: the
+        # oracle NaNs whichever of the two the sheet shows as text, so
+        # exactly one of this pair is ever a live comparison. Before
+        # this row existed, a Fixed Effects sheet had NO verified
+        # serial-correlation diagnostic at all — DW is NaN by design
+        # there, and nothing read the cell that holds the number.
+        (
+            "BFN_Panel_Durbin_Watson",
+            summary.bfn_panel_durbin_watson,
+            ROW_BFN_PANEL_DW, _C_AE,
+        ),
         (
             "Regression_Degrees_Of_Freedom",
             float(summary.df_regression), ROW_ANOVA_REG, _C_AB,

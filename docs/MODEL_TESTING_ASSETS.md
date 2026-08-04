@@ -138,8 +138,8 @@ deviations are recorded rather than papered over.**
 
 | ID | Model | Configuration | Covers | Status |
 |---|---|---|---|---|
-| P1 | `log Unit Cost ~ log Cum Units \| Facility` | **learning-curve power law with FE** (log-log ⟺ `cost = A·units^b`); pre-derived ln columns; `Full_Data` = Filter; Fiscal_Year = Sequence; prediction group `Site B` | one-way FE; Filter role; group prediction | existing — `production_lots_fixed_effects` |
-| P2 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units) \| Facility` | raw columns with `Transform = Log` | FE + (Log, Log) via the transform axis (vs. P1's pre-derived columns) | existing — `production_lots_log_transform` |
+| P1 | `log Unit Cost ~ log Cum Units \| Facility` | **learning-curve power law with FE** (log-log ⟺ `cost = A·units^b`); pre-derived ln columns; `Full_Data` = Filter; Fiscal_Year = Sequence with a **typed `Sequence Period` = 1**; prediction group `Site B` | one-way FE; Filter role; group prediction; **the BFN panel Durbin-Watson** (the only cases that make that cell live) | existing — `production_lots_fixed_effects` |
+| P2 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units) \| Facility` | raw columns with `Transform = Log`; typed `Sequence Period` = 1, matching P1 | FE + (Log, Log) via the transform axis (vs. P1's pre-derived columns); BFN, equal to P1's | existing — `production_lots_log_transform` |
 | P3 | `log Unit Cost ~ log Cum Units` | **power law without FE**, from the pre-derived ln columns | the pre-derived half of the no-FE pair; P3b's twin | existing — `production_lots_derived_log_no_fe` |
 | P3b | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units)` | same model, raw columns with `Transform = Log` | (Log, Log), no level shift; **transform axis isolated from FE** (vs. P3's pre-derived columns) | existing — `production_lots_log_no_fe` |
 | P4 | mixed logged/unlogged predictors | | **(Log, Mixed)** pair | existing — `production_lots_log_mixed_predictors` |
@@ -175,6 +175,18 @@ Each pair is registered adjacently so the two land on adjacent worksheets, and
 the sheet names state the route — `P03 Power Law Derived Cols` against
 `P03b Power Law Transform Axis` — because the route is the only thing that
 differs between the tabs and the whole reason both exist.
+
+**The BFN cell needs a typed Sequence Period, and only P1/P2 give it one.**
+`Base_Period_Delta()` is the **override** accessor: it reads the typed value in
+spec column I and returns `#N/A` when the cell is blank — never a silent 1, by
+design (see DECISIONS § *Sequence Period / Period In Use split*). The BFN panel
+Durbin-Watson cell passes that as its Δ, so a Fixed Effects sheet with no typed
+period leaves `AE12` at `#N/A` and its panel diagnostic is unverifiable. P1 and
+P2 declare `Sequence Period = 1`, which is a true statement about the data —
+Production Lots is an annual panel — and makes them the only cases where the
+statistic itself is compared. **L8 deliberately does not**: it is the case for
+high-cardinality FE degrees of freedom, and leaving its period untyped keeps one
+registered case covering the honest `#N/A` state.
 
 ### 1.4 Guard-rail / error-state configurations
 
@@ -266,6 +278,7 @@ message text implies.
 | Intercept OFF | M2, M3/M4 variants |
 | FE + Log | P2 |
 | FE + intercept flag | G5 |
+| Serial correlation: plain DW / BFN panel form | every no-FE case / P1, P2 (the two mutually-gated cells; the oracle NaNs whichever one the sheet shows as text) |
 | Sequence: candidate Δ / typed override / irregular / calendar | P1 / M16 / P7 / **uncovered — needs a dated dataset (§2 `Time` role, §3)** |
 | Interaction: Product / self-product / Cont×Cat / Cat×Cat / Difference / Ratio | M7 / M6 / M8 / M9 / M10 / M11 |
 | Reciprocal declaration: legal (Ratio) / illegal (Product) | M11 / G10 |

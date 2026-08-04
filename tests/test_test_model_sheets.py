@@ -203,6 +203,81 @@ def test_chart_specs_still_default_to_the_production_sheet() -> None:
 # ── Spec-table threading ─────────────────────────────────────────────────
 
 
+def test_a_cases_typed_sequence_period_lands_in_spec_column_i() -> None:
+    """P01/P02 declare Δ = 1, and the sheet has to receive it.
+
+    Base_Period_Delta() reads the TYPED Sequence Period from column I and
+    returns #N/A when the cell is blank — it is the override accessor,
+    never a silent 1 — and the BFN panel Durbin-Watson cell passes it as
+    its delta. If the builder skips this write, AE12 sits at #N/A while the
+    oracle holds a real number, and the only symptom is a QC mismatch in a
+    multi-minute Excel run that reads like a broken statistic rather than
+    an unwritten input cell. Asserted headlessly for that reason.
+
+    The value must land on the SEQUENCE-FLAGGED row specifically, because
+    that is the row Base_Period_Delta's own XMATCH resolves.
+    """
+    from lambda_catalog.analyze_regression_spec import (
+        build_regression_spec_cases,
+        calculate_regression_spec_case,
+    )
+    from lambda_catalog.regression_spec_sheet_io import apply_sequence_period_overrides
+    from lambda_catalog.write_sheet_model_construction import (
+        _C_SEQUENCE_PERIOD,
+        _FIRST_DATA_ROW,
+    )
+    from lambda_catalog.write_sheet_test_model import _padded
+
+    case = next(
+        c for c in build_regression_spec_cases()
+        if c.name == "production_lots_fixed_effects"
+    )
+    assert case.sequence_period == 1.0, "P01 is the case that makes BFN live"
+
+    sheet = RecordingSheet(name=case.sheet_name)
+    padded = _padded(calculate_regression_spec_case(case))
+    apply_sequence_period_overrides(
+        _as_xw_sheet(sheet),
+        padded.case.spec,
+        {item.name: case.sequence_period for item in case.spec if item.sequence},
+    )
+
+    written = {
+        offset: sheet.cell(_FIRST_DATA_ROW + offset, _C_SEQUENCE_PERIOD).value
+        for offset in range(len(padded.case.spec))
+        if sheet.cell(_FIRST_DATA_ROW + offset, _C_SEQUENCE_PERIOD).value is not None
+    }
+    flagged = [
+        offset for offset, item in enumerate(padded.case.spec) if item.sequence
+    ]
+    assert len(flagged) == 1, "exactly one Sequence axis, or H2 errors"
+    assert written == {flagged[0]: 1.0}
+    assert padded.case.spec[flagged[0]].name == "Fiscal_Year"
+
+
+def test_only_cases_that_need_a_period_declare_one() -> None:
+    """A typed Sequence Period is a declaration, not boilerplate.
+
+    It exists to make the BFN cell computable, which needs Fixed Effects as
+    well as a Sequence axis — so a case declaring a period without FE would
+    be typing into a cell no diagnostic reads. Pinned so the field does not
+    spread by copy-paste the way the Sequence flag itself once did.
+    """
+    from lambda_catalog.analyze_regression_spec import build_regression_spec_cases
+    from lambda_catalog.write_sheet_model_construction import _ROLE_FIXED_EFFECTS
+
+    for case in build_regression_spec_cases():
+        if case.sequence_period is None:
+            continue
+        assert any(item.sequence for item in case.spec), (
+            f"{case.plan_id} types a period with no Sequence axis to attach it to"
+        )
+        assert any(item.role == _ROLE_FIXED_EFFECTS for item in case.spec), (
+            f"{case.plan_id} types a period but has no Fixed Effects, so no "
+            "diagnostic reads it"
+        )
+
+
 def test_spec_block_names_its_table_and_binds_the_bands_to_it() -> None:
     """The Spec_* band names must reference the SAME table name the block
     created. They are sheet-scoped, so each generated sheet binds its own —

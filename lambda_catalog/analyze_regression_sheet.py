@@ -165,6 +165,66 @@ def _build_model_formula(
     return f"{response_display} ~ {intercept_term}{joined}{suffix}"
 
 
+def _bfn_panel_durbin_watson(
+    residuals: np.ndarray,
+    group_labels: np.ndarray | None,
+    sequence_values: np.ndarray | None,
+    base_period_delta: float | None,
+) -> float:
+    """Mirror the ``BFN_Panel_Durbin_Watson`` LAMBDA, gating included.
+
+        BFN = Σᵢ Σₜ (û(i,t) − û(i,t−Δ))² ÷ Σᵢ Σₜ û(i,t)²
+
+    Returns NaN for every state in which the sheet's ``AE12`` shows text or
+    ``#N/A`` rather than a number, so the oracle never offers a value for a
+    cell that is not one. Those states, in the LAMBDA's own order:
+
+    * no Sequence axis, or no Fixed Effects variable — the cell's own
+      ``IF`` chain short-circuits to an ``n/a`` string;
+    * ``Δ`` unresolved. ``Base_Period_Delta()`` reads the **typed**
+      ``Sequence Period`` and returns ``#N/A`` when none is typed — the
+      accessor is the override, never a silent 1 (see DECISIONS § *Sequence
+      Period / Period In Use split*). With ``step`` at ``#N/A`` every
+      ``Difference_By`` lookup misses;
+    * zero computable differences — every group a singleton, say. The
+      LAMBDA's ``n_terms`` guard returns ``#N/A`` here rather than letting
+      ``IFERROR(d,0)`` mask an all-error column into an all-zero numerator,
+      which would display BFN = 0: a fake strong-negative-autocorrelation
+      reading. The same guard is why this returns NaN and not 0.0.
+
+    The differencing is an exact ``(group, seq − Δ)`` match, not row
+    arithmetic, so the statistic is invariant to physical row order and a
+    panel gap contributes no fabricated term. The DENOMINATOR sums every
+    residual's square — first periods and gap rows still count there, as
+    the BFN definition requires.
+    """
+    if group_labels is None or sequence_values is None or base_period_delta is None:
+        return float("nan")
+    if not np.isfinite(base_period_delta):
+        return float("nan")
+
+    sequence = np.asarray(sequence_values, dtype=np.float64)
+    # Exact-match lookup keyed on (group, seq), mirroring Difference_By's
+    # XLOOKUP. First writer wins on a duplicate key, matching XLOOKUP's
+    # default first-match search.
+    position: dict[tuple[object, float], int] = {}
+    for index, (group, seq) in enumerate(zip(group_labels, sequence)):
+        position.setdefault((group, float(seq)), index)
+
+    numerator = 0.0
+    terms = 0
+    for index, (group, seq) in enumerate(zip(group_labels, sequence)):
+        prior = position.get((group, float(seq) - float(base_period_delta)))
+        if prior is None:
+            continue
+        numerator += float(residuals[index] - residuals[prior]) ** 2
+        terms += 1
+
+    if terms == 0:
+        return float("nan")
+    return numerator / float(np.sum(np.asarray(residuals, dtype=np.float64) ** 2))
+
+
 def calculate_regression_results_from_matrix(
     x_features: np.ndarray,
     y_train: np.ndarray,
@@ -179,6 +239,7 @@ def calculate_regression_results_from_matrix(
     response_name: str = "Response",
     fixed_effects_name: str | None = None,
     back_transform: str = "Duan",
+    base_period_delta: float | None = None,
 ) -> RegressionSheetResults:
     """Fit OLS and compute expected values for the current Regression sheet.
 
@@ -208,6 +269,15 @@ def calculate_regression_results_from_matrix(
     ``durbin_watson`` is NaN whenever ``group_labels`` is given; the
     ``compare_values`` QC comparison already treats NaN/None on both sides as
     "both missing", not a mismatch.
+
+    ``bfn_panel_durbin_watson`` is the other half of that pair — the cell
+    that DOES hold a number in the FE-active state — and is gated the
+    opposite way, so at most one of the two is ever live. It needs
+    ``base_period_delta``, the TYPED Sequence Period: ``Base_Period_Delta()``
+    is the override accessor and returns ``#N/A`` when nothing is typed, so
+    a Fixed Effects model with no declared period has no computable panel
+    statistic and this stays NaN too. Both cells reading as text is a
+    legitimate state, and saying so beats inventing a Δ of 1.
 
     ``back_transform`` mirrors the sheet's Back-Transform Method input
     (``$AH$4``, "Duan" or "Naive"), which the unit-space block's
@@ -304,11 +374,15 @@ def calculate_regression_results_from_matrix(
     p_information_criteria = p_design + df_absorbed
 
     press = float(np.sum((e / (1.0 - h)) ** 2))
+    # The two serial-correlation cells, AE11 (plain DW) and AE12 (BFN), are
+    # mutually gated on the sheet and exactly one of them is ever a number.
+    # The oracle mirrors that gating rather than always computing both: a
+    # value here for a cell showing "n/a — FE active" would be comparing
+    # against text.
     if group_labels is not None:
-        # No valid reading: AB11 shows "n/a — FE active" on the sheet
+        # No valid reading: AE11 shows "n/a — FE active" on the sheet
         # whenever a Fixed Effects row is declared, regardless of Sequence
-        # state (BFN_Panel_Durbin_Watson takes over instead, which this QC
-        # oracle does not model — see the module docstring above).
+        # state. BFN_Panel_Durbin_Watson takes over — computed just below.
         durbin_watson = float("nan")
     elif sequence_values is None:
         durbin_watson = float(np.sum(np.diff(e) ** 2) / np.sum(e**2))
@@ -316,6 +390,10 @@ def calculate_regression_results_from_matrix(
         order = np.argsort(np.asarray(sequence_values, dtype=np.float64), kind="stable")
         dw_resid = e[order]
         durbin_watson = float(np.sum(np.diff(dw_resid) ** 2) / np.sum(dw_resid**2))
+
+    bfn_panel_durbin_watson = _bfn_panel_durbin_watson(
+        e, group_labels, sequence_values, base_period_delta
+    )
 
     f_stat = (
         float((ss_regression / df_regression) / (ss_residual / df_residual))
@@ -359,6 +437,7 @@ def calculate_regression_results_from_matrix(
         se_regression=se_regression,
         press=press,
         durbin_watson=durbin_watson,
+        bfn_panel_durbin_watson=bfn_panel_durbin_watson,
         f_stat=f_stat,
         p_value_f=p_value_f,
         aic=aic,

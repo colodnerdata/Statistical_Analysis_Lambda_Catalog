@@ -408,6 +408,10 @@ def calculate_regression_summary(
         se_regression=se_regression,
         press=press,
         durbin_watson=dw,
+        # This module fits the plain pooled model — no Fixed Effects, so the
+        # panel form has nothing to group by and the sheet's AE12 shows
+        # "n/a — no fixed effects". NaN is that state.
+        bfn_panel_durbin_watson=float("nan"),
         f_stat=f_stat,
         p_value_f=p_value_f,
         aic=aic,

@@ -178,7 +178,7 @@ def verify_test_model_workbook(
     not a failure.
 
     ``on_sheet(index, total, case, failure_count)`` is called after each
-    sheet so a caller can report progress. Reading ~46 sheets takes minutes,
+    sheet so a caller can report progress. Reading ~48 sheets takes minutes,
     and a per-sheet failure count is what turns a 20,000-line failure list
     into "case L07 is the problem" without post-processing.
     """

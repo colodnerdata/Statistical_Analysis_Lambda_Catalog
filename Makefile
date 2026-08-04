@@ -42,7 +42,7 @@ verify-deep-univariate:
 # default — add --include-heavy for it; its Python oracle runs in the unit
 # suite regardless.
 #
-# --verbose because this one runs for minutes over ~46 sheets: it names each
+# --verbose because this one runs for minutes over ~48 sheets: it names each
 # sheet BEFORE writing it, so an interrupted run leaves the offending case on
 # screen. The whole transcript is archived to "Local Run Logs/" either way,
 # stderr included, so a com_error traceback is a file somebody can hand over

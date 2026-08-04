@@ -50,6 +50,7 @@ _EXPECTED_CASE_NAMES = [
     "interaction_ratio_reciprocal",
     "production_lots_fixed_effects",
     "production_lots_log_transform",
+    "production_lots_derived_log_no_fe",
     "production_lots_log_no_fe",
     "production_lots_log_mixed_predictors",
     "production_lots_log_predictor_only",

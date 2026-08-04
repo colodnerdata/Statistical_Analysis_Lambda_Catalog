@@ -3440,3 +3440,59 @@ Pinned by `test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis`
 the entire exception list). **This changes the shipped spec block**, so
 `Lambda_Library.xlsx` needs the same rebuild the `Base_Period_Delta` scope
 change above already requires.
+
+### The pre-derived/transform-axis pairing runs twice — with FE and without
+
+**Question:** Production Lots ships both raw columns (`Cumulative_Units`,
+`Unit_Cost_BY`) and pre-derived log columns (`log Cum Units`, `log Unit
+Cost`) that are exact logs of them. P1/P2 already fit the same model by both
+routes under Fixed Effects. Is one such pair enough?
+
+**Resolution:** RESOLVED — no. A second pair, **P3 (pre-derived) / P3b
+(transform axis)**, fits the same model without Fixed Effects. The existing
+`production_lots_log_no_fe` case becomes P3b; the new
+`production_lots_derived_log_no_fe` is P3.
+
+One pair leaves the two axes entangled. The mechanisms reach the design
+matrix by different code paths — one *reads* a column, the other *computes*
+one — and composing either with FE demeaning is a third path again. With only
+the FE pair, a transform-axis regression can hide behind the demeaning, or a
+demeaning regression behind the transform. P3/P3b has no Fixed Effects, so
+the transform axis is the only thing between the CSV and the design matrix
+and a disagreement can only be the transform wiring.
+
+It is also the cheapest strong oracle the suite can buy. Because the shipped
+log columns are exact logs, the pair must agree **bit-for-bit** on the design
+matrix and response vector (`np.array_equal`, not `allclose` — the default
+`rtol=1e-05` would swallow a real regression) and to floating point on every
+downstream statistic, with neither side reading the workbook.
+`test_no_fe_pair_agrees_the_same_way_the_fe_pair_does` asserts it, mirroring
+the P1/P2 assertion next to it.
+
+**What the pair may NOT agree on**, pinned so it cannot silently collapse
+into two copies of one spec: `constructed_column_names` ("log Cum Units" vs
+"Ln(Cumulative_Units)"), `constructed_column_transforms` (`None` vs `Log`),
+and the response display name. Those are the mechanism showing through the
+label, not a disagreement about the fit, so the cross-check compares numerics
+only.
+
+**Ordering and naming are part of the decision.** Each pair is registered
+adjacently so the two land on adjacent worksheets, and the sheet names state
+the *route* — `P03 Power Law Derived Cols` against `P03b Power Law Transform
+Axis` — because the route is the only thing that differs between the tabs and
+the entire reason both exist. The old name, `P03 Power Law No FE`, described
+what the pair has in common rather than what separates them.
+
+**REJECTED — pre-derived twins for P4 and P5 as well.** That would give all
+four transform-dispatch branches a matched pair, but the extra two prove
+nothing the P3/P3b pair does not: P4's `(Log, Mixed)` and P5's `(None, Log)`
+already have their dispatch branches covered, and a twin would only re-assert
+that a log column equals a logged column, which one no-FE pair settles. The
+suite is a covering array; three cases for one claim is a full cross. Suite
+size goes 32 -> 33 fittable rather than 32 -> 35.
+
+**REJECTED — a case for the unused `log experience` column.** No case
+references it. The two-predictor shape is covered by P4 using raw
+`Experience_Stock`, and swapping in the logged column would make that model
+`(Log, Log)` rather than the `(Log, Mixed)` dispatch P4 exists for — a
+different model, not a twin.

@@ -103,7 +103,7 @@ dispatch pair the two cases exist to tell apart, so the case, its spec
 builder and its worksheet were renamed to `life_partial_linear_log` /
 `L01 Partial Linear-Log`. "Partial" is the `Mixed` half: Alcohol stays raw
 while Population and GDP are logged. The other three model names in this
-document — L2's exponential model, P1's and P3's power law — are the standard
+document — L2's exponential model, P1's and P3/P3b's power law — are the standard
 terms for what those cases fit and are unchanged.
 
 **Three of these did not survive contact with the data as written, and the
@@ -140,7 +140,8 @@ deviations are recorded rather than papered over.**
 |---|---|---|---|---|
 | P1 | `log Unit Cost ~ log Cum Units \| Facility` | **learning-curve power law with FE** (log-log ⟺ `cost = A·units^b`); pre-derived ln columns; `Full_Data` = Filter; Fiscal_Year = Sequence; prediction group `Site B` | one-way FE; Filter role; group prediction | existing — `production_lots_fixed_effects` |
 | P2 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units) \| Facility` | raw columns with `Transform = Log` | FE + (Log, Log) via the transform axis (vs. P1's pre-derived columns) | existing — `production_lots_log_transform` |
-| P3 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units)` | **power law without FE** | (Log, Log), no level shift | existing — `production_lots_log_no_fe` |
+| P3 | `log Unit Cost ~ log Cum Units` | **power law without FE**, from the pre-derived ln columns | the pre-derived half of the no-FE pair; P3b's twin | existing — `production_lots_derived_log_no_fe` |
+| P3b | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units)` | same model, raw columns with `Transform = Log` | (Log, Log), no level shift; **transform axis isolated from FE** (vs. P3's pre-derived columns) | existing — `production_lots_log_no_fe` |
 | P4 | mixed logged/unlogged predictors | | **(Log, Mixed)** pair | existing — `production_lots_log_mixed_predictors` |
 | P5 | `Unit_Cost_BY ~ Ln(Cumulative_Units)` | | **(None, Log)** pair; must reproduce ordinary fit-space stats exactly | existing — `production_lots_log_predictor_only` |
 | P6 | P2 with `Facility` as **Categorical Predictor** instead of Fixed Effects | intercept ON, default reference | **LSDV ↔ within-estimator equivalence** — identical slope and residual vector as P2 (agreement to ~1e-15), by a completely different estimator path; the strongest cheap cross-oracle in the suite | existing — `production_lots_lsdv_equivalence` |
@@ -153,6 +154,27 @@ is `Lot_ID`, which is unique per row, so every group is a singleton, there are n
 within-group consecutive pairs, and the verdict cell is unconditionally blank no
 matter how gapped the fiscal years are. Declaring `Facility` as the Identifier is
 what makes the three sites the groups and the verdict reachable at all.
+
+**Two pre-derived/transform-axis pairs, each pair adjacent.** P1/P2 and P3/P3b
+fit the same model twice by different routes: one spec reads the shipped
+`log Cum Units` / `log Unit Cost` columns and declares no transform, the other
+points at the raw `Cumulative_Units` / `Unit_Cost_BY` columns and declares
+`Transform = Log`. The shipped log columns are exact logs of the raw ones, so
+each pair must agree bit-for-bit on the design matrix and response vector and
+to floating point on every downstream statistic — the cheapest strong oracle
+available, with neither side reading the workbook.
+
+The pairing exists **twice on purpose**. The two mechanisms reach the design
+matrix by different code paths (one reads a column, the other computes one),
+and composing either with Fixed Effects demeaning is a third path again. With
+only the FE pair, a transform-axis regression could hide behind the demeaning
+or vice versa; P3/P3b has no FE, so the transform axis is the only thing
+between the CSV and the design matrix and a disagreement can only be the
+transform wiring. `tests/test_transform_threading.py` asserts both pairs.
+Each pair is registered adjacently so the two land on adjacent worksheets, and
+the sheet names state the route — `P03 Power Law Derived Cols` against
+`P03b Power Law Transform Axis` — because the route is the only thing that
+differs between the tabs and the whole reason both exist.
 
 ### 1.4 Guard-rail / error-state configurations
 
@@ -235,7 +257,7 @@ message text implies.
 | Dispatch (None, Log) | P5 |
 | Dispatch (None, Mixed) | L1 |
 | Dispatch (Log, None) | L2 |
-| Dispatch (Log, Log) | M5, L4, P3, P6 (and P2 under FE) |
+| Dispatch (Log, Log) | M5, L4, P3b, P6 (and P2 under FE) |
 | Dispatch (Log, Mixed) | P4 |
 | Back-Transform = Duan / Naive | L2 / L3 (the toggle's first oracle) |
 | Unit-space reduction invariant (no transforms) | M1 |
@@ -320,8 +342,8 @@ explicit `--cases L07` is given. Their Python oracles always run in the unit sui
 — only the sheet build is gated.
 
 ```
-python build_test_models.py                        # 47 sheets (31 models + 16 guards)
-python build_test_models.py --include-heavy        # 48, adding L08
+python build_test_models.py                        # 48 sheets (32 models + 16 guards)
+python build_test_models.py --include-heavy        # 49, adding L08
 python build_test_models.py --cases M09,G10        # just those two
 python build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 make verify-test-models                            # the same, verbose
@@ -452,7 +474,7 @@ Two framing notes:
 | # | Roadmap item | Ships as | Scale effect | Test assets needed |
 |---|---|---|---|---|
 | 7 | **Two-sample / bivariate** | **v3.10** *(was v3.6, briefly v3.5)* | additive — fixed set of test cases | A small two-group dataset (R `ToothGrowth`, 60 rows — or the in-repo `Status` split of Life Expectancy) and a **paired** dataset (R `sleep`, 20 rows). Cases: equal-variance t, Welch t, paired t, F-test of variances feeding the selector cell. |
-| 8 | **Resampling & simulation** | **v3.11** *(was v3.5, briefly v3.6)* | additive | No new data. The **seeded pre-drawn `Bootstrap_Random_Draws` table** is itself the asset; Production Lots (n = 51) is the natural small-n bootstrap target (slope CI on P3). PERT/MC cases need only parameter cells. |
+| 8 | **Resampling & simulation** | **v3.11** *(was v3.5, briefly v3.6)* | additive | No new data. The **seeded pre-drawn `Bootstrap_Random_Draws` table** is itself the asset; Production Lots (n = 51) is the natural small-n bootstrap target (slope CI on P3b). PERT/MC cases need only parameter cells. |
 
 **Why the numbers moved.** `Cluster` and `Time` are pulled out of the unordered bucket ahead of
 WLS because a variance-estimator variant on a handful of models is cheaper to cover than a

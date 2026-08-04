@@ -1113,8 +1113,53 @@ def _production_lots_log_transform_spec() -> list[SpecVariable]:
     ]
 
 
+def _production_lots_derived_log_no_fe_spec() -> list[SpecVariable]:
+    """P3 — log Unit Cost ~ log Cum Units, NO Fixed Effects. Pre-derived columns.
+
+    The pre-derived half of the no-FE pair, and P03b's twin. It fits the
+    identical model by the other route: where P03b declares
+    ``Transform = Log`` on the raw ``Cumulative_Units`` / ``Unit_Cost_BY``
+    columns, this one points the spec straight at the shipped ``log Cum
+    Units`` / ``log Unit Cost`` columns and declares no transform at all.
+
+    **Why the suite wants both routes twice.** P01/P02 already pair
+    pre-derived against transform-axis, but only *with* Fixed Effects, so
+    the cross-check has never run on a design the FE machinery does not
+    touch. The two mechanisms reach the design matrix by different code
+    paths — one reads a column, the other computes one — and composing
+    either with FE demeaning is a third thing again. Pairing them without
+    FE isolates the transform axis from the FE axis, so a regression in
+    one cannot hide behind the other.
+
+    It is also the cheapest strong oracle available: the shipped log
+    columns are exact logs of the raw ones, so this case and P03b must
+    agree BIT-for-bit on the design matrix and response vector and to
+    floating point on every downstream statistic, with neither side
+    reading the workbook. ``tests/test_transform_threading.py`` asserts
+    that, mirroring the P01/P02 assertion it already makes.
+
+    The two legitimately differ on ``constructed_column_names`` — "log Cum
+    Units" against "Ln(Cumulative_Units)" — and on the response display
+    name. That is the mechanism showing through the label, not a
+    disagreement about the fit, so the cross-check compares numerics only.
+    """
+    return [
+        _spec_var("Lot_ID", _ROLE_IDENTIFIER),
+        _spec_var("Facility", _ROLE_OMIT),
+        _spec_var("Fiscal_Year", _ROLE_OMIT, sequence=True),
+        _spec_var("Lot_Quantity", _ROLE_OMIT),
+        _spec_var("Cumulative_Units", _ROLE_OMIT),
+        _spec_var("Experience_Stock", _ROLE_OMIT),
+        _spec_var("Unit_Cost_BY", _ROLE_OMIT),
+        _spec_var("log Cum Units", _ROLE_PREDICTOR, True, "Continuous"),
+        _spec_var("log experience", _ROLE_OMIT),
+        _spec_var("log Unit Cost", _ROLE_RESPONSE),
+        _spec_var("Full_Data", _ROLE_FILTER),
+    ]
+
+
 def _production_lots_log_no_fe_spec() -> list[SpecVariable]:
-    """v3.3 — Log+Log with NO Fixed Effects: the (Log, Log) SWITCH branch.
+    """P3b — Log+Log with NO Fixed Effects: the (Log, Log) SWITCH branch.
 
     Sibling of _production_lots_log_transform_spec() with ``Facility``
     omitted instead of declared as Fixed Effects. Exercises the v3.3
@@ -1123,6 +1168,11 @@ def _production_lots_log_no_fe_spec() -> list[SpecVariable]:
     to back-transforming the in-sample fit and the new (smeared) R²
     is computed cleanly. Reduction invariant: with no FE, the
     smearing factor uses raw residuals, not within residuals.
+
+    It is also the transform-axis half of the no-FE pair — the model
+    ``_production_lots_derived_log_no_fe_spec`` fits from the shipped
+    pre-derived log columns instead. The two sit adjacent in the registry
+    and on adjacent worksheets, exactly as P01/P02 do with Fixed Effects.
     """
     return [
         _spec_var("Lot_ID", _ROLE_IDENTIFIER),
@@ -1253,7 +1303,11 @@ _CASE_SHEET_IDENTITY: dict[str, tuple[str, str]] = {
     # § 1.3 Production Lots — learning curves, fixed effects, sequence.
     "production_lots_fixed_effects": ("P01", "P01 Learning Curve FE"),
     "production_lots_log_transform": ("P02", "P02 FE Log Transform Axis"),
-    "production_lots_log_no_fe": ("P03", "P03 Power Law No FE"),
+    # P03/P03b are a pair: the same no-FE power law reached two ways. The
+    # sheet names say WHICH ROUTE, because that is the only thing that
+    # differs between the two tabs and the whole reason both exist.
+    "production_lots_derived_log_no_fe": ("P03", "P03 Power Law Derived Cols"),
+    "production_lots_log_no_fe": ("P03b", "P03b Power Law Transform Axis"),
     "production_lots_log_mixed_predictors": ("P04", "P04 Log Mixed Predictors"),
     "production_lots_log_predictor_only": ("P05", "P05 Log Predictor Only"),
     "production_lots_lsdv_equivalence": ("P06", "P06 LSDV vs Within Estimator"),
@@ -1434,6 +1488,29 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             row_loader=load_production_lots_source_rows,
             source_table_ref="=ProductionLotsData[#All]",
             prediction_group="Site B",
+        )
+    )
+
+    # The no-FE pre-derived/transform-axis PAIR, registered adjacent so the
+    # two land on adjacent worksheets. Same model, two routes to it: P03
+    # reads the shipped log columns, P03b computes them from the raw ones
+    # via Transform=Log. P01/P02 are the same pairing with Fixed Effects;
+    # having it both with and without FE is what separates a transform-axis
+    # regression from an FE-demeaning one.
+    cases.append(
+        RegressionSpecCase(
+            name="production_lots_derived_log_no_fe",
+            spec=tuple(_production_lots_derived_log_no_fe_spec()),
+            allow_intercept=True,
+            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
+            row_loader=load_production_lots_source_rows,
+            source_table_ref="=ProductionLotsData[#All]",
+            # Matches P03b: no Fixed Effects, so group recovery resolves to
+            # "(all)". The pair must agree on this too — a differing
+            # prediction group would move the prediction block and make the
+            # cross-check fail for a reason that has nothing to do with
+            # transforms.
+            prediction_group=None,
         )
     )
 

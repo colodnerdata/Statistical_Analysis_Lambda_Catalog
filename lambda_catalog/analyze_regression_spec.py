@@ -833,12 +833,12 @@ def _life_spec(**overrides: SpecVariable) -> list[SpecVariable]:
     return spec
 
 
-def _life_partial_log_linear_spec(reference: object = "") -> list[SpecVariable]:
+def _life_partial_linear_log_spec(reference: object = "") -> list[SpecVariable]:
     """L1 / L9 — Life expectancy ~ Ln(Population) + Ln(GDP) + Alcohol + C(Status).
 
-    The user-named "partial log-linear" model, and the suite's only
-    ``(None, Mixed)`` dispatch pair: two logged Continuous predictors and
-    one unlogged, against an untransformed response. That combination is
+    A **partial linear-log** model, and the suite's only ``(None, Mixed)``
+    dispatch pair: two logged Continuous predictors and one unlogged,
+    against an untransformed response. That combination is
     what proves ``_PREDICTOR_TRANSFORM_FORMULA`` reports "Mixed" rather
     than latching to whichever transform it saw first, and that the
     unit-space block reduces cleanly (no response transform ⇒ smearing 1)
@@ -847,6 +847,17 @@ def _life_partial_log_linear_spec(reference: object = "") -> list[SpecVariable]:
     It is also the heaviest masking case in the suite: the sample is the
     intersection of four columns with 652 / 448 / 194 / 0 blanks, which
     drops it well below half the 2938 rows.
+
+    **The name is "linear-log", not "log-linear".** The two are opposite
+    specifications and this case is unambiguously the first: the logs sit
+    on the PREDICTORS and the response is untransformed, so a coefficient
+    reads as a semi-elasticity — years of life expectancy per 100% change
+    in GDP. "Log-linear" (log-lin) is the mirror image, ``ln(y) ~ x``,
+    which in this suite is L2, and L2 already carries that model's other
+    standard name — the exponential model. Naming this one "log-linear"
+    would have given the same label to both halves of the dispatch table
+    the two cases exist to tell apart. "Partial" is the ``Mixed`` half:
+    Alcohol stays raw while Population and GDP are logged.
 
     ``Status`` is the binary categorical. With ``reference`` blank the
     first sorted level ("Developed") is dropped and "Developing" is
@@ -869,7 +880,9 @@ def _life_partial_log_linear_spec(reference: object = "") -> list[SpecVariable]:
 def _life_log_response_spec() -> list[SpecVariable]:
     """L2 / L3 — Ln(Life expectancy) ~ Adult Mortality + Schooling + C(Status).
 
-    The user-named "exponential model" and the suite's only ``(Log, None)``
+    The **exponential model** (log-level: ``ln(y) = a + bx`` ⟺
+    ``y = exp(a + bx)``, so a coefficient is a proportional change in y per
+    unit of x) and the suite's only ``(Log, None)``
     dispatch pair: a logged response against entirely unlogged predictors.
     That is the pair where the v3.3 unit-space machinery does the most work
     — the smearing factor is not 1, the R2/Adj R2/RMSE in original units
@@ -1225,7 +1238,7 @@ _CASE_SHEET_IDENTITY: dict[str, tuple[str, str]] = {
     # covering-array rule, so they are guard-state cases instead. See
     # lambda_catalog/analyze_regression_guard_states.py.
     # § 1.2 Life Expectancy — transform dispatch, scale, missingness.
-    "life_partial_log_linear": ("L01", "L01 Partial Log Linear"),
+    "life_partial_linear_log": ("L01", "L01 Partial Linear-Log"),
     "life_log_response_duan": ("L02", "L02 Log Response Duan"),
     "life_log_response_naive": ("L03", "L03 Log Response Naive"),
     "life_elasticity_log_log": ("L04", "L04 Elasticity Log-Log"),
@@ -1490,7 +1503,7 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
     # None declares Fixed Effects except L08, so prediction_group is left
     # to resolve to "(all)" for the rest.
     for name, spec, back_transform in (
-        ("life_partial_log_linear", _life_partial_log_linear_spec(), "Duan"),
+        ("life_partial_linear_log", _life_partial_linear_log_spec(), "Duan"),
         ("life_log_response_duan", _life_log_response_spec(), "Duan"),
         # L03 is L02's spec verbatim with the sheet's $AH$4 flipped to
         # Naive: EXP(y_hat) with no smearing factor. Every unit-space
@@ -1503,7 +1516,7 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
         ("life_country_fixed_effects", _life_country_fixed_effects_spec(), "Duan"),
         (
             "life_status_explicit_reference",
-            _life_partial_log_linear_spec("Developing"),
+            _life_partial_linear_log_spec("Developing"),
             "Duan",
         ),
     ):

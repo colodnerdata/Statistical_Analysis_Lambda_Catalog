@@ -82,8 +82,8 @@ Every row below was new before this pass; all nine are now implemented.
 
 | ID | Model | Configuration | Covers | Status |
 |---|---|---|---|---|
-| L1 | `Life expectancy ~ Ln(Population) + Ln(GDP) + Alcohol + C(Status)` | user-named **partial log-linear**; Country = Identifier | **(None, Mixed)** pair; binary categorical; heavy missingness masking (Population 652, GDP 448, Alcohol 194 blanks → n = 2117) | existing — `life_partial_log_linear` |
-| L2 | `Ln(Life expectancy) ~ Adult Mortality + Schooling + C(Status)` | user-named **exponential model**; Back-Transform = Duan (default) | **(Log, None)** pair; smearing factor; unit-space R²/RMSE; Original-Units prediction + AZ/BA residual columns | existing — `life_log_response_duan` |
+| L1 | `Life expectancy ~ Ln(Population) + Ln(GDP) + Alcohol + C(Status)` | **partial linear-log** (`y ~ ln(x)`, logs on the predictors — see the note below); Country = Identifier | **(None, Mixed)** pair; binary categorical; heavy missingness masking (Population 652, GDP 448, Alcohol 194 blanks → n = 2117) | existing — `life_partial_linear_log` |
+| L2 | `Ln(Life expectancy) ~ Adult Mortality + Schooling + C(Status)` | **exponential model** (log-level, `ln(y) ~ x`); Back-Transform = Duan (default) | **(Log, None)** pair; smearing factor; unit-space R²/RMSE; Original-Units prediction + AZ/BA residual columns | existing — `life_log_response_duan` |
 | L3 | L2 with Back-Transform = **Naive** | flips `AH4` | naive point estimate `EXP(ŷ)`; confirms CI/PI bounds are EXP-only under both settings. **Required an oracle change** — the Python side computed both branches and discarded the Naive one, so `AH4` had never been verified against anything | existing — `life_log_response_naive` |
 | L4 | `Ln(Life expectancy) ~ Ln(GDP) + Ln(Population)` | elasticity form | (Log, Log) with large-sample masking | existing — `life_elasticity_log_log` |
 | L5 | `Life expectancy ~` all 18 continuous + `C(Status)` | shipped `life_expectancy` profile; Year = Sequence, Country = Identifier | k-stress kitchen sink (k = 19); the shipped default finally gets an oracle | existing — `life_full_profile` |
@@ -91,6 +91,20 @@ Every row below was new before this pass; all nine are now implemented.
 | L7 | `Life expectancy ~ C(Country) + C(Year) +` 8 continuous | 183 countries → 182 dummies, + 15 Year dummies + 8; k = 205 | **width-guard soft warning** (k = 200 threshold, `M2` status), and the engine degrading visibly rather than returning a plausible wrong number | existing — **guard state** `guard_width_guard_warning` |
 | L8 | `Life expectancy ~ Schooling + Adult Mortality \| Country` | Year = Sequence | **high-cardinality Fixed Effects** (173 surviving groups, 172 absorbed df); panel spacing verdicts at scale | existing — `life_country_fixed_effects` (**heavy**) |
 | L9 | L1 with `Status` reference = `Developing` | retained dummy = `Developed` | explicit reference on a **binary** categorical | existing — `life_status_explicit_reference` |
+
+**L1 is linear-log, not log-linear.** The two names describe opposite
+specifications and L1 is unambiguously the first: the logs sit on the
+*predictors* and the response is untransformed, so a coefficient reads as a
+semi-elasticity (years of life expectancy per 100% change in GDP).
+"Log-linear" (log-lin) is the mirror image, `ln(y) ~ x` — which in this table
+is **L2**, already carrying that model's other standard name, the exponential
+model. Calling L1 "log-linear" put the same label on both halves of the very
+dispatch pair the two cases exist to tell apart, so the case, its spec
+builder and its worksheet were renamed to `life_partial_linear_log` /
+`L01 Partial Linear-Log`. "Partial" is the `Mixed` half: Alcohol stays raw
+while Population and GDP are logged. The other three model names in this
+document — L2's exponential model, P1's and P3's power law — are the standard
+terms for what those cases fit and are unchanged.
 
 **Three of these did not survive contact with the data as written, and the
 deviations are recorded rather than papered over.**
@@ -124,9 +138,9 @@ deviations are recorded rather than papered over.**
 
 | ID | Model | Configuration | Covers | Status |
 |---|---|---|---|---|
-| P1 | `log Unit Cost ~ log Cum Units \| Facility` | user-named **learning-curve power law with FE**; pre-derived ln columns; `Full_Data` = Filter; Fiscal_Year = Sequence; prediction group `Site B` | one-way FE; Filter role; group prediction | existing — `production_lots_fixed_effects` |
+| P1 | `log Unit Cost ~ log Cum Units \| Facility` | **learning-curve power law with FE** (log-log ⟺ `cost = A·units^b`); pre-derived ln columns; `Full_Data` = Filter; Fiscal_Year = Sequence; prediction group `Site B` | one-way FE; Filter role; group prediction | existing — `production_lots_fixed_effects` |
 | P2 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units) \| Facility` | raw columns with `Transform = Log` | FE + (Log, Log) via the transform axis (vs. P1's pre-derived columns) | existing — `production_lots_log_transform` |
-| P3 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units)` | user-named **power law without FE** | (Log, Log), no level shift | existing — `production_lots_log_no_fe` |
+| P3 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units)` | **power law without FE** | (Log, Log), no level shift | existing — `production_lots_log_no_fe` |
 | P4 | mixed logged/unlogged predictors | | **(Log, Mixed)** pair | existing — `production_lots_log_mixed_predictors` |
 | P5 | `Unit_Cost_BY ~ Ln(Cumulative_Units)` | | **(None, Log)** pair; must reproduce ordinary fit-space stats exactly | existing — `production_lots_log_predictor_only` |
 | P6 | P2 with `Facility` as **Categorical Predictor** instead of Fixed Effects | intercept ON, default reference | **LSDV ↔ within-estimator equivalence** — identical slope and residual vector as P2 (agreement to ~1e-15), by a completely different estimator path; the strongest cheap cross-oracle in the suite | existing — `production_lots_lsdv_equivalence` |

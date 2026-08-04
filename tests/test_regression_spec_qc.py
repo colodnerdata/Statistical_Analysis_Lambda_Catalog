@@ -54,7 +54,7 @@ _EXPECTED_CASE_NAMES = [
     "production_lots_log_mixed_predictors",
     "production_lots_log_predictor_only",
     "production_lots_lsdv_equivalence",
-    "life_partial_log_linear",
+    "life_partial_linear_log",
     "life_log_response_duan",
     "life_log_response_naive",
     "life_elasticity_log_log",
@@ -793,7 +793,7 @@ def test_partial_log_linear_is_the_mixed_predictor_dispatch_pair() -> None:
     """L01. (None, Mixed) — two logged predictors and one unlogged against an
     untransformed response. The predictor-transform summary must report
     "Mixed" rather than latching to whichever transform it saw first."""
-    expected = calculate_regression_spec_case(_case("life_partial_log_linear"), CSV_PATH)
+    expected = calculate_regression_spec_case(_case("life_partial_linear_log"), CSV_PATH)
     design = expected.design
 
     assert (design.response_transform, design.predictor_transform) == ("None", "Mixed")
@@ -819,7 +819,7 @@ def test_binary_categorical_reference_flips_which_dummy_is_retained() -> None:
     the column COUNT — one dummy either way — and shows up only in WHICH level
     is retained. Getting it backwards flips the coefficient's sign."""
     default_reference = calculate_regression_spec_case(
-        _case("life_partial_log_linear"), CSV_PATH
+        _case("life_partial_linear_log"), CSV_PATH
     ).design
     explicit = calculate_regression_spec_case(
         _case("life_status_explicit_reference"), CSV_PATH

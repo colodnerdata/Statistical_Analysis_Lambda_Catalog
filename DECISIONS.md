@@ -308,9 +308,9 @@ numeric AND every included Continuous Predictor numeric), so no separate
 `Data_Completeness(...[Life expectancy]:[Schooling])` span dies with it.
 
 **Remaining gap (the blank-categorical caveat):** Categorical Predictors
-impose no non-blank condition; a blank category value encodes as
-as `DEFERRED` in
-[TODOs.md § v2.0](TODOs.md#v20--specification-driven-regression-shipped-leftovers);
+impose no non-blank condition; a blank category value encodes as all-zero
+dummies, indistinguishable from the reference level. Tracked as an `OPEN`
+item in [TODOs.md § v2.0](TODOs.md#v20-leftovers);
 interim workaround is a completeness column declared as a Filter.
 
 ### Spec-validation semantics (NA() everywhere)
@@ -412,7 +412,7 @@ parallel-function-set debate; and the single-axis "Predictor Type" design?
 ## v2.1 — Sequence, gap-aware longitudinal, serial-correlation diagnostics, fixed effects
 
 The full v2.1 ship list is in
-[TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-shipped-within-300-leftovers).
+[TODOs.md § v2.1](TODOs.md#v21-leftovers--follow-on-polish).
 This file records the *decisions* — what was resolved and why.
 
 ### df plumbing — optional `[DF_Absorbed]` argument
@@ -614,7 +614,7 @@ only (near 2 ⇒ no first-order autocorrelation in the within residuals).
 **Rationale:** BFN significance bounds are N,T-dependent (Bhargava et
 al. 1982 tables), and the standard DW bounds must not be presented
 next to it. Surfacing proper BFN bounds is the recorded open item.
-Tracked in [TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-shipped-within-300-leftovers).
+Tracked in [TODOs.md § v2.1](TODOs.md#v21-leftovers--follow-on-polish).
 
 ### Categorical × FE prediction encoding — DEFERRED
 
@@ -627,7 +627,7 @@ the *constructed* design-matrix space (dummies encoded through the
 same `Dummy_Code` path `x_s()` uses), not raw input space. Largely
 subsumed by v2.0 categorical prediction; recorded so the encoding
 step is not forgotten. Tracked in
-[TODOs.md § v2.1](TODOs.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects-shipped-within-300-leftovers).
+[TODOs.md § v2.1](TODOs.md#v21-leftovers--follow-on-polish).
 
 ---
 
@@ -989,7 +989,7 @@ Welch, and paired variants?
 Welch cases; the paired case is a separate code path the flag does
 not cover. A 3-way flag or a separate `paired` boolean is the open
 question, not yet resolved. Tracked in
-[TODOs.md § v3.6](TODOs.md#v36--bivariate--two-sample-claimed-next-minor-after-v35).
+[TODOs.md § v3.6](TODOs.md#v36--bivariate--two-sample).
 
 ### v2.6 — WLS: `Weight` Role, default-uniform `[Weights]` argument
 

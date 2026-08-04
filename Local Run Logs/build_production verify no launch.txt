@@ -1,5 +1,8 @@
-uv run --frozen python build_production.py --verify --no-launch
-(statistical-analysis-lambda-catalog) PS C:\local_python\Statistical_Analysis_Lambda_Catalog> uv run --frozen python build_production.py --verify --no-launch
+uv run build_production.py --verify --no-launch --verbose
+  Prep:           0.0s
+  Write sheets:   47.8s
+  Sync names:     0.1s
+  Recalculate:    4.7s
 Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\Lambda_Library.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
@@ -10,237 +13,252 @@ Sheet updated: Diagnostic Guide
 Sheet updated: Version History
 Sheet updated: Regression
 Created names: 0
-Updated names: 123
+Updated names: 122
 Removed names: 0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Multiple_R': expected=0.9816444698788385, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='R_Squared': expected=0.9636258652437057, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Adjusted_R_Squared': expected=0.9608671905766542, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SE_Regression': expected=1.878123674867845, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='PRESS': expected=11138.4866361291, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='PRESS_R2': expected=0.9575063105865048, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='AIC': expected=3865.272021196724, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='BIC': expected=5096.238340846736, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='AICc': expected=3896.835307651202, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='QQ_Correlation': expected=0.9018866326594173, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Durbin_Watson': expected=2.0423934598482414, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SS_Regression': expected=252586.53626899837, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='MS_Regression': expected=1232.1294452146262, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='F_Statistic': expected=349.30754131788336, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='F_Statistic_P_Value': expected=0.0, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SS_Residual': expected=9534.423098481862, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='MS_Residual': expected=3.527348538099098, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_R_Squared': expected=0.9636258652437057, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_Adjusted_R_Squared': expected=0.9608671905766542, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_RMSE': expected=1.8781236748678451, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Croatia' stat_name='Pearson_R': expected=0.05353351468781102, excel_calc=-0.1480558634112559, abs_diff=0.2015893780990669, fdd=1.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Cuba' stat_name='Pearson_R': expected=0.06807615381713386, excel_calc=0.053533514687811784, abs_diff=0.014542639129322077, fdd=2.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Cyprus' stat_name='Pearson_R': expected=0.08139466507361805, excel_calc=0.0680761538171351, abs_diff=0.013318511256482951, fdd=2.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Czechia' stat_name='Pearson_R': expected=0.05862588663881963, excel_calc=0.08139466507361948, abs_diff=0.022768778434799845, fdd=2.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name="Country: Côte d'Ivoire" stat_name='Pearson_R': expected=-0.1480558634112529, excel_calc=0.05862588663882049, abs_diff=0.2066817500500734, fdd=1.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Croatia' stat_name='Spearman_R': expected=0.06695704155636686, excel_calc=-0.11671126545900239, abs_diff=0.18366830701536924, fdd=1.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Cuba' stat_name='Spearman_R': expected=0.08634895650162035, excel_calc=0.06695704155636688, abs_diff=0.01939191494525347, fdd=2.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Cyprus' stat_name='Spearman_R': expected=0.09951398281738612, excel_calc=0.08634895650162035, abs_diff=0.013165026315765771, fdd=2.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Czechia' stat_name='Spearman_R': expected=0.07402248452129226, excel_calc=0.09951398281738613, abs_diff=0.025491498296093873, fdd=2.0
-ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name="Country: Côte d'Ivoire" stat_name='Spearman_R': expected=-0.11671126545900237, excel_calc=0.07402248452129224, abs_diff=0.19073374998029463, fdd=1.0
+  Verify:         spec-driven verifier starting
+  Verify: calculate start         0.0s
+  Calc: Life Expectancy Data start    0.0s
+  Calc: Life Expectancy Data done    0.0s
+  Calc: Mileage Data start        0.0s
+  Calc: Mileage Data done         0.0s
+  Calc: Production Lots start     0.0s
+  Calc: Production Lots done      0.1s
+  Calc: Regression start          0.1s
+  Calc: Regression done           0.1s
+  Verify: calculate done          0.1s
+  Verify: reg spec block start    0.2s
+  Verify: reg spec block done     2.0s
+  Verify: regression start        2.0s
+  Verify: regression done        66.0s
+ERROR [Regression/scalars] config_name='default_t0_intercept' allow_intercept=True stat_name='Durbin_Watson': expected=1.5013230616756146, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='v1_full_continuous_intercept' allow_intercept=True stat_name='Durbin_Watson': expected=0.8651526966463873, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='continuous_subset_intercept' allow_intercept=True stat_name='Durbin_Watson': expected=0.8587513374458698, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='default_t0_no_intercept' allow_intercept=False stat_name='Durbin_Watson': expected=0.6779461039024847, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='v1_full_continuous_no_intercept' allow_intercept=False stat_name='Durbin_Watson': expected=0.9927967576975013, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='continuous_subset_no_intercept' allow_intercept=False stat_name='Durbin_Watson': expected=0.987001639581864, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='origin_default_reference' allow_intercept=True stat_name='Durbin_Watson': expected=0.913118636847337, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='origin_explicit_reference' allow_intercept=True stat_name='Durbin_Watson': expected=0.9131186368473433, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='origin_invalid_reference' allow_intercept=True stat_name='Durbin_Watson': expected=0.8587513374458698, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='model_year_origin_categorical' allow_intercept=True stat_name='Durbin_Watson': expected=1.5211386966515204, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='usa_filter_degenerate_origin' allow_intercept=True stat_name='Durbin_Watson': expected=1.5965840247151897, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='interaction_continuous_product' allow_intercept=True stat_name='Durbin_Watson': expected=0.8652872281914714, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='interaction_quadratic_self_product' allow_intercept=True stat_name='Durbin_Watson': expected=0.8399205415102398, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='interaction_categorical_broadcast' allow_intercept=True stat_name='Durbin_Watson': expected=0.9141656565332262, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='mileage_log_log_na_masking' allow_intercept=True stat_name='Durbin_Watson': expected=0.9352375671735608, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='categorical_only_design' allow_intercept=True stat_name='Durbin_Watson': expected=1.1352303545758344, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='interaction_categorical_cross' allow_intercept=True stat_name='Durbin_Watson': expected=1.208356892724005, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='interaction_difference' allow_intercept=True stat_name='Durbin_Watson': expected=0.8149978638515923, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='interaction_ratio_reciprocal' allow_intercept=True stat_name='Durbin_Watson': expected=0.9635076547059714, excel_calc=nan, abs_diff=nan, fdd=0.0
 ERROR [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='T_Statistics': expected=-0.3673959783137977, excel_calc=-0.3673941937551009, abs_diff=1.7845586968157079e-06, fdd=5.0
 ERROR [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='P_Values': expected=0.7133713946856568, excel_calc=0.713372725376353, abs_diff=1.330690696188519e-06, fdd=6.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Intercept' stat_name='Coefficients': expected=56.43850555748895, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Albania' stat_name='Coefficients': expected=15.932666754234836, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Algeria' stat_name='Coefficients': expected=14.34553568424415, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Angola' stat_name='Coefficients': expected=-7.166976392205491, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Antigua and Barbuda' stat_name='Coefficients': expected=15.991240168821168, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Argentina' stat_name='Coefficients': expected=15.942454551455622, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Armenia' stat_name='Coefficients': expected=14.400602469136578, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Australia' stat_name='Coefficients': expected=22.627944391636532, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Austria' stat_name='Coefficients': expected=22.313386765012456, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Azerbaijan' stat_name='Coefficients': expected=11.776644477208936, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bahamas' stat_name='Coefficients': expected=15.313810520701388, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bahrain' stat_name='Coefficients': expected=16.532971516437616, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bangladesh' stat_name='Coefficients': expected=9.947433536209642, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Barbados' stat_name='Coefficients': expected=15.369233047462881, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Belarus' stat_name='Coefficients': expected=11.102721126076448, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Belgium' stat_name='Coefficients': expected=21.50792912643549, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Belize' stat_name='Coefficients': expected=10.395076756742103, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Benin' stat_name='Coefficients': expected=-0.03962914296629913, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bhutan' stat_name='Coefficients': expected=7.455753573772032, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bolivia (Plurinational State of)' stat_name='Coefficients': expected=8.863546722175515, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bosnia and Herzegovina' stat_name='Coefficients': expected=16.983676897466967, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Botswana' stat_name='Coefficients': expected=2.9550224801206673, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Brazil' stat_name='Coefficients': expected=13.383527280149247, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Brunei Darussalam' stat_name='Coefficients': expected=17.293224595102995, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bulgaria' stat_name='Coefficients': expected=13.823384534059393, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Burkina Faso' stat_name='Coefficients': expected=-1.0890350460194897, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Burundi' stat_name='Coefficients': expected=-1.8450685396280233, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cabo Verde' stat_name='Coefficients': expected=13.740333626565903, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cambodia' stat_name='Coefficients': expected=5.85109117940765, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cameroon' stat_name='Coefficients': expected=-1.703677050122032, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Canada' stat_name='Coefficients': expected=22.458040361578615, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Central African Republic' stat_name='Coefficients': expected=-6.579568318827734, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Chad' stat_name='Coefficients': expected=-5.284610613366374, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Chile' stat_name='Coefficients': expected=20.333364817342748, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: China' stat_name='Coefficients': expected=12.719810189812126, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Colombia' stat_name='Coefficients': expected=14.222203107868811, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Comoros' stat_name='Coefficients': expected=3.098222176410003, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Congo' stat_name='Coefficients': expected=2.463584595262375, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Costa Rica' stat_name='Coefficients': expected=19.60724282426567, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Croatia' stat_name='Coefficients': expected=16.98791186511893, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cuba' stat_name='Coefficients': expected=18.768337231561148, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cyprus' stat_name='Coefficients': expected=20.453637902151566, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Czechia' stat_name='Coefficients': expected=17.6024507131401, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name="Country: Côte d'Ivoire" stat_name='Coefficients': expected=-6.0859029504833115, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name="Country: Democratic People's Republic of Korea" stat_name='Coefficients': expected=10.241266782070893, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Democratic Republic of the Congo' stat_name='Coefficients': expected=-1.1568912179254303, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Denmark' stat_name='Coefficients': expected=20.06397722657857, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Djibouti' stat_name='Coefficients': expected=3.241331385215763, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Dominican Republic' stat_name='Coefficients': expected=13.861160641361192, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Ecuador' stat_name='Coefficients': expected=15.763761441577966, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Egypt' stat_name='Coefficients': expected=11.99912727850788, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: El Salvador' stat_name='Coefficients': expected=12.889484364420065, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Equatorial Guinea' stat_name='Coefficients': expected=-1.1869769746781256, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Eritrea' stat_name='Coefficients': expected=2.50762504698218, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Estonia' stat_name='Coefficients': expected=15.992808522654213, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Ethiopia' stat_name='Coefficients': expected=3.8647752968929767, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Fiji' stat_name='Coefficients': expected=9.687901450938297, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Finland' stat_name='Coefficients': expected=21.480794480421636, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: France' stat_name='Coefficients': expected=22.969584607644542, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Gabon' stat_name='Coefficients': expected=6.350684258093952, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Gambia' stat_name='Coefficients': expected=1.5498590150319793, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Georgia' stat_name='Coefficients': expected=14.572262990841852, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Germany' stat_name='Coefficients': expected=21.990142684877604, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Ghana' stat_name='Coefficients': expected=3.1895129088962615, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Greece' stat_name='Coefficients': expected=22.068287333927465, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Grenada' stat_name='Coefficients': expected=14.309618466836781, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Guatemala' stat_name='Coefficients': expected=12.846884113633264, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Guinea' stat_name='Coefficients': expected=-1.1976486964169701, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Guinea-Bissau' stat_name='Coefficients': expected=-1.7520643501837356, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Guyana' stat_name='Coefficients': expected=7.155479462826394, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Haiti' stat_name='Coefficients': expected=2.3227350301762772, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Honduras' stat_name='Coefficients': expected=14.181820348834876, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Hungary' stat_name='Coefficients': expected=14.79853024350744, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Iceland' stat_name='Coefficients': expected=23.20746340621697, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: India' stat_name='Coefficients': expected=4.458054897339405, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Indonesia' stat_name='Coefficients': expected=7.914711562501347, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Iran (Islamic Republic of)' stat_name='Coefficients': expected=14.503777011340315, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Iraq' stat_name='Coefficients': expected=11.45030912234093, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Ireland' stat_name='Coefficients': expected=21.00069704843932, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Israel' stat_name='Coefficients': expected=22.127317044426462, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Italy' stat_name='Coefficients': expected=22.946676295849, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Jamaica' stat_name='Coefficients': expected=15.691613505221746, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Japan' stat_name='Coefficients': expected=23.36409573076582, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Jordan' stat_name='Coefficients': expected=13.819399932087235, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kazakhstan' stat_name='Coefficients': expected=7.83516207503386, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kenya' stat_name='Coefficients': expected=2.5327370333299846, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kiribati' stat_name='Coefficients': expected=6.326093440574605, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kuwait' stat_name='Coefficients': expected=14.680432556174962, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kyrgyzstan' stat_name='Coefficients': expected=10.092698840178954, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name="Country: Lao People's Democratic Republic" stat_name='Coefficients': expected=3.9006903205883448, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Latvia' stat_name='Coefficients': expected=14.763254837650518, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Lebanon' stat_name='Coefficients': expected=15.265555762465503, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Lesotho' stat_name='Coefficients': expected=-1.8280671831662771, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Liberia' stat_name='Coefficients': expected=-0.08423839880874903, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Libya' stat_name='Coefficients': expected=13.444811071705034, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Lithuania' stat_name='Coefficients': expected=13.772156100687976, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Luxembourg' stat_name='Coefficients': expected=21.424881284876196, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Madagascar' stat_name='Coefficients': expected=4.744380313032535, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Malawi' stat_name='Coefficients': expected=-2.5075723095539053, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Malaysia' stat_name='Coefficients': expected=14.687699935521442, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Maldives' stat_name='Coefficients': expected=16.383895168657705, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mali' stat_name='Coefficients': expected=-1.7799362293374705, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Malta' stat_name='Coefficients': expected=21.2350745656786, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mauritania' stat_name='Coefficients': expected=4.616111560275062, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mauritius' stat_name='Coefficients': expected=13.73928011893287, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mexico' stat_name='Coefficients': expected=16.18577518022134, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Micronesia (Federated States of)' stat_name='Coefficients': expected=9.356948851919045, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mongolia' stat_name='Coefficients': expected=7.037419928439625, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Montenegro' stat_name='Coefficients': expected=15.2638375718081, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Morocco' stat_name='Coefficients': expected=12.810930662799551, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mozambique' stat_name='Coefficients': expected=-1.091557468715067, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Myanmar' stat_name='Coefficients': expected=5.592087137749024, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Namibia' stat_name='Coefficients': expected=6.231193535201485, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Nepal' stat_name='Coefficients': expected=7.7104974482907895, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Netherlands' stat_name='Coefficients': expected=21.854895474058235, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: New Zealand' stat_name='Coefficients': expected=22.29544086826009, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Nicaragua' stat_name='Coefficients': expected=14.549456398539263, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Niger' stat_name='Coefficients': expected=1.259201135464504, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Nigeria' stat_name='Coefficients': expected=3.0969269924950305, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Norway' stat_name='Coefficients': expected=22.59251714489185, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Oman' stat_name='Coefficients': expected=15.632461099402999, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Pakistan' stat_name='Coefficients': expected=3.3745648760398272, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Panama' stat_name='Coefficients': expected=17.572938621656384, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Papua New Guinea' stat_name='Coefficients': expected=3.5531599215703142, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Paraguay' stat_name='Coefficients': expected=14.187189409147564, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Peru' stat_name='Coefficients': expected=14.75324609544177, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Philippines' stat_name='Coefficients': expected=8.701957916849745, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Poland' stat_name='Coefficients': expected=16.527773192877564, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Portugal' stat_name='Coefficients': expected=20.787108185798505, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Qatar' stat_name='Coefficients': expected=17.874251405132444, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Republic of Korea' stat_name='Coefficients': expected=21.393975579005804, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Republic of Moldova' stat_name='Coefficients': expected=11.225502620737311, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Romania' stat_name='Coefficients': expected=15.054302597366847, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Russian Federation' stat_name='Coefficients': expected=8.759770979112954, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Rwanda' stat_name='Coefficients': expected=2.225759916351331, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Saint Lucia' stat_name='Coefficients': expected=14.735350419701204, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Saint Vincent and the Grenadines' stat_name='Coefficients': expected=14.52650305973314, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Samoa' stat_name='Coefficients': expected=14.94704946857945, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sao Tome and Principe' stat_name='Coefficients': expected=6.510614283286848, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Saudi Arabia' stat_name='Coefficients': expected=14.157064901123462, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Senegal' stat_name='Coefficients': expected=4.39245130008743, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Serbia' stat_name='Coefficients': expected=14.92009646948052, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Seychelles' stat_name='Coefficients': expected=13.372480368068645, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sierra Leone' stat_name='Coefficients': expected=-11.479947999964233, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Singapore' stat_name='Coefficients': expected=22.25848388835679, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Slovakia' stat_name='Coefficients': expected=15.678989692759643, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Slovenia' stat_name='Coefficients': expected=20.570061894369395, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Solomon Islands' stat_name='Coefficients': expected=8.84822529196448, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Somalia' stat_name='Coefficients': expected=-3.5645501067607235, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: South Africa' stat_name='Coefficients': expected=5.460811511567687, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: South Sudan' stat_name='Coefficients': expected=-1.876940723214152, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Spain' stat_name='Coefficients': expected=22.832826544129095, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sri Lanka' stat_name='Coefficients': expected=14.347169491110872, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sudan' stat_name='Coefficients': expected=3.891014560047776, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Suriname' stat_name='Coefficients': expected=11.479502568548753, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Swaziland' stat_name='Coefficients': expected=3.366563539220185, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sweden' stat_name='Coefficients': expected=23.228823813475003, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Switzerland' stat_name='Coefficients': expected=22.956673436624197, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Syrian Arab Republic' stat_name='Coefficients': expected=12.157084927750107, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Tajikistan' stat_name='Coefficients': expected=7.733207860317867, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Thailand' stat_name='Coefficients': expected=14.076054612685864, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: The former Yugoslav republic of Macedonia' stat_name='Coefficients': expected=14.953766477861736, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Timor-Leste' stat_name='Coefficients': expected=6.646369321956092, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Togo' stat_name='Coefficients': expected=-0.40432361289509267, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Tonga' stat_name='Coefficients': expected=13.719272164492127, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Trinidad and Tobago' stat_name='Coefficients': expected=12.525822792133908, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Tunisia' stat_name='Coefficients': expected=15.033830308294917, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Turkey' stat_name='Coefficients': expected=14.753120282996866, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=53 stat_name='PRESS_Residual': expected=-2.2611584077900204, excel_calc=-2.261158541864506, abs_diff=1.3407448573588e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=81 stat_name='PRESS_Residual': expected=-6.217430482274267, excel_calc=-6.2174305566885835, abs_diff=7.441431648658181e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=123 stat_name='Predictions': expected=67.13688406696731, excel_calc=67.136884558933, abs_diff=4.919656930724159e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=123 stat_name='Residuals': expected=3.863115933032688, excel_calc=3.863115441066995, abs_diff=4.919656930724159e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=125 stat_name='Predictions': expected=68.25416042378859, excel_calc=68.25416090365673, abs_diff=4.798681345619116e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=125 stat_name='Residuals': expected=4.745839576211409, excel_calc=4.745839096343275, abs_diff=4.798681345619116e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=129 stat_name='Predictions': expected=65.44604617671544, excel_calc=65.44604663571009, abs_diff=4.5899464851117955e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=129 stat_name='Residuals': expected=3.153953823284553, excel_calc=3.1539533642899045, abs_diff=4.5899464851117955e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=174 stat_name='Studentized_Residuals_Ranked': expected=-1.13806044608263, excel_calc=-1.1380605616383317, abs_diff=1.1555570167409712e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=199 stat_name='Studentized_Residuals_Ranked': expected=-1.044494453102367, excel_calc=-1.0444946578034777, abs_diff=2.047011107286778e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=233 stat_name='Predictions': expected=75.42051743366177, excel_calc=75.42051751089673, abs_diff=7.723495798472868e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=233 stat_name='Residuals': expected=-0.6205174336617745, excel_calc=-0.6205175108967325, abs_diff=7.723495798472868e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=238 stat_name='Studentized_Residuals': expected=-0.09196945312230466, excel_calc=-0.09196962407415801, abs_diff=1.709518533538068e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=242 stat_name='Predictions': expected=73.4608180841133, excel_calc=73.46081866983731, abs_diff=5.85724009738442e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=242 stat_name='Residuals': expected=-0.7608180841132963, excel_calc=-0.7608186698373061, abs_diff=5.85724009738442e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=242 stat_name='PRESS_Residual': expected=-0.767621991912776, excel_calc=-0.7676225828748536, abs_diff=5.909620776067825e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=308 stat_name='Studentized_Residuals_Ranked': expected=-0.7904633190632853, excel_calc=-0.7904646239513282, abs_diff=1.304888042952257e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=316 stat_name='PRESS_Residual': expected=-0.5880724278110705, excel_calc=-0.5880725426408395, abs_diff=1.1482976902676967e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=371 stat_name='Predictions': expected=71.58487639589637, excel_calc=71.58487653432147, abs_diff=1.3842509360983968e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=371 stat_name='Residuals': expected=1.915123604103627, excel_calc=1.9151234656785334, abs_diff=1.3842509360983968e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=372 stat_name='PRESS_Residual': expected=2.197689580746058, excel_calc=2.197689443561596, abs_diff=1.371844620123852e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=505 stat_name='Studentized_Residuals': expected=0.871916555296165, excel_calc=0.8719164728973655, abs_diff=8.239879945026729e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=506 stat_name='PRESS_Residual': expected=3.1927787161536045, excel_calc=3.1927784263861327, abs_diff=2.897674717949883e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=538 stat_name='PRESS_Residual': expected=1.1547736088909915, excel_calc=1.1547734090006652, abs_diff=1.9989032629119663e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=540 stat_name='Predictions': expected=79.84563745464845, excel_calc=79.84563764795652, abs_diff=1.9330806821926672e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=540 stat_name='Residuals': expected=-0.845637454648454, excel_calc=-0.8456376479565222, abs_diff=1.9330806821926672e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=540 stat_name='PRESS_Residual': expected=-0.8588963728353889, excel_calc=-0.858896569174376, abs_diff=1.9633898706850061e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=574 stat_name='Predictions': expected=82.0471733759733, excel_calc=82.04717363264193, abs_diff=2.566686276850305e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=574 stat_name='Residuals': expected=-2.247173375973304, excel_calc=-2.247173632641932, abs_diff=2.566686276850305e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=574 stat_name='PRESS_Residual': expected=-2.2972254029525487, excel_calc=-2.2972256653380354, abs_diff=2.6238548667123496e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=575 stat_name='PRESS_Residual': expected=-1.6880174687672422, excel_calc=-1.6880177296824195, abs_diff=2.6091517724147195e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=580 stat_name='Predictions': expected=79.29713537461889, excel_calc=79.29713563089808, abs_diff=2.562791934224151e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=580 stat_name='Residuals': expected=-0.9971353746188925, excel_calc=-0.9971356308980859, abs_diff=2.562791934224151e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='Predictions': expected=70.45191554037105, excel_calc=70.4519195879659, abs_diff=4.047594856615433e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='Residuals': expected=-2.451915540371047, excel_calc=-2.4519195879659037, abs_diff=4.047594856615433e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='Studentized_Residuals': expected=-0.7904633190632853, excel_calc=-0.7904646239513282, abs_diff=1.304888042952257e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='Scale_Location': expected=0.8890800408643112, excel_calc=0.8890807747057228, abs_diff=7.338414115265479e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='PRESS_Residual': expected=-3.2804776431227225, excel_calc=-3.280483058498659, abs_diff=5.4153759365682674e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=666 stat_name='Predictions': expected=68.86396922125832, excel_calc=68.86396963070018, abs_diff=4.0944186707747576e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=666 stat_name='Residuals': expected=-1.2639692212583213, excel_calc=-1.2639696307001884, abs_diff=4.0944186707747576e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=667 stat_name='Predictions': expected=73.17143641715884, excel_calc=73.17143682618499, abs_diff=4.0902614273363724e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=667 stat_name='Residuals': expected=-5.871436417158847, excel_calc=-5.87143682618499, abs_diff=4.0902614273363724e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=667 stat_name='PRESS_Residual': expected=-6.720582233775673, excel_calc=-6.720582701956483, abs_diff=4.681808105644336e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=670 stat_name='Studentized_Residuals': expected=-1.13806044608263, excel_calc=-1.1380605616383317, abs_diff=1.1555570167409712e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=672 stat_name='Predictions': expected=63.445130563142044, excel_calc=63.445134244676765, abs_diff=3.6815347215224392e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=672 stat_name='Residuals': expected=1.754869436857959, excel_calc=1.7548657553232374, abs_diff=3.6815347215224392e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=672 stat_name='Studentized_Residuals': expected=0.5401314041866535, excel_calc=0.5401302710467898, abs_diff=1.1331398637182133e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=672 stat_name='PRESS_Residual': expected=2.140095690269497, excel_calc=2.140091200569912, abs_diff=4.489699584997453e-06, fdd=5.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=673 stat_name='Predictions': expected=65.3141642315359, excel_calc=65.31416786169174, abs_diff=3.630155845257832e-06, fdd=5.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=673 stat_name='Residuals': expected=-0.5141642315359007, excel_calc=-0.514167861691746, abs_diff=3.630155845257832e-06, fdd=5.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=673 stat_name='Studentized_Residuals': expected=-0.15694701119545335, excel_calc=-0.15694811928908553, abs_diff=1.1080936321850032e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=673 stat_name='Scale_Location': expected=0.3961653836410412, excel_calc=0.3961667821626209, abs_diff=1.398521579709655e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=673 stat_name='PRESS_Residual': expected=-0.616713398142295, excel_calc=-0.6167177523264514, abs_diff=4.354184156452057e-06, fdd=5.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=674 stat_name='Predictions': expected=62.09314121005182, excel_calc=62.093144786615625, abs_diff=3.576563806007016e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=674 stat_name='Residuals': expected=2.306858789948187, excel_calc=2.306855213384381, abs_diff=3.576563806007016e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=674 stat_name='Studentized_Residuals': expected=0.7038786287167917, excel_calc=0.7038775374203368, abs_diff=1.091296454980295e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=674 stat_name='Scale_Location': expected=0.8389747485573041, excel_calc=0.8389740981820218, abs_diff=6.503752822961673e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=674 stat_name='PRESS_Residual': expected=2.764736162816739, excel_calc=2.7647318763578874, abs_diff=4.286458851421315e-06, fdd=5.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=675 stat_name='Predictions': expected=63.89214114526896, excel_calc=63.89214466991108, abs_diff=3.5246421248302795e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=675 stat_name='Residuals': expected=0.10785885473104173, excel_calc=0.1078553300889169, abs_diff=3.5246421248302795e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=675 stat_name='Studentized_Residuals': expected=0.032908820378312144, excel_calc=0.03290774497458338, abs_diff=1.0754037287619145e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=675 stat_name='Scale_Location': expected=0.18140788400263133, excel_calc=0.18140491992937618, abs_diff=2.964073255146138e-06, fdd=5.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=675 stat_name='PRESS_Residual': expected=0.12925518431454464, excel_calc=0.12925096047711623, abs_diff=4.223837428402044e-06, fdd=5.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=676 stat_name='Predictions': expected=70.96693027376365, excel_calc=70.96693107077486, abs_diff=7.970112108068861e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=676 stat_name='Residuals': expected=-2.0669302737636457, excel_calc=-2.0669310707748565, abs_diff=7.970112108068861e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=676 stat_name='PRESS_Residual': expected=-2.1262080273019706, excel_calc=-2.1262088471707736, abs_diff=8.198688030702783e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=678 stat_name='Predictions': expected=71.18740549651869, excel_calc=71.18740627408158, abs_diff=7.775628887429775e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=678 stat_name='Residuals': expected=-2.687405496518693, excel_calc=-2.6874062740815816, abs_diff=7.775628887429775e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=678 stat_name='PRESS_Residual': expected=-2.731779012352874, excel_calc=-2.731779802754609, abs_diff=7.904017351734183e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=680 stat_name='Predictions': expected=70.31137593981076, excel_calc=70.3113766972252, abs_diff=7.574144404998151e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=680 stat_name='Residuals': expected=-2.2113759398107646, excel_calc=-2.211376697225205, abs_diff=7.574144404998151e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=680 stat_name='PRESS_Residual': expected=-2.2473739186488473, excel_calc=-2.2473746883928953, abs_diff=7.69744048056964e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=682 stat_name='PRESS_Residual': expected=-2.0385043925700472, excel_calc=-2.038505141763278, abs_diff=7.491932305647708e-07, fdd=5.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=683 stat_name='Predictions': expected=71.21150913593377, excel_calc=71.21150986331918, abs_diff=7.273854123468482e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=683 stat_name='Residuals': expected=-3.711509135933767, excel_calc=-3.711509863319179, abs_diff=7.273854123468482e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=683 stat_name='Studentized_Residuals': expected=-1.044494453102367, excel_calc=-1.0444946578034777, abs_diff=2.047011107286778e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=683 stat_name='PRESS_Residual': expected=-3.7839107771896607, excel_calc=-3.7839115187644246, abs_diff=7.4157476381842e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=686 stat_name='PRESS_Residual': expected=-1.474232160703238, excel_calc=-1.4742328681738424, abs_diff=7.074706043219692e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=687 stat_name='Predictions': expected=67.45016848178336, excel_calc=67.45016855276833, abs_diff=7.098496723756398e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=687 stat_name='Residuals': expected=-0.5501684817833592, excel_calc=-0.5501685527683264, abs_diff=7.098496723756398e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=699 stat_name='Predictions': expected=67.28532141971534, excel_calc=67.28532150598522, abs_diff=8.626987835214095e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=699 stat_name='Residuals': expected=-2.585321419715342, excel_calc=-2.5853215059852204, abs_diff=8.626987835214095e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=705 stat_name='Studentized_Residuals_Ranked': expected=-0.15694701119545335, excel_calc=-0.15694811928908553, abs_diff=1.1080936321850032e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=730 stat_name='PRESS_Residual': expected=1.9867295025188696, excel_calc=1.9867293211356434, abs_diff=1.8138322621652492e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=731 stat_name='PRESS_Residual': expected=7.389066641057781, excel_calc=7.389066459964147, abs_diff=1.8109363342233564e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=757 stat_name='Studentized_Residuals_Ranked': expected=-0.09196945312230466, excel_calc=-0.09196962407415801, abs_diff=1.709518533538068e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=854 stat_name='Studentized_Residuals_Ranked': expected=0.032908820378312144, excel_calc=0.03290774497458338, abs_diff=1.0754037287619145e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=893 stat_name='PRESS_Residual': expected=-1.0713004414717489, excel_calc=-1.0713005008163456, abs_diff=5.9344596792243465e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=915 stat_name='Predictions': expected=74.6246354479105, excel_calc=74.62463553562634, abs_diff=8.771583281941275e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=915 stat_name='Residuals': expected=-0.32463544791050936, excel_calc=-0.3246355356263422, abs_diff=8.771583281941275e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=915 stat_name='PRESS_Residual': expected=-0.32648242632012625, excel_calc=-0.3264825145350132, abs_diff=8.821488695076596e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=921 stat_name='Predictions': expected=71.07122448237733, excel_calc=71.07122456085403, abs_diff=7.847670246974303e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=921 stat_name='Residuals': expected=2.328775517622674, excel_calc=2.3287754391459714, abs_diff=7.847670246974303e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=992 stat_name='Studentized_Residuals': expected=0.2932995551403947, excel_calc=0.29329944810542646, abs_diff=1.0703496822195291e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=995 stat_name='Predictions': expected=71.93387213939084, excel_calc=71.93387250601563, abs_diff=3.6662478919424757e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=995 stat_name='Residuals': expected=3.6661278606091514, excel_calc=3.666127493984362, abs_diff=3.6662478919424757e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=995 stat_name='Studentized_Residuals': expected=1.026580528391251, excel_calc=1.0265804257298408, abs_diff=1.0266141026171738e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=998 stat_name='PRESS_Residual': expected=3.0142507780006724, excel_calc=3.0142504267031143, abs_diff=3.512975581543287e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1017 stat_name='Studentized_Residuals_Ranked': expected=0.2932995551403947, excel_calc=0.29329944810542646, abs_diff=1.0703496822195291e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1033 stat_name='Predictions': expected=72.61570544378762, excel_calc=72.61570554540232, abs_diff=1.0161470243019721e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1033 stat_name='Residuals': expected=0.6842945562123788, excel_calc=0.6842944545976763, abs_diff=1.0161470243019721e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1046 stat_name='Predictions': expected=64.14946042661389, excel_calc=64.14946050764712, abs_diff=8.103323523300787e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1046 stat_name='Residuals': expected=-8.849460426613888, excel_calc=-8.849460507647123, abs_diff=8.103323523300787e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1060 stat_name='PRESS_Residual': expected=-1.2626093964330636, excel_calc=-1.2626095570861438, abs_diff=1.6065308017232383e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1066 stat_name='Predictions': expected=62.55741844691194, excel_calc=62.55741859932577, abs_diff=1.5241383266584307e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1066 stat_name='Residuals': expected=1.9425815530880612, excel_calc=1.9425814006742286, abs_diff=1.5241383266584307e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1079 stat_name='Predictions': expected=67.83596444353789, excel_calc=67.83596452774964, abs_diff=8.421174868544767e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1079 stat_name='Residuals': expected=0.564035556462116, excel_calc=0.5640354722503673, abs_diff=8.421174868544767e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1115 stat_name='Predictions': expected=51.29610409367001, excel_calc=51.29610460344021, abs_diff=5.097702029388529e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1115 stat_name='Residuals': expected=1.4038959063299927, excel_calc=1.4038953965597898, abs_diff=5.097702029388529e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1117 stat_name='Predictions': expected=49.801063369907794, excel_calc=49.801063851378565, abs_diff=4.814707708078458e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1117 stat_name='Residuals': expected=2.1989366300922057, excel_calc=2.198936148621435, abs_diff=4.814707708078458e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1122 stat_name='Predictions': expected=51.59276011102853, excel_calc=51.592760520245314, abs_diff=4.092167813496417e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1122 stat_name='Residuals': expected=-2.3927601110285295, excel_calc=-2.392760520245311, abs_diff=4.092167813496417e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1122 stat_name='PRESS_Residual': expected=-3.0126890907593946, excel_calc=-3.0126896059982506, abs_diff=5.1523885602478e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1123 stat_name='Predictions': expected=66.21564807886284, excel_calc=66.21564866402426, abs_diff=5.851614162111218e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1123 stat_name='Residuals': expected=-0.015648078862838588, excel_calc=-0.0156486640242548, abs_diff=5.851614162111218e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1123 stat_name='Scale_Location': expected=0.06638317584910074, excel_calc=0.06638441704012463, abs_diff=1.241191023890198e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1123 stat_name='PRESS_Residual': expected=-0.015975344126346158, excel_calc=-0.015975941525880406, abs_diff=5.973995342474503e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1124 stat_name='PRESS_Residual': expected=-0.9166490784395478, excel_calc=-0.9166497010293164, abs_diff=6.225897686285009e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1125 stat_name='Scale_Location': expected=0.500924419927115, excel_calc=0.5009245826212034, abs_diff=1.6269408842362054e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1125 stat_name='PRESS_Residual': expected=-0.9387001455508255, excel_calc=-0.9387007553074382, abs_diff=6.097566127571952e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1126 stat_name='Predictions': expected=66.66402715362275, excel_calc=66.66402770306769, abs_diff=5.494449339948915e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1126 stat_name='Residuals': expected=-1.1640271536227544, excel_calc=-1.1640277030676884, abs_diff=5.494449339948915e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1126 stat_name='PRESS_Residual': expected=-1.193728051604495, excel_calc=-1.1937286150688753, abs_diff=5.634643802654438e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1179 stat_name='Studentized_Residuals_Ranked': expected=0.5401314041866535, excel_calc=0.5401302710467898, abs_diff=1.1331398637182133e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1190 stat_name='PRESS_Residual': expected=-0.22796541049523, excel_calc=-0.22796571871571802, abs_diff=3.082204880211492e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1192 stat_name='Predictions': expected=67.85525325389932, excel_calc=67.85525354646359, abs_diff=2.9256426614665543e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1192 stat_name='Residuals': expected=0.044746746100685186, excel_calc=0.04474645353641904, abs_diff=2.9256426614665543e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1192 stat_name='Scale_Location': expected=0.11218366977999739, excel_calc=0.11218330303839587, abs_diff=3.667416015179503e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1192 stat_name='PRESS_Residual': expected=0.04556551217568483, excel_calc=0.04556521425814017, abs_diff=2.979175446615745e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1202 stat_name='Predictions': expected=67.40371432042615, excel_calc=67.40371456424474, abs_diff=2.4381859020650154e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1202 stat_name='Residuals': expected=-0.6037143204261497, excel_calc=-0.6037145642447399, abs_diff=2.4381859020650154e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1248 stat_name='Predictions': expected=74.26156132149465, excel_calc=74.26156177112424, abs_diff=4.496295815670237e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1248 stat_name='Residuals': expected=-1.2615613214946535, excel_calc=-1.261561771124235, abs_diff=4.496295815670237e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1248 stat_name='PRESS_Residual': expected=-1.2742943822709094, excel_calc=-1.274294836438643, abs_diff=4.541677336433736e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1252 stat_name='Predictions': expected=71.67585215056326, excel_calc=71.67585259771184, abs_diff=4.4714857949657016e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1252 stat_name='Residuals': expected=-3.275852150563253, excel_calc=-3.2758525977118325, abs_diff=4.4714857949657016e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1257 stat_name='Predictions': expected=70.23358849314651, excel_calc=70.23358894278232, abs_diff=4.4963580592138896e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1257 stat_name='Residuals': expected=-5.233588493146513, excel_calc=-5.233588942782319, abs_diff=4.4963580592138896e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1257 stat_name='PRESS_Residual': expected=-5.294327499293004, excel_calc=-5.2943279541471115, abs_diff=4.548541072679768e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1259 stat_name='PRESS_Residual': expected=-5.0522521434593415, excel_calc=-5.05225260163428, abs_diff=4.581749388776757e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1282 stat_name='Studentized_Residuals_Ranked': expected=0.7038786287167917, excel_calc=0.7038775374203368, abs_diff=1.091296454980295e-06, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1368 stat_name='Scale_Location': expected=0.39074955233570785, excel_calc=0.39074949639554635, abs_diff=5.594016150300973e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1373 stat_name='PRESS_Residual': expected=3.456968541020167, excel_calc=3.4569683913735565, abs_diff=1.4964661065874907e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1375 stat_name='Predictions': expected=53.14812446597178, excel_calc=53.148124607494765, abs_diff=1.4152298177805278e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1375 stat_name='Residuals': expected=2.851875534028217, excel_calc=2.851875392505235, abs_diff=1.4152298177805278e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1380 stat_name='Predictions': expected=82.03014140934134, excel_calc=82.03014155400602, abs_diff=1.4466468201135285e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1380 stat_name='Residuals': expected=0.06985859065865441, excel_calc=0.0698584459939724, abs_diff=1.4466468201135285e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1380 stat_name='Studentized_Residuals_Ranked': expected=0.871916555296165, excel_calc=0.8719164728973655, abs_diff=8.239879945026729e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1385 stat_name='PRESS_Residual': expected=7.710293563259725, excel_calc=7.710293424295642, abs_diff=1.3896408290747786e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1389 stat_name='Predictions': expected=77.96291045251635, excel_calc=77.96291058129057, abs_diff=1.287742179556517e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1389 stat_name='Residuals': expected=1.537089547483646, excel_calc=1.537089418709428, abs_diff=1.287742179556517e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1441 stat_name='Studentized_Residuals_Ranked': expected=1.026580528391251, excel_calc=1.0265804257298408, abs_diff=1.0266141026171738e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1454 stat_name='PRESS_Residual': expected=2.373126605272276, excel_calc=2.3731263909590448, abs_diff=2.1431323116161138e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1462 stat_name='Predictions': expected=69.8007044230056, excel_calc=69.80070462830287, abs_diff=2.0529726896256761e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1462 stat_name='Residuals': expected=3.199295576994402, excel_calc=3.199295371697133, abs_diff=2.0529726896256761e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1462 stat_name='PRESS_Residual': expected=3.213867683268191, excel_calc=3.2138674770358318, abs_diff=2.0623235919003946e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1467 stat_name='Predictions': expected=67.51779749954493, excel_calc=67.51779769751964, abs_diff=1.9797471395577304e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1467 stat_name='Residuals': expected=3.6822025004550767, excel_calc=3.6822023024803627, abs_diff=1.9797471395577304e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1530 stat_name='PRESS_Residual': expected=0.5427896269873713, excel_calc=0.5427894009188744, abs_diff=2.2606849692241582e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1533 stat_name='Predictions': expected=72.77887242450616, excel_calc=72.77887264127727, abs_diff=2.167711130596217e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1533 stat_name='Residuals': expected=0.4211275754938413, excel_calc=0.4211273587227282, abs_diff=2.167711130596217e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1558 stat_name='PRESS_Residual': expected=0.5113595143267347, excel_calc=0.5113594060777191, abs_diff=1.0824901552908273e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1560 stat_name='PRESS_Residual': expected=-6.427852449562764, excel_calc=-6.4278525479001996, abs_diff=9.833743597198463e-08, fdd=6.0
+ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1580 stat_name='PRESS_Residual': expected=-3.1607094051775135, excel_calc=-3.1607095591453347, abs_diff=1.539678211592843e-07, fdd=6.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=63 stat_name='Normal_Scores_Ranked': expected=-2.009950612783992, excel_calc=-2.0031707922894935, abs_diff=0.006779820494498434, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=93 stat_name='Normal_Scores_Ranked': expected=-1.8376586759132476, excel_calc=-1.832780231657382, abs_diff=0.004878444255865588, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=104 stat_name='Normal_Scores_Ranked': expected=-1.7862382294111443, excel_calc=-1.781791511720791, abs_diff=0.004446717690353319, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=139 stat_name='Normal_Scores_Ranked': expected=-1.648014425715814, excel_calc=-1.6445034399114207, abs_diff=0.0035109858043933517, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=164 stat_name='Normal_Scores_Ranked': expected=-1.5688162904104557, excel_calc=-1.562646187420684, abs_diff=0.006170102989771609, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=170 stat_name='Normal_Scores_Ranked': expected=-1.5474758026382882, excel_calc=-1.544484108021855, abs_diff=0.002991694616433227, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=176 stat_name='Normal_Scores_Ranked': expected=-1.5297290292319234, excel_calc=-1.526817662223045, abs_diff=0.002911367008878507, fdd=3.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=180 stat_name='Normal_Scores_Ranked': expected=-1.5181603177685348, excel_calc=-1.5152996702925239, abs_diff=0.0028606474760108913, fdd=3.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=188 stat_name='Normal_Scores_Ranked': expected=-1.4928483849016099, excel_calc=-1.495613760183912, abs_diff=0.0027653752823020294, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=191 stat_name='Normal_Scores_Ranked': expected=-1.4846200216685665, excel_calc=-1.4873516286013129, abs_diff=0.002731606932746322, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=197 stat_name='Normal_Scores_Ranked': expected=-1.4711253320325646, excel_calc=-1.468458324257146, abs_diff=0.002667007775418506, fdd=3.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=207 stat_name='Normal_Scores_Ranked': expected=-1.4474886407758918, excel_calc=-1.4423445355128361, abs_diff=0.005144105263055643, fdd=2.0
+ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=211 stat_name='Normal_Scores_Ranked': expected=-1.432169298932233, excel_calc=-1.43469919972023, abs_diff=0.002529900787997086, fdd=3.0
 ERROR Additional QC mismatches suppressed.
-ERROR QC mismatch totals: Regression/coefficients=1443, Regression/prediction_interval=9, Regression/predictors=10, Regression/residuals=21416, Regression/scalars=20
-ERROR Verify mismatch totals: Regression/coefficients=1443, Regression/prediction_interval=9, Regression/predictors=10, Regression/residuals=21416, Regression/scalars=20
+ERROR QC mismatch totals: Regression/coefficients=2, Regression/residuals=1053, Regression/scalars=19
+ERROR Verify mismatch totals: Regression/coefficients=2, Regression/residuals=1053, Regression/scalars=19
   mode: spec
   workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\Lambda_Library.xlsx
-  elapsed: 1045.7s
-  failures (22898 total):
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Multiple_R': expected=0.9816444698788385, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='R_Squared': expected=0.9636258652437057, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Adjusted_R_Squared': expected=0.9608671905766542, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SE_Regression': expected=1.878123674867845, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='PRESS': expected=11138.4866361291, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='PRESS_R2': expected=0.9575063105865048, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='AIC': expected=3865.272021196724, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='BIC': expected=5096.238340846736, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='AICc': expected=3896.835307651202, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='QQ_Correlation': expected=0.9018866326594173, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Durbin_Watson': expected=2.0423934598482414, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SS_Regression': expected=252586.53626899837, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='MS_Regression': expected=1232.1294452146262, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='F_Statistic': expected=349.30754131788336, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='F_Statistic_P_Value': expected=0.0, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SS_Residual': expected=9534.423098481862, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='MS_Residual': expected=3.527348538099098, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_R_Squared': expected=0.9636258652437057, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_Adjusted_R_Squared': expected=0.9608671905766542, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_RMSE': expected=1.8781236748678451, excel_calc=nan, abs_diff=nan, fdd=0.0
-    ... and 22878 more (use --json for the full list)
-Timing: build+sync    50.4s
-Timing: recalculate   4.6s
-Timing: verify        1047.6s
-Timing: total         1102.6s
+  elapsed: 71.7s
+  failures (1074 total):
+    - [Regression/scalars] config_name='default_t0_intercept' allow_intercept=True stat_name='Durbin_Watson': expected=1.5013230616756146, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='v1_full_continuous_intercept' allow_intercept=True stat_name='Durbin_Watson': expected=0.8651526966463873, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='continuous_subset_intercept' allow_intercept=True stat_name='Durbin_Watson': expected=0.8587513374458698, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='default_t0_no_intercept' allow_intercept=False stat_name='Durbin_Watson': expected=0.6779461039024847, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='v1_full_continuous_no_intercept' allow_intercept=False stat_name='Durbin_Watson': expected=0.9927967576975013, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='continuous_subset_no_intercept' allow_intercept=False stat_name='Durbin_Watson': expected=0.987001639581864, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='origin_default_reference' allow_intercept=True stat_name='Durbin_Watson': expected=0.913118636847337, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='origin_explicit_reference' allow_intercept=True stat_name='Durbin_Watson': expected=0.9131186368473433, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='origin_invalid_reference' allow_intercept=True stat_name='Durbin_Watson': expected=0.8587513374458698, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='model_year_origin_categorical' allow_intercept=True stat_name='Durbin_Watson': expected=1.5211386966515204, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='usa_filter_degenerate_origin' allow_intercept=True stat_name='Durbin_Watson': expected=1.5965840247151897, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='interaction_continuous_product' allow_intercept=True stat_name='Durbin_Watson': expected=0.8652872281914714, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='interaction_quadratic_self_product' allow_intercept=True stat_name='Durbin_Watson': expected=0.8399205415102398, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='interaction_categorical_broadcast' allow_intercept=True stat_name='Durbin_Watson': expected=0.9141656565332262, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='mileage_log_log_na_masking' allow_intercept=True stat_name='Durbin_Watson': expected=0.9352375671735608, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='categorical_only_design' allow_intercept=True stat_name='Durbin_Watson': expected=1.1352303545758344, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='interaction_categorical_cross' allow_intercept=True stat_name='Durbin_Watson': expected=1.208356892724005, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='interaction_difference' allow_intercept=True stat_name='Durbin_Watson': expected=0.8149978638515923, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='interaction_ratio_reciprocal' allow_intercept=True stat_name='Durbin_Watson': expected=0.9635076547059714, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='T_Statistics': expected=-0.3673959783137977, excel_calc=-0.3673941937551009, abs_diff=1.7845586968157079e-06, fdd=5.0
+    ... and 1054 more (use --json for the full list)
+Timing: build+sync    47.9s
+Timing: recalculate   4.7s
+Timing: verify        73.5s
+Timing: total         126.1s

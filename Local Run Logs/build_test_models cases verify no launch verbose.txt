@@ -1,26 +1,34 @@
-python build_test_models.py --cases M04 --verify --no-launch --verbose
-[    0.0s] Plan: 1 model + 0 guard = 1 sheet(s)
-           M04   M04 Excluded Candidates
+python build_test_models.py --cases P01,P02,P03,P03b --verify --no-launch --verbose
+[    0.0s] Plan: 4 model + 0 guard = 4 sheet(s)
+           P01   P01 Learning Curve FE
+           P02   P02 FE Log Transform Axis
+           P03   P03 Power Law Derived Cols
+           P03b  P03b Power Law Transform Axis
 [    0.0s] Oracles: computing
 [    0.0s] Oracles: done
 [    1.0s] Catalog + data sheets
-[    5.0s] Sheets: writing 1
-[    5.0s]   1/1 M04   M04 Excluded Candidates             6.4s
-[   11.4s] Save
-[   12.2s] Sync names
-[   12.3s] CalculateFullRebuild
-Timing: write sheets  12.2s
+[    5.4s] Sheets: writing 4
+[    5.4s]   1/4 P01   P01 Learning Curve FE               6.6s
+[   12.0s]   2/4 P02   P02 FE Log Transform Axis           6.4s
+[   18.4s]   3/4 P03   P03 Power Law Derived Cols          6.9s
+[   25.4s]   4/4 P03b  P03b Power Law Transform Axis       7.3s
+[   32.7s] Save
+[   33.8s] Sync names
+[   33.9s] CalculateFullRebuild
+Timing: write sheets  33.7s
 Timing: sync names    0.1s
-Timing: rebuild       2.9s
+Timing: rebuild       2.6s
 Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
-Sheets built: 1
+Sheets built: 4
 Created names: 122
 Updated names: 0
 Removed names: 0
-Skipped names: Base_Period_Delta (reference a worksheet this workbook does not have)
-[   15.3s] Verify: reading 1 sheet(s)
-             1/1 M04   M04 Excluded Candidates          ok
-Timing: verify        2.5s
+[   36.5s] Verify: reading 4 sheet(s)
+             1/4 P01   P01 Learning Curve FE            ok
+             2/4 P02   P02 FE Log Transform Axis        ok
+             3/4 P03   P03 Power Law Derived Cols       ok
+             4/4 P03b  P03b Power Law Transform Axis    ok
+Timing: verify        2.7s
 Verify: passed
-Timing: total         17.8s
+Timing: total         39.2s
 Log: C:\local_python\Statistical_Analysis_Lambda_Catalog\Local Run Logs\build_test_models cases verify no launch verbose.txt

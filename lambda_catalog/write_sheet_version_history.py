@@ -243,6 +243,51 @@ _UNIVARIATE_VERSIONS = [
             "through 3.0.0; only the packaging (own workbook, own calc mode) is new."
         ),
     },
+    {
+        "version": "2.0.0",
+        "date": "2026-08-03",
+        "breaking": "Yes",
+        "summary": (
+            "The grid shrink, Weibull and Gamma half. Both fits now profile "
+            "their scale/rate parameter out in closed form (Weibull "
+            "λ(k) = ((1/n)·Σ x^k)^(1/k); Gamma β(α) = α/mean(x)) "
+            "and search a 20-point Profile NLL column per stage, replacing "
+            "four 20x20 grid blocks — 40 negative-log-likelihood evaluations "
+            "per fit instead of 800. Each Stage 1 brackets a closed-form "
+            "starting value (Weibull from a probability-plot regression, "
+            "Gamma from Minka's approximation) at one third to three times "
+            "that value, so the search no longer depends on a guessed range; "
+            "the two NLL heatmaps are replaced by profile-NLL line charts. "
+            "Profiling is still exact MLE — the profile maximizer is the "
+            "joint maximizer — and on the shipped Life Expectancy sample "
+            "both fits land closer to the true optimum than the grids they "
+            "replace (Gamma by 6.8 NLL, worth about 13.7 of AIC). "
+            "The fitting band is also rearranged: each distribution now has "
+            "its own column zone with that fit's two stages stacked inside "
+            "it, rather than one wide band per stage with the three "
+            "distributions stacked across them. A fit reads as a single "
+            "self-contained block, the two profile-NLL curves sit side by "
+            "side, and the Q-Q plot data moves left of the fits. The band is "
+            "26 rows shorter and the sheet ends at column DD instead of DF. "
+            "Each profile-NLL chart moves out of the chart band to sit "
+            "directly under its own fit zone (BP33, BZ33), one clear row "
+            "below the curve it draws, and now plots both stages rather than "
+            "just the wide Stage 1 bracket — Stage 2 carries + markers, so "
+            "the narrow region the search actually resolved is visible "
+            "instead of being a couple of pixels of the Stage 1 line. "
+            "BREAKING for this workbook, on two counts. The Scale (λ) and "
+            "Rate (β) rows lose their Min, Max, and Step Size input cells — "
+            "those parameters are solved, not searched — so saved bounds for "
+            "them no longer mean anything. And every cell in the fitting and "
+            "Q-Q band changes address, so anything pointing into that band "
+            "from outside the sheet needs updating; formulas inside the sheet "
+            "and all named ranges were moved with it. The Shape Min/Max cells "
+            "remain editable overrides, now formula-defaulted from the start "
+            "value. Beta is unchanged apart from its new location: it keeps "
+            "the artifact's only two two-input Data Tables. No function "
+            "changed; the library version does not move."
+        ),
+    },
 ]
 
 

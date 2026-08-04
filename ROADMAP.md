@@ -125,7 +125,7 @@ Rationale in
 | v3.6 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Claimed — next MINOR after v3.5. *Planned as v2.5.* F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix` |
 | v3.7 | `Weight` Role (WLS) | No | Claimed — after v3.6. *Planned as v2.6.* User-supplied weights as the first stage; variance-driver-derived weights and FGLS as later follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument. Shipping after v3.0 is what makes that the first implementation rather than a rewrite |
 | v3.8+ | Two-way FE, `Cluster` and `Time` Roles, Time series, ANOVA, Fourier, Decision | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+.* Two-way FE has forward wiring from the v2.1 FE engine; `Cluster` has forward wiring from `Serial_Correlation_Group()`'s dormant branch; the rest are design-not-started |
-| *(Univariate artifact)* | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | Unnumbered in this ladder on purpose: under the two-number scheme these move the **Univariate workbook version**, not the library version, so they do not take a v3.x slot. The split is packaging-only and non-breaking for both artifacts; the grid shrink that follows is MAJOR for the Univariate workbook version only and does not move the Regression workbook version |
+| *(Univariate artifact)* | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | Unnumbered in this ladder on purpose: under the two-number scheme these move the **Univariate workbook version**, not the library version, so they do not take a v3.x slot. The split is packaging-only and non-breaking for both artifacts; the grid shrink that follows is MAJOR for the Univariate workbook version only and does not move the Regression workbook version. Split shipped as Univariate 1.0.0; the grid shrink's Weibull/Gamma half shipped as Univariate 2.0.0, with the Beta half still open |
 
 **Ladder rationale.** Under the interface definition above, exactly two milestones
 break user inputs. Specification-Driven Regression took v2.0; everything after it
@@ -220,8 +220,9 @@ distribution choice in the fitting section.
   from the computed bin table.
 - **Distribution fitting** — eight candidates (Normal, Lognormal, Exponential,
   Weibull, Gamma, Triangular, Beta, BetaPERT) ranked in a single comparison
-  table. Closed-form MLE where possible; grid-search MLE over native two-input
-  Data Tables for the two-parameter shape family. Per-distribution Q-Q plots
+  table. Closed-form MLE where possible; search-based MLE for the two-parameter
+  shape family (native two-input Data Tables at v1.1; Weibull and Gamma moved to
+  1-D profile searches at Univariate 2.0.0). Per-distribution Q-Q plots
   and histogram distribution overlays (post-release v1.1 leftovers, shipped
   with the next workbook build).
 - **The MLE-via-grid reframing** — the wall was never "MLE without Solver"; it
@@ -840,7 +841,7 @@ stay in this unordered bucket.
 
 ---
 
-## Univariate artifact releases — the split (SHIPPED), then the grid shrink (PLANNED)
+## Univariate artifact releases — the split (SHIPPED), then the grid shrink (Weibull/Gamma SHIPPED; Beta PLANNED)
 
 Two releases, deliberately not bundled. Under the two-number scheme
 ([Two numbers](#two-numbers-once-the-build-emits-two-workbooks)) these move the
@@ -882,6 +883,17 @@ chart than in a one-row colour strip.
 It is MAJOR because the Scale Min/Max/Step input cells change or disappear, so a
 user's saved bounds stop meaning anything. That is a workbook-interface break, and
 it does not move the Regression workbook version.
+
+**Status — the Weibull and Gamma half SHIPPED as Univariate 2.0.0.** Those four
+stage blocks are now 1-D profile searches with closed-form starting values, each
+stage 20 evaluations instead of 400, and the two heatmaps are replaced by
+profile-NLL line charts. Evaluations fall from ~2,400 to ~880, and the fits got
+*more* accurate on the shipped dataset, not less — the old Gamma grid's coarse
+2-D bracket had been landing 6.8 NLL units above the true MLE. **The Beta half is
+still open:** it keeps its 20×20 two-input Data Tables and has not yet received
+the method-of-moments start or the ~12×12 grid that takes the total to ~370. See
+[TODOs.md](TODOs.md) → *Univariate artifact 2.1 — the Beta half of the grid
+shrink*.
 
 Design rationale: [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 

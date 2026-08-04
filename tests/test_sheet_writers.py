@@ -1032,20 +1032,21 @@ def test_local_name_setup_creates_qq_chart_ranges() -> None:
     _setup_local_names(_as_xw_sheet(sheet))
 
     names = sheet.api.Names
+    # The Q-Q zone leads the right-hand band at BE:BN, ahead of the fit zones.
     sample = names.by_short_name("UV_QQ_Sample")
     assert sample.RefersTo == (
-        "=OFFSET('Univariate'!$CX$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
+        "=OFFSET('Univariate'!$BF$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
     )
     assert sample.Comment == (
         "Q-Q plots: sorted sample values (Y axis, shared by all eight charts)"
     )
     normal = names.by_short_name("UV_QQ_Normal")
     assert normal.RefersTo == (
-        "=OFFSET('Univariate'!$CY$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
+        "=OFFSET('Univariate'!$BG$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
     )
     assert normal.Comment == "Normal Q-Q plot: theoretical quantiles (X axis)"
     assert names.by_short_name("UV_QQ_BetaPERT").RefersTo == (
-        "=OFFSET('Univariate'!$DF$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
+        "=OFFSET('Univariate'!$BN$4,1,0,MAX(IFERROR('Univariate'!$E$14,1),1),1)"
     )
     # The plotting-position column is an intermediate and never charted.
     assert all(item.Name.split("!", 1)[-1] != "UV_QQ_P" for item in names.items)
@@ -1056,35 +1057,35 @@ def test_qq_data_zone_formulas_reference_fit_table_parameters() -> None:
 
     _write_qq_data(_as_xw_sheet(sheet))
 
-    assert sheet.cell(1, 101).value == "Q-Q Plot Data"
-    assert ((1, 101), (1, 110)) in sheet.merges
-    assert sheet.cell(4, 101).value == "P"
-    assert sheet.cell(4, 102).value == "Sample"
-    assert sheet.cell(4, 110).value == "BetaPERT"
+    assert sheet.cell(1, 57).value == "Q-Q Plot Data"
+    assert ((1, 57), (1, 66)) in sheet.merges
+    assert sheet.cell(4, 57).value == "P"
+    assert sheet.cell(4, 58).value == "Sample"
+    assert sheet.cell(4, 66).value == "BetaPERT"
 
-    assert _formula(sheet, 5, 101) == "=LET(n_,UV_n,IF(n_<=0,NA(),(SEQUENCE(n_)-0.5)/n_))"
-    assert _formula(sheet, 5, 102) == "=SORT(FILTER(UV_Data,UV_Include))"
-    assert _formula(sheet, 5, 103) == "=LET(p_,$CW$5#,NORM.INV(p_,$I$5,$K$5))"
-    assert _formula(sheet, 5, 104) == "=LET(p_,$CW$5#,LOGNORM.INV(p_,$I$6,$K$6))"
-    assert _formula(sheet, 5, 105) == "=LET(p_,$CW$5#,-LN(1-p_)/$I$7)"
-    assert _formula(sheet, 5, 106) == "=LET(p_,$CW$5#,$K$8*(-LN(1-p_))^(1/$I$8))"
-    assert _formula(sheet, 5, 107) == "=LET(p_,$CW$5#,GAMMA.INV(p_,$I$9,1/$K$9))"
-    triangular = _formula(sheet, 5, 108)
-    assert triangular.startswith("=LET(p_,$CW$5#,mn,$I$10,md,$K$10,mx,$M$10,")
+    assert _formula(sheet, 5, 57) == "=LET(n_,UV_n,IF(n_<=0,NA(),(SEQUENCE(n_)-0.5)/n_))"
+    assert _formula(sheet, 5, 58) == "=SORT(FILTER(UV_Data,UV_Include))"
+    assert _formula(sheet, 5, 59) == "=LET(p_,$BE$5#,NORM.INV(p_,$I$5,$K$5))"
+    assert _formula(sheet, 5, 60) == "=LET(p_,$BE$5#,LOGNORM.INV(p_,$I$6,$K$6))"
+    assert _formula(sheet, 5, 61) == "=LET(p_,$BE$5#,-LN(1-p_)/$I$7)"
+    assert _formula(sheet, 5, 62) == "=LET(p_,$BE$5#,$K$8*(-LN(1-p_))^(1/$I$8))"
+    assert _formula(sheet, 5, 63) == "=LET(p_,$BE$5#,GAMMA.INV(p_,$I$9,1/$K$9))"
+    triangular = _formula(sheet, 5, 64)
+    assert triangular.startswith("=LET(p_,$BE$5#,mn,$I$10,md,$K$10,mx,$M$10,")
     assert "mn+SQRT(p_*(mx-mn)*(md-mn))" in triangular
     assert "mx-SQRT((1-p_)*(mx-mn)*(mx-md))" in triangular
-    beta = _formula(sheet, 5, 109)
+    beta = _formula(sheet, 5, 65)
     assert "mn,$E$9,range_,$E$11" in beta
     assert "BETA.INV(p_,$I$11,$K$11)*scale_+mn-pad" in beta
-    betapert = _formula(sheet, 5, 110)
+    betapert = _formula(sheet, 5, 66)
     assert "mn,$I$12,md,$K$12,mx,$M$12" in betapert
     # λ=4 PERT mapping — the μ-based form is 0/0 at a symmetric mode
     assert "alpha_param,1+4*(md-mn)/(mx-mn+1E-30)" in betapert
     assert "beta_param,1+4*(mx-md)/(mx-mn+1E-30)" in betapert
     assert "BETA.INV(p_,alpha_param,beta_param)*(mx-mn)+mn" in betapert
 
-    assert sheet.range((5, 101), (2004, 101)).number_format == "0.0000"
-    assert sheet.range((5, 102), (2004, 110)).number_format == "0.0"
+    assert sheet.range((5, 57), (2004, 57)).number_format == "0.0000"
+    assert sheet.range((5, 58), (2004, 66)).number_format == "0.0"
 
 
 def test_missing_count_formula_uses_unfiltered_active_range() -> None:
@@ -1117,13 +1118,21 @@ def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> No
     assert sheet.cell(5, 16).number_format == "0.0"
 
     _write_weibull_grid_search(_as_xw_sheet(sheet))
-    assert sheet.cell(3, 58).number_format == "0"
-    assert sheet.range((3, 61), (4, 65)).number_format == "0.0"
-    assert sheet.cell(5, 57).number_format == "0.0E+00"
-    assert sheet.range((5, 58), (5, 77)).number_format == "0.0"
-    assert sheet.range((6, 57), (25, 57)).number_format == "0.0"
-    assert sheet.range((6, 58), (25, 77)).number_format == "0.0E+00"
-    assert sheet.cell(3, 57).number_format == "0.0E+00"
+    # Weibull zone BP:BX, stage 1: BQ3 grid points, BT3:BX4 controls,
+    # BP12:BP31 shape axis, BQ12:BQ31 profile NLL, BP3 Min NLL.
+    assert sheet.cell(3, 69).number_format == "0"
+    assert sheet.range((3, 72), (4, 76)).number_format == "0.0"
+    assert sheet.range((12, 68), (31, 68)).number_format == "0.0"
+    assert sheet.range((12, 69), (31, 69)).number_format == "0.0E+00"
+    assert sheet.cell(3, 68).number_format == "0.0E+00"
+
+    # Beta zone CJ:DD, stage 1 keeps the grid formats: CJ5 corner,
+    # CK5:DD5 alpha row, CJ6:CJ25 beta column, CK6:DD25 body.
+    assert sheet.cell(3, 89).number_format == "0"
+    assert sheet.cell(5, 88).number_format == "0.0E+00"
+    assert sheet.range((5, 89), (5, 108)).number_format == "0.0"
+    assert sheet.range((6, 88), (25, 88)).number_format == "0.0"
+    assert sheet.range((6, 89), (25, 108)).number_format == "0.0E+00"
 
 
 def test_histogram_chart_title_cells_reference_method_headers():
@@ -1147,70 +1156,227 @@ def test_weibull_grid_search_uses_final_layout_and_named_bodies() -> None:
 
     _write_weibull_grid_search(_as_xw_sheet(sheet))
 
-    assert ((1, 57), (1, 77)) in sheet.merges
-    assert ((1, 79), (1, 99)) in sheet.merges
-    assert sheet.cell(2, 57).value == "Min NLL:"
-    assert sheet.cell(2, 58).value == "Rows/Columns"
-    assert sheet.cell(3, 58).value == 20
-    assert sheet.cell(2, 59).value is None
-    assert [sheet.cell(2, col).value for col in range(60, 66)] == [
+    # Each fit owns a column zone and stacks its two stages inside it. Weibull
+    # BP:BX and Gamma BZ:CH are nine wide; Beta CJ:DD is the only 21-wide zone.
+    # Profile stage 2 is 5 rows down; Beta's is a full grid block + gap (26).
+    assert ((1, 68), (1, 76)) in sheet.merges
+    assert ((6, 68), (6, 76)) in sheet.merges
+    assert ((1, 78), (1, 86)) in sheet.merges
+    assert ((6, 78), (6, 86)) in sheet.merges
+    assert ((1, 88), (1, 108)) in sheet.merges
+    assert ((27, 88), (27, 108)) in sheet.merges
+
+    assert sheet.cell(2, 68).value == "Min NLL:"
+    assert sheet.cell(2, 69).value == "Grid Points"
+    assert sheet.cell(3, 69).value == 20
+    assert sheet.cell(2, 70).value is None
+    assert [sheet.cell(2, col).value for col in range(71, 77)] == [
+        "Parameter", "Start", "Min", "Max", "Step Size", "Best",
+    ]
+    assert sheet.cell(3, 71).value == "Shape (k)"
+    assert sheet.cell(4, 71).value == "Scale (λ)"
+    assert sheet.cell(3, 81).value == "Shape (α)"
+    assert sheet.cell(4, 81).value == "Rate (β)"
+
+    # Beta keeps the two-input Data Table control row ("Input", not "Start").
+    assert sheet.cell(2, 89).value == "Rows/Columns"
+    assert [sheet.cell(2, col).value for col in range(91, 97)] == [
         "Parameter", "Input", "Min", "Max", "Step Size", "Best",
     ]
-    assert sheet.cell(3, 60).value == "Shape (k)"
-    assert sheet.cell(29, 60).value == "Shape (α)"
-    assert sheet.cell(30, 60).value == "Rate (β)"
-    assert sheet.cell(55, 60).value == "Alpha (α)"
-    assert sheet.cell(56, 60).value == "Beta (β)"
-    assert sheet.cell(4, 60).value == "Scale (λ)"
+    assert sheet.cell(3, 91).value == "Alpha (α)"
+    assert sheet.cell(4, 91).value == "Beta (β)"
+
+    # Both profile bodies share rows and sit side by side under the two halves
+    # of the control block: stage 1 at offsets 0/1, stage 2 at offsets 3/4.
+    assert sheet.cell(11, 68).value == "Shape (k)"
+    assert sheet.cell(11, 69).value == "Profile NLL"
+    assert sheet.cell(11, 71).value == "Shape (k)"
+    assert sheet.cell(11, 72).value == "Profile NLL"
+    assert sheet.cell(11, 78).value == "Shape (α)"
+    assert sheet.cell(11, 79).value == "Profile NLL"
 
     names = sheet.api.Names
-    assert names.by_short_name("UV_WB_S1").RefersTo == "='Univariate'!$BF$6:$BY$25"
-    assert names.by_short_name("UV_WB_S2").RefersTo == "='Univariate'!$CB$6:$CU$25"
-    assert names.by_short_name("UV_GAMMA_S1").RefersTo == "='Univariate'!$BF$32:$BY$51"
-    assert names.by_short_name("UV_GAMMA_S2").RefersTo == "='Univariate'!$CB$32:$CU$51"
-    assert names.by_short_name("UV_BETA_S1").RefersTo == "='Univariate'!$BF$58:$BY$77"
-    assert names.by_short_name("UV_BETA_S2").RefersTo == "='Univariate'!$CB$58:$CU$77"
+    assert names.by_short_name("UV_WB_S1").RefersTo == "='Univariate'!$BQ$12:$BQ$31"
+    assert names.by_short_name("UV_WB_S1_Axis").RefersTo == "='Univariate'!$BP$12:$BP$31"
+    assert names.by_short_name("UV_WB_S2").RefersTo == "='Univariate'!$BT$12:$BT$31"
+    assert names.by_short_name("UV_WB_S2_Axis").RefersTo == "='Univariate'!$BS$12:$BS$31"
+    assert names.by_short_name("UV_GAMMA_S1").RefersTo == "='Univariate'!$CA$12:$CA$31"
+    assert names.by_short_name("UV_GAMMA_S1_Axis").RefersTo == "='Univariate'!$BZ$12:$BZ$31"
+    assert names.by_short_name("UV_GAMMA_S2").RefersTo == "='Univariate'!$CD$12:$CD$31"
+    assert names.by_short_name("UV_GAMMA_S2_Axis").RefersTo == "='Univariate'!$CC$12:$CC$31"
+    assert names.by_short_name("UV_BETA_S1").RefersTo == "='Univariate'!$CK$6:$DD$25"
+    assert names.by_short_name("UV_BETA_S2").RefersTo == "='Univariate'!$CK$32:$DD$51"
 
 
-def test_weibull_grid_formulas_reference_visible_controls() -> None:
+def test_band_zones_are_derived_in_order_from_one_table() -> None:
+    """Zone starts, gaps, and the sheet's last column all come from _BAND_ZONES.
+
+    Pinned because every address in the band is relative to these: a width
+    change to any zone must not silently relocate the ones after it, and the
+    fit zones must stay last so a grid resize displaces nothing.
+    """
+    from lambda_catalog.write_sheet_univariate import (
+        _BAND_COL, _BAND_GAP_COLS, _BAND_LAST_COL, _BAND_ZONES,
+    )
+
+    assert [name for name, _ in _BAND_ZONES] == ["qq", "weibull", "gamma", "beta"]
+    assert _BAND_COL == {"qq": 57, "weibull": 68, "gamma": 78, "beta": 88}
+    assert _BAND_GAP_COLS == (67, 77, 87)
+    assert _BAND_LAST_COL == 108
+
+
+def test_profile_chart_ranges_are_offset_sized_by_the_grid_point_cell() -> None:
+    """Each profile-NLL chart reads OFFSET ranges over BOTH of its curves.
+
+    Stage 2 re-samples 20 points across ±1 stage-1 step, so it is the region the
+    search actually resolved; the chart plots it as a second series. Each range
+    is sized by its own stage's Grid Points cell — stage 1 by row 3, stage 2 by
+    row 8, five rows down where that control block sits.
+    """
     sheet = RecordingSheet()
 
     _write_weibull_grid_search(_as_xw_sheet(sheet))
 
-    assert sheet.cell(3, 64).api.Formula2 == "=($BK$3-$BJ$3)/($BF$3-1)"
-    assert sheet.cell(4, 64).api.Formula2 == "=($BK$4-$BJ$4)/($BF$3-1)"
-    assert sheet.cell(5, 58).api.Formula2 == "=SEQUENCE(1,$BF$3,$BJ$3,$BL$3)"
-    assert sheet.cell(6, 57).api.Formula2 == "=SEQUENCE($BF$3,1,$BJ$4,$BL$4)"
-    assert sheet.cell(3, 57).api.Formula2 == (
+    names = sheet.api.Names
+    assert names.by_short_name("UV_Profile_WB_S1_Axis").RefersTo == (
+        "=OFFSET('Univariate'!$BP$11,1,0,MAX(IFERROR('Univariate'!$BQ$3,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_WB_S1_NLL").RefersTo == (
+        "=OFFSET('Univariate'!$BQ$11,1,0,MAX(IFERROR('Univariate'!$BQ$3,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_WB_S2_Axis").RefersTo == (
+        "=OFFSET('Univariate'!$BS$11,1,0,MAX(IFERROR('Univariate'!$BQ$8,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_WB_S2_NLL").RefersTo == (
+        "=OFFSET('Univariate'!$BT$11,1,0,MAX(IFERROR('Univariate'!$BQ$8,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_GAMMA_S1_Axis").RefersTo == (
+        "=OFFSET('Univariate'!$BZ$11,1,0,MAX(IFERROR('Univariate'!$CA$3,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_GAMMA_S1_NLL").RefersTo == (
+        "=OFFSET('Univariate'!$CA$11,1,0,MAX(IFERROR('Univariate'!$CA$3,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_GAMMA_S2_Axis").RefersTo == (
+        "=OFFSET('Univariate'!$CC$11,1,0,MAX(IFERROR('Univariate'!$CA$8,1),1),1)"
+    )
+    assert names.by_short_name("UV_Profile_GAMMA_S2_NLL").RefersTo == (
+        "=OFFSET('Univariate'!$CD$11,1,0,MAX(IFERROR('Univariate'!$CA$8,1),1),1)"
+    )
+
+
+def test_profile_charts_anchor_one_clear_row_below_their_zone() -> None:
+    """The charts sit under their own fit zone, not in the G:T chart band.
+
+    Bodies end at row 31, row 32 stays blank, so the anchor is row 33 — Weibull
+    at BP33 and Gamma at BZ33, each at its zone's first column. Pinned because
+    the anchor is derived; an off-by-one would silently overlap the last body
+    row or leave a two-row gap.
+    """
+    from lambda_catalog.write_sheet_univariate import (
+        _BAND_COL, _N_PROFILE, _PS_R_BODY, _ROW_FIT_ZONE, _ROW_PROFILE_CHART,
+    )
+
+    last_body_row = _ROW_FIT_ZONE + _PS_R_BODY + _N_PROFILE - 1
+    assert last_body_row == 31
+    assert _ROW_PROFILE_CHART == last_body_row + 2 == 33
+    assert (_BAND_COL["weibull"], _BAND_COL["gamma"]) == (68, 78)  # BP, BZ
+
+
+def test_profile_stage_formulas_reference_visible_controls() -> None:
+    """Weibull/Gamma stage 1: start, bracket, axis, and profiled-out partner."""
+    sheet = RecordingSheet()
+
+    _write_weibull_grid_search(_as_xw_sheet(sheet))
+
+    # Closed-form starting value, and the 3× bracket built from it. Weibull
+    # zone BP:BX — Start BT, Min BU, Max BV, Step BW, Best BX.
+    assert sheet.cell(3, 72).api.Formula2 == (
+        "=IFERROR(LET(x,SORT(FILTER(UV_Data,UV_Include)),n,ROWS(x),"
+        "p,(SEQUENCE(n)-0.5)/n,SLOPE(LN(-LN(1-p)),LN(x))),2)"
+    )
+    # Gamma zone BZ:CH — Start CD.
+    assert sheet.cell(3, 82).api.Formula2 == (
+        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),"
+        "s,LN(AVERAGE(x))-AVERAGE(LN(x)),"
+        "IF(s<=0,1,(3-s+SQRT((s-3)^2+24*s))/(12*s))),1)"
+    )
+    assert sheet.cell(3, 73).api.Formula2 == "=MAX(0.001,$BT$3/3)"
+    assert sheet.cell(3, 74).api.Formula2 == "=$BT$3*3"
+    assert sheet.cell(3, 75).api.Formula2 == "=($BV$3-$BU$3)/($BQ$3-1)"
+
+    # The profiled-out parameter is solved, not searched: no bounds, no step.
+    assert sheet.cell(4, 73).api.Formula2 is None
+    assert sheet.cell(4, 74).api.Formula2 is None
+    assert sheet.cell(4, 75).api.Formula2 is None
+
+    # One column of trial shapes, one column of profile NLL beside it.
+    assert sheet.cell(12, 68).api.Formula2 == "=SEQUENCE($BQ$3,1,$BU$3,$BW$3)"
+    # The sample is bound once per cell and passed to both the partner and the
+    # NLL call — the naive form re-filters the full input range twice per cell.
+    # NLL's optional [filter] is omitted because x is already the included
+    # numeric sample, so its ISNUMBER default filters nothing.
+    assert sheet.cell(12, 69).api.Formula2 == (
+        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BP$12,"
+        "NLL_Weibull(x,p,((AVERAGE(x^p))^(1/p)))),1E+15)"
+    )
+    assert sheet.cell(31, 69).api.Formula2 == (
+        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BP$31,"
+        "NLL_Weibull(x,p,((AVERAGE(x^p))^(1/p)))),1E+15)"
+    )
+    assert sheet.cell(12, 79).api.Formula2 == (
+        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BZ$12,"
+        "NLL_Gamma(x,p,(p/AVERAGE(x)))),1E+15)"
+    )
+
+    assert sheet.cell(3, 68).api.Formula2 == (
         '=IFERROR(TAKE(Grid_Argument_Minimum(UV_WB_S1),,1),"—")'
     )
-    assert sheet.cell(3, 65).api.Formula2 == "=Grid_Search_Optimum(UV_WB_S1)"
-    assert sheet.cell(4, 65).api.Formula2 is None
-    assert sheet.cell(5, 57).api.Formula2 == (
-        "=NLL_Weibull(UV_Data,$BI$3,$BI$4,UV_Include)"
-    )
-    assert sheet.cell(31, 57).api.Formula2 == (
-        "=NLL_Gamma(UV_Data,$BI$29,$BI$30,UV_Include)"
-    )
-    assert "NLL_Beta(z,$BI$55,$BI$56)" in _formula(sheet, 57, 57)
 
-    # Weibull/Gamma bodies are static formula grids (no Data Table): each body
-    # cell holds an explicit NLL referencing the column-axis (shape, top row 5)
-    # and row-axis (scale, left col BE) SEQUENCE cells.
-    assert sheet.cell(6, 58).api.Formula2 == (
-        "=NLL_Weibull(UV_Data,$BF$5,$BE$6,UV_Include)"
+    # A single-column grid puts the minimum in the row slot, so the searched
+    # value is INDEX(axis, row_location) — Grid_Search_Optimum's column half
+    # would read the "Profile NLL" header instead of a parameter value.
+    assert sheet.cell(3, 76).api.Formula2 == (
+        '=IFERROR(INDEX(UV_WB_S1_Axis,'
+        'INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)),"—")'
     )
-    assert sheet.cell(25, 77).api.Formula2 == (
-        "=NLL_Weibull(UV_Data,$BY$5,$BE$25,UV_Include)"
+    assert sheet.cell(4, 76).api.Formula2 == (
+        '=IFERROR(((AVERAGE(FILTER(UV_Data,UV_Include)^$BX$3))^(1/$BX$3)),"—")'
     )
-    assert sheet.cell(32, 58).api.Formula2 == (
-        "=NLL_Gamma(UV_Data,$BF$31,$BE$32,UV_Include)"
+    assert sheet.cell(9, 86).api.Formula2 == (
+        '=IFERROR(($CH$8/AVERAGE(FILTER(UV_Data,UV_Include))),"—")'
     )
 
-    assert sheet.cell(3, 84).api.Formula2 == "=MAX(0.001,$BM$3-$BL$3)"
-    assert sheet.cell(3, 85).api.Formula2 == "=$BM$3+$BL$3"
-    assert sheet.cell(4, 84).api.Formula2 == "=MAX(0.001,$BM$4-$BL$4)"
-    assert sheet.cell(4, 85).api.Formula2 == "=$BM$4+$BL$4"
+    # Stage 2 sits 5 rows below stage 1 in the same zone, refining to ±1 step.
+    assert sheet.cell(8, 72).api.Formula2 == "=$BX$3"
+    assert sheet.cell(8, 73).api.Formula2 == "=MAX(0.001,$BX$3-$BW$3)"
+    assert sheet.cell(8, 74).api.Formula2 == "=$BX$3+$BW$3"
+
+
+def test_beta_grid_formulas_reference_visible_controls() -> None:
+    """Beta stays a two-input Data Table, corner formula and both axes.
+
+    Beta's zone is CJ:DD and its stage 2 stacks 26 rows down — a full grid
+    block plus a gap row — where the profile fits' stage 2 is 5 rows down.
+    """
+    sheet = RecordingSheet()
+
+    _write_weibull_grid_search(_as_xw_sheet(sheet))
+
+    assert sheet.cell(3, 95).api.Formula2 == "=($CP$3-$CO$3)/($CK$3-1)"
+    assert sheet.cell(4, 95).api.Formula2 == "=($CP$4-$CO$4)/($CK$3-1)"
+    assert sheet.cell(5, 89).api.Formula2 == "=SEQUENCE(1,$CK$3,$CO$3,$CQ$3)"
+    assert sheet.cell(6, 88).api.Formula2 == "=SEQUENCE($CK$3,1,$CO$4,$CQ$4)"
+    assert sheet.cell(3, 88).api.Formula2 == (
+        '=IFERROR(TAKE(Grid_Argument_Minimum(UV_BETA_S1),,1),"—")'
+    )
+    assert sheet.cell(3, 96).api.Formula2 == "=Grid_Search_Optimum(UV_BETA_S1)"
+    assert sheet.cell(4, 96).api.Formula2 is None
+    assert "NLL_Beta(z,$CN$3,$CN$4)" in _formula(sheet, 5, 88)
+
+    assert sheet.cell(29, 93).api.Formula2 == "=MAX(0.001,$CR$3-$CQ$3)"
+    assert sheet.cell(29, 94).api.Formula2 == "=$CR$3+$CQ$3"
+    assert sheet.cell(30, 93).api.Formula2 == "=MAX(0.001,$CR$4-$CQ$4)"
+    assert sheet.cell(30, 94).api.Formula2 == "=$CR$4+$CQ$4"
 
 
 def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
@@ -1218,35 +1384,52 @@ def test_weibull_grid_uses_visible_inputs_borders_and_boundary_rules() -> None:
 
     _write_weibull_grid_search(_as_xw_sheet(sheet))
 
-    # Weibull and Gamma use formula grids (no Data Table objects); only the
-    # two Beta stages wire two-input Data Tables.
+    # Beta's two stages are the artifact's only Data Tables — the Weibull and
+    # Gamma stages are 1-D profile columns and wire no Data Table object.
     assert sheet.tables == [
         {
-            "range": ((57, 57), (77, 77)),
-            "row_input": ((55, 61),),
-            "column_input": ((56, 61),),
+            "range": ((5, 88), (25, 108)),
+            "row_input": ((3, 92),),
+            "column_input": ((4, 92),),
         },
         {
-            "range": ((57, 79), (77, 99)),
-            "row_input": ((55, 83),),
-            "column_input": ((56, 83),),
+            "range": ((31, 88), (51, 108)),
+            "row_input": ((29, 92),),
+            "column_input": ((30, 92),),
         },
     ]
 
     for address in (
-        ((2, 57), (3, 57)),
-        ((2, 58), (3, 58)),
-        ((2, 60), (4, 65)),
-        ((5, 57), (25, 77)),
+        ((2, 68), (3, 68)),     # Min NLL
+        ((2, 69), (3, 69)),     # Grid Points
+        ((2, 71), (4, 76)),     # parameter table
+        ((11, 68), (31, 69)),   # stage 1 axis + body
+        ((11, 71), (31, 72)),   # stage 2 axis + body
     ):
         assert set(sheet.range(*address).api._borders) == {7, 8, 9, 10}
-    assert sheet.range((2, 59), (4, 59)).api._borders == {}
+    assert sheet.range((2, 70), (4, 70)).api._borders == {}
 
-    shape_rule = sheet.cell(3, 65).api.FormatConditions.items[0].Formula1
-    scale_rule = sheet.cell(4, 65).api.FormatConditions.items[0].Formula1
-    assert shape_rule == "=OR(INDEX(Grid_Argument_Minimum(UV_WB_S1),1,3)=1,INDEX(Grid_Argument_Minimum(UV_WB_S1),1,3)=$BF$3)"
-    assert scale_rule == "=OR(INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)=1,INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)=$BF$3)"
-    assert len(sheet.range((6, 58), (25, 77)).api.FormatConditions.color_scales) == 1
+    # Only the searched parameter has a boundary to hit; the profiled-out
+    # partner is solved in closed form, so it carries no rule.
+    shape_rule = sheet.cell(3, 76).api.FormatConditions.items[0].Formula1
+    assert shape_rule == (
+        "=OR(INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)=1,"
+        "INDEX(Grid_Argument_Minimum(UV_WB_S1),1,2)=$BQ$3)"
+    )
+    assert sheet.cell(4, 76).api.FormatConditions.items == []
+    assert len(sheet.range((12, 69), (31, 69)).api.FormatConditions.color_scales) == 1
+
+    # Beta keeps both boundary rules — its two parameters are both searched.
+    beta_alpha_rule = sheet.cell(3, 96).api.FormatConditions.items[0].Formula1
+    beta_beta_rule = sheet.cell(4, 96).api.FormatConditions.items[0].Formula1
+    assert beta_alpha_rule == (
+        "=OR(INDEX(Grid_Argument_Minimum(UV_BETA_S1),1,3)=1,"
+        "INDEX(Grid_Argument_Minimum(UV_BETA_S1),1,3)=$CK$3)"
+    )
+    assert beta_beta_rule == (
+        "=OR(INDEX(Grid_Argument_Minimum(UV_BETA_S1),1,2)=1,"
+        "INDEX(Grid_Argument_Minimum(UV_BETA_S1),1,2)=$CK$3)"
+    )
 
 
 def test_weibull_bounds_and_summary_reference_final_best_cells() -> None:
@@ -1258,21 +1441,26 @@ def test_weibull_bounds_and_summary_reference_final_best_cells() -> None:
     gamma_row = next(item for item in _dist_rows(5) if item[1] == "Gamma")
     beta_row = next(item for item in _dist_rows(5) if item[1] == "Beta")
 
+    # Each fit now has its own Best column and its own stage 2 row, so these
+    # three pairs no longer share a column the way they did under the
+    # stage-major layout. Weibull BX, Gamma CH, Beta CR.
     assert rows["Weibull"] == weibull_row[0]
-    assert weibull_row[3] == "=$CI$3"
-    assert weibull_row[5] == "=$CI$4"
+    assert weibull_row[3] == "=$BX$8"
+    assert weibull_row[5] == "=$BX$9"
     assert rows["Gamma"] == gamma_row[0]
-    assert gamma_row[3] == "=$CI$29"
-    assert gamma_row[5] == "=$CI$30"
+    assert gamma_row[3] == "=$CH$8"
+    assert gamma_row[5] == "=$CH$9"
     assert rows["Beta"] == beta_row[0]
-    assert beta_row[3] == "=$CI$55"
-    assert beta_row[5] == "=$CI$56"
+    assert beta_row[3] == "=$CR$29"
+    assert beta_row[5] == "=$CR$30"
     assert "NLL_Beta" in beta_row[8]
     assert "COUNT(d)*LN(scale_)" in beta_row[8]
-    assert sheet.cell(3, 62).color == INPUT_COLOR
-    assert sheet.cell(3, 63).color == INPUT_COLOR
-    assert sheet.cell(3, 84).color is None
-    assert sheet.cell(3, 86).color is None
+
+    # Stage 1 bounds are input-coloured overrides; stage 2's are derived.
+    assert sheet.cell(3, 73).color == INPUT_COLOR
+    assert sheet.cell(3, 74).color == INPUT_COLOR
+    assert sheet.cell(8, 73).color is None
+    assert sheet.cell(8, 74).color is None
 
 
 def test_grid_stage_returns_visible_step_and_count_references() -> None:

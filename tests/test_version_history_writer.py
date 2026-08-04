@@ -60,11 +60,11 @@ def _version_rows(sheet: _VHSheet) -> list[str]:
 
 
 def test_univariate_artifact_writes_univariate_lineage(stub_helpers) -> None:
-    """artifact='univariate' writes the Univariate lineage — a single 1.0.0
-    entry, NOT the Regression lineage."""
+    """artifact='univariate' writes the Univariate lineage, which begins at the
+    v3.0 split — NOT the Regression lineage."""
     vh.write_version_history_sheet(object(), artifact="univariate")
 
-    assert _version_rows(stub_helpers) == ["1.0.0"]
+    assert _version_rows(stub_helpers) == ["1.0.0", "2.0.0"]
 
 
 def test_regression_artifact_writes_regression_lineage(stub_helpers) -> None:

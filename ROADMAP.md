@@ -672,7 +672,7 @@ building on the representation decisions in
 resequenced — see the [ladder rationale](#versioning--release-conventions).*
 
 The column-G `Log` wiring shipped at [v2.2](#v22--transforms--unit-space-comparability--partially-delivered);
-this milestone finishes the release. Unit-space dispatch (seven new catalog
+this milestone finishes the release. Unit-space dispatch (eight new catalog
 functions under the `Back-Transformation` subcategory), Duan back-transformation
 with the `[Method]` Duan/Naive toggle, the original-units Prediction Outputs
 column (AL), the original-units residual columns (AZ/BA), the Model Formula
@@ -680,10 +680,11 @@ cell (AA2:AB2), and the `Comparison_*` sheet-scoped named ranges are now in
 production. The standalone transform library remainder (`Center`, `Zscore`,
 `Winsorize`, …) is still PLANNED.
 
-- **Unit-space dispatcher, RESOLVED & SHIPPED** — seven catalog functions
+- **Unit-space dispatcher, RESOLVED & SHIPPED** — eight catalog functions
   (`Smearing_Factor`, `Back_Transform_Response`, `Unit_Space_Predictions`,
-  `Unit_Space_Residuals`, `Unit_Space_R_Squared`, `Unit_Space_Adjusted_R_Squared`,
-  `Unit_Space_RMSE`) under the `Back-Transformation` subcategory. The
+  `Unit_Space_Observed`, `Unit_Space_Residuals`, `Unit_Space_R_Squared`,
+  `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`) under the
+  `Back-Transformation` subcategory. The
   transform pair is read off `Fit_Context()` rather than passed as
   positional arguments. `SWITCH` on the six recognised `(response, predictor)`
   pairs and `NA()` outside. The dispatcher is the first deliberate departure

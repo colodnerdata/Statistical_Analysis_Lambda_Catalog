@@ -467,6 +467,13 @@ def calculate_regression_spec_case(
     else:
         resolved_prediction_group = "(all)"
 
+    response_name = next(
+        item.name for item in case.spec if item.role == _ROLE_RESPONSE
+    )
+    fixed_effects_name = next(
+        (item.name for item in case.spec if item.role == _ROLE_FIXED_EFFECTS),
+        None,
+    )
     results = calculate_regression_results_from_matrix(
         x_features=design.x_features,
         y_train=design.y_train,
@@ -478,6 +485,8 @@ def calculate_regression_spec_case(
         selected_group=resolved_prediction_group,
         response_transform=design.response_transform,
         predictor_transform=design.predictor_transform,
+        response_name=response_name,
+        fixed_effects_name=fixed_effects_name,
     )
     return RegressionSpecExpected(
         case=case,

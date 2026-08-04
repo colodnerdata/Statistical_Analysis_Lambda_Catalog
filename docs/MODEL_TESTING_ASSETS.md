@@ -39,7 +39,7 @@ Notation: `C(x)` = Categorical, `Ln(x)` = `Transform = Log`, `| G` = Fixed Effec
 
 | ID | Model | Configuration | Covers | Status |
 |---|---|---|---|---|
-| M1 | `MPG ~ Horsepower + Weight + C(Model Year) + C(Origin)` | Model Year = Sequence; Car Name = Identifier; k = 16 | shipped T0 baseline; two categoricals + two continuous; (None, None) pair; unit-space reduction invariant (fit-space ≡ unit-space when no transform) | existing — `default_t0_intercept` |
+| M1 | `MPG ~ Horsepower + Weight + C(Model Year) + C(Origin)` | Car Name = Identifier; **no Sequence axis** (see the note below); k = 16 | shipped T0 baseline; two categoricals + two continuous; (None, None) pair; unit-space reduction invariant (fit-space ≡ unit-space when no transform) | existing — `default_t0_intercept` |
 | M2 | M1, intercept OFF | carries the deliberate red CF (intercept-off + included categorical) | no-intercept with categoricals | existing — `default_t0_no_intercept` |
 | M3 | `MPG ~` all 5 continuous (Cylinders, Displacement, Horsepower, Weight, Acceleration), ± intercept | categoricals excluded | all-continuous fit, intercept on/off pair | existing — `v1_full_continuous_intercept` / `_no_intercept` |
 | M4 | `MPG ~` curated continuous subset, ± intercept | | `Include = FALSE` candidate rows | existing — `continuous_subset_intercept` / `_no_intercept` |
@@ -55,7 +55,26 @@ Notation: `C(x)` = Categorical, `Ln(x)` = `Transform = Log`, `| G` = Fixed Effec
 | M14 | `MPG ~ Displacement + Horsepower + Weight + C(Model Year) + C(Origin)` | two categoricals **plus** three continuous | multi-level categorical alongside continuous predictors | existing — `model_year_origin_categorical` |
 | M14b | `MPG ~ C(Model Year) + C(Origin)` | no continuous predictors at all | **categorical-only design**; the mask reduces to "response is numeric", so n grows 392 → 398; M9's interaction-free base | existing — `categorical_only_design` |
 | M15 | M1 + `Is_USA` Filter | `ExtraSpecColumn` fixture | filter-induced **degenerate categorical** (Origin collapses to one level → 0 columns, red K cell) | existing — `usa_filter_degenerate_origin` |
-| M16 | M1 with typed `Sequence Period` = 2 on Model Year | candidate Δ = 1 | **period override**; the verdict re-evaluates against the typed Δ (escalating to off-grid, since odd gaps are not multiples of 2) | existing — **guard state** `guard_sequence_period_override` |
+| M16 | M1 + Model Year `Sequence = TRUE` and a typed `Sequence Period` = 2 | candidate Δ = 1 | **period override**; the verdict re-evaluates against the typed Δ (escalating to off-grid, since odd gaps are not multiples of 2) | existing — **guard state** `guard_sequence_period_override` |
+
+**Auto MPG carries no Sequence axis, and no case here may add one.** The
+dataset is cross-sectional: each row is a distinct car model observed once,
+with no unit repeated across periods. `Model Year` used to be flagged
+`Sequence = TRUE` in the shipped T0 spec, and every case built on that spec
+inherited it — which asserted panel structure the data does not have, and
+bought a Base Period Δ candidate nobody can interpret plus a Durbin-Watson
+computed over an arbitrary row order. (The shipped Identifier, `Car Name`, is
+very nearly unique, so `Sequence_Deltas` finds no within-group consecutive
+pairs and the spacing verdict is blank regardless.)
+`_DEFAULT_SEQUENCE_VARIABLES` is now empty and the flag is gone from every
+Auto MPG case except **G3** and **M16**, which test the flag's *mechanics* —
+the H2 cardinality rule counts flags, and the typed-override path reads the
+flagged row positionally; both are dataset-independent and need a flag
+present to be reachable at all. The Sequence layer's substantive coverage
+lives on the two datasets that are real panels: Production Lots
+(`Fiscal_Year`, §1.3) and Life Expectancy (`Year`, §1.2).
+`test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis` and
+`test_only_the_two_mechanics_cases_flag_sequence_on_auto_mpg` pin both halves.
 
 ### 1.2 Life Expectancy (2938 rows) — transform dispatch, scale, missingness
 
@@ -211,7 +230,7 @@ message text implies.
 | Intercept OFF | M2, M3/M4 variants |
 | FE + Log | P2 |
 | FE + intercept flag | G5 |
-| Sequence: candidate Δ / typed override / irregular / calendar | M1 / M16 / P7 / **uncovered — needs a dated dataset (§2 `Time` role, §3)** |
+| Sequence: candidate Δ / typed override / irregular / calendar | P1 / M16 / P7 / **uncovered — needs a dated dataset (§2 `Time` role, §3)** |
 | Interaction: Product / self-product / Cont×Cat / Cat×Cat / Difference / Ratio | M7 / M6 / M8 / M9 / M10 / M11 |
 | Reciprocal declaration: legal (Ratio) / illegal (Product) | M11 / G10 |
 | Width guard: soft / hard | L7 (k = 205) / G13 (conceptual) |

@@ -625,8 +625,11 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         assert sheet.cell(row, 2).value == "Predictor (x)"
         assert sheet.cell(row, 3).value is True
         assert sheet.cell(row, 4).value == "Categorical"
-    # Model Year is additionally flagged as the Sequence (ordering) axis.
-    assert sheet.cell(by_variable["Model Year"], _C_SEQUENCE).value is True
+    # No column is Sequence-flagged. Auto MPG is cross-sectional, so the
+    # shipped profile declares no ordering axis — column H is blank on every
+    # row, including Model Year, which used to carry it.
+    for variable in by_variable:
+        assert sheet.cell(by_variable[variable], _C_SEQUENCE).value is None
 
 
 def test_spec_block_sizes_table_and_defaults_to_the_given_profile() -> None:

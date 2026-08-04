@@ -155,7 +155,11 @@ Constructor decisions (all settled — see ROADMAP):
 Default configuration (the human test plan's T0 state, retargeted to the
 Mileage/Auto MPG dataset since Source_Table now defaults to MileageData):
     Car Name         → Identifier            (residual labeling; no columns)
-    Model Year       → Predictor/Categorical/TRUE  (numeric-valued; Sequence axis)
+    Model Year       → Predictor/Categorical/TRUE  (numeric-valued; NOT a
+                                               Sequence axis — Auto MPG is
+                                               cross-sectional, so nothing
+                                               here is flagged; see
+                                               _DEFAULT_SEQUENCE_VARIABLES)
     Origin           → Predictor/Categorical/TRUE  (numeric-valued: 1/2/3)
     MPG              → Response               (derived y)
     Horsepower, Weight → Predictor/Continuous/TRUE
@@ -523,15 +527,29 @@ _DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
 }
 _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
 
-# Variables shipped with their Sequence flag (column H) set TRUE. Model Year
-# is the canonical ordering axis for the Auto MPG panel: flagging it
-# activates the Base Period Δ candidate (Δ = 1), the Sequence Spacing block,
-# and the gated Durbin-Watson diagnostic on the Regression sheet. Structural
-# and Role-independent — Model Year stays a Categorical Predictor, so the
-# fitted model is unchanged; the flag only drives the serial-correlation /
-# base-period layer. Kept to at most one entry: the H2 status line errors at
-# two-plus flags.
-_DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Model Year"})
+# Variables shipped with their Sequence flag (column H) set TRUE — EMPTY for
+# Auto MPG, deliberately.
+#
+# Model Year used to ship flagged, on the reading that it is "the ordering
+# axis for the Auto MPG panel". Auto MPG is not a panel. Each row is a
+# distinct car model observed once; there is no unit repeated across periods,
+# so there is no time axis to order along. What the flag actually bought was a
+# Base Period Δ candidate nobody can interpret and a Durbin-Watson statistic
+# computed over an arbitrary row order — the shipped Identifier (Car Name) is
+# very nearly unique, so Sequence_Deltas finds no within-group consecutive
+# pairs and the spacing verdict comes back blank regardless. A default that
+# asserts panel structure the data does not have is worse than no default.
+#
+# The Sequence axis is still demonstrated by default, on the two datasets that
+# genuinely have one: _LIFE_EXPECTANCY_SEQUENCE_VARIABLES (Country x Year) and
+# _PRODUCTION_LOTS_SEQUENCE_VARIABLES (Facility x Fiscal_Year), both reachable
+# through --regression-dataset. On Auto MPG the layer self-reports
+# "n/a — requires Sequence" until a user types TRUE in column H, which is the
+# honest state.
+#
+# Whatever a profile puts here is kept to at most one entry: the H2 status line
+# errors at two-plus flags.
+_DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset()
 
 
 # ── Per-dataset spec profiles ──────────────────────────────────────────────

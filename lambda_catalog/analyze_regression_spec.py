@@ -532,7 +532,7 @@ def _v1_full_continuous_spec() -> list[SpecVariable]:
         if variable.name == "Car Name":
             spec.append(_spec_var(variable.name, _ROLE_IDENTIFIER))
         elif variable.name == "Model Year":
-            spec.append(_spec_var(variable.name, _ROLE_IDENTIFIER, sequence=True))
+            spec.append(_spec_var(variable.name, _ROLE_IDENTIFIER))
         elif variable.name == "Origin":
             spec.append(_spec_var(variable.name, _ROLE_OMIT))
         elif variable.name == "MPG":
@@ -567,9 +567,7 @@ def _with_origin(spec: list[SpecVariable], reference: object = "") -> list[SpecV
 def _model_year_origin_categorical_spec() -> list[SpecVariable]:
     return _replace_spec_vars(
         _with_origin(_continuous_subset_spec()),
-        model_year=_spec_var(
-            "Model Year", _ROLE_PREDICTOR, True, "Categorical", sequence=True
-        ),
+        model_year=_spec_var("Model Year", _ROLE_PREDICTOR, True, "Categorical"),
     )
 
 
@@ -610,8 +608,10 @@ def _mileage_log_log_na_masking_spec() -> list[SpecVariable]:
     rather than after (taking Ln of a blank would poison the column, not
     drop the row).
 
-    Model Year stays the Sequence axis and Car Name the Identifier, so the
-    row labels and the serial-correlation layer are the shipped ones.
+    Model Year and Car Name both stay Identifiers, so the row labels are the
+    shipped ones. Neither is Sequence-flagged: Auto MPG is cross-sectional
+    (one row per car model, no unit repeated across periods), so there is no
+    ordering axis to declare — see ``_DEFAULT_SEQUENCE_VARIABLES``.
     """
     return [
         _spec_var("MPG", _ROLE_RESPONSE, transform="Log"),
@@ -620,7 +620,7 @@ def _mileage_log_log_na_masking_spec() -> list[SpecVariable]:
         _spec_var("Horsepower", _ROLE_PREDICTOR, True, "Continuous", transform="Log"),
         _spec_var("Weight", _ROLE_PREDICTOR, True, "Continuous", transform="Log"),
         _spec_var("Acceleration", _ROLE_OMIT),
-        _spec_var("Model Year", _ROLE_IDENTIFIER, sequence=True),
+        _spec_var("Model Year", _ROLE_IDENTIFIER),
         _spec_var("Origin", _ROLE_OMIT),
         _spec_var("Car Name", _ROLE_IDENTIFIER),
         _spec_var("Make", _ROLE_OMIT),
@@ -684,7 +684,6 @@ def _interaction_categorical_cross_spec() -> list[SpecVariable]:
             _ROLE_PREDICTOR,
             True,
             "Categorical",
-            sequence=True,
             interaction_term="Origin",
             interaction_operation="Product",
         ),
@@ -733,7 +732,7 @@ def _interaction_difference_spec() -> list[SpecVariable]:
         _spec_var("Horsepower", _ROLE_OMIT),
         _spec_var("Weight", _ROLE_PREDICTOR, True, "Continuous"),
         _spec_var("Acceleration", _ROLE_PREDICTOR, False, "Continuous"),
-        _spec_var("Model Year", _ROLE_IDENTIFIER, sequence=True),
+        _spec_var("Model Year", _ROLE_IDENTIFIER),
         _spec_var("Origin", _ROLE_OMIT),
         _spec_var("Car Name", _ROLE_IDENTIFIER),
         _spec_var("Make", _ROLE_OMIT),
@@ -776,7 +775,7 @@ def _interaction_ratio_reciprocal_spec() -> list[SpecVariable]:
             interaction_operation="Ratio",
         ),
         _spec_var("Acceleration", _ROLE_OMIT),
-        _spec_var("Model Year", _ROLE_IDENTIFIER, sequence=True),
+        _spec_var("Model Year", _ROLE_IDENTIFIER),
         _spec_var("Origin", _ROLE_OMIT),
         _spec_var("Car Name", _ROLE_IDENTIFIER),
         _spec_var("Make", _ROLE_OMIT),
@@ -998,7 +997,10 @@ def _life_country_width_guard_spec() -> list[SpecVariable]:
     200-column spec block looks like in practice.
 
     Year stays Sequence-flagged while being a Categorical Predictor, which
-    is legal and already precedented (M14 does the same with Model Year).
+    is legal — Sequence is structural, not a Role, so a column can be both.
+    It is also true here rather than decorative: Life Expectancy is a real
+    country x year panel, which is why this dataset's shipped profile flags
+    Year and Auto MPG's flags nothing (see ``_DEFAULT_SEQUENCE_VARIABLES``).
     ``Country`` moves from Identifier to Categorical Predictor, so the row
     labels fall back to positional ("Obs. 1", ...).
     """

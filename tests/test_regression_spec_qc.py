@@ -82,6 +82,34 @@ def test_regression_spec_fixture_names_are_pinned() -> None:
     assert [case.name for case in build_regression_spec_cases()] == _EXPECTED_CASE_NAMES
 
 
+def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> None:
+    """No fittable case declares a Sequence flag on Auto MPG.
+
+    Auto MPG is cross-sectional — one row per car model, no unit observed
+    across periods — so ``Model Year`` is not an ordering axis, and a spec
+    that flags it asserts panel structure the data does not have. Every
+    Auto MPG case used to carry the flag by inheritance from the shipped T0
+    default; that default is now empty, and this pins it so a copy-pasted
+    ``sequence=True`` cannot creep back.
+
+    The two panel datasets keep theirs, because there the flag is true and
+    the diagnostics it gates (Durbin-Watson, and Breusch-Godfrey/Newey-West
+    once Fixed Effects are present) are meaningful: every Production Lots
+    case flags ``Fiscal_Year``, and every Life Expectancy case ``Year``.
+    """
+    axis_for_table = {
+        "=MileageData[#All]": None,
+        "=ProductionLotsData[#All]": "Fiscal_Year",
+        "=LifeExpectancyData[#All]": "Year",
+    }
+    for case in build_regression_spec_cases():
+        flagged = tuple(item.name for item in case.spec if item.sequence)
+        axis = axis_for_table[case.source_table_ref]
+        assert flagged == (() if axis is None else (axis,)), (
+            f"{case.name} ({case.plan_id}) flags {flagged!r} as Sequence"
+        )
+
+
 def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
     import build_qc
 
@@ -355,8 +383,12 @@ def test_default_t0_design_matches_current_constructor_semantics() -> None:
     assert design.level_counts == {"Model Year": 13, "Origin": 3}
     assert design.references_in_use == {"Model Year": 70, "Origin": "Asia"}
     assert design.degenerate_categoricals == ()
-    assert design.sequence_values is not None
-    assert design.sequence_values[0] == 70
+    # No Sequence axis on Auto MPG: the dataset is cross-sectional, so the
+    # T0 spec flags nothing and the serial-correlation layer stays inert.
+    # The Sequence machinery is covered on the datasets that have a real
+    # ordering axis (Production Lots' Fiscal_Year, Life Expectancy's Year)
+    # and, for the flag mechanics themselves, by guard cases G03 and M16.
+    assert design.sequence_values is None
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")

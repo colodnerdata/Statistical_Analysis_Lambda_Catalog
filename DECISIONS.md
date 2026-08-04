@@ -3387,3 +3387,56 @@ sheet-scoped replacement is installed by the sheet writer, which needs Excel.
 Until `build_production.py` is re-run and the artifact committed,
 `test_regression_workbook_scope_belongs_to_the_catalog` reports the stale
 name as residue, which is exactly what it is.
+
+### Auto MPG ships no Sequence axis — `Model Year` was never one
+
+**Question:** the shipped T0 spec flagged `Model Year` as
+`Sequence = TRUE`, and every Auto MPG QC case inherited the flag from it.
+Is that a correct description of the dataset?
+
+**Resolution:** RESOLVED — no. `_DEFAULT_SEQUENCE_VARIABLES` becomes empty,
+and the flag is removed from every Auto MPG spec case.
+
+Auto MPG is cross-sectional. Each row is a distinct car model observed once;
+no unit is repeated across periods, so there is no axis to order along. The
+Sequence flag is not a formatting preference — it activates the Base Period Δ
+candidate, the Sequence Spacing block, and the gated Durbin-Watson
+diagnostic, all of which presuppose a panel. What the flag actually bought
+here was a Δ candidate nobody can interpret and a DW statistic computed over
+an arbitrary row order. It did not even light up the spacing verdict:
+`Sequence_Deltas` groups by the **Identifier** columns, and the shipped
+Identifier (`Car Name`) is very nearly unique, so every group is a singleton,
+there are no within-group consecutive pairs, and the verdict cell was
+unconditionally blank the whole time. A default that asserts panel structure
+the data does not have is worse than no default.
+
+**What keeps its flag, and why.** The two datasets that *are* panels keep
+theirs: Life Expectancy (`Year`, country × year) and Production Lots
+(`Fiscal_Year`, facility × fiscal year). Both ship it in their
+`SpecDatasetProfile`, both are reachable through `--regression-dataset`, so
+the Sequence layer is still demonstrated by default — on data where it means
+something. On Auto MPG the layer now self-reports `n/a — requires Sequence`
+until a user types TRUE into column H, which is the honest state.
+
+**Two guard cases still declare it, explicitly.** G3 (two flags → the H2
+cardinality error) and M16 (typed period override) test the flag's
+*mechanics*, not the data: H2 counts flags, and the override path resolves
+the flagged row positionally. Both are dataset-independent and unreachable
+without a flag present, so each now states its own rather than inheriting
+one, with a comment saying it is wiring and not a claim. Auto MPG's evenly
+spaced integer years remain a clean substrate for M16's candidate Δ = 1
+against a typed Δ = 2.
+
+**REJECTED — keeping the default so the flagship artifact still demos the
+feature.** That was the only real argument for the old behaviour, and it does
+not survive the observation above: demonstrating the serial-correlation layer
+on data with no serial structure teaches the wrong lesson, and the two panel
+profiles demonstrate it correctly at no cost.
+
+Pinned by `test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis`
+(no fittable Auto MPG case flags anything; every Production Lots case flags
+`Fiscal_Year` and every Life Expectancy case `Year`) and
+`test_only_the_two_mechanics_cases_flag_sequence_on_auto_mpg` (G3 and M16 are
+the entire exception list). **This changes the shipped spec block**, so
+`Lambda_Library.xlsx` needs the same rebuild the `Base_Period_Delta` scope
+change above already requires.

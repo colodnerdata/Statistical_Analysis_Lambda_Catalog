@@ -9,6 +9,7 @@ so does not run in CI.
 # pylint: disable=missing-function-docstring
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -178,6 +179,31 @@ def test_two_sequence_flags_still_computes_spacings_from_the_first_row() -> None
     assert expected.delta_spectrum
 
 
+def test_only_the_two_mechanics_cases_flag_sequence_on_auto_mpg() -> None:
+    """G03 and M16 are the whole list, and both declare the flag explicitly.
+
+    Auto MPG has no ordering axis (see the companion assertion in
+    tests/test_regression_spec_qc.py), so nothing inherits a Sequence flag
+    there any more. Two guard cases still wire one up, and neither is making
+    a claim about the data: G03 tests the H2 cardinality rule, which counts
+    flags, and M16 tests the typed-period override, which reads the flagged
+    row positionally. Both are dataset-independent mechanisms that need a
+    flag present to be reachable at all.
+
+    Pinning the list is what stops the flag being reintroduced elsewhere on
+    this dataset by a copy-paste.
+    """
+    flagged = {
+        case.name: tuple(item.name for item in case.spec if item.sequence)
+        for case in build_guard_state_cases()
+        if case.source_table_ref == "=MileageData[#All]"
+    }
+    assert {name: names for name, names in flagged.items() if names} == {
+        "guard_two_sequence_flags": ("Acceleration", "Model Year"),
+        "guard_sequence_period_override": ("Model Year",),
+    }
+
+
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_two_fixed_effects_rows_raise_the_cardinality_error() -> None:
     expected = _expected("guard_two_fixed_effects")
@@ -296,7 +322,20 @@ def test_ln_zero_guard_does_not_narrow_the_sample() -> None:
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_typed_sequence_period_overrides_the_candidate_and_moves_the_verdict() -> None:
     expected = _expected("guard_sequence_period_override")
-    baseline = _expected("guard_intercept_off_with_categorical")
+    # The baseline is M16's own case with the typed override removed, built
+    # here rather than borrowed from another registered case. No other Auto
+    # MPG case declares a Sequence flag at all — the dataset is
+    # cross-sectional, so only the case that tests the override machinery
+    # wires one up — and a baseline on a different dataset would change the
+    # candidate as well as the override, which is the one thing this test
+    # needs held fixed.
+    override_case = next(
+        c for c in build_guard_state_cases()
+        if c.name == "guard_sequence_period_override"
+    )
+    baseline = calculate_guard_state_case(
+        replace(override_case, sequence_period_override={})
+    )
 
     # Same dataset and axis, so the candidate is the same; only the typed
     # override differs.

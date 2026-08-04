@@ -696,8 +696,20 @@ def build_guard_state_cases() -> list[GuardStateCase]:
             name="guard_two_sequence_flags",
             plan_id="G03",
             sheet_name="G03 Two Sequence Flags",
+            # Both flags are declared explicitly. Auto MPG ships with NO
+            # Sequence variable (it is cross-sectional — see
+            # _DEFAULT_SEQUENCE_VARIABLES), so this case cannot inherit one
+            # from the T0 spec and add a second; it has to state both. That
+            # is the honest shape anyway: what is under test is the H2
+            # cardinality rule, which is dataset-independent — it counts
+            # flags, and does not care whether either column is a real
+            # ordering axis.
             spec=tuple(
                 _mileage_spec(
+                    model_year=_spec_var(
+                        "Model Year", _ROLE_PREDICTOR, True, "Categorical",
+                        sequence=True,
+                    ),
                     acceleration=_spec_var(
                         "Acceleration", _ROLE_PREDICTOR, True, "Continuous",
                         sequence=True,
@@ -878,7 +890,23 @@ def build_guard_state_cases() -> list[GuardStateCase]:
             name="guard_sequence_period_override",
             plan_id="M16",
             sheet_name="M16 Sequence Period Override",
-            spec=tuple(build_default_spec()),
+            # Model Year is Sequence-flagged HERE and nowhere else on Auto
+            # MPG. The dataset is cross-sectional, so the flag is not a
+            # claim about the data — it is the minimum wiring needed to
+            # reach the typed-override path, which is what this case tests.
+            # The override machinery reads Spec_Sequence / Spec_Sequence_
+            # Period positionally and is indifferent to whether the flagged
+            # column means anything, so Auto MPG's evenly spaced integer
+            # years are a clean substrate for it: candidate Δ = 1, typed
+            # Δ = 2, and the verdict has to follow the typed one.
+            spec=tuple(
+                _mileage_spec(
+                    model_year=_spec_var(
+                        "Model Year", _ROLE_PREDICTOR, True, "Categorical",
+                        sequence=True,
+                    ),
+                )
+            ),
             sequence_period_override={"Model Year": 2.0},
             covers="A typed Sequence Period of 2 against a candidate Δ of 1: "
             "the Period In Use cell shows the override, and the verdict is "

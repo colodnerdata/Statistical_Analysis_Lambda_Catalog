@@ -15,13 +15,18 @@ only *what to do*.
 
 ## How to read an entry
 
-Each item carries a one-line tag: **status · size · Excel**.
+Each pickable item carries a one-line tag: **status · size · Excel**.
 
 | Field | Values |
 |---|---|
 | Status | `READY` — specified enough to start · `OPEN` — needs a decision first · `DEFERRED` — deliberately held, don't start without reopening the decision |
 | Size | `S` — one small commit · `M` — a focused session · `L` — multi-session |
 | Excel | `no Excel` — headless, CI-verifiable · `needs Excel` — cannot be finished or verified without Microsoft Office on a developer machine (see [CONTRIBUTING.md](CONTRIBUTING.md) → *Verifying builds*) |
+
+A `DEFERRED` item carries the status field **only**. It is not available to
+pick up, so a size and an Excel flag would be invented rather than estimated —
+whoever reopens the deferral scopes it then. Everything with a bare `DEFERRED`
+tag is deliberate, not an entry someone forgot to finish tagging.
 
 ---
 

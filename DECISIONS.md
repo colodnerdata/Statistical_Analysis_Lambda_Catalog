@@ -308,9 +308,9 @@ numeric AND every included Continuous Predictor numeric), so no separate
 `Data_Completeness(...[Life expectancy]:[Schooling])` span dies with it.
 
 **Remaining gap (the blank-categorical caveat):** Categorical Predictors
-impose no non-blank condition; a blank category value encodes as
-as `DEFERRED` in
-[TODOs.md § v2.0](TODOs.md#v20-leftovers);
+impose no non-blank condition; a blank category value encodes as all-zero
+dummies, indistinguishable from the reference level. Tracked as an `OPEN`
+item in [TODOs.md § v2.0](TODOs.md#v20-leftovers);
 interim workaround is a completeness column declared as a Filter.
 
 ### Spec-validation semantics (NA() everywhere)

@@ -400,18 +400,19 @@ def read_regression_df(
                 # of the response column — raw production-cost data runs
                 # into the 1e10 range, where the IEEE-754 precision floor
                 # sits at 6 decimal digits on values ~1e10 (1.9e-6 abs
-                # diff). Scale these comparisons against 1e9 so the
-                # tolerance continues to read as 3 effective decimal
-                # places (the original _D=3 setting) on the largest
-                # numbers the suite sees, instead of failing at a
-                # precision boundary that is by construction indistinguishable
-                # between Excel and Python.
+                # diff), i.e. above the 3-decimal tolerance the rest of the
+                # suite is calibrated against. These six compare scale-free
+                # so the tolerance reads as 3 SIGNIFICANT digits rather than
+                # 3 decimal places, instead of failing at a precision
+                # boundary that is by construction indistinguishable between
+                # Excel and Python. Both sides are divided by the same
+                # factor, so a genuinely wrong number still fails.
                 if stat_name in (
                     "SS_Regression", "SS_Residual", "SS_Total",
                     "MS_Regression", "MS_Residual",
                     "PRESS",
                 ):
-                    diff, fdd_val = compare_values(exp_val, xl_val, relative_to=1e9)
+                    diff, fdd_val = compare_values(exp_val, xl_val, scale_free=True)
                 else:
                     diff, fdd_val = compare_values(exp_val, xl_val)
                 scalar_rows.append({

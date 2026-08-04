@@ -112,11 +112,15 @@ class RegressionSpecDesign:
     response_transform: str
     predictor_transform: str
     x_features: np.ndarray
+    # ``y_train`` is the FIT-space response — logged when the Response row
+    # declares Log — and is NOT yet within-demeaned; the demeaning happens
+    # inside calculate_regression_results_from_matrix, which therefore holds
+    # both the demeaned and un-demeaned columns and can derive the v3.3 level
+    # shift itself. This is exactly Response_Column() on the sheet, so no
+    # separate "y_full" array is carried: an array that has to be fit-space
+    # for the level shift and original-units for the unit-space residual is
+    # wrong for one of its two callers whatever it holds.
     y_train: np.ndarray
-    # v3.3: y_full is the response in original units (NOT within-demeaned)
-    # — Response_Column() on the sheet. Used to back the unit-space
-    # statistics (smearing factor, R²_unit, residuals_unit, model formula).
-    y_full: np.ndarray
     sequence_values: np.ndarray | None
     group_labels: np.ndarray | None
     included_rows: int
@@ -378,13 +382,6 @@ def build_spec_design(
         raise ValueError("Spec produced zero constructed columns")
     x_features = np.asarray(matrix_columns, dtype=np.float64).T
 
-    # y_full: the response in original units (NOT within-demeaned) —
-    # Response_Column() on the sheet. Powers the v3.3 unit-space arithmetic.
-    y_full = np.asarray(
-        [float(rows[idx][response_name]) for idx in included_indices],
-        dtype=np.float64,
-    )
-
     # v3.3: predictor-transform summary, mirroring the sheet's
     # _PREDICTOR_TRANSFORM_FORMULA ("None"/"Log"/"Mixed" over the
     # included Continuous predictors — Categorical dummies are excluded so
@@ -438,7 +435,6 @@ def build_spec_design(
         predictor_transform=predictor_transform,
         x_features=x_features,
         y_train=np.asarray(y_values, dtype=np.float64),
-        y_full=y_full,
         sequence_values=sequence_values,
         group_labels=group_labels,
         included_rows=len(included_indices),
@@ -482,7 +478,6 @@ def calculate_regression_spec_case(
         selected_group=resolved_prediction_group,
         response_transform=design.response_transform,
         predictor_transform=design.predictor_transform,
-        y_full=design.y_full,
     )
     return RegressionSpecExpected(
         case=case,

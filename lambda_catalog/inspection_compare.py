@@ -36,7 +36,7 @@ def compare_values(
     expected: float | None,
     actual: float | None,
     *,
-    relative_to: float | None = None,
+    scale_free: bool = False,
 ) -> tuple[float | None, int | None]:
     """Return absolute difference and first-digit deviation for two values.
 
@@ -46,14 +46,20 @@ def compare_values(
     are normalized to None first so that case reads as "both missing"
     (no deviation) instead of a spurious first-digit-deviation-0 mismatch.
 
-    ``relative_to`` rescales the expected value before the first-digit
-    deviation is computed — used for statistics whose magnitude runs into
-    1e10 (raw-cost sums of squares on the production-lots data) where the
-    precision-floor is the seventh decimal, not the third. The normalised
-    expected value is ``expected / max(relative_to, |expected|)`` so the
-    comparison always sees an O(1) magnitude, and rounding-floor behaviour
-    matches the original 3-decimal tolerance the rest of the suite is
-    calibrated against.
+    ``scale_free`` divides BOTH values by ``max(|expected|, 1.0)`` before the
+    first-digit deviation is computed, turning an absolute tolerance into a
+    relative one. It is for statistics whose magnitude tracks the response
+    column — sums of squares on raw production-cost data run into 1e10, where
+    the IEEE-754 precision floor already sits above the third decimal and
+    Excel and Python cannot agree there by construction.
+
+    Dividing both sides by the same factor leaves their RELATIVE difference
+    untouched, so this loosens the precision floor without hiding a genuinely
+    wrong number. The divisor deliberately has no fixed floor in it: an
+    earlier ``max(1e9, |expected|, 1.0)`` form mapped a 1e10 value to the
+    intended O(1) but a 1e4 value to 1e-5, quietly loosening the tolerance on
+    every small-magnitude case by five orders of magnitude — the opposite of
+    what the O(1) normalisation is for.
     """
     expected = _finite_or_none(expected)
     actual = _finite_or_none(actual)
@@ -62,7 +68,7 @@ def compare_values(
     if expected is None or actual is None:
         return None, 0
     diff = abs(actual - expected)
-    if relative_to is not None:
-        scale = max(abs(relative_to), abs(expected), 1.0)
+    if scale_free:
+        scale = max(abs(expected), 1.0)
         return diff, first_digit_deviation(expected / scale, actual / scale)
     return diff, first_digit_deviation(expected, actual)

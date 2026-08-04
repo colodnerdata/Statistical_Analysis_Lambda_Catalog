@@ -824,13 +824,17 @@ def test_write_unit_space_block_writes_section_input_and_three_gof_cells() -> No
     # Section heading on row 3 spans AG3 (a single value cell here — the
     # section_heading helper writes it as a label, not a merge).
     assert sheet.cell(3, _C_AG).value == "UNIT-SPACE FIT"
-    # Row 4: Back-Transform Method input (default "Duan", validated against
-    # the supported set).
+    # Row 4: Back-Transform Method input. A LITERAL "Duan", never a formula —
+    # the cell is an input, and a formula reading its own $AH$4 address is a
+    # circular reference that Excel resolves to 0 with iterative calculation
+    # off, feeding an unrecognised method to every consumer below. The
+    # Duan/Naive constraint lives in the list validation, not in the cell.
     assert sheet.cell(4, _C_AG).value == "Back-Transform"
+    assert sheet.cell(4, _C_AH).value == "Duan"
     method_formula = sheet.cell(4, _C_AH).api.Formula2
-    assert method_formula is not None
-    assert '"Duan"' in method_formula
-    assert '"Naive"' in method_formula
+    assert method_formula is None or not str(method_formula).startswith("="), (
+        "AH4 must hold a literal default, not a self-referential formula"
+    )
     # Rows 5–8: the four GoF statistics; each formula lifts the smearing
     # factor's own X/Y/Include/Context wiring rather than re-stating it.
     for row, label in [

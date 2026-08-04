@@ -35,6 +35,7 @@ UNIT_SPACE_FUNCTIONS = (
     "Smearing_Factor",
     "Back_Transform_Response",
     "Unit_Space_Predictions",
+    "Unit_Space_Observed",
     "Unit_Space_Residuals",
     "Unit_Space_R_Squared",
     "Unit_Space_Adjusted_R_Squared",
@@ -95,9 +96,16 @@ def _unit_space_predictions_mirror(
     """=Unit_Space_Predictions(...) — back-transformed in-sample predictions.
 
     Reproduces the catalog's three-step pipeline:
-      shift     = FILTER(Y_Full, Include) - FILTER(Y, Include)
+      shift     = IF(rt="Log", FILTER(Y_Full, Include) - FILTER(Y, Include), 0)
       fitted    = Predictions(X, Y, Include) + shift
       result    = SWITCH(rt & "|" & pt, ..., Back_Transform_Response(fitted))
+
+    The shift reintroduces the level the within transformation removed, so
+    that EXP() under Fixed Effects exponentiates a real predicted log
+    response rather than a group deviation. It is gated on Log because
+    nothing is exponentiated under None, and applying it there would turn
+    a within-flavoured statistic into a total one — breaking the reduction
+    invariant.
     """
     if response_transform not in {"None", "Log"}:
         return np.full(x.shape[0], NA)
@@ -105,7 +113,7 @@ def _unit_space_predictions_mirror(
         return np.full(x.shape[0], NA)
     y_full_inc = np.asarray(y_full, dtype=float)[include]
     y_inc = np.asarray(y, dtype=float)[include]
-    shift = y_full_inc - y_inc
+    shift = (y_full_inc - y_inc) if response_transform == "Log" else 0.0
     fitted_full, _ = _fit_response(x, y, include, response_transform)
     fitted_inc = fitted_full[include]
     fitted_with_shift = fitted_inc + shift
@@ -115,6 +123,38 @@ def _unit_space_predictions_mirror(
         fitted_with_shift, response_transform, method, sm)
     unit_full[include] = unit_inc
     return unit_full
+
+
+def _unit_space_observed_mirror(y: np.ndarray, y_full: np.ndarray,
+                                include: np.ndarray,
+                                response_transform: str) -> np.ndarray:
+    """=Unit_Space_Observed(Y, Y_Full, [Include], [Context]).
+
+    The observed half of every unit-space comparison, read in the SAME space
+    as ``Unit_Space_Predictions`` returns. One expression covers both cases:
+
+        shift   = IF(rt="Log", FILTER(Y_Full, Inc) - FILTER(Y, Inc), 0)
+        y_level = Dependent_Variable(Y, Inc) + shift
+        result  = Back_Transform_Response(y_level, ctx, "Naive", 1)
+
+    Under Log, ``y_level`` is ``Y_Full`` — the un-demeaned log response — and
+    the back-transform returns raw y. Under None the shift is zero, the
+    back-transform is a pass-through, and the observed side stays the
+    within-demeaned column the ordinary statistics are computed on, which is
+    what keeps the reduction invariant true under Fixed Effects.
+
+    The Naive branch is forced: the smearing factor lifts a prediction from
+    the conditional median to the conditional mean, and an observation is
+    neither.
+    """
+    y_inc = np.asarray(y, dtype=float)[include]
+    shift = (
+        np.asarray(y_full, dtype=float)[include] - y_inc
+        if response_transform == "Log"
+        else 0.0
+    )
+    return _back_transform_response_mirror(
+        y_inc + shift, response_transform, "Naive", 1.0)
 
 
 def _unit_space_r_squared_mirror(x, y, y_full, include, response_transform,
@@ -128,7 +168,8 @@ def _unit_space_r_squared_mirror(x, y, y_full, include, response_transform,
         return NA
     pred = _unit_space_predictions_mirror(
         x, y, y_full, include, response_transform, predictor_transform, method)
-    y_full_inc = np.asarray(y_full, dtype=float)[include]
+    y_full_inc = _unit_space_observed_mirror(
+        y, y_full, include, response_transform)
     sse = float(np.sum((y_full_inc - pred[include]) ** 2))
     # SST about the mean — the default-with-intercept case the catalog
     # implements. The no-intercept case (about zero) is the other branch;
@@ -247,6 +288,36 @@ def test_unit_space_predictions_switches_on_all_six_pairs() -> None:
     for pair in ("None|None", "None|Log", "None|Mixed",
                  "Log|None",  "Log|Log",  "Log|Mixed"):
         assert f'"{pair}"' in formula, pair
+
+
+def test_unit_space_statistics_back_transform_the_observed_response() -> None:
+    """``Y_Full`` is ``Response_Column()`` — ln(y) under a Log Response row.
+
+    Every statistic that subtracts an observed value from a back-transformed
+    prediction has to put the observed side through the same transform first,
+    or it compares ln(y) against a number in the response's own units. The
+    Naive branch is forced: the smearing factor lifts a prediction from the
+    conditional median to the conditional mean and must never be applied to
+    an observation.
+    """
+    observed = _formula("Unit_Space_Observed")
+    assert 'shift,IF(rt="Log",FILTER(Y_Full,filt_arg)-FILTER(Y,filt_arg),0)' in observed
+    assert "y_level,Dependent_Variable(Y,filt_arg)+shift" in observed
+    assert 'Back_Transform_Response(y_level,context_arg,"Naive",1)' in observed
+    for name in ("Unit_Space_R_Squared", "Unit_Space_RMSE", "Unit_Space_Residuals"):
+        formula = _formula(name)
+        assert "y_unit,Unit_Space_Observed(Y,Y_Full,filt_arg,context_arg)" in formula, name
+        assert "y_unit,Dependent_Variable(Y_Full" not in formula, name
+
+
+def test_unit_space_predictions_gate_the_level_shift_on_a_log_response() -> None:
+    """The shift exists so EXP() under FE exponentiates a predicted log
+    response rather than a group deviation. Under None nothing is
+    exponentiated, and shifting there converts the within-flavoured
+    statistics into total ones — the reduction invariant would break."""
+    formula = _formula("Unit_Space_Predictions")
+    assert 'shift,IF(rt="Log",FILTER(Y_Full,filt_arg)-FILTER(Y,filt_arg),0)' in formula
+    assert "shift,FILTER(Y_Full,filt_arg)-FILTER(Y,filt_arg)," not in formula
 
 
 def test_unit_space_r_squared_uses_sumsq_for_both_terms() -> None:
@@ -390,6 +461,130 @@ def test_unit_space_r_squared_under_diffs_from_naive() -> None:
     r2_naive = _unit_space_r_squared_mirror(
         x, log_y, log_y, include, "Log", "None", "Naive")
     assert abs(r2_duan - r2_naive) > 1e-6  # the metrics differ in original units
+
+
+def test_unit_space_r_squared_matches_an_original_scale_reference_under_log() -> None:
+    """The one check the rest of this file cannot make.
+
+    Every other numeric test here compares a mirror against another mirror,
+    or Duan against Naive. Both sides of those comparisons take ``y_full``
+    as *already* being the observed response in original units — which is
+    what the catalog does too (``y_unit, Dependent_Variable(Y_Full, ...)``).
+    The Regression sheet passes ``Response_Column()``, and that is ln(y)
+    when the Response row declares Log, so the shared assumption is wrong
+    and no mirror-vs-mirror test can see it.
+
+    This test computes the reference straight from the raw response: fit
+    ln(y), back-transform the fitted values, and form R² against y itself.
+    Nothing here routes through ``_unit_space_predictions_mirror``.
+    """
+    rng = np.random.default_rng(101)
+    x = rng.normal(size=180).reshape(90, 2)
+    log_y = 2.0 + 0.6 * x[:, 0] - 0.35 * x[:, 1] + rng.normal(scale=0.4, size=90)
+    y = np.exp(log_y)
+    include = np.ones(90, dtype=bool)
+
+    x_with_const = np.column_stack([np.ones(90), x])
+    beta, *_ = np.linalg.lstsq(x_with_const, log_y, rcond=None)
+    fitted_log = x_with_const @ beta
+    smearing = float(np.mean(np.exp(log_y - fitted_log)))
+    y_hat = np.exp(fitted_log) * smearing
+    expected = 1.0 - float(np.sum((y - y_hat) ** 2)) / float(
+        np.sum((y - np.mean(y)) ** 2)
+    )
+
+    got = _unit_space_r_squared_mirror(
+        x, log_y, log_y, include, "Log", "None", "Duan")
+    assert math.isclose(got, expected, rel_tol=1e-12), (
+        "Unit_Space_R_Squared must measure the fit against y in the response's "
+        "own units. Comparing ln(y) against a back-transformed prediction "
+        f"mixes unit systems: got {got}, original-scale reference {expected}."
+    )
+
+
+def test_unit_space_predictions_ignore_the_level_shift_under_none() -> None:
+    """The level shift exists only so EXP() of a within deviation means
+    something. Under ``Transform = None`` nothing is exponentiated, so a
+    Fixed Effects model's unit-space predictions must stay the ordinary
+    within-fitted values — otherwise Unit_Space_R_Squared silently becomes
+    a total R² and stops matching R_Squared, breaking the reduction
+    invariant this milestone ships on.
+    """
+    rng = np.random.default_rng(103)
+    groups = np.repeat(np.arange(6), 12)
+    x = rng.normal(size=144).reshape(72, 2)
+    y_full = 5.0 + groups * 2.0 + 0.5 * x[:, 0] + rng.normal(scale=0.3, size=72)
+    include = np.ones(72, dtype=bool)
+
+    # Within-demean both sides by group, the way Design_Response() does.
+    y_within = y_full.copy()
+    x_within = x.copy()
+    for g in np.unique(groups):
+        mask = groups == g
+        y_within[mask] -= y_within[mask].mean()
+        x_within[mask] -= x_within[mask].mean(axis=0)
+    assert not np.allclose(y_full - y_within, 0.0), "level shift must be non-zero"
+
+    got = _unit_space_predictions_mirror(
+        x_within, y_within, y_full, include, "None", "None", "Duan")
+    expected = _ols_standard_results(x_within, y_within, include)["fitted"]
+    assert np.allclose(got, expected, atol=1e-10), (
+        "Under Transform = None the level shift must not be applied — "
+        "Unit_Space_Predictions has to collapse to Predictions()."
+    )
+
+
+def test_unit_space_r_squared_reduces_to_r_squared_under_fixed_effects_and_none() -> None:
+    """The reduction invariant has to survive Fixed Effects, not just the
+    no-FE case.
+
+    Under FE the sheet's ordinary statistics are within-flavoured, computed
+    on the demeaned pair. If either the fitted side or the observed side
+    picked up the level shift under ``Transform = None`` the unit-space R²
+    would quietly become a *total* R² — a different, larger number that
+    still looks plausible. ``production_lots_fixed_effects`` is exactly this
+    configuration.
+    """
+    rng = np.random.default_rng(107)
+    groups = np.repeat(np.arange(5), 14)
+    x = rng.normal(size=140).reshape(70, 2)
+    y_full = 40.0 + groups * 9.0 + 0.7 * x[:, 0] - 0.2 * x[:, 1] + rng.normal(
+        scale=0.5, size=70)
+    include = np.ones(70, dtype=bool)
+
+    y_within = y_full.copy()
+    x_within = x.copy()
+    for g in np.unique(groups):
+        mask = groups == g
+        y_within[mask] -= y_within[mask].mean()
+        x_within[mask] -= x_within[mask].mean(axis=0)
+
+    expected = _ols_standard_r_squared(x_within, y_within, include)
+    got = _unit_space_r_squared_mirror(
+        x_within, y_within, y_full, include, "None", "None", "Duan")
+    assert math.isclose(got, expected, rel_tol=1e-12), (
+        "Under FE + None the unit-space R² must stay the within R² the rest "
+        f"of the sheet reports: got {got}, within R² {expected}."
+    )
+
+
+def test_unit_space_observed_returns_raw_y_under_log_with_fixed_effects() -> None:
+    """Under FE + Log the observed side is the raw response, recovered by
+    adding the group mean back before exponentiating — not EXP of a within
+    deviation, and not the log response itself."""
+    rng = np.random.default_rng(109)
+    groups = np.repeat(np.arange(4), 15)
+    log_y = 1.2 + groups * 0.4 + rng.normal(scale=0.25, size=60)
+    y = np.exp(log_y)
+    include = np.ones(60, dtype=bool)
+
+    log_y_within = log_y.copy()
+    for g in np.unique(groups):
+        mask = groups == g
+        log_y_within[mask] -= log_y_within[mask].mean()
+
+    got = _unit_space_observed_mirror(log_y_within, log_y, include, "Log")
+    assert np.allclose(got, y, rtol=1e-12)
 
 
 def _is_na(value) -> bool:

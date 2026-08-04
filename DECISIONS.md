@@ -2816,10 +2816,43 @@ Six amendments to the v2.2/v2.3 design record:
    passed alongside `Y` = `Design_Response()` (transformed *and* demeaned).
    Their difference on the filtered sample is exactly the level the within
    transformation removed, so the full-space fitted value is
-   `Predictions(X,Y,Include) + (Y_Full − Y)`. This is what makes Fixed
+   `Predictions(X,Y,Include) + shift`. This is what makes Fixed
    Effects + Log work without a `Group_Mean` call, an FE-detection branch
    or a new closure — the level shift is zero whenever no FE row is
    declared.
+
+   **The shift is gated on a Log response:** `shift = IF(rt="Log",
+   FILTER(Y_Full,Include) − FILTER(Y,Include), 0)`. It exists only so that
+   `EXP()` under FE exponentiates a predicted log response rather than a
+   group deviation, and nothing is exponentiated under `None`. Applying it
+   unconditionally silently converts the within-flavoured statistics into
+   total ones, so `Unit_Space_R_Squared` stops equalling `R_Squared` on an
+   FE model with no transform — the reduction invariant below, broken by a
+   number that still looks plausible.
+
+2a. **`Y_Full` is NOT the observed response in original units, and the
+   distinction is load-bearing.** It is fit space: `ln(y)` under a Log
+   Response row. Every unit-space statistic subtracts an observed value from
+   a back-transformed prediction, so reading the observed side straight off
+   `Y_Full` puts `ln(y)` and a response-unit prediction in one subtraction.
+   On a synthetic log-linear fit that returns **R² = −148.66 where the true
+   original-scale R² is 0.693** — a wrong number, not an error, in the cell
+   `Comparison_Headline_GoF` publishes to v3.4.
+
+   Resolved with a dedicated accessor, **`Unit_Space_Observed(Y, Y_Full,
+   [Include], [Context])`**, so the choice is made once rather than restated
+   at each of the three goodness-of-fit call sites. Both cases fall out of one
+   expression: `Back_Transform_Response(Dependent_Variable(Y, Include) +
+   shift, Context, "Naive", 1)`, reusing the same gated `shift`. Under `Log`,
+   `y_level` is `Y_Full` and the back-transform returns raw `y`; under `None`
+   the shift vanishes, the back-transform is a pass-through, and the observed
+   side stays the within-demeaned column the ordinary statistics use — which
+   is what keeps the reduction invariant true under Fixed Effects.
+
+   **The observed side is always `Naive`, never smeared.** Duan's factor
+   lifts a *prediction* from the conditional median to the conditional mean.
+   An observation is neither, and smearing one corrupts `SSE` and `SST`
+   alike.
 
 3. **The pair-SWITCH lives in `Unit_Space_Predictions` /
    `Back_Transform_Response`, not repeated in each GoF name.** The
@@ -2870,10 +2903,17 @@ Seven new functions in `lambda_functions.json` under subcategory
   method → `NA()`. `[Method]` defaults `"Duan"`, `[Smearing]` defaults `1`.
 - `Unit_Space_Predictions(X, Y, Y_Full, [Include], [Context], [Method])` —
   n×1. `SWITCH` on the six recognised `(response, predictor)` pairs; each
-  branch back-transforms `Predictions(X,Y,Include) + (FILTER(Y_Full,Include)
-  − FILTER(Y,Include))`. Computes its own smearing factor.
+  branch back-transforms `Predictions(X,Y,Include) + shift`, with
+  `shift = IF(rt="Log", FILTER(Y_Full,Include) − FILTER(Y,Include), 0)`.
+  Computes its own smearing factor.
+- `Unit_Space_Observed(Y, Y_Full, [Include], [Context])` — n×1. The observed
+  response read in the **same space** `Unit_Space_Predictions` returns:
+  `Back_Transform_Response(Dependent_Variable(Y,Include) + shift, Context,
+  "Naive", 1)`. Raw `y` under `Log`; the within-demeaned fit-space column
+  under `None`. The single reason the three GoF names cannot disagree about
+  which space their observed side is in.
 - `Unit_Space_Residuals(X, Y, Y_Full, [Include], [Context], [Method])` — n×1.
-  Observed response in original units minus `Unit_Space_Predictions`.
+  `Unit_Space_Observed` minus `Unit_Space_Predictions`.
 - `Unit_Space_R_Squared(X, Y, Y_Full, [Include], [Context], [Method])` —
   `1 − SSE_unit/SST_unit`; `SST_unit` about the mean with an intercept
   (`Context_Has_Intercept`), about zero without — mirroring `SS_Total`.
@@ -2890,6 +2930,23 @@ everywhere, `Unit_Space_R_Squared ≡ R_Squared`, `Unit_Space_Adjusted_R_Squared
 ≡ Adjusted_R_Squared`, `Unit_Space_RMSE ≡ SE_Regression`, and the two new
 residual columns equal `Predicted Y` / `Residuals`. Same non-breaking
 property v2.2 established.
+
+**It has to hold WITH Fixed Effects too**, and that is the version worth
+testing: with no FE the level shift is zero and every branch is trivially
+inert, so a no-FE-only invariant test passes against code that is wrong.
+`production_lots_fixed_effects` is the real case — FE declared, no transform —
+and both the gated shift (2) and `Unit_Space_Observed`'s `None` branch (2a)
+exist to keep it within-flavoured.
+
+**A mirror test cannot verify this family on its own.** The pure-Python
+mirrors and the catalog LAMBDAs share the same author and the same reading of
+what `Y_Full` means, so a wrong shared assumption produces a green suite and a
+wrong workbook — which is exactly what happened. Two kinds of test are
+therefore load-bearing here and must be kept: one that computes the expected
+`R²_unit` **straight from the raw response** without touching a mirror, and
+one that recomputes the QC oracle's unit-space block from its own already-
+verified residual columns. Neither shares a derivation path with the code it
+checks.
 
 ### Sheet additions (`lambda_catalog/write_sheet_regression.py`)
 

@@ -314,6 +314,12 @@ _A_FE_GROUP = _abs_ref(_ROW_FE_GROUP, _C_AK)
 # block — sibling to the section heading at row 3 — so the rest of the block
 # (rows 5–9) and the prediction column (AL) can reference a single source.
 _A_BACK_TRANSFORM_METHOD = _abs_ref(4, _C_AH)
+# The two back-transform methods, and the default written into AH4 as a
+# LITERAL. The cell is an input: it must never hold a formula that reads its
+# own address (a circular reference), and the validation list below is what
+# constrains a typed value.
+_BACK_TRANSFORM_METHODS = ("Duan", "Naive")
+_BACK_TRANSFORM_DEFAULT = _BACK_TRANSFORM_METHODS[0]
 
 # Content zones as (first_col, last_col) spans — the single source of truth for
 # the outline groups. Each pair becomes one collapsible column group; the gap
@@ -1644,14 +1650,14 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
     section_heading(sheet, 3, _C_AG, "UNIT-SPACE FIT")
     val(sheet, 4, _C_AG, "Back-Transform")
     format_input(sheet, 4, _C_AH)
-    f(
-        sheet,
-        4,
-        _C_AH,
-        '=IFERROR(IF(OR(' + _A_BACK_TRANSFORM_METHOD + '="Duan",'
-        + _A_BACK_TRANSFORM_METHOD + '="Naive"),'
-        + _A_BACK_TRANSFORM_METHOD + ',"Duan"),"Duan")',
-    )
+    # A LITERAL default, never a formula. This cell is an INPUT, and the
+    # earlier "=IF(OR($AH$4=..." form read its own address: a circular
+    # reference, which Excel resolves to 0 with iterative calculation off,
+    # so every consumer below (rows 6-8, AL3, AZ, BA) received an
+    # unrecognised method and returned #N/A. Same shape as the Alpha input
+    # at AB12 (val(sheet, 12, _C_AB, 0.05)) — a typed value is constrained
+    # by the list validation, not by the cell re-deriving itself.
+    val(sheet, 4, _C_AH, _BACK_TRANSFORM_DEFAULT)
     # Restrict the input to the two supported methods via list validation.
     try:
         sheet.range(rc(4, _C_AH)).api.Validation.Delete()
@@ -1661,8 +1667,12 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
         sheet.range(rc(4, _C_AH)).api.Validation.Add(
             Type=3,  # xlValidateList
             AlertStyle=1,
-            Formula1='"Duan,Naive"',
+            Formula1=f'"{",".join(_BACK_TRANSFORM_METHODS)}"',
         )
+        # IgnoreBlank would let a cleared cell through, and a blank method is
+        # not one of the six recognised states — it would silently #N/A the
+        # whole block rather than being rejected at entry.
+        sheet.range(rc(4, _C_AH)).api.Validation.IgnoreBlank = False
     except Exception:  # pylint: disable=broad-exception-caught
         pass
 

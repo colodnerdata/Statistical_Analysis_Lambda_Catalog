@@ -192,7 +192,6 @@ def calculate_regression_results_from_matrix(
     selected_group: str | None = None,
     response_transform: str = "None",
     predictor_transform: str = "None",
-    y_full: np.ndarray | None = None,
 ) -> RegressionSheetResults:
     """Fit OLS and compute expected values for the current Regression sheet.
 
@@ -520,17 +519,24 @@ def calculate_regression_results_from_matrix(
     # ── v3.3 unit-space / back-transformation arithmetic ──────────────────
     # Mirrors the AG3:AH9 unit-space block, the AL Original Units prediction
     # column, and the AZ/BA Predicted Y (Original Units) / Residual
-    # (Original Units) columns on the sheet. y_full is the response in
-    # original units (NOT within-demeaned) — Response_Column() on the
-    # Regression sheet. When no Fixed Effects row is declared, y_full and
-    # y_train are the same column (or y_full is just y_train if the response
-    # was also untransformed), so the level shift is zero and the arithmetic
-    # collapses exactly to the ordinary statistics — the reduction invariant
-    # the v3.3 unit-space tests assert.
-    if y_full is None:
-        y_full_arr = y_train
-    else:
-        y_full_arr = np.asarray(y_full, dtype=np.float64)
+    # (Original Units) columns on the sheet.
+    #
+    # Two response columns are in play, and conflating them is the whole
+    # hazard here:
+    #
+    #   y_train  the FIT-space response, un-demeaned — Response_Column() on
+    #            the sheet, so ln(y) under a Log Response row. This is what
+    #            the sheet passes as Unit_Space_*'s Y_Full argument.
+    #   y_fit    the same column after within-demeaning — Design_Response(),
+    #            what the model was actually fitted on.
+    #
+    # Their difference is the level the within transformation removed. It is
+    # added back before exponentiating so that EXP() under Fixed Effects
+    # exponentiates a predicted log response rather than a group deviation,
+    # and it is GATED ON Log: nothing is exponentiated under None, and
+    # shifting there would turn the within-flavoured statistics into total
+    # ones and break the reduction invariant.
+    level_shift = (y_train - y_fit) if response_transform == "Log" else np.zeros(n)
 
     # Smearing factor: 1 under None, AVERAGE(EXP(residuals)) under Log.
     # residuals are already fit-space (transformed + within-demeaned).
@@ -541,11 +547,10 @@ def calculate_regression_results_from_matrix(
     else:
         smearing_factor = float("nan")
 
-    # The back-transformed fitted value is exp(fitted) * smearing (Duan)
-    # or exp(fitted) (Naive) under Log, fitted unchanged under None. The
-    # level shift Y_Full - Y is added back so FE+Log predictions carry the
-    # group effect (otherwise exp(within deviation) is meaningless).
-    fit_space_predictions = predictions
+    # Unit_Space_Predictions: Predictions(X, Y, Include) + shift, then
+    # back-transformed — EXP(fitted) * smearing under Duan, EXP(fitted)
+    # under Naive, fitted unchanged under None.
+    fit_space_predictions = predictions + level_shift
     if response_transform == "Log":
         duan_predictions = np.exp(fit_space_predictions) * smearing_factor
         naive_predictions = np.exp(fit_space_predictions)
@@ -556,24 +561,29 @@ def calculate_regression_results_from_matrix(
         duan_predictions = np.full(n, float("nan"))
         naive_predictions = np.full(n, float("nan"))
 
-    # The original-units prediction column is the back-transformed in-sample
-    # fitted value (no level shift needed in-sample — Predictions(X, Y, ..)
-    # already operates on the same observation the sheet shows). For the
-    # SHEET's AZ/BA columns, Unit_Space_Predictions uses the level shift
-    # Y_Full - Y to reintroduce the FE group effect; the in-sample fitted
-    # value y_train = y_full - group_mean (under FE), so the shift is
-    # genuinely zero in-sample and Predictions(X, Y, Include) is the same
-    # column. We mirror that exactly: predictions_unit[i] = back-transform
-    # of fit_space_predictions[i].
+    # Unit_Space_Observed: the observed response read in the SAME space the
+    # predictions come back in — y_fit + shift, back-transformed with the
+    # Naive branch (an observation is not a prediction and never carries the
+    # smearing factor). Under Log that is raw y; under None it stays the
+    # within-demeaned column the ordinary statistics use, which is what
+    # makes the reduction invariant hold under FE.
+    y_level = y_fit + level_shift
+    if response_transform == "Log":
+        y_unit = np.exp(y_level)
+    elif response_transform == "None":
+        y_unit = y_level.copy()
+    else:
+        y_unit = np.full(n, float("nan"))
+
     predictions_unit = duan_predictions
-    residuals_unit = y_full_arr - predictions_unit
+    residuals_unit = y_unit - predictions_unit
 
     # SST_unit: centered when the model has an intercept, uncentered when
     # forced through the origin — same convention SS_Total uses.
     if include_intercept:
-        sst_unit = float(np.sum((y_full_arr - np.mean(y_full_arr)) ** 2))
+        sst_unit = float(np.sum((y_unit - np.mean(y_unit)) ** 2))
     else:
-        sst_unit = float(np.sum(y_full_arr ** 2))
+        sst_unit = float(np.sum(y_unit ** 2))
     sse_unit = float(np.sum(residuals_unit ** 2))
     r_squared_unit = 1.0 - sse_unit / sst_unit if sst_unit > 0 else float("nan")
     adjusted_r2_unit = (

@@ -1,0 +1,77 @@
+ uv run python build_test_models.py --verify
+Traceback (most recent call last):
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\build_test_models.py", line 211, in build_test_models_workbook
+    write_test_model_sheet(
+    ~~~~~~~~~~~~~~~~~~~~~~^
+        workbook, expected, document.regression_sheet_notes, closures
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\lambda_catalog\write_sheet_test_model.py", line 138, in write_test_model_sheet
+    sheet = _write_shell(
+        workbook,
+    ...<4 lines>...
+        closures=closures,
+    )
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\lambda_catalog\write_sheet_test_model.py", line 107, in _write_shell
+    write_regression_output_sheet(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        workbook,
+        ^^^^^^^^^
+    ...<10 lines>...
+        spec_table_name=spec_table_name(plan_id),
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\lambda_catalog\write_sheet_regression.py", line 2827, in write_regression_output_sheet
+    _setup_local_names(
+    ~~~~~~~~~~~~~~~~~~^
+        sheet,
+        ^^^^^^
+    ...<2 lines>...
+        spec_table_name=spec_table_name,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\lambda_catalog\write_sheet_regression.py", line 1048, in _setup_local_names
+    sheet.api.Names.Add(
+    ~~~~~~~~~~~~~~~~~~~^
+        Name="alpha",
+        ^^^^^^^^^^^^^
+        RefersTo=f"={sname}!{_A_ALPHA}",
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "c:\local_python\Statistical_Analysis_Lambda_Catalog\.venv\Lib\site-packages\xlwings\_xlwindows.py", line 122, in __call__
+    v = self.__method(*args, **kwargs)
+  File "C:\Users\STEPHE~1.COL\AppData\Local\Temp\gen_py\3.13\00020813-0000-0000-C000-000000000046x0x1x9.py", line 28933, in Add
+    ret = self._oleobj_.InvokeTypes(181, LCID, 1, (9, 0), ((12, 17), (12, 17), (12, 17), (12, 17), (12, 17), (12, 17), (12, 17), (12, 17), (12, 17), (12, 17), (12, 17)),Name
+        , RefersTo, Visible, MacroType, ShortcutKey, Category
+        , NameLocal, RefersToLocal, CategoryLocal, RefersToR1C1, RefersToR1C1Local
+        )
+pywintypes.com_error: (-2147352567, 'Exception occurred.', (0, 'Microsoft Excel', 'There\'s a problem with this formula.\n\nNot trying to type a formula?\nWhen the first character is an equal ("=") or minus ("-") sign, Excel thinks it\'s a formula:\n\n• you type:   =1+1, cell shows:   2\n\nTo get around this, type an apostrophe ( \' ) first:\n\n• you type:   \'=1+1, cell shows:   =1+1', 'xlmain11.chm', 0, -2146827284), None)
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\build_test_models.py", line 370, in <module>
+    main()
+    ~~~~^^
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\build_test_models.py", line 346, in main
+    result, built = build_test_models_workbook(
+                    ~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        workbook_path=args.workbook,
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    ...<3 lines>...
+        verbose=args.verbose,
+        ^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\build_test_models.py", line 228, in build_test_models_workbook
+    raise_excel_access_error(workbook_path, "open or save", exc)
+    ~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\local_python\Statistical_Analysis_Lambda_Catalog\lambda_catalog\workbook_helpers.py", line 96, in raise_excel_access_error
+    raise RuntimeError(
+        f"Excel could not {action} {workbook_path.name!r}: {message}"
+    ) from exc
+RuntimeError: Excel could not open or save 'Lambda_Library_TestModels.xlsx': (-2147352567, 'Exception occurred.', (0, 'Microsoft Excel', 'There\'s a problem with this formula.\n\nNot trying to type a formula?\nWhen the first character is an equal ("=") or minus ("-") sign, Excel thinks it\'s a formula:\n\n• you type:   =1+1, cell shows:   2\n\nTo get around this, type an apostrophe ( \' ) first:\n\n• you type:   \'=1+1, cell shows:   =1+1', 'xlmain11.chm', 0, -2146827284), None)

@@ -114,7 +114,7 @@ Rationale in
 | v1.1 | Univariate (descriptives, histograms, distribution fitting) | No | **Shipped 2026-06-29** (workbook 1.1.0; renumbered from 2.0.0). MoM-vs-MLE resolved: MLE throughout. New sheet, no existing input changes meaning. PDF functions dropped as unnecessary — the histogram tables already compute per-bin probabilities as CDF deltas between bin boundaries. The two post-release leftovers (per-distribution Q-Q plots and combo-chart overlay lines built on those CDF-delta columns) shipped with the next workbook build |
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
-| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Shipped inside the 3.0.0 artifact** — every TODOs #1–#10 item is DONE and verified against a live build (0 mismatches across all 12 spec-driven QC cases), with the FE engine independently pinned against `statsmodels` LSDV by `test_within_estimator`, `test_df_absorbed_threading`, and `test_group_prediction_interval`. `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Never got its own release build — the features reached users inside 3.0.0, and the **2.1.0 Version History entry was never written** (see TODOs § Documentation). DEFERRED follow-on polish remains |
+| v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Shipped inside the 3.0.0 artifact** — every TODOs #1–#10 item is DONE and verified against a live build (0 mismatches across all 12 spec-driven QC cases), with the FE engine independently pinned against `statsmodels` LSDV by `test_within_estimator`, `test_df_absorbed_threading`, and `test_group_prediction_interval`. `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Never got its own release build — the features reached users inside 3.0.0, and the 2.1.0 Version History entry was backfilled later, at v3.1, rather than written at release. DEFERRED follow-on polish remains |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR, and likewise shipped inside the 3.0.0 artifact with **no 2.2.0 Version History entry**. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()` — renamed `Predictor_Columns()` at v3.0 — plus `Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open and ship as **v3.3**, after v3.0 |
 | **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the two-artifact split, and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
 | v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | **Shipped 2026-08-03** (workbook 3.1.0) — MINOR, and exactly the follow-on the reserved columns were for: three LAMBDA definitions and one audit formula changed, and no column moved. `Predictor_Columns()` and its two twins read M/N and emit the pairwise combination (1 column for Continuous × Continuous, L−1 for Continuous × Categorical, (L₁−1)(L₂−1) for Categorical × Categorical); the Design Columns audit gained its `k(row)×k(operand)` term in the same edit, off the same width helper. A spec with M and N blank computes identically to 3.0.0 |
@@ -391,12 +391,12 @@ lives in the git history of this file and in the T0–T19 cases now carried by
   `x_new`/`x̄ᵢ` through `Dummy_Code` before the FE formula), and a
   residual-output relabel + Diagnostic Guide paragraph on residuals under FE
   (documentation-only). Full list in
-  [TODOs.md § v2.1 follow-on polish](TODOs.md#follow-on-polish-deferred).
-- **The Version History entry** — the 2.1.0 row was never written, and neither
-  was 2.2.0. The workbook's shipped changelog jumps 2.0.0 → 3.0.0, so Fixed
-  Effects, the Sequence axis, GVIF, and the Log transform reached users with no
-  entry describing them. This is the changelog non-git users read. Tracked in
-  [TODOs.md § Documentation](TODOs.md#documentation).
+  [TODOs.md § v2.1 follow-on polish](TODOs.md#v21-leftovers--follow-on-polish).
+- **The Version History entry** — CLOSED. The 2.1.0 and 2.2.0 rows were never
+  written at release, so the workbook's shipped changelog jumped 2.0.0 → 3.0.0
+  and Fixed Effects, the Sequence axis, GVIF, and the Log transform reached users
+  with no entry describing them. Both rows were backfilled into `_VERSIONS` at
+  v3.1 and are present in the committed artifact.
 
 Design rationale and resolved decisions: [DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
@@ -658,7 +658,7 @@ The run's one reported failure, `[Univariate] sheet is missing`, is the verifier
 checking a sheet this artifact stopped carrying at v3.0. It is a false positive
 against the post-split layout, not a result — `skip_univariate` reaches the
 force-calc list but does not yet guard the check itself. Tracked as its own
-follow-up; see [TODOs.md](TODOs.md#v31--interaction-wiring--shipped).
+follow-up; see [TODOs.md](TODOs.md#v31-leftovers).
 
 Design rationale: [DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring),
 building on the representation decisions in
@@ -892,8 +892,7 @@ profile-NLL line charts. Evaluations fall from ~2,400 to ~880, and the fits got
 2-D bracket had been landing 6.8 NLL units above the true MLE. **The Beta half is
 still open:** it keeps its 20×20 two-input Data Tables and has not yet received
 the method-of-moments start or the ~12×12 grid that takes the total to ~370. See
-[TODOs.md](TODOs.md) → *Univariate artifact 2.1 — the Beta half of the grid
-shrink*.
+[TODOs.md § Univariate 2.1](TODOs.md#univariate-21--the-beta-half-of-the-grid-shrink).
 
 Design rationale: [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 

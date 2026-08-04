@@ -78,7 +78,7 @@ This README is intentionally short — it tells you what the library is and how 
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Foundational patterns: naming convention, function categories, the Role / Type / Sequence taxonomy, the Model Spec block (A–O), the data-transformation taxonomy, the reserved-spec-column pattern | You're adding a feature that has to honor the library's design |
 | [ROADMAP.md](ROADMAP.md) | Version plan: the public-interface definition, the version ladder, what's shipped, what's next, ToolPak parity reference | You want to know what's planned or whether a change breaks the public interface |
 | [DECISIONS.md](DECISIONS.md) | Resolved design decisions with their rationale, indexed by version, plus the supersession log and the alias-layer table | You want to know *why* a design choice was made |
-| [TODOs.md](TODOs.md) | Active work only, with cross-links to DECISIONS for the "why" | You want to know what to work on next |
+| [TODOs.md](TODOs.md) | Open work only — every item tagged status · size · whether it needs Excel, with a "Pick something to work on" index at the top and cross-links to DECISIONS for the "why" | You want to pick up the next piece of work |
 | [REVIEW.md](REVIEW.md) | Standing architecture review: cross-cutting findings that span versions and are **not yet resolved**. Findings move to DECISIONS.md and are struck from here as they are settled | You want to know what structural problems are known but still open |
 
 For the canonical function reference (every function's signature and description), open the **LAMBDA_functions** sheet in `Lambda_Library.xlsx`. It is generated from the same source as the codebase's catalog and is the only place the reference is always in sync with the workbook.

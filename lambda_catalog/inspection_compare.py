@@ -35,6 +35,8 @@ def _finite_or_none(value: float | None) -> float | None:
 def compare_values(
     expected: float | None,
     actual: float | None,
+    *,
+    relative_to: float | None = None,
 ) -> tuple[float | None, int | None]:
     """Return absolute difference and first-digit deviation for two values.
 
@@ -43,6 +45,15 @@ def compare_values(
     NaN/Inf on the Python side and as Excel's #N/A on the sheet side. Both
     are normalized to None first so that case reads as "both missing"
     (no deviation) instead of a spurious first-digit-deviation-0 mismatch.
+
+    ``relative_to`` rescales the expected value before the first-digit
+    deviation is computed — used for statistics whose magnitude runs into
+    1e10 (raw-cost sums of squares on the production-lots data) where the
+    precision-floor is the seventh decimal, not the third. The normalised
+    expected value is ``expected / max(relative_to, |expected|)`` so the
+    comparison always sees an O(1) magnitude, and rounding-floor behaviour
+    matches the original 3-decimal tolerance the rest of the suite is
+    calibrated against.
     """
     expected = _finite_or_none(expected)
     actual = _finite_or_none(actual)
@@ -50,4 +61,8 @@ def compare_values(
         return None, None
     if expected is None or actual is None:
         return None, 0
-    return abs(actual - expected), first_digit_deviation(expected, actual)
+    diff = abs(actual - expected)
+    if relative_to is not None:
+        scale = max(abs(relative_to), abs(expected), 1.0)
+        return diff, first_digit_deviation(expected / scale, actual / scale)
+    return diff, first_digit_deviation(expected, actual)

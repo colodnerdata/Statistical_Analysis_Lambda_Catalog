@@ -35,6 +35,9 @@ _EXPECTED_CASE_NAMES = [
     "interaction_categorical_broadcast",
     "production_lots_fixed_effects",
     "production_lots_log_transform",
+    "production_lots_log_no_fe",
+    "production_lots_log_mixed_predictors",
+    "production_lots_log_predictor_only",
 ]
 
 _EXPECTED_T0_NAMES = (

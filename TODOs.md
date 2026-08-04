@@ -321,7 +321,7 @@ is rewiring the readers, which is where the performance win actually is.
 ## v3.3 — Transforms remainder
 
 Planned as the second half of v2.2; moved after v3.0 when the feature train was
-resequenced — see [ROADMAP.md](ROADMAP.md#v33--transforms-remainder--planned).
+resequenced — see [ROADMAP.md § v3.3](ROADMAP.md#v33--transforms-remainder--shipped-dispatcher--duan--model-formula-label-standalone-library-still-planned).
 The column-G `Log` wiring already shipped at v2.2: `Response_Column()` / `X_s()`
 read column G, `Constructed_Column_Names()` / `Constructed_Column_Transforms()`
 relabel and carry the per-column Log/None flag, the Prediction Inputs band
@@ -331,25 +331,44 @@ The longitudinal transforms `Lag_By` / `Difference_By` also shipped early, with
 gap-aware t−Δ semantics — verification in
 `tests/test_difference_by_verification.py`.
 
-- **READY · L · no Excel** — **Unit-space dispatcher functions** (design
-  RESOLVED): `Unit_Space_R_Squared(model, response_transform,
-  predictor_transform)`, `Unit_Space_Adjusted_R_Squared(...)`,
-  `Unit_Space_RMSE(...)`. The dispatcher pattern (one canonical name per
-  statistic, internal `SWITCH` on the transform pair) is the documented
-  naming-style-departure pattern, in
-  [DECISIONS.md § v2.2 unit-space dispatcher](DECISIONS.md#v22--transforms--unit-space-comparability)
+- **RESOLVED · SHIPPED** — **Unit-space dispatcher functions** (design
+  RESOLVED, code SHIPPED): seven catalog functions under the
+  `Back-Transformation` subcategory — `Smearing_Factor`,
+  `Back_Transform_Response`, `Unit_Space_Predictions`,
+  `Unit_Space_Residuals`, `Unit_Space_R_Squared`,
+  `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`. The dispatcher pattern
+  (one canonical name per statistic, internal `SWITCH` on the transform pair)
+  is the documented naming-style-departure pattern, in
+  [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label)
   and [ARCHITECTURE.md § 1 "Naming-style departures"](ARCHITECTURE.md#1-naming-convention).
+  The transform pair is read off `Fit_Context()` (elements 3–4 the v3.0
+  context array reserved for just this) rather than passed as positional
+  arguments. SWITCH on the six recognised `(response, predictor)` pairs and
+  `NA()` outside.
 
-- **READY · M · needs Excel** — Unit-space section on the Regression sheet:
-  SWITCH on column G, one headline comparable statistic (the cell v3.4 Model
-  Comparison will reference).
+- **RESOLVED · SHIPPED** — Unit-space section on the Regression sheet:
+  `AG3:AH9` block with the Back-Transform Method input (row 4), Smearing
+  Factor (row 5), R² / Adj R² / RMSE in original units (rows 6–8), and the
+  Response Space readout (row 9). The Original Units column (AL) in the
+  Prediction Outputs block carries the back-transformed point estimate
+  (Duan by default, Naive on toggle) and the four CI/PI bounds (always
+  Naive, never smeared). The two new residual columns (AZ, BA) hold the
+  back-transformed predicted and residual series. The `Comparison_*`
+  sheet-scoped named ranges (`Comparison_Anchor`, `Comparison_Headline_GoF`,
+  `Comparison_Model_Formula`) are the v3.4 Model Comparison sheet's reading
+  surface.
 
-- **READY · L · needs Excel** — **Prediction back-transformation** (design
-  RESOLVED): Duan's smearing estimator as the default, with a per-cell
-  `Back_Transform_Method` toggle (`Duan` default | `Naive`). Caveat row visible
-  on the sheet: *Duan = Duan (1983) smearing; Naive = textbook EXP(ŷ), biased.*
-  The resolution is in
-  [DECISIONS.md § v2.2 prediction back-transformation](DECISIONS.md#v22--transforms--unit-space-comparability).
+- **RESOLVED · SHIPPED** — **Prediction back-transformation** (design
+  RESOLVED, code SHIPPED): Duan's smearing estimator as the default, with a
+  per-cell `Back_Transform_Method` toggle (`Duan` default | `Naive`).
+  Caveat row visible on the sheet at `AJ15:AL15`: *Duan = Duan (1983) smearing;
+  Naive = textbook EXP(ŷ), biased.* The resolution is in
+  [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label).
+
+- **RESOLVED · SHIPPED** — Model Formula label: `AA2:AB2` cell, built from
+  the existing `_RESPONSE_NAME_FORMULA` (which already emits `Ln(name)` when
+  Log), `Allow_Intercept`, `Constructed_Column_Names()`, and the FE-name
+  suffix gated by the Fixed Effects count.
 
 ### Standalone Data Transformation functions
 

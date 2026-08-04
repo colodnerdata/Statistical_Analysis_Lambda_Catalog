@@ -3244,6 +3244,276 @@
       "description": "Accessor for element 4 of the v3.0 [Context] array. Routing every context read through this one-line function means the Model_Context row order is a contract enforced in one place rather than 32 hard-coded positional indices.",
       "plain_language_summary": "Read element 4 of the model context array.",
       "notes": "Part of the v3.0 context row-order contract (append only, never insert)."
+    },
+    {
+      "name": "Smearing_Factor",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Back-Transformation",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    rt,          Context_Response_Transform(context_arg),\n    IF(rt=\"None\", 1,\n      IF(rt=\"Log\",\n        IFERROR(AVERAGE(EXP(Residuals(X, Y, filt_arg))), NA()),\n        NA()))\n  )\n)",
+      "arguments": [
+        {
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome range (the model's fit-space response: transformed under Log, within-demeaned under FE)"
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Context",
+          "description": "the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,\"None\",\"None\") when omitted, so every ad-hoc caller sees an intercept model with no absorbed df and a None response transform",
+          "optional": true
+        }
+      ],
+      "yields": "Scalar smearing factor. 1.0 when Context_Response_Transform is \"None\"; AVERAGE(EXP(residuals)) when \"Log\"; #N/A for any other response-transform value.",
+      "description": "Smearing_Factor returns the Duan (1983) smearing factor: the mean of EXP(residuals) over the included sample, used to correct the bias of EXP(ŷ) as a predictor of the conditional mean of y when the response is log-transformed. The simple textbook back-transform EXP(ŷ) is an unbiased predictor of the conditional median; smearing lifts it to an unbiased predictor of the conditional mean.\n\nWith Context_Response_Transform = \"None\" the response is fit in its original units and no smearing is required, so the function returns 1.0 — never NA() — so the sheet's cells stay uniform across the None / Log boundary (a model with smearing=1 reproduces EXP-only exactly, the same way the v2.2 Log wiring reduces to the un-transformed behavior). With \"Log\" it returns AVERAGE(EXP(Residuals(X, Y, Include))). Any other response-transform value returns #N/A.\n\nThe factor is computed on the fit-time pair (X/Y) and is therefore a function of the same residuals the rest of the workbook reads. Under Fixed Effects, Residuals() already returns within residuals (the design is within-demeaned), so the smearing factor uses the within residuals directly; the FE level shift is reintroduced at the back-transformation step, not here.",
+      "plain_language_summary": "Duan's smearing factor — 1 when response is untransformed, mean(EXP(residuals)) under Log.",
+      "notes": "Duan (1983) smearing factor: 1.0 when Context_Response_Transform = \"None\"; AVERAGE(EXP(Residuals(X,Y,Include))) when \"Log\"; #N/A otherwise. Under FE reads within residuals; the level shift is added back at the back-transformation step."
+    },
+    {
+      "name": "Back_Transform_Response",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Back-Transformation",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(Values, [Context], [Method], [Smearing],\n  LET(\n    context_arg,  IF(ISOMITTED(Context), Model_Context(), Context),\n    method_arg,   IF(ISOMITTED(Method), \"Duan\", Method),\n    smear_arg,    IF(ISOMITTED(Smearing), 1, Smearing),\n    rt,           Context_Response_Transform(context_arg),\n    IF(rt=\"None\", Values,\n      IF(rt=\"Log\",\n        SWITCH(method_arg,\n          \"Duan\",  IFERROR(EXP(Values) * smear_arg, NA()),\n          \"Naive\", IFERROR(EXP(Values), NA()),\n          NA()),\n        NA()))\n  )\n)",
+      "arguments": [
+        {
+          "name": "Values",
+          "description": "n × 1 column of fit-space values to back-transform (LN(y) for a Log response; y unchanged for None)"
+        },
+        {
+          "name": "Context",
+          "description": "the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,\"None\",\"None\") when omitted",
+          "optional": true
+        },
+        {
+          "name": "Method",
+          "description": "Duan (multiply by smearing factor — predicts the conditional mean) or Naive (EXP only — predicts the conditional median, biased for the mean); defaults to \"Duan\" so unit-space R² always corresponds to the displayed predictions",
+          "optional": true
+        },
+        {
+          "name": "Smearing",
+          "description": "the scalar smearing factor (Smearing_Factor(X, Y, Include, Context)); defaults to 1, so an omitted smearing under Duan collapses to the Naive result",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column: Values unchanged when Context_Response_Transform = \"None\"; EXP(Values) * Smearing under Duan, EXP(Values) under Naive, when = \"Log\"; #N/A outside the recognised response-transform × method pairs.",
+      "description": "Back_Transform_Response returns the response-scale counterpart of a fit-space column, applying Duan smearing or a naive EXP back-transform when the response is log-transformed. It is the single dispatch site for the response-side transform pair — every other catalog function in the back-transformation family (Unit_Space_Predictions, Unit_Space_Residuals) is built on top of it, so the (response, method) SWITCH lives in exactly one place.\n\nThree recognised branches: Context_Response_Transform = \"None\" returns Values unchanged (the spec's response transform carries through to the display); \"Log\" with Method = \"Duan\" returns EXP(Values) * Smearing; \"Log\" with Method = \"Naive\" returns EXP(Values). Any other (transform, method) pair returns #N/A — a deliberately honest signal, not a silent default to Duan. The Duan case is the default because unit-space R² must always correspond to the predictions the sheet shows, and the sheet's default back-transform-method toggle is Duan.\n\nCI/PI bounds are quantiles, not means, so a back-transformation that smears them (multiplies both bounds by the same factor) preserves coverage but would skew the interval away from its nominal width — see the AMENDMENT in docs/v3.3-unit-space-and-back-transformation.md about EXP-only bound back-transformation. The sheet forces the bounds' Back_Transform_Response call to \"Naive\" for that reason; the caller controls the method, not the function.",
+      "plain_language_summary": "Convert a fit-space column to response units — EXP(x) under Log (with or without Duan smearing); pass-through under None.",
+      "notes": "Back-transforms a fit-space column to response units. \"None\" → pass-through. \"Log\" + Duan → EXP(x)*Smearing. \"Log\" + Naive → EXP(x). Anything else → #N/A. The (response, method) SWITCH lives here only; the Unit_Space_* names are built on top of it."
+    },
+    {
+      "name": "Unit_Space_Predictions",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Back-Transformation",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    rt,          Context_Response_Transform(context_arg),\n    pt,          Context_Predictor_Transform(context_arg),\n    sm,          Smearing_Factor(X, Y, filt_arg, context_arg),\n    shift,       FILTER(Y_Full, filt_arg) - FILTER(Y, filt_arg),\n    fitted,      Predictions(X, Y, filt_arg) + shift,\n    SWITCH(rt & \"|\" & pt,\n      \"None|None\",  Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"None|Log\",   Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"None|Mixed\", Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"Log|None\",   Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"Log|Log\",    Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"Log|Mixed\",  Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      NA())\n  )\n)",
+      "arguments": [
+        {
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome in fit space: transformed under Log, within-demeaned under FE"
+        },
+        {
+          "name": "Y_Full",
+          "description": "single-column outcome in response space with the within-demean removed: Response_Column() — transformed but NOT within-demeaned. Their difference on the filtered sample is exactly the level the within transformation removed, so the back-transformed fitted value carries the group effect without an FE-detection branch or new closure."
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Context",
+          "description": "the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,\"None\",\"None\") when omitted",
+          "optional": true
+        },
+        {
+          "name": "Method",
+          "description": "Duan (default — multiply by smearing) or Naive; passed through to Back_Transform_Response",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column of back-transformed predictions, in response units. #N/A when the (Context_Response_Transform, Context_Predictor_Transform) pair is outside the six recognised pairs {None, Log} × {None, Log, Mixed}.",
+      "description": "Unit_Space_Predictions returns Predictions(X, Y, Include) plus a level shift, back-transformed to response units. The level shift is FILTER(Y_Full, Include) − FILTER(Y, Include): when no Fixed Effects row is declared Y_Full and Y are the same column and the shift is exactly zero; under FE the difference is the group mean the within transformation removed, so the back-transformed fitted value carries the group effect (a unit-space statistic cannot read exp(within deviation) and call itself a prediction of the un-demeaned y).\n\nThe pair-SWITCH on (Context_Response_Transform, Context_Predictor_Transform) is the single dispatch point. The six recognised pairs are {None, Log} × {None, Log, Mixed} — the predictor half is INERT for the response-unit arithmetic (a response-unit statistic cannot depend on predictor units) but is carried as validation, so a spec with an unrecognised predictor transform (e.g. the v2.2-era \"Center\" placeholder) returns #N/A instead of silently producing a number. The dispatchers' actual arithmetic is a single Back_Transform_Response call per row of fitted values — keeps the Unit_Space_* names the names the v2.2 design committed to, and confines the (response, method) combinatorial switch to one place.\n\nThe function computes its own smearing factor — caller does not have to pre-compute Smearing_Factor and thread it. Under \"None\" the SWITCH reduces to a pass-through (Back_Transform_Response returns Values unchanged) and the smearing factor is 1, so the predictions equal Predictions(X, Y, Include) exactly. Under \"Log\" the smearing factor is the mean of EXP(within residuals) and the back-transform is EXP(fitted) * smearing (Duan) or EXP(fitted) (Naive).",
+      "plain_language_summary": "Predictions in response units — adds back the level shift Y_Full − Y, then back-transforms. The (response, predictor) pair is a six-way SWITCH; outside the six, #N/A.",
+      "notes": "Predictions in response units: Predictions(X, Y, Include) + (FILTER(Y_Full, Include) - FILTER(Y, Include)), then Back_Transform_Response. Six recognised (response, predictor) pairs; else #N/A. Under FE, Y_Full - Y is the group mean."
+    },
+    {
+      "name": "Unit_Space_Residuals",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Back-Transformation",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    Dependent_Variable(Y_Full, filt_arg) - Unit_Space_Predictions(X, Y, Y_Full, filt_arg, context_arg, IF(ISOMITTED(Method),\"Duan\",Method))\n  )\n)",
+      "arguments": [
+        {
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome in fit space: transformed under Log, within-demeaned under FE"
+        },
+        {
+          "name": "Y_Full",
+          "description": "single-column outcome in response space (Response_Column() — NOT within-demeaned) used to read off the observed response in original units"
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Context",
+          "description": "the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,\"None\",\"None\") when omitted",
+          "optional": true
+        },
+        {
+          "name": "Method",
+          "description": "Duan (default) or Naive; passed through to Unit_Space_Predictions",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column of unit-space residuals (observed response in original units minus back-transformed fitted value). #N/A outside the six recognised (response, predictor) pairs.",
+      "description": "Unit_Space_Residuals returns the observed response in original units minus the back-transformed fitted value: Dependent_Variable(Y_Full, Include) − Unit_Space_Predictions(X, Y, Y_Full, Include, Context, Method). Reads Y_Full directly (not the within-demeaned Y) so the result is in response units, never fit units. The same (response, predictor) SWITCH governs the result; outside the six recognised pairs both this and Unit_Space_Predictions return #N/A, never a silently-wrong number.\n\nWhen Context_Response_Transform = \"None\" and no Fixed Effects row is declared, Unit_Space_Residuals reduces to Residuals(X, Y, Include) exactly — Y_Full and Y are the same column, the level shift is zero, and Back_Transform_Response is a pass-through. The reduction invariant this preserves is the acceptance criterion for the whole back-transformation family: with no transforms and no FE, the new columns equal the originals to floating-point precision, so a model that was already shipped continues to compute the same numbers under v3.3.",
+      "plain_language_summary": "Residuals in response units — observed y minus back-transformed fitted value.",
+      "notes": "Dependent_Variable(Y_Full, Include) - Unit_Space_Predictions(...). Reads Y_Full (not within-demeaned Y) so the result is in original units. Reduces to Residuals(X, Y, Include) when no transforms and no FE."
+    },
+    {
+      "name": "Unit_Space_R_Squared",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Back-Transformation",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    y_unit,      Dependent_Variable(Y_Full, filt_arg),\n    pred_unit,   Unit_Space_Predictions(X, Y, Y_Full, filt_arg, context_arg, method_arg),\n    sse_unit,    SUMSQ(y_unit - pred_unit),\n    sst_unit,    LET(has, Context_Has_Intercept(context_arg),\n                     IF(has,\n                       SUMSQ(y_unit - AVERAGE(y_unit)),\n                       SUMSQ(y_unit))),\n    1 - sse_unit / sst_unit\n  )\n)",
+      "arguments": [
+        {
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome in fit space: transformed under Log, within-demeaned under FE"
+        },
+        {
+          "name": "Y_Full",
+          "description": "single-column outcome in response space (Response_Column() — NOT within-demeaned). The observed response in original units."
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Context",
+          "description": "the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,\"None\",\"None\") when omitted",
+          "optional": true
+        },
+        {
+          "name": "Method",
+          "description": "Duan (default) or Naive; the unit-space R² always corresponds to the displayed predictions, so this is the same method the Prediction Outputs block uses",
+          "optional": true
+        }
+      ],
+      "yields": "Unit-space R² as a scalar. 1 − SSE_unit / SST_unit (about the mean when the model has an intercept, about zero without — mirroring SS_Total). May be negative when the model fits worse than the mean; not clamped.",
+      "description": "Unit_Space_R_Squared is the coefficient of determination in the response's original units: 1 − SSE_unit / SST_unit, where SSE_unit is the squared back-transformed residual and SST_unit is the response's total sum of squares. SST_unit is taken about the mean when the model has an intercept (the standard centered total) and about zero otherwise — the same convention SS_Total uses for the within-transform pair. The R² may be negative when the model fits worse than a horizontal line in the response's original units; that is an honest reading of a bad fit and is NOT clamped to zero.\n\nUnder FE + Log the unit-space statistics are TOTAL (about the grand mean of raw y), not within. exp(within deviation) predicts nothing, so the back-transformed fitted value necessarily carries the group effect — and so does SST_unit. Every other statistic on the sheet reports the within flavor; this one cannot, so the cell note for the unit-space block states the convention. With Context_Response_Transform = \"None\" and no FE row, Unit_Space_R_Squared reduces to R_Squared exactly — the reduction invariant the regression tests assert.\n\nThe Method argument is propagated to Unit_Space_Predictions so unit-space R² always corresponds to the predictions the sheet shows; the sheet's Back_Transform_Method toggle drives both via a single parameter.",
+      "plain_language_summary": "R² in response units — 1 − SUMSQ(y − ŷ_unit) / SST_unit. May be negative; not clamped.",
+      "notes": "1 - SSE_unit / SST_unit; SST_unit is the centered or uncentered total matching SS_Total's convention. Under FE + Log this is a TOTAL statistic (not within) because exp(within deviation) predicts nothing. Reduces to R_Squared when no transforms and no FE."
+    },
+    {
+      "name": "Unit_Space_Adjusted_R_Squared",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Back-Transformation",
+      "number_format": "0.000",
+      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    1 - (1 - Unit_Space_R_Squared(X, Y, Y_Full, filt_arg, context_arg, IF(ISOMITTED(Method),\"Duan\",Method)))\n      * Total_Degrees_Of_Freedom(Y, filt_arg, context_arg)\n      / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  )\n)",
+      "arguments": [
+        {
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome in fit space: transformed under Log, within-demeaned under FE"
+        },
+        {
+          "name": "Y_Full",
+          "description": "single-column outcome in response space (Response_Column() — NOT within-demeaned)"
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Context",
+          "description": "the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,\"None\",\"None\") when omitted",
+          "optional": true
+        },
+        {
+          "name": "Method",
+          "description": "Duan (default) or Naive; passed through to Unit_Space_R_Squared",
+          "optional": true
+        }
+      ],
+      "yields": "Unit-space Adjusted R² as a scalar. 1 − (1 − R²_unit) × df_total / df_residual, the standard penalty form. Reuses Total_Degrees_Of_Freedom and Residual_Degrees_Of_Freedom so Context_DF_Absorbed is honoured under FE.",
+      "description": "Unit_Space_Adjusted_R_Squared penalises the unit-space R² for the model's parameter count, using the standard 1 − (1 − R²_unit) × df_total / df_residual form. df_total and df_residual are read through the same Total_Degrees_Of_Freedom / Residual_Degrees_Of_Freedom functions the centered R² uses, so the FE df correction (Context_DF_Absorbed) threads through automatically — under Fixed Effects the penalty term shrinks by the absorbed group count, exactly as it does for the in-space Adjusted R².\n\nThe reduction invariant: with Context_Response_Transform = \"None\" and no FE, Unit_Space_Adjusted_R_Squared = Adjusted_R_Squared to floating-point precision. The same six recognised (response, predictor) pairs govern when the function returns a number; outside them Unit_Space_R_Squared returns #N/A and this function's arithmetic propagates it. Can be negative when the unit-space model fits worse than the mean — same honest reading as the in-space Adjusted R², never clamped.",
+      "plain_language_summary": "Adjusted R² in response units — same penalty form as the in-space version, df threads through Context_DF_Absorbed.",
+      "notes": "1 − (1 − R²_unit) × df_total / df_residual, reusing the existing df functions so the FE correction is honoured. Reduces to Adjusted_R_Squared when no transforms and no FE."
+    },
+    {
+      "name": "Unit_Space_RMSE",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Back-Transformation",
+      "number_format": "0.0000",
+      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    y_unit,      Dependent_Variable(Y_Full, filt_arg),\n    pred_unit,   Unit_Space_Predictions(X, Y, Y_Full, filt_arg, context_arg, method_arg),\n    SQRT(SUMSQ(y_unit - pred_unit) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  )\n)",
+      "arguments": [
+        {
+          "name": "X",
+          "description": "design matrix — the constructed model columns, including the intercept column when the model has one"
+        },
+        {
+          "name": "Y",
+          "description": "single-column outcome in fit space: transformed under Log, within-demeaned under FE"
+        },
+        {
+          "name": "Y_Full",
+          "description": "single-column outcome in response space (Response_Column() — NOT within-demeaned)"
+        },
+        {
+          "name": "Include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        },
+        {
+          "name": "Context",
+          "description": "the materialized Model_Context() 4x1 array; defaults to VSTACK(TRUE,0,\"None\",\"None\") when omitted",
+          "optional": true
+        },
+        {
+          "name": "Method",
+          "description": "Duan (default) or Naive; passed through to Unit_Space_Predictions",
+          "optional": true
+        }
+      ],
+      "yields": "Unit-space RMSE as a scalar. SQRT(SSE_unit / df_residual) — the same divisor SE_Regression uses, so the None / no-FE case reduces to SE_Regression exactly.",
+      "description": "Unit_Space_RMSE is the standard error of the regression in response units: SQRT(SSE_unit / Residual_Degrees_Of_Freedom(X, Y, Include, Context)). The divisor is read through Residual_Degrees_Of_Freedom, so FE df correction (Context_DF_Absorbed) threads through — under Fixed Effects, df_residual is the within residual df and the RMSE divisor matches what SE_Regression would have produced on the same model. The Method argument is propagated to Unit_Space_Predictions so the RMSE corresponds to the predictions the sheet shows.\n\nThe reduction invariant: with Context_Response_Transform = \"None\" and no FE, Unit_Space_RMSE = SE_Regression exactly. Outside the six recognised (response, predictor) pairs Unit_Space_Predictions returns #N/A, which propagates through the SUMSQ and the SQRT to a final #N/A — never a silently-wrong number.",
+      "plain_language_summary": "RMSE in response units — SUMSQ(unit residuals) / df_residual, df corrected for FE.",
+      "notes": "SQRT(SUMSQ(y − ŷ_unit) / Residual_Degrees_Of_Freedom(X, Y, Include, Context)). The same divisor SE_Regression uses, so the None / no-FE case reduces to it exactly."
     }
   ],
   "regression_sheet_notes": {

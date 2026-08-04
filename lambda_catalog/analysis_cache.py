@@ -14,6 +14,7 @@ from .regression_shared import (
     RegressionPredictorSummary,
     RegressionSheetResults,
     RegressionSummary,
+    RegressionUnitSpace,
     RegressionVectors,
 )
 
@@ -34,7 +35,9 @@ DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
 # (se_prediction/lower/upper) to the v2.1 group-mean-recovery 9-value shape
 # (se_mean/se_new/ci_lower/ci_upper/pi_lower/pi_upper/group_mean/group_count)
 # — a cached v15 entry has none of the new keys.
-_CACHE_SCHEMA_VERSION = 16
+# v17: RegressionSheetResults gained unit_space (v3.3 unit-space / back-
+# transformation outputs) — a cached v16 entry has no "unit_space" key.
+_CACHE_SCHEMA_VERSION = 17
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -159,6 +162,20 @@ def _serialize_regression_sheet_configs(
                 "group_mean": r.prediction_interval.group_mean,
                 "group_count": r.prediction_interval.group_count,
             },
+            "unit_space": {
+                "smearing_factor": r.unit_space.smearing_factor,
+                "r_squared_unit": r.unit_space.r_squared_unit,
+                "adjusted_r2_unit": r.unit_space.adjusted_r2_unit,
+                "rmse_unit": r.unit_space.rmse_unit,
+                "prediction_point_unit": r.unit_space.prediction_point_unit,
+                "prediction_ci_lower_unit": r.unit_space.prediction_ci_lower_unit,
+                "prediction_ci_upper_unit": r.unit_space.prediction_ci_upper_unit,
+                "prediction_pi_lower_unit": r.unit_space.prediction_pi_lower_unit,
+                "prediction_pi_upper_unit": r.unit_space.prediction_pi_upper_unit,
+                "predictions_unit": list(r.unit_space.predictions_unit),
+                "residuals_unit": list(r.unit_space.residuals_unit),
+                "model_formula": r.unit_space.model_formula,
+            },
         })
     return result
 
@@ -219,6 +236,21 @@ def _deserialize_regression_sheet_configs(
             group_mean=pi["group_mean"],
             group_count=pi["group_count"],
         )
+        us = item["unit_space"]
+        unit_space = RegressionUnitSpace(
+            smearing_factor=us["smearing_factor"],
+            r_squared_unit=us["r_squared_unit"],
+            adjusted_r2_unit=us["adjusted_r2_unit"],
+            rmse_unit=us["rmse_unit"],
+            prediction_point_unit=us["prediction_point_unit"],
+            prediction_ci_lower_unit=us["prediction_ci_lower_unit"],
+            prediction_ci_upper_unit=us["prediction_ci_upper_unit"],
+            prediction_pi_lower_unit=us["prediction_pi_lower_unit"],
+            prediction_pi_upper_unit=us["prediction_pi_upper_unit"],
+            predictions_unit=tuple(us["predictions_unit"]),
+            residuals_unit=tuple(us["residuals_unit"]),
+            model_formula=us["model_formula"],
+        )
         result.append((
             item["name"],
             item["allow_intercept"],
@@ -228,6 +260,7 @@ def _deserialize_regression_sheet_configs(
                 predictor_summary=predictor_summary,
                 full_residuals=full_residuals,
                 prediction_interval=prediction_interval,
+                unit_space=unit_space,
             ),
         ))
     return result

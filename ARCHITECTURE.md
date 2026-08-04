@@ -106,9 +106,17 @@ when a family is closed-form (one shape per name), use the per-shape style;
 when a family is combinatorial in its inputs, use a dispatcher. Future
 combinatorially-named families follow the same exception.
 
-- v2.2 — the `Unit_Space_*` dispatcher family (`Unit_Space_R_Squared`,
-  `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`). See
-  [DECISIONS.md § v2.2 unit-space dispatcher](DECISIONS.md#v22--transforms--unit-space-comparability).
+- v2.2 / v3.3 — the `Unit_Space_*` dispatcher family (`Unit_Space_R_Squared`,
+  `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`, plus the v3.3
+  `Unit_Space_Predictions`, `Unit_Space_Residuals`, `Smearing_Factor`,
+  `Back_Transform_Response`). Each name SWITCHes on the
+  `(response_transform, predictor_transform)` pair read off `Fit_Context()`
+  — elements 3 and 4 were reserved for exactly this. The dispatcher lives
+  under the `Back-Transformation` subcategory of `Model Construction`,
+  document-ordered after `Context_Response_Transform` /
+  `Context_Predictor_Transform` (consumers follow dependencies). See
+  [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label)
+  and the v2.2 design-record it supersedes.
 
 ---
 
@@ -127,7 +135,7 @@ category can grow its own subdivisions independently as it fills up.
 
 | Category | Subcategories |
 |---|---|
-| **Model Construction** | MLR Core · Coefficient Inference · Prediction · Specification & Design Matrix · Transforms & Unit-Space |
+| **Model Construction** | MLR Core · Coefficient Inference · Prediction · Specification & Design Matrix · Back-Transformation |
 | **Diagnostics** | Residual · Influence & Leverage · Multicollinearity · Cross-Validation · Information Criteria |
 | **Data Transformation** | Sample Construction & Diagnostics · Location & Scale · Group & Panel · Categorical & Model Construction · Longitudinal & Panel-Time |
 | **Distribution Fitting** | Descriptive · Histogram Binning · Parameter Estimation · Goodness-of-Fit |
@@ -138,8 +146,11 @@ Notes:
 
 - **Specification & Design Matrix** is under Model Construction to house the
   v2.0 constructor functions (`x_s`, `Constructed_Column_Names`, etc.).
-- **Transforms & Unit-Space** is under Model Construction for the v2.2
-  unit-space fit statistics.
+- **Back-Transformation** is under Model Construction for the v3.3
+  unit-space dispatch + Duan / Naive back-transformation family
+  (`Smearing_Factor`, `Back_Transform_Response`, `Unit_Space_Predictions`,
+  `Unit_Space_Residuals`, `Unit_Space_R_Squared`, `Unit_Space_Adjusted_R_Squared`,
+  `Unit_Space_RMSE`).
 - Data Transformation subcategories are unchanged across versions; those
   functions serve double duty as constructor internals and standalone
   user-callable transforms.
@@ -266,7 +277,7 @@ alternative shifts eight columns to preserve a reading convention. See
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
-| G | **Transform** *(live — v2.2 Log wiring)* | Orange input, dropdown `None` · `Log`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). `Log` applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. Predictions are not back-transformed (unit-space GoF and Duan smearing are v3.3, the resequenced remainder of v2.2). Default `None` fits the raw column, identically to v2.1. |
+| G | **Transform** *(live — v2.2 Log wiring, v3.3 back-transformation)* | Orange input, dropdown `None` · `Log`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). `Log` applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. The unit-space block at `AG3:AH9` (v3.3) computes Duan-smearing back-transformed GoF (`R²`, `Adj R²`, `RMSE` in original units), and the Prediction Outputs block's `AL` column carries the back-transformed point estimate (Duan by default, Naive on toggle) and the four CI/PI bounds (always Naive). Default `None` fits the raw column — under `None` everywhere, `Unit_Space_*` reduce to the ordinary statistics exactly. See [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label). |
 | H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank. The shipped default pre-flags **Year** `TRUE` (the WHO panel's ordering axis; every other row blank) so the Sequence machinery is live at T0; on a non-panel dataset leave it blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer, by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`) since the base-period release, and — since the DW-gate release — by the serial-correlation accessor `Sequence_Column` (which feeds the gated `Durbin_Watson_By` diagnostic cell). No design-matrix constructor consumes it: Sequence orders the data, it never enters the model matrix. |
 | I | **Sequence Period** *(typed override input, post-v2.1 Sequence fix)* | Orange input — the user types a number on the Sequence-flagged row to declare a Δ that differs from the computed candidate. Blank by default; the spec falls back to the candidate. Read only by the in-use display at column J, not by any constructor. The cell is the load-bearing override point of the reference-level pattern. |
 | J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). No other on-sheet formula reads J; the workbook-scoped `Base_Period_Delta()` accessor (lambda_functions.json) separately provides the omitted-`[delta]` default for `Lag_By`/`Difference_By`. The J cell stays plain, with no on-sheet override-flagging display. |
@@ -600,17 +611,19 @@ displaced by an ordinary modeling choice.
 - **All zones share a first data row**, asserted in the build. Read-across is
   the point — the mask value beside its design-matrix row, both aligned to the
   source table rows, with the gutters as visual separators.
-- **The chart footprint needs an explicit bound.** `_C_AZ` is the chart
+- **The chart footprint needs an explicit bound.** `_C_BB` is the chart
   *anchor*, not the chart *extent*: the seven diagnostic charts are floating
   objects tiled in a 4×2 grid roughly 640 points wide from the anchor's left
   edge, and the four columns after it carry the chart title and axis-label
-  formula cells. `_LAST_CHART_COLUMN` is the named bound, and a guarded
-  build-time assertion checks the column past it actually clears the measured
-  chart right edge — without that, a chart resize silently overlaps the context
-  block, and the zone start column cannot be computed. The geometry *lookup* is
-  best-effort (COM geometry is unavailable headless), but the *assertion* is
-  deliberately outside the guard, so it cannot become a no-op in Excel, the one
-  place it can run.
+  formula cells. `_LAST_CHART_COLUMN = _C_BB + 14` is the named bound (works
+  back to `BP = 68`; the v3.3 shift of two columns right comes from the two
+  new Residual Output columns `AZ` and `BA` — `_C_AZ` is now content, not
+  anchor), and a guarded build-time assertion checks the column past it
+  actually clears the measured chart right edge — without that, a chart resize
+  silently overlaps the context block, and the zone start column cannot be
+  computed. The geometry *lookup* is best-effort (COM geometry is unavailable
+  headless), but the *assertion* is deliberately outside the guard, so it
+  cannot become a no-op in Excel, the one place it can run.
 
 - **Surfacing a spill is not the same as rewiring its readers.** Positioning the
   zone, its collapse behaviour, and the width guard were what a later release

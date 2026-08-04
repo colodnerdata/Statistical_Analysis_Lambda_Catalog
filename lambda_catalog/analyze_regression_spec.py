@@ -105,8 +105,18 @@ class RegressionSpecDesign:
     # Every dummy column from a Categorical Predictor reads "None"
     # regardless of its spec row's own Transform value.
     constructed_column_transforms: tuple[str, ...]
+    # v3.3 unit-space: the response transform ("Log"/"None") the spec row
+    # declared for the Response, and the predictor-side transform summary
+    # ("None"/"Log"/"Mixed") the v2.2 _PREDICTOR_TRANSFORM_FORMULA computes
+    # on the live spec rows. Both feed the v3.3 unit-space arithmetic.
+    response_transform: str
+    predictor_transform: str
     x_features: np.ndarray
     y_train: np.ndarray
+    # v3.3: y_full is the response in original units (NOT within-demeaned)
+    # — Response_Column() on the sheet. Used to back the unit-space
+    # statistics (smearing factor, R²_unit, residuals_unit, model formula).
+    y_full: np.ndarray
     sequence_values: np.ndarray | None
     group_labels: np.ndarray | None
     included_rows: int
@@ -368,6 +378,34 @@ def build_spec_design(
         raise ValueError("Spec produced zero constructed columns")
     x_features = np.asarray(matrix_columns, dtype=np.float64).T
 
+    # y_full: the response in original units (NOT within-demeaned) —
+    # Response_Column() on the sheet. Powers the v3.3 unit-space arithmetic.
+    y_full = np.asarray(
+        [float(rows[idx][response_name]) for idx in included_indices],
+        dtype=np.float64,
+    )
+
+    # v3.3: predictor-transform summary, mirroring the sheet's
+    # _PREDICTOR_TRANSFORM_FORMULA ("None"/"Log"/"Mixed" over the
+    # included Continuous predictors — Categorical dummies are excluded so
+    # their Transform value can never spuriously flip a "None" to "Mixed").
+    inc_log = sum(
+        1 for item in spec_tuple
+        if item.role == _ROLE_PREDICTOR and item.include
+        and item.var_type == "Continuous" and item.transform == "Log"
+    )
+    inc_none = sum(
+        1 for item in spec_tuple
+        if item.role == _ROLE_PREDICTOR and item.include
+        and item.var_type == "Continuous" and item.transform == "None"
+    )
+    if inc_log == 0:
+        predictor_transform = "None"
+    elif inc_none == 0:
+        predictor_transform = "Log"
+    else:
+        predictor_transform = "Mixed"
+
     seq_variables = [item.name for item in spec_tuple if item.sequence]
     sequence_values = None
     if len(seq_variables) == 1:
@@ -396,8 +434,11 @@ def build_spec_design(
         row_labels=tuple(labels),
         constructed_column_names=tuple(constructed_names),
         constructed_column_transforms=tuple(constructed_transforms),
+        response_transform=response_transform,
+        predictor_transform=predictor_transform,
         x_features=x_features,
         y_train=np.asarray(y_values, dtype=np.float64),
+        y_full=y_full,
         sequence_values=sequence_values,
         group_labels=group_labels,
         included_rows=len(included_indices),
@@ -439,6 +480,9 @@ def calculate_regression_spec_case(
         sequence_values=design.sequence_values,
         group_labels=design.group_labels,
         selected_group=resolved_prediction_group,
+        response_transform=design.response_transform,
+        predictor_transform=design.predictor_transform,
+        y_full=design.y_full,
     )
     return RegressionSpecExpected(
         case=case,
@@ -587,6 +631,88 @@ def _production_lots_log_transform_spec() -> list[SpecVariable]:
     ]
 
 
+def _production_lots_log_no_fe_spec() -> list[SpecVariable]:
+    """v3.3 — Log+Log with NO Fixed Effects: the (Log, Log) SWITCH branch.
+
+    Sibling of _production_lots_log_transform_spec() with ``Facility``
+    omitted instead of declared as Fixed Effects. Exercises the v3.3
+    unit-space dispatcher's (Log, Log) branch where the level shift
+    Y_Full − Y is exactly zero, so the unit-space arithmetic reduces
+    to back-transforming the in-sample fit and the new (smeared) R²
+    is computed cleanly. Reduction invariant: with no FE, the
+    smearing factor uses raw residuals, not within residuals.
+    """
+    return [
+        _spec_var("Lot_ID", _ROLE_IDENTIFIER),
+        _spec_var("Facility", _ROLE_OMIT),
+        _spec_var("Fiscal_Year", _ROLE_OMIT, sequence=True),
+        _spec_var("Lot_Quantity", _ROLE_OMIT),
+        _spec_var(
+            "Cumulative_Units", _ROLE_PREDICTOR, True, "Continuous", transform="Log"
+        ),
+        _spec_var("Experience_Stock", _ROLE_OMIT),
+        _spec_var("Unit_Cost_BY", _ROLE_RESPONSE, transform="Log"),
+        _spec_var("log Cum Units", _ROLE_OMIT),
+        _spec_var("log experience", _ROLE_OMIT),
+        _spec_var("log Unit Cost", _ROLE_OMIT),
+        _spec_var("Full_Data", _ROLE_FILTER),
+    ]
+
+
+def _production_lots_log_mixed_predictors_spec() -> list[SpecVariable]:
+    """v3.3 — Mixed Log/None predictors with a Log response: the (Log, Mixed) branch.
+
+    Sibling of _production_lots_log_no_fe_spec() with an additional
+    untransformed Continuous predictor (``Experience_Stock``) — exercises
+    the ``(Log, Mixed)`` SWITCH branch the v2.2 transform-threading
+    rewrite unlocked. The mixed case is the cell the user explicitly
+    asked about: a spec with one logged and one unlogged predictor
+    must NOT return #N/A in the unit-space block.
+    """
+    return [
+        _spec_var("Lot_ID", _ROLE_IDENTIFIER),
+        _spec_var("Facility", _ROLE_OMIT),
+        _spec_var("Fiscal_Year", _ROLE_OMIT, sequence=True),
+        _spec_var("Lot_Quantity", _ROLE_OMIT),
+        _spec_var(
+            "Cumulative_Units", _ROLE_PREDICTOR, True, "Continuous", transform="Log"
+        ),
+        _spec_var("Experience_Stock", _ROLE_PREDICTOR, True, "Continuous"),
+        _spec_var("Unit_Cost_BY", _ROLE_RESPONSE, transform="Log"),
+        _spec_var("log Cum Units", _ROLE_OMIT),
+        _spec_var("log experience", _ROLE_OMIT),
+        _spec_var("log Unit Cost", _ROLE_OMIT),
+        _spec_var("Full_Data", _ROLE_FILTER),
+    ]
+
+
+def _production_lots_log_predictor_only_spec() -> list[SpecVariable]:
+    """v3.3 — Log predictor, None response: the (None, Log) branch.
+
+    Single Log-transformed predictor against an untransformed response —
+    exercises the (None, Log) SWITCH branch. The reduction invariant
+    demands the unit-space block read identically to the ordinary
+    statistics: with no Response transform, smearing=1, the back-
+    transformation is a pass-through, and Unit_Space_R_Squared ==
+    R_Squared, Unit_Space_RMSE == SE_Regression.
+    """
+    return [
+        _spec_var("Lot_ID", _ROLE_IDENTIFIER),
+        _spec_var("Facility", _ROLE_OMIT),
+        _spec_var("Fiscal_Year", _ROLE_OMIT, sequence=True),
+        _spec_var("Lot_Quantity", _ROLE_OMIT),
+        _spec_var(
+            "Cumulative_Units", _ROLE_PREDICTOR, True, "Continuous", transform="Log"
+        ),
+        _spec_var("Experience_Stock", _ROLE_OMIT),
+        _spec_var("Unit_Cost_BY", _ROLE_RESPONSE),
+        _spec_var("log Cum Units", _ROLE_OMIT),
+        _spec_var("log experience", _ROLE_OMIT),
+        _spec_var("log Unit Cost", _ROLE_OMIT),
+        _spec_var("Full_Data", _ROLE_FILTER),
+    ]
+
+
 def build_regression_spec_cases() -> list[RegressionSpecCase]:
     """Return the standard human-plan-core spec cases for QC."""
     cases: list[RegressionSpecCase] = []
@@ -674,6 +800,48 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             row_loader=load_production_lots_source_rows,
             source_table_ref="=ProductionLotsData[#All]",
             prediction_group="Site B",
+        )
+    )
+
+    # v3.3 — three new spec cases covering the v3.3 unit-space dispatcher's
+    # (Log, Log), (Log, Mixed), and (None, Log) branches. Each is a sibling of
+    # production_lots_log_transform with a small spec edit. See
+    # tests/test_unit_space_dispatch.py for the cross-checks against the
+    # workbook arithmetic.
+    cases.append(
+        RegressionSpecCase(
+            name="production_lots_log_no_fe",
+            spec=tuple(_production_lots_log_no_fe_spec()),
+            allow_intercept=True,
+            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
+            row_loader=load_production_lots_source_rows,
+            source_table_ref="=ProductionLotsData[#All]",
+            # No Fixed Effects in this spec, so group_labels is None and
+            # group recovery resolves to "(all)" — leave prediction_group
+            # unset and let the harness default to that.
+            prediction_group=None,
+        )
+    )
+    cases.append(
+        RegressionSpecCase(
+            name="production_lots_log_mixed_predictors",
+            spec=tuple(_production_lots_log_mixed_predictors_spec()),
+            allow_intercept=True,
+            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
+            row_loader=load_production_lots_source_rows,
+            source_table_ref="=ProductionLotsData[#All]",
+            prediction_group=None,
+        )
+    )
+    cases.append(
+        RegressionSpecCase(
+            name="production_lots_log_predictor_only",
+            spec=tuple(_production_lots_log_predictor_only_spec()),
+            allow_intercept=True,
+            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
+            row_loader=load_production_lots_source_rows,
+            source_table_ref="=ProductionLotsData[#All]",
+            prediction_group=None,
         )
     )
 

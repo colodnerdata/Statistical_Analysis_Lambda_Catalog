@@ -74,7 +74,7 @@ def test_regression_artifact_writes_regression_lineage(stub_helpers) -> None:
 
     rows = _version_rows(stub_helpers)
     assert rows[0] == "1.0.0"
-    assert rows[-1] == "3.1.0"
+    assert rows[-1] == "3.3.0"
     # The Regression lineage carries the pre-split Univariate history
     # (1.1.0's "Univariate Analysis release"); the standalone Univariate
     # artifact's lineage does not — its history begins at the split.
@@ -85,7 +85,12 @@ def test_regression_artifact_writes_regression_lineage(stub_helpers) -> None:
     # until they were backfilled.
     assert rows == [
         "1.0.0", "1.1.0", "1.2.0", "2.0.0", "2.1.0", "2.2.0", "3.0.0", "3.1.0",
+        "3.3.0",
     ]
+    # No 3.2.0: that number was reserved for the resequenced "transforms
+    # remainder" milestone, which shipped under 3.3.0 (the unit-space
+    # dispatcher, Duan smearing, and the model-formula label land together).
+    assert "3.2.0" not in rows
 
 
 def test_no_shipped_version_is_missing_from_the_regression_changelog(

@@ -3259,3 +3259,58 @@ found `Base_Period_Delta_Candidate`'s mirror using `statistics.mode`, which —
 unlike Excel's `MODE.SNGL` — never errors on a non-repeating input, making
 both the fall-back-to-MIN branch and the "no natural base period" verdict
 unreachable in the oracle.
+
+### The first live Excel run settled three things the headless suite could not
+
+**Question:** `build_production.py --verify` reported 22,898 mismatches and
+`build_test_models.py` died on its first sheet. Which were real?
+
+**Resolution:** RESOLVED — all of them, and none was a false alarm. Recorded
+together because they share a cause: 878 headless tests cannot see what
+Excel does with a sheet name, a 205-column design, or an accented string.
+
+1. **Sheet names with spaces were never quoted.** `_setup_local_names` built
+   `=M01 Baseline Categoricals!$AB$12` and Excel rejected the whole
+   `Names.Add`. Four of that function's seven references were unquoted,
+   invisible for the life of the project because the only sheet it ever
+   wrote was named `Regression`. `sname` now carries the quotes — quoting a
+   name that does not need it is always legal, so one quoted form removes
+   the class of bug rather than relying on each site to remember. Two
+   existing tests had pinned the unquoted form; they were pinning the bug.
+
+2. **A 205-column design cannot be fitted, so L07 is a guard state.** At
+   k = 205 the workbook returns `nan` for every engine output — 22,886 of
+   the 22,898 mismatches were this one case comparing real numbers against
+   nothing. That is the condition the width guard exists to warn about, so
+   the case now asserts the `M2` WARNING and the visible degradation instead
+   of numbers the sheet cannot produce. The general rule, which will come up
+   again: **a numeric oracle for a model the sheet cannot compute is
+   comparing against nothing** — when a case's whole point is a limit, the
+   limit is the assertion.
+
+3. **Categorical levels sorted by code point, not by collation.** `Côte
+   d'Ivoire` files after `Czechia` in Python but between `Costa Rica` and
+   `Croatia` in Excel, which shifts an entire dummy block by one position.
+   Nothing errors: every column keeps a valid name and a valid 0/1 pattern,
+   and every per-predictor statistic is silently paired with the wrong
+   header. A pre-existing bug in `_retained_levels`, first reachable when a
+   QC case used a column with non-ASCII levels.
+
+   REJECTED — PyICU for exact collation. It is the only way to match Windows
+   collation across all scripts, but it adds a binary dependency to a project
+   whose only ones are the scientific stack, to serve one accented string in
+   one dataset. `level_sort_key` strips combining marks and casefolds
+   instead, which reproduces the locale order for Latin scripts, and the
+   limitation is documented at the function and in MODEL_TESTING_ASSETS §1b.
+
+**And one tolerance decision.** L05's `Population` coefficient disagreed with
+Excel in the 6th significant digit on its t-statistic and p-value. Population
+spans 34 to 1.3e9 against predictors of order 1–100, so the normal equations
+are badly scaled and the disagreement is on the one coefficient
+indistinguishable from zero (t = −0.367, p = 0.71). `T_Statistics` and
+`P_Values` join the scale-free comparison set alongside the sums of squares,
+which already compare as 3 significant digits for the same reason. This
+widens the unit, never the tolerance — both sides are divided by the same
+factor, so a genuinely wrong number still fails. Dropping `Population` was
+rejected: L05 exists to give the *shipped* profile an oracle, so changing its
+spec would stop it testing what users actually get.

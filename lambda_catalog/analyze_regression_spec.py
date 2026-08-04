@@ -961,11 +961,28 @@ _LIFE_WIDTH_GUARD_PREDICTORS = (
 
 
 def _life_country_width_guard_spec() -> list[SpecVariable]:
-    """L7 — Life expectancy ~ C(Country) + C(Year) + 8 continuous. k = 205. HEAVY.
+    """L7 — Life expectancy ~ C(Country) + C(Year) + 8 continuous. k = 205.
 
     The soft width-guard case, and the only one: the M2 status line warns
     once the design reaches 200 columns, and nothing else in the suite
     comes within an order of magnitude of it.
+
+    **A GUARD STATE, not a fittable model** — used by
+    ``analyze_regression_guard_states.build_guard_state_cases``, not by
+    ``build_regression_spec_cases``. The first live Excel run of this case
+    returned ``nan`` for every engine output: at k = 205 the workbook cannot
+    invert the Gram matrix, and 22,886 of that run's 22,898 mismatches were
+    this one case comparing real numbers against nothing.
+
+    That is not a defect to route around — it is the exact condition the
+    width guard exists to warn about, arriving one predictor block earlier
+    than the guard's own threshold suggests. So the case keeps its spec and
+    its reason for existing, and asserts what the sheet actually does: the
+    M2 status reads WARNING, the design-column total is 205, and the engine
+    degrades visibly instead of returning a plausible wrong number. A
+    numeric oracle for a model the sheet cannot compute would be comparing
+    against nothing, which is the same reasoning that put M16, P07 and L06
+    in the guard registry.
 
     **Why C(Year) is here and the plan does not mention it.** The plan
     assumed 193 countries → 192 dummies, so eight continuous predictors
@@ -983,13 +1000,7 @@ def _life_country_width_guard_spec() -> list[SpecVariable]:
     Year stays Sequence-flagged while being a Categorical Predictor, which
     is legal and already precedented (M14 does the same with Model Year).
     ``Country`` moves from Identifier to Categorical Predictor, so the row
-    labels fall back to positional ("Obs. 1", ...) — worth pinning on its
-    own, since this is the only case where the Identifier role is vacated
-    by a variable that then does something else.
-
-    Marked ``heavy``: the design matrix is ~2900 x 205. The Python oracle
-    runs in seconds and is always exercised by pytest; only the SHEET build
-    is opt-in, behind ``build_test_models.py --include-heavy``.
+    labels fall back to positional ("Obs. 1", ...).
     """
     return _life_spec(
         country=_spec_var("Country", _ROLE_PREDICTOR, True, "Categorical"),
@@ -1217,7 +1228,11 @@ _CASE_SHEET_IDENTITY: dict[str, tuple[str, str]] = {
     "life_log_response_naive": ("L03", "L03 Log Response Naive"),
     "life_elasticity_log_log": ("L04", "L04 Elasticity Log-Log"),
     "life_full_profile": ("L05", "L05 Kitchen Sink Profile"),
-    "life_country_width_guard": ("L07", "L07 Width Guard Warning"),
+    # L07 is NOT here. At k = 205 the workbook cannot invert the Gram
+    # matrix and every engine cell reads nan, which is precisely the state
+    # the width guard warns about — so a numeric oracle for it would be
+    # comparing against nothing. It ships as a guard-state case asserting
+    # the M2 WARNING instead. See analyze_regression_guard_states.py.
     "life_country_fixed_effects": ("L08", "L08 High Cardinality FE"),
     "life_status_explicit_reference": ("L09", "L09 Binary Cat Reference"),
     # § 1.3 Production Lots — learning curves, fixed effects, sequence.
@@ -1237,7 +1252,6 @@ _CASE_SHEET_IDENTITY: dict[str, tuple[str, str]] = {
 # RegressionSpecCase.heavy. Kept as a set next to the identity table so the
 # two facts about "which cases are special" read together.
 _HEAVY_CASE_NAMES = frozenset({
-    "life_country_width_guard",
     "life_country_fixed_effects",
 })
 
@@ -1484,7 +1498,6 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
         ("life_log_response_naive", _life_log_response_spec(), "Naive"),
         ("life_elasticity_log_log", _life_elasticity_log_log_spec(), "Duan"),
         ("life_full_profile", _life_full_profile_spec(), "Duan"),
-        ("life_country_width_guard", _life_country_width_guard_spec(), "Duan"),
         ("life_country_fixed_effects", _life_country_fixed_effects_spec(), "Duan"),
         (
             "life_status_explicit_reference",

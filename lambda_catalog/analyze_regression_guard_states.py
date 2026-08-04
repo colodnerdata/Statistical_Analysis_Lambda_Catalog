@@ -59,6 +59,7 @@ from .analyze_production_lots import (
 )
 from .analyze_regression_spec import (
     ExtraSpecColumn,
+    _life_country_width_guard_spec,
     _life_spec,
     _spec_var,
 )
@@ -859,6 +860,19 @@ def build_guard_state_cases() -> list[GuardStateCase]:
             "The zero rows stay in the mask and Ln_Positive returns #N/A, "
             "so the #N/A propagates — the sample does NOT narrow. See "
             "_LN_ZERO_GUARD_NOTE.",
+        ),
+        GuardStateCase(
+            name="guard_width_guard_warning",
+            plan_id="L07",
+            sheet_name="L07 Width Guard Warning",
+            spec=tuple(_life_country_width_guard_spec()),
+            source_csv_path=LIFE_EXPECTANCY_CSV_PATH,
+            row_loader=load_life_expectancy_source_rows,
+            source_table_ref="=LifeExpectancyData[#All]",
+            covers="k = 205 design columns: the M2 width guard reads "
+            "WARNING, and the engine returns #N/A rather than a plausible "
+            "wrong number — the workbook cannot invert a Gram matrix this "
+            "wide, which is what the guard exists to say.",
         ),
         GuardStateCase(
             name="guard_sequence_period_override",

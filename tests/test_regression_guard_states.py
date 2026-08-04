@@ -50,6 +50,7 @@ _EXPECTED_GUARD_NAMES = [
     "guard_excluded_operand",
     "guard_unknown_interaction_operation",
     "guard_ln_zero_propagation",
+    "guard_width_guard_warning",
     "guard_sequence_period_override",
     "guard_irregular_panel_spacing",
 ]
@@ -336,8 +337,41 @@ def test_design_columns_audit_is_blank_on_non_predictor_rows() -> None:
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
-def test_no_guard_case_trips_the_width_guard() -> None:
-    """The width guard belongs to L07, which is a fittable model. A guard
-    case tripping it too would mean two cases covering one corner."""
-    for case in build_guard_state_cases():
-        assert calculate_guard_state_case(case).width_guard_status == "", case.name
+def test_only_l07_trips_the_width_guard() -> None:
+    """Exactly one case reaches the 200-column threshold, and it is the one
+    that exists for it. Any other case tripping the guard would mean a spec
+    grew a design matrix nobody intended."""
+    tripping = {
+        case.plan_id
+        for case in build_guard_state_cases()
+        if calculate_guard_state_case(case).width_guard_status
+    }
+    assert tripping == {"L07"}
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+def test_width_guard_case_crosses_the_threshold_and_degrades_visibly() -> None:
+    """L07. The soft guard warns at 200 design columns, and this is the only
+    case that reaches it.
+
+    It is a GUARD state rather than a fittable model because of what the
+    first live Excel run showed: at k = 205 the workbook cannot invert the
+    Gram matrix and every engine cell reads nan. That is the condition the
+    guard exists to warn about, so the case asserts the warning and the
+    visible degradation instead of numbers the sheet cannot produce.
+
+    The k assertion is exact on purpose. The plan's own arithmetic (193
+    countries -> 192 dummies + 8 predictors = 200) does not survive contact
+    with the data — the response's blanks cap the sample at 183 countries —
+    so the case adds C(Year) to clear the threshold with margin. If a future
+    data or spec change drops k back under 200, the guard silently stops
+    being exercised at all, which is what this pins."""
+    from lambda_catalog.write_sheet_regression import _DESIGN_MATRIX_SOFT_COLUMNS
+
+    expected = _expected("guard_width_guard_warning")
+
+    assert expected.audit_k == 205
+    assert expected.audit_k > _DESIGN_MATRIX_SOFT_COLUMNS
+    assert expected.width_guard_status == "WARNING"
+    # Country vacated the Identifier role, so labels fall back to positional.
+    assert expected.included_rows == 2909

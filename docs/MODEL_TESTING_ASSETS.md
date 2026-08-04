@@ -69,7 +69,7 @@ Every row below was new before this pass; all nine are now implemented.
 | L4 | `Ln(Life expectancy) ~ Ln(GDP) + Ln(Population)` | elasticity form | (Log, Log) with large-sample masking | existing — `life_elasticity_log_log` |
 | L5 | `Life expectancy ~` all 18 continuous + `C(Status)` | shipped `life_expectancy` profile; Year = Sequence, Country = Identifier | k-stress kitchen sink (k = 19); the shipped default finally gets an oracle | existing — `life_full_profile` |
 | L6 | `Life expectancy ~ Adult Mortality + Ln(Schooling)` | Schooling contains 28 true zeros | **`Ln_Positive` zero guard** — see the correction below: the rows do NOT drop out of the mask | existing — **guard state** `guard_ln_zero_propagation` |
-| L7 | `Life expectancy ~ C(Country) + C(Year) +` 8 continuous | 183 countries → 182 dummies, + 15 Year dummies + 8; k = 205 | **width-guard soft warning** (k = 200 threshold, `M2` status) | existing — `life_country_width_guard` (**heavy**) |
+| L7 | `Life expectancy ~ C(Country) + C(Year) +` 8 continuous | 183 countries → 182 dummies, + 15 Year dummies + 8; k = 205 | **width-guard soft warning** (k = 200 threshold, `M2` status), and the engine degrading visibly rather than returning a plausible wrong number | existing — **guard state** `guard_width_guard_warning` |
 | L8 | `Life expectancy ~ Schooling + Adult Mortality \| Country` | Year = Sequence | **high-cardinality Fixed Effects** (173 surviving groups, 172 absorbed df); panel spacing verdicts at scale | existing — `life_country_fixed_effects` (**heavy**) |
 | L9 | L1 with `Status` reference = `Developing` | retained dummy = `Developed` | explicit reference on a **binary** categorical | existing — `life_status_explicit_reference` |
 
@@ -155,11 +155,23 @@ regime as `_EXPECTED_CASE_NAMES`.
 | G12 | unrecognized Interaction Operation pasted past the dropdown | `" ? "` header + `NA()` design column. No CF rule fires: the refusal is visible in the header itself | existing — `guard_unknown_interaction_operation` |
 | G13 | width **hard** error (k > 16384 − design-matrix origin) | documented as conceptual only — not buildable at reasonable size; the soft warning is L7's job | conceptual |
 
-Two rows from other sections live here because everything they test is spec-block
-state rather than a fit: **L6** (`guard_ln_zero_propagation`) and **M16**
-(`guard_sequence_period_override`) / **P7** (`guard_irregular_panel_spacing`).
-M16 and P07 fit exactly the models M1 and P2 already fit, so registering them as
-fittable cases would have added two duplicate fits and covered nothing new.
+Four rows from other sections live here, because everything they test is
+spec-block state rather than a fit — and in one case because the fit does not
+exist:
+
+* **L6** (`guard_ln_zero_propagation`) — the mask has no Log-positivity term, so
+  the zero rows stay in and `#N/A` propagates.
+* **M16** (`guard_sequence_period_override`) and **P7**
+  (`guard_irregular_panel_spacing`) fit exactly the models M1 and P2 already fit,
+  so registering them as fittable cases would have added two duplicate fits and
+  covered nothing new.
+* **L7** (`guard_width_guard_warning`) — the workbook cannot invert a 205-column
+  Gram matrix, so there are no numbers to compare. What it asserts instead is the
+  guard doing its job.
+
+The last one is worth stating as a rule, since it will come up again: **a numeric
+oracle for a model the sheet cannot compute is comparing against nothing.** When
+a case's whole point is a limit, the limit is the assertion.
 
 **One reachability note worth recording.** The Sequence verdict's four branches
 are priority-ordered (off-grid → regularity → no-natural-period → calendar), and
@@ -281,6 +293,32 @@ python build_test_models.py --cases M09,G10        # just those two
 python build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 make verify-test-models                            # the same, as a target
 ```
+
+### Two bugs the first live run found
+
+Neither was reachable headlessly, which is the argument for running the deep check
+before merging anything that touches the writers or a new dataset.
+
+**Sheet names with spaces were never quoted.** `_setup_local_names` built
+`=M01 Baseline Categoricals!$AB$12`, which is not a valid formula, and Excel
+rejected the whole `Names.Add`. Four of that function's seven references were
+unquoted — invisible for the life of the project because the only sheet it ever
+wrote was named `Regression`, a single word. `sname` now carries the quotes, so no
+call site can forget, and a test builds every name-registering writer against a
+spaced sheet name.
+
+**Categorical levels sorted by code point, not by collation.** `Côte d'Ivoire`
+files after `Czechia` in Python (`ô` = U+00F4 > `z`) but between `Costa Rica` and
+`Croatia` in Excel. On a categorical predictor that one-position difference shifts
+the *whole* dummy block: every column keeps a valid name and a valid 0/1 pattern,
+nothing errors, and every per-predictor statistic is silently paired with the wrong
+header. `level_sort_key` in `analyze_model_construction.py` now strips combining
+marks and casefolds before comparing, which reproduces the locale order for Latin
+scripts. It is an **approximation** — real ICU collation has per-locale rules it
+does not model (Scandinavian `å` after `z`, Hungarian digraphs, non-Latin scripts)
+— and exact parity would need PyICU. If a dataset with such levels is ever wired
+in, that is the first place to look when a categorical's statistics come out
+permuted.
 
 Verification needs Excel and so does not run in CI, exactly like the other two deep
 checks. Everything else about the framework — the naming contract, both registries'

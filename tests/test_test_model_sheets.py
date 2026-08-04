@@ -149,9 +149,13 @@ def test_profile_key_for_refuses_an_unregistered_source_table() -> None:
         profile_key_for("=NoSuchTable[#All]")
 
 
-def test_heavy_cases_are_exactly_the_two_oversized_life_expectancy_models() -> None:
+def test_heavy_is_exactly_the_one_oversized_fittable_case() -> None:
+    """L08 (173 Fixed Effects groups over 2909 rows) is the only fittable
+    case whose SHEET is expensive enough to gate. L07 was the other one
+    until the live run showed the workbook cannot fit a 205-column design at
+    all — it is a guard state now, and guard sheets are cheap."""
     heavy = {case.name for case in build_regression_spec_cases() if case.heavy}
-    assert heavy == {"life_country_width_guard", "life_country_fixed_effects"}
+    assert heavy == {"life_country_fixed_effects"}
 
 
 # ── The writer's per-sheet parameterization ──────────────────────────────
@@ -394,7 +398,7 @@ def test_default_build_excludes_heavy_cases_and_include_heavy_adds_them() -> Non
     heavy_models, heavy_guards = build_test_models._selected_cases(None, True)
 
     assert default_guards == heavy_guards
-    assert len(heavy_models) == len(default_models) + 2
+    assert len(heavy_models) == len(default_models) + 1
     assert not any(case.heavy for case in default_models)
 
 
@@ -407,9 +411,9 @@ def test_case_filter_matches_plan_id_or_case_name_and_overrides_heavy() -> None:
 
     # By case name, and a heavy case named explicitly is built anyway.
     models, _ = build_test_models._selected_cases(
-        {"life_country_width_guard"}, False
+        {"life_country_fixed_effects"}, False
     )
-    assert [case.plan_id for case in models] == ["L07"]
+    assert [case.plan_id for case in models] == ["L08"]
 
 
 def test_unmatched_case_filter_is_an_error_not_an_empty_build() -> None:

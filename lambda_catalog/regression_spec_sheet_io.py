@@ -106,15 +106,30 @@ ROW_RESID_FIRST = 3
 # The v3.3 Back-Transform Method input ($AH$4).
 ROW_BACK_TRANSFORM = 4
 
-# Statistics whose magnitude scales with the response column. Raw production
-# cost data runs into the 1e10 range, where IEEE-754 leaves ~6 decimal digits
-# — above the suite's 3-decimal tolerance — so these compare scale-free (3
-# SIGNIFICANT digits). Both sides are divided by the same factor, so a
-# genuinely wrong number still fails.
+# Statistics that must compare scale-free — as 3 SIGNIFICANT digits rather
+# than 3 decimal places — because their accuracy is bounded by the data's own
+# magnitude rather than by the formula.
+#
+# Two families, arriving for the same underlying reason:
+#
+# * Sums of squares and PRESS scale with the response column. Raw production
+#   cost data runs into the 1e10 range, where IEEE-754 leaves ~6 decimal
+#   digits — already above a 3-decimal tolerance.
+# * t-statistics and p-values inherit the CONDITIONING of the normal
+#   equations. L05 (the shipped life_expectancy profile) mixes Population,
+#   which spans 34 to 1.3e9, with predictors of order 1-100; Excel's LINEST
+#   and statsmodels then disagree in the 6th significant digit on the one
+#   coefficient that is statistically indistinguishable from zero
+#   (t = -0.367, p = 0.71). That is a floating-point property of the design,
+#   not a disagreement about the model.
+#
+# Both sides are divided by the same factor, so a genuinely wrong number
+# still fails — this widens the unit, never the tolerance.
 SCALE_FREE_STATS = frozenset({
     "SS_Regression", "SS_Residual", "SS_Total",
     "MS_Regression", "MS_Residual",
     "PRESS",
+    "T_Statistics", "P_Values",
 })
 
 
@@ -424,6 +439,7 @@ def read_case_comparison_rows(
                 {"term_name": vectors.term_names[i], "stat_name": stat_name},
                 expected_value,
                 excel_value,
+                scale_free=stat_name in SCALE_FREE_STATS,
             )
             for i, (expected_value, excel_value) in enumerate(
                 zip(expected_tuple, excel_values)

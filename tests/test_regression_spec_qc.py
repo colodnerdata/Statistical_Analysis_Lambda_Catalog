@@ -59,7 +59,6 @@ _EXPECTED_CASE_NAMES = [
     "life_log_response_naive",
     "life_elasticity_log_log",
     "life_full_profile",
-    "life_country_width_guard",
     "life_country_fixed_effects",
     "life_status_explicit_reference",
 ]
@@ -913,28 +912,6 @@ def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
 @pytest.mark.skipif(
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
-def test_width_guard_case_actually_crosses_the_two_hundred_column_threshold() -> None:
-    """L07. The soft width guard warns at 200 design columns, and this is the
-    only case that reaches it. The plan's arithmetic (193 countries → 192
-    dummies + 8 predictors = 200) does not survive contact with the data —
-    the response's own blanks cap the sample at 183 countries — so the case
-    adds C(Year) to clear the threshold with margin. If a future data or spec
-    change drops k back under 200 the guard stops being exercised at all,
-    silently, which is what this assertion is here to prevent."""
-    from lambda_catalog.write_sheet_regression import _DESIGN_MATRIX_SOFT_COLUMNS
-
-    expected = calculate_regression_spec_case(_case("life_country_width_guard"), CSV_PATH)
-    design = expected.design
-
-    assert len(design.constructed_column_names) > _DESIGN_MATRIX_SOFT_COLUMNS
-    assert len(design.constructed_column_names) == 205
-    # Country vacated the Identifier role, so labels fall back to positional.
-    assert design.row_labels[0] == "Obs. 1"
-
-
-@pytest.mark.skipif(
-    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
-)
 def test_high_cardinality_fixed_effects_absorbs_the_right_degrees_of_freedom() -> None:
     """L08. 193 groups against Production Lots' three. At 3 groups a df error
     of a few units hides inside the noise; at 182 absorbed df it moves every
@@ -987,3 +964,66 @@ def test_unit_space_reduces_to_the_ordinary_statistics_without_a_response_transf
     assert np.allclose(
         unit.residuals_unit, expected.results.full_residuals.residuals, atol=1e-9
     )
+
+
+# ── Categorical level ordering vs. Excel's SORT ──────────────────────────
+
+
+def test_level_sort_key_puts_numbers_before_text() -> None:
+    """Excel sorts every number ahead of every string."""
+    from lambda_catalog.analyze_model_construction import level_sort_key
+
+    assert sorted([3, "b", 1, "a"], key=level_sort_key) == [1, 3, "a", "b"]
+
+
+def test_level_sort_key_files_accented_text_where_excel_does() -> None:
+    """The bug the first live Excel run exposed.
+
+    Python compares strings by code point, so ``ô`` (U+00F4) sorts after
+    ``z`` (U+007A) and ``Côte d'Ivoire`` lands after ``Czechia``. Excel uses
+    the Windows locale collator, where ``ô`` files under ``o`` — between
+    ``Costa Rica`` and ``Croatia``.
+
+    On a categorical predictor that one-position difference shifts the WHOLE
+    dummy block: every column keeps a valid name and a valid 0/1 pattern, so
+    nothing errors — the columns are just paired with the wrong headers and
+    every per-predictor statistic reads off by one. It survived unnoticed
+    until a QC case first used a column with non-ASCII levels.
+    """
+    from lambda_catalog.analyze_model_construction import level_sort_key
+
+    ordered = sorted(
+        ["Croatia", "Cuba", "Côte d'Ivoire", "Czechia", "Costa Rica"],
+        key=level_sort_key,
+    )
+    assert ordered == [
+        "Costa Rica",
+        "Côte d'Ivoire",
+        "Croatia",
+        "Cuba",
+        "Czechia",
+    ]
+    # Accent-only differences must still order deterministically rather than
+    # comparing equal, or the sort would not be total.
+    assert sorted(["Cote", "Côte"], key=level_sort_key) == ["Cote", "Côte"]
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_life_expectancy_country_levels_follow_excel_order() -> None:
+    """End-to-end on the dataset that surfaced it: Country is the only wired
+    column with a non-ASCII level, and its dummy block must be ordered the
+    way the sheet's SORT orders it."""
+    from lambda_catalog.analyze_model_construction import level_sort_key
+    from lambda_catalog.analyze_life_expectancy import (
+        load_life_expectancy_source_rows,
+    )
+
+    countries = sorted(
+        {row["Country"] for row in load_life_expectancy_source_rows()},
+        key=level_sort_key,
+    )
+    index = countries.index("Côte d'Ivoire")
+    assert countries[index - 1] == "Costa Rica"
+    assert countries[index + 1] == "Croatia"

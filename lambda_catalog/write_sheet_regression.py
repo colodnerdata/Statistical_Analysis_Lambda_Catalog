@@ -1468,7 +1468,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     # Serial_Correlation_Group() — the grouping-key resolver — NOT the FE
     # column accessor directly: the resolver is the single retargeting point
     # for which dimension partitions residuals (today the Fixed Effects
-    # column; its dormant Cluster branch activates at v3.8+ without touching
+    # column; its dormant Cluster branch activates at v3.5 without touching
     # this cell). Interpretation reads like DW (near 2 ⇒ no first-order
     # autocorrelation), but its critical values depend on N and T — surfacing
     # those bounds is a recorded open item, and the standard DW bounds must

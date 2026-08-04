@@ -1,11 +1,18 @@
 # Model Testing Assets
 
-A planning document for the regression test-model suite. It lists the **model configurations** the
-QC harness should cover — nothing here adds code, sheets, or data. Future work turns each listed
-model into a `RegressionSpecCase` (see `lambda_catalog/analyze_regression_spec.py` —
-`SpecVariable` rows built with `_spec_var(...)`, per-case `source_table_ref` retargeting of
-`Source_Table`, statsmodels/NumPy oracles via `calculate_regression_spec_case`) and, separately,
-into an inserted sheet per model type.
+The plan of record for the **regression test-model suite** — the model configurations the QC
+harness should cover, the datasets they need, and the order in which future features force the
+suite to grow. Nothing here adds code, sheets, or data. Future work turns each listed model into a
+`RegressionSpecCase` (see `lambda_catalog/analyze_regression_spec.py` — `SpecVariable` rows built
+with `_spec_var(...)`, per-case `source_table_ref` retargeting of `Source_Table`,
+statsmodels/NumPy oracles via `calculate_regression_spec_case`) and, separately, into an inserted
+sheet per model type.
+
+**Where this sits in the documentation.** [CONTRIBUTING.md](../CONTRIBUTING.md#the-regression-test-model-suite)
+describes how a case is added and verified; this file decides *which* cases exist and *why*.
+Section 2's ordering is the source of the [ROADMAP.md](../ROADMAP.md#versioning--release-conventions)
+version ladder from v3.4 onward — the ladder is sequenced by the test-suite growth each milestone
+forces, so reordering a milestone means reordering Section 2 first.
 
 **Coverage philosophy.** The suite is a covering array, not a full factorial: every implemented
 corner case is exercised by at least one model, and every model earns its place by covering
@@ -123,7 +130,7 @@ Any dataset works unless noted; Auto MPG is the default fixture.
 | Intercept OFF | M2, M3/M4 variants |
 | FE + Log | P2 |
 | FE + intercept flag | G5 |
-| Sequence: candidate Δ / typed override / irregular / calendar | M1 / M16, P7 / P7 / **uncovered — needs a dated dataset (§2.5, §3)** |
+| Sequence: candidate Δ / typed override / irregular / calendar | M1 / M16, P7 / P7 / **uncovered — needs a dated dataset (§2 `Time` role, §3)** |
 | Interaction: Product / self-product / Cont×Cat / Cat×Cat / Difference / Ratio | M7 / M6 / M8 / M9 / M10 / M11 |
 | Reciprocal declaration: legal (Ratio) / illegal (Product) | M11 / G10 |
 | Width guard: soft / hard | L7 / G13 (conceptual) |
@@ -132,40 +139,84 @@ Any dataset works unless noted; Auto MPG is the default fixture.
 
 The one axis Section 1 cannot cover with the wired data is the **calendar-signature Sequence
 verdict** (~28–31 / ~90–92 / ~365–366-day spacing clusters): no wired dataset carries real dates.
-See §2.5 and §3.
+See the `Time` role entry in §2 and §3.
 
 ---
 
-## Section 2 — Assets for roadmap features, ordered by test-scale multiplier
+## Section 2 — Assets for roadmap features, in ladder order
 
-**Ordering principle.** Additive features first (each adds a fixed number of cases), per-model
-multipliers later, axis-widening multipliers last — so the suite grows linearly for as long as
-possible and the biggest lifts land when the harness is most mature.
+**Ordering principle — two keys.** The ladder from v3.4 on sorts first by **track**, then by
+**test-scale multiplier**:
+
+1. **Regression work ships first.** Every milestone that extends the Regression sheet, its spec
+   block, or its engine comes before either milestone that opens a *new* analysis surface. The
+   two exceptions to the Regression track — Two-sample and Resampling — go last as a block, even
+   though both are flat-cost to test.
+2. **Within the Regression track, cheapest-to-cover first.** Additive features first (each adds a
+   fixed number of cases), per-model multipliers next, axis-widening multipliers last — so the
+   suite grows linearly for as long as possible and the biggest lift lands when the harness is at
+   its most mature. Within a tier, the most valuable / most commonly used feature goes first.
+
+Key 1 outranks key 2 deliberately. Test cost is the right tiebreaker inside one artifact and the
+wrong primary key across two: a Regression milestone is a spec column, an engine change, and more
+cases in the oracle that already exists, while Two-sample and Resampling each need a new sheet
+writer, a new layout, and a verification path sharing nothing with
+`calculate_regression_spec_case`. Interleaving them means two half-built analysis surfaces at
+once, and it leaves the artifact users actually have feature-incomplete for longer. The deferral
+costs no rework — neither milestone depends on any Regression milestone, and none depends on them.
+
+**This ordering is the roadmap's ordering.** The `Ships as` column below is the version ladder
+from v3.4 on: ROADMAP.md was renumbered to follow this table rather than the other way round.
+See [ROADMAP.md § Ladder order](../ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+and [DECISIONS.md § ladder ordering](../DECISIONS.md#the-post-v33-ladder-regression-work-first-then-test-suite-growth).
 
 Two framing notes:
 
 - One multiplicative feature — the Log transform and its response × predictor dispatch pairs — is
   *already integrated*; its cost is absorbed into Section 1's covering array. That is a fact about
-  the current suite, **not a constraint on the ordering logic**: the ranking below scores each
+  the current suite, **not a constraint on the ordering logic**: the scale effects below score each
   future feature purely by the marginal growth it forces, independent of what happens to be in
   already.
 - The tool is single-user and pre-release; nothing here is frozen. Existing QC cases, dataset
   profiles, and this ordering itself can be backtracked and reshaped as iteration reveals better
   structure. The order is a rework-minimizing default, not a commitment.
 
-| # | Roadmap item | Scale effect | Test assets needed |
-|---|---|---|---|
-| 1 | **v3.4 Model Comparison sheet** | additive (~1×) — reads existing models | ≥3 registered models with shared prediction inputs — Section 1 already supplies them (e.g. M1, L2, P2). Add **one mismatched-predictor-set pair** (e.g. M1 vs M14) to exercise the `XLOOKUP [if_not_found]` open question. |
-| 2 | **v3.6 Two-sample / bivariate** | additive — fixed set of test cases | A small two-group dataset (R `ToothGrowth`, 60 rows — or the in-repo `Status` split of Life Expectancy) and a **paired** dataset (R `sleep`, 20 rows). Cases: equal-variance t, Welch t, paired t, F-test of variances feeding the selector cell. |
-| 3 | **v3.5 Resampling & simulation** | additive | No new data. The **seeded pre-drawn `Bootstrap_Random_Draws` table** is itself the asset; Production Lots (n = 51) is the natural small-n bootstrap target (slope CI on P3). PERT/MC cases need only parameter cells. |
-| 4 | **Cluster role** (v3.8+ candidate) | near-additive — a variance-estimator variant on a few models | Within-group correlated data: Production Lots facilities suffice initially (3 clusters — deliberately few, to test the small-cluster warning path); `Grunfeld` (item 7) later provides 10–11 proper clusters. |
-| 5 | **Time role / time series** (v3.8+ candidate) | near-additive — **and unlocks a today-gap** | A real **calendar-dated monthly series** (~144 rows, AirPassengers-shaped, with an actual date column). No wired dataset has dates; this asset also enables the Sequence **calendar-signature verdict** test in Section 1 immediately, before the Time role ships. Also serves `Moving_Average` / `Exponential_Smoothing` cases. |
-| 6 | **v3.7 WLS Weight role** | ~2× over a representative subset | Grouped/heteroskedastic data with a natural weight column: R/MASS `Insurance` (64 rows, claims with exposure `Holders`) or a grouped-mean aggregation of an existing dataset. Plan **weighted variants of ~6 representative Section-1 models** (one per dispatch-pair family), not the whole suite. Include the recorded trap as an oracle assertion: `DEVSQ(√w ⊙ y)` ≠ weighted SST. |
-| 7 | **Two-way Fixed Effects** (v3.8+ candidate) | ~2× over the FE family | A balanced two-factor panel: R `Grunfeld` (200 rows, 10 firms × 20 years) plus an **unbalanced variant** (rows deleted) to exercise `Is_Balanced_Panel` and the convergence check. Re-run the FE family (P1/P2/L8 analogues) two-way. |
-| 8 | **v3.3 standalone transform library** | the **~10× axis-widener — deliberately last** | Each new Transform value (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`) widens the predictor-transform axis that currently holds {None, Log}, and every widening multiplies the response × predictor dispatch table (six recognized pairs today). No new data needed — existing datasets cover all of them. Sequencing *within* the item: (a) the additive helpers first (`Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix` — standalone LAMBDAs, fixed test count); (b) predictor-side location/scale transforms next (each adds pairs but not back-transform semantics); (c) **any response-side extension last** — a response transform also multiplies the back-transformation / unit-space semantics (what is the smearing analogue for Zscore⁻¹?), which is the single most expensive kind of growth this project has. |
+### The Regression track
+
+| # | Roadmap item | Ships as | Scale effect | Test assets needed |
+|---|---|---|---|---|
+| 1 | **Model Comparison sheet** | **v3.4** *(unchanged)* | additive (~1×) — reads existing models | ≥3 registered models with shared prediction inputs — Section 1 already supplies them (e.g. M1, L2, P2). Add **one mismatched-predictor-set pair** (e.g. M1 vs M14) to exercise the `XLOOKUP [if_not_found]` open question. |
+| 2 | **`Cluster` role** | **v3.5** *(was unordered v3.8+)* | near-additive — a variance-estimator variant on a few models | Within-group correlated data: Production Lots facilities suffice initially (3 clusters — deliberately few, to test the small-cluster warning path); `Grunfeld` (item 5) later provides 10–11 proper clusters. |
+| 3 | **`Time` role / time series** | **v3.6** *(was unordered v3.8+)* | near-additive — **and unlocks a today-gap** | A real **calendar-dated monthly series** (~144 rows, AirPassengers-shaped, with an actual date column). No wired dataset has dates; this asset also enables the Sequence **calendar-signature verdict** test in Section 1 immediately, before the Time role ships. Also serves `Moving_Average` / `Exponential_Smoothing` cases. |
+| 4 | **WLS `Weight` role** | **v3.7** *(unchanged number, new reasoning)* | ~2× over a representative subset | Grouped/heteroskedastic data with a natural weight column: R/MASS `Insurance` (64 rows, claims with exposure `Holders`) or a grouped-mean aggregation of an existing dataset. Plan **weighted variants of ~6 representative Section-1 models** (one per dispatch-pair family), not the whole suite. Include the recorded trap as an oracle assertion: `DEVSQ(√w ⊙ y)` ≠ weighted SST. |
+| 5 | **Two-way Fixed Effects** | **v3.8** *(was unordered v3.8+)* | ~2× over the FE family | A balanced two-factor panel: R `Grunfeld` (200 rows, 10 firms × 20 years) plus an **unbalanced variant** (rows deleted) to exercise `Is_Balanced_Panel` and the convergence check. Re-run the FE family (P1/P2/L8 analogues) two-way. |
+| 6 | **Standalone transform library** | **v3.9** *(was the v3.3 remainder)* | the **~10× axis-widener — last in the track** | Each new Transform value (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`) widens the predictor-transform axis that currently holds {None, Log}, and every widening multiplies the response × predictor dispatch table (six recognized pairs today). No new data needed — existing datasets cover all of them. Sequencing *within* the item: (a) the additive helpers first (`Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix` — standalone LAMBDAs, fixed test count); (b) predictor-side location/scale transforms next (each adds pairs but not back-transform semantics); (c) **any response-side extension last** — a response transform also multiplies the back-transformation / unit-space semantics (what is the smearing analogue for Zscore⁻¹?), which is the single most expensive kind of growth this project has. |
+
+### Then the new analysis surfaces
+
+| # | Roadmap item | Ships as | Scale effect | Test assets needed |
+|---|---|---|---|---|
+| 7 | **Two-sample / bivariate** | **v3.10** *(was v3.6, briefly v3.5)* | additive — fixed set of test cases | A small two-group dataset (R `ToothGrowth`, 60 rows — or the in-repo `Status` split of Life Expectancy) and a **paired** dataset (R `sleep`, 20 rows). Cases: equal-variance t, Welch t, paired t, F-test of variances feeding the selector cell. |
+| 8 | **Resampling & simulation** | **v3.11** *(was v3.5, briefly v3.6)* | additive | No new data. The **seeded pre-drawn `Bootstrap_Random_Draws` table** is itself the asset; Production Lots (n = 51) is the natural small-n bootstrap target (slope CI on P3). PERT/MC cases need only parameter cells. |
+
+**Why the numbers moved.** `Cluster` and `Time` are pulled out of the unordered bucket ahead of
+WLS because a variance-estimator variant on a handful of models is cheaper to cover than a
+weighted re-run of one model per dispatch family, and `Time` additionally closes the one Section-1
+coverage gap that exists today. The standalone transform library leaves v3.3 for the end of the
+Regression track because it is the only item that widens an axis every other model is crossed
+against; the v3.3 milestone keeps its number for what already shipped (the unit-space dispatcher,
+Duan back-transformation, the model formula label), and only the unshipped remainder moves.
+Two-sample and Resampling move to the end of the whole ladder under key 1, keeping their relative
+order — both are flat-cost, and two-sample is the more common ask (the ToolPak parity gap a user
+hits first).
+
+**Note the deliberate inversion.** Items 7 and 8 are cheaper to test than items 2–6 and still ship
+last. That is key 1 doing its job, and it is the one place in this document where test scale does
+*not* decide the order — recorded here so a future reader does not "fix" it back.
 
 Unscheduled long-tail items (multi-group means/ANOVA, Fourier, decision analysis) need no assets
-beyond the above: ANOVA-as-regression is `warpbreaks` + the existing categorical machinery.
+beyond the above: ANOVA-as-regression is `warpbreaks` + the existing categorical machinery. They
+stay in the unordered v3.12+ bucket, since nothing about their test cost sequences them.
 
 ---
 
@@ -185,11 +236,11 @@ a registry entry (`lambda_catalog/write_sheet_csv_dataset.py`, `SPEC_DATASET_PRO
 | Dataset | Rows | Buys | Needed by |
 |---|---|---|---|
 | R `warpbreaks` | 54 | balanced 3×2 **Cat×Cat factorial** (tension × wool) — the textbook ANOVA-as-regression fixture, cleaner than M9's unbalanced cross | Section 1 (optional M9 companion); future multi-group means |
-| Calendar-dated monthly series (AirPassengers-shaped, real date column) | ~144 | **the only uncovered Section-1 axis** (calendar-signature Sequence verdict); later the Time role and time-series functions | §1.5 gap; roadmap item 5 |
-| R `Grunfeld` | 200 | balanced 10×20 two-factor panel; proper cluster count | roadmap items 4, 7 |
-| R/MASS `Insurance` | 64 | natural weight column (`Holders` exposure) | roadmap item 6 (WLS) |
-| R `sleep` | 20 | paired two-sample data | roadmap item 2 |
-| R `ToothGrowth` | 60 | small two-group + dose (also a tidy 2×3 factorial) | roadmap item 2 |
+| Calendar-dated monthly series (AirPassengers-shaped, real date column) | ~144 | **the only uncovered Section-1 axis** (calendar-signature Sequence verdict); later the Time role and time-series functions | §1.5 gap; **v3.6** `Time` role |
+| R `Grunfeld` | 200 | balanced 10×20 two-factor panel; proper cluster count | **v3.8** two-way FE; back-fills **v3.5** `Cluster` |
+| R/MASS `Insurance` | 64 | natural weight column (`Holders` exposure) | **v3.7** WLS |
+| R `sleep` | 20 | paired two-sample data | **v3.10** two-sample |
+| R `ToothGrowth` | 60 | small two-group + dose (also a tidy 2×3 factorial) | **v3.10** two-sample |
 | R `mtcars` | 32 | optional: a pocket-sized log-log / quadratic sandbox for fast manual iteration — nice-to-have, not required for coverage | convenience only |
 
 ### Already in `sample_data/`, currently unwired
@@ -202,5 +253,9 @@ a registry entry (`lambda_catalog/write_sheet_csv_dataset.py`, `SPEC_DATASET_PRO
 
 ### Timing
 
-Only the calendar-dated series affects Section-1 coverage; every other addition can wait until its
-roadmap item starts. Nothing needs to be imported in this pass.
+Only the calendar-dated series affects Section-1 coverage; every other addition can wait until the
+milestone in its `Needed by` column starts. Nothing needs to be imported in this pass.
+
+The two two-sample datasets (`sleep`, `ToothGrowth`) are now the **last** to be needed, since
+v3.10 sits at the end of the ladder. That is a scheduling fact, not a demotion — they are still
+the right datasets when the milestone comes up.

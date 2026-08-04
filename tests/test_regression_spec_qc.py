@@ -515,6 +515,35 @@ def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     )
 
 
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
+def test_durbin_watson_is_a_real_statistic_where_an_ordering_axis_exists() -> None:
+    """The bounds check the Auto MPG case above can no longer carry.
+
+    P03b has a Sequence axis (Fiscal_Year) and no Fixed Effects, which is
+    the one state where the sheet's AE11 shows a number — so it is where
+    the "DW is finite and in [0, 4]" invariant belongs. Keeping it here
+    rather than dropping it with the Auto MPG pin is the point: the
+    property is real, it was just being asserted on a model that cannot
+    produce the statistic.
+
+    Its pre-derived twin P03 must agree exactly. Both fit the identical
+    model and DW is a pure function of the residual vector, which the two
+    already agree on bit-for-bit.
+    """
+    transform_axis = calculate_regression_spec_case(
+        _case("production_lots_log_no_fe"), PRODUCTION_LOTS_CSV_PATH
+    ).results.summary.durbin_watson
+    derived = calculate_regression_spec_case(
+        _case("production_lots_derived_log_no_fe"), PRODUCTION_LOTS_CSV_PATH
+    ).results.summary.durbin_watson
+
+    assert math.isfinite(transform_axis)
+    assert 0.0 <= transform_axis <= 4.0
+    assert transform_axis == derived
+
+
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_expected_outputs_are_internally_consistent() -> None:
     expected = calculate_regression_spec_case(_case("continuous_subset_intercept"), CSV_PATH)
@@ -527,9 +556,16 @@ def test_expected_outputs_are_internally_consistent() -> None:
     assert len(results.vectors.beta_weights) == k
     assert len(results.predictor_summary.gvif) == k
     assert len(results.prediction_interval.pred_input_values) == k
-    assert math.isfinite(results.summary.durbin_watson)
-    assert 0.0 <= results.summary.durbin_watson <= 4.0
-    assert results.summary.durbin_watson == pytest.approx(0.8587513374458717)
+    # NaN, not a number: this is an Auto MPG case, and Auto MPG declares no
+    # Sequence axis, so the sheet's AE11 reads "n/a — requires Sequence".
+    #
+    # This line used to pin 0.8587513374458717 — the statistic computed over
+    # PHYSICAL ROW ORDER. It was never a reading the sheet could produce, and
+    # the live verifier rejected exactly this value (and eighteen siblings)
+    # as a real number compared against a text cell. DW is only meaningful
+    # along a declared ordering; without one the honest answer is "not
+    # computed".
+    assert math.isnan(results.summary.durbin_watson)
     assert abs(sum(results.full_residuals.hat_diagonal) - p) < 1e-4
     for y, prediction, residual in zip(
         results.full_residuals.dependent_var,

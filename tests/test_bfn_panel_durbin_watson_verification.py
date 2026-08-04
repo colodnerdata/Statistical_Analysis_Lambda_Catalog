@@ -586,10 +586,23 @@ def test_dw_and_bfn_are_never_both_live_in_the_registry() -> None:
             f"{case.plan_id} has both DW and BFN live; the sheet shows one "
             "of them as text"
         )
+        # AE11's gate in full, in the formula's own order: no Sequence axis
+        # -> "n/a — requires Sequence"; more than one -> "n/a — multiple
+        # Sequence flags"; any Fixed Effects row -> "n/a — FE active".
+        # Only all three passing leaves a number.
+        #
+        # An earlier revision of this test asserted `dw_live == (not has_fe)`
+        # and passed — because the ORACLE had the same gap, computing DW over
+        # physical row order when no Sequence axis was declared. Dropping the
+        # flag from the Auto MPG cases put all nineteen into that state and
+        # the live verifier caught it: a real number against a text cell.
+        # State the sheet's whole condition, not the half that was noticed.
+        sequence_flags = sum(1 for item in case.spec if item.sequence)
         has_fe = any(item.role == _ROLE_FIXED_EFFECTS for item in case.spec)
-        # Plain DW is live exactly when no Fixed Effects row is declared —
-        # the sheet's AE11 gate is on the FE COUNT, not on the Sequence flag.
-        assert dw_live == (not has_fe), f"{case.plan_id}: DW gate disagrees with FE"
+        assert dw_live == (sequence_flags == 1 and not has_fe), (
+            f"{case.plan_id}: DW gate disagrees with the sheet "
+            f"(sequence_flags={sequence_flags}, has_fe={has_fe})"
+        )
         if bfn_live:
             live.append(case.plan_id)
 

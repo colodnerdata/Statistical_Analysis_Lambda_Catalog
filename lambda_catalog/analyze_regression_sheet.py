@@ -385,7 +385,21 @@ def calculate_regression_results_from_matrix(
         # state. BFN_Panel_Durbin_Watson takes over — computed just below.
         durbin_watson = float("nan")
     elif sequence_values is None:
-        durbin_watson = float(np.sum(np.diff(e) ** 2) / np.sum(e**2))
+        # No Sequence axis declared, so AE11 reads "n/a — requires Sequence"
+        # — the cell's FIRST gate, before the FE one above.
+        #
+        # This used to compute DW over PHYSICAL ROW ORDER, and the bug was
+        # invisible while every Auto MPG case inherited a Sequence flag from
+        # the shipped T0 spec. Emptying _DEFAULT_SEQUENCE_VARIABLES (Auto MPG
+        # is cross-sectional) put all nineteen of them into this branch at
+        # once, and the verifier reported nineteen Durbin_Watson mismatches
+        # of a real number against a text cell.
+        #
+        # Differencing residuals in row order is not a weaker reading of the
+        # statistic, it is a different one: DW is only meaningful along a
+        # declared ordering, which is exactly why the sheet refuses to show
+        # one without a Sequence axis. The oracle now refuses too.
+        durbin_watson = float("nan")
     else:
         order = np.argsort(np.asarray(sequence_values, dtype=np.float64), kind="stable")
         dw_resid = e[order]

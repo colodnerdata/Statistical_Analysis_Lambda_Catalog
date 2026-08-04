@@ -332,10 +332,10 @@ gap-aware t−Δ semantics — verification in
 `tests/test_difference_by_verification.py`.
 
 - **RESOLVED · SHIPPED** — **Unit-space dispatcher functions** (design
-  RESOLVED, code SHIPPED): seven catalog functions under the
+  RESOLVED, code SHIPPED): eight catalog functions under the
   `Back-Transformation` subcategory — `Smearing_Factor`,
   `Back_Transform_Response`, `Unit_Space_Predictions`,
-  `Unit_Space_Residuals`, `Unit_Space_R_Squared`,
+  `Unit_Space_Observed`, `Unit_Space_Residuals`, `Unit_Space_R_Squared`,
   `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`. The dispatcher pattern
   (one canonical name per statistic, internal `SWITCH` on the transform pair)
   is the documented naming-style-departure pattern, in

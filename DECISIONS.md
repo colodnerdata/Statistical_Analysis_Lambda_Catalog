@@ -2890,7 +2890,7 @@ Six amendments to the v2.2/v2.3 design record:
 
 ### Catalog
 
-Seven new functions in `lambda_functions.json` under subcategory
+Eight new functions in `lambda_functions.json` under subcategory
 `Back-Transformation` (a new subcategory of `Model Construction`):
 
 - `Smearing_Factor(X, Y, [Include], [Context])` — scalar. `1` when the

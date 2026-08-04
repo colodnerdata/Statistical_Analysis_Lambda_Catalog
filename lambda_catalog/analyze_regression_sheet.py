@@ -11,6 +11,7 @@ from scipy import stats as _scipy_stats  # type: ignore[import-untyped]
 
 from .analyze_life_expectancy import (
     DEFAULT_INPUT_CSV,
+    TARGET_COLUMN,
     _build_training_arrays,
     _fit_ols_model,
     _load_normalized_rows,
@@ -126,7 +127,7 @@ def _build_model_formula(
     response_display: str,
     predictor_names: tuple[str, ...],
     include_intercept: bool,
-    group_labels: np.ndarray | None,
+    fixed_effects_name: str | None,
 ) -> str:
     """Assemble the AB2 model-formula cell text from the spec's display names.
 
@@ -138,12 +139,13 @@ def _build_model_formula(
     on the sheet side) — which already emit ``Ln(name)`` per logged
     predictor, level-qualified dummy names, and ``left × right`` interaction
     names — so the mixed Log/None predictor case renders correctly with no
-    extra work. The Fixed Effects suffix names the only declared FE
-    variable, identical to the spec feedback block's FE Variable cell.
+    extra work. ``fixed_effects_name`` is the declared FE variable's own
+    name from the spec (e.g. ``Facility``), identical to the spec feedback
+    block's FE Variable cell — never a group level value.
 
-    The Python mirror here is the test oracle for the sheet's TEXTJOIN
-    expression: any difference between the two is a regression-test
-    failure.
+    This string is stored on ``RegressionUnitSpace`` for the QC harness and
+    the future v3.4 Model Comparison surface; it is not yet string-compared
+    against the live AB2 cell by the inspector.
     """
     parts: list[str] = []
     if include_intercept:
@@ -151,34 +153,9 @@ def _build_model_formula(
     for name in predictor_names:
         parts.append(name)
     rhs = " + ".join(parts) if parts else "1"
-    if group_labels is not None:
-        fe_name = _fixed_effects_variable_name(predictor_names, group_labels)
-        if fe_name:
-            rhs = f"{rhs} | {fe_name}"
+    if fixed_effects_name:
+        rhs = f"{rhs} | {fixed_effects_name}"
     return f"{response_display} ~ {rhs}"
-
-
-def _fixed_effects_variable_name(
-    predictor_names: tuple[str, ...],
-    group_labels: np.ndarray,
-) -> str | None:
-    """Return the Fixed Effects variable name when group_labels is set.
-
-    With multiple groups in ``group_labels``, the spec declares a single
-    FE variable — but its name does not appear in the constructed-column
-    list (Dummy_Code is not used under FE; the within transform absorbs
-    the group effect without expanding dummies). Without an explicit
-    source for the variable name in the predictor list, return the
-    single most-frequent group label as a stand-in for the QC harness
-    only — the SHEET side uses the spec's own Row Labels and the
-    ``Header_Names`` lookup, which is always exact.
-    """
-    if group_labels is None:
-        return None
-    distinct = sorted({str(g) for g in group_labels})
-    if len(distinct) < 2:
-        return None
-    return distinct[0]
 
 
 def calculate_regression_results_from_matrix(
@@ -192,6 +169,8 @@ def calculate_regression_results_from_matrix(
     selected_group: str | None = None,
     response_transform: str = "None",
     predictor_transform: str = "None",
+    response_name: str = "Response",
+    fixed_effects_name: str | None = None,
 ) -> RegressionSheetResults:
     """Fit OLS and compute expected values for the current Regression sheet.
 
@@ -621,15 +600,15 @@ def calculate_regression_results_from_matrix(
     # name, the Log/None transform flag on the response, the Allow_Intercept
     # value, the constructed column names (which already emit "Ln(name)" for
     # a logged predictor, level-qualified dummy names, and "left × right"
-    # interaction names), and the Fixed Effects variable name.
-    response_display = "Response"
+    # interaction names), and the Fixed Effects variable's spec name.
+    response_display = response_name
     if response_transform == "Log":
-        response_display = "Ln(Response)"
+        response_display = f"Ln({response_name})"
     model_formula = _build_model_formula(
         response_display=response_display,
         predictor_names=predictor_names,
         include_intercept=include_intercept,
-        group_labels=group_labels,
+        fixed_effects_name=fixed_effects_name,
     )
 
     unit_space = RegressionUnitSpace(
@@ -679,6 +658,7 @@ def calculate_regression_sheet_results(
         predictor_names=tuple(columns),
         include_intercept=include_intercept,
         alpha=alpha,
+        response_name=TARGET_COLUMN,
     )
 
 

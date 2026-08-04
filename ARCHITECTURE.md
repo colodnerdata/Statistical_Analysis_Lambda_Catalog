@@ -108,8 +108,8 @@ combinatorially-named families follow the same exception.
 
 - v2.2 / v3.3 — the `Unit_Space_*` dispatcher family (`Unit_Space_R_Squared`,
   `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`, plus the v3.3
-  `Unit_Space_Predictions`, `Unit_Space_Residuals`, `Smearing_Factor`,
-  `Back_Transform_Response`). Each name SWITCHes on the
+  `Unit_Space_Predictions`, `Unit_Space_Observed`, `Unit_Space_Residuals`,
+  `Smearing_Factor`, `Back_Transform_Response`). Each name SWITCHes on the
   `(response_transform, predictor_transform)` pair read off `Fit_Context()`
   — elements 3 and 4 were reserved for exactly this. The dispatcher lives
   under the `Back-Transformation` subcategory of `Model Construction`,

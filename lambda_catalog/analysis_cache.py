@@ -37,7 +37,7 @@ DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
 # — a cached v15 entry has none of the new keys.
 # v17: RegressionSheetResults gained unit_space (v3.3 unit-space / back-
 # transformation outputs) — a cached v16 entry has no "unit_space" key.
-_CACHE_SCHEMA_VERSION = 17
+_CACHE_SCHEMA_VERSION = 18
 
 
 def _csv_fingerprint(csv_path: Path) -> str:

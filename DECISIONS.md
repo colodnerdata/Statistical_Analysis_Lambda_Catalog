@@ -989,7 +989,7 @@ Welch, and paired variants?
 Welch cases; the paired case is a separate code path the flag does
 not cover. A 3-way flag or a separate `paired` boolean is the open
 question, not yet resolved. Tracked in
-[TODOs.md § v3.5](TODOs.md#v35--bivariate--two-sample).
+[TODOs.md § v3.10](TODOs.md#v310--bivariate--two-sample).
 
 ### v2.6 — WLS: `Weight` Role, default-uniform `[Weights]` argument
 
@@ -3015,61 +3015,88 @@ cache schema version bumps to 17.
 
 ## v3.4+ — Ladder ordering and the test-model suite
 
-### The post-v3.3 ladder is ordered by test-suite growth
+### The post-v3.3 ladder: Regression work first, then test-suite growth
 
 **Question:** in what order should the remaining planned milestones ship?
 Through v3.3 the order was inherited from the original v2.x feature train,
 renumbered but never re-argued, with five candidates sitting in an
 unordered "v3.8+" bucket.
 
-**Resolution:** RESOLVED — every milestone from v3.4 on is sequenced by
-**how much the regression test-model suite has to grow to cover it**, not by
-feature size, user-visible value alone, or the order the milestones were
-written down in. Additive features first, per-model multipliers next,
-axis-wideners last; within a tier, the most commonly used feature first.
+**Resolution:** RESOLVED — every milestone from v3.4 on is sequenced by two
+keys, in this order:
 
-| Tier | Milestones |
-|---|---|
-| Additive — a fixed number of new cases | v3.4 Model Comparison · v3.5 Two-sample · v3.6 Resampling |
-| Near-additive — a variant over a few existing models | v3.7 `Cluster` · v3.8 `Time` / time series |
-| ~2× — re-runs a model family | v3.9 WLS · v3.10 Two-way FE |
-| ~10× — widens an axis every model is crossed against | v3.11 standalone transform library |
+1. **All remaining Regression work ships first.** A milestone that extends
+   the Regression sheet, its spec block, or its engine precedes either
+   milestone that opens a *new* analysis surface. Two-sample and Resampling
+   are the only two of the latter, and they go last as a block.
+2. **Within the Regression track, by how much the test-model suite has to
+   grow** — additive first, per-model multipliers next, axis-wideners last;
+   within a tier, the most commonly used feature first.
 
-Seven milestones changed number — four moved, three promoted out of the
-unordered bucket. Two-sample v3.6 → **v3.5** and Resampling
-v3.5 → **v3.6** (both flat-cost, so the tie breaks on value — two-sample is
-the ToolPak-parity gap a user hits first); `Cluster` → **v3.7** and `Time` /
-time series → **v3.8**, promoted out of the unordered bucket; WLS v3.7 →
-**v3.9**; two-way FE → **v3.10**, also promoted; and the standalone
-transform library out of the v3.3 remainder to **v3.11**. v3.3 keeps its
-number for the half that shipped. What was left unordered — ANOVA, Fourier,
-decision analysis — stays unordered as **v3.12+**, because nothing about
-their test cost sequences them either.
+| Track | Tier | Milestones |
+|---|---|---|
+| Regression | additive | v3.4 Model Comparison |
+| Regression | near-additive | v3.5 `Cluster` · v3.6 `Time` / time series |
+| Regression | ~2× | v3.7 WLS · v3.8 Two-way FE |
+| Regression | ~10× axis-widener | v3.9 standalone transform library |
+| New surface | additive | v3.10 Two-sample · v3.11 Resampling |
 
-**Rationale.** The suite is a covering array over the implemented feature
-axes, so a feature's cost is not the code it adds but the *cross* it forces:
-a new `Transform` value multiplies the response × predictor dispatch table
-that every model is scored against, while a new variance estimator only
+Three milestones changed number and three left the unordered bucket:
+`Cluster` → **v3.5**, `Time` / time series → **v3.6**, two-way FE →
+**v3.8** (all promoted); the standalone transform library out of the v3.3
+remainder to **v3.9**; Two-sample v3.6 → **v3.10** and Resampling v3.5 →
+**v3.11**. WLS holds **v3.7**, the number it was claimed under, but reaches
+it as the first ~2× item in the Regression track rather than by inheritance.
+v3.3 keeps its number for the half that shipped. What was left unordered —
+ANOVA, Fourier, decision analysis — stays unordered as **v3.12+**, because
+nothing about their test cost sequences them either.
+
+**Rationale, key 2.** The suite is a covering array over the implemented
+feature axes, so a feature's cost is not the code it adds but the *cross* it
+forces: a new `Transform` value multiplies the response × predictor dispatch
+table that every model is scored against, while a new variance estimator only
 varies a handful of existing models. Ordering by that number keeps the suite
-growing linearly for as long as possible and lands the multiplicative lifts
-on the most mature harness. Two side effects made the ordering strictly
-better than the one it replaced: `Time` moves early, and its calendar-dated
-dataset closes the **one Section-1 coverage gap that exists today** (the
-Sequence calendar-signature verdict, untestable because no wired dataset
-carries real dates); and WLS moves behind two cheap milestones without
+growing linearly for as long as possible and lands the multiplicative lifts on
+the most mature harness. Two side effects: `Time` moves early, and its
+calendar-dated dataset closes the **one Section-1 coverage gap that exists
+today** (the Sequence calendar-signature verdict, untestable because no wired
+dataset carries real dates); and WLS sits behind two cheap milestones without
 losing anything, since its own sequencing constraint — ship after v3.0 so √w
 scaling is the first implementation rather than a rewrite — is already
 satisfied.
 
-**REJECTED — ordering by user-facing value alone.** It is the tie-breaker
-*within* a tier, not the primary key. Value-first ordering is what put the
-~10× transform library at v3.3, immediately after the milestone with the
-most axes to cross.
+**Rationale, key 1, and why it outranks key 2.** Test cost is the right
+tiebreaker *within* one artifact and the wrong primary key across two. Every
+Regression-track milestone extends a surface that already exists and is
+verified by the harness that already exists — a spec column, an engine change,
+more cases in the same oracle. Two-sample and Resampling each need a new sheet
+writer, a new layout, and a verification path sharing nothing with
+`calculate_regression_spec_case`. Interleaving them means carrying two
+half-built analysis surfaces at once and leaving the artifact users actually
+have feature-incomplete for longer while effort goes elsewhere. The deferral
+costs no rework: neither milestone depends on any Regression milestone, and
+none depends on them, so both cost the same whenever they are built.
 
-**Not frozen.** The tool is single-user and pre-release. A user pressing for
-a milestone reorders it; the rule is that
+**The inversion is deliberate.** v3.10 and v3.11 are *cheaper* to test than
+four of the milestones ahead of them and still ship last. That is key 1
+overriding key 2, recorded explicitly so a future reader does not "correct"
+the ladder back to pure test-scale order.
+
+**REJECTED — ordering by user-facing value alone.** It is the tie-breaker
+*within* a tier, not a key of its own. Value-first ordering is what put the
+~10× transform library at v3.3, immediately after the milestone with the most
+axes to cross.
+
+**REJECTED — pure test-scale ordering across both tracks.** That was the
+first form of this decision, and it interleaved the two non-Regression
+milestones at v3.5 and v3.6, ahead of every multiplier. It optimizes the
+suite's growth curve at the cost of the artifact's completeness, which is the
+wrong trade for a tool with one user waiting on the Regression workbook.
+
+**Not frozen.** The tool is single-user and pre-release. A user pressing for a
+milestone reorders it; the rule is that
 [docs/MODEL_TESTING_ASSETS.md](docs/MODEL_TESTING_ASSETS.md) § 2 is edited
-first and the [ROADMAP.md](ROADMAP.md#ladder-order-from-v34-on-is-set-by-test-suite-growth)
+first and the [ROADMAP.md](ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
 ladder second, so the two never disagree about why the order is what it is.
 
 ### The test-model plan is a document, not a test file

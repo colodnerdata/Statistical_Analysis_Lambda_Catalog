@@ -36,11 +36,15 @@ is an ordered list asserted against `build_regression_spec_cases()`. Adding, ren
 reordering, or dropping a case means editing that list in the same commit — otherwise the
 suite fails, which is the point.
 
-**The suite's growth rate orders the roadmap.** From v3.4 on, milestones are sequenced by how
-much they force this suite to grow: additive features first (v3.4 Model Comparison, v3.5
-Two-sample, v3.6 Resampling), near-additive next (v3.7 `Cluster`, v3.8 `Time`), ~2×
-multipliers after that (v3.9 WLS, v3.10 two-way FE), and the ~10× axis-widener last (v3.11 the
-standalone transform library). When a change would reorder milestones, edit the
+**The suite's growth rate orders the roadmap — under one constraint.** From v3.4 on the ladder
+sorts on two keys. First, **all remaining Regression work ships before either milestone that
+opens a new analysis surface**: v3.10 Two-sample and v3.11 Resampling go last as a block, even
+though both are flat-cost to test. Second, *within* the Regression track, milestones are
+sequenced by how much they force this suite to grow — additive (v3.4 Model Comparison),
+near-additive (v3.5 `Cluster`, v3.6 `Time`), ~2× (v3.7 WLS, v3.8 two-way FE), and the ~10×
+axis-widener last (v3.9 the standalone transform library). The inversion is deliberate: v3.10
+and v3.11 are cheaper to cover than four milestones ahead of them and still ship last. Do not
+"fix" it back to pure test-scale order. When a change would reorder milestones, edit the
 MODEL_TESTING_ASSETS Section 2 table first and the ROADMAP ladder second — the ladder follows
 that table, not the other way round.
 

@@ -53,24 +53,26 @@ Three self-contained items, in ascending cost:
 | [Wire Life Expectancy into the regression QC suite](#test-model-suite) | M | Test suite |
 | [Rename `write_sheet_model_construction.py` → `write_spec_block.py`](#v20-leftovers) | M | v2.0 |
 | [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
-| [Two-sample tests — `T_Test_OneSample`, `F_Test_Variance`, `Covariance_Matrix`](#v35--bivariate--two-sample) | L | v3.5 |
-| [`Bootstrap_CI` / `MC_Percentile` / `PERT_Sample`](#v36--resampling--simulation) | L | v3.6 |
-| [`Cluster` Role — clustered-robust V_β](#v37--cluster-role-clustered-ses) | L | v3.7 |
-| [`Moving_Average` / `Exponential_Smoothing`](#v38--time-role--time-series) | M | v3.8 |
-| [`Numeric_Complete_Cases`](#v311--standalone-data-transformation-library) | S | v3.11 |
-| [`Dummy_Column`, `Interact`, `Model_Matrix`](#v311--standalone-data-transformation-library) | M | v3.11 |
-| [Location & Scale transforms — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`](#v311--standalone-data-transformation-library) | M | v3.11 |
-| [Group & Panel transforms — `Zscore_By`, `Decompose_By`](#v311--standalone-data-transformation-library) | M | v3.11 |
+| [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
+| [`Moving_Average` / `Exponential_Smoothing`](#v36--time-role--time-series) | M | v3.6 |
+| [`Numeric_Complete_Cases`](#v39--standalone-data-transformation-library) | S | v3.9 |
+| [`Dummy_Column`, `Interact`, `Model_Matrix`](#v39--standalone-data-transformation-library) | M | v3.9 |
+| [Location & Scale transforms — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`](#v39--standalone-data-transformation-library) | M | v3.9 |
+| [Group & Panel transforms — `Zscore_By`, `Decompose_By`](#v39--standalone-data-transformation-library) | M | v3.9 |
+| [Two-sample tests — `T_Test_OneSample`, `F_Test_Variance`, `Covariance_Matrix`](#v310--bivariate--two-sample) | L | v3.10 |
+| [`Bootstrap_CI` / `MC_Percentile` / `PERT_Sample`](#v311--resampling--simulation) | L | v3.11 |
 
 The catalog-function items above are headless by construction: a LAMBDA lands in
 `lambda_functions.json` with a Python mirror and tests, and only the *sheet* that
 surfaces it needs Excel.
 
 Backlog and version-independent rows come first; the milestone rows below them are
-in ladder order, and the ladder is ordered by how much the
+in ladder order. The ladder sorts on two keys — all remaining Regression work
+first, then, within that, how much the
 [regression test-model suite](docs/MODEL_TESTING_ASSETS.md) has to grow to cover
-each milestone — cheap-to-test features first. The four v3.11 rows are last on
-purpose, and they are also listed in their own working order.
+each milestone. That is why the two flat-cost non-Regression milestones (v3.10,
+v3.11) sit below four more expensive ones, and why the four v3.9 rows are last in
+the Regression track — they are also listed in their own working order.
 
 ### Needs Excel on a developer machine
 
@@ -85,9 +87,9 @@ purpose, and they are also listed in their own working order.
 | [Beta: method-of-moments start + ~12×12 grid](#univariate-21--the-beta-half-of-the-grid-shrink) | L | Univariate 2.1 |
 | [Relabel within-model residual outputs + Diagnostic Guide paragraph](#v21-leftovers--follow-on-polish) | S | v2.1 |
 | [Model Comparison sheet layout](#v34--model-comparison-sheet) | L | v3.4 |
-| [Two-sample sheet layout](#v35--bivariate--two-sample) | M | v3.5 |
-| [Simulation sheet layout](#v36--resampling--simulation) | M | v3.6 |
-| [Time-series sheet (`write_sheet_time_series.py`)](#v38--time-role--time-series) | L | v3.8 |
+| [Time-series sheet (`write_sheet_time_series.py`)](#v36--time-role--time-series) | L | v3.6 |
+| [Two-sample sheet layout](#v310--bivariate--two-sample) | M | v3.10 |
+| [Simulation sheet layout](#v311--resampling--simulation) | M | v3.11 |
 
 The Diagnostic Guide item also needs Excel for a second reason: that sheet is
 baked into `templates/static_sheets.xlsx` and only regenerates through
@@ -99,8 +101,8 @@ baked into `templates/static_sheets.xlsx` and only regenerates through
 |---|---|
 | [Blank-categorical caveat in `Sample_Include()`](#v20-leftovers) | v2.0 |
 | [Mismatched-predictor-set fallback for the Comparison sheet](#v34--model-comparison-sheet) | v3.4 |
-| [Two-sample selector — 3-way flag or separate `paired` boolean](#v35--bivariate--two-sample) | v3.5 |
-| [Can a column be both `Sequence` and `Time`](#v38--time-role--time-series) | v3.8 |
+| [Can a column be both `Sequence` and `Time`](#v36--time-role--time-series) | v3.6 |
+| [Two-sample selector — 3-way flag or separate `paired` boolean](#v310--bivariate--two-sample) | v3.10 |
 | [How the guard-state configurations (G1–G13) are exercised](#test-model-suite) | Test suite |
 
 Deliberately held, not available to pick up: [BFN critical
@@ -238,7 +240,7 @@ and one-way Fixed Effects all shipped inside the 3.0.0 artifact (TODOs #1–#10,
 verified at 0 mismatches across all 12 spec-driven QC cases). Design rationale:
 [DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 Two-way FE is deliberately deferred until this framework is finished — see
-[v3.10](#v310--two-way-fixed-effects).
+[v3.8](#v38--two-way-fixed-effects).
 
 - **DEFERRED** — **BFN critical values**. N,T-dependent bounds per Bhargava et
   al. 1982 tables; do NOT present standard DW bounds next to the BFN cell. The
@@ -330,8 +332,8 @@ is rewiring the readers, which is where the performance win actually is.
 Planned as the second half of v2.2; moved after v3.0 when the feature train was
 resequenced — see [ROADMAP.md § v3.3](ROADMAP.md#v33--transforms-remainder--shipped-dispatcher--duan--model-formula-label).
 **The standalone transform library is no longer part of this milestone** — it now
-ships as [v3.11](#v311--standalone-data-transformation-library), at the end of the
-ladder, because it is the most expensive item in the plan to test.
+ships as [v3.9](#v39--standalone-data-transformation-library), at the end of the
+Regression track, because it is that track's most expensive item to test.
 The column-G `Log` wiring already shipped at v2.2: `Response_Column()` / `X_s()`
 read column G, `Constructed_Column_Names()` / `Constructed_Column_Transforms()`
 relabel and carry the per-column Log/None flag, the Prediction Inputs band
@@ -389,7 +391,7 @@ because an R² computed on `Ln(y)` is not comparable with one computed on raw `y
 **Test assets — additive (~1×).** No new data: M1, L2, and P2 already supply ≥3
 registered models with shared prediction inputs. Add one mismatched-predictor-set
 pair (M1 vs M14) for the `XLOOKUP [if_not_found]` question below. See
-[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-ordered-by-test-scale-multiplier).
+[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 - **READY · M · no Excel** — Implement the `Model_Formula_String` LAMBDA with
   header-signature validation (`NA()` on non-Regression targets). The name
@@ -407,17 +409,167 @@ pair (M1 vs M14) for the `XLOOKUP [if_not_found]` question below. See
   (XLOOKUP `[if_not_found]`). See the open-decision note in
   [DECISIONS.md § v2.3 Model Comparison Sheet](DECISIONS.md#v23--model-comparison-sheet).
 
-## v3.5 — Bivariate / Two-sample
+## v3.5 — `Cluster` Role (clustered SEs)
 
-Planned as v2.5, claimed as v3.6, moved ahead of Resampling by the test-scale
-reordering (both are flat-cost; two-sample is the parity gap a user hits first) —
-see [ROADMAP.md](ROADMAP.md#v35--bivariate--two-sample--planned).
+Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering —
+it is Regression work, and a variance-estimator variant over a few existing models
+is the cheapest thing left to cover in that track. See
+[ROADMAP.md](ROADMAP.md#v35--cluster-role-clustered-robust-ses--planned).
+
+**Test assets — near-additive, no new data to start.** Production Lots' three
+facilities are the initial within-group-correlated fixture, and deliberately few —
+three clusters is what exercises the small-cluster warning path. `Grunfeld` arrives
+with [v3.8](#v38--two-way-fixed-effects) and supplies 10–11 proper clusters. See
+[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+
+- **READY · L · no Excel** — Implement the `Cluster` Role (at most one) —
+  clustered-robust variance estimator. Has partial forward wiring from
+  `Serial_Correlation_Group()`'s dormant Cluster branch (PR #106), so the
+  resolver side is partial; the engine side (cluster-robust V_β) is not.
+
+- **READY · S · needs Excel** — Lift the v2.1 `n/a — engine forthcoming` token on
+  the BFN cell when Cluster is active (the BFN formula already uses
+  `Serial_Correlation_Group()` as its resolver, so the wiring is partial).
+
+## v3.6 — `Time` Role + time series
+
+Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering.
+See [ROADMAP.md](ROADMAP.md#v36--time-role--time-series--planned).
+
+**Test assets — near-additive, and the one item that closes a coverage gap
+existing today.** Wiring a calendar-dated monthly series (~144 rows,
+AirPassengers-shaped, with a real date column) makes the Sequence
+**calendar-signature verdict** testable — the single uncovered axis in the
+Section-1 coverage matrix, because no wired dataset carries real dates. That test
+can be written as soon as the dataset lands, ahead of the Role itself. See
+[docs/MODEL_TESTING_ASSETS.md § 1.5](docs/MODEL_TESTING_ASSETS.md#15-coverage-matrix)
+and [§ 3](docs/MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-minimal).
+
+- **OPEN · L · no Excel** — Design and implement the `Time` Role. Partially
+  forward-wired via the v2.1 Sequence axis, but the full `Time` Role adds
+  time-index semantics (for the future time-series sheet, for cross-sheet
+  `Lag_By` / `Difference_By` calls). The open question: can a column be both
+  `Sequence` and `Time`, or are they mutually exclusive?
+
+- **READY · M · no Excel** — Implement `Moving_Average(data, window, [include])`.
+
+- **READY · M · no Excel** — Implement `Exponential_Smoothing(data,
+  alpha_smooth, [include])` — note: use `alpha_smooth` to distinguish from the
+  significance-level `alpha`.
+
+- **READY · L · needs Excel** — Implement `write_sheet_time_series.py` with
+  forecast output, error metrics (MAE, RMSE, MAPE), and an actual vs. smoothed
+  series chart.
+
+## v3.7 — `Weight` Role (WLS)
+
+Planned as v2.6 and claimed as v3.7; it keeps that number, but now as the first
+~2× item in the Regression track — the ladder reordering put `Cluster` and `Time`
+ahead of it and Two-sample and Resampling behind it. See
+[ROADMAP.md](ROADMAP.md#v37--weight-role-wls--planned). The standalone WLS milestone and its
+`[weights]`-argument-vs-parallel-function-set debate are superseded by a
+**`Weight` value on the Role axis** (see
+[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)).
+Three-stage scope carried forward: user-supplied weights →
+variance-driver-derived weights → FGLS. This milestone ships the first stage
+only. The default-uniform → OLS pattern (the "non-breaking MINOR" guarantee) is
+in [DECISIONS.md § v2.6 WLS](DECISIONS.md#v26--wls-weight-role-default-uniform-weights-argument).
+
+- **READY · M · needs Excel** — Implement the `Weight` Role (at most one, per the
+  cardinality rule that Response, Time, and Weight share; status-block validation
+  identical to exactly-one-Response).
+
+- **READY · L · no Excel** — Thread weights through the engine per the Role-axis
+  design: a single optional `[Weights]` argument (default uniform) on the
+  inferential chain. Default-uniform means every existing OLS call computes
+  identically — the v2.1 `[DF_Absorbed]` precedent (default 0 → identical no-FE
+  model) is the exact pattern to follow.
+
+- **READY · S · needs Excel** — Update the Diagnostic Guide to describe which
+  diagnostics change interpretation under WLS. (WLS closes the loop opened by
+  v1's Scale-Location diagnostic.) Static template sheet — regenerate via
+  `rebuild_static_sheets.py`.
+
+**Test assets — ~2× over a representative subset.** A dataset with a natural
+weight column (R/MASS `Insurance`, 64 rows, or a grouped-mean aggregation of an
+existing one). Plan **weighted variants of ~6 representative models — one per
+dispatch-pair family — not the whole suite**; that bound is what keeps this at ~2×.
+Assert the recorded trap as an oracle: `DEVSQ(√w ⊙ y)` ≠ weighted SST. See
+[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+
+## v3.8 — Two-way Fixed Effects
+
+Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering.
+See [ROADMAP.md](ROADMAP.md#v38--two-way-fixed-effects--planned).
+
+**Test assets — ~2× over the FE family.** R `Grunfeld` (200 rows, 10 firms × 20
+years) plus an **unbalanced variant** with rows deleted, to exercise
+`Is_Balanced_Panel` and the convergence check; the existing FE family is re-run
+two-way. See
+[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+
+- **READY · L · no Excel** — Implement `Absorb_Two_Way_Fixed_Effects(x, group1,
+  group2, [include], [passes])` (alternating-projection demeaning for unbalanced
+  panels).
+
+- **READY · M · no Excel** — Implement `Demean_Two_Way_Balanced(x, group1,
+  group2, [include])` and the two-way `Is_Balanced_Panel` check.
+
+- **READY · M · no Excel** — Implement `Fixed_Effects_Convergence_Check(x,
+  group1, group2, [include])`; surface in the status block whenever two FE
+  variables are active.
+
+- **OPEN · M · needs Excel** — Lift the v2.1 one-FE-variable status-block error;
+  resolve the two-way prediction question (group intercepts are not recoverable
+  as simple group means). The one-way-scope rationale is in
+  [DECISIONS.md § v2.1 scope](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+
+## v3.9 — Standalone Data Transformation library
+
+Planned as the second half of v2.2, then carried as the v3.3 remainder; moved to
+the end of the **Regression track** by the ladder reordering — see
+[ROADMAP.md](ROADMAP.md#v39--standalone-data-transformation-library--planned).
+Full specs in
+[ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
+
+**Test assets — the ~10× axis-widener, and no new data.** Every new `Transform`
+value widens the predictor-transform axis that today holds {None, Log}, and each
+widening multiplies the response × predictor dispatch table. **Work the four items
+below in the order given** — helpers first (they widen nothing), predictor-side
+transforms next, and any response-side extension last, because a response
+transform also multiplies the back-transformation / unit-space semantics. See
+[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+
+- **READY · S · no Excel** — Sample construction: `Numeric_Complete_Cases`.
+
+- **READY · M · no Excel** — Categorical & model construction: `Dummy_Column`,
+  `Interact`, `Model_Matrix`.
+
+- **READY · M · no Excel** — Location & Scale: `Center`, `Zscore`,
+  `Minmax_Scale`, `Winsorize`. (`Ln_Positive` shipped early, alongside the
+  Transform column-G wiring, rather than waiting for the rest of this bundle.)
+
+- **READY · M · no Excel** — Group & Panel: `Zscore_By`, `Decompose_By`.
+  (`Demean_By` / `Group_Mean` shipped at v2.1; the two-way functions follow the
+  two-way FE milestone.)
+
+## v3.10 — Bivariate / Two-sample
+
+Planned as v2.5, claimed as v3.6, briefly held at v3.5. It sits here because the
+ladder reordering ships all remaining Regression work first — this is the first
+milestone that opens a **new analysis surface** rather than extending the
+Regression sheet. It still precedes Resampling: both are flat-cost to test, and
+two-sample is the parity gap a user hits first. See
+[ROADMAP.md](ROADMAP.md#v310--bivariate--two-sample--planned).
+
+Nothing here got harder by waiting — this milestone depends on no Regression
+milestone and none depends on it.
 
 **Test assets — additive.** Two small new datasets: a two-group set (R
 `ToothGrowth`, 60 rows, or the in-repo `Status` split of Life Expectancy) and a
 **paired** set (R `sleep`, 20 rows). Cases: equal-variance t, Welch t, paired t,
 and the F-test of variances feeding the selector cell. See
-[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-ordered-by-test-scale-multiplier)
+[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order)
 and [§ 3](docs/MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-minimal)
 for the wiring cost of a new dataset.
 
@@ -442,17 +594,17 @@ for the wiring cost of a new dataset.
   selector, F-test assumption check, output (test statistic, df, p-value, CI,
   effect size). Implement `write_sheet_two_sample.py`.
 
-## v3.6 — Resampling & Simulation
+## v3.11 — Resampling & Simulation
 
-Planned as v2.4; moved after v3.0 with the rest of the feature train, then behind
-Two-sample by the test-scale reordering — see
-[ROADMAP.md](ROADMAP.md#v36--resampling--simulation--planned).
+Planned as v2.4, claimed as v3.5, briefly held at v3.6. The second non-Regression
+milestone, behind Two-sample — see
+[ROADMAP.md](ROADMAP.md#v311--resampling--simulation--planned).
 
 **Test assets — additive, no new data.** The seeded pre-drawn
 `Bootstrap_Random_Draws` table *is* the asset; Production Lots (n = 51) is the
 natural small-n bootstrap target (slope CI on the `production_lots_log_no_fe`
 case), and PERT/MC cases need only parameter cells. See
-[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-ordered-by-test-scale-multiplier).
+[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 - **READY · M · no Excel** — **The pre-drawn random table** (design RESOLVED, in
   answer to the no-volatile constraint). A single sheet-scoped named range
@@ -482,152 +634,9 @@ case), and PERT/MC cases need only parameter cells. See
   Monte Carlo section; may share one sheet). Implement
   `write_sheet_simulation.py`.
 
-## v3.7 — `Cluster` Role (clustered SEs)
-
-Planned as v2.7+, promoted out of the unordered bucket by the test-scale
-reordering — a variance-estimator variant over a few existing models is the
-cheapest thing left to cover. See
-[ROADMAP.md](ROADMAP.md#v37--cluster-role-clustered-robust-ses--planned).
-
-**Test assets — near-additive, no new data to start.** Production Lots' three
-facilities are the initial within-group-correlated fixture, and deliberately few —
-three clusters is what exercises the small-cluster warning path. `Grunfeld` arrives
-with [v3.10](#v310--two-way-fixed-effects) and supplies 10–11 proper clusters. See
-[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-ordered-by-test-scale-multiplier).
-
-- **READY · L · no Excel** — Implement the `Cluster` Role (at most one) —
-  clustered-robust variance estimator. Has partial forward wiring from
-  `Serial_Correlation_Group()`'s dormant Cluster branch (PR #106), so the
-  resolver side is partial; the engine side (cluster-robust V_β) is not.
-
-- **READY · S · needs Excel** — Lift the v2.1 `n/a — engine forthcoming` token on
-  the BFN cell when Cluster is active (the BFN formula already uses
-  `Serial_Correlation_Group()` as its resolver, so the wiring is partial).
-
-## v3.8 — `Time` Role + time series
-
-Planned as v2.7+, promoted out of the unordered bucket by the test-scale
-reordering. See [ROADMAP.md](ROADMAP.md#v38--time-role--time-series--planned).
-
-**Test assets — near-additive, and the one item that closes a coverage gap
-existing today.** Wiring a calendar-dated monthly series (~144 rows,
-AirPassengers-shaped, with a real date column) makes the Sequence
-**calendar-signature verdict** testable — the single uncovered axis in the
-Section-1 coverage matrix, because no wired dataset carries real dates. That test
-can be written as soon as the dataset lands, ahead of the Role itself. See
-[docs/MODEL_TESTING_ASSETS.md § 1.5](docs/MODEL_TESTING_ASSETS.md#15-coverage-matrix)
-and [§ 3](docs/MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-minimal).
-
-- **OPEN · L · no Excel** — Design and implement the `Time` Role. Partially
-  forward-wired via the v2.1 Sequence axis, but the full `Time` Role adds
-  time-index semantics (for the future time-series sheet, for cross-sheet
-  `Lag_By` / `Difference_By` calls). The open question: can a column be both
-  `Sequence` and `Time`, or are they mutually exclusive?
-
-- **READY · M · no Excel** — Implement `Moving_Average(data, window, [include])`.
-
-- **READY · M · no Excel** — Implement `Exponential_Smoothing(data,
-  alpha_smooth, [include])` — note: use `alpha_smooth` to distinguish from the
-  significance-level `alpha`.
-
-- **READY · L · needs Excel** — Implement `write_sheet_time_series.py` with
-  forecast output, error metrics (MAE, RMSE, MAPE), and an actual vs. smoothed
-  series chart.
-
-## v3.9 — `Weight` Role (WLS)
-
-Planned as v2.6, claimed as v3.7, moved behind `Cluster` and `Time` by the
-test-scale reordering — it is the ladder's first ~2× item. See
-[ROADMAP.md](ROADMAP.md#v39--weight-role-wls--planned). The standalone WLS milestone and its
-`[weights]`-argument-vs-parallel-function-set debate are superseded by a
-**`Weight` value on the Role axis** (see
-[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)).
-Three-stage scope carried forward: user-supplied weights →
-variance-driver-derived weights → FGLS. This milestone ships the first stage
-only. The default-uniform → OLS pattern (the "non-breaking MINOR" guarantee) is
-in [DECISIONS.md § v2.6 WLS](DECISIONS.md#v26--wls-weight-role-default-uniform-weights-argument).
-
-- **READY · M · needs Excel** — Implement the `Weight` Role (at most one, per the
-  cardinality rule that Response, Time, and Weight share; status-block validation
-  identical to exactly-one-Response).
-
-- **READY · L · no Excel** — Thread weights through the engine per the Role-axis
-  design: a single optional `[Weights]` argument (default uniform) on the
-  inferential chain. Default-uniform means every existing OLS call computes
-  identically — the v2.1 `[DF_Absorbed]` precedent (default 0 → identical no-FE
-  model) is the exact pattern to follow.
-
-- **READY · S · needs Excel** — Update the Diagnostic Guide to describe which
-  diagnostics change interpretation under WLS. (WLS closes the loop opened by
-  v1's Scale-Location diagnostic.) Static template sheet — regenerate via
-  `rebuild_static_sheets.py`.
-
-**Test assets — ~2× over a representative subset.** A dataset with a natural
-weight column (R/MASS `Insurance`, 64 rows, or a grouped-mean aggregation of an
-existing one). Plan **weighted variants of ~6 representative models — one per
-dispatch-pair family — not the whole suite**; that bound is what keeps this at ~2×.
-Assert the recorded trap as an oracle: `DEVSQ(√w ⊙ y)` ≠ weighted SST. See
-[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-ordered-by-test-scale-multiplier).
-
-## v3.10 — Two-way Fixed Effects
-
-Planned as v2.7+, promoted out of the unordered bucket by the test-scale
-reordering. See [ROADMAP.md](ROADMAP.md#v310--two-way-fixed-effects--planned).
-
-**Test assets — ~2× over the FE family.** R `Grunfeld` (200 rows, 10 firms × 20
-years) plus an **unbalanced variant** with rows deleted, to exercise
-`Is_Balanced_Panel` and the convergence check; the existing FE family is re-run
-two-way. See
-[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-ordered-by-test-scale-multiplier).
-
-- **READY · L · no Excel** — Implement `Absorb_Two_Way_Fixed_Effects(x, group1,
-  group2, [include], [passes])` (alternating-projection demeaning for unbalanced
-  panels).
-
-- **READY · M · no Excel** — Implement `Demean_Two_Way_Balanced(x, group1,
-  group2, [include])` and the two-way `Is_Balanced_Panel` check.
-
-- **READY · M · no Excel** — Implement `Fixed_Effects_Convergence_Check(x,
-  group1, group2, [include])`; surface in the status block whenever two FE
-  variables are active.
-
-- **OPEN · M · needs Excel** — Lift the v2.1 one-FE-variable status-block error;
-  resolve the two-way prediction question (group intercepts are not recoverable
-  as simple group means). The one-way-scope rationale is in
-  [DECISIONS.md § v2.1 scope](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
-
-## v3.11 — Standalone Data Transformation library
-
-Planned as the second half of v2.2, then carried as the v3.3 remainder; moved to
-the end of the ladder by the test-scale reordering — see
-[ROADMAP.md](ROADMAP.md#v311--standalone-data-transformation-library--planned).
-Full specs in
-[ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
-
-**Test assets — the ~10× axis-widener, and no new data.** Every new `Transform`
-value widens the predictor-transform axis that today holds {None, Log}, and each
-widening multiplies the response × predictor dispatch table. **Work the four items
-below in the order given** — helpers first (they widen nothing), predictor-side
-transforms next, and any response-side extension last, because a response
-transform also multiplies the back-transformation / unit-space semantics. See
-[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-ordered-by-test-scale-multiplier).
-
-- **READY · S · no Excel** — Sample construction: `Numeric_Complete_Cases`.
-
-- **READY · M · no Excel** — Categorical & model construction: `Dummy_Column`,
-  `Interact`, `Model_Matrix`.
-
-- **READY · M · no Excel** — Location & Scale: `Center`, `Zscore`,
-  `Minmax_Scale`, `Winsorize`. (`Ln_Positive` shipped early, alongside the
-  Transform column-G wiring, rather than waiting for the rest of this bundle.)
-
-- **READY · M · no Excel** — Group & Panel: `Zscore_By`, `Decompose_By`.
-  (`Demean_By` / `Group_Mean` shipped at v2.1; the two-way functions follow the
-  two-way FE milestone.)
-
 ## v3.12+ — Unordered candidates (no claim)
 
-What is left after the test-scale reordering gave the other candidates numbers.
+What is left after the ladder reordering gave the other candidates numbers.
 Nothing about their test cost sequences them: ANOVA-as-regression needs only
 `warpbreaks` plus the existing categorical machinery, and the other two are
 design-not-started. A user pressing for one of these would reorder it; absent that
@@ -693,7 +702,7 @@ its place by covering something no other case does.
   lands with the milestone that needs it — see
   [§ 3 Timing](docs/MODEL_TESTING_ASSETS.md#timing). The calendar-dated series is
   the exception worth pulling forward: it closes a coverage gap that exists today
-  (see [v3.8](#v38--time-role--time-series)).
+  (see [v3.6](#v36--time-role--time-series)).
 
 ## Documentation
 

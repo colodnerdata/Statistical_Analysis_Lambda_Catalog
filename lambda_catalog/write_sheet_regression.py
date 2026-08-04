@@ -1010,7 +1010,16 @@ def _setup_local_names(
     ``_set_sheet_scoped_names`` from write_sheet_model_construction; this
     function adds the Regression-only names on top.
     """
-    sname = sheet.name
+    # ALWAYS single-quoted. A sheet name containing a space — which every
+    # generated test-model sheet has ("M01 Baseline Categoricals") — makes an
+    # unquoted RefersTo an invalid formula, and Excel rejects the whole
+    # Names.Add with "There's a problem with this formula". Quoting a name
+    # that does not need it is always legal, so carrying the quotes on the
+    # variable removes the entire class of bug instead of relying on each
+    # call site to remember. write_sheet_model_construction's own
+    # _set_sheet_scoped_names already did this; this function did not, and
+    # four of its seven references were unquoted.
+    sname = f"'{sheet.name}'"
 
     if closures is None:
         closures = load_catalog_document(_DEFINITIONS_PATH).functions_for_sheet(
@@ -1133,8 +1142,8 @@ def _setup_local_names(
         _nm = sheet.api.Names.Add(
             Name=_name,
             RefersTo=(
-                f"=OFFSET('{sname}'!${_col_ltr}$2,1,0,"
-                f"MAX(IFERROR('{sname}'!{_A_OBSERVATIONS},1),1),1)"
+                f"=OFFSET({sname}!${_col_ltr}$2,1,0,"
+                f"MAX(IFERROR({sname}!{_A_OBSERVATIONS},1),1),1)"
             ),
         )
         _nm.Comment = _comment

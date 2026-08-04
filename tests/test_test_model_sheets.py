@@ -240,6 +240,56 @@ def test_spec_scoped_names_default_to_the_production_table_name() -> None:
     assert role.RefersTo == "='Regression'!SpecTable[[#Data],[Role]]"
 
 
+# ── Sheet names with spaces must be quoted in every RefersTo ─────────────
+
+
+def test_every_refers_to_quotes_a_sheet_name_containing_spaces() -> None:
+    """A sheet name with a space is invalid in a formula unless single-quoted.
+
+    This is the bug that stopped `build_test_models.py` on its very first
+    sheet: `_setup_local_names` built `=M01 Baseline Categoricals!$AB$12`,
+    and Excel rejected the whole `Names.Add` with "There's a problem with
+    this formula". Four of that function's seven references were unquoted —
+    invisible for the entire life of the project because the only sheet it
+    ever wrote was named `Regression`, a single word.
+
+    Every generated test-model sheet has a space in its name by design (the
+    `<PlanID> <Concept>` contract), so this asserts the property directly
+    rather than trusting the convention.
+    """
+    from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
+    from lambda_catalog.write_sheet_regression import (
+        _setup_local_names,
+        _write_materialization_zone,
+    )
+
+    spaced = "M01 Baseline Categoricals"
+    quoted = f"'{spaced}'"
+
+    def _unquoted(sheet) -> list[tuple[str, str]]:
+        return [
+            (name.Name, name.RefersTo)
+            for name in sheet.api.Names.items
+            if spaced in name.RefersTo and quoted not in name.RefersTo
+        ]
+
+    for writer in (
+        lambda s: _setup_local_names(s, ()),
+        lambda s: _set_sheet_scoped_names(s, (), spec_table_name="SpecTable_M01"),
+        lambda s: _write_materialization_zone(s, ()),
+    ):
+        sheet = RecordingSheet(name=spaced)
+        writer(_as_xw_sheet(sheet))
+        assert _unquoted(sheet) == []
+
+    # Chart series references live above the sheet layer and carry the same
+    # requirement.
+    for spec in _diagnostic_chart_specs(spaced):
+        for reference in (spec[2], spec[3]):
+            if reference and spaced in reference:
+                assert quoted in reference, reference
+
+
 # ── Row constants vs. the writers' actual layout ─────────────────────────
 
 

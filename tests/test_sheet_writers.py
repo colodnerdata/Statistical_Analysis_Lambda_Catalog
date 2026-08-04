@@ -256,7 +256,13 @@ def test_regression_names_register_spec_wiring_and_constructors() -> None:
     assert sheet.api.Names.by_short_name("Allow_Intercept").RefersTo == (
         "='Regression'!$C$2"
     )
-    assert sheet.api.Names.by_short_name("alpha").RefersTo == "=Regression!$AB$12"
+    # Single-quoted, like every other name on the sheet. These four
+    # Regression-only names used to be registered UNQUOTED, which happened to
+    # work only because "Regression" is a single word — a sheet name with a
+    # space made the RefersTo an invalid formula and Excel rejected the
+    # Names.Add outright. See
+    # tests/test_test_model_sheets.py::test_every_refers_to_quotes_a_sheet_name_containing_spaces.
+    assert sheet.api.Names.by_short_name("alpha").RefersTo == "='Regression'!$AB$12"
 
 
 def test_regression_chart_names_size_to_the_observation_cell() -> None:
@@ -940,13 +946,13 @@ def test_setup_local_names_registers_comparison_anchor_headline_and_formula() ->
     _setup_regression_names(_as_xw_sheet(sheet), closures=())
 
     assert sheet.api.Names.by_short_name("Comparison_Anchor").RefersTo == (
-        "=Regression!$AF$2"
+        "='Regression'!$AF$2"
     )
     assert sheet.api.Names.by_short_name("Comparison_Headline_GoF").RefersTo == (
-        "=Regression!$AH$6:$AH$8"
+        "='Regression'!$AH$6:$AH$8"
     )
     assert sheet.api.Names.by_short_name("Comparison_Model_Formula").RefersTo == (
-        "=Regression!$AB$2"
+        "='Regression'!$AB$2"
     )
 
 

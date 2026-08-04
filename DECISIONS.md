@@ -989,7 +989,7 @@ Welch, and paired variants?
 Welch cases; the paired case is a separate code path the flag does
 not cover. A 3-way flag or a separate `paired` boolean is the open
 question, not yet resolved. Tracked in
-[TODOs.md § v3.6](TODOs.md#v36--bivariate--two-sample).
+[TODOs.md § v3.5](TODOs.md#v35--bivariate--two-sample).
 
 ### v2.6 — WLS: `Weight` Role, default-uniform `[Weights]` argument
 
@@ -3011,4 +3011,83 @@ cache schema version bumps to 17.
   scope checks.
 - `tests/test_catalog_schema.py` and `tests/test_lambda_catalog_plain_language.py`
   — pick up the 7 new entries automatically.
+---
 
+## v3.4+ — Ladder ordering and the test-model suite
+
+### The post-v3.3 ladder is ordered by test-suite growth
+
+**Question:** in what order should the remaining planned milestones ship?
+Through v3.3 the order was inherited from the original v2.x feature train,
+renumbered but never re-argued, with five candidates sitting in an
+unordered "v3.8+" bucket.
+
+**Resolution:** RESOLVED — every milestone from v3.4 on is sequenced by
+**how much the regression test-model suite has to grow to cover it**, not by
+feature size, user-visible value alone, or the order the milestones were
+written down in. Additive features first, per-model multipliers next,
+axis-wideners last; within a tier, the most commonly used feature first.
+
+| Tier | Milestones |
+|---|---|
+| Additive — a fixed number of new cases | v3.4 Model Comparison · v3.5 Two-sample · v3.6 Resampling |
+| Near-additive — a variant over a few existing models | v3.7 `Cluster` · v3.8 `Time` / time series |
+| ~2× — re-runs a model family | v3.9 WLS · v3.10 Two-way FE |
+| ~10× — widens an axis every model is crossed against | v3.11 standalone transform library |
+
+Seven milestones changed number — four moved, three promoted out of the
+unordered bucket. Two-sample v3.6 → **v3.5** and Resampling
+v3.5 → **v3.6** (both flat-cost, so the tie breaks on value — two-sample is
+the ToolPak-parity gap a user hits first); `Cluster` → **v3.7** and `Time` /
+time series → **v3.8**, promoted out of the unordered bucket; WLS v3.7 →
+**v3.9**; two-way FE → **v3.10**, also promoted; and the standalone
+transform library out of the v3.3 remainder to **v3.11**. v3.3 keeps its
+number for the half that shipped. What was left unordered — ANOVA, Fourier,
+decision analysis — stays unordered as **v3.12+**, because nothing about
+their test cost sequences them either.
+
+**Rationale.** The suite is a covering array over the implemented feature
+axes, so a feature's cost is not the code it adds but the *cross* it forces:
+a new `Transform` value multiplies the response × predictor dispatch table
+that every model is scored against, while a new variance estimator only
+varies a handful of existing models. Ordering by that number keeps the suite
+growing linearly for as long as possible and lands the multiplicative lifts
+on the most mature harness. Two side effects made the ordering strictly
+better than the one it replaced: `Time` moves early, and its calendar-dated
+dataset closes the **one Section-1 coverage gap that exists today** (the
+Sequence calendar-signature verdict, untestable because no wired dataset
+carries real dates); and WLS moves behind two cheap milestones without
+losing anything, since its own sequencing constraint — ship after v3.0 so √w
+scaling is the first implementation rather than a rewrite — is already
+satisfied.
+
+**REJECTED — ordering by user-facing value alone.** It is the tie-breaker
+*within* a tier, not the primary key. Value-first ordering is what put the
+~10× transform library at v3.3, immediately after the milestone with the
+most axes to cross.
+
+**Not frozen.** The tool is single-user and pre-release. A user pressing for
+a milestone reorders it; the rule is that
+[docs/MODEL_TESTING_ASSETS.md](docs/MODEL_TESTING_ASSETS.md) § 2 is edited
+first and the [ROADMAP.md](ROADMAP.md#ladder-order-from-v34-on-is-set-by-test-suite-growth)
+ladder second, so the two never disagree about why the order is what it is.
+
+### The test-model plan is a document, not a test file
+
+**Question:** where does the plan for the regression test-model suite live —
+in `tests/`, as a docstring or a list of pending cases, or as prose?
+
+**Resolution:** RESOLVED — as prose, in
+[docs/MODEL_TESTING_ASSETS.md](docs/MODEL_TESTING_ASSETS.md), and the code
+holds only cases that actually run. The plan carries things a test file
+cannot: the coverage matrix (which feature corner each model is there for),
+the ~15 configurations not yet declared anywhere, the datasets future
+milestones will need and what each one buys, and the covering-array rule that
+bounds the suite's size. A skipped or commented-out case in `tests/` would
+express none of that and would rot silently.
+
+The half that *is* enforced in code stays enforced: `_EXPECTED_CASE_NAMES` in
+`tests/test_regression_spec_qc.py` is an ordered list asserted against
+`build_regression_spec_cases()`, so no case can be added, renamed, reordered,
+or dropped without a test failure. The document says what should exist; the
+pinned list says what does.

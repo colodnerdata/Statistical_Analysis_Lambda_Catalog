@@ -8,6 +8,42 @@
 
 **Always recalculate the Regression workbook.** The build's final `CalculateFullRebuild` is what recomputes the Regression engines after a name sync; the verifier only does a per-sheet `Calculate()`, which doesn't rebuild the dependency tree, so skipping the rebuild leaves every QC value reading `nan`. The Regression workbook has no Data Tables, so the rebuild is cheap — `build_production.py` always runs it regardless of `--skip-data-table-calculations` (which is a no-op for the Regression artifact). The Univariate workbook is different: Beta's two two-input Data Tables (the only Data Tables in the artifact — Weibull and Gamma are 1-D profile-NLL columns, the other five fits are closed-form) make `CalculateFullRebuild` slow, so `build_univariate.py` runs the rebuild by default (so the shipped artifact's fits are not stale) but honors `--skip-data-table-calculations` to skip it for fast iteration — this is that flag's now-primary purpose. A third mode, `--no-calculation`, calculates *nothing*: it never sets Automatic (which would calculate the open workbook on the spot — the cost `--skip-data-table-calculations` does not avoid), suppresses `Application.CalculateBeforeSave` for the duration and restores it after, and skips the rebuild. It is for inspecting the name manager or the layout, and its output is saved in Manual mode with stale cells — never ship an artifact built with it.
 
+## Testing regime
+
+**The regression test-model suite is planned in `docs/MODEL_TESTING_ASSETS.md`.** That
+document is the plan of record: which model configurations the QC harness covers, which
+corner each one exists for, the coverage matrix, and the datasets future milestones need.
+Read it before adding or changing a QC model case; add to it before adding a case it does
+not list. `CONTRIBUTING.md` → *The regression test-model suite* has the step-by-step for
+adding one.
+
+**It is a covering array, not a full factorial.** Every implemented corner is exercised by
+at least one model, and every model earns its place by covering something no other model
+does — target ~25–30 fittable models plus ~10 guard-state configurations. Do not add a case
+that duplicates an existing one's coverage, and do not propose full crosses (every transform
+× every interaction × every role): they multiply sheet count without adding information.
+
+**A case is a `RegressionSpecCase` in `lambda_catalog/analyze_regression_spec.py`**, not a
+sheet fixture — `SpecVariable` rows built with `_spec_var(...)`, expected values from
+`calculate_regression_spec_case` (NumPy/statsmodels, never read back from the workbook). A
+case targeting a dataset other than Auto MPG must set `source_csv_path`, `row_loader`, **and**
+`source_table_ref` together; `Source_Table` is the one name that retargets which data sheet
+the spec block reads, so omitting it lands the spec rows on the wrong table's columns with no
+error.
+
+**Every case name is pinned.** `_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py`
+is an ordered list asserted against `build_regression_spec_cases()`. Adding, renaming,
+reordering, or dropping a case means editing that list in the same commit — otherwise the
+suite fails, which is the point.
+
+**The suite's growth rate orders the roadmap.** From v3.4 on, milestones are sequenced by how
+much they force this suite to grow: additive features first (v3.4 Model Comparison, v3.5
+Two-sample, v3.6 Resampling), near-additive next (v3.7 `Cluster`, v3.8 `Time`), ~2×
+multipliers after that (v3.9 WLS, v3.10 two-way FE), and the ~10× axis-widener last (v3.11 the
+standalone transform library). When a change would reorder milestones, edit the
+MODEL_TESTING_ASSETS Section 2 table first and the ROADMAP ladder second — the ladder follows
+that table, not the other way round.
+
 ## Cell styling
 
 All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples in a sheet writer.

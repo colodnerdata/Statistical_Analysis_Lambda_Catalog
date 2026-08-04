@@ -4,14 +4,14 @@
 Concept (restated as working notes, per the v2.1 design record §3): the
 serial-correlation diagnostics need a grouping key — which dimension
 partitions the residuals for within-group differencing. Today that is the
-Fixed Effects column; at v3.8+ a Cluster role will supply it for
+Fixed Effects column; at v3.7 a Cluster role will supply it for
 pooled-panel diagnostics without absorption. To make that future additive,
 the resolver ships NOW with a dormant, unreachable Cluster branch — the
 switch that currently does nothing, mirroring the reserved-spec-column
 pattern (Order/Transform named at grid-freeze, read by nothing). The
 resolver is the single reference point for the grouping key: the BFN
 wiring consumes Serial_Correlation_Group(), never Fixed_Effects_Column()
-directly, so retargeting the key at v3.8+ is a one-name change with zero
+directly, so retargeting the key at v3.7 is a one-name change with zero
 edits at the consumer.
 
 Resolver contract, verified here:

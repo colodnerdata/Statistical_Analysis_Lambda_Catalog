@@ -130,6 +130,32 @@ The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `m
 
 GitHub Actions runs the test suite on Python 3.10–3.13 (Ubuntu) on every push and pull request. See `.github/workflows/ci.yml`. Coverage must stay at or above 70% on the tracked modules.
 
+## The regression test-model suite
+
+The unit tests above check functions. The **test-model suite** checks *model configurations* — a fixed list of specs, each fitted by the workbook and by an independent Python oracle, compared cell for cell. It is what catches a spec-block change that computes a different model without erroring anywhere.
+
+**The plan of record is [docs/MODEL_TESTING_ASSETS.md](docs/MODEL_TESTING_ASSETS.md).** It names every model the suite should cover, the corner each one is there for, and the datasets future milestones need. Read it before adding a case; add to it before adding a case that isn't listed.
+
+### The regime, in four rules
+
+1. **It is a covering array, not a full factorial.** Every implemented corner case is exercised by at least one model, and every model earns its place by covering something no other model does. Target size: ~25–30 fittable models plus ~10 guard-state configurations. Full crosses (every transform × every interaction × every role) are explicitly out of scope — they multiply sheet count without adding information.
+2. **A case is a `RegressionSpecCase`, not a sheet fixture.** Cases are declared in `lambda_catalog/analyze_regression_spec.py` (`SpecVariable` rows built with `_spec_var(...)`, `source_csv_path` / `row_loader` / `source_table_ref` for a non-default dataset, `prediction_group` for the FE prediction box) and expected values come from `calculate_regression_spec_case`, which fits with NumPy/statsmodels rather than reading the workbook back.
+3. **Every case is pinned by name.** `_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py` is an ordered list asserted against `build_regression_spec_cases()`, so a case cannot be added, renamed, reordered, or silently dropped without the test failing. Add the name there in the same commit.
+4. **The suite's growth rate orders the roadmap.** From v3.4 on, milestones are sequenced by how much they force this suite to grow — additive features first, axis-wideners last. See [ROADMAP.md § Ladder order](ROADMAP.md#ladder-order-from-v34-on-is-set-by-test-suite-growth).
+
+### Adding a case
+
+1. Write the spec builder in `analyze_regression_spec.py` — a `list[SpecVariable]` with a docstring naming **the corner it covers** and why no existing case covers it.
+2. Register it in `build_regression_spec_cases()`. If it targets a dataset other than Auto MPG, set `source_csv_path`, `row_loader`, **and** `source_table_ref` together — `Source_Table` is the one name that retargets which data sheet the spec block reads, and a case that forgets it lands its spec rows on the wrong table's columns.
+3. Add the case name to `_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py`, in position.
+4. Add the assertions that make the case worth having — the design-matrix facts (`constructed_column_names`, the row mask, k) plus whatever the corner is actually about.
+5. Run `uv run pytest tests/test_regression_spec_qc.py` (no Excel), then `python build_production.py --verify --no-launch` on a machine with Excel to confirm the workbook agrees with the oracle. See [Verifying builds](#verifying-builds).
+6. Update the coverage matrix in [docs/MODEL_TESTING_ASSETS.md § 1.5](docs/MODEL_TESTING_ASSETS.md#15-coverage-matrix) and flip the case's status from **new** to **existing**.
+
+### Datasets
+
+Three are wired: Auto MPG (406 rows — baseline, categoricals, interactions), Life Expectancy (2938 rows — transform dispatch, scale, missingness), Production Lots (51 rows — learning curves, fixed effects, sequence). A new dataset must buy a corner those three cannot; keep additions at ~250 rows or fewer, prefer CSVs already in `sample_data/`, and expect to write one `CsvDatasetConfig` (`lambda_catalog/write_sheet_csv_dataset.py`) plus one `SpecDatasetProfile` registry entry (`SPEC_DATASET_PROFILES` in `write_sheet_model_construction.py`). The shortlist and what each one buys is [§ 3](docs/MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-minimal).
+
 ## Building
 
 There are two separate build scripts with distinct purposes. From v3.0 the production script emits **two artifacts** rather than one.

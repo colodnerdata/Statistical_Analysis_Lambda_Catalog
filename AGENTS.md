@@ -8,6 +8,42 @@
 
 **Always recalculate the Regression workbook.** The build's final `CalculateFullRebuild` is what recomputes the Regression engines after a name sync; the verifier only does a per-sheet `Calculate()`, which doesn't rebuild the dependency tree, so skipping the rebuild leaves every QC value reading `nan`. The Regression workbook has no Data Tables, so the rebuild is cheap — `build_production.py` always runs it regardless of `--skip-data-table-calculations` (which is a no-op for the Regression artifact). The Univariate workbook is different: Beta's two two-input Data Tables (the only Data Tables in the artifact — Weibull and Gamma are 1-D profile-NLL columns, the other five fits are closed-form) make `CalculateFullRebuild` slow, so `build_univariate.py` runs the rebuild by default (so the shipped artifact's fits are not stale) but honors `--skip-data-table-calculations` to skip it for fast iteration — this is that flag's now-primary purpose. A third mode, `--no-calculation`, calculates *nothing*: it never sets Automatic (which would calculate the open workbook on the spot — the cost `--skip-data-table-calculations` does not avoid), suppresses `Application.CalculateBeforeSave` for the duration and restores it after, and skips the rebuild. It is for inspecting the name manager or the layout, and its output is saved in Manual mode with stale cells — never ship an artifact built with it.
 
+## Testing regime
+
+**The regression test-model suite is planned in `docs/MODEL_TESTING_ASSETS.md`.** That
+document is the plan of record: which model configurations the QC harness covers, which
+corner each one exists for, the coverage matrix, and the datasets future milestones need.
+Read it before adding or changing a QC model case; add to it before adding a case it does
+not list. `CONTRIBUTING.md` → *The regression test-model suite* has the step-by-step for
+adding one.
+
+**It is a covering array, not a full factorial.** Every implemented corner is exercised by
+at least one model, and every model earns its place by covering something no other model
+does — target ~25–30 fittable models plus ~10 guard-state configurations. Do not add a case
+that duplicates an existing one's coverage, and do not propose full crosses (every transform
+× every interaction × every role): they multiply sheet count without adding information.
+
+**A case is a `RegressionSpecCase` in `lambda_catalog/analyze_regression_spec.py`**, not a
+sheet fixture — `SpecVariable` rows built with `_spec_var(...)`, expected values from
+`calculate_regression_spec_case` (NumPy/statsmodels, never read back from the workbook). A
+case targeting a dataset other than Auto MPG must set `source_csv_path`, `row_loader`, **and**
+`source_table_ref` together; `Source_Table` is the one name that retargets which data sheet
+the spec block reads, so omitting it lands the spec rows on the wrong table's columns with no
+error.
+
+**Every case name is pinned.** `_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py`
+is an ordered list asserted against `build_regression_spec_cases()`. Adding, renaming,
+reordering, or dropping a case means editing that list in the same commit — otherwise the
+suite fails, which is the point.
+
+**The suite's growth rate orders the roadmap.** From v3.4 on, milestones are sequenced by how
+much they force this suite to grow: additive features first (v3.4 Model Comparison, v3.5
+Two-sample, v3.6 Resampling), near-additive next (v3.7 `Cluster`, v3.8 `Time`), ~2×
+multipliers after that (v3.9 WLS, v3.10 two-way FE), and the ~10× axis-widener last (v3.11 the
+standalone transform library). When a change would reorder milestones, edit the
+MODEL_TESTING_ASSETS Section 2 table first and the ROADMAP ladder second — the ladder follows
+that table, not the other way round.
+
 ## Cell styling
 
 All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples in a sheet writer.
@@ -114,7 +150,9 @@ Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY
 
 **Never spell an A1 address into a formula string.** Conditional-formatting expressions, chart titles, and OFFSET-based named ranges all need addresses as literal text, and hand-written letters are what turn a column insertion into a silent-wrong-answer bug — the formula still parses, it just reads a different cell. Build every one of them from the `_C_*` constants via the `_abs_ref(row, col)` / `_band(col)` helpers and the `_A_*` anchors (`_A_ALPHA`, `_A_OBSERVATIONS`, `_A_MEAN_LEVERAGE`, …) at the top of `write_sheet_regression.py`. The same rule applies to anything reading the sheet: `tools/inspect_regression_sheet.py` and `lambda_catalog/analyze_regression_spec_block.py` IMPORT the column constants rather than keeping a parallel copy.
 
-**Column-layout paradigm — gap columns and outline groups.** The zones are Model Specification (A–Q, including the P/Q Δ-spectrum feedback columns), Predictor Summary (S–Y), Regression Outputs (AA–AH), Prediction Outputs (AJ–AL), and Residual Output (AN–AY). Between every pair of adjacent zones sits exactly one dedicated **gap column** (R, Z, AI, AM — width 2) that is deliberately left OUT of every outline group. That ungrouped column is what makes the neighbouring zones collapse independently: Excel fuses a contiguous run of same-level grouped columns into one outline, so two zones with no ungrouped column between them would share a single collapse control (the bug this layout fixes — the predictor summary used to begin at M, hard against the spec block, fusing the two outlines). `_ZONES` (the (first, last) content spans) and `_GAP_COLUMNS` (derived as the single column between consecutive zones, asserted one wide) are the single source of truth; `_COLUMN_GROUPS = _ZONES`, and the gap columns are sized and left ungrouped in the width/grouping loop of `write_regression_output_sheet`. When adding or resizing a zone, edit `_ZONES` — never hard-code an outline group or a gap letter.
+**Column-layout paradigm — gap columns and outline groups.** The zones are Model Specification (A–Q, including the P/Q Δ-spectrum feedback columns), Predictor Summary (S–Y), Regression Outputs (AA–AH — `AG3:AH9` holds the v3.3 **Unit-Space Fit** block: `Duan`/`Naive` back-transformation toggle at `AH4`, smearing factor R5, R²/Adj R²/RMSE in original units R6–8, response-space readout R9), Prediction Outputs (AJ–AL — `AL` is the **Original Units** column: back-transformed point estimate at AL3, Naive-only CI/PI bounds at AL7–10, caveat row at AJ15:AL15), and Residual Output (AN–BA — the two new columns `AZ`/`BA` carry Predicted Y / Residual in original units, dispatched on the `AH4` toggle). Between every pair of adjacent zones sits exactly one dedicated **gap column** (R, Z, AI, AM — width 2) that is deliberately left OUT of every outline group. That ungrouped column is what makes the neighbouring zones collapse independently: Excel fuses a contiguous run of same-level grouped columns into one outline, so two zones with no ungrouped column between them would share a single collapse control (the bug this layout fixes — the predictor summary used to begin at M, hard against the spec block, fusing the two outlines). `_ZONES` (the (first, last) content spans) and `_GAP_COLUMNS` (derived as the single column between consecutive zones, asserted one wide) are the single source of truth; `_COLUMN_GROUPS = _ZONES`, and the gap columns are sized and left ungrouped in the width/grouping loop of `write_regression_output_sheet`. When adding or resizing a zone, edit `_ZONES` — never hard-code an outline group or a gap letter.
+
+The v3.3 shift that took Residual Output from `AN–AY` to `AN–BA` is a content change, not a layout break: the chart anchor moved from `_C_AZ` to `_C_BB` (the two new columns were inserted *before* it, so the chart anchor and the entire §4b materialization band derive right by 2 and BP at column 68 is preserved). The Model Formula cell at `AA2:AB2` heads the Regression Outputs zone. The sheet-scoped `Comparison_Anchor`, `Comparison_Headline_GoF`, and `Comparison_Model_Formula` named ranges are the v3.4 Model Comparison sheet's reading surface — registered in `_setup_local_names` next to the `RegChart*` entries.
 
 **Past the charts sits the ARCHITECTURE §4b materialization band**, on the same gutter-per-zone principle: the **Model Context** block (a two-column label/value pair — `_C_MODEL_CONTEXT_LABEL` / `_C_MODEL_CONTEXT` — one labelled cell per context element, headed and border-boxed because its height is a build-time constant, and grouped as a pair so it collapses as a unit), the reserved `Sample_Include` column, and the terminal **Constructed Design Matrix** zone, which ships collapsed. Its columns derive from `_LAST_CHART_COLUMN`, which tracks the chart anchor, so a zone shift moves the whole band automatically. **Nothing may ever be placed to the right of the design-matrix zone** — its width is one dropdown away from hundreds of columns, so any zone after it would be displaced by an ordinary modelling choice.
 

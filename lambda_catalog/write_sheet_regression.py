@@ -548,6 +548,19 @@ class ModelContextElement(NamedTuple):
 # Header note for the Prediction Inputs band. Interaction columns (spec M/N,
 # wired at v3.1) appear here as ordinary rows named "left:right", and their
 # value is an independent input like every other row's.
+_BACK_TRANSFORM_NOTE = (
+    "Back-Transform Method — how a Log-transformed response is returned to "
+    "original units. Applies to the point estimate only.\n\n"
+    "Duan = Duan (1983) smearing — estimates the conditional MEAN.\n"
+    "Naive = textbook EXP(ŷ) — the conditional MEDIAN, biased low "
+    "for the mean.\n\n"
+    "CI/PI bounds are back-transformed with EXP alone under BOTH settings, "
+    "because a bound is a quantile and EXP preserves quantiles. So under "
+    "Duan the point estimate does not sit at the centre of its interval. "
+    "That gap is correct, not a defect: the mean and the median of a "
+    "skewed distribution are different numbers."
+)
+
 _PREDICTION_INPUT_NOTE = (
     "Prediction Inputs — one row per constructed design-matrix column, "
     "pre-filled with that column's Training Mean. Type a raw, real-world "
@@ -1230,6 +1243,12 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     # another changed is the "silently switch" behaviour the spec block
     # exists to avoid — so it says so instead.
     _set_note(sheet, 17, _C_AJ, _PREDICTION_INPUT_NOTE, label="Predictor")
+    # Unit-Space Fit (AG4). The Duan/Naive caveat, on the control it
+    # describes rather than as a merged text row at the foot of the
+    # Prediction Outputs zone where it used to sit. Here with every other
+    # note for the reason stated above: AddComment is COM-only, so keeping
+    # it out of _write_unit_space_block keeps that writer headless-testable.
+    _set_note(sheet, 4, _C_AG, _BACK_TRANSFORM_NOTE, label="Back-Transform")
 
 
 def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
@@ -1683,7 +1702,15 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
         sheet.range(rc(4, _C_AH)).api.Validation.Add(
             Type=3,  # xlValidateList
             AlertStyle=1,
-            Formula1=f'"{",".join(_BACK_TRANSFORM_METHODS)}"',
+            # Bare comma-separated items, NOT wrapped in quotes. Excel's
+            # xlValidateList takes the list as the raw string "Duan,Naive";
+            # the quotes people write around it in VBA are that language's
+            # string delimiters, not part of the value. Passing them through
+            # COM made them literal, so the dropdown offered `"Duan` and
+            # `Naive"` — accepted by the validation and rejected by every
+            # consumer, since neither matches a recognised method. Same
+            # form as _INCLUDE_VALIDATION_LIST ("TRUE,FALSE") next door.
+            Formula1=",".join(_BACK_TRANSFORM_METHODS),
         )
         # IgnoreBlank would let a cleared cell through, and a blank method is
         # not one of the six recognised states — it would silently #N/A the
@@ -1902,26 +1929,14 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     sheet.range(rc(13, _C_AK), rc(13, _C_AK)).number_format = "0.0000"
     sheet.range(rc(14, _C_AK), rc(14, _C_AK)).number_format = "0"
 
-    # Caveat row 15: explains the asymmetric CI/PI placement under Duan
-    # smearing. Always present (the text is honest under either method) so
-    # the user sees the gap between the point estimate and the bounds when
-    # the Method toggle is Duan — the visible "off-centre" placement is the
-    # plan's whole point.
-    sheet.range(rc(15, _C_AJ), rc(15, _C_AL)).merge()
-    f(
-        sheet,
-        15,
-        _C_AJ,
-        (
-            '="Duan = Duan (1983) smearing — estimates the conditional mean. '
-            "Naive = textbook EXP(ŷ) — the conditional median, biased for the "
-            "mean. CI/PI bounds are back-transformed with EXP alone, so under "
-            'Duan the point estimate does not sit at the interval centre."'
-        ),
-    )
-    sheet.range(rc(15, _C_AJ), rc(15, _C_AL)).api.WrapText = True
-
-    border_box(sheet, 1, _C_AJ, 15, _C_AL)
+    # The Duan/Naive caveat used to be a merged text row here (AJ15:AL15).
+    # It now lives as a note on the Back-Transform label at AG4 — see
+    # _BACK_TRANSFORM_NOTE. It documents the toggle, so it belongs on the
+    # toggle: three zones away and below the interval it qualified, it read
+    # as a footnote to the prediction block rather than as an explanation of
+    # the control that causes the behaviour. Moving it also frees row 15 and
+    # lets this box close on the last cell that actually holds a value.
+    border_box(sheet, 1, _C_AJ, 14, _C_AL)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:

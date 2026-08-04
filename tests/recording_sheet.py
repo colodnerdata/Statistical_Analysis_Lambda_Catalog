@@ -96,7 +96,20 @@ class RecordingValidation:
         self.delete_count += 1
         self.rules.clear()
 
-    def Add(self, *, Type: int, AlertStyle: int, Operator: int, Formula1: str) -> None:
+    # Operator is optional because Excel treats it as optional: a list
+    # validation does not need one, and the Back-Transform dropdown omits it.
+    # Requiring it here made this recorder raise TypeError on that call —
+    # which the writer's own `except Exception: pass` then swallowed, so the
+    # rule was silently never recorded and no test could see it. That is how
+    # a malformed Formula1 shipped.
+    def Add(
+        self,
+        *,
+        Type: int,
+        AlertStyle: int,
+        Formula1: str,
+        Operator: int | None = None,
+    ) -> None:
         self.rules.append(
             {
                 "Type": Type,

@@ -373,7 +373,7 @@ gap-aware t−Δ semantics — verification in
 - **RESOLVED · SHIPPED** — **Prediction back-transformation** (design
   RESOLVED, code SHIPPED): Duan's smearing estimator as the default, with a
   per-cell `Back_Transform_Method` toggle (`Duan` default | `Naive`).
-  Caveat row visible on the sheet at `AJ15:AL15`: *Duan = Duan (1983) smearing;
+  Caveat visible on the sheet as a note on the Back-Transform label at `AG4`: *Duan = Duan (1983) smearing;
   Naive = textbook EXP(ŷ), biased.* The resolution is in
   [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label).
 

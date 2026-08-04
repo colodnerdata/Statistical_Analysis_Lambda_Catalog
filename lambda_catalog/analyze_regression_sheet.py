@@ -615,8 +615,8 @@ def calculate_regression_results_from_matrix(
     if response_transform == "Log":
         # The point estimate is a prediction, so it carries the smearing
         # factor under Duan and not under Naive. The four bounds below are
-        # quantiles and stay EXP-only under both — the AJ15:AL15 caveat row
-        # on the sheet says exactly this.
+        # quantiles and stay EXP-only under both — the note on the
+        # Back-Transform label at AG4 says exactly this.
         prediction_point_unit = math.exp(point_estimate) * (
             smearing_factor if back_transform == "Duan" else 1.0
         )

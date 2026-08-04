@@ -3496,3 +3496,61 @@ references it. The two-predictor shape is covered by P4 using raw
 `Experience_Stock`, and swapping in the logged column would make that model
 `(Log, Log)` rather than the `(Log, Mixed)` dispatch P4 exists for — a
 different model, not a twin.
+
+### The Back-Transform caveat becomes a note on its own control
+
+**Question:** the Duan/Naive caveat shipped as a merged, wrapped text row at
+`AJ15:AL15` — the last row of the Prediction Outputs zone. Is that where it
+belongs?
+
+**Resolution:** RESOLVED — no. It is now a cell note on the **Back-Transform
+label at `AG4`**, and row 15 is gone; the zone's border box closes at row 14,
+the last row that holds a value.
+
+The text explains what the `AH4` toggle does and why the point estimate sits
+off-centre in its interval. Three zones away and below the interval it
+qualifies, it read as a footnote to the prediction block — something to
+notice after the fact — rather than as documentation of the control that
+causes the behaviour. On the toggle's own label it is where a user looks
+when deciding which method to pick, which is the moment the explanation is
+worth anything. It also matches how every other explanatory text on this
+sheet is delivered: a note on the header of the thing it describes.
+
+The note lives in `_write_model_specification` with the other `_set_note`
+calls, not in `_write_unit_space_block`. `AddComment` is COM-only, and
+keeping it out of the zone writers is what lets them stay exercisable through
+`RecordingSheet`.
+
+### The Back-Transform dropdown offered `"Duan` and `Naive"`
+
+**Question:** the `AH4` list validation was built as
+`Formula1=f'"{",".join(_BACK_TRANSFORM_METHODS)}"'`. Why did the dropdown
+show quote characters?
+
+**Resolution:** RESOLVED — because they were real. Excel's `xlValidateList`
+takes its items as a bare comma-separated string, `Duan,Naive`. The quotes
+that appear around it in VBA examples are that language's string delimiters,
+not part of the value; wrapping the Python string in literal `"` characters
+passed them through COM as data. The dropdown offered `"Duan` and `Naive"`,
+the validation accepted either, and every consumer — `Unit_Space_R_Squared`,
+`Unit_Space_RMSE`, the `AL3` point estimate, the `AZ`/`BA` residual columns —
+matched neither against a recognised method. Fixed to `",".join(...)`, the
+same form as `_INCLUDE_VALIDATION_LIST` (`"TRUE,FALSE"`) in the spec block,
+which was correct all along.
+
+**Why no test caught it, which is the more useful half.** `RecordingValidation.Add`
+in `tests/recording_sheet.py` required an `Operator` keyword. Excel treats
+`Operator` as optional and a list validation does not need one, so the
+Back-Transform call omitted it — and the recorder raised `TypeError`, which
+the writer's own `except Exception: pass` around the validation block
+swallowed. The rule was silently never recorded, so no assertion could see
+it. `Operator` is now optional in the recorder, and
+`test_write_unit_space_block_writes_section_input_and_three_gof_cells`
+asserts the parsed dropdown items equal `_BACK_TRANSFORM_METHODS`. Confirmed
+it fails on the old form, reporting `dropdown offers ['"Duan', 'Naive"']`.
+
+The general lesson is about the guard, not the quotes: a broad `except` around
+a COM call also silences the test double, so a writer whose only verification
+runs through `RecordingSheet` has no coverage at all inside such a block.
+Where a mock's signature is stricter than the API it stands in for, the guard
+turns that mismatch into silence.

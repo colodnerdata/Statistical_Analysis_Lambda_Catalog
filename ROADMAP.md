@@ -782,7 +782,7 @@ in the Regression track — it is that track's single most expensive item to tes
 - **Prediction back-transformation, RESOLVED & SHIPPED** — Duan's smearing
   estimator as the default, with a per-cell `Back_Transform_Method` toggle
   (`Duan` default | `Naive`). Naive is biased (Jensen's inequality); Duan is
-  unbiased under iid residuals. Caveat row visible on the sheet at AJ15:AL15.
+  unbiased under iid residuals. Caveat visible on the sheet as a note on the Back-Transform label at AG4.
 - **Model Formula label, RESOLVED & SHIPPED** — `AA2:AB2` cell, built from
   the existing `_RESPONSE_NAME_FORMULA` (which already emits `Ln(name)` when
   Log), `Allow_Intercept`, `Constructed_Column_Names()`, and the FE-name

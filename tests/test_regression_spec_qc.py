@@ -869,7 +869,7 @@ def test_naive_back_transform_drops_the_smearing_factor_but_not_the_bounds() -> 
 
     Two halves to the contract. Predictions dispatch on the toggle, so every
     statistic derived from them moves. The CI/PI bounds are quantiles and are
-    EXP-only under BOTH settings — the caveat row on the sheet says so, and a
+    EXP-only under BOTH settings — the Back-Transform note on the sheet says so, and a
     toggle that moved them would be silently wrong in the direction users
     would never check.
     """

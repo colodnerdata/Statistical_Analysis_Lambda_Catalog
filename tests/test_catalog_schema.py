@@ -487,6 +487,11 @@ class RealCatalogIntegrationTests(unittest.TestCase):
         self.assertEqual(
             [f.name for f in closures],
             [
+                # Sheet-scoped since it was un-hardcoded from 'Regression'!:
+                # a workbook with more than one Regression-shaped sheet needs
+                # one Delta per sheet, not one shared with whichever sheet
+                # happens to be named "Regression".
+                "Base_Period_Delta",
                 "Sample_Include",
                 "Response_Column",
                 "Row_Labels",

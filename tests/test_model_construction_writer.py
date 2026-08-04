@@ -96,6 +96,10 @@ _EXPECTED_NAME_ORDER = [
     "Spec_Interaction_Operation",
     "Spec_Design_Columns",
     "Allow_Intercept",
+    # Closures follow, in catalog document order (= dependency order).
+    # Base_Period_Delta leads: it reads only the wiring names above, never
+    # another closure.
+    "Base_Period_Delta",
     "Sample_Include",
     "Response_Column",
     "Row_Labels",
@@ -492,7 +496,11 @@ def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
         if "Spec_Sequence" in item.RefersTo
         and item.Name.split("!", 1)[-1] != "Spec_Sequence"
     )
-    assert readers == ["Sequence_Column", "Sequence_Deltas"]
+    # Base_Period_Delta joined this list when it became sheet-scoped: it reads
+    # the flagged row's Period In Use cell, which is the sequence layer's job.
+    # It is an ACCESSOR, not a constructor — the assertion below is the one
+    # that matters, and it is unchanged.
+    assert readers == ["Base_Period_Delta", "Sequence_Column", "Sequence_Deltas"]
     for constructor in (
         "Sample_Include",
         "Response_Column",
@@ -505,20 +513,25 @@ def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
 
 def test_sequence_period_name_is_read_only_by_the_base_period_layer() -> None:
     # Spec_Sequence_Period is live, but only for the Δ-in-use display in
-    # the Sequence Spacing block (on-sheet) and the workbook-scoped
-    # Base_Period_Delta() accessor (in lambda_functions.json). No sheet
-    # closure — constructor or otherwise — reads it: the candidate is
-    # computed from the data, never from its own display cell.
+    # the Sequence Spacing block (on-sheet) and the Base_Period_Delta()
+    # accessor (in lambda_functions.json). No CONSTRUCTOR reads it: the
+    # candidate is computed from the data, never from its own display cell.
+    #
+    # Base_Period_Delta became sheet-scoped so a workbook with more than one
+    # Regression-shaped sheet gives each its own Δ, so it now appears in this
+    # sheet's Name Manager rather than the workbook's. It is the one
+    # legitimate name reader, and naming it here is what keeps the check
+    # meaningful — a second reader appearing would still fail.
     sheet = _named_sheet()
     _write_all_zones(sheet)
 
     name_readers = [
-        item.Name
+        item.Name.split("!", 1)[-1]
         for item in sheet.api.Names.items
         if "Spec_Sequence_Period" in item.RefersTo
         and item.Name.split("!", 1)[-1] != "Spec_Sequence_Period"
     ]
-    assert name_readers == []
+    assert name_readers == ["Base_Period_Delta"]
 
     formula_readers = [
         formula

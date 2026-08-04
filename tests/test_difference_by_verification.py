@@ -431,10 +431,18 @@ def test_omitted_delta_routes_through_the_visible_spec_cell() -> None:
         compact = _compact(formulas[name])
         assert "IF(ISOMITTED(delta),Base_Period_Delta(),delta)" in compact, name
         assert ",1," not in compact.split("ISOMITTED(delta)")[1][:40], name
+    # The accessor's spec references are UNQUALIFIED, and that is the point:
+    # a sheet-scoped name resolves against the sheet the calling formula lives
+    # on, so each Regression-shaped sheet reads its own Δ. Sheet-qualifying
+    # them (the old 'Regression'!Spec_Sequence form) made every sheet in a
+    # multi-sheet workbook read one shared spec block, and made the function
+    # unwritable — hence skipped, hence #NAME? — in a workbook with no sheet
+    # by that name.
     accessor = _compact(formulas["Base_Period_Delta"])
-    assert "XMATCH(TRUE,TAKE('Regression'!Spec_Sequence" in accessor
-    assert "TAKE('Regression'!Spec_Sequence_Period" in accessor
+    assert "XMATCH(TRUE,TAKE(Spec_Sequence" in accessor
+    assert "TAKE(Spec_Sequence_Period" in accessor
     assert "IF(ISNUMBER(value),value,NA())" in accessor
+    assert "'Regression'!" not in accessor
 
 
 def test_spectrum_formula_is_seam_safe_not_a_pooled_columnwise_diff() -> None:

@@ -3351,3 +3351,39 @@ table stays clean. It isolates the fixture, but it leaves the shape invariant
 unstated and unchecked, so the next fixture column reintroduces the same
 class of failure. Padding fixes the general case; a private data sheet fixes
 one instance of it.
+
+### `Base_Period_Delta` is sheet-scoped, not workbook-scoped-and-sheet-qualified
+
+**Question:** the accessor's body hardcoded `'Regression'!Source_Data` /
+`Spec_Sequence` / `Spec_Sequence_Period` at workbook scope. In a workbook
+with 47 Regression-shaped sheets, which sheet's Δ is "the" Δ?
+
+**Resolution:** RESOLVED — each sheet's own. `Base_Period_Delta` moves to
+`"scope": "Regression"` with unqualified spec references. An unqualified name
+resolves against the sheet the calling formula lives on, so one definition
+per Regression-shaped sheet gives each its own Δ, and the sheet-qualified
+form disappears from the catalog entirely.
+
+The old form was wrong in both directions at once. In a workbook with
+several such sheets, every one of them read whichever sheet was literally
+named `Regression`. In a workbook with none — the test-model artifact — the
+build correctly skipped the function rather than let Excel rebind it to an
+external workbook, which left `#NAME?` at every call site: the BFN Panel
+Durbin-Watson cell on all 47 sheets, and any omitted-delta `Lag_By` /
+`Difference_By`.
+
+**The narrow cost, recorded so it is not a surprise.** An omitted-delta
+`Lag_By`/`Difference_By` evaluated on a sheet with no spec block — a data
+sheet, say — now returns `#NAME?` where it previously borrowed the
+Regression sheet's Δ. That is the honest answer: such a sheet declares no
+sequence axis, so it has no base period to default to. The alternative,
+silently reaching across to another sheet's spec block, is the behaviour that
+made this wrong on a multi-sheet workbook in the first place.
+
+**This requires rebuilding the committed artifact.** `Lambda_Library.xlsx`
+carries the name at workbook scope from its last build, and
+`sync_workbook_names` only makes workbook scope match the catalog — the
+sheet-scoped replacement is installed by the sheet writer, which needs Excel.
+Until `build_production.py` is re-run and the artifact committed,
+`test_regression_workbook_scope_belongs_to_the_catalog` reports the stale
+name as residue, which is exactly what it is.

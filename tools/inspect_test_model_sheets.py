@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 import xlwings as xw
@@ -164,7 +165,9 @@ def verify_guard_sheet(sheet: xw.Sheet, expected: GuardStateExpected) -> list[st
 
 
 def verify_test_model_workbook(
-    workbook: xw.Book, sheet_names: list[str] | None = None
+    workbook: xw.Book,
+    sheet_names: list[str] | None = None,
+    on_sheet: Callable[[int, int, object, int], None] | None = None,
 ) -> list[str]:
     """Verify every test-model sheet present in ``workbook``.
 
@@ -173,27 +176,34 @@ def verify_test_model_workbook(
     registered case whose sheet is present is checked and absent ones are
     skipped silently — a partial workbook is a legitimate developer state,
     not a failure.
+
+    ``on_sheet(index, total, case, failure_count)`` is called after each
+    sheet so a caller can report progress. Reading ~46 sheets takes minutes,
+    and a per-sheet failure count is what turns a 20,000-line failure list
+    into "case L07 is the problem" without post-processing.
     """
     present = {sheet.name for sheet in workbook.sheets}
     if sheet_names is not None:
         present &= set(sheet_names)
 
+    model_cases = [c for c in build_regression_spec_cases() if c.sheet_name in present]
+    guard_cases = [c for c in build_guard_state_cases() if c.sheet_name in present]
+    total = len(model_cases) + len(guard_cases)
+
     failures: list[str] = []
-    for case in build_regression_spec_cases():
-        if case.sheet_name not in present:
-            continue
+    for index, case in enumerate(model_cases, start=1):
         expected = calculate_regression_spec_case(case)
-        failures.extend(
-            verify_model_sheet(workbook.sheets[case.sheet_name], expected)
+        found = verify_model_sheet(workbook.sheets[case.sheet_name], expected)
+        failures.extend(found)
+        if on_sheet is not None:
+            on_sheet(index, total, case, len(found))
+    for offset, case in enumerate(guard_cases, start=1):
+        found = verify_guard_sheet(
+            workbook.sheets[case.sheet_name], calculate_guard_state_case(case)
         )
-    for case in build_guard_state_cases():
-        if case.sheet_name not in present:
-            continue
-        failures.extend(
-            verify_guard_sheet(
-                workbook.sheets[case.sheet_name], calculate_guard_state_case(case)
-            )
-        )
+        failures.extend(found)
+        if on_sheet is not None:
+            on_sheet(len(model_cases) + offset, total, case, len(found))
     return failures
 
 

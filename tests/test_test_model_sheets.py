@@ -13,7 +13,9 @@ Three things this covers, none of which needs Excel:
 # pylint: disable=missing-function-docstring
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import xlwings as xw
@@ -421,3 +423,91 @@ def test_unmatched_case_filter_is_an_error_not_an_empty_build() -> None:
 
     with pytest.raises(ValueError, match="No test-model case matches"):
         build_test_models._selected_cases({"M09", "nonexistent"}, False)
+
+
+# ── Run-log archiving and verbose progress ───────────────────────────────
+
+
+def test_run_log_path_names_the_file_after_the_script_and_its_flags() -> None:
+    """The convention the first hand-uploaded logs used, now automatic: a
+    directory listing reads as a list of what was actually run, and two
+    different invocations cannot overwrite each other's evidence."""
+    from lambda_catalog.build_common import RUN_LOG_DIR_NAME, run_log_path
+
+    root = Path("/tmp/project")
+    assert run_log_path(root, "build_test_models.py", ["--verify", "--no-launch"]) == (
+        root / RUN_LOG_DIR_NAME / "build_test_models verify no launch.txt"
+    )
+    assert run_log_path(root, "build_test_models.py", []) == (
+        root / RUN_LOG_DIR_NAME / "build_test_models.txt"
+    )
+    # Values attached to a flag are not part of the name — otherwise a path
+    # would end up embedded in a filename.
+    assert run_log_path(root, "build_test_models.py", ["--cases", "M09,G10"]) == (
+        root / RUN_LOG_DIR_NAME / "build_test_models cases.txt"
+    )
+
+
+def test_tee_run_log_captures_stdout_stderr_and_the_traceback(tmp_path) -> None:
+    """The failure most likely to need archiving is a com_error traceback,
+    which never touches stdout. The first hand-captured log of a failed run
+    only contained its traceback because a human was copying the terminal."""
+    from lambda_catalog.build_common import tee_run_log
+
+    log_path = tmp_path / "logs" / "run.txt"
+    with pytest.raises(RuntimeError, match="boom"):
+        with tee_run_log(log_path, "python build_test_models.py --verify"):
+            print("progress line")
+            print("a warning", file=sys.stderr)
+            raise RuntimeError("boom")
+
+    written = log_path.read_text(encoding="utf-8")
+    assert "python build_test_models.py --verify" in written
+    assert "progress line" in written
+    assert "a warning" in written
+    assert "RuntimeError: boom" in written
+    assert "Traceback" in written
+    # Streams must be restored even though the body raised.
+    assert sys.stdout is not None and not hasattr(sys.stdout, "_secondary")
+
+
+def test_progress_names_the_sheet_before_doing_the_work(capsys) -> None:
+    """A summary printed after each sheet says nothing about the one that
+    hung. The name has to be on screen, flushed, before the work starts."""
+    import build_test_models
+
+    progress = build_test_models._Progress(enabled=True, run_start=0.0)
+    case = SimpleNamespace(plan_id="M09", sheet_name="M09 Cat x Cat Full Product")
+
+    with progress.sheet(3, 46, case):
+        # Mid-work: the line is already out, without its duration.
+        partial = capsys.readouterr().out
+        assert "3/46" in partial
+        assert "M09 Cat x Cat Full Product" in partial
+        assert "s\n" not in partial
+    assert capsys.readouterr().out.rstrip().endswith("s")
+
+
+def test_progress_marks_the_failing_sheet(capsys) -> None:
+    import build_test_models
+
+    progress = build_test_models._Progress(enabled=True, run_start=0.0)
+    case = SimpleNamespace(plan_id="L08", sheet_name="L08 High Cardinality FE")
+
+    with pytest.raises(ValueError):
+        with progress.sheet(1, 1, case):
+            raise ValueError("com error")
+    assert "FAILED" in capsys.readouterr().out
+
+
+def test_progress_phases_print_even_without_verbose(capsys) -> None:
+    """Phase checkpoints are the minimum that makes a hang attributable, so
+    they are not gated on --verbose; only the per-sheet detail is."""
+    import build_test_models
+
+    progress = build_test_models._Progress(enabled=False, run_start=0.0)
+    progress.phase("Sync names")
+    progress.detail("suppressed")
+    output = capsys.readouterr().out
+    assert "Sync names" in output
+    assert "suppressed" not in output

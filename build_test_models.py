@@ -26,9 +26,11 @@ Usage::
 from __future__ import annotations
 
 import argparse
+import contextlib
 import subprocess
 import sys
 import time
+from collections.abc import Iterator
 from pathlib import Path
 
 import xlwings as xw
@@ -41,7 +43,12 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_cases,
     calculate_regression_spec_case,
 )
-from lambda_catalog.build_common import print_name_sync_summary
+from lambda_catalog.build_common import (
+    RUN_LOG_DIR_NAME,
+    print_name_sync_summary,
+    run_log_path,
+    tee_run_log,
+)
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
@@ -80,6 +87,57 @@ _FIXTURE_COLUMN_FORMULAS = {
         "Is_USA": '=--([@Origin]="US")',
     },
 }
+
+
+class _Progress:
+    """Verbose per-sheet progress for a build that runs for many minutes.
+
+    A full run writes ~46 Regression-shaped sheets through COM, and the two
+    questions a watcher actually has are "is it still moving?" and "which
+    sheet is it stuck on?". Both need the CURRENT sheet named BEFORE the work
+    starts and the line flushed immediately — a summary printed after each
+    sheet tells you nothing about the one that hung.
+
+    Every line carries elapsed-since-start as well as the per-sheet time, so
+    an archived log reads as a timeline rather than a list.
+    """
+
+    def __init__(self, *, enabled: bool, run_start: float) -> None:
+        self._enabled = enabled
+        self._run_start = run_start
+
+    def _stamp(self) -> str:
+        return f"[{time.monotonic() - self._run_start:7.1f}s]"
+
+    def phase(self, label: str) -> None:
+        """Announce a build phase. Always printed, verbose or not — these are
+        the checkpoints that make a hang attributable without a rerun."""
+        print(f"{self._stamp()} {label}", flush=True)
+
+    def detail(self, line: str) -> None:
+        """A verbose-only line, indented under the phase it belongs to."""
+        if self._enabled:
+            print(f"{' ' * 10} {line}", flush=True)
+
+    @contextlib.contextmanager
+    def sheet(self, index: int, total: int, case) -> Iterator[None]:
+        """Bracket one sheet's write, naming it before the work begins."""
+        if not self._enabled:
+            yield
+            return
+        label = f"{index:>3}/{total} {case.plan_id:<5} {case.sheet_name}"
+        # No newline yet: the per-sheet duration is appended when it lands,
+        # so an interrupted run leaves the hung sheet's name on screen with
+        # no time after it — which is exactly the diagnostic.
+        print(f"{self._stamp()} {label:<44}", end="", flush=True)
+        started = time.monotonic()
+        try:
+            yield
+        except BaseException:
+            print(" FAILED", flush=True)
+            raise
+        else:
+            print(f" {time.monotonic() - started:6.1f}s", flush=True)
 
 
 def _selected_cases(
@@ -148,6 +206,7 @@ def build_test_models_workbook(
     case_filter: set[str] | None = None,
     include_heavy: bool = False,
     verbose: bool = False,
+    progress: _Progress | None = None,
 ) -> tuple[NameSyncResult, list[str]]:
     """Write every selected case's sheet and sync the catalog names.
 
@@ -155,23 +214,31 @@ def build_test_models_workbook(
     so a caller can verify exactly what was produced rather than re-deriving
     the selection.
     """
+    progress = progress or _Progress(enabled=verbose, run_start=time.monotonic())
+
     document = load_catalog_document(definitions_path)
     closures = document.functions_for_sheet("Regression")
     model_cases, guard_cases = _selected_cases(case_filter, include_heavy)
+    total_sheets = len(model_cases) + len(guard_cases)
 
-    if verbose:
-        print(
-            f"Building {len(model_cases)} model sheet(s) and "
-            f"{len(guard_cases)} guard sheet(s)",
-            flush=True,
+    progress.phase(
+        f"Plan: {len(model_cases)} model + {len(guard_cases)} guard "
+        f"= {total_sheets} sheet(s)"
+    )
+    for case in (*model_cases, *guard_cases):
+        progress.detail(
+            f"{case.plan_id:<5} {case.sheet_name}"
+            + ("  [heavy]" if getattr(case, "heavy", False) else "")
         )
 
     # Compute every oracle BEFORE opening Excel. A spec error should fail in
     # seconds, not after a multi-minute build has already written 30 sheets.
+    progress.phase("Oracles: computing")
     model_expectations = [
         calculate_regression_spec_case(case) for case in model_cases
     ]
     guard_expectations = [calculate_guard_state_case(case) for case in guard_cases]
+    progress.phase("Oracles: done")
 
     headers = {
         config.name: load_csv_rows(config.default_csv_path, config)
@@ -197,6 +264,7 @@ def build_test_models_workbook(
                     sheet.delete()
                 workbook.sheets[0].name = "LAMBDA_functions"
 
+                progress.phase("Catalog + data sheets")
                 write_catalog_sheet(workbook, document.functions)
                 for config in (LIFE_EXPECTANCY, MILEAGE, PRODUCTION_LOTS):
                     config_headers, config_rows = headers[config.name]
@@ -204,22 +272,26 @@ def build_test_models_workbook(
                         workbook, config_headers, config_rows, config
                     )
                 _write_fixture_columns(workbook)
+                progress.phase(f"Sheets: writing {total_sheets}")
 
                 for expected in model_expectations:
-                    if verbose:
-                        print(f"  {expected.case.sheet_name}", flush=True)
-                    write_test_model_sheet(
-                        workbook, expected, document.regression_sheet_notes, closures
-                    )
+                    with progress.sheet(
+                        len(built) + 1, total_sheets, expected.case
+                    ):
+                        write_test_model_sheet(
+                            workbook, expected, document.regression_sheet_notes,
+                            closures,
+                        )
                     built.append(expected.case.sheet_name)
                 for guard in guard_expectations:
-                    if verbose:
-                        print(f"  {guard.case.sheet_name}", flush=True)
-                    write_guard_state_sheet(
-                        workbook, guard, document.regression_sheet_notes, closures
-                    )
+                    with progress.sheet(len(built) + 1, total_sheets, guard.case):
+                        write_guard_state_sheet(
+                            workbook, guard, document.regression_sheet_notes,
+                            closures,
+                        )
                     built.append(guard.case.sheet_name)
 
+                progress.phase("Save")
                 app.api.Calculation = XL_CALCULATION_SEMIAUTOMATIC
                 workbook.save(str(workbook_path))
             finally:
@@ -227,16 +299,20 @@ def build_test_models_workbook(
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "open or save", exc)
 
-    if verbose:
-        print(f"  Write sheets:   {time.monotonic() - start:.1f}s", flush=True)
+    write_elapsed = time.monotonic() - start
 
+    progress.phase("Sync names")
+    sync_start = time.monotonic()
     result = sync_workbook_names(workbook_path, document.workbook_functions)
+    sync_elapsed = time.monotonic() - sync_start
 
     # The rebuild is not optional here, for the same reason CLAUDE.md gives
     # for the Regression artifact: the name sync rewrites the catalog's
     # workbook-scoped LAMBDAs, and a per-sheet Calculate() does not rebuild
     # the dependency tree behind them, so every engine value would read nan.
     # This artifact has no Data Tables, so the rebuild is cheap.
+    progress.phase("CalculateFullRebuild")
+    rebuild_start = time.monotonic()
     try:
         with xw.App(visible=False, add_book=False) as app:
             app.api.DisplayAlerts = False
@@ -250,12 +326,29 @@ def build_test_models_workbook(
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "recalculate", exc)
 
+    print(f"Timing: write sheets  {write_elapsed:.1f}s")
+    print(f"Timing: sync names    {sync_elapsed:.1f}s")
+    print(f"Timing: rebuild       {time.monotonic() - rebuild_start:.1f}s")
+
     return result, built
 
 
-def _run_verify(workbook_path: Path, built: list[str]) -> int:
+def _run_verify(
+    workbook_path: Path, built: list[str], progress: _Progress
+) -> int:
     """Verify the built workbook; return the process exit code."""
     from tools.inspect_test_model_sheets import verify_test_model_workbook
+
+    progress.phase(f"Verify: reading {len(built)} sheet(s)")
+    started = time.monotonic()
+    per_case: list[tuple[str, int]] = []
+
+    def _report(index: int, total: int, case, failure_count: int) -> None:
+        per_case.append((case.plan_id, failure_count))
+        progress.detail(
+            f"{index:>3}/{total} {case.plan_id:<5} {case.sheet_name:<32}"
+            + (f" {failure_count} mismatch(es)" if failure_count else " ok")
+        )
 
     try:
         with xw.App(visible=False, add_book=False) as app:
@@ -263,24 +356,32 @@ def _run_verify(workbook_path: Path, built: list[str]) -> int:
             app.api.AskToUpdateLinks = False
             workbook = app.books.open(str(workbook_path))
             try:
-                failures = verify_test_model_workbook(workbook, built)
+                failures = verify_test_model_workbook(workbook, built, _report)
             finally:
                 workbook.close()
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "verify", exc)
 
-    if failures:
-        for message in failures[:200]:
-            print(f"ERROR {message}", flush=True)
-        if len(failures) > 200:
-            print(
-                f"ERROR ... and {len(failures) - 200} more mismatch(es).",
-                flush=True,
-            )
-        print(f"Verify: FAILED with {len(failures)} mismatch(es).", flush=True)
-        return 1
-    print("Verify: passed", flush=True)
-    return 0
+    print(f"Timing: verify        {time.monotonic() - started:.1f}s")
+    if not failures:
+        print("Verify: passed")
+        return 0
+
+    # Per-case totals BEFORE the failure list. A wide case can contribute
+    # tens of thousands of lines, and the first live run of the sibling
+    # verifier buried 12 real mismatches under 22,886 from a single case —
+    # this is the line that would have said so on sight.
+    offenders = [(plan_id, n) for plan_id, n in per_case if n]
+    print("Verify: mismatch totals by case:")
+    for plan_id, count in sorted(offenders, key=lambda pair: -pair[1]):
+        print(f"    {plan_id:<5} {count}")
+
+    for message in failures[:200]:
+        print(f"ERROR {message}")
+    if len(failures) > 200:
+        print(f"ERROR ... and {len(failures) - 200} more mismatch(es).")
+    print(f"Verify: FAILED with {len(failures)} mismatch(es).")
+    return 1
 
 
 def parse_args() -> argparse.Namespace:
@@ -310,9 +411,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--include-heavy",
         action="store_true",
-        help="Also build the cases marked heavy (L07's ~2900x205 design "
-        "matrix, L08's 173 Fixed Effects groups). Their Python oracles run "
-        "in the unit suite either way; only the sheets are gated.",
+        help="Also build the cases marked heavy — currently only L08 (173 "
+        "Fixed Effects groups over 2909 rows). Its Python oracle runs in the "
+        "unit suite either way; only the sheet is gated.",
     )
     parser.add_argument(
         "--verify",
@@ -326,39 +427,69 @@ def parse_args() -> argparse.Namespace:
         help="Do not open the workbook in Excel when the build finishes.",
     )
     parser.add_argument(
+        "--log",
+        type=Path,
+        default=None,
+        help="Where to archive this run's transcript. Defaults to "
+        f"'{RUN_LOG_DIR_NAME}/<script> <flags>.txt', which is the naming "
+        "the hand-uploaded logs already used.",
+    )
+    parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Print each sheet as it is written, plus phase timings.",
+        help="Name every sheet as it is written and every sheet as it is "
+        "verified, with per-sheet and cumulative timings. Worth it on a full "
+        "run: ~46 sheets through COM takes minutes, and this is what makes a "
+        "hang attributable to a case without rerunning.",
     )
     return parser.parse_args()
 
 
 def main() -> None:
-    """Build the test-model workbook, optionally verifying it."""
+    """Build the test-model workbook, optionally verifying it.
+
+    The whole run is teed into ``Local Run Logs/`` so a failure is a file
+    somebody can hand over, not a terminal scrollback. That was a manual
+    copy-paste step for the first two runs; this run needs Excel, so the
+    only way its output reaches anyone working headlessly is as a committed
+    artifact.
+    """
     args = parse_args()
     case_filter = (
         {token.strip() for token in args.cases.split(",") if token.strip()}
         if args.cases
         else None
     )
-    total_start = time.monotonic()
-
-    result, built = build_test_models_workbook(
-        workbook_path=args.workbook,
-        definitions_path=args.definitions,
-        case_filter=case_filter,
-        include_heavy=args.include_heavy,
-        verbose=args.verbose,
+    log_path = (
+        args.log
+        if args.log is not None
+        else run_log_path(ROOT_DIR, Path(__file__).name, sys.argv[1:])
     )
+    command = f"python {Path(__file__).name} " + " ".join(sys.argv[1:])
 
-    print(f"Workbook: {args.workbook.resolve()}")
-    print(f"Sheets built: {len(built)}")
-    print_name_sync_summary(result)
-    print(f"Timing: total         {time.monotonic() - total_start:.1f}s")
+    with tee_run_log(log_path, command):
+        total_start = time.monotonic()
+        progress = _Progress(enabled=args.verbose, run_start=total_start)
 
-    exit_code = 0
-    if args.verify:
-        exit_code = _run_verify(args.workbook.resolve(), built)
+        result, built = build_test_models_workbook(
+            workbook_path=args.workbook,
+            definitions_path=args.definitions,
+            case_filter=case_filter,
+            include_heavy=args.include_heavy,
+            verbose=args.verbose,
+            progress=progress,
+        )
+
+        print(f"Workbook: {args.workbook.resolve()}")
+        print(f"Sheets built: {len(built)}")
+        print_name_sync_summary(result)
+
+        exit_code = 0
+        if args.verify:
+            exit_code = _run_verify(args.workbook.resolve(), built, progress)
+
+        print(f"Timing: total         {time.monotonic() - total_start:.1f}s")
+        print(f"Log: {log_path}")
 
     if not args.no_launch and exit_code == 0:
         subprocess.Popen(["cmd", "/c", "start", "", str(args.workbook.resolve())])

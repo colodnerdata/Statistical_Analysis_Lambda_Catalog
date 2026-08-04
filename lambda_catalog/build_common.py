@@ -11,10 +11,13 @@ retry/recalc logic.
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import sys
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from pathlib import Path
+from typing import TextIO
 
 import xlwings as xw
 
@@ -57,6 +60,80 @@ def _quit_app_quietly(app: xw.App | None) -> None:
         app.quit()
     except OPEN_WORKBOOK_ERRORS:
         pass
+
+
+# Where a driver's terminal transcript is archived. Committed rather than
+# ignored: a deep-verify run needs Excel, so the only way a failure reaches
+# anyone working headlessly is as a file in the repo.
+RUN_LOG_DIR_NAME = "Local Run Logs"
+
+
+class _Tee(io.TextIOBase):
+    """Write to two streams at once, flushing both."""
+
+    def __init__(self, primary: TextIO, secondary: TextIO) -> None:
+        self._primary = primary
+        self._secondary = secondary
+
+    def write(self, s: str) -> int:
+        self._secondary.write(s)
+        self._secondary.flush()
+        return self._primary.write(s)
+
+    def flush(self) -> None:
+        self._primary.flush()
+        self._secondary.flush()
+
+
+def run_log_path(root_dir: Path, script_name: str, argv: list[str]) -> Path:
+    """Return the archive path for one run's transcript.
+
+    Named after the script and the flags it ran with — ``build_test_models
+    verify include heavy.txt`` — so a directory listing reads as a list of
+    what was actually run, and two different invocations do not overwrite
+    each other's evidence. That is the convention the first hand-uploaded
+    logs already used; this just stops it being a manual step.
+    """
+    flags = [
+        token.lstrip("-").replace("-", " ")
+        for token in argv
+        if token.startswith("--")
+    ]
+    stem = " ".join([Path(script_name).stem, *flags]).strip()
+    return root_dir / RUN_LOG_DIR_NAME / f"{stem}.txt"
+
+
+@contextlib.contextmanager
+def tee_run_log(log_path: Path, command: str) -> Iterator[Path]:
+    """Mirror stdout AND stderr into ``log_path`` for the duration.
+
+    stderr matters as much as stdout here: the failure this is most likely
+    to be capturing is a `pywintypes.com_error` traceback, which never
+    touches stdout. The first hand-captured log of a failed run only
+    contained its traceback because a human was copying the terminal.
+
+    The file is flushed on every write, so a run that hangs or is killed
+    still leaves everything it had reached — the opposite of buffering,
+    and the whole point when the thing being diagnosed is a build that
+    stops partway.
+    """
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(log_path, "w", encoding="utf-8") as handle:
+        real_stdout, real_stderr = sys.stdout, sys.stderr
+        sys.stdout = _Tee(real_stdout, handle)
+        sys.stderr = _Tee(real_stderr, handle)
+        try:
+            print(command)
+            yield log_path
+        except BaseException:
+            # Land the traceback in the file before the streams are
+            # restored, so an aborted run archives its own cause.
+            import traceback
+
+            traceback.print_exc()
+            raise
+        finally:
+            sys.stdout, sys.stderr = real_stdout, real_stderr
 
 
 def print_name_sync_summary(result: NameSyncResult) -> None:

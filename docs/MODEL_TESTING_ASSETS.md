@@ -287,12 +287,27 @@ explicit `--cases L07` is given. Their Python oracles always run in the unit sui
 — only the sheet build is gated.
 
 ```
-python build_test_models.py                       # 46 sheets (31 models + 15 guards)
-python build_test_models.py --include-heavy        # 48, adding L07 / L08
+python build_test_models.py                        # 47 sheets (31 models + 16 guards)
+python build_test_models.py --include-heavy        # 48, adding L08
 python build_test_models.py --cases M09,G10        # just those two
 python build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
-make verify-test-models                            # the same, as a target
+make verify-test-models                            # the same, verbose
 ```
+
+**Every run archives its own transcript** to `Local Run Logs/<script> <flags>.txt`
+— stdout *and* stderr, flushed per line, with the traceback written into the file
+before the streams are restored. That directory is committed rather than ignored:
+this check needs Excel, so a file in the repo is the only way its output reaches
+anyone working headlessly. `--log PATH` overrides the destination.
+
+**`--verbose` names each sheet before writing it**, not after. A ~46-sheet run
+through COM takes minutes, and the two questions a watcher has are "is it still
+moving?" and "which sheet is it stuck on?" — both need the current sheet on screen,
+flushed, while the work is happening. An interrupted run therefore leaves the
+offending case named with no duration after it. The verify pass reports per-sheet
+mismatch counts and prints **per-case totals before the failure list**: the first
+live run of the sibling verifier buried 12 real mismatches under 22,886 from a
+single case, and that summary line is what would have said so on sight.
 
 ### Two bugs the first live run found
 

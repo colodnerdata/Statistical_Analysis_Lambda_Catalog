@@ -1344,9 +1344,6 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
         y_axis.HasTitle = True
         y_axis.AxisTitle.Text = "Sample Quantiles"
 
-
-
-
 # ── Zone 6: two-parameter grid-search MLE ────────────────────────────────────
 #
 # Layout within one stage block (row_start, col_start):

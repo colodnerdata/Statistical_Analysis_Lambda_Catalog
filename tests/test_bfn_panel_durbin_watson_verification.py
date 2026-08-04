@@ -522,7 +522,22 @@ def test_spec_oracle_bfn_matches_the_independently_verified_value() -> None:
     # would be a coincidence rather than a check.
     assert expected.design.included_rows == _EXPECTED_ROWS
     assert len(set(expected.design.group_labels)) == _EXPECTED_COUNTRIES
-    assert expected.results.summary.bfn_panel_durbin_watson == _EXPECTED_BFN
+    # Close, NOT equal. The two sides reach this statistic through different
+    # fits — statsmodels LSDV with per-country dummies over there, the
+    # within-estimator here — so the residuals they sum differ in the last
+    # bits, and by how much depends on the BLAS the runner happens to link.
+    # An earlier revision asserted exact equality; it held on one machine
+    # and failed in CI at 3 ULP (…433 vs …436), which is the difference
+    # between a real invariant and a coincidence of build.
+    #
+    # rel_tol=1e-12 is still four orders tighter than the 6-decimal
+    # first-differing-digit rule the workbook comparison uses, so any drift
+    # that could matter to a QC result fails here first.
+    assert math.isclose(
+        expected.results.summary.bfn_panel_durbin_watson,
+        _EXPECTED_BFN,
+        rel_tol=1e-12,
+    )
 
 
 def test_a_fixed_effects_case_without_a_typed_period_yields_no_bfn() -> None:

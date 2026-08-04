@@ -3629,8 +3629,21 @@ by copy-paste the way the Sequence flag once did.
 0.6362023311147436 for `Life expectancy ~ GDP + Schooling | Country` by two
 paths sharing no implementation (statsmodels LSDV residuals with an explicit
 per-group loop; a within-estimator fed through the `Difference_By` mirror).
-The new oracle is a third path and matches **exactly** — not to a tolerance,
-to the last bit.
+The new oracle is a third path and agrees to within 1e-12 relative.
+
+**Not to the last bit, and the first revision of this entry was wrong to say
+so.** The assertion originally demanded exact equality; it passed on one
+machine and failed in CI at 3 ULP (`…433` against `…436`). The three paths
+reach the statistic through *different fits* — LSDV with per-country dummies
+on one side, the within-estimator on the other — so the residual vectors they
+sum differ in the last bits, by an amount that depends on which BLAS the
+runner links. Bit-exactness is a legitimate claim only where the arithmetic
+is genuinely identical, as in the P01/P02 and P03/P03b pairs, where
+`np.array_equal` compares a stored log column against a computed one. Here it
+was a coincidence of build being asserted as an invariant. The tolerance is
+still four orders tighter than the six-decimal first-differing-digit rule the
+workbook comparison uses, so any drift that could reach a QC result fails
+here first.
 
 **Two test-double defects surfaced on the way, both the same shape.**
 `RecordingSheet.range` keyed its store on the raw argument tuple, so

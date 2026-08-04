@@ -1,0 +1,246 @@
+uv run --frozen python build_production.py --verify --no-launch
+(statistical-analysis-lambda-catalog) PS C:\local_python\Statistical_Analysis_Lambda_Catalog> uv run --frozen python build_production.py --verify --no-launch
+Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\Lambda_Library.xlsx
+Sheet updated: LAMBDA_functions
+Sheet updated: Life Expectancy Data
+Sheet updated: Mileage Data
+Sheet updated: Production Lots
+Sheet updated: Regression Instructions
+Sheet updated: Diagnostic Guide
+Sheet updated: Version History
+Sheet updated: Regression
+Created names: 0
+Updated names: 123
+Removed names: 0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Multiple_R': expected=0.9816444698788385, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='R_Squared': expected=0.9636258652437057, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Adjusted_R_Squared': expected=0.9608671905766542, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SE_Regression': expected=1.878123674867845, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='PRESS': expected=11138.4866361291, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='PRESS_R2': expected=0.9575063105865048, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='AIC': expected=3865.272021196724, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='BIC': expected=5096.238340846736, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='AICc': expected=3896.835307651202, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='QQ_Correlation': expected=0.9018866326594173, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Durbin_Watson': expected=2.0423934598482414, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SS_Regression': expected=252586.53626899837, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='MS_Regression': expected=1232.1294452146262, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='F_Statistic': expected=349.30754131788336, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='F_Statistic_P_Value': expected=0.0, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SS_Residual': expected=9534.423098481862, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='MS_Residual': expected=3.527348538099098, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_R_Squared': expected=0.9636258652437057, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_Adjusted_R_Squared': expected=0.9608671905766542, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_RMSE': expected=1.8781236748678451, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Croatia' stat_name='Pearson_R': expected=0.05353351468781102, excel_calc=-0.1480558634112559, abs_diff=0.2015893780990669, fdd=1.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Cuba' stat_name='Pearson_R': expected=0.06807615381713386, excel_calc=0.053533514687811784, abs_diff=0.014542639129322077, fdd=2.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Cyprus' stat_name='Pearson_R': expected=0.08139466507361805, excel_calc=0.0680761538171351, abs_diff=0.013318511256482951, fdd=2.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Czechia' stat_name='Pearson_R': expected=0.05862588663881963, excel_calc=0.08139466507361948, abs_diff=0.022768778434799845, fdd=2.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name="Country: Côte d'Ivoire" stat_name='Pearson_R': expected=-0.1480558634112529, excel_calc=0.05862588663882049, abs_diff=0.2066817500500734, fdd=1.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Croatia' stat_name='Spearman_R': expected=0.06695704155636686, excel_calc=-0.11671126545900239, abs_diff=0.18366830701536924, fdd=1.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Cuba' stat_name='Spearman_R': expected=0.08634895650162035, excel_calc=0.06695704155636688, abs_diff=0.01939191494525347, fdd=2.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Cyprus' stat_name='Spearman_R': expected=0.09951398281738612, excel_calc=0.08634895650162035, abs_diff=0.013165026315765771, fdd=2.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name='Country: Czechia' stat_name='Spearman_R': expected=0.07402248452129226, excel_calc=0.09951398281738613, abs_diff=0.025491498296093873, fdd=2.0
+ERROR [Regression/predictors] config_name='life_country_width_guard' allow_intercept=True predictor_name="Country: Côte d'Ivoire" stat_name='Spearman_R': expected=-0.11671126545900237, excel_calc=0.07402248452129224, abs_diff=0.19073374998029463, fdd=1.0
+ERROR [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='T_Statistics': expected=-0.3673959783137977, excel_calc=-0.3673941937551009, abs_diff=1.7845586968157079e-06, fdd=5.0
+ERROR [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='P_Values': expected=0.7133713946856568, excel_calc=0.713372725376353, abs_diff=1.330690696188519e-06, fdd=6.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Intercept' stat_name='Coefficients': expected=56.43850555748895, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Albania' stat_name='Coefficients': expected=15.932666754234836, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Algeria' stat_name='Coefficients': expected=14.34553568424415, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Angola' stat_name='Coefficients': expected=-7.166976392205491, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Antigua and Barbuda' stat_name='Coefficients': expected=15.991240168821168, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Argentina' stat_name='Coefficients': expected=15.942454551455622, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Armenia' stat_name='Coefficients': expected=14.400602469136578, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Australia' stat_name='Coefficients': expected=22.627944391636532, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Austria' stat_name='Coefficients': expected=22.313386765012456, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Azerbaijan' stat_name='Coefficients': expected=11.776644477208936, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bahamas' stat_name='Coefficients': expected=15.313810520701388, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bahrain' stat_name='Coefficients': expected=16.532971516437616, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bangladesh' stat_name='Coefficients': expected=9.947433536209642, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Barbados' stat_name='Coefficients': expected=15.369233047462881, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Belarus' stat_name='Coefficients': expected=11.102721126076448, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Belgium' stat_name='Coefficients': expected=21.50792912643549, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Belize' stat_name='Coefficients': expected=10.395076756742103, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Benin' stat_name='Coefficients': expected=-0.03962914296629913, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bhutan' stat_name='Coefficients': expected=7.455753573772032, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bolivia (Plurinational State of)' stat_name='Coefficients': expected=8.863546722175515, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bosnia and Herzegovina' stat_name='Coefficients': expected=16.983676897466967, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Botswana' stat_name='Coefficients': expected=2.9550224801206673, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Brazil' stat_name='Coefficients': expected=13.383527280149247, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Brunei Darussalam' stat_name='Coefficients': expected=17.293224595102995, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Bulgaria' stat_name='Coefficients': expected=13.823384534059393, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Burkina Faso' stat_name='Coefficients': expected=-1.0890350460194897, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Burundi' stat_name='Coefficients': expected=-1.8450685396280233, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cabo Verde' stat_name='Coefficients': expected=13.740333626565903, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cambodia' stat_name='Coefficients': expected=5.85109117940765, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cameroon' stat_name='Coefficients': expected=-1.703677050122032, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Canada' stat_name='Coefficients': expected=22.458040361578615, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Central African Republic' stat_name='Coefficients': expected=-6.579568318827734, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Chad' stat_name='Coefficients': expected=-5.284610613366374, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Chile' stat_name='Coefficients': expected=20.333364817342748, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: China' stat_name='Coefficients': expected=12.719810189812126, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Colombia' stat_name='Coefficients': expected=14.222203107868811, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Comoros' stat_name='Coefficients': expected=3.098222176410003, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Congo' stat_name='Coefficients': expected=2.463584595262375, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Costa Rica' stat_name='Coefficients': expected=19.60724282426567, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Croatia' stat_name='Coefficients': expected=16.98791186511893, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cuba' stat_name='Coefficients': expected=18.768337231561148, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Cyprus' stat_name='Coefficients': expected=20.453637902151566, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Czechia' stat_name='Coefficients': expected=17.6024507131401, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name="Country: Côte d'Ivoire" stat_name='Coefficients': expected=-6.0859029504833115, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name="Country: Democratic People's Republic of Korea" stat_name='Coefficients': expected=10.241266782070893, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Democratic Republic of the Congo' stat_name='Coefficients': expected=-1.1568912179254303, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Denmark' stat_name='Coefficients': expected=20.06397722657857, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Djibouti' stat_name='Coefficients': expected=3.241331385215763, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Dominican Republic' stat_name='Coefficients': expected=13.861160641361192, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Ecuador' stat_name='Coefficients': expected=15.763761441577966, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Egypt' stat_name='Coefficients': expected=11.99912727850788, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: El Salvador' stat_name='Coefficients': expected=12.889484364420065, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Equatorial Guinea' stat_name='Coefficients': expected=-1.1869769746781256, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Eritrea' stat_name='Coefficients': expected=2.50762504698218, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Estonia' stat_name='Coefficients': expected=15.992808522654213, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Ethiopia' stat_name='Coefficients': expected=3.8647752968929767, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Fiji' stat_name='Coefficients': expected=9.687901450938297, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Finland' stat_name='Coefficients': expected=21.480794480421636, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: France' stat_name='Coefficients': expected=22.969584607644542, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Gabon' stat_name='Coefficients': expected=6.350684258093952, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Gambia' stat_name='Coefficients': expected=1.5498590150319793, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Georgia' stat_name='Coefficients': expected=14.572262990841852, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Germany' stat_name='Coefficients': expected=21.990142684877604, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Ghana' stat_name='Coefficients': expected=3.1895129088962615, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Greece' stat_name='Coefficients': expected=22.068287333927465, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Grenada' stat_name='Coefficients': expected=14.309618466836781, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Guatemala' stat_name='Coefficients': expected=12.846884113633264, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Guinea' stat_name='Coefficients': expected=-1.1976486964169701, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Guinea-Bissau' stat_name='Coefficients': expected=-1.7520643501837356, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Guyana' stat_name='Coefficients': expected=7.155479462826394, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Haiti' stat_name='Coefficients': expected=2.3227350301762772, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Honduras' stat_name='Coefficients': expected=14.181820348834876, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Hungary' stat_name='Coefficients': expected=14.79853024350744, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Iceland' stat_name='Coefficients': expected=23.20746340621697, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: India' stat_name='Coefficients': expected=4.458054897339405, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Indonesia' stat_name='Coefficients': expected=7.914711562501347, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Iran (Islamic Republic of)' stat_name='Coefficients': expected=14.503777011340315, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Iraq' stat_name='Coefficients': expected=11.45030912234093, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Ireland' stat_name='Coefficients': expected=21.00069704843932, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Israel' stat_name='Coefficients': expected=22.127317044426462, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Italy' stat_name='Coefficients': expected=22.946676295849, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Jamaica' stat_name='Coefficients': expected=15.691613505221746, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Japan' stat_name='Coefficients': expected=23.36409573076582, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Jordan' stat_name='Coefficients': expected=13.819399932087235, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kazakhstan' stat_name='Coefficients': expected=7.83516207503386, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kenya' stat_name='Coefficients': expected=2.5327370333299846, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kiribati' stat_name='Coefficients': expected=6.326093440574605, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kuwait' stat_name='Coefficients': expected=14.680432556174962, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Kyrgyzstan' stat_name='Coefficients': expected=10.092698840178954, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name="Country: Lao People's Democratic Republic" stat_name='Coefficients': expected=3.9006903205883448, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Latvia' stat_name='Coefficients': expected=14.763254837650518, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Lebanon' stat_name='Coefficients': expected=15.265555762465503, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Lesotho' stat_name='Coefficients': expected=-1.8280671831662771, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Liberia' stat_name='Coefficients': expected=-0.08423839880874903, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Libya' stat_name='Coefficients': expected=13.444811071705034, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Lithuania' stat_name='Coefficients': expected=13.772156100687976, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Luxembourg' stat_name='Coefficients': expected=21.424881284876196, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Madagascar' stat_name='Coefficients': expected=4.744380313032535, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Malawi' stat_name='Coefficients': expected=-2.5075723095539053, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Malaysia' stat_name='Coefficients': expected=14.687699935521442, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Maldives' stat_name='Coefficients': expected=16.383895168657705, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mali' stat_name='Coefficients': expected=-1.7799362293374705, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Malta' stat_name='Coefficients': expected=21.2350745656786, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mauritania' stat_name='Coefficients': expected=4.616111560275062, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mauritius' stat_name='Coefficients': expected=13.73928011893287, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mexico' stat_name='Coefficients': expected=16.18577518022134, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Micronesia (Federated States of)' stat_name='Coefficients': expected=9.356948851919045, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mongolia' stat_name='Coefficients': expected=7.037419928439625, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Montenegro' stat_name='Coefficients': expected=15.2638375718081, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Morocco' stat_name='Coefficients': expected=12.810930662799551, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Mozambique' stat_name='Coefficients': expected=-1.091557468715067, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Myanmar' stat_name='Coefficients': expected=5.592087137749024, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Namibia' stat_name='Coefficients': expected=6.231193535201485, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Nepal' stat_name='Coefficients': expected=7.7104974482907895, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Netherlands' stat_name='Coefficients': expected=21.854895474058235, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: New Zealand' stat_name='Coefficients': expected=22.29544086826009, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Nicaragua' stat_name='Coefficients': expected=14.549456398539263, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Niger' stat_name='Coefficients': expected=1.259201135464504, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Nigeria' stat_name='Coefficients': expected=3.0969269924950305, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Norway' stat_name='Coefficients': expected=22.59251714489185, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Oman' stat_name='Coefficients': expected=15.632461099402999, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Pakistan' stat_name='Coefficients': expected=3.3745648760398272, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Panama' stat_name='Coefficients': expected=17.572938621656384, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Papua New Guinea' stat_name='Coefficients': expected=3.5531599215703142, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Paraguay' stat_name='Coefficients': expected=14.187189409147564, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Peru' stat_name='Coefficients': expected=14.75324609544177, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Philippines' stat_name='Coefficients': expected=8.701957916849745, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Poland' stat_name='Coefficients': expected=16.527773192877564, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Portugal' stat_name='Coefficients': expected=20.787108185798505, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Qatar' stat_name='Coefficients': expected=17.874251405132444, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Republic of Korea' stat_name='Coefficients': expected=21.393975579005804, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Republic of Moldova' stat_name='Coefficients': expected=11.225502620737311, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Romania' stat_name='Coefficients': expected=15.054302597366847, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Russian Federation' stat_name='Coefficients': expected=8.759770979112954, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Rwanda' stat_name='Coefficients': expected=2.225759916351331, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Saint Lucia' stat_name='Coefficients': expected=14.735350419701204, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Saint Vincent and the Grenadines' stat_name='Coefficients': expected=14.52650305973314, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Samoa' stat_name='Coefficients': expected=14.94704946857945, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sao Tome and Principe' stat_name='Coefficients': expected=6.510614283286848, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Saudi Arabia' stat_name='Coefficients': expected=14.157064901123462, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Senegal' stat_name='Coefficients': expected=4.39245130008743, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Serbia' stat_name='Coefficients': expected=14.92009646948052, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Seychelles' stat_name='Coefficients': expected=13.372480368068645, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sierra Leone' stat_name='Coefficients': expected=-11.479947999964233, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Singapore' stat_name='Coefficients': expected=22.25848388835679, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Slovakia' stat_name='Coefficients': expected=15.678989692759643, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Slovenia' stat_name='Coefficients': expected=20.570061894369395, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Solomon Islands' stat_name='Coefficients': expected=8.84822529196448, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Somalia' stat_name='Coefficients': expected=-3.5645501067607235, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: South Africa' stat_name='Coefficients': expected=5.460811511567687, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: South Sudan' stat_name='Coefficients': expected=-1.876940723214152, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Spain' stat_name='Coefficients': expected=22.832826544129095, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sri Lanka' stat_name='Coefficients': expected=14.347169491110872, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sudan' stat_name='Coefficients': expected=3.891014560047776, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Suriname' stat_name='Coefficients': expected=11.479502568548753, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Swaziland' stat_name='Coefficients': expected=3.366563539220185, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Sweden' stat_name='Coefficients': expected=23.228823813475003, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Switzerland' stat_name='Coefficients': expected=22.956673436624197, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Syrian Arab Republic' stat_name='Coefficients': expected=12.157084927750107, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Tajikistan' stat_name='Coefficients': expected=7.733207860317867, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Thailand' stat_name='Coefficients': expected=14.076054612685864, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: The former Yugoslav republic of Macedonia' stat_name='Coefficients': expected=14.953766477861736, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Timor-Leste' stat_name='Coefficients': expected=6.646369321956092, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Togo' stat_name='Coefficients': expected=-0.40432361289509267, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Tonga' stat_name='Coefficients': expected=13.719272164492127, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Trinidad and Tobago' stat_name='Coefficients': expected=12.525822792133908, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Tunisia' stat_name='Coefficients': expected=15.033830308294917, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/coefficients] config_name='life_country_width_guard' allow_intercept=True term_name='Country: Turkey' stat_name='Coefficients': expected=14.753120282996866, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR Additional QC mismatches suppressed.
+ERROR QC mismatch totals: Regression/coefficients=1443, Regression/prediction_interval=9, Regression/predictors=10, Regression/residuals=21416, Regression/scalars=20
+ERROR Verify mismatch totals: Regression/coefficients=1443, Regression/prediction_interval=9, Regression/predictors=10, Regression/residuals=21416, Regression/scalars=20
+  mode: spec
+  workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\Lambda_Library.xlsx
+  elapsed: 1045.7s
+  failures (22898 total):
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Multiple_R': expected=0.9816444698788385, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='R_Squared': expected=0.9636258652437057, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Adjusted_R_Squared': expected=0.9608671905766542, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SE_Regression': expected=1.878123674867845, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='PRESS': expected=11138.4866361291, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='PRESS_R2': expected=0.9575063105865048, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='AIC': expected=3865.272021196724, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='BIC': expected=5096.238340846736, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='AICc': expected=3896.835307651202, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='QQ_Correlation': expected=0.9018866326594173, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Durbin_Watson': expected=2.0423934598482414, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SS_Regression': expected=252586.53626899837, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='MS_Regression': expected=1232.1294452146262, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='F_Statistic': expected=349.30754131788336, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='F_Statistic_P_Value': expected=0.0, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='SS_Residual': expected=9534.423098481862, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='MS_Residual': expected=3.527348538099098, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_R_Squared': expected=0.9636258652437057, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_Adjusted_R_Squared': expected=0.9608671905766542, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='life_country_width_guard' allow_intercept=True stat_name='Unit_Space_RMSE': expected=1.8781236748678451, excel_calc=nan, abs_diff=nan, fdd=0.0
+    ... and 22878 more (use --json for the full list)
+Timing: build+sync    50.4s
+Timing: recalculate   4.6s
+Timing: verify        1047.6s
+Timing: total         1102.6s

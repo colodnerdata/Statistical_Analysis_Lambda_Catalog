@@ -240,6 +240,100 @@ def test_spec_scoped_names_default_to_the_production_table_name() -> None:
     assert role.RefersTo == "='Regression'!SpecTable[[#Data],[Role]]"
 
 
+# ── Row constants vs. the writers' actual layout ─────────────────────────
+
+
+def test_row_constants_match_the_writers_own_layout() -> None:
+    """`regression_spec_sheet_io`'s row constants must name the rows the zone
+    writers actually use.
+
+    Nothing links the two automatically: the writers state these positions as
+    literals inside their own formula loops, so the reader keeps a parallel
+    set of constants. That is exactly the shape of coupling this repo's
+    layout-constant rule exists to catch — if a zone moved, the reader would
+    go on reading the old rows and report a wrong NUMBER rather than an
+    error, which is far worse than a crash.
+
+    Each zone writer is run against a RecordingSheet and its labelled cells
+    are matched against the constants, so a moved row fails here, headlessly,
+    rather than during an Excel-only verify run.
+    """
+    from lambda_catalog import regression_spec_sheet_io as io
+    from lambda_catalog.write_sheet_regression import (
+        _C_AA,
+        _C_AE,
+        _C_AG,
+        _C_AJ,
+        _write_anova,
+        _write_coefficients,
+        _write_diagnostics,
+        _write_prediction_interval,
+        _write_prediction_inputs,
+        _write_regression_statistics,
+        _write_unit_space_block,
+    )
+
+    def _labels(writer, col: int) -> dict[int, str]:
+        sheet = RecordingSheet(name="Regression")
+        writer(_as_xw_sheet(sheet))
+        return {
+            key[0][0]: cell.state.value
+            for key, cell in sheet.ranges.items()
+            if len(key) == 1
+            and isinstance(key[0], tuple)
+            and key[0][1] == col
+            and isinstance(cell.state.value, str)
+            and cell.state.value
+        }
+
+    statistics = _labels(_write_regression_statistics, _C_AA)
+    assert statistics[io.ROW_MULTIPLE_R] == "Multiple R"
+    assert statistics[io.ROW_R_SQUARED] == "R Square"
+    assert statistics[io.ROW_ADJ_R2] == "Adjusted R Square"
+    assert statistics[io.ROW_SE_REG] == "Standard Error"
+    assert statistics[io.ROW_OBS] == "Observations"
+
+    # The diagnostics block labels sit one column left of their values, which
+    # are the cells the reader pulls from _C_AE.
+    diagnostics = _labels(_write_diagnostics, _C_AE - 1)
+    assert diagnostics[io.ROW_PRESS] == "PRESS"
+    assert diagnostics[io.ROW_PRESS_R2] == "PRESS R²"
+    assert diagnostics[io.ROW_MEAN_LEV] == "Mean Leverage"
+    assert diagnostics[io.ROW_AIC] == "AIC"
+    assert diagnostics[io.ROW_BIC] == "BIC"
+    assert diagnostics[io.ROW_AICC] == "AICc"
+    assert diagnostics[io.ROW_QQ_CORR] == "QQ Correlation"
+    assert diagnostics[io.ROW_DURBIN_WATSON] == "Durbin-Watson"
+
+    anova = _labels(_write_anova, _C_AA)
+    assert anova[io.ROW_ANOVA_REG] == "Regression"
+    assert anova[io.ROW_ANOVA_RES] == "Residual"
+    assert anova[io.ROW_ANOVA_TOT] == "Total"
+
+    unit_space = _labels(_write_unit_space_block, _C_AG)
+    assert unit_space[io.ROW_BACK_TRANSFORM] == "Back-Transform"
+    assert unit_space[5] == "Smearing Factor"
+    assert unit_space[6] == "R Square (Unit)"
+    assert unit_space[7] == "Adj R Square (Unit)"
+    assert unit_space[8] == "RMSE (Unit)"
+
+    interval = _labels(_write_prediction_interval, _C_AJ)
+    assert interval[io.ROW_PI_POINT] == "Point Estimate"
+    assert interval[io.ROW_FE_GROUP] == "FE Group"
+    assert interval[io.ROW_GROUP_MEAN] == "Group Mean (y)"
+    assert interval[io.ROW_GROUP_COUNT] == "Group Count"
+
+    # The coefficient LABELS spill from ROW_COEFF_DATA, two rows under the
+    # zone heading and one under its column sub-headers.
+    coefficients = _labels(_write_coefficients, _C_AA)
+    assert coefficients[io.ROW_COEFF_DATA - 2] == "COEFFICIENTS"
+
+    # Prediction inputs: the reader writes from ROW_PRED_INPUT_FIRST, which
+    # must be the row after the band's own sub-header row.
+    inputs = _labels(_write_prediction_inputs, _C_AJ)
+    assert inputs[io.ROW_PRED_INPUT_FIRST - 2] == "Predictor"
+
+
 # ── Build-driver selection ───────────────────────────────────────────────
 
 

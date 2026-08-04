@@ -16,7 +16,17 @@ from lambda_catalog.analyze_regression_spec import (
 )
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+
+# One path per wired dataset, and each test guards on the one IT reads.
+# `CSV_PATH` is only the DEFAULT handed to calculate_regression_spec_case — a
+# case that sets source_csv_path (every Life Expectancy and Production Lots
+# case) ignores it entirely and loads its own file. Guarding a Life
+# Expectancy test on the Auto MPG CSV therefore gets it wrong in both
+# directions: the test runs and fails on a missing Life Expectancy file, and
+# skips when only the file it does not read is missing.
 CSV_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.csv"
+LIFE_EXPECTANCY_CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
+PRODUCTION_LOTS_CSV_PATH = ROOT_DIR / "sample_data" / "production_lots.csv"
 
 _EXPECTED_CASE_NAMES = [
     "default_t0_intercept",
@@ -555,7 +565,9 @@ def _expected_unit_space(design, results) -> dict:
     }
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
 @pytest.mark.parametrize("case_name", _LOG_SPEC_CASES)
 def test_unit_space_oracle_matches_an_independent_recomputation(case_name: str) -> None:
     expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
@@ -702,7 +714,9 @@ def test_ratio_reciprocal_pair_is_legal_and_non_singular() -> None:
     assert math.isfinite(expected.results.summary.r_squared)
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
 def test_lsdv_reproduces_the_within_estimator_exactly() -> None:
     """P06 vs P02 — the suite's strongest cross-oracle.
 
@@ -741,7 +755,9 @@ def test_lsdv_reproduces_the_within_estimator_exactly() -> None:
 # ── Life Expectancy (§ 1.2) ──────────────────────────────────────────────────
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
 def test_partial_log_linear_is_the_mixed_predictor_dispatch_pair() -> None:
     """L01. (None, Mixed) — two logged predictors and one unlogged against an
     untransformed response. The predictor-transform summary must report
@@ -764,7 +780,9 @@ def test_partial_log_linear_is_the_mixed_predictor_dispatch_pair() -> None:
     assert expected.results.unit_space.smearing_factor == pytest.approx(1.0)
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
 def test_binary_categorical_reference_flips_which_dummy_is_retained() -> None:
     """L09 vs L01. On a two-level column an explicit reference is invisible in
     the column COUNT — one dummy either way — and shows up only in WHICH level
@@ -788,7 +806,9 @@ def test_binary_categorical_reference_flips_which_dummy_is_retained() -> None:
     )
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
 def test_log_response_is_the_log_none_dispatch_pair_with_real_smearing() -> None:
     """L02. (Log, None) — the pair where the v3.3 unit-space machinery does
     the most work, and the suite's only one."""
@@ -807,7 +827,9 @@ def test_log_response_is_the_log_none_dispatch_pair_with_real_smearing() -> None
     assert unit.r_squared_unit != pytest.approx(expected.results.summary.r_squared)
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
 def test_naive_back_transform_drops_the_smearing_factor_but_not_the_bounds() -> None:
     """L03 vs L02 — the Back-Transform toggle, which had no oracle at all
     before: the Python side computed both branches and then discarded the
@@ -853,7 +875,9 @@ def test_naive_back_transform_drops_the_smearing_factor_but_not_the_bounds() -> 
     )
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
 def test_elasticity_model_logs_both_sides_at_scale() -> None:
     """L04. (Log, Log) against sparse predictors on the large dataset."""
     expected = calculate_regression_spec_case(_case("life_elasticity_log_log"), CSV_PATH)
@@ -864,7 +888,9 @@ def test_elasticity_model_logs_both_sides_at_scale() -> None:
     assert design.included_rows == 2262
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
 def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
     """L05. SPEC_DATASET_PROFILES["life_expectancy"] is what
     `--regression-dataset life_expectancy` pre-fills, and nothing had ever
@@ -884,7 +910,9 @@ def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
     assert math.isfinite(expected.results.summary.r_squared)
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
 def test_width_guard_case_actually_crosses_the_two_hundred_column_threshold() -> None:
     """L07. The soft width guard warns at 200 design columns, and this is the
     only case that reaches it. The plan's arithmetic (193 countries → 192
@@ -904,7 +932,9 @@ def test_width_guard_case_actually_crosses_the_two_hundred_column_threshold() ->
     assert design.row_labels[0] == "Obs. 1"
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
 def test_high_cardinality_fixed_effects_absorbs_the_right_degrees_of_freedom() -> None:
     """L08. 193 groups against Production Lots' three. At 3 groups a df error
     of a few units hides inside the noise; at 182 absorbed df it moves every
@@ -928,7 +958,9 @@ def test_high_cardinality_fixed_effects_absorbs_the_right_degrees_of_freedom() -
     assert math.isnan(summary.durbin_watson)
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
 @pytest.mark.parametrize(
     "case_name",
     ("production_lots_fixed_effects", "production_lots_log_predictor_only"),

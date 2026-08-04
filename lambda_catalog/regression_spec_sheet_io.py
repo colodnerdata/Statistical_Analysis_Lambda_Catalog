@@ -65,9 +65,15 @@ from .write_sheet_regression import (
     _C_Y,
 )
 
-# ── Row positions (1-based), imported nowhere because the writers state
-# them only as literals inside their own formula loops. Kept together here
-# and pinned by tests/test_test_model_sheets.py against the writer output.
+# ── Row positions (1-based) ──────────────────────────────────────────────
+# The writers state these only as literals inside their own formula loops,
+# so there is nothing to import. They are instead pinned against the writers'
+# actual output by `test_row_constants_match_the_writers_own_layout` in
+# tests/test_test_model_sheets.py, which runs each zone writer against a
+# RecordingSheet and asserts the labelled cells land on the rows named here.
+# Without that pin a zone could move and this reader would silently compare
+# the wrong cells — reporting a wrong NUMBER rather than an error, which is
+# the failure mode the whole layout-constant discipline exists to prevent.
 ROW_SUMMARY_FIRST = 3      # S3 spills constructed names; T3–Y3 the stats
 ROW_MULTIPLE_R = 4
 ROW_R_SQUARED = 5

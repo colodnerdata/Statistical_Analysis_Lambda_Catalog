@@ -311,7 +311,7 @@ def parse_args() -> argparse.Namespace:
         "--include-heavy",
         action="store_true",
         help="Also build the cases marked heavy (L07's ~2900x205 design "
-        "matrix, L08's 193 Fixed Effects groups). Their Python oracles run "
+        "matrix, L08's 173 Fixed Effects groups). Their Python oracles run "
         "in the unit suite either way; only the sheets are gated.",
     )
     parser.add_argument(

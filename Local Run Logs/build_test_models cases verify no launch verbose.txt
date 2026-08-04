@@ -1,0 +1,26 @@
+python build_test_models.py --cases M04 --verify --no-launch --verbose
+[    0.0s] Plan: 1 model + 0 guard = 1 sheet(s)
+           M04   M04 Excluded Candidates
+[    0.0s] Oracles: computing
+[    0.0s] Oracles: done
+[    1.0s] Catalog + data sheets
+[    5.0s] Sheets: writing 1
+[    5.0s]   1/1 M04   M04 Excluded Candidates             6.4s
+[   11.4s] Save
+[   12.2s] Sync names
+[   12.3s] CalculateFullRebuild
+Timing: write sheets  12.2s
+Timing: sync names    0.1s
+Timing: rebuild       2.9s
+Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 1
+Created names: 122
+Updated names: 0
+Removed names: 0
+Skipped names: Base_Period_Delta (reference a worksheet this workbook does not have)
+[   15.3s] Verify: reading 1 sheet(s)
+             1/1 M04   M04 Excluded Candidates          ok
+Timing: verify        2.5s
+Verify: passed
+Timing: total         17.8s
+Log: C:\local_python\Statistical_Analysis_Lambda_Catalog\Local Run Logs\build_test_models cases verify no launch verbose.txt

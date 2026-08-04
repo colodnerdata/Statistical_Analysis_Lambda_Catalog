@@ -46,6 +46,12 @@ Thumbs.db
 # QC workbook (local dev only)
 Lambda_Library_QC.xlsx
 
+# Test-model workbook — one sheet per test model, built by
+# build_test_models.py. A QC fixture, not a shipped artifact: it is
+# regenerated from the case registries on demand and would otherwise add a
+# multi-megabyte binary to every commit that touches a spec case.
+Lambda_Library_TestModels.xlsx
+
 # Detached-build log/pid artifacts (local dev only)
 build_*.log
 build_*.err

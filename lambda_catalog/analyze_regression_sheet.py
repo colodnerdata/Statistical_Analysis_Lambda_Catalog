@@ -131,9 +131,25 @@ def _build_model_formula(
 ) -> str:
     """Assemble the AB2 model-formula cell text from the spec's display names.
 
-    The sheet's AB2 cell reads:
+    A CHARACTER-EXACT mirror of the AB2 formula in
+    ``write_sheet_regression._write_regression_outputs_header``::
 
-        <response> ~ 1 + <p_1> + <p_2> + ... | <FE variable>
+        =<response>&" ~ "&IF(Allow_Intercept,"1 + ","0 + ")
+         &IFERROR(TEXTJOIN(" + ",TRUE,Constructed_Column_Names()),"")
+         &IF(<fe count>>0," | "&<fe name>,"")
+
+    Three consequences of mirroring it literally rather than assembling
+    something equivalent-looking, each of which this function used to get
+    wrong (it was never string-compared against the live cell, so nothing
+    caught them):
+
+    * The intercept term is ``"0 + "`` when the intercept is OFF, not
+      omitted — the sheet always writes one or the other.
+    * The intercept marker is a PREFIX, not the first element of the join,
+      so an empty predictor list renders ``"MPG ~ 1 + "`` with a trailing
+      separator. That is genuinely what the cell shows.
+    * ``TEXTJOIN(..., TRUE, ...)`` skips empty strings, so a degenerate
+      column contributing no name leaves no double separator behind.
 
     Built from the constructed-column names (``Constructed_Column_Names()``
     on the sheet side) — which already emit ``Ln(name)`` per logged
@@ -142,20 +158,11 @@ def _build_model_formula(
     extra work. ``fixed_effects_name`` is the declared FE variable's own
     name from the spec (e.g. ``Facility``), identical to the spec feedback
     block's FE Variable cell — never a group level value.
-
-    This string is stored on ``RegressionUnitSpace`` for the QC harness and
-    the future v3.4 Model Comparison surface; it is not yet string-compared
-    against the live AB2 cell by the inspector.
     """
-    parts: list[str] = []
-    if include_intercept:
-        parts.append("1")
-    for name in predictor_names:
-        parts.append(name)
-    rhs = " + ".join(parts) if parts else "1"
-    if fixed_effects_name:
-        rhs = f"{rhs} | {fixed_effects_name}"
-    return f"{response_display} ~ {rhs}"
+    intercept_term = "1 + " if include_intercept else "0 + "
+    joined = " + ".join(name for name in predictor_names if name)
+    suffix = f" | {fixed_effects_name}" if fixed_effects_name else ""
+    return f"{response_display} ~ {intercept_term}{joined}{suffix}"
 
 
 def calculate_regression_results_from_matrix(
@@ -171,6 +178,7 @@ def calculate_regression_results_from_matrix(
     predictor_transform: str = "None",
     response_name: str = "Response",
     fixed_effects_name: str | None = None,
+    back_transform: str = "Duan",
 ) -> RegressionSheetResults:
     """Fit OLS and compute expected values for the current Regression sheet.
 
@@ -200,6 +208,21 @@ def calculate_regression_results_from_matrix(
     ``durbin_watson`` is NaN whenever ``group_labels`` is given; the
     ``compare_values`` QC comparison already treats NaN/None on both sides as
     "both missing", not a mismatch.
+
+    ``back_transform`` mirrors the sheet's Back-Transform Method input
+    (``$AH$4``, "Duan" or "Naive"), which the unit-space block's
+    ``Unit_Space_R_Squared`` / ``Unit_Space_Adjusted_R_Squared`` /
+    ``Unit_Space_RMSE`` calls all take as an argument, and which the AL
+    prediction column and the AZ/BA original-units residual columns
+    dispatch on. Under a Log response, "Duan" multiplies ``EXP(ŷ)`` by the
+    smearing factor and "Naive" does not — so every statistic derived from
+    the unit-space residuals differs between the two, which is exactly why
+    both need an oracle. Two things do NOT dispatch on it: the CI/PI bounds
+    (quantiles, back-transformed with ``EXP`` only under both settings —
+    see the AL7:AL10 caveat row on the sheet), and the observed column
+    (an observation is not a prediction and never carries the smearing
+    factor). Under ``response_transform="None"`` the two methods coincide
+    exactly, which keeps the reduction invariant holding either way.
 
     ``selected_group`` picks which group's mean/count the Prediction
     Interval box (AK3:AK14 on the sheet) is anchored to via
@@ -554,7 +577,20 @@ def calculate_regression_results_from_matrix(
     else:
         y_unit = np.full(n, float("nan"))
 
-    predictions_unit = duan_predictions
+    # The Back-Transform Method input ($AH$4) selects between them. An
+    # unrecognised method is not guessed at: the sheet's Unit_Space_*
+    # functions return #N/A for anything outside the two-item validation
+    # list, so the oracle refuses here rather than silently defaulting to
+    # Duan and reporting agreement the workbook would not show.
+    if back_transform == "Duan":
+        predictions_unit = duan_predictions
+    elif back_transform == "Naive":
+        predictions_unit = naive_predictions
+    else:
+        raise ValueError(
+            f"Unknown back-transform method: {back_transform!r} "
+            "(expected 'Duan' or 'Naive')"
+        )
     residuals_unit = y_unit - predictions_unit
 
     # SST_unit: centered when the model has an intercept, uncentered when
@@ -577,7 +613,13 @@ def calculate_regression_results_from_matrix(
     # (predicted log y for a Log response, predicted y for None). CI/PI bounds
     # are quantiles — back-transform with EXP only, never smeared.
     if response_transform == "Log":
-        prediction_point_unit = math.exp(point_estimate) * smearing_factor
+        # The point estimate is a prediction, so it carries the smearing
+        # factor under Duan and not under Naive. The four bounds below are
+        # quantiles and stay EXP-only under both — the AJ15:AL15 caveat row
+        # on the sheet says exactly this.
+        prediction_point_unit = math.exp(point_estimate) * (
+            smearing_factor if back_transform == "Duan" else 1.0
+        )
         prediction_ci_lower_unit = math.exp(prediction_interval.ci_lower)
         prediction_ci_upper_unit = math.exp(prediction_interval.ci_upper)
         prediction_pi_lower_unit = math.exp(prediction_interval.pi_lower)

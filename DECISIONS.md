@@ -3118,3 +3118,144 @@ The half that *is* enforced in code stays enforced: `_EXPECTED_CASE_NAMES` in
 `build_regression_spec_cases()`, so no case can be added, renamed, reordered,
 or dropped without a test failure. The document says what should exist; the
 pinned list says what does.
+
+## v3.4+ — Test-model oracles and the one-sheet-per-model framework
+
+### Guard states get their own case type, not a flag on `RegressionSpecCase`
+
+**Question:** the § 1.4 guard-rail configurations are not fittable models.
+Should they be `RegressionSpecCase` entries with an "expect failure" flag, or
+a separate type?
+
+**Resolution:** RESOLVED — a separate `GuardStateCase` in
+`lambda_catalog/analyze_regression_guard_states.py`. The two assert disjoint
+things. A fittable case's oracle is ~200 numbers from a fit;
+`calculate_regression_spec_case` raises on most guard specs *by design*,
+because a QC case must describe a legal, fully-computable model. What a guard
+case asserts is status text, the per-row Design Columns audit, the Model
+Formula string, and which conditional-formatting rules fire. Bolting that
+onto `RegressionSpecCase` would mean a dataclass where most fields are
+meaningless for half its instances, and an oracle function with a top-level
+branch that shares nothing below it.
+
+### Conditional formatting is asserted as a predicate, never as a colour
+
+**Question:** how does a guard case verify that a cell is flagged red or
+amber — read `Range.DisplayFormat.Interior.Color` over COM, or recompute the
+rule?
+
+**Resolution:** RESOLVED — recompute the predicate. `GuardFlag` records that
+a rule *fires*, derived in Python from the same condition the CF expression
+encodes. Reading the colour back would only re-report what Excel already
+decided from the rule that is under test: if someone changed the CF
+expression, Excel would faithfully apply the *new* rule and the colour check
+would pass. Recomputing the predicate independently is what makes a silent CF
+change fail. It is also the only form that runs headlessly, so the guard
+oracles are covered in CI while the sheet comparison is not.
+
+### One sheet per test model, in a third non-shipped artifact
+
+**Question:** the suite pushes every case through the single `Regression`
+sheet in turn. Should each case get its own sheet, and if so, in which
+workbook?
+
+**Resolution:** RESOLVED — one sheet per case, in a new
+`Lambda_Library_TestModels.xlsx` built by `build_test_models.py` and
+gitignored.
+
+The single-sheet harness has three costs that are all consequences of reuse.
+A case exists only as a log line, so a failure gives a number with nothing to
+open. Every case must defensively re-set every input in case the previous one
+left something behind — which is precisely why `source_table_ref` and
+`prediction_group` are non-Optional and rewritten on every iteration. And the
+~150–250 COM writes plus a recalculation per case make the loop serial and
+slow. With one sheet per case the verifier only reads: no writing, no
+per-case recalculation, no state to leak, and a failing case is a tab.
+
+A third artifact rather than the QC or production workbook: ~48 heavy sheets
+have no business in a shipped file, and folding them into `build_qc.py` would
+make every QC run pay for them. It is a fixture regenerated from the case
+registries on demand, so it is not committed.
+
+REJECTED — a lean engine-only sheet (spec block plus scalar zones, no
+residual band). It would drop the per-observation residual comparison, which
+is the largest part of the oracle by count and the part most likely to catch
+a masking or ordering bug. Charts are dropped instead: a dozen COM chart
+objects per sheet is the single biggest cost in the build, and no oracle
+reads one — chart wiring is verified once, on the production sheet.
+
+### Sheet names state the concept, not the variables
+
+**Question:** what does a generated sheet's tab say?
+
+**Resolution:** RESOLVED — `<PlanID> <Concept>`: `M05 Log-Log NA Masking`,
+never `MPG ~ Ln(Weight) + Ln(HP)`. Excel allows 31 characters, which cannot
+hold a model formula for any case worth testing, and truncating one produces
+a tab that is both unreadable and ambiguous. The formula is also the least
+useful thing to put there — the sheet exists to exercise one corner, that
+corner is what a reader needs, and the variables are one click away in the
+spec block. The plan ID prefix ties each tab to a row in
+docs/MODEL_TESTING_ASSETS.md, so a case can be renamed without orphaning the
+mapping. The contract is enforced at registry-build time
+(`lambda_catalog/test_model_sheets.py`), so an illegal or duplicated name
+fails in a millisecond-long unit test instead of at sheet 30 of a
+multi-minute Excel build.
+
+### Three planned models did not survive contact with the data
+
+**Question:** what happens when a model the plan specifies turns out not to
+be fittable?
+
+**Resolution:** RESOLVED — implement the corner the plan wanted, by the
+nearest configuration that actually fits, and record the deviation in the
+plan document rather than silently substituting.
+
+Three cases needed it. The plan's M9 (`C(Cylinders) × C(Origin)`) has a
+sparse cross-tabulation — Cylinders=3 occurs only in Asia, 5 only in Europe,
+8 only in the US — so two of its eight product columns are identically zero
+and the Gram matrix is singular; Excel answers `#NUM!` where NumPy quietly
+returns a minimum-norm solution, so the two sides cannot be compared at all.
+`Model Year × Origin` populates all 39 cells (minimum cell count 2, condition
+number ~116) and is a genuine saturated design. The plan's M10
+(`Displacement + Horsepower + Displacement − Horsepower`) is exactly
+collinear by construction. And L7's arithmetic (193 countries → 192 dummies +
+8 predictors = 200) ignores missingness: at most 183 countries survive the
+mask, so `C(Year)` is added to clear the width-guard threshold, pinned by a
+test so a future change cannot silently drop the case back under 200.
+
+### L6 contradicts the shipped mask — flagged, not fixed
+
+**Question:** § 1.2 says a Log transform on a column with true zeros makes
+the row "drop out of the mask". It does not. Fix `Sample_Include`, or record
+the actual behaviour?
+
+**Resolution:** RESOLVED for now — record it. `Sample_Include` tests
+`ISNUMBER(col)` on the Response and the included Continuous Predictors, and
+`ISNUMBER(0)` is TRUE; there is no Log-positivity term anywhere in it. So
+Schooling's 28 zero rows stay in the sample, `Ln_Positive` returns `#N/A` for
+each, and the `#N/A` propagates into every downstream statistic. L6 ships as
+a guard state asserting that propagation.
+
+DEFERRED — whether to add a positivity term to `Sample_Include`. It would
+make the plan's description true and is arguably the better behaviour, since
+the Response's own non-positive guard effectively achieves it by raising. But
+it changes a constructor every model in the workbook depends on, and making
+that change as a side effect of writing an oracle would be exactly the kind
+of silent scope creep this file exists to prevent.
+
+### `_build_model_formula` was never compared against the cell it mirrors
+
+**Question:** the oracle's model-formula string and the sheet's AB2 cell were
+written independently and never string-compared. Which is right?
+
+**Resolution:** RESOLVED — the cell. `_build_model_formula` now mirrors AB2
+character for character, and the guard cases compare it. It had three
+divergences, all invisible because nothing read it: it omitted the intercept
+term entirely when the intercept was OFF (AB2 writes `"0 + "`), it treated
+the intercept marker as the first element of the join rather than a prefix
+(so an empty model rendered `"MPG ~ 1"` instead of AB2's `"MPG ~ 1 + "`), and
+it appended `"1"` as a fallback for an empty predictor list. The same pass
+found `Base_Period_Delta_Candidate`'s mirror using `statistics.mode`, which —
+unlike Excel's `MODE.SNGL` — never errors on a non-repeating input, making
+both the fall-back-to-MIN branch and the "no natural base period" verdict
+unreachable in the oracle.

@@ -12,7 +12,7 @@
 # verify runs both layers; verify-headless is the fast screen, verify-deep
 # is the source of truth.
 
-.PHONY: verify-headless verify-deep verify-deep-univariate verify
+.PHONY: verify-headless verify-deep verify-deep-univariate verify-test-models verify
 
 # Fast screen — pure zipfile/lxml invariant tests. <1 s on Linux.
 verify-headless:
@@ -35,7 +35,16 @@ verify-deep:
 verify-deep-univariate:
 	uv run --frozen python build_univariate.py --verify --no-launch
 
-# Both layers for both artifacts. The headless check is auto-discovered on
-# Linux; run the deep checks on a machine with Microsoft Excel. Each deep
-# check shell-exits 1 on drift.
-verify: verify-headless verify-deep verify-deep-univariate
+# The regression test-model suite, one worksheet per case. Builds
+# Lambda_Library_TestModels.xlsx (gitignored — a fixture, not an artifact),
+# then reads every sheet back against its Python oracle without writing to
+# any of them. Requires Excel; not run in CI. Excludes the two heavy Life
+# Expectancy cases by default — add --include-heavy for L07/L08, whose
+# Python oracles run in the unit suite regardless.
+verify-test-models:
+	uv run --frozen python build_test_models.py --verify --no-launch
+
+# Both layers for both artifacts, plus the test-model suite. The headless
+# check is auto-discovered on Linux; run the deep checks on a machine with
+# Microsoft Excel. Each deep check shell-exits 1 on drift.
+verify: verify-headless verify-deep verify-deep-univariate verify-test-models

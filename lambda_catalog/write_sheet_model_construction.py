@@ -655,6 +655,14 @@ SPEC_DATASET_PROFILES: dict[str, SpecDatasetProfile] = {
 
 _DEFAULT_TRANSFORM = "None"
 
+# The spec block's ListObject name for an ordinary single-Regression-sheet
+# build. ListObject names are WORKBOOK-scoped in Excel, so a workbook with
+# more than one spec block — the one-sheet-per-test-model artifact — must
+# give each sheet its own; see lambda_catalog/test_model_sheets.py's
+# spec_table_name(). Kept here because _write_spec_block, _create_spec_table
+# and _set_sheet_scoped_names all default to it and must agree.
+_DEFAULT_SPEC_TABLE_NAME = "SpecTable"
+
 _ROLE_VALIDATION_LIST = ",".join(
     (
         _ROLE_RESPONSE,
@@ -982,6 +990,7 @@ def _set_sheet_scoped_names(
     sheet: xw.Sheet,
     closures: Sequence[CatalogFunction],
     source_table_ref: str = "=MileageData[#All]",
+    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """Register this sheet's local names in dependency order.
 
@@ -1002,6 +1011,7 @@ def _set_sheet_scoped_names(
        ``Predictor_Columns``, etc.).
     """
     sname = f"'{sheet.name}'"
+    table = spec_table_name
 
     local_names: dict[str, str] = {
         # ── Source-table indirection: THE dataset-retarget point ─────────
@@ -1014,35 +1024,36 @@ def _set_sheet_scoped_names(
         "Source_Data": "=DROP(Source_Table,1)",
         "Header_Names": "=TAKE(Source_Table,1)",
         # ── Spec ranges (table-column structured references) ─────────────
-        # The spec data area is a structured table (SpecTable) at
+        # The spec data area is a structured table (named by
         # B_HEADER_ROW:L_LAST_DATA_ROW; these band names bind to its
-        # columns via SpecTable[[#Data],[Column]] structured references.
+        # spec_table_name) at B_HEADER_ROW:L_LAST_DATA_ROW; these band
+        # names bind to its columns via structured references.
         # Each column header carries the actual human-readable name (with
         # spaces — Excel requires the exact header text, not a sanitized
         # underscore form, in structured references). The [#Data]
         # qualifier restricts the range to the data body (the spec rows),
         # which is what every TAKE-trimmed consumer expects: the spec
         # rows, not the headers.
-        "Spec_Role": f"={sname}!SpecTable[[#Data],[Role]]",
-        "Spec_Include": f"={sname}!SpecTable[[#Data],[Include]]",
-        "Spec_Type": f"={sname}!SpecTable[[#Data],[Type]]",
-        "Spec_Reference": f"={sname}!SpecTable[[#Data],[Reference Level]]",
+        "Spec_Role": f"={sname}!{table}[[#Data],[Role]]",
+        "Spec_Include": f"={sname}!{table}[[#Data],[Include]]",
+        "Spec_Type": f"={sname}!{table}[[#Data],[Type]]",
+        "Spec_Reference": f"={sname}!{table}[[#Data],[Reference Level]]",
         # Reserved axes: named now so the grid shape is final, read by
         # nothing until the Order/Transform release.
-        "Spec_Order": f"={sname}!SpecTable[[#Data],[Order]]",
-        "Spec_Transform": f"={sname}!SpecTable[[#Data],[Transform]]",
+        "Spec_Order": f"={sname}!{table}[[#Data],[Order]]",
+        "Spec_Transform": f"={sname}!{table}[[#Data],[Transform]]",
         # Sequence structural axis (live: read by the zero-or-one status
         # validation and its conditional formats, not by any constructor);
         # Base Period Δ is its reserved companion, read by nothing until
         # the base-period release. The Period In Use band name is new —
         # it parallels the other Spec_* names so every spec column has a
         # single binding, even though no formula reads it yet.
-        "Spec_Sequence": f"={sname}!SpecTable[[#Data],[Sequence]]",
+        "Spec_Sequence": f"={sname}!{table}[[#Data],[Sequence]]",
         "Spec_Sequence_Period": (
-            f"={sname}!SpecTable[[#Data],[Sequence Period]]"
+            f"={sname}!{table}[[#Data],[Sequence Period]]"
         ),
         "Spec_Period_In_Use": (
-            f"={sname}!SpecTable[[#Data],[Period In Use]]"
+            f"={sname}!{table}[[#Data],[Period In Use]]"
         ),
         # The interaction pair (M/N) and the Design Columns audit (O),
         # added by the layout-break MAJOR. The first two are RESERVED —
@@ -1052,13 +1063,13 @@ def _set_sheet_scoped_names(
         # a computed display, bound by "display derives, never feeds":
         # only the width guard reads it, and the guard is a display too.
         "Spec_Interaction_Term": (
-            f"={sname}!SpecTable[[#Data],[Interaction Term]]"
+            f"={sname}!{table}[[#Data],[Interaction Term]]"
         ),
         "Spec_Interaction_Operation": (
-            f"={sname}!SpecTable[[#Data],[Interaction Operation]]"
+            f"={sname}!{table}[[#Data],[Interaction Operation]]"
         ),
         "Spec_Design_Columns": (
-            f"={sname}!SpecTable[[#Data],[Design Columns]]"
+            f"={sname}!{table}[[#Data],[Design Columns]]"
         ),
         # Model-level Intercept toggle (row-2 control): a single boolean cell
         # in the C/Include column. No v3.0 formula reads it yet — the engine
@@ -1223,7 +1234,9 @@ def _interaction_error_formats(sheet: xw.Sheet) -> None:
 
 
 def _write_spec_block(
-    sheet: xw.Sheet, profile: SpecDatasetProfile | None = None
+    sheet: xw.Sheet,
+    profile: SpecDatasetProfile | None = None,
+    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """The A–O specification block: headers, defaults, dropdowns, CF.
 
@@ -1231,6 +1244,11 @@ def _write_spec_block(
     Sequence values — defaults to the shipped Auto MPG profile
     (``SPEC_DATASET_PROFILES["auto_mpg"]``) when omitted, matching this
     function's original hardcoded-to-Auto-MPG behavior.
+
+    ``spec_table_name`` names the ListObject this block creates. It must be
+    unique across the WORKBOOK (see ``_create_spec_table``), so the
+    one-sheet-per-test-model artifact passes a per-sheet name; every
+    single-Regression-sheet build leaves it at the default.
     """
     profile = profile or _AUTO_MPG_PROFILE
     bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_SPEC_LAST)
@@ -1256,7 +1274,7 @@ def _write_spec_block(
     # Create the table before writing any [@Column] formulas below. Excel
     # rejects row-scoped structured references until the target cell belongs
     # to a ListObject with the referenced headers.
-    _create_spec_table(sheet, profile)
+    _create_spec_table(sheet, profile, spec_table_name)
 
     # TableStyle overrides ListObject header styling. Re-pin the full
     # specification header row after table creation so the Regression sheet's
@@ -1552,12 +1570,21 @@ def _write_spec_block(
     )
 
 def _create_spec_table(
-    sheet: xw.Sheet, profile: SpecDatasetProfile | None = None
+    sheet: xw.Sheet,
+    profile: SpecDatasetProfile | None = None,
+    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """Convert the spec data area at B3:L(last data row) into a structured ListObject.
 
-    The table is named ``SpecTable`` (Excel strips special characters and
-    prefixes automatically; the name field is the user-visible label). A
+    The table is named ``spec_table_name`` — ``SpecTable`` for an ordinary
+    single-Regression-sheet build. Excel ListObject names are **workbook**
+    scoped and must be unique, so a workbook carrying one spec block per
+    test model gives each sheet its own (``SpecTable_M05``, ...) via
+    ``test_model_sheets.spec_table_name``; a second table claiming a name
+    already in use is an error from ``ListObjects.Add``, not a silent
+    rename. The ``Spec_*`` band names that bind to it are sheet-scoped and
+    are built from this same string in ``_set_sheet_scoped_names``, so a
+    table and its bindings can never disagree about which name to use. A
     column is outside the table by design — the variable-names spill at
     A4:A(last data row) must not be absorbed by the table's spill scope,
     since the spill lives outside the structured-reference world.
@@ -1565,7 +1592,7 @@ def _create_spec_table(
     The table is sized to ``len(profile.variables)`` data rows (the Auto
     MPG profile when ``profile`` is omitted) so every column of the
     targeted dataset gets a Spec_Role/Spec_Include/etc. entry — those are
-    ``SpecTable[[#Data],[Column]]`` structured references, so a table sized
+    ``SpecTable[[#Data],[Column]]``-style structured references, so a table sized
     too short for the dataset silently drops the extra columns from every
     constructor closure instead of erroring.
 
@@ -1590,7 +1617,7 @@ def _create_spec_table(
         Source=table_range.api,
         XlListObjectHasHeaders=XL_YES,
     )
-    table.Name = "SpecTable"
+    table.Name = spec_table_name
     table.TableStyle = "TableStyleLight9"
     table.ShowTableStyleRowStripes = False
     table.ShowTableStyleColumnStripes = False
@@ -2076,7 +2103,7 @@ def write_model_construction_sheet(
 
     # The spec block must run before the names are registered: it creates
     # the structured table (SpecTable), which the Spec_* band names bind
-    # to via SpecTable[[#Data],[Column]] references — Excel
+    # to via <table>[[#Data],[Column]] references — Excel
     # validates the RefersTo at registration time.
     _write_spec_block(sheet)
     _set_sheet_scoped_names(sheet, closures)

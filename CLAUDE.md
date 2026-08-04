@@ -31,10 +31,46 @@ case targeting a dataset other than Auto MPG must set `source_csv_path`, `row_lo
 the spec block reads, so omitting it lands the spec rows on the wrong table's columns with no
 error.
 
+**A guard-rail configuration is a `GuardStateCase`, not a `RegressionSpecCase`.** The § 1.4
+states (no Response, two Sequence flags, an interaction naming nothing) make
+`calculate_regression_spec_case` raise by design — a fittable case must describe a legal,
+fully-computable model. They live in `lambda_catalog/analyze_regression_guard_states.py` and
+assert status text, the per-row Design Columns audit, the Model Formula, and which CF rules
+fire. **Flags are predicates, not pixels**: `GuardFlag` records that a rule fires, recomputed
+from the same condition the CF expression encodes, never read back as
+`DisplayFormat.Interior.Color`. Reading the colour would only re-report what Excel already
+decided from the rule; recomputing the predicate is what makes a silent CF change fail.
+
+**Every case is also a worksheet.** `build_test_models.py` writes one Regression-shaped sheet
+per case into `Lambda_Library_TestModels.xlsx` (gitignored — a fixture, not a shipped
+artifact), and `tools/inspect_test_model_sheets.py` verifies it by **reading only**: no
+writing, no per-case recalculation, no state to leak between cases, and a failing case is a
+tab you can open. Sheet names are governed by `lambda_catalog/test_model_sheets.py` — 31
+characters, legal charset, `<PlanID> <Concept>`, unique across model *and* guard cases,
+validated at registry-build time so a bad name fails in the unit suite rather than partway
+through a multi-minute build. **The name states the concept under test, never the variables**
+(`M05 Log-Log NA Masking`, not `MPG ~ Ln(Weight) + Ln(HP)`): 31 characters cannot hold a model
+formula, and the corner a case exists for is the useful thing to read off a tab.
+
+**`SpecTable` is workbook-scoped.** Excel ListObject names must be unique across the whole
+workbook, so a workbook with one spec block per test model gives each sheet its own
+(`SpecTable_M05`, via `test_model_sheets.spec_table_name`). That name is threaded through
+`_write_spec_block` → `_create_spec_table` and `_set_sheet_scoped_names`, so the table and the
+`Spec_*` band names bound to it read one parameter and can never disagree. Never hardcode
+`"SpecTable"` in either place.
+
+**Both halves of the sheet contract live in `lambda_catalog/regression_spec_sheet_io.py`** —
+`apply_spec_case` / `set_prediction_inputs` for writing a case onto a sheet,
+`read_case_comparison_rows` for reading one back. The test-model builder, the test-model
+verifier and the legacy single-sheet verifier all import them. A second copy of either half
+would let the builder and the verifier disagree about what a case *is*, and the disagreement
+would surface as a QC failure blamed on the workbook.
+
 **Every case name is pinned.** `_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py`
 is an ordered list asserted against `build_regression_spec_cases()`. Adding, renaming,
 reordering, or dropping a case means editing that list in the same commit — otherwise the
-suite fails, which is the point.
+suite fails, which is the point. `_EXPECTED_GUARD_NAMES` in
+`tests/test_regression_guard_states.py` does the same for guard cases.
 
 **The suite's growth rate orders the roadmap — under one constraint.** From v3.4 on the ladder
 sorts on two keys. First, **all remaining Regression work ships before either milestone that

@@ -508,7 +508,7 @@ _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 #
 # The Model Context zone is two columns (labels then values) and Sample_Include
 # is one; both ship EXPANDED. The terminal Constructed Design Matrix ships
-# COLLAPSED, because an unbounded-width zone that cannot be collapsed is a
+# COLLAPSED, because an unbounded-width zone that cannot be collapsed is a TODO: This is not true in practice: BR:BS ships uncollapsed, as does BU and BW:JO.
 # scrolling hazard. Gutters are width-2 ungrouped separators so each zone
 # collapses independently — the first gutter (after the charts) is structural,
 # keeping the floating chart anchors out of every collapsible outline group.
@@ -691,21 +691,17 @@ _ROW_MODEL_CONTEXT_CHECK = _MODEL_CONTEXT_LAST_ROW + 1
 
 _MODEL_CONTEXT_LABEL_WIDTH = 20.0
 _MODEL_CONTEXT_VALUE_WIDTH = 14.0
+_CONSTRUCTED_DESIGN_MATRIX_LABEL_WIDTH = 24.0
+_MODEL_FORMULA_LABEL_WIDTH = 14.0
 
 # ── The Model Formula readout ─────────────────────────────────────────────────
 # The assembled "<response> ~ 1 + <predictors> [| <FE>]" string — a LABEL for
 # the model, and the v3.4 Model Comparison sheet's per-row caption
 # (Comparison_Model_Formula points here).
 #
-# It used to sit at AB2, at the head of the Regression Outputs zone, where it
-# was both the most prominent cell in that zone and — because row 2 wraps and
-# then AutoFits — the cell that set the height of the sheet's entire header
-# row: one long formula string in a 12-wide column is a dozen wrapped lines
-# pushing every zone's data down the screen.
-#
-# It now sits on ROW 1 of the terminal Constructed Design Matrix zone, right of
-# that zone's own heading: header two columns right of it, the readout three
-# columns right of the header. Row 1 is the one row in this zone that no
+# Sits on ROW 1 of the terminal Constructed Design Matrix zone, right of
+# that zone's own heading: header two columns right of it, the readout one
+# column right of the header. Row 1 is the one row in this zone that no
 # amount of design matrix can reach — the names spill on
 # _MATERIALIZATION_HEADER_ROW and the values on _MATERIALIZATION_SPILL_ROW, and
 # both grow RIGHTWARD from there, never up — so this placement does not breach
@@ -715,14 +711,14 @@ _MODEL_CONTEXT_VALUE_WIDTH = 14.0
 # Which is the point of putting it here: with WrapText OFF and nothing else on
 # row 1 to its right, the string overflows across as many empty columns as it
 # needs. The three-column gap between header and readout is what keeps the
-# header itself readable — "Model Formula" is wider than one 12-wide
+# header itself readable — "Model Formula" is in a fixed 14 point width column
 # design-matrix column, so the readout starting immediately beside it would
 # clip the header instead.
 #
 # Both columns derive from _C_DESIGN_MATRIX, so the caption tracks the zone.
 _ROW_MODEL_FORMULA = 1
 _C_MODEL_FORMULA_LABEL = _C_DESIGN_MATRIX + 2
-_C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 3
+_C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 1
 
 # ── The design-matrix width guard ─────────────────────────────────────────────
 # Two thresholds, both computed PRE-FLIGHT from the spec block's Design

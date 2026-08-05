@@ -59,7 +59,7 @@ ROOT_DIR = Path(__file__).resolve().parent
 _MAX_REPORTED_QC_FAILURES = 200
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_QC.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
-DEFAULT_LOG_PATH = ROOT_DIR / "qc_log.txt"
+DEFAULT_LOG_PATH = ROOT_DIR / "qc_log.log"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 _QC_SHEET_NAMES = (
     "MLR_Scalar_Test",

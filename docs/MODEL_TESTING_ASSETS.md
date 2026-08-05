@@ -368,11 +368,13 @@ python build_test_models.py --verify --no-launch   # build, check, exit 1 on dri
 make verify-test-models                            # the same, verbose
 ```
 
-**Every run archives its own transcript** to `Local Run Logs/<script> <flags>.txt`
+**Every run archives its own transcript** to `excel-only-runs/<script> <flags>.log`
 — stdout *and* stderr, flushed per line, with the traceback written into the file
-before the streams are restored. That directory is committed rather than ignored:
-this check needs Excel, so a file in the repo is the only way its output reaches
-anyone working headlessly. `--log PATH` overrides the destination.
+before the streams are restored. That directory is gitignored rather than
+committed: this check needs Excel, so the transcript only exists on the machine
+that ran it. The directory name reflects what produced it (Excel-required
+verifier builds — the GitHub-hosted Linux CI cannot run them) rather than where
+(a developer's box). `--log PATH` overrides the destination.
 
 **`--verbose` names each sheet before writing it**, not after. A ~46-sheet run
 through COM takes minutes, and the two questions a watcher has are "is it still

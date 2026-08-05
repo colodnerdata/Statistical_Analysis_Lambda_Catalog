@@ -468,7 +468,7 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         default=None,
         help="Where to archive this run's transcript. Defaults to "
-        f"'{RUN_LOG_DIR_NAME}/<script> <flags>.txt', which is the naming "
+        f"'{RUN_LOG_DIR_NAME}/<script> <flags>{RUN_LOG_FILE_SUFFIX}', which is the naming "
         "the hand-uploaded logs already used.",
     )
     parser.add_argument(
@@ -485,11 +485,11 @@ def parse_args() -> argparse.Namespace:
 def main() -> None:
     """Build the test-model workbook, optionally verifying it.
 
-    The whole run is teed into ``Local Run Logs/`` so a failure is a file
-    somebody can hand over, not a terminal scrollback. That was a manual
-    copy-paste step for the first two runs; this run needs Excel, so the
-    only way its output reaches anyone working headlessly is as a committed
-    artifact.
+    The whole run is teed into ``excel-only-runs/`` so a failure is a file
+    somebody can hand over, not a terminal scrollback. The script needs
+    Excel, so the transcript only exists on the Windows machine that ran
+    it; ``excel-only-runs/`` is gitignored by default so a casual re-run
+    does not promote the latest transcript to a commit.
     """
     args = parse_args()
     case_filter = (

@@ -44,9 +44,11 @@ verify-deep-univariate:
 #
 # --verbose because this one runs for minutes over ~48 sheets: it names each
 # sheet BEFORE writing it, so an interrupted run leaves the offending case on
-# screen. The whole transcript is archived to "Local Run Logs/" either way,
+# screen. The whole transcript is archived to "excel-only-runs/" either way,
 # stderr included, so a com_error traceback is a file somebody can hand over
-# rather than a terminal scrollback.
+# rather than a terminal scrollback. The directory is gitignored — this
+# verifier needs Excel, so the transcript only exists on the machine that
+# ran it; the directory name reflects what produced it, not where.
 verify-test-models:
 	uv run --frozen python build_test_models.py --verify --no-launch --verbose
 

@@ -62,10 +62,14 @@ def _quit_app_quietly(app: xw.App | None) -> None:
         pass
 
 
-# Where a driver's terminal transcript is archived. Committed rather than
-# ignored: a deep-verify run needs Excel, so the only way a failure reaches
-# anyone working headlessly is as a file in the repo.
-RUN_LOG_DIR_NAME = "Local Run Logs"
+# Where a driver's terminal transcript is archived. Gitignored rather than
+# committed: a deep-verify run needs Excel, so the transcript only exists on
+# the machine that ran it. The directory is named after what produced it
+# (Excel-only run artifact) rather than where (a developer's box), so a
+# contributor who has never run a Windows-only verifier build still knows
+# what belongs here.
+RUN_LOG_DIR_NAME = "excel-only-runs"
+RUN_LOG_FILE_SUFFIX = ".log"
 
 
 class _Tee(io.TextIOBase):
@@ -89,7 +93,7 @@ def run_log_path(root_dir: Path, script_name: str, argv: list[str]) -> Path:
     """Return the archive path for one run's transcript.
 
     Named after the script and the flags it ran with — ``build_test_models
-    verify include heavy.txt`` — so a directory listing reads as a list of
+    verify include heavy.log`` — so a directory listing reads as a list of
     what was actually run, and two different invocations do not overwrite
     each other's evidence. That is the convention the first hand-uploaded
     logs already used; this just stops it being a manual step.
@@ -100,7 +104,7 @@ def run_log_path(root_dir: Path, script_name: str, argv: list[str]) -> Path:
         if token.startswith("--")
     ]
     stem = " ".join([Path(script_name).stem, *flags]).strip()
-    return root_dir / RUN_LOG_DIR_NAME / f"{stem}.txt"
+    return root_dir / RUN_LOG_DIR_NAME / f"{stem}{RUN_LOG_FILE_SUFFIX}"
 
 
 @contextlib.contextmanager

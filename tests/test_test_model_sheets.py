@@ -525,15 +525,15 @@ def test_run_log_path_names_the_file_after_the_script_and_its_flags() -> None:
 
     root = Path("/tmp/project")
     assert run_log_path(root, "build_test_models.py", ["--verify", "--no-launch"]) == (
-        root / RUN_LOG_DIR_NAME / "build_test_models verify no launch.txt"
+        root / RUN_LOG_DIR_NAME / "build_test_models verify no launch.log"
     )
     assert run_log_path(root, "build_test_models.py", []) == (
-        root / RUN_LOG_DIR_NAME / "build_test_models.txt"
+        root / RUN_LOG_DIR_NAME / "build_test_models.log"
     )
     # Values attached to a flag are not part of the name — otherwise a path
     # would end up embedded in a filename.
     assert run_log_path(root, "build_test_models.py", ["--cases", "M09,G10"]) == (
-        root / RUN_LOG_DIR_NAME / "build_test_models cases.txt"
+        root / RUN_LOG_DIR_NAME / "build_test_models cases.log"
     )
 
 

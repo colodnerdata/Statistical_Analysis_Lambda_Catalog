@@ -9,7 +9,6 @@ from typing import Any
 
 from .regression_shared import (
     RegressionFullResiduals,
-    RegressionObservationVectors,
     RegressionPredictionInterval,
     RegressionPredictorSummary,
     RegressionSheetResults,
@@ -44,7 +43,9 @@ DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
 # — caught by get_analysis_results' own except and recomputed, which is the
 # intended behaviour. The bump makes it a version check rather than an
 # exception.
-_CACHE_SCHEMA_VERSION = 19
+# v20: The retired MLR_* smoke-test configs were removed from the cache; only
+# the spec-driven Regression sheet oracle remains.
+_CACHE_SCHEMA_VERSION = 20
 
 
 def _csv_fingerprint(csv_path: Path) -> str:
@@ -90,27 +91,6 @@ def _deserialize_vector_configs(
             ci_upper=tuple(item["ci_upper"]),
             beta_weights=tuple(item["beta_weights"]),
         )
-        result.append((item["k"], item["allow_intercept"], vectors))
-    return result
-
-
-def _serialize_observation_configs(
-    configs: list[tuple[int, bool, RegressionObservationVectors]],
-) -> list[dict[str, Any]]:
-    return [{"k": k, "allow_intercept": allow_intercept, **vectors.__dict__} for k, allow_intercept, vectors in configs]
-
-
-def _deserialize_observation_configs(
-    data: list[dict[str, Any]],
-) -> list[tuple[int, bool, RegressionObservationVectors]]:
-    result = []
-    for item in data:
-        vector_fields = {
-            k: tuple(v)
-            for k, v in item.items()
-            if k not in {"k", "allow_intercept"}
-        }
-        vectors = RegressionObservationVectors(**vector_fields)
         result.append((item["k"], item["allow_intercept"], vectors))
     return result
 
@@ -276,13 +256,8 @@ def _deserialize_regression_sheet_configs(
 def get_analysis_results(
     csv_path: Path,
     cache_path: Path = DEFAULT_CACHE_PATH,
-) -> tuple[
-    list,
-    list[tuple[int, bool, RegressionVectors]],
-    list[tuple[int, bool, RegressionObservationVectors]],
-    list[tuple[str, bool, RegressionSheetResults]],
-]:
-    """Return (scalar, vector, observation, regression_sheet configs), from cache or fresh.
+) -> list[tuple[str, bool, RegressionSheetResults]]:
+    """Return Regression sheet configs, from cache or fresh.
 
     The cache is invalidated when the CSV content changes (SHA-256 hash).
     Delete .analysis_cache.json manually after code or schema changes.
@@ -298,22 +273,12 @@ def get_analysis_results(
                 cached.get("schema_version") == _CACHE_SCHEMA_VERSION
                 and cached.get("csv_fingerprint") == fingerprint
             ):
-                scalar_configs = [tuple(item) for item in cached["scalar_row_configs"]]
-                vector_configs = _deserialize_vector_configs(cached["vector_row_configs"])
-                observation_configs = _deserialize_observation_configs(cached["observation_row_configs"])
                 regression_sheet_configs = _deserialize_regression_sheet_configs(cached["regression_sheet_configs"])
-                return scalar_configs, vector_configs, observation_configs, regression_sheet_configs
+                return regression_sheet_configs
         except (json.JSONDecodeError, KeyError, TypeError, ValueError, OSError):
             pass
 
-    from .write_sheet_mlr_scalar_test import build_mlr_row_configs
-    from .write_sheet_mlr_observation_test import build_mlr_observation_row_configs
-    from .write_sheet_mlr_vector_outputs_test import build_mlr_vector_row_configs
     from .analyze_regression_sheet import build_regression_sheet_qc_configs
-
-    scalar_configs = build_mlr_row_configs(csv_path)
-    vector_configs = build_mlr_vector_row_configs(csv_path)
-    observation_configs = build_mlr_observation_row_configs(csv_path)
 
     regression_sheet_configs = build_regression_sheet_qc_configs(csv_path)
 
@@ -321,9 +286,6 @@ def get_analysis_results(
         payload = {
             "schema_version": _CACHE_SCHEMA_VERSION,
             "csv_fingerprint": fingerprint,
-            "scalar_row_configs": [list(item) for item in scalar_configs],
-            "vector_row_configs": _serialize_vector_configs(vector_configs),
-            "observation_row_configs": _serialize_observation_configs(observation_configs),
             "regression_sheet_configs": _serialize_regression_sheet_configs(regression_sheet_configs),
         }
         with cache_path.open("w", encoding="utf-8") as handle:
@@ -331,4 +293,4 @@ def get_analysis_results(
     except (OSError, TypeError):
         pass
 
-    return scalar_configs, vector_configs, observation_configs, regression_sheet_configs
+    return regression_sheet_configs

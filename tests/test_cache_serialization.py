@@ -4,13 +4,10 @@ from __future__ import annotations
 import unittest
 
 from lambda_catalog.regression_shared import (
-    RegressionObservationVectors,
     RegressionVectors,
 )
 from lambda_catalog.analysis_cache import (
-    _deserialize_observation_configs,
     _deserialize_vector_configs,
-    _serialize_observation_configs,
     _serialize_vector_configs,
 )
 
@@ -28,19 +25,6 @@ def _make_vectors(n_terms: int = 3) -> RegressionVectors:
         beta_weights=tuple(float(i) * 0.1 for i in range(n_terms - 1)),
     )
 
-
-def _make_observation_vectors(n: int = 4) -> RegressionObservationVectors:
-    vals = tuple(float(i) for i in range(n))
-    return RegressionObservationVectors(
-        observation_num=tuple(range(1, n + 1)),
-        rank_fraction=tuple(float(i + 1) / n for i in range(n)),
-        y_ranked=vals,
-        normal_scores=vals,
-        predictions=vals,
-        residuals=vals,
-        scaled_residuals=vals,
-        scaled_residuals_ranked=tuple(sorted(vals)),
-    )
 
 
 class VectorConfigRoundTripTests(unittest.TestCase):
@@ -83,37 +67,6 @@ class VectorConfigRoundTripTests(unittest.TestCase):
             self.assertEqual(k_orig, k_rt)
             self.assertEqual(flag_orig, flag_rt)
             self.assertEqual(v_orig.term_names, v_rt.term_names)
-
-
-class ObservationConfigRoundTripTests(unittest.TestCase):
-    def _roundtrip(self, configs):
-        return _deserialize_observation_configs(_serialize_observation_configs(configs))
-
-    def test_observation_num_preserved(self) -> None:
-        obs = _make_observation_vectors(4)
-        restored = self._roundtrip([(2, True, obs)])[0][2]
-        self.assertEqual(restored.observation_num, obs.observation_num)
-
-    def test_residuals_preserved(self) -> None:
-        obs = _make_observation_vectors(5)
-        restored = self._roundtrip([(2, True, obs)])[0][2]
-        for orig, rt in zip(obs.residuals, restored.residuals):
-            self.assertAlmostEqual(orig, rt)
-
-    def test_rank_fraction_preserved(self) -> None:
-        obs = _make_observation_vectors(6)
-        restored = self._roundtrip([(3, False, obs)])[0][2]
-        for orig, rt in zip(obs.rank_fraction, restored.rank_fraction):
-            self.assertAlmostEqual(orig, rt)
-
-    def test_k_and_intercept_flag_preserved(self) -> None:
-        obs = _make_observation_vectors(3)
-        k, allow_intercept, _ = self._roundtrip([(7, False, obs)])[0]
-        self.assertEqual(k, 7)
-        self.assertFalse(allow_intercept)
-
-    def test_empty_list_round_trips(self) -> None:
-        self.assertEqual(self._roundtrip([]), [])
 
 
 if __name__ == "__main__":

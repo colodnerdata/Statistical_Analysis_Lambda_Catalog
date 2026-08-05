@@ -46,9 +46,8 @@ from .write_sheet_model_construction import (
 # continuous predictors in the "v1_full_continuous" QC case (all 5, vs. the
 # curated subset the shipped T0 default and "continuous_subset" turn on).
 # Kept local to this module rather than added to regression_shared's
-# FEATURE_COLUMNS, which backs the unrelated MLR_*_Test QC sheets (those
-# still target Life Expectancy data independently of the Regression sheet's
-# spec-driven QC oracle here).
+# FEATURE_COLUMNS, whose Life Expectancy-oriented ordering is shared by older
+# analysis helpers and is independent of this spec-driven Mileage oracle.
 _MILEAGE_FEATURE_COLUMNS = (
     "Cylinders",
     "Displacement",

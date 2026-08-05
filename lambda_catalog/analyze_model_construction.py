@@ -29,6 +29,7 @@ Two verification passes run against the open QC workbook:
 """
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -233,6 +234,45 @@ def _compute_mask(
     ]
 
 
+def level_sort_key(value: object) -> tuple[bool, object]:
+    """Mirror Excel ``SORT``'s ordering of a categorical column's levels.
+
+    Two rules, and the second is the one that is easy to get wrong.
+
+    **Numbers before text.** Excel sorts every number ahead of every string,
+    which the leading ``isinstance(value, str)`` flag reproduces.
+
+    **Text compares accent-insensitively.** Excel sorts with the Windows
+    locale collator, where ``ô`` files under ``o``. Python's default string
+    comparison is by code point, where ``ô`` (U+00F4) sorts after ``z``
+    (U+007A) — so ``Côte d'Ivoire`` lands after ``Czechia`` in Python but
+    between ``Costa Rica`` and ``Croatia`` in Excel. On a categorical
+    predictor that difference shifts the WHOLE dummy block by one position:
+    every column keeps a valid name and a valid 0/1 pattern, so nothing
+    errors — the columns are just paired with the wrong headers, and every
+    per-predictor statistic reads off by one. It went unnoticed until a QC
+    case first used a column with non-ASCII levels.
+
+    The fix strips combining marks (NFD, drop category Mn) and casefolds,
+    which reproduces the locale order for Latin scripts. It is an
+    APPROXIMATION, not a guarantee: real ICU/Windows collation also has
+    per-locale rules this does not model (Scandinavian ``å`` sorting after
+    ``z``, Hungarian digraphs, non-Latin scripts). Exact parity would need
+    PyICU. If a dataset with such levels is ever wired in, that is where to
+    look first when a categorical's statistics come out permuted.
+    """
+    if isinstance(value, str):
+        folded = "".join(
+            char
+            for char in unicodedata.normalize("NFD", value)
+            if not unicodedata.combining(char)
+        ).casefold()
+        # The original string breaks ties so the ordering stays total —
+        # two levels differing only by accent must not compare equal.
+        return (True, (folded, value))
+    return (False, value)
+
+
 def _retained_levels(
     variable: SpecVariable,
     rows: list[dict[str, object]],
@@ -252,7 +292,7 @@ def _retained_levels(
     }
     if not values:
         return None
-    levels = sorted(values, key=lambda v: (isinstance(v, str), v))
+    levels = sorted(values, key=level_sort_key)
     reference = variable.reference if variable.reference != "" else levels[0]
     if reference not in levels:
         return None
@@ -366,9 +406,7 @@ def calculate_model_construction_expectations(
             if variable.reference != "":
                 references_in_use[variable.name] = variable.reference
             else:
-                levels = sorted(
-                    masked_values, key=lambda v: (isinstance(v, str), v)
-                )
+                levels = sorted(masked_values, key=level_sort_key)
                 references_in_use[variable.name] = levels[0] if levels else ""
         if variable.role != _ROLE_PREDICTOR or not variable.include:
             continue

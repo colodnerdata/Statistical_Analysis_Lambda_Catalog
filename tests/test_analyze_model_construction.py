@@ -83,8 +83,13 @@ def test_t0_expectations_pin_the_csv_derived_values(rows, t0_expected) -> None:
     # the response and the model's two continuous predictors — 392 rows.
     assert t0_expected.included_rows == 392
     assert t0_expected.k == 16
-    # Model Year is the shipped Sequence axis.
-    assert t0_expected.sequence_flags == 1
+    # Auto MPG ships NO Sequence axis. It is cross-sectional — one row per
+    # car model, no unit repeated across periods — so the shipped T0 spec
+    # declares nothing on column H and the serial-correlation / base-period
+    # layer self-reports "n/a — requires Sequence". The Life Expectancy and
+    # Production Lots profiles are the ones that ship a flag, because those
+    # two datasets are real panels.
+    assert t0_expected.sequence_flags == 0
     assert t0_expected.response_name == "MPG"
     assert t0_expected.responses_count == 1
     assert t0_expected.first_filtered_label == "chevrolet chevelle malibu"

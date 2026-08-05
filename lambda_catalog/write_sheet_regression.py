@@ -139,6 +139,7 @@ from .write_sheet_model_construction import (
     _C_TYPE as _C_SPEC_TYPE,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
     _HEADER_ROW as _SPEC_HEADER_ROW,
+    _DEFAULT_SPEC_TABLE_NAME,
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _set_spec_block_column_widths,
     _set_spec_block_optional_outline_group,
@@ -547,6 +548,19 @@ class ModelContextElement(NamedTuple):
 # Header note for the Prediction Inputs band. Interaction columns (spec M/N,
 # wired at v3.1) appear here as ordinary rows named "left:right", and their
 # value is an independent input like every other row's.
+_BACK_TRANSFORM_NOTE = (
+    "Back-Transform Method — how a Log-transformed response is returned to "
+    "original units. Applies to the point estimate only.\n\n"
+    "Duan = Duan (1983) smearing — estimates the conditional MEAN.\n"
+    "Naive = textbook EXP(ŷ) — the conditional MEDIAN, biased low "
+    "for the mean.\n\n"
+    "CI/PI bounds are back-transformed with EXP alone under BOTH settings, "
+    "because a bound is a quantile and EXP preserves quantiles. So under "
+    "Duan the point estimate does not sit at the centre of its interval. "
+    "That gap is correct, not a defect: the mean and the median of a "
+    "skewed distribution are different numbers."
+)
+
 _PREDICTION_INPUT_NOTE = (
     "Prediction Inputs — one row per constructed design-matrix column, "
     "pre-filled with that column's Training Mean. Type a raw, real-world "
@@ -999,6 +1013,7 @@ def _setup_local_names(
     sheet: xw.Sheet,
     closures: tuple[CatalogFunction, ...] | None = None,
     source_table_ref: str = "=MileageData[#All]",
+    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """Register sheet-scoped names used by every formula on this sheet.
 
@@ -1008,7 +1023,16 @@ def _setup_local_names(
     ``_set_sheet_scoped_names`` from write_sheet_model_construction; this
     function adds the Regression-only names on top.
     """
-    sname = sheet.name
+    # ALWAYS single-quoted. A sheet name containing a space — which every
+    # generated test-model sheet has ("M01 Baseline Categoricals") — makes an
+    # unquoted RefersTo an invalid formula, and Excel rejects the whole
+    # Names.Add with "There's a problem with this formula". Quoting a name
+    # that does not need it is always legal, so carrying the quotes on the
+    # variable removes the entire class of bug instead of relying on each
+    # call site to remember. write_sheet_model_construction's own
+    # _set_sheet_scoped_names already did this; this function did not, and
+    # four of its seven references were unquoted.
+    sname = f"'{sheet.name}'"
 
     if closures is None:
         closures = load_catalog_document(_DEFINITIONS_PATH).functions_for_sheet(
@@ -1018,7 +1042,12 @@ def _setup_local_names(
     for legacy in _LEGACY_LOCAL_NAMES:
         drop_local_name(sheet, legacy)
 
-    _set_spec_scoped_names(sheet, closures, source_table_ref=source_table_ref)
+    _set_spec_scoped_names(
+        sheet,
+        closures,
+        source_table_ref=source_table_ref,
+        spec_table_name=spec_table_name,
+    )
 
     # Zero_Predictors_Selected(): TRUE when the spec contributes no
     # predictor columns — no included Predictor rows, or every included
@@ -1126,8 +1155,8 @@ def _setup_local_names(
         _nm = sheet.api.Names.Add(
             Name=_name,
             RefersTo=(
-                f"=OFFSET('{sname}'!${_col_ltr}$2,1,0,"
-                f"MAX(IFERROR('{sname}'!{_A_OBSERVATIONS},1),1),1)"
+                f"=OFFSET({sname}!${_col_ltr}$2,1,0,"
+                f"MAX(IFERROR({sname}!{_A_OBSERVATIONS},1),1),1)"
             ),
         )
         _nm.Comment = _comment
@@ -1214,6 +1243,12 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     # another changed is the "silently switch" behaviour the spec block
     # exists to avoid — so it says so instead.
     _set_note(sheet, 17, _C_AJ, _PREDICTION_INPUT_NOTE, label="Predictor")
+    # Unit-Space Fit (AG4). The Duan/Naive caveat, on the control it
+    # describes rather than as a merged text row at the foot of the
+    # Prediction Outputs zone where it used to sit. Here with every other
+    # note for the reason stated above: AddComment is COM-only, so keeping
+    # it out of _write_unit_space_block keeps that writer headless-testable.
+    _set_note(sheet, 4, _C_AG, _BACK_TRANSFORM_NOTE, label="Back-Transform")
 
 
 def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
@@ -1667,7 +1702,15 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
         sheet.range(rc(4, _C_AH)).api.Validation.Add(
             Type=3,  # xlValidateList
             AlertStyle=1,
-            Formula1=f'"{",".join(_BACK_TRANSFORM_METHODS)}"',
+            # Bare comma-separated items, NOT wrapped in quotes. Excel's
+            # xlValidateList takes the list as the raw string "Duan,Naive";
+            # the quotes people write around it in VBA are that language's
+            # string delimiters, not part of the value. Passing them through
+            # COM made them literal, so the dropdown offered `"Duan` and
+            # `Naive"` — accepted by the validation and rejected by every
+            # consumer, since neither matches a recognised method. Same
+            # form as _INCLUDE_VALIDATION_LIST ("TRUE,FALSE") next door.
+            Formula1=",".join(_BACK_TRANSFORM_METHODS),
         )
         # IgnoreBlank would let a cleared cell through, and a blank method is
         # not one of the six recognised states — it would silently #N/A the
@@ -1886,26 +1929,14 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     sheet.range(rc(13, _C_AK), rc(13, _C_AK)).number_format = "0.0000"
     sheet.range(rc(14, _C_AK), rc(14, _C_AK)).number_format = "0"
 
-    # Caveat row 15: explains the asymmetric CI/PI placement under Duan
-    # smearing. Always present (the text is honest under either method) so
-    # the user sees the gap between the point estimate and the bounds when
-    # the Method toggle is Duan — the visible "off-centre" placement is the
-    # plan's whole point.
-    sheet.range(rc(15, _C_AJ), rc(15, _C_AL)).merge()
-    f(
-        sheet,
-        15,
-        _C_AJ,
-        (
-            '="Duan = Duan (1983) smearing — estimates the conditional mean. '
-            "Naive = textbook EXP(ŷ) — the conditional median, biased for the "
-            "mean. CI/PI bounds are back-transformed with EXP alone, so under "
-            'Duan the point estimate does not sit at the interval centre."'
-        ),
-    )
-    sheet.range(rc(15, _C_AJ), rc(15, _C_AL)).api.WrapText = True
-
-    border_box(sheet, 1, _C_AJ, 15, _C_AL)
+    # The Duan/Naive caveat used to be a merged text row here (AJ15:AL15).
+    # It now lives as a note on the Back-Transform label at AG4 — see
+    # _BACK_TRANSFORM_NOTE. It documents the toggle, so it belongs on the
+    # toggle: three zones away and below the interval it qualified, it read
+    # as a footnote to the prediction block rather than as an explanation of
+    # the control that causes the behaviour. Moving it also frees row 15 and
+    # lets this box close on the last cell that actually holds a value.
+    border_box(sheet, 1, _C_AJ, 14, _C_AL)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
@@ -2145,7 +2176,9 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     sheet.range(f"{col_letter(_C_AO)}:{col_letter(_C_BA)}").number_format = "0.0000"
 
 
-def _diagnostic_chart_specs() -> list[tuple[str, str, str | None, str, str, str, str, int, int]]:
+def _diagnostic_chart_specs(
+    sheet_name: str = REGRESSION_SHEET_NAME,
+) -> list[tuple[str, str, str | None, str, str, str, str, int, int]]:
     """Static spec for the 7 regression diagnostic charts.
 
     Each tuple is (key, chart_type, x_addr, y_addr, title_formula,
@@ -2158,11 +2191,17 @@ def _diagnostic_chart_specs() -> list[tuple[str, str, str | None, str, str, str,
     label cells by `_write_chart_label_cells`) that MAY reference live sheet
     statistics, so the displayed title can vary with the fitted model while
     `key` stays fixed.
+
+    ``sheet_name`` qualifies every named-range and cell reference the specs
+    emit. Chart SERIES formulas live above the sheet layer, so they must
+    carry the sheet prefix even for worksheet-scoped names — which means a
+    spec built for the wrong sheet name points a chart at another sheet's
+    data and still parses. It defaults to the production sheet; generated
+    test-model sheets pass their own.
     """
-    sname = REGRESSION_SHEET_NAME
 
     def _name_ref(local_name: str) -> str:
-        return f"='{sname}'!{local_name}"
+        return f"='{sheet_name}'!{local_name}"
 
     return [
         (
@@ -2240,7 +2279,7 @@ def _write_chart_label_cells(sheet: xw.Sheet) -> None:
     writes only (no chart/COM API), so this is exercised directly in unit
     tests via `RecordingSheet` without Excel.
     """
-    for i, spec in enumerate(_diagnostic_chart_specs()):
+    for i, spec in enumerate(_diagnostic_chart_specs(sheet.name)):
         key, _chart_type, _x_addr, _y_addr, title_formula, x_label_formula, y_label_formula, _grid_row, _grid_col = spec
         row = _ROW_CHART_LABELS + i
         val(sheet, row, _C_CHART_LABEL_NAME, key)
@@ -2571,7 +2610,10 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
             start_top + (grid_row - 1) * row_step,
         )
 
-    sname = REGRESSION_SHEET_NAME
+    # The LIVE sheet's name, not REGRESSION_SHEET_NAME: this writer runs on
+    # generated test-model sheets too, and a hardcoded constant here would
+    # point every one of their charts at the production Regression sheet.
+    sname = sheet.name
 
     def _name_ref(local_name: str) -> str:
         return f"='{sname}'!{local_name}"
@@ -2579,7 +2621,7 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
     def _label_ref(col: int, row: int) -> str:
         return f"='{sname}'!${col_letter(col)}${row}"
 
-    chart_specs = _diagnostic_chart_specs()
+    chart_specs = _diagnostic_chart_specs(sname)
 
     # Per-chart gridline strategy:
     # - Use Y major gridlines for residual magnitude judgment on residual and bar charts.
@@ -2720,6 +2762,9 @@ def write_regression_output_sheet(
     closures: tuple[CatalogFunction, ...] | None = None,
     source_table_ref: str = "=MileageData[#All]",
     spec_profile: SpecDatasetProfile | None = None,
+    sheet_name: str = REGRESSION_SHEET_NAME,
+    include_charts: bool = True,
+    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """Create or refresh the spec-driven Regression sheet in workbook.
 
@@ -2749,14 +2794,37 @@ def write_regression_output_sheet(
         matching entry from ``SPEC_DATASET_PROFILES`` here too — the two
         are independent parameters, not derived from each other, so they
         must be kept in sync by the caller (see build_production.py).
+    sheet_name : str, optional
+        Which worksheet to write. Defaults to ``"Regression"`` — the
+        production sheet. The one-sheet-per-test-model artifact
+        (``build_test_models.py``) passes a per-case name so the same
+        writer produces every test sheet; see
+        ``lambda_catalog/test_model_sheets.py`` for the naming contract.
+
+        Note this is NOT the same string as the ``"Regression"`` passed to
+        ``functions_for_sheet`` in ``_setup_local_names``: that one is the
+        ``"scope"`` label in lambda_functions.json identifying the
+        constructor closures, which are installed sheet-scoped on whatever
+        sheet is being written. Same word, different meaning.
+    include_charts : bool, optional
+        When False, skip ``_write_diagnostic_charts``. The label formula
+        cells are still written (they are plain cell writes and part of
+        the sheet's content). Generated test-model sheets turn charts off:
+        roughly a dozen COM chart objects per sheet across ~45 sheets is
+        the single largest cost in that build, and no oracle reads them —
+        the production Regression sheet is where chart wiring is verified.
+    spec_table_name : str, optional
+        The ListObject name for this sheet's spec block. Excel ListObject
+        names are workbook-scoped and must be unique, so a workbook with
+        more than one spec block needs a distinct name per sheet.
     """
 
     sheet = next(
-        (s for s in workbook.sheets if s.name == REGRESSION_SHEET_NAME), None
+        (s for s in workbook.sheets if s.name == sheet_name), None
     )
     if sheet is None:
         sheet = workbook.sheets.add(
-            name=REGRESSION_SHEET_NAME, after=workbook.sheets[-1]
+            name=sheet_name, after=workbook.sheets[-1]
         )
 
     for idx in range(sheet.api.ListObjects.Count, 0, -1):
@@ -2775,8 +2843,17 @@ def write_regression_output_sheet(
     # validates the RefersTo at registration time. The rest of the spec
     # area (headers, feedback, intercept) runs in _write_model_specification
     # below, but the table-creating part needs to come first.
-    _write_spec_block(sheet, spec_profile or SPEC_DATASET_PROFILES["auto_mpg"])
-    _setup_local_names(sheet, closures, source_table_ref=source_table_ref)
+    _write_spec_block(
+        sheet,
+        spec_profile or SPEC_DATASET_PROFILES["auto_mpg"],
+        spec_table_name,
+    )
+    _setup_local_names(
+        sheet,
+        closures,
+        source_table_ref=source_table_ref,
+        spec_table_name=spec_table_name,
+    )
 
     _write_model_specification(sheet)
     _write_predictor_summary(sheet)
@@ -2897,10 +2974,11 @@ def write_regression_output_sheet(
     # Guarded per
     # the documented convention: ChartObjects().Add(...) requires the Excel
     # COM API, which is unavailable in CI/headless environments.
-    try:
-        _write_diagnostic_charts(sheet)
-    except Exception:
-        pass
+    if include_charts:
+        try:
+            _write_diagnostic_charts(sheet)
+        except Exception:
+            pass
 
     # §4b materialization zone: the boxed Model Context block read via
     # Fit_Context, the Sample_Include row mask, and the terminal Constructed

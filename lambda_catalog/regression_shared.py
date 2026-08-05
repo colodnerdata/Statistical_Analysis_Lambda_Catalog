@@ -57,6 +57,18 @@ class RegressionSummary:
     se_regression: float
     press: float
     durbin_watson: float
+    # The panel form, for the state plain DW cannot read. The two are
+    # mutually exclusive by construction and exactly one is a number at a
+    # time: no Sequence axis leaves both NaN; Sequence without Fixed Effects
+    # gives DW a value and NaN here; Sequence WITH Fixed Effects inverts
+    # that, because within-demeaned residuals in a panel have no single
+    # ordering and row-adjacent differencing manufactures correlation at
+    # every group seam. No default, deliberately: a v18 cache entry has no
+    # key for this, and RegressionSummary(**entry) should fail loudly into
+    # the cache's own recompute path rather than quietly admit a summary
+    # whose panel diagnostic was never computed. _CACHE_SCHEMA_VERSION goes
+    # to 19 for the same reason.
+    bfn_panel_durbin_watson: float
     f_stat: float
     p_value_f: float
     aic: float

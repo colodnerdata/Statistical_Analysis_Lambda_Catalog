@@ -91,6 +91,63 @@ def test_log_transform_case_matches_precomputed_log_case_numerically() -> None:
     assert math.isclose(fe_pi.pi_upper, log_pi.pi_upper)
 
 
+def test_no_fe_pair_agrees_the_same_way_the_fe_pair_does() -> None:
+    """P03 (pre-derived columns) == P03b (transform axis), without Fixed Effects.
+
+    The same claim the test above makes for P01/P02, on the pair that has
+    no FE. Worth asserting separately rather than trusting the FE result to
+    cover it: the two mechanisms reach the design matrix by different
+    routes — one reads a shipped column, the other computes one — and
+    composing either with FE demeaning is a third code path again. With the
+    FE pair alone, a transform-axis regression could hide behind the
+    demeaning, or vice versa. Without FE the transform axis is the only
+    thing between the CSV and the design matrix, so a disagreement here can
+    only be the transform wiring.
+    """
+    cases = _cases()
+    derived_expected = calculate_regression_spec_case(
+        cases["production_lots_derived_log_no_fe"], PRODUCTION_LOTS_CSV_PATH
+    )
+    log_expected = calculate_regression_spec_case(
+        cases["production_lots_log_no_fe"], PRODUCTION_LOTS_CSV_PATH
+    )
+
+    # Bit-exact, for the same reason as the FE pair: the shipped log columns
+    # are exact logs of the raw ones. array_equal, not allclose.
+    assert np.array_equal(
+        derived_expected.design.x_features, log_expected.design.x_features
+    )
+    assert np.array_equal(
+        derived_expected.design.y_train, log_expected.design.y_train
+    )
+    assert derived_expected.design.row_mask == log_expected.design.row_mask
+    assert derived_expected.design.included_rows == log_expected.design.included_rows
+    # Neither side has Fixed Effects — that is what this pair isolates.
+    assert derived_expected.design.group_labels is None
+    assert log_expected.design.group_labels is None
+
+    derived_r = derived_expected.results
+    log_r = log_expected.results
+    assert math.isclose(derived_r.summary.r_squared, log_r.summary.r_squared)
+    assert math.isclose(derived_r.summary.adjusted_r2, log_r.summary.adjusted_r2)
+    assert math.isclose(derived_r.summary.se_regression, log_r.summary.se_regression)
+    assert math.isclose(derived_r.summary.df_residual, log_r.summary.df_residual)
+    assert np.allclose(derived_r.vectors.coefficients, log_r.vectors.coefficients)
+    assert np.allclose(derived_r.vectors.std_errors, log_r.vectors.std_errors)
+    assert np.allclose(derived_r.vectors.t_stats, log_r.vectors.t_stats)
+    assert np.allclose(
+        derived_r.full_residuals.residuals, log_r.full_residuals.residuals
+    )
+
+    # The labels legitimately differ — that is the mechanism showing through,
+    # not a disagreement about the fit. Pinned so the pair cannot silently
+    # collapse into two copies of the same spec.
+    assert derived_expected.design.constructed_column_names == ("log Cum Units",)
+    assert log_expected.design.constructed_column_names == ("Ln(Cumulative_Units)",)
+    assert derived_expected.design.constructed_column_transforms == ("None",)
+    assert log_expected.design.constructed_column_transforms == ("Log",)
+
+
 def test_log_transform_case_labels_match_the_transform_contract() -> None:
     cases = _cases()
     log_case = cases["production_lots_log_transform"]

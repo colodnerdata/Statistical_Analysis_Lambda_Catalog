@@ -31,10 +31,46 @@ case targeting a dataset other than Auto MPG must set `source_csv_path`, `row_lo
 the spec block reads, so omitting it lands the spec rows on the wrong table's columns with no
 error.
 
+**A guard-rail configuration is a `GuardStateCase`, not a `RegressionSpecCase`.** The § 1.4
+states (no Response, two Sequence flags, an interaction naming nothing) make
+`calculate_regression_spec_case` raise by design — a fittable case must describe a legal,
+fully-computable model. They live in `lambda_catalog/analyze_regression_guard_states.py` and
+assert status text, the per-row Design Columns audit, the Model Formula, and which CF rules
+fire. **Flags are predicates, not pixels**: `GuardFlag` records that a rule fires, recomputed
+from the same condition the CF expression encodes, never read back as
+`DisplayFormat.Interior.Color`. Reading the colour would only re-report what Excel already
+decided from the rule; recomputing the predicate is what makes a silent CF change fail.
+
+**Every case is also a worksheet.** `build_test_models.py` writes one Regression-shaped sheet
+per case into `Lambda_Library_TestModels.xlsx` (gitignored — a fixture, not a shipped
+artifact), and `tools/inspect_test_model_sheets.py` verifies it by **reading only**: no
+writing, no per-case recalculation, no state to leak between cases, and a failing case is a
+tab you can open. Sheet names are governed by `lambda_catalog/test_model_sheets.py` — 31
+characters, legal charset, `<PlanID> <Concept>`, unique across model *and* guard cases,
+validated at registry-build time so a bad name fails in the unit suite rather than partway
+through a multi-minute build. **The name states the concept under test, never the variables**
+(`M05 Log-Log NA Masking`, not `MPG ~ Ln(Weight) + Ln(HP)`): 31 characters cannot hold a model
+formula, and the corner a case exists for is the useful thing to read off a tab.
+
+**`SpecTable` is workbook-scoped.** Excel ListObject names must be unique across the whole
+workbook, so a workbook with one spec block per test model gives each sheet its own
+(`SpecTable_M05`, via `test_model_sheets.spec_table_name`). That name is threaded through
+`_write_spec_block` → `_create_spec_table` and `_set_sheet_scoped_names`, so the table and the
+`Spec_*` band names bound to it read one parameter and can never disagree. Never hardcode
+`"SpecTable"` in either place.
+
+**Both halves of the sheet contract live in `lambda_catalog/regression_spec_sheet_io.py`** —
+`apply_spec_case` / `set_prediction_inputs` for writing a case onto a sheet,
+`read_case_comparison_rows` for reading one back. The test-model builder, the test-model
+verifier and the legacy single-sheet verifier all import them. A second copy of either half
+would let the builder and the verifier disagree about what a case *is*, and the disagreement
+would surface as a QC failure blamed on the workbook.
+
 **Every case name is pinned.** `_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py`
 is an ordered list asserted against `build_regression_spec_cases()`. Adding, renaming,
 reordering, or dropping a case means editing that list in the same commit — otherwise the
-suite fails, which is the point.
+suite fails, which is the point. `_EXPECTED_GUARD_NAMES` in
+`tests/test_regression_guard_states.py` does the same for guard cases.
 
 **The suite's growth rate orders the roadmap — under one constraint.** From v3.4 on the ladder
 sorts on two keys. First, **all remaining Regression work ships before either milestone that
@@ -154,7 +190,7 @@ Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY
 
 **Never spell an A1 address into a formula string.** Conditional-formatting expressions, chart titles, and OFFSET-based named ranges all need addresses as literal text, and hand-written letters are what turn a column insertion into a silent-wrong-answer bug — the formula still parses, it just reads a different cell. Build every one of them from the `_C_*` constants via the `_abs_ref(row, col)` / `_band(col)` helpers and the `_A_*` anchors (`_A_ALPHA`, `_A_OBSERVATIONS`, `_A_MEAN_LEVERAGE`, …) at the top of `write_sheet_regression.py`. The same rule applies to anything reading the sheet: `tools/inspect_regression_sheet.py` and `lambda_catalog/analyze_regression_spec_block.py` IMPORT the column constants rather than keeping a parallel copy.
 
-**Column-layout paradigm — gap columns and outline groups.** The zones are Model Specification (A–Q, including the P/Q Δ-spectrum feedback columns), Predictor Summary (S–Y), Regression Outputs (AA–AH — `AG3:AH9` holds the v3.3 **Unit-Space Fit** block: `Duan`/`Naive` back-transformation toggle at `AH4`, smearing factor R5, R²/Adj R²/RMSE in original units R6–8, response-space readout R9), Prediction Outputs (AJ–AL — `AL` is the **Original Units** column: back-transformed point estimate at AL3, Naive-only CI/PI bounds at AL7–10, caveat row at AJ15:AL15), and Residual Output (AN–BA — the two new columns `AZ`/`BA` carry Predicted Y / Residual in original units, dispatched on the `AH4` toggle). Between every pair of adjacent zones sits exactly one dedicated **gap column** (R, Z, AI, AM — width 2) that is deliberately left OUT of every outline group. That ungrouped column is what makes the neighbouring zones collapse independently: Excel fuses a contiguous run of same-level grouped columns into one outline, so two zones with no ungrouped column between them would share a single collapse control (the bug this layout fixes — the predictor summary used to begin at M, hard against the spec block, fusing the two outlines). `_ZONES` (the (first, last) content spans) and `_GAP_COLUMNS` (derived as the single column between consecutive zones, asserted one wide) are the single source of truth; `_COLUMN_GROUPS = _ZONES`, and the gap columns are sized and left ungrouped in the width/grouping loop of `write_regression_output_sheet`. When adding or resizing a zone, edit `_ZONES` — never hard-code an outline group or a gap letter.
+**Column-layout paradigm — gap columns and outline groups.** The zones are Model Specification (A–Q, including the P/Q Δ-spectrum feedback columns), Predictor Summary (S–Y), Regression Outputs (AA–AH — `AG3:AH9` holds the v3.3 **Unit-Space Fit** block: `Duan`/`Naive` back-transformation toggle at `AH4`, smearing factor R5, R²/Adj R²/RMSE in original units R6–8, response-space readout R9), Prediction Outputs (AJ–AL — `AL` is the **Original Units** column: back-transformed point estimate at AL3, Naive-only CI/PI bounds at AL7–10; the Duan/Naive caveat is a NOTE on the Back-Transform label at `AG4`, not a row in this zone), and Residual Output (AN–BA — the two new columns `AZ`/`BA` carry Predicted Y / Residual in original units, dispatched on the `AH4` toggle). Between every pair of adjacent zones sits exactly one dedicated **gap column** (R, Z, AI, AM — width 2) that is deliberately left OUT of every outline group. That ungrouped column is what makes the neighbouring zones collapse independently: Excel fuses a contiguous run of same-level grouped columns into one outline, so two zones with no ungrouped column between them would share a single collapse control (the bug this layout fixes — the predictor summary used to begin at M, hard against the spec block, fusing the two outlines). `_ZONES` (the (first, last) content spans) and `_GAP_COLUMNS` (derived as the single column between consecutive zones, asserted one wide) are the single source of truth; `_COLUMN_GROUPS = _ZONES`, and the gap columns are sized and left ungrouped in the width/grouping loop of `write_regression_output_sheet`. When adding or resizing a zone, edit `_ZONES` — never hard-code an outline group or a gap letter.
 
 The v3.3 shift that took Residual Output from `AN–AY` to `AN–BA` is a content change, not a layout break: the chart anchor moved from `_C_AZ` to `_C_BB` (the two new columns were inserted *before* it, so the chart anchor and the entire §4b materialization band derive right by 2 and BP at column 68 is preserved). The Model Formula cell at `AA2:AB2` heads the Regression Outputs zone. The sheet-scoped `Comparison_Anchor`, `Comparison_Headline_GoF`, and `Comparison_Model_Formula` named ranges are the v3.4 Model Comparison sheet's reading surface — registered in `_setup_local_names` next to the `RegChart*` entries.
 
@@ -188,7 +224,9 @@ Every named range a sheet writer creates is **sheet-scoped** — `sheet.api.Name
 
 That rule exists because the v3.0 split left each artifact carrying the other one's ranges at workbook scope — twelve `RegChart*` entries reading `OFFSET(#REF!,…)` in the Univariate workbook, forty-two `UV_*` entries in the Regression workbook. The live sheet-scoped names were correct throughout; it was the stale workbook-scoped copies that produced the broken links. Don't reintroduce a narrower rule that inspects the body text (an error literal *inside* an `OFFSET(...)` is not an error-literal body) — "workbook-scoped and not in the catalog" is the exact characterization of residue.
 
-A catalog function whose body names a worksheet the target workbook does not have is **skipped**, not written: Excel rebinds such a reference to an external workbook (`Regression!Source_Data` → `[1]!Source_Data`), writes an `xlPathMissing` external-link part, and prompts about broken links on every open. `Base_Period_Delta` is the one such function today — Regression-coupled by design, so the Univariate artifact does not carry it, and the build prints the skip. When adding a workbook-scoped catalog LAMBDA, keep it sheet-agnostic unless you intend it to be Regression-only.
+A catalog function whose body names a worksheet the target workbook does not have is **skipped**, not written: Excel rebinds such a reference to an external workbook (`Regression!Source_Data` → `[1]!Source_Data`), writes an `xlPathMissing` external-link part, and prompts about broken links on every open. **No catalog function is sheet-qualified today.** `Base_Period_Delta` was the one, and the skip it triggered is why the mechanism exists — keep the guard, it is what stops the next one shipping a broken link.
+
+**Workbook-scoped catalog LAMBDAs must be sheet-agnostic.** A body that hardcodes `'Regression'!` is wrong in two directions at once: in a workbook with SEVERAL Regression-shaped sheets (the test-model artifact has 47) every sheet reads whichever one is literally named `Regression`, and in a workbook with none it is skipped and every call site reads `#NAME?`. The fix for `Base_Period_Delta` was to make it **sheet-scoped** (`"scope": "Regression"`) with unqualified spec references — an unqualified name resolves against the sheet the calling formula lives on, so each Regression sheet gets its own Δ. If a function genuinely needs one sheet's data from anywhere in the workbook, that is a design smell worth resolving before adding it.
 
 `tests/test_workbook_invariants.py::TestRealWorkbookNameScope` asserts all of this against both committed artifacts on every commit (pure zipfile, no Excel). To re-apply the cleanup to a built artifact without rebuilding it, run `python tools/resync_workbook_names.py <workbook.xlsx>`.
 

@@ -16,7 +16,17 @@ from lambda_catalog.analyze_regression_spec import (
 )
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+
+# One path per wired dataset, and each test guards on the one IT reads.
+# `CSV_PATH` is only the DEFAULT handed to calculate_regression_spec_case — a
+# case that sets source_csv_path (every Life Expectancy and Production Lots
+# case) ignores it entirely and loads its own file. Guarding a Life
+# Expectancy test on the Auto MPG CSV therefore gets it wrong in both
+# directions: the test runs and fails on a missing Life Expectancy file, and
+# skips when only the file it does not read is missing.
 CSV_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.csv"
+LIFE_EXPECTANCY_CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
+PRODUCTION_LOTS_CSV_PATH = ROOT_DIR / "sample_data" / "production_lots.csv"
 
 _EXPECTED_CASE_NAMES = [
     "default_t0_intercept",
@@ -33,11 +43,25 @@ _EXPECTED_CASE_NAMES = [
     "interaction_continuous_product",
     "interaction_quadratic_self_product",
     "interaction_categorical_broadcast",
+    "mileage_log_log_na_masking",
+    "categorical_only_design",
+    "interaction_categorical_cross",
+    "interaction_difference",
+    "interaction_ratio_reciprocal",
     "production_lots_fixed_effects",
     "production_lots_log_transform",
+    "production_lots_derived_log_no_fe",
     "production_lots_log_no_fe",
     "production_lots_log_mixed_predictors",
     "production_lots_log_predictor_only",
+    "production_lots_lsdv_equivalence",
+    "life_partial_linear_log",
+    "life_log_response_duan",
+    "life_log_response_naive",
+    "life_elasticity_log_log",
+    "life_full_profile",
+    "life_country_fixed_effects",
+    "life_status_explicit_reference",
 ]
 
 _EXPECTED_T0_NAMES = (
@@ -57,6 +81,34 @@ def _case(name: str) -> RegressionSpecCase:
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_regression_spec_fixture_names_are_pinned() -> None:
     assert [case.name for case in build_regression_spec_cases()] == _EXPECTED_CASE_NAMES
+
+
+def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> None:
+    """No fittable case declares a Sequence flag on Auto MPG.
+
+    Auto MPG is cross-sectional — one row per car model, no unit observed
+    across periods — so ``Model Year`` is not an ordering axis, and a spec
+    that flags it asserts panel structure the data does not have. Every
+    Auto MPG case used to carry the flag by inheritance from the shipped T0
+    default; that default is now empty, and this pins it so a copy-pasted
+    ``sequence=True`` cannot creep back.
+
+    The two panel datasets keep theirs, because there the flag is true and
+    the diagnostics it gates (Durbin-Watson, and Breusch-Godfrey/Newey-West
+    once Fixed Effects are present) are meaningful: every Production Lots
+    case flags ``Fiscal_Year``, and every Life Expectancy case ``Year``.
+    """
+    axis_for_table = {
+        "=MileageData[#All]": None,
+        "=ProductionLotsData[#All]": "Fiscal_Year",
+        "=LifeExpectancyData[#All]": "Year",
+    }
+    for case in build_regression_spec_cases():
+        flagged = tuple(item.name for item in case.spec if item.sequence)
+        axis = axis_for_table[case.source_table_ref]
+        assert flagged == (() if axis is None else (axis,)), (
+            f"{case.name} ({case.plan_id}) flags {flagged!r} as Sequence"
+        )
 
 
 def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
@@ -332,8 +384,12 @@ def test_default_t0_design_matches_current_constructor_semantics() -> None:
     assert design.level_counts == {"Model Year": 13, "Origin": 3}
     assert design.references_in_use == {"Model Year": 70, "Origin": "Asia"}
     assert design.degenerate_categoricals == ()
-    assert design.sequence_values is not None
-    assert design.sequence_values[0] == 70
+    # No Sequence axis on Auto MPG: the dataset is cross-sectional, so the
+    # T0 spec flags nothing and the serial-correlation layer stays inert.
+    # The Sequence machinery is covered on the datasets that have a real
+    # ordering axis (Production Lots' Fiscal_Year, Life Expectancy's Year)
+    # and, for the flag mechanics themselves, by guard cases G03 and M16.
+    assert design.sequence_values is None
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
@@ -459,6 +515,35 @@ def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     )
 
 
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
+def test_durbin_watson_is_a_real_statistic_where_an_ordering_axis_exists() -> None:
+    """The bounds check the Auto MPG case above can no longer carry.
+
+    P03b has a Sequence axis (Fiscal_Year) and no Fixed Effects, which is
+    the one state where the sheet's AE11 shows a number — so it is where
+    the "DW is finite and in [0, 4]" invariant belongs. Keeping it here
+    rather than dropping it with the Auto MPG pin is the point: the
+    property is real, it was just being asserted on a model that cannot
+    produce the statistic.
+
+    Its pre-derived twin P03 must agree exactly. Both fit the identical
+    model and DW is a pure function of the residual vector, which the two
+    already agree on bit-for-bit.
+    """
+    transform_axis = calculate_regression_spec_case(
+        _case("production_lots_log_no_fe"), PRODUCTION_LOTS_CSV_PATH
+    ).results.summary.durbin_watson
+    derived = calculate_regression_spec_case(
+        _case("production_lots_derived_log_no_fe"), PRODUCTION_LOTS_CSV_PATH
+    ).results.summary.durbin_watson
+
+    assert math.isfinite(transform_axis)
+    assert 0.0 <= transform_axis <= 4.0
+    assert transform_axis == derived
+
+
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_expected_outputs_are_internally_consistent() -> None:
     expected = calculate_regression_spec_case(_case("continuous_subset_intercept"), CSV_PATH)
@@ -471,9 +556,16 @@ def test_expected_outputs_are_internally_consistent() -> None:
     assert len(results.vectors.beta_weights) == k
     assert len(results.predictor_summary.gvif) == k
     assert len(results.prediction_interval.pred_input_values) == k
-    assert math.isfinite(results.summary.durbin_watson)
-    assert 0.0 <= results.summary.durbin_watson <= 4.0
-    assert results.summary.durbin_watson == pytest.approx(0.8587513374458717)
+    # NaN, not a number: this is an Auto MPG case, and Auto MPG declares no
+    # Sequence axis, so the sheet's AE11 reads "n/a — requires Sequence".
+    #
+    # This line used to pin 0.8587513374458717 — the statistic computed over
+    # PHYSICAL ROW ORDER. It was never a reading the sheet could produce, and
+    # the live verifier rejected exactly this value (and eighteen siblings)
+    # as a real number compared against a text cell. DW is only meaningful
+    # along a declared ordering; without one the honest answer is "not
+    # computed".
+    assert math.isnan(results.summary.durbin_watson)
     assert abs(sum(results.full_residuals.hat_diagonal) - p) < 1e-4
     for y, prediction, residual in zip(
         results.full_residuals.dependent_var,
@@ -541,7 +633,9 @@ def _expected_unit_space(design, results) -> dict:
     }
 
 
-@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
 @pytest.mark.parametrize("case_name", _LOG_SPEC_CASES)
 def test_unit_space_oracle_matches_an_independent_recomputation(case_name: str) -> None:
     expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
@@ -556,7 +650,363 @@ def test_unit_space_oracle_matches_an_independent_recomputation(case_name: str) 
     assert np.allclose(got.residuals_unit, want["residuals_unit"], rtol=1e-8, atol=1e-8)
 
 
+# ── The cases added for docs/MODEL_TESTING_ASSETS.md § 1.1–1.3 ───────────────
+
+
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+def test_log_log_on_auto_mpg_logs_both_sides_and_masks_missing_rows() -> None:
+    """M05. The (Log, Log) pair combined with real missingness — the corner
+    Production Lots (a complete 51-row panel) structurally cannot cover."""
+    expected = calculate_regression_spec_case(_case("mileage_log_log_na_masking"), CSV_PATH)
+    design = expected.design
+
+    assert design.response_transform == "Log"
+    assert design.predictor_transform == "Log"
+    assert design.constructed_column_names == ("Ln(Horsepower)", "Ln(Weight)")
+    assert design.constructed_column_transforms == ("Log", "Log")
+    # The mask is applied BEFORE the logs are taken: 8 rows missing MPG and 6
+    # missing Horsepower drop out, rather than Ln() poisoning the column.
+    assert design.included_rows == 392
+    # A Log response makes the smearing factor a real number, not 1.
+    assert expected.results.unit_space.smearing_factor > 1.0
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+def test_categorical_only_design_widens_the_sample() -> None:
+    """M14b. With no included Continuous Predictor the mask reduces to "the
+    response is numeric", so the sample grows past the 392 every other Auto
+    MPG case sees — proof the mask is per-model, not per-dataset."""
+    expected = calculate_regression_spec_case(_case("categorical_only_design"), CSV_PATH)
+    design = expected.design
+
+    assert design.included_rows == 398
+    assert design.constructed_column_names == (
+        *(f"Model Year: {year}" for year in range(71, 83)),
+        "Origin: Europe",
+        "Origin: US",
+    )
+    assert not any(
+        name in design.constructed_column_names for name in ("Horsepower", "Weight")
+    )
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+def test_categorical_cross_emits_the_full_product_width() -> None:
+    """M09. Cat x Cat is the one interaction width regime with no case: the
+    constructor must emit (L1-1) * (L2-1) columns, here 12 * 2 = 24, in
+    left-outer/right-inner order."""
+    expected = calculate_regression_spec_case(
+        _case("interaction_categorical_cross"), CSV_PATH
+    )
+    names = expected.design.constructed_column_names
+    interactions = [name for name in names if " × " in name]
+
+    assert len(interactions) == 24
+    assert interactions[0] == "Model Year: 71 × Origin: Europe"
+    assert interactions[1] == "Model Year: 71 × Origin: US"
+    assert interactions[-1] == "Model Year: 82 × Origin: US"
+    # 12 Model Year dummies + 24 interactions + 2 Origin dummies.
+    assert len(names) == 38
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+def test_categorical_cross_is_full_rank_and_shares_M14b_main_effects() -> None:
+    """M09 is M14b plus the interaction block, so their main effects must be
+    identical — and the saturated design must actually be fittable, which is
+    why the case crosses Model Year (all 39 cells populated) rather than the
+    plan's Cylinders (six empty cells, two all-zero columns, singular)."""
+    cross = calculate_regression_spec_case(
+        _case("interaction_categorical_cross"), CSV_PATH
+    ).design
+    base = calculate_regression_spec_case(
+        _case("categorical_only_design"), CSV_PATH
+    ).design
+
+    main_effects = tuple(name for name in cross.constructed_column_names if " × " not in name)
+    assert main_effects == base.constructed_column_names
+
+    x_with_intercept = np.column_stack(
+        [np.ones(cross.x_features.shape[0]), cross.x_features]
+    )
+    assert np.linalg.matrix_rank(x_with_intercept) == x_with_intercept.shape[1]
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+def test_difference_interaction_uses_the_typographic_minus() -> None:
+    """M10. The Difference operator, and its U+2212 MINUS SIGN header — a
+    hyphen there would still read fine to a human and silently break the
+    header comparison."""
+    expected = calculate_regression_spec_case(_case("interaction_difference"), CSV_PATH)
+    design = expected.design
+
+    assert design.constructed_column_names == (
+        "Displacement",
+        "Displacement − Acceleration",
+        "Weight",
+    )
+    difference_column = design.x_features[:, 1]
+    assert np.allclose(
+        difference_column, design.x_features[:, 0] - _acceleration_column(design)
+    )
+
+
+def _acceleration_column(design) -> np.ndarray:
+    """Recover Acceleration from the difference column and Displacement."""
+    return design.x_features[:, 0] - design.x_features[:, 1]
+
+
+@pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
+def test_ratio_reciprocal_pair_is_legal_and_non_singular() -> None:
+    """M11. Ratio is asymmetric, so declaring both A/B and B/A produces two
+    genuinely different columns — the legal counterpart to G10, where the
+    same reciprocal declaration under Product is a singular Gram matrix."""
+    expected = calculate_regression_spec_case(
+        _case("interaction_ratio_reciprocal"), CSV_PATH
+    )
+    design = expected.design
+
+    assert design.constructed_column_names == (
+        "Horsepower",
+        "Horsepower ÷ Weight",
+        "Weight",
+        "Weight ÷ Horsepower",
+    )
+    forward = design.x_features[:, 1]
+    reverse = design.x_features[:, 3]
+    assert np.allclose(forward * reverse, 1.0)
+    # Reciprocal but not collinear: the design still has full rank.
+    x_with_intercept = np.column_stack(
+        [np.ones(design.x_features.shape[0]), design.x_features]
+    )
+    assert np.linalg.matrix_rank(x_with_intercept) == x_with_intercept.shape[1]
+    assert math.isfinite(expected.results.summary.r_squared)
+
+
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
+def test_lsdv_reproduces_the_within_estimator_exactly() -> None:
+    """P06 vs P02 — the suite's strongest cross-oracle.
+
+    Fixed Effects demeaning, the absorbed-df subtraction and the level-shift
+    recovery are the only bespoke arithmetic in the engine; everything else
+    is OLS, which statsmodels also does. Fitting the same model as
+    least-squares dummy variables reaches the same slopes and residuals by a
+    completely different route, so this is a genuine second opinion rather
+    than a second copy of the same code.
+    """
+    within = calculate_regression_spec_case(
+        _case("production_lots_log_transform"), CSV_PATH
+    )
+    lsdv = calculate_regression_spec_case(
+        _case("production_lots_lsdv_equivalence"), CSV_PATH
+    )
+
+    within_index = within.design.constructed_column_names.index("Ln(Cumulative_Units)")
+    lsdv_index = lsdv.design.constructed_column_names.index("Ln(Cumulative_Units)")
+    # +1 on both: Coefficients() spills the intercept first.
+    assert within.results.vectors.coefficients[within_index + 1] == pytest.approx(
+        lsdv.results.vectors.coefficients[lsdv_index + 1], rel=1e-10
+    )
+    assert np.allclose(
+        within.results.full_residuals.residuals,
+        lsdv.results.full_residuals.residuals,
+        atol=1e-10,
+    )
+    # The two spend their degrees of freedom differently, which is exactly
+    # why LSDV is a separate case rather than a duplicate: FE absorbs the
+    # facility effects, LSDV shows them as columns.
+    assert len(within.design.constructed_column_names) == 1
+    assert len(lsdv.design.constructed_column_names) == 3
+
+
+# ── Life Expectancy (§ 1.2) ──────────────────────────────────────────────────
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_partial_log_linear_is_the_mixed_predictor_dispatch_pair() -> None:
+    """L01. (None, Mixed) — two logged predictors and one unlogged against an
+    untransformed response. The predictor-transform summary must report
+    "Mixed" rather than latching to whichever transform it saw first."""
+    expected = calculate_regression_spec_case(_case("life_partial_linear_log"), CSV_PATH)
+    design = expected.design
+
+    assert (design.response_transform, design.predictor_transform) == ("None", "Mixed")
+    assert design.constructed_column_names == (
+        "Status: Developing",
+        "Alcohol",
+        "Ln(GDP)",
+        "Ln(Population)",
+    )
+    assert design.constructed_column_transforms == ("None", "None", "Log", "Log")
+    # The sample is the intersection of four columns with 652 / 448 / 194 / 0
+    # blanks — well under half the 2938 rows.
+    assert design.included_rows == 2117
+    # No response transform, so the unit-space block reduces exactly.
+    assert expected.results.unit_space.smearing_factor == pytest.approx(1.0)
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_binary_categorical_reference_flips_which_dummy_is_retained() -> None:
+    """L09 vs L01. On a two-level column an explicit reference is invisible in
+    the column COUNT — one dummy either way — and shows up only in WHICH level
+    is retained. Getting it backwards flips the coefficient's sign."""
+    default_reference = calculate_regression_spec_case(
+        _case("life_partial_linear_log"), CSV_PATH
+    ).design
+    explicit = calculate_regression_spec_case(
+        _case("life_status_explicit_reference"), CSV_PATH
+    ).design
+
+    assert default_reference.references_in_use["Status"] == "Developed"
+    assert explicit.references_in_use["Status"] == "Developing"
+    assert "Status: Developing" in default_reference.constructed_column_names
+    assert "Status: Developed" in explicit.constructed_column_names
+    # Same column space, so the fit is identical — only the parameterization
+    # differs. A difference in R2 here would mean the reference change had
+    # altered the model, not just its coding.
+    assert len(default_reference.constructed_column_names) == len(
+        explicit.constructed_column_names
+    )
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_log_response_is_the_log_none_dispatch_pair_with_real_smearing() -> None:
+    """L02. (Log, None) — the pair where the v3.3 unit-space machinery does
+    the most work, and the suite's only one."""
+    expected = calculate_regression_spec_case(_case("life_log_response_duan"), CSV_PATH)
+    design = expected.design
+    unit = expected.results.unit_space
+
+    assert (design.response_transform, design.predictor_transform) == ("Log", "None")
+    assert design.constructed_column_names == (
+        "Status: Developing",
+        "Adult Mortality",
+        "Schooling",
+    )
+    assert unit.smearing_factor > 1.0
+    # Back-transformed statistics genuinely differ from the fit-space ones.
+    assert unit.r_squared_unit != pytest.approx(expected.results.summary.r_squared)
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_naive_back_transform_drops_the_smearing_factor_but_not_the_bounds() -> None:
+    """L03 vs L02 — the Back-Transform toggle, which had no oracle at all
+    before: the Python side computed both branches and then discarded the
+    Naive one, so `$AH$4` could have been wired to anything.
+
+    Two halves to the contract. Predictions dispatch on the toggle, so every
+    statistic derived from them moves. The CI/PI bounds are quantiles and are
+    EXP-only under BOTH settings — the Back-Transform note on the sheet says so, and a
+    toggle that moved them would be silently wrong in the direction users
+    would never check.
+    """
+    duan = calculate_regression_spec_case(_case("life_log_response_duan"), CSV_PATH)
+    naive = calculate_regression_spec_case(_case("life_log_response_naive"), CSV_PATH)
+
+    assert duan.case.spec == naive.case.spec, "the toggle must be the only difference"
+    assert (duan.case.back_transform, naive.case.back_transform) == ("Duan", "Naive")
+
+    smearing = duan.results.unit_space.smearing_factor
+    assert smearing == pytest.approx(naive.results.unit_space.smearing_factor)
+    assert np.allclose(
+        np.asarray(duan.results.unit_space.predictions_unit),
+        np.asarray(naive.results.unit_space.predictions_unit) * smearing,
+        rtol=1e-12,
+    )
+    assert duan.results.unit_space.prediction_point_unit == pytest.approx(
+        naive.results.unit_space.prediction_point_unit * smearing, rel=1e-12
+    )
+    assert duan.results.unit_space.r_squared_unit != pytest.approx(
+        naive.results.unit_space.r_squared_unit
+    )
+    for bound in (
+        "prediction_ci_lower_unit",
+        "prediction_ci_upper_unit",
+        "prediction_pi_lower_unit",
+        "prediction_pi_upper_unit",
+    ):
+        assert getattr(duan.results.unit_space, bound) == pytest.approx(
+            getattr(naive.results.unit_space, bound), rel=1e-15
+        ), bound
+    # The fit itself is untouched — the toggle is a display-space choice.
+    assert duan.results.summary.r_squared == pytest.approx(
+        naive.results.summary.r_squared
+    )
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_elasticity_model_logs_both_sides_at_scale() -> None:
+    """L04. (Log, Log) against sparse predictors on the large dataset."""
+    expected = calculate_regression_spec_case(_case("life_elasticity_log_log"), CSV_PATH)
+    design = expected.design
+
+    assert (design.response_transform, design.predictor_transform) == ("Log", "Log")
+    assert design.constructed_column_names == ("Ln(GDP)", "Ln(Population)")
+    assert design.included_rows == 2262
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
+    """L05. SPEC_DATASET_PROFILES["life_expectancy"] is what
+    `--regression-dataset life_expectancy` pre-fills, and nothing had ever
+    verified that the model it ships actually fits."""
+    from lambda_catalog.write_sheet_model_construction import SPEC_DATASET_PROFILES
+
+    expected = calculate_regression_spec_case(_case("life_full_profile"), CSV_PATH)
+    design = expected.design
+    profile = SPEC_DATASET_PROFILES["life_expectancy"]
+
+    # 18 continuous predictors + the single Status dummy.
+    assert len(design.constructed_column_names) == 19
+    assert "Status: Developing" in design.constructed_column_names
+    # Derived from the profile, so it tracks the shipped default rather than
+    # pinning a copy of it.
+    assert [item.name for item in expected.case.spec] == list(profile.variables)
+    assert math.isfinite(expected.results.summary.r_squared)
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_high_cardinality_fixed_effects_absorbs_the_right_degrees_of_freedom() -> None:
+    """L08. 193 groups against Production Lots' three. At 3 groups a df error
+    of a few units hides inside the noise; at 182 absorbed df it moves every
+    df-dependent statistic visibly."""
+    expected = calculate_regression_spec_case(_case("life_country_fixed_effects"), CSV_PATH)
+    design = expected.design
+    summary = expected.results.summary
+
+    assert design.group_labels is not None
+    groups = len(np.unique(design.group_labels))
+    # 173, not the dataset's full 193: Schooling is blank for every row of 20
+    # countries, so the mask removes those panels entirely. Worth pinning —
+    # a silent drop from 173 to a handful would leave the case named
+    # "high cardinality" while testing nothing of the sort.
+    assert groups == 173
+    assert design.constructed_column_names == ("Adult Mortality", "Schooling")
+    # n - k - 1 - (G - 1): the absorbed group effects come out of the
+    # residual degrees of freedom.
+    assert summary.df_residual == design.included_rows - 2 - 1 - (groups - 1)
+    # Durbin-Watson has no valid FE-active reading, so the oracle is NaN.
+    assert math.isnan(summary.durbin_watson)
+
+
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
 @pytest.mark.parametrize(
     "case_name",
     ("production_lots_fixed_effects", "production_lots_log_predictor_only"),
@@ -583,3 +1033,66 @@ def test_unit_space_reduces_to_the_ordinary_statistics_without_a_response_transf
     assert np.allclose(
         unit.residuals_unit, expected.results.full_residuals.residuals, atol=1e-9
     )
+
+
+# ── Categorical level ordering vs. Excel's SORT ──────────────────────────
+
+
+def test_level_sort_key_puts_numbers_before_text() -> None:
+    """Excel sorts every number ahead of every string."""
+    from lambda_catalog.analyze_model_construction import level_sort_key
+
+    assert sorted([3, "b", 1, "a"], key=level_sort_key) == [1, 3, "a", "b"]
+
+
+def test_level_sort_key_files_accented_text_where_excel_does() -> None:
+    """The bug the first live Excel run exposed.
+
+    Python compares strings by code point, so ``ô`` (U+00F4) sorts after
+    ``z`` (U+007A) and ``Côte d'Ivoire`` lands after ``Czechia``. Excel uses
+    the Windows locale collator, where ``ô`` files under ``o`` — between
+    ``Costa Rica`` and ``Croatia``.
+
+    On a categorical predictor that one-position difference shifts the WHOLE
+    dummy block: every column keeps a valid name and a valid 0/1 pattern, so
+    nothing errors — the columns are just paired with the wrong headers and
+    every per-predictor statistic reads off by one. It survived unnoticed
+    until a QC case first used a column with non-ASCII levels.
+    """
+    from lambda_catalog.analyze_model_construction import level_sort_key
+
+    ordered = sorted(
+        ["Croatia", "Cuba", "Côte d'Ivoire", "Czechia", "Costa Rica"],
+        key=level_sort_key,
+    )
+    assert ordered == [
+        "Costa Rica",
+        "Côte d'Ivoire",
+        "Croatia",
+        "Cuba",
+        "Czechia",
+    ]
+    # Accent-only differences must still order deterministically rather than
+    # comparing equal, or the sort would not be total.
+    assert sorted(["Cote", "Côte"], key=level_sort_key) == ["Cote", "Côte"]
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_life_expectancy_country_levels_follow_excel_order() -> None:
+    """End-to-end on the dataset that surfaced it: Country is the only wired
+    column with a non-ASCII level, and its dummy block must be ordered the
+    way the sheet's SORT orders it."""
+    from lambda_catalog.analyze_model_construction import level_sort_key
+    from lambda_catalog.analyze_life_expectancy import (
+        load_life_expectancy_source_rows,
+    )
+
+    countries = sorted(
+        {row["Country"] for row in load_life_expectancy_source_rows()},
+        key=level_sort_key,
+    )
+    index = countries.index("Côte d'Ivoire")
+    assert countries[index - 1] == "Costa Rica"
+    assert countries[index + 1] == "Croatia"

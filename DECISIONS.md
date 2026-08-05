@@ -3118,3 +3118,540 @@ The half that *is* enforced in code stays enforced: `_EXPECTED_CASE_NAMES` in
 `build_regression_spec_cases()`, so no case can be added, renamed, reordered,
 or dropped without a test failure. The document says what should exist; the
 pinned list says what does.
+
+## v3.4+ — Test-model oracles and the one-sheet-per-model framework
+
+### Guard states get their own case type, not a flag on `RegressionSpecCase`
+
+**Question:** the § 1.4 guard-rail configurations are not fittable models.
+Should they be `RegressionSpecCase` entries with an "expect failure" flag, or
+a separate type?
+
+**Resolution:** RESOLVED — a separate `GuardStateCase` in
+`lambda_catalog/analyze_regression_guard_states.py`. The two assert disjoint
+things. A fittable case's oracle is ~200 numbers from a fit;
+`calculate_regression_spec_case` raises on most guard specs *by design*,
+because a QC case must describe a legal, fully-computable model. What a guard
+case asserts is status text, the per-row Design Columns audit, the Model
+Formula string, and which conditional-formatting rules fire. Bolting that
+onto `RegressionSpecCase` would mean a dataclass where most fields are
+meaningless for half its instances, and an oracle function with a top-level
+branch that shares nothing below it.
+
+### Conditional formatting is asserted as a predicate, never as a colour
+
+**Question:** how does a guard case verify that a cell is flagged red or
+amber — read `Range.DisplayFormat.Interior.Color` over COM, or recompute the
+rule?
+
+**Resolution:** RESOLVED — recompute the predicate. `GuardFlag` records that
+a rule *fires*, derived in Python from the same condition the CF expression
+encodes. Reading the colour back would only re-report what Excel already
+decided from the rule that is under test: if someone changed the CF
+expression, Excel would faithfully apply the *new* rule and the colour check
+would pass. Recomputing the predicate independently is what makes a silent CF
+change fail. It is also the only form that runs headlessly, so the guard
+oracles are covered in CI while the sheet comparison is not.
+
+### One sheet per test model, in a third non-shipped artifact
+
+**Question:** the suite pushes every case through the single `Regression`
+sheet in turn. Should each case get its own sheet, and if so, in which
+workbook?
+
+**Resolution:** RESOLVED — one sheet per case, in a new
+`Lambda_Library_TestModels.xlsx` built by `build_test_models.py` and
+gitignored.
+
+The single-sheet harness has three costs that are all consequences of reuse.
+A case exists only as a log line, so a failure gives a number with nothing to
+open. Every case must defensively re-set every input in case the previous one
+left something behind — which is precisely why `source_table_ref` and
+`prediction_group` are non-Optional and rewritten on every iteration. And the
+~150–250 COM writes plus a recalculation per case make the loop serial and
+slow. With one sheet per case the verifier only reads: no writing, no
+per-case recalculation, no state to leak, and a failing case is a tab.
+
+A third artifact rather than the QC or production workbook: ~48 heavy sheets
+have no business in a shipped file, and folding them into `build_qc.py` would
+make every QC run pay for them. It is a fixture regenerated from the case
+registries on demand, so it is not committed.
+
+REJECTED — a lean engine-only sheet (spec block plus scalar zones, no
+residual band). It would drop the per-observation residual comparison, which
+is the largest part of the oracle by count and the part most likely to catch
+a masking or ordering bug. Charts are dropped instead: a dozen COM chart
+objects per sheet is the single biggest cost in the build, and no oracle
+reads one — chart wiring is verified once, on the production sheet.
+
+### Sheet names state the concept, not the variables
+
+**Question:** what does a generated sheet's tab say?
+
+**Resolution:** RESOLVED — `<PlanID> <Concept>`: `M05 Log-Log NA Masking`,
+never `MPG ~ Ln(Weight) + Ln(HP)`. Excel allows 31 characters, which cannot
+hold a model formula for any case worth testing, and truncating one produces
+a tab that is both unreadable and ambiguous. The formula is also the least
+useful thing to put there — the sheet exists to exercise one corner, that
+corner is what a reader needs, and the variables are one click away in the
+spec block. The plan ID prefix ties each tab to a row in
+docs/MODEL_TESTING_ASSETS.md, so a case can be renamed without orphaning the
+mapping. The contract is enforced at registry-build time
+(`lambda_catalog/test_model_sheets.py`), so an illegal or duplicated name
+fails in a millisecond-long unit test instead of at sheet 30 of a
+multi-minute Excel build.
+
+### Three planned models did not survive contact with the data
+
+**Question:** what happens when a model the plan specifies turns out not to
+be fittable?
+
+**Resolution:** RESOLVED — implement the corner the plan wanted, by the
+nearest configuration that actually fits, and record the deviation in the
+plan document rather than silently substituting.
+
+Three cases needed it. The plan's M9 (`C(Cylinders) × C(Origin)`) has a
+sparse cross-tabulation — Cylinders=3 occurs only in Asia, 5 only in Europe,
+8 only in the US — so two of its eight product columns are identically zero
+and the Gram matrix is singular; Excel answers `#NUM!` where NumPy quietly
+returns a minimum-norm solution, so the two sides cannot be compared at all.
+`Model Year × Origin` populates all 39 cells (minimum cell count 2, condition
+number ~116) and is a genuine saturated design. The plan's M10
+(`Displacement + Horsepower + Displacement − Horsepower`) is exactly
+collinear by construction. And L7's arithmetic (193 countries → 192 dummies +
+8 predictors = 200) ignores missingness: at most 183 countries survive the
+mask, so `C(Year)` is added to clear the width-guard threshold, pinned by a
+test so a future change cannot silently drop the case back under 200.
+
+### L6 contradicts the shipped mask — flagged, not fixed
+
+**Question:** § 1.2 says a Log transform on a column with true zeros makes
+the row "drop out of the mask". It does not. Fix `Sample_Include`, or record
+the actual behaviour?
+
+**Resolution:** RESOLVED for now — record it. `Sample_Include` tests
+`ISNUMBER(col)` on the Response and the included Continuous Predictors, and
+`ISNUMBER(0)` is TRUE; there is no Log-positivity term anywhere in it. So
+Schooling's 28 zero rows stay in the sample, `Ln_Positive` returns `#N/A` for
+each, and the `#N/A` propagates into every downstream statistic. L6 ships as
+a guard state asserting that propagation.
+
+DEFERRED — whether to add a positivity term to `Sample_Include`. It would
+make the plan's description true and is arguably the better behaviour, since
+the Response's own non-positive guard effectively achieves it by raising. But
+it changes a constructor every model in the workbook depends on, and making
+that change as a side effect of writing an oracle would be exactly the kind
+of silent scope creep this file exists to prevent.
+
+### `_build_model_formula` was never compared against the cell it mirrors
+
+**Question:** the oracle's model-formula string and the sheet's AB2 cell were
+written independently and never string-compared. Which is right?
+
+**Resolution:** RESOLVED — the cell. `_build_model_formula` now mirrors AB2
+character for character, and the guard cases compare it. It had three
+divergences, all invisible because nothing read it: it omitted the intercept
+term entirely when the intercept was OFF (AB2 writes `"0 + "`), it treated
+the intercept marker as the first element of the join rather than a prefix
+(so an empty model rendered `"MPG ~ 1"` instead of AB2's `"MPG ~ 1 + "`), and
+it appended `"1"` as a fallback for an empty predictor list. The same pass
+found `Base_Period_Delta_Candidate`'s mirror using `statistics.mode`, which —
+unlike Excel's `MODE.SNGL` — never errors on a non-repeating input, making
+both the fall-back-to-MIN branch and the "no natural base period" verdict
+unreachable in the oracle.
+
+### The first live Excel run settled three things the headless suite could not
+
+**Question:** `build_production.py --verify` reported 22,898 mismatches and
+`build_test_models.py` died on its first sheet. Which were real?
+
+**Resolution:** RESOLVED — all of them, and none was a false alarm. Recorded
+together because they share a cause: 878 headless tests cannot see what
+Excel does with a sheet name, a 205-column design, or an accented string.
+
+1. **Sheet names with spaces were never quoted.** `_setup_local_names` built
+   `=M01 Baseline Categoricals!$AB$12` and Excel rejected the whole
+   `Names.Add`. Four of that function's seven references were unquoted,
+   invisible for the life of the project because the only sheet it ever
+   wrote was named `Regression`. `sname` now carries the quotes — quoting a
+   name that does not need it is always legal, so one quoted form removes
+   the class of bug rather than relying on each site to remember. Two
+   existing tests had pinned the unquoted form; they were pinning the bug.
+
+2. **A 205-column design cannot be fitted, so L07 is a guard state.** At
+   k = 205 the workbook returns `nan` for every engine output — 22,886 of
+   the 22,898 mismatches were this one case comparing real numbers against
+   nothing. That is the condition the width guard exists to warn about, so
+   the case now asserts the `M2` WARNING and the visible degradation instead
+   of numbers the sheet cannot produce. The general rule, which will come up
+   again: **a numeric oracle for a model the sheet cannot compute is
+   comparing against nothing** — when a case's whole point is a limit, the
+   limit is the assertion.
+
+3. **Categorical levels sorted by code point, not by collation.** `Côte
+   d'Ivoire` files after `Czechia` in Python but between `Costa Rica` and
+   `Croatia` in Excel, which shifts an entire dummy block by one position.
+   Nothing errors: every column keeps a valid name and a valid 0/1 pattern,
+   and every per-predictor statistic is silently paired with the wrong
+   header. A pre-existing bug in `_retained_levels`, first reachable when a
+   QC case used a column with non-ASCII levels.
+
+   REJECTED — PyICU for exact collation. It is the only way to match Windows
+   collation across all scripts, but it adds a binary dependency to a project
+   whose only ones are the scientific stack, to serve one accented string in
+   one dataset. `level_sort_key` strips combining marks and casefolds
+   instead, which reproduces the locale order for Latin scripts, and the
+   limitation is documented at the function and in MODEL_TESTING_ASSETS §1b.
+
+**And one tolerance decision.** L05's `Population` coefficient disagreed with
+Excel in the 6th significant digit on its t-statistic and p-value. Population
+spans 34 to 1.3e9 against predictors of order 1–100, so the normal equations
+are badly scaled and the disagreement is on the one coefficient
+indistinguishable from zero (t = −0.367, p = 0.71). `T_Statistics` and
+`P_Values` join the scale-free comparison set alongside the sums of squares,
+which already compare as 3 significant digits for the same reason. This
+widens the unit, never the tolerance — both sides are divided by the same
+factor, so a genuinely wrong number still fails. Dropping `Population` was
+rejected: L05 exists to give the *shipped* profile an oracle, so changing its
+spec would stop it testing what users actually get.
+
+### A spec block must have exactly one row per Source_Table column
+
+**Question:** the first successful build of the test-model workbook produced
+74,065 mismatches, with entire cases reading `None`. Why, and what enforces
+it in future?
+
+**Resolution:** RESOLVED — the fixture column `Is_USA`, added to
+`MileageData` for M15's benefit, widened that table to 13 columns while every
+other Auto MPG case still wrote a 12-row spec block. Every constructor opens
+`n_c = COLUMNS(Source_Data)` and then indexes the `Spec_*` bands at `1..n_c`,
+so `INDEX(rl, 13)` on a 12-row band runs off the end: the row mask errors and
+every engine cell downstream reads as an error. M15 was the one Auto MPG
+sheet that worked, because its spec happens to declare the thirteenth column.
+
+Two things were wrong, and only one of them was the fixture. The **shape
+invariant** — one spec row per source column — was never written down or
+checked anywhere, even though every constructor depends on it. And the
+fixture list existed in **two places**: the driver knew to add the column to
+the data sheet, and the spec writer did not know it existed. Either alone
+would have been survivable; together they produced a build that succeeded,
+looked right, and was wrong in a way visible only to a verify run.
+
+The fix states the invariant and enforces it.
+`write_sheet_test_model.pad_spec_to_source_table` appends an `Omit` row for
+every source column a case does not name, and raises if the result is still
+the wrong width. `Omit` is the correct filler rather than a convenient one:
+it contributes no design column and imposes no mask condition, so a padded
+spec fits exactly the same model — which is precisely why the Python oracle
+can remain ignorant of fixture columns. `FIXTURE_COLUMNS` is now declared
+once and read by both the data-sheet writer and the spec block.
+
+REJECTED — giving M15 its own copy of the Mileage data sheet so the shared
+table stays clean. It isolates the fixture, but it leaves the shape invariant
+unstated and unchecked, so the next fixture column reintroduces the same
+class of failure. Padding fixes the general case; a private data sheet fixes
+one instance of it.
+
+### `Base_Period_Delta` is sheet-scoped, not workbook-scoped-and-sheet-qualified
+
+**Question:** the accessor's body hardcoded `'Regression'!Source_Data` /
+`Spec_Sequence` / `Spec_Sequence_Period` at workbook scope. In a workbook
+with 47 Regression-shaped sheets, which sheet's Δ is "the" Δ?
+
+**Resolution:** RESOLVED — each sheet's own. `Base_Period_Delta` moves to
+`"scope": "Regression"` with unqualified spec references. An unqualified name
+resolves against the sheet the calling formula lives on, so one definition
+per Regression-shaped sheet gives each its own Δ, and the sheet-qualified
+form disappears from the catalog entirely.
+
+The old form was wrong in both directions at once. In a workbook with
+several such sheets, every one of them read whichever sheet was literally
+named `Regression`. In a workbook with none — the test-model artifact — the
+build correctly skipped the function rather than let Excel rebind it to an
+external workbook, which left `#NAME?` at every call site: the BFN Panel
+Durbin-Watson cell on all 47 sheets, and any omitted-delta `Lag_By` /
+`Difference_By`.
+
+**The narrow cost, recorded so it is not a surprise.** An omitted-delta
+`Lag_By`/`Difference_By` evaluated on a sheet with no spec block — a data
+sheet, say — now returns `#NAME?` where it previously borrowed the
+Regression sheet's Δ. That is the honest answer: such a sheet declares no
+sequence axis, so it has no base period to default to. The alternative,
+silently reaching across to another sheet's spec block, is the behaviour that
+made this wrong on a multi-sheet workbook in the first place.
+
+**This requires rebuilding the committed artifact.** `Lambda_Library.xlsx`
+carries the name at workbook scope from its last build, and
+`sync_workbook_names` only makes workbook scope match the catalog — the
+sheet-scoped replacement is installed by the sheet writer, which needs Excel.
+Until `build_production.py` is re-run and the artifact committed,
+`test_regression_workbook_scope_belongs_to_the_catalog` reports the stale
+name as residue, which is exactly what it is.
+
+### Auto MPG ships no Sequence axis — `Model Year` was never one
+
+**Question:** the shipped T0 spec flagged `Model Year` as
+`Sequence = TRUE`, and every Auto MPG QC case inherited the flag from it.
+Is that a correct description of the dataset?
+
+**Resolution:** RESOLVED — no. `_DEFAULT_SEQUENCE_VARIABLES` becomes empty,
+and the flag is removed from every Auto MPG spec case.
+
+Auto MPG is cross-sectional. Each row is a distinct car model observed once;
+no unit is repeated across periods, so there is no axis to order along. The
+Sequence flag is not a formatting preference — it activates the Base Period Δ
+candidate, the Sequence Spacing block, and the gated Durbin-Watson
+diagnostic, all of which presuppose a panel. What the flag actually bought
+here was a Δ candidate nobody can interpret and a DW statistic computed over
+an arbitrary row order. It did not even light up the spacing verdict:
+`Sequence_Deltas` groups by the **Identifier** columns, and the shipped
+Identifier (`Car Name`) is very nearly unique, so every group is a singleton,
+there are no within-group consecutive pairs, and the verdict cell was
+unconditionally blank the whole time. A default that asserts panel structure
+the data does not have is worse than no default.
+
+**What keeps its flag, and why.** The two datasets that *are* panels keep
+theirs: Life Expectancy (`Year`, country × year) and Production Lots
+(`Fiscal_Year`, facility × fiscal year). Both ship it in their
+`SpecDatasetProfile`, both are reachable through `--regression-dataset`, so
+the Sequence layer is still demonstrated by default — on data where it means
+something. On Auto MPG the layer now self-reports `n/a — requires Sequence`
+until a user types TRUE into column H, which is the honest state.
+
+**Two guard cases still declare it, explicitly.** G3 (two flags → the H2
+cardinality error) and M16 (typed period override) test the flag's
+*mechanics*, not the data: H2 counts flags, and the override path resolves
+the flagged row positionally. Both are dataset-independent and unreachable
+without a flag present, so each now states its own rather than inheriting
+one, with a comment saying it is wiring and not a claim. Auto MPG's evenly
+spaced integer years remain a clean substrate for M16's candidate Δ = 1
+against a typed Δ = 2.
+
+**REJECTED — keeping the default so the flagship artifact still demos the
+feature.** That was the only real argument for the old behaviour, and it does
+not survive the observation above: demonstrating the serial-correlation layer
+on data with no serial structure teaches the wrong lesson, and the two panel
+profiles demonstrate it correctly at no cost.
+
+Pinned by `test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis`
+(no fittable Auto MPG case flags anything; every Production Lots case flags
+`Fiscal_Year` and every Life Expectancy case `Year`) and
+`test_only_the_two_mechanics_cases_flag_sequence_on_auto_mpg` (G3 and M16 are
+the entire exception list). **This changes the shipped spec block**, so
+`Lambda_Library.xlsx` needs the same rebuild the `Base_Period_Delta` scope
+change above already requires.
+
+### The pre-derived/transform-axis pairing runs twice — with FE and without
+
+**Question:** Production Lots ships both raw columns (`Cumulative_Units`,
+`Unit_Cost_BY`) and pre-derived log columns (`log Cum Units`, `log Unit
+Cost`) that are exact logs of them. P1/P2 already fit the same model by both
+routes under Fixed Effects. Is one such pair enough?
+
+**Resolution:** RESOLVED — no. A second pair, **P3 (pre-derived) / P3b
+(transform axis)**, fits the same model without Fixed Effects. The existing
+`production_lots_log_no_fe` case becomes P3b; the new
+`production_lots_derived_log_no_fe` is P3.
+
+One pair leaves the two axes entangled. The mechanisms reach the design
+matrix by different code paths — one *reads* a column, the other *computes*
+one — and composing either with FE demeaning is a third path again. With only
+the FE pair, a transform-axis regression can hide behind the demeaning, or a
+demeaning regression behind the transform. P3/P3b has no Fixed Effects, so
+the transform axis is the only thing between the CSV and the design matrix
+and a disagreement can only be the transform wiring.
+
+It is also the cheapest strong oracle the suite can buy. Because the shipped
+log columns are exact logs, the pair must agree **bit-for-bit** on the design
+matrix and response vector (`np.array_equal`, not `allclose` — the default
+`rtol=1e-05` would swallow a real regression) and to floating point on every
+downstream statistic, with neither side reading the workbook.
+`test_no_fe_pair_agrees_the_same_way_the_fe_pair_does` asserts it, mirroring
+the P1/P2 assertion next to it.
+
+**What the pair may NOT agree on**, pinned so it cannot silently collapse
+into two copies of one spec: `constructed_column_names` ("log Cum Units" vs
+"Ln(Cumulative_Units)"), `constructed_column_transforms` (`None` vs `Log`),
+and the response display name. Those are the mechanism showing through the
+label, not a disagreement about the fit, so the cross-check compares numerics
+only.
+
+**Ordering and naming are part of the decision.** Each pair is registered
+adjacently so the two land on adjacent worksheets, and the sheet names state
+the *route* — `P03 Power Law Derived Cols` against `P03b Power Law Transform
+Axis` — because the route is the only thing that differs between the tabs and
+the entire reason both exist. The old name, `P03 Power Law No FE`, described
+what the pair has in common rather than what separates them.
+
+**REJECTED — pre-derived twins for P4 and P5 as well.** That would give all
+four transform-dispatch branches a matched pair, but the extra two prove
+nothing the P3/P3b pair does not: P4's `(Log, Mixed)` and P5's `(None, Log)`
+already have their dispatch branches covered, and a twin would only re-assert
+that a log column equals a logged column, which one no-FE pair settles. The
+suite is a covering array; three cases for one claim is a full cross. Suite
+size goes 32 -> 33 fittable rather than 32 -> 35.
+
+**REJECTED — a case for the unused `log experience` column.** No case
+references it. The two-predictor shape is covered by P4 using raw
+`Experience_Stock`, and swapping in the logged column would make that model
+`(Log, Log)` rather than the `(Log, Mixed)` dispatch P4 exists for — a
+different model, not a twin.
+
+### The Back-Transform caveat becomes a note on its own control
+
+**Question:** the Duan/Naive caveat shipped as a merged, wrapped text row at
+`AJ15:AL15` — the last row of the Prediction Outputs zone. Is that where it
+belongs?
+
+**Resolution:** RESOLVED — no. It is now a cell note on the **Back-Transform
+label at `AG4`**, and row 15 is gone; the zone's border box closes at row 14,
+the last row that holds a value.
+
+The text explains what the `AH4` toggle does and why the point estimate sits
+off-centre in its interval. Three zones away and below the interval it
+qualifies, it read as a footnote to the prediction block — something to
+notice after the fact — rather than as documentation of the control that
+causes the behaviour. On the toggle's own label it is where a user looks
+when deciding which method to pick, which is the moment the explanation is
+worth anything. It also matches how every other explanatory text on this
+sheet is delivered: a note on the header of the thing it describes.
+
+The note lives in `_write_model_specification` with the other `_set_note`
+calls, not in `_write_unit_space_block`. `AddComment` is COM-only, and
+keeping it out of the zone writers is what lets them stay exercisable through
+`RecordingSheet`.
+
+### The Back-Transform dropdown offered `"Duan` and `Naive"`
+
+**Question:** the `AH4` list validation was built as
+`Formula1=f'"{",".join(_BACK_TRANSFORM_METHODS)}"'`. Why did the dropdown
+show quote characters?
+
+**Resolution:** RESOLVED — because they were real. Excel's `xlValidateList`
+takes its items as a bare comma-separated string, `Duan,Naive`. The quotes
+that appear around it in VBA examples are that language's string delimiters,
+not part of the value; wrapping the Python string in literal `"` characters
+passed them through COM as data. The dropdown offered `"Duan` and `Naive"`,
+the validation accepted either, and every consumer — `Unit_Space_R_Squared`,
+`Unit_Space_RMSE`, the `AL3` point estimate, the `AZ`/`BA` residual columns —
+matched neither against a recognised method. Fixed to `",".join(...)`, the
+same form as `_INCLUDE_VALIDATION_LIST` (`"TRUE,FALSE"`) in the spec block,
+which was correct all along.
+
+**Why no test caught it, which is the more useful half.** `RecordingValidation.Add`
+in `tests/recording_sheet.py` required an `Operator` keyword. Excel treats
+`Operator` as optional and a list validation does not need one, so the
+Back-Transform call omitted it — and the recorder raised `TypeError`, which
+the writer's own `except Exception: pass` around the validation block
+swallowed. The rule was silently never recorded, so no assertion could see
+it. `Operator` is now optional in the recorder, and
+`test_write_unit_space_block_writes_section_input_and_three_gof_cells`
+asserts the parsed dropdown items equal `_BACK_TRANSFORM_METHODS`. Confirmed
+it fails on the old form, reporting `dropdown offers ['"Duan', 'Naive"']`.
+
+The general lesson is about the guard, not the quotes: a broad `except` around
+a COM call also silences the test double, so a writer whose only verification
+runs through `RecordingSheet` has no coverage at all inside such a block.
+Where a mock's signature is stricter than the API it stands in for, the guard
+turns that mismatch into silence.
+
+### Spec-case oracles are not cached — measured, not assumed
+
+**Question:** the QC oracles were to gain the disk-cache treatment
+`analysis_cache.py` already gives the legacy MLR/regression-sheet configs, so
+they are not recomputed on every run.
+
+**Resolution:** REJECTED, on measurement. Computing **every** oracle in the
+suite — all 33 fittable `RegressionSpecCase` results plus all 16
+`GuardStateCase` results, across all three datasets — takes **1.71 s**. The
+slowest single case is 0.15 s (L03, at 2938-row scale); the whole Life
+Expectancy block is about half the total.
+
+That is not worth a cache. The one the legacy path uses costs a schema
+version to maintain (already at 19, bumped six times for field changes), a
+serialize/deserialize pair per dataclass, a fingerprint check, and a class of
+staleness bug where a code change that is not a schema change silently serves
+a wrong expected value. Trading that for 1.7 s is a bad trade, and the risk
+lands precisely on the numbers the whole suite exists to be sure about.
+
+For scale: the artifact this feeds, `build_test_models.py`, takes **~82
+minutes** to write and recalculate its 48 sheets. The oracle phase is under
+0.04 % of it. Even the doubled cost in a `--verify` run — the build computes
+every oracle, then the verifier computes them again — is 3.4 s.
+
+**What the measurement does NOT say.** The legacy cached path costs about the
+same (1.65 s), so this is not a claim that the existing cache was a mistake;
+it is a claim that a second one buys nothing today. If a future milestone
+adds a genuinely expensive oracle — a bootstrap or permutation case under
+v3.11 Resampling, say, where the cost is in resamples rather than a single
+fit — revisit it for that case rather than for the suite.
+
+### BFN panel Durbin-Watson joins the compared scalars
+
+**Question:** the sheet's `AE12` BFN cell was compared by neither harness and
+had no oracle field. Was that deliberate?
+
+**Resolution:** RESOLVED — no; nothing in this file recorded a reason, and the
+gap left a real hole. `RegressionSummary` gains
+`bfn_panel_durbin_watson`, `analyze_regression_sheet` computes it, and
+`regression_spec_sheet_io` compares it at `ROW_BFN_PANEL_DW`.
+
+The hole was specific and worse than "one cell unchecked". `durbin_watson` is
+set to NaN whenever Fixed Effects are declared — correctly, because `AE11`
+then reads `n/a — FE active` — so on a Fixed Effects sheet the suite verified
+**no serial-correlation diagnostic at all**. The one cell holding a number
+was the one nobody read.
+
+**The oracle mirrors the sheet's gating rather than always computing.** The
+two cells are mutually exclusive and at most one is ever a number, so the
+oracle NaNs whichever one the sheet renders as text — otherwise it would
+offer a value for a cell displaying a string, and the mismatch would be
+blamed on the workbook. `test_dw_and_bfn_are_never_both_live_in_the_registry`
+asserts that across every fittable case, and that plain DW is live exactly
+when no FE row is declared.
+
+**Making the cell live required a typed Sequence Period, which is the
+interesting part.** `Base_Period_Delta()` is the *override* accessor — it
+reads the typed value in spec column I and returns `#N/A` when blank, never a
+silent 1 — and BFN passes it as Δ. No fittable case typed one, so BFN would
+have been `#N/A` everywhere and every comparison vacuously true.
+`RegressionSpecCase` gains `sequence_period`, and **P01/P02** declare 1:
+Production Lots is an annual panel, so it is a true statement about the data
+rather than wiring for its own sake, and the pair's cross-check now extends
+to BFN (they agree at 0.9854876217402373). **L08 deliberately leaves it
+untyped**, keeping one registered case on the honest `#N/A` path.
+`test_only_cases_that_need_a_period_declare_one` pins that a case typing a
+period has both a Sequence axis and Fixed Effects, so the field cannot spread
+by copy-paste the way the Sequence flag once did.
+
+**The oracle is checked against an independent value.**
+`tests/test_bfn_panel_durbin_watson_verification.py` already agreed on
+0.6362023311147436 for `Life expectancy ~ GDP + Schooling | Country` by two
+paths sharing no implementation (statsmodels LSDV residuals with an explicit
+per-group loop; a within-estimator fed through the `Difference_By` mirror).
+The new oracle is a third path and agrees to within 1e-12 relative.
+
+**Not to the last bit, and the first revision of this entry was wrong to say
+so.** The assertion originally demanded exact equality; it passed on one
+machine and failed in CI at 3 ULP (`…433` against `…436`). The three paths
+reach the statistic through *different fits* — LSDV with per-country dummies
+on one side, the within-estimator on the other — so the residual vectors they
+sum differ in the last bits, by an amount that depends on which BLAS the
+runner links. Bit-exactness is a legitimate claim only where the arithmetic
+is genuinely identical, as in the P01/P02 and P03/P03b pairs, where
+`np.array_equal` compares a stored log column against a computed one. Here it
+was a coincidence of build being asserted as an invariant. The tolerance is
+still four orders tighter than the six-decimal first-differing-digit rule the
+workbook comparison uses, so any drift that could reach a QC result fails
+here first.
+
+**Two test-double defects surfaced on the way, both the same shape.**
+`RecordingSheet.range` keyed its store on the raw argument tuple, so
+`range(row, col)` and `range((row, col))` were different slots for one cell —
+xlwings means the same cell by both, so a writer using one spelling was
+invisible to an assertion using the other. That is why the typed period
+appeared unwritten. Normalised. Together with the `Validation.Add(Operator=…)`
+mismatch fixed alongside it, the pattern is worth naming: **where the double's
+contract is narrower than the API it stands in for, the writer's own
+`except Exception: pass` turns the mismatch into silence rather than a
+failure.**

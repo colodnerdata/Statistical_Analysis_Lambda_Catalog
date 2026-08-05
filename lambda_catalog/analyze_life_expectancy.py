@@ -21,6 +21,7 @@ from .regression_shared import (
     RegressionSummary,
     RegressionVectors,
 )
+from .write_sheet_csv_dataset import LIFE_EXPECTANCY, load_csv_rows
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT_CSV = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
@@ -46,6 +47,32 @@ def calculate_data_completeness_flags(
         all(_parse_float(row.get(column)) is not None for column in required_columns)
         for row in normalized_rows
     )
+
+
+def load_life_expectancy_source_rows(
+    csv_path: Path = DEFAULT_INPUT_CSV,
+) -> list[dict[str, object]]:
+    """Load the source CSV as row dicts matching the LifeExpectancyData table.
+
+    Cell values are typed exactly as the data sheet writer types them
+    (int/float/str/None), and the computed ``Full_Data`` column is appended
+    with the same completeness rule the sheet's ``Data_Completeness`` formula
+    applies. Mirrors ``analyze_production_lots.load_production_lots_source_rows``
+    and ``analyze_model_construction.load_source_rows``, which are hardcoded to
+    the Production Lots and Mileage tables respectively.
+
+    Headers come back normalized (``LIFE_EXPECTANCY.normalize_headers`` is
+    True), so the keys are the collapsed-whitespace names the spec block and
+    ``SPEC_DATASET_PROFILES["life_expectancy"]`` use — ``"Life expectancy"``,
+    not the CSV's ``"Life expectancy "`` with its trailing space.
+    """
+    headers, rows = load_csv_rows(csv_path, LIFE_EXPECTANCY)
+    flags = calculate_data_completeness_flags(csv_path)
+    table_headers = [*headers, LIFE_EXPECTANCY.full_data_header]
+    return [
+        dict(zip(table_headers, [*row, flag]))
+        for row, flag in zip(rows, flags)
+    ]
 
 
 def _normalize_header(name: str) -> str:
@@ -381,6 +408,10 @@ def calculate_regression_summary(
         se_regression=se_regression,
         press=press,
         durbin_watson=dw,
+        # This module fits the plain pooled model — no Fixed Effects, so the
+        # panel form has nothing to group by and the sheet's AE12 shows
+        # "n/a — no fixed effects". NaN is that state.
+        bfn_panel_durbin_watson=float("nan"),
         f_stat=f_stat,
         p_value_f=p_value_f,
         aic=aic,

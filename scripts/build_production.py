@@ -120,7 +120,7 @@ def _run_deep_verify(
     """Run the spec-driven verifier against the Regression production workbook.
 
     Opens the workbook in a headless Excel instance, computes the per-config
-    Python oracle, and calls ``deep_verify.verify_test_sheets(..., skip_dummy=True,
+    Python oracle, and calls ``deep_verify.verify_test_sheets(...,
     skip_univariate=True, failures_out=...)``. On success, returns
     a passing ``VerifyReport``. On drift, ``verify_test_sheets`` raises
     ``RuntimeError("QC verification failed with N mismatch(es).")``;
@@ -155,7 +155,6 @@ def _run_deep_verify(
                     mileage_path=mileage_path,
                     production_lots_path=production_lots_path,
                     verbose=verbose,
-                    skip_dummy=True,
                     skip_univariate=True,
                     failures_out=captured,
                 )

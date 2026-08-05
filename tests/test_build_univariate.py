@@ -685,7 +685,6 @@ def test_run_deep_verify_forwards_skip_regression_true(monkeypatch) -> None:
 
     assert report.passed is True
     assert fake_verify.verify_kwargs["skip_regression"] is True
-    assert fake_verify.verify_kwargs["skip_dummy"] is True
     assert fake_verify.verify_kwargs["regression_sheet_configs"] is None
     # The Univariate check is NOT skipped (the sheet is present in this artifact).
     assert fake_verify.verify_kwargs.get("skip_univariate") is not True

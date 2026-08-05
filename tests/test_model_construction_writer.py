@@ -176,21 +176,31 @@ def test_both_writers_register_names_before_the_spec_block() -> None:
     spills just parse against names that do not exist yet and sit at #NAME?
     until something re-registers them — which is exactly why it is pinned
     here rather than left to the build to reveal.
+
+    Scoped to each WRITER's own source, not its module's. Searching the whole
+    module matches the callee's `def` line — which sits above both call sites
+    and never moves — so the assertion would hold whatever order the writer
+    actually used.
     """
     import inspect
 
-    from lambda_catalog import write_sheet_model_construction, write_sheet_regression
+    from lambda_catalog.write_sheet_model_construction import (
+        write_model_construction_sheet,
+    )
+    from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 
-    for module, names_call, block_call in (
-        (
-            write_sheet_model_construction,
-            "_set_sheet_scoped_names(sheet, closures)",
-            "_write_spec_block(sheet)",
-        ),
-        (write_sheet_regression, "_setup_local_names(", "_write_spec_block(sheet,"),
+    for writer, names_call in (
+        (write_model_construction_sheet, "_set_sheet_scoped_names("),
+        (write_regression_output_sheet, "_setup_local_names("),
     ):
-        source = inspect.getsource(module)
-        assert source.index(names_call) < source.index(block_call), module.__name__
+        source = inspect.getsource(writer)
+        # Each appears exactly once, so "first occurrence" is the call site
+        # and cannot drift to some other mention.
+        assert source.count(names_call) == 1, writer.__name__
+        assert source.count("_write_spec_block(") == 1, writer.__name__
+        assert source.index(names_call) < source.index("_write_spec_block("), (
+            writer.__name__
+        )
 
 
 def test_only_the_retarget_name_references_the_table_directly() -> None:

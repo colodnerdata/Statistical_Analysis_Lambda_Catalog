@@ -18,10 +18,10 @@ before it.
 
 Usage::
 
-    python build_test_models.py                       # every non-heavy case
-    python build_test_models.py --include-heavy        # + L07 / L08
-    python build_test_models.py --cases M09,G10        # just those two
-    python build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
+    python scripts/build_test_models.py                       # every non-heavy case
+    python scripts/build_test_models.py --include-heavy        # + L07 / L08
+    python scripts/build_test_models.py --cases M09,G10        # just those two
+    python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 """
 from __future__ import annotations
 
@@ -45,6 +45,7 @@ from lambda_catalog.analyze_regression_spec import (
 )
 from lambda_catalog.build_common import (
     RUN_LOG_DIR_NAME,
+    RUN_LOG_FILE_SUFFIX,
     _retry_on_open,
     print_name_sync_summary,
     run_log_path,
@@ -75,7 +76,7 @@ from lambda_catalog.write_sheet_test_model import (
     write_test_model_sheet,
 )
 
-ROOT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_TestModels.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 

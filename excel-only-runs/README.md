@@ -1,6 +1,6 @@
 # excel-only-runs
 
-This directory holds diagnostic output from scripts that **require Microsoft Excel** to run — `python build_production.py --verify`, `python build_test_models.py --verify --no-launch`, `python build_univariate.py --verify --no-launch`, and similar CLI invocations from a developer PowerShell session.
+This directory holds diagnostic output from scripts that **require Microsoft Excel** to run — `python scripts/build_production.py --verify`, `python scripts/build_test_models.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, and similar CLI invocations from a developer PowerShell session.
 
 ## Why this is tracked
 
@@ -10,9 +10,9 @@ The spec-driven verifier cannot run on the GitHub-hosted Linux CI without Excel 
 
 ## What goes here
 
-- Full stdout+stderr from `python build_production.py --verify`, `python build_test_models.py --verify --no-launch`, or `python build_univariate.py --verify --no-launch`.
+- Full stdout+stderr from `python scripts/build_production.py --verify`, `python scripts/build_test_models.py --verify --no-launch`, or `python scripts/build_univariate.py --verify --no-launch`.
 - Verbose-level output (`--verbose`) when comparing runs across debug sessions.
-- ERROR excerpts from any single-case run (`python build_test_models.py --cases M09`) where tracking down a flaky sheet.
+- ERROR excerpts from any single-case run (`python scripts/build_test_models.py --cases M09`) where tracking down a flaky sheet.
 
 The naming convention `<script> <flags>.log` (set by `lambda_catalog/build_common.run_log_path`) means a `git log` on this directory reads as a list of what was actually run and when.
 

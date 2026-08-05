@@ -25,7 +25,7 @@ verify-headless:
 # the verifier's per-sheet Calculate doesn't rebuild the dependency tree
 # after a name sync, so the Regression engines need CalculateFullRebuild).
 verify-deep:
-	uv run --frozen python build_production.py --verify --no-launch
+	uv run --frozen python scripts/build_production.py --verify --no-launch
 
 # Spec-driven verifier for the standalone Univariate workbook. Runs
 # build_qc.verify_test_sheets(..., skip_dummy=True, skip_regression=True) —
@@ -33,7 +33,7 @@ verify-deep:
 # those checks are skipped; the Life Expectancy and Univariate checks run.
 # Requires Excel; not run in CI.
 verify-deep-univariate:
-	uv run --frozen python build_univariate.py --verify --no-launch
+	uv run --frozen python scripts/build_univariate.py --verify --no-launch
 
 # The regression test-model suite, one worksheet per case. Builds
 # Lambda_Library_TestModels.xlsx (gitignored — a fixture, not an artifact),
@@ -50,7 +50,7 @@ verify-deep-univariate:
 # verifier needs Excel, so the transcript only exists on the machine that
 # ran it; the directory name reflects what produced it, not where.
 verify-test-models:
-	uv run --frozen python build_test_models.py --verify --no-launch --verbose
+	uv run --frozen python scripts/build_test_models.py --verify --no-launch --verbose
 
 # Both layers for both artifacts, plus the test-model suite. The headless
 # check is auto-discovered on Linux; run the deep checks on a machine with

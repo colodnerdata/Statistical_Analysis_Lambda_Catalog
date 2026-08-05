@@ -28,26 +28,26 @@ uv run pytest --cov --cov-report=term-missing
 uv run pytest tests/test_workbook_invariants.py -v      # or: make verify-headless
 
 # Build the distributable Regression workbook, Lambda_Library.xlsx  (needs Excel)
-uv run python build_production.py
+uv run python scripts/build_production.py
 
 # Build the standalone Univariate workbook, Lambda_Library_Univariate.xlsx  (needs Excel)
-uv run python build_univariate.py
+uv run python scripts/build_univariate.py
 
 # Build + verify with no Excel window popping up — the one-shot CI-style flow  (needs Excel)
 # Always recalculates: recalc is the source of truth the verifier reads. These are
 # `make verify-deep` and `make verify-deep-univariate`.
-uv run python build_production.py --verify --no-launch
-uv run python build_univariate.py --verify --no-launch
+uv run python scripts/build_production.py --verify --no-launch
+uv run python scripts/build_univariate.py --verify --no-launch
 
 # Build the QC workbook and run the full expected-vs-actual pass
 # (do this whenever you add or change a LAMBDA function)  (needs Excel)
-uv run python build_qc.py
+uv run python scripts/build_qc.py
 
 # Verify an already-built workbook without rebuilding it  (needs Excel)
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
 ```
 
-New to the repo? A typical loop is: edit code → `uv run pytest` → `uv run python build_qc.py` (to confirm the workbook still calculates) → `uv run python build_production.py` (to regenerate the committed `Lambda_Library.xlsx`). The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
+New to the repo? A typical loop is: edit code → `uv run pytest` → `uv run python scripts/build_qc.py` (to confirm the workbook still calculates) → `uv run python scripts/build_production.py` (to regenerate the committed `Lambda_Library.xlsx`). The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
 
 ## Running tests
 
@@ -150,7 +150,7 @@ The unit tests above check functions. The **test-model suite** checks *model con
 3. Give it an identity in `_CASE_SHEET_IDENTITY`: the plan ID from [docs/MODEL_TESTING_ASSETS.md § 1](docs/MODEL_TESTING_ASSETS.md) and a worksheet name. The name states **the concept under test, not the variables** (`M05 Log-Log NA Masking`, not `MPG ~ Ln(Weight) + Ln(HP)`) and must satisfy the contract in `lambda_catalog/test_model_sheets.py` — 31 characters, legal charset, `<PlanID> <Concept>`, unique across model *and* guard cases. It is validated at registry-build time, so a bad name fails in the unit suite rather than mid-build.
 4. Add the case name to `_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py`, in position.
 5. Add the assertions that make the case worth having — the design-matrix facts (`constructed_column_names`, the row mask, k) plus whatever the corner is actually about.
-6. Run `uv run pytest tests/test_regression_spec_qc.py tests/test_test_model_sheets.py` (no Excel), then, on a machine with Excel, `python build_test_models.py --verify --no-launch` for the case's own sheet and `python build_production.py --verify --no-launch` for the shipped Regression sheet. See [Verifying builds](#verifying-builds).
+6. Run `uv run pytest tests/test_regression_spec_qc.py tests/test_test_model_sheets.py` (no Excel), then, on a machine with Excel, `python scripts/build_test_models.py --verify --no-launch` for the case's own sheet and `python scripts/build_production.py --verify --no-launch` for the shipped Regression sheet. See [Verifying builds](#verifying-builds).
 7. Update the coverage matrix in [docs/MODEL_TESTING_ASSETS.md § 1.5](docs/MODEL_TESTING_ASSETS.md#15-coverage-matrix) and flip the case's status from **new** to **existing**.
 8. Archive the build+verify transcript into [`excel-only-runs/`](excel-only-runs/) and commit it on the same branch. The transcript is item 4 of the [PR-shape rules](#the-pr-shape-rules--what-every-regression-pr-must-contain) below; a Regression-track PR without it has no verifiable paper trail because the spec-driven verifier cannot run on Linux CI.
 
@@ -209,7 +209,7 @@ The `Breaking?` flag in each Version History sheet attaches to the **workbook** 
 ### Production build
 
 ```powershell
-uv run python build_production.py
+uv run python scripts/build_production.py
 ```
 
 Produces `Lambda_Library.xlsx` — the distributable Regression artifact committed to the repo. Writes eight sheets:
@@ -244,18 +244,18 @@ Common combinations:
 
 ```powershell
 # Plain build → opens Lambda_Library.xlsx in Excel when done
-uv run python build_production.py
+uv run python scripts/build_production.py
 
 # The one-shot automated flow: build, sync names, run the spec-driven verifier,
 # exit non-zero on drift, and never open Excel. This is what `make verify-deep` runs.
 # The Regression workbook has no Data Tables, so the rebuild is cheap and always runs.
-uv run python build_production.py --verify --no-launch
+uv run python scripts/build_production.py --verify --no-launch
 ```
 
 ### Univariate build
 
 ```powershell
-uv run python build_univariate.py
+uv run python scripts/build_univariate.py
 ```
 
 Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artifact committed to the repo. Writes four sheets: **LAMBDA_functions**, **Life Expectancy Data** (the dataset the Univariate data zone reads via `LifeExpectancyData[Life expectancy]`), **Univariate** (descriptive statistics, histogram binning, and the two-stage MLE fitting — Weibull and Gamma via 1-D profile-NLL searches, Beta via two two-input Data Tables, the other five distributions in closed form), and **Version History** (the Univariate artifact's own lineage, starting at 1.0.0). Carries the complete 139-function library; no Regression-side sheets.
@@ -280,14 +280,14 @@ Common combinations:
 ```powershell
 # Build + verify the standalone Univariate workbook. This is `make verify-deep-univariate`.
 # The rebuild runs by default so the shipped Data Tables are computed, not stale.
-uv run python build_univariate.py --verify --no-launch
+uv run python scripts/build_univariate.py --verify --no-launch
 
 # Fast iteration: write the sheets and sync names, skip the slow Data-Table rebuild.
-uv run python build_univariate.py --skip-data-table-calculations --no-launch
+uv run python scripts/build_univariate.py --skip-data-table-calculations --no-launch
 
 # Structure only: write the sheets and sync names, calculating nothing at all.
 # Use this to inspect the name manager or the layout; the result is not shippable.
-uv run python build_univariate.py --no-calculation --no-launch
+uv run python scripts/build_univariate.py --no-calculation --no-launch
 ```
 
 **Why `--no-calculation` exists when `--skip-data-table-calculations` already
@@ -311,7 +311,7 @@ only the sheet writers produce.
 ### QC build
 
 ```powershell
-uv run python build_qc.py
+uv run python scripts/build_qc.py
 ```
 
 Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all thirteen sheets (the eight Regression-production sheets above, plus the **Univariate** sheet, plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
@@ -334,10 +334,10 @@ The verification step forces Excel to recalculate all required sheets, reads the
 
 ```powershell
 # Full QC build + verification (the usual invocation)
-uv run python build_qc.py
+uv run python scripts/build_qc.py
 
 # Build the QC sheets but skip the spec-driven pass (iterating on a known-broken sheet)
-uv run python build_qc.py --no-verify
+uv run python scripts/build_qc.py --no-verify
 ```
 
 `build_qc.py` mirrors terminal output to `qc_log.txt` and includes end-of-run timing lines (`Timing: prep`, `write sheets`, `sync names`, `verify`, `total`) in both places.
@@ -373,10 +373,10 @@ Reuses `build_qc.verify_test_sheets` against the production sheets. Same machine
 # NOT open Excel (so a stale build cannot be launched in place of a fresh one).
 # The rebuild is cheap (no Data Tables) and always runs — it is the source of
 # truth the verifier reads; do not pair --verify with --skip-data-table-calculations.
-python build_production.py --verify --no-launch
+python scripts/build_production.py --verify --no-launch
 
 # Same, for the standalone Univariate workbook:
-python build_univariate.py --verify --no-launch
+python scripts/build_univariate.py --verify --no-launch
 
 # Or, on the just-built workbook without rebuilding:
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
@@ -422,11 +422,15 @@ GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every 
 ## File structure
 
 ```
-build_production.py          # Regression production entry point → Lambda_Library.xlsx
-build_univariate.py          # Univariate production entry point → Lambda_Library_Univariate.xlsx
-build_qc.py                  # QC entry point → Lambda_Library_QC.xlsx
-rebuild_static_sheets.py      # regenerates templates/static_sheets.xlsx from its Python source —
+scripts/
+  build_production.py        # Regression production entry point → dist/Lambda_Library.xlsx
+  build_univariate.py        # Univariate production entry point → dist/Lambda_Library_Univariate.xlsx
+  build_qc.py                # QC entry point → Lambda_Library_QC.xlsx (gitignored fixture)
+  build_test_models.py       # test-model builder → Lambda_Library_TestModels.xlsx (gitignored fixture)
+  rebuild_static_sheets.py   # regenerates templates/static_sheets.xlsx from its Python source —
                               # see "Static reference sheets" below
+dist/                        # the two shipped .xlsx artifacts (build output, committed)
+excel-only-runs/             # archived --verify transcripts from developer-machine runs
 lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
@@ -515,10 +519,10 @@ python -m lambda_catalog.write_sheet_csv_dataset production_lots Lambda_Library.
 
 The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but neither `build_production.py` nor `build_qc.py` ever executes it; they only call the copy-from-template functions above. Regenerating the template is a separate, manual step.
 
-Run **`python rebuild_static_sheets.py`** after editing either sheet's content, then commit the updated `templates/static_sheets.xlsx` alongside the Python change. It opens the template once, calls every static sheet's `_write_template_sheet(workbook)` (so nothing is skipped or forgotten), and saves once. This is the standard command — prefer it over the per-module CLIs below, which exist only for regenerating a single sheet in isolation while debugging:
+Run **`python scripts/rebuild_static_sheets.py`** after editing either sheet's content, then commit the updated `templates/static_sheets.xlsx` alongside the Python change. It opens the template once, calls every static sheet's `_write_template_sheet(workbook)` (so nothing is skipped or forgotten), and saves once. This is the standard command — prefer it over the per-module CLIs below, which exist only for regenerating a single sheet in isolation while debugging:
 
 ```powershell
-python rebuild_static_sheets.py                          # regenerates every static sheet (standard)
+python scripts/rebuild_static_sheets.py                       # regenerates every static sheet (standard)
 python -m lambda_catalog.write_sheet_regression_instructions  # single-sheet debugging only
 python -m lambda_catalog.write_sheet_diagnostic_guide         # single-sheet debugging only
 ```
@@ -545,7 +549,7 @@ Neither is built. They are recorded here as a scoped follow-up rather than as a 
 3. If the function returns a vector, set `"test_table": "MLR_Vector_Outputs_Test"` and add expected values to `RegressionVectors` / `calculate_regression_vectors`.
 4. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py`.
 5. Update the relevant `write_sheet_mlr_*.py` to include a Calc column for the new function.
-6. Run `python build_qc.py` and confirm no WARNING lines appear.
+6. Run `python scripts/build_qc.py` and confirm no WARNING lines appear.
 
 **Argument names are load-bearing in the QC harness.** The three
 `write_sheet_mlr_*.py` writers render their formulas from each function's
@@ -562,7 +566,7 @@ argument after it. Two names carry meaning the harness acts on:
 Name a new function's matrix argument accordingly. `Predictors` is for anything
 that must not see a constant column — `VIF`, `GVIF`, `Correlation_Matrix` and
 the predictor-summary statistics; everything that fits a model takes `X`.
-7. Run `python build_production.py` to rebuild the distributables.
+7. Run `python scripts/build_production.py` to rebuild the distributables.
 8. Move the **library version**, not a workbook version — a new function ships in both artifacts. See [Which version number moves](#which-version-number-moves).
 
 ## Cell styling

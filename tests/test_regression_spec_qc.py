@@ -14,6 +14,14 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_cases,
     calculate_regression_spec_case,
 )
+from tests.script_loader import load_script_module
+
+
+# build_qc.py moved into ``scripts/`` in the Chunk 1 reorganization so it sits
+# alongside the other build scripts; the tests below access its module
+# attributes (``_QC_SHEET_NAMES``, ``_verification_calc_sheet_names`` …) and so
+# need it imported under the same module name it would have had at root.
+build_qc = load_script_module("build_qc")
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
@@ -112,8 +120,6 @@ def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> No
 
 
 def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
-    import build_qc
-
     mlr_names = {
         "MLR_Scalar_Test",
         "MLR_Vector_Outputs_Test",
@@ -124,14 +130,11 @@ def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
 
 
 def test_build_qc_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
-    import build_qc
-
     assert "Dummy_Test" in build_qc._verification_calc_sheet_names(skip_dummy=False)
     assert "Dummy_Test" not in build_qc._verification_calc_sheet_names(skip_dummy=True)
 
 
 def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
-    import build_qc
 
     calls: list[str] = []
 
@@ -170,8 +173,7 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
 
 
 def test_build_qc_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
-    import build_qc
-
+    
     assert "Univariate" in build_qc._verification_calc_sheet_names(
         skip_dummy=True, skip_univariate=False
     )
@@ -185,8 +187,7 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
     a Univariate sheet post-v3.0. Verification must skip it with a warning,
     not raise, regardless of whether skip_univariate was explicitly passed
     for this call."""
-    import build_qc
-
+    
     calls: list[str] = []
 
     class _Sheet:
@@ -236,8 +237,7 @@ def test_univariate_stage_is_silent_when_the_caller_opted_out() -> None:
     "[Univariate] sheet is missing" as a QC failure. The absence is by design
     since the v3.0 split: nothing to check, nothing to warn about.
     """
-    import build_qc
-
+    
     assert build_qc._univariate_verification_action(
         {"Regression", "Mileage Data"}, skip_univariate=True
     ) == "skip"
@@ -246,8 +246,7 @@ def test_univariate_stage_is_silent_when_the_caller_opted_out() -> None:
 def test_univariate_stage_warns_when_the_sheet_is_unexpectedly_missing() -> None:
     """A caller that did NOT opt out and has no Univariate sheet gets a warning
     — worth saying out loud, but not a QC failure."""
-    import build_qc
-
+    
     assert build_qc._univariate_verification_action(
         {"Regression"}, skip_univariate=False
     ) == "warn"
@@ -255,8 +254,7 @@ def test_univariate_stage_warns_when_the_sheet_is_unexpectedly_missing() -> None
 
 def test_univariate_stage_checks_when_the_sheet_is_present() -> None:
     """The Univariate artifact's own verify run must actually run the check."""
-    import build_qc
-
+    
     assert build_qc._univariate_verification_action(
         {"Univariate", "Life Expectancy Data"}, skip_univariate=False
     ) == "check"
@@ -270,8 +268,7 @@ def test_univariate_stage_checks_when_the_sheet_is_present() -> None:
 def test_calculate_verification_sheets_still_requires_regression_sheet() -> None:
     """Missing sheets that are never legitimately optional (Regression) must
     still hard-fail — only Univariate gets the lenient warn-and-skip path."""
-    import build_qc
-
+    
     class _Sheet:
         def __init__(self, name: str) -> None:
             self.name = name
@@ -302,8 +299,7 @@ def test_calculate_verification_sheets_still_requires_regression_sheet() -> None
 
 
 def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None:
-    import build_qc
-
+    
     class _Sheet:
         def __init__(self, name: str) -> None:
             self.name = name
@@ -339,7 +335,6 @@ def test_build_qc_run_main_skips_verified_summary_when_verification_disabled(
     monkeypatch,
     capsys,
 ) -> None:
-    import build_qc
     from lambda_catalog.workbook_builder import NameSyncResult
 
     def fake_build_qc_workbook(*, timings_out, **_):

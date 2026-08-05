@@ -446,9 +446,15 @@ def _assert_sheet_inventory(package: WorkbookPackage, expected: tuple[str, ...])
 # Fixtures: synthetic (always) and real-workbook (for the opt-in class below)
 # ---------------------------------------------------------------------------
 
-REAL_WORKBOOK_PATH = Path(__file__).resolve().parents[1] / "Lambda_Library.xlsx"
-UNIVARIATE_WORKBOOK_PATH = Path(__file__).resolve().parents[1] / "Lambda_Library_Univariate.xlsx"
-CATALOG_PATH = Path(__file__).resolve().parents[1] / "lambda_functions.json"
+ROOT_DIR = Path(__file__).resolve().parents[1]
+# The shipped artifacts moved into dist/ in the Chunk 1 reorganization. These
+# paths are what decides whether the real-workbook class runs or SKIPS, so a
+# stale one does not fail — it silently drops every check in this file that
+# reads a committed artifact, which is the whole of Layer 1 in CI.
+DIST_DIR = ROOT_DIR / "dist"
+REAL_WORKBOOK_PATH = DIST_DIR / "Lambda_Library.xlsx"
+UNIVARIATE_WORKBOOK_PATH = DIST_DIR / "Lambda_Library_Univariate.xlsx"
+CATALOG_PATH = ROOT_DIR / "lambda_functions.json"
 
 
 def _catalog_workbook_names():
@@ -1005,7 +1011,7 @@ class TestShippedUnivariateLayout:
         }
         assert not mismatched, (
             "the committed Lambda_Library_Univariate.xlsx does not match the "
-            "current writer — rebuild it with `python build_univariate.py "
+            "current writer — rebuild it with `python scripts/build_univariate.py "
             f"--verify --no-launch` on a machine with Excel and commit it. {mismatched}"
         )
 

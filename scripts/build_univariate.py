@@ -65,8 +65,8 @@ from lambda_catalog.write_sheet_version_history import write_version_history_she
 from lambda_catalog.sheet_styles import SUBHDR_COLOR
 
 
-ROOT_DIR = Path(__file__).resolve().parent
-DEFAULT_UNIVARIATE_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_Univariate.xlsx"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_UNIVARIATE_WORKBOOK_PATH = ROOT_DIR / "dist" / "Lambda_Library_Univariate.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 
 _TAB_COLOR_LIGHT_GRAY = (217, 217, 217)
@@ -91,19 +91,31 @@ _TARGET_SHEET_NAMES = frozenset(
 
 
 def _load_build_qc_module() -> object:
-    """Import build_qc.py from the repo root without requiring it to be a package.
+    """Import build_qc.py as a sibling without requiring it to be a package.
 
-    build_qc.py is a top-level script in the repo (not under lambda_catalog/),
-    so a normal ``import build_qc`` would rely on the consumer adding the
-    repo root to ``sys.path``. Loading it explicitly here keeps the verify
-    path self-contained when build_univariate is invoked as a script.
+    build_qc.py lives next to this file in ``scripts/`` (not under
+    ``lambda_catalog/``), so a normal ``import build_qc`` would rely on the
+    consumer adding ``scripts/`` to ``sys.path``. Loading it explicitly here
+    keeps the verify path self-contained when build_univariate is invoked as
+    a script.
     """
-    spec = importlib.util.spec_from_file_location("build_qc", ROOT_DIR / "build_qc.py")
+    spec = importlib.util.spec_from_file_location(
+        "build_qc", Path(__file__).resolve().parent / "build_qc.py"
+    )
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Could not load build_qc.py from {ROOT_DIR}")
+        raise RuntimeError(
+            f"Could not load build_qc.py from {Path(__file__).resolve().parent}"
+        )
     module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault("build_qc", module)
-    spec.loader.exec_module(module)
+    sys.modules["build_qc"] = module
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Mirror the import machinery: a module whose execution raised is not
+        # left registered, so a retry in the same process re-executes it rather
+        # than handing back a half-initialized object.
+        sys.modules.pop("build_qc", None)
+        raise
     return module
 
 

@@ -59,8 +59,7 @@ packages = ["lambda_catalog"]
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "/build_production.py",
-  "/build_qc.py",
+  "/scripts",
   "/lambda_catalog",
   "/sample_data",
   "/tests",

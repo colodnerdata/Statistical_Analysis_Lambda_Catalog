@@ -14,7 +14,7 @@ as its own worksheet — see [Section 1b](#section-1b--one-worksheet-per-test-mo
 
 **Where this sits in the documentation.** [CONTRIBUTING.md](../CONTRIBUTING.md#the-regression-test-model-suite)
 describes how a case is added and verified; this file decides *which* cases exist and *why*.
-Section 2's ordering is the source of the [ROADMAP.md](../ROADMAP.md#versioning--release-conventions)
+Section 2's ordering is the source of the [ROADMAP.md](ROADMAP.md#versioning--release-conventions)
 version ladder from v3.4 onward — the ladder is sequenced by the test-suite growth each milestone
 forces, so reordering a milestone means reordering Section 2 first.
 
@@ -361,10 +361,10 @@ fit a 205-column design at all — it is a guard state now, and guard sheets
 are cheap.
 
 ```
-python build_test_models.py                        # 47 sheets (31 models + 16 guards)
-python build_test_models.py --include-heavy        # 49, adding L05 and L08
-python build_test_models.py --cases M09,G10        # just those two
-python build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
+python scripts/build_test_models.py                        # 47 sheets (31 models + 16 guards)
+python scripts/build_test_models.py --include-heavy        # 49, adding L05 and L08
+python scripts/build_test_models.py --cases M09,G10        # just those two
+python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 make verify-test-models                            # the same, verbose
 ```
 
@@ -465,8 +465,8 @@ costs no rework — neither milestone depends on any Regression milestone, and n
 
 **This ordering is the roadmap's ordering.** The `Ships as` column below is the version ladder
 from v3.4 on: ROADMAP.md was renumbered to follow this table rather than the other way round.
-See [ROADMAP.md § Ladder order](../ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
-and [DECISIONS.md § ladder ordering](../DECISIONS.md#the-post-v33-ladder-regression-work-first-then-test-suite-growth).
+See [ROADMAP.md § Ladder order](ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+and [DECISIONS.md § ladder ordering](DECISIONS.md#the-post-v33-ladder-regression-work-first-then-test-suite-growth).
 
 Two framing notes:
 

@@ -13,8 +13,10 @@ from __future__ import annotations
 from pathlib import Path
 from types import SimpleNamespace
 
-import build_univariate
 from lambda_catalog.verify_report import VerifyReport
+from tests.script_loader import load_script_module
+
+build_univariate = load_script_module("build_univariate")
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,

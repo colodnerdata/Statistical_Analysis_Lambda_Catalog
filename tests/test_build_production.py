@@ -8,9 +8,11 @@ from typing import cast
 
 import pytest
 
-import build_production
 from lambda_catalog.verify_report import VerifyReport
 from lambda_catalog.workbook_builder import NameSyncResult
+from tests.script_loader import load_script_module
+
+build_production = load_script_module("build_production")
 
 
 class _FakeApi:

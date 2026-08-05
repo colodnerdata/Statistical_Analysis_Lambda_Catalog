@@ -45,6 +45,7 @@ from lambda_catalog.analyze_regression_spec import (
 )
 from lambda_catalog.build_common import (
     RUN_LOG_DIR_NAME,
+    RUN_LOG_FILE_SUFFIX,
     _retry_on_open,
     print_name_sync_summary,
     run_log_path,

@@ -397,12 +397,8 @@ def verify_test_sheets(
     univariate_action = _univariate_verification_action(
         workbook_sheet_names, skip_univariate=skip_univariate
     )
-    if univariate_action == "warn":
-        print(
-            "WARNING Univariate sheet not verified "
-            "(missing from workbook).",
-            flush=True,
-        )
+        # Warning already emitted by _calculate_verification_sheets().
+        pass
     elif univariate_action == "check":
         uv_mod = _load_module(
             "inspect_univariate_sheet",

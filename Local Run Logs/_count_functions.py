@@ -7,9 +7,9 @@ doc = json.loads(CATALOG.read_text(encoding="utf-8"))
 # catalog_schema: a CatalogDocument has .functions
 functions = doc.get("functions", doc) if isinstance(doc, dict) else doc
 print(f"Total functions: {len(functions)}")
-print(f"Workbook-scoped: {sum(1 for f in functions if f.get('scope') == 'workbook')}")
-print(f"Sheet-scoped:    {sum(1 for f in functions if f.get('scope') != 'workbook')}")
+print(f"Workbook-scoped: {sum(1 for f in functions if f.get('scope', 'workbook') == 'workbook')}")
+print(f"Sheet-scoped:    {sum(1 for f in functions if f.get('scope', 'workbook') != 'workbook')}")
 print("---")
 for f in functions:
-    if f.get("scope") != "workbook":
+    if f.get("scope", "workbook") != "workbook":
         print(f"  {f['name']}  scope={f.get('scope')}")

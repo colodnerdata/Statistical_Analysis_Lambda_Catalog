@@ -771,7 +771,7 @@ _MODEL_FORMULA_LABEL_WIDTH = 14.0
 #
 # Both columns derive from _C_DESIGN_MATRIX, so the caption tracks the zone.
 _ROW_MODEL_FORMULA = 1
-_C_MODEL_FORMULA_LABEL = _C_DESIGN_MATRIX + 2
+_C_MODEL_FORMULA_LABEL = _C_DESIGN_MATRIX + 1
 _C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 1
 
 # ── The design-matrix width guard ─────────────────────────────────────────────

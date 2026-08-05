@@ -355,7 +355,7 @@ def build_production_workbook(
         try:
             app.api.Calculation = XL_CALCULATION_MANUAL
             _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
-            # v3.0 changeover: the spec block moved onto the Regression sheet,
+            # v2.0 release: the spec block moved onto the Regression sheet,
             # so a carried-forward Model Construction sheet is stale and gets
             # dropped.
             _delete_sheet_if_present(workbook, "Model Construction")

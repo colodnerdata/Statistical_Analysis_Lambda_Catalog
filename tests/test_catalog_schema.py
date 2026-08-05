@@ -480,7 +480,7 @@ class RealCatalogIntegrationTests(unittest.TestCase):
         )
 
     def test_model_construction_closures_are_sheet_scoped(self) -> None:
-        # v3.0 changeover: the constructor closures are registered on the
+        # v2.0 release: the constructor closures are registered on the
         # Regression sheet (the spec block moved there).
         closures = self.document.functions_for_sheet("Regression")
         self.assertEqual(

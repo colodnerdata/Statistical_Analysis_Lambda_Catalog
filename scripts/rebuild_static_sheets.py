@@ -1,8 +1,8 @@
 """Regenerate every sheet in ``templates/static_sheets.xlsx`` in one shot.
 
 The static reference sheets (Regression Instructions, Diagnostic Guide) are
-dataset-independent, so ``build_production.py`` / ``build_univariate.py`` copy them
-out of this template instead of re-running their COM writes on every build
+dataset-independent, so ``build_production.py`` copies them out of this
+template instead of re-running their COM writes on every build
 (see CONTRIBUTING.md -> "Static reference sheets"). Each sheet's authored
 content lives in its own module -- ``_ROWS`` in
 ``write_sheet_regression_instructions.py``, the body of

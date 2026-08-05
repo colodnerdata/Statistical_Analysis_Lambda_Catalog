@@ -188,9 +188,20 @@ def _write_shell(
     source_table_ref: str,
     sheet_notes: dict[str, str] | None,
     closures: tuple[CatalogFunction, ...] | None,
+    shell_profile_key: str | None = None,
 ) -> xw.Sheet:
-    """Write the Regression sheet layout under a per-case identity."""
-    profile_key = profile_key_for(source_table_ref)
+    """Write the Regression sheet layout under a per-case identity.
+
+    ``shell_profile_key`` overrides which dataset's profile pre-fills the
+    block, leaving ``source_table_ref`` to decide what the sheet actually
+    reads. They agree for every case but one, which is the point: with them
+    equal the retarget path is never exercised, because the block is always
+    built for exactly the dataset it ends up pointed at. Setting this to a
+    NARROWER dataset than ``source_table_ref`` reproduces what a user does
+    by hand — edit one name and land on a table the block was not built for.
+    See the ``spec_block_retarget_widens`` guard case.
+    """
+    profile_key = shell_profile_key or profile_key_for(source_table_ref)
     # The profile is built over the table's REAL column list — shipped
     # columns plus any fixture column this artifact added — so the shipped
     # DEFAULTS cover every Source_Table column. The block's height follows
@@ -296,6 +307,7 @@ def write_guard_state_sheet(
         source_table_ref=case.source_table_ref,
         sheet_notes=sheet_notes,
         closures=closures,
+        shell_profile_key=case.shell_profile_key,
     )
     _apply_guard_spec(sheet, expected)
     _write_provenance(sheet, case.plan_id, case.name, case.covers)

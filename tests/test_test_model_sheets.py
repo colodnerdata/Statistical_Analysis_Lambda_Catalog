@@ -7,8 +7,10 @@ Three things this covers, none of which needs Excel:
    docs/MODEL_TESTING_ASSETS.md.
 2. Coverage in both directions — every case has a sheet, every sheet has a
    case, and no plan ID is claimed twice.
-3. The writer's per-sheet parameterization — a generated sheet must name its
-   own ListObject, point its chart-label formulas at itself, and skip charts.
+3. The writer's per-sheet parameterization — a generated sheet must point its
+   chart-label formulas at itself and skip charts, and its spec block must
+   size itself from the source table rather than from a ListObject built at
+   the wrong width.
 """
 # pylint: disable=missing-function-docstring
 from __future__ import annotations

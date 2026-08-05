@@ -14,7 +14,7 @@ single ungrouped GAP column so the zones collapse independently; see the
                    C2) and the Sequence status line (E1); I1 carries the
                    "Verdict" header and I2 the combined verdict switch
                    (the row-1/row-2 cells of column I are above the spec
-                   table (SpecTable), so the verdict overlays the
+                   block's own rows, so the verdict overlays the
                    Sequence_Period column's input cells without
                    disturbing the spec rows); M2 carries the design-matrix
                    width-guard status and N1/O1 its Σ label and total;
@@ -140,7 +140,6 @@ from .write_sheet_model_construction import (
     _C_TYPE as _C_SPEC_TYPE,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
     _HEADER_ROW as _SPEC_HEADER_ROW,
-    _DEFAULT_SPEC_TABLE_NAME,
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _set_spec_block_column_widths,
     _set_spec_block_optional_outline_group,
@@ -195,9 +194,10 @@ _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 # free). I1 holds the "Verdict" header (bold), I2 the priority-ordered
 # switch formula (off-grid outranks regularity, both outrank no-natural
 # and calendar; red CF outranks yellow via StopIfTrue). The E1 cell
-# carries the multi-flag Sequence error status (moved here from H2 when
-# the spec data area became a structured table, SpecTable). The design-
-# matrix width guard writes M2 (status) and N1/O1 (label/total).
+# carries the multi-flag Sequence error status (moved here from H2 when the
+# spec data area became a structured table — that table is gone, but the
+# status stayed put). The design-matrix width guard writes M2 (status) and
+# N1/O1 (label/total).
 _C_P = 16   # spec feedback: Δ header / spectrum spill
 _C_Q = 17   # spec feedback: Count header / spectrum spill
 
@@ -1139,7 +1139,6 @@ def _setup_local_names(
     sheet: xw.Sheet,
     closures: tuple[CatalogFunction, ...] | None = None,
     source_table_ref: str = "=MileageData[#All]",
-    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """Register sheet-scoped names used by every formula on this sheet.
 
@@ -1172,7 +1171,6 @@ def _setup_local_names(
         sheet,
         closures,
         source_table_ref=source_table_ref,
-        spec_table_name=spec_table_name,
     )
 
     # Zero_Predictors_Selected(): TRUE when the spec contributes no
@@ -1330,12 +1328,11 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     the standalone Model Construction sheet, so the two layouts can never
     drift. Only the zone heading and the reserved-column notes are local.
 
-    The spec block's TABLE CREATION (SpecTable) happens at the top of
-    ``write_regression_output_sheet`` — names registered after that point
-    can bind to the table's columns via SpecTable[Column] structured
-    references. Here we just layer the spec feedback (E1 status, M/N
-    spectrum, I Verdict overlay), the Intercept control, and the column
-    notes on top.
+    The block itself is written earlier in ``write_regression_output_sheet``,
+    right after the sheet-scoped names — its four computed columns are spills
+    that read those names, which is why the names go first. Here we just
+    layer the spec feedback (E1 status, M/N spectrum, I Verdict overlay), the
+    Intercept control, and the column notes on top.
     """
     section_heading(sheet, 1, _C_A, "MODEL SPECIFICATION")
     _write_spec_feedback(sheet)
@@ -1383,8 +1380,8 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
 def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
     """The ARCHITECTURE §4b pre-flight width guard, in the spec-block area.
 
-    Three cells, all in the free row-1/row-2 band above the spec table
-    (SpecTable's own content starts at the row-3 header):
+    Three cells, all in the free row-1/row-2 band above the spec block
+    (whose own content starts at the row-3 header):
 
         N1 = "Σ Design Columns"   (bold label)
         O1 = the total            — Σ(spec column O) plus the intercept
@@ -2904,7 +2901,6 @@ def write_regression_output_sheet(
     spec_profile: SpecDatasetProfile | None = None,
     sheet_name: str = REGRESSION_SHEET_NAME,
     include_charts: bool = True,
-    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """Create or refresh the spec-driven Regression sheet in workbook.
 
@@ -2924,10 +2920,11 @@ def write_regression_output_sheet(
         Pass ``=LifeExpectancyData[#All]`` to retarget to Life Expectancy Data.
     spec_profile : SpecDatasetProfile | None, optional
         The dataset's default spec-block contents (variable list plus
-        default Role/Include/Type/Sequence values) — sizes SpecTable to
-        match the targeted dataset's column count and pre-fills a sensible
+        default Role/Include/Type/Sequence values) — pre-fills a sensible
         starting model instead of leaving every column an un-flagged
-        Predictor. Defaults to the Auto MPG profile
+        Predictor. It decides which rows get shipped DEFAULTS, not how
+        many spec rows exist: the block sizes itself from
+        ``COLUMNS(Source_Data)``. Defaults to the Auto MPG profile
         (``SPEC_DATASET_PROFILES["auto_mpg"]``) when omitted, matching the
         shipped default ``source_table_ref``. Callers that retarget
         ``source_table_ref`` to a different dataset should pass the
@@ -2953,10 +2950,6 @@ def write_regression_output_sheet(
         roughly a dozen COM chart objects per sheet across ~45 sheets is
         the single largest cost in that build, and no oracle reads them —
         the production Regression sheet is where chart wiring is verified.
-    spec_table_name : str, optional
-        The ListObject name for this sheet's spec block. Excel ListObject
-        names are workbook-scoped and must be unique, so a workbook with
-        more than one spec block needs a distinct name per sheet.
     """
 
     sheet = next(
@@ -2977,23 +2970,25 @@ def write_regression_output_sheet(
     sheet.api.Cells.ClearOutline()
     safe_activate(sheet)
 
-    # The spec block must run before the names are registered: it creates
-    # the structured table (SpecTable), which the Spec_* band names bind
-    # to via SpecTable[[#Data],[Column]] references — Excel
-    # validates the RefersTo at registration time. The rest of the spec
-    # area (headers, feedback, intercept) runs in _write_model_specification
-    # below, but the table-creating part needs to come first.
-    _write_spec_block(
-        sheet,
-        spec_profile or SPEC_DATASET_PROFILES["auto_mpg"],
-        spec_table_name,
-    )
+    # Names FIRST, then the spec block. The block's four computed columns
+    # (Period In Use, Levels, Reference In Use, Design Columns) are spill
+    # formulas that read the Spec_* bands, Source_Data, Header_Names and the
+    # constructor closures, so every one of those names has to exist before
+    # they are written.
+    #
+    # This order is the reverse of what it was through v3.3, when the block
+    # created a SpecTable ListObject that the Spec_* bands bound to via
+    # structured references and Excel validated at Names.Add time. The bands
+    # are dataset-sized dynamic ranges now (see _spec_band), which depend on
+    # no table, so nothing in the names needs the block to have run. The
+    # rest of the spec area (headers, feedback, intercept) still runs in
+    # _write_model_specification below.
     _setup_local_names(
         sheet,
         closures,
         source_table_ref=source_table_ref,
-        spec_table_name=spec_table_name,
     )
+    _write_spec_block(sheet, spec_profile or SPEC_DATASET_PROFILES["auto_mpg"])
 
     _write_model_specification(sheet)
     _write_predictor_summary(sheet)

@@ -166,6 +166,44 @@ def test_names_are_created_in_dependency_order() -> None:
     assert local_name_order == _EXPECTED_NAME_ORDER
 
 
+def test_both_writers_register_names_before_the_spec_block() -> None:
+    """The block's four computed columns are spills that read the Spec_*
+    bands, Source_Data, Header_Names and the constructor closures, so every
+    one of those names has to exist first.
+
+    This inverted in v3.4: the bands used to be structured references into a
+    ListObject the block created, which Excel validated at Names.Add time, so
+    the block had to go first. Getting it backwards does not raise — the
+    spills just parse against names that do not exist yet and sit at #NAME?
+    until something re-registers them — which is exactly why it is pinned
+    here rather than left to the build to reveal.
+
+    Scoped to each WRITER's own source, not its module's. Searching the whole
+    module matches the callee's `def` line — which sits above both call sites
+    and never moves — so the assertion would hold whatever order the writer
+    actually used.
+    """
+    import inspect
+
+    from lambda_catalog.write_sheet_model_construction import (
+        write_model_construction_sheet,
+    )
+    from lambda_catalog.write_sheet_regression import write_regression_output_sheet
+
+    for writer, names_call in (
+        (write_model_construction_sheet, "_set_sheet_scoped_names("),
+        (write_regression_output_sheet, "_setup_local_names("),
+    ):
+        source = inspect.getsource(writer)
+        # Each appears exactly once, so "first occurrence" is the call site
+        # and cannot drift to some other mention.
+        assert source.count(names_call) == 1, writer.__name__
+        assert source.count("_write_spec_block(") == 1, writer.__name__
+        assert source.index(names_call) < source.index("_write_spec_block("), (
+            writer.__name__
+        )
+
+
 def test_only_the_retarget_name_references_the_table_directly() -> None:
     sheet = _named_sheet()
 
@@ -198,26 +236,27 @@ def test_source_table_wiring_can_be_overridden() -> None:
 def test_spec_ranges_cover_the_standard_input_band() -> None:
     sheet = _named_sheet()
 
-    # Spec_* band names bind to the SpecTable via structured references:
-    # SpecTable[[#Data],[Column]]. The [#Data] qualifier restricts the
-    # range to the data body (the spec rows), which is what every
-    # TAKE-trimmed consumer expects: the spec rows, not the headers.
-    # The column header text (with spaces) is the actual Excel header —
-    # structured references are case- and whitespace-sensitive, so the
-    # "Reference Level" / "Sequence Period" forms are correct.
-    for name, header in (
-        ("Spec_Role", "Role"),
-        ("Spec_Include", "Include"),
-        ("Spec_Type", "Type"),
-        ("Spec_Reference", "Reference Level"),
-        ("Spec_Order", "Order"),
-        ("Spec_Transform", "Transform"),
-        ("Spec_Sequence", "Sequence"),
-        ("Spec_Sequence_Period", "Sequence Period"),
-        ("Spec_Period_In_Use", "Period In Use"),
+    # Each Spec_* band is its column's full input range TAKE-trimmed to the
+    # live source-table width, so a Source_Table retarget resizes every band
+    # with it. These used to be structured references into the SpecTable
+    # ListObject, which pinned them to the row count baked in at build time.
+    # The band's ceiling is the same _VALIDATION_LAST_ROW the dropdowns and
+    # the conditional formatting already use — one ceiling, so they cannot
+    # disagree about how far the block can grow.
+    for name, column in (
+        ("Spec_Role", "B"),
+        ("Spec_Include", "C"),
+        ("Spec_Type", "D"),
+        ("Spec_Reference", "E"),
+        ("Spec_Order", "F"),
+        ("Spec_Transform", "G"),
+        ("Spec_Sequence", "H"),
+        ("Spec_Sequence_Period", "I"),
+        ("Spec_Period_In_Use", "J"),
     ):
         assert _refers_to(sheet, name) == (
-            f"='{SHEET_NAME}'!SpecTable[[#Data],[{header}]]"
+            f"=TAKE('{SHEET_NAME}'!${column}$4:${column}$16000,"
+            "MAX(1,COLUMNS(Source_Data)))"
         )
 
 
@@ -541,7 +580,16 @@ def test_sequence_period_name_is_read_only_by_the_base_period_layer() -> None:
         for formula in _all_written_formulas(sheet)
         if "Spec_Sequence_Period" in formula
     ]
-    assert formula_readers == []
+    # Exactly one, and it is the Period In Use spill. That display reads the
+    # typed override to decide whether to show it in place of the computed
+    # candidate; it used to reach the same cell through a
+    # [@[Sequence Period]] structured reference, so the band name did not
+    # appear in any formula. With the block table-free it goes through the
+    # band, which is why it shows up here. It is a DISPLAY, not a
+    # constructor — a second reader, or one that does not consult the
+    # candidate, is the regression this test exists to catch.
+    assert len(formula_readers) == 1, formula_readers
+    assert "Base_Period_Delta_Candidate()" in formula_readers[0]
 
 
 def test_reserved_spec_order_is_not_referenced_repo_wide() -> None:
@@ -595,23 +643,14 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         # elsewhere. Zero-or-one flags is the legal range.
         expected_sequence = True if variable in _DEFAULT_SEQUENCE_VARIABLES else None
         assert sheet.cell(row, 8).value is expected_sequence, variable
-        # I (Sequence Period) is the typed override input — input-styled,
-        # blank by default; the user types a number here to override the
-        # candidate. The candidate formula lives in J.
+        # I (Sequence Period) is the typed override input — blank by
+        # default; the user types a number here to override the candidate.
+        # The candidate display lives in J.
         assert sheet.cell(row, 9).value is None, variable
-        # J (Period In Use) is the candidate-with-override display:
-        # the typed override if I is non-blank, otherwise the candidate
-        # closure's value. The scalar [@Sequence] test keeps the
-        # candidate lazy (it computes only on the flagged row). The
-        # formula is written through .Formula (not .Formula2) because
-        # structured references are rejected by Formula2.
-        assert sheet.cell(row, 10).api.Formula == (
-            '=IF([@Sequence]<>TRUE,"",'
-            'IF(N([@[Sequence Period]])<>0,[@[Sequence Period]],'
-            'IFERROR(Base_Period_Delta_Candidate(),"")))'
-        ), variable
-        for col in range(2, 10):
-            assert sheet.cell(row, col).color == INPUT_COLOR, (variable, col)
+        # J/K/L/O carry no per-row formula any more: each is ONE spill
+        # written at _FIRST_DATA_ROW, asserted separately below.
+        if row != _FIRST_DATA_ROW:
+            assert sheet.cell(row, 10).api.Formula2 is None, variable
 
     # Spot-check the named T0 roles — the shipped spec demonstrates Identifier,
     # Response, Predictor, and Omit. Full_Data ships as Omit (not Filter): its
@@ -635,25 +674,42 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         assert sheet.cell(by_variable[variable], _C_SEQUENCE).value is None
 
 
-def test_spec_block_sizes_table_and_defaults_to_the_given_profile() -> None:
+def test_the_four_computed_columns_are_one_spill_each() -> None:
+    """J/K/L/O are single dynamic arrays anchored at _FIRST_DATA_ROW, each
+    sized by COLUMNS(Source_Data). That is the mechanism that resizes the
+    block on a Source_Table retarget.
+
+    They must go through Formula2. Writing a dynamic array through .Formula
+    enters it as a legacy CSE range, which does NOT resize — it would look
+    correct on the shipped dataset and silently reintroduce the truncation
+    the spills exist to remove.
+    """
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_block(_as_xw_sheet(sheet))
+
+    for col in (_C_PERIOD_IN_USE, _C_LEVELS, _C_REF_IN_USE, _C_DESIGN_COLUMNS):
+        formula = sheet.cell(_FIRST_DATA_ROW, col).api.Formula2
+        assert formula is not None, col
+        assert formula.startswith("=LET(nc,COLUMNS(Source_Data),"), col
+        assert "MAP(SEQUENCE(nc),LAMBDA(i," in formula, col
+        # No structured reference may survive — they only resolve inside a
+        # ListObject, which the block no longer creates.
+        assert "[@" not in formula, col
+        # Nor may the old row-arithmetic: the spill's position must not
+        # determine which source column a row maps to.
+        assert "ROW()-" not in formula, col
+
+
+def test_spec_block_defaults_to_the_given_profile() -> None:
     """--regression-dataset life_expectancy must pre-fill its own defaults.
 
-    Life Expectancy has 23 columns (vs. Auto MPG's 12), so SpecTable must
-    be sized to match — every column needs a Spec_Role/Spec_Include/etc.
-    entry, since those are SpecTable[[#Data],[Column]] structured
-    references that silently drop any column outside the table's range.
+    Life Expectancy has 23 columns vs. Auto MPG's 12. The profile no longer
+    sizes anything — the block's height follows COLUMNS(Source_Data) — but
+    it still decides which rows arrive with shipped defaults.
     """
     profile = SPEC_DATASET_PROFILES["life_expectancy"]
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet), profile)
-
-    last_data_row = _FIRST_DATA_ROW + len(profile.variables) - 1
-    assert last_data_row != _FIRST_DATA_ROW + _N_VARIABLES - 1  # differs from Auto MPG
-    table = sheet.api.ListObjects.items[-1]
-    assert table._source_range.address == (
-        (_HEADER_ROW, _C_ROLE),
-        (last_data_row, _C_SPEC_LAST),
-    )
 
     by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(profile.variables)}
     assert sheet.cell(by_variable["Life expectancy"], _C_ROLE).value == "Response (y)"
@@ -671,12 +727,13 @@ def test_spec_block_defaults_to_the_auto_mpg_profile_when_omitted() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
 
-    last_data_row = _FIRST_DATA_ROW + _N_VARIABLES - 1
-    table = sheet.api.ListObjects.items[-1]
-    assert table._source_range.address == (
-        (_HEADER_ROW, _C_ROLE),
-        (last_data_row, _C_SPEC_LAST),
-    )
+    for offset, variable in enumerate(_VARIABLES):
+        role, _, _ = _DEFAULT_SPEC.get(variable, _FALLBACK_SPEC)
+        assert sheet.cell(_FIRST_DATA_ROW + offset, _C_ROLE).value == role, variable
+    # One row past the profile is left blank rather than defaulted. A blank
+    # Role contributes nothing, so this is a legal spec — and it is what a
+    # retarget to a wider table leaves for the user to fill in.
+    assert sheet.cell(_FIRST_DATA_ROW + _N_VARIABLES, _C_ROLE).value is None
 
 
 def test_life_expectancy_and_production_lots_profiles_need_no_fallback() -> None:
@@ -710,17 +767,21 @@ def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
 
-    formula = cast(str, sheet.cell(_FIRST_DATA_ROW, _C_LEVELS).api.Formula)
+    formula = cast(str, sheet.cell(_FIRST_DATA_ROW, _C_LEVELS).api.Formula2)
     # Must display L itself (1 for degenerate columns, which Dummy_Levels
     # signals as #N/A instead), so it counts UNIQUE directly.
-    assert formula.startswith(
-        '=IF(OR([@Role]<>"Predictor (x)",[@Type]<>"Categorical"),"",'
+    assert (
+        'IF(OR(INDEX(rl,i)<>"Predictor (x)",INDEX(typ,i)<>"Categorical"),"",'
+        in formula
     )
     assert "ROWS(UNIQUE(FILTER(" in formula
     assert "Dummy_Levels" not in formula
-    assert "Sample_Include()" in formula
-    # First data row → Source_Data column 1.
-    assert f"ROW()-{_FIRST_DATA_ROW - 1}" in formula
+    # Sample_Include() is hoisted out of the MAP: it does not vary by row,
+    # and the per-row version re-evaluated the whole mask once per row.
+    assert "si,Sample_Include()," in formula
+    # The map index selects the source column — no row arithmetic, so the
+    # spill does not care which row it sits on.
+    assert "col,INDEX(Source_Data,0,i)" in formula
     assert 'x,IF(col="","",col)' in formula  # blank normalization mirrored
 
 
@@ -729,35 +790,36 @@ def test_design_columns_audit_mirrors_the_constructors_own_skip_rules() -> None:
     _write_spec_block(_as_xw_sheet(sheet))
 
     formula = cast(
-        str, sheet.cell(_FIRST_DATA_ROW, _C_DESIGN_COLUMNS).api.Formula
+        str, sheet.cell(_FIRST_DATA_ROW, _C_DESIGN_COLUMNS).api.Formula2
     )
     # The audit has to agree with Predictor_Columns() by construction, not
     # by coincidence: same iteration predicate (Role/Include), same
     # Continuous-vs-Categorical split, same reference normalization, and
     # the same degenerate skip (Dummy_Levels' #N/A means the constructor
     # contributes nothing, so the audit must read 0 and not error).
-    assert formula.startswith('=IF([@Role]<>"Predictor (x)","",')
-    assert "IF([@Include]<>TRUE,0," in formula
+    assert 'IF(INDEX(rl,i)<>"Predictor (x)","",' in formula
+    assert "IF(INDEX(inc,i)<>TRUE,0," in formula
     assert 'kk,LAMBDA(x,IF(INDEX(typ,x)<>"Categorical",1,' in formula
     assert "COLUMNS(Dummy_Levels(" in formula
     assert 'IF(LEN(INDEX(refs,x)&"")=0,"",INDEX(refs,x))' in formula
-    assert "Sample_Include()" in formula
-    # First data row → Source_Data column 1, same mapping K and L use.
-    assert f"ROW()-{_FIRST_DATA_ROW - 1}" in formula
+    assert "si,Sample_Include()," in formula
+    # The map index selects the source column, same mapping K and L use.
+    assert "k,kk(i)," in formula
     # Reading the Levels display instead would make one display depend on
     # another; the audit reads the same closure the constructor reads.
-    assert "[@Levels]" not in formula
+    assert "Spec_Levels" not in formula
 
     # v3.1: the interaction term. ONE width helper serves both operands, so
     # the audit cannot disagree with the constructor about how wide a
     # categorical operand is, and the count is the pairwise product.
     assert formula.count("kk,LAMBDA(") == 1
-    assert f"k,kk(ROW()-{_FIRST_DATA_ROW - 1})" in formula
     assert "k*kk(q)" in formula
-    assert "k+ki)))" in formula
+    assert "k+ki))))))" in formula
     # Gating mirrors the constructor's mate() exactly: blank M, blank N, a
     # name matching no column, or a non-Predictor operand all contribute 0.
-    assert "q,IFERROR(XMATCH(t,TOROW(Header_Names)),0)" in formula
+    # TOROW(Header_Names) is hoisted out of the MAP as `hdr`.
+    assert "hdr,TOROW(Header_Names)," in formula
+    assert "q,IFERROR(XMATCH(t,hdr),0)" in formula
     assert 'IF(OR(LEN(t&"")=0,LEN(o&"")=0,q=0),0,' in formula
     assert 'IF(INDEX(rl,q)<>"Predictor (x)",0,' in formula
     # Include is deliberately NOT tested on the operand — an excluded
@@ -849,8 +911,16 @@ def test_interaction_flags_key_on_the_named_operands_own_spec_row() -> None:
     hide = sheet.range(
         f"$M${r}:$N${_VALIDATION_LAST_ROW}"
     ).api.FormatConditions.items
-    assert [c.Formula1 for c in hide] == [f'=$B{r}<>"Predictor (x)"']
+    # Two rules on this band, in priority order: hide-in-place first, then
+    # the input-band fill LAST so every rule above it still wins. The fill
+    # rule replaced the per-row format_input() calls, which painted only the
+    # build-time profile's rows and so left a retarget's new rows unpainted.
+    assert [c.Formula1 for c in hide] == [
+        f'=$B{r}<>"Predictor (x)"',
+        f"=ROW()-{_FIRST_DATA_ROW - 1}<=COLUMNS(Source_Data)",
+    ]
     assert hide[0].Font.Color == excel_color(INPUT_COLOR)
+    assert hide[1].Interior.Color == excel_color(INPUT_COLOR)
 
     # Red on N: a reciprocal declaration under a SYMMETRIC operation. Ratio
     # is excluded (B/A is a different column from A/B), and a row naming
@@ -877,26 +947,27 @@ def test_reference_in_use_echoes_e_or_shows_the_sorted_default() -> None:
     _write_spec_block(_as_xw_sheet(sheet))
 
     r = _FIRST_DATA_ROW
-    formula = cast(str, sheet.cell(r, _C_REF_IN_USE).api.Formula)
+    formula = cast(str, sheet.cell(r, _C_REF_IN_USE).api.Formula2)
     # Same relevance guard as the Levels display: Categorical Predictors only.
-    assert formula.startswith(
-        '=IF(OR([@Role]<>"Predictor (x)",[@Type]<>"Categorical"),"",'
+    assert (
+        'IF(OR(INDEX(rl,i)<>"Predictor (x)",INDEX(typ,i)<>"Categorical"),"",'
+        in formula
     )
     # An explicit Reference Level is echoed verbatim (its invalid-reference
     # CF carries the error signal); blank Reference Level falls through to
     # the default.
-    assert 'IF([@[Reference Level]]<>"",[@[Reference Level]],' in formula
+    assert 'IF(INDEX(refs,i)<>"",INDEX(refs,i),' in formula
     # The default mirrors Dummy_Levels: first sorted level over the
     # mask-included sample, with the same blank normalization. NOT a
     # Dummy_Levels call — that returns the retained levels, i.e. everything
     # EXCEPT the reference.
     assert "INDEX(SORT(UNIQUE(FILTER(" in formula
     assert "Dummy_Levels" not in formula
-    assert "Sample_Include()" in formula
-    assert f"ROW()-{_FIRST_DATA_ROW - 1}" in formula
+    assert "si,Sample_Include()," in formula
+    assert "col,INDEX(Source_Data,0,i)" in formula
     assert 'x,IF(col="","",col)' in formula
     # Empty masked sample degrades to blank (H shows 0 and flags red there).
-    assert formula.endswith(',""))))')
+    assert formula.endswith(',"")))))))')
 
 
 def test_dropdowns_cover_exactly_the_list_columns() -> None:
@@ -946,9 +1017,8 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
     # Role-keyed relevance: the per-Predictor inputs (C–F) hide behind their
     # own INPUT_COLOR fill, the Categorical displays (K–L) hide behind
     # white (unfilled computed cells); H–J are deliberately NOT in these
-    # bands. Every range runs out to _VALIDATION_LAST_ROW so a row added by
-    # typing past SpecTable's current bottom edge (auto-extending the
-    # ListObject) is already covered.
+    # bands. Every range runs out to _VALIDATION_LAST_ROW so a row a
+    # Source_Table retarget brings into the block is already covered.
     role_keyed_input = sheet.range(
         f"$C${r}:$F${_VALIDATION_LAST_ROW}"
     ).api.FormatConditions.items
@@ -1031,10 +1101,10 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
 def test_sequence_status_line_validates_zero_or_one_flags() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
-    # The status cell lives in _write_spec_feedback (E1) once the spec
-    # data area becomes a structured table (SpecTable) — H2 is now the
-    # table's "Sequence" header cell, and a status cell on top of a
-    # table header reads as a visual collision.
+    # The status cell lives in _write_spec_feedback (E1), not H2: H2 is the
+    # "Sequence" column header, and a status cell on top of a header reads
+    # as a visual collision. (It moved when the spec area became a
+    # structured table; the table is gone, the placement stands.)
     from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
     _write_spec_feedback(_as_xw_sheet(sheet))
 
@@ -1106,8 +1176,8 @@ def test_fixed_effects_status_block_shows_variable_groups_and_absorbed_df() -> N
 
 def test_spec_feedback_writes_delta_count_verdict_with_priority_cf() -> None:
     """The M/N spectrum and the I1/I2 verdict overlay (Verdict overlays the
-    Sequence_Period column's row-1/row-2 cells, which are unused by the spec
-    table, SpecTable).
+    Sequence_Period column's row-1/row-2 cells, which sit above the spec
+    block's own rows and are unused by it).
 
     M1/N1: bold headers (Δ, Count). M2: the Sequence_Delta_Spectrum() spill,
     wrapped in IFERROR so a no-axis / no-spacings case degrades to blank.

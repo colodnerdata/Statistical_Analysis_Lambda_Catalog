@@ -221,6 +221,29 @@ regime as `_EXPECTED_CASE_NAMES`.
 | G11 | interaction operand with `Include = FALSE` | **amber** — marginality violation, allowed. Also exercised by M10 | existing — `guard_excluded_operand` |
 | G12 | unrecognized Interaction Operation pasted past the dropdown | `" ? "` header + `NA()` design column. No CF rule fires: the refusal is visible in the header itself | existing — `guard_unknown_interaction_operation` |
 | G13 | width **hard** error (k > 16384 − design-matrix origin) | documented as conceptual only — not buildable at reasonable size; the soft warning is L7's job | conceptual |
+| G14 | spec block built for a **narrower** dataset than `Source_Table` points at | every part of the block resizes to `COLUMNS(Source_Data)` — bands, the four computed columns, the input fill — and the model fits correctly on the wider table | existing — `guard_spec_block_retarget_widens` (L10) |
+
+**G14 is the one case that exercises the retarget itself.** Every other case
+builds its sheet for exactly the dataset it reads, so the two always agree and
+the retarget path is never taken. `GuardStateCase.shell_profile_key` is what
+creates the disagreement deliberately: L10 builds its block with the Auto MPG
+profile (12 columns) and then points `Source_Table` at `LifeExpectancyData`
+(23), which is what a user does by hand from the Name Manager — the one-name
+edit the Instructions sheet promises.
+
+Before the spec block was made table-free this state produced `#REF!` through
+the entire engine. The `Spec_*` bands were structured references into a
+`SpecTable` ListObject sized at build time; a 12-row band under a 23-column
+table meant `TAKE` returned 12 rows (it does not pad) and `INDEX(rl, 23)` ran
+off the end. Excel cannot resize a ListObject from a formula and the workbook is
+macro-free, so the table was removed and the block now sizes itself.
+
+The case earns its sheet by where its evidence sits, not by the model it fits:
+`Schooling` contributes design columns from spec index 21 — sheet row 25, ten
+rows past the old table's bottom edge at row 15.
+`test_retarget_case_puts_its_evidence_past_the_narrow_shells_last_row` pins
+that, so a future edit that moves the predictors up into the first 12 rows
+fails rather than silently testing nothing.
 
 Four rows from other sections live here, because everything they test is
 spec-block state rather than a fit — and in one case because the fit does not
@@ -283,6 +306,7 @@ message text implies.
 | Interaction: Product / self-product / Cont×Cat / Cat×Cat / Difference / Ratio | M7 / M6 / M8 / M9 / M10 / M11 |
 | Reciprocal declaration: legal (Ratio) / illegal (Product) | M11 / G10 |
 | Width guard: soft / hard | L7 (k = 205) / G13 (conceptual) |
+| `Source_Table` retarget onto a wider dataset | G14 / L10 (12-column shell → 23-column table) |
 | Group prediction under FE | P1 |
 | LSDV ↔ FE equivalence | P6 vs P2 |
 | Categorical-only design (mask without continuous predictors) | M14b |

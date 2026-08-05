@@ -149,26 +149,3 @@ def assert_sheet_names_unique(names: list[str] | tuple[str, ...]) -> None:
         raise SheetNameError(
             "Duplicate test-model sheet name(s): " + ", ".join(duplicates)
         )
-
-
-def spec_table_name(plan_id: str) -> str:
-    """Return the per-sheet ``SpecTable`` ListObject name for one case.
-
-    Excel ListObject names are **workbook**-scoped, so every generated sheet
-    needs its own — a second table named ``SpecTable`` is an error, not a
-    silent rename. The ``Spec_*`` band names that bind to it are sheet-scoped
-    and are built from this same string in
-    ``write_sheet_model_construction._set_sheet_scoped_names``, so the table
-    and its bindings can never disagree.
-
-    Parameters
-    ----------
-    plan_id : str
-        The case's plan ID, e.g. ``"M05"``.
-
-    Returns
-    -------
-    str
-        e.g. ``"SpecTable_M05"``.
-    """
-    return f"SpecTable_{plan_id}"

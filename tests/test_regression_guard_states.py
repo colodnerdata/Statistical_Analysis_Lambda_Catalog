@@ -52,6 +52,7 @@ _EXPECTED_GUARD_NAMES = [
     "guard_unknown_interaction_operation",
     "guard_ln_zero_propagation",
     "guard_width_guard_warning",
+    "guard_spec_block_retarget_widens",
     "guard_sequence_period_override",
     "guard_irregular_panel_spacing",
 ]
@@ -414,3 +415,57 @@ def test_width_guard_case_crosses_the_threshold_and_degrades_visibly() -> None:
     assert expected.width_guard_status == "WARNING"
     # Country vacated the Identifier role, so labels fall back to positional.
     assert expected.included_rows == 2909
+
+
+def test_retarget_case_puts_its_evidence_past_the_narrow_shells_last_row() -> None:
+    """L10. The spec block is built for Auto MPG (12 columns) and retargeted
+    to Life Expectancy (23), which is what a user does by editing
+    Source_Table in the Name Manager.
+
+    The case is only worth its sheet if its evidence lies BEYOND the row the
+    narrow shell used to end at. Before the block was made table-free, the
+    Spec_* bands were structured references into a ListObject sized at build
+    time; a band 12 rows tall under a 23-column table meant TAKE returned 12
+    rows (it does not pad) and INDEX(rl, 23) ran off the end, so the whole
+    engine read #REF!.
+
+    So this pins the two things that make the case a detector rather than
+    just another Life Expectancy fit: the audit is 23 long, and a predictor
+    that actually contributes design columns sits past the old bottom edge.
+    A future edit that moves the model's predictors up into the first 12
+    rows would leave the case passing while testing nothing.
+    """
+    from lambda_catalog.write_sheet_model_construction import (
+        _FIRST_DATA_ROW,
+        _LAST_DATA_ROW,
+        _N_VARIABLES,
+    )
+
+    case = next(
+        c for c in build_guard_state_cases()
+        if c.name == "guard_spec_block_retarget_widens"
+    )
+    expected = _expected("guard_spec_block_retarget_widens")
+
+    # The shell is built NARROWER than the table it reads. Every other case
+    # leaves this None, which is why none of them exercise the retarget.
+    assert case.shell_profile_key == "auto_mpg"
+    assert len(case.spec) == 23
+    assert len(expected.design_columns) == len(case.spec)
+    assert len(case.spec) > _N_VARIABLES
+
+    contributing = [
+        index
+        for index, count in enumerate(expected.design_columns)
+        if count != ""
+    ]
+    assert contributing, expected.design_columns
+    # At least one contributing row lands past the narrow shell's last row.
+    deepest_row = _FIRST_DATA_ROW + max(contributing)
+    assert deepest_row > _LAST_DATA_ROW, (deepest_row, _LAST_DATA_ROW)
+
+    # And the fit itself has to be right, not merely present.
+    assert expected.response_name == "Life expectancy"
+    assert expected.audit_k == 2
+    assert expected.design_columns_total == 3  # + the intercept
+    assert expected.width_guard_status == ""

@@ -146,6 +146,13 @@ class GuardStateCase:
     # cell's Base_Period_Delta_Candidate() formula, which is the whole point
     # of M16 and P07. Empty for every other case.
     sequence_period_override: dict[str, float] = field(default_factory=dict)
+    # Which dataset's profile pre-fills the spec block, when that is NOT the
+    # dataset source_table_ref points at. None (every case but one) means
+    # they agree, which is why the retarget path is otherwise never
+    # exercised: the block is always built for exactly the table it reads.
+    # Naming a NARROWER dataset here reproduces the user-facing retarget —
+    # edit one name, land on a table the block was not built for.
+    shell_profile_key: str | None = None
     # Why this configuration exists, in one line — written onto the sheet as
     # provenance so an opened tab explains itself.
     covers: str = ""
@@ -893,6 +900,41 @@ def build_guard_state_cases() -> list[GuardStateCase]:
             "WARNING, and the engine returns #N/A rather than a plausible "
             "wrong number — the workbook cannot invert a Gram matrix this "
             "wide, which is what the guard exists to say.",
+        ),
+        GuardStateCase(
+            name="guard_spec_block_retarget_widens",
+            plan_id="L10",
+            sheet_name="L10 Retarget Widens Spec",
+            # An ordinary two-predictor Life Expectancy model. The MODEL is
+            # not the point — a correct fit is. The corner is the SHEET it
+            # is fitted on: built with the Auto MPG profile (12 columns) and
+            # then pointed at LifeExpectancyData (23), exactly what a user
+            # does by editing Source_Table in the Name Manager.
+            spec=tuple(
+                _life_spec(
+                    response=_spec_var("Life expectancy", _ROLE_RESPONSE),
+                    schooling=_spec_var(
+                        "Schooling", _ROLE_PREDICTOR, True, "Continuous"
+                    ),
+                    status=_spec_var(
+                        "Status", _ROLE_PREDICTOR, True, "Categorical"
+                    ),
+                )
+            ),
+            source_csv_path=LIFE_EXPECTANCY_CSV_PATH,
+            row_loader=load_life_expectancy_source_rows,
+            source_table_ref="=LifeExpectancyData[#All]",
+            # THE knob under test. Every other case leaves this None, so the
+            # shell is always built for the dataset it reads and the widening
+            # retarget never happens.
+            shell_profile_key="auto_mpg",
+            covers="A spec block built for a 12-column dataset, retargeted "
+            "to a 23-column one. The Spec_* bands, the four computed "
+            "columns and the input band must all resize to 23 rows. Before "
+            "the block was made table-free this state was unreachable "
+            "except by hand, and produced #REF! through the whole engine: "
+            "the bands were structured references into a ListObject sized "
+            "at build time, and TAKE does not pad.",
         ),
         GuardStateCase(
             name="guard_sequence_period_override",

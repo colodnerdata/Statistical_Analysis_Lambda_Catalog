@@ -16,15 +16,15 @@ from types import SimpleNamespace
 
 import pytest
 
-from lambda_catalog.verify_report import VerifyReport
-from tests.script_loader import load_script_module
-
-build_univariate = load_script_module("build_univariate")
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
     NameSyncResult,
 )
+from lambda_catalog.verify_report import VerifyReport
+from tests.script_loader import load_script_module
+
+build_univariate = load_script_module("build_univariate")
 
 
 class _FakeApi:
@@ -611,12 +611,8 @@ def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
     assert len(recalc_calls) == 1
 
 
-class _FakeVerifyBuildQc:
-    """Stand-in for the build_qc module returned by _load_build_qc_module.
-
-    Records the kwargs passed to verify_test_sheets and does not raise, so
-    _run_deep_verify takes its success branch and returns a passing report.
-    """
+class _FakeVerifyRecorder:
+    """Records kwargs passed to deep_verify.verify_test_sheets."""
 
     def __init__(self) -> None:
         self.verify_kwargs: dict = {}
@@ -637,8 +633,10 @@ def test_run_deep_verify_forwards_skip_regression_true(monkeypatch) -> None:
     app = _FakeApp()
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
 
-    fake_build_qc = _FakeVerifyBuildQc()
-    monkeypatch.setattr(build_univariate, "_load_build_qc_module", lambda: fake_build_qc)
+    fake_verify = _FakeVerifyRecorder()
+    monkeypatch.setattr(
+        build_univariate, "verify_test_sheets", fake_verify.verify_test_sheets
+    )
 
     report = build_univariate._run_deep_verify(
         Path("Example.xlsx"),
@@ -646,11 +644,11 @@ def test_run_deep_verify_forwards_skip_regression_true(monkeypatch) -> None:
     )
 
     assert report.passed is True
-    assert fake_build_qc.verify_kwargs["skip_regression"] is True
-    assert fake_build_qc.verify_kwargs["skip_dummy"] is True
-    assert fake_build_qc.verify_kwargs["regression_sheet_configs"] is None
+    assert fake_verify.verify_kwargs["skip_regression"] is True
+    assert fake_verify.verify_kwargs["skip_dummy"] is True
+    assert fake_verify.verify_kwargs["regression_sheet_configs"] is None
     # The Univariate check is NOT skipped (the sheet is present in this artifact).
-    assert fake_build_qc.verify_kwargs.get("skip_univariate") is not True
+    assert fake_verify.verify_kwargs.get("skip_univariate") is not True
 
 
 def test_main_verify_forwards_skip_regression_true(monkeypatch, tmp_path) -> None:

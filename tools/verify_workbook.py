@@ -1,6 +1,6 @@
 """Standalone CLI that runs the spec-driven verifier against a production workbook.
 
-Wraps ``build_qc.verify_test_sheets`` behind a small CLI that mirrors
+Wraps ``lambda_catalog.deep_verify.verify_test_sheets`` behind a small CLI that mirrors
 ``build_production --verify`` but takes only a workbook path (and optional
 CSV). Useful for re-verifying a previously-built workbook without going
 through a full ``build_production`` cycle — for example, after manually
@@ -18,13 +18,14 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import sys
 import time
 from pathlib import Path
 
 import xlwings as xw
 
+from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
+from lambda_catalog.deep_verify import verify_test_sheets
 from lambda_catalog.verify_report import (
     VerifyReport,
     report_from_failures,
@@ -36,38 +37,6 @@ from lambda_catalog.write_sheet_csv_dataset import LIFE_EXPECTANCY, MILEAGE
 
 DEFAULT_CSV_PATH = LIFE_EXPECTANCY.default_csv_path
 DEFAULT_MILEAGE_CSV_PATH = MILEAGE.default_csv_path
-
-
-ROOT_DIR = Path(__file__).resolve().parent.parent
-
-
-SCRIPTS_DIR = ROOT_DIR / "scripts"
-
-
-def _load_build_qc_module() -> object:
-    """Import ``scripts/build_qc.py``.
-
-    ``build_qc`` is a standalone script under ``scripts/``, not part of the
-    ``lambda_catalog`` package, so the canonical import path is unavailable
-    from a frozen console entry point. Loading it explicitly via ``importlib``
-    keeps the verifier self-contained.
-    """
-    spec = importlib.util.spec_from_file_location(
-        "build_qc", SCRIPTS_DIR / "build_qc.py"
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Could not load build_qc.py from {SCRIPTS_DIR}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["build_qc"] = module
-    try:
-        spec.loader.exec_module(module)
-    except BaseException:
-        # Mirror the import machinery: a module whose execution raised is not
-        # left registered, so a retry in the same process re-executes it rather
-        # than handing back a half-initialized object.
-        sys.modules.pop("build_qc", None)
-        raise
-    return module
 
 
 def verify_workbook(
@@ -86,8 +55,6 @@ def verify_workbook(
     deciding whether to ``sys.exit(1)``.
     """
     start = time.monotonic()
-    build_qc = _load_build_qc_module()
-
     app: xw.App | None = None
     workbook: xw.Book | None = None
     try:
@@ -104,9 +71,9 @@ def verify_workbook(
                 regression_sheet_configs = (
                     None
                     if skip_regression
-                    else build_qc.build_regression_spec_qc_configs(mileage_path)
+                    else build_regression_spec_qc_configs(mileage_path)
                 )
-                build_qc.verify_test_sheets(
+                verify_test_sheets(
                     workbook,
                     regression_sheet_configs,
                     csv_path,

@@ -86,7 +86,7 @@ Every row below was new before this pass; all nine are now implemented.
 | L2 | `Ln(Life expectancy) ~ Adult Mortality + Schooling + C(Status)` | **exponential model** (log-level, `ln(y) ~ x`); Back-Transform = Duan (default) | **(Log, None)** pair; smearing factor; unit-space R²/RMSE; Original-Units prediction + AZ/BA residual columns | existing — `life_log_response_duan` |
 | L3 | L2 with Back-Transform = **Naive** | flips `AH4` | naive point estimate `EXP(ŷ)`; confirms CI/PI bounds are EXP-only under both settings. **Required an oracle change** — the Python side computed both branches and discarded the Naive one, so `AH4` had never been verified against anything | existing — `life_log_response_naive` |
 | L4 | `Ln(Life expectancy) ~ Ln(GDP) + Ln(Population)` | elasticity form | (Log, Log) with large-sample masking | existing — `life_elasticity_log_log` |
-| L5 | `Life expectancy ~` all 18 continuous + `C(Status)` | shipped `life_expectancy` profile; Year = Sequence, Country = Identifier | k-stress kitchen sink (k = 19); the shipped default finally gets an oracle | existing — `life_full_profile` |
+| L5 | `Life expectancy ~` all 18 continuous + `C(Status)` | shipped `life_expectancy` profile; Year = Sequence, Country = Identifier | k-stress kitchen sink (k = 19); the shipped default finally gets an oracle. **Heavy** — at k = 19 with n = 2117 the statsmodels OLS reference and Excel's OLS implementation diverge in the 5th–6th decimal place on most coefficients and residuals (both go through a QR-with-column-pivoting path on an ill-conditioned Gram matrix and produce near-tied numerics), so this case lives behind `--include-heavy` as a deliberate showcase for the floor, not as a defect to paper over. | existing — `life_full_profile` (**heavy**) |
 | L6 | `Life expectancy ~ Adult Mortality + Ln(Schooling)` | Schooling contains 28 true zeros | **`Ln_Positive` zero guard** — see the correction below: the rows do NOT drop out of the mask | existing — **guard state** `guard_ln_zero_propagation` |
 | L7 | `Life expectancy ~ C(Country) + C(Year) +` 8 continuous | 183 countries → 182 dummies, + 15 Year dummies + 8; k = 205 | **width-guard soft warning** (k = 200 threshold, `M2` status), and the engine degrading visibly rather than returning a plausible wrong number | existing — **guard state** `guard_width_guard_warning` |
 | L8 | `Life expectancy ~ Schooling + Adult Mortality \| Country` | Year = Sequence | **high-cardinality Fixed Effects** (173 surviving groups, 172 absorbed df); panel spacing verdicts at scale | existing — `life_country_fixed_effects` (**heavy**) |
@@ -349,14 +349,20 @@ Charts are **off** on generated sheets. Roughly a dozen COM chart objects per sh
 across ~48 sheets is the single largest cost in the build, and no oracle reads one;
 chart wiring is verified once, on the production Regression sheet.
 
-**Two cases are opt-in.** L07 (a ~2900 × 205 design matrix) and L08 (173 Fixed
-Effects groups) carry `heavy=True` and are skipped unless `--include-heavy` or an
-explicit `--cases L07` is given. Their Python oracles always run in the unit suite
-— only the sheet build is gated.
+**Two cases are opt-in.** L05 (Kitchen Sink Profile, k = 19, n = 2117) and L08
+(173 Fixed Effects groups) carry `heavy=True` and are skipped unless
+`--include-heavy` or an explicit `--cases L05` / `--cases L08` is given. L08
+is gated on sheet-build cost; L05 is gated on the statsmodels-vs-Excel
+floating-point floor at fdd = 5/6 that both implementations agree on (it
+lives here as a deliberate showcase for the floor, not as a defect). Their
+Python oracles always run in the unit suite — only the sheet build is gated.
+L07 was the third candidate until the live run showed the workbook cannot
+fit a 205-column design at all — it is a guard state now, and guard sheets
+are cheap.
 
 ```
-python build_test_models.py                        # 48 sheets (32 models + 16 guards)
-python build_test_models.py --include-heavy        # 49, adding L08
+python build_test_models.py                        # 47 sheets (31 models + 16 guards)
+python build_test_models.py --include-heavy        # 49, adding L05 and L08
 python build_test_models.py --cases M09,G10        # just those two
 python build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 make verify-test-models                            # the same, verbose

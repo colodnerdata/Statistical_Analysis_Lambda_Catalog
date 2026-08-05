@@ -445,8 +445,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--include-heavy",
         action="store_true",
-        help="Also build the cases marked heavy — currently only L08 (173 "
-        "Fixed Effects groups over 2909 rows). Its Python oracle runs in the "
+        help="Also build the cases marked heavy — currently L08 (173 Fixed "
+        "Effects groups over 2909 rows) and L05 (Kitchen Sink Profile, "
+        "k=19, n=2117). L08 is gated on sheet-build cost; L05 is gated on "
+        "the statsmodels-vs-Excel floating-point floor at fdd=5/6 that "
+        "both implementations agree on. Their Python oracles run in the "
         "unit suite either way; only the sheet is gated.",
     )
     parser.add_argument(

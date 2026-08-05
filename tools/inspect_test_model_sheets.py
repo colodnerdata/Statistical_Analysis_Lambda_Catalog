@@ -51,10 +51,9 @@ from lambda_catalog.regression_spec_sheet_io import (
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
 from lambda_catalog.write_sheet_model_construction import (
     _C_DESIGN_COLUMNS,
+    _C_REFERENCE,
     _C_ROLE,
-    _C_SEQUENCE,
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
-    _INTERCEPT_ROW,
 )
 
 # Shared with inspect_regression_sheet.py: a comparison fails when the first
@@ -63,15 +62,29 @@ _D = 3
 TOLERANCE_DECIMALS = _D * 2  # 6
 
 # Where the guard-state facts live, all imported rather than spelled out.
-# _C_ROLE is column B (the Fixed Effects cardinality error at B1);
-# _C_SEQUENCE is column H (the multi-flag status at H2). The width guard's
-# M2 and the Σ total at O1 come from the interaction pair's own columns.
+# The Fixed Effects cardinality error sits at B1 (_C_ROLE × row 1); the
+# Sequence multi-flag status sits at E1 (_C_REFERENCE × row 1). Both
+# occupy otherwise-blank model-level cells in the row-1 zone above the
+# spec-table area (which begins on row 3). The Sequence status used to
+# live at H2, but H2 became the spec-table's "Sequence" header cell when
+# the spec data area became a structured table, and a status line on top
+# of a header reads as a visual collision — so it moved to E1, which is
+# Reference Level's row-1 cell (Reference Level is a per-row input, blank
+# on row 1 by default). See write_sheet_model_construction.py:_write_
+# spec_feedback_block.
 _ROW_STATUS = 1
-_ROW_SEQUENCE_STATUS = _INTERCEPT_ROW  # H2, on the intercept-control row
+_ROW_SEQUENCE_STATUS = 1  # E1 — see write_sheet_model_construction
 
 
 def _as_text(value: object) -> str:
-    """Render a cell value as the text a status comparison expects."""
+    """Render a cell value as the text a status comparison expects.
+
+    Strips whitespace so the comparison is robust to the trailing-space
+    artifacts the spec-block formula template emits — the AB2 Model Formula
+    cell renders ``"MPG ~ 1 + "`` (with a trailing separator) when its
+    predictor list is empty, and the oracle mirrors that template
+    character-exactly, so both sides must strip before comparing.
+    """
     if value is None:
         return ""
     return str(value).strip()
@@ -130,22 +143,22 @@ def verify_guard_sheet(sheet: xw.Sheet, expected: GuardStateExpected) -> list[st
 
     _check(
         "model_formula",
-        expected.model_formula,
+        _as_text(expected.model_formula),
         _as_text(read_model_formula(sheet)),
     )
     _check(
         "response_readout",
-        expected.response_name,
+        _as_text(expected.response_name),
         _as_text(read_response_readout(sheet)),
     )
     _check(
         "sequence_status",
-        expected.sequence_status,
-        _as_text(sheet.range(_ROW_SEQUENCE_STATUS, _C_SEQUENCE).value),
+        _as_text(expected.sequence_status),
+        _as_text(sheet.range(_ROW_SEQUENCE_STATUS, _C_REFERENCE).value),
     )
     _check(
         "fixed_effects_status",
-        expected.fixed_effects_status,
+        _as_text(expected.fixed_effects_status),
         _as_text(sheet.range(_ROW_STATUS, _C_ROLE).value),
     )
 

@@ -4,7 +4,7 @@ This directory holds diagnostic output from scripts that **require Microsoft Exc
 
 ## Why this is tracked
 
-The spec-driven verifier cannot run on the GitHub-hosted Linux CI without Excel (`xlwings` cannot dispatch `Excel.Application`). The headless screen (`make verify-headless`) IS in CI because it needs only `zipfile` + `lxml`. When an Excel-required build fails, the diagnostics never reach a CI artifact.
+The spec-driven verifier cannot run on the GitHub-hosted Linux CI without Excel (`xlwings` cannot dispatch `Excel.Application`). The headless screen (`poe verify-headless`) IS in CI because it needs only `zipfile` + `lxml`. When an Excel-required build fails, the diagnostics never reach a CI artifact.
 
 **This directory is the cross-tool substitute for that missing CI.** Transcripts here are committed so a contributor — or a coding agent (Claude Code, Copilot, etc.) — opening the repo cold can read what is and isn't currently working on a Windows-only verifier build, the same way they'd read a CI log. A pull request that adds an Excel-required build with no transcript on its branch has no paper trail.
 

@@ -704,7 +704,7 @@ def test_main_archives_the_verify_report_to_the_run_log(monkeypatch, tmp_path) -
 
     Same reasoning as the Regression driver's copy of this test: this build
     needs Excel, so `excel-only-runs/` is the only place the output of a
-    failed `make verify-deep-univariate` survives the terminal that ran it.
+    failed `poe verify-deep-univariate` survives the terminal that ran it.
     """
     log_path = tmp_path / "build_univariate verify.log"
 

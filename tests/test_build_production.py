@@ -632,7 +632,7 @@ def test_main_archives_the_verify_report_to_the_run_log(
 ) -> None:
     """A failing --verify run must leave its VerifyReport in the transcript.
 
-    `make verify-deep` cannot run on the GitHub-hosted Linux CI (no Excel),
+    `poe verify-deep` cannot run on the GitHub-hosted Linux CI (no Excel),
     so `excel-only-runs/` is the only place a reviewer or a future agent can
     read what a failed deep verify actually said. The report has to be IN the
     file, not just on the terminal that ran it.

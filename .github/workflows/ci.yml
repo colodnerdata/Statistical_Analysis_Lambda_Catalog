@@ -28,12 +28,17 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-groups --frozen
 
+      # These two steps go through the poethepoet tasks defined in
+      # pyproject.toml, so CI and a developer machine run the same command
+      # definitions and cannot drift. `uv sync --all-groups` above installs
+      # poethepoet from the dev group; `--frozen` is supplied by the
+      # UV_FROZEN=1 set in [tool.poe.env].
       - name: Run tests with coverage
-        run: uv run --frozen pytest --cov --cov-report=term-missing --cov-report=xml
+        run: uv run poe test-cov
 
       - name: Run static checks
         if: matrix.python-version == '3.12'
-        run: uv run --frozen pylint --errors-only lambda_catalog scripts tools
+        run: uv run poe lint
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
@@ -49,6 +54,6 @@ jobs:
 # xlwings fails to dispatch `Excel.Application` with
 # `pywintypes.com_error: (-2147221005, 'Invalid class string')`.
 # The spec-driven verifier is still runnable on a developer machine via
-# `python scripts/build_production.py --verify --no-launch`
+# `poe verify-deep` (or `python scripts/build_production.py --verify --no-launch`)
 # (see CONTRIBUTING.md → *Verifying builds*); it just has no CI home until
 # a self-hosted runner with Office is wired in.

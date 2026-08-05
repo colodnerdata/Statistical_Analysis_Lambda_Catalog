@@ -648,7 +648,7 @@ def main() -> None:
     traceback of anything that aborts it, stderr included — is teed into
     ``excel-only-runs/``. This build needs Excel, so it cannot run on the
     GitHub-hosted Linux CI; that directory is the cross-tool substitute for
-    the CI log a failed ``make verify-deep-univariate`` would otherwise leave
+    the CI log a failed ``poe verify-deep-univariate`` would otherwise leave
     only in somebody's terminal scrollback. See ``excel-only-runs/README.md``
     for which transcripts belong on a branch and when to retire one.
     """

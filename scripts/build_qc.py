@@ -738,6 +738,10 @@ class _Tee(io.TextIOBase):
 def main() -> None:
     """Build the QC workbook and print a sync summary for interactive use."""
     args = parse_args()
+    # logs/ is gitignored, so it does not exist in a fresh clone or after a
+    # clean. Create it the same way build_common.run_log_path's writer does,
+    # or this open() raises FileNotFoundError before the build even starts.
+    DEFAULT_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(DEFAULT_LOG_PATH, "w", encoding="utf-8") as log_file:
         real_stdout = sys.stdout
         sys.stdout = _Tee(sys.stdout, log_file)

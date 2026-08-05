@@ -3,30 +3,35 @@ import os
 import sys
 from pathlib import Path
 
-WORKBOOK = Path(r"C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx")
+ROOT_DIR = Path(__file__).resolve().parent.parent
+WORKBOOK = Path(sys.argv[1]) if len(sys.argv) > 1 else (ROOT_DIR / "Lambda_Library_TestModels.xlsx")
 if not WORKBOOK.exists():
     print(f"NOT FOUND: {WORKBOOK}")
     sys.exit(1)
 
-# Probe 1: try to open the file with share mode = 0 (exclusive). If sharing
-# violation, the file is locked by something else.
-import msvcrt
+# Probe 1: try to open the file with dwShareMode = 0 (exclusive). If this fails
+# with a sharing/lock violation, another process has it open.
+import pywintypes
+import win32con
+import win32file
+
 try:
-    fd = os.open(str(WORKBOOK), os.O_RDWR | os.O_BINARY)
-    os.close(fd)
+    h = win32file.CreateFile(
+        str(WORKBOOK),
+        win32con.GENERIC_READ,
+        0,
+        None,
+        win32con.OPEN_EXISTING,
+        win32con.FILE_ATTRIBUTE_NORMAL,
+        None,
+    )
+    win32file.CloseHandle(h)
     print("OPEN exclusive OK -- file is NOT locked")
-except PermissionError as exc:
-    print(f"LOCKED: {exc}")
-    print("  Windows reports another process has the file open with a share mode that excludes this exclusive open.")
-
-# Probe 2: read-only with sharing=0 also fails if file is locked.
-try:
-    fd = os.open(str(WORKBOOK), os.O_RDONLY | os.O_BINARY)
-    os.close(fd)
-    print("OPEN read-only OK -- no lock at all")
-except PermissionError as exc:
-    print(f"LOCKED (read-only also failed): {exc}")
-
+except pywintypes.error as exc:
+    if getattr(exc, "winerror", None) in (32, 33):  # sharing/lock violation
+        print(f"LOCKED: {exc}")
+    else:
+        raise
 # Probe 3: enumerate all processes; filter to those likely to hold the lock.
 print()
 print("Suspicious processes (excel/python related):")

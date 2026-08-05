@@ -383,8 +383,8 @@ the **Mileage Data** sheet — alongside Life Expectancy Data. It exists to
 make the one-name retarget concrete: repoint `Source_Table` at
 `MileageData[#All]` in Name Manager and the whole spec block re-populates
 from the new columns, with no data of the user's own required. This is
-the reason both `build_production.py` and `build_univariate.py` write the two
-datasets as the default build output, and why the QC verifier checks each
+the reason `build_production.py` writes the two
+datasets as the default build output, and why the spec-driven Excel verifier checks each
 sheet's `Full_Data` completeness column independently.
 
 ### Supersession notes from the v1 planning

@@ -2,8 +2,6 @@
   "functions": [
     {
       "name": "Observations",
-      "test_table": null,
-      "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    ROWS(FILTER(Y, filt_arg))\n  ))",
       "arguments": [
         {
@@ -23,8 +21,6 @@
     },
     {
       "name": "Regression_Degrees_Of_Freedom",
-      "test_table": null,
-      "number_format": "0",
       "formula_display": "=LAMBDA(X, [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    COLUMNS(X) - N(has_arg)\n  ))",
       "arguments": [
         {
@@ -44,8 +40,6 @@
     },
     {
       "name": "Total_Degrees_Of_Freedom",
-      "test_table": null,
-      "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    n,        Observations(Y, filt_arg),\n    n - N(has_arg)\n  ))",
       "arguments": [
         {
@@ -70,8 +64,6 @@
     },
     {
       "name": "R_Squared",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    1 - SS_Residual(X, Y, filt_arg) / SS_Total(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
@@ -100,8 +92,6 @@
     },
     {
       "name": "Residual_Degrees_Of_Freedom",
-      "test_table": null,
-      "number_format": "0",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Observations(Y, filt_arg) - COLUMNS(X) - absorbed_arg\n  ))",
       "arguments": [
         {
@@ -130,8 +120,6 @@
     },
     {
       "name": "Multiple_R",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SQRT(R_Squared(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
@@ -160,8 +148,6 @@
     },
     {
       "name": "Adjusted_R_Squared",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    1 - (1 - R_Squared(X, Y, filt_arg, context_arg))\n      * Total_Degrees_Of_Freedom(Y, filt_arg, context_arg)\n      / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
@@ -190,8 +176,6 @@
     },
     {
       "name": "SS_Total",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    y_filt,   FILTER(Y, filt_arg),\n    IF(NOT(has_arg),\n      SUMSQ(y_filt),\n      LET(\n        c, FILTER(CHOOSECOLS(X, 1), filt_arg),\n        SUMSQ(y_filt) - SUMPRODUCT(c, y_filt) ^ 2 / SUMSQ(c)\n      )\n    )\n  ))",
       "arguments": [
         {
@@ -220,8 +204,6 @@
     },
     {
       "name": "SS_Residual",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, TRUE), 5, 2)\n  ))",
       "arguments": [
         {
@@ -245,8 +227,6 @@
     },
     {
       "name": "SS_Regression",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Total(X, Y, filt_arg, context_arg) - SS_Residual(X, Y, filt_arg)\n  ))",
       "arguments": [
         {
@@ -275,8 +255,6 @@
     },
     {
       "name": "MS_Regression",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Regression(X, Y, filt_arg, context_arg) / Regression_Degrees_Of_Freedom(X, context_arg)\n  ))",
       "arguments": [
         {
@@ -305,8 +283,6 @@
     },
     {
       "name": "MS_Residual",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
@@ -335,8 +311,6 @@
     },
     {
       "name": "SE_Regression",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SQRT(SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
@@ -365,8 +339,6 @@
     },
     {
       "name": "PRESS",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    SUMSQ(LOOCV_Residual(X, Y, filt_arg))\n  ))",
       "arguments": [
         {
@@ -390,8 +362,6 @@
     },
     {
       "name": "AIC",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + 2 * p\n  ))",
       "arguments": [
         {
@@ -420,8 +390,6 @@
     },
     {
       "name": "BIC",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + p * LN(n)\n  ))",
       "arguments": [
         {
@@ -450,8 +418,6 @@
     },
     {
       "name": "AICc",
-      "test_table": null,
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
       "arguments": [
         {
@@ -480,8 +446,6 @@
     },
     {
       "name": "Durbin_Watson",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    e,        Residuals(X, Y, filt_arg),\n    SUM((DROP(e, 1) - DROP(e, -1))^2) / SUM(e^2)\n  ))",
       "arguments": [
         {
@@ -505,8 +469,6 @@
     },
     {
       "name": "Durbin_Watson_By",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, seq, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    e,        Residuals(X, Y, filt_arg),\n    ord,      FILTER(seq, filt_arg),\n    es,       SORTBY(e, ord, 1),\n    SUM((DROP(es, 1) - DROP(es, -1))^2) / SUM(es^2)\n  ))",
       "arguments": [
         {
@@ -534,8 +496,6 @@
     },
     {
       "name": "BFN_Panel_Durbin_Watson",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, group, seq, [delta], [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    step,     IF(ISOMITTED(delta), Base_Period_Delta(), delta),\n    e,        Residuals(X, Y, filt_arg),\n    g_f,      FILTER(group, filt_arg),\n    t_f,      FILTER(seq, filt_arg),\n    d,        Difference_By(e, g_f, t_f, step),\n    n_terms,  SUMPRODUCT(N(ISNUMBER(d))),\n    IF(n_terms = 0, NA(),\n      SUMPRODUCT(IFERROR(d, 0)^2) / SUMPRODUCT(e^2))\n  ))",
       "arguments": [
         {
@@ -572,8 +532,6 @@
     },
     {
       "name": "QQ_Correlation",
-      "test_table": null,
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    sr, Scaled_Residuals_Ranked(X, Y, filt_arg, context_arg),\n    n,  ROWS(sr),\n    ns, NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
       "arguments": [
         {
@@ -602,8 +560,6 @@
     },
     {
       "name": "Coefficients",
-      "test_table": null,
-      "number_format": "0.000000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    ls,       LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, FALSE),\n    k,        COLUMNS(X),\n    TRANSPOSE(CHOOSECOLS(ls, SEQUENCE(1, k, k, -1)))\n  ))",
       "arguments": [
         {
@@ -627,8 +583,6 @@
     },
     {
       "name": "SE_Coefficients",
-      "test_table": null,
-      "number_format": "0.000000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    ls,       LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, TRUE),\n    ses,      INDEX(ls, 2),\n    k,        COLUMNS(X),\n    naive_df, Residual_Degrees_Of_Freedom(X, Y, filt_arg),\n    true_df,  naive_df - absorbed_arg,\n    scale,    SQRT(naive_df / true_df),\n    TRANSPOSE(CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))) * scale\n  ))",
       "arguments": [
         {
@@ -657,8 +611,6 @@
     },
     {
       "name": "T_Statistics",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg) / SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
@@ -687,8 +639,6 @@
     },
     {
       "name": "P_Values",
-      "test_table": null,
-      "number_format": "0.00E+00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    T.DIST.2T(ABS(T_Statistics(X, Y, filt_arg, context_arg)), Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
@@ -717,8 +667,6 @@
     },
     {
       "name": "Confidence_Interval_Lower",
-      "test_table": null,
-      "number_format": "0.000000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n        * SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
@@ -752,8 +700,6 @@
     },
     {
       "name": "Confidence_Interval_Upper",
-      "test_table": null,
-      "number_format": "0.000000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n        * SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
@@ -787,8 +733,6 @@
     },
     {
       "name": "Partial_R_Squared",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    t,  T_Statistics(X, Y, filt_arg, context_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t^2 / (t^2 + df)\n  ))",
       "arguments": [
         {
@@ -817,8 +761,6 @@
     },
     {
       "name": "Partial_Correlation",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    t,  T_Statistics(X, Y, filt_arg, context_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t / SQRT(t^2 + df)\n  ))",
       "arguments": [
         {
@@ -847,8 +789,6 @@
     },
     {
       "name": "Beta_Weights",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,   IF(ISOMITTED(Include),       TRUE, Include),\n    coefs,      Coefficients(X, Y, filt_arg),\n    preds,      IF(has_arg, DROP(X, , 1), X),\n    pred_coefs, IF(has_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(preds),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(preds, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
       "arguments": [
         {
@@ -877,8 +817,6 @@
     },
     {
       "name": "VIF",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(Predictors),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        ones,    SEQUENCE(ROWS(Predictors), 1, 1, 0),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_Squared(\n            HSTACK(ones, CHOOSECOLS(Predictors, FILTER(col_idx, col_idx <> j))),\n            CHOOSECOLS(Predictors, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
       "arguments": [
         {
@@ -898,8 +836,6 @@
     },
     {
       "name": "Tolerance",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, [Include],\n  1 / VIF(Predictors, Include)\n)",
       "arguments": [
         {
@@ -919,7 +855,6 @@
     },
     {
       "name": "GVIF",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, Column_Names, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(Predictors),\n    grp,      IFERROR(LEFT(Column_Names, FIND(\": \", Column_Names) - 1), Column_Names),\n    IF(COUNTA(UNIQUE(grp, TRUE)) <= 1,\n      MAKEARRAY(k, 1, LAMBDA(j, _, 1)),\n      LET(\n        R,    Correlation_Matrix(Predictors, filt_arg),\n        detR, MDETERM(R),\n        MAKEARRAY(k, 1, LAMBDA(j, _,\n          LET(\n            g,   INDEX(grp, 1, j),\n            own, grp = g,\n            R11, FILTER(FILTER(R, TRANSPOSE(own)), own),\n            R22, FILTER(FILTER(R, TRANSPOSE(NOT(own))), NOT(own)),\n            MDETERM(R11) * MDETERM(R22) / detR\n          )\n        ))\n      )\n    )\n  ))",
       "arguments": [
         {
@@ -943,7 +878,6 @@
     },
     {
       "name": "Generalized_Tolerance",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, Column_Names, [Include],\n  1 / GVIF(Predictors, Column_Names, Include)\n)",
       "arguments": [
         {
@@ -967,8 +901,6 @@
     },
     {
       "name": "Prediction_Interval",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, X_new, [Include], [alpha], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,      IF(ISOMITTED(Include),       TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),         0.05, alpha),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    X_design,      Design_Matrix(X, filt_arg),\n    beta,          Coefficients(X, Y, filt_arg),\n    s,             SE_Regression(X, Y, filt_arg, context_arg),\n    df,            Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    x_new_aligned, IF(has_arg, X_new, INDEX(X_new, SEQUENCE(ROWS(X_new) - 1, 1, 2, 1))),\n    XtX_inv,       Gram_Inverse(X_design),\n    h_new,         MMULT(MMULT(TRANSPOSE(x_new_aligned), XtX_inv), x_new_aligned),\n    point_est,     SUMPRODUCT(x_new_aligned, beta),\n    se_pred,       s * SQRT(1 + h_new),\n    margin,        t_crit * se_pred,\n    VSTACK(\n      point_est,\n      se_pred,\n      t_crit,\n      point_est - margin,\n      point_est + margin,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
@@ -1006,8 +938,6 @@
     },
     {
       "name": "Group_Prediction_Interval",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, Y, X_new, group, selected_group, [Include], [alpha], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,      IF(ISOMITTED(Include),       TRUE, Include),\n    alpha_arg,     IF(ISOMITTED(alpha),         0.05, alpha),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    x_within,      LET(\n                       n_x,   COLUMNS(Predictors),\n                       seed,  SEQUENCE(ROWS(Predictors), 1, 0, 0),\n                       built, REDUCE(seed, SEQUENCE(n_x), LAMBDA(acc, j,\n                           HSTACK(acc, Demean_By(INDEX(Predictors, 0, j), group, filt_arg))\n                       )),\n                       DROP(built, , 1)\n                   ),\n    y_within,      Demean_By(Y, group, filt_arg),\n    design_within, IF(has_arg, HSTACK(SEQUENCE(ROWS(x_within), 1, 1, 0), x_within), x_within),\n    beta_full,     Coefficients(design_within, y_within, filt_arg),\n    beta,          IF(has_arg, DROP(beta_full, 1), beta_full),\n    s,             SE_Regression(design_within, y_within, filt_arg, context_arg),\n    df,            Residual_Degrees_Of_Freedom(design_within, y_within, filt_arg, context_arg),\n    t_crit,        T.INV.2T(alpha_arg, df),\n    X_design,      Design_Matrix(x_within, filt_arg),\n    XtX_inv,       Gram_Inverse(X_design),\n    xbar_i,        TRANSPOSE(BYCOL(Predictors, LAMBDA(col, Group_Mean_At(col, group, selected_group, filt_arg)))),\n    ybar_i,        Group_Mean_At(Y, group, selected_group, filt_arg),\n    T_i,           Group_Count_At(group, selected_group, filt_arg),\n    deviation,     X_new - xbar_i,\n    quad,          MMULT(MMULT(TRANSPOSE(deviation), XtX_inv), deviation),\n    point_est,     ybar_i + SUMPRODUCT(deviation, beta),\n    se_mean,       s * SQRT(1 / T_i + quad),\n    se_new,        s * SQRT(1 + 1 / T_i + quad),\n    margin_mean,   t_crit * se_mean,\n    margin_new,    t_crit * se_new,\n    VSTACK(\n      point_est,\n      se_mean,\n      se_new,\n      t_crit,\n      point_est - margin_mean,\n      point_est + margin_mean,\n      point_est - margin_new,\n      point_est + margin_new,\n      1 - alpha_arg\n    )\n  ))",
       "arguments": [
         {
@@ -1053,8 +983,6 @@
     },
     {
       "name": "Observation_Number",
-      "test_table": null,
-      "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Include],\n  SEQUENCE(ROWS(FILTER(Y, IF(ISOMITTED(Include), TRUE, Include))))\n)",
       "arguments": [
         {
@@ -1074,8 +1002,6 @@
     },
     {
       "name": "Rank_Fraction",
-      "test_table": null,
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)),\n    n,        ROWS(filtered),\n    BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered <= v) * 1))) / n\n  ))",
       "arguments": [
         {
@@ -1095,8 +1021,6 @@
     },
     {
       "name": "Y_Ranked",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Y, [Include],\n  SORT(FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)))\n)",
       "arguments": [
         {
@@ -1116,8 +1040,6 @@
     },
     {
       "name": "Dependent_Variable",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Y, [Include],\n  FILTER(Y, IF(ISOMITTED(Include), TRUE, Include))\n)",
       "arguments": [
         {
@@ -1137,8 +1059,6 @@
     },
     {
       "name": "Normal_Scores",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)),\n    n,        ROWS(filtered),\n    NORM.S.INV(\n      (BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered < v) * 1))) + 0.5) / n\n    )\n  ))",
       "arguments": [
         {
@@ -1158,8 +1078,6 @@
     },
     {
       "name": "Design_Matrix",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    FILTER(X, filt_arg)\n  ))",
       "arguments": [
         {
@@ -1193,8 +1111,6 @@
     },
     {
       "name": "Predictions",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    MMULT(\n      Design_Matrix(X, filt_arg),\n      Coefficients(X, Y, filt_arg)\n    )\n  ))",
       "arguments": [
         {
@@ -1218,8 +1134,6 @@
     },
     {
       "name": "Residuals",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    FILTER(Y, filt_arg) - Predictions(X, Y, filt_arg)\n  ))",
       "arguments": [
         {
@@ -1243,8 +1157,6 @@
     },
     {
       "name": "Scaled_Residuals",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Residuals(X, Y, filt_arg)\n      / SE_Regression(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
@@ -1273,8 +1185,6 @@
     },
     {
       "name": "This_Row",
-      "test_table": null,
-      "number_format": "0",
       "formula_display": "=LAMBDA(array,\n  SEQUENCE(ROWS(array))\n)",
       "arguments": [
         {
@@ -1289,8 +1199,6 @@
     },
     {
       "name": "Exclude_Row_N",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(array, n,\n  LET(\n    total_rows, ROWS(array),\n    n_abs,      IF(n < 0, total_rows + n + 1, n),\n    IF(\n      OR(n_abs < 1, n_abs > total_rows),\n      NA(),\n      LET(\n        rows, SEQUENCE(total_rows),\n        CHOOSEROWS(array, FILTER(rows, rows <> n_abs))\n      )\n    )\n  )\n)",
       "arguments": [
         {
@@ -1309,8 +1217,6 @@
     },
     {
       "name": "Leave_One_Out_Prediction",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, n, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    X_filt,   FILTER(X, filt_arg),\n    Y_filt,   FILTER(Y, filt_arg),\n    X_loo,    Exclude_Row_N(X_filt, n),\n    Y_loo,    Exclude_Row_N(Y_filt, n),\n    x_n,      Design_Matrix(CHOOSEROWS(X_filt, n)),\n    beta_loo, Coefficients(X_loo, Y_loo),\n    MMULT(x_n, beta_loo)\n  )\n)",
       "arguments": [
         {
@@ -1338,8 +1244,6 @@
     },
     {
       "name": "LOOCV_Prediction",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    yhat,     Predictions(X, Y, filt_arg),\n    e,        FILTER(Y, filt_arg) - yhat,\n    h,        Hat_Diagonal(X, filt_arg),\n    yhat - h * e / (1 - h)\n  )\n)",
       "arguments": [
         {
@@ -1363,8 +1267,6 @@
     },
     {
       "name": "LOOCV_Residual",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    e, Residuals(X, Y, filt_arg),\n    h, Hat_Diagonal(X, filt_arg),\n    IFERROR(e / (1 - h), NA())\n  )\n)",
       "arguments": [
         {
@@ -1388,8 +1290,6 @@
     },
     {
       "name": "Hat_Diagonal",
-      "test_table": null,
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    X_design, Design_Matrix(X, filt_arg),\n    p,        COLUMNS(X_design),\n    XtX_inv,  Gram_Inverse(X_design),\n    Z,        MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
       "arguments": [
         {
@@ -1409,8 +1309,6 @@
     },
     {
       "name": "Studentized_Residuals",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    e,  Residuals(X, Y, filt_arg),\n    se, SE_Regression(X, Y, filt_arg, context_arg),\n    h,  Hat_Diagonal(X, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
       "arguments": [
         {
@@ -1439,8 +1337,6 @@
     },
     {
       "name": "Studentized_Residuals_Ranked",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SORT(Studentized_Residuals(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
@@ -1469,8 +1365,6 @@
     },
     {
       "name": "Cooks_Distance",
-      "test_table": null,
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    r, Studentized_Residuals(X, Y, filt_arg, context_arg),\n    h, Hat_Diagonal(X, filt_arg),\n    p, COLUMNS(Design_Matrix(X, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
       "arguments": [
         {
@@ -1499,8 +1393,6 @@
     },
     {
       "name": "Scaled_Residuals_Ranked",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SORT(Scaled_Residuals(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
         {
@@ -1529,8 +1421,6 @@
     },
     {
       "name": "Column_Select",
-      "test_table": null,
-      "number_format": "General",
       "formula_display": "=LAMBDA(table, col_nums,\n  CHOOSECOLS(table, col_nums)\n)",
       "arguments": [
         {
@@ -1549,8 +1439,6 @@
     },
     {
       "name": "Complete_Cases_Filter",
-      "test_table": null,
-      "number_format": "General",
       "formula_display": "=LAMBDA(Predictors, [Y],\n  LET(\n    combined, IF(ISOMITTED(Y), Predictors, HSTACK(Predictors, Y)),\n    MMULT((ISNUMBER(combined)) * 1, SEQUENCE(COLUMNS(combined), 1, 1, 0)) = COLUMNS(combined)\n  )\n)",
       "arguments": [
         {
@@ -1570,8 +1458,6 @@
     },
     {
       "name": "Data_Completeness",
-      "test_table": null,
-      "number_format": "General",
       "formula_display": "=LAMBDA(predictor_row,\n  AND(ISNUMBER(predictor_row))\n)",
       "arguments": [
         {
@@ -1586,7 +1472,6 @@
     },
     {
       "name": "Pearson_R",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(Predictors, filt_arg),\n    yf, FILTER(Y,          filt_arg),\n    MAKEARRAY(COLUMNS(Predictors), 1, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), yf)))\n  ))",
       "arguments": [
         {
@@ -1610,7 +1495,6 @@
     },
     {
       "name": "Spearman_R",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(xf, yf, [Include],\n  LET(\n    baseFilter, IF(ISOMITTED(Include), TRUE, Include),\n    RankAvgAsc, LAMBDA(a,\n      MAP(a, LAMBDA(v, 1+SUM(--(a<v))+(SUM(--(a=v))-1)/2))\n    ),\n    TRANSPOSE(\n      BYCOL(xf,\n        LAMBDA(xcol,\n          LET(\n            valid, baseFilter*ISNUMBER(xcol)*ISNUMBER(yf),\n            x, FILTER(xcol, valid),\n            y, FILTER(yf, valid),\n            rx, RankAvgAsc(x),\n            ry, RankAvgAsc(y),\n            CORREL(rx, ry)\n          )\n        )\n      )\n    )\n  ))",
       "arguments": [
         {
@@ -1634,7 +1518,6 @@
     },
     {
       "name": "Skewness",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(Predictors, filt_arg),\n    MAKEARRAY(COLUMNS(Predictors), 1, LAMBDA(r, c, SKEW(CHOOSECOLS(xf, r))))\n  ))",
       "arguments": [
         {
@@ -1654,7 +1537,6 @@
     },
     {
       "name": "Kurtosis",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(Predictors, filt_arg),\n    MAKEARRAY(COLUMNS(Predictors), 1, LAMBDA(r, c, KURT(CHOOSECOLS(xf, r))))\n  ))",
       "arguments": [
         {
@@ -1674,8 +1556,6 @@
     },
     {
       "name": "F_Statistic",
-      "test_table": null,
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    MS_Regression(X, Y, filt_arg, context_arg) / MS_Residual(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
         {
@@ -1704,8 +1584,6 @@
     },
     {
       "name": "F_Statistic_P_Value",
-      "test_table": null,
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    F.DIST.RT(\n      F_Statistic(X, Y, filt_arg, context_arg),\n      Regression_Degrees_Of_Freedom(X, context_arg),\n      Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n    )\n  ))",
       "arguments": [
         {
@@ -1734,7 +1612,6 @@
     },
     {
       "name": "Correlation_Matrix",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    xf, FILTER(Predictors, filt_arg),\n    k,  COLUMNS(Predictors),\n    MAKEARRAY(k, k, LAMBDA(r, c, CORREL(CHOOSECOLS(xf, r), CHOOSECOLS(xf, c))))\n  ))",
       "arguments": [
         {
@@ -1754,7 +1631,6 @@
     },
     {
       "name": "Missing_Count",
-      "number_format": "0",
       "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), TRUE, filter),\n    d, FILTER(data, filt_arg),\n    last_row, IFERROR(LOOKUP(2, 1/(d<>\"\"), SEQUENCE(ROWS(d))), 0),\n    IF(last_row = 0, 0,\n      last_row - COUNT(TAKE(d, last_row)))\n  ))",
       "arguments": [
         {
@@ -1774,7 +1650,6 @@
     },
     {
       "name": "Descriptive_Statistics",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    skew_val, INDEX(Skewness(data, filt_arg), 1),\n    kurt_val, INDEX(Kurtosis(data, filt_arg), 1),\n    VSTACK(\n      AVERAGE(x),\n      MEDIAN(x),\n      IFERROR(MODE.SNGL(x), NA()),\n      STDEV.S(x),\n      VAR.S(x),\n      MIN(x),\n      MAX(x),\n      MAX(x) - MIN(x),\n      skew_val,\n      kurt_val,\n      n,\n      Missing_Count(data, IF(ISOMITTED(filter), TRUE, filter))\n    )\n  ))",
       "arguments": [
         {
@@ -1794,7 +1669,6 @@
     },
     {
       "name": "Sturges_Bins",
-      "number_format": "0",
       "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    CEILING(LOG(n, 2) + 1, 1)\n  ))",
       "arguments": [
         {
@@ -1814,7 +1688,6 @@
     },
     {
       "name": "Scott_Bins",
-      "number_format": "0",
       "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    sd, STDEV.S(x),\n    width, 3.49 * sd * n ^ (-1/3),\n    range_, MAX(x) - MIN(x),\n    IF(sd = 0, 1, CEILING(range_ / width, 1))\n  ))",
       "arguments": [
         {
@@ -1834,7 +1707,6 @@
     },
     {
       "name": "Freedman_Diaconis_Bins",
-      "number_format": "0",
       "formula_display": "=LAMBDA(data, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    iqr, QUARTILE.EXC(x, 3) - QUARTILE.EXC(x, 1),\n    width, 2 * iqr * n ^ (-1/3),\n    range_, MAX(x) - MIN(x),\n    IF(iqr = 0, Sturges_Bins(data, filt_arg), CEILING(range_ / width, 1))\n  ))",
       "arguments": [
         {
@@ -1854,7 +1726,6 @@
     },
     {
       "name": "Number_Of_Histogram_Bins",
-      "number_format": "0",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    n, COUNT(x),\n    m, IF(ISOMITTED(method), \"FD\", method),\n    SWITCH(m,\n      \"Sturges\", CEILING(LOG(n, 2) + 1, 1),\n      \"Scott\",   LET(\n                   sd, STDEV.S(x),\n                   range_, MAX(x) - MIN(x),\n                   IF(sd = 0, 1, CEILING(range_ / (3.49 * sd * n ^ (-1/3)), 1))\n                 ),\n      LET(\n        iqr, QUARTILE.EXC(x, 3) - QUARTILE.EXC(x, 1),\n        range_, MAX(x) - MIN(x),\n        IF(iqr = 0,\n          CEILING(LOG(n, 2) + 1, 1),\n          CEILING(range_ / (2 * iqr * n ^ (-1/3)), 1))\n      )\n    )\n  ))",
       "arguments": [
         {
@@ -1879,7 +1750,6 @@
     },
     {
       "name": "Bin_Edges",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    min_x, MIN(x),\n    max_x, MAX(x),\n    k, Number_Of_Histogram_Bins(data, IF(ISOMITTED(method), \"FD\", method), filt_arg),\n    width, (max_x - min_x) / k,\n    VSTACK(SEQUENCE(k, 1, min_x, width), max_x)\n  ))",
       "arguments": [
         {
@@ -1904,7 +1774,6 @@
     },
     {
       "name": "Upper_Bin_Edges",
-      "number_format": "0.0",
       "category": "Distribution Fitting",
       "subcategory": "Histogram Binning",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  DROP(Bin_Edges(data, method, filter), 1)\n)",
@@ -1932,7 +1801,6 @@
     },
     {
       "name": "Bin_Counts",
-      "number_format": "0",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    upper, Upper_Bin_Edges(data, method, filter),\n    TAKE(FREQUENCY(x, upper), ROWS(upper))\n  ))",
       "arguments": [
         {
@@ -1958,7 +1826,6 @@
     },
     {
       "name": "Bin_Midpoints",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  LET(\n    e, Bin_Edges(data, method, filter),\n    (DROP(e, 1) + DROP(e, -1)) / 2\n  ))",
       "arguments": [
         {
@@ -1984,7 +1851,6 @@
     },
     {
       "name": "Bin_Lower_Edges",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, [method], [filter],\n  DROP(Bin_Edges(data, method, filter), -1)\n)",
       "arguments": [
         {
@@ -2010,7 +1876,6 @@
     },
     {
       "name": "CDF_Normal",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(maximum, mean, sd, [minimum],\n  LET(\n    cdf_max, NORM.DIST(maximum, mean, sd, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, NORM.DIST(minimum, mean, sd, TRUE)),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
@@ -2038,7 +1903,6 @@
     },
     {
       "name": "CDF_Lognormal",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(maximum, meanlog, sdlog, [minimum],\n  LET(\n    cdf_max, LOGNORM.DIST(maximum, meanlog, sdlog, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, LOGNORM.DIST(minimum, meanlog, sdlog, TRUE)),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
@@ -2066,7 +1930,6 @@
     },
     {
       "name": "CDF_Exponential",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(maximum, rate, [minimum],\n  LET(\n    cdf_max, EXPON.DIST(maximum, rate, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, EXPON.DIST(minimum, rate, TRUE)),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
@@ -2090,7 +1953,6 @@
     },
     {
       "name": "CDF_Weibull",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(maximum, shape, scale, [minimum],\n  LET(\n    cdf_max, WEIBULL.DIST(maximum, shape, scale, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, WEIBULL.DIST(minimum, shape, scale, TRUE)),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
@@ -2118,7 +1980,6 @@
     },
     {
       "name": "CDF_Gamma",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(maximum, shape, rate, [minimum],\n  LET(\n    cdf_max, GAMMA.DIST(maximum, shape, 1 / rate, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0, GAMMA.DIST(minimum, shape, 1 / rate, TRUE)),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
@@ -2146,7 +2007,6 @@
     },
     {
       "name": "CDF_Triangular",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(maximum, min_val, mode_val, max_val, [minimum],\n  LET(\n    cdf_at, LAMBDA(x,\n      IFERROR(IF(x < min_val, 0,\n        IF(x < mode_val,\n          (x - min_val)^2 / ((max_val - min_val) * (mode_val - min_val) + 1E-30),\n          IF(x <= max_val,\n            1 - (max_val - x)^2 / ((max_val - min_val) * (max_val - mode_val) + 1E-30),\n            1))), 0.5)),\n    cdf_max, MAP(maximum, cdf_at),\n    cdf_min, IF(ISOMITTED(minimum), 0, MAP(minimum, cdf_at)),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
@@ -2178,7 +2038,6 @@
     },
     {
       "name": "CDF_Beta",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(maximum, alpha, beta, data_min, data_range, [minimum],\n  LET(\n    pad, MAX(data_range * 0.001, 1E-30),\n    scale_, data_range + 2 * pad,\n    z_max, (maximum - data_min + pad) / scale_,\n    cdf_max, IFERROR(BETA.DIST(z_max, alpha, beta, TRUE), 0.5),\n    cdf_min, IF(ISOMITTED(minimum), 0,\n      LET(z_min, (minimum - data_min + pad) / scale_,\n        IFERROR(BETA.DIST(z_min, alpha, beta, TRUE), 0.5))),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
@@ -2214,7 +2073,6 @@
     },
     {
       "name": "CDF_BetaPERT",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(maximum, min_val, mode_val, max_val, [minimum],\n  LET(\n    range_, max_val - min_val + 1E-30,\n    alpha_param, 1 + 4 * (mode_val - min_val) / range_,\n    beta_param, 1 + 4 * (max_val - mode_val) / range_,\n    z_max, (maximum - min_val) / range_,\n    cdf_max, BETA.DIST(z_max, alpha_param, beta_param, TRUE),\n    cdf_min, IF(ISOMITTED(minimum), 0,\n      LET(z_min, (minimum - min_val) / range_,\n        BETA.DIST(z_min, alpha_param, beta_param, TRUE))),\n    cdf_max - cdf_min\n  ))",
       "arguments": [
         {
@@ -2246,8 +2104,6 @@
     },
     {
       "name": "Grid_Argument_Minimum",
-      "test_table": null,
-      "number_format": "General",
       "formula_display": "=LAMBDA(grid,\n  LET(\n    value_count, COUNT(grid),\n    IF(\n      value_count = 0,\n      HSTACK(NA(), NA(), NA()),\n      LET(\n        min_value, MIN(grid),\n        flat_location, XMATCH(min_value, TOCOL(grid)),\n        column_count, COLUMNS(grid),\n        row_location, QUOTIENT(flat_location - 1, column_count) + 1,\n        column_location, MOD(flat_location - 1, column_count) + 1,\n        HSTACK(min_value, row_location, column_location)\n      )\n    )\n  ))",
       "arguments": [
         {
@@ -2262,8 +2118,6 @@
     },
     {
       "name": "Grid_Search_Optimum",
-      "test_table": null,
-      "number_format": "General",
       "formula_display": "=LAMBDA(grid,\n  LET(\n    argmin, Grid_Argument_Minimum(grid),\n    row_location, INDEX(argmin, 1, 2),\n    column_location, INDEX(argmin, 1, 3),\n    best_column_parameter, OFFSET(grid, -1, column_location - 1, 1, 1),\n    best_row_parameter, OFFSET(grid, row_location - 1, -1, 1, 1),\n    VSTACK(best_column_parameter, best_row_parameter)\n  ))",
       "arguments": [
         {
@@ -2278,7 +2132,6 @@
     },
     {
       "name": "NLL_Normal",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, mean, sd, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(NORM.DIST(x, mean, sd, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
@@ -2306,7 +2159,6 @@
     },
     {
       "name": "NLL_Lognormal",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, meanlog, sdlog, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(LOGNORM.DIST(x, meanlog, sdlog, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
@@ -2334,7 +2186,6 @@
     },
     {
       "name": "NLL_Exponential",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, rate, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(EXPON.DIST(x, rate, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
@@ -2358,7 +2209,6 @@
     },
     {
       "name": "NLL_Weibull",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, shape, scale, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(WEIBULL.DIST(x, shape, scale, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
@@ -2386,7 +2236,6 @@
     },
     {
       "name": "NLL_Gamma",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, shape, rate, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    scale, 1 / rate,\n    IFERROR(-SUMPRODUCT(LN(GAMMA.DIST(x, shape, scale, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
@@ -2414,7 +2263,6 @@
     },
     {
       "name": "NLL_Triangular",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, min_val, mode_val, max_val, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    range_, max_val - min_val,\n    pdf, IF(\n      x <= mode_val,\n      2 * (x - min_val)  / (range_ * (mode_val - min_val)),\n      2 * (max_val - x)  / (range_ * (max_val - mode_val))\n    ),\n    IFERROR(-SUMPRODUCT(LN(pdf)), 1E+15)\n  ))",
       "arguments": [
         {
@@ -2446,7 +2294,6 @@
     },
     {
       "name": "NLL_Beta",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, alpha_param, beta_param, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(BETA.DIST(x, alpha_param, beta_param, FALSE))), 1E+15)\n  ))",
       "arguments": [
         {
@@ -2474,7 +2321,6 @@
     },
     {
       "name": "NLL_BetaPERT",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(data, min_val, mode_val, max_val, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    range_, max_val - min_val,\n    z, (x - min_val) / range_,\n    alpha_p, 1 + 4 * (mode_val - min_val) / range_,\n    beta_p,  1 + 4 * (max_val  - mode_val) / range_,\n    pdf_z, BETA.DIST(z, alpha_p, beta_p, FALSE),\n    pdf_x, pdf_z / range_,\n    IFERROR(-SUMPRODUCT(LN(pdf_x)), 1E+15)\n  ))",
       "arguments": [
         {
@@ -2506,7 +2352,6 @@
     },
     {
       "name": "GoF_AIC",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(nll, k, 2 * k + 2 * nll)",
       "arguments": [
         {
@@ -2525,7 +2370,6 @@
     },
     {
       "name": "GoF_BIC",
-      "number_format": "0.00",
       "formula_display": "=LAMBDA(nll, k, n, k * LN(n) + 2 * nll)",
       "arguments": [
         {
@@ -2548,7 +2392,6 @@
     },
     {
       "name": "GoF_Anderson_Darling",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(data, dist_cdf, [include],\n  LET(\n    inc, IF(ISOMITTED(include), ISNUMBER(data), include),\n    d, FILTER(data, inc),\n    f, FILTER(dist_cdf, inc),\n    n, ROWS(d),\n    IF(n = 0, NA(),\n    LET(\n      fs, SORTBY(f, d),\n      eps, 1E-10,\n      fc, IF(fs < eps, eps, IF(fs > 1 - eps, 1 - eps, fs)),\n      i, SEQUENCE(n),\n      fc_rev, SORTBY(fc, i, -1),\n      -n - SUMPRODUCT((2 * i - 1) * (LN(fc) + LN(1 - fc_rev))) / n\n    ))\n  ))",
       "arguments": [
         {
@@ -2572,7 +2415,6 @@
     },
     {
       "name": "GoF_Kolmogorov_Smirnov",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(data, dist_cdf, [include],\n  LET(\n    inc, IF(ISOMITTED(include), ISNUMBER(data), include),\n    d, FILTER(data, inc),\n    f, FILTER(dist_cdf, inc),\n    n, ROWS(d),\n    IF(n = 0, NA(),\n    LET(\n      fs, SORTBY(f, d),\n      i, SEQUENCE(n),\n      d_plus, MAX(i / n - fs),\n      d_minus, MAX(fs - (i - 1) / n),\n      MAX(d_plus, d_minus)\n    ))\n  ))",
       "arguments": [
         {
@@ -2596,10 +2438,8 @@
     },
     {
       "name": "Ln_Positive",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Location & Scale",
-      "number_format": "General",
       "formula_display": "=LAMBDA(x, [include],\n    LET(\n        x_v, TOCOL(IF(x = \"\", \"\", x), 0),\n        inc, IF(ISOMITTED(include), ISNUMBER(x_v), include * 1),\n        pos, IFERROR(ISNUMBER(x_v) * (x_v > 0), FALSE),\n        IF(inc = 0, \"\", IF(pos, LN(x_v), NA()))\n    )\n)",
       "arguments": [
         {
@@ -2620,10 +2460,8 @@
     },
     {
       "name": "Dummy_Levels",
-      "test_table": "Dummy_Test",
       "category": "Data Transformation",
       "subcategory": "Categorical & Model Construction",
-      "number_format": "General",
       "formula_display": "=LAMBDA(category, [reference], [include],\n    LET(\n        inc,        IF(ISOMITTED(include), TRUE, include),\n        x,          TOCOL(IF(category = \"\", \"\", category), 0),\n        active,     (x<>\"\") * inc,\n        x_active,   FILTER(x, active, NA()),\n        All_Levels, IFERROR(TOROW(SORT(UNIQUE(x_active))), NA()),\n        ref_raw,    IF(ISOMITTED(reference), \"\", reference),\n        ref,        IF(ref_raw = \"\", IFERROR(INDEX(All_Levels, 1, 1), NA()), ref_raw),\n        ref_ok,     IFERROR(ISNUMBER(MATCH(ref, All_Levels, 0)), FALSE),\n        IF(OR(ISNA(All_Levels), NOT(ref_ok)),\n           NA(),\n           IFERROR(FILTER(All_Levels, All_Levels <> ref), NA())\n        )\n    )\n)",
       "arguments": [
         {
@@ -2649,10 +2487,8 @@
     },
     {
       "name": "Dummy_Code",
-      "test_table": "Dummy_Test",
       "category": "Data Transformation",
       "subcategory": "Categorical & Model Construction",
-      "number_format": "General",
       "formula_display": "=LAMBDA(category, [reference], [include],\n    LET(\n        inc,    IF(ISOMITTED(include), TRUE, include),\n        x,      TOCOL(IF(category = \"\", \"\", category), 0),\n        active, (x<>\"\") * inc,\n        lv,     Dummy_Levels(category, reference, include),\n        IF(ISNA(lv),\n           NA(),\n           MAKEARRAY(ROWS(x), COLUMNS(lv), LAMBDA(r, c,\n               IF(INDEX(active, r), --(INDEX(x, r) = INDEX(lv, 1, c)), \"\")\n           ))\n        )\n    )\n)",
       "arguments": [
         {
@@ -2678,10 +2514,8 @@
     },
     {
       "name": "Base_Period_Delta",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Longitudinal & Panel-Time",
-      "number_format": "General",
       "formula_display": "=LAMBDA(\n    LET(\n        n_c,      COLUMNS(Source_Data),\n        position, XMATCH(TRUE, TAKE(Spec_Sequence, n_c), 0),\n        value,    INDEX(TAKE(Spec_Sequence_Period, n_c), position),\n        IF(ISNUMBER(value), value, NA())\n    )\n)",
       "arguments": [],
       "yields": "The base period Δ in effect — the numeric value of spec cell J (Period In Use) on the Sequence-flagged row of the Regression sheet; #N/A when no Sequence axis is flagged or the cell holds no number.",
@@ -2692,10 +2526,8 @@
     },
     {
       "name": "Lag_By",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Longitudinal & Panel-Time",
-      "number_format": "General",
       "formula_display": "=LAMBDA(x, group, seq, [delta], [include],\n    LET(\n        x_v,  TOCOL(IF(x = \"\", \"\", x), 0),\n        g_v,  TOCOL(IF(group = \"\", \"\", group), 0),\n        t_v,  TOCOL(IF(seq = \"\", \"\", seq), 0),\n        step, IF(ISOMITTED(delta), Base_Period_Delta(), delta),\n        inc,  IF(ISOMITTED(include), (g_v <> \"\") * ISNUMBER(t_v), include * 1),\n        sep,  CHAR(31),\n        source_keys, IF(inc * ISNUMBER(t_v) * (x_v <> \"\"), g_v & sep & t_v, \"\"),\n        prior, XLOOKUP(g_v & sep & (t_v - step), source_keys, x_v, NA(), 0),\n        IF(inc, IF(ISNUMBER(t_v), prior, NA()), \"\")\n    )\n)",
       "arguments": [
         {
@@ -2728,10 +2560,8 @@
     },
     {
       "name": "Difference_By",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Longitudinal & Panel-Time",
-      "number_format": "General",
       "formula_display": "=LAMBDA(x, group, seq, [delta], [include],\n    LET(\n        x_v,  TOCOL(IF(x = \"\", \"\", x), 0),\n        g_v,  TOCOL(IF(group = \"\", \"\", group), 0),\n        t_v,  TOCOL(IF(seq = \"\", \"\", seq), 0),\n        step, IF(ISOMITTED(delta), Base_Period_Delta(), delta),\n        inc,  IF(ISOMITTED(include), (g_v <> \"\") * ISNUMBER(t_v), include * 1),\n        prior, Lag_By(x, group, seq, step, inc),\n        IF(inc, IF(ISNUMBER(x_v) * ISNUMBER(prior), x_v - prior, NA()), \"\")\n    )\n)",
       "arguments": [
         {
@@ -2764,10 +2594,8 @@
     },
     {
       "name": "Group_Mean",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Group & Panel",
-      "number_format": "General",
       "formula_display": "=LAMBDA(x, group, [include],\n    LET(\n        x_v,      TOCOL(IF(x = \"\", \"\", x), 0),\n        g_v,      TOCOL(IF(group = \"\", \"\", group), 0),\n        inc,      IF(ISOMITTED(include), ISNUMBER(x_v), include * 1),\n        active,   inc * (g_v <> \"\"),\n        IFERROR(\n            LET(\n                groups, UNIQUE(FILTER(g_v, active)),\n                means, BYROW(groups, LAMBDA(gk,\n                    LET(mask, active * (g_v = gk),\n                        SUMPRODUCT(mask, IF(ISNUMBER(x_v), x_v, 0)) / SUM(mask))\n                )),\n                XLOOKUP(g_v, groups, means, NA(), 0)\n            ),\n            NA()\n        )\n    )\n)",
       "arguments": [
         {
@@ -2793,10 +2621,8 @@
     },
     {
       "name": "Demean_By",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Group & Panel",
-      "number_format": "General",
       "formula_display": "=LAMBDA(x, group, [include],\n    LET(\n        x_v, TOCOL(IF(x = \"\", \"\", x), 0),\n        gm,  Group_Mean(x, group, include),\n        IF(ISNUMBER(x_v) * ISNUMBER(gm), x_v - gm, NA())\n    )\n)",
       "arguments": [
         {
@@ -2822,10 +2648,8 @@
     },
     {
       "name": "Is_Balanced_Panel",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Sample Construction & Diagnostics",
-      "number_format": "General",
       "formula_display": "=LAMBDA(group, time, [include],\n    LET(\n        g_v,     TOCOL(IF(group = \"\", \"\", group), 0),\n        t_v,     TOCOL(IF(time = \"\", \"\", time), 0),\n        inc,     IF(ISOMITTED(include), (g_v <> \"\") * (t_v <> \"\"), include * 1),\n        active,  inc * (g_v <> \"\") * (t_v <> \"\"),\n        n,       SUM(active),\n        IF(n = 0,\n           NA(),\n           LET(\n               sep,     CHAR(31),\n               groups,  UNIQUE(FILTER(g_v, active)),\n               times,   UNIQUE(FILTER(t_v, active)),\n               keys,    FILTER(g_v & sep & t_v, active),\n               AND(n = ROWS(groups) * ROWS(times), n = ROWS(UNIQUE(keys)))\n           )\n        )\n    )\n)",
       "arguments": [
         {
@@ -2851,10 +2675,8 @@
     },
     {
       "name": "Group_Mean_At",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Group & Panel",
-      "number_format": "General",
       "formula_display": "=LAMBDA(x, group, selected_group, [include],\n    XLOOKUP(selected_group, group, Group_Mean(x, group, include), NA(), 0)\n)",
       "arguments": [
         {
@@ -2885,10 +2707,8 @@
     },
     {
       "name": "Group_Count_At",
-      "test_table": null,
       "category": "Data Transformation",
       "subcategory": "Group & Panel",
-      "number_format": "General",
       "formula_display": "=LAMBDA(group, selected_group, [include],\n    LET(\n        g_v, TOCOL(IF(group = \"\", \"\", group), 0),\n        inc, IF(ISOMITTED(include), (g_v <> \"\"), include * 1),\n        SUMPRODUCT(inc, --(g_v = selected_group))\n    )\n)",
       "arguments": [
         {
@@ -2914,11 +2734,9 @@
     },
     {
       "name": "Sample_Include",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),seed,SEQUENCE(ROWS(Source_Data),1,1,0),prod,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,LET(col,INDEX(Source_Data,0,j),IF(INDEX(rl,j)=\"Filter\",acc*--(IFERROR((col+0)=1,FALSE)),IF(OR(INDEX(rl,j)=\"Response (y)\",AND(INDEX(rl,j)=\"Predictor (x)\",INDEX(inc,j)=TRUE,INDEX(typ,j)=\"Continuous\")),acc*N(ISNUMBER(col)),acc))))),prod=1))",
       "arguments": [],
       "yields": "Full-height boolean column: TRUE for rows passing every declared Filter and complete on the response and included continuous predictors.",
@@ -2928,11 +2746,9 @@
     },
     {
       "name": "Response_Column",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),trn,TAKE(Spec_Transform,n_c),p,XMATCH(\"Response (y)\",rl),col,INDEX(Source_Data,0,p),IF(INDEX(trn,p)=\"Log\",Ln_Positive(col,Sample_Include()),col)))",
       "arguments": [],
       "yields": "The single Role=Response data column, full height; #N/A when no row is declared Response. When that row's Transform is Log, every value is Ln_Positive(value) instead of the raw value.",
@@ -2942,11 +2758,9 @@
     },
     {
       "name": "Row_Labels",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),ids,IFERROR(TRANSPOSE(FILTER(TRANSPOSE(Source_Data),rl=\"Identifier (Row Label)\")),NA()),IF(SUM(--(rl=\"Identifier (Row Label)\"))=0,\"Obs. \"&SEQUENCE(ROWS(Source_Data)),BYROW(ids,LAMBDA(r,TEXTJOIN(\"|\",FALSE,r))))))",
       "arguments": [],
       "yields": "Full-height text column of observation labels: joined Identifier columns, or 'Obs. n' when none are declared.",
@@ -2956,11 +2770,9 @@
     },
     {
       "name": "Predictor_Columns",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),trn,TAKE(Spec_Transform,n_c),itm,TAKE(Spec_Interaction_Term,n_c),iop,TAKE(Spec_Interaction_Operation,n_c),hdrs,TOROW(Header_Names),mate,LAMBDA(j,LET(t,INDEX(itm,j),o,INDEX(iop,j),q,IFERROR(XMATCH(t,hdrs),0),IF(OR(LEN(t&\"\")=0,LEN(o&\"\")=0,q=0),0,IF(INDEX(rl,q)<>\"Predictor (x)\",0,q)))),keep,LAMBDA(x,arr,IF(INDEX(typ,x)<>\"Categorical\",TRUE,NOT(ISNA(INDEX(arr,1,1))))),seed,SEQUENCE(ROWS(Source_Data),1,0,0),blk,LAMBDA(x,IF(INDEX(typ,x)<>\"Categorical\",LET(col,INDEX(Source_Data,0,x),IF(INDEX(trn,x)=\"Log\",Ln_Positive(col,Sample_Include()),col)),LET(col,INDEX(Source_Data,0,x),d,INDEX(refs,x),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),NA(),--(col=lv))))),built,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(a,blk(j),IF(NOT(keep(j,a)),acc,LET(m,HSTACK(acc,a),q,mate(j),IF(q=0,m,LET(b,blk(q),IF(NOT(keep(q,b)),m,LET(o,INDEX(iop,j),REDUCE(m,SEQUENCE(COLUMNS(a)),LAMBDA(p,ai,REDUCE(p,SEQUENCE(COLUMNS(b)),LAMBDA(pp,bi,HSTACK(pp,SWITCH(o,\"Product\",INDEX(a,0,ai)*INDEX(b,0,bi),\"Difference\",INDEX(a,0,ai)-INDEX(b,0,bi),\"Ratio\",IFERROR(INDEX(a,0,ai)/INDEX(b,0,bi),NA()),NA())))))))))))))))),DROP(built,,1)))",
       "arguments": [],
       "yields": "The constructed design matrix in spec order: continuous predictors passed through (Ln_Positive-transformed when that row's Transform is Log), categoricals reference-dropped one-hot (Transform ignored — see the spec block's red flag for a Categorical row with Log set), each followed immediately by any interaction columns that row declares; full height.",
@@ -2970,11 +2782,9 @@
     },
     {
       "name": "Constructed_Column_Names",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),trn,TAKE(Spec_Transform,n_c),itm,TAKE(Spec_Interaction_Term,n_c),iop,TAKE(Spec_Interaction_Operation,n_c),hdrs,TOROW(Header_Names),mate,LAMBDA(j,LET(t,INDEX(itm,j),o,INDEX(iop,j),q,IFERROR(XMATCH(t,hdrs),0),IF(OR(LEN(t&\"\")=0,LEN(o&\"\")=0,q=0),0,IF(INDEX(rl,q)<>\"Predictor (x)\",0,q)))),keep,LAMBDA(x,arr,IF(INDEX(typ,x)<>\"Categorical\",TRUE,NOT(ISNA(INDEX(arr,1,1))))),seed,\"\",blk,LAMBDA(x,IF(INDEX(typ,x)<>\"Categorical\",IF(INDEX(trn,x)=\"Log\",\"Ln(\"&INDEX(hdrs,1,x)&\")\",INDEX(hdrs,1,x)),LET(col,INDEX(Source_Data,0,x),d,INDEX(refs,x),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),NA(),INDEX(hdrs,1,x)&\": \"&lv)))),built,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(a,blk(j),IF(NOT(keep(j,a)),acc,LET(m,HSTACK(acc,a),q,mate(j),IF(q=0,m,LET(b,blk(q),IF(NOT(keep(q,b)),m,LET(o,INDEX(iop,j),REDUCE(m,SEQUENCE(COLUMNS(a)),LAMBDA(p,ai,REDUCE(p,SEQUENCE(COLUMNS(b)),LAMBDA(pp,bi,HSTACK(pp,INDEX(a,0,ai)&SWITCH(o,\"Product\",\" × \",\"Difference\",\" − \",\"Ratio\",\" ÷ \",\" ? \")&INDEX(b,0,bi)))))))))))))))),DROP(built,,1)))",
       "arguments": [],
       "yields": "One header per constructed column, in the same order and width as Predictor_Columns(): the raw name, Ln(name) under Transform=Log, \"name: level\" per retained categorical level, and for an interaction column the two operands' own names joined by the operation's symbol — \" × \" Product, \" − \" Difference, \" ÷ \" Ratio, \" ? \" otherwise.",
@@ -2984,11 +2794,9 @@
     },
     {
       "name": "Constructed_Column_Transforms",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),rl,TAKE(Spec_Role,n_c),inc,TAKE(Spec_Include,n_c),typ,TAKE(Spec_Type,n_c),refs,TAKE(Spec_Reference,n_c),trn,TAKE(Spec_Transform,n_c),itm,TAKE(Spec_Interaction_Term,n_c),iop,TAKE(Spec_Interaction_Operation,n_c),hdrs,TOROW(Header_Names),mate,LAMBDA(j,LET(t,INDEX(itm,j),o,INDEX(iop,j),q,IFERROR(XMATCH(t,hdrs),0),IF(OR(LEN(t&\"\")=0,LEN(o&\"\")=0,q=0),0,IF(INDEX(rl,q)<>\"Predictor (x)\",0,q)))),keep,LAMBDA(x,arr,IF(INDEX(typ,x)<>\"Categorical\",TRUE,NOT(ISNA(INDEX(arr,1,1))))),seed,\"\",blk,LAMBDA(x,IF(INDEX(typ,x)<>\"Categorical\",IF(INDEX(trn,x)=\"Log\",\"Log\",\"None\"),LET(col,INDEX(Source_Data,0,x),d,INDEX(refs,x),r,IF(LEN(d&\"\")=0,\"\",d),lv,Dummy_Levels(col,r,Sample_Include()),IF(ISNA(INDEX(lv,1,1)),NA(),EXPAND(\"None\",1,COLUMNS(lv),\"None\"))))),built,REDUCE(seed,SEQUENCE(n_c),LAMBDA(acc,j,IF(OR(INDEX(rl,j)<>\"Predictor (x)\",INDEX(inc,j)<>TRUE),acc,LET(a,blk(j),IF(NOT(keep(j,a)),acc,LET(m,HSTACK(acc,a),q,mate(j),IF(q=0,m,LET(b,blk(q),IF(NOT(keep(q,b)),m,LET(o,INDEX(iop,j),HSTACK(m,EXPAND(\"None\",1,COLUMNS(a)*COLUMNS(b),\"None\")))))))))))),DROP(built,,1)))",
       "arguments": [],
       "yields": "\"Log\" or \"None\" per constructed column, same order and width as Predictor_Columns(). Every dummy column from a Categorical Predictor reads \"None\", and so does every interaction column — the transform lives on each operand's own column and is applied before the two are combined.",
@@ -2998,11 +2806,9 @@
     },
     {
       "name": "Sequence_Column",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),INDEX(Source_Data,0,XMATCH(TRUE,TAKE(Spec_Sequence,n_c),0))))",
       "arguments": [],
       "yields": "The single Sequence-flagged data column, full height; #N/A when no variable is flagged as the Sequence axis.",
@@ -3012,11 +2818,9 @@
     },
     {
       "name": "Fixed_Effects_Column",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(n_c,COLUMNS(Source_Data),INDEX(Source_Data,0,XMATCH(\"Fixed Effects\",TAKE(Spec_Role,n_c),0))))",
       "arguments": [],
       "yields": "The single Role=Fixed Effects data column (the panel-unit identifier), full height; #N/A when no row carries the role.",
@@ -3026,11 +2830,9 @@
     },
     {
       "name": "Absorbed_Degrees_Of_Freedom",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       0,\n       LET(\n           lv, Dummy_Levels(Fixed_Effects_Column(), \"\", Sample_Include()),\n           IF(ISNA(INDEX(lv, 1, 1)), 0, COLUMNS(lv))\n       )\n    )\n))",
       "arguments": [],
       "yields": "The degrees of freedom absorbed by the Fixed Effects group: G − 1 where G is the FE column's level count over the included sample; 0 when no Fixed Effects row is declared or the FE variable is degenerate (G ≤ 1).",
@@ -3040,11 +2842,9 @@
     },
     {
       "name": "Prediction_Group_Column",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(fe_active,\n       Fixed_Effects_Column(),\n       EXPAND(\"(all)\", ROWS(Source_Data), 1, \"(all)\")\n    )\n))",
       "arguments": [],
       "yields": "The Fixed Effects group column when one is declared; a constant \"(all)\" column (every row, one universal group) when none is — full height either way.",
@@ -3054,11 +2854,9 @@
     },
     {
       "name": "Design_Response",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    IF(NOT(fe_active),\n       Response_Column(),\n       Demean_By(Response_Column(), Fixed_Effects_Column(), Sample_Include())\n    )\n))",
       "arguments": [],
       "yields": "The fit-time Response: Response_Column() unchanged when no Fixed Effects row is declared, or its one-way within-transformed (group-demeaned) form when one is; full height.",
@@ -3068,11 +2866,9 @@
     },
     {
       "name": "Design_Columns",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(\n    n_c,       COLUMNS(Source_Data),\n    fe_active, SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")) > 0,\n    has_int,   N(Allow_Intercept) = 1,\n    ones,      SEQUENCE(ROWS(Source_Data), 1, 1, 0),\n    k_p,       IFERROR(COLUMNS(Predictor_Columns()), 0),\n    IF(k_p = 0,\n       IF(has_int, ones, Predictor_Columns()),\n       LET(\n           demeaned, IF(NOT(fe_active),\n                        Predictor_Columns(),\n                        LET(\n                            fe,    Fixed_Effects_Column(),\n                            inc,   Sample_Include(),\n                            xp,    Predictor_Columns(),\n                            seed,  SEQUENCE(ROWS(xp), 1, 0, 0),\n                            built, REDUCE(seed, SEQUENCE(k_p), LAMBDA(acc, j,\n                                HSTACK(acc, Demean_By(INDEX(xp, 0, j), fe, inc))\n                            )),\n                            DROP(built, , 1)\n                        )),\n           IF(has_int, HSTACK(ones, demeaned), demeaned)\n       )\n    )\n))",
       "arguments": [],
       "yields": "The fit-time design matrix: X() unchanged when no Fixed Effects row is declared, or each of its columns one-way within-transformed (group-demeaned) when one is; full height, same width as X().",
@@ -3082,11 +2878,9 @@
     },
     {
       "name": "Serial_Correlation_Group",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(LET(\n    roles, TAKE(Spec_Role, COLUMNS(Source_Data)),\n    key, IFS(\n        SUMPRODUCT(N(roles = \"Fixed Effects\")) > 0, \"Fixed Effects\",\n        SUMPRODUCT(N(roles = \"Cluster\")) > 0, \"Cluster\",\n        TRUE, \"none\"\n    ),\n    SWITCH(key,\n        \"Fixed Effects\", Fixed_Effects_Column(),\n        \"Cluster\", \"n/a — Cluster grouping RESERVED\",\n        \"none\"\n    )\n))",
       "arguments": [],
       "yields": "The grouping-key column for serial-correlation diagnostics: the Fixed Effects data column when a Role=\"Fixed Effects\" row is declared; the token \"n/a — Cluster grouping RESERVED\" when only a Cluster role is declared; the sentinel \"none\" when no grouping role exists (ordinary DW path).",
@@ -3096,11 +2890,9 @@
     },
     {
       "name": "Sequence_Deltas",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(\n    LET(\n        n_c,     COLUMNS(Source_Data),\n        s_pos,   XMATCH(TRUE, TAKE(Spec_Sequence, n_c), 0),\n        t_raw,   INDEX(Source_Data, 0, s_pos),\n        t_v,     IF(t_raw = \"\", \"\", t_raw),\n        rl,      TAKE(Spec_Role, n_c),\n        id_mask, (rl = \"Identifier (Row Label)\") * (SEQUENCE(n_c) <> s_pos),\n        g_v,     IF(SUM(id_mask) = 0,\n            EXPAND(\"(all)\", ROWS(t_v), 1, \"(all)\"),\n            BYROW(CHOOSECOLS(Source_Data, TOROW(FILTER(SEQUENCE(n_c), id_mask))),\n                LAMBDA(r, TEXTJOIN(CHAR(31), FALSE, IF(r = \"\", \"\", r))))),\n        ok,      ISNUMBER(t_v) * (SUBSTITUTE(g_v, CHAR(31), \"\") <> \"\"),\n        g_f,     FILTER(g_v, ok, NA()),\n        t_f,     FILTER(t_v, ok, NA()),\n        g_s,     SORTBY(g_f, g_f, 1, t_f, 1),\n        t_s,     SORTBY(t_f, g_f, 1, t_f, 1),\n        d,       DROP(t_s, 1) - DROP(t_s, -1),\n        same,    DROP(g_s, 1) = DROP(g_s, -1),\n        IFERROR(FILTER(d, same * (d > 0), NA()), NA())\n    )\n)",
       "arguments": [],
       "yields": "Column of all within-group consecutive positive spacings of the Sequence-flagged column (the raw material of the delta spectrum); #N/A when no Sequence axis is flagged or no group has two observations.",
@@ -3110,11 +2902,9 @@
     },
     {
       "name": "Base_Period_Delta_Candidate",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(\n    LET(\n        d, Sequence_Deltas(),\n        IF(COUNT(d) = 0, NA(), IFERROR(MODE.SNGL(d), MIN(d)))\n    )\n)",
       "arguments": [],
       "yields": "The computed Base Period Δ candidate: MODE of the within-group spacings, falling back to their MIN when no spacing repeats; #N/A when there are no spacings at all.",
@@ -3124,11 +2914,9 @@
     },
     {
       "name": "Sequence_Delta_Spectrum",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(\n    LET(\n        d, Sequence_Deltas(),\n        u, SORT(UNIQUE(d)),\n        IF(COUNT(d) = 0, NA(), HSTACK(u, BYROW(u, LAMBDA(v, SUM(--(d = v))))))\n    )\n)",
       "arguments": [],
       "yields": "Two-column array — each distinct within-group spacing with its count, ascending (the delta spectrum); #N/A when there are no spacings.",
@@ -3138,11 +2926,9 @@
     },
     {
       "name": "Model_Formula",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Sheet-Scoped Constructors",
       "scope": "Regression",
-      "number_format": "General",
       "formula_display": "=LAMBDA(\n    LET(\n        n_c,        COLUMNS(Source_Data),\n        p,          XMATCH(\"Response (y)\", TAKE(Spec_Role, n_c)),\n        h,          INDEX(TOROW(Header_Names), p),\n        response,   IFERROR(IF(INDEX(TAKE(Spec_Transform, n_c), p) = \"Log\", \"Ln(\" & h & \")\", h), \"(none)\"),\n        intercept,  IF(Allow_Intercept, \"1 + \", \"0 + \"),\n        predictors, IFERROR(TEXTJOIN(\" + \", TRUE, Constructed_Column_Names()), \"\"),\n        fe_count,   SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")),\n        fe_name,    IFERROR(INDEX(TOROW(Header_Names), XMATCH(\"Fixed Effects\", TAKE(Spec_Role, n_c))), \"FE\"),\n        response & \" ~ \" & intercept & predictors & IF(fe_count > 0, \" | \" & fe_name, \"\")\n    )\n)",
       "arguments": [],
       "yields": "The model formula as one string: \"<response> ~ 1 + <constructed predictors>\", with \"0 + \" when the intercept is off and a \" | <FE variable>\" suffix when a Fixed Effects row is declared.",
@@ -3152,10 +2938,8 @@
     },
     {
       "name": "Model_Context",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Context Constructor",
-      "number_format": "General",
       "formula_display": "=LAMBDA([Has_Intercept], [DF_Absorbed], [Response_Transform], [Predictor_Transform],\n  LET(\n    has_arg, IF(ISOMITTED(Has_Intercept), TRUE, Has_Intercept),\n    df_arg,  IF(ISOMITTED(DF_Absorbed), 0, DF_Absorbed),\n    rt_arg,  IF(ISOMITTED(Response_Transform), \"None\", Response_Transform),\n    pt_arg,  IF(ISOMITTED(Predictor_Transform), \"None\", Predictor_Transform),\n    VSTACK(has_arg, df_arg, rt_arg, pt_arg)\n  ))",
       "arguments": [
         {
@@ -3186,10 +2970,8 @@
     },
     {
       "name": "Context_Has_Intercept",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Context Accessor",
-      "number_format": "General",
       "formula_display": "=LAMBDA(Context,\n  INDEX(Context, 1)\n)",
       "arguments": [
         {
@@ -3205,10 +2987,8 @@
     },
     {
       "name": "Context_DF_Absorbed",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Context Accessor",
-      "number_format": "General",
       "formula_display": "=LAMBDA(Context,\n  INDEX(Context, 2)\n)",
       "arguments": [
         {
@@ -3224,10 +3004,8 @@
     },
     {
       "name": "Context_Response_Transform",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Context Accessor",
-      "number_format": "General",
       "formula_display": "=LAMBDA(Context,\n  INDEX(Context, 3)\n)",
       "arguments": [
         {
@@ -3243,10 +3021,8 @@
     },
     {
       "name": "Context_Predictor_Transform",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Context Accessor",
-      "number_format": "General",
       "formula_display": "=LAMBDA(Context,\n  INDEX(Context, 4)\n)",
       "arguments": [
         {
@@ -3262,10 +3038,8 @@
     },
     {
       "name": "Smearing_Factor",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    rt,          Context_Response_Transform(context_arg),\n    IF(rt=\"None\", 1,\n      IF(rt=\"Log\",\n        IFERROR(AVERAGE(EXP(Residuals(X, Y, filt_arg))), NA()),\n        NA()))\n  )\n)",
       "arguments": [
         {
@@ -3294,10 +3068,8 @@
     },
     {
       "name": "Back_Transform_Response",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "number_format": "General",
       "formula_display": "=LAMBDA(Values, [Context], [Method], [Smearing],\n  LET(\n    context_arg,  IF(ISOMITTED(Context), Model_Context(), Context),\n    method_arg,   IF(ISOMITTED(Method), \"Duan\", Method),\n    smear_arg,    IF(ISOMITTED(Smearing), 1, Smearing),\n    rt,           Context_Response_Transform(context_arg),\n    IF(rt=\"None\", Values,\n      IF(rt=\"Log\",\n        SWITCH(method_arg,\n          \"Duan\",  IFERROR(EXP(Values) * smear_arg, NA()),\n          \"Naive\", IFERROR(EXP(Values), NA()),\n          NA()),\n        NA()))\n  )\n)",
       "arguments": [
         {
@@ -3327,10 +3099,8 @@
     },
     {
       "name": "Unit_Space_Predictions",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "number_format": "General",
       "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    rt,          Context_Response_Transform(context_arg),\n    pt,          Context_Predictor_Transform(context_arg),\n    sm,          Smearing_Factor(X, Y, filt_arg, context_arg),\n    shift,       IF(rt = \"Log\", FILTER(Y_Full, filt_arg) - FILTER(Y, filt_arg), 0),\n    fitted,      Predictions(X, Y, filt_arg) + shift,\n    SWITCH(rt & \"|\" & pt,\n      \"None|None\",  Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"None|Log\",   Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"None|Mixed\", Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"Log|None\",   Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"Log|Log\",    Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      \"Log|Mixed\",  Back_Transform_Response(fitted, context_arg, method_arg, sm),\n      NA())\n  )\n)",
       "arguments": [
         {
@@ -3368,10 +3138,8 @@
     },
     {
       "name": "Unit_Space_Observed",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(Y, Y_Full, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    rt,          Context_Response_Transform(context_arg),\n    shift,       IF(rt = \"Log\", FILTER(Y_Full, filt_arg) - FILTER(Y, filt_arg), 0),\n    y_level,     Dependent_Variable(Y, filt_arg) + shift,\n    Back_Transform_Response(y_level, context_arg, \"Naive\", 1)\n  )\n)",
       "arguments": [
         {
@@ -3402,10 +3170,8 @@
     },
     {
       "name": "Unit_Space_Residuals",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "number_format": "General",
       "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    y_unit,      Unit_Space_Observed(Y, Y_Full, filt_arg, context_arg),\n    y_unit - Unit_Space_Predictions(X, Y, Y_Full, filt_arg, context_arg, method_arg)\n  )\n)",
       "arguments": [
         {
@@ -3443,10 +3209,8 @@
     },
     {
       "name": "Unit_Space_R_Squared",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    y_unit,      Unit_Space_Observed(Y, Y_Full, filt_arg, context_arg),\n    pred_unit,   Unit_Space_Predictions(X, Y, Y_Full, filt_arg, context_arg, method_arg),\n    sse_unit,    SUMSQ(y_unit - pred_unit),\n    sst_unit,    LET(has, Context_Has_Intercept(context_arg),\n                     IF(has,\n                       SUMSQ(y_unit - AVERAGE(y_unit)),\n                       SUMSQ(y_unit))),\n    1 - sse_unit / sst_unit\n  )\n)",
       "arguments": [
         {
@@ -3484,10 +3248,8 @@
     },
     {
       "name": "Unit_Space_Adjusted_R_Squared",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    1 - (1 - Unit_Space_R_Squared(X, Y, Y_Full, filt_arg, context_arg, IF(ISOMITTED(Method),\"Duan\",Method)))\n      * Total_Degrees_Of_Freedom(Y, filt_arg, context_arg)\n      / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  )\n)",
       "arguments": [
         {
@@ -3525,10 +3287,8 @@
     },
     {
       "name": "Unit_Space_RMSE",
-      "test_table": null,
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    y_unit,      Unit_Space_Observed(Y, Y_Full, filt_arg, context_arg),\n    pred_unit,   Unit_Space_Predictions(X, Y, Y_Full, filt_arg, context_arg, method_arg),\n    SQRT(SUMSQ(y_unit - pred_unit) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  )\n)",
       "arguments": [
         {

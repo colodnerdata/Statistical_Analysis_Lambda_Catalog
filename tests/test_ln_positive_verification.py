@@ -160,7 +160,6 @@ def test_ln_positive_is_a_workbook_scoped_data_transformation_function() -> None
     assert fn.get("category") == "Data Transformation"
     assert fn.get("subcategory") == "Location & Scale"
     assert "scope" not in fn  # workbook-scoped, like Dummy_Levels/Demean_By
-    assert fn.get("test_table") is None
 
 
 def test_ln_positive_is_elementwise_not_an_aggregate_and() -> None:

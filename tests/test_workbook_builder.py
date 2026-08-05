@@ -16,8 +16,6 @@ def _catalog_function(name: str, formula: str = "LAMBDA(x,x)") -> CatalogFunctio
         yields="x",
         description="",
         plain_language_summary="",
-        test_table=None,
-        number_format="General",
         notes="",
     )
 

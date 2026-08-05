@@ -49,8 +49,6 @@ class LoadCatalogDocumentValidDocumentTests(unittest.TestCase):
             yields="number",
             description="Returns x plus one.",
             plain_language_summary="Adds one.",
-            test_table="Dummy_Test",
-            number_format="0.000",
         )
         doc = load_catalog_document(Path(), payload=_payload(fn))
         cf = doc.functions[0]
@@ -59,12 +57,6 @@ class LoadCatalogDocumentValidDocumentTests(unittest.TestCase):
         self.assertEqual(cf.yields, "number")
         self.assertEqual(cf.description, "Returns x plus one.")
         self.assertEqual(cf.plain_language_summary, "Adds one.")
-        self.assertEqual(cf.test_table, "Dummy_Test")
-        self.assertEqual(cf.number_format, "0.000")
-
-    def test_number_format_defaults_to_general(self) -> None:
-        doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
-        self.assertEqual(doc.functions[0].number_format, "General")
 
     def test_scope_defaults_to_workbook(self) -> None:
         doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
@@ -95,10 +87,6 @@ class LoadCatalogDocumentValidDocumentTests(unittest.TestCase):
             [f.name for f in doc.functions_for_sheet("Model Construction")],
             ["Local_A", "Local_B"],
         )
-
-    def test_test_table_defaults_to_none(self) -> None:
-        doc = load_catalog_document(Path(), payload=_payload(_minimal_function()))
-        self.assertIsNone(doc.functions[0].test_table)
 
     def test_function_order_is_preserved(self) -> None:
         names = ["Alpha", "Beta", "Gamma"]
@@ -208,49 +196,6 @@ class LoadCatalogDocumentMissingRequiredFieldTests(unittest.TestCase):
     def test_non_object_entry_rejected(self) -> None:
         with self.assertRaises(ValueError):
             load_catalog_document(Path(), payload={"functions": ["not_a_dict"]})
-
-
-class LoadCatalogDocumentTestTableValidationTests(unittest.TestCase):
-    def test_valid_test_table_accepted(self) -> None:
-        fn = _minimal_function(test_table="Dummy_Test")
-        doc = load_catalog_document(Path(), payload=_payload(fn))
-        self.assertEqual(doc.functions[0].test_table, "Dummy_Test")
-
-    def test_invalid_test_table_too_long_rejected(self) -> None:
-        with self.assertRaises(ValueError):
-            load_catalog_document(
-                Path(), payload=_payload(_minimal_function(test_table="A" * 32))
-            )
-
-    def test_invalid_test_table_contains_bracket_rejected(self) -> None:
-        with self.assertRaises(ValueError):
-            load_catalog_document(
-                Path(), payload=_payload(_minimal_function(test_table="Bad[Name]"))
-            )
-
-    def test_invalid_test_table_starts_with_digit_rejected(self) -> None:
-        with self.assertRaises(ValueError):
-            load_catalog_document(
-                Path(), payload=_payload(_minimal_function(test_table="1BadName"))
-            )
-
-    def test_invalid_test_table_looks_like_cell_ref_rejected(self) -> None:
-        with self.assertRaises(ValueError):
-            load_catalog_document(
-                Path(), payload=_payload(_minimal_function(test_table="A1"))
-            )
-
-    def test_blank_test_table_rejected(self) -> None:
-        with self.assertRaises(ValueError):
-            load_catalog_document(
-                Path(), payload=_payload(_minimal_function(test_table=""))
-            )
-
-    def test_none_test_table_is_allowed(self) -> None:
-        fn = _minimal_function()
-        fn["test_table"] = None
-        doc = load_catalog_document(Path(), payload=_payload(fn))
-        self.assertIsNone(doc.functions[0].test_table)
 
 
 class LoadCatalogDocumentRegressionSheetNotesTests(unittest.TestCase):
@@ -458,10 +403,6 @@ class RealCatalogIntegrationTests(unittest.TestCase):
     def test_all_function_names_are_unique(self) -> None:
         names = [fn.name for fn in self.document.functions]
         self.assertEqual(len(names), len(set(names)))
-
-    def test_functions_with_test_table_have_valid_tags(self) -> None:
-        tagged = [fn for fn in self.document.functions if fn.test_table is not None]
-        self.assertTrue(tagged, "Expected at least some functions with test_table set")
 
     def test_regression_sheet_notes_is_string_mapping(self) -> None:
         for key, value in self.document.regression_sheet_notes.items():

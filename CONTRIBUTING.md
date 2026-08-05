@@ -47,7 +47,7 @@ Use these shortcuts for day-to-day work from an activated `.venv`. If the enviro
 | Resync workbook-scoped catalog names | `poe resync-names -- <workbook.xlsx>` | `uv run python tools/resync_workbook_names.py <workbook.xlsx>` | Use the `--` separator before positional args. |
 | Rebuild static reference sheets | `poe static-sheets` | `uv run python scripts/rebuild_static_sheets.py` | Needs desktop Excel; manual template maintenance. |
 
-To pass extra arguments through a poe task, put them after the task name. For example, `poe verify-test-models --include-heavy` includes the heavy `L08` case, and `poe verify-deep --log scratch/regression-verify.log` overrides the archived transcript path. Use `poe --help` for task-runner options and bare `poe` for the current project task list.
+To pass extra arguments through a poe task, put them after the task name. For example, `poe verify-test-models --include-heavy` includes the heavy `L05` and `L08` cases, and `poe verify-deep --log scratch/regression-verify.log` overrides the archived transcript path. Use `poe --help` for task-runner options and bare `poe` for the current project task list.
 
 ## Quick start
 

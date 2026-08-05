@@ -14,13 +14,15 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_cases,
     calculate_regression_spec_case,
 )
+from lambda_catalog import deep_verify
 from tests.script_loader import load_script_module
 
 
 # build_qc.py moved into ``scripts/`` in the Chunk 1 reorganization so it sits
 # alongside the other build scripts; the tests below access its module
-# attributes (``_QC_SHEET_NAMES``, ``_verification_calc_sheet_names`` …) and so
-# need it imported under the same module name it would have had at root.
+# attributes (``_QC_SHEET_NAMES``, ``_run_main``) and so need it imported
+# under the same module name it would have had at root. Verifier helper tests
+# import ``lambda_catalog.deep_verify`` directly.
 build_qc = load_script_module("build_qc")
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
@@ -126,12 +128,12 @@ def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
         "MLR_Observation_Test",
     }
     assert mlr_names <= set(build_qc._QC_SHEET_NAMES)
-    assert mlr_names.isdisjoint(build_qc._VERIFY_CALC_SHEET_NAMES)
+    assert mlr_names.isdisjoint(deep_verify._VERIFY_CALC_SHEET_NAMES)
 
 
 def test_build_qc_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
-    assert "Dummy_Test" in build_qc._verification_calc_sheet_names(skip_dummy=False)
-    assert "Dummy_Test" not in build_qc._verification_calc_sheet_names(skip_dummy=True)
+    assert "Dummy_Test" in deep_verify._verification_calc_sheet_names(skip_dummy=False)
+    assert "Dummy_Test" not in deep_verify._verification_calc_sheet_names(skip_dummy=True)
 
 
 def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
@@ -160,7 +162,7 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
         ),
     )
 
-    build_qc._calculate_verification_sheets(
+    deep_verify._calculate_verification_sheets(
         workbook,
         verbose=False,
         phase_start=0.0,
@@ -174,10 +176,10 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
 
 def test_build_qc_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
     
-    assert "Univariate" in build_qc._verification_calc_sheet_names(
+    assert "Univariate" in deep_verify._verification_calc_sheet_names(
         skip_dummy=True, skip_univariate=False
     )
-    assert "Univariate" not in build_qc._verification_calc_sheet_names(
+    assert "Univariate" not in deep_verify._verification_calc_sheet_names(
         skip_dummy=True, skip_univariate=True
     )
 
@@ -212,7 +214,7 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
 
     # skip_univariate not passed (defaults False) — the sheet is simply
     # absent from this workbook, which must still be handled gracefully.
-    build_qc._calculate_verification_sheets(
+    deep_verify._calculate_verification_sheets(
         workbook,
         verbose=False,
         phase_start=0.0,
@@ -238,7 +240,7 @@ def test_univariate_stage_is_silent_when_the_caller_opted_out() -> None:
     since the v3.0 split: nothing to check, nothing to warn about.
     """
     
-    assert build_qc._univariate_verification_action(
+    assert deep_verify._univariate_verification_action(
         {"Regression", "Mileage Data"}, skip_univariate=True
     ) == "skip"
 
@@ -247,7 +249,7 @@ def test_univariate_stage_warns_when_the_sheet_is_unexpectedly_missing() -> None
     """A caller that did NOT opt out and has no Univariate sheet gets a warning
     — worth saying out loud, but not a QC failure."""
     
-    assert build_qc._univariate_verification_action(
+    assert deep_verify._univariate_verification_action(
         {"Regression"}, skip_univariate=False
     ) == "warn"
 
@@ -255,12 +257,12 @@ def test_univariate_stage_warns_when_the_sheet_is_unexpectedly_missing() -> None
 def test_univariate_stage_checks_when_the_sheet_is_present() -> None:
     """The Univariate artifact's own verify run must actually run the check."""
     
-    assert build_qc._univariate_verification_action(
+    assert deep_verify._univariate_verification_action(
         {"Univariate", "Life Expectancy Data"}, skip_univariate=False
     ) == "check"
     # Opting out wins even when the sheet is there, so a caller can always
     # bound what it verifies.
-    assert build_qc._univariate_verification_action(
+    assert deep_verify._univariate_verification_action(
         {"Univariate"}, skip_univariate=True
     ) == "skip"
 
@@ -290,7 +292,7 @@ def test_calculate_verification_sheets_still_requires_regression_sheet() -> None
     )
 
     with pytest.raises(RuntimeError, match="Regression"):
-        build_qc._calculate_verification_sheets(
+        deep_verify._calculate_verification_sheets(
             workbook,
             verbose=False,
             phase_start=0.0,
@@ -323,7 +325,7 @@ def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None
     )
 
     with pytest.raises(RuntimeError, match="Dummy_Test"):
-        build_qc._calculate_verification_sheets(
+        deep_verify._calculate_verification_sheets(
             workbook,
             verbose=False,
             phase_start=0.0,

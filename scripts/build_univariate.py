@@ -24,7 +24,6 @@ Expectancy Data sheet is required because the Univariate data zone reads
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import subprocess
 import sys
 import time
@@ -46,6 +45,7 @@ from lambda_catalog.build_common import (
     warn_if_workbook_open,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
+from lambda_catalog.deep_verify import verify_test_sheets
 from lambda_catalog.verify_report import (
     VerifyReport,
     report_from_failures,
@@ -95,35 +95,6 @@ _TARGET_SHEET_NAMES = frozenset(
 )
 
 
-def _load_build_qc_module() -> object:
-    """Import build_qc.py as a sibling without requiring it to be a package.
-
-    build_qc.py lives next to this file in ``scripts/`` (not under
-    ``lambda_catalog/``), so a normal ``import build_qc`` would rely on the
-    consumer adding ``scripts/`` to ``sys.path``. Loading it explicitly here
-    keeps the verify path self-contained when build_univariate is invoked as
-    a script.
-    """
-    spec = importlib.util.spec_from_file_location(
-        "build_qc", Path(__file__).resolve().parent / "build_qc.py"
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError(
-            f"Could not load build_qc.py from {Path(__file__).resolve().parent}"
-        )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["build_qc"] = module
-    try:
-        spec.loader.exec_module(module)
-    except BaseException:
-        # Mirror the import machinery: a module whose execution raised is not
-        # left registered, so a retry in the same process re-executes it rather
-        # than handing back a half-initialized object.
-        sys.modules.pop("build_qc", None)
-        raise
-    return module
-
-
 def _run_deep_verify(
     workbook_path: Path,
     csv_path: Path,
@@ -133,7 +104,7 @@ def _run_deep_verify(
     """Run the spec-driven verifier against the standalone Univariate workbook.
 
     Opens the workbook in a headless Excel instance and calls
-    ``build_qc.verify_test_sheets(..., skip_dummy=True, skip_regression=True,
+    ``deep_verify.verify_test_sheets(..., skip_dummy=True, skip_regression=True,
     failures_out=...)``. ``skip_regression=True`` drops every Regression /
     Mileage / Production Lots check (this artifact carries none of those
     sheets); the Life Expectancy Full_Data check and the Univariate sheet
@@ -145,7 +116,6 @@ def _run_deep_verify(
     propagate.
     """
     start = time.monotonic()
-    build_qc = _load_build_qc_module()
     if verbose:
         print("  Verify:         spec-driven verifier starting", flush=True)
 
@@ -159,7 +129,7 @@ def _run_deep_verify(
         try:
             captured: list[str] = []
             try:
-                build_qc.verify_test_sheets(
+                verify_test_sheets(
                     workbook,
                     None,  # regression_sheet_configs — none for this artifact
                     csv_path,
@@ -454,7 +424,7 @@ def parse_args() -> argparse.Namespace:
             "grid searches make that rebuild slow (~2,400 NLL evaluations per "
             "recalc across the Beta Data Tables and the Weibull/Gamma formula "
             "grids), so this is the primary fast-iteration flag for this "
-            "artifact. Note: the spec-driven verifier (build_qc) only does a "
+            "artifact. Note: the spec-driven verifier (deep_verify) only does a "
             "per-sheet Calculate, which does not reliably resolve the Data "
             "Tables after a name sync — so combining this flag with --verify "
             "may report stale-fit mismatches that a real rebuild would not."
@@ -482,7 +452,7 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help=(
             "After the build, run the spec-driven verifier "
-            "(build_qc.verify_test_sheets with skip_regression=True) against "
+            "(deep_verify.verify_test_sheets with skip_regression=True) against "
             "the Univariate sheet and the Life Expectancy Data sheet. On any "
             "drift, print a structured VerifyReport and sys.exit(1). The "
             "post-build Excel handoff (cmd /c start) only fires when verify "

@@ -143,7 +143,7 @@ help = "Build dist/Lambda_Library_Univariate.xlsx."
 cmd = "python scripts/build_univariate.py"
 
 [tool.poe.tasks.qc]
-help = "Build the QC workbook and run the full expected-vs-actual pass."
+help = "Build the legacy combined QC workbook and run the expected-vs-actual pass."
 cmd = "python scripts/build_qc.py"
 
 [tool.poe.tasks.static-sheets]

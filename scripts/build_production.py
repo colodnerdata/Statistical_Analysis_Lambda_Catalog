@@ -12,7 +12,6 @@ own workbook").
 from __future__ import annotations
 
 import argparse
-import importlib.util
 import subprocess
 import sys
 import time
@@ -33,6 +32,8 @@ from lambda_catalog.build_common import (
     warn_if_workbook_open,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
+from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
+from lambda_catalog.deep_verify import verify_test_sheets
 from lambda_catalog.verify_report import (
     VerifyReport,
     report_from_failures,
@@ -96,34 +97,6 @@ _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
 # production_lots_fixed_effects QC case).
 
 
-def _load_build_qc_module() -> object:
-    """Import build_qc.py as a sibling without requiring it to be a package.
-
-    build_qc.py lives next to this file in ``scripts/`` (not under
-    ``lambda_catalog/``), so a normal ``import build_qc`` would rely on the
-    consumer adding ``scripts/`` to ``sys.path``. Loading it explicitly here
-    keeps the verify path self-contained when build_production is invoked as
-    a script.
-    """
-    scripts_dir = Path(__file__).resolve().parent
-    spec = importlib.util.spec_from_file_location(
-        "build_qc", scripts_dir / "build_qc.py"
-    )
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"Could not load build_qc.py from {scripts_dir}")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules["build_qc"] = module
-    try:
-        spec.loader.exec_module(module)
-    except BaseException:
-        # Mirror the import machinery: a module whose execution raised is not
-        # left registered, so a retry in the same process re-executes it rather
-        # than handing back a half-initialized object.
-        sys.modules.pop("build_qc", None)
-        raise
-    return module
-
-
 def _run_deep_verify(
     workbook_path: Path,
     csv_path: Path,
@@ -135,7 +108,7 @@ def _run_deep_verify(
     """Run the spec-driven verifier against the Regression production workbook.
 
     Opens the workbook in a headless Excel instance, computes the per-config
-    Python oracle, and calls ``build_qc.verify_test_sheets(..., skip_dummy=True,
+    Python oracle, and calls ``deep_verify.verify_test_sheets(..., skip_dummy=True,
     skip_univariate=True, failures_out=...)``. On success, returns
     a passing ``VerifyReport``. On drift, ``verify_test_sheets`` raises
     ``RuntimeError("QC verification failed with N mismatch(es).")``;
@@ -150,7 +123,6 @@ def _run_deep_verify(
     is printed because the absence is by design, not a build regression.
     """
     start = time.monotonic()
-    build_qc = _load_build_qc_module()
     if verbose:
         print("  Verify:         spec-driven verifier starting", flush=True)
 
@@ -164,9 +136,9 @@ def _run_deep_verify(
         try:
             captured: list[str] = []
             try:
-                build_qc.verify_test_sheets(
+                verify_test_sheets(
                     workbook,
-                    build_qc.build_regression_spec_qc_configs(mileage_path),
+                    build_regression_spec_qc_configs(mileage_path),
                     csv_path,
                     mileage_path=mileage_path,
                     production_lots_path=production_lots_path,
@@ -502,7 +474,7 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         default=False,
         help=(
-            "After the build, run the spec-driven verifier (build_qc."
+            "After the build, run the spec-driven verifier (deep_verify."
             "verify_test_sheets) against the production sheets. On any "
             "drift, print a structured VerifyReport and sys.exit(1). The "
             "post-build Excel handoff (cmd /c start) only fires when "

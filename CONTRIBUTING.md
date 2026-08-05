@@ -332,7 +332,7 @@ only the sheet writers produce.
 uv run python scripts/build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes the Regression-production sheets above, plus the **Univariate** sheet and `Dummy_Test`, updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass. The former `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, and `MLR_Observation_Test` smoke-test sheets are legacy cleanup targets only; current builds delete stale copies but do not write or verify them.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes the Regression-production sheets above, plus the **Univariate** sheet and `Dummy_Test`, and runs the expected-vs-actual verification pass. The former `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, and `MLR_Observation_Test` smoke-test sheets are legacy cleanup targets only; current builds delete stale copies but do not write or verify them.
 
 The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 

@@ -29,7 +29,6 @@ from lambda_catalog.test_model_sheets import (
     SheetNameError,
     assert_sheet_names_unique,
     plan_id_of,
-    spec_table_name,
     validate_sheet_name,
 )
 from lambda_catalog.write_sheet_regression import (
@@ -132,17 +131,9 @@ def test_case_names_are_unique_across_model_and_guard_cases() -> None:
     assert len(names) == len(set(names))
 
 
-def test_spec_table_names_are_unique_per_sheet() -> None:
-    """Excel ListObject names are WORKBOOK-scoped: two sheets both naming
-    their table SpecTable is an error from ListObjects.Add, not a rename."""
-    table_names = [spec_table_name(case.plan_id) for case in _all_cases()]
-    assert len(table_names) == len(set(table_names))
-    assert spec_table_name("M05") == "SpecTable_M05"
-
-
 def test_every_registered_dataset_has_a_spec_profile() -> None:
-    """A case whose Source_Table has no profile would get a spec table sized
-    for the wrong dataset — which fails as wrong NUMBERS, not as an error."""
+    """A case whose Source_Table has no profile would get its spec DEFAULTS
+    from the wrong dataset — which fails as wrong NUMBERS, not as an error."""
     for case in _all_cases():
         assert profile_key_for(case.source_table_ref)
 
@@ -293,25 +284,27 @@ def test_only_cases_that_need_a_period_declare_one() -> None:
         )
 
 
-def test_spec_block_names_its_table_and_binds_the_bands_to_it() -> None:
-    """The Spec_* band names must reference the SAME table name the block
-    created. They are sheet-scoped, so each generated sheet binds its own —
-    but only if both sides read one parameter."""
-    from lambda_catalog.write_sheet_model_construction import _create_spec_table
+def test_the_spec_block_creates_no_list_object() -> None:
+    """The block used to build a SpecTable ListObject sized to the profile,
+    which pinned it to the build-time dataset. It must not come back: a
+    ListObject cannot be resized by a formula, and a spill cannot live
+    inside one, so its return would silently re-break the retarget."""
+    from lambda_catalog.write_sheet_model_construction import _write_spec_block
 
     sheet = RecordingSheet(name="M05 Log-Log NA Masking")
-    _create_spec_table(_as_xw_sheet(sheet), None, "SpecTable_M05")
+    _write_spec_block(_as_xw_sheet(sheet))
 
-    assert [table.Name for table in sheet.api.ListObjects.items] == ["SpecTable_M05"]
+    assert list(sheet.api.ListObjects.items) == []
 
 
-def test_spec_scoped_names_reference_the_per_sheet_table() -> None:
+def test_spec_bands_are_sized_to_the_live_source_table() -> None:
+    """Each band TAKE-trims its column to COLUMNS(Source_Data), which is what
+    makes a Source_Table retarget resize the spec block. A band pinned to a
+    fixed row count is the bug this replaced."""
     from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
 
     sheet = RecordingSheet(name="M05 Log-Log NA Masking")
-    _set_sheet_scoped_names(
-        _as_xw_sheet(sheet), (), spec_table_name="SpecTable_M05"
-    )
+    _set_sheet_scoped_names(_as_xw_sheet(sheet), ())
 
     spec_names = [
         name
@@ -320,11 +313,29 @@ def test_spec_scoped_names_reference_the_per_sheet_table() -> None:
     ]
     assert spec_names
     for name in spec_names:
-        assert "SpecTable_M05[[#Data]," in name.RefersTo, name.Name
+        assert "COLUMNS(Source_Data)" in name.RefersTo, name.Name
         assert "'M05 Log-Log NA Masking'!" in name.RefersTo, name.Name
+        # No structured reference may survive: that is what bound the band
+        # to a fixed-height table.
+        assert "[[#Data]," not in name.RefersTo, name.Name
 
 
-def test_spec_scoped_names_default_to_the_production_table_name() -> None:
+def test_spec_bands_carry_no_retired_names() -> None:
+    """Spec_Base_Period_Delta was renamed to Spec_Sequence_Period and its
+    $I$4:$I$15989 band is still in the shipped artifact — sync_workbook_names
+    only sweeps WORKBOOK-scoped residue, so this one has to be dropped by
+    the writer that stopped creating it."""
+    from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
+
+    sheet = RecordingSheet(name="Regression")
+    _set_sheet_scoped_names(_as_xw_sheet(sheet), ())
+
+    registered = {name.Name.split("!", 1)[-1] for name in sheet.api.Names.items}
+    assert "Spec_Base_Period_Delta" not in registered
+    assert "Spec_Sequence_Period" in registered
+
+
+def test_spec_role_band_is_the_dataset_sized_role_column() -> None:
     from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
 
     sheet = RecordingSheet(name="Regression")
@@ -333,7 +344,9 @@ def test_spec_scoped_names_default_to_the_production_table_name() -> None:
     role = next(
         name for name in sheet.api.Names.items if name.Name.endswith("Spec_Role")
     )
-    assert role.RefersTo == "='Regression'!SpecTable[[#Data],[Role]]"
+    assert role.RefersTo == (
+        "=TAKE('Regression'!$B$4:$B$16000,MAX(1,COLUMNS(Source_Data)))"
+    )
 
 
 # ── Sheet names with spaces must be quoted in every RefersTo ─────────────
@@ -371,7 +384,7 @@ def test_every_refers_to_quotes_a_sheet_name_containing_spaces() -> None:
 
     for writer in (
         lambda s: _setup_local_names(s, ()),
-        lambda s: _set_sheet_scoped_names(s, (), spec_table_name="SpecTable_M01"),
+        lambda s: _set_sheet_scoped_names(s, ()),
         lambda s: _write_materialization_zone(s, ()),
     ):
         sheet = RecordingSheet(name=spaced)

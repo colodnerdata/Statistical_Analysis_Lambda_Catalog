@@ -204,8 +204,6 @@ from .sheet_styles import (
     INPUT_COLOR,
 )
 from .workbook_helpers import (
-    XL_SRC_RANGE,
-    XL_YES,
     add_expression_format,
     anchor_comment_right_of_cell,
     bold,
@@ -214,7 +212,6 @@ from .workbook_helpers import (
     drop_local_name,
     excel_color,
     f,
-    f_structured,
     format_input,
     get_or_create_sheet,
     group_and_hide_columns,
@@ -261,15 +258,21 @@ _VARIABLES: list[str] = [
 _N_VARIABLES = len(_VARIABLES)  # 12
 
 # Row 2 is the model-level Intercept control (label A2, toggle C2 — aligned
-# to the C/Include boolean column). The spec table sits one row below it:
-# headers on row 3, the N variable rows from _FIRST_DATA_ROW to
-# _LAST_DATA_ROW (N = len(_VARIABLES); currently 12, rows 4-15).
+# to the C/Include boolean column). The spec block sits one row below it:
+# headers on row 3, spec rows from _FIRST_DATA_ROW down.
 _INTERCEPT_ROW = 2
 _HEADER_ROW = 3
 _FIRST_DATA_ROW = 4
+# The last spec row of the SHIPPED Auto MPG default — NOT the block's height.
+# The block has no fixed height: every part of it sizes itself from
+# COLUMNS(Source_Data), so a Source_Table retarget resizes it. This constant
+# survives only as the floor apply_spec_case clears to before writing a case,
+# so a shorter spec cannot leave a longer one's rows behind.
 _LAST_DATA_ROW = _FIRST_DATA_ROW + _N_VARIABLES - 1  # 15
-# Sheet row _FIRST_DATA_ROW maps to Source_Data column 1, so a row-indexed
-# formula recovers its column via INDEX(Source_Data,0,ROW()-_ROW_TO_COL_OFFSET).
+# Sheet row _FIRST_DATA_ROW maps to Source_Data column 1. The CF rules still
+# recover a row's column index with ROW()-_ROW_TO_COL_OFFSET; the four
+# computed columns no longer need to, since a spill's MAP index IS the
+# column number (see the _*_SPILL_FORMULA definitions).
 _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 
 # Spec-block columns (1-based). Role precedes Include: the larger
@@ -494,6 +497,22 @@ _RESPONSE_NAME_FORMULA = (
 # retargeted dataset with more columns inherits them without a rebuild.
 _VALIDATION_LAST_ROW = 16000
 
+# The Spec_* bands span the same range for the same reason, so a retarget
+# never has to reach outside a band to find the rows it just brought into
+# play. ONE ceiling for validation, conditional formatting and the bands
+# means there is no way for them to disagree about how far the spec block
+# can grow. Each band is TAKE-trimmed to COLUMNS(Source_Data) (see
+# _spec_band), so the blank cells below the live spec are never read.
+_SPEC_BAND_LAST_ROW = _VALIDATION_LAST_ROW
+
+# Sheet-scoped names this writer used to create and no longer does. They are
+# dropped explicitly on every build: sync_workbook_names only sweeps
+# WORKBOOK-scoped residue, so a sheet-scoped name outlives the code that
+# created it and stays in the artifact forever. Spec_Base_Period_Delta was
+# renamed to Spec_Sequence_Period and its $I$4:$I$15989 band is still in the
+# shipped workbook.
+_RETIRED_LOCAL_NAMES: tuple[str, ...] = ("Spec_Base_Period_Delta",)
+
 # Default spec: variable -> (role, include, type). Reference (E) starts
 # blank everywhere so the first-in-sort-order default is what gets
 # exercised; type an explicit level into E to exercise the override path.
@@ -672,14 +691,6 @@ SPEC_DATASET_PROFILES: dict[str, SpecDatasetProfile] = {
 }
 
 _DEFAULT_TRANSFORM = "None"
-
-# The spec block's ListObject name for an ordinary single-Regression-sheet
-# build. ListObject names are WORKBOOK-scoped in Excel, so a workbook with
-# more than one spec block — the one-sheet-per-test-model artifact — must
-# give each sheet its own; see lambda_catalog/test_model_sheets.py's
-# spec_table_name(). Kept here because _write_spec_block, _create_spec_table
-# and _set_sheet_scoped_names all default to it and must agree.
-_DEFAULT_SPEC_TABLE_NAME = "SpecTable"
 
 _ROLE_VALIDATION_LIST = ",".join(
     (
@@ -929,7 +940,87 @@ _RESPONSE_LOG_FORMULA = (
     f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))="Log",FALSE)'
 )
 
-# The per-row Design Columns audit (spec column O). Mirrors
+# ── The four computed spec columns (J, K, L, O) ────────────────────────────
+#
+# Each is a SINGLE dynamic-array formula written once at _FIRST_DATA_ROW,
+# spilling one value per source-table column. This is the mechanism that
+# makes a Source_Table retarget resize the spec block.
+#
+# They used to be per-row formulas using [@Column] structured references
+# inside the SpecTable ListObject, which pinned the block to the row count
+# baked in at build time — a wider dataset left the computed columns with no
+# formulas at all in the rows it added. A spill cannot live inside a
+# ListObject, and J/K/L sit between the input columns I and M while O sits
+# after N, so making these self-sizing is exactly why the table was dropped.
+#
+# Consequences worth knowing when editing them:
+#   * `[@Column]` becomes INDEX(<band>,i) and ROW()-_ROW_TO_COL_OFFSET
+#     becomes `i`, so a formula no longer depends on which row it occupies.
+#   * They are written with `f` (Formula2), never `f_structured`
+#     (Formula) — Formula enters an array formula as a legacy CSE range,
+#     which would NOT resize on retarget and so would silently reintroduce
+#     the bug this change removes.
+#   * Nothing may be written into the cells below them in columns J/K/L/O;
+#     a spill blocked by stray content is a #SPILL! error, not a truncation.
+#
+# J — Period In Use. The candidate-with-override display: the typed I value
+# when non-blank, else the computed candidate, and blank on every row that
+# is not the sequence axis. Base_Period_Delta_Candidate() is hoisted out of
+# the MAP because it does not vary by row — the per-row version called it
+# once per row, and it walks the whole sequence column each time.
+_PERIOD_IN_USE_SPILL_FORMULA = (
+    "=LET(nc,COLUMNS(Source_Data),"
+    "sq,TAKE(Spec_Sequence,nc),"
+    "sp,TAKE(Spec_Sequence_Period,nc),"
+    'cand,IFERROR(Base_Period_Delta_Candidate(),""),'
+    "MAP(SEQUENCE(nc),LAMBDA(i,"
+    'IF(INDEX(sq,i)<>TRUE,"",'
+    "IF(N(INDEX(sp,i))<>0,INDEX(sp,i),cand)))))"
+)
+
+# K — Levels display. Categorical Predictors only; the raw distinct level
+# count L over the mask-included rows, with Dummy_Levels' blank
+# normalization mirrored inline. Deliberately NOT a Dummy_Levels call: the
+# display must show L (including 1 for a degenerate column, feeding the red
+# CF), while Dummy_Levels returns the L−1 retained levels and #N/A when
+# degenerate. IFERROR -> 0 covers the empty-masked-sample edge.
+_LEVELS_SPILL_FORMULA = (
+    "=LET(nc,COLUMNS(Source_Data),"
+    "rl,TAKE(Spec_Role,nc),"
+    "typ,TAKE(Spec_Type,nc),"
+    "si,Sample_Include(),"
+    "MAP(SEQUENCE(nc),LAMBDA(i,"
+    f'IF(OR(INDEX(rl,i)<>"{_ROLE_PREDICTOR}",'
+    'INDEX(typ,i)<>"Categorical"),"",'
+    "LET(col,INDEX(Source_Data,0,i),"
+    'x,IF(col="","",col),'
+    'IFERROR(ROWS(UNIQUE(FILTER(x,(x<>"")*si))),0))))))'
+)
+
+# L — Reference In Use display. The level the constructor will actually
+# drop, surfaced even when defaulted. A nonblank Reference Level is echoed
+# verbatim (its invalid-reference CF carries the error signal); a blank one
+# shows Dummy_Levels' own default, the first sorted level over the
+# mask-included sample. Deliberately NOT a Dummy_Levels call: that function
+# returns the RETAINED levels, which is the set the reference has been
+# dropped from. IFERROR -> "" covers the empty-masked-sample edge (K shows 0
+# and flags red there).
+_REF_IN_USE_SPILL_FORMULA = (
+    "=LET(nc,COLUMNS(Source_Data),"
+    "rl,TAKE(Spec_Role,nc),"
+    "typ,TAKE(Spec_Type,nc),"
+    "refs,TAKE(Spec_Reference,nc),"
+    "si,Sample_Include(),"
+    "MAP(SEQUENCE(nc),LAMBDA(i,"
+    f'IF(OR(INDEX(rl,i)<>"{_ROLE_PREDICTOR}",'
+    'INDEX(typ,i)<>"Categorical"),"",'
+    'IF(INDEX(refs,i)<>"",INDEX(refs,i),'
+    "LET(col,INDEX(Source_Data,0,i),"
+    'x,IF(col="","",col),'
+    'IFERROR(INDEX(SORT(UNIQUE(FILTER(x,(x<>"")*si))),1,1),"")))))))'
+)
+
+# O — the per-row Design Columns audit. Mirrors
 # Predictor_Columns()'s own iteration predicate and its degenerate skip
 # EXACTLY, rather than re-deriving the count from the K (Levels) display:
 #
@@ -962,24 +1053,46 @@ _RESPONSE_LOG_FORMULA = (
 #
 # A degenerate row needs no special case in either direction: kk returns 0,
 # and 0 * anything is 0, which is exactly what the constructor's skip does.
-_DESIGN_COLUMNS_ROW_FORMULA = (
-    f'=IF([@Role]<>"{_ROLE_PREDICTOR}","",'
-    "IF([@Include]<>TRUE,0,"
-    "LET(nc,COLUMNS(Source_Data),"
+#
+# ONE spill for the whole column, not one formula per row. Every computed
+# spec column is written this way (see _PERIOD_IN_USE_SPILL_FORMULA for the
+# full rationale): the row count follows COLUMNS(Source_Data), so a
+# Source_Table retarget resizes the audit instead of leaving it short.
+#
+# MAP(SEQUENCE(nc),...) rather than BYROW: the body needs the column INDEX
+# to reach INDEX(Source_Data,0,i), and BYROW passes a row's values, not its
+# position. That index also replaces the old ROW()-_ROW_TO_COL_OFFSET
+# arithmetic, so the formula no longer depends on where it is written.
+#
+# Everything invariant across rows is hoisted into the outer LET —
+# Sample_Include(), TOROW(Header_Names) and the kk helper itself. The
+# per-row version re-evaluated all three once per row; kk still calls
+# Sample_Include() once per categorical operand, but the closure is now
+# built once for the column rather than once per row.
+_DESIGN_COLUMNS_SPILL_FORMULA = (
+    "=LET(nc,COLUMNS(Source_Data),"
     "typ,TAKE(Spec_Type,nc),"
     "refs,TAKE(Spec_Reference,nc),"
     "rl,TAKE(Spec_Role,nc),"
+    "inc,TAKE(Spec_Include,nc),"
+    "it,TAKE(Spec_Interaction_Term,nc),"
+    "io,TAKE(Spec_Interaction_Operation,nc),"
+    "si,Sample_Include(),"
+    "hdr,TOROW(Header_Names),"
     'kk,LAMBDA(x,IF(INDEX(typ,x)<>"Categorical",1,'
     "IFERROR(COLUMNS(Dummy_Levels(INDEX(Source_Data,0,x),"
     'IF(LEN(INDEX(refs,x)&"")=0,"",INDEX(refs,x)),'
-    "Sample_Include())),0))),"
-    f"k,kk(ROW()-{_ROW_TO_COL_OFFSET}),"
-    "t,[@[Interaction Term]],"
-    "o,[@[Interaction Operation]],"
-    "q,IFERROR(XMATCH(t,TOROW(Header_Names)),0),"
+    "si)),0))),"
+    "MAP(SEQUENCE(nc),LAMBDA(i,"
+    f'IF(INDEX(rl,i)<>"{_ROLE_PREDICTOR}","",'
+    "IF(INDEX(inc,i)<>TRUE,0,"
+    "LET(k,kk(i),"
+    "t,INDEX(it,i),"
+    "o,INDEX(io,i),"
+    "q,IFERROR(XMATCH(t,hdr),0),"
     'ki,IF(OR(LEN(t&"")=0,LEN(o&"")=0,q=0),0,'
     f'IF(INDEX(rl,q)<>"{_ROLE_PREDICTOR}",0,k*kk(q))),'
-    "k+ki)))"
+    "k+ki))))))"
 )
 
 # Verdict messages. Blank cell = quiet; conditional formatting keys on
@@ -1004,11 +1117,42 @@ _MSG_CALENDAR = (
 )
 
 
+def _spec_band(sname: str, col: int) -> str:
+    """One spec column, TAKE-trimmed to the live source-table width.
+
+    **This is what makes a ``Source_Table`` retarget a genuine one-name
+    edit.** These bands used to be structured references into the
+    ``SpecTable`` ListObject (``SpecTable[[#Data],[Role]]``), which fixed
+    them at the row count baked in at build time. Retargeting to a wider
+    table then left every band short: ``TAKE`` does not pad, so
+    ``INDEX(rl, n_c)`` ran off the end and every engine cell downstream
+    read as an error. Excel offers no formula-driven way to resize a
+    ListObject and this workbook is macro-free, so the table was removed
+    and the bands size themselves instead.
+
+    ``TAKE`` (not ``OFFSET``) for the same reason ``Source_Data`` and
+    ``Header_Names`` use it: it is non-volatile, so the band is not
+    re-evaluated on every Data Table substitution pass.
+
+    ``MAX(1,...)`` keeps the name resolvable while ``Source_Table`` is
+    momentarily broken — mid-retarget, a zero-row TAKE would be an error
+    that every dependent name would inherit.
+
+    The band runs to ``_SPEC_BAND_LAST_ROW`` rather than to the spec rows
+    in use, so rows a retarget brings into play are already inside it. The
+    cells below the live spec are ordinary blanks; the trim is what keeps
+    them out, and it is why the Regression sheet may never place content
+    below the spec block in columns B–O.
+    """
+    first = f"${col_letter(col)}${_FIRST_DATA_ROW}"
+    last = f"${col_letter(col)}${_SPEC_BAND_LAST_ROW}"
+    return f"=TAKE({sname}!{first}:{last},MAX(1,COLUMNS(Source_Data)))"
+
+
 def _set_sheet_scoped_names(
     sheet: xw.Sheet,
     closures: Sequence[CatalogFunction],
     source_table_ref: str = "=MileageData[#All]",
-    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """Register this sheet's local names in dependency order.
 
@@ -1027,9 +1171,13 @@ def _set_sheet_scoped_names(
        place and appear on the LAMBDA_functions catalog sheet. Passed in
        document order, which is dependency order (``Sample_Include`` before
        ``Predictor_Columns``, etc.).
+
+    This runs BEFORE the spec block is written, because the four computed
+    spec columns are spill formulas that reference these band names. It
+    used to run after, when the bands bound to a ListObject that
+    ``_write_spec_block`` had to create first.
     """
     sname = f"'{sheet.name}'"
-    table = spec_table_name
 
     local_names: dict[str, str] = {
         # ── Source-table indirection: THE dataset-retarget point ─────────
@@ -1041,38 +1189,28 @@ def _set_sheet_scoped_names(
         "Source_Table": source_table_ref,
         "Source_Data": "=DROP(Source_Table,1)",
         "Header_Names": "=TAKE(Source_Table,1)",
-        # ── Spec ranges (table-column structured references) ─────────────
-        # The spec data area is a structured table (named by
-        # B_HEADER_ROW:L_LAST_DATA_ROW; these band names bind to its
-        # spec_table_name) at B_HEADER_ROW:L_LAST_DATA_ROW; these band
-        # names bind to its columns via structured references.
-        # Each column header carries the actual human-readable name (with
-        # spaces — Excel requires the exact header text, not a sanitized
-        # underscore form, in structured references). The [#Data]
-        # qualifier restricts the range to the data body (the spec rows),
-        # which is what every TAKE-trimmed consumer expects: the spec
-        # rows, not the headers.
-        "Spec_Role": f"={sname}!{table}[[#Data],[Role]]",
-        "Spec_Include": f"={sname}!{table}[[#Data],[Include]]",
-        "Spec_Type": f"={sname}!{table}[[#Data],[Type]]",
-        "Spec_Reference": f"={sname}!{table}[[#Data],[Reference Level]]",
+        # ── Spec ranges (dataset-sized dynamic bands) ────────────────────
+        # Each band is the column's full input range TAKE-trimmed to the
+        # live column count, so retargeting Source_Table resizes every
+        # band with it. See _spec_band for why this is not a structured
+        # reference into a ListObject any more.
+        "Spec_Role": _spec_band(sname, _C_ROLE),
+        "Spec_Include": _spec_band(sname, _C_INCLUDE),
+        "Spec_Type": _spec_band(sname, _C_TYPE),
+        "Spec_Reference": _spec_band(sname, _C_REFERENCE),
         # Reserved axes: named now so the grid shape is final, read by
         # nothing until the Order/Transform release.
-        "Spec_Order": f"={sname}!{table}[[#Data],[Order]]",
-        "Spec_Transform": f"={sname}!{table}[[#Data],[Transform]]",
+        "Spec_Order": _spec_band(sname, _C_ORDER),
+        "Spec_Transform": _spec_band(sname, _C_TRANSFORM),
         # Sequence structural axis (live: read by the zero-or-one status
         # validation and its conditional formats, not by any constructor);
         # Base Period Δ is its reserved companion, read by nothing until
         # the base-period release. The Period In Use band name is new —
         # it parallels the other Spec_* names so every spec column has a
         # single binding, even though no formula reads it yet.
-        "Spec_Sequence": f"={sname}!{table}[[#Data],[Sequence]]",
-        "Spec_Sequence_Period": (
-            f"={sname}!{table}[[#Data],[Sequence Period]]"
-        ),
-        "Spec_Period_In_Use": (
-            f"={sname}!{table}[[#Data],[Period In Use]]"
-        ),
+        "Spec_Sequence": _spec_band(sname, _C_SEQUENCE),
+        "Spec_Sequence_Period": _spec_band(sname, _C_SEQUENCE_PERIOD),
+        "Spec_Period_In_Use": _spec_band(sname, _C_PERIOD_IN_USE),
         # The interaction pair (M/N) and the Design Columns audit (O),
         # added by the layout-break MAJOR. The first two are RESERVED —
         # bound so the grid shape is final and so the conditional-format
@@ -1080,15 +1218,11 @@ def _set_sheet_scoped_names(
         # constructor until the interaction wiring release. The third is
         # a computed display, bound by "display derives, never feeds":
         # only the width guard reads it, and the guard is a display too.
-        "Spec_Interaction_Term": (
-            f"={sname}!{table}[[#Data],[Interaction Term]]"
+        "Spec_Interaction_Term": _spec_band(sname, _C_INTERACTION_TERM),
+        "Spec_Interaction_Operation": _spec_band(
+            sname, _C_INTERACTION_OPERATION
         ),
-        "Spec_Interaction_Operation": (
-            f"={sname}!{table}[[#Data],[Interaction Operation]]"
-        ),
-        "Spec_Design_Columns": (
-            f"={sname}!{table}[[#Data],[Design Columns]]"
-        ),
+        "Spec_Design_Columns": _spec_band(sname, _C_DESIGN_COLUMNS),
         # Model-level Intercept toggle (row-2 control): a single boolean cell
         # in the C/Include column. No v3.0 formula reads it yet — the engine
         # will, exactly as the v1 Regression sheet's Allow_Intercept did.
@@ -1096,6 +1230,9 @@ def _set_sheet_scoped_names(
             f"={sname}!${col_letter(_C_INCLUDE)}${_INTERCEPT_ROW}"
         ),
     }
+
+    for name in _RETIRED_LOCAL_NAMES:
+        drop_local_name(sheet, name)
 
     # Wiring first: Excel resolves each name against the ones already added,
     # and the constructor closures below reference Source_Data / Spec_*.
@@ -1254,7 +1391,6 @@ def _interaction_error_formats(sheet: xw.Sheet) -> None:
 def _write_spec_block(
     sheet: xw.Sheet,
     profile: SpecDatasetProfile | None = None,
-    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
 ) -> None:
     """The A–O specification block: headers, defaults, dropdowns, CF.
 
@@ -1263,10 +1399,16 @@ def _write_spec_block(
     (``SPEC_DATASET_PROFILES["auto_mpg"]``) when omitted, matching this
     function's original hardcoded-to-Auto-MPG behavior.
 
-    ``spec_table_name`` names the ListObject this block creates. It must be
-    unique across the WORKBOOK (see ``_create_spec_table``), so the
-    one-sheet-per-test-model artifact passes a per-sheet name; every
-    single-Regression-sheet build leaves it at the default.
+    **The block has no fixed height.** The profile decides which rows get
+    shipped *defaults*, not how many rows exist: the variable-name column,
+    the four computed columns and the input band's fill all size themselves
+    from ``COLUMNS(Source_Data)``, so retargeting ``Source_Table`` resizes
+    the block. This block used to build a ``SpecTable`` ListObject sized to
+    ``len(profile.variables)``, which pinned it to the build-time dataset.
+
+    Must run AFTER ``_set_sheet_scoped_names``: the computed columns are
+    spills that reference the ``Spec_*`` bands, ``Source_Data`` and the
+    constructor closures. The dependency used to run the other way.
     """
     profile = profile or _AUTO_MPG_PROFILE
     bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_SPEC_LAST)
@@ -1292,123 +1434,57 @@ def _write_spec_block(
     # Create the table before writing any [@Column] formulas below. Excel
     # rejects row-scoped structured references until the target cell belongs
     # to a ListObject with the referenced headers.
-    _create_spec_table(sheet, profile, spec_table_name)
-
-    # TableStyle overrides ListObject header styling. Re-pin the full
-    # specification header row after table creation so the Regression sheet's
-    # visible headers keep the intended style regardless of table theme.
+    # The specification header row. Nothing overrides it any more — this
+    # used to have to be re-pinned AFTER _create_spec_table, because
+    # applying a TableStyle silently replaced the header fill and font.
+    # test_spec_block_prefills_the_t0_default_configuration still asserts
+    # all three properties.
     header_range = sheet.range((_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST))
     header_range.color = HEADER_COLOR
     header_range.api.Font.Bold = True
     header_range.api.Font.Color = excel_color((0, 0, 0))
 
-    # A: variable names spill straight from the table's header row via the
-    # Header_Names indirection (dataset-agnostic; reads no other sheet).
+    # A: variable names spill straight from the source table's header row
+    # via the Header_Names indirection (dataset-agnostic; reads no other
+    # sheet). This column has always resized with a retarget; the four
+    # computed columns below now do the same, and the input columns follow
+    # via the CF band rule.
     f(sheet, _FIRST_DATA_ROW, _C_LABEL, "=TRANSPOSE(Header_Names)")
 
+    # J/K/L/O: one spill each, written once. See the _*_SPILL_FORMULA
+    # definitions above for why these are single dynamic arrays rather than
+    # per-row formulas, and why they must go through `f` (Formula2).
+    f(sheet, _FIRST_DATA_ROW, _C_PERIOD_IN_USE, _PERIOD_IN_USE_SPILL_FORMULA)
+    f(sheet, _FIRST_DATA_ROW, _C_LEVELS, _LEVELS_SPILL_FORMULA)
+    f(sheet, _FIRST_DATA_ROW, _C_REF_IN_USE, _REF_IN_USE_SPILL_FORMULA)
+    f(sheet, _FIRST_DATA_ROW, _C_DESIGN_COLUMNS, _DESIGN_COLUMNS_SPILL_FORMULA)
+
+    # The typed input columns keep one written cell per row: they are what
+    # the user edits, so they cannot be spills. The profile supplies the
+    # shipped defaults for the columns THIS dataset has; a retarget to a
+    # wider table leaves the extra rows blank, which is a legal spec (Role
+    # blank contributes nothing) and is exactly what the user then fills in.
+    #
+    # I (Sequence Period) is the typed override input: the user types a
+    # number on the Sequence-flagged row to declare a Δ that differs from
+    # the computed candidate. Left blank, the spec falls back to the
+    # candidate. It is a PURE input — no formula here; the candidate lives
+    # in J, and J's spill picks the override up by reading this band.
     for offset, variable in enumerate(profile.variables):
         row = _FIRST_DATA_ROW + offset
         role, include, ptype = profile.default_spec.get(variable, _FALLBACK_SPEC)
         val(sheet, row, _C_ROLE, role)
-        format_input(sheet, row, _C_ROLE)
         val(sheet, row, _C_INCLUDE, include)
-        format_input(sheet, row, _C_INCLUDE)
         val(sheet, row, _C_TYPE, ptype)
-        format_input(sheet, row, _C_TYPE)
-        # E starts blank → first-in-sort-order default reference.
-        format_input(sheet, row, _C_REFERENCE)
+        # E (Reference) starts blank → first-in-sort-order default.
         # F (Order) starts blank; G (Transform) defaults to "None".
-        format_input(sheet, row, _C_ORDER)
         val(sheet, row, _C_TRANSFORM, _DEFAULT_TRANSFORM)
-        format_input(sheet, row, _C_TRANSFORM)
         # H (Sequence): TRUE on the shipped ordering axis (Year), blank
-        # elsewhere — zero-or-one flags is the legal range, and blank stays a
-        # valid non-panel spec.
-        # I (Sequence Period) is the typed override input: the user types a
-        # number here on the Sequence-flagged row to declare a Δ that
-        # differs from the computed candidate. The cell is styled as an
-        # input; left blank, the spec falls back to the candidate.
-        # J (Period In Use) is the candidate-with-override display, the
-        # reference-level pattern: it shows the typed I value when I is
-        # non-blank, otherwise the candidate closure's value. The pattern
-        # keeps I as the load-bearing override cell (the candidate closure
-        # never overwrites user input), and J is a pure display that the
-        # Sequence Spacing block reads.
+        # elsewhere — zero-or-one flags is the legal range, and blank stays
+        # a valid non-panel spec.
         if variable in profile.sequence_variables:
             val(sheet, row, _C_SEQUENCE, True)
-        format_input(sheet, row, _C_SEQUENCE)
-        # I is a pure input: no candidate formula here. The pre-filled
-        # candidate is in J; the user types a number into I to override,
-        # and the J formula picks the override via the I reference.
-        # The J/K/L formulas use structured references ([@Column]) because
-        # the spec data area is a structured table (SpecTable); Formula2
-        # rejects structured refs, so they go through f_structured.
-        format_input(sheet, row, _C_SEQUENCE_PERIOD)
-        f_structured(
-            sheet,
-            row,
-            _C_PERIOD_IN_USE,
-            (
-                '=IF([@Sequence]<>TRUE,"",'
-                'IF(N([@[Sequence Period]])<>0,[@[Sequence Period]],'
-                'IFERROR(Base_Period_Delta_Candidate(),"")))'
-            ),
-        )
-
-        # K: Levels display — Categorical Predictors only; the raw distinct
-        # level count L over the mask-included rows, with Dummy_Levels'
-        # blank normalization mirrored inline. Deliberately NOT a
-        # Dummy_Levels call: the display must show L (including 1 for a
-        # degenerate column, feeding the red CF below), while Dummy_Levels
-        # returns the L−1 retained levels and #N/A when degenerate.
-        # ROW()−_ROW_TO_COL_OFFSET maps the sheet row to a Source_Data
-        # column index. IFERROR → 0 covers the empty-masked-sample edge.
-        f_structured(
-            sheet,
-            row,
-            _C_LEVELS,
-            (
-                f'=IF(OR([@Role]<>"{_ROLE_PREDICTOR}",'
-                f'[@Type]<>"Categorical"),"",'
-                f"LET(col,INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
-                f'x,IF(col="","",col),'
-                f'IFERROR(ROWS(UNIQUE(FILTER(x,(x<>"")*Sample_Include()))),0)))'
-            ),
-        )
-
-        # L: Reference In Use display — the level the constructor will
-        # actually drop, surfaced even when defaulted. A nonblank
-        # [@Reference Level] is echoed verbatim (its invalid-reference CF
-        # carries the error signal); a blank E shows Dummy_Levels' own
-        # default, the first sorted level over the mask-included sample,
-        # with the same blank normalization mirrored inline. Deliberately
-        # NOT a Dummy_Levels call: the function returns the RETAINED
-        # levels, which is exactly the set the reference has been dropped
-        # from. IFERROR → "" covers the empty-masked-sample edge (K shows
-        # 0 and flags red there).
-        f_structured(
-            sheet,
-            row,
-            _C_REF_IN_USE,
-            (
-                f'=IF(OR([@Role]<>"{_ROLE_PREDICTOR}",'
-                f'[@Type]<>"Categorical"),"",'
-                f'IF([@[Reference Level]]<>"",[@[Reference Level]],'
-                f"LET(col,INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
-                f'x,IF(col="","",col),'
-                f'IFERROR(INDEX(SORT(UNIQUE(FILTER(x,(x<>"")*Sample_Include()))),1,1),""))))'
-            ),
-        )
-
-        # M/N: the interaction pair — both pure inputs, blank by default
-        # (no interaction). Styled and validated now; read by no
-        # constructor until the interaction wiring release.
-        format_input(sheet, row, _C_INTERACTION_TERM)
-        format_input(sheet, row, _C_INTERACTION_OPERATION)
-
-        # O: the Design Columns audit — how many columns this row
-        # contributes to the constructed design matrix.
-        f_structured(sheet, row, _C_DESIGN_COLUMNS, _DESIGN_COLUMNS_ROW_FORMULA)
+        # M/N (the interaction pair) start blank: no interaction.
 
     _add_list_validation(sheet, _C_ROLE, _ROLE_VALIDATION_LIST)
     _add_list_validation(sheet, _C_INCLUDE, _INCLUDE_VALIDATION_LIST)
@@ -1434,18 +1510,17 @@ def _write_spec_block(
     # Log-transformed response is a first-class case, not a Predictor-only
     # concept), so it cannot share this rule's Role ≠ Predictor test.
     #
-    # "Hide in place" means the font color matches each band's own static
-    # fill (INPUT_COLOR for format_input-colored cells, white for unfilled
+    # "Hide in place" means the font color matches each band's own fill
+    # (INPUT_COLOR for the input columns, white for the unfilled
     # computed-display cells) rather than a single muted gray — the same
     # font-matches-fill idiom used for the boundary guard on the Univariate
     # sheet's grid-search tables (write_sheet_univariate.py, cf.Font.Color =
     # 0xFFFFFF). Every range here runs out to _VALIDATION_LAST_ROW, not just
-    # _LAST_DATA_ROW: SpecTable is a ListObject, so typing a row directly
-    # below its current bottom edge auto-extends the table (structured
-    # names and the J/K/L calculated-column formulas follow automatically);
-    # pre-applying these rules out to the same 16000-row ceiling the B/C/D/
-    # G/H dropdown Validation already uses means a freshly-added row is
-    # fully formatted the instant it joins the table, with no rebuild.
+    # the rows currently in use, for the same reason the Spec_* bands and
+    # the dropdown Validation do: a Source_Table retarget must not have to
+    # reach outside a pre-applied range to find the rows it brought into
+    # play. ONE ceiling across bands, validation and CF means a wider
+    # dataset is fully formatted the instant it is retargeted, no rebuild.
     add_expression_format(
         sheet,
         f"$C${_FIRST_DATA_ROW}:$F${_VALIDATION_LAST_ROW}",
@@ -1587,58 +1662,30 @@ def _write_spec_block(
         font_color=CF_DARK_RED_TEXT,
     )
 
-def _create_spec_table(
-    sheet: xw.Sheet,
-    profile: SpecDatasetProfile | None = None,
-    spec_table_name: str = _DEFAULT_SPEC_TABLE_NAME,
-) -> None:
-    """Convert the spec data area at B3:L(last data row) into a structured ListObject.
-
-    The table is named ``spec_table_name`` — ``SpecTable`` for an ordinary
-    single-Regression-sheet build. Excel ListObject names are **workbook**
-    scoped and must be unique, so a workbook carrying one spec block per
-    test model gives each sheet its own (``SpecTable_M05``, ...) via
-    ``test_model_sheets.spec_table_name``; a second table claiming a name
-    already in use is an error from ``ListObjects.Add``, not a silent
-    rename. The ``Spec_*`` band names that bind to it are sheet-scoped and
-    are built from this same string in ``_set_sheet_scoped_names``, so a
-    table and its bindings can never disagree about which name to use. A
-    column is outside the table by design — the variable-names spill at
-    A4:A(last data row) must not be absorbed by the table's spill scope,
-    since the spill lives outside the structured-reference world.
-
-    The table is sized to ``len(profile.variables)`` data rows (the Auto
-    MPG profile when ``profile`` is omitted) so every column of the
-    targeted dataset gets a Spec_Role/Spec_Include/etc. entry — those are
-    ``SpecTable[[#Data],[Column]]``-style structured references, so a table sized
-    too short for the dataset silently drops the extra columns from every
-    constructor closure instead of erroring.
-
-    Headers on row 3 are the existing column labels written by
-    _write_spec_block; XlListObjectHasHeaders=xlYes tells Excel to
-    promote the first row to headers. The table must exist before the
-    Spec_* band names are registered in _set_sheet_scoped_names (Excel
-    validates each name's RefersTo at registration time).
-
-    TableStyleLight9 (dark-teal accent) with banding off gives the table a
-    neutral body so the conditional formatting (hide-in-place cascading
-    relevance, red/yellow error flags) reads clearly on top of it, instead
-    of competing with Excel's un-pinned default banding.
-    """
-    profile = profile or _AUTO_MPG_PROFILE
-    last_data_row = _FIRST_DATA_ROW + len(profile.variables) - 1
-    table_range = sheet.range(
-        (_HEADER_ROW, _C_ROLE), (last_data_row, _C_SPEC_LAST)
-    )
-    table = sheet.api.ListObjects.Add(
-        SourceType=XL_SRC_RANGE,
-        Source=table_range.api,
-        XlListObjectHasHeaders=XL_YES,
-    )
-    table.Name = spec_table_name
-    table.TableStyle = "TableStyleLight9"
-    table.ShowTableStyleRowStripes = False
-    table.ShowTableStyleColumnStripes = False
+    # ── The input band, sized to the dataset ─────────────────────────────
+    # LAST, and deliberately so. Every rule above is added earlier and so
+    # outranks this one, which means a red or yellow flag still wins on the
+    # cells it applies to and the hide-in-place font rules still compose on
+    # top (they set a font color, this sets a fill).
+    #
+    # This replaces the per-row format_input() calls the writer used to
+    # make. Those painted exactly the profile's variables, so the input
+    # surface was pinned to the build-time dataset in the same way the old
+    # ListObject pinned the bands: retarget to a wider table and the rows it
+    # brought into play were functional but unpainted. Keying the fill on
+    # ROW() vs. COLUMNS(Source_Data) makes the visible input band track the
+    # source table exactly, the same predicate the Spec_* bands use.
+    for first_col, last_col in (
+        (_C_ROLE, _C_SEQUENCE_PERIOD),
+        (_C_INTERACTION_TERM, _C_INTERACTION_OPERATION),
+    ):
+        add_expression_format(
+            sheet,
+            f"${col_letter(first_col)}${_FIRST_DATA_ROW}:"
+            f"${col_letter(last_col)}${_VALIDATION_LAST_ROW}",
+            f"=ROW()-{_ROW_TO_COL_OFFSET}<=COLUMNS(Source_Data)",
+            fill=INPUT_COLOR,
+        )
 
 
 def _write_spec_feedback(sheet: xw.Sheet) -> None:

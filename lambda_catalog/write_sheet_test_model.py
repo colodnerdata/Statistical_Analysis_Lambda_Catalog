@@ -34,7 +34,6 @@ from .regression_spec_sheet_io import (
     apply_spec_case,
     set_prediction_inputs,
 )
-from .test_model_sheets import spec_table_name
 from .workbook_helpers import bold, val
 from .write_sheet_model_construction import SPEC_DATASET_PROFILES, _ROLE_OMIT
 from .write_sheet_regression import (
@@ -186,16 +185,17 @@ def _write_shell(
     workbook: xw.Book,
     *,
     sheet_name: str,
-    plan_id: str,
     source_table_ref: str,
     sheet_notes: dict[str, str] | None,
     closures: tuple[CatalogFunction, ...] | None,
 ) -> xw.Sheet:
     """Write the Regression sheet layout under a per-case identity."""
     profile_key = profile_key_for(source_table_ref)
-    # SpecTable is sized to the table's REAL width — shipped columns plus any
-    # fixture column this artifact added — so the spec block always has one
-    # row per Source_Table column. See effective_variables.
+    # The profile is built over the table's REAL column list — shipped
+    # columns plus any fixture column this artifact added — so the shipped
+    # DEFAULTS cover every Source_Table column. The block's height follows
+    # COLUMNS(Source_Data) on its own; what the profile still governs is
+    # which rows arrive pre-filled. See effective_variables.
     profile = replace(
         SPEC_DATASET_PROFILES[profile_key],
         variables=effective_variables(profile_key),
@@ -212,7 +212,6 @@ def _write_shell(
         # one. Chart wiring is verified once, on the production Regression
         # sheet, by build_production.py.
         include_charts=False,
-        spec_table_name=spec_table_name(plan_id),
     )
     return workbook.sheets[sheet_name]
 
@@ -234,7 +233,6 @@ def write_test_model_sheet(
     sheet = _write_shell(
         workbook,
         sheet_name=case.sheet_name,
-        plan_id=case.plan_id,
         source_table_ref=case.source_table_ref,
         sheet_notes=sheet_notes,
         closures=closures,
@@ -295,7 +293,6 @@ def write_guard_state_sheet(
     sheet = _write_shell(
         workbook,
         sheet_name=case.sheet_name,
-        plan_id=case.plan_id,
         source_table_ref=case.source_table_ref,
         sheet_notes=sheet_notes,
         closures=closures,

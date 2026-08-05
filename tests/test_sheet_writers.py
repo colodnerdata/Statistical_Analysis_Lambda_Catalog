@@ -1,9 +1,11 @@
 """Tests for workbook-writing logic that do not require a live Excel process."""
 # pylint: disable=import-outside-toplevel,missing-function-docstring,protected-access
+from pathlib import Path
 from typing import cast
 
 import xlwings as xw
 
+from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_LIGHT_RED_FILL,
@@ -51,6 +53,15 @@ from lambda_catalog.write_sheet_regression import (
     _C_SPEC_DESIGN_COLUMNS,
     _C_SPEC_INTERACTION_OPERATION,
     _C_SPEC_INTERACTION_TERM,
+    _C_SPEC_SEQUENCE_PERIOD,
+    _C_P,
+    _C_Q,
+    _C_S,
+    _C_X,
+    _C_Y,
+    _COLUMN_WIDTHS,
+    _GAP_COLUMNS,
+    _ZONES,
     _DESIGN_MATRIX_GROUPED_COLUMNS,
     _DESIGN_MATRIX_INTERCEPT_HEADER,
     _DESIGN_MATRIX_MAX_COLUMNS,
@@ -65,6 +76,9 @@ from lambda_catalog.write_sheet_regression import (
     _C_GUTTER_AFTER_SAMPLE_INCLUDE,
     _C_MODEL_CONTEXT,
     _C_MODEL_CONTEXT_LABEL,
+    _C_MODEL_FORMULA,
+    _C_MODEL_FORMULA_LABEL,
+    _ROW_MODEL_FORMULA,
     _C_SAMPLE_INCLUDE_MATERIALIZED,
     _C_CHART_LABEL_NAME,
     _C_CHART_TITLE,
@@ -110,6 +124,8 @@ from lambda_catalog.write_sheet_univariate import (
     _write_weibull_grid_search,
 )
 from tests.recording_sheet import RecordingName, RecordingNames, RecordingSheet
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
 
 
 def _as_xw_sheet(sheet: RecordingSheet) -> xw.Sheet:
@@ -925,32 +941,146 @@ def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
     )
 
 
-def test_write_regression_outputs_header_writes_model_formula_cell() -> None:
-    """v3.3 Model Formula cell — AA2 label, AB2 the assembled formula string.
-    Built from `_RESPONSE_NAME_FORMULA` (which already emits "Ln(name)" when
-    Log), `Allow_Intercept`, `Constructed_Column_Names()`, and the FE-name
-    suffix gated by the Fixed Effects count.
+def test_column_widths_cover_every_zone_column_and_no_gap_column() -> None:
+    """Widths are keyed on the layout constants, one per content column.
+
+    The table used to be keyed on literal letters, and the layout break that
+    shifted every zone right of the spec block three columns over left the
+    keys behind: the Predictor Summary's name column was sized for a stats
+    value, the Regression Outputs' diagnostics labels got the width meant for
+    its values, and the whole Prediction Outputs zone fell off the table and
+    rendered at Excel's default width. Nothing failed — the build sized a
+    different column, which is exactly the silent-wrong-answer mode the `_C_*`
+    constants exist to prevent. Pin the coverage so the next shift fails here.
+    """
+    widths = dict(_COLUMN_WIDTHS)
+    assert len(widths) == len(_COLUMN_WIDTHS), "no column may be sized twice"
+
+    # Every content column of every zone past the spec block is sized exactly
+    # once. (The spec block A–O owns its own widths in
+    # write_sheet_model_construction; column I is the one override here.)
+    content = {
+        col for first, last in _ZONES[1:] for col in range(first, last + 1)
+    } | {_C_P, _C_Q}  # zone 1's spec-feedback columns; A–O is the spec block
+    assert content <= set(widths)
+    # ...and nothing else is sized except the column-I overlay and the BB
+    # post-zone gutter.
+    assert set(widths) - content == {_C_SPEC_SEQUENCE_PERIOD, _C_BB}
+    # Gap columns are sized by the _GAP_COLUMNS loop (width 2) and must not
+    # appear here, or a stale entry would silently widen a separator.
+    assert not set(widths) & set(_GAP_COLUMNS)
+
+    # The columns whose width the stale letter keys landed on the wrong side
+    # of. Each is the widest thing in its zone: a label or name column beside
+    # narrow numeric ones.
+    assert widths[_C_S] == 24           # constructed column names
+    assert widths[_C_X] == widths[_C_Y] == 9   # GVIF / Tolerance — plain stats
+    assert widths[_C_AD] == 24          # "BFN Panel Durbin-Watson" (23)
+    assert widths[_C_AJ] == 24          # "PREDICTION INTERVAL" labels + names spill
+    assert widths[_C_AK] == 16          # interval + prediction input values
+    assert widths[_C_AL] == 14          # Original Units / Training Mean
+    assert widths[_C_SPEC_SEQUENCE_PERIOD] == 38  # the I2 Verdict switch
+
+
+def test_regression_outputs_header_no_longer_holds_the_model_formula() -> None:
+    """The Model Formula readout left AA2/AB2.
+
+    Row 2 of this zone wraps and then AutoFits, so the longest string on the
+    sheet sitting in a 12-wide column set the height of the whole header row.
+    The caption moved to the §4b materialization band; the header keeps only
+    the zone heading and the Predicted Variable readout.
     """
     sheet = RecordingSheet(name="Regression")
     _write_regression_outputs_header(_as_xw_sheet(sheet))
 
-    # AA2 is the bold label; AB2 holds the formula.
-    assert sheet.cell(2, _C_AA).value == "Model Formula"
-    formula = sheet.cell(2, _C_AB).api.Formula2
-    assert formula is not None
-    # Response side — _RESPONSE_NAME_FORMULA already wraps in "Ln(...)" when Log.
-    assert "Header_Names" in formula  # the response-name lookup chain
-    assert '" ~ "' in formula
+    assert sheet.cell(1, _C_AA).value == "REGRESSION OUTPUTS"
+    assert sheet.cell(2, _C_AA).value is None
+    assert sheet.cell(2, _C_AB).api.Formula2 is None
+    # The Predicted Variable readout stays put.
+    assert sheet.cell(2, _C_AE).value == "Predicted Variable"
+
+
+def test_materialization_zone_writes_the_model_formula_readout() -> None:
+    """The Model Formula caption, on row 1 of the design-matrix zone.
+
+    Right of that zone's own heading — header two columns over, readout three
+    columns past the header — holding a call to the sheet-scoped
+    `Model_Formula()` closure rather than a 300-character expression, with
+    wrap explicitly OFF so the string overflows across an empty row 1 instead
+    of dictating a row height the way it did at AB2.
+    """
+    sheet = RecordingSheet(name="Regression")
+    _write_materialization_zone(_as_xw_sheet(sheet), closures=())
+
+    assert _ROW_MODEL_FORMULA == 1
+    assert _C_MODEL_FORMULA_LABEL == _C_DESIGN_MATRIX + 2
+    assert _C_MODEL_FORMULA == _C_MODEL_FORMULA_LABEL + 3
+    assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).value == "Model Formula"
+    assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).api.Font.Bold is True
+    assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).color == HEADER_COLOR
+    assert _formula(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA) == "=Model_Formula()"
+    assert sheet.range(
+        (_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL),
+        (_ROW_MODEL_FORMULA, _C_MODEL_FORMULA),
+    ).api.WrapText is False
+
+
+def test_model_formula_readout_is_clear_of_the_design_matrix_body() -> None:
+    """Row 1 is the one row in that zone the matrix can never reach.
+
+    The design matrix's names spill on `_MATERIALIZATION_HEADER_ROW` and its
+    values on `_MATERIALIZATION_SPILL_ROW`, both growing RIGHTWARD from the
+    zone anchor — so a caption on row 1 is not displaced by an ordinary
+    modelling choice, and the §4b rule that nothing may sit to the RIGHT of
+    this zone is not in play: the caption is above the body, inside the
+    zone's own columns.
+
+    The header/readout gap is load-bearing too. `"Model Formula"` is wider
+    than one 12-wide design-matrix column, so a readout immediately beside
+    the header would clip it; three columns of clearance is what lets both
+    render.
+    """
+    assert _ROW_MODEL_FORMULA < _MATERIALIZATION_HEADER_ROW
+    assert _MATERIALIZATION_HEADER_ROW < _MATERIALIZATION_SPILL_ROW
+    # Right of the zone heading, and clear of the split header cells the
+    # matrix itself uses on the row below.
+    assert _C_DESIGN_MATRIX < _C_MODEL_FORMULA_LABEL < _C_MODEL_FORMULA
+    assert _C_MODEL_FORMULA_LABEL > _C_DESIGN_MATRIX_NAMES
+    assert _C_MODEL_FORMULA - _C_MODEL_FORMULA_LABEL >= 2
+
+
+def test_model_formula_closure_assembles_the_spec_derived_caption() -> None:
+    """The catalog body that replaced the inline AB2 expression.
+
+    Sheet-scoped (it reads this sheet's Spec_* names and the
+    Constructed_Column_Names() closure beside them), and built from the same
+    four pieces the cell formula used to concatenate inline.
+    """
+    document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
+    closure = next(
+        fn for fn in document.functions_for_sheet("Regression")
+        if fn.name == "Model_Formula"
+    )
+    body = closure.formula_display.replace(" ", "").replace("\n", "")
+
+    assert closure.scope == "Regression"
+    assert closure.arguments == ()
+    # Response side — the XMATCH-on-Role lookup, wrapped as "Ln(name)" on Log.
+    assert 'XMATCH("Response(y)",TAKE(Spec_Role,n_c))' in body
+    assert '"Ln("&h&")"' in body
+    assert 'INDEX(TOROW(Header_Names),p)' in body
+    assert '"~"' in body  # the " ~ " separator, whitespace-stripped
     # RHS — always "1 + " with intercept, "0 + " without.
-    assert 'IF(Allow_Intercept,"1 + ","0 + ")' in formula
+    assert "IF(Allow_Intercept," in body
     # Predictor list — TEXTJOIN over the constructed column names.
-    assert 'TEXTJOIN(" + "' in formula
-    assert "Constructed_Column_Names()" in formula
+    assert "TEXTJOIN(" in body
+    assert "Constructed_Column_Names()" in body
     # FE suffix — gated on the Fixed Effects count, names the active variable.
-    assert "Spec_Role" in formula
-    assert '"Fixed Effects"' in formula
-    # No hard-coded column letters — the formula references Resolver names only.
-    assert "FE" in formula  # the IFERROR fallback when no FE row is declared
+    assert 'SUMPRODUCT(N(TAKE(Spec_Role,n_c)="FixedEffects"))' in body
+    assert '"FE"' in body  # the IFERROR fallback when no FE row is declared
+    # A sheet-scoped body must never qualify a sheet: a workbook with several
+    # Regression-shaped sheets would then read one sheet's spec everywhere.
+    assert "'Regression'!" not in closure.formula_display
 
 
 def test_setup_local_names_registers_comparison_anchor_headline_and_formula() -> None:
@@ -958,7 +1088,8 @@ def test_setup_local_names_registers_comparison_anchor_headline_and_formula() ->
     are sheet-scoped names that the v3.4 Model Comparison sheet reads from.
     Comparison_Anchor → AF2 (the response-name readout), Comparison_Headline_GoF
     → AH6:AH8 (the three unit-space GoF statistics), Comparison_Model_Formula
-    → AB2 (the assembled Model Formula cell).
+    → the Model Formula readout in the §4b band (it moved off AB2; v3.4 reads
+    the NAME, which is why the move costs its consumer nothing).
     """
     sheet = RecordingSheet(name="Regression")
     _setup_regression_names(_as_xw_sheet(sheet), closures=())
@@ -970,7 +1101,7 @@ def test_setup_local_names_registers_comparison_anchor_headline_and_formula() ->
         "='Regression'!$AH$6:$AH$8"
     )
     assert sheet.api.Names.by_short_name("Comparison_Model_Formula").RefersTo == (
-        "='Regression'!$AB$2"
+        f"='Regression'!${col_letter(_C_MODEL_FORMULA)}${_ROW_MODEL_FORMULA}"
     )
 
 

@@ -311,7 +311,7 @@ message text implies.
 | LSDV ↔ FE equivalence | P6 vs P2 |
 | Categorical-only design (mask without continuous predictors) | M14b |
 | Empty model / no response degradation | G1b / G1 |
-| Model Formula cell (AB2) text | every guard case; corrected to mirror the cell exactly |
+| Model Formula readout text | every guard case; corrected to mirror the cell exactly |
 
 The one axis Section 1 cannot cover with the wired data is the **calendar-signature Sequence
 verdict** (~28–31 / ~90–92 / ~365–366-day spacing clusters): no wired dataset carries real dates.
@@ -389,7 +389,7 @@ python scripts/build_test_models.py                        # 47 sheets (31 model
 python scripts/build_test_models.py --include-heavy        # 49, adding L05 and L08
 python scripts/build_test_models.py --cases M09,G10        # just those two
 python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
-make verify-test-models                            # the same, verbose
+poe verify-test-models                             # the same, verbose
 ```
 
 **Every run archives its own transcript** to `excel-only-runs/<script> <flags>.log`

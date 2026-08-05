@@ -4,13 +4,13 @@ This directory holds diagnostic output from scripts that **require Microsoft Exc
 
 ## Why this is tracked
 
-The spec-driven verifier cannot run on the GitHub-hosted Linux CI without Excel (`xlwings` cannot dispatch `Excel.Application`). The headless screen (`make verify-headless`) IS in CI because it needs only `zipfile` + `lxml`. When an Excel-required build fails, the diagnostics never reach a CI artifact.
+The spec-driven verifier cannot run on the GitHub-hosted Linux CI without Excel (`xlwings` cannot dispatch `Excel.Application`). The headless screen (`poe verify-headless`) IS in CI because it needs only `zipfile` + `lxml`. When an Excel-required build fails, the diagnostics never reach a CI artifact.
 
 **This directory is the cross-tool substitute for that missing CI.** Transcripts here are committed so a contributor — or a coding agent (Claude Code, Copilot, etc.) — opening the repo cold can read what is and isn't currently working on a Windows-only verifier build, the same way they'd read a CI log. A pull request that adds an Excel-required build with no transcript on its branch has no paper trail.
 
 ## What goes here
 
-- Full stdout+stderr from `python scripts/build_production.py --verify`, `python scripts/build_test_models.py --verify --no-launch`, or `python scripts/build_univariate.py --verify --no-launch`.
+- Full stdout+stderr from `python scripts/build_production.py --verify`, `python scripts/build_test_models.py --verify --no-launch`, or `python scripts/build_univariate.py --verify --no-launch`. **All three drivers write their own transcript here** — stderr and the traceback of an aborted run included — so producing one is not a manual step; committing it is. Pass `--log PATH` to send a run somewhere else (e.g. out of the way while chasing something that reruns a lot).
 - Verbose-level output (`--verbose`) when comparing runs across debug sessions.
 - ERROR excerpts from any single-case run (`python scripts/build_test_models.py --cases M09`) where tracking down a flaky sheet.
 

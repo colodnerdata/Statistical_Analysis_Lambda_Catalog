@@ -101,6 +101,32 @@ _SHEET_TAG = f"{_WB}sheet"
 _DEFINED_NAMES_TAG = f"{_WB}definedNames"
 _DEFINED_NAME_TAG = f"{_WB}definedName"
 
+# ---------------------------------------------------------------------------
+# Deliberately-#N/A columns.
+#
+# The Cook's Distance chart labels only the influential points. It does that
+# with an NA()-masked overlay column — the real value where D exceeds the
+# cutoff, NA() everywhere else — because Excel skips NA() points for both
+# plotting and labeling (see CLAUDE.md -> "Selective data labels"). So every
+# non-flagged row in that column caches a perfectly correct #N/A, and a naive
+# scan reports hundreds of false offenders.
+#
+# The exempt column is NOT hard-coded. It is read per sheet from the
+# sheet-scoped RegChart named range that feeds the overlay series, so a layout
+# change that moves the column moves the exemption with it, and every
+# Regression-templated sheet is covered — the shipped artifact has one, the
+# test-model workbook has 47, each with its own copy of the name.
+#
+# Only #N/A is forgiven, and only in that column. A #REF! or #VALUE! there is
+# still a broken cell.
+# ---------------------------------------------------------------------------
+_NA_MASKED_RANGE_NAMES = ("RegChartCookDistFlag",)
+_NA_LITERAL = "#N/A"
+# $AY$2 out of "OFFSET(Regression!$AY$2,1,0,MAX(...),1)" — the anchor column of
+# an OFFSET-based RegChart range.
+_OFFSET_ANCHOR_RE = re.compile(r"OFFSET\([^!,]*!\$([A-Z]{1,3})\$\d+", re.IGNORECASE)
+_CELL_COLUMN_RE = re.compile(r"^([A-Z]{1,3})\d+$")
+
 # Real Lambda_Library.xlsx (the Regression artifact) ships eight sheets in
 # the tab order that build_production._reorder_and_style_sheet_tabs applies:
 # the three data sheets, Version History, the three Regression workbench
@@ -287,6 +313,67 @@ class WorkbookPackage:
                 values[cell.get("r")] = value.text
         return values
 
+    @property
+    def sheet_parts_by_index(self) -> list[str]:
+        """Worksheet zip members in workbook order.
+
+        ``localSheetId`` on a <definedName> is an index into this ordering,
+        which is how a sheet-scoped name is tied back to the part its cells
+        live in.
+        """
+        rels = {rel.get("Id"): rel.get("Target") for rel in self.workbook_rels_root}
+        parts: list[str] = []
+        for sheet in self.workbook_root.findall(f".//{_WB}sheets/{_WB}sheet"):
+            rid = sheet.get(f"{{{OFFICE_RELS_NS}}}id")
+            parts.append(posixpath.normpath(posixpath.join("xl", rels[rid])))
+        return parts
+
+    def cached_values_by_cell(self, sheet_part: str) -> list[tuple[str, str]]:
+        """Return [(A1 address, text)] for every <v>/<t> in one worksheet.
+
+        ``worksheet_cached_values`` flattens the same text but drops the
+        address, which cannot answer "which column is this in" — the question
+        a column-scoped exemption has to ask.
+        """
+        with zipfile.ZipFile(self.path) as zf:
+            root = etree.fromstring(zf.read(sheet_part))
+        pairs: list[tuple[str, str]] = []
+        for cell in root.iter(f"{_WB}c"):
+            ref = cell.get("r") or ""
+            for element in cell.iter():
+                if element.tag in (f"{_WB}v", f"{_WB}t", f"{_WB}is"):
+                    for text in element.itertext():
+                        if text:
+                            pairs.append((ref, text))
+        return pairs
+
+    def na_masked_columns(self) -> dict[str, set[str]]:
+        """Return {worksheet part: {column letters allowed to cache #N/A}}.
+
+        Derived from the sheet-scoped RegChart overlay ranges rather than from
+        a literal column letter, so this tracks the writer's layout and covers
+        every Regression-templated sheet in the workbook automatically.
+        """
+        parts = self.sheet_parts_by_index
+        exempt: dict[str, set[str]] = {}
+        containers = self.workbook_root.findall(_DEFINED_NAMES_TAG)
+        if not containers:
+            return exempt
+        for name_element in containers[0].findall(_DEFINED_NAME_TAG):
+            if name_element.get("name") not in _NA_MASKED_RANGE_NAMES:
+                continue
+            local_sheet_id = name_element.get("localSheetId")
+            if local_sheet_id is None:
+                continue
+            index = int(local_sheet_id)
+            if not 0 <= index < len(parts):
+                continue
+            match = _OFFSET_ANCHOR_RE.search((name_element.text or "").strip())
+            if match is None:
+                continue
+            exempt.setdefault(parts[index], set()).add(match.group(1).upper())
+        return exempt
+
     def worksheet_cached_values(self, sheet_part: str) -> list[str]:
         """Return the text of every <v> and <t> element in the given worksheet."""
         with zipfile.ZipFile(self.path) as zf:
@@ -352,17 +439,29 @@ def _assert_no_error_literals_in_cached_values(package: WorkbookPackage) -> None
 
     Formulas <f> legitimately reference NA() inside IFERROR wrappers, so they
     are excluded from the scan.
+
+    One class of cached #N/A is legitimate and is exempted per column: the
+    NA()-masked overlay columns that drive selective chart data labels, located
+    per sheet via ``na_masked_columns``. Every other literal, in every other
+    column, still fails.
     """
     namelist = package.namelist
     worksheet_parts = sorted(
         n for n in namelist if n.startswith("xl/worksheets/") and n.endswith(".xml")
     )
+    exempt_columns = package.na_masked_columns()
     offenders: list[tuple[str, str, str]] = []
     for part in worksheet_parts:
-        for value in package.worksheet_cached_values(part):
+        masked = exempt_columns.get(part, set())
+        for ref, value in package.cached_values_by_cell(part):
             for literal in EXCEL_ERROR_LITERALS:
-                if literal in value:
-                    offenders.append((part, literal, value))
+                if literal not in value:
+                    continue
+                if literal == _NA_LITERAL and masked:
+                    column_match = _CELL_COLUMN_RE.match(ref)
+                    if column_match and column_match.group(1) in masked:
+                        continue
+                offenders.append((f"{part}!{ref}" if ref else part, literal, value))
     assert not offenders, (
         "Cached-value error literals detected (these are post-recalc cached values; "
         "they indicate the build produced a broken cell, not a documented formula):\n  "
@@ -704,6 +803,200 @@ def test_fault_inject_extra_sheet_causes_inventory_check_to_fail(
     package = WorkbookPackage(workbook_path)
     with pytest.raises(AssertionError, match="Sheet inventory drifted"):
         _assert_sheet_inventory(package, _SYNTHETIC_SHEETS)
+
+
+# ---------------------------------------------------------------------------
+# The NA()-masked overlay column exemption.
+#
+# These build workbooks whose Regression-templated sheets each declare their
+# own sheet-scoped RegChartCookDistFlag range, because that name — not a
+# hard-coded column letter — is what the scan reads to decide which column may
+# cache #N/A.
+# ---------------------------------------------------------------------------
+
+
+def _error_cells_sheet_xml(cells: dict[str, str]) -> bytes:
+    """A worksheet whose given addresses hold cached error literals."""
+    body = "".join(
+        f'<row r="{"".join(ch for ch in ref if ch.isdigit())}">'
+        f'<c r="{ref}" t="e"><v>{literal}</v></c></row>'
+        for ref, literal in cells.items()
+    )
+    return (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        b"<sheetData>" + body.encode("utf-8") + b"</sheetData>"
+        b"</worksheet>"
+    )
+
+
+def _workbook_xml_with_flag_ranges(
+    sheet_names: tuple[str, ...], flag_columns: dict[int, str]
+) -> bytes:
+    """Workbook XML declaring a sheet-scoped flag range per given sheet index.
+
+    ``flag_columns`` maps sheet index to the anchor column its
+    RegChartCookDistFlag range points at, mirroring what ``_setup_local_names``
+    writes for each Regression-templated sheet.
+    """
+    sheet_elements = "".join(
+        f'<sheet name="{name}" sheetId="{i + 1}" r:id="rId{i + 1}"/>'
+        for i, name in enumerate(sheet_names)
+    )
+    names = "".join(
+        f'<definedName name="RegChartCookDistFlag" localSheetId="{index}">'
+        f"OFFSET({sheet_names[index]}!${column}$2,1,0,"
+        f"MAX(IFERROR({sheet_names[index]}!$AB$8,1),1),1)"
+        f"</definedName>"
+        for index, column in sorted(flag_columns.items())
+    )
+    return (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        b'<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        b'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
+        b"<sheets>" + sheet_elements.encode("utf-8") + b"</sheets>"
+        b"<definedNames>" + names.encode("utf-8") + b"</definedNames>"
+        b"</workbook>"
+    )
+
+
+def _build_masked_fixture(
+    tmp_path: Path,
+    *,
+    sheet_names: tuple[str, ...],
+    flag_columns: dict[int, str],
+    cells_by_index: dict[int, dict[str, str]],
+) -> WorkbookPackage:
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    workbook_path = tmp_path / "masked.xlsx"
+    with zipfile.ZipFile(workbook_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", _content_types(len(sheet_names)))
+        zf.writestr(
+            "xl/workbook.xml", _workbook_xml_with_flag_ranges(sheet_names, flag_columns)
+        )
+        zf.writestr("xl/_rels/workbook.xml.rels", _workbook_rels(len(sheet_names)))
+        for index in range(len(sheet_names)):
+            cells = cells_by_index.get(index)
+            zf.writestr(
+                f"xl/worksheets/sheet{index + 1}.xml",
+                _error_cells_sheet_xml(cells) if cells else _blank_sheet_xml(),
+            )
+    return WorkbookPackage(workbook_path)
+
+
+def test_na_in_the_masked_overlay_column_is_not_an_offender(tmp_path: Path) -> None:
+    """The non-flagged rows of the Cook's D overlay cache #N/A by design."""
+    package = _build_masked_fixture(
+        tmp_path,
+        sheet_names=("Regression",),
+        flag_columns={0: "AY"},
+        cells_by_index={0: {"AY3": "#N/A", "AY4": "#N/A", "AY5": "#N/A"}},
+    )
+    _assert_no_error_literals_in_cached_values(package)
+
+
+def test_na_outside_the_masked_column_still_fails(tmp_path: Path) -> None:
+    package = _build_masked_fixture(
+        tmp_path,
+        sheet_names=("Regression",),
+        flag_columns={0: "AY"},
+        cells_by_index={0: {"AX3": "#N/A"}},
+    )
+    with pytest.raises(AssertionError, match=r"AX3"):
+        _assert_no_error_literals_in_cached_values(package)
+
+
+def test_non_na_literal_in_the_masked_column_still_fails(tmp_path: Path) -> None:
+    """The exemption is for #N/A only — a broken cell there is still broken."""
+    package = _build_masked_fixture(
+        tmp_path,
+        sheet_names=("Regression",),
+        flag_columns={0: "AY"},
+        cells_by_index={0: {"AY3": "#REF!"}},
+    )
+    with pytest.raises(AssertionError, match=r"#REF!"):
+        _assert_no_error_literals_in_cached_values(package)
+
+
+def test_the_exemption_follows_the_named_range_when_the_column_moves(
+    tmp_path: Path,
+) -> None:
+    """The whole point of reading the name: insert a column, and the exemption
+    moves with the overlay instead of staying behind on a stale letter."""
+    package = _build_masked_fixture(
+        tmp_path,
+        sheet_names=("Regression",),
+        flag_columns={0: "BB"},
+        cells_by_index={0: {"BB3": "#N/A"}},
+    )
+    _assert_no_error_literals_in_cached_values(package)
+
+    stale = _build_masked_fixture(
+        tmp_path / "stale",
+        sheet_names=("Regression",),
+        flag_columns={0: "BB"},
+        cells_by_index={0: {"AY3": "#N/A"}},
+    )
+    with pytest.raises(AssertionError, match=r"AY3"):
+        _assert_no_error_literals_in_cached_values(stale)
+
+
+def test_every_regression_templated_sheet_gets_its_own_exemption(
+    tmp_path: Path,
+) -> None:
+    """The test-model workbook is 47 Regression-shaped sheets, each with its own
+    sheet-scoped copy of the range. The exemption is per sheet, not per
+    workbook, and a sheet that declares no such range gets none."""
+    package = _build_masked_fixture(
+        tmp_path,
+        sheet_names=("M05 Log-Log NA Masking", "G10 Two Sequence Flags", "Mileage Data"),
+        flag_columns={0: "AY", 1: "BB"},
+        cells_by_index={
+            0: {"AY3": "#N/A"},
+            1: {"BB3": "#N/A"},
+            2: {"C7": "#N/A"},
+        },
+    )
+    with pytest.raises(AssertionError) as excinfo:
+        _assert_no_error_literals_in_cached_values(package)
+
+    message = str(excinfo.value)
+    # Only the sheet with no flag range is reported; the other two are exempt
+    # at their own, different columns.
+    assert "sheet3.xml!C7" in message
+    assert "sheet1.xml" not in message
+    assert "sheet2.xml" not in message
+
+
+def test_one_sheets_exemption_does_not_leak_to_another(tmp_path: Path) -> None:
+    """Sheet 1's column being exempt must not exempt the same column on sheet 2."""
+    package = _build_masked_fixture(
+        tmp_path,
+        sheet_names=("Regression", "Mileage Data"),
+        flag_columns={0: "AY"},
+        cells_by_index={1: {"AY3": "#N/A"}},
+    )
+    with pytest.raises(AssertionError, match=r"sheet2\.xml!AY3"):
+        _assert_no_error_literals_in_cached_values(package)
+
+
+def test_masked_column_matches_the_writers_column_constant() -> None:
+    """Cross-check the artifact against the writer.
+
+    The scan reads the workbook's own name, so it cannot notice if the writer
+    and the built artifact disagree. This is the assertion that would.
+    """
+    from lambda_catalog.workbook_helpers import col_letter
+    from lambda_catalog.write_sheet_regression import _C_AY
+
+    if not REAL_WORKBOOK_PATH.exists():
+        pytest.skip(f"Real workbook not present at {REAL_WORKBOOK_PATH}")
+
+    package = WorkbookPackage(REAL_WORKBOOK_PATH)
+    exempt = package.na_masked_columns()
+    assert exempt, "the Regression artifact declares no RegChartCookDistFlag range"
+    for part, columns in exempt.items():
+        assert columns == {col_letter(_C_AY)}, part
 
 
 def _replace_member(workbook_path: Path, member_name: str, new_bytes: bytes) -> None:

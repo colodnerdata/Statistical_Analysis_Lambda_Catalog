@@ -3137,6 +3137,20 @@
       "notes": "The delta spectrum: distinct within-group spacings of the sequence axis with counts, ascending. Drives the Sequence Spacing block's Delta/Count display and verdict flags. #N/A when no spacings exist."
     },
     {
+      "name": "Model_Formula",
+      "test_table": null,
+      "category": "Model Construction",
+      "subcategory": "Sheet-Scoped Constructors",
+      "scope": "Regression",
+      "number_format": "General",
+      "formula_display": "=LAMBDA(\n    LET(\n        n_c,        COLUMNS(Source_Data),\n        p,          XMATCH(\"Response (y)\", TAKE(Spec_Role, n_c)),\n        h,          INDEX(TOROW(Header_Names), p),\n        response,   IFERROR(IF(INDEX(TAKE(Spec_Transform, n_c), p) = \"Log\", \"Ln(\" & h & \")\", h), \"(none)\"),\n        intercept,  IF(Allow_Intercept, \"1 + \", \"0 + \"),\n        predictors, IFERROR(TEXTJOIN(\" + \", TRUE, Constructed_Column_Names()), \"\"),\n        fe_count,   SUMPRODUCT(N(TAKE(Spec_Role, n_c) = \"Fixed Effects\")),\n        fe_name,    IFERROR(INDEX(TOROW(Header_Names), XMATCH(\"Fixed Effects\", TAKE(Spec_Role, n_c))), \"FE\"),\n        response & \" ~ \" & intercept & predictors & IF(fe_count > 0, \" | \" & fe_name, \"\")\n    )\n)",
+      "arguments": [],
+      "yields": "The model formula as one string: \"<response> ~ 1 + <constructed predictors>\", with \"0 + \" when the intercept is off and a \" | <FE variable>\" suffix when a Fixed Effects row is declared.",
+      "description": "Model_Formula renders the saved spec as the one-line formula the model actually is — the caption a reader (and the v3.4 Model Comparison sheet) uses to tell two fits apart. It assembles four pieces out of names that already exist, so it can never describe a model other than the one being fitted:\n\nResponse — the Role=Response (y) row's header, wrapped as \"Ln(name)\" when that row's Transform is Log. It reads the same XMATCH-on-Role position Response_Column() reads, so the label and the fitted column cannot disagree; while no Response row is declared it degrades to \"(none)\" rather than an error.\n\nIntercept — \"1 + \" or \"0 + \", from the Allow_Intercept toggle.\n\nPredictors — TEXTJOIN over Constructed_Column_Names(), which already emits \"Ln(name)\" per logged predictor, level-qualified dummy names such as \"Status[Developing]\", and interaction names, so a mixed Log/None spec renders correctly with no extra work here. IFERROR degrades to an empty right-hand side while the spec names nothing.\n\nFixed effects — a \" | <variable>\" suffix when a Role=Fixed Effects row is declared, naming the absorbed variable rather than a bare \"FE\" token; omitted entirely when the count is zero.\n\nIt is a DISPLAY: every piece derives from the spec and no constructor reads it back (ARCHITECTURE §4 — display derives, never feeds). It lives in the catalog rather than inline in one cell so the assembly rules are documented on the LAMBDA_functions sheet and every Regression-shaped sheet renders its own spec identically.\n\nSheet-scoped, not workbook-scoped: the body reads the sheet-scoped spec names (Spec_Role, Spec_Transform, Header_Names, Allow_Intercept) and the Constructed_Column_Names() closure beside them, so each Regression-shaped sheet in a workbook gets its own formula string — the same reason Base_Period_Delta is sheet-scoped rather than hardcoding 'Regression'!.",
+      "plain_language_summary": "The model written out in one line — \"mpg ~ 1 + weight + horsepower\" — built from the spec block, so it always says exactly what is being fitted.",
+      "notes": "The saved spec rendered as \"<response> ~ 1 + <predictors> [| <FE>]\". Response and predictor names carry their Log wrapping and dummy level qualification. Display only — no constructor reads it. Feeds Comparison_Model_Formula."
+    },
+    {
       "name": "Model_Context",
       "test_table": null,
       "category": "Model Construction",

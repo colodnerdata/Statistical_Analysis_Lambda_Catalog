@@ -39,7 +39,10 @@ from .write_sheet_model_construction import SPEC_DATASET_PROFILES, _ROLE_OMIT
 from .write_sheet_regression import (
     _C_MODEL_CONTEXT,
     _C_MODEL_CONTEXT_LABEL,
+    _C_MODEL_FORMULA,
+    _C_MODEL_FORMULA_LABEL,
     _ROW_MODEL_CONTEXT_CHECK,
+    _ROW_MODEL_FORMULA,
     write_regression_output_sheet,
 )
 
@@ -57,7 +60,9 @@ from .write_sheet_regression import (
 # subtle numerical problem rather than two clobbered cells.
 #
 # Derived from the block's own constants so the two can never drift back into
-# each other, and asserted below.
+# each other, and asserted below. The provenance runs AFTER
+# write_regression_output_sheet, so any overlap with what that writer put on
+# the sheet is a silent clobber, not a conflict anyone would see at build time.
 _ROW_PROVENANCE_ID = _ROW_MODEL_CONTEXT_CHECK + 2
 _ROW_PROVENANCE_COVERS = _ROW_MODEL_CONTEXT_CHECK + 3
 
@@ -66,6 +71,24 @@ _ROW_PROVENANCE_COVERS = _ROW_MODEL_CONTEXT_CHECK + 3
 # engine is silently poisoned, so it fails at import rather than at Excel.
 assert _ROW_PROVENANCE_ID > _ROW_MODEL_CONTEXT_CHECK, (
     "Provenance would overwrite the Model Context block that Fit_Context reads"
+)
+
+# ...and it must not land on the Model Formula readout, the other thing the
+# Regression writer puts in this band. Today it cannot — the readout is on row
+# 1 of the design-matrix zone, columns away from this block — but the two sets
+# of constants are independent, so the disjointness is asserted rather than
+# assumed. Cell-level, because the two no longer share a column to compare.
+_PROVENANCE_CELLS = frozenset(
+    (row, col)
+    for row in (_ROW_PROVENANCE_ID, _ROW_PROVENANCE_COVERS)
+    for col in (_C_MODEL_CONTEXT_LABEL, _C_MODEL_CONTEXT)
+)
+_MODEL_FORMULA_CELLS = frozenset(
+    (_ROW_MODEL_FORMULA, col)
+    for col in (_C_MODEL_FORMULA_LABEL, _C_MODEL_FORMULA)
+)
+assert not _PROVENANCE_CELLS & _MODEL_FORMULA_CELLS, (
+    "Provenance would overwrite the Model Formula readout"
 )
 
 # Source_Table ref -> SPEC_DATASET_PROFILES key. The profile decides how many

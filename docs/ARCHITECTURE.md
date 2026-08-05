@@ -357,9 +357,10 @@ row mask is what every spilled array is aligned to.
 
 `Spec_Transform` (column G) is the worked example of that additive wiring:
 it is now read by exactly four constructors — `Response_Column()`, `Predictor_Columns()`,
-`Constructed_Column_Names()`, and `Constructed_Column_Transforms()` — and
-by nothing else; `Sample_Include()` and `Row_Labels()` still never
-reference it (confirmed by construction in
+`Constructed_Column_Names()`, and `Constructed_Column_Transforms()` — plus
+`Model_Formula()`, the display that renders the response's `Ln(...)` wrapping
+into the sheet's formula caption; and by nothing else. `Sample_Include()` and
+`Row_Labels()` still never reference it (confirmed by construction in
 `tests/test_model_construction_writer.py`).
 
 ### Cascading relevance
@@ -605,6 +606,36 @@ displaced by an ordinary modeling choice.
   source of the element order, the labels, and the height, and a `Context OK`
   row under the block reports both the height invariant and that no element
   errored — which is worth checking precisely because independent cells fail
+  independently.
+- **The band also hosts the sheet's captions, on the one row the terminal zone
+  cannot reach.** The Model Formula readout — the assembled
+  `<response> ~ 1 + <predictors> [| <FE>]` string, and the cell
+  `Comparison_Model_Formula` points at — sits on **row 1 of the Constructed
+  Design Matrix zone**, right of that zone's heading (header two columns over,
+  readout three columns past the header). It shipped at `AA2:AB2`, at the head
+  of the Regression Outputs zone, where it was both the most prominent thing in
+  that zone and — because row 2 wraps and is then AutoFitted — the cell that
+  set the height of the sheet's entire header row. A caption is not a headline
+  statistic: it belongs where the sheet's other read-only, machine-consumed
+  surfaces already are.
+
+  Row 1 is what makes the placement safe *and* legible. The matrix's names
+  spill on the header row and its values on the row below that, both growing
+  rightward, so row 1 stays empty however wide the matrix gets — which is why
+  this does not breach the ordering rule above: nothing is placed to the RIGHT
+  of the terminal zone, the caption is placed ABOVE its body inside the zone's
+  own columns. With `WrapText` explicitly FALSE (for the reason it moved) the
+  string then overflows across as much of that empty row as it needs; the
+  three-column header/readout gap exists because `"Model Formula"` is wider
+  than one 12-wide matrix column and would otherwise be clipped. The zone ships
+  collapsed, so the caption is hidden with the rest of it until expanded —
+  hidden columns still calculate, so the named surface is unaffected.
+
+  Anything written into the Model Context block's two columns must still
+  derive its row from that block's constants — the test-model builder's
+  provenance rows do, having already once been written *inside* the block and
+  silently poisoned every engine on the sheet; they now also assert
+  disjointness from the readout's cells, since the two sets of constants move
   independently.
 - **Collapse state differs by zone.** Model Context (two columns, grouped as a
   pair so the labels never strand beside a collapsed value column) and

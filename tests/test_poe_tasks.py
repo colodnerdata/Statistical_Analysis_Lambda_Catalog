@@ -7,16 +7,23 @@ test noticing, so the task names are pinned here the same way
 ``_EXPECTED_CASE_NAMES`` pins the regression spec cases — adding, renaming, or
 dropping a task means editing this list in the same commit.
 
-Pure ``tomllib``; no Excel, no poethepoet import, no subprocess.
+Pure TOML reads; no Excel, no poethepoet import, no subprocess.
 """
 
 from __future__ import annotations
 
-import tomllib
+import sys
 from pathlib import Path
 from typing import Any
 
 import pytest
+
+# tomllib is stdlib from 3.11; this project supports 3.10, where the tomli
+# backport (dev group, same API) stands in for it.
+if sys.version_info >= (3, 11):
+    import tomllib
+else:
+    import tomli as tomllib
 
 _PYPROJECT = Path(__file__).resolve().parent.parent / "pyproject.toml"
 

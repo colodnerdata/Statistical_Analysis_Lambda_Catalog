@@ -13,7 +13,6 @@ Three things this covers, none of which needs Excel:
 # pylint: disable=missing-function-docstring
 from __future__ import annotations
 
-import importlib.util
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -23,6 +22,7 @@ import xlwings as xw
 
 from lambda_catalog.analyze_regression_guard_states import build_guard_state_cases
 from lambda_catalog.analyze_regression_spec import build_regression_spec_cases
+from tests.script_loader import load_script_module
 from lambda_catalog.test_model_sheets import (
     ILLEGAL_SHEET_NAME_CHARS,
     MAX_SHEET_NAME_LENGTH,
@@ -486,18 +486,10 @@ def test_row_constants_match_the_writers_own_layout() -> None:
 def _load_build_test_models():
     """Load scripts/build_test_models.py without relying on the repo root being on sys.path.
 
-    The script moved to ``scripts/`` alongside its siblings in the Chunk 1 reorganization;
-    the tests below exercise its driver directly, so we resolve it the same way
-    ``scripts/build_univariate.py`` resolves its sibling ``build_qc.py``.
+    The script moved to ``scripts/`` alongside its siblings in the Chunk 1
+    reorganization; the tests below exercise its driver directly.
     """
-    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
-    spec = importlib.util.spec_from_file_location(
-        "build_test_models", scripts_dir / "build_test_models.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault("build_test_models", module)
-    spec.loader.exec_module(module)
-    return module
+    return load_script_module("build_test_models")
 
 
 def test_default_build_excludes_heavy_cases_and_include_heavy_adds_them() -> None:

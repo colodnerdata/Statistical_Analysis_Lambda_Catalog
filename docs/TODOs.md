@@ -93,7 +93,7 @@ the Regression track — they are also listed in their own working order.
 
 The Diagnostic Guide item also needs Excel for a second reason: that sheet is
 baked into `templates/static_sheets.xlsx` and only regenerates through
-`python rebuild_static_sheets.py`.
+`python scripts/rebuild_static_sheets.py`.
 
 ### Blocked on a decision
 
@@ -257,7 +257,7 @@ Two-way FE is deliberately deferred until this framework is finished — see
 - **READY · S · needs Excel** — **Relabel within-model residual outputs + add a
   Diagnostic Guide paragraph on residuals under FE.** Documentation-only, but the
   Diagnostic Guide is a static template sheet: edit
-  `write_sheet_diagnostic_guide.py`, then run `python rebuild_static_sheets.py`
+  `write_sheet_diagnostic_guide.py`, then run `python scripts/rebuild_static_sheets.py`
   and commit the regenerated `templates/static_sheets.xlsx` alongside it, or the
   change reaches no build.
 

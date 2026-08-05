@@ -506,12 +506,14 @@ _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 #   charts | gutter | Model Context | gutter | Sample_Include | gutter | matrix →
 #           (label + value, 4 rows)       (n x 1)            (n x k, unbounded)
 #
-# The Model Context zone is two columns (labels then values) and Sample_Include
-# is one; both ship EXPANDED. The terminal Constructed Design Matrix ships
-# COLLAPSED, because an unbounded-width zone that cannot be collapsed is a TODO: This is not true in practice: BR:BS ships uncollapsed, as does BU and BW:JO.
-# scrolling hazard. Gutters are width-2 ungrouped separators so each zone
-# collapses independently — the first gutter (after the charts) is structural,
-# keeping the floating chart anchors out of every collapsible outline group.
+# The three §4b content zones ship COLLAPSED. Model Context (a bounded
+# two-column label/value pair) and Sample_Include (a bounded single column) are
+# collapsed for the same reason as the terminal Constructed Design Matrix: the
+# whole far-right materialization band is secondary reading surface, so it
+# should open with the main analysis zones visible and expand on demand.
+# Gutters are width-2 ungrouped separators so each zone collapses independently
+# — the first gutter (after the charts) is structural, keeping the floating
+# chart anchors out of every collapsible outline group.
 #
 # The chart footprint needs an explicit bound. _C_BB is the chart ANCHOR, not
 # its extent: the seven diagnostic charts are floating objects tiled in a
@@ -2580,8 +2582,9 @@ def _write_materialization_zone(
     # The zone that terminates the band. Its width is unbounded and one
     # dropdown away — Country as a Categorical Predictor is 156 columns, and
     # interactions multiply — which is why nothing may ever be placed to its
-    # right, and why it ships COLLAPSED while the two bounded zones ship
-    # expanded: an unbounded-width zone that cannot be collapsed is a
+    # right. All three §4b content zones ship collapsed so the materialization
+    # band stays out of the way until explicitly expanded; this terminal zone
+    # especially needs that because an unbounded-width zone left open is a
     # scrolling hazard.
     #
     # Establishing the zone and MATERIALIZING into it were deliberately
@@ -2660,11 +2663,10 @@ def _write_materialization_zone(
     assert _MATERIALIZATION_FIRST_ROW == 2
 
     # ── Column widths + outline groups ───────────────────────────────────────
-    # The two bounded zones ship EXPANDED (per §4b); the terminal design-matrix
-    # zone ships COLLAPSED. The width-2 gutters stay ungrouped so the zones
-    # collapse independently, and the first gutter (after the charts) is
-    # structural — it keeps the floating chart anchors out of every collapsible
-    # outline group.
+    # All three §4b content zones ship collapsed. The width-2 gutters stay
+    # ungrouped so the zones collapse independently, and the first gutter
+    # (after the charts) is structural — it keeps the floating chart anchors
+    # out of every collapsible outline group.
     for gutter in (
         _C_GUTTER_AFTER_CHARTS,
         _C_GUTTER_AFTER_CONTEXT,
@@ -2684,7 +2686,12 @@ def _write_materialization_zone(
         (_C_MODEL_CONTEXT_LABEL, _C_MODEL_CONTEXT),
         (_C_SAMPLE_INCLUDE_MATERIALIZED, _C_SAMPLE_INCLUDE_MATERIALIZED),
     ):
-        sheet.api.Columns(f"{col_letter(first)}:{col_letter(last)}").Group()
+        band = f"{col_letter(first)}:{col_letter(last)}"
+        sheet.api.Columns(band).Group()
+        try:
+            sheet.api.Columns(band).ShowDetail = False
+        except Exception:  # pylint: disable=broad-except
+            pass
 
     matrix_band = (
         f"{col_letter(_C_DESIGN_MATRIX)}:"

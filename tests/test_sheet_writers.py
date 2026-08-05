@@ -623,11 +623,11 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert _MODEL_CONTEXT_LAST_ROW >= _MATERIALIZATION_SPILL_ROW
 
 
-def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
-    # Collapse state differs by zone (§4b): the two bounded zones ship
-    # EXPANDED, the unbounded terminal zone ships COLLAPSED — a zone whose
-    # width is one dropdown away from hundreds of columns and cannot be
-    # collapsed is a scrolling hazard.
+def test_materialization_zones_ship_collapsed() -> None:
+    # All three §4b content zones ship collapsed so the materialization band
+    # stays out of the way until explicitly expanded. The terminal zone is the
+    # worst offender because its width is one dropdown away from hundreds of
+    # columns, but the two bounded zones are part of the same secondary band.
     #
     # One outline group per ZONE, not per column: Model Context is grouped as
     # the label/value pair so it collapses as a unit; grouping the value column
@@ -646,7 +646,12 @@ def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
         f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}",
         matrix_band,
     ]
-    assert sheet.column_show_detail == {matrix_band: False}
+    assert sheet.column_show_detail == {
+        f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT)}": False,
+        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}:"
+        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}": False,
+        matrix_band: False,
+    }
     # The gutters stay OUT of every group, or the zones would fuse into one
     # outline and lose independent collapse.
     for gutter in (

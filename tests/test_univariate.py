@@ -362,7 +362,9 @@ class GoFTests(unittest.TestCase):
         sd = float(np.std(data, ddof=1))
         cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
         ad = gof_anderson_darling(data, cdf)
-        scipy_ad = scipy_stats.anderson(data, dist="norm").statistic
+        scipy_ad = scipy_stats.anderson(data,
+                                         dist="norm",
+                                         method="interpolate").statistic
         self.assertAlmostEqual(ad, scipy_ad, places=6)
 
     def test_ad_bounded_support_no_crash(self) -> None:

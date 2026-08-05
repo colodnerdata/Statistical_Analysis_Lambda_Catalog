@@ -378,7 +378,7 @@ def warn_if_workbook_open(
         )
         if not sys.stdin.isatty():
             return
+        instruction = "close it in Excel" if LOCK_HINT in holder else "release the lock"
         input(
-            f"\n{action_label} — close it in Excel "
-            "and press Enter to retry (or Ctrl+C to cancel): "
+            f"\n{action_label} — {instruction} and press Enter to retry (or Ctrl+C to cancel): "
         )

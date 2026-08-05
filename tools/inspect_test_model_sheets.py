@@ -70,8 +70,7 @@ TOLERANCE_DECIMALS = _D * 2  # 6
 # the spec data area became a structured table, and a status line on top
 # of a header reads as a visual collision — so it moved to E1, which is
 # Reference Level's row-1 cell (Reference Level is a per-row input, blank
-# on row 1 by default). See write_sheet_model_construction.py:_write_
-# spec_feedback_block.
+# on row 1 by default). See write_sheet_model_construction.py:_write_spec_feedback.
 _ROW_STATUS = 1
 _ROW_SEQUENCE_STATUS = 1  # E1 — see write_sheet_model_construction
 

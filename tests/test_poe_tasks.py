@@ -40,7 +40,6 @@ _EXPECTED_TASK_NAMES = [
     "verify",
     "build",
     "build-univariate",
-    "qc",
     "static-sheets",
     "resync-names",
 ]

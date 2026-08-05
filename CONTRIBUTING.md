@@ -71,17 +71,18 @@ uv run python scripts/build_production.py
 # Build the standalone Univariate workbook, Lambda_Library_Univariate.xlsx  (needs Excel)
 uv run python scripts/build_univariate.py
 
-# Build + verify with no Excel window popping up — the one-shot CI-style flow  (needs Excel)
-# Always recalculates: recalc is the source of truth the verifier reads. These are
-# `poe verify-deep` and `poe verify-deep-univariate`.
+# Recommended verification path (headless first, then artifact-specific deep checks).
+# The three build_* --verify commands need desktop Excel; poe verify-headless does not.
+poe verify-headless
 uv run python scripts/build_production.py --verify --no-launch
 uv run python scripts/build_univariate.py --verify --no-launch
+uv run python scripts/build_test_models.py --verify --no-launch
 
 # Verify an already-built workbook without rebuilding it  (needs Excel)
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
 ```
 
-New to the repo? A typical loop is: edit code → `uv run pytest` → `uv run python scripts/build_production.py --verify --no-launch` (to confirm the Regression workbook still calculates) → `uv run python scripts/build_production.py` (to regenerate the committed `Lambda_Library.xlsx`). The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
+New to the repo? A typical loop is: edit code → `uv run pytest` → `poe verify-headless` → the artifact-specific deep verifier for the surface you touched (`uv run python scripts/build_production.py --verify --no-launch`, `uv run python scripts/build_univariate.py --verify --no-launch`, and/or `uv run python scripts/build_test_models.py --verify --no-launch`) → rebuild the committed distributable(s) with `uv run python scripts/build_production.py` and/or `uv run python scripts/build_univariate.py`. The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
 
 ## Running tests
 
@@ -158,7 +159,7 @@ The coverage configuration in `pyproject.toml` tracks only the modules that are 
 - `analysis_cache.py`
 - `verify_report.py`
 
-The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the artifact-specific Excel verify builds instead.
+The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the artifact-specific Excel verification commands instead (see [Verifying builds](#verifying-builds)).
 
 ### CI
 
@@ -203,7 +204,7 @@ A Regression PR that lands items 1–3 but whose transcript shows the new sheet 
 
 ### The test-model workbook
 
-Every case is also materialized as its own worksheet in `Lambda_Library_TestModels.xlsx` (gitignored — a fixture, not an artifact). `build_test_models.py` builds it; `tools/inspect_test_model_sheets.py` verifies it by **reading only**. Both halves — writing a case onto a sheet and reading one back — live in `lambda_catalog/regression_spec_sheet_io.py`, shared with the legacy single-sheet verifier so the two cannot disagree about what a case is. See [docs/MODEL_TESTING_ASSETS.md § 1b](docs/MODEL_TESTING_ASSETS.md#section-1b--one-worksheet-per-test-model).
+Every case is also materialized as its own worksheet in `Lambda_Library_TestModels.xlsx` (gitignored — a fixture, not an artifact). `build_test_models.py` builds it; `tools/inspect_test_model_sheets.py` verifies it by **reading only**. Both halves — writing a case onto a sheet and reading one back — live in `lambda_catalog/regression_spec_sheet_io.py`, shared with the single-sheet verifier so the two cannot disagree about what a case is. See [docs/MODEL_TESTING_ASSETS.md § 1b](docs/MODEL_TESTING_ASSETS.md#section-1b--one-worksheet-per-test-model).
 
 ### Datasets
 
@@ -379,6 +380,9 @@ python scripts/build_production.py --verify --no-launch
 # Same, for the standalone Univariate workbook:
 python scripts/build_univariate.py --verify --no-launch
 
+# Same, for the Regression model-case fixture workbook:
+python scripts/build_test_models.py --verify --no-launch
+
 # Or, on the just-built workbook without rebuilding:
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
 uv run python tools/verify_workbook.py Lambda_Library_Univariate.xlsx --skip-regression
@@ -431,7 +435,8 @@ GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every 
 scripts/
   build_production.py        # Regression production entry point → dist/Lambda_Library.xlsx
   build_univariate.py        # Univariate production entry point → dist/Lambda_Library_Univariate.xlsx
-  build_test_models.py       # test-model builder → Lambda_Library_TestModels.xlsx (gitignored fixture)
+  build_test_models.py       # Regression model-case fixture builder → Lambda_Library_TestModels.xlsx
+                              # (gitignored; verify with --verify --no-launch)
   rebuild_static_sheets.py   # regenerates templates/static_sheets.xlsx from its Python source —
                               # see "Static reference sheets" below
 dist/                        # the two shipped .xlsx artifacts (build output, committed)
@@ -491,6 +496,10 @@ tools/
 - `write_sheet_*.py` — worksheet writers, each responsible for one sheet; can also be run standalone
 - `lambda_catalog/` — installable package containing all writers and shared helpers
 
+## Analysis cache
+
+The spec-driven verifier computes expected values on demand and does not use `.analysis_cache.json`.
+
 ## Writing individual sheets
 
 Each `write_sheet_*.py` module can be run standalone against any open workbook:
@@ -506,9 +515,9 @@ python -m lambda_catalog.write_sheet_csv_dataset production_lots Lambda_Library.
 
 ### Static reference sheets
 
-`write_sheet_regression_instructions.py` and `write_sheet_diagnostic_guide.py` write sheets whose content never depends on the target dataset — a fixed how-to guide and a fixed diagnostics reference. Rebuilding hundreds of styled cells with COM calls for unchanging text on every artifact build is wasted work, so these two modules instead copy an already-styled sheet out of `templates/static_sheets.xlsx` via `workbook_helpers.copy_static_sheet` (Excel's native `Sheet.Copy` between two workbooks open in the same Excel instance — not an openpyxl round-trip; see CLAUDE.md's "Use xlwings COM API for all chart creation — never openpyxl" for why openpyxl is unsafe for anything Excel-native like this). `write_regression_instructions_sheet(workbook)` / `write_diagnostic_guide_sheet(workbook)` keep their original call signature, so `build_production.py` / `build_univariate.py` and their tests are unaffected.
+`write_sheet_regression_instructions.py` and `write_sheet_diagnostic_guide.py` write sheets whose content never depends on the target dataset — a fixed how-to guide and a fixed diagnostics reference. Rebuilding hundreds of styled cells with COM calls for unchanging text on every production build is wasted work, so these two modules instead copy an already-styled sheet out of `templates/static_sheets.xlsx` via `workbook_helpers.copy_static_sheet` (Excel's native `Sheet.Copy` between two workbooks open in the same Excel instance — not an openpyxl round-trip; see CLAUDE.md's "Use xlwings COM API for all chart creation — never openpyxl" for why openpyxl is unsafe for anything Excel-native like this). `write_regression_instructions_sheet(workbook)` / `write_diagnostic_guide_sheet(workbook)` keep their original call signature, so the production build scripts and their tests are unaffected.
 
-The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but neither `build_production.py` nor `build_univariate.py` ever executes it; they only call the copy-from-template functions above. Regenerating the template is a separate, manual step.
+The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but the production build scripts never execute it; they only call the copy-from-template functions above. Regenerating the template is a separate, manual step.
 
 Run **`python scripts/rebuild_static_sheets.py`** after editing either sheet's content, then commit the updated `templates/static_sheets.xlsx` alongside the Python change. It opens the template once, calls every static sheet's `_write_template_sheet(workbook)` (so nothing is skipped or forgotten), and saves once. This is the standard command — prefer it over the per-module CLIs below, which exist only for regenerating a single sheet in isolation while debugging:
 
@@ -536,9 +545,9 @@ Neither is built. They are recorded here as a scoped follow-up rather than as a 
 ## Adding a new LAMBDA function
 
 1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `number_format`. Leave `test_table` unset unless you are adding an active sheet-level QC harness for that function in the same change.
-2. Add or update the relevant Python oracle when the function feeds a production analysis surface (for example, Regression outputs in `analyze_regression_sheet.py` / `analyze_regression_spec.py`, Univariate outputs in `analyze_univariate.py`, or `Dummy_Test` self-checks for dummy-specific helpers).
+2. Add or update the relevant Python oracle when the function feeds a production analysis surface (for example, Regression outputs in `analyze_regression_sheet.py` / `analyze_regression_spec.py` or Univariate outputs in `analyze_univariate.py`).
 3. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` when cached analysis output fields or methodology change.
-4. Run the appropriate verifier (`python scripts/build_production.py --verify --no-launch` or `python scripts/build_univariate.py --verify --no-launch`) and confirm no unexpected WARNING lines appear.
+4. Run the appropriate verifier (`poe verify-headless`, `python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, and/or `python scripts/build_test_models.py --verify --no-launch`) and confirm no unexpected WARNING lines appear.
 5. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
 6. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
 

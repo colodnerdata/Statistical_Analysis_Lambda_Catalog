@@ -41,19 +41,24 @@ DEFAULT_MILEAGE_CSV_PATH = MILEAGE.default_csv_path
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
 
-def _load_build_qc_module() -> object:
-    """Import build_qc.py from the repo root.
+SCRIPTS_DIR = ROOT_DIR / "scripts"
 
-    ``build_qc`` is a top-level script, not part of the ``lambda_catalog``
-    package, so the canonical import path is unavailable from a frozen
-    console entry point. Loading it explicitly via ``importlib`` keeps the
-    verifier self-contained.
+
+def _load_build_qc_module() -> object:
+    """Import ``scripts/build_qc.py``.
+
+    ``build_qc`` is a standalone script under ``scripts/``, not part of the
+    ``lambda_catalog`` package, so the canonical import path is unavailable
+    from a frozen console entry point. Loading it explicitly via ``importlib``
+    keeps the verifier self-contained.
     """
-    spec = importlib.util.spec_from_file_location("build_qc", ROOT_DIR / "build_qc.py")
+    spec = importlib.util.spec_from_file_location(
+        "build_qc", SCRIPTS_DIR / "build_qc.py"
+    )
     if spec is None or spec.loader is None:
-        raise RuntimeError(f"Could not load build_qc.py from {ROOT_DIR}")
+        raise RuntimeError(f"Could not load build_qc.py from {SCRIPTS_DIR}")
     module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault("build_qc", module)
+    sys.modules["build_qc"] = module
     spec.loader.exec_module(module)
     return module
 

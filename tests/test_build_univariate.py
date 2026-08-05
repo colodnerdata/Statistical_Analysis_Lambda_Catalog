@@ -10,32 +10,13 @@ forwards skip_regression=True to the spec-driven verifier.
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
-import importlib.util
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 from lambda_catalog.verify_report import VerifyReport
+from tests.script_loader import load_script_module
 
-
-def _load_scripts_module(name: str):
-    """Load a script under ``scripts/`` without depending on it being on sys.path.
-
-    The build_* scripts moved into ``scripts/`` in the Chunk 1 reorganization
-    so they sit alongside the package rather than spilling into the repo root.
-    Test files that exercise a driver directly (replace attribute lookups, call
-    its ``main()``) need to import the same module the build's sibling
-    importers do, so we resolve it explicitly here.
-    """
-    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
-    spec = importlib.util.spec_from_file_location(name, scripts_dir / f"{name}.py")
-    module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault(name, module)
-    spec.loader.exec_module(module)
-    return module
-
-
-build_univariate = _load_scripts_module("build_univariate")
+build_univariate = load_script_module("build_univariate")
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,

@@ -107,7 +107,7 @@ def _load_build_qc_module() -> object:
             f"Could not load build_qc.py from {Path(__file__).resolve().parent}"
         )
     module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault("build_qc", module)
+    sys.modules["build_qc"] = module
     spec.loader.exec_module(module)
     return module
 

@@ -2,9 +2,7 @@
 # pylint: disable=missing-function-docstring
 from __future__ import annotations
 
-import importlib.util
 import math
-import sys
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -16,27 +14,14 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_cases,
     calculate_regression_spec_case,
 )
+from tests.script_loader import load_script_module
 
 
-def _load_build_qc():
-    """Load scripts/build_qc.py without relying on the repo root being on sys.path.
-
-    build_qc.py moved into ``scripts/`` in the Chunk 1 reorganization so it sits
-    alongside the other build scripts; the tests below access its module
-    attributes (``_QC_SHEET_NAMES``, ``_verification_calc_sheet_names`` …) and
-    so need it imported under the same module name it would have had at root.
-    """
-    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
-    spec = importlib.util.spec_from_file_location(
-        "build_qc", scripts_dir / "build_qc.py"
-    )
-    module = importlib.util.module_from_spec(spec)
-    sys.modules.setdefault("build_qc", module)
-    spec.loader.exec_module(module)
-    return module
-
-
-build_qc = _load_build_qc()
+# build_qc.py moved into ``scripts/`` in the Chunk 1 reorganization so it sits
+# alongside the other build scripts; the tests below access its module
+# attributes (``_QC_SHEET_NAMES``, ``_verification_calc_sheet_names`` …) and so
+# need it imported under the same module name it would have had at root.
+build_qc = load_script_module("build_qc")
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 

@@ -422,11 +422,15 @@ GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every 
 ## File structure
 
 ```
-build_production.py          # Regression production entry point → Lambda_Library.xlsx
-build_univariate.py          # Univariate production entry point → Lambda_Library_Univariate.xlsx
-build_qc.py                  # QC entry point → Lambda_Library_QC.xlsx
-rebuild_static_sheets.py      # regenerates templates/static_sheets.xlsx from its Python source —
+scripts/
+  build_production.py        # Regression production entry point → dist/Lambda_Library.xlsx
+  build_univariate.py        # Univariate production entry point → dist/Lambda_Library_Univariate.xlsx
+  build_qc.py                # QC entry point → Lambda_Library_QC.xlsx (gitignored fixture)
+  build_test_models.py       # test-model builder → Lambda_Library_TestModels.xlsx (gitignored fixture)
+  rebuild_static_sheets.py   # regenerates templates/static_sheets.xlsx from its Python source —
                               # see "Static reference sheets" below
+dist/                        # the two shipped .xlsx artifacts (build output, committed)
+excel-only-runs/             # archived --verify transcripts from developer-machine runs
 lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
   Life Expectancy Data.csv   # WHO life expectancy dataset
@@ -515,10 +519,10 @@ python -m lambda_catalog.write_sheet_csv_dataset production_lots Lambda_Library.
 
 The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but neither `build_production.py` nor `build_qc.py` ever executes it; they only call the copy-from-template functions above. Regenerating the template is a separate, manual step.
 
-Run **`python rebuild_static_sheets.py`** after editing either sheet's content, then commit the updated `templates/static_sheets.xlsx` alongside the Python change. It opens the template once, calls every static sheet's `_write_template_sheet(workbook)` (so nothing is skipped or forgotten), and saves once. This is the standard command — prefer it over the per-module CLIs below, which exist only for regenerating a single sheet in isolation while debugging:
+Run **`python scripts/rebuild_static_sheets.py`** after editing either sheet's content, then commit the updated `templates/static_sheets.xlsx` alongside the Python change. It opens the template once, calls every static sheet's `_write_template_sheet(workbook)` (so nothing is skipped or forgotten), and saves once. This is the standard command — prefer it over the per-module CLIs below, which exist only for regenerating a single sheet in isolation while debugging:
 
 ```powershell
-python rebuild_static_sheets.py                          # regenerates every static sheet (standard)
+python scripts/rebuild_static_sheets.py                       # regenerates every static sheet (standard)
 python -m lambda_catalog.write_sheet_regression_instructions  # single-sheet debugging only
 python -m lambda_catalog.write_sheet_diagnostic_guide         # single-sheet debugging only
 ```

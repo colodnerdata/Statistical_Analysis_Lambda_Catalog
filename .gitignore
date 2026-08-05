@@ -59,6 +59,10 @@ Lambda_Library_TestModels.xlsx
 /build_*.err
 /build_*.pid
 
+# logs/ holds the rerouted outputs of detached build_qc.py / build_*.py runs
+# (qc_log.log etc.). Always local dev only.
+/logs/
+
 # Force-include the shipped workbooks (build outputs that live in dist/)
 !dist/Lambda_Library.xlsx
 !dist/Lambda_Library_Univariate.xlsx

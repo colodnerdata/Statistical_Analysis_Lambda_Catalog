@@ -45,7 +45,6 @@ from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
     NameSyncResult,
-    _delete_sheet_if_present,
     _validate_workbook_reopen,
     sync_workbook_names,
 )
@@ -72,16 +71,6 @@ from lambda_catalog.write_sheet_version_history import write_version_history_she
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "dist" / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
-_PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
-# Legacy MLR smoke-test sheets are no longer written or verified; keep
-# these names only to delete stale copies from workbooks built by older
-# versions of the pipeline.
-_LEGACY_MLR_QC_SHEET_NAMES = (
-    "MLR_Scalar_Test",
-    "MLR_Vector_Outputs_Test",
-    "MLR_Observation_Test",
-)
-
 _TAB_COLOR_LIGHT_GRAY = (217, 217, 217)
 _TAB_COLOR_DARK_GRAY = (128, 128, 128)
 
@@ -353,13 +342,6 @@ def build_production_workbook(
 
         try:
             app.api.Calculation = XL_CALCULATION_MANUAL
-            _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
-            # v2.0 release: the spec block moved onto the Regression sheet,
-            # so a carried-forward Model Construction sheet is stale and gets
-            # dropped.
-            _delete_sheet_if_present(workbook, "Model Construction")
-            for qc_sheet in _LEGACY_MLR_QC_SHEET_NAMES:
-                _delete_sheet_if_present(workbook, qc_sheet)
             if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                 workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS
             write_catalog_sheet(workbook, document.functions)

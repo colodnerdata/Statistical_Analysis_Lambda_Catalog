@@ -1170,21 +1170,6 @@ def _write_model_diagnostic_conditional_formatting(sheet: xw.Sheet) -> None:
 
 # ── Local name management ─────────────────────────────────────────────────────
 
-# v1 sheet-scoped names replaced by the spec-driven constructors — dropped on
-# every rebuild so a workbook carried forward never resolves against them.
-_LEGACY_LOCAL_NAMES = (
-    "All_Xs",
-    "Coefficient_Name_Col",
-    "Ind_Var_Filter",
-    "Ind_Var_Include",
-    "fil",
-    "y",
-    "Regression_Sample_Include",
-    "data_identifiers",
-    "pred_input",
-)
-
-
 def _setup_local_names(
     sheet: xw.Sheet,
     closures: tuple[CatalogFunction, ...] | None = None,
@@ -1213,9 +1198,6 @@ def _setup_local_names(
         closures = load_catalog_document(_DEFINITIONS_PATH).functions_for_sheet(
             REGRESSION_SHEET_NAME
         )
-
-    for legacy in _LEGACY_LOCAL_NAMES:
-        drop_local_name(sheet, legacy)
 
     _set_spec_scoped_names(
         sheet,

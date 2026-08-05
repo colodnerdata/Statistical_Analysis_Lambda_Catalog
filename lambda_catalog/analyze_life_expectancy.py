@@ -1,7 +1,6 @@
 """Fit OLS regression on the Life Expectancy dataset and compute QC reference values."""
 from __future__ import annotations
 
-import argparse
 import csv
 from math import sqrt
 from pathlib import Path
@@ -27,7 +26,6 @@ from .write_sheet_csv_dataset import LIFE_EXPECTANCY, load_csv_rows
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_INPUT_CSV = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
-DEFAULT_OUTPUT_CSV = ROOT_DIR / "Life Expectancy Predictions.csv"
 TARGET_COLUMN = "Life expectancy"
 
 
@@ -550,124 +548,3 @@ def calculate_regression_observation_vectors(
         scaled_residuals=tuple(float(v) for v in scaled_residuals),
         scaled_residuals_ranked=tuple(float(v) for v in np.sort(scaled_residuals)),
     )
-
-
-def parse_args() -> argparse.Namespace:
-    """Parse command-line arguments for life expectancy prediction.
-
-    Returns
-    -------
-    argparse.Namespace
-        Parsed arguments with csv, output, and no_intercept attributes.
-    """
-    parser = argparse.ArgumentParser(
-        description="Fit OLS on Life Expectancy data and output predicted values to CSV."
-    )
-    parser.add_argument("--csv", type=Path, default=DEFAULT_INPUT_CSV, help="Input CSV path.")
-    parser.add_argument(
-        "--output",
-        type=Path,
-        default=DEFAULT_OUTPUT_CSV,
-        help="Output CSV path with predicted values.",
-    )
-    parser.add_argument(
-        "--no-intercept",
-        action="store_true",
-        help="Fit model without an intercept term.",
-    )
-    return parser.parse_args()
-
-
-def generate_life_expectancy_predictions(
-    input_csv_path: Path = DEFAULT_INPUT_CSV,
-    output_csv_path: Path = DEFAULT_OUTPUT_CSV,
-    include_intercept: bool = True,
-) -> tuple[int, int]:
-    """Fit OLS predictions and write an output CSV.
-
-    Parameters
-    ----------
-    input_csv_path : Path, optional
-        Path to the input Life Expectancy CSV file.
-    output_csv_path : Path, optional
-        Path where the output CSV with predictions will be written.
-    include_intercept : bool, optional
-        If True, fit a model with an intercept term.
-
-    Returns
-    -------
-    tuple[int, int]
-        A 2-tuple of (training_rows_used, rows_with_predictions).
-    """
-    input_path = input_csv_path.resolve()
-    output_path = output_csv_path.resolve()
-
-    original_headers, normalized_rows = _load_normalized_rows(input_path)
-    _validate_required_headers(original_headers)
-
-    x_train, y_train, parsed_features_per_row, parsed_targets_per_row = (
-        _build_training_arrays(normalized_rows, include_intercept)
-    )
-    model = _fit_ols_model(x_train, y_train, include_intercept)
-    coefficients = model.params
-
-    output_headers = original_headers + ["Predicted_Life_expectancy", "Residual"]
-    predicted_count = 0
-
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=output_headers)
-        writer.writeheader()
-
-        for original_row, features, target in zip(
-            normalized_rows,
-            parsed_features_per_row,
-            parsed_targets_per_row,
-            strict=True,
-        ):
-            out_row = {
-                header: original_row.get(_normalize_header(header), "")
-                for header in original_headers
-            }
-            predicted_value: float | None = None
-            residual: float | None = None
-
-            if features is not None:
-                predicted_value = _predict_single_row(coefficients, features, include_intercept)
-                predicted_count += 1
-
-                if target is not None and predicted_value is not None:
-                    residual = target - predicted_value
-
-            out_row["Predicted_Life_expectancy"] = (
-                "" if predicted_value is None else f"{predicted_value:.6f}"
-            )
-            out_row["Residual"] = "" if residual is None else f"{residual:.6f}"
-            writer.writerow(out_row)
-
-    coef_names = FEATURE_COLUMNS[:]
-    if include_intercept:
-        coef_names.insert(0, "Intercept")
-
-    print(f"Input CSV: {input_path}")
-    print(f"Output CSV: {output_path}")
-    print(f"Training rows used: {len(y_train)}")
-    print(f"Rows with predictions: {predicted_count}")
-    for name, coef in zip(coef_names, coefficients, strict=True):
-        print(f"{name}: {coef:.10g}")
-
-    return len(y_train), predicted_count
-
-
-def main() -> None:
-    """Fit predictions and write output CSV from command-line arguments."""
-    args = parse_args()
-    generate_life_expectancy_predictions(
-        input_csv_path=args.csv,
-        output_csv_path=args.output,
-        include_intercept=not args.no_intercept,
-    )
-
-
-if __name__ == "__main__":
-    main()

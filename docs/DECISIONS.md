@@ -3887,9 +3887,11 @@ that property so an edit moving the predictors into the first 12 rows fails
 instead of silently testing nothing.
 
 **A stale name was swept on the way.** `Spec_Base_Period_Delta`
-(`Regression!$I$4:$I$15989`) is residue from the rename to
-`Spec_Sequence_Period` and is still in the shipped artifact:
-`sync_workbook_names` only sweeps **workbook**-scoped residue, so a sheet-scoped
-name outlives the code that created it indefinitely. `_RETIRED_LOCAL_NAMES` now
-drops it on every build. Worth generalizing — a sheet-scoped name the writers
-stopped creating has no other sweeper.
+(`Regression!$I$4:$I$15989`) was residue from the rename to
+`Spec_Sequence_Period`: `sync_workbook_names` only sweeps **workbook**-scoped
+residue, so a sheet-scoped name outlives the code that created it indefinitely.
+A `_RETIRED_LOCAL_NAMES` drop-list cleared it, and once both shipped artifacts
+were confirmed free of it that list was removed as a no-op. The general problem
+stands — a sheet-scoped name the writers stopped creating has no sweeper — so
+the next such rename needs the same one-release drop-and-verify, not a
+permanent list.

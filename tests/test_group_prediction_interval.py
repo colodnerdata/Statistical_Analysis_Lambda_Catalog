@@ -2,7 +2,7 @@
 prediction (phase 5): Group_Mean_At, Group_Count_At, Prediction_Group_Column,
 and Group_Prediction_Interval.
 
-Concept (DECISIONS.md "FE point prediction" / "prediction interval"): under
+Concept (docs/DECISIONS.md "FE point prediction" / "prediction interval"): under
 one-way Fixed Effects, the within estimator discards the G group intercepts
 an LSDV fit would have materialized. The algebraic identity
 alpha_hat_i = ybar_i - xbar_i'beta_hat, substituted back in, gives

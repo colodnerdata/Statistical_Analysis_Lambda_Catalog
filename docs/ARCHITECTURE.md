@@ -741,7 +741,7 @@ internals, `Ln_Positive` as part of the **v2.2 column-G Log wiring** itself
 the Location & Scale bundle), and the two-way functions
 (`Absorb_Two_Way_Fixed_Effects`, `Demean_Two_Way_Balanced`,
 `Fixed_Effects_Convergence_Check`) with the **two-way FE milestone,
-[v3.8](ROADMAP.md#v38--two-way-fixed-effects--planned)**.
+[v3.8](docs/ROADMAP.md#v38--two-way-fixed-effects--planned)**.
 
 The taxonomy itself is version-independent — reordering the ladder does not
 change what any of these functions mean.

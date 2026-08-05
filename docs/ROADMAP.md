@@ -11,10 +11,10 @@ clicking the cell.
 
 **Documentation map.** This file is the version plan only — the ladder, what's shipped,
 and what's next. The "why" behind any design choice lives in
-[DECISIONS.md](DECISIONS.md). The between-versions rules (naming convention, function
+[DECISIONS.md](docs/DECISIONS.md). The between-versions rules (naming convention, function
 categories, the Role / Type / Sequence taxonomy, the spec block, the data-transformation
-taxonomy) live in [ARCHITECTURE.md](ARCHITECTURE.md). Active work lives in
-[TODOs.md](TODOs.md). The test-model suite each milestone has to grow — and the
+taxonomy) live in [ARCHITECTURE.md](docs/ARCHITECTURE.md). Active work lives in
+[TODOs.md](docs/TODOs.md). The test-model suite each milestone has to grow — and the
 ordering principle this ladder follows from v3.4 on — is
 [docs/MODEL_TESTING_ASSETS.md](docs/MODEL_TESTING_ASSETS.md). A reader who needs the
 rationale behind a milestone's design should follow the cross-link from the
@@ -106,7 +106,7 @@ version, and neither does the library version unless a catalog function changes
 with it.
 
 Rationale in
-[DECISIONS.md § v3.0 versioning](DECISIONS.md#versioning-across-two-artifacts).
+[DECISIONS.md § v3.0 versioning](docs/DECISIONS.md#versioning-across-two-artifacts).
 
 **Version ladder (current plan):**
 
@@ -259,7 +259,7 @@ so the near-finished milestone shipped first.
 correction is threaded as an **optional `[DF_Absorbed]` argument defaulting to 0**,
 leaving the no-FE df path untouched, so a model with no Fixed-Effects Role behaves
 identically to v2.0. FE therefore stays a MINOR at v2.1. The full argument-threading
-rationale is in [DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+rationale is in [DECISIONS.md § v2.1](docs/DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
 ---
 
@@ -313,7 +313,7 @@ distribution choice in the fitting section.
   delivered via combo charts with the CDF-delta columns as line series,
   not via `PDF_*` LAMBDAs at bin midpoints.
 
-Design rationale and resolved decisions: [DECISIONS.md § v1.1](DECISIONS.md#v11--univariate).
+Design rationale and resolved decisions: [DECISIONS.md § v1.1](docs/DECISIONS.md#v11--univariate).
 
 ---
 
@@ -348,7 +348,7 @@ unchanged; every existing v1.0 / v1.1 input computes identically.)*
   no retry; recalculate + save, retry) so a transient failure in the
   short phase doesn't restart the multi-minute sheet-writing phase.
 
-Design rationale and resolved decisions: [DECISIONS.md § v1.2](DECISIONS.md#v12--workbook-hardening).
+Design rationale and resolved decisions: [DECISIONS.md § v1.2](docs/DECISIONS.md#v12--workbook-hardening).
 
 ---
 
@@ -379,13 +379,13 @@ reference *is* the model.
   Predictor Type (Continuous / Categorical — closed, never grows), and
   Sequence (a structural flag, never grows). The full taxonomy and the
   cardinality rules are in
-  [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
+  [ARCHITECTURE.md § 3](docs/ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
 - **Spec block A–L on the Regression sheet** *(A–O from v3.0, which appends the
   two interaction columns and the Design Columns audit)* — every column of the
   source table, one row per column. Cascading-relevance CF grays out cells
   irrelevant to the column's Role. The full A–O layout, the
   reserved-column policy, and the "Display derives, never feeds" rule
-  are in [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao).
+  are in [ARCHITECTURE.md § 4](docs/ARCHITECTURE.md#4-the-model-spec-block-ao).
 - **Spec-order assembly for `x_s()`** with the **level-vector split** for
   Categorical Predictors — training and prediction both call the same
   encoder with the same training level vector. Reference-level validation
@@ -394,7 +394,7 @@ reference *is* the model.
   Title_Case_With_Underscores convention. The retained initialisms
   (`AIC`, `AICc`, `BIC`, `VIF`, `PRESS`, `CDF`, `NLL`, `LOOCV`, `PERT`,
   `R`, `QQ`, `GoF`, `MS`, `SS`, `SE`) and the per-pass sign-offs are in
-  [ARCHITECTURE.md § 1](ARCHITECTURE.md#1-naming-convention).
+  [ARCHITECTURE.md § 1](docs/ARCHITECTURE.md#1-naming-convention).
 - **One breaking restructure, never a second** — the spec-block
   changeover at v2.0 is the only MAJOR change to the Regression sheet.
   All v2.1+ additions are either additive sections on the
@@ -404,9 +404,9 @@ reference *is* the model.
   one spec-driven sheet; WLS parallel function set → `Weight` Role
   axis value; single-axis "Predictor Type" → two-axis taxonomy.
   Full supersession record in
-  [DECISIONS.md § Supersession log](DECISIONS.md#supersession-log).
+  [DECISIONS.md § Supersession log](docs/DECISIONS.md#supersession-log).
 
-Design rationale and resolved decisions: [DECISIONS.md § v2.0](DECISIONS.md#v20--specification-driven-regression).
+Design rationale and resolved decisions: [DECISIONS.md § v2.0](docs/DECISIONS.md#v20--specification-driven-regression).
 
 ---
 
@@ -471,14 +471,14 @@ lives in the git history of this file and in the T0–T19 cases now carried by
   `x_new`/`x̄ᵢ` through `Dummy_Code` before the FE formula), and a
   residual-output relabel + Diagnostic Guide paragraph on residuals under FE
   (documentation-only). Full list in
-  [TODOs.md § v2.1 follow-on polish](TODOs.md#v21-leftovers--follow-on-polish).
+  [TODOs.md § v2.1 follow-on polish](docs/TODOs.md#v21-leftovers--follow-on-polish).
 - **The Version History entry** — CLOSED. The 2.1.0 and 2.2.0 rows were never
   written at release, so the workbook's shipped changelog jumped 2.0.0 → 3.0.0
   and Fixed Effects, the Sequence axis, GVIF, and the Log transform reached users
   with no entry describing them. Both rows were backfilled into `_VERSIONS` at
   v3.1 and are present in the committed artifact.
 
-Design rationale and resolved decisions: [DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+Design rationale and resolved decisions: [DECISIONS.md § v2.1](docs/DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
 ---
 
@@ -519,7 +519,7 @@ Model Comparison convenience layer.
   model (Production Lots, raw columns with `transform="Log"`) matching
   the pre-existing precomputed-log-column case to floating-point
   precision. Full design rationale in
-  [DECISIONS.md § v2.2 Transform column wiring](DECISIONS.md#v22--transforms--unit-space-comparability).
+  [DECISIONS.md § v2.2 Transform column wiring](docs/DECISIONS.md#v22--transforms--unit-space-comparability).
 
 **Not delivered — moved to v3.3.** Back-transformation and cross-model
 comparability were deliberately excluded from this pass, which shipped only a
@@ -530,7 +530,7 @@ for the half that shipped and
 [v3.9](#v39--standalone-data-transformation-library--planned) for the standalone
 transform library.
 
-Design rationale and resolved decisions: [DECISIONS.md § v2.2](DECISIONS.md#v22--transforms--unit-space-comparability).
+Design rationale and resolved decisions: [DECISIONS.md § v2.2](docs/DECISIONS.md#v22--transforms--unit-space-comparability).
 
 ---
 
@@ -540,7 +540,7 @@ The engine-interface release. It responds to
 [REVIEW.md](REVIEW.md), whose findings share one shape: each decision was correct
 in isolation and the cost is in the sum. Every design question below is
 **resolved** in
-[DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+[DECISIONS.md § v3.0](docs/DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 The release shipped as three stages plus the two-artifact split (workbook 3.0.0,
 Univariate artifact 1.0.0), each a separate reviewable pull request with its own
 verification gate (see the scope section below).
@@ -576,10 +576,10 @@ feature, not just this release:
 
 1. **Properties of a fit travel in the context block, never as new optional
    arguments.** The reserved-slot pattern explicitly no longer applies to
-   argument lists ([ARCHITECTURE.md § 7](ARCHITECTURE.md#7-reserved-spec-column-pattern-general)).
+   argument lists ([ARCHITECTURE.md § 7](docs/ARCHITECTURE.md#7-reserved-spec-column-pattern-general)).
 2. **Nothing may be placed right of the Constructed Design Matrix**, and
    materialized zones run in increasing width
-   ([ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone)).
+   ([ARCHITECTURE.md § 4b](docs/ARCHITECTURE.md#4b-the-materialization-zone)).
 
 ### Scope — **RESOLVED**
 
@@ -625,7 +625,7 @@ three columns over. A user who only fills in the spec block notices nothing; a
 user whose own formulas point at cells on this sheet has to re-point them. That is
 a real break, so the flag is **Yes**, but it is an address break rather than a
 meaning break — the far more recoverable of the two. See
-[DECISIONS.md § v3.0 shipped in stages](DECISIONS.md#v30-shipped-in-stages-the-layout-break-lands-last).
+[DECISIONS.md § v3.0 shipped in stages](docs/DECISIONS.md#v30-shipped-in-stages-the-layout-break-lands-last).
 
 **Release contents — §3 through §7, all shipped:**
 
@@ -653,7 +653,7 @@ so the two interaction columns, the audit column, and the materialization zone
 each land in **one** writer. That single-implementation structure is part of what
 makes this scope affordable, and it is why F5 does not appear in the release
 above. See
-[DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
+[DECISIONS.md § v3.0 spec block](docs/DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
 
 The counter-argument weighed and answered: v3.0 is a large release that is hard to
 verify in one pass, and the human test plan for it is substantial. The answer was
@@ -725,7 +725,7 @@ default state is self-consistent (the whole band sits on the design matrix's own
 centroid); a partial override is not, and the band's header note says so rather
 than silently rewriting one user input because another changed. Rationale, and
 the deferred derive-on-change design, in
-[DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring).
+[DECISIONS.md § v3.1](docs/DECISIONS.md#v31--interaction-wiring).
 
 **Verification — the Excel gate ran and cleared.** Three QC cases
 (`interaction_continuous_product`, `interaction_quadratic_self_product`,
@@ -741,11 +741,11 @@ The run's one reported failure, `[Univariate] sheet is missing`, is the verifier
 checking a sheet this artifact stopped carrying at v3.0. It is a false positive
 against the post-split layout, not a result — `skip_univariate` reaches the
 force-calc list but does not yet guard the check itself. Tracked as its own
-follow-up; see [TODOs.md](TODOs.md#v31-leftovers).
+follow-up; see [TODOs.md](docs/TODOs.md#v31-leftovers).
 
-Design rationale: [DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring),
+Design rationale: [DECISIONS.md § v3.1](docs/DECISIONS.md#v31--interaction-wiring),
 building on the representation decisions in
-[§ v3.0](DECISIONS.md#interactions-are-declared-with-two-spec-columns).
+[§ v3.0](docs/DECISIONS.md#interactions-are-declared-with-two-spec-columns).
 
 ---
 
@@ -813,10 +813,10 @@ in the Regression track — it is that track's single most expensive item to tes
   `Model_Matrix` (`Ln_Positive` shipped early with the column-G wiring
   above). The full taxonomy and the `""`-vs-`NA()` row-alignment
   convention are in
-  [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy),
+  [ARCHITECTURE.md § 5](docs/ARCHITECTURE.md#5-data-transformation-taxonomy),
   and remain version-independent.
 
-Design rationale and resolved decisions: [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label),
+Design rationale and resolved decisions: [DECISIONS.md § v3.3](docs/DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label),
 recorded there under v3.3 (the original v2.2 entries describe the standalone
 library, now [v3.9](#v39--standalone-data-transformation-library--planned)).
 
@@ -857,7 +857,7 @@ prediction inputs). One **mismatched-predictor-set pair** (M1 vs M14) is added t
 exercise the `XLOOKUP [if_not_found]` open question. See
 [docs/MODEL_TESTING_ASSETS.md § 2 item 1](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
-Design rationale and resolved decisions: [DECISIONS.md § v2.3](DECISIONS.md#v23--model-comparison-sheet),
+Design rationale and resolved decisions: [DECISIONS.md § v2.3](docs/DECISIONS.md#v23--model-comparison-sheet),
 recorded there under the original milestone number.
 
 ---
@@ -919,7 +919,7 @@ and [§ 1.5](docs/MODEL_TESTING_ASSETS.md#15-coverage-matrix).
 put `Cluster` and `Time` ahead of it and Two-sample and Resampling behind it.*
 
 A `Weight` value on the Role axis (see
-[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
+[ARCHITECTURE.md § 3](docs/ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
 for the cardinality rule). Three-stage scope: user-supplied weights →
 variance-driver-derived weights → FGLS. This milestone ships the first stage only.
 
@@ -939,7 +939,7 @@ One trap this avoids, recorded because it is the kind that ships silently:
 mean(√w·y) rather than ȳ_w — so a naive "scale everything by √w" implementation
 would leave SS_Total, and therefore R², wrong under WLS with no error anywhere.
 The v3.0 projection form of `SS_Total` is correct by construction. See
-[DECISIONS.md § v3.0 SS_Total](DECISIONS.md#ss_total-redefined-as-the-intercept-only-residual-sum-of-squares).
+[DECISIONS.md § v3.0 SS_Total](docs/DECISIONS.md#ss_total-redefined-as-the-intercept-only-residual-sum-of-squares).
 
 **Sequencing note — resolved.** This entry used to warn that shipping before v3.0
 would force the `[Weights]` argument after all, with v3.0 then unwinding it across
@@ -972,7 +972,7 @@ unbalanced panels), `Demean_Two_Way_Balanced`, and
 lifting the v2.1 one-FE-variable status-block error, and the two-way prediction
 question (group intercepts are not recoverable as simple group means). Forward
 wiring from the v2.1 FE engine; the one-way-scope rationale is in
-[DECISIONS.md § v2.1 scope](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+[DECISIONS.md § v2.1 scope](docs/DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
 **Test assets — ~2× over the FE family.** A balanced two-factor panel (R
 `Grunfeld`, 200 rows, 10 firms × 20 years) plus an **unbalanced variant** (rows
@@ -996,7 +996,7 @@ against the most mature harness that track ever has.*
 (`Ln_Positive`, `Demean_By`, `Group_Mean`, `Lag_By`, and `Difference_By` shipped
 early, with the v2.2 column-G wiring and the v2.1 FE work.) The full taxonomy and
 the `""`-vs-`NA()` row-alignment convention are in
-[ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
+[ARCHITECTURE.md § 5](docs/ARCHITECTURE.md#5-data-transformation-taxonomy).
 
 **Test assets — the ~10× axis-widener, and no new data.** Every new `Transform`
 value widens the predictor-transform axis that today holds {None, Log}, and each
@@ -1035,7 +1035,7 @@ writer, a new layout, and a verification path that shares nothing with
 
 `T_Test_OneSample`, `T_Test_TwoSample` (equal-variance / Welch / paired
 variants — the 3-way flag or separate `paired` boolean is the open design
-question, see [DECISIONS.md § v2.5](DECISIONS.md#v25--claimed), recorded there under the original number),
+question, see [DECISIONS.md § v2.5](docs/DECISIONS.md#v25--claimed), recorded there under the original number),
 `F_Test_Variance` (feeds a recommendation cell that selects the t-test
 variant), `Covariance_Matrix` (complement to the existing
 `Correlation_Matrix`). Dedicated sheet layout with test selector and
@@ -1079,7 +1079,7 @@ natural small-n bootstrap target (slope CI on P3), and PERT/MC cases need only
 parameter cells. See
 [docs/MODEL_TESTING_ASSETS.md § 2 item 3](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
-Design rationale and resolved decisions: [DECISIONS.md § v2.4](DECISIONS.md#v24--resampling--simulation),
+Design rationale and resolved decisions: [DECISIONS.md § v2.4](docs/DECISIONS.md#v24--resampling--simulation),
 recorded there under the original milestone number.
 
 ---
@@ -1149,9 +1149,9 @@ profile-NLL line charts. Evaluations fall from ~2,400 to ~880, and the fits got
 2-D bracket had been landing 6.8 NLL units above the true MLE. **The Beta half is
 still open:** it keeps its 20×20 two-input Data Tables and has not yet received
 the method-of-moments start or the ~12×12 grid that takes the total to ~370. See
-[TODOs.md § Univariate 2.1](TODOs.md#univariate-21--the-beta-half-of-the-grid-shrink).
+[TODOs.md § Univariate 2.1](docs/TODOs.md#univariate-21--the-beta-half-of-the-grid-shrink).
 
-Design rationale: [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+Design rationale: [DECISIONS.md § v3.0](docs/DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
 ---
 
@@ -1167,7 +1167,7 @@ where "v3.0" means the spec-block changeover.
 collision is live. `write_sheet_model_construction.py`'s docstring is corrected,
 and the human test plan that carried the old label in its filename has been
 retired; the remaining comment references are tracked as a cleanup item in
-[TODOs.md](TODOs.md). They are comments only — no executable logic reads the
+[TODOs.md](docs/TODOs.md). They are comments only — no executable logic reads the
 label.
 
 ---

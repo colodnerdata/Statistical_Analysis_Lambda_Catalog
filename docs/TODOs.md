@@ -4,9 +4,9 @@ Open work only. Nothing on this page is finished — if an item is here, it is
 still to do.
 
 Where the rest lives: resolved design decisions with their rationale are in
-[DECISIONS.md](DECISIONS.md), foundational patterns in
-[ARCHITECTURE.md](ARCHITECTURE.md), the version plan and the shipped-release
-narratives in [ROADMAP.md](ROADMAP.md), the test-model suite each milestone has
+[DECISIONS.md](docs/DECISIONS.md), foundational patterns in
+[ARCHITECTURE.md](docs/ARCHITECTURE.md), the version plan and the shipped-release
+narratives in [ROADMAP.md](docs/ROADMAP.md), the test-model suite each milestone has
 to grow in [docs/MODEL_TESTING_ASSETS.md](docs/MODEL_TESTING_ASSETS.md).
 Completed items are removed from this file rather than accumulated here; each
 milestone section below names the PRs that closed its shipped work, so the
@@ -120,11 +120,11 @@ encoding](#v21-leftovers--follow-on-polish).
   relevant threshold; place them beneath the chart area). Same
   identity-line-via-real-data-series approach as the v1.2 diagnostic chart
   pattern — see
-  [DECISIONS.md § v1.2 identity-line](DECISIONS.md#v12--workbook-hardening).
+  [DECISIONS.md § v1.2 identity-line](docs/DECISIONS.md#v12--workbook-hardening).
 
 ## v1.1 leftovers — Univariate sheet writer
 
-Shipped 2026-06-29; see [ROADMAP.md](ROADMAP.md#v11--univariate--shipped-2026-06-29).
+Shipped 2026-06-29; see [ROADMAP.md](docs/ROADMAP.md#v11--univariate--shipped-2026-06-29).
 
 - **READY · M · needs Excel** — Investigate suppressing worst-fit / N/A-error
   distributions from the combo charts. Best outcome would be dynamically hiding
@@ -134,7 +134,7 @@ Shipped 2026-06-29; see [ROADMAP.md](ROADMAP.md#v11--univariate--shipped-2026-06
   may be VBA-only, which the library forbids). No-VBA fallback to evaluate: emit
   `NA()` across a suppressed distribution's column, since line charts skip
   `#N/A` points — same chart effect without hiding. See
-  [DECISIONS.md § v1.1 histogram overlays](DECISIONS.md#v11--univariate) for the
+  [DECISIONS.md § v1.1 histogram overlays](docs/DECISIONS.md#v11--univariate) for the
   combo-chart design.
 
 - **READY · L · no Excel** — Add support for more distribution families:
@@ -161,9 +161,9 @@ total is ~880 evaluations rather than the ~370 the shrink was costed at.
   rules. Breakage class: **MAJOR for the Univariate workbook version** if the
   Alpha/Beta Min/Max cells stop being plain typed inputs, the same call made for
   the Weibull/Gamma bounds at 2.0.0. See
-  [DECISIONS.md § the grid shrink](DECISIONS.md#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)
+  [DECISIONS.md § the grid shrink](docs/DECISIONS.md#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)
   for the estimator and
-  [DECISIONS.md § Univariate 2.0.0](DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half)
+  [DECISIONS.md § Univariate 2.0.0](docs/DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half)
   for how the 1-D half resolved the equivalent questions.
 
 ## v2.0 leftovers
@@ -192,9 +192,9 @@ and two cleanups.
 
   **Keep** `_write_audit_row` and `_write_filtered_zones`. They are the working
   reference implementations of the Design Columns audit column (now required —
-  [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao)) and the V/W
+  [ARCHITECTURE.md § 4](docs/ARCHITECTURE.md#4-the-model-spec-block-ao)) and the V/W
   filtered-display pattern
-  ([ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone)). Their
+  ([ARCHITECTURE.md § 4b](docs/ARCHITECTURE.md#4b-the-materialization-zone)). Their
   `RecordingSheet` coverage in `tests/test_model_construction_writer.py` is the
   only test for that behavior. Note that promoting them into the Regression
   writer turned out **not** to be needed — the audit is one spill written by the
@@ -205,12 +205,12 @@ and two cleanups.
 
   Context: this is what remains of REVIEW.md F5 after the finding itself was
   struck as never-true — see
-  [DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
+  [DECISIONS.md § v3.0 spec block](docs/DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
 
 - **READY · S · no Excel** — **Retire the stale `v3.0` label for the spec-block
   changeover.** This changeover was planned as v3.0 and renumbered to v2.0 before
   release; v3.0 now means the engine-interface release (see
-  [ROADMAP.md](ROADMAP.md)), so the old label is a live collision. The docstring
+  [ROADMAP.md](docs/ROADMAP.md)), so the old label is a live collision. The docstring
   in `write_sheet_model_construction.py` is corrected and the human test plan
   that carried the old label in its filename is retired. Still carrying the old
   label in **comments only** — no executable logic reads it:
@@ -233,28 +233,28 @@ and two cleanups.
   the decision: accept as documented behavior, or extend `Sample_Include()` with
   a non-blank condition for included Categorical Predictors. Interim workaround:
   a completeness column declared as a Filter. See
-  [DECISIONS.md § v2.0 auto-completeness](DECISIONS.md#v20--specification-driven-regression).
+  [DECISIONS.md § v2.0 auto-completeness](docs/DECISIONS.md#v20--specification-driven-regression).
 
 ## v2.1 leftovers — follow-on polish
 
 The Sequence axis, gap-aware longitudinal layer, serial-correlation diagnostics,
 and one-way Fixed Effects all shipped inside the 3.0.0 artifact (TODOs #1–#10,
 verified at 0 mismatches across all 12 spec-driven QC cases). Design rationale:
-[DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+[DECISIONS.md § v2.1](docs/DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 Two-way FE is deliberately deferred until this framework is finished — see
 [v3.8](#v38--two-way-fixed-effects).
 
 - **DEFERRED** — **BFN critical values**. N,T-dependent bounds per Bhargava et
   al. 1982 tables; do NOT present standard DW bounds next to the BFN cell. The
   deferral record (why N,T-dependent, why not standard DW) is in
-  [DECISIONS.md § v2.1 BFN critical values](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+  [DECISIONS.md § v2.1 BFN critical values](docs/DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
 - **DEFERRED** — **Categorical × FE prediction encoding**. x_new and x̄ᵢ formed
   in constructed design-matrix space; UI wire to encode through `Dummy_Code`
   before reaching the FE formula. Largely subsumed by v2.0 categorical
   prediction; recorded so the encoding step is not forgotten. The deferral record
   is in
-  [DECISIONS.md § v2.1 Categorical × FE](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+  [DECISIONS.md § v2.1 Categorical × FE](docs/DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
 - **READY · S · needs Excel** — **Relabel within-model residual outputs + add a
   Diagnostic Guide paragraph on residuals under FE.** Documentation-only, but the
@@ -269,9 +269,9 @@ The engine-interface release shipped 2026-08-02 in three stages plus the
 two-artifact split: stage 1 constructor pipeline + intercept relocation (#148),
 stage 2 `Model_Context` (#150), stage 3 layout (#152), plus polish (#153, #154).
 Every stage cleared the spec-driven Excel gate at 0 mismatches across all 12 QC
-cases. Narrative in [ROADMAP.md](ROADMAP.md#v30--the-engine-interface-release--shipped-2026-08-02);
+cases. Narrative in [ROADMAP.md](docs/ROADMAP.md#v30--the-engine-interface-release--shipped-2026-08-02);
 rationale in
-[DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+[DECISIONS.md § v3.0](docs/DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
 - **READY · M · needs Excel** — Re-examine the intercept-only closed-form bypass
   in `write_sheet_regression.py` → `_setup_local_names` (`Intercept_Only_N` /
@@ -287,8 +287,8 @@ Interaction wiring shipped 2026-08-03 (#156): spec columns M/N are read by
 interaction columns, and the Excel gate cleared. The same release gave the
 catalog sole ownership of workbook scope (#159), clearing the v3.0 split's
 cross-artifact name residue. See
-[ROADMAP.md](ROADMAP.md#v31--interaction-wiring--shipped-2026-08-03) and
-[DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring).
+[ROADMAP.md](docs/ROADMAP.md#v31--interaction-wiring--shipped-2026-08-03) and
+[DECISIONS.md § v3.1](docs/DECISIONS.md#v31--interaction-wiring).
 
 - **READY · S · needs Excel** — **Rebuild and commit the Regression artifact.**
   The committed `Lambda_Library.xlsx` predates v3.2: `BU2` and `BW2` still read
@@ -310,7 +310,7 @@ behaviour, and its width guard shipped at v3.0; the spills that fill it — plus
 `Sample_Include()`'s own zone — shipped at #161, each headed on
 `_MATERIALIZATION_HEADER_ROW` and spilling from `_MATERIALIZATION_SPILL_ROW`,
 full height and row-aligned with the source table. See
-[ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone). What remains
+[ARCHITECTURE.md § 4b](docs/ARCHITECTURE.md#4b-the-materialization-zone). What remains
 is rewiring the readers, which is where the performance win actually is.
 
 - **READY · L · needs Excel** — Point the readers at the spills. Surfacing the
@@ -327,12 +327,12 @@ is rewiring the readers, which is where the performance win actually is.
   workbook and verifiable only with Excel present. A wrong guess breaks the
   row-mask contract that keeps every spilled array row-aligned. The live closure
   is untouched and remains the row mask until then. See
-  [DECISIONS.md § materialization in two steps](DECISIONS.md#materialization-lands-in-two-steps--model_context-now-sample_include-deferred).
+  [DECISIONS.md § materialization in two steps](docs/DECISIONS.md#materialization-lands-in-two-steps--model_context-now-sample_include-deferred).
 
 ## v3.3 — Transforms remainder
 
 Planned as the second half of v2.2; moved after v3.0 when the feature train was
-resequenced — see [ROADMAP.md § v3.3](ROADMAP.md#v33--transforms-remainder--shipped-dispatcher--duan--model-formula-label).
+resequenced — see [ROADMAP.md § v3.3](docs/ROADMAP.md#v33--transforms-remainder--shipped-dispatcher--duan--model-formula-label).
 **The standalone transform library is no longer part of this milestone** — it now
 ships as [v3.9](#v39--standalone-data-transformation-library), at the end of the
 Regression track, because it is that track's most expensive item to test.
@@ -340,7 +340,7 @@ The column-G `Log` wiring already shipped at v2.2: `Response_Column()` / `X_s()`
 read column G, `Constructed_Column_Names()` / `Constructed_Column_Transforms()`
 relabel and carry the per-column Log/None flag, the Prediction Inputs band
 auto-logs, and `Ln_Positive` is in the catalog
-([DECISIONS.md § v2.2](DECISIONS.md#v22--transforms--unit-space-comparability)).
+([DECISIONS.md § v2.2](docs/DECISIONS.md#v22--transforms--unit-space-comparability)).
 The longitudinal transforms `Lag_By` / `Difference_By` also shipped early, with
 gap-aware t−Δ semantics — verification in
 `tests/test_difference_by_verification.py`.
@@ -353,8 +353,8 @@ gap-aware t−Δ semantics — verification in
   `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`. The dispatcher pattern
   (one canonical name per statistic, internal `SWITCH` on the transform pair)
   is the documented naming-style-departure pattern, in
-  [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label)
-  and [ARCHITECTURE.md § 1 "Naming-style departures"](ARCHITECTURE.md#1-naming-convention).
+  [DECISIONS.md § v3.3](docs/DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label)
+  and [ARCHITECTURE.md § 1 "Naming-style departures"](docs/ARCHITECTURE.md#1-naming-convention).
   The transform pair is read off `Fit_Context()` (elements 3–4 the v3.0
   context array reserved for just this) rather than passed as positional
   arguments. SWITCH on the six recognised `(response, predictor)` pairs and
@@ -377,7 +377,7 @@ gap-aware t−Δ semantics — verification in
   per-cell `Back_Transform_Method` toggle (`Duan` default | `Naive`).
   Caveat visible on the sheet as a note on the Back-Transform label at `AG4`: *Duan = Duan (1983) smearing;
   Naive = textbook EXP(ŷ), biased.* The resolution is in
-  [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label).
+  [DECISIONS.md § v3.3](docs/DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label).
 
 - **RESOLVED · SHIPPED** — Model Formula label: the sheet-scoped
   `Model_Formula()` catalog closure, rendered by a labelled readout on
@@ -392,7 +392,7 @@ gap-aware t−Δ semantics — verification in
 ## v3.4 — Model Comparison Sheet
 
 Planned as v2.3; moved after v3.0 when the feature train was resequenced — see
-[ROADMAP.md](ROADMAP.md#v34--model-comparison-sheet--planned). Comes after v3.3
+[ROADMAP.md](docs/ROADMAP.md#v34--model-comparison-sheet--planned). Comes after v3.3
 because an R² computed on `Ln(y)` is not comparable with one computed on raw `y`.
 
 **Test assets — additive (~1×).** No new data: M1, L2, and P2 already supply ≥3
@@ -403,25 +403,25 @@ pair (M1 vs M14) for the `XLOOKUP [if_not_found]` question below. See
 - **READY · M · no Excel** — Implement the `Model_Formula_String` LAMBDA with
   header-signature validation (`NA()` on non-Regression targets). The name
   resolution and the anchor-cell argument-type rationale are in
-  [DECISIONS.md § v2.3 Model_Formula_String](DECISIONS.md#v23--model-comparison-sheet).
+  [DECISIONS.md § v2.3 Model_Formula_String](docs/DECISIONS.md#v23--model-comparison-sheet).
 
 - **READY · L · needs Excel** — Sheet layout: model registry (hyperlinks), GoF
   table referencing the v3.3 unit-space headline cells, shared prediction inputs
   (Comparison sheet is the source; Regression sheets pull via XLOOKUP),
   prediction results table. The data-flow direction
   (Comparison-as-source-via-XLOOKUP) is in
-  [DECISIONS.md § v2.3 prediction inputs](DECISIONS.md#v23--model-comparison-sheet).
+  [DECISIONS.md § v2.3 prediction inputs](docs/DECISIONS.md#v23--model-comparison-sheet).
 
 - **OPEN · S · no Excel** — Decide the mismatched-predictor-set fallback
   (XLOOKUP `[if_not_found]`). See the open-decision note in
-  [DECISIONS.md § v2.3 Model Comparison Sheet](DECISIONS.md#v23--model-comparison-sheet).
+  [DECISIONS.md § v2.3 Model Comparison Sheet](docs/DECISIONS.md#v23--model-comparison-sheet).
 
 ## v3.5 — `Cluster` Role (clustered SEs)
 
 Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering —
 it is Regression work, and a variance-estimator variant over a few existing models
 is the cheapest thing left to cover in that track. See
-[ROADMAP.md](ROADMAP.md#v35--cluster-role-clustered-robust-ses--planned).
+[ROADMAP.md](docs/ROADMAP.md#v35--cluster-role-clustered-robust-ses--planned).
 
 **Test assets — near-additive, no new data to start.** Production Lots' three
 facilities are the initial within-group-correlated fixture, and deliberately few —
@@ -441,7 +441,7 @@ with [v3.8](#v38--two-way-fixed-effects) and supplies 10–11 proper clusters. S
 ## v3.6 — `Time` Role + time series
 
 Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering.
-See [ROADMAP.md](ROADMAP.md#v36--time-role--time-series--planned).
+See [ROADMAP.md](docs/ROADMAP.md#v36--time-role--time-series--planned).
 
 **Test assets — near-additive, and the one item that closes a coverage gap
 existing today.** Wiring a calendar-dated monthly series (~144 rows,
@@ -473,14 +473,14 @@ and [§ 3](docs/MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-mi
 Planned as v2.6 and claimed as v3.7; it keeps that number, but now as the first
 ~2× item in the Regression track — the ladder reordering put `Cluster` and `Time`
 ahead of it and Two-sample and Resampling behind it. See
-[ROADMAP.md](ROADMAP.md#v37--weight-role-wls--planned). The standalone WLS milestone and its
+[ROADMAP.md](docs/ROADMAP.md#v37--weight-role-wls--planned). The standalone WLS milestone and its
 `[weights]`-argument-vs-parallel-function-set debate are superseded by a
 **`Weight` value on the Role axis** (see
-[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)).
+[ARCHITECTURE.md § 3](docs/ARCHITECTURE.md#3-variable-role--predictor-type--sequence)).
 Three-stage scope carried forward: user-supplied weights →
 variance-driver-derived weights → FGLS. This milestone ships the first stage
 only. The default-uniform → OLS pattern (the "non-breaking MINOR" guarantee) is
-in [DECISIONS.md § v2.6 WLS](DECISIONS.md#v26--wls-weight-role-default-uniform-weights-argument).
+in [DECISIONS.md § v2.6 WLS](docs/DECISIONS.md#v26--wls-weight-role-default-uniform-weights-argument).
 
 - **READY · M · needs Excel** — Implement the `Weight` Role (at most one, per the
   cardinality rule that Response, Time, and Weight share; status-block validation
@@ -507,7 +507,7 @@ Assert the recorded trap as an oracle: `DEVSQ(√w ⊙ y)` ≠ weighted SST. See
 ## v3.8 — Two-way Fixed Effects
 
 Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering.
-See [ROADMAP.md](ROADMAP.md#v38--two-way-fixed-effects--planned).
+See [ROADMAP.md](docs/ROADMAP.md#v38--two-way-fixed-effects--planned).
 
 **Test assets — ~2× over the FE family.** R `Grunfeld` (200 rows, 10 firms × 20
 years) plus an **unbalanced variant** with rows deleted, to exercise
@@ -529,15 +529,15 @@ two-way. See
 - **OPEN · M · needs Excel** — Lift the v2.1 one-FE-variable status-block error;
   resolve the two-way prediction question (group intercepts are not recoverable
   as simple group means). The one-way-scope rationale is in
-  [DECISIONS.md § v2.1 scope](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
+  [DECISIONS.md § v2.1 scope](docs/DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
 ## v3.9 — Standalone Data Transformation library
 
 Planned as the second half of v2.2, then carried as the v3.3 remainder; moved to
 the end of the **Regression track** by the ladder reordering — see
-[ROADMAP.md](ROADMAP.md#v39--standalone-data-transformation-library--planned).
+[ROADMAP.md](docs/ROADMAP.md#v39--standalone-data-transformation-library--planned).
 Full specs in
-[ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
+[ARCHITECTURE.md § 5](docs/ARCHITECTURE.md#5-data-transformation-taxonomy).
 
 **Test assets — the ~10× axis-widener, and no new data.** Every new `Transform`
 value widens the predictor-transform axis that today holds {None, Log}, and each
@@ -567,7 +567,7 @@ ladder reordering ships all remaining Regression work first — this is the firs
 milestone that opens a **new analysis surface** rather than extending the
 Regression sheet. It still precedes Resampling: both are flat-cost to test, and
 two-sample is the parity gap a user hits first. See
-[ROADMAP.md](ROADMAP.md#v310--bivariate--two-sample--planned).
+[ROADMAP.md](docs/ROADMAP.md#v310--bivariate--two-sample--planned).
 
 Nothing here got harder by waiting — this milestone depends on no Regression
 milestone and none depends on it.
@@ -587,7 +587,7 @@ for the wiring cost of a new dataset.
   equal_var, [include1], [include2])` — equal-variance, Welch unequal-variance,
   and paired variants. The open question: paired is a separate code path the
   `equal_var` flag does not cover — 3-way flag or separate `paired` boolean? See
-  [DECISIONS.md § v2.5 two-sample selector](DECISIONS.md#v25--claimed).
+  [DECISIONS.md § v2.5 two-sample selector](docs/DECISIONS.md#v25--claimed).
 
 - **READY · M · no Excel** — Implement `F_Test_Variance(data1, data2, alpha,
   [include1], [include2])` — output feeds a recommendation cell that selects the
@@ -605,7 +605,7 @@ for the wiring cost of a new dataset.
 
 Planned as v2.4, claimed as v3.5, briefly held at v3.6. The second non-Regression
 milestone, behind Two-sample — see
-[ROADMAP.md](ROADMAP.md#v311--resampling--simulation--planned).
+[ROADMAP.md](docs/ROADMAP.md#v311--resampling--simulation--planned).
 
 **Test assets — additive, no new data.** The seeded pre-drawn
 `Bootstrap_Random_Draws` table *is* the asset; Production Lots (n = 51) is the
@@ -621,7 +621,7 @@ case), and PERT/MC cases need only parameter cells. See
   `INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`.
   Same inputs → same output, every recalc. `RANDARRAY()` rejected. Full rationale
   (auditability vs. fresh randomness) in
-  [DECISIONS.md § v2.4 no-volatile constraint](DECISIONS.md#v24--resampling--simulation).
+  [DECISIONS.md § v2.4 no-volatile constraint](docs/DECISIONS.md#v24--resampling--simulation).
   To get a new draw, regenerate the workbook via `build_production.py`
   (deliberate, not a limitation).
 

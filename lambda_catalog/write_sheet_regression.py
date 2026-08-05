@@ -1932,7 +1932,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     """Zone AJ1:AK14: boxed prediction interval output, plus the FE group
     selector and its group-mean/count readouts.
 
-    v2.1 Fixed Effects group-mean recovery (DECISIONS.md "FE point
+    v2.1 Fixed Effects group-mean recovery (docs/DECISIONS.md "FE point
     prediction" / "prediction interval"): rebuilt from the v2.0 single-CI
     6-row block into 9 rows surfacing BOTH a mean-response CI and a
     new-observation PI (same center, same t-critical, differing by one

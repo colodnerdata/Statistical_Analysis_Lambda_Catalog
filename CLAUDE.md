@@ -19,7 +19,7 @@ adding one.
 
 **Every Regression-track feature ships with four things in the same PR.** A new
 functionality targeted at the Regression engine (any ROADMAP milestone under
-[§ Ladder order](ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+[§ Ladder order](docs/ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
 inside the Regression block) must land as one merged PR — never one commit and a
 follow-up — containing:
 

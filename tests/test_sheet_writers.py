@@ -964,8 +964,8 @@ def test_regression_outputs_header_no_longer_holds_the_model_formula() -> None:
 def test_materialization_zone_writes_the_model_formula_readout() -> None:
     """The Model Formula caption, on row 1 of the design-matrix zone.
 
-    Right of that zone's own heading — header two columns over, readout three
-    columns past the header — holding a call to the sheet-scoped
+    Right of that zone's own heading — header two columns over, readout one
+    column past the header — holding a call to the sheet-scoped
     `Model_Formula()` closure rather than a 300-character expression, with
     wrap explicitly OFF so the string overflows across an empty row 1 instead
     of dictating a row height the way it did at AB2.
@@ -974,7 +974,7 @@ def test_materialization_zone_writes_the_model_formula_readout() -> None:
     _write_materialization_zone(_as_xw_sheet(sheet), closures=())
 
     assert _ROW_MODEL_FORMULA == 1
-    assert _C_MODEL_FORMULA_LABEL == _C_DESIGN_MATRIX + 1
+    assert _C_MODEL_FORMULA_LABEL == _C_DESIGN_MATRIX + 2
     assert _C_MODEL_FORMULA == _C_MODEL_FORMULA_LABEL + 1
     assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).value == "Model Formula"
     assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).api.Font.Bold is True
@@ -998,8 +998,9 @@ def test_model_formula_readout_is_clear_of_the_design_matrix_body() -> None:
 
     The header/readout gap is load-bearing too. `"Model Formula"` is wider
     than one 12-wide design-matrix column, so a readout immediately beside
-    the header would clip it; three columns of clearance is what lets both
-    render.
+    the header would clip it; the clearance is what lets both render. The
+    assertion below is the invariant (readout strictly right of header), not
+    the current width of the gap.
     """
     assert _ROW_MODEL_FORMULA < _MATERIALIZATION_HEADER_ROW
     assert _MATERIALIZATION_HEADER_ROW < _MATERIALIZATION_SPILL_ROW

@@ -32,7 +32,7 @@ artifacts on every commit. The broader ``TestRealWorkbook`` /
 ``RUN_EXCEL_INTEGRATION=1``: their cached-value scan still flags the ``#N/A``
 values ``Difference_By`` and ``Lag_By`` legitimately return at gap rows.
 
-The deep spec-driven check (``build_qc.verify_test_sheets``, xlwings + Excel
+The deep spec-driven check (``lambda_catalog.deep_verify.verify_test_sheets``, xlwings + Excel
 required) is the source of truth for cell-level correctness — *except* for the
 Univariate fitting table, which it does not read at all. It checks the twelve
 descriptive statistics and the three histogram blocks and stops there, so a
@@ -1069,7 +1069,7 @@ class TestRealWorkbookNameScope:
 # thing no automated check covered before: whether the workbook we ship is the
 # one the current writer produces, and whether its fits are right.
 #
-# The spec-driven verifier (build_qc.verify_test_sheets, Excel required) reads
+# The spec-driven verifier (lambda_catalog.deep_verify.verify_test_sheets, Excel required) reads
 # only the descriptive statistics and the three histogram blocks — it never
 # touches the fitting table. So a passing `build_univariate.py --verify` says
 # nothing about the distribution fits. A built .xlsx caches every formula's
@@ -1423,7 +1423,7 @@ class TestRealUnivariateWorkbook:
     RUN_EXCEL_INTEGRATION=1. Mirrors the Regression class but asserts the
     four-sheet Univariate set and that the package is structurally sound
     (no orphan names, no leaked error literals, consistent content types and
-    rels). The deep spec-driven check (build_qc.verify_test_sheets with
+    rels). The deep spec-driven check (lambda_catalog.deep_verify.verify_test_sheets with
     skip_regression=True) is the source of truth for cell-level correctness.
     """
 

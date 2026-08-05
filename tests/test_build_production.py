@@ -1033,22 +1033,11 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(monkey
     }
 
 
-class _FakeVerifyBuildQc:
-    """Stand-in for the build_qc module returned by _load_build_qc_module.
-
-    Records the kwargs passed to verify_test_sheets and does not raise, so
-    _run_deep_verify takes its success branch and returns a passing report.
-    """
+class _FakeVerifyRecorder:
+    """Records kwargs passed to deep_verify.verify_test_sheets."""
 
     def __init__(self) -> None:
         self.verify_kwargs: dict = {}
-
-    @staticmethod
-    def build_regression_spec_qc_configs(mileage_path) -> list:
-        # _run_deep_verify calls this to build the Regression oracle before
-        # passing it to verify_test_sheets; return a non-None sentinel so the
-        # test can assert the Regression path forwards real configs.
-        return ["_fake_regression_configs"]
 
     def verify_test_sheets(self, workbook, regression_sheet_configs, csv_path, **kwargs) -> None:
         self.verify_kwargs = {
@@ -1068,11 +1057,14 @@ def test_run_deep_verify_forwards_skip_regression_false_and_skip_univariate_true
     app = _FakeApp()
     monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
 
-    fake_build_qc = _FakeVerifyBuildQc()
+    fake_verify = _FakeVerifyRecorder()
+    monkeypatch.setattr(
+        build_production, "verify_test_sheets", fake_verify.verify_test_sheets
+    )
     monkeypatch.setattr(
         build_production,
-        "_load_build_qc_module",
-        lambda: fake_build_qc,
+        "build_regression_spec_qc_configs",
+        lambda mileage_path: ["_fake_regression_configs"],
     )
 
     report = build_production._run_deep_verify(
@@ -1086,8 +1078,8 @@ def test_run_deep_verify_forwards_skip_regression_false_and_skip_univariate_true
     # _run_deep_verify does not pass skip_regression explicitly, so it defaults
     # to False — the full Regression check runs (this artifact HAS a Regression
     # sheet). skip_univariate=True is passed explicitly (no Univariate sheet).
-    assert fake_build_qc.verify_kwargs["skip_univariate"] is True
-    assert fake_build_qc.verify_kwargs["skip_dummy"] is True
-    assert fake_build_qc.verify_kwargs.get("skip_regression", False) is False
+    assert fake_verify.verify_kwargs["skip_univariate"] is True
+    assert fake_verify.verify_kwargs["skip_dummy"] is True
+    assert fake_verify.verify_kwargs.get("skip_regression", False) is False
     # The Regression path passes real regression_sheet_configs (not None).
-    assert fake_build_qc.verify_kwargs["regression_sheet_configs"] is not None
+    assert fake_verify.verify_kwargs["regression_sheet_configs"] is not None

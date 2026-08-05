@@ -78,15 +78,16 @@ uv run python scripts/build_univariate.py
 uv run python scripts/build_production.py --verify --no-launch
 uv run python scripts/build_univariate.py --verify --no-launch
 
-# Build the QC workbook and run the full expected-vs-actual pass
-# (do this whenever you add or change a LAMBDA function)  (needs Excel)
+# Legacy combined QC workbook build + expected-vs-actual pass (needs Excel).
+# Prefer the artifact-specific --verify builds above unless you are explicitly
+# maintaining the gitignored Lambda_Library_QC.xlsx workflow.
 uv run python scripts/build_qc.py
 
 # Verify an already-built workbook without rebuilding it  (needs Excel)
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
 ```
 
-New to the repo? A typical loop is: edit code → `uv run pytest` → `uv run python scripts/build_qc.py` (to confirm the workbook still calculates) → `uv run python scripts/build_production.py` (to regenerate the committed `Lambda_Library.xlsx`). The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
+New to the repo? A typical loop is: edit code → `uv run pytest` → `uv run python scripts/build_production.py --verify --no-launch` (to confirm the Regression workbook still calculates) → `uv run python scripts/build_production.py` (to regenerate the committed `Lambda_Library.xlsx`). The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
 
 ## Running tests
 
@@ -273,7 +274,7 @@ No Univariate sheet (it ships in its own workbook — see [Univariate build](#un
 | `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. (The **Mileage Data** and **Production Lots** sources are fixed committed sample files with no CLI override.) |
 | `--regression-dataset {auto_mpg,life_expectancy,production_lots}` | `auto_mpg` | Which dataset the Regression sheet's `Source_Table` targets, **and** which shipped default spec pre-fills the MODEL SPECIFICATION block (`SPEC_DATASET_PROFILES` in `write_sheet_model_construction.py`) — every column starts with a real Role/Include/Type instead of falling back to an un-flagged Predictor. The profile decides which rows arrive pre-filled, not how many spec rows exist: the block sizes itself from `COLUMNS(Source_Data)`, so retargeting `Source_Table` by hand afterwards resizes it too. `life_expectancy` ships Response=`Life expectancy`, the 18-column `FEATURE_COLUMNS` predictor set, `Country` as Identifier, `Status` as a Categorical predictor, and `Year` as the Sequence axis. `production_lots` is the one to pick for a ready-made Fixed Effects example (Facility as the FE role, Fiscal_Year as Sequence) — its default spec is the QC-validated Crawford/Wright learning-curve model (`log Unit Cost` ~ `log Cum Units`). |
 | `--skip-data-table-calculations` | off | No effect for the Regression workbook (it has no Data Tables). The final `CalculateFullRebuild` is cheap and the Regression sheet needs it (the verifier's per-sheet `Calculate` doesn't rebuild the dependency tree after a name sync), so the rebuild always runs regardless of this flag. The flag matters for `build_univariate.py`, whose Beta two-input Data Tables make the rebuild slow. |
-| `--verify` | off | After the build, run the spec-driven verifier (`build_qc.verify_test_sheets` with `skip_univariate=True`) against the production sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. The Excel handoff only fires when verify passes, so a stale build can't launch in place of a fresh one. |
+| `--verify` | off | After the build, run the spec-driven verifier (`lambda_catalog.deep_verify.verify_test_sheets` with `skip_univariate=True`) against the production sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. The Excel handoff only fires when verify passes, so a stale build can't launch in place of a fresh one. |
 | `--no-verify` | (default) | Explicitly disable the verifier pass. Mainly for wrapper scripts that default to `--verify`. |
 | `--no-launch` | off | Suppress the post-build `cmd /c start <workbook>` Excel handoff. Use in agentic/automated loops where no Excel window should pop up. |
 | `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
@@ -310,7 +311,7 @@ Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artif
 | `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. |
 | `--skip-data-table-calculations` | off | Skip the final Excel `CalculateFullRebuild`. Beta's two two-input Data Tables (the only Data Tables in the artifact) make that rebuild slower than a plain formula recalc, so this is the primary fast-iteration flag for this artifact. Note: the verifier's per-sheet `Calculate` does not reliably resolve the Data Tables after a name sync, so combining this with `--verify` may report stale-fit mismatches a real rebuild would not. |
 | `--no-calculation` | off | **Never calculate.** Excel stays in Manual for the whole run: the build never switches to Automatic, suppresses Excel's recalculate-before-saving for the duration, and skips the final rebuild. Stronger than `--skip-data-table-calculations`, which still pays a full calculation when the build switches to Automatic ahead of the save — see the note below. For inspecting structure (name manager, sheet layout, spill anchors) without paying for the grid searches. The workbook it leaves has stale computed cells and is saved in Manual mode, so **do not ship it**; the next ordinary build fixes both. |
-| `--verify` | off | After the build, run the spec-driven verifier (`build_qc.verify_test_sheets` with `skip_regression=True`) against the Life Expectancy and Univariate sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. |
+| `--verify` | off | After the build, run the spec-driven verifier (`lambda_catalog.deep_verify.verify_test_sheets` with `skip_regression=True`) against the Life Expectancy and Univariate sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. |
 | `--no-verify` | (default) | Explicitly disable the verifier pass. |
 | `--no-launch` | off | Suppress the post-build `cmd /c start <workbook>` Excel handoff. |
 | `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
@@ -384,7 +385,7 @@ uv run python scripts/build_qc.py --no-verify
 
 `build_qc.py` mirrors terminal output to `qc_log.txt` and includes end-of-run timing lines (`Timing: prep`, `write sheets`, `sync names`, `verify`, `total`) in both places.
 
-Run the QC build whenever you add or modify a LAMBDA function.
+The QC build remains available for the gitignored combined `Lambda_Library_QC.xlsx` workflow. For ordinary validation, prefer the artifact-specific `--verify --no-launch` builds, which import the shared deep verifier directly.
 
 ## Verifying builds
 
@@ -407,7 +408,7 @@ This is a fast screen. A green run does **not** mean the workbook calculates cor
 
 ### Layer 2 — spec-driven deep check
 
-Reuses `build_qc.verify_test_sheets` against the production sheets and `Dummy_Test`, gated off the `Dummy_Test` block via `skip_dummy=True` because production workbooks do not contain a `Dummy_Test` sheet. This is the source of truth for cell-level correctness.
+Reuses `lambda_catalog.deep_verify.verify_test_sheets` against the production sheets and `Dummy_Test`, gated off the `Dummy_Test` block via `skip_dummy=True` because production workbooks do not contain a `Dummy_Test` sheet. This is the source of truth for cell-level correctness.
 
 ```powershell
 # Run the Regression production build, recalculate, then verify against the

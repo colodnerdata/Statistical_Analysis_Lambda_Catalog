@@ -714,10 +714,10 @@ _MODEL_FORMULA_LABEL_WIDTH = 14.0
 #
 # Which is the point of putting it here: with WrapText OFF and nothing else on
 # row 1 to its right, the string overflows across as many empty columns as it
-# needs. The three-column gap between header and readout is what keeps the
-# header itself readable — "Model Formula" is in a fixed 14 point width column
-# design-matrix column, so the readout starting immediately beside it would
-# clip the header instead.
+# needs. The gap between header and readout is what keeps the header itself
+# readable — "Model Formula" is in a fixed 14 point width design-matrix
+# column, so the readout starting immediately beside it would clip the header
+# instead.
 #
 # Both columns derive from _C_DESIGN_MATRIX, so the caption tracks the zone.
 _ROW_MODEL_FORMULA = 1

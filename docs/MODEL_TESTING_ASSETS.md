@@ -365,7 +365,7 @@ python scripts/build_test_models.py                        # 47 sheets (31 model
 python scripts/build_test_models.py --include-heavy        # 49, adding L05 and L08
 python scripts/build_test_models.py --cases M09,G10        # just those two
 python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
-make verify-test-models                            # the same, verbose
+poe verify-test-models                             # the same, verbose
 ```
 
 **Every run archives its own transcript** to `excel-only-runs/<script> <flags>.log`

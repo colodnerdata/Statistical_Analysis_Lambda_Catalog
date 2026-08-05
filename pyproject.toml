@@ -46,18 +46,6 @@ dev = [
 [tool.uv]
 default-groups = ["dev"]
 
-# ---------------------------------------------------------------------------
-# Task runner (poethepoet).  Replaces the old Makefile so the shorthands work
-# on any machine without GNU make. poethepoet is NOT a Poetry plugin despite
-# the name; it is a standalone task runner. It is included in the default uv dev
-# environment via [dependency-groups].dev + [tool.uv].default-groups, so
-# `uv sync` installs the `poe` executable into .venv. Activate the venv and run
-# bare `poe <task>` as the default workflow; `uv run poe <task>` is the
-# equivalent explicit form when the venv is not active. A global
-# `uv tool install poethepoet` remains optional and is not required for this repo.
-#
-# Run bare `poe` to list every task with its help text.
-# ---------------------------------------------------------------------------
 [tool.poe.env]
 # The Makefile passed `--frozen` on every recipe: fail on a stale lockfile
 # rather than silently resolving a new one.  UV_FROZEN is how that intent
@@ -141,10 +129,6 @@ cmd = "python scripts/build_production.py"
 [tool.poe.tasks.build-univariate]
 help = "Build dist/Lambda_Library_Univariate.xlsx."
 cmd = "python scripts/build_univariate.py"
-
-[tool.poe.tasks.qc]
-help = "Legacy: build the combined QC workbook and run lambda_catalog.deep_verify."
-cmd = "python scripts/build_qc.py"
 
 [tool.poe.tasks.static-sheets]
 help = "Regenerate every static reference sheet into templates/static_sheets.xlsx."

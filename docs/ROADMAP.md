@@ -784,11 +784,13 @@ in the Regression track — it is that track's single most expensive item to tes
   (`Duan` default | `Naive`). Naive is biased (Jensen's inequality); Duan is
   unbiased under iid residuals. Caveat visible on the sheet as a note on the Back-Transform label at AG4.
 - **Model Formula label, RESOLVED & SHIPPED** — the sheet-scoped
-  `Model_Formula()` catalog closure, rendered by a labelled readout in the
-  §4b materialization band under the Model Context block. It shipped as an
+  `Model_Formula()` catalog closure, rendered by a labelled readout on
+  row 1 of the terminal Constructed Design Matrix zone, right of that zone's heading (header two columns over, readout three columns past the header). It shipped as an
   inline expression at `AA2:AB2` and moved off that cell afterwards: row 2
   of the Regression Outputs zone wraps and AutoFits, so the sheet's longest
-  string set the height of the whole header row. Built from the response-name
+  string set the height of the whole header row. Row 1 of the design-matrix
+  zone is the one row the matrix itself can never reach, so with wrap off the
+  caption overflows across as much empty width as it needs. Built from the response-name
   lookup (which already emits `Ln(name)` when Log), `Allow_Intercept`,
   `Constructed_Column_Names()`, and the FE-name suffix gated by the Fixed
   Effects count. The mixed Log/None predictor case

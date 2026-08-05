@@ -53,7 +53,8 @@ single ungrouped GAP column so the zones collapse independently; see the
                    Design Matrix — the last two headed on row 2 and spilling
                    from row 3 — each in its own outline group separated by
                    ungrouped gutters. Nothing may ever be placed right of the
-                   design matrix.
+                   design matrix; the Model Formula readout sits on ROW 1 of
+                   its zone, above a body that only ever grows rightward.
 
 Every A1 address quoted above is DERIVED in code from the _C_* column
 constants (see _abs_ref / _band and the _A_* anchors), never spelled out in a
@@ -700,18 +701,28 @@ _MODEL_CONTEXT_VALUE_WIDTH = 14.0
 # was both the most prominent cell in that zone and — because row 2 wraps and
 # then AutoFits — the cell that set the height of the sheet's entire header
 # row: one long formula string in a 12-wide column is a dozen wrapped lines
-# pushing every zone's data down the screen. It is a caption, not a headline
-# statistic, so it moves into the §4b materialization band under the Model
-# Context block: the same two columns, one blank row below the block's health
-# check, outside its border box. Wrap is explicitly OFF (the cell would
-# otherwise inherit a tall row again), so the text overflows rightward and the
-# full string reads in the formula bar.
+# pushing every zone's data down the screen.
 #
-# Row and columns derive from the Model Context block, so the readout follows
-# it if an element is ever added.
-_C_MODEL_FORMULA_LABEL = _C_MODEL_CONTEXT_LABEL
-_C_MODEL_FORMULA = _C_MODEL_CONTEXT
-_ROW_MODEL_FORMULA = _ROW_MODEL_CONTEXT_CHECK + 2
+# It now sits on ROW 1 of the terminal Constructed Design Matrix zone, right of
+# that zone's own heading: header two columns right of it, the readout three
+# columns right of the header. Row 1 is the one row in this zone that no
+# amount of design matrix can reach — the names spill on
+# _MATERIALIZATION_HEADER_ROW and the values on _MATERIALIZATION_SPILL_ROW, and
+# both grow RIGHTWARD from there, never up — so this placement does not breach
+# the §4b ordering rule (nothing is placed to the right of the zone; the
+# caption is placed ABOVE its body, inside the zone's own columns).
+#
+# Which is the point of putting it here: with WrapText OFF and nothing else on
+# row 1 to its right, the string overflows across as many empty columns as it
+# needs. The three-column gap between header and readout is what keeps the
+# header itself readable — "Model Formula" is wider than one 12-wide
+# design-matrix column, so the readout starting immediately beside it would
+# clip the header instead.
+#
+# Both columns derive from _C_DESIGN_MATRIX, so the caption tracks the zone.
+_ROW_MODEL_FORMULA = 1
+_C_MODEL_FORMULA_LABEL = _C_DESIGN_MATRIX + 2
+_C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 3
 
 # ── The design-matrix width guard ─────────────────────────────────────────────
 # Two thresholds, both computed PRE-FLIGHT from the spec block's Design
@@ -1493,8 +1504,8 @@ def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
     # The Model Formula readout used to sit here (AA2 label, AB2 string). It
     # is a caption rather than a headline statistic, and a long string in this
     # zone's row 2 — which wraps and AutoFits — set the height of the whole
-    # header row, so it moved to the §4b materialization band under the Model
-    # Context block. See _ROW_MODEL_FORMULA / _write_materialization_zone.
+    # header row, so it moved to row 1 of the §4b band's design-matrix zone.
+    # See _ROW_MODEL_FORMULA / _write_materialization_zone.
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
@@ -2529,28 +2540,6 @@ def _write_materialization_zone(
         sheet, 1, _C_MODEL_CONTEXT_LABEL, _ROW_MODEL_CONTEXT_CHECK, _C_MODEL_CONTEXT
     )
 
-    # ── Model Formula readout ────────────────────────────────────────────────
-    # One blank row under the context box, outside it: the same label/value
-    # shape, but a caption rather than a cached input to the engines. The
-    # string itself is assembled by the sheet-scoped Model_Formula() closure
-    # (lambda_functions.json, scope "Regression") — the cell holds a call, not
-    # a 300-character expression, so the assembly rules live in the catalog
-    # with every other spec-derived constructor and the LAMBDA_functions sheet
-    # documents them.
-    #
-    # WrapText is set FALSE explicitly. Nothing on this band turns it on
-    # today, but the cell holds the longest string on the sheet and inheriting
-    # a wrap (from a future band-wide format, or from a copy of this block)
-    # would make one caption dictate the row height, which is exactly what
-    # moving it off row 2 was meant to stop.
-    val(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL, "Model Formula")
-    bold(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL)
-    f(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA, "=Model_Formula()")
-    sheet.range(
-        rc(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL),
-        rc(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA),
-    ).api.WrapText = False
-
     # ── Sample_Include (materialized row mask) ───────────────────────────────
     # The mask spills full-height and row-aligned with the source table (the
     # row-mask contract), so it reads straight across into the design-matrix
@@ -2624,6 +2613,31 @@ def _write_materialization_zone(
         sheet, _MATERIALIZATION_HEADER_ROW, _C_DESIGN_MATRIX, _C_DESIGN_MATRIX_NAMES
     )
     f(sheet, _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX, "=Design_Columns()")
+
+    # ── Model Formula readout ────────────────────────────────────────────────
+    # Row 1 of this zone, right of its heading — the one row the design matrix
+    # itself can never reach (its names and values spill from the rows below
+    # and grow rightward), so a caption here is never displaced by an ordinary
+    # modelling choice, and with WrapText OFF it overflows across as much of an
+    # empty row 1 as the string needs. See _ROW_MODEL_FORMULA.
+    #
+    # The string is assembled by the sheet-scoped Model_Formula() closure
+    # (lambda_functions.json, scope "Regression") — the cell holds a call, not
+    # a 300-character expression, so the assembly rules live in the catalog
+    # with every other spec-derived constructor and the LAMBDA_functions sheet
+    # documents them.
+    #
+    # WrapText is set FALSE explicitly rather than left at the default: this
+    # cell holds the longest string on the sheet, and inheriting a wrap (from a
+    # future band-wide format, or from a copy of this block) would make one
+    # caption dictate a row height — exactly what moving it off row 2 of the
+    # Regression Outputs zone was meant to stop.
+    section_heading(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL, "Model Formula")
+    f(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA, "=Model_Formula()")
+    sheet.range(
+        rc(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL),
+        rc(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA),
+    ).api.WrapText = False
     try:
         sheet.range(rc(1, _C_DESIGN_MATRIX)).api.AddComment(
             "The design matrix the engines actually fit: Design_Columns(), "

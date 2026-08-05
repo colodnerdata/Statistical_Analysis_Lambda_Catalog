@@ -378,8 +378,8 @@ gap-aware t−Δ semantics — verification in
   [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label).
 
 - **RESOLVED · SHIPPED** — Model Formula label: the sheet-scoped
-  `Model_Formula()` catalog closure, rendered by a labelled readout in the
-  §4b materialization band under the Model Context block. It shipped inline
+  `Model_Formula()` catalog closure, rendered by a labelled readout on
+  row 1 of the terminal Constructed Design Matrix zone, right of that zone's heading (header two columns over, readout three columns past the header). It shipped inline
   at `AA2:AB2` and moved off that cell afterwards — row 2 of the Regression
   Outputs zone wraps and AutoFits, so the sheet's longest string set the
   height of the whole header row. Built from the response-name lookup (which

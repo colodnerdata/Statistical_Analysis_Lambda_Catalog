@@ -1001,27 +1001,52 @@ def test_regression_outputs_header_no_longer_holds_the_model_formula() -> None:
 
 
 def test_materialization_zone_writes_the_model_formula_readout() -> None:
-    """The Model Formula caption, under the Model Context block.
+    """The Model Formula caption, on row 1 of the design-matrix zone.
 
-    A labelled pair in the context block's own two columns, one blank row
-    below its health check (outside the border box), holding a call to the
-    sheet-scoped `Model_Formula()` closure rather than a 300-character
-    expression — and with wrap explicitly OFF, since one long caption
-    inheriting a wrap is what made this cell a layout problem at AB2.
+    Right of that zone's own heading — header two columns over, readout three
+    columns past the header — holding a call to the sheet-scoped
+    `Model_Formula()` closure rather than a 300-character expression, with
+    wrap explicitly OFF so the string overflows across an empty row 1 instead
+    of dictating a row height the way it did at AB2.
     """
     sheet = RecordingSheet(name="Regression")
     _write_materialization_zone(_as_xw_sheet(sheet), closures=())
 
-    assert _ROW_MODEL_FORMULA == _ROW_MODEL_CONTEXT_CHECK + 2
-    assert _C_MODEL_FORMULA_LABEL == _C_MODEL_CONTEXT_LABEL
-    assert _C_MODEL_FORMULA == _C_MODEL_CONTEXT
+    assert _ROW_MODEL_FORMULA == 1
+    assert _C_MODEL_FORMULA_LABEL == _C_DESIGN_MATRIX + 2
+    assert _C_MODEL_FORMULA == _C_MODEL_FORMULA_LABEL + 3
     assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).value == "Model Formula"
     assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).api.Font.Bold is True
+    assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).color == HEADER_COLOR
     assert _formula(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA) == "=Model_Formula()"
     assert sheet.range(
         (_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL),
         (_ROW_MODEL_FORMULA, _C_MODEL_FORMULA),
     ).api.WrapText is False
+
+
+def test_model_formula_readout_is_clear_of_the_design_matrix_body() -> None:
+    """Row 1 is the one row in that zone the matrix can never reach.
+
+    The design matrix's names spill on `_MATERIALIZATION_HEADER_ROW` and its
+    values on `_MATERIALIZATION_SPILL_ROW`, both growing RIGHTWARD from the
+    zone anchor — so a caption on row 1 is not displaced by an ordinary
+    modelling choice, and the §4b rule that nothing may sit to the RIGHT of
+    this zone is not in play: the caption is above the body, inside the
+    zone's own columns.
+
+    The header/readout gap is load-bearing too. `"Model Formula"` is wider
+    than one 12-wide design-matrix column, so a readout immediately beside
+    the header would clip it; three columns of clearance is what lets both
+    render.
+    """
+    assert _ROW_MODEL_FORMULA < _MATERIALIZATION_HEADER_ROW
+    assert _MATERIALIZATION_HEADER_ROW < _MATERIALIZATION_SPILL_ROW
+    # Right of the zone heading, and clear of the split header cells the
+    # matrix itself uses on the row below.
+    assert _C_DESIGN_MATRIX < _C_MODEL_FORMULA_LABEL < _C_MODEL_FORMULA
+    assert _C_MODEL_FORMULA_LABEL > _C_DESIGN_MATRIX_NAMES
+    assert _C_MODEL_FORMULA - _C_MODEL_FORMULA_LABEL >= 2
 
 
 def test_model_formula_closure_assembles_the_spec_derived_caption() -> None:

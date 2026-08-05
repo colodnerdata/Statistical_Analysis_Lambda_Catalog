@@ -718,6 +718,8 @@ def test_provenance_leaves_the_fit_context_block_intact() -> None:
         _C_MODEL_CONTEXT_LABEL,
         _MATERIALIZATION_FIRST_ROW,
         _MODEL_CONTEXT_ELEMENTS,
+        _C_MODEL_FORMULA,
+        _C_MODEL_FORMULA_LABEL,
         _MODEL_CONTEXT_LAST_ROW,
         _ROW_MODEL_CONTEXT_CHECK,
         _ROW_MODEL_FORMULA,
@@ -749,18 +751,29 @@ def test_provenance_leaves_the_fit_context_block_intact() -> None:
         assert row > _ROW_MODEL_CONTEXT_CHECK
         assert not (_MATERIALIZATION_FIRST_ROW <= row <= _MODEL_CONTEXT_LAST_ROW)
 
-    # ...and clear of the Model Formula readout, which shares these two
-    # columns one row further down. Provenance runs AFTER the Regression
-    # writer, so an overlap here would not conflict — it would silently
-    # replace the readout with the case name, and every case's model-formula
-    # comparison would then fail against a caption.
-    for row in (_ROW_PROVENANCE_ID, _ROW_PROVENANCE_COVERS):
-        assert row != _ROW_MODEL_FORMULA
-    assert sheet.ranges[((_ROW_MODEL_FORMULA, _C_MODEL_CONTEXT),)].state.formula2 == (
+    # ...and clear of the Model Formula readout, the other thing the
+    # Regression writer leaves in this band. Provenance runs AFTER that
+    # writer, so an overlap would not conflict — it would silently replace
+    # the readout with the case name, and every case's model-formula
+    # comparison would then fail against a caption. The readout is on row 1
+    # of the design-matrix zone today, columns away from this block, but the
+    # two sets of constants are independent, so assert the cells are disjoint
+    # rather than assuming they stay that way.
+    provenance_cells = {
+        (row, col)
+        for row in (_ROW_PROVENANCE_ID, _ROW_PROVENANCE_COVERS)
+        for col in (_C_MODEL_CONTEXT_LABEL, _C_MODEL_CONTEXT)
+    }
+    readout_cells = {
+        (_ROW_MODEL_FORMULA, col)
+        for col in (_C_MODEL_FORMULA_LABEL, _C_MODEL_FORMULA)
+    }
+    assert not provenance_cells & readout_cells
+    assert sheet.ranges[((_ROW_MODEL_FORMULA, _C_MODEL_FORMULA),)].state.formula2 == (
         "=Model_Formula()"
     )
     assert sheet.ranges[
-        ((_ROW_MODEL_FORMULA, _C_MODEL_CONTEXT_LABEL),)
+        ((_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL),)
     ].state.value == "Model Formula"
 
 

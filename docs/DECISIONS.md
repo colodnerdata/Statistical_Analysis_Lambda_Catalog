@@ -2789,8 +2789,8 @@ just records what was replaced, when, and by what.
   call sites. The fixed-range read itself (no `#` inside a `LAMBDA`
   `RefersTo`) is unchanged.
 - **The Model Formula cell at `AA2:AB2`** (v3.3) → SUPERSEDED by the
-  labelled readout in the §4b materialization band, holding
-  `=Model_Formula()`. Row 2 of the Regression Outputs zone wraps and is
+  labelled readout on row 1 of the §4b band's terminal Constructed Design
+  Matrix zone, holding `=Model_Formula()`. Row 2 of the Regression Outputs zone wraps and is
   then AutoFitted, so the sheet's longest string set the height of the
   whole header row; and an inline 300-character concatenation in one cell
   documented nothing on the LAMBDA_functions sheet. `Comparison_Model_Formula`
@@ -2972,9 +2972,9 @@ checks.
   `Back_Transform_Response(AK{row}, Fit_Context(), "Naive", 1)`. Caveat row
   at `AJ15:AL15` (merged, wrapped) explaining the asymmetric placement.
 - **Model Formula cell at `AA2:AB2`** *(SUPERSEDED at v3.3.x — the readout
-  moved into the §4b materialization band and the assembly became the
-  sheet-scoped `Model_Formula()` closure; see § Regression sheet layout
-  repair)*: AA2 bold label, AB2 the assembled
+  moved to row 1 of the §4b band's design-matrix zone and the assembly
+  became the sheet-scoped `Model_Formula()` closure; see § Regression sheet
+  layout repair)*: AA2 bold label, AB2 the assembled
   string. Built from `_RESPONSE_NAME_FORMULA` (which already emits
   `Ln(name)` when Log), `Allow_Intercept`, `Constructed_Column_Names()`,
   and the FE-name suffix gated by the Fixed Effects count. The mixed
@@ -3076,16 +3076,35 @@ shipped at `AA2:AB2` (v3.3). Row 2 of that zone has `WrapText` set across
 12-wide column — dictates the height of the sheet's entire header row, pushing
 every zone's data down the screen. Where should a caption live?
 
-**RESOLVED** — in the ARCHITECTURE §4b materialization band, as a labelled pair
-in the Model Context block's own two columns, one blank row below that block's
-`Context OK` health check and outside its border box, with `WrapText` explicitly
-FALSE. It is a caption, not a headline statistic: the band past the charts is
-where the sheet's other read-only, machine-consumed surfaces already live
-(`Fit_Context`, the `Sample_Include` mask, the constructed design matrix), and
-the row/column constants derive from the Model Context block so the readout
-follows it if an element is ever added. The trade accepted: the value overflows
-only as far as the next gutter, so a long formula reads in full in the formula
-bar rather than on the grid.
+**RESOLVED** — on **row 1 of the ARCHITECTURE §4b band's terminal Constructed
+Design Matrix zone**, right of that zone's own heading: header two columns over,
+readout three columns past the header, both derived from the zone anchor, with
+`WrapText` explicitly FALSE. It is a caption, not a headline statistic, and the
+band past the charts is where the sheet's other read-only, machine-consumed
+surfaces already live (`Fit_Context`, the `Sample_Include` mask, the design
+matrix itself).
+
+Row 1 of that zone is the specific choice, and it is chosen for what the zone
+cannot do to it: the design matrix's names spill on `_MATERIALIZATION_HEADER_ROW`
+and its values on `_MATERIALIZATION_SPILL_ROW`, and both grow *rightward* from
+the anchor — never up — so row 1 stays empty no matter how wide the matrix gets.
+That is also why this does not breach the zone-ordering rule. Nothing is placed
+to the RIGHT of the terminal zone; the caption is placed ABOVE its body, inside
+the zone's own columns, where an ordinary modelling choice cannot displace it.
+
+What that buys is the display the earlier placement could not give. Under the
+Model Context block the value overflowed only as far as the next gutter, so a
+long formula read in full in the formula bar and nowhere else; on an empty row 1
+it overflows across as many columns as the string needs. The three-column gap
+between header and readout is load-bearing for the same reason in miniature —
+`"Model Formula"` is wider than one 12-wide design-matrix column, so a readout
+immediately beside the header would clip it.
+
+**Accepted cost:** the design-matrix zone ships COLLAPSED (an unbounded-width
+zone that cannot be collapsed is a scrolling hazard), and a collapsed outline
+hides its columns including row 1 — so the caption, like the zone's own heading,
+is not visible until the zone is expanded. `Comparison_Model_Formula` reads it
+regardless; hidden columns still calculate.
 
 `Comparison_Model_Formula` is what makes the move free. The v3.4 reading surface
 is a sheet-scoped NAME, and its `RefersTo` is now built from the layout

@@ -542,9 +542,9 @@ def read_case_comparison_rows(
 def read_model_formula(sheet: xw.Sheet) -> object:
     """The Model Formula readout, as written text.
 
-    It sits in the §4b materialization band under the Model Context block
-    (it used to be AB2); the coordinates come from the layout constants, so
-    a future move needs no edit here.
+    It sits on row 1 of the §4b band's terminal Constructed Design Matrix
+    zone, right of that zone's heading (it used to be AB2); the coordinates
+    come from the layout constants, so a future move needs no edit here.
     """
     return sheet.range(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA).value
 

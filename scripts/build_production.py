@@ -67,7 +67,10 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "dist" / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
-_QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")
+# Legacy MLR smoke-test sheets are no longer written or verified; keep
+# these names only to delete stale copies from workbooks built by older
+# versions of the pipeline.
+_LEGACY_MLR_QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")
 
 _TAB_COLOR_LIGHT_GRAY = (217, 217, 217)
 _TAB_COLOR_DARK_GRAY = (128, 128, 128)
@@ -375,7 +378,7 @@ def build_production_workbook(
             # so a carried-forward Model Construction sheet is stale and gets
             # dropped.
             _delete_sheet_if_present(workbook, "Model Construction")
-            for qc_sheet in _QC_SHEET_NAMES:
+            for qc_sheet in _LEGACY_MLR_QC_SHEET_NAMES:
                 _delete_sheet_if_present(workbook, qc_sheet)
             if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                 workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS

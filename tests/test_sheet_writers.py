@@ -13,7 +13,6 @@ from lambda_catalog.sheet_styles import (
     HEADER_COLOR,
     INPUT_COLOR,
 )
-from lambda_catalog.catalog_schema import catalog_argument_names
 from lambda_catalog.workbook_helpers import (
     _NOTE_MAX_WIDTH,
     _NOTE_MIN_WIDTH,
@@ -23,9 +22,6 @@ from lambda_catalog.workbook_helpers import (
     note_dimensions as _note_dimensions,
     rc,
 )
-from lambda_catalog.write_sheet_mlr_observation_test import _calc_formula as _observation_calc_formula
-from lambda_catalog.write_sheet_mlr_observation_test import _section_formula
-from lambda_catalog.write_sheet_mlr_vector_outputs_test import _calc_formula as _vector_calc_formula
 from lambda_catalog.write_sheet_regression import (
     _C_AA,
     _C_AB,
@@ -112,7 +108,6 @@ from lambda_catalog.write_sheet_regression import (
     _write_unit_space_block,
     _write_materialization_zone,
 )
-from lambda_catalog.write_sheet_mlr_scalar_test import _actual_formula
 from lambda_catalog.write_sheet_univariate import (
     _C_FIT_FIRST,
     _HIST_COLUMNS,
@@ -145,77 +140,6 @@ class BrokenIndexRecordingNames(RecordingNames):
 
 def _formula(sheet: RecordingSheet, row: int, col: int) -> str:
     return cast(str, sheet.cell(row, col).api.Formula2)
-
-
-def test_scalar_formula_maps_include_to_the_sheet_filter() -> None:
-    formula = _actual_formula("Observations", ("Y", "Include"))
-    assert formula == "=Observations(y,Regression_Sample_Include)"
-
-
-def test_observation_y_only_formulas_reuse_first_spill() -> None:
-    anchors: dict[str, int] = {}
-
-    first = _section_formula(1, True, "Rank_Fraction", 3, 3, anchors)
-    second = _section_formula(5, False, "Rank_Fraction", 158, 3, anchors)
-    prediction = _section_formula(5, False, "Predictions", 158, 6, anchors)
-
-    assert first == "=Rank_Fraction(y,Regression_Sample_Include)"
-    assert second == "=$C$3#"
-    # No intercept for this section, so the design matrix IS the predictor
-    # block — the engines no longer synthesize a column from a flag.
-    assert prediction == (
-        "=LET(X,OFFSET(y,0,1,ROWS(y),5),"
-        "Predictions(X,y,Regression_Sample_Include))"
-    )
-
-
-# ── v3.0 stage two: the [Context] argument reaches the QC harness ─────────────
-#
-# build_call resolves a function's DECLARED arguments against a reference_map and
-# raises KeyError on any argument with no entry, so a carrier that now declares
-# a trailing [Context] breaks the MLR test sheets unless each reference_map
-# threads a context. These tests exercise the builders with REAL catalog argument
-# lists (via catalog_argument_names), so a signature change in lambda_functions.json
-# reaches them automatically — the same property build_call exists to preserve.
-
-
-def test_scalar_formula_threads_context_from_the_per_row_intercept_flag() -> None:
-    # The scalar sheet varies Has_Intercept per row, so the context's intercept
-    # flag must be the per-row structured reference, not a build-time literal.
-    formula = _actual_formula("R_Squared", catalog_argument_names("R_Squared"))
-    assert "R_Squared(X,y,Regression_Sample_Include,Model_Context([@[Has_Intercept]]))" in formula
-
-
-def test_observation_formula_threads_context_from_the_section_intercept_flag() -> None:
-    # Scaled_Residuals is a carrier (declares [Context]); the observation sheet
-    # fixes the intercept per section, so the context flag is a literal that
-    # matches whether design_expression stacked an intercept column onto X.
-    with_intercept = _observation_calc_formula(5, True, "Scaled_Residuals")
-    without_intercept = _observation_calc_formula(5, False, "Scaled_Residuals")
-    assert "Scaled_Residuals(X,y,Regression_Sample_Include,Model_Context(TRUE))" in with_intercept
-    assert "Scaled_Residuals(X,y,Regression_Sample_Include,Model_Context(FALSE))" in without_intercept
-
-
-def test_vector_outputs_formula_threads_context_for_a_df_absorbed_carrier() -> None:
-    # SE_Coefficients reads DF_Absorbed out of the context (element 2); with no
-    # Fixed Effects on this sheet, Model_Context(<flag>) leaves absorbed df at
-    # its 0 default inside the constructor.
-    formula = _vector_calc_formula(5, True, "SE_Coefficients")
-    assert "SE_Coefficients(X,y,Regression_Sample_Include,Model_Context(TRUE))" in formula
-    # Confidence_Interval_Lower also takes [Alpha] before [Context]; alpha must
-    # not displace the context from the trailing position.
-    ci = _vector_calc_formula(5, False, "Confidence_Interval_Lower")
-    assert "Confidence_Interval_Lower(X,y,Regression_Sample_Include,0.05,Model_Context(FALSE))" in ci
-
-
-def test_non_carriers_on_the_mlr_sheets_still_omit_a_context() -> None:
-    # A function that never declared [Has_Intercept]/[DF_Absorbed] (Predictions)
-    # gained no [Context] argument, so build_call never reads the context entry
-    # and the call is unchanged. This guards against over-threading: the context
-    # key is harmless for non-carriers but must not be appended to them.
-    formula = _observation_calc_formula(5, True, "Predictions")
-    assert "Model_Context" not in formula
-    assert formula.endswith("Predictions(X,y,Regression_Sample_Include))")
 
 
 def test_note_dimensions_clamps_width_to_configured_bounds() -> None:

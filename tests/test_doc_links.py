@@ -61,9 +61,53 @@ def _markdown_files() -> list[Path]:
     )
 
 
+def _display(path: Path) -> str:
+    """Render a resolved path for the failure message, repo-relative when it can be.
+
+    A broken link can resolve *outside* the repo — ``](/docs/ROADMAP.md)``
+    written as if the root were the web root (pathlib treats the leading slash
+    as absolute and discards the prefix), or enough ``../`` to climb out. Those
+    are exactly the cases this test exists to report, so the display path must
+    not be the thing that raises: a bare ``relative_to`` would turn a reportable
+    broken link into a ValueError and lose every other finding in the file.
+    """
+    try:
+        return str(path.relative_to(ROOT_DIR))
+    except ValueError:
+        return str(path)
+
+
+def _broken_links(text: str, source_dir: Path) -> list[str]:
+    """Return a report line per unresolvable relative markdown link in ``text``."""
+    broken: list[str] = []
+    for target in _MARKDOWN_LINK.findall(_strip_code(text)):
+        if target.startswith(("http://", "https://")):
+            continue
+        # Relative to the LINKING FILE's directory, which is the whole point:
+        # a bare filename in docs/ means docs/, not the repo root.
+        resolved = (source_dir / target).resolve()
+        if not resolved.is_file():
+            broken.append(f"{target} -> {_display(resolved)}")
+    return broken
+
+
 def test_there_are_markdown_files_to_check() -> None:
     """Guard against the glob silently matching nothing and vacuously passing."""
     assert len(_markdown_files()) >= 10
+
+
+@pytest.mark.parametrize(
+    "escaping_link",
+    ["/docs/ROADMAP.md", "../../../outside.md"],
+    ids=["repo-root-absolute", "dotdot-escape"],
+)
+def test_links_resolving_outside_the_repo_are_reported_not_raised(
+    escaping_link: str,
+) -> None:
+    """A link that escapes the repo is a finding, never a ValueError."""
+    broken = _broken_links(f"see [it]({escaping_link})", ROOT_DIR / "docs")
+    assert len(broken) == 1
+    assert broken[0].startswith(f"{escaping_link} -> ")
 
 
 @pytest.mark.parametrize(
@@ -71,18 +115,10 @@ def test_there_are_markdown_files_to_check() -> None:
 )
 def test_relative_markdown_links_resolve(markdown_path: Path) -> None:
     """Each ``](*.md)`` target exists, resolved relative to the linking file."""
-    text = _strip_code(markdown_path.read_text(encoding="utf-8"))
     source = markdown_path.relative_to(ROOT_DIR)
-
-    broken: list[str] = []
-    for target in _MARKDOWN_LINK.findall(text):
-        if target.startswith(("http://", "https://")):
-            continue
-        # Relative to the LINKING FILE's directory, which is the whole point:
-        # a bare filename in docs/ means docs/, not the repo root.
-        resolved = (markdown_path.parent / target).resolve()
-        if not resolved.is_file():
-            broken.append(f"{target} -> {resolved.relative_to(ROOT_DIR)}")
+    broken = _broken_links(
+        markdown_path.read_text(encoding="utf-8"), markdown_path.parent
+    )
 
     assert not broken, f"{source} has unresolvable markdown link(s): " + ", ".join(
         broken

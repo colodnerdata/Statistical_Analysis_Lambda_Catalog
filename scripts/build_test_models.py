@@ -18,10 +18,10 @@ before it.
 
 Usage::
 
-    python build_test_models.py                       # every non-heavy case
-    python build_test_models.py --include-heavy        # + L07 / L08
-    python build_test_models.py --cases M09,G10        # just those two
-    python build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
+    python scripts/build_test_models.py                       # every non-heavy case
+    python scripts/build_test_models.py --include-heavy        # + L07 / L08
+    python scripts/build_test_models.py --cases M09,G10        # just those two
+    python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 """
 from __future__ import annotations
 

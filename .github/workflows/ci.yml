@@ -33,7 +33,7 @@ jobs:
 
       - name: Run static checks
         if: matrix.python-version == '3.12'
-        run: uv run --frozen pylint --errors-only lambda_catalog build_production.py build_qc.py build_univariate.py tools
+        run: uv run --frozen pylint --errors-only lambda_catalog scripts tools
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
@@ -43,12 +43,12 @@ jobs:
           fail_ci_if_error: false
 
 # Note: a previous draft of this workflow included a `windows-verify` job
-# that ran `python build_production.py --verify --no-launch` on
+# that ran `python scripts/build_production.py --verify --no-launch` on
 # `windows-latest`. That job cannot succeed on the GitHub-hosted runner:
 # the `windows-latest` image does not include Microsoft Office, so
 # xlwings fails to dispatch `Excel.Application` with
 # `pywintypes.com_error: (-2147221005, 'Invalid class string')`.
 # The spec-driven verifier is still runnable on a developer machine via
-# `python build_production.py --verify --no-launch`
+# `python scripts/build_production.py --verify --no-launch`
 # (see CONTRIBUTING.md → *Verifying builds*); it just has no CI home until
 # a self-hosted runner with Office is wired in.

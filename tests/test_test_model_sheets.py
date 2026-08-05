@@ -563,13 +563,13 @@ def test_tee_run_log_captures_stdout_stderr_and_the_traceback(tmp_path) -> None:
 
     log_path = tmp_path / "logs" / "run.txt"
     with pytest.raises(RuntimeError, match="boom"):
-        with tee_run_log(log_path, "python build_test_models.py --verify"):
+        with tee_run_log(log_path, "python scripts/build_test_models.py --verify"):
             print("progress line")
             print("a warning", file=sys.stderr)
             raise RuntimeError("boom")
 
     written = log_path.read_text(encoding="utf-8")
-    assert "python build_test_models.py --verify" in written
+    assert "python scripts/build_test_models.py --verify" in written
     assert "progress line" in written
     assert "a warning" in written
     assert "RuntimeError: boom" in written

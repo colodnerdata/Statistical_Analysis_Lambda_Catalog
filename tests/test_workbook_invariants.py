@@ -1005,7 +1005,7 @@ class TestShippedUnivariateLayout:
         }
         assert not mismatched, (
             "the committed Lambda_Library_Univariate.xlsx does not match the "
-            "current writer — rebuild it with `python build_univariate.py "
+            "current writer — rebuild it with `python scripts/build_univariate.py "
             f"--verify --no-launch` on a machine with Excel and commit it. {mismatched}"
         )
 

@@ -361,10 +361,10 @@ fit a 205-column design at all — it is a guard state now, and guard sheets
 are cheap.
 
 ```
-python build_test_models.py                        # 47 sheets (31 models + 16 guards)
-python build_test_models.py --include-heavy        # 49, adding L05 and L08
-python build_test_models.py --cases M09,G10        # just those two
-python build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
+python scripts/build_test_models.py                        # 47 sheets (31 models + 16 guards)
+python scripts/build_test_models.py --include-heavy        # 49, adding L05 and L08
+python scripts/build_test_models.py --cases M09,G10        # just those two
+python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 make verify-test-models                            # the same, verbose
 ```
 

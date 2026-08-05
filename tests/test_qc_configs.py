@@ -27,9 +27,7 @@ from lambda_catalog.analysis_cache import (
     _CACHE_SCHEMA_VERSION,
     _csv_fingerprint,
     _deserialize_regression_sheet_configs,
-    _deserialize_vector_configs,
     _serialize_regression_sheet_configs,
-    _serialize_vector_configs,
     get_analysis_results,
 )
 

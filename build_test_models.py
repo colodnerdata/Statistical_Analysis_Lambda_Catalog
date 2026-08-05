@@ -45,6 +45,7 @@ from lambda_catalog.analyze_regression_spec import (
 )
 from lambda_catalog.build_common import (
     RUN_LOG_DIR_NAME,
+    _retry_on_open,
     print_name_sync_summary,
     run_log_path,
     tee_run_log,
@@ -249,7 +250,14 @@ def build_test_models_workbook(
     workbook_path = workbook_path.resolve()
     built: list[str] = []
     start = time.monotonic()
-    try:
+
+    def _run_write() -> None:
+        # The first session writes every case sheet under XL_CALCULATION_MANUAL
+        # so the spec-block writes don't trigger a recalc mid-build, then saves
+        # the workbook. Wrapped in _retry_on_open for the same reason as
+        # build_production.py / build_univariate.py: a workbook left open in
+        # Excel during an 80-minute run would otherwise abort the whole build
+        # rather than prompting the user to close it and retrying.
         with xw.App(visible=False, add_book=False) as app:
             app.api.DisplayAlerts = False
             app.api.AskToUpdateLinks = False
@@ -297,6 +305,13 @@ def build_test_models_workbook(
                 workbook.save(str(workbook_path))
             finally:
                 workbook.close()
+
+    try:
+        _retry_on_open(
+            f"{workbook_path.name} is open in Excel",
+            _run_write,
+            retry_rpc=True,
+        )
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "open or save", exc)
 
@@ -314,22 +329,40 @@ def build_test_models_workbook(
     # This artifact has no Data Tables, so the rebuild is cheap.
     progress.phase("CalculateFullRebuild")
     rebuild_start = time.monotonic()
-    try:
+    # Probe: time just the CalculateFullRebuild call, separately from the
+    # surrounding xw.App() lifecycle (cold-start, open, save). The two
+    # numbers together make the rebuild cost visible against the rest of the
+    # session — useful when the next person asks "is folding the second
+    # session into the first one worth it?" since the answer is then in
+    # the log rather than a hand extrapolation.
+    rebuild_only: list[float] = [0.0]
+
+    def _run_rebuild() -> None:
         with xw.App(visible=False, add_book=False) as app:
             app.api.DisplayAlerts = False
             app.api.AskToUpdateLinks = False
             workbook = app.books.open(str(workbook_path))
             try:
+                inner = time.monotonic()
                 app.api.CalculateFullRebuild()
+                rebuild_only[0] = time.monotonic() - inner
                 workbook.save(str(workbook_path))
             finally:
                 workbook.close()
+
+    try:
+        _retry_on_open(
+            f"{workbook_path.name} is open in Excel",
+            _run_rebuild,
+            retry_rpc=True,
+        )
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "recalculate", exc)
 
     print(f"Timing: write sheets  {write_elapsed:.1f}s")
     print(f"Timing: sync names    {sync_elapsed:.1f}s")
     print(f"Timing: rebuild       {time.monotonic() - rebuild_start:.1f}s")
+    print(f"Timing:   CalculateFullRebuild only   {rebuild_only[0]:.1f}s")
 
     return result, built
 
@@ -412,8 +445,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--include-heavy",
         action="store_true",
-        help="Also build the cases marked heavy — currently only L08 (173 "
-        "Fixed Effects groups over 2909 rows). Its Python oracle runs in the "
+        help="Also build the cases marked heavy — currently L08 (173 Fixed "
+        "Effects groups over 2909 rows) and L05 (Kitchen Sink Profile, "
+        "k=19, n=2117). L08 is gated on sheet-build cost; L05 is gated on "
+        "the statsmodels-vs-Excel floating-point floor at fdd=5/6 that "
+        "both implementations agree on. Their Python oracles run in the "
         "unit suite either way; only the sheet is gated.",
     )
     parser.add_argument(

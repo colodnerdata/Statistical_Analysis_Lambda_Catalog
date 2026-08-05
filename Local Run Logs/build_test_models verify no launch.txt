@@ -1,0 +1,6 @@
+python build_test_models.py --verify --no-launch
+[    0.0s] Plan: 31 model + 16 guard = 47 sheet(s)
+[    0.0s] Oracles: computing
+[    0.7s] Oracles: done
+[    1.1s] Catalog + data sheets
+[    6.5s] Sheets: writing 47

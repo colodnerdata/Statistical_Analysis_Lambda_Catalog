@@ -577,13 +577,14 @@ displaced by an ordinary modeling choice.
 
 ### Rules that fall out of it
 
-- **Each zone gets its own outline group, separated by a thin *ungrouped*
-  gutter column.** Excel fuses a contiguous run of same-level grouped columns
-  into one outline, so a missing gutter merges two zones into a single collapse
-  control. Same mechanism as the `_C_R` / `_C_Z` / `_C_AI` / `_C_AM` gap columns
-  that separate the existing content zones (derived in `write_sheet_regression.py`
-  as `_GAP_COLUMNS`, one per adjacent `_ZONES` pair, asserted exactly one column
-  wide).
+- **A zone may only be grouped if nothing spills into it, and the zones are
+  separated by a thin *ungrouped* gutter column.** Excel fuses a contiguous run
+  of same-level grouped columns into one outline, so a missing gutter merges two
+  zones into a single collapse control — same mechanism as the `_C_R` / `_C_Z` /
+  `_C_AI` / `_C_AM` gap columns that separate the existing content zones
+  (derived in `write_sheet_regression.py` as `_GAP_COLUMNS`, one per adjacent
+  `_ZONES` pair, asserted exactly one column wide). But in this band only the
+  Model Context zone qualifies for a group at all: see *Collapse state* below.
 - **The first gutter is structural, not cosmetic.** Charts anchored over columns
   inside a collapsed outline group get squashed. The gutter after the chart
   columns is what keeps the diagnostic-chart anchors outside every collapsible
@@ -626,10 +627,10 @@ displaced by an ordinary modeling choice.
   of the terminal zone, the caption is placed ABOVE its body inside the zone's
   own columns. With `WrapText` explicitly FALSE (for the reason it moved) the
   string then overflows across as much of that empty row as it needs; the
-  three-column header/readout gap exists because `"Model Formula"` is wider
-  than one 12-wide matrix column and would otherwise be clipped. The zone ships
-  collapsed, so the caption is hidden with the rest of it until expanded —
-  hidden columns still calculate, so the named surface is unaffected.
+  header/readout gap exists because `"Model Formula"` is wider than one 12-wide
+  matrix column and would otherwise be clipped. The zone ships expanded, so the
+  caption is visible on open; `Comparison_Model_Formula` reads it by name
+  either way.
 
   Anything written into the Model Context block's two columns must still
   derive its row from that block's constants — the test-model builder's
@@ -637,14 +638,22 @@ displaced by an ordinary modeling choice.
   silently poisoned every engine on the sheet; they now also assert
   disjointness from the readout's cells, since the two sets of constants move
   independently.
-- **Collapse state differs by zone.** Model Context (two columns, grouped as a
-  pair so the labels never strand beside a collapsed value column) and
-  `Sample_Include` (one column) ship **expanded**; the Constructed Design Matrix ships
-  **collapsed by default**, because an unbounded-width zone that cannot be
-  collapsed is a scrolling hazard. Its outline group covers a bounded band —
-  an outline has to name its columns, and grouping out to column 16,384 would
-  bloat the sheet for a width no usable model reaches — sized to the soft
-  column threshold below, past which the guard has already fired.
+- **Collapse state differs by zone, and a zone holding a spill is never
+  collapsed.** Model Context — two columns, grouped as a pair so the labels
+  never strand beside a collapsed value column — is the band's **only** outline
+  group and ships **collapsed**. It can be, because it is individual cells: the
+  same property that made it cells rather than a `VSTACK` means there is no
+  spill to hide. `Sample_Include` and the Constructed Design Matrix are
+  **ungrouped and expanded**. Both are full-height spills, and a collapsed
+  group over a spill range is the state in which Excel stops recomputing the
+  model: the hidden columns keep the stale arrays, so every engine reading
+  across them refits on stale values — present, plausible, and wrong. The
+  terminal zone therefore reintroduces the scrolling hazard collapsing it used
+  to buy off; that is the accepted cost, bounded by the ordering rule above
+  (nothing sits right of it to be displaced). The terminal zone still gets an
+  explicit column WIDTH across a bounded band — sized to the soft column
+  threshold below, past which the guard has already fired — because sizing out
+  to column 16,384 would bloat the sheet for a width no usable model reaches.
 - **All zones share a first data row**, asserted in the build. Read-across is
   the point — the mask value beside its design-matrix row, both aligned to the
   source table rows, with the gutters as visual separators.
@@ -663,7 +672,7 @@ displaced by an ordinary modeling choice.
   cannot become a no-op in Excel, the one place it can run.
 
 - **Surfacing a spill is not the same as rewiring its readers.** Positioning the
-  zone, its collapse behaviour, and the width guard were what a later release
+  zone and the width guard were what a later release
   could not add without moving columns a second time, so they landed with the
   layout break; filling the zone was then a formula change against columns that
   already existed. `Sample_Include()` and `Design_Columns()` now spill into

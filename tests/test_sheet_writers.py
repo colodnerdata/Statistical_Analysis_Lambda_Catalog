@@ -73,10 +73,10 @@ from lambda_catalog.write_sheet_regression import (
     _CHART_Y_TICK_FORMAT_DEFAULT,
     _CHART_Y_TICK_FORMATS,
     _COLUMN_WIDTHS,
-    _DESIGN_MATRIX_GROUPED_COLUMNS,
-    _DESIGN_MATRIX_GROUPED_WIDTH,
+    _DESIGN_MATRIX_COLUMN_WIDTH,
     _DESIGN_MATRIX_INTERCEPT_HEADER,
     _DESIGN_MATRIX_MAX_COLUMNS,
+    _DESIGN_MATRIX_SIZED_COLUMNS,
     _DESIGN_MATRIX_SOFT_CELLS,
     _DESIGN_MATRIX_SOFT_COLUMNS,
     _GAP_COLUMNS,
@@ -551,37 +551,39 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert _MODEL_CONTEXT_LAST_ROW >= _MATERIALIZATION_SPILL_ROW
 
 
-def test_materialization_zones_ship_collapsed() -> None:
-    # All three §4b content zones ship collapsed so the materialization band
-    # stays out of the way until explicitly expanded. The terminal zone is the
-    # worst offender because its width is one dropdown away from hundreds of
-    # columns, but the two bounded zones are part of the same secondary band.
+def test_only_the_model_context_zone_is_grouped_and_collapsed() -> None:
+    # ONE group in the whole §4b band: the Model Context label/value pair,
+    # grouped as a pair so it collapses as a unit (grouping the value column
+    # alone would leave its labels stranded beside a collapsed column). It is a
+    # fixed-height block of individual cells, so hiding it hides no spill.
     #
-    # One outline group per ZONE, not per column: Model Context is grouped as
-    # the label/value pair so it collapses as a unit; grouping the value column
-    # alone would leave its labels stranded beside a collapsed column.
+    # Sample_Include and the terminal Constructed Design Matrix are NOT
+    # grouped and NOT collapsed. Both hold full-height dynamic-array spills,
+    # and a collapsed outline group over a spill range is the state in which
+    # Excel stops recalculating the model — the hidden columns keep the stale
+    # arrays and every engine reading across them refits on stale values. The
+    # scrolling nuisance of an expanded unbounded zone is the accepted cost.
     sheet = RecordingSheet(name="Regression")
 
     _write_materialization_zone(_as_xw_sheet(sheet), closures=())
 
-    matrix_band = (
-        f"{col_letter(_C_DESIGN_MATRIX)}:"
-        f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
+    context_band = (
+        f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT)}"
     )
-    assert sheet.column_groups == [
-        f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT)}",
-        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}:"
-        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}",
-        matrix_band,
-    ]
-    assert sheet.column_show_detail == {
-        f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT)}": False,
-        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}:"
-        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}": False,
-        matrix_band: False,
-    }
-    # The gutters stay OUT of every group, or the zones would fuse into one
-    # outline and lose independent collapse.
+    assert sheet.column_groups == [context_band]
+    assert sheet.column_show_detail == {context_band: False}
+
+    # Named explicitly, so re-adding a group over either spill fails here
+    # rather than being absorbed by a list comparison someone updated.
+    for column in (_C_SAMPLE_INCLUDE_MATERIALIZED, _C_DESIGN_MATRIX):
+        letter = col_letter(column)
+        assert not any(letter in band.split(":") for band in sheet.column_groups)
+        assert not any(
+            letter in band.split(":") for band in sheet.column_show_detail
+        )
+
+    # The gutters stay OUT of every group — the Model Context zone has to be
+    # able to collapse without dragging a neighbour into its outline.
     for gutter in (
         _C_GUTTER_AFTER_CHARTS,
         _C_GUTTER_AFTER_CONTEXT,
@@ -612,11 +614,13 @@ def test_materialization_zone_widths_use_named_constants() -> None:
         == _SAMPLE_INCLUDE_MATERIALIZED_WIDTH
     )
 
+    # The terminal zone still gets an explicit width across the bounded band
+    # the soft guard already bounds — that survived the grouping's removal.
     matrix_band = (
         f"{col_letter(_C_DESIGN_MATRIX)}:"
-        f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
+        f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_SIZED_COLUMNS - 1)}"
     )
-    assert sheet.range(matrix_band).column_width == _DESIGN_MATRIX_GROUPED_WIDTH
+    assert sheet.range(matrix_band).column_width == _DESIGN_MATRIX_COLUMN_WIDTH
 
 
 def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:

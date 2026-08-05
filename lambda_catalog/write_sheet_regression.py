@@ -704,8 +704,8 @@ _MODEL_FORMULA_LABEL_WIDTH = 14.0
 # (Comparison_Model_Formula points here).
 #
 # Sits on ROW 1 of the terminal Constructed Design Matrix zone, right of
-# that zone's own heading: header two columns right of it, the readout one
-# column right of the header. Row 1 is the one row in this zone that no
+# that zone's own heading: header two columns right of it, the readout three
+# columns right of the header. Row 1 is the one row in this zone that no
 # amount of design matrix can reach — the names spill on
 # _MATERIALIZATION_HEADER_ROW and the values on _MATERIALIZATION_SPILL_ROW, and
 # both grow RIGHTWARD from there, never up — so this placement does not breach
@@ -722,7 +722,7 @@ _MODEL_FORMULA_LABEL_WIDTH = 14.0
 # Both columns derive from _C_DESIGN_MATRIX, so the caption tracks the zone.
 _ROW_MODEL_FORMULA = 1
 _C_MODEL_FORMULA_LABEL = _C_DESIGN_MATRIX + 2
-_C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 1
+_C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 3
 
 # ── The design-matrix width guard ─────────────────────────────────────────────
 # Two thresholds, both computed PRE-FLIGHT from the spec block's Design

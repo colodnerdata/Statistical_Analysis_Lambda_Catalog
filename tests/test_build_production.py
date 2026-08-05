@@ -1,4 +1,5 @@
 """Tests for the Regression production build driver that do not require Excel."""
+
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
@@ -149,7 +150,9 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
         "load_csv_rows",
         lambda _csv_path, _config: ([], []),
     )
-    monkeypatch.setattr(build_production, "write_csv_dataset_sheet", lambda *_, **__: None)
+    monkeypatch.setattr(
+        build_production, "write_csv_dataset_sheet", lambda *_, **__: None
+    )
     for writer_name in [
         "write_catalog_sheet",
         "write_regression_instructions_sheet",
@@ -193,7 +196,9 @@ def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:
         nonlocal calls
         calls += 1
         if calls == 1:
-            raise RuntimeError("Excel could not recalculate: The RPC server is unavailable.")
+            raise RuntimeError(
+                "Excel could not recalculate: The RPC server is unavailable."
+            )
 
     build_production._retry_on_open("Example.xlsx is open", flaky, retry_rpc=True)
 
@@ -201,7 +206,9 @@ def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:
     assert "retrying in a fresh Excel instance" in capsys.readouterr().err
 
 
-def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys, tmp_path) -> None:
+def test_main_retries_dropped_rpc_session_during_sheet_write(
+    monkeypatch, capsys, tmp_path
+) -> None:
     calls: list[bool] = []
     popen_calls: list[tuple[str, ...]] = []
 
@@ -238,7 +245,9 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
     # per-sheet Calculate doesn't rebuild the dependency tree after a name
     # sync), so main() calls _recalculate_and_save even when
     # --skip-data-table-calculations is set. Stub it so no real Excel opens.
-    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None
+    )
     # main() ends by shelling out to `start "" <workbook>` to open the just-built
     # file in Excel. That shell call must not fire during tests — the test
     # workbook path is a stub (Example.xlsx) and even if the file existed, no
@@ -527,7 +536,9 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None
+    )
     monkeypatch.setattr(
         build_production.subprocess,
         "Popen",
@@ -551,7 +562,14 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
     popen_calls: list[tuple[str, ...]] = []
     verify_calls: list[tuple[Path, Path]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False):
+    def fake_run_deep_verify(
+        workbook_path,
+        csv_path,
+        *,
+        mileage_path=None,
+        production_lots_path=None,
+        verbose=False,
+    ):
         del mileage_path, production_lots_path, verbose
         verify_calls.append((workbook_path, csv_path))
         return VerifyReport(
@@ -586,7 +604,9 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None
+    )
     monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
     monkeypatch.setattr(
         build_production.subprocess,
@@ -617,7 +637,14 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     launched in place of a fresh one) and must sys.exit(1)."""
     popen_calls: list[tuple[str, ...]] = []
 
-    def fake_run_deep_verify(workbook_path, csv_path, *, mileage_path=None, production_lots_path=None, verbose=False):
+    def fake_run_deep_verify(
+        workbook_path,
+        csv_path,
+        *,
+        mileage_path=None,
+        production_lots_path=None,
+        verbose=False,
+    ):
         del csv_path, mileage_path, production_lots_path, verbose
         return VerifyReport(
             passed=False,
@@ -654,7 +681,9 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None
+    )
     monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
     monkeypatch.setattr(
         build_production.subprocess,
@@ -724,7 +753,9 @@ def test_main_archives_the_verify_report_to_the_run_log(
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None
+    )
     monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
 
     with pytest.raises(SystemExit) as exc_info:
@@ -829,7 +860,9 @@ def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
         "build_production_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None
+    )
 
     build_production.main()
 
@@ -920,10 +953,13 @@ def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
     )
 
     called: dict[str, object] = {"source_table_ref": None}
-    monkeypatch.setattr(build_production, "write_csv_dataset_sheet", lambda *_, **__: None)
+    monkeypatch.setattr(
+        build_production, "write_csv_dataset_sheet", lambda *_, **__: None
+    )
     for name in [
         "write_catalog_sheet",
-        "write_regression_instructions_sheet", "write_diagnostic_guide_sheet",
+        "write_regression_instructions_sheet",
+        "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
     ]:
         monkeypatch.setattr(build_production, name, lambda *_, **__: None)
@@ -935,7 +971,8 @@ def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
         ),
     )
     monkeypatch.setattr(
-        build_production, "sync_workbook_names",
+        build_production,
+        "sync_workbook_names",
         lambda *_, **__: NameSyncResult(created=0, updated=0),
     )
 
@@ -983,7 +1020,9 @@ class _TabOrderBook:
         self.sheets = _TabOrderSheets(names)
 
 
-def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(monkeypatch) -> None:
+def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
+    monkeypatch,
+) -> None:
     """The Regression workbook's tab order puts the three data sheets first, then
     Version History, then the Regression workbench sheets, with LAMBDA_functions
     last. There is no Univariate tab (it ships in its own workbook)."""
@@ -1039,7 +1078,9 @@ class _FakeVerifyRecorder:
     def __init__(self) -> None:
         self.verify_kwargs: dict = {}
 
-    def verify_test_sheets(self, workbook, regression_sheet_configs, csv_path, **kwargs) -> None:
+    def verify_test_sheets(
+        self, workbook, regression_sheet_configs, csv_path, **kwargs
+    ) -> None:
         self.verify_kwargs = {
             "workbook": workbook,
             "regression_sheet_configs": regression_sheet_configs,

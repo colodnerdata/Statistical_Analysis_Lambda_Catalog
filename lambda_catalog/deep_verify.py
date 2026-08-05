@@ -11,6 +11,7 @@ through xlwings. The wheel packages `lambda_catalog` only, so none of those are
 present in an installed environment — which is also why CI never runs this
 layer (see CLAUDE.md).
 """
+
 from __future__ import annotations
 
 import importlib.util
@@ -74,7 +75,8 @@ def _verification_calc_sheet_names(
         names = tuple(
             name
             for name in names
-            if name not in ("Regression", MILEAGE.sheet_name, PRODUCTION_LOTS.sheet_name)
+            if name
+            not in ("Regression", MILEAGE.sheet_name, PRODUCTION_LOTS.sheet_name)
         )
     return names
 
@@ -230,7 +232,11 @@ def _verify_life_expectancy_full_data(
     ]
     full_data_col_idx = life_expectancy_headers.index(LIFE_EXPECTANCY.full_data_header)
     for row_offset, expected in enumerate(full_data_expected, start=1):
-        row = life_expectancy_rows[row_offset] if row_offset < len(life_expectancy_rows) else []
+        row = (
+            life_expectancy_rows[row_offset]
+            if row_offset < len(life_expectancy_rows)
+            else []
+        )
         actual = _normalize_excel_bool(
             row[full_data_col_idx] if full_data_col_idx < len(row) else None
         )
@@ -258,8 +264,7 @@ def _verify_mileage_full_data(
     else:
         mileage_rows = [mileage_data]
     mileage_headers = [
-        str(header).strip() if header is not None else ""
-        for header in mileage_rows[0]
+        str(header).strip() if header is not None else "" for header in mileage_rows[0]
     ]
     full_data_col_idx = mileage_headers.index(MILEAGE.full_data_header)
     for row_offset, expected in enumerate(full_data_expected, start=1):
@@ -280,7 +285,9 @@ def _verify_production_lots_full_data(
     production_lots_path: Path,
     failures: list[str],
 ) -> None:
-    full_data_expected = calculate_production_lots_completeness_flags(production_lots_path)
+    full_data_expected = calculate_production_lots_completeness_flags(
+        production_lots_path
+    )
     production_lots_sheet = workbook.sheets[PRODUCTION_LOTS.sheet_name]
     production_lots_data = production_lots_sheet.used_range.value
     if not production_lots_data:
@@ -408,8 +415,14 @@ def verify_test_sheets(
 
         section_df_keys = [
             ("scalars", ["config_name", "allow_intercept", "stat_name"]),
-            ("predictors", ["config_name", "allow_intercept", "predictor_name", "stat_name"]),
-            ("coefficients", ["config_name", "allow_intercept", "term_name", "stat_name"]),
+            (
+                "predictors",
+                ["config_name", "allow_intercept", "predictor_name", "stat_name"],
+            ),
+            (
+                "coefficients",
+                ["config_name", "allow_intercept", "term_name", "stat_name"],
+            ),
             ("prediction_interval", ["config_name", "allow_intercept", "stat_name"]),
             ("residuals", ["config_name", "allow_intercept", "row_idx", "stat_name"]),
         ]

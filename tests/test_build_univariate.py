@@ -7,6 +7,7 @@ artifact's sheet set, default output path, calculation mode, the
 --skip-data-table-calculations gate on the rebuild, and that --verify
 forwards skip_regression=True to the spec-driven verifier.
 """
+
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
@@ -121,7 +122,10 @@ class _FakeApp:
 def test_default_workbook_path_is_univariate_xlsx() -> None:
     """The default output is the capital-U Lambda_Library_Univariate.xlsx per
     the README/CONTRIBUTING two-artifact naming convention."""
-    assert build_univariate.DEFAULT_UNIVARIATE_WORKBOOK_PATH.name == "Lambda_Library_Univariate.xlsx"
+    assert (
+        build_univariate.DEFAULT_UNIVARIATE_WORKBOOK_PATH.name
+        == "Lambda_Library_Univariate.xlsx"
+    )
 
 
 def _stub_writers(monkeypatch, writer_calls: list[str]) -> None:
@@ -195,7 +199,9 @@ def test_build_writes_univariate_sheet_set(monkeypatch, tmp_path) -> None:
     assert app.book.saved_paths == [str(tmp_path / "Example.xlsx")]
 
 
-def test_build_passes_univariate_artifact_to_version_history(monkeypatch, tmp_path) -> None:
+def test_build_passes_univariate_artifact_to_version_history(
+    monkeypatch, tmp_path
+) -> None:
     """The Version History sheet must be written with artifact='univariate' so
     it carries the Univariate lineage (1.0.0), not the Regression lineage."""
     app = _FakeApp()
@@ -203,19 +209,27 @@ def test_build_passes_univariate_artifact_to_version_history(monkeypatch, tmp_pa
     monkeypatch.setattr(
         build_univariate,
         "load_catalog_document",
-        lambda _: SimpleNamespace(functions=(), workbook_functions=(), univariate_sheet_notes={}),
+        lambda _: SimpleNamespace(
+            functions=(), workbook_functions=(), univariate_sheet_notes={}
+        ),
     )
     monkeypatch.setattr(build_univariate, "load_csv_rows", lambda *_a, **_k: ([], []))
     monkeypatch.setattr(build_univariate, "write_catalog_sheet", lambda *_, **__: None)
-    monkeypatch.setattr(build_univariate, "write_csv_dataset_sheet", lambda *_, **__: None)
-    monkeypatch.setattr(build_univariate, "write_univariate_sheet", lambda *_, **__: None)
+    monkeypatch.setattr(
+        build_univariate, "write_csv_dataset_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
+        build_univariate, "write_univariate_sheet", lambda *_, **__: None
+    )
 
     version_calls: list[dict] = []
 
     def capture_version_history(_workbook, *, artifact="regression"):
         version_calls.append({"artifact": artifact})
 
-    monkeypatch.setattr(build_univariate, "write_version_history_sheet", capture_version_history)
+    monkeypatch.setattr(
+        build_univariate, "write_version_history_sheet", capture_version_history
+    )
     monkeypatch.setattr(
         build_univariate,
         "sync_workbook_names",
@@ -307,7 +321,9 @@ def test_no_calculation_suppresses_calculate_before_save_then_restores_it(
     assert ("calculate_before_save", False) in app.events[:save_index]
 
 
-def test_default_build_leaves_calculate_before_save_alone(monkeypatch, tmp_path) -> None:
+def test_default_build_leaves_calculate_before_save_alone(
+    monkeypatch, tmp_path
+) -> None:
     """An ordinary build must not touch the user's Excel-wide setting at all."""
     app = _FakeApp()
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
@@ -333,7 +349,9 @@ def test_no_calculation_skips_the_rebuild_even_when_recalculate_is_true(
 
     recalc_calls: list[Path] = []
     monkeypatch.setattr(
-        build_univariate, "_recalculate_and_save", lambda path: recalc_calls.append(path)
+        build_univariate,
+        "_recalculate_and_save",
+        lambda path: recalc_calls.append(path),
     )
 
     build_univariate.build_univariate_workbook(
@@ -347,7 +365,9 @@ def test_no_calculation_skips_the_rebuild_even_when_recalculate_is_true(
     assert recalc_calls == []
 
 
-def test_main_no_calculation_skips_rebuild_and_warns(monkeypatch, capsys, tmp_path) -> None:
+def test_main_no_calculation_skips_rebuild_and_warns(
+    monkeypatch, capsys, tmp_path
+) -> None:
     """--no-calculation skips phase 2 and says the artifact is not shippable."""
     recalc_calls: list[Path] = []
     build_kwargs: dict = {}
@@ -375,7 +395,9 @@ def test_main_no_calculation_skips_rebuild_and_warns(monkeypatch, capsys, tmp_pa
 
     monkeypatch.setattr(build_univariate, "build_univariate_workbook", capture_build)
     monkeypatch.setattr(
-        build_univariate, "_recalculate_and_save", lambda path: recalc_calls.append(path)
+        build_univariate,
+        "_recalculate_and_save",
+        lambda path: recalc_calls.append(path),
     )
     monkeypatch.setattr(build_univariate.subprocess, "Popen", lambda args: None)
 
@@ -389,7 +411,9 @@ def test_main_no_calculation_skips_rebuild_and_warns(monkeypatch, capsys, tmp_pa
     assert "do not ship it" in out
 
 
-def test_main_warns_when_verify_is_combined_with_no_calculation(monkeypatch, capsys, tmp_path) -> None:
+def test_main_warns_when_verify_is_combined_with_no_calculation(
+    monkeypatch, capsys, tmp_path
+) -> None:
     """Verifying a workbook that was never calculated compares nothing useful."""
     monkeypatch.setattr(
         build_univariate,
@@ -412,7 +436,9 @@ def test_main_warns_when_verify_is_combined_with_no_calculation(monkeypatch, cap
         "build_univariate_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_univariate, "_recalculate_and_save", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        build_univariate, "_recalculate_and_save", lambda *_a, **_k: None
+    )
     monkeypatch.setattr(
         build_univariate,
         "_run_deep_verify",
@@ -432,13 +458,20 @@ def test_main_warns_when_verify_is_combined_with_no_calculation(monkeypatch, cap
     assert "spurious mismatches" in capsys.readouterr().err
 
 
-def test_build_drops_stray_regression_sheets_from_reused_file(monkeypatch, tmp_path) -> None:
+def test_build_drops_stray_regression_sheets_from_reused_file(
+    monkeypatch, tmp_path
+) -> None:
     """If the output path is a reused workbook (e.g. a copied Lambda_Library.xlsx),
     build_univariate_workbook must delete every sheet that is not part of the
     Univariate artifact before writing, so no stray Regression / Mileage /
     Production Lots sheets leak into the shipped Univariate workbook."""
     stray_names = ["Regression", "Mileage Data", "Production Lots", "Diagnostic Guide"]
-    target_names = ["LAMBDA_functions", "Life Expectancy Data", "Univariate", "Version History"]
+    target_names = [
+        "LAMBDA_functions",
+        "Life Expectancy Data",
+        "Univariate",
+        "Version History",
+    ]
     app = _FakeApp(sheet_names=stray_names + target_names)
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
 
@@ -462,7 +495,9 @@ def test_build_drops_stray_regression_sheets_from_reused_file(monkeypatch, tmp_p
     assert deleted == set(stray_names)
     # Target sheets (and the placeholder Sheet1) are not deleted.
     for name in target_names:
-        assert not any(sheet.name == name and sheet.deleted for sheet in app.book.sheets.items)
+        assert not any(
+            sheet.name == name and sheet.deleted for sheet in app.book.sheets.items
+        )
 
 
 class _TabOrderSheet:
@@ -570,7 +605,10 @@ def test_main_recalculate_skipped_when_skip_data_table_calculations(
     build_univariate.main()
 
     assert recalc_calls == []
-    assert "Recalculate:    skipped (--skip-data-table-calculations)" in capsys.readouterr().out
+    assert (
+        "Recalculate:    skipped (--skip-data-table-calculations)"
+        in capsys.readouterr().out
+    )
 
 
 def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
@@ -617,7 +655,9 @@ class _FakeVerifyRecorder:
     def __init__(self) -> None:
         self.verify_kwargs: dict = {}
 
-    def verify_test_sheets(self, workbook, regression_sheet_configs, csv_path, **kwargs) -> None:
+    def verify_test_sheets(
+        self, workbook, regression_sheet_configs, csv_path, **kwargs
+    ) -> None:
         self.verify_kwargs = {
             "workbook": workbook,
             "regression_sheet_configs": regression_sheet_configs,
@@ -688,7 +728,9 @@ def test_main_verify_forwards_skip_regression_true(monkeypatch, tmp_path) -> Non
         "build_univariate_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_univariate, "_recalculate_and_save", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        build_univariate, "_recalculate_and_save", lambda *_a, **_k: None
+    )
     monkeypatch.setattr(build_univariate, "_run_deep_verify", fake_run_deep_verify)
     monkeypatch.setattr(build_univariate.subprocess, "Popen", lambda args: None)
 
@@ -696,6 +738,7 @@ def test_main_verify_forwards_skip_regression_true(monkeypatch, tmp_path) -> Non
 
     assert len(verify_calls) == 1
     assert verify_calls[0][0] == Path("Example.xlsx").resolve()
+
 
 def test_main_archives_the_verify_report_to_the_run_log(monkeypatch, tmp_path) -> None:
     """A failing --verify run must leave its VerifyReport in the transcript.
@@ -738,7 +781,9 @@ def test_main_archives_the_verify_report_to_the_run_log(monkeypatch, tmp_path) -
         "build_univariate_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_univariate, "_recalculate_and_save", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        build_univariate, "_recalculate_and_save", lambda *_a, **_k: None
+    )
     monkeypatch.setattr(build_univariate, "_run_deep_verify", fake_run_deep_verify)
 
     with pytest.raises(SystemExit) as exc_info:
@@ -843,7 +888,9 @@ def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
         "build_univariate_workbook",
         lambda **_: NameSyncResult(created=0, updated=0),
     )
-    monkeypatch.setattr(build_univariate, "_recalculate_and_save", lambda *_a, **_k: None)
+    monkeypatch.setattr(
+        build_univariate, "_recalculate_and_save", lambda *_a, **_k: None
+    )
 
     build_univariate.main()
 

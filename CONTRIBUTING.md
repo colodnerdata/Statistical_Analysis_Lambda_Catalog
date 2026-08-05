@@ -39,7 +39,7 @@ Use these shortcuts for day-to-day work from an activated `.venv`. If the enviro
 | Run pylint's CI check | `poe lint` | `uv run pylint --errors-only lambda_catalog scripts tools` | Error-only lint, matching CI. |
 | Build the Regression artifact | `poe build` | `uv run python scripts/build_production.py` | Needs desktop Excel. |
 | Build the Univariate artifact | `poe build-univariate` | `uv run python scripts/build_univariate.py` | Needs desktop Excel. |
-| Build the QC workbook | `poe qc` | `uv run python scripts/build_qc.py` | Needs desktop Excel; use after LAMBDA changes. |
+| Build the legacy combined QC workbook | `poe qc` | `uv run python scripts/build_qc.py` | Needs desktop Excel; legacy `Lambda_Library_QC.xlsx` flow only. |
 | Build + verify Regression | `poe verify-deep` | `uv run python scripts/build_production.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify Univariate | `poe verify-deep-univariate` | `uv run python scripts/build_univariate.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify test models | `poe verify-test-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose` | Needs desktop Excel; append `--include-heavy` to include the heavy cases (`L05`, `L08`). |
@@ -164,7 +164,7 @@ The coverage configuration in `pyproject.toml` tracks only the modules that are 
 - `analysis_cache.py`
 - `verify_report.py`
 
-The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the QC build instead (see below).
+The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the QC build instead (see below).
 
 ### CI
 
@@ -357,11 +357,11 @@ only the sheet writers produce.
 uv run python scripts/build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes the Regression-production sheets above, plus the **Univariate** sheet and `Dummy_Test`, and runs the expected-vs-actual verification pass. The former `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, and `MLR_Observation_Test` smoke-test sheets are legacy cleanup targets only; current builds delete stale copies but do not write or verify them.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes the Regression-production sheets above, plus the **Univariate** sheet and `Dummy_Test`, and runs the expected-vs-actual verification pass via `lambda_catalog.deep_verify.verify_test_sheets`. The former `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, and `MLR_Observation_Test` smoke-test sheets are legacy cleanup targets only; current builds delete stale copies but do not write or verify them.
 
 The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 
-The verification step forces Excel to recalculate all required sheets, reads the Calc columns, compares them against Python-computed expected values, and emits `ERROR ...` lines plus a mismatch summary when drift is found. A clean run produces no mismatch errors.
+The shared verification module forces Excel to recalculate all required sheets, reads the Calc columns, compares them against Python-computed expected values, and emits `ERROR ...` lines plus a mismatch summary when drift is found. A clean run produces no mismatch errors.
 
 **All `build_qc.py` options:**
 
@@ -385,7 +385,7 @@ uv run python scripts/build_qc.py --no-verify
 
 `build_qc.py` mirrors terminal output to `qc_log.txt` and includes end-of-run timing lines (`Timing: prep`, `write sheets`, `sync names`, `verify`, `total`) in both places.
 
-The QC build remains available for the gitignored combined `Lambda_Library_QC.xlsx` workflow. For ordinary validation, prefer the artifact-specific `--verify --no-launch` builds, which import the shared deep verifier directly.
+The QC build remains available only for the gitignored combined `Lambda_Library_QC.xlsx` workflow; it has not been removed because there is no repo-owner confirmation that this workbook is obsolete. For ordinary validation, prefer the artifact-specific `--verify --no-launch` builds, which import the shared deep verifier directly.
 
 ## Verifying builds
 
@@ -508,6 +508,7 @@ lambda_catalog/
   analysis_cache.py          # disk cache keyed on CSV SHA-256 + schema version
   lambda_formula_parser.py   # converts display formulas to workbook XML syntax
   inspection_compare.py      # numeric comparison helpers for QC value verification
+  deep_verify.py             # shared xlwings spec-driven verifier used by build scripts and tools/verify_workbook.py
   verify_report.py           # VerifyReport: structured pass/fail result for the spec-driven verifier
   make_test_sheet.py         # shared helpers for Excel ListObject test tables
   write_sheet_lambda_functions.py
@@ -520,8 +521,8 @@ lambda_catalog/
   write_sheet_model_construction.py
   write_sheet_dummy_test.py
 tools/
-  inspect_regression_sheet.py # Regression sheet QC comparison (used by build_qc.py)
-  inspect_univariate_sheet.py # Univariate sheet QC comparison (used by build_qc.py)
+  inspect_regression_sheet.py # Regression sheet comparison (loaded by lambda_catalog.deep_verify)
+  inspect_univariate_sheet.py # Univariate sheet comparison (loaded by lambda_catalog.deep_verify)
   inspect_xlsx.py            # workbook inspection utility
   check_lengths.py           # print Name Manager comment lengths
   verify_workbook.py         # standalone CLI wrapping the spec-driven verifier
@@ -535,14 +536,7 @@ tools/
 
 ## Analysis cache
 
-`build_qc.py` caches OLS expected values in `.analysis_cache.json` (gitignored) to avoid rerunning statsmodels on every build. The cache is keyed on the SHA-256 hash of the CSV file and a schema version constant.
-
-The cache is invalidated automatically when:
-
-- the CSV file content changes (SHA-256 hash mismatch)
-- `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` is bumped
-
-Bump `_CACHE_SCHEMA_VERSION` whenever analysis configuration changes — k values, alpha, regression methodology, or the set of cached output fields. Delete `.analysis_cache.json` to force a full recompute at any time.
+`build_qc.py` keeps the historical `--cache` option for CLI compatibility, but the spec-driven verifier now computes expected values on demand and does not use `.analysis_cache.json`.
 
 ## Writing individual sheets
 
@@ -591,7 +585,7 @@ Neither is built. They are recorded here as a scoped follow-up rather than as a 
 1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `number_format`. Leave `test_table` unset unless you are adding an active sheet-level QC harness for that function in the same change.
 2. Add or update the relevant Python oracle when the function feeds a production analysis surface (for example, Regression outputs in `analyze_regression_sheet.py` / `analyze_regression_spec.py`, Univariate outputs in `analyze_univariate.py`, or `Dummy_Test` self-checks for dummy-specific helpers).
 3. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` when cached analysis output fields or methodology change.
-4. Run the appropriate verifier (`python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, or `python scripts/build_qc.py`) and confirm no unexpected WARNING lines appear.
+4. Run the appropriate verifier (`python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, or, only for the legacy combined workbook, `python scripts/build_qc.py`) and confirm no unexpected WARNING lines appear.
 5. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
 6. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
 

@@ -143,7 +143,7 @@ help = "Build dist/Lambda_Library_Univariate.xlsx."
 cmd = "python scripts/build_univariate.py"
 
 [tool.poe.tasks.qc]
-help = "Build the legacy combined QC workbook and run the expected-vs-actual pass."
+help = "Legacy: build the combined QC workbook and run lambda_catalog.deep_verify."
 cmd = "python scripts/build_qc.py"
 
 [tool.poe.tasks.static-sheets]
@@ -237,6 +237,7 @@ omit = [
   "lambda_catalog/write_sheet_*.py",
   "lambda_catalog/inspection_compare.py",
   "lambda_catalog/analyze_regression_sheet.py",
+  "lambda_catalog/deep_verify.py",
 ]
 
 [tool.coverage.report]

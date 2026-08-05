@@ -1,4 +1,5 @@
 """Tests for the spec-driven Regression QC oracle."""
+
 # pylint: disable=missing-function-docstring
 from __future__ import annotations
 
@@ -115,9 +116,9 @@ def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> No
     for case in build_regression_spec_cases():
         flagged = tuple(item.name for item in case.spec if item.sequence)
         axis = axis_for_table[case.source_table_ref]
-        assert flagged == (() if axis is None else (axis,)), (
-            f"{case.name} ({case.plan_id}) flags {flagged!r} as Sequence"
-        )
+        assert flagged == (
+            () if axis is None else (axis,)
+        ), f"{case.name} ({case.plan_id}) flags {flagged!r} as Sequence"
 
 
 def test_build_qc_keeps_mlr_names_only_for_legacy_stale_sheet_deletion() -> None:
@@ -132,7 +133,9 @@ def test_build_qc_keeps_mlr_names_only_for_legacy_stale_sheet_deletion() -> None
 
 def test_build_qc_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
     assert "Dummy_Test" in deep_verify._verification_calc_sheet_names(skip_dummy=False)
-    assert "Dummy_Test" not in deep_verify._verification_calc_sheet_names(skip_dummy=True)
+    assert "Dummy_Test" not in deep_verify._verification_calc_sheet_names(
+        skip_dummy=True
+    )
 
 
 def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
@@ -157,7 +160,13 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
         sheets=_Sheets(
-            ["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression", "Univariate"]
+            [
+                "Life Expectancy Data",
+                "Mileage Data",
+                "Production Lots",
+                "Regression",
+                "Univariate",
+            ]
         ),
     )
 
@@ -169,12 +178,16 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
     )
 
     assert calls == [
-        "Life Expectancy Data", "Mileage Data", "Production Lots", "Regression", "Univariate",
+        "Life Expectancy Data",
+        "Mileage Data",
+        "Production Lots",
+        "Regression",
+        "Univariate",
     ]
 
 
 def test_build_qc_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
-    
+
     assert "Univariate" in deep_verify._verification_calc_sheet_names(
         skip_dummy=True, skip_univariate=False
     )
@@ -183,12 +196,14 @@ def test_build_qc_verification_calc_sheet_names_respects_skip_univariate_flag() 
     )
 
 
-def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate_missing() -> None:
+def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate_missing() -> (
+    None
+):
     """The Regression workbook (built by build_production.py) never contains
     a Univariate sheet post-v3.0. Verification must skip it with a warning,
     not raise, regardless of whether skip_univariate was explicitly passed
     for this call."""
-    
+
     calls: list[str] = []
 
     class _Sheet:
@@ -208,7 +223,9 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
 
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression"]),
+        sheets=_Sheets(
+            ["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression"]
+        ),
     )
 
     # skip_univariate not passed (defaults False) — the sheet is simply
@@ -221,7 +238,12 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
     )
 
     assert "Univariate" not in calls
-    assert calls == ["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression"]
+    assert calls == [
+        "Life Expectancy Data",
+        "Mileage Data",
+        "Production Lots",
+        "Regression",
+    ]
 
 
 def test_univariate_stage_is_silent_when_the_caller_opted_out() -> None:
@@ -238,69 +260,50 @@ def test_univariate_stage_is_silent_when_the_caller_opted_out() -> None:
     "[Univariate] sheet is missing" as a QC failure. The absence is by design
     since the v3.0 split: nothing to check, nothing to warn about.
     """
-    
-    assert deep_verify._univariate_verification_action(
-        {"Regression", "Mileage Data"}, skip_univariate=True
-    ) == "skip"
+
+    assert (
+        deep_verify._univariate_verification_action(
+            {"Regression", "Mileage Data"}, skip_univariate=True
+        )
+        == "skip"
+    )
 
 
 def test_univariate_stage_warns_when_the_sheet_is_unexpectedly_missing() -> None:
     """A caller that did NOT opt out and has no Univariate sheet gets a warning
     — worth saying out loud, but not a QC failure."""
-    
-    assert deep_verify._univariate_verification_action(
-        {"Regression"}, skip_univariate=False
-    ) == "warn"
+
+    assert (
+        deep_verify._univariate_verification_action(
+            {"Regression"}, skip_univariate=False
+        )
+        == "warn"
+    )
 
 
 def test_univariate_stage_checks_when_the_sheet_is_present() -> None:
     """The Univariate artifact's own verify run must actually run the check."""
-    
-    assert deep_verify._univariate_verification_action(
-        {"Univariate", "Life Expectancy Data"}, skip_univariate=False
-    ) == "check"
+
+    assert (
+        deep_verify._univariate_verification_action(
+            {"Univariate", "Life Expectancy Data"}, skip_univariate=False
+        )
+        == "check"
+    )
     # Opting out wins even when the sheet is there, so a caller can always
     # bound what it verifies.
-    assert deep_verify._univariate_verification_action(
-        {"Univariate"}, skip_univariate=True
-    ) == "skip"
+    assert (
+        deep_verify._univariate_verification_action(
+            {"Univariate"}, skip_univariate=True
+        )
+        == "skip"
+    )
 
 
 def test_calculate_verification_sheets_still_requires_regression_sheet() -> None:
     """Missing sheets that are never legitimately optional (Regression) must
     still hard-fail — only Univariate gets the lenient warn-and-skip path."""
-    
-    class _Sheet:
-        def __init__(self, name: str) -> None:
-            self.name = name
-            self.api = SimpleNamespace(Calculate=lambda: None)
 
-    class _Sheets:
-        def __init__(self, names: list[str]) -> None:
-            self._by_name = {name: _Sheet(name) for name in names}
-
-        def __iter__(self):
-            return iter(self._by_name.values())
-
-        def __getitem__(self, name: str):
-            return self._by_name[name]
-
-    workbook = SimpleNamespace(
-        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(["Life Expectancy Data", "Mileage Data", "Production Lots", "Univariate"]),
-    )
-
-    with pytest.raises(RuntimeError, match="Regression"):
-        deep_verify._calculate_verification_sheets(
-            workbook,
-            verbose=False,
-            phase_start=0.0,
-            skip_dummy=True,
-        )
-
-
-def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None:
-    
     class _Sheet:
         def __init__(self, name: str) -> None:
             self.name = name
@@ -319,7 +322,46 @@ def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None
     workbook = SimpleNamespace(
         app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
         sheets=_Sheets(
-            ["Life Expectancy Data", "Mileage Data", "Production Lots", "Regression", "Univariate"]
+            ["Life Expectancy Data", "Mileage Data", "Production Lots", "Univariate"]
+        ),
+    )
+
+    with pytest.raises(RuntimeError, match="Regression"):
+        deep_verify._calculate_verification_sheets(
+            workbook,
+            verbose=False,
+            phase_start=0.0,
+            skip_dummy=True,
+        )
+
+
+def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None:
+
+    class _Sheet:
+        def __init__(self, name: str) -> None:
+            self.name = name
+            self.api = SimpleNamespace(Calculate=lambda: None)
+
+    class _Sheets:
+        def __init__(self, names: list[str]) -> None:
+            self._by_name = {name: _Sheet(name) for name in names}
+
+        def __iter__(self):
+            return iter(self._by_name.values())
+
+        def __getitem__(self, name: str):
+            return self._by_name[name]
+
+    workbook = SimpleNamespace(
+        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
+        sheets=_Sheets(
+            [
+                "Life Expectancy Data",
+                "Mileage Data",
+                "Production Lots",
+                "Regression",
+                "Univariate",
+            ]
         ),
     )
 
@@ -390,7 +432,9 @@ def test_default_t0_design_matches_current_constructor_semantics() -> None:
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> None:
-    expected = calculate_regression_spec_case(_case("v1_full_continuous_intercept"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("v1_full_continuous_intercept"), CSV_PATH
+    )
     design = expected.design
 
     assert design.included_rows == 392
@@ -410,10 +454,13 @@ def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
-    expected = calculate_regression_spec_case(_case("origin_default_reference"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("origin_default_reference"), CSV_PATH
+    )
     design = expected.design
     origin_columns = [
-        idx for idx, name in enumerate(design.constructed_column_names)
+        idx
+        for idx, name in enumerate(design.constructed_column_names)
         if name.startswith("Origin:")
     ]
 
@@ -427,7 +474,9 @@ def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_explicit_reference_changes_origin_dummy_level() -> None:
-    expected = calculate_regression_spec_case(_case("origin_explicit_reference"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("origin_explicit_reference"), CSV_PATH
+    )
 
     assert expected.design.references_in_use["Origin"] == "Europe"
     assert "Origin: Asia" in expected.design.constructed_column_names
@@ -436,19 +485,25 @@ def test_explicit_reference_changes_origin_dummy_level() -> None:
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_invalid_reference_skips_origin_but_model_still_computes() -> None:
-    expected = calculate_regression_spec_case(_case("origin_invalid_reference"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("origin_invalid_reference"), CSV_PATH
+    )
     design = expected.design
 
     assert design.degenerate_categoricals == ("Origin",)
     assert design.references_in_use["Origin"] == 99
-    assert not any(name.startswith("Origin:") for name in design.constructed_column_names)
+    assert not any(
+        name.startswith("Origin:") for name in design.constructed_column_names
+    )
     assert design.constructed_column_names == ("Displacement", "Horsepower", "Weight")
     assert math.isfinite(expected.results.summary.r_squared)
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() -> None:
-    expected = calculate_regression_spec_case(_case("model_year_origin_categorical"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("model_year_origin_categorical"), CSV_PATH
+    )
     design = expected.design
 
     assert design.constructed_column_names[3:15] == tuple(
@@ -462,15 +517,25 @@ def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() ->
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_model_year_origin_categorical_gvif_shared_across_dummy_columns() -> None:
     """GVIF collapses each categorical variable's dummy block to one shared value."""
-    expected = calculate_regression_spec_case(_case("model_year_origin_categorical"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("model_year_origin_categorical"), CSV_PATH
+    )
     names = expected.design.constructed_column_names
     gvif = expected.results.predictor_summary.gvif
 
-    year_gvif = {gvif[i] for i, name in enumerate(names) if name.startswith("Model Year: ")}
-    assert len(year_gvif) == 1, "all 12 Model Year dummy columns must share one GVIF value"
+    year_gvif = {
+        gvif[i] for i, name in enumerate(names) if name.startswith("Model Year: ")
+    }
+    assert (
+        len(year_gvif) == 1
+    ), "all 12 Model Year dummy columns must share one GVIF value"
 
-    origin_gvif = {gvif[i] for i, name in enumerate(names) if name.startswith("Origin: ")}
-    assert len(origin_gvif) == 1, "Origin has two dummy columns but should still be one group"
+    origin_gvif = {
+        gvif[i] for i, name in enumerate(names) if name.startswith("Origin: ")
+    }
+    assert (
+        len(origin_gvif) == 1
+    ), "Origin has two dummy columns but should still be one group"
 
     # Continuous predictors are their own group (df=1): GVIF must exactly match
     # ordinary per-column VIF, independently recomputed via lstsq (not calling
@@ -503,7 +568,9 @@ def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     assert design.degenerate_categoricals == ("Origin",)
     assert design.level_counts == {"Model Year": 13, "Origin": 1}
     assert design.references_in_use == {"Model Year": 70, "Origin": "US"}
-    assert not any(name.startswith("Origin:") for name in design.constructed_column_names)
+    assert not any(
+        name.startswith("Origin:") for name in design.constructed_column_names
+    )
     assert design.constructed_column_names == (
         "Horsepower",
         "Weight",
@@ -542,7 +609,9 @@ def test_durbin_watson_is_a_real_statistic_where_an_ordering_axis_exists() -> No
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_expected_outputs_are_internally_consistent() -> None:
-    expected = calculate_regression_spec_case(_case("continuous_subset_intercept"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("continuous_subset_intercept"), CSV_PATH
+    )
     results = expected.results
     design = expected.design
     k = len(design.constructed_column_names)
@@ -586,10 +655,10 @@ def test_expected_outputs_are_internally_consistent() -> None:
 # un-demeaned design.y_train. Different derivation path, same expected answer.
 
 _LOG_SPEC_CASES = (
-    "production_lots_log_transform",        # Log response + Log predictor + FE
-    "production_lots_log_no_fe",            # Log + Log, no FE
+    "production_lots_log_transform",  # Log response + Log predictor + FE
+    "production_lots_log_no_fe",  # Log + Log, no FE
     "production_lots_log_mixed_predictors",  # Log response, Log + None predictors
-    "production_lots_log_predictor_only",   # None response, Log predictor
+    "production_lots_log_predictor_only",  # None response, Log predictor
 )
 
 
@@ -653,7 +722,9 @@ def test_unit_space_oracle_matches_an_independent_recomputation(case_name: str) 
 def test_log_log_on_auto_mpg_logs_both_sides_and_masks_missing_rows() -> None:
     """M05. The (Log, Log) pair combined with real missingness — the corner
     Production Lots (a complete 51-row panel) structurally cannot cover."""
-    expected = calculate_regression_spec_case(_case("mileage_log_log_na_masking"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("mileage_log_log_na_masking"), CSV_PATH
+    )
     design = expected.design
 
     assert design.response_transform == "Log"
@@ -672,7 +743,9 @@ def test_categorical_only_design_widens_the_sample() -> None:
     """M14b. With no included Continuous Predictor the mask reduces to "the
     response is numeric", so the sample grows past the 392 every other Auto
     MPG case sees — proof the mask is per-model, not per-dataset."""
-    expected = calculate_regression_spec_case(_case("categorical_only_design"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("categorical_only_design"), CSV_PATH
+    )
     design = expected.design
 
     assert design.included_rows == 398
@@ -718,7 +791,9 @@ def test_categorical_cross_is_full_rank_and_shares_M14b_main_effects() -> None:
         _case("categorical_only_design"), CSV_PATH
     ).design
 
-    main_effects = tuple(name for name in cross.constructed_column_names if " × " not in name)
+    main_effects = tuple(
+        name for name in cross.constructed_column_names if " × " not in name
+    )
     assert main_effects == base.constructed_column_names
 
     x_with_intercept = np.column_stack(
@@ -826,7 +901,9 @@ def test_partial_log_linear_is_the_mixed_predictor_dispatch_pair() -> None:
     """L01. (None, Mixed) — two logged predictors and one unlogged against an
     untransformed response. The predictor-transform summary must report
     "Mixed" rather than latching to whichever transform it saw first."""
-    expected = calculate_regression_spec_case(_case("life_partial_linear_log"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("life_partial_linear_log"), CSV_PATH
+    )
     design = expected.design
 
     assert (design.response_transform, design.predictor_transform) == ("None", "Mixed")
@@ -944,7 +1021,9 @@ def test_naive_back_transform_drops_the_smearing_factor_but_not_the_bounds() -> 
 )
 def test_elasticity_model_logs_both_sides_at_scale() -> None:
     """L04. (Log, Log) against sparse predictors on the large dataset."""
-    expected = calculate_regression_spec_case(_case("life_elasticity_log_log"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("life_elasticity_log_log"), CSV_PATH
+    )
     design = expected.design
 
     assert (design.response_transform, design.predictor_transform) == ("Log", "Log")
@@ -981,7 +1060,9 @@ def test_high_cardinality_fixed_effects_absorbs_the_right_degrees_of_freedom() -
     """L08. 193 groups against Production Lots' three. At 3 groups a df error
     of a few units hides inside the noise; at 182 absorbed df it moves every
     df-dependent statistic visibly."""
-    expected = calculate_regression_spec_case(_case("life_country_fixed_effects"), CSV_PATH)
+    expected = calculate_regression_spec_case(
+        _case("life_country_fixed_effects"), CSV_PATH
+    )
     design = expected.design
     summary = expected.results.summary
 

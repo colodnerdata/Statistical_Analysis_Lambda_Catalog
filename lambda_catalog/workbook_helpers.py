@@ -35,6 +35,14 @@ OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
     dict.fromkeys((getattr(pywintypes, "com_error", OSError), OSError))
 )
 
+# The sentinel raise_excel_access_error plants in the message of a RuntimeError
+# that a locked workbook caused. Every retry loop in the repo recognises a lock
+# by looking for this substring, so it is a shared constant rather than a phrase
+# repeated at each site: rewording the message without updating a hand-copied
+# literal would silently stop every retry loop from retrying. Imported by
+# build_common (_retry_on_open, workbook_lock_holder) and build_qc.
+LOCK_HINT = "likely open in Excel"
+
 
 def excel_error_message(exc: BaseException) -> str:
     """Extract a human-readable message from an Excel COM or OS exception.
@@ -89,7 +97,7 @@ def raise_excel_access_error(
     if likely_locked:
         raise RuntimeError(
             f"Excel could not {action} {workbook_path.name!r}. "
-            "The workbook is likely open in Excel or locked by another process. "
+            f"The workbook is {LOCK_HINT} or locked by another process. "
             f"Close Excel and retry. Original error: {message}"
         ) from exc
 

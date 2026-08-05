@@ -265,6 +265,54 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
     assert "Updated names: 2" in output
 
 
+def test_workbook_open_check_runs_before_the_first_sheet_write(
+    monkeypatch, tmp_path
+) -> None:
+    """The pre-flight check must precede the write, or it buys nothing.
+
+    Excel opens a locked workbook read-only without raising, so the phase 1
+    _retry_on_open only discovers the lock when the closing save fails — after
+    every sheet has been written. Ordering IS the feature here: a future
+    refactor that moves this call below the build would restore the exact
+    behaviour it was added to fix, with no other test noticing.
+    """
+    order: list[str] = []
+
+    monkeypatch.setattr(
+        build_production,
+        "warn_if_workbook_open",
+        lambda _path, **_kwargs: order.append("check"),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "build_production_workbook",
+        lambda **_: (order.append("build"), NameSyncResult(created=0, updated=0))[1],
+    )
+    monkeypatch.setattr(
+        build_production, "_recalculate_and_save", lambda *_a, **_k: None
+    )
+
+    build_production._build_and_verify(
+        SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=True,
+            verify=False,
+            no_launch=True,
+            log=tmp_path / "build.log",
+            regression_dataset="auto_mpg",
+        ),
+        Path("Example.xlsx").resolve(),
+    )
+
+    assert order == ["check", "build"]
+
+
 class _RecordingBook:
     def __init__(self) -> None:
         self.sheets = _FakeSheetCollection()

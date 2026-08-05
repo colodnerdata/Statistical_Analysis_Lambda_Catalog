@@ -12,12 +12,41 @@ without duplicating it.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Callable
+
+import pytest
 
 import lambda_catalog.build_common as build_common
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
 )
+from lambda_catalog.workbook_helpers import LOCK_HINT, raise_excel_access_error
+
+
+def _deny_write_open(locked: Path) -> Callable[..., object]:
+    """Return a Path.open patch that refuses write access to one path.
+
+    Excel holds an open .xlsx with write sharing denied, so the real probe sees
+    a PermissionError from the OS. Patching rather than genuinely locking keeps
+    the test cross-platform: this suite runs on the Linux CI, which has neither
+    Excel nor Windows' mandatory file locking.
+    """
+    real_open = Path.open
+
+    def _open(self: Path, mode: str = "r", *args, **kwargs):
+        if self == locked and "+" in mode:
+            raise PermissionError(13, "Permission denied", str(self))
+        return real_open(self, mode, *args, **kwargs)
+
+    return _open
+
+
+def _write_owner_file(workbook: Path, owner: str) -> None:
+    """Write an Excel-shaped ``~$<name>`` sidecar naming the given owner."""
+    workbook.with_name(f"~${workbook.name}").write_bytes(
+        bytes([len(owner)]) + owner.encode("utf-16-le")
+    )
 
 
 class _FakeApi:
@@ -134,3 +163,141 @@ def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:
 
     assert calls == 2
     assert "retrying in a fresh Excel instance" in capsys.readouterr().err
+
+
+def test_lock_hint_is_the_phrase_raise_excel_access_error_actually_plants() -> None:
+    """LOCK_HINT is the contract between the raiser and every retry loop.
+
+    _retry_on_open, build_qc's loop and workbook_lock_holder all recognise a
+    locked workbook by this substring, so if the message drifts away from the
+    constant every one of them silently stops retrying. Assert the real message
+    against the real constant rather than trusting the two to stay in step.
+    """
+    with pytest.raises(RuntimeError) as excinfo:
+        raise_excel_access_error(
+            Path("Example.xlsx"),
+            "open or save",
+            OSError("Cannot access read-only document 'Example.xlsx'"),
+        )
+
+    assert LOCK_HINT in str(excinfo.value)
+
+
+# ---------------------------------------------------------------------------
+# workbook_lock_holder — the pre-flight probe
+# ---------------------------------------------------------------------------
+
+
+def test_lock_holder_reports_nothing_for_a_missing_workbook(tmp_path) -> None:
+    """A workbook that does not exist yet is not locked — the build creates it."""
+    assert build_common.workbook_lock_holder(tmp_path / "Nope.xlsx") is None
+
+
+def test_lock_holder_reports_nothing_for_a_free_workbook_and_leaves_it_alone(
+    tmp_path,
+) -> None:
+    """The probe opens for write but must neither modify nor truncate the file."""
+    workbook = tmp_path / "Lambda_Library.xlsx"
+    workbook.write_bytes(b"PK\x03\x04 not really a zip")
+    before = workbook.read_bytes()
+
+    assert build_common.workbook_lock_holder(workbook) is None
+    assert workbook.read_bytes() == before
+
+
+def test_lock_holder_reports_a_denied_write_open(tmp_path, monkeypatch) -> None:
+    """A workbook Excel holds denies the write open; that is the lock signal."""
+    workbook = tmp_path / "Lambda_Library.xlsx"
+    workbook.write_bytes(b"stub")
+    monkeypatch.setattr(
+        Path, "open", _deny_write_open(workbook), raising=True
+    )
+
+    assert build_common.workbook_lock_holder(workbook) == "locked by another process"
+
+
+def test_lock_holder_attributes_the_lock_to_the_owner_file(
+    tmp_path, monkeypatch
+) -> None:
+    """Excel's ~$ sidecar names the owner; the warning should say who."""
+    workbook = tmp_path / "Lambda_Library.xlsx"
+    workbook.write_bytes(b"stub")
+    _write_owner_file(workbook, "Steve C")
+    monkeypatch.setattr(Path, "open", _deny_write_open(workbook), raising=True)
+
+    holder = build_common.workbook_lock_holder(workbook)
+
+    assert holder == f"{LOCK_HINT} (owner: Steve C)"
+
+
+def test_lock_holder_falls_back_when_the_owner_file_is_unreadable(
+    tmp_path, monkeypatch
+) -> None:
+    """A garbled sidecar must degrade to the plain message, never raise.
+
+    The ~$ format is undocumented and varies across Excel versions, so the
+    attribution is a nicety the probe cannot be allowed to fail on.
+    """
+    workbook = tmp_path / "Lambda_Library.xlsx"
+    workbook.write_bytes(b"stub")
+    # Declares a 40-character name and then supplies two bytes of it.
+    workbook.with_name(f"~${workbook.name}").write_bytes(b"\x28\xff")
+    monkeypatch.setattr(Path, "open", _deny_write_open(workbook), raising=True)
+
+    assert build_common.workbook_lock_holder(workbook) == LOCK_HINT
+
+
+# ---------------------------------------------------------------------------
+# warn_if_workbook_open — the pre-flight warning
+# ---------------------------------------------------------------------------
+
+
+def test_warn_returns_silently_when_the_workbook_is_free(capsys) -> None:
+    build_common.warn_if_workbook_open(
+        Path("Lambda_Library.xlsx"),
+        action_label="Lambda_Library.xlsx is open in Excel",
+        probe=lambda _: None,
+    )
+
+    assert capsys.readouterr().err == ""
+
+
+def test_warn_off_a_tty_warns_once_and_does_not_raise(capsys, monkeypatch) -> None:
+    """A false positive must not abort an agentic build.
+
+    The probe is a heuristic — a network share or an antivirus scanner can deny
+    the write open on a workbook nobody has open — so off a TTY this warns and
+    lets the build proceed to the reactive path, leaving non-interactive exit
+    codes exactly as they were.
+    """
+    monkeypatch.setattr(build_common.sys.stdin, "isatty", lambda: False)
+
+    build_common.warn_if_workbook_open(
+        Path("Lambda_Library.xlsx"),
+        action_label="Lambda_Library.xlsx is open in Excel",
+        probe=lambda _: LOCK_HINT,
+    )
+
+    err = capsys.readouterr().err
+    assert err.count("Warning:") == 1
+    assert LOCK_HINT in err
+
+
+def test_warn_on_a_tty_prompts_until_the_workbook_is_free(
+    capsys, monkeypatch
+) -> None:
+    """The prompt re-probes after each Enter and returns once the lock clears."""
+    monkeypatch.setattr(build_common.sys.stdin, "isatty", lambda: True)
+    prompts: list[str] = []
+    monkeypatch.setattr("builtins.input", lambda prompt: prompts.append(prompt))
+    probes = iter([f"{LOCK_HINT} (owner: Steve C)", LOCK_HINT, None])
+
+    build_common.warn_if_workbook_open(
+        Path("Lambda_Library.xlsx"),
+        action_label="Lambda_Library.xlsx is open in Excel",
+        probe=lambda _: next(probes),
+    )
+
+    assert len(prompts) == 2
+    assert "close it in Excel" in prompts[0]
+    assert "owner: Steve C" in capsys.readouterr().err

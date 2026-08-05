@@ -50,7 +50,7 @@ class LoadCatalogDocumentValidDocumentTests(unittest.TestCase):
             yields="number",
             description="Returns x plus one.",
             plain_language_summary="Adds one.",
-            test_table="MLR_Scalar_Test",
+            test_table="Dummy_Test",
             number_format="0.000",
         )
         doc = load_catalog_document(Path(), payload=_payload(fn))
@@ -60,7 +60,7 @@ class LoadCatalogDocumentValidDocumentTests(unittest.TestCase):
         self.assertEqual(cf.yields, "number")
         self.assertEqual(cf.description, "Returns x plus one.")
         self.assertEqual(cf.plain_language_summary, "Adds one.")
-        self.assertEqual(cf.test_table, "MLR_Scalar_Test")
+        self.assertEqual(cf.test_table, "Dummy_Test")
         self.assertEqual(cf.number_format, "0.000")
 
     def test_number_format_defaults_to_general(self) -> None:
@@ -213,9 +213,9 @@ class LoadCatalogDocumentMissingRequiredFieldTests(unittest.TestCase):
 
 class LoadCatalogDocumentTestTableValidationTests(unittest.TestCase):
     def test_valid_test_table_accepted(self) -> None:
-        fn = _minimal_function(test_table="MLR_Scalar_Test")
+        fn = _minimal_function(test_table="Dummy_Test")
         doc = load_catalog_document(Path(), payload=_payload(fn))
-        self.assertEqual(doc.functions[0].test_table, "MLR_Scalar_Test")
+        self.assertEqual(doc.functions[0].test_table, "Dummy_Test")
 
     def test_invalid_test_table_too_long_rejected(self) -> None:
         with self.assertRaises(ValueError):

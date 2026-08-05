@@ -119,15 +119,15 @@ def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> No
         )
 
 
-def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
+def test_build_qc_keeps_mlr_names_only_for_legacy_stale_sheet_deletion() -> None:
     mlr_names = {
         "MLR_Scalar_Test",
         "MLR_Vector_Outputs_Test",
         "MLR_Observation_Test",
     }
-    assert mlr_names <= set(build_qc._QC_SHEET_NAMES)
+    assert mlr_names <= set(build_qc._LEGACY_QC_SHEET_NAMES)
+    assert mlr_names.isdisjoint(build_qc._QC_SHEET_NAMES)
     assert mlr_names.isdisjoint(build_qc._VERIFY_CALC_SHEET_NAMES)
-
 
 def test_build_qc_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
     assert "Dummy_Test" in build_qc._verification_calc_sheet_names(skip_dummy=False)

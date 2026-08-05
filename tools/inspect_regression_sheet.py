@@ -46,7 +46,7 @@ from lambda_catalog.write_sheet_regression import REGRESSION_SHEET_NAME
 DATA_SHEET_NAME = MILEAGE.sheet_name
 DATA_TABLE_NAME = MILEAGE.table_name
 
-# ── Tolerance (shared with inspect_test_sheets.py) ───────────────────────────
+# ── Tolerance ───────────────────────────
 _D = 3
 TOLERANCE_DECIMALS = _D * 2  # 6
 

@@ -2,7 +2,7 @@
   "functions": [
     {
       "name": "Observations",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    ROWS(FILTER(Y, filt_arg))\n  ))",
       "arguments": [
@@ -23,7 +23,7 @@
     },
     {
       "name": "Regression_Degrees_Of_Freedom",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0",
       "formula_display": "=LAMBDA(X, [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    COLUMNS(X) - N(has_arg)\n  ))",
       "arguments": [
@@ -44,7 +44,7 @@
     },
     {
       "name": "Total_Degrees_Of_Freedom",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    n,        Observations(Y, filt_arg),\n    n - N(has_arg)\n  ))",
       "arguments": [
@@ -70,7 +70,7 @@
     },
     {
       "name": "R_Squared",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    1 - SS_Residual(X, Y, filt_arg) / SS_Total(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
@@ -100,7 +100,7 @@
     },
     {
       "name": "Residual_Degrees_Of_Freedom",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Observations(Y, filt_arg) - COLUMNS(X) - absorbed_arg\n  ))",
       "arguments": [
@@ -130,7 +130,7 @@
     },
     {
       "name": "Multiple_R",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SQRT(R_Squared(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
@@ -160,7 +160,7 @@
     },
     {
       "name": "Adjusted_R_Squared",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    1 - (1 - R_Squared(X, Y, filt_arg, context_arg))\n      * Total_Degrees_Of_Freedom(Y, filt_arg, context_arg)\n      / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
@@ -190,7 +190,7 @@
     },
     {
       "name": "SS_Total",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    y_filt,   FILTER(Y, filt_arg),\n    IF(NOT(has_arg),\n      SUMSQ(y_filt),\n      LET(\n        c, FILTER(CHOOSECOLS(X, 1), filt_arg),\n        SUMSQ(y_filt) - SUMPRODUCT(c, y_filt) ^ 2 / SUMSQ(c)\n      )\n    )\n  ))",
       "arguments": [
@@ -220,7 +220,7 @@
     },
     {
       "name": "SS_Residual",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    INDEX(LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, TRUE), 5, 2)\n  ))",
       "arguments": [
@@ -245,7 +245,7 @@
     },
     {
       "name": "SS_Regression",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg, IF(ISOMITTED(Include),       TRUE, Include),\n    SS_Total(X, Y, filt_arg, context_arg) - SS_Residual(X, Y, filt_arg)\n  ))",
       "arguments": [
@@ -335,7 +335,7 @@
     },
     {
       "name": "SE_Regression",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SQRT(SS_Residual(X, Y, filt_arg) / Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
@@ -365,7 +365,7 @@
     },
     {
       "name": "PRESS",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    SUMSQ(LOOCV_Residual(X, Y, filt_arg))\n  ))",
       "arguments": [
@@ -390,7 +390,7 @@
     },
     {
       "name": "AIC",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + 2 * p\n  ))",
       "arguments": [
@@ -420,7 +420,7 @@
     },
     {
       "name": "BIC",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    n * LN(ssr / n) + p * LN(n)\n  ))",
       "arguments": [
@@ -450,7 +450,7 @@
     },
     {
       "name": "AICc",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    n,   Observations(Y, filt_arg),\n    ssr, SS_Residual(X, Y, filt_arg),\n    p,   COLUMNS(X) + absorbed_arg,\n    aic, n * LN(ssr / n) + 2 * p,\n    aic + 2 * p * (p + 1) / (n - p - 1)\n  ))",
       "arguments": [
@@ -480,7 +480,7 @@
     },
     {
       "name": "Durbin_Watson",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    e,        Residuals(X, Y, filt_arg),\n    SUM((DROP(e, 1) - DROP(e, -1))^2) / SUM(e^2)\n  ))",
       "arguments": [
@@ -572,7 +572,7 @@
     },
     {
       "name": "QQ_Correlation",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    sr, Scaled_Residuals_Ranked(X, Y, filt_arg, context_arg),\n    n,  ROWS(sr),\n    ns, NORM.S.INV((SEQUENCE(n) - 0.5) / n),\n    CORREL(sr, ns)\n  ))",
       "arguments": [
@@ -602,7 +602,7 @@
     },
     {
       "name": "Coefficients",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    ls,       LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, FALSE),\n    k,        COLUMNS(X),\n    TRANSPOSE(CHOOSECOLS(ls, SEQUENCE(1, k, k, -1)))\n  ))",
       "arguments": [
@@ -627,7 +627,7 @@
     },
     {
       "name": "SE_Coefficients",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    ls,       LINEST(FILTER(Y, filt_arg), FILTER(X, filt_arg), FALSE, TRUE),\n    ses,      INDEX(ls, 2),\n    k,        COLUMNS(X),\n    naive_df, Residual_Degrees_Of_Freedom(X, Y, filt_arg),\n    true_df,  naive_df - absorbed_arg,\n    scale,    SQRT(naive_df / true_df),\n    TRANSPOSE(CHOOSECOLS(ses, SEQUENCE(1, k, k, -1))) * scale\n  ))",
       "arguments": [
@@ -657,7 +657,7 @@
     },
     {
       "name": "T_Statistics",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg) / SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
@@ -687,7 +687,7 @@
     },
     {
       "name": "P_Values",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.00E+00",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    T.DIST.2T(ABS(T_Statistics(X, Y, filt_arg, context_arg)), Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
@@ -717,7 +717,7 @@
     },
     {
       "name": "Confidence_Interval_Lower",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg)\n      - T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n        * SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
@@ -752,7 +752,7 @@
     },
     {
       "name": "Confidence_Interval_Upper",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Alpha], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    alpha_arg,    IF(ISOMITTED(Alpha),       0.05, Alpha),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Coefficients(X, Y, filt_arg)\n      + T.INV.2T(alpha_arg, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg))\n        * SE_Coefficients(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
@@ -787,7 +787,7 @@
     },
     {
       "name": "Partial_R_Squared",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    t,  T_Statistics(X, Y, filt_arg, context_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t^2 / (t^2 + df)\n  ))",
       "arguments": [
@@ -817,7 +817,7 @@
     },
     {
       "name": "Partial_Correlation",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    t,  T_Statistics(X, Y, filt_arg, context_arg),\n    df, Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg),\n    t / SQRT(t^2 + df)\n  ))",
       "arguments": [
@@ -847,7 +847,7 @@
     },
     {
       "name": "Beta_Weights",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,   IF(ISOMITTED(Include),       TRUE, Include),\n    coefs,      Coefficients(X, Y, filt_arg),\n    preds,      IF(has_arg, DROP(X, , 1), X),\n    pred_coefs, IF(has_arg, DROP(coefs, 1), coefs),\n    sd_y,       STDEV(FILTER(Y, filt_arg)),\n    k,          COLUMNS(preds),\n    sd_x,       MAKEARRAY(k, 1, LAMBDA(j, _, STDEV(FILTER(CHOOSECOLS(preds, j), filt_arg)))),\n    pred_coefs * sd_x / sd_y\n  ))",
       "arguments": [
@@ -877,7 +877,7 @@
     },
     {
       "name": "VIF",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    k,        COLUMNS(Predictors),\n    IF(k = 1,\n      1,\n      LET(\n        col_idx, SEQUENCE(1, k),\n        ones,    SEQUENCE(ROWS(Predictors), 1, 1, 0),\n        R2_vec,  MAKEARRAY(k, 1, LAMBDA(j, _,\n          R_Squared(\n            HSTACK(ones, CHOOSECOLS(Predictors, FILTER(col_idx, col_idx <> j))),\n            CHOOSECOLS(Predictors, j),\n            TRUE,\n            filt_arg\n          )\n        )),\n        1 / (1 - R2_vec)\n      )\n    )\n  ))",
       "arguments": [
@@ -898,7 +898,7 @@
     },
     {
       "name": "Tolerance",
-      "test_table": "MLR_Vector_Outputs_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(Predictors, [Include],\n  1 / VIF(Predictors, Include)\n)",
       "arguments": [
@@ -1053,7 +1053,7 @@
     },
     {
       "name": "Observation_Number",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0",
       "formula_display": "=LAMBDA(Y, [Include],\n  SEQUENCE(ROWS(FILTER(Y, IF(ISOMITTED(Include), TRUE, Include))))\n)",
       "arguments": [
@@ -1074,7 +1074,7 @@
     },
     {
       "name": "Rank_Fraction",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.0000",
       "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)),\n    n,        ROWS(filtered),\n    BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered <= v) * 1))) / n\n  ))",
       "arguments": [
@@ -1095,7 +1095,7 @@
     },
     {
       "name": "Y_Ranked",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(Y, [Include],\n  SORT(FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)))\n)",
       "arguments": [
@@ -1137,7 +1137,7 @@
     },
     {
       "name": "Normal_Scores",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)),\n    n,        ROWS(filtered),\n    NORM.S.INV(\n      (BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered < v) * 1))) + 0.5) / n\n    )\n  ))",
       "arguments": [
@@ -1158,7 +1158,7 @@
     },
     {
       "name": "Design_Matrix",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    FILTER(X, filt_arg)\n  ))",
       "arguments": [
@@ -1193,7 +1193,7 @@
     },
     {
       "name": "Predictions",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    MMULT(\n      Design_Matrix(X, filt_arg),\n      Coefficients(X, Y, filt_arg)\n    )\n  ))",
       "arguments": [
@@ -1218,7 +1218,7 @@
     },
     {
       "name": "Residuals",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    FILTER(Y, filt_arg) - Predictions(X, Y, filt_arg)\n  ))",
       "arguments": [
@@ -1243,7 +1243,7 @@
     },
     {
       "name": "Scaled_Residuals",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    Residuals(X, Y, filt_arg)\n      / SE_Regression(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
@@ -1388,7 +1388,7 @@
     },
     {
       "name": "Hat_Diagonal",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, [Include],\n  LET(\n    filt_arg, IF(ISOMITTED(Include), TRUE, Include),\n    X_design, Design_Matrix(X, filt_arg),\n    p,        COLUMNS(X_design),\n    XtX_inv,  Gram_Inverse(X_design),\n    Z,        MMULT(X_design, XtX_inv),\n    MMULT(Z * X_design, SEQUENCE(p, 1, 1, 0))\n  ))",
       "arguments": [
@@ -1409,7 +1409,7 @@
     },
     {
       "name": "Studentized_Residuals",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    e,  Residuals(X, Y, filt_arg),\n    se, SE_Regression(X, Y, filt_arg, context_arg),\n    h,  Hat_Diagonal(X, filt_arg),\n    IFERROR(e / (se * SQRT(1 - h)), NA())\n  ))",
       "arguments": [
@@ -1439,7 +1439,7 @@
     },
     {
       "name": "Studentized_Residuals_Ranked",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SORT(Studentized_Residuals(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
@@ -1469,7 +1469,7 @@
     },
     {
       "name": "Cooks_Distance",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    r, Studentized_Residuals(X, Y, filt_arg, context_arg),\n    h, Hat_Diagonal(X, filt_arg),\n    p, COLUMNS(Design_Matrix(X, filt_arg)),\n    r ^ 2 * h / ((1 - h) * p)\n  ))",
       "arguments": [
@@ -1499,7 +1499,7 @@
     },
     {
       "name": "Scaled_Residuals_Ranked",
-      "test_table": "MLR_Observation_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    filt_arg,     IF(ISOMITTED(Include),     TRUE, Include),\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    SORT(Scaled_Residuals(X, Y, filt_arg, context_arg))\n  ))",
       "arguments": [
@@ -1674,7 +1674,7 @@
     },
     {
       "name": "F_Statistic",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    MS_Regression(X, Y, filt_arg, context_arg) / MS_Residual(X, Y, filt_arg, context_arg)\n  ))",
       "arguments": [
@@ -1704,7 +1704,7 @@
     },
     {
       "name": "F_Statistic_P_Value",
-      "test_table": "MLR_Scalar_Test",
+      "test_table": null,
       "number_format": "0.0000",
       "formula_display": "=LAMBDA(X, Y, [Include], [Context],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    has_arg,      Context_Has_Intercept(context_arg),\n    filt_arg,     IF(ISOMITTED(Include),       TRUE, Include),\n    absorbed_arg, Context_DF_Absorbed(context_arg),\n    F.DIST.RT(\n      F_Statistic(X, Y, filt_arg, context_arg),\n      Regression_Degrees_Of_Freedom(X, context_arg),\n      Residual_Degrees_Of_Freedom(X, Y, filt_arg, context_arg)\n    )\n  ))",
       "arguments": [

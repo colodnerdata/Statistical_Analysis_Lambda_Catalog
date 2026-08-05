@@ -332,7 +332,7 @@ only the sheet writers produce.
 uv run python scripts/build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all thirteen sheets (the eight Regression-production sheets above, plus the **Univariate** sheet, plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes the eight Regression-production sheets above, the **Univariate** sheet, and `Dummy_Test`, updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass. The retired `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, and `MLR_Observation_Test` sheets are not rebuilt; build scripts only delete those names from carried-forward workbooks as legacy cleanup.
 
 The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 
@@ -383,7 +383,7 @@ This is a fast screen. A green run does **not** mean the workbook calculates cor
 
 ### Layer 2 — spec-driven deep check
 
-Reuses `build_qc.verify_test_sheets` against the production sheets. Same machinery the QC build runs against `MLR_*_Test` and `Dummy_Test`, gated off the `Dummy_Test` block via `skip_dummy=True` because production workbooks do not contain a `Dummy_Test` sheet. This is the source of truth for cell-level correctness.
+Reuses `build_qc.verify_test_sheets` against the production sheets. Same machinery the QC build runs against the Regression/Univariate production sheets and `Dummy_Test`, gated off the `Dummy_Test` block via `skip_dummy=True` because production workbooks do not contain a `Dummy_Test` sheet. This is the source of truth for cell-level correctness.
 
 ```powershell
 # Run the Regression production build, recalculate, then verify against the
@@ -493,12 +493,8 @@ lambda_catalog/
   write_sheet_version_history.py
   write_sheet_regression.py
   write_sheet_model_construction.py
-  write_sheet_mlr_scalar_test.py
-  write_sheet_mlr_vector_outputs_test.py
-  write_sheet_mlr_observation_test.py
   write_sheet_dummy_test.py
 tools/
-  inspect_test_sheets.py     # scalar/vector/observation test sheet comparison (used by build_qc.py)
   inspect_regression_sheet.py # Regression sheet QC comparison (used by build_qc.py)
   inspect_univariate_sheet.py # Univariate sheet QC comparison (used by build_qc.py)
   inspect_xlsx.py            # workbook inspection utility
@@ -567,19 +563,17 @@ Neither is built. They are recorded here as a scoped follow-up rather than as a 
 
 ## Adding a new LAMBDA function
 
-1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `test_table` and `number_format`.
-2. If the function is scalar, set `"test_table": "MLR_Scalar_Test"` and add its expected value to `analyze_life_expectancy.py` → `RegressionSummary` / `calculate_regression_summary`.
-3. If the function returns a vector, set `"test_table": "MLR_Vector_Outputs_Test"` and add expected values to `RegressionVectors` / `calculate_regression_vectors`.
-4. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py`.
-5. Update the relevant `write_sheet_mlr_*.py` to include a Calc column for the new function.
-6. Run `python scripts/build_qc.py` and confirm no WARNING lines appear.
+1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, `number_format` if needed, and `"test_table": null`. The old `MLR_*_Test` sheet-routing path is retired and should not be used for new functions.
+2. Add or update the appropriate Python oracle for the active analysis surface (for Regression, the spec-driven oracle and case registry described above).
+3. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` when cached oracle shapes or values change.
+4. Run `python scripts/build_qc.py` and confirm no WARNING lines appear.
 
-**Argument names are load-bearing in the QC harness.** The three
-`write_sheet_mlr_*.py` writers render their formulas from each function's
-*declared* argument names via `make_test_sheet.build_call`, not from a
-hard-coded positional list, so a signature change reaches the harness
-automatically and a dropped argument raises instead of silently shifting every
-argument after it. Two names carry meaning the harness acts on:
+**Argument names are load-bearing in the QC harness.** Active sheet writers and
+verification helpers render formulas from each function's *declared* argument
+names via shared formula-building helpers where possible, not from a hard-coded
+positional list, so a signature change reaches tests automatically and a
+dropped argument raises instead of silently shifting every argument after it. Two
+names carry meaning in Regression-oriented calls:
 
 | Argument name | Resolves to |
 |---|---|

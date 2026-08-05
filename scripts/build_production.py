@@ -58,8 +58,8 @@ from lambda_catalog.write_sheet_version_history import write_version_history_she
 from lambda_catalog.sheet_styles import SUBHDR_COLOR
 
 
-ROOT_DIR = Path(__file__).resolve().parent
-DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library.xlsx"
+ROOT_DIR = Path(__file__).resolve().parent.parent
+DEFAULT_WORKBOOK_PATH = ROOT_DIR / "dist" / "Lambda_Library.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 _QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")

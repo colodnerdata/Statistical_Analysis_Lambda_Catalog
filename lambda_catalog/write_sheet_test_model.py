@@ -13,8 +13,8 @@ verifier's job collapses to reading — no writing, no per-case
 recalculation, no state to leak.
 
 Nothing here reimplements the Regression sheet. It calls
-``write_regression_output_sheet`` with a per-case sheet name, charts off and
-a per-sheet spec-table name, then pushes the case's spec through the same
+``write_regression_output_sheet`` with a per-case sheet name and charts off,
+then pushes the case's spec through the same
 ``regression_spec_sheet_io`` helpers the legacy verifier uses. If the two
 ever disagreed about what a case is, the test-model sheets would be
 verifying something other than what the QC harness fits.
@@ -91,13 +91,15 @@ assert not _PROVENANCE_CELLS & _MODEL_FORMULA_CELLS, (
     "Provenance would overwrite the Model Formula readout"
 )
 
-# Source_Table ref -> SPEC_DATASET_PROFILES key. The profile decides how many
-# rows the spec table gets, and a table sized for Auto MPG's 12 columns would
-# silently drop the last 11 rows of a 23-column Life Expectancy spec — the
-# structured references simply would not reach them. Deriving the profile
-# from the case's own Source_Table retarget is what keeps the two in sync;
-# they are independent parameters of the writer by design (see its docstring)
-# and something has to pair them.
+# Source_Table ref -> SPEC_DATASET_PROFILES key. The profile supplies the
+# spec block's shipped DEFAULTS; the block's height follows
+# COLUMNS(Source_Data) on its own. Auto MPG's defaults on a 23-column Life
+# Expectancy table would leave the last 11 rows blank — a legal spec, but not
+# the model the case means to fit, so it fails as wrong NUMBERS rather than
+# as an error. Deriving the profile from the case's own Source_Table retarget
+# is what keeps the two in sync; they are independent parameters of the
+# writer by design (see its docstring) and something has to pair them.
+# `shell_profile_key` is the one deliberate exception — see _write_shell.
 _PROFILE_BY_SOURCE_TABLE = {
     profile.source_table_ref: key
     for key, profile in SPEC_DATASET_PROFILES.items()
@@ -108,16 +110,16 @@ def profile_key_for(source_table_ref: str) -> str:
     """Return the SPEC_DATASET_PROFILES key a case's Source_Table implies.
 
     Raises rather than defaulting to Auto MPG: a case pointed at a dataset
-    with no registered profile would get a spec table sized for the wrong
-    column count, which fails as wrong NUMBERS rather than as an error.
+    with no registered profile would get another dataset's defaults, which
+    fails as wrong NUMBERS rather than as an error.
     """
     try:
         return _PROFILE_BY_SOURCE_TABLE[source_table_ref]
     except KeyError:
         raise ValueError(
             f"No SPEC_DATASET_PROFILES entry targets {source_table_ref!r}. "
-            "A test-model case needs one so its spec table is sized to the "
-            "dataset's column count; add the profile in "
+            "A test-model case needs one for its spec-block defaults; "
+            "add the profile in "
             "write_sheet_model_construction.py."
         ) from None
 

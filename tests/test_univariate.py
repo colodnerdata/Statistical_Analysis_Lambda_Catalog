@@ -362,9 +362,18 @@ class GoFTests(unittest.TestCase):
         sd = float(np.std(data, ddof=1))
         cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
         ad = gof_anderson_darling(data, cdf)
-        scipy_ad = scipy_stats.anderson(data,
-                                         dist="norm",
-                                         method="interpolate").statistic
+        # `method` silences the SciPy 1.17 FutureWarning about defaulting the
+        # p-value calculation, but it only exists from SciPy 1.16 on — and
+        # 1.16 requires Python >= 3.11, so the 3.10 CI job resolves 1.15.x and
+        # raises TypeError on the keyword. It never affects `.statistic`
+        # (it selects how the p-value is computed, which this test does not
+        # read), so both branches assert exactly the same number.
+        try:
+            scipy_ad = scipy_stats.anderson(
+                data, dist="norm", method="interpolate"
+            ).statistic
+        except TypeError:
+            scipy_ad = scipy_stats.anderson(data, dist="norm").statistic
         self.assertAlmostEqual(ad, scipy_ad, places=6)
 
     def test_ad_bounded_support_no_crash(self) -> None:

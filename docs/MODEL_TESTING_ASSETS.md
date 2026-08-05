@@ -93,15 +93,15 @@ ordered from the simplest validation failure to the highest structural complexit
 | G05 | Fixed Effects row + Intercept `TRUE` | red intercept-toggle advisory for a demeaned design | `guard_fixed_effects_with_intercept` |
 | G06 | Intercept `FALSE` + included categorical | red intercept-toggle advisory; model still fits elsewhere as M06 | `guard_intercept_off_with_categorical` |
 | G07 | `Transform = Log` on a Categorical predictor | red transform cell; dummies encode without silently applying `Ln` | `guard_log_on_categorical` |
-| G09 | Interaction Term names a non-Predictor row | red operand cell; row contributes main effect only | `guard_interaction_bad_operand` |
-| G10 | reciprocal `Product` declarations | red symmetric-operation flags on both rows | `guard_reciprocal_product` |
-| G11 | interaction operand has `Include = FALSE` | amber marginality warning; columns still build | `guard_excluded_operand` |
-| G12 | unrecognized Interaction Operation pasted past validation | visible `" ? "` header and `NA()` design column | `guard_unknown_interaction_operation` |
-| L06 | `Ln(Schooling)` where Schooling contains true zeros | zero rows stay in the mask and `Ln_Positive` propagates `#N/A` | `guard_ln_zero_propagation` |
-| L07 | Life Expectancy width soft warning (k = 205) | M2 WARNING and visible engine degradation instead of plausible wrong numbers | `guard_width_guard_warning` |
-| L10 | spec block built narrow then retargeted wider | `Spec_*` bands/input fill resize to the wider `Source_Table` | `guard_spec_block_retarget_widens` |
-| M16 | typed Sequence Period override on Auto MPG | Period In Use follows typed Δ = 2 and verdict re-evaluates against it | `guard_sequence_period_override` |
-| P07 | irregular Production Lots panel spacing | gapped facilities under typed Δ = 1 produce the yellow Regularity verdict | `guard_irregular_panel_spacing` |
+| G08 | Interaction Term names a non-Predictor row | red operand cell; row contributes main effect only | `guard_interaction_bad_operand` |
+| G09 | reciprocal `Product` declarations | red symmetric-operation flags on both rows | `guard_reciprocal_product` |
+| G10 | interaction operand has `Include = FALSE` | amber marginality warning; columns still build | `guard_excluded_operand` |
+| G11 | unrecognized Interaction Operation pasted past validation | visible `" ? "` header and `NA()` design column | `guard_unknown_interaction_operation` |
+| G12 | `Ln(Schooling)` where Schooling contains true zeros | zero rows stay in the mask and `Ln_Positive` propagates `#N/A` | `guard_ln_zero_propagation` |
+| G13 | Life Expectancy width soft warning (k = 205) | M2 WARNING and visible engine degradation instead of plausible wrong numbers | `guard_width_guard_warning` |
+| G14 | spec block built narrow then retargeted wider | `Spec_*` bands/input fill resize to the wider `Source_Table` | `guard_spec_block_retarget_widens` |
+| G15 | typed Sequence Period override on Auto MPG | Period In Use follows typed Δ = 2 and verdict re-evaluates against it | `guard_sequence_period_override` |
+| G16 | irregular Production Lots panel spacing | gapped facilities under typed Δ = 1 produce the yellow Regularity verdict | `guard_irregular_panel_spacing` |
 
 **Auto MPG carries no Sequence axis.** The dataset is cross-sectional: every fittable Auto MPG
 case leaves `Sequence` blank. Only the guard mechanics cases (`guard_two_sequence_flags` and
@@ -174,14 +174,14 @@ is gated on sheet-build cost; M33 is gated on the statsmodels-vs-Excel
 floating-point floor at fdd = 5/6 that both implementations agree on (it
 lives here as a deliberate showcase for the floor, not as a defect). Their
 Python oracles always run in the unit suite — only the sheet build is gated.
-L07 was the third candidate until the live run showed the workbook cannot
+G13 was the third candidate until the live run showed the workbook cannot
 fit a 205-column design at all — it is a guard state now, and guard sheets
 are cheap.
 
 ```
 python scripts/build_test_models.py                        # 48 sheets (31 non-heavy models + 17 guards)
 python scripts/build_test_models.py --include-heavy        # 50, adding M33 and M32
-python scripts/build_test_models.py --cases M26,G10        # just those two
+python scripts/build_test_models.py --cases M26,G09        # just those two
 python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 poe verify-test-models                             # the same, verbose
 ```

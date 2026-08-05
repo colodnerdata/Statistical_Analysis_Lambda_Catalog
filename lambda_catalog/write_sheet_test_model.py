@@ -322,7 +322,7 @@ def write_guard_state_sheet(
     input to prefill (several of these specs have no fittable model at all),
     the spec is written directly rather than through a
     ``RegressionSpecExpected``, and typed Sequence Period overrides are
-    applied — spec column I is an input, and it is the mechanism M16 and P07
+    applied — spec column I is an input, and it is the mechanism G15 and G16
     exist to exercise.
     """
     case = expected.case

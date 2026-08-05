@@ -234,7 +234,7 @@ def apply_sequence_period_overrides(
 
     Column I is an INPUT: a typed number there replaces the Period In Use
     cell's ``Base_Period_Delta_Candidate()`` formula, which is the whole
-    mechanism M16 and P07 exist to test. Rows with no override are left
+    mechanism G15 and G16 exist to test. Rows with no override are left
     alone so their J cell keeps computing the candidate.
     """
     for offset, variable in enumerate(spec):

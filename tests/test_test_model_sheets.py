@@ -160,7 +160,7 @@ def test_heavy_is_exactly_the_two_gated_fittable_cases() -> None:
       with a loosened tolerance would paper over the floor; gating it
       preserves the case as a deliberate showcase for the floor that ships.
 
-    L07 was the third candidate until the live run showed the workbook
+    G13 was the third candidate until the live run showed the workbook
     cannot fit a 205-column design at all — it is a guard state now, and
     guard sheets are cheap.
     """
@@ -521,9 +521,9 @@ def test_default_build_excludes_heavy_cases_and_include_heavy_adds_them() -> Non
 def test_case_filter_matches_plan_id_or_case_name_and_overrides_heavy() -> None:
     build_test_models = _load_build_test_models()
 
-    models, guards = build_test_models._selected_cases({"M26", "G10"}, False)
+    models, guards = build_test_models._selected_cases({"M26", "G09"}, False)
     assert [case.plan_id for case in models] == ["M26"]
-    assert [case.plan_id for case in guards] == ["G10"]
+    assert [case.plan_id for case in guards] == ["G09"]
 
     # By case name, and a heavy case named explicitly is built anyway.
     models, _ = build_test_models._selected_cases(
@@ -557,7 +557,7 @@ def test_run_log_path_names_the_file_after_the_script_and_its_flags() -> None:
     )
     # Values attached to a flag are not part of the name — otherwise a path
     # would end up embedded in a filename.
-    assert run_log_path(root, "build_test_models.py", ["--cases", "M26,G10"]) == (
+    assert run_log_path(root, "build_test_models.py", ["--cases", "M26,G09"]) == (
         root / RUN_LOG_DIR_NAME / "build_test_models cases.log"
     )
 

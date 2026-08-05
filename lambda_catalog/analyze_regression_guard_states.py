@@ -24,10 +24,10 @@ must fix) and ``"amber"`` (advisory — flagged and allowed).
 Three cases here are not from § 1.4 at all, and are guard states for a
 reason worth recording:
 
-* **L06** (``Ln`` of a column with true zeros) is listed in § 1.2 as a
+* **G12** (``Ln`` of a column with true zeros) is listed in § 1.2 as a
   fittable model whose zero rows "drop out of the mask". They do not — see
   ``_LN_ZERO_GUARD_NOTE`` below.
-* **M16** (typed Sequence Period override) and **P07** (irregular panel
+* **G15** (typed Sequence Period override) and **G16** (irregular panel
   spacing) fit exactly the models M01 and M30 already fit. Everything they
   actually test is in the spec block's status cells, so registering them as
   fittable cases would add two duplicate fits and buy nothing.
@@ -97,7 +97,7 @@ EMPTY_MODEL = "(empty model)"
 SEVERITY_RED = "red"
 SEVERITY_AMBER = "amber"
 
-_LN_ZERO_GUARD_NOTE = """L06's plan entry does not describe what the sheet does.
+_LN_ZERO_GUARD_NOTE = """G12's plan entry does not describe what the sheet does.
 
 docs/MODEL_TESTING_ASSETS.md § 1.2 says a Log transform on a column with
 true zeros makes the row "drop out of the mask, not a silent 0". It does
@@ -150,7 +150,7 @@ class GuardStateCase:
     # Typed Sequence Period overrides (spec column I), variable name -> Δ.
     # Column I is an INPUT: typing a number there replaces the Period In Use
     # cell's Base_Period_Delta_Candidate() formula, which is the whole point
-    # of M16 and P07. Empty for every other case.
+    # of G15 and G16. Empty for every other case.
     sequence_period_override: dict[str, float] = field(default_factory=dict)
     # Which dataset's profile pre-fills the spec block, when that is NOT the
     # dataset source_table_ref points at. None (every case but one) means
@@ -630,7 +630,7 @@ def _mileage_spec(**overrides: SpecVariable) -> list[SpecVariable]:
 
 
 def _irregular_panel_spacing_spec() -> list[SpecVariable]:
-    """P07's spec: the learning-curve model with Facility as the Identifier.
+    """G16's spec: the learning-curve model with Facility as the Identifier.
 
     M30's shipped spec cannot exercise the spacing layer at all, and the
     reason is worth stating because it is easy to get backwards.
@@ -665,11 +665,11 @@ def _irregular_panel_spacing_spec() -> list[SpecVariable]:
 def build_guard_state_cases() -> list[GuardStateCase]:
     """Return every guard-rail configuration, in plan order.
 
-    G13 (the hard width error, k > 16384 minus the design-matrix origin) is
+    G17 (the hard width error, k > 16384 minus the design-matrix origin) is
     deliberately absent: § 1.4 documents it as conceptual only. Reaching it
     needs a categorical with ~16000 levels, which is not buildable at any
     reasonable size, and the soft warning it shares a formula with is
-    covered for real by L07.
+    covered for real by G13.
     """
     cases = [
         GuardStateCase(
@@ -792,8 +792,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
         ),
         GuardStateCase(
             name="guard_interaction_bad_operand",
-            plan_id="G09",
-            sheet_name="G09 Interaction Bad Operand",
+            plan_id="G08",
+            sheet_name="G08 Interaction Bad Operand",
             spec=tuple(
                 _mileage_spec(
                     weight=_spec_var(
@@ -809,8 +809,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
         ),
         GuardStateCase(
             name="guard_reciprocal_product",
-            plan_id="G10",
-            sheet_name="G10 Symmetric Product Pair",
+            plan_id="G09",
+            sheet_name="G09 Symmetric Product Pair",
             spec=tuple(
                 _mileage_spec(
                     horsepower=_spec_var(
@@ -827,13 +827,13 @@ def build_guard_state_cases() -> list[GuardStateCase]:
             ),
             covers="Reciprocal Product declaration (A x B and B x A): red N "
             "on both rows — a duplicate column and a singular Gram matrix. "
-            "The legal counterpart is M11, where Ratio makes the pair "
+            "The legal counterpart is M28, where Ratio makes the pair "
             "genuinely distinct.",
         ),
         GuardStateCase(
             name="guard_excluded_operand",
-            plan_id="G11",
-            sheet_name="G11 Excluded Operand",
+            plan_id="G10",
+            sheet_name="G10 Excluded Operand",
             spec=tuple(
                 _mileage_spec(
                     weight=_spec_var(
@@ -852,8 +852,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
         ),
         GuardStateCase(
             name="guard_unknown_interaction_operation",
-            plan_id="G12",
-            sheet_name="G12 Unknown Interaction Op",
+            plan_id="G11",
+            sheet_name="G11 Unknown Interaction Op",
             spec=tuple(
                 _mileage_spec(
                     weight=_spec_var(
@@ -872,8 +872,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
         ),
         GuardStateCase(
             name="guard_ln_zero_propagation",
-            plan_id="L06",
-            sheet_name="L06 Ln Zero Guard",
+            plan_id="G12",
+            sheet_name="G12 Ln Zero Guard",
             spec=tuple(
                 _life_spec(
                     response=_spec_var("Life expectancy", _ROLE_RESPONSE),
@@ -896,8 +896,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
         ),
         GuardStateCase(
             name="guard_width_guard_warning",
-            plan_id="L07",
-            sheet_name="L07 Width Guard Warning",
+            plan_id="G13",
+            sheet_name="G13 Width Guard Warning",
             spec=tuple(_life_country_width_guard_spec()),
             source_csv_path=LIFE_EXPECTANCY_CSV_PATH,
             row_loader=load_life_expectancy_source_rows,
@@ -909,8 +909,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
         ),
         GuardStateCase(
             name="guard_spec_block_retarget_widens",
-            plan_id="L10",
-            sheet_name="L10 Retarget Widens Spec",
+            plan_id="G14",
+            sheet_name="G14 Retarget Widens Spec",
             # An ordinary two-predictor Life Expectancy model. The MODEL is
             # not the point — a correct fit is. The corner is the SHEET it
             # is fitted on: built with the Auto MPG profile (12 columns) and
@@ -944,8 +944,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
         ),
         GuardStateCase(
             name="guard_sequence_period_override",
-            plan_id="M16",
-            sheet_name="M16 Sequence Period Override",
+            plan_id="G15",
+            sheet_name="G15 Sequence Period Override",
             # Model Year is Sequence-flagged HERE and nowhere else on Auto
             # MPG. The dataset is cross-sectional, so the flag is not a
             # claim about the data — it is the minimum wiring needed to
@@ -970,8 +970,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
         ),
         GuardStateCase(
             name="guard_irregular_panel_spacing",
-            plan_id="P07",
-            sheet_name="P07 Irregular Panel Spacing",
+            plan_id="G16",
+            sheet_name="G16 Irregular Panel Spacing",
             spec=tuple(_irregular_panel_spacing_spec()),
             source_csv_path=PRODUCTION_LOTS_CSV_PATH,
             row_loader=load_production_lots_source_rows,

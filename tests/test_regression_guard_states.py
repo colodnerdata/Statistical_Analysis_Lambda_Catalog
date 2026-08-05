@@ -181,13 +181,13 @@ def test_two_sequence_flags_still_computes_spacings_from_the_first_row() -> None
 
 
 def test_only_the_two_mechanics_cases_flag_sequence_on_auto_mpg() -> None:
-    """G03 and M16 are the whole list, and both declare the flag explicitly.
+    """G03 and G15 are the whole list, and both declare the flag explicitly.
 
     Auto MPG has no ordering axis (see the companion assertion in
     tests/test_regression_spec_qc.py), so nothing inherits a Sequence flag
     there any more. Two guard cases still wire one up, and neither is making
     a claim about the data: G03 tests the H2 cardinality rule, which counts
-    flags, and M16 tests the typed-period override, which reads the flagged
+    flags, and G15 tests the typed-period override, which reads the flagged
     row positionally. Both are dataset-independent mechanisms that need a
     flag present to be reachable at all.
 
@@ -323,7 +323,7 @@ def test_ln_zero_guard_does_not_narrow_the_sample() -> None:
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_typed_sequence_period_overrides_the_candidate_and_moves_the_verdict() -> None:
     expected = _expected("guard_sequence_period_override")
-    # The baseline is M16's own case with the typed override removed, built
+    # The baseline is G15's own case with the typed override removed, built
     # here rather than borrowed from another registered case. No other Auto
     # MPG case declares a Sequence flag at all — the dataset is
     # cross-sectional, so only the case that tests the override machinery
@@ -377,7 +377,7 @@ def test_design_columns_audit_is_blank_on_non_predictor_rows() -> None:
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
-def test_only_l07_trips_the_width_guard() -> None:
+def test_only_g13_trips_the_width_guard() -> None:
     """Exactly one case reaches the 200-column threshold, and it is the one
     that exists for it. Any other case tripping the guard would mean a spec
     grew a design matrix nobody intended."""
@@ -386,12 +386,12 @@ def test_only_l07_trips_the_width_guard() -> None:
         for case in build_guard_state_cases()
         if calculate_guard_state_case(case).width_guard_status
     }
-    assert tripping == {"L07"}
+    assert tripping == {"G13"}
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_width_guard_case_crosses_the_threshold_and_degrades_visibly() -> None:
-    """L07. The soft guard warns at 200 design columns, and this is the only
+    """G13. The soft guard warns at 200 design columns, and this is the only
     case that reaches it.
 
     It is a GUARD state rather than a fittable model because of what the
@@ -418,7 +418,7 @@ def test_width_guard_case_crosses_the_threshold_and_degrades_visibly() -> None:
 
 
 def test_retarget_case_puts_its_evidence_past_the_narrow_shells_last_row() -> None:
-    """L10. The spec block is built for Auto MPG (12 columns) and retargeted
+    """G14. The spec block is built for Auto MPG (12 columns) and retargeted
     to Life Expectancy (23), which is what a user does by editing
     Source_Table in the Name Manager.
 

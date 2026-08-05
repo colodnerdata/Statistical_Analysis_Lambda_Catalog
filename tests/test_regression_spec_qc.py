@@ -370,7 +370,7 @@ def test_baseline_t0_design_matches_current_constructor_semantics() -> None:
     # T0 spec flags nothing and the serial-correlation layer stays inert.
     # The Sequence machinery is covered on the datasets that have a real
     # ordering axis (Production Lots' Fiscal_Year, Life Expectancy's Year)
-    # and, for the flag mechanics themselves, by guard cases G03 and M16.
+    # and, for the flag mechanics themselves, by guard cases G03 and G16.
     assert design.sequence_values is None
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")

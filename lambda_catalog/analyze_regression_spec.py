@@ -79,8 +79,8 @@ class RegressionSpecCase:
     spec: tuple[SpecVariable, ...]
     allow_intercept: bool
     # The row this case implements in docs/MODEL_TESTING_ASSETS.md § 1
-    # ("M05", "L07", "M31"; a trailing lowercase letter marks the second
-    # half of an ±intercept twin, e.g. "M04"). Carried on the case so the
+    # ("M05", "M31"; a trailing lowercase variant letter would mark
+    # the second half of an ±intercept twin). Carried on the case so the
     # workbook sheet, the plan document, and the failure message all name
     # the same thing.
     plan_id: str = ""
@@ -89,10 +89,10 @@ class RegressionSpecCase:
     # charset, unique, and naming the CONCEPT under test rather than the
     # variables. Validated at registry-build time, not at Excel-write time.
     sheet_name: str = ""
-    # Cases whose sheets are expensive enough to be opt-in: L07 (k ~ 201
-    # dummy columns) and M32 (193 Fixed Effects groups), both over 2938
-    # rows. The Python oracle always runs — it is cheap; only the sheet
-    # build is gated, behind build_test_models.py --include-heavy.
+    # Cases whose sheets are expensive enough to be opt-in: M32 (173
+    # Fixed Effects groups over 2909 rows) and M33 (numeric stress). The
+    # Python oracle always runs — it is cheap; only the sheet build is gated,
+    # behind build_test_models.py --include-heavy.
     heavy: bool = False
     alpha: float = 0.05
     extra_columns: tuple[ExtraSpecColumn, ...] = ()
@@ -1006,7 +1006,7 @@ def _life_country_width_guard_spec() -> list[SpecVariable]:
     M2 status reads WARNING, the design-column total is 205, and the engine
     degrades visibly instead of returning a plausible wrong number. A
     numeric oracle for a model the sheet cannot compute would be comparing
-    against nothing, which is the same reasoning that put M16, P07 and L06
+    against nothing, which is the same reasoning that put G15, G16 and G12
     in the guard registry.
 
     **Why C(Year) is here and the plan does not mention it.** The plan

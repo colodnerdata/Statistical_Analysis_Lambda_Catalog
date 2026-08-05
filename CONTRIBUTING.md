@@ -423,8 +423,6 @@ sample_data/
   auto_mpg_data.csv          # Auto MPG dataset (second sample dataset, "Mileage Data" sheet)
   production_lots.csv        # Learning-curve panel (third sample dataset, "Production Lots" sheet) —
                               # the only shipped dataset with a natural Fixed Effects grouping column
-  auto_mpg_data.xlsx         # retired source file for auto_mpg_data.csv; kept for reference, unused by writers
-  production_lots.xlsx       # retired source file for production_lots.csv; kept for reference, unused by writers
 templates/
   static_sheets.xlsx         # pre-built copies of dataset-independent reference sheets
                               # (Regression Instructions, Diagnostic Guide) — see

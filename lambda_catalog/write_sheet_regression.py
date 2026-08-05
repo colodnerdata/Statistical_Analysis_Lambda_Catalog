@@ -506,12 +506,14 @@ _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 #   charts | gutter | Model Context | gutter | Sample_Include | gutter | matrix →
 #           (label + value, 4 rows)       (n x 1)            (n x k, unbounded)
 #
-# The Model Context zone is two columns (labels then values) and Sample_Include
-# is one; both ship EXPANDED. The terminal Constructed Design Matrix ships
-# COLLAPSED, because an unbounded-width zone that cannot be collapsed is a
-# scrolling hazard. Gutters are width-2 ungrouped separators so each zone
-# collapses independently — the first gutter (after the charts) is structural,
-# keeping the floating chart anchors out of every collapsible outline group.
+# The three §4b content zones ship COLLAPSED. Model Context (a bounded
+# two-column label/value pair) and Sample_Include (a bounded single column) are
+# collapsed for the same reason as the terminal Constructed Design Matrix: the
+# whole far-right materialization band is secondary reading surface, so it
+# should open with the main analysis zones visible and expand on demand.
+# Gutters are width-2 ungrouped separators so each zone collapses independently
+# — the first gutter (after the charts) is structural, keeping the floating
+# chart anchors out of every collapsible outline group.
 #
 # The chart footprint needs an explicit bound. _C_BB is the chart ANCHOR, not
 # its extent: the seven diagnostic charts are floating objects tiled in a
@@ -691,21 +693,19 @@ _ROW_MODEL_CONTEXT_CHECK = _MODEL_CONTEXT_LAST_ROW + 1
 
 _MODEL_CONTEXT_LABEL_WIDTH = 20.0
 _MODEL_CONTEXT_VALUE_WIDTH = 14.0
+_SAMPLE_INCLUDE_MATERIALIZED_WIDTH = 14.0
+_DESIGN_MATRIX_GROUPED_WIDTH = 12.0
+_CONSTRUCTED_DESIGN_MATRIX_LABEL_WIDTH = 24.0
+_MODEL_FORMULA_LABEL_WIDTH = 14.0
 
 # ── The Model Formula readout ─────────────────────────────────────────────────
 # The assembled "<response> ~ 1 + <predictors> [| <FE>]" string — a LABEL for
 # the model, and the v3.4 Model Comparison sheet's per-row caption
 # (Comparison_Model_Formula points here).
 #
-# It used to sit at AB2, at the head of the Regression Outputs zone, where it
-# was both the most prominent cell in that zone and — because row 2 wraps and
-# then AutoFits — the cell that set the height of the sheet's entire header
-# row: one long formula string in a 12-wide column is a dozen wrapped lines
-# pushing every zone's data down the screen.
-#
-# It now sits on ROW 1 of the terminal Constructed Design Matrix zone, right of
-# that zone's own heading: header two columns right of it, the readout three
-# columns right of the header. Row 1 is the one row in this zone that no
+# Sits on ROW 1 of the terminal Constructed Design Matrix zone, right of
+# that zone's own heading: header two columns right of it, the readout one
+# column right of the header. Row 1 is the one row in this zone that no
 # amount of design matrix can reach — the names spill on
 # _MATERIALIZATION_HEADER_ROW and the values on _MATERIALIZATION_SPILL_ROW, and
 # both grow RIGHTWARD from there, never up — so this placement does not breach
@@ -715,14 +715,14 @@ _MODEL_CONTEXT_VALUE_WIDTH = 14.0
 # Which is the point of putting it here: with WrapText OFF and nothing else on
 # row 1 to its right, the string overflows across as many empty columns as it
 # needs. The three-column gap between header and readout is what keeps the
-# header itself readable — "Model Formula" is wider than one 12-wide
+# header itself readable — "Model Formula" is in a fixed 14 point width column
 # design-matrix column, so the readout starting immediately beside it would
 # clip the header instead.
 #
 # Both columns derive from _C_DESIGN_MATRIX, so the caption tracks the zone.
 _ROW_MODEL_FORMULA = 1
 _C_MODEL_FORMULA_LABEL = _C_DESIGN_MATRIX + 2
-_C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 3
+_C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 1
 
 # ── The design-matrix width guard ─────────────────────────────────────────────
 # Two thresholds, both computed PRE-FLIGHT from the spec block's Design
@@ -2582,8 +2582,9 @@ def _write_materialization_zone(
     # The zone that terminates the band. Its width is unbounded and one
     # dropdown away — Country as a Categorical Predictor is 156 columns, and
     # interactions multiply — which is why nothing may ever be placed to its
-    # right, and why it ships COLLAPSED while the two bounded zones ship
-    # expanded: an unbounded-width zone that cannot be collapsed is a
+    # right. All three §4b content zones ship collapsed so the materialization
+    # band stays out of the way until explicitly expanded; this terminal zone
+    # especially needs that because an unbounded-width zone left open is a
     # scrolling hazard.
     #
     # Establishing the zone and MATERIALIZING into it were deliberately
@@ -2662,11 +2663,10 @@ def _write_materialization_zone(
     assert _MATERIALIZATION_FIRST_ROW == 2
 
     # ── Column widths + outline groups ───────────────────────────────────────
-    # The two bounded zones ship EXPANDED (per §4b); the terminal design-matrix
-    # zone ships COLLAPSED. The width-2 gutters stay ungrouped so the zones
-    # collapse independently, and the first gutter (after the charts) is
-    # structural — it keeps the floating chart anchors out of every collapsible
-    # outline group.
+    # All three §4b content zones ship collapsed. The width-2 gutters stay
+    # ungrouped so the zones collapse independently, and the first gutter
+    # (after the charts) is structural — it keeps the floating chart anchors
+    # out of every collapsible outline group.
     for gutter in (
         _C_GUTTER_AFTER_CHARTS,
         _C_GUTTER_AFTER_CONTEXT,
@@ -2676,7 +2676,7 @@ def _write_materialization_zone(
     for content, width in (
         (_C_MODEL_CONTEXT_LABEL, _MODEL_CONTEXT_LABEL_WIDTH),
         (_C_MODEL_CONTEXT, _MODEL_CONTEXT_VALUE_WIDTH),
-        (_C_SAMPLE_INCLUDE_MATERIALIZED, 14),
+        (_C_SAMPLE_INCLUDE_MATERIALIZED, _SAMPLE_INCLUDE_MATERIALIZED_WIDTH),
     ):
         sheet.range(f"{col_letter(content)}:{col_letter(content)}").column_width = width
     # One outline group per ZONE, not per column: the Model Context zone is the
@@ -2686,13 +2686,18 @@ def _write_materialization_zone(
         (_C_MODEL_CONTEXT_LABEL, _C_MODEL_CONTEXT),
         (_C_SAMPLE_INCLUDE_MATERIALIZED, _C_SAMPLE_INCLUDE_MATERIALIZED),
     ):
-        sheet.api.Columns(f"{col_letter(first)}:{col_letter(last)}").Group()
+        band = f"{col_letter(first)}:{col_letter(last)}"
+        sheet.api.Columns(band).Group()
+        try:
+            sheet.api.Columns(band).ShowDetail = False
+        except Exception:  # pylint: disable=broad-except
+            pass
 
     matrix_band = (
         f"{col_letter(_C_DESIGN_MATRIX)}:"
         f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
     )
-    sheet.range(matrix_band).column_width = 12
+    sheet.range(matrix_band).column_width = _DESIGN_MATRIX_GROUPED_WIDTH
     sheet.api.Columns(matrix_band).Group()
     # Collapse it. ShowDetail is an ActiveWindow-free property on the range,
     # but it still needs a real outline underneath, so guard it the way every

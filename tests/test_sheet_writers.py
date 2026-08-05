@@ -63,6 +63,7 @@ from lambda_catalog.write_sheet_regression import (
     _GAP_COLUMNS,
     _ZONES,
     _DESIGN_MATRIX_GROUPED_COLUMNS,
+    _DESIGN_MATRIX_GROUPED_WIDTH,
     _DESIGN_MATRIX_INTERCEPT_HEADER,
     _DESIGN_MATRIX_MAX_COLUMNS,
     _DESIGN_MATRIX_SOFT_CELLS,
@@ -71,6 +72,7 @@ from lambda_catalog.write_sheet_regression import (
     _MATERIALIZATION_HEADER_ROW,
     _MATERIALIZATION_SPILL_ROW,
     _SAMPLE_INCLUDE_HEADER,
+    _SAMPLE_INCLUDE_MATERIALIZED_WIDTH,
     _C_GUTTER_AFTER_CHARTS,
     _C_GUTTER_AFTER_CONTEXT,
     _C_GUTTER_AFTER_SAMPLE_INCLUDE,
@@ -87,8 +89,10 @@ from lambda_catalog.write_sheet_regression import (
     _CHART_Y_TICK_FORMATS,
     _CHART_Y_TICK_FORMAT_DEFAULT,
     _MODEL_CONTEXT_ELEMENTS,
+    _MODEL_CONTEXT_LABEL_WIDTH,
     _MODEL_CONTEXT_LAST_ROW,
     _MODEL_CONTEXT_ROWS,
+    _MODEL_CONTEXT_VALUE_WIDTH,
     _ROW_MODEL_CONTEXT_CHECK,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
@@ -619,11 +623,11 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert _MODEL_CONTEXT_LAST_ROW >= _MATERIALIZATION_SPILL_ROW
 
 
-def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
-    # Collapse state differs by zone (§4b): the two bounded zones ship
-    # EXPANDED, the unbounded terminal zone ships COLLAPSED — a zone whose
-    # width is one dropdown away from hundreds of columns and cannot be
-    # collapsed is a scrolling hazard.
+def test_materialization_zones_ship_collapsed() -> None:
+    # All three §4b content zones ship collapsed so the materialization band
+    # stays out of the way until explicitly expanded. The terminal zone is the
+    # worst offender because its width is one dropdown away from hundreds of
+    # columns, but the two bounded zones are part of the same secondary band.
     #
     # One outline group per ZONE, not per column: Model Context is grouped as
     # the label/value pair so it collapses as a unit; grouping the value column
@@ -642,7 +646,12 @@ def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
         f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}",
         matrix_band,
     ]
-    assert sheet.column_show_detail == {matrix_band: False}
+    assert sheet.column_show_detail == {
+        f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT)}": False,
+        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}:"
+        f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}": False,
+        matrix_band: False,
+    }
     # The gutters stay OUT of every group, or the zones would fuse into one
     # outline and lose independent collapse.
     for gutter in (
@@ -652,6 +661,34 @@ def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
     ):
         letter = col_letter(gutter)
         assert not any(letter in band.split(":") for band in sheet.column_groups)
+
+
+def test_materialization_zone_widths_use_named_constants() -> None:
+    """§4b emitted widths stay aligned with the writer's width constants."""
+    sheet = RecordingSheet(name="Regression")
+
+    _write_materialization_zone(_as_xw_sheet(sheet), closures=())
+
+    assert (
+        sheet.range(f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT_LABEL)}").column_width
+        == _MODEL_CONTEXT_LABEL_WIDTH
+    )
+    assert (
+        sheet.range(f"{col_letter(_C_MODEL_CONTEXT)}:{col_letter(_C_MODEL_CONTEXT)}").column_width
+        == _MODEL_CONTEXT_VALUE_WIDTH
+    )
+    assert (
+        sheet.range(
+            f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}:{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}"
+        ).column_width
+        == _SAMPLE_INCLUDE_MATERIALIZED_WIDTH
+    )
+
+    matrix_band = (
+        f"{col_letter(_C_DESIGN_MATRIX)}:"
+        f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
+    )
+    assert sheet.range(matrix_band).column_width == _DESIGN_MATRIX_GROUPED_WIDTH
 
 
 def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:

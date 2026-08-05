@@ -19,6 +19,7 @@ from pathlib import Path
 
 import xlwings as xw
 
+from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
 from lambda_catalog.build_common import (
     RUN_LOG_DIR_NAME,
     RUN_LOG_FILE_SUFFIX,
@@ -32,23 +33,25 @@ from lambda_catalog.build_common import (
     warn_if_workbook_open,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
-from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
 from lambda_catalog.deep_verify import verify_test_sheets
+from lambda_catalog.sheet_styles import SUBHDR_COLOR
 from lambda_catalog.verify_report import (
     VerifyReport,
-    report_from_failures,
     render_human,
+    report_from_failures,
 )
 from lambda_catalog.workbook_builder import (
-    NameSyncResult,
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
+    NameSyncResult,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
     sync_workbook_names,
 )
-from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
-from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
+from lambda_catalog.workbook_helpers import (
+    OPEN_WORKBOOK_ERRORS,
+    raise_excel_access_error,
+)
 from lambda_catalog.write_sheet_csv_dataset import (
     LIFE_EXPECTANCY,
     MILEAGE,
@@ -57,12 +60,13 @@ from lambda_catalog.write_sheet_csv_dataset import (
     write_csv_dataset_sheet,
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
+from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
 from lambda_catalog.write_sheet_model_construction import SPEC_DATASET_PROFILES
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
-from lambda_catalog.write_sheet_regression_instructions import write_regression_instructions_sheet
+from lambda_catalog.write_sheet_regression_instructions import (
+    write_regression_instructions_sheet,
+)
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
-from lambda_catalog.sheet_styles import SUBHDR_COLOR
-
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "dist" / "Lambda_Library.xlsx"

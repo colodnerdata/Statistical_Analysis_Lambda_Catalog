@@ -34,11 +34,10 @@ Histogram bin counts
 from __future__ import annotations
 
 import math
-from typing import Sequence
+from collections.abc import Sequence
 
 import numpy as np
 from scipy import stats as scipy_stats
-
 
 # ── Internal helpers ──────────────────────────────────────────────────────────
 
@@ -96,7 +95,7 @@ def descriptive_stats(data: Sequence[object]) -> dict[str, float | int]:
                     skewness, kurtosis, count, missing_count
     """
     x = _clean(data)
-    n = int(len(x))
+    n = len(x)
     mc = missing_count(data)
 
     try:

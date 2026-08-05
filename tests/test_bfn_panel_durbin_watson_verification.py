@@ -38,13 +38,12 @@ or under pytest.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from typing import cast
-
 import csv
 import json
 import math
 import sys
+from pathlib import Path
+from typing import cast
 
 import numpy as np
 
@@ -386,7 +385,8 @@ def _diagnostic_cell_formulas() -> tuple[str, str]:
     """The shipped DW (AB11) and BFN (AB12) formulas, via the sheet writer."""
     # pylint: disable=import-outside-toplevel
     import xlwings as xw
-    from lambda_catalog.write_sheet_regression import _write_diagnostics, _C_AE
+
+    from lambda_catalog.write_sheet_regression import _C_AE, _write_diagnostics
     from tests.recording_sheet import RecordingSheet
 
     sheet = RecordingSheet(name="Regression")

@@ -1,21 +1,20 @@
 """Spec-driven expected values for the current Regression worksheet QC harness."""
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, replace
 from pathlib import Path
-import math
+
 import numpy as np
 
 from .analyze_life_expectancy import (
     DEFAULT_INPUT_CSV as LIFE_EXPECTANCY_CSV_PATH,
+)
+from .analyze_life_expectancy import (
     load_life_expectancy_source_rows,
 )
 from .analyze_mileage import DEFAULT_INPUT_CSV
-from .analyze_production_lots import (
-    DEFAULT_INPUT_CSV as PRODUCTION_LOTS_CSV_PATH,
-    load_production_lots_source_rows,
-)
 from .analyze_model_construction import (
     SpecVariable,
     _compute_mask,
@@ -29,17 +28,23 @@ from .analyze_model_construction import (
     load_source_rows,
     resolve_interaction_operand,
 )
+from .analyze_production_lots import (
+    DEFAULT_INPUT_CSV as PRODUCTION_LOTS_CSV_PATH,
+)
+from .analyze_production_lots import (
+    load_production_lots_source_rows,
+)
 from .analyze_regression_sheet import calculate_regression_results_from_matrix
 from .regression_shared import RegressionSheetResults
 from .test_model_sheets import assert_sheet_names_unique, validate_sheet_name
 from .write_sheet_model_construction import (
-    SPEC_DATASET_PROFILES,
     _ROLE_FILTER,
     _ROLE_FIXED_EFFECTS,
     _ROLE_IDENTIFIER,
     _ROLE_OMIT,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
+    SPEC_DATASET_PROFILES,
 )
 
 # The Mileage/Auto MPG continuous-measurement columns available as full
@@ -539,9 +544,7 @@ def _v1_full_continuous_spec() -> list[SpecVariable]:
     numeric_predictors = set(_MILEAGE_FEATURE_COLUMNS)
     spec = []
     for variable in build_default_spec():
-        if variable.name == "Car Name":
-            spec.append(_spec_var(variable.name, _ROLE_IDENTIFIER))
-        elif variable.name == "Model Year":
+        if variable.name == "Car Name" or variable.name == "Model Year":
             spec.append(_spec_var(variable.name, _ROLE_IDENTIFIER))
         elif variable.name == "Origin":
             spec.append(_spec_var(variable.name, _ROLE_OMIT))

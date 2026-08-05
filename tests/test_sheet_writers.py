@@ -19,10 +19,14 @@ from lambda_catalog.workbook_helpers import (
     add_expression_format,
     col_letter,
     excel_color,
-    note_dimensions as _note_dimensions,
     rc,
 )
+from lambda_catalog.workbook_helpers import (
+    note_dimensions as _note_dimensions,
+)
 from lambda_catalog.write_sheet_regression import (
+    _A_BACK_TRANSFORM_METHOD,
+    _BACK_TRANSFORM_METHODS,
     _C_AA,
     _C_AB,
     _C_AC,
@@ -43,32 +47,12 @@ from lambda_catalog.write_sheet_regression import (
     _C_AZ,
     _C_BA,
     _C_BB,
-    _A_BACK_TRANSFORM_METHOD,
+    _C_CHART_LABEL_NAME,
+    _C_CHART_TITLE,
+    _C_CHART_XLABEL,
+    _C_CHART_YLABEL,
     _C_DESIGN_MATRIX,
     _C_DESIGN_MATRIX_NAMES,
-    _C_SPEC_DESIGN_COLUMNS,
-    _C_SPEC_INTERACTION_OPERATION,
-    _C_SPEC_INTERACTION_TERM,
-    _C_SPEC_SEQUENCE_PERIOD,
-    _C_P,
-    _C_Q,
-    _C_S,
-    _C_X,
-    _C_Y,
-    _COLUMN_WIDTHS,
-    _GAP_COLUMNS,
-    _ZONES,
-    _DESIGN_MATRIX_GROUPED_COLUMNS,
-    _DESIGN_MATRIX_GROUPED_WIDTH,
-    _DESIGN_MATRIX_INTERCEPT_HEADER,
-    _DESIGN_MATRIX_MAX_COLUMNS,
-    _DESIGN_MATRIX_SOFT_CELLS,
-    _DESIGN_MATRIX_SOFT_COLUMNS,
-    _MATERIALIZATION_FIRST_ROW,
-    _MATERIALIZATION_HEADER_ROW,
-    _MATERIALIZATION_SPILL_ROW,
-    _SAMPLE_INCLUDE_HEADER,
-    _SAMPLE_INCLUDE_MATERIALIZED_WIDTH,
     _C_GUTTER_AFTER_CHARTS,
     _C_GUTTER_AFTER_CONTEXT,
     _C_GUTTER_AFTER_SAMPLE_INCLUDE,
@@ -76,37 +60,57 @@ from lambda_catalog.write_sheet_regression import (
     _C_MODEL_CONTEXT_LABEL,
     _C_MODEL_FORMULA,
     _C_MODEL_FORMULA_LABEL,
-    _ROW_MODEL_FORMULA,
+    _C_P,
+    _C_Q,
+    _C_S,
     _C_SAMPLE_INCLUDE_MATERIALIZED,
-    _C_CHART_LABEL_NAME,
-    _C_CHART_TITLE,
-    _C_CHART_XLABEL,
-    _C_CHART_YLABEL,
-    _CHART_Y_TICK_FORMATS,
+    _C_SPEC_DESIGN_COLUMNS,
+    _C_SPEC_INTERACTION_OPERATION,
+    _C_SPEC_INTERACTION_TERM,
+    _C_SPEC_SEQUENCE_PERIOD,
+    _C_X,
+    _C_Y,
     _CHART_Y_TICK_FORMAT_DEFAULT,
+    _CHART_Y_TICK_FORMATS,
+    _COLUMN_WIDTHS,
+    _DESIGN_MATRIX_GROUPED_COLUMNS,
+    _DESIGN_MATRIX_GROUPED_WIDTH,
+    _DESIGN_MATRIX_INTERCEPT_HEADER,
+    _DESIGN_MATRIX_MAX_COLUMNS,
+    _DESIGN_MATRIX_SOFT_CELLS,
+    _DESIGN_MATRIX_SOFT_COLUMNS,
+    _GAP_COLUMNS,
+    _MATERIALIZATION_FIRST_ROW,
+    _MATERIALIZATION_HEADER_ROW,
+    _MATERIALIZATION_SPILL_ROW,
     _MODEL_CONTEXT_ELEMENTS,
     _MODEL_CONTEXT_LABEL_WIDTH,
     _MODEL_CONTEXT_LAST_ROW,
     _MODEL_CONTEXT_ROWS,
     _MODEL_CONTEXT_VALUE_WIDTH,
-    _ROW_MODEL_CONTEXT_CHECK,
+    _NOTE_SIZE_OVERRIDES,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
-    _NOTE_SIZE_OVERRIDES,
     _ROW_CHART_LABELS,
+    _ROW_MODEL_CONTEXT_CHECK,
+    _ROW_MODEL_FORMULA,
+    _SAMPLE_INCLUDE_HEADER,
+    _SAMPLE_INCLUDE_MATERIALIZED_WIDTH,
+    _ZONES,
     _diagnostic_chart_specs,
-    _setup_local_names as _setup_regression_names,
     _write_chart_label_cells,
     _write_coefficients,
-    _write_diagnostics,
     _write_design_matrix_width_guard,
-    _write_prediction_interval,
+    _write_diagnostics,
+    _write_materialization_zone,
     _write_prediction_inputs,
+    _write_prediction_interval,
     _write_regression_outputs_header,
     _write_residuals,
-    _BACK_TRANSFORM_METHODS,
     _write_unit_space_block,
-    _write_materialization_zone,
+)
+from lambda_catalog.write_sheet_regression import (
+    _setup_local_names as _setup_regression_names,
 )
 from lambda_catalog.write_sheet_univariate import (
     _C_FIT_FIRST,
@@ -1397,8 +1401,10 @@ def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> No
 def test_histogram_chart_title_cells_reference_method_headers():
     """Chart title formula cells at G14/G34/G54 reference the correct method header columns."""
     from lambda_catalog.write_sheet_univariate import (
+        _ROW_CHART1_TITLE,
+        _ROW_CHART2_TITLE,
+        _ROW_CHART3_TITLE,
         _write_histogram_chart_title_cells,
-        _ROW_CHART1_TITLE, _ROW_CHART2_TITLE, _ROW_CHART3_TITLE,
     )
     sheet = RecordingSheet()
     _write_histogram_chart_title_cells(_as_xw_sheet(sheet))
@@ -1475,7 +1481,10 @@ def test_band_zones_are_derived_in_order_from_one_table() -> None:
     fit zones must stay last so a grid resize displaces nothing.
     """
     from lambda_catalog.write_sheet_univariate import (
-        _BAND_COL, _BAND_GAP_COLS, _BAND_LAST_COL, _BAND_ZONES,
+        _BAND_COL,
+        _BAND_GAP_COLS,
+        _BAND_LAST_COL,
+        _BAND_ZONES,
     )
 
     assert [name for name, _ in _BAND_ZONES] == ["qq", "weibull", "gamma", "beta"]
@@ -1532,7 +1541,11 @@ def test_profile_charts_anchor_one_clear_row_below_their_zone() -> None:
     row or leave a two-row gap.
     """
     from lambda_catalog.write_sheet_univariate import (
-        _BAND_COL, _N_PROFILE, _PS_R_BODY, _ROW_FIT_ZONE, _ROW_PROFILE_CHART,
+        _BAND_COL,
+        _N_PROFILE,
+        _PS_R_BODY,
+        _ROW_FIT_ZONE,
+        _ROW_PROFILE_CHART,
     )
 
     last_body_row = _ROW_FIT_ZONE + _PS_R_BODY + _N_PROFILE - 1

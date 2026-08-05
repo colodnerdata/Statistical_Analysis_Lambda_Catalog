@@ -28,7 +28,6 @@ from lambda_catalog.analyze_regression_sheet import (
     calculate_regression_sheet_results,
 )
 
-
 # ── Test data helpers ────────────────────────────────────────────────────────
 
 def _write_csv(path: Path, rows: list[dict]) -> None:

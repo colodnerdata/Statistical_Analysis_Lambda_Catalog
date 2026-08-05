@@ -9,14 +9,13 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
+from lambda_catalog import deep_verify
 from lambda_catalog.analyze_regression_spec import (
     RegressionSpecCase,
     build_regression_spec_cases,
     calculate_regression_spec_case,
 )
-from lambda_catalog import deep_verify
 from tests.script_loader import load_script_module
-
 
 # build_qc.py moved into ``scripts/`` in the Chunk 1 reorganization so it sits
 # alongside the other build scripts; the tests below access its module
@@ -1081,10 +1080,10 @@ def test_life_expectancy_country_levels_follow_excel_order() -> None:
     """End-to-end on the dataset that surfaced it: Country is the only wired
     column with a non-ASCII level, and its dummy block must be ordered the
     way the sheet's SORT orders it."""
-    from lambda_catalog.analyze_model_construction import level_sort_key
     from lambda_catalog.analyze_life_expectancy import (
         load_life_expectancy_source_rows,
     )
+    from lambda_catalog.analyze_model_construction import level_sort_key
 
     countries = sorted(
         {row["Country"] for row in load_life_expectancy_source_rows()},

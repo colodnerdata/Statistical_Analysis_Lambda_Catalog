@@ -3,9 +3,14 @@ from __future__ import annotations
 
 import xlwings as xw
 
-from .sheet_styles import HEADER_COLOR as _HEADER_COLOR, SUBHDR_COLOR as _SUBHDR_COLOR
-from .workbook_helpers import ColumnSpec, get_or_create_sheet, reset_generated_sheet, set_column_widths
-
+from .sheet_styles import HEADER_COLOR as _HEADER_COLOR
+from .sheet_styles import SUBHDR_COLOR as _SUBHDR_COLOR
+from .workbook_helpers import (
+    ColumnSpec,
+    get_or_create_sheet,
+    reset_generated_sheet,
+    set_column_widths,
+)
 
 SHEET_NAME = "Version History"
 _TABLE_HEADER_COLOR = _SUBHDR_COLOR

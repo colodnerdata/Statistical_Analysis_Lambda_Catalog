@@ -46,29 +46,34 @@ from lambda_catalog.build_common import (
 )
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.deep_verify import verify_test_sheets
+from lambda_catalog.sheet_styles import SUBHDR_COLOR
 from lambda_catalog.verify_report import (
     VerifyReport,
-    report_from_failures,
     render_human,
+    report_from_failures,
 )
 from lambda_catalog.workbook_builder import (
-    NameSyncResult,
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
+    NameSyncResult,
     _validate_workbook_reopen,
     sync_workbook_names,
 )
-from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
-from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
+from lambda_catalog.workbook_helpers import (
+    OPEN_WORKBOOK_ERRORS,
+    raise_excel_access_error,
+)
 from lambda_catalog.write_sheet_csv_dataset import (
     LIFE_EXPECTANCY,
     load_csv_rows,
     write_csv_dataset_sheet,
 )
-from lambda_catalog.write_sheet_univariate import UNIVARIATE_SHEET_NAME, write_univariate_sheet
+from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
+from lambda_catalog.write_sheet_univariate import (
+    UNIVARIATE_SHEET_NAME,
+    write_univariate_sheet,
+)
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
-from lambda_catalog.sheet_styles import SUBHDR_COLOR
-
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_UNIVARIATE_WORKBOOK_PATH = ROOT_DIR / "dist" / "Lambda_Library_Univariate.xlsx"

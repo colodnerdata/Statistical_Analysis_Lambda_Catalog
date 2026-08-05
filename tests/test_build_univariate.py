@@ -16,12 +16,12 @@ from types import SimpleNamespace
 
 import pytest
 
+from lambda_catalog.verify_report import VerifyReport
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
     NameSyncResult,
 )
-from lambda_catalog.verify_report import VerifyReport
 from tests.script_loader import load_script_module
 
 build_univariate = load_script_module("build_univariate")

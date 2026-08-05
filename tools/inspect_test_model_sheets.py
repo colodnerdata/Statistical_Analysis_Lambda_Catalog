@@ -48,11 +48,16 @@ from lambda_catalog.regression_spec_sheet_io import (
     read_model_formula,
     read_response_readout,
 )
-from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
+from lambda_catalog.workbook_helpers import (
+    OPEN_WORKBOOK_ERRORS,
+    raise_excel_access_error,
+)
 from lambda_catalog.write_sheet_model_construction import (
     _C_DESIGN_COLUMNS,
     _C_REFERENCE,
     _C_ROLE,
+)
+from lambda_catalog.write_sheet_model_construction import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
 )
 

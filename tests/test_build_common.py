@@ -11,12 +11,12 @@ without duplicating it.
 # pylint: disable=invalid-name,missing-function-docstring,protected-access
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable
 
 import pytest
 
-import lambda_catalog.build_common as build_common
+from lambda_catalog import build_common
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,

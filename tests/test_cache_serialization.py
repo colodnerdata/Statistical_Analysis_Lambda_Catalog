@@ -3,12 +3,12 @@ from __future__ import annotations
 
 import unittest
 
-from lambda_catalog.regression_shared import (
-    RegressionVectors,
-)
 from lambda_catalog.analysis_cache import (
     _deserialize_vector_configs,
     _serialize_vector_configs,
+)
+from lambda_catalog.regression_shared import (
+    RegressionVectors,
 )
 
 

@@ -40,6 +40,8 @@ from pathlib import Path
 
 from .analyze_life_expectancy import (
     DEFAULT_INPUT_CSV as LIFE_EXPECTANCY_CSV_PATH,
+)
+from .analyze_life_expectancy import (
     load_life_expectancy_source_rows,
 )
 from .analyze_model_construction import (
@@ -52,11 +54,13 @@ from .analyze_model_construction import (
     calculate_model_construction_expectations,
     load_source_rows,
 )
-from .analyze_regression_sheet import _build_model_formula
 from .analyze_production_lots import (
     DEFAULT_INPUT_CSV as PRODUCTION_LOTS_CSV_PATH,
+)
+from .analyze_production_lots import (
     load_production_lots_source_rows,
 )
+from .analyze_regression_sheet import _build_model_formula
 from .analyze_regression_spec import (
     ExtraSpecColumn,
     _life_country_width_guard_spec,
@@ -66,6 +70,8 @@ from .analyze_regression_spec import (
 from .test_model_sheets import assert_sheet_names_unique, validate_sheet_name
 from .write_sheet_model_construction import (
     _FIRST_DATA_ROW as SPEC_FIRST_DATA_ROW,
+)
+from .write_sheet_model_construction import (
     _MSG_CALENDAR,
     _MSG_NO_NATURAL,
     _MSG_OFF_GRID,

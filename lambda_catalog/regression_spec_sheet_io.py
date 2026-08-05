@@ -33,16 +33,38 @@ from .analyze_regression_spec import RegressionSpecExpected
 from .inspection_compare import compare_values, to_float_or_none
 from .write_sheet_model_construction import (
     _C_INCLUDE as _C_SPEC_INCLUDE,
+)
+from .write_sheet_model_construction import (
     _C_INTERACTION_OPERATION as _C_SPEC_INTERACTION_OPERATION,
+)
+from .write_sheet_model_construction import (
     _C_INTERACTION_TERM as _C_SPEC_INTERACTION_TERM,
+)
+from .write_sheet_model_construction import (
     _C_REFERENCE as _C_SPEC_REFERENCE,
+)
+from .write_sheet_model_construction import (
     _C_ROLE as _C_SPEC_ROLE,
+)
+from .write_sheet_model_construction import (
     _C_SEQUENCE as _C_SPEC_SEQUENCE,
+)
+from .write_sheet_model_construction import (
     _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
+)
+from .write_sheet_model_construction import (
     _C_TRANSFORM as _C_SPEC_TRANSFORM,
+)
+from .write_sheet_model_construction import (
     _C_TYPE as _C_SPEC_TYPE,
+)
+from .write_sheet_model_construction import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
+)
+from .write_sheet_model_construction import (
     _INTERCEPT_ROW,
+)
+from .write_sheet_model_construction import (
     _LAST_DATA_ROW as _SPEC_LAST_DATA_ROW,
 )
 from .write_sheet_regression import (
@@ -58,13 +80,13 @@ from .write_sheet_regression import (
     _C_AO,
     _C_AX,
     _C_MODEL_FORMULA,
-    _ROW_MODEL_FORMULA,
     _C_T,
     _C_U,
     _C_V,
     _C_W,
     _C_X,
     _C_Y,
+    _ROW_MODEL_FORMULA,
 )
 
 # ── Row positions (1-based) ──────────────────────────────────────────────

@@ -20,10 +20,9 @@ pytest.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import json
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -36,6 +35,7 @@ from tests.test_bfn_panel_durbin_watson_verification import (
     _lsdv_residuals,
     within_estimator_residuals,
 )
+
 # pylint: disable-next=wrong-import-position
 from tests.test_group_panel_transforms import demean_by_mirror
 

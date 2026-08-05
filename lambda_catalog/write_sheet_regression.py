@@ -89,63 +89,113 @@ from .sheet_styles import (
     CF_DARK_YELLOW_TEXT,
     CF_LIGHT_RED_FILL,
     CF_YELLOW_FILL,
+)
+from .sheet_styles import (
     HEADER_COLOR as _HEADER,
+)
+from .sheet_styles import (
     INPUT_COLOR as _INPUT,
 )
 from .workbook_helpers import (
-    MAX_EXCEL_ROW, a1, add_expression_format, anchor_comment_right_of_cell,
-    bold, bold_row, border_box, col_letter, drop_local_name, excel_color, f,
-    format_input, note_dimensions, rc, safe_activate, section_heading, val,
+    MAX_EXCEL_ROW,
+    a1,
+    add_expression_format,
+    anchor_comment_right_of_cell,
+    bold,
+    bold_row,
+    border_box,
+    col_letter,
+    drop_local_name,
+    excel_color,
+    f,
+    format_input,
+    note_dimensions,
+    rc,
+    safe_activate,
+    section_heading,
+    val,
 )
 from .write_sheet_model_construction import (
-    SPEC_DATASET_PROFILES,
-    SpecDatasetProfile,
+    _C_DESIGN_COLUMNS as _C_SPEC_DESIGN_COLUMNS,
+)
+from .write_sheet_model_construction import (
+    _C_INCLUDE as _C_SPEC_INCLUDE,
+)
+from .write_sheet_model_construction import (
+    _C_INTERACTION_OPERATION as _C_SPEC_INTERACTION_OPERATION,
+)
+from .write_sheet_model_construction import (
+    _C_INTERACTION_TERM as _C_SPEC_INTERACTION_TERM,
+)
+from .write_sheet_model_construction import (
+    _C_LABEL as _C_SPEC_LABEL,
+)
+from .write_sheet_model_construction import (
+    _C_LEVELS as _C_SPEC_LEVELS,
+)
+from .write_sheet_model_construction import (
+    _C_ORDER as _C_SPEC_ORDER,
+)
+from .write_sheet_model_construction import (
+    _C_PERIOD_IN_USE as _C_SPEC_PERIOD_IN_USE,
+)
+from .write_sheet_model_construction import (
+    _C_REF_IN_USE as _C_SPEC_REF_IN_USE,
+)
+from .write_sheet_model_construction import (
+    _C_REFERENCE as _C_SPEC_REFERENCE,
+)
+from .write_sheet_model_construction import (
+    _C_ROLE as _C_SPEC_ROLE,
+)
+from .write_sheet_model_construction import (
+    _C_SEQUENCE as _C_SPEC_SEQUENCE,
+)
+from .write_sheet_model_construction import (
+    _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
+)
+from .write_sheet_model_construction import (
+    _C_TRANSFORM as _C_SPEC_TRANSFORM,
+)
+from .write_sheet_model_construction import (
+    _C_TYPE as _C_SPEC_TYPE,
+)
+from .write_sheet_model_construction import (
+    _DESIGN_COLUMNS_NOTE,
+    _FIXED_EFFECTS_COUNT_FORMULA,
+    _FIXED_EFFECTS_NAME_FORMULA,
     _INCLUDE_NOTE,
+    _INTERACTION_OPERATION_NOTE,
+    _INTERACTION_TERM_NOTE,
     _LABEL_NOTE,
     _LEVELS_NOTE,
     _PERIOD_IN_USE_NOTE,
     _REF_IN_USE_NOTE,
     _REFERENCE_NOTE,
-    _ROLE_NOTE,
-    _SEQUENCE_PERIOD_NOTE,
-    _DESIGN_COLUMNS_NOTE,
-    _FIXED_EFFECTS_COUNT_FORMULA,
-    _FIXED_EFFECTS_NAME_FORMULA,
-    _INTERACTION_OPERATION_NOTE,
-    _INTERACTION_TERM_NOTE,
     _RESERVED_NOTE,
     _RESPONSE_LOG_FORMULA,
     _RESPONSE_NAME_FORMULA,
+    _ROLE_NOTE,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
     _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
+    _SEQUENCE_PERIOD_NOTE,
     _TRANSFORM_NOTE,
     _TYPE_NOTE,
-    _C_INCLUDE as _C_SPEC_INCLUDE,
-    _C_LABEL as _C_SPEC_LABEL,
-    _C_LEVELS as _C_SPEC_LEVELS,
-    _C_PERIOD_IN_USE as _C_SPEC_PERIOD_IN_USE,
-    _C_REFERENCE as _C_SPEC_REFERENCE,
-    _C_ROLE as _C_SPEC_ROLE,
-    _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
-    _C_DESIGN_COLUMNS as _C_SPEC_DESIGN_COLUMNS,
-    _C_INTERACTION_OPERATION as _C_SPEC_INTERACTION_OPERATION,
-    _C_INTERACTION_TERM as _C_SPEC_INTERACTION_TERM,
-    _C_ORDER as _C_SPEC_ORDER,
-    _C_REF_IN_USE as _C_SPEC_REF_IN_USE,
-    _C_SEQUENCE as _C_SPEC_SEQUENCE,
-    _C_SPEC_LAST,
-    _C_TRANSFORM as _C_SPEC_TRANSFORM,
-    _C_TYPE as _C_SPEC_TYPE,
-    _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
-    _HEADER_ROW as _SPEC_HEADER_ROW,
-    _set_sheet_scoped_names as _set_spec_scoped_names,
+    SPEC_DATASET_PROFILES,
+    SpecDatasetProfile,
     _set_spec_block_column_widths,
     _set_spec_block_optional_outline_group,
     _write_intercept_control,
     _write_spec_block,
     _write_spec_feedback,
+)
+from .write_sheet_model_construction import (
+    _HEADER_ROW as _SPEC_HEADER_ROW,
+)
+from .write_sheet_model_construction import (
+    _set_sheet_scoped_names as _set_spec_scoped_names,
 )
 
 # ── Conditional-formatting helpers ────────────────────────────────────────────

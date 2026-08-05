@@ -38,11 +38,10 @@ or under pytest.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import json
 import math
 import sys
+from pathlib import Path
 
 if __package__ in (None, ""):  # standalone run: make `tests.` importable
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -63,6 +62,7 @@ from tests.test_bfn_panel_durbin_watson_verification import (
     dw_cell_mirror,
     within_estimator_residuals,
 )
+
 # pylint: disable-next=wrong-import-position
 from tests.test_difference_by_verification import NA
 

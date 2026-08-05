@@ -19,7 +19,6 @@ from lambda_catalog.analyze_univariate import (
 from lambda_catalog.inspection_compare import compare_values, to_float_or_none
 from lambda_catalog.write_sheet_csv_dataset import LIFE_EXPECTANCY, load_csv_rows
 from lambda_catalog.write_sheet_univariate import (
-    UNIVARIATE_SHEET_NAME,
     _C_D,
     _C_E,
     _C_FD,
@@ -30,8 +29,8 @@ from lambda_catalog.write_sheet_univariate import (
     _ROW_HIST_START,
     _ROW_SECTION_HDR,
     _ROW_STATS_START,
+    UNIVARIATE_SHEET_NAME,
 )
-
 
 TOLERANCE_DECIMALS = 6
 _DATA_HEADER = "Life expectancy"

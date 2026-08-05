@@ -10,7 +10,6 @@ import xlwings as xw
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import sync_workbook_names
 
-
 ROOT_DIR = Path(__file__).resolve().parents[1]
 DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 

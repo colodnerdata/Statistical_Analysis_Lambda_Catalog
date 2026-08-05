@@ -49,15 +49,15 @@ from __future__ import annotations
 
 import os
 import posixpath
-import tempfile
 import re
+import tempfile
 import zipfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-import lxml.etree as etree  # type: ignore[import-untyped]
 import pytest
+from lxml import etree  # type: ignore[import-untyped]
 
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import drop_workbook_names
@@ -1268,8 +1268,13 @@ class TestShippedUnivariateLayout:
     ) -> None:
         from lambda_catalog.workbook_helpers import col_letter
         from lambda_catalog.write_sheet_univariate import (
-            _BAND_COL, _GS_R_BODY, _N_GRID, _N_PROFILE, _PS_BODY_COLS,
-            _PS_R_BODY, _ROW_FIT_ZONE,
+            _BAND_COL,
+            _GS_R_BODY,
+            _N_GRID,
+            _N_PROFILE,
+            _PS_BODY_COLS,
+            _PS_R_BODY,
+            _ROW_FIT_ZONE,
         )
 
         (s1_axis, s1_body), _ = _PS_BODY_COLS

@@ -1,7 +1,6 @@
 """Parse and translate LAMBDA formula display text into workbook.xml token syntax."""
 from __future__ import annotations
 
-
 XML_FUNCTION_PREFIXES = {
     # ── Excel 365 dynamic-array / meta-functions ─────────────────────────────
     "ANCHORARRAY": "_xlfn.ANCHORARRAY",

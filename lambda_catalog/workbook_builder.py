@@ -9,12 +9,13 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-import lxml.etree as etree  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
 import xlwings as xw
+from lxml import (
+    etree,  # type: ignore[import-untyped]  # pyright: ignore[reportMissingTypeStubs]
+)
 
 from lambda_catalog.catalog_schema import CatalogFunction
 from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, excel_error_message
-
 
 WORKBOOK_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
 _CT_NS = "http://schemas.openxmlformats.org/package/2006/content-types"
@@ -346,9 +347,7 @@ def sync_workbook_names(
                 elif item.filename == "xl/_rels/workbook.xml.rels":
                     rels_root = etree.fromstring(data)
                     for rel in rels_root.findall(f"{{{_RELS_NS}}}Relationship"):
-                        if rel.get("Type") == _CALC_CHAIN_REL_TYPE:
-                            rels_root.remove(rel)
-                        elif strip_external_links and rel.get("Type") == _EXTERNAL_LINK_REL_TYPE:
+                        if rel.get("Type") == _CALC_CHAIN_REL_TYPE or strip_external_links and rel.get("Type") == _EXTERNAL_LINK_REL_TYPE:
                             rels_root.remove(rel)
                     xml_body = str(etree.tostring(rels_root, encoding="unicode"))
                     data = (
@@ -360,9 +359,7 @@ def sync_workbook_names(
                     ct_root = etree.fromstring(data)
                     for override in ct_root.findall(f"{{{_CT_NS}}}Override"):
                         part_name = (override.get("PartName") or "").lower()
-                        if part_name == "/xl/calcchain.xml":
-                            ct_root.remove(override)
-                        elif strip_external_links and part_name.startswith(
+                        if part_name == "/xl/calcchain.xml" or strip_external_links and part_name.startswith(
                             f"/{_EXTERNAL_LINK_PART_PREFIX}".lower()
                         ):
                             ct_root.remove(override)

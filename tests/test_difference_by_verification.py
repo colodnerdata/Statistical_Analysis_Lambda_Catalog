@@ -27,12 +27,11 @@ or under pytest.
 """
 from __future__ import annotations
 
+import csv
+import json
 from collections import Counter
 from datetime import date
 from pathlib import Path
-
-import csv
-import json
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"

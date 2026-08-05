@@ -8,7 +8,6 @@ import xlwings as xw
 
 from .workbook_helpers import XL_SRC_RANGE, XL_YES
 
-
 # (header, formula_or_None, number_format)
 _ColumnSpec = tuple[str, str | None, str]
 

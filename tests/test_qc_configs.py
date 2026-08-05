@@ -10,12 +10,17 @@ formulas themselves.
 from __future__ import annotations
 
 import json
-import math
 import tempfile
 import unittest
 from pathlib import Path
 from typing import Any, ClassVar
 
+from lambda_catalog.analysis_cache import (
+    _CACHE_SCHEMA_VERSION,
+    _deserialize_regression_sheet_configs,
+    _serialize_regression_sheet_configs,
+    get_analysis_results,
+)
 from lambda_catalog.analyze_life_expectancy import (
     DEFAULT_INPUT_CSV,
 )
@@ -23,15 +28,6 @@ from lambda_catalog.analyze_regression_sheet import (
     REGRESSION_QC_CONFIGS,
     calculate_regression_sheet_results,
 )
-from lambda_catalog.analysis_cache import (
-    _CACHE_SCHEMA_VERSION,
-    _csv_fingerprint,
-    _deserialize_regression_sheet_configs,
-    _serialize_regression_sheet_configs,
-    get_analysis_results,
-)
-
-
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -219,7 +215,9 @@ class TestCacheRoundTrip(unittest.TestCase):
 
     @classmethod
     def setUpClass(cls) -> None:
-        from lambda_catalog.analyze_regression_sheet import build_regression_sheet_qc_configs
+        from lambda_catalog.analyze_regression_sheet import (
+            build_regression_sheet_qc_configs,
+        )
         cls.reg_configs = build_regression_sheet_qc_configs(_CSV)
 
     def test_regression_sheet_round_trip(self) -> None:

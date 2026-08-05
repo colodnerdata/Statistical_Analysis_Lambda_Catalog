@@ -9,7 +9,6 @@ from pathlib import Path
 
 from lambda_catalog.lambda_formula_parser import to_workbook_xml_formula_from_display
 
-
 _MAX_TEST_SHEET_NAME_LEN = 31
 _INVALID_WORKSHEET_NAME_CHARS = set("[]:*?/\\")
 _VALID_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")

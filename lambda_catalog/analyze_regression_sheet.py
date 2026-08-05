@@ -28,7 +28,6 @@ from .regression_shared import (
     RegressionVectors,
 )
 
-
 _SPARSE_PREDICTORS = [
     "Adult Mortality",
     "BMI",

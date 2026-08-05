@@ -11,14 +11,15 @@ from typing import TextIO
 
 import xlwings as xw
 
-from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH
+from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
 from lambda_catalog.build_common import print_name_sync_summary, warn_if_workbook_open
 from lambda_catalog.catalog_schema import load_catalog_document
+from lambda_catalog.deep_verify import _verbose_checkpoint, verify_test_sheets
 from lambda_catalog.workbook_builder import (
-    NameSyncResult,
     XL_CALCULATION_MANUAL,
     XL_CALCULATION_SEMIAUTOMATIC,
+    NameSyncResult,
     _delete_sheet_if_present,
     _validate_workbook_reopen,
     drop_workbook_names,
@@ -29,9 +30,6 @@ from lambda_catalog.workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
     raise_excel_access_error,
 )
-from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
-from lambda_catalog.write_sheet_dummy_test import write_dummy_test_sheet
-from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
 from lambda_catalog.write_sheet_csv_dataset import (
     LIFE_EXPECTANCY,
     MILEAGE,
@@ -39,14 +37,15 @@ from lambda_catalog.write_sheet_csv_dataset import (
     load_csv_rows,
     write_csv_dataset_sheet,
 )
+from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
+from lambda_catalog.write_sheet_dummy_test import write_dummy_test_sheet
+from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
     write_regression_instructions_sheet,
 )
 from lambda_catalog.write_sheet_univariate import write_univariate_sheet
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
-from lambda_catalog.deep_verify import _verbose_checkpoint, verify_test_sheets
-
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_QC.xlsx"

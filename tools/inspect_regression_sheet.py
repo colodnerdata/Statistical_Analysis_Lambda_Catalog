@@ -39,7 +39,10 @@ from lambda_catalog.regression_spec_sheet_io import (
     set_prediction_inputs,
 )
 from lambda_catalog.workbook_builder import XL_CALCULATION_MANUAL
-from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
+from lambda_catalog.workbook_helpers import (
+    OPEN_WORKBOOK_ERRORS,
+    raise_excel_access_error,
+)
 from lambda_catalog.write_sheet_csv_dataset import MILEAGE
 from lambda_catalog.write_sheet_regression import REGRESSION_SHEET_NAME
 

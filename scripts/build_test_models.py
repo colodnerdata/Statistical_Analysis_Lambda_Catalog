@@ -54,9 +54,9 @@ from lambda_catalog.build_common import (
 )
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
-    NameSyncResult,
     XL_CALCULATION_MANUAL,
     XL_CALCULATION_SEMIAUTOMATIC,
+    NameSyncResult,
     sync_workbook_names,
 )
 from lambda_catalog.workbook_helpers import (

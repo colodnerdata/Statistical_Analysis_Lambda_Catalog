@@ -25,8 +25,8 @@ from dataclasses import replace
 
 import xlwings as xw
 
-from .analyze_regression_guard_states import GuardStateExpected
 from .analyze_model_construction import SpecVariable
+from .analyze_regression_guard_states import GuardStateExpected
 from .analyze_regression_spec import RegressionSpecExpected
 from .catalog_schema import CatalogFunction
 from .regression_spec_sheet_io import (
@@ -35,7 +35,7 @@ from .regression_spec_sheet_io import (
     set_prediction_inputs,
 )
 from .workbook_helpers import bold, val
-from .write_sheet_model_construction import SPEC_DATASET_PROFILES, _ROLE_OMIT
+from .write_sheet_model_construction import _ROLE_OMIT, SPEC_DATASET_PROFILES
 from .write_sheet_regression import (
     _C_MODEL_CONTEXT,
     _C_MODEL_CONTEXT_LABEL,

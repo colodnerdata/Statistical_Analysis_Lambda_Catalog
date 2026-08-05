@@ -4,8 +4,8 @@ from __future__ import annotations
 import argparse
 import csv
 from math import sqrt
-from statistics import NormalDist
 from pathlib import Path
+from statistics import NormalDist
 
 import numpy as np
 import statsmodels.api as sm  # type: ignore[import-untyped]
@@ -13,7 +13,9 @@ from scipy import stats as _scipy_stats  # type: ignore[import-untyped]
 from statsmodels.regression.linear_model import (  # type: ignore[import-untyped]
     RegressionResultsWrapper,
 )
-from statsmodels.stats.stattools import durbin_watson as _durbin_watson  # type: ignore[import-untyped]
+from statsmodels.stats.stattools import (
+    durbin_watson as _durbin_watson,  # type: ignore[import-untyped]
+)
 
 from .regression_shared import (
     FEATURE_COLUMNS,

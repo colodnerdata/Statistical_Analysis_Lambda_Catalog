@@ -22,9 +22,9 @@ from typing import TextIO
 import xlwings as xw
 
 from lambda_catalog.workbook_builder import (
-    NameSyncResult,
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
+    NameSyncResult,
 )
 from lambda_catalog.workbook_helpers import (
     LOCK_HINT,

@@ -17,7 +17,6 @@ from .regression_shared import (
     RegressionVectors,
 )
 
-
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_CACHE_PATH = ROOT_DIR / ".analysis_cache.json"
 # Bump on any change to the analysis oracle so a stale .analysis_cache.json is

@@ -13,17 +13,21 @@ layer (see CLAUDE.md).
 """
 from __future__ import annotations
 
-from collections import Counter
 import importlib.util
 import time
+from collections import Counter
 from pathlib import Path
 
 import xlwings as xw
 
 from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
 from lambda_catalog.analyze_mileage import calculate_mileage_completeness_flags
-from lambda_catalog.analyze_production_lots import calculate_production_lots_completeness_flags
-from lambda_catalog.analyze_regression_spec_block import read_regression_spec_block_failures
+from lambda_catalog.analyze_production_lots import (
+    calculate_production_lots_completeness_flags,
+)
+from lambda_catalog.analyze_regression_spec_block import (
+    read_regression_spec_block_failures,
+)
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_MANUAL,
     XL_CALCULATION_SEMIAUTOMATIC,

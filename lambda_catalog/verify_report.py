@@ -16,7 +16,6 @@ from collections import Counter
 from dataclasses import asdict, dataclass, field
 from typing import Literal
 
-
 VerifyMode = Literal["headless", "spec"]
 
 

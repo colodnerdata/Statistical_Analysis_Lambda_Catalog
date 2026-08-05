@@ -18,10 +18,9 @@ under pytest.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import math
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -30,6 +29,7 @@ if __package__ in (None, ""):  # standalone run: make `tests.` importable
 
 # pylint: disable-next=wrong-import-position
 from lambda_catalog.analyze_model_construction import SpecVariable, build_default_spec
+
 # pylint: disable-next=wrong-import-position
 from lambda_catalog.analyze_regression_spec import (
     PRODUCTION_LOTS_CSV_PATH,

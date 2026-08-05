@@ -7,7 +7,7 @@ from typing import Any, cast
 
 
 class RecordingName:
-    def __init__(self, collection: "RecordingNames", name: str, refers_to: str = "") -> None:
+    def __init__(self, collection: RecordingNames, name: str, refers_to: str = "") -> None:
         self._collection = collection
         self.Name = name
         self.RefersTo = refers_to
@@ -131,7 +131,7 @@ class RecordingRangeState:
 
 
 class RecordingRangeApi:
-    def __init__(self, state: RecordingRangeState, sheet: "RecordingSheet", address: tuple[Any, ...]) -> None:
+    def __init__(self, state: RecordingRangeState, sheet: RecordingSheet, address: tuple[Any, ...]) -> None:
         self._state = state
         self._sheet = sheet
         self.address = address
@@ -214,7 +214,7 @@ class RecordingRangeApi:
 
 
 class RecordingRange:
-    def __init__(self, sheet: "RecordingSheet", address: tuple[Any, ...]) -> None:
+    def __init__(self, sheet: RecordingSheet, address: tuple[Any, ...]) -> None:
         self._sheet = sheet
         self.address = address
         self.state = RecordingRangeState()
@@ -257,16 +257,16 @@ class RecordingRange:
 
 
 class RecordingListColumns:
-    def __init__(self, table: "RecordingListObject") -> None:
+    def __init__(self, table: RecordingListObject) -> None:
         self._table = table
         self.items: list[RecordingListColumn] = []
 
-    def Add(self) -> "RecordingListColumn":
+    def Add(self) -> RecordingListColumn:
         column = RecordingListColumn(self._table)
         self.items.append(column)
         return column
 
-    def __call__(self, name: str) -> "RecordingListColumn":
+    def __call__(self, name: str) -> RecordingListColumn:
         for column in self.items:
             if column.Name == name:
                 return column
@@ -335,14 +335,14 @@ class RecordingColumns:
     """
 
     class _Proxy:
-        def __init__(self, columns: "RecordingColumns", address: str) -> None:
+        def __init__(self, columns: RecordingColumns, address: str) -> None:
             object.__setattr__(self, "_columns", columns)
             object.__setattr__(self, "_address", address)
 
-        def Group(self) -> None:  # noqa: N802 — mirrors the COM API
+        def Group(self) -> None:
             self._columns._sheet.column_groups.append(self._address)
 
-        def Ungroup(self) -> None:  # noqa: N802 — mirrors the COM API
+        def Ungroup(self) -> None:
             groups = self._columns._sheet.column_groups
             if self._address in groups:
                 groups.remove(self._address)
@@ -353,7 +353,7 @@ class RecordingColumns:
                 return
             object.__setattr__(self, name, value)
 
-    def __init__(self, sheet: "RecordingSheet") -> None:
+    def __init__(self, sheet: RecordingSheet) -> None:
         self._sheet = sheet
 
     def __call__(self, address: str) -> Any:

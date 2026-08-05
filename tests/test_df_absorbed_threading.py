@@ -21,11 +21,10 @@ under pytest.
 """
 from __future__ import annotations
 
-from pathlib import Path
-
 import json
 import math
 import sys
+from pathlib import Path
 
 import numpy as np
 
@@ -34,6 +33,7 @@ if __package__ in (None, ""):  # standalone run: make `tests.` importable
 
 # pylint: disable-next=wrong-import-position
 from tests.test_bfn_panel_durbin_watson_verification import _load_fe_panel
+
 # pylint: disable-next=wrong-import-position
 from tests.test_within_estimator import x_s_within_mirror, y_s_mirror
 

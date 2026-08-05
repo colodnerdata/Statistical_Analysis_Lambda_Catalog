@@ -365,7 +365,6 @@ def _new_chain_via_context(y, X, context):
     INDEX moved a single number, the sheet's engines would diverge from the
     stage-one path the moment they switched from a scalar arg to the context.
     """
-    import numpy as np  # pylint: disable=import-outside-toplevel
 
     has_intercept = bool(context[0, 0])  # INDEX(Context, 1), 1-based -> 0-based
     return _new_chain(y, X, has_intercept)

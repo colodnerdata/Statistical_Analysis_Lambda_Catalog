@@ -97,11 +97,23 @@ from typing import NamedTuple
 
 import xlwings as xw
 
-from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT, SUBHDR_COLOR as _SUBHDR
+from .sheet_styles import HEADER_COLOR as _HEADER
+from .sheet_styles import INPUT_COLOR as _INPUT
+from .sheet_styles import SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
-    OPEN_WORKBOOK_ERRORS, a1, anchor_comment_right_of_cell, border_box,
-    col_letter, drop_local_name, excel_color, f, note_dimensions, rc,
-    section_heading, set_column_widths, val,
+    OPEN_WORKBOOK_ERRORS,
+    a1,
+    anchor_comment_right_of_cell,
+    border_box,
+    col_letter,
+    drop_local_name,
+    excel_color,
+    f,
+    note_dimensions,
+    rc,
+    section_heading,
+    set_column_widths,
+    val,
 )
 
 # ── Column indices (1-based) ─────────────────────────────────────────────────

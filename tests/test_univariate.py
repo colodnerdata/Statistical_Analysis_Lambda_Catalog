@@ -6,7 +6,6 @@ import math
 import unittest
 
 import numpy as np
-
 from scipy import stats as scipy_stats
 
 from lambda_catalog.analyze_univariate import (
@@ -46,7 +45,6 @@ from lambda_catalog.analyze_univariate import (
     scott_bins,
     sturges_bins,
 )
-
 
 # ── helpers ───────────────────────────────────────────────────────────────────
 

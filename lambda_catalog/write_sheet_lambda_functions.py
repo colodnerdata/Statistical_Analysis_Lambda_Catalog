@@ -20,7 +20,6 @@ from .workbook_helpers import (
     safe_freeze_top_row,
 )
 
-
 ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 SHEET_NAME = "LAMBDA_functions"

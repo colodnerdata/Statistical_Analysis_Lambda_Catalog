@@ -34,11 +34,17 @@ from lambda_catalog.workbook_helpers import (
 )
 from lambda_catalog.write_sheet_diagnostic_guide import (
     SHEET_NAME as _DIAGNOSTIC_GUIDE_SHEET_NAME,
+)
+from lambda_catalog.write_sheet_diagnostic_guide import (
     TEMPLATE_PATH as _DEFAULT_TEMPLATE_PATH,
+)
+from lambda_catalog.write_sheet_diagnostic_guide import (
     _write_template_sheet as _write_diagnostic_guide_template,
 )
 from lambda_catalog.write_sheet_regression_instructions import (
     SHEET_NAME as _REGRESSION_INSTRUCTIONS_SHEET_NAME,
+)
+from lambda_catalog.write_sheet_regression_instructions import (
     _write_template_sheet as _write_regression_instructions_template,
 )
 

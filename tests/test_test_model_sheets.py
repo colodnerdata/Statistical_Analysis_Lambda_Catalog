@@ -24,7 +24,6 @@ import xlwings as xw
 
 from lambda_catalog.analyze_regression_guard_states import build_guard_state_cases
 from lambda_catalog.analyze_regression_spec import build_regression_spec_cases
-from tests.script_loader import load_script_module
 from lambda_catalog.test_model_sheets import (
     ILLEGAL_SHEET_NAME_CHARS,
     MAX_SHEET_NAME_LENGTH,
@@ -42,6 +41,7 @@ from lambda_catalog.write_sheet_regression import (
 )
 from lambda_catalog.write_sheet_test_model import profile_key_for
 from tests.recording_sheet import RecordingSheet
+from tests.script_loader import load_script_module
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT_DIR / "sample_data" / "auto_mpg_data.csv"
@@ -428,8 +428,8 @@ def test_row_constants_match_the_writers_own_layout() -> None:
         _write_anova,
         _write_coefficients,
         _write_diagnostics,
-        _write_prediction_interval,
         _write_prediction_inputs,
+        _write_prediction_interval,
         _write_regression_statistics,
         _write_unit_space_block,
     )
@@ -608,9 +608,8 @@ def test_progress_marks_the_failing_sheet(capsys) -> None:
     progress = build_test_models._Progress(enabled=True, run_start=0.0)
     case = SimpleNamespace(plan_id="L08", sheet_name="L08 High Cardinality FE")
 
-    with pytest.raises(ValueError):
-        with progress.sheet(1, 1, case):
-            raise ValueError("com error")
+    with pytest.raises(ValueError), progress.sheet(1, 1, case):
+        raise ValueError("com error")
     assert "FAILED" in capsys.readouterr().out
 
 
@@ -731,10 +730,10 @@ def test_provenance_leaves_the_fit_context_block_intact() -> None:
     from lambda_catalog.write_sheet_regression import (
         _C_MODEL_CONTEXT,
         _C_MODEL_CONTEXT_LABEL,
-        _MATERIALIZATION_FIRST_ROW,
-        _MODEL_CONTEXT_ELEMENTS,
         _C_MODEL_FORMULA,
         _C_MODEL_FORMULA_LABEL,
+        _MATERIALIZATION_FIRST_ROW,
+        _MODEL_CONTEXT_ELEMENTS,
         _MODEL_CONTEXT_LAST_ROW,
         _ROW_MODEL_CONTEXT_CHECK,
         _ROW_MODEL_FORMULA,

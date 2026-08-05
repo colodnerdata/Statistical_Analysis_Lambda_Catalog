@@ -1,8 +1,9 @@
 """Shared xlwings helpers: error handling, cell formatting, sheet operations, and name management."""
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, NamedTuple, NoReturn
+from typing import NamedTuple, NoReturn
 
 try:
     import pywintypes  # type: ignore[import-untyped]
@@ -22,10 +23,11 @@ except ImportError:  # pragma: no cover - non-Windows environments
 
     pywintypes = _PyWinTypesFallback()
 import math
+
 import xlwings as xw
 
-from .sheet_styles import HEADER_COLOR as _HEADER, INPUT_COLOR as _INPUT
-
+from .sheet_styles import HEADER_COLOR as _HEADER
+from .sheet_styles import INPUT_COLOR as _INPUT
 
 XL_SRC_RANGE = 1
 XL_YES = 1

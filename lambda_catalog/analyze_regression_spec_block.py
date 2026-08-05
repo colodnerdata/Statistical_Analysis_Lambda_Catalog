@@ -75,18 +75,22 @@ from .write_sheet_model_construction import (
     _C_REF_IN_USE,
     _C_ROLE,
     _C_SEQUENCE,
-    _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
-    _INTERCEPT_ROW as _SEQUENCE_STATUS_ROW,
     _ROLE_FILTER,
     _VARIABLES,
 )
+from .write_sheet_model_construction import (
+    _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
+)
+from .write_sheet_model_construction import (
+    _INTERCEPT_ROW as _SEQUENCE_STATUS_ROW,
+)
 from .write_sheet_regression import (
-    REGRESSION_SHEET_NAME,
+    _C_AA,
+    _C_AB,
     _C_AF,
     _C_AN,
     _C_S,
-    _C_AA,
-    _C_AB,
+    REGRESSION_SHEET_NAME,
 )
 
 DEFAULT_INPUT_CSV = MILEAGE.default_csv_path

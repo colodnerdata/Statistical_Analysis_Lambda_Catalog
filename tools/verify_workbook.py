@@ -28,11 +28,14 @@ from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_conf
 from lambda_catalog.deep_verify import verify_test_sheets
 from lambda_catalog.verify_report import (
     VerifyReport,
-    report_from_failures,
     render_human,
     render_json,
+    report_from_failures,
 )
-from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
+from lambda_catalog.workbook_helpers import (
+    OPEN_WORKBOOK_ERRORS,
+    raise_excel_access_error,
+)
 from lambda_catalog.write_sheet_csv_dataset import LIFE_EXPECTANCY, MILEAGE
 
 DEFAULT_CSV_PATH = LIFE_EXPECTANCY.default_csv_path

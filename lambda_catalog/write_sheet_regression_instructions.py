@@ -24,7 +24,6 @@ from .workbook_helpers import (
     reset_generated_sheet,
 )
 
-
 SHEET_NAME = "Regression Instructions"
 _COL_A_WIDTH = 110
 

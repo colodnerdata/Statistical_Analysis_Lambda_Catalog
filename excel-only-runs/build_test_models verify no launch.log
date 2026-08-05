@@ -1,0 +1,21 @@
+python build_test_models.py --verify --no-launch
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 47
+Created names: 122
+Updated names: 0
+Removed names: 0
+Skipped names: Base_Period_Delta (reference a worksheet this workbook does not have)
+Timing: total         4896.2s
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Multiple_R': expected=0.9229740928315785, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='R_Squared': expected=0.8518811760382752, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Adjusted_R_Squared': expected=0.8455614395492416, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Observations': expected=392.0, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='PRESS': expected=3865.0233891256094, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='PRESS_R2': expected=0.8377335551943894, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='AIC': expected=895.3166232486843, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='BIC': expected=962.828074525122, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Durbin_Watson': expected=1.5013230616756146, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Regression_Degrees_Of_Freedom': expected=16.0, excel_calc=1.0, abs_diff=15.0, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='F_Statistic': expected=134.79694565058418, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='F_Statistic_P_Value': expected=1.894399831304606e-144, excel_calc=None, abs_diff=None, fdd=0
+Verify: failed (spec mode, 4921.7s, workbook='C:\\Users\\Stephen_Colodner\\windows code\\Statistical_Analysis_Lambda_Catalog\\Lambda_Library_TestModels.xlsx')

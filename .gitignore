@@ -52,16 +52,12 @@ Lambda_Library_QC.xlsx
 # multi-megabyte binary to every commit that touches a spec case.
 Lambda_Library_TestModels.xlsx
 
-# Detached-build log/pid artifacts (local dev only)
-build_*.log
-build_*.err
-build_*.pid
-
-# Excel-required run transcripts (Windows-only; ignored by default so
-# one-off build/verify transcripts don't get committed, but the directory
-# is kept on disk for contributors running the spec-driven verifier,
-# which cannot run on the GitHub-hosted Linux CI without Excel).
-excel-only-runs/
+# Detached-build log/pid artifacts at the repo root (local dev only)
+# Anchored with `/` so this does not collide with the per-run transcripts
+# in excel-only-runs/, whose filenames also begin `build_` by convention.
+/build_*.log
+/build_*.err
+/build_*.pid
 
 # Force-include the built workbook
 !Lambda_Library.xlsx

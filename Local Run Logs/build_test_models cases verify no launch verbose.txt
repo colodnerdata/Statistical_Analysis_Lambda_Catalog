@@ -55,4 +55,30 @@ python build_test_models.py --verify --no-launch --verbose
 [   13.5s]   2/47 M03   M03 All Continuous                 7.2s
 [   20.7s]   3/47 M04   M04 Excluded Candidates           10.3s
 [   31.0s]   4/47 M02   M02 Intercept Off Categorical      7.9s
-[   38.9s]   5/47 M03b  M03b All Continuous NoInt      
+[   38.9s]   5/47 M03b  M03b All Continuous NoInt          8.8s
+[   47.7s]   6/47 M04b  M04b Excluded Cands NoInt          8.0s
+[   55.7s]   7/47 M13   M13 Default Reference              9.8s
+[   65.5s]   8/47 M12   M12 Explicit Reference             8.3s
+[   73.9s]   9/47 G08   G08 Invalid Reference Level        9.1s
+[   83.0s]  10/47 M14   M14 Mixed Cat And Continuous       9.9s
+[   92.9s]  11/47 M15   M15 Filter Degenerate Cat         11.8s
+[  104.7s]  12/47 M07   M07 Continuous Product            11.3s
+[  116.0s]  13/47 M06   M06 Quadratic Self Product        12.2s
+[  128.2s]  14/47 M08   M08 Cont x Cat Broadcast          13.7s
+[  141.9s]  15/47 M05   M05 Log-Log NA Masking            14.5s
+[  156.4s]  16/47 M14b  M14b Categorical Only Design      15.8s
+[  172.3s]  17/47 M09   M09 Cat x Cat Full Product        16.3s
+[  188.6s]  18/47 M10   M10 Difference Interaction        17.5s
+[  206.1s]  19/47 M11   M11 Ratio Reciprocal Pair         18.8s
+[  224.9s]  20/47 P01   P01 Learning Curve FE             20.2s
+[  245.1s]  21/47 P02   P02 FE Log Transform Axis         19.9s
+[  265.0s]  22/47 P03   P03 Power Law Derived Cols        20.9s
+[  285.9s]  23/47 P03b  P03b Power Law Transform Axis     21.1s
+[  307.0s]  24/47 P04   P04 Log Mixed Predictors          21.4s
+[  328.4s]  25/47 P05   P05 Log Predictor Only            22.5s
+[  350.9s]  26/47 P06   P06 LSDV vs Within Estimator      21.9s
+[  372.8s]  27/47 L01   L01 Partial Linear-Log            30.4s
+[  403.3s]  28/47 L02   L02 Log Response Duan             31.0s
+[  434.3s]  29/47 L03   L03 Log Response Naive            31.2s
+[  465.5s]  30/47 L04   L04 Elasticity Log-Log            32.6s
+[  498.1s]  31/47 L09   L09 Binary Cat Reference       

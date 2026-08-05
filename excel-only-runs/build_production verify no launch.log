@@ -1,6 +1,5 @@
 python build_production.py --verify --no-launch
-
-Lambda_Library.xlsx is open in Excel — close it in Excel and press Enter to retry (or Ctrl+C to cancel): Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
+Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
 Sheet updated: Mileage Data
@@ -217,7 +216,7 @@ ERROR QC mismatch totals: Regression/coefficients=2, Regression/residuals=1053, 
 ERROR Verify mismatch totals: Regression/coefficients=2, Regression/residuals=1053, Regression/scalars=2
   mode: spec
   workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
-  elapsed: 70.0s
+  elapsed: 71.0s
   failures (1057 total):
     - [Regression/scalars] config_name='production_lots_fixed_effects' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
     - [Regression/scalars] config_name='production_lots_log_transform' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
@@ -240,8 +239,8 @@ ERROR Verify mismatch totals: Regression/coefficients=2, Regression/residuals=10
     - [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=242 stat_name='Residuals': expected=-0.7608180841132963, excel_calc=-0.7608186698373061, abs_diff=5.85724009738442e-07, fdd=6.0
     - [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=242 stat_name='PRESS_Residual': expected=-0.767621991912776, excel_calc=-0.7676225828748536, abs_diff=5.909620776067825e-07, fdd=6.0
     ... and 1037 more (use --json for the full list)
-Timing: build+sync    106.7s
-Timing: recalculate   4.6s
-Timing: verify        71.6s
-Timing: total         182.9s
+Timing: build+sync    58.3s
+Timing: recalculate   5.6s
+Timing: verify        76.3s
+Timing: total         140.2s
 Log: C:\local_python\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production verify no launch.log

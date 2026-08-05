@@ -1,0 +1,13 @@
+python build_univariate.py 
+Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library_Univariate.xlsx
+Sheet updated: LAMBDA_functions
+Sheet updated: Life Expectancy Data
+Sheet updated: Univariate
+Sheet updated: Version History
+Created names: 1
+Updated names: 121
+Removed names: 0
+Timing: build+sync    135.0s
+Timing: recalculate   105.2s
+Timing: total         240.2s
+Log: C:\local_python\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_univariate.log

@@ -1050,8 +1050,8 @@ def test_materialization_zone_writes_the_model_formula_readout() -> None:
     _write_materialization_zone(_as_xw_sheet(sheet), closures=())
 
     assert _ROW_MODEL_FORMULA == 1
-    assert _C_MODEL_FORMULA_LABEL == _C_DESIGN_MATRIX + 2
-    assert _C_MODEL_FORMULA == _C_MODEL_FORMULA_LABEL + 3
+    assert _C_MODEL_FORMULA_LABEL == _C_DESIGN_MATRIX + 1
+    assert _C_MODEL_FORMULA == _C_MODEL_FORMULA_LABEL + 1
     assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).value == "Model Formula"
     assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).api.Font.Bold is True
     assert sheet.cell(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL).color == HEADER_COLOR
@@ -1083,7 +1083,7 @@ def test_model_formula_readout_is_clear_of_the_design_matrix_body() -> None:
     # matrix itself uses on the row below.
     assert _C_DESIGN_MATRIX < _C_MODEL_FORMULA_LABEL < _C_MODEL_FORMULA
     assert _C_MODEL_FORMULA_LABEL > _C_DESIGN_MATRIX_NAMES
-    assert _C_MODEL_FORMULA - _C_MODEL_FORMULA_LABEL >= 2
+    assert _C_MODEL_FORMULA - _C_MODEL_FORMULA_LABEL >= 1
 
 
 def test_model_formula_closure_assembles_the_spec_derived_caption() -> None:

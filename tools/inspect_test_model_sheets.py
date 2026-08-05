@@ -79,8 +79,8 @@ def _as_text(value: object) -> str:
     """Render a cell value as the text a status comparison expects.
 
     Strips whitespace so the comparison is robust to the trailing-space
-    artifacts the spec-block formula template emits — the AB2 Model Formula
-    cell renders ``"MPG ~ 1 + "`` (with a trailing separator) when its
+    artifacts the spec-block formula template emits — the Model Formula
+    readout renders ``"MPG ~ 1 + "`` (with a trailing separator) when its
     predictor list is empty, and the oracle mirrors that template
     character-exactly, so both sides must strip before comparing.
     """

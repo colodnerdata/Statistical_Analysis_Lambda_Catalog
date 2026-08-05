@@ -57,6 +57,8 @@ from .write_sheet_regression import (
     _C_AK,
     _C_AO,
     _C_AX,
+    _C_MODEL_FORMULA,
+    _ROW_MODEL_FORMULA,
     _C_T,
     _C_U,
     _C_V,
@@ -538,8 +540,13 @@ def read_case_comparison_rows(
 
 
 def read_model_formula(sheet: xw.Sheet) -> object:
-    """The AB2 Model Formula cell, as written text."""
-    return sheet.range(2, _C_AB).value
+    """The Model Formula readout, as written text.
+
+    It sits on row 1 of the §4b band's terminal Constructed Design Matrix
+    zone, right of that zone's heading (it used to be AB2); the coordinates
+    come from the layout constants, so a future move needs no edit here.
+    """
+    return sheet.range(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA).value
 
 
 def read_response_readout(sheet: xw.Sheet) -> object:

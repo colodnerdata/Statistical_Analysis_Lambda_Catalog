@@ -53,7 +53,8 @@ single ungrouped GAP column so the zones collapse independently; see the
                    Design Matrix — the last two headed on row 2 and spilling
                    from row 3 — each in its own outline group separated by
                    ungrouped gutters. Nothing may ever be placed right of the
-                   design matrix.
+                   design matrix; the Model Formula readout sits on ROW 1 of
+                   its zone, above a body that only ever grows rightward.
 
 Every A1 address quoted above is DERIVED in code from the _C_* column
 constants (see _abs_ref / _band and the _A_* anchors), never spelled out in a
@@ -354,6 +355,99 @@ assert all(
 _COLUMN_GROUPS: tuple[tuple[int, int], ...] = _ZONES
 
 
+# ── Content-column widths ─────────────────────────────────────────────────────
+# One entry per content column, KEYED ON THE LAYOUT CONSTANT, never on a
+# hard-coded letter. This table used to be a dict of literal letters, and the
+# layout-break MAJOR that shifted every zone right of the spec block three
+# columns over did not move its keys: the Predictor Summary's name column got
+# the width meant for a stats column, the Regression Outputs' diagnostics
+# labels got the width meant for its values, and the whole Prediction Outputs
+# zone (AJ–AL) fell off the table and rendered at Excel's default 8.43. A
+# letter key is exactly the silent-wrong-answer failure the `_C_*` constants
+# exist to prevent — the build still succeeds, it just sizes a different
+# column — so the widths now derive from the same constants the zones do, and
+# the coverage assertion below fails the next shift loudly.
+#
+# Widths are sized to the widest label/value each column actually carries;
+# row-2 headers wrap (see write_regression_output_sheet), so a header longer
+# than its column costs height rather than truncation.
+_COLUMN_WIDTHS: tuple[tuple[int, float], ...] = (
+    # ── Spec block (A–O) ────────────────────────────────────────────────────
+    # The spec block owns its own widths (_set_spec_block_column_widths, shared
+    # with the standalone Model Construction sheet). Column I is the ONE
+    # Regression-only override: this sheet overlays the combined Sequence
+    # Verdict switch on I2, a long message and the widest cell on the sheet.
+    (_C_SPEC_SEQUENCE_PERIOD, 38),
+    # ── Zone 1 feedback (P, Q) — the Δ spectrum spill ───────────────────────
+    (_C_P, 10),        # Δ header / spectrum column 1
+    (_C_Q, 8),         # Count header / spectrum column 2
+    # ── Zone 2: Predictor Summary (S–Y) ─────────────────────────────────────
+    (_C_S, 24),        # constructed column names (e.g. "Status[Developed]")
+    (_C_T, 9),         # Pearson R
+    (_C_U, 9),         # Spearman R
+    (_C_V, 9),         # Skewness
+    (_C_W, 9),         # Kurtosis
+    (_C_X, 9),         # GVIF
+    (_C_Y, 9),         # Tolerance
+    # ── Zone 3: Regression Outputs (AA–AH) ──────────────────────────────────
+    # Column roles vary by sub-table (statistics, ANOVA, coefficients,
+    # diagnostics, unit-space fit); each width is sized for the widest
+    # label/value used anywhere in that column.
+    (_C_AA, 22),       # labels — "Adjusted R Square" (17), "Status[Developing]" (18)
+    (_C_AB, 12),       # stat values, Alpha, ANOVA df, Coefficients
+    (_C_AC, 12),       # ANOVA SS, Std Error
+    (_C_AD, 24),       # diagnostics labels ("BFN Panel Durbin-Watson" = 23) + MS + t Stat
+    (_C_AE, 16),       # diagnostics values + "Predicted Variable" heading + F + P-value
+    (_C_AF, 14),       # response-name readout + Significance F + Lower 95%
+    (_C_AG, 16),       # Upper 95% + unit-space labels ("Adj R Square (Unit)" = 19)
+    (_C_AH, 16),       # Beta Weight + unit-space values + the Duan/Naive toggle
+    # ── Zone 4: Prediction Outputs (AJ–AL) ──────────────────────────────────
+    (_C_AJ, 24),       # "PREDICTION INTERVAL"/"PREDICTION INPUTS" labels + names spill
+    (_C_AK, 16),       # Fit Space interval values + prediction input values
+    (_C_AL, 14),       # Original Units + Training Mean values
+    # ── Zone 5: Residual Output (AN–BA) ─────────────────────────────────────
+    # AN holds Row_Labels() — identifier strings like "United States" (13).
+    (_C_AN, 16),       # row identifiers
+    (_C_AO, 9),        # Y
+    (_C_AP, 9),        # Predicted Y
+    (_C_AQ, 12),       # Residuals
+    (_C_AR, 9),        # Hat Diagonal
+    (_C_AS, 14),       # Studentized Residuals
+    (_C_AT, 17),       # Cook's Distance
+    (_C_AU, 14),       # Normal Scores Ranked
+    (_C_AV, 12),       # Studentized Residuals Ranked
+    (_C_AW, 10),       # Scale-Location
+    (_C_AX, 12),       # PRESS Residual
+    (_C_AY, 12),       # Cook's Distance (Flagged) — chart data-label helper column
+    (_C_AZ, 14),       # Predicted Y (Original Units) — v3.3
+    (_C_BA, 14),       # Residual (Original Units) — v3.3
+    # ── Post-zone gutter ────────────────────────────────────────────────────
+    # BB is NOT a content column and NOT a zone gap — it is the gutter that
+    # bounds the row-2 header wrap (last content column = BA) and anchors the
+    # diagnostic charts. Sized here so it reads as a deliberate margin rather
+    # than a default-width column.
+    (_C_BB, 15),
+)
+
+# Every content column in every zone gets exactly one width, and no width is
+# assigned to a gap column. This is the guard the letter-keyed dict did not
+# have: after the next zone shift, a stale entry lands outside its zone (or a
+# zone column loses its entry) and the build fails here instead of shipping a
+# sheet whose columns are sized for the previous layout.
+_WIDTH_COLUMNS: tuple[int, ...] = tuple(col for col, _ in _COLUMN_WIDTHS)
+assert len(set(_WIDTH_COLUMNS)) == len(_WIDTH_COLUMNS), (
+    "a column may be assigned a width only once"
+)
+assert not (set(_WIDTH_COLUMNS) & set(_GAP_COLUMNS)), (
+    "gap columns are sized by the _GAP_COLUMNS loop, not by _COLUMN_WIDTHS"
+)
+assert set(_WIDTH_COLUMNS) >= {
+    col
+    for first, last in _ZONES[1:]
+    for col in range(first, last + 1)
+} | {_C_P, _C_Q}, "every content column outside the spec block needs an explicit width"
+
+
 # ── Chart constants ───────────────────────────────────────────────────────────
 _XL_XY_SCATTER = -4169       # Excel xlXYScatter
 _XL_XY_SCATTER_LINES_NO_MARKERS = 75  # Excel xlXYScatterLinesNoMarkers
@@ -597,6 +691,38 @@ _ROW_MODEL_CONTEXT_CHECK = _MODEL_CONTEXT_LAST_ROW + 1
 
 _MODEL_CONTEXT_LABEL_WIDTH = 20.0
 _MODEL_CONTEXT_VALUE_WIDTH = 14.0
+
+# ── The Model Formula readout ─────────────────────────────────────────────────
+# The assembled "<response> ~ 1 + <predictors> [| <FE>]" string — a LABEL for
+# the model, and the v3.4 Model Comparison sheet's per-row caption
+# (Comparison_Model_Formula points here).
+#
+# It used to sit at AB2, at the head of the Regression Outputs zone, where it
+# was both the most prominent cell in that zone and — because row 2 wraps and
+# then AutoFits — the cell that set the height of the sheet's entire header
+# row: one long formula string in a 12-wide column is a dozen wrapped lines
+# pushing every zone's data down the screen.
+#
+# It now sits on ROW 1 of the terminal Constructed Design Matrix zone, right of
+# that zone's own heading: header two columns right of it, the readout three
+# columns right of the header. Row 1 is the one row in this zone that no
+# amount of design matrix can reach — the names spill on
+# _MATERIALIZATION_HEADER_ROW and the values on _MATERIALIZATION_SPILL_ROW, and
+# both grow RIGHTWARD from there, never up — so this placement does not breach
+# the §4b ordering rule (nothing is placed to the right of the zone; the
+# caption is placed ABOVE its body, inside the zone's own columns).
+#
+# Which is the point of putting it here: with WrapText OFF and nothing else on
+# row 1 to its right, the string overflows across as many empty columns as it
+# needs. The three-column gap between header and readout is what keeps the
+# header itself readable — "Model Formula" is wider than one 12-wide
+# design-matrix column, so the readout starting immediately beside it would
+# clip the header instead.
+#
+# Both columns derive from _C_DESIGN_MATRIX, so the caption tracks the zone.
+_ROW_MODEL_FORMULA = 1
+_C_MODEL_FORMULA_LABEL = _C_DESIGN_MATRIX + 2
+_C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 3
 
 # ── The design-matrix width guard ─────────────────────────────────────────────
 # Two thresholds, both computed PRE-FLIGHT from the spec block's Design
@@ -1162,8 +1288,11 @@ def _setup_local_names(
         _nm.Comment = _comment
 
     # ── v3.3 Comparison_* names (committed public interface for v3.4 Model
-    # Comparison). The unit-space block (AG3:AH9) and the Model Formula cell
-    # (AA2:AB2) are the surfaces v3.4 reads from — Comparison_Anchor is the
+    # Comparison). The unit-space block (AG3:AH9) and the Model Formula
+    # readout in the §4b materialization band are the surfaces v3.4 reads
+    # from — the readout moved out of AB2, and this name is why that move
+    # costs a consumer nothing: v3.4 reads the NAME, never the address.
+    # Comparison_Anchor is the
     # response-name readout that pairs two models; Comparison_Headline_GoF
     # is the three unit-space goodness-of-fit numbers (R², adjusted R²,
     # RMSE in original units) so the comparison sheet can rank alternatives
@@ -1182,7 +1311,7 @@ def _setup_local_names(
         ),
         (
             "Comparison_Model_Formula",
-            f"={sname}!$AB$2",
+            f"={sname}!{_abs_ref(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA)}",
             "Assembled model formula string (response ~ predictors [| FE]) — feeds the v3.4 Model Comparison per-row label",
         ),
     ]:
@@ -1372,30 +1501,11 @@ def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
     # Derived response name — the header of the Role=Response spec row.
     f(sheet, 2, _C_AF, f"={_RESPONSE_NAME_FORMULA}")
 
-    # Model Formula cell (v3.3) — AA2 label, AB2 the assembled string. Built
-    # entirely from existing pieces so the formula label is always exactly
-    # what the model itself is:
-    #   response side  = _RESPONSE_NAME_FORMULA (already emits "Ln(name)" when Log)
-    #   predictor side = "1 + " + TEXTJOIN(" + ", Constructed_Column_Names())
-    #                    (which already emits "Ln(name)" per logged predictor,
-    #                     level-qualified dummy names, and "left × right"
-    #                     interaction names — the mixed Log/None case renders
-    #                     correctly with no extra work)
-    #   FE suffix      = " | <FE name>" when a Fixed Effects row is declared
-    val(sheet, 2, _C_AA, "Model Formula")
-    bold(sheet, 2, _C_AA)
-    f(
-        sheet,
-        2,
-        _C_AB,
-        (
-            f"={_RESPONSE_NAME_FORMULA}"
-            '&" ~ "'
-            '&IF(Allow_Intercept,"1 + ","0 + ")'
-            '&IFERROR(TEXTJOIN(" + ",TRUE,Constructed_Column_Names()),"")'
-            f'&IF({_FIXED_EFFECTS_COUNT_FORMULA}>0," | "&{_FIXED_EFFECTS_NAME_FORMULA},"")'
-        ),
-    )
+    # The Model Formula readout used to sit here (AA2 label, AB2 string). It
+    # is a caption rather than a headline statistic, and a long string in this
+    # zone's row 2 — which wraps and AutoFits — set the height of the whole
+    # header row, so it moved to row 1 of the §4b band's design-matrix zone.
+    # See _ROW_MODEL_FORMULA / _write_materialization_zone.
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
@@ -2503,6 +2613,31 @@ def _write_materialization_zone(
         sheet, _MATERIALIZATION_HEADER_ROW, _C_DESIGN_MATRIX, _C_DESIGN_MATRIX_NAMES
     )
     f(sheet, _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX, "=Design_Columns()")
+
+    # ── Model Formula readout ────────────────────────────────────────────────
+    # Row 1 of this zone, right of its heading — the one row the design matrix
+    # itself can never reach (its names and values spill from the rows below
+    # and grow rightward), so a caption here is never displaced by an ordinary
+    # modelling choice, and with WrapText OFF it overflows across as much of an
+    # empty row 1 as the string needs. See _ROW_MODEL_FORMULA.
+    #
+    # The string is assembled by the sheet-scoped Model_Formula() closure
+    # (lambda_functions.json, scope "Regression") — the cell holds a call, not
+    # a 300-character expression, so the assembly rules live in the catalog
+    # with every other spec-derived constructor and the LAMBDA_functions sheet
+    # documents them.
+    #
+    # WrapText is set FALSE explicitly rather than left at the default: this
+    # cell holds the longest string on the sheet, and inheriting a wrap (from a
+    # future band-wide format, or from a copy of this block) would make one
+    # caption dictate a row height — exactly what moving it off row 2 of the
+    # Regression Outputs zone was meant to stop.
+    section_heading(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL, "Model Formula")
+    f(sheet, _ROW_MODEL_FORMULA, _C_MODEL_FORMULA, "=Model_Formula()")
+    sheet.range(
+        rc(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL),
+        rc(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA),
+    ).api.WrapText = False
     try:
         sheet.range(rc(1, _C_DESIGN_MATRIX)).api.AddComment(
             "The design matrix the engines actually fit: Design_Columns(), "
@@ -2878,59 +3013,13 @@ def write_regression_output_sheet(
     # so the standalone and shared-block builds can never drift.
     _set_spec_block_column_widths(sheet)
 
-    # Content-column widths, per zone, plus the BB post-zone gutter (last entry).
-    # The gap columns are sized from _GAP_COLUMNS below so the layout stays
-    # declarative — one width there, not one per hard-coded gap letter.
-    for column_letter, width in {
-        # Spec feedback (M, N, plus the column-I Verdict overlay):
-        # the M and N headers are bold on row 1, the I1 "Verdict" header
-        # is bold and shares column I with the Sequence_Period spec rows.
-        # The "I" width here is the I2 verdict cell — long message; the
-        # widest cell on the sheet.
-        "M": 10,        # Δ header / spectrum column 1
-        "N": 8,         # Count header / spectrum column 2
-        "I": 38,        # Verdict header / switch (overlays Sequence_Period column)
-
-        # Predictor Summary (P–V): level-qualified constructed names + 6 stats.
-        "P": 24,        # constructed column names (e.g., "Status[Developed]")
-        "Q": 9, "R": 9, "S": 9, "T": 9, "U": 9, "V": 9,  # stats values
-
-        # Regression Outputs (X–AE): regression statistics (X–Y), diagnostics (AA–AB),
-        # ANOVA (X–AC), coefficients (X–AE), beta weights (AE).
-        # Column roles vary by sub-table; widths below are sized for the widest
-        # label/value used in each column.
-        "X": 22,        # labels — longest is "Adjusted R Square" (16) or "Status[Developing]" (17)
-        "Y": 12,        # stat values, Alpha, df, Coefficients
-        "Z": 12,        # SS, Std Error
-        "AA": 24,       # diagnostics labels (longest: "BFN Panel Durbin-Watson" = 23) + MS + t Stat
-        "AB": 16,       # diagnostics values + "Predicted Variable" section heading + F + P-value
-        "AC": 14,       # derived response name (e.g., "Life expectancy") + Significance F + Lower 95%
-        "AD": 10,       # Upper 95% values
-        "AE": 10,       # Beta Weight values
-
-        # Prediction Outputs (AG–AI): interval box label/values, inputs, training mean.
-        "AG": 24,       # section heading, "PREDICTION INTERVAL" / "PREDICTION INPUTS" labels, spilled constructed names
-        "AH": 16,       # prediction interval values + prediction input values
-        "AI": 14,       # Training Mean header + values spill
-
-        # Residual Output (AN–BA): row identifiers (AN) + 11 diagnostics (AO–AY)
-        # + 2 v3.3 unit-space columns (AZ, BA). AN holds Row_Labels() —
-        # country/identifier strings like "United States" (13).
-        "AN": 16,       # row identifiers (Row_Labels)
-        "AO": 9, "AP": 9, "AQ": 12, "AR": 9,
-        "AS": 14, "AT": 17, "AU": 14,
-        "AV": 12,       # Cook's Distance (Flagged) — chart data-label helper column
-        "AW": 10, "AX": 12, "AY": 9,
-        "AZ": 12,       # Predicted Y (Original Units) — v3.3
-        "BA": 12,       # Residual (Original Units) — v3.3
-
-        # BB is NOT a content column and NOT a zone gap — it is the post-zone
-        # gutter that bounds the row-2 header wrap (last content column = BA)
-        # and anchors the diagnostic charts (they start at _C_BB). Sized here
-        # so it reads as a deliberate margin rather than a default-width column.
-        "BB": 15,
-    }.items():
-        sheet.range(f"{column_letter}:{column_letter}").column_width = width
+    # Content-column widths, per zone, plus the BB post-zone gutter — every
+    # entry keyed on its layout constant (see _COLUMN_WIDTHS). The gap columns
+    # are sized from _GAP_COLUMNS below so the layout stays declarative — one
+    # width there, not one per hard-coded gap letter.
+    for column, width in _COLUMN_WIDTHS:
+        letter = col_letter(column)
+        sheet.range(f"{letter}:{letter}").column_width = width
 
     # Gap columns: thin (width 2) and — critically — left OUT of the outline
     # groups below, which is what lets the zones on either side collapse

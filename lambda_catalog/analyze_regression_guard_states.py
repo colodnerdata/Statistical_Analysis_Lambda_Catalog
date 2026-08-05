@@ -162,10 +162,18 @@ class GuardStateExpected:
     fixed_effects_count: int
     included_rows: int
     response_name: str
-    # The AA2 Model Formula cell: "<response> ~ 1 + <p1> + ... | <FE>".
-    # Degrades to "(empty model)" when the spec contributes no predictor
-    # columns — G01's headline assertion, and the state that used to leak a
-    # raw #CALC! before the IFERROR wrappers went in.
+    # The Model Formula readout: "<response> ~ 1 + <p1> + ... | <FE>".
+    # It degrades PIECEWISE, never to a single sentinel — each half of the
+    # string reports its own failure, which is what makes the caption
+    # diagnostic in the guard states:
+    #   no Response row (G01)    -> "(none) ~ 1 + Weight + ..." (the
+    #                               response-name lookup's own IFERROR)
+    #   no Predictor rows (G01b) -> "MPG ~ 1 + ", with the trailing separator
+    #                               the intercept PREFIX leaves behind when
+    #                               TEXTJOIN's IFERROR yields ""
+    # "(empty model)" is the AUDIT-STRIP sentinel (audit_k below), not a value
+    # this field ever takes — the readout keeps rendering the half of the spec
+    # that still resolves rather than collapsing to one token.
     model_formula: str
     # Audit "k": an int, or "(empty model)" when Predictor_Columns errors.
     audit_k: int | str

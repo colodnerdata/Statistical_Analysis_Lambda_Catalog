@@ -142,7 +142,7 @@ def test_empty_model_is_the_state_that_produces_the_documented_string() -> None:
     assert expected.audit_k == EMPTY_MODEL
     # The intercept is the only design column left.
     assert expected.design_columns_total == 1
-    # The AB2 cell writes the intercept marker as a PREFIX, so an empty
+    # The readout writes the intercept marker as a PREFIX, so an empty
     # predictor list genuinely renders a trailing separator.
     assert expected.model_formula == "MPG ~ 1 + "
 

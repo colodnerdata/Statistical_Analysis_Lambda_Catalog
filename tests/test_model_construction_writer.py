@@ -116,6 +116,7 @@ _EXPECTED_NAME_ORDER = [
     "Sequence_Deltas",
     "Base_Period_Delta_Candidate",
     "Sequence_Delta_Spectrum",
+    "Model_Formula",
 ]
 
 
@@ -463,9 +464,10 @@ def test_reserved_spec_order_is_defined_but_read_by_nothing() -> None:
 def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> None:
     # Confirm-by-construction property, preserved rather than merely
     # relaxed when G went live: Spec_Transform is read by exactly the four
-    # constructors the Log wiring touches, and by nothing else — in
-    # particular NOT by Sample_Include or Row_Labels, which never
-    # transform anything.
+    # constructors the Log wiring touches — plus Model_Formula, the DISPLAY
+    # that renders the response's Log wrapping into the formula caption —
+    # and by nothing else; in particular NOT by Sample_Include or
+    # Row_Labels, which never transform anything.
     sheet = _named_sheet()
     readers = sorted(
         item.Name.split("!", 1)[-1]
@@ -476,6 +478,7 @@ def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> No
     assert readers == [
         "Constructed_Column_Names",
         "Constructed_Column_Transforms",
+        "Model_Formula",
         "Predictor_Columns",
         "Response_Column",
     ]

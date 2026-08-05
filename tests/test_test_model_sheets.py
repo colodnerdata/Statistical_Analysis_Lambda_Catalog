@@ -99,7 +99,7 @@ def test_assert_sheet_names_unique_folds_case() -> None:
 
 
 def test_plan_id_is_recoverable_from_a_sheet_name() -> None:
-    assert plan_id_of("M14 Log Log Missingness") == "M05"
+    assert plan_id_of("M14 Log Log Missingness") == "M14"
     assert plan_id_of("M04 All Continuous NoInt") == "M04"
     assert plan_id_of("G01b Empty Model") == "G01b"
 
@@ -557,7 +557,7 @@ def test_run_log_path_names_the_file_after_the_script_and_its_flags() -> None:
     )
     # Values attached to a flag are not part of the name — otherwise a path
     # would end up embedded in a filename.
-    assert run_log_path(root, "build_test_models.py", ["--cases", "M09,G10"]) == (
+    assert run_log_path(root, "build_test_models.py", ["--cases", "M26,G10"]) == (
         root / RUN_LOG_DIR_NAME / "build_test_models cases.log"
     )
 
@@ -715,7 +715,7 @@ def test_provenance_leaves_the_fit_context_block_intact() -> None:
     Provenance was written at rows 1-2 of the Model Context columns. Row 1 is
     that block's heading and row 2 is the FIRST of the four cells
     `Fit_Context()` reads as a fixed range — so `Allow_Intercept` became the
-    string "M04 — continuous_subset_intercept", and every one of the ~30
+    string "M03 — continuous_subset_intercept", and every one of the ~30
     engine call sites taking `Fit_Context()` returned #VALUE!: Multiple R,
     R Square, Adjusted R Square, the ANOVA block, SS Total, Beta Weights,
     PRESS R², the fit-space prediction outputs.
@@ -745,10 +745,10 @@ def test_provenance_leaves_the_fit_context_block_intact() -> None:
         _write_provenance,
     )
 
-    sheet = RecordingSheet(name="M04 Excluded Candidates")
+    sheet = RecordingSheet(name="M03 Continuous Subset")
     _write_materialization_zone(_as_xw_sheet(sheet), ())
     _write_provenance(
-        _as_xw_sheet(sheet), "M04", "continuous_subset_intercept", "a note"
+        _as_xw_sheet(sheet), "M03", "continuous_subset_intercept", "a note"
     )
 
     for offset, element in enumerate(_MODEL_CONTEXT_ELEMENTS):
@@ -803,13 +803,13 @@ def test_provenance_still_lands_on_the_sheet() -> None:
         _write_provenance,
     )
 
-    sheet = RecordingSheet(name="M04 Excluded Candidates")
-    _write_provenance(_as_xw_sheet(sheet), "M04", "continuous_subset_intercept", "why")
+    sheet = RecordingSheet(name="M03 Continuous Subset")
+    _write_provenance(_as_xw_sheet(sheet), "M03", "continuous_subset_intercept", "why")
 
     assert sheet.ranges[((_ROW_PROVENANCE_ID, _C_MODEL_CONTEXT_LABEL),)].state.value == (
         "Test Model"
     )
     assert sheet.ranges[((_ROW_PROVENANCE_ID, _C_MODEL_CONTEXT),)].state.value == (
-        "M04 — continuous_subset_intercept"
+        "M03 — continuous_subset_intercept"
     )
     assert sheet.ranges[((_ROW_PROVENANCE_COVERS, _C_MODEL_CONTEXT),)].state.value == "why"

@@ -1,8 +1,7 @@
 """Spec-driven deep verification helpers for generated workbooks.
 
 Importable from `lambda_catalog` so `build_production.py`, `build_univariate.py`
-and `tools/verify_workbook.py` can call `verify_test_sheets` directly instead of
-dynamically loading `scripts/build_qc.py`.
+and `tools/verify_workbook.py` can call `verify_test_sheets` directly.
 
 **Runs from a repository checkout, not from an installed wheel.** It reads the
 `tools/` inspector scripts (`_load_module`) and the `sample_data/` CSVs (via
@@ -354,18 +353,19 @@ def verify_test_sheets(
         sheet's Full_Data comparison. Defaults to the committed sample file.
     skip_dummy : bool
         When True, skip the Dummy_Test check (``read_dummy_check_failures``).
-        Used by ``build_production.py --verify`` which produces a workbook
-        without a ``Dummy_Test`` sheet. Defaults to False (legacy QC build
-        behaviour).
+        Used by artifact-specific verify builds that produce workbooks without
+        a ``Dummy_Test`` sheet. Defaults to False for callers that intentionally
+        include that sheet.
     skip_univariate : bool
         When True, skip the Univariate sheet check
         (``read_univariate_failures``). Hardcoded to True by
         ``build_production._run_deep_verify`` (the Regression workbook ships
         no Univariate sheet post-v3.0 split; see DECISIONS.md § v3.0
-        "Univariate becomes its own workbook"). The only path that passes
-        False is the standalone QC build (``build_qc.py`` itself), which
-        does carry a Univariate sheet. Even when False, a workbook that is
-        missing the ``Univariate`` sheet is handled the same way — the
+        "Univariate becomes its own workbook").
+        ``build_univariate._run_deep_verify`` passes False because the
+        Univariate artifact carries a Univariate sheet. Even when False, a
+        workbook that is missing the ``Univariate`` sheet is handled the same
+        way — the
         check is skipped silently (the missing-sheet warning lives on the
         calculate side, not the verify side) rather than raising, since
         the sheet's absence is the post-split norm, not a build failure.

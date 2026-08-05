@@ -1,10 +1,10 @@
-"""Verify Regression QC expected-value configs used by build_qc.
+"""Verify Regression expected-value configs used by artifact-specific verifiers.
 
-These tests run the same config-building functions that build_qc.py uses for
-the spec-driven Regression sheet oracle, then check that the results are
+These tests run the same config-building functions that the Regression verifier
+uses for the spec-driven sheet oracle, then check that the results are
 internally consistent and survive cache round-trips. Since Excel is unavailable
-in CI, this validates the Python-side QC oracle rather than the workbook
-formulas themselves.
+in CI, this validates the Python-side oracle rather than the workbook formulas
+themselves.
 """
 # pylint: disable=import-outside-toplevel,missing-function-docstring,too-many-public-methods,unused-variable
 from __future__ import annotations

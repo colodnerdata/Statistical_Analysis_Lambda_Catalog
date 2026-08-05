@@ -3,7 +3,7 @@
 A third build target, alongside ``build_production.py`` (the Regression
 artifact) and ``build_univariate.py`` (the Univariate artifact). Unlike
 those two this one is **not shipped**: it is a QC fixture, gitignored like
-``Lambda_Library_QC.xlsx``, and its only audience is whoever is changing the
+``Lambda_Library_TestModels.xlsx``, and its only audience is whoever is changing the
 spec block or the engine.
 
 What it produces is the regression test-model suite made physical. Every

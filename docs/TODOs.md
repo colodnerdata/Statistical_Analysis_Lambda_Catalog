@@ -176,7 +176,7 @@ and two cleanups.
 
 - **READY · M · no Excel** — **Rename `write_sheet_model_construction.py` to
   match what it is.** It no longer writes a shipped sheet — both
-  `build_production.py` and `build_qc.py` call
+  `build_production.py` and `build_univariate.py` call
   `_delete_sheet_if_present(workbook, "Model Construction")`. What it actually is
   now is the **spec-block component library**: `write_sheet_regression.py`
   imports `_write_spec_block`, `_write_spec_feedback`, `_write_intercept_control`,
@@ -616,7 +616,7 @@ case), and PERT/MC cases need only parameter cells. See
 - **READY · M · no Excel** — **The pre-drawn random table** (design RESOLVED, in
   answer to the no-volatile constraint). A single sheet-scoped named range
   `Bootstrap_Random_Draws` holds a uniformly-distributed random table pre-drawn
-  once at build time, seeded from the same SHA-derived seed the QC build already
+  once at build time, seeded from the same SHA-derived seed the test-model build already
   uses (`analysis_cache.py`). `Bootstrap_CI` indexes via
   `INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`.
   Same inputs → same output, every recalc. `RANDARRAY()` rejected. Full rationale

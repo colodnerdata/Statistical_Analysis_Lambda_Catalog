@@ -1,6 +1,6 @@
 """Tests for the Regression spec-block QC verifier.
 
-Excel-side reads run only in the QC build; these tests pin the pure-Python
+Excel-side reads run only in the Excel verifier; these tests pin the pure-Python
 side — the comparison layer's pass/fail behavior and message format, the
 sheet coordinates the reads anchor to, and the delegation to the shared
 expectation calculator (whose T0/T8 numbers are already pinned in

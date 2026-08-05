@@ -43,8 +43,6 @@ Thumbs.db
 ~$*.xlsx
 *.tmp
 
-# QC workbook (local dev only)
-Lambda_Library_QC.xlsx
 
 # Test-model workbook — one sheet per test model, built by
 # build_test_models.py. A QC fixture, not a shipped artifact: it is
@@ -59,8 +57,7 @@ Lambda_Library_TestModels.xlsx
 /build_*.err
 /build_*.pid
 
-# logs/ holds the rerouted outputs of detached build_qc.py / build_*.py runs
-# (qc_log.log etc.). Always local dev only.
+# logs/ holds the rerouted outputs of detached build_*.py runs. Always local dev only.
 /logs/
 
 # Force-include the shipped workbooks (build outputs that live in dist/)

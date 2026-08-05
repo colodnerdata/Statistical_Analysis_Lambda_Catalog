@@ -1,7 +1,7 @@
 """RecordingSheet tests for the Model Construction sheet writer.
 
 Excel-side behavior (spill evaluation, Dummy_Levels calls, conditional
-formatting rendering) is exercised by the QC build; these tests pin
+formatting rendering) is exercised by the Excel verifier; these tests pin
 everything checkable without Excel — the sheet-scoped name definitions and
 their order, the T0 default-spec prefill, the dropdown and conditional-
 formatting registrations, and the structural invariants of the Predictor_Columns /

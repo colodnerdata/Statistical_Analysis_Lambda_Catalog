@@ -464,6 +464,17 @@ class RealCatalogIntegrationTests(unittest.TestCase):
         tagged = [fn for fn in self.document.functions if fn.test_table is not None]
         self.assertTrue(tagged, "Expected at least some functions with test_table set")
 
+    def test_catalog_does_not_target_retired_mlr_test_tables(self) -> None:
+        retired_tables = {
+            "MLR_Scalar_Test",
+            "MLR_Vector_Outputs_Test",
+            "MLR_Observation_Test",
+        }
+        offenders = [
+            fn.name for fn in self.document.functions if fn.test_table in retired_tables
+        ]
+        self.assertEqual(offenders, [])
+
     def test_regression_sheet_notes_is_string_mapping(self) -> None:
         for key, value in self.document.regression_sheet_notes.items():
             self.assertIsInstance(key, str)

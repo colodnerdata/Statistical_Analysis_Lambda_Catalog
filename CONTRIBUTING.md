@@ -161,7 +161,6 @@ The coverage configuration in `pyproject.toml` tracks only the modules that are 
 - `catalog_schema.py`
 - `lambda_formula_parser.py`
 - `regression_shared.py`
-- `analysis_cache.py`
 - `verify_report.py`
 
 The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the QC build instead (see below).
@@ -370,7 +369,6 @@ The verification step forces Excel to recalculate all required sheets, reads the
 | `--workbook PATH` | `Lambda_Library_QC.xlsx` | Path to the QC workbook to create or update. |
 | `--definitions PATH` | `lambda_functions.json` | Path to the JSON catalog of LAMBDA definitions. |
 | `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV used for both the data sheet and the `Full_Data` QC comparison. |
-| `--cache PATH` | `.analysis_cache.json` | Retained for compatibility; spec-driven QC computes on demand, so this rarely matters. |
 | `--no-verify` | off | Skip the spec-driven verify pass. Escape hatch for iterating on a known-broken sheet; the skip is logged to `qc_log.txt` so the absence is visible. |
 | `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
 | `--verbose` | off | Print per-phase timing checkpoints to stdout. |
@@ -505,7 +503,6 @@ lambda_catalog/
                               # and the Fixed Effects within-transform/DF_Absorbed correction)
   analyze_model_construction.py # Model Construction QC analyzer: default-spec expectations, mask/level checks
   analyze_univariate.py      # univariate analysis: NLL functions, MLE estimators, binning, GoF
-  analysis_cache.py          # disk cache keyed on CSV SHA-256 + schema version
   lambda_formula_parser.py   # converts display formulas to workbook XML syntax
   inspection_compare.py      # numeric comparison helpers for QC value verification
   verify_report.py           # VerifyReport: structured pass/fail result for the spec-driven verifier
@@ -535,14 +532,7 @@ tools/
 
 ## Analysis cache
 
-`build_qc.py` caches OLS expected values in `.analysis_cache.json` (gitignored) to avoid rerunning statsmodels on every build. The cache is keyed on the SHA-256 hash of the CSV file and a schema version constant.
-
-The cache is invalidated automatically when:
-
-- the CSV file content changes (SHA-256 hash mismatch)
-- `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` is bumped
-
-Bump `_CACHE_SCHEMA_VERSION` whenever analysis configuration changes — k values, alpha, regression methodology, or the set of cached output fields. Delete `.analysis_cache.json` to force a full recompute at any time.
+The old `.analysis_cache.json` path was retired with the legacy `MLR_*_Test` smoke-test harness. Current spec-driven QC builds compute their Python oracles on demand, so there is no cache schema/version to maintain.
 
 ## Writing individual sheets
 
@@ -590,10 +580,9 @@ Neither is built. They are recorded here as a scoped follow-up rather than as a 
 
 1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `number_format`. Leave `test_table` unset unless you are adding an active sheet-level QC harness for that function in the same change.
 2. Add or update the relevant Python oracle when the function feeds a production analysis surface (for example, Regression outputs in `analyze_regression_sheet.py` / `analyze_regression_spec.py`, Univariate outputs in `analyze_univariate.py`, or `Dummy_Test` self-checks for dummy-specific helpers).
-3. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` when cached analysis output fields or methodology change.
-4. Run the appropriate verifier (`python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, or `python scripts/build_qc.py`) and confirm no unexpected WARNING lines appear.
-5. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
-6. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
+3. Run the appropriate verifier (`python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, or `python scripts/build_qc.py`) and confirm no unexpected WARNING lines appear.
+4. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
+5. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
 
 ## Cell styling
 

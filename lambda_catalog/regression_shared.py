@@ -63,11 +63,9 @@ class RegressionSummary:
     # gives DW a value and NaN here; Sequence WITH Fixed Effects inverts
     # that, because within-demeaned residuals in a panel have no single
     # ordering and row-adjacent differencing manufactures correlation at
-    # every group seam. No default, deliberately: a v18 cache entry has no
-    # key for this, and RegressionSummary(**entry) should fail loudly into
-    # the cache's own recompute path rather than quietly admit a summary
-    # whose panel diagnostic was never computed. _CACHE_SCHEMA_VERSION goes
-    # to 19 for the same reason.
+    # every group seam. No default, deliberately: every oracle must provide
+    # the panel diagnostic rather than quietly admitting a summary whose
+    # panel diagnostic was never computed.
     bfn_panel_durbin_watson: float
     f_stat: float
     p_value_f: float

@@ -12,7 +12,6 @@ from typing import TextIO
 import xlwings as xw
 
 from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
-from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH
 from lambda_catalog.build_common import print_name_sync_summary, warn_if_workbook_open
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
@@ -68,7 +67,6 @@ def build_qc_workbook(
     workbook_path: Path = DEFAULT_WORKBOOK_PATH,
     definitions_path: Path = DEFAULT_DEFINITIONS_PATH,
     csv_path: Path = LIFE_EXPECTANCY.default_csv_path,
-    cache_path: Path = DEFAULT_CACHE_PATH,
     validate_reopen: bool = False,
     verbose: bool = False,
     *,
@@ -78,7 +76,6 @@ def build_qc_workbook(
     timings_out: dict[str, float | None] | None = None,
 ) -> NameSyncResult:
     """Build production/QC sheets and verify the workbook."""
-    _ = cache_path
     phase_start = time.monotonic()
     document = load_catalog_document(definitions_path)
     _verbose_checkpoint(verbose, phase_start, "Prep: catalog loaded")
@@ -285,12 +282,6 @@ def parse_args() -> argparse.Namespace:
         help="Path to the Production Lots sample CSV data file.",
     )
     parser.add_argument(
-        "--cache",
-        type=Path,
-        default=DEFAULT_CACHE_PATH,
-        help="Retained for compatibility; spec-driven QC computes on demand.",
-    )
-    parser.add_argument(
         "--validate-reopen",
         action="store_true",
         help="Reopen the workbook after syncing names to verify Excel accepts the result.",
@@ -358,7 +349,6 @@ def _run_main(args: argparse.Namespace) -> None:
                 workbook_path=args.workbook,
                 definitions_path=args.definitions,
                 csv_path=args.csv,
-                cache_path=args.cache,
                 validate_reopen=args.validate_reopen,
                 verbose=args.verbose,
                 mileage_csv_path=args.mileage_csv,

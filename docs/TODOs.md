@@ -197,9 +197,11 @@ and two cleanups.
   ([ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone)). Their
   `RecordingSheet` coverage in `tests/test_model_construction_writer.py` is the
   only test for that behavior. Note that promoting them into the Regression
-  writer turned out **not** to be needed — the audit is a per-row calculated
-  column inside `SpecTable`, written by the shared `_write_spec_block`, so the
-  Regression sheet inherits it by already calling that writer.
+  writer turned out **not** to be needed — the audit is one spill written by the
+  shared `_write_spec_block`, so the Regression sheet inherits it by already
+  calling that writer. (It was a per-row calculated column inside `SpecTable`
+  when this was written; the block is table-free now, but the inheritance
+  argument is unchanged.)
 
   Context: this is what remains of REVIEW.md F5 after the finding itself was
   struck as never-true — see

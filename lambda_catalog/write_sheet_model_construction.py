@@ -316,8 +316,8 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 ) = range(1, 16)
 
 # The rightmost spec-block column — the single place the block's extent is
-# stated, so header bolding, the SUBHDR fill strip, and the SpecTable span
-# all move together when a column is appended.
+# stated, so header bolding, the SUBHDR fill strip and the outline group all
+# move together when a column is appended.
 _C_SPEC_LAST = _C_DESIGN_COLUMNS
 
 # Widths for the shared A-O spec block — owned here (not by
@@ -382,10 +382,9 @@ def _set_spec_block_optional_outline_group(sheet: xw.Sheet) -> None:
     the Sequence / interaction / audit workflows are one click away.
 
     F (Order) is width 0 already; including it in the group is harmless.
-    SpecTable is a ListObject on B3:O15 — ListObjects tolerate hidden
-    columns (structured references resolve by name, not by position),
-    so hiding the spec's optional columns does not break the Spec_*
-    band names or the constructor closures that read them.
+    Hiding a spec column does not break anything that reads it: the Spec_*
+    bands are per-column range references and the four computed columns are
+    spills, neither of which cares whether the column is visible.
     """
     group_and_hide_columns(
         sheet, _SPEC_OPTIONAL_FIRST_COL, _SPEC_OPTIONAL_LAST_COL
@@ -464,9 +463,9 @@ _ROLE_OMIT = "Omit"
 # purely the implicit "none of the above" bucket, and a blank Role cell is
 # indistinguishable from it in every formula and every QC check — both
 # contribute no column and impose no mask condition. This is what makes it
-# safe for a freshly-added spec row (e.g. one that just joined SpecTable
-# via its native auto-extend when typed past the table's bottom edge) to
-# sit with an unset Role: it is inert by construction, not merely
+# safe for a spec row a Source_Table retarget has just brought into the
+# block's range, which arrives with no defaults at all, to sit with an
+# unset Role: it is inert by construction, not merely
 # "untested," so the user can classify new rows at their own pace instead
 # of being forced to pick a Role the instant the row exists.
 # The v2.1 panel role. Read by the Fixed_Effects_Column() accessor, the
@@ -578,11 +577,11 @@ _DEFAULT_SEQUENCE_VARIABLES: frozenset[str] = frozenset()
 # so retargeting Source_Table (the --regression-dataset CLI choice) can
 # also retarget the spec block's defaults, instead of leaving every column
 # of a newly-targeted dataset to _FALLBACK_SPEC's un-flagged Predictor.
-# _write_spec_block sizes SpecTable to len(profile.variables) — a dataset
-# with more or fewer columns than Auto MPG gets a table sized to match, so
-# every column has a Spec_Role/Spec_Include/etc. entry from the first
-# build, rather than depending on the user manually typing values past the
-# table's edge until Excel's native AutoExpand catches up.
+# The profile decides which rows arrive PRE-FILLED, not how many spec rows
+# exist — the block sizes itself from COLUMNS(Source_Data). So every column
+# of the targeted dataset carries a real Role/Include/Type from the first
+# build instead of falling back to _FALLBACK_SPEC, and a dataset the build
+# did not target still gets a working (if unfilled) block on retarget.
 @dataclass(frozen=True)
 class SpecDatasetProfile:
     """One dataset's Source_Table target and shipped spec-block defaults."""
@@ -1706,12 +1705,12 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
                           column's row-1 cell, which is unused)
         I2 = combined switch formula (priority-ordered, single message)
 
-    The E1 Sequence error status is written here too (moved from H2 when
-    the spec data area became a structured table (SpecTable) — H2 is now
-    the table's "Sequence" header cell, and a status cell on top of a
-    table header reads as a visual collision). E1 keeps the same pattern
-    as the old H2: blank while the spec is legal, a red error line when
-    it is not.
+    The E1 Sequence error status is written here too. H2 is the "Sequence"
+    column header, and a status cell sitting on top of a header reads as a
+    visual collision — so E1 it is. (It moved off H2 when the spec area
+    became a structured table; that table is gone, the placement stands.)
+    E1 keeps the same pattern as the old H2: blank while the spec is legal,
+    a red error line when it is not.
 
     B1 carries the parallel Fixed Effects cardinality error (same pattern,
     Role's own column instead of Sequence's), and J1/K1/L1 (headers) with
@@ -2166,12 +2165,16 @@ def write_model_construction_sheet(
 
     section_heading(sheet, 1, _C_LABEL, "Model Construction")
 
-    # The spec block must run before the names are registered: it creates
-    # the structured table (SpecTable), which the Spec_* band names bind
-    # to via <table>[[#Data],[Column]] references — Excel
-    # validates the RefersTo at registration time.
-    _write_spec_block(sheet)
+    # Names FIRST, then the spec block — the same order
+    # write_regression_output_sheet uses, and for the same reason: the
+    # block's four computed columns are spills that read the Spec_* bands,
+    # Source_Data, Header_Names and the constructor closures.
+    #
+    # This is the reverse of the order used through v3.3, when the block
+    # created a SpecTable ListObject that the bands bound to via structured
+    # references and Excel validated at Names.Add time.
     _set_sheet_scoped_names(sheet, closures)
+    _write_spec_block(sheet)
     _write_spec_feedback(sheet)
     _write_intercept_control(sheet)
     _write_row_zones(sheet)

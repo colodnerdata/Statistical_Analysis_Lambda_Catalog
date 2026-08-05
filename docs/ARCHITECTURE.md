@@ -382,13 +382,19 @@ structural and Role-independent.
 Every cascading-relevance rule, along with the multi-flag, degeneracy, and
 invalid-reference error flags, is pre-applied out to `_VALIDATION_LAST_ROW`
 (16000) — the same ceiling the Role/Include/Type/Sequence dropdown
-`Validation` already used. Because the spec block lives in a real Excel
-Table (`SpecTable`), typing a value into the row directly below its
-current bottom edge auto-extends the ListObject (structured `Spec_*` names
-and the J/K/L calculated-column formulas follow automatically); widening
-the CF ranges to the same ceiling means a freshly-added row is already
-covered by dropdowns, hide-in-place relevance, and error flags with zero
-Python rebuild.
+`Validation` and the `Spec_*` bands use. One shared ceiling is the point:
+the block has no fixed height, so a `Source_Table` retarget must never have
+to reach outside a pre-applied range to find the rows it just brought into
+play. Every row a wider dataset reveals is already covered by dropdowns,
+hide-in-place relevance and error flags, with zero Python rebuild.
+
+The block used to be a real Excel Table (`SpecTable`), and the same widened
+ranges served a different mechanism: typing into the row below its bottom
+edge auto-extended the ListObject, carrying the structured `Spec_*` names
+and the J/K/L calculated-column formulas with it. That only ever worked
+when the *user* typed. A retarget alone left the block at its build-time
+height, which is why the table was replaced by self-sizing bands and spills
+— see CLAUDE.md → *The spec block has no fixed height*.
 
 ### Display derives, never feeds
 

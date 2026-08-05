@@ -83,12 +83,32 @@ through a multi-minute build. **The name states the concept under test, never th
 (`M05 Log-Log NA Masking`, not `MPG ~ Ln(Weight) + Ln(HP)`): 31 characters cannot hold a model
 formula, and the corner a case exists for is the useful thing to read off a tab.
 
-**`SpecTable` is workbook-scoped.** Excel ListObject names must be unique across the whole
-workbook, so a workbook with one spec block per test model gives each sheet its own
-(`SpecTable_M05`, via `test_model_sheets.spec_table_name`). That name is threaded through
-`_write_spec_block` → `_create_spec_table` and `_set_sheet_scoped_names`, so the table and the
-`Spec_*` band names bound to it read one parameter and can never disagree. Never hardcode
-`"SpecTable"` in either place.
+**The spec block has no fixed height, and no `SpecTable`.** Every part of it sizes itself from
+`COLUMNS(Source_Data)`, so retargeting `Source_Table` resizes the block — the one-name edit the
+Instructions sheet has always promised. Three mechanisms, all in
+`write_sheet_model_construction.py`:
+
+* the `Spec_*` bands are `=TAKE($X$4:$X$16000,MAX(1,COLUMNS(Source_Data)))`, built by `_spec_band`
+  — `TAKE` not `OFFSET`, for the same non-volatility reason `Source_Data` and `Header_Names` use it;
+* the four computed columns (J Period In Use, K Levels, L Reference In Use, O Design Columns) are
+  each ONE spill at `_FIRST_DATA_ROW`, `MAP(SEQUENCE(nc),LAMBDA(i,…))`, written with `f`
+  (**`Formula2`** — `.Formula` enters a dynamic array as a legacy CSE range, which does not resize);
+* the input band's `INPUT_COLOR` fill is a single lowest-priority CF rule on the same predicate,
+  not per-row `format_input` calls.
+
+`SpecTable` used to be a ListObject sized to `len(profile.variables)`, with the bands as
+`SpecTable[[#Data],[Role]]` structured references. That pinned the block to the build-time dataset:
+a wider table left every band short, `TAKE` does not pad, and `INDEX(rl, n_c)` ran off the end into
+`#REF!` through the whole engine. **Do not reintroduce a ListObject here** — Excel cannot resize one
+from a formula (this workbook is macro-free), and a spill cannot live inside one, so its return
+would re-break the retarget. Its removal also deleted the workbook-scoped-uniqueness machinery it
+forced (`spec_table_name`, `SpecTable_M05`).
+
+Two consequences worth knowing. **Nothing may be written below the spec block in columns B–O**: the
+bands reach row 16000 and the spills need clear space, so stray content is a `#SPILL!` error, not a
+truncation. And `profile` now decides which rows arrive with shipped *defaults*, never how many rows
+exist. The one ceiling — `_SPEC_BAND_LAST_ROW`, the same 16000 the validations and CF rules use —
+is deliberately shared so they cannot disagree about how far the block can grow.
 
 **Both halves of the sheet contract live in `lambda_catalog/regression_spec_sheet_io.py`** —
 `apply_spec_case` / `set_prediction_inputs` for writing a case onto a sheet,
@@ -144,11 +164,13 @@ Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COL
 take `SUBHDR_COLOR`; it is deliberately pinned to `HEADER_COLOR` (`#CAEDFB`)
 with black bold text in `_write_spec_block`, because that row heads the sheet's
 primary *input* surface and reads as a zone heading rather than a subdivision of
-one. The pin has to be applied **after** `_create_spec_table`: creating the
-ListObject applies a TableStyle that overrides header fill and font, so styling
-it earlier is silently undone. `test_spec_block_prefills_the_t0_default_configuration`
-asserts all three properties so a future TableStyle change cannot quietly take
-them back.
+one. Nothing overrides it any more: the pin used to have to be applied **after**
+`_create_spec_table`, because creating the ListObject applied a TableStyle that
+replaced header fill and font, so styling it earlier was silently undone. With
+the block table-free that ordering constraint is gone.
+`test_spec_block_prefills_the_t0_default_configuration` still asserts all three
+properties, so a future writer that reintroduces a competing style cannot
+quietly take them back.
 
 ### Section heading style
 

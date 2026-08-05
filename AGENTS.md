@@ -93,11 +93,13 @@ Sheet-specific colors that differ from the shared palette (e.g., `_SUBHEADER_COL
 take `SUBHDR_COLOR`; it is deliberately pinned to `HEADER_COLOR` (`#CAEDFB`)
 with black bold text in `_write_spec_block`, because that row heads the sheet's
 primary *input* surface and reads as a zone heading rather than a subdivision of
-one. The pin has to be applied **after** `_create_spec_table`: creating the
-ListObject applies a TableStyle that overrides header fill and font, so styling
-it earlier is silently undone. `test_spec_block_prefills_the_t0_default_configuration`
-asserts all three properties so a future TableStyle change cannot quietly take
-them back.
+one. Nothing overrides it any more: the pin used to have to be applied **after**
+`_create_spec_table`, because creating the ListObject applied a TableStyle that
+replaced header fill and font, so styling it earlier was silently undone. With
+the block table-free that ordering constraint is gone.
+`test_spec_block_prefills_the_t0_default_configuration` still asserts all three
+properties, so a future writer that reintroduces a competing style cannot
+quietly take them back.
 
 ### Section heading style
 

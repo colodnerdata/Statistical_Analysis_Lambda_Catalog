@@ -1499,10 +1499,13 @@ the constructor learns to build it.
 
 **Rejected alternative: a second spec section below the per-column block.** The
 source table's column count is variable, so anything positioned below the
-per-column block has no fixed address. The spec block auto-extends as a real Excel
-Table (`SpecTable`); a second section beneath it would be pushed down by any table
-that grows, and every formula referencing it would need a dynamic offset. Recorded
-in the supersession log.
+per-column block has no fixed address. A second section beneath it would be
+pushed down whenever the block grew, and every formula referencing it would need
+a dynamic offset. Recorded in the supersession log. *(The reasoning has only got
+stronger since: the block no longer grows by auto-extending a `SpecTable`
+ListObject when the user types, it sizes itself from `COLUMNS(Source_Data)` on
+every retarget, and its bands and spills now reach row 16000 — so columns B–O
+below the block are reserved outright.)*
 
 **Rationale for resolving it now, ahead of the feature.** REVIEW.md F6 notes this
 is the only finding that is irreversible if deferred: every other pending feature
@@ -3655,3 +3658,107 @@ mismatch fixed alongside it, the pattern is worth naming: **where the double's
 contract is narrower than the API it stands in for, the writer's own
 `except Exception: pass` turns the mismatch into silence rather than a
 failure.**
+
+---
+
+## v3.4+ — The spec block sizes itself; `SpecTable` removed
+
+**RESOLVED — the `Spec_*` bands and the four computed spec columns derive their
+height from `COLUMNS(Source_Data)`, and the `SpecTable` ListObject is gone.**
+
+The Regression Instructions sheet has always told the user the dataset
+changeover is a one-name edit: update `Source_Table` and "the header row, the
+data body, and the variable list in the MODEL SPECIFICATION block all update
+automatically." Two of those three were true. The variable-name column is a
+`=TRANSPOSE(Header_Names)` spill and resized correctly; the spec rows under it
+did not.
+
+`SpecTable` was a ListObject created at build time over `B3:O{4 + N - 1}`, where
+`N = len(profile.variables)` — `B3:O15` in the shipped artifact. The `Spec_*`
+band names bound to it as `SpecTable[[#Data],[Role]]` structured references, so
+the bands were exactly as tall as the table. Retarget to `LifeExpectancyData`
+and column A spilled 23 names above a 12-row spec: `TAKE(band, 23)` returned 12
+rows, because `TAKE` does not pad, and `INDEX(rl, 23)` ran off the end into
+`#REF!` — which propagated through every constructor to every engine cell. The
+same failure mode `effective_variables` already records from the 74,065-mismatch
+build, reached by a different route.
+
+**Why the table could not stay.** Excel exposes no formula-driven way to resize
+a ListObject; only VBA or a user typing into the row below its bottom edge
+extends one, and this workbook is macro-free by design. So any fix that kept the
+table could only pick a generous fixed ceiling and hope no dataset exceeded it.
+The self-sizing alternative requires the computed columns to be dynamic arrays,
+and **a spill cannot live inside a ListObject** — J/K/L sit between the input
+columns I and M, and O sits after N, so there is no arrangement that keeps the
+table and makes them spills without reshuffling columns. That reshuffle is
+exactly what was refused when M/N were appended rather than inserted (v3.1),
+and the reasons have not changed.
+
+**What replaced it.**
+
+* `_spec_band` builds every band as `=TAKE($X$4:$X$16000,MAX(1,COLUMNS(Source_Data)))`.
+  `TAKE` rather than `OFFSET` for the same reason `Source_Data` and
+  `Header_Names` use it — non-volatile, so it is not re-evaluated on every Data
+  Table substitution pass. `MAX(1,…)` keeps the name resolvable mid-retarget,
+  when a zero-row `TAKE` would error into every dependent name.
+* The four computed columns are one spill each at `_FIRST_DATA_ROW`, written
+  through `Formula2`. `MAP(SEQUENCE(nc),LAMBDA(i,…))` rather than `BYROW`,
+  because the bodies need the column *index* to reach `INDEX(Source_Data,0,i)`
+  and `BYROW` passes a row's values, not its position. That index also retires
+  the `ROW()-_ROW_TO_COL_OFFSET` arithmetic, so a formula no longer depends on
+  which row it occupies.
+* The input band's `INPUT_COLOR` fill moved from per-row `format_input` calls to
+  one lowest-priority CF rule on the same predicate. The per-row version painted
+  only the build-time profile's rows, so a retarget left its new rows functional
+  but unpainted — the same build-time pinning as the bands, in the styling layer.
+
+**Three things this did not have to touch, and the reason it was tractable at
+all.** `lambda_functions.json` needs no edit: all 45 functional `Spec_*` reads
+were already `TAKE`-trimmed to `COLUMNS(Source_Data)`, so their trim became an
+idempotent no-op over a band that is now the right length by construction. No
+conditional-formatting expression changed: every one already used relative A1
+references (`=$B4<>"Predictor (x)"`), never structured references. And every CF
+and `Validation` range already ran to 16000, so the rows a retarget reveals were
+already covered — that ceiling is now shared with the bands as
+`_SPEC_BAND_LAST_ROW`, precisely so the three cannot disagree about how far the
+block may grow.
+
+**A build-order inversion falls out of it.** `_setup_local_names` now runs
+*before* `_write_spec_block`. The dependency reversed direction: the spills
+reference the bands, `Source_Data`, `Header_Names` and the constructor closures,
+where the bands used to reference a table the block had to create first (Excel
+validates a name's `RefersTo` at `Names.Add` time). The comment at that call
+site records the reversal, because the old ordering looks arbitrary without it.
+
+**Two constraints this creates.** Nothing may ever be written below the spec
+block in columns B–O: the bands reach row 16000 and the spills need clear space
+beneath them, so stray content is a `#SPILL!` error rather than a quiet
+truncation. And a `SpecDatasetProfile` now governs which rows arrive with
+shipped *defaults*, never how many rows exist — a distinction worth keeping
+straight, since the parameter's name suggests otherwise.
+
+**Removing the table also removed machinery that existed only to serve it.**
+ListObject names are workbook-scoped, so the one-sheet-per-test-model artifact
+needed a unique name per sheet (`SpecTable_M05`), threaded through
+`_write_spec_block` → `_create_spec_table` → `_set_sheet_scoped_names` and
+generated by `test_model_sheets.spec_table_name` — five call sites across three
+writers, for 47 sheets, all deleted.
+
+**The regression that guards it (G14 / L10).** Every existing test-model case
+derives its shell's profile from its own `source_table_ref`, so the two can
+never disagree and the retarget path is never exercised.
+`GuardStateCase.shell_profile_key` creates the disagreement deliberately: L10
+builds its block with the Auto MPG profile and points `Source_Table` at
+Life Expectancy. The case earns its sheet by where its evidence sits rather than
+by the model it fits — `Schooling` contributes design columns from spec index
+21, sheet row 25, ten rows past the old table's bottom edge — and a test pins
+that property so an edit moving the predictors into the first 12 rows fails
+instead of silently testing nothing.
+
+**A stale name was swept on the way.** `Spec_Base_Period_Delta`
+(`Regression!$I$4:$I$15989`) is residue from the rename to
+`Spec_Sequence_Period` and is still in the shipped artifact:
+`sync_workbook_names` only sweeps **workbook**-scoped residue, so a sheet-scoped
+name outlives the code that created it indefinitely. `_RETIRED_LOCAL_NAMES` now
+drops it on every build. Worth generalizing — a sheet-scoped name the writers
+stopped creating has no other sweeper.

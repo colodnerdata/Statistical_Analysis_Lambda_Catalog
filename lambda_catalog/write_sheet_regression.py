@@ -14,7 +14,7 @@ single ungrouped GAP column so the zones collapse independently; see the
                    C2) and the Sequence status line (E1); I1 carries the
                    "Verdict" header and I2 the combined verdict switch
                    (the row-1/row-2 cells of column I are above the spec
-                   table (SpecTable), so the verdict overlays the
+                   block's own rows, so the verdict overlays the
                    Sequence_Period column's input cells without
                    disturbing the spec rows); M2 carries the design-matrix
                    width-guard status and N1/O1 its Σ label and total;
@@ -193,9 +193,10 @@ _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 # free). I1 holds the "Verdict" header (bold), I2 the priority-ordered
 # switch formula (off-grid outranks regularity, both outrank no-natural
 # and calendar; red CF outranks yellow via StopIfTrue). The E1 cell
-# carries the multi-flag Sequence error status (moved here from H2 when
-# the spec data area became a structured table, SpecTable). The design-
-# matrix width guard writes M2 (status) and N1/O1 (label/total).
+# carries the multi-flag Sequence error status (moved here from H2 when the
+# spec data area became a structured table — that table is gone, but the
+# status stayed put). The design-matrix width guard writes M2 (status) and
+# N1/O1 (label/total).
 _C_P = 16   # spec feedback: Δ header / spectrum spill
 _C_Q = 17   # spec feedback: Count header / spectrum spill
 
@@ -1198,12 +1199,11 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     the standalone Model Construction sheet, so the two layouts can never
     drift. Only the zone heading and the reserved-column notes are local.
 
-    The spec block's TABLE CREATION (SpecTable) happens at the top of
-    ``write_regression_output_sheet`` — names registered after that point
-    can bind to the table's columns via SpecTable[Column] structured
-    references. Here we just layer the spec feedback (E1 status, M/N
-    spectrum, I Verdict overlay), the Intercept control, and the column
-    notes on top.
+    The block itself is written earlier in ``write_regression_output_sheet``,
+    right after the sheet-scoped names — its four computed columns are spills
+    that read those names, which is why the names go first. Here we just
+    layer the spec feedback (E1 status, M/N spectrum, I Verdict overlay), the
+    Intercept control, and the column notes on top.
     """
     section_heading(sheet, 1, _C_A, "MODEL SPECIFICATION")
     _write_spec_feedback(sheet)
@@ -1251,8 +1251,8 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
 def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
     """The ARCHITECTURE §4b pre-flight width guard, in the spec-block area.
 
-    Three cells, all in the free row-1/row-2 band above the spec table
-    (SpecTable's own content starts at the row-3 header):
+    Three cells, all in the free row-1/row-2 band above the spec block
+    (whose own content starts at the row-3 header):
 
         N1 = "Σ Design Columns"   (bold label)
         O1 = the total            — Σ(spec column O) plus the intercept

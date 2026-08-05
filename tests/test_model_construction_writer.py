@@ -165,6 +165,34 @@ def test_names_are_created_in_dependency_order() -> None:
     assert local_name_order == _EXPECTED_NAME_ORDER
 
 
+def test_both_writers_register_names_before_the_spec_block() -> None:
+    """The block's four computed columns are spills that read the Spec_*
+    bands, Source_Data, Header_Names and the constructor closures, so every
+    one of those names has to exist first.
+
+    This inverted in v3.4: the bands used to be structured references into a
+    ListObject the block created, which Excel validated at Names.Add time, so
+    the block had to go first. Getting it backwards does not raise — the
+    spills just parse against names that do not exist yet and sit at #NAME?
+    until something re-registers them — which is exactly why it is pinned
+    here rather than left to the build to reveal.
+    """
+    import inspect
+
+    from lambda_catalog import write_sheet_model_construction, write_sheet_regression
+
+    for module, names_call, block_call in (
+        (
+            write_sheet_model_construction,
+            "_set_sheet_scoped_names(sheet, closures)",
+            "_write_spec_block(sheet)",
+        ),
+        (write_sheet_regression, "_setup_local_names(", "_write_spec_block(sheet,"),
+    ):
+        source = inspect.getsource(module)
+        assert source.index(names_call) < source.index(block_call), module.__name__
+
+
 def test_only_the_retarget_name_references_the_table_directly() -> None:
     sheet = _named_sheet()
 
@@ -976,9 +1004,8 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
     # Role-keyed relevance: the per-Predictor inputs (C–F) hide behind their
     # own INPUT_COLOR fill, the Categorical displays (K–L) hide behind
     # white (unfilled computed cells); H–J are deliberately NOT in these
-    # bands. Every range runs out to _VALIDATION_LAST_ROW so a row added by
-    # typing past SpecTable's current bottom edge (auto-extending the
-    # ListObject) is already covered.
+    # bands. Every range runs out to _VALIDATION_LAST_ROW so a row a
+    # Source_Table retarget brings into the block is already covered.
     role_keyed_input = sheet.range(
         f"$C${r}:$F${_VALIDATION_LAST_ROW}"
     ).api.FormatConditions.items
@@ -1061,10 +1088,10 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
 def test_sequence_status_line_validates_zero_or_one_flags() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
-    # The status cell lives in _write_spec_feedback (E1) once the spec
-    # data area becomes a structured table (SpecTable) — H2 is now the
-    # table's "Sequence" header cell, and a status cell on top of a
-    # table header reads as a visual collision.
+    # The status cell lives in _write_spec_feedback (E1), not H2: H2 is the
+    # "Sequence" column header, and a status cell on top of a header reads
+    # as a visual collision. (It moved when the spec area became a
+    # structured table; the table is gone, the placement stands.)
     from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
     _write_spec_feedback(_as_xw_sheet(sheet))
 
@@ -1136,8 +1163,8 @@ def test_fixed_effects_status_block_shows_variable_groups_and_absorbed_df() -> N
 
 def test_spec_feedback_writes_delta_count_verdict_with_priority_cf() -> None:
     """The M/N spectrum and the I1/I2 verdict overlay (Verdict overlays the
-    Sequence_Period column's row-1/row-2 cells, which are unused by the spec
-    table, SpecTable).
+    Sequence_Period column's row-1/row-2 cells, which sit above the spec
+    block's own rows and are unused by it).
 
     M1/N1: bold headers (Δ, Count). M2: the Sequence_Delta_Spectrum() spill,
     wrapped in IFERROR so a no-axis / no-spacings case degrades to blank.

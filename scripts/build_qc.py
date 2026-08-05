@@ -65,12 +65,15 @@ DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_QC.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 DEFAULT_LOG_PATH = ROOT_DIR / "logs" / "qc_log.log"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
-_QC_SHEET_NAMES = (
+_LEGACY_MLR_QC_SHEET_NAMES = (
+    # Legacy MLR smoke-test sheets are no longer written or verified; keep
+    # these names only to delete stale copies from workbooks built by older
+    # versions of the pipeline.
     "MLR_Scalar_Test",
     "MLR_Vector_Outputs_Test",
     "MLR_Observation_Test",
-    "Dummy_Test",
 )
+_CLEANUP_SHEET_NAMES = (*_LEGACY_MLR_QC_SHEET_NAMES, "Dummy_Test")
 _VERIFY_CALC_SHEET_NAMES = (
     LIFE_EXPECTANCY.sheet_name,
     MILEAGE.sheet_name,
@@ -544,7 +547,7 @@ def build_qc_workbook(
                 app.api.Calculation = XL_CALCULATION_MANUAL
                 _delete_sheet_if_present(workbook, _PREDICTIONS_SHEET_NAME)
                 _delete_sheet_if_present(workbook, "Model Construction")
-                for qc_sheet in _QC_SHEET_NAMES:
+                for qc_sheet in _CLEANUP_SHEET_NAMES:
                     _delete_sheet_if_present(workbook, qc_sheet)
                 if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                     workbook.sheets["Sheet1"].name = "LAMBDA_functions"

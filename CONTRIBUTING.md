@@ -97,7 +97,7 @@ Tests live in `tests/`. The current test files are:
 | `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
 | `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
 | `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
-| `test_qc_configs.py` | QC config generation, cross-consistency between scalar/vector/observation configs, regression sheet diagnostics, cache round-trips |
+| `test_qc_configs.py` | Regression sheet QC config generation, diagnostics, and cache round-trips |
 | `test_bfn_panel_durbin_watson_verification.py` | `BFN_Panel_Durbin_Watson` against the WHO panel — within-group differencing via `Difference_By`, mutual gating with `Durbin_Watson_By` |
 | `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the reserved-spec-column pattern) |
 | `test_difference_by_verification.py` | Gap-aware `Difference_By` — WHO exact counts plus the punched-out-year and calendar-date synthetic cases (the automated form of the retired v2.0 test plan's T17–T19) |
@@ -332,7 +332,7 @@ only the sheet writers produce.
 uv run python scripts/build_qc.py
 ```
 
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes all thirteen sheets (the eight Regression-production sheets above, plus the **Univariate** sheet, plus `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, `MLR_Observation_Test`, `Dummy_Test`), updates `.analysis_cache.json`, and runs the expected-vs-actual verification pass.
+Produces `Lambda_Library_QC.xlsx` (gitignored). Writes the Regression-production sheets above, plus the **Univariate** sheet and `Dummy_Test`, and runs the expected-vs-actual verification pass. The former `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, and `MLR_Observation_Test` smoke-test sheets are legacy cleanup targets only; current builds delete stale copies but do not write or verify them.
 
 The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
 
@@ -383,7 +383,7 @@ This is a fast screen. A green run does **not** mean the workbook calculates cor
 
 ### Layer 2 — spec-driven deep check
 
-Reuses `build_qc.verify_test_sheets` against the production sheets. Same machinery the QC build runs against `MLR_*_Test` and `Dummy_Test`, gated off the `Dummy_Test` block via `skip_dummy=True` because production workbooks do not contain a `Dummy_Test` sheet. This is the source of truth for cell-level correctness.
+Reuses `build_qc.verify_test_sheets` against the production sheets and `Dummy_Test`, gated off the `Dummy_Test` block via `skip_dummy=True` because production workbooks do not contain a `Dummy_Test` sheet. This is the source of truth for cell-level correctness.
 
 ```powershell
 # Run the Regression production build, recalculate, then verify against the
@@ -493,12 +493,8 @@ lambda_catalog/
   write_sheet_version_history.py
   write_sheet_regression.py
   write_sheet_model_construction.py
-  write_sheet_mlr_scalar_test.py
-  write_sheet_mlr_vector_outputs_test.py
-  write_sheet_mlr_observation_test.py
   write_sheet_dummy_test.py
 tools/
-  inspect_test_sheets.py     # scalar/vector/observation test sheet comparison (used by build_qc.py)
   inspect_regression_sheet.py # Regression sheet QC comparison (used by build_qc.py)
   inspect_univariate_sheet.py # Univariate sheet QC comparison (used by build_qc.py)
   inspect_xlsx.py            # workbook inspection utility
@@ -514,14 +510,14 @@ tools/
 
 ## Analysis cache
 
-`build_qc.py` caches OLS expected values in `.analysis_cache.json` (gitignored) to avoid rerunning statsmodels on every build. The cache is keyed on the SHA-256 hash of the CSV file and a schema version constant.
+`analysis_cache.py` is retained as a compatibility utility for callers that still request cached Regression-sheet oracle results, but `build_qc.py` no longer writes `.analysis_cache.json`; the spec-driven QC path computes its current Regression oracle directly. The cache payload, when used, contains only the Regression sheet configs and is keyed on the SHA-256 hash of the CSV file plus a schema version constant.
 
 The cache is invalidated automatically when:
 
 - the CSV file content changes (SHA-256 hash mismatch)
 - `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` is bumped
 
-Bump `_CACHE_SCHEMA_VERSION` whenever analysis configuration changes — k values, alpha, regression methodology, or the set of cached output fields. Delete `.analysis_cache.json` to force a full recompute at any time.
+Bump `_CACHE_SCHEMA_VERSION` whenever cached Regression analysis output fields or methodology change. Delete `.analysis_cache.json` to force a full recompute at any time.
 
 ## Writing individual sheets
 
@@ -567,30 +563,12 @@ Neither is built. They are recorded here as a scoped follow-up rather than as a 
 
 ## Adding a new LAMBDA function
 
-1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `test_table` and `number_format`.
-2. If the function is scalar, set `"test_table": "MLR_Scalar_Test"` and add its expected value to `analyze_life_expectancy.py` → `RegressionSummary` / `calculate_regression_summary`.
-3. If the function returns a vector, set `"test_table": "MLR_Vector_Outputs_Test"` and add expected values to `RegressionVectors` / `calculate_regression_vectors`.
-4. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py`.
-5. Update the relevant `write_sheet_mlr_*.py` to include a Calc column for the new function.
-6. Run `python scripts/build_qc.py` and confirm no WARNING lines appear.
-
-**Argument names are load-bearing in the QC harness.** The three
-`write_sheet_mlr_*.py` writers render their formulas from each function's
-*declared* argument names via `make_test_sheet.build_call`, not from a
-hard-coded positional list, so a signature change reaches the harness
-automatically and a dropped argument raises instead of silently shifting every
-argument after it. Two names carry meaning the harness acts on:
-
-| Argument name | Resolves to |
-|---|---|
-| `X` | the design matrix — predictor block with the intercept column prepended when the section or row has one |
-| `Predictors` | the bare predictor block, never an intercept column |
-
-Name a new function's matrix argument accordingly. `Predictors` is for anything
-that must not see a constant column — `VIF`, `GVIF`, `Correlation_Matrix` and
-the predictor-summary statistics; everything that fits a model takes `X`.
-7. Run `python scripts/build_production.py` to rebuild the distributables.
-8. Move the **library version**, not a workbook version — a new function ships in both artifacts. See [Which version number moves](#which-version-number-moves).
+1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `number_format`. Leave `test_table` unset unless you are adding an active sheet-level QC harness for that function in the same change.
+2. Add or update the relevant Python oracle when the function feeds a production analysis surface (for example, Regression outputs in `analyze_regression_sheet.py` / `analyze_regression_spec.py`, Univariate outputs in `analyze_univariate.py`, or `Dummy_Test` self-checks for dummy-specific helpers).
+3. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` when cached analysis output fields or methodology change.
+4. Run the appropriate verifier (`python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, or `python scripts/build_qc.py`) and confirm no unexpected WARNING lines appear.
+5. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
+6. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
 
 ## Cell styling
 

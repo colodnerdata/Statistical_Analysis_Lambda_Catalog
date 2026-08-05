@@ -19,7 +19,7 @@ from tests.script_loader import load_script_module
 
 # build_qc.py moved into ``scripts/`` in the Chunk 1 reorganization so it sits
 # alongside the other build scripts; the tests below access its module
-# attributes (``_QC_SHEET_NAMES``, ``_verification_calc_sheet_names`` …) and so
+# attributes (``_LEGACY_MLR_QC_SHEET_NAMES``, ``_verification_calc_sheet_names`` …) and so
 # need it imported under the same module name it would have had at root.
 build_qc = load_script_module("build_qc")
 
@@ -119,13 +119,13 @@ def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> No
         )
 
 
-def test_build_qc_keeps_mlr_names_only_for_stale_sheet_deletion() -> None:
+def test_build_qc_keeps_mlr_names_only_for_legacy_stale_sheet_deletion() -> None:
     mlr_names = {
         "MLR_Scalar_Test",
         "MLR_Vector_Outputs_Test",
         "MLR_Observation_Test",
     }
-    assert mlr_names <= set(build_qc._QC_SHEET_NAMES)
+    assert mlr_names <= set(build_qc._LEGACY_MLR_QC_SHEET_NAMES)
     assert mlr_names.isdisjoint(build_qc._VERIFY_CALC_SHEET_NAMES)
 
 

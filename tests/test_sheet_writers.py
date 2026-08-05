@@ -63,6 +63,7 @@ from lambda_catalog.write_sheet_regression import (
     _GAP_COLUMNS,
     _ZONES,
     _DESIGN_MATRIX_GROUPED_COLUMNS,
+    _DESIGN_MATRIX_GROUPED_WIDTH,
     _DESIGN_MATRIX_INTERCEPT_HEADER,
     _DESIGN_MATRIX_MAX_COLUMNS,
     _DESIGN_MATRIX_SOFT_CELLS,
@@ -71,6 +72,7 @@ from lambda_catalog.write_sheet_regression import (
     _MATERIALIZATION_HEADER_ROW,
     _MATERIALIZATION_SPILL_ROW,
     _SAMPLE_INCLUDE_HEADER,
+    _SAMPLE_INCLUDE_MATERIALIZED_WIDTH,
     _C_GUTTER_AFTER_CHARTS,
     _C_GUTTER_AFTER_CONTEXT,
     _C_GUTTER_AFTER_SAMPLE_INCLUDE,
@@ -87,8 +89,10 @@ from lambda_catalog.write_sheet_regression import (
     _CHART_Y_TICK_FORMATS,
     _CHART_Y_TICK_FORMAT_DEFAULT,
     _MODEL_CONTEXT_ELEMENTS,
+    _MODEL_CONTEXT_LABEL_WIDTH,
     _MODEL_CONTEXT_LAST_ROW,
     _MODEL_CONTEXT_ROWS,
+    _MODEL_CONTEXT_VALUE_WIDTH,
     _ROW_MODEL_CONTEXT_CHECK,
     _PRED_INPUT_FIRST_ROW,
     _PRED_INPUT_LAST_ROW,
@@ -652,6 +656,34 @@ def test_design_matrix_zone_ships_collapsed_and_the_others_expanded() -> None:
     ):
         letter = col_letter(gutter)
         assert not any(letter in band.split(":") for band in sheet.column_groups)
+
+
+def test_materialization_zone_widths_use_named_constants() -> None:
+    """§4b emitted widths stay aligned with the writer's width constants."""
+    sheet = RecordingSheet(name="Regression")
+
+    _write_materialization_zone(_as_xw_sheet(sheet), closures=())
+
+    assert (
+        sheet.range(f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT_LABEL)}").column_width
+        == _MODEL_CONTEXT_LABEL_WIDTH
+    )
+    assert (
+        sheet.range(f"{col_letter(_C_MODEL_CONTEXT)}:{col_letter(_C_MODEL_CONTEXT)}").column_width
+        == _MODEL_CONTEXT_VALUE_WIDTH
+    )
+    assert (
+        sheet.range(
+            f"{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}:{col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}"
+        ).column_width
+        == _SAMPLE_INCLUDE_MATERIALIZED_WIDTH
+    )
+
+    matrix_band = (
+        f"{col_letter(_C_DESIGN_MATRIX)}:"
+        f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
+    )
+    assert sheet.range(matrix_band).column_width == _DESIGN_MATRIX_GROUPED_WIDTH
 
 
 def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:

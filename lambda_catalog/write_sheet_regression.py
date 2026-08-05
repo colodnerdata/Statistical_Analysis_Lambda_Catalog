@@ -691,6 +691,8 @@ _ROW_MODEL_CONTEXT_CHECK = _MODEL_CONTEXT_LAST_ROW + 1
 
 _MODEL_CONTEXT_LABEL_WIDTH = 20.0
 _MODEL_CONTEXT_VALUE_WIDTH = 14.0
+_SAMPLE_INCLUDE_MATERIALIZED_WIDTH = 14.0
+_DESIGN_MATRIX_GROUPED_WIDTH = 12.0
 _CONSTRUCTED_DESIGN_MATRIX_LABEL_WIDTH = 24.0
 _MODEL_FORMULA_LABEL_WIDTH = 14.0
 
@@ -2672,7 +2674,7 @@ def _write_materialization_zone(
     for content, width in (
         (_C_MODEL_CONTEXT_LABEL, _MODEL_CONTEXT_LABEL_WIDTH),
         (_C_MODEL_CONTEXT, _MODEL_CONTEXT_VALUE_WIDTH),
-        (_C_SAMPLE_INCLUDE_MATERIALIZED, 14),
+        (_C_SAMPLE_INCLUDE_MATERIALIZED, _SAMPLE_INCLUDE_MATERIALIZED_WIDTH),
     ):
         sheet.range(f"{col_letter(content)}:{col_letter(content)}").column_width = width
     # One outline group per ZONE, not per column: the Model Context zone is the
@@ -2688,7 +2690,7 @@ def _write_materialization_zone(
         f"{col_letter(_C_DESIGN_MATRIX)}:"
         f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
     )
-    sheet.range(matrix_band).column_width = 12
+    sheet.range(matrix_band).column_width = _DESIGN_MATRIX_GROUPED_WIDTH
     sheet.api.Columns(matrix_band).Group()
     # Collapse it. ShowDetail is an ActiveWindow-free property on the range,
     # but it still needs a real outline underneath, so guard it the way every

@@ -141,7 +141,7 @@ ROW_BACK_TRANSFORM = 4
 #   cost data runs into the 1e10 range, where IEEE-754 leaves ~6 decimal
 #   digits — already above a 3-decimal tolerance.
 # * t-statistics and p-values inherit the CONDITIONING of the normal
-#   equations. L05 (the shipped life_expectancy profile) mixes Population,
+#   equations. M33 (the shipped life_expectancy profile) mixes Population,
 #   which spans 34 to 1.3e9, with predictors of order 1-100; Excel's LINEST
 #   and statsmodels then disagree in the 6th significant digit on the one
 #   coefficient that is statistically indistinguishable from zero
@@ -414,7 +414,7 @@ def read_case_comparison_rows(
     # ── v3.3 unit-space block (AH5:AH8) ─────────────────────────────────
     # Never previously compared cell-for-cell by this harness even though
     # the oracle has carried the numbers since v3.3; the Back-Transform
-    # toggle (L02 vs L03) is only meaningful if these four are read.
+    # toggle (M16 vs M17) is only meaningful if these four are read.
     unit = results.unit_space
     for stat_name, expected_value, row in (
         ("Smearing_Factor", unit.smearing_factor, 5),

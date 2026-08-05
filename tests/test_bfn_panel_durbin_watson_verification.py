@@ -471,7 +471,7 @@ def _bfn_crosscheck_case():
     Life expectancy ~ GDP + Schooling, FE = Country, Sequence = Year, Δ = 1
     — the same fit the two independent paths above agree on. Built here
     rather than registered in the suite: it exists to check the ORACLE, not
-    to add a worksheet, and it duplicates L08's high-cardinality-FE coverage.
+    to add a worksheet, and it duplicates M32's high-cardinality-FE coverage.
     """
     from lambda_catalog.analyze_regression_spec import (
         LIFE_EXPECTANCY_CSV_PATH,

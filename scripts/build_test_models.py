@@ -7,9 +7,9 @@ those two this one is **not shipped**: it is a QC fixture, gitignored like
 spec block or the engine.
 
 What it produces is the regression test-model suite made physical. Every
-``RegressionSpecCase`` in ``docs/MODEL_TESTING_ASSETS.md`` § 1.1–1.3 and
-every ``GuardStateCase`` in § 1.4 gets its own Regression-shaped sheet, named
-for the corner it covers (``M09 Cat x Cat Full Product``, ``G10 Symmetric
+``RegressionSpecCase`` in ``docs/MODEL_TESTING_ASSETS.md`` § 1.1 and
+every ``GuardStateCase`` in § 1.2 gets its own Regression-shaped sheet, named
+for the corner it covers (``M26 Cat By Cat Product``, ``G10 Symmetric
 Product Pair``), pre-populated and fully calculated. Verification then reads
 those sheets and writes nothing at all, which is the whole point: the legacy
 harness has to mutate one shared sheet ~33 times, so a failure leaves nothing
@@ -19,8 +19,8 @@ before it.
 Usage::
 
     python scripts/build_test_models.py                       # every non-heavy case
-    python scripts/build_test_models.py --include-heavy        # + L07 / L08
-    python scripts/build_test_models.py --cases M09,G10        # just those two
+    python scripts/build_test_models.py --include-heavy        # + M33 / M32
+    python scripts/build_test_models.py --cases M26,G10        # just those two
     python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 """
 from __future__ import annotations
@@ -449,15 +449,15 @@ def parse_args() -> argparse.Namespace:
         "--cases",
         type=str,
         default=None,
-        help="Comma-separated plan IDs or case names to build (e.g. 'M09,G10'). "
+        help="Comma-separated plan IDs or case names to build (e.g. 'M26,G10'). "
         "Overrides --include-heavy for the cases named.",
     )
     parser.add_argument(
         "--include-heavy",
         action="store_true",
-        help="Also build the cases marked heavy — currently L08 (173 Fixed "
-        "Effects groups over 2909 rows) and L05 (Kitchen Sink Profile, "
-        "k=19, n=2117). L08 is gated on sheet-build cost; L05 is gated on "
+        help="Also build the cases marked heavy — currently M32 (173 Fixed "
+        "Effects groups over 2909 rows) and M33 (Numeric Stress Profile, "
+        "k=19, n=2117). M32 is gated on sheet-build cost; M33 is gated on "
         "the statsmodels-vs-Excel floating-point floor at fdd=5/6 that "
         "both implementations agree on. Their Python oracles run in the "
         "unit suite either way; only the sheet is gated.",

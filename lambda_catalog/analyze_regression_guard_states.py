@@ -28,7 +28,7 @@ reason worth recording:
   fittable model whose zero rows "drop out of the mask". They do not — see
   ``_LN_ZERO_GUARD_NOTE`` below.
 * **M16** (typed Sequence Period override) and **P07** (irregular panel
-  spacing) fit exactly the models M01 and P02 already fit. Everything they
+  spacing) fit exactly the models M01 and M30 already fit. Everything they
   actually test is in the spec block's status cells, so registering them as
   fittable cases would add two duplicate fits and buy nothing.
 """
@@ -632,11 +632,11 @@ def _mileage_spec(**overrides: SpecVariable) -> list[SpecVariable]:
 def _irregular_panel_spacing_spec() -> list[SpecVariable]:
     """P07's spec: the learning-curve model with Facility as the Identifier.
 
-    P02's shipped spec cannot exercise the spacing layer at all, and the
+    M30's shipped spec cannot exercise the spacing layer at all, and the
     reason is worth stating because it is easy to get backwards.
     ``Sequence_Deltas`` groups by the **Identifier** columns, not by the
     Fixed Effects column — the Identifier is what the spacing layer treats
-    as the panel unit. In P01/P02 the Identifier is ``Lot_ID``, which is
+    as the panel unit. In M29/M30 the Identifier is ``Lot_ID``, which is
     unique per row, so every group has exactly one observation, there are
     no within-group consecutive pairs, and the verdict cell is
     unconditionally blank no matter how gapped the fiscal years are.
@@ -645,7 +645,7 @@ def _irregular_panel_spacing_spec() -> list[SpecVariable]:
     groups, so the deltas are within-facility fiscal-year gaps — which are
     genuinely irregular (the sites cover 1998-2023, 2001-2020 and 2005-2024
     with holes), and under a typed Δ of 1 that is exactly the Regularity
-    verdict. ``Lot_ID`` drops to Omit; the fitted model is otherwise P01's.
+    verdict. ``Lot_ID`` drops to Omit; the fitted model is otherwise M29's.
     """
     return [
         _spec_var("Lot_ID", "Omit"),

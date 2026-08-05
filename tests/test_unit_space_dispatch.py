@@ -542,7 +542,7 @@ def test_unit_space_r_squared_reduces_to_r_squared_under_fixed_effects_and_none(
     on the demeaned pair. If either the fitted side or the observed side
     picked up the level shift under ``Transform = None`` the unit-space R²
     would quietly become a *total* R² — a different, larger number that
-    still looks plausible. ``production_lots_fixed_effects`` is exactly this
+    still looks plausible. ``production_fixed_effects_derived`` is exactly this
     configuration.
     """
     rng = np.random.default_rng(107)

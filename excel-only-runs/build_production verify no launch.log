@@ -11,8 +11,8 @@ Sheet updated: Regression
 Created names: 0
 Updated names: 122
 Removed names: 0
-ERROR [Regression/scalars] config_name='production_lots_fixed_effects' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
-ERROR [Regression/scalars] config_name='production_lots_log_transform' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='production_fixed_effects_derived' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
+ERROR [Regression/scalars] config_name='production_fixed_effects_transform' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
 ERROR [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='T_Statistics': expected=-0.3673959783137977, excel_calc=-0.3673941937551009, abs_diff=1.7845586968157079e-06, fdd=5.0
 ERROR [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='P_Values': expected=0.7133713946856568, excel_calc=0.713372725376353, abs_diff=1.330690696188519e-06, fdd=6.0
 ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=53 stat_name='PRESS_Residual': expected=-2.2611584077900204, excel_calc=-2.261158541864506, abs_diff=1.3407448573588e-07, fdd=6.0
@@ -218,8 +218,8 @@ ERROR Verify mismatch totals: Regression/coefficients=2, Regression/residuals=10
   workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
   elapsed: 71.3s
   failures (1057 total):
-    - [Regression/scalars] config_name='production_lots_fixed_effects' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
-    - [Regression/scalars] config_name='production_lots_log_transform' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='production_fixed_effects_derived' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
+    - [Regression/scalars] config_name='production_fixed_effects_transform' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
     - [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='T_Statistics': expected=-0.3673959783137977, excel_calc=-0.3673941937551009, abs_diff=1.7845586968157079e-06, fdd=5.0
     - [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='P_Values': expected=0.7133713946856568, excel_calc=0.713372725376353, abs_diff=1.330690696188519e-06, fdd=6.0
     - [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=53 stat_name='PRESS_Residual': expected=-2.2611584077900204, excel_calc=-2.261158541864506, abs_diff=1.3407448573588e-07, fdd=6.0

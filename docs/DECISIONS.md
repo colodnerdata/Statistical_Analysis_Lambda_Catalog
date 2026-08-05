@@ -714,9 +714,9 @@ units. Both remain tracked in
 **Verification:** `tests/test_ln_positive_verification.py` (the
 primitive, pure-Python mirror + implementation-shape assertions);
 `tests/test_transform_threading.py` — the acceptance test cross-checks a
-new spec-driven QC case (`production_lots_log_transform`: `Cumulative_Units`
+new spec-driven QC case (`production_fixed_effects_transform`: `Cumulative_Units`
 and `Unit_Cost_BY` with `transform="Log"` declared) against the
-pre-existing `production_lots_fixed_effects` case, which points at
+pre-existing `production_fixed_effects_derived` case, which points at
 `production_lots.xlsx`'s precomputed `"log Cum Units"`/`"log Unit Cost"`
 columns — a genuine Crawford/Wright learning-curve model
 (\(\ln(\text{unit cost}) = a + b \cdot \ln(\text{cumulative units})\)),
@@ -2948,7 +2948,7 @@ property v2.2 established.
 **It has to hold WITH Fixed Effects too**, and that is the version worth
 testing: with no FE the level shift is zero and every branch is trivially
 inert, so a no-FE-only invariant test passes against code that is wrong.
-`production_lots_fixed_effects` is the real case — FE declared, no transform —
+`production_fixed_effects_derived` is the real case — FE declared, no transform —
 and both the gated shift (2) and `Unit_Space_Observed`'s `None` branch (2a)
 exist to keep it within-flavoured.
 
@@ -3009,8 +3009,8 @@ checks.
 `RegressionUnitSpace` dataclass holds the unit-space scalars and vectors
 mirrored against the workbook. The oracle computes the smearing factor, R²,
 Adjusted R², RMSE, predictions, residuals, and the model formula string. The
-Regression spec case list grows by three — `production_lots_log_no_fe`,
-`production_lots_log_mixed_predictors`, `production_lots_log_predictor_only`
+Regression spec case list grows by three — `production_power_law_transform_no_fe`,
+`production_log_mixed_predictors`, `production_log_predictor_only`
 — covering the FE+Log, Log+Mixed, and (None, Log) pairs respectively. The
 cache schema version bumps to 17.
 
@@ -3322,7 +3322,7 @@ reads one — chart wiring is verified once, on the production sheet.
 
 **Question:** what does a generated sheet's tab say?
 
-**Resolution:** RESOLVED — `<PlanID> <Concept>`: `M05 Log-Log NA Masking`,
+**Resolution:** RESOLVED — `<PlanID> <Concept>`: `M14 Log Log Missingness`,
 never `MPG ~ Ln(Weight) + Ln(HP)`. Excel allows 31 characters, which cannot
 hold a model formula for any case worth testing, and truncating one produces
 a tab that is both unreadable and ambiguous. The formula is also the least
@@ -3437,7 +3437,7 @@ Excel does with a sheet name, a 205-column design, or an accented string.
    instead, which reproduces the locale order for Latin scripts, and the
    limitation is documented at the function and in MODEL_TESTING_ASSETS §1b.
 
-**And one tolerance decision.** L05's `Population` coefficient disagreed with
+**And one tolerance decision.** M33's `Population` coefficient disagreed with
 Excel in the 6th significant digit on its t-statistic and p-value. Population
 spans 34 to 1.3e9 against predictors of order 1–100, so the normal equations
 are badly scaled and the disagreement is on the one coefficient
@@ -3446,7 +3446,7 @@ indistinguishable from zero (t = −0.367, p = 0.71). `T_Statistics` and
 which already compare as 3 significant digits for the same reason. This
 widens the unit, never the tolerance — both sides are divided by the same
 factor, so a genuinely wrong number still fails. Dropping `Population` was
-rejected: L05 exists to give the *shipped* profile an oracle, so changing its
+rejected: M33 exists to give the *shipped* profile an oracle, so changing its
 spec would stop it testing what users actually get.
 
 ### A spec block must have exactly one row per Source_Table column
@@ -3584,8 +3584,8 @@ routes under Fixed Effects. Is one such pair enough?
 
 **Resolution:** RESOLVED — no. A second pair, **P3 (pre-derived) / P3b
 (transform axis)**, fits the same model without Fixed Effects. The existing
-`production_lots_log_no_fe` case becomes P3b; the new
-`production_lots_derived_log_no_fe` is P3.
+`production_power_law_transform_no_fe` case becomes P3b; the new
+`production_power_law_derived_no_fe` is P3.
 
 One pair leaves the two axes entangled. The mechanisms reach the design
 matrix by different code paths — one *reads* a column, the other *computes*
@@ -3612,7 +3612,7 @@ only.
 
 **Ordering and naming are part of the decision.** Each pair is registered
 adjacently so the two land on adjacent worksheets, and the sheet names state
-the *route* — `P03 Power Law Derived Cols` against `P03b Power Law Transform
+the *route* — `M19 Power Law Derived` against `M20 Power Law Transform
 Axis` — because the route is the only thing that differs between the tabs and
 the entire reason both exist. The old name, `P03 Power Law No FE`, described
 what the pair has in common rather than what separates them.
@@ -3749,10 +3749,10 @@ interesting part.** `Base_Period_Delta()` is the *override* accessor — it
 reads the typed value in spec column I and returns `#N/A` when blank, never a
 silent 1 — and BFN passes it as Δ. No fittable case typed one, so BFN would
 have been `#N/A` everywhere and every comparison vacuously true.
-`RegressionSpecCase` gains `sequence_period`, and **P01/P02** declare 1:
+`RegressionSpecCase` gains `sequence_period`, and **M29/M30** declare 1:
 Production Lots is an annual panel, so it is a true statement about the data
 rather than wiring for its own sake, and the pair's cross-check now extends
-to BFN (they agree at 0.9854876217402373). **L08 deliberately leaves it
+to BFN (they agree at 0.9854876217402373). **M32 deliberately leaves it
 untyped**, keeping one registered case on the honest `#N/A` path.
 `test_only_cases_that_need_a_period_declare_one` pins that a case typing a
 period has both a Sequence axis and Fixed Effects, so the field cannot spread
@@ -3772,7 +3772,7 @@ reach the statistic through *different fits* — LSDV with per-country dummies
 on one side, the within-estimator on the other — so the residual vectors they
 sum differ in the last bits, by an amount that depends on which BLAS the
 runner links. Bit-exactness is a legitimate claim only where the arithmetic
-is genuinely identical, as in the P01/P02 and P03/P03b pairs, where
+is genuinely identical, as in the M29/M30 and M19/M20 pairs, where
 `np.array_equal` compares a stored log column against a computed one. Here it
 was a coincidence of build being asserted as an invariant. The tolerance is
 still four orders tighter than the six-decimal first-differing-digit rule the

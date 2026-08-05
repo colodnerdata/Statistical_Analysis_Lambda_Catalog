@@ -109,7 +109,7 @@ cmd = "python scripts/build_univariate.py --verify --no-launch"
 # sheet BEFORE writing it, so an interrupted run leaves the offending case on
 # screen.  The whole transcript is archived to "excel-only-runs/" either way,
 # stderr included, so a com_error traceback is a file somebody can hand over
-# rather than a terminal scrollback.  The heavy L08 case is excluded by
+# rather than a terminal scrollback.  The heavy M32 case is excluded by
 # default; pass --include-heavy for it (its Python oracle runs in the unit
 # suite regardless).
 [tool.poe.tasks.verify-test-models]

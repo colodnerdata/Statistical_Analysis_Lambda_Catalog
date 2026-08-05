@@ -944,12 +944,12 @@ def test_the_exemption_follows_the_named_range_when_the_column_moves(
 def test_every_regression_templated_sheet_gets_its_own_exemption(
     tmp_path: Path,
 ) -> None:
-    """The test-model workbook is 47 Regression-shaped sheets, each with its own
+    """The test-model workbook is 48 Regression-shaped sheets, each with its own
     sheet-scoped copy of the range. The exemption is per sheet, not per
     workbook, and a sheet that declares no such range gets none."""
     package = _build_masked_fixture(
         tmp_path,
-        sheet_names=("M05 Log-Log NA Masking", "G10 Two Sequence Flags", "Mileage Data"),
+        sheet_names=("M14 Log Log Missingness", "G10 Two Sequence Flags", "Mileage Data"),
         flag_columns={0: "AY", 1: "BB"},
         cells_by_index={
             0: {"AY3": "#N/A"},

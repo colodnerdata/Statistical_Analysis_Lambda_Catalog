@@ -106,7 +106,7 @@ _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
 # the only shipped dataset with a natural Fixed Effects grouping column
 # (Facility) and Sequence column (Fiscal_Year), so it is what exercises the
 # Fixed Effects role end to end (see analyze_regression_spec.py's
-# production_lots_fixed_effects QC case).
+# production_fixed_effects_derived QC case).
 
 
 def _run_deep_verify(

@@ -729,7 +729,7 @@ the deferred derive-on-change design, in
 
 **Verification — the Excel gate ran and cleared.** Three QC cases
 (`interaction_continuous_product`, `interaction_quadratic_self_product`,
-`interaction_categorical_broadcast`) join the spec-driven oracle, covering all
+`interaction_continuous_by_categorical`) join the spec-driven oracle, covering all
 three width regimes, and `tests/test_interaction_wiring.py` pins the semantics
 headlessly against the Python mirror. `build_production.py --verify --no-launch`
 was then run on a machine with Excel and reported **no spec-driven QC

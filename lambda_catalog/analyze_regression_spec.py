@@ -48,7 +48,7 @@ from .write_sheet_model_construction import (
 )
 
 # The Mileage/Auto MPG continuous-measurement columns available as full
-# continuous predictors in the "v1_full_continuous" QC case (all 5, vs. the
+# continuous predictors in the "all_continuous" QC case (all 5, vs. the
 # curated subset the shipped T0 default and "continuous_subset" turn on).
 # Kept local to this module rather than added to regression_shared's
 # FEATURE_COLUMNS, whose Life Expectancy-oriented ordering is shared by older
@@ -79,8 +79,8 @@ class RegressionSpecCase:
     spec: tuple[SpecVariable, ...]
     allow_intercept: bool
     # The row this case implements in docs/MODEL_TESTING_ASSETS.md § 1
-    # ("M05", "L07", "P06"; a trailing lowercase letter marks the second
-    # half of an ±intercept twin, e.g. "M03b"). Carried on the case so the
+    # ("M05", "L07", "M31"; a trailing lowercase letter marks the second
+    # half of an ±intercept twin, e.g. "M04"). Carried on the case so the
     # workbook sheet, the plan document, and the failure message all name
     # the same thing.
     plan_id: str = ""
@@ -90,7 +90,7 @@ class RegressionSpecCase:
     # variables. Validated at registry-build time, not at Excel-write time.
     sheet_name: str = ""
     # Cases whose sheets are expensive enough to be opt-in: L07 (k ~ 201
-    # dummy columns) and L08 (193 Fixed Effects groups), both over 2938
+    # dummy columns) and M32 (193 Fixed Effects groups), both over 2938
     # rows. The Python oracle always runs — it is cheap; only the sheet
     # build is gated, behind build_test_models.py --include-heavy.
     heavy: bool = False
@@ -540,7 +540,7 @@ def calculate_regression_spec_case(
     )
 
 
-def _v1_full_continuous_spec() -> list[SpecVariable]:
+def _all_continuous_spec() -> list[SpecVariable]:
     numeric_predictors = set(_MILEAGE_FEATURE_COLUMNS)
     spec = []
     for variable in build_default_spec():
@@ -562,7 +562,7 @@ def _v1_full_continuous_spec() -> list[SpecVariable]:
 def _continuous_subset_spec() -> list[SpecVariable]:
     selected = {"Displacement", "Horsepower", "Weight"}
     spec = []
-    for variable in _v1_full_continuous_spec():
+    for variable in _all_continuous_spec():
         if variable.role == _ROLE_PREDICTOR and variable.name not in selected:
             spec.append(_spec_var(variable.name, _ROLE_PREDICTOR, False, variable.var_type))
         else:
@@ -577,7 +577,7 @@ def _with_origin(spec: list[SpecVariable], reference: object = "") -> list[SpecV
     )
 
 
-def _model_year_origin_categorical_spec() -> list[SpecVariable]:
+def _categorical_mixed_predictors_spec() -> list[SpecVariable]:
     return _replace_spec_vars(
         _with_origin(_continuous_subset_spec()),
         model_year=_spec_var("Model Year", _ROLE_PREDICTOR, True, "Categorical"),
@@ -609,7 +609,7 @@ def _interaction_spec(
     )
 
 
-def _mileage_log_log_na_masking_spec() -> list[SpecVariable]:
+def _mileage_log_log_missingness_spec() -> list[SpecVariable]:
     """M5 — Ln(MPG) ~ Ln(Weight) + Ln(Horsepower) on Auto MPG.
 
     Covers ``(Log, Log)`` on a dataset OTHER than Production Lots, which is
@@ -643,10 +643,10 @@ def _mileage_log_log_na_masking_spec() -> list[SpecVariable]:
 
 
 def _categorical_only_design_spec() -> list[SpecVariable]:
-    """M14b — MPG ~ C(Model Year) + C(Origin), with NO continuous predictors.
+    """M12 — MPG ~ C(Model Year) + C(Origin), with NO continuous predictors.
 
     The plan's M14 ("two categoricals, no continuous") turned out not to be
-    what the shipped ``model_year_origin_categorical`` case builds — that
+    what the shipped ``categorical_mixed_predictors`` case builds — that
     one keeps Displacement/Horsepower/Weight on, so the categorical-only
     design has never actually been fitted. This is that design.
 
@@ -672,7 +672,7 @@ def _interaction_categorical_cross_spec() -> list[SpecVariable]:
 
     The Cat x Cat full-product width regime, the one the v3.1 interaction
     wiring emits ``(L1-1) * (L2-1)`` columns for and which no existing case
-    covers: ``interaction_categorical_broadcast`` is Continuous x
+    covers: ``interaction_continuous_by_categorical`` is Continuous x
     Categorical (``1 * (L-1)``), and nothing crosses two dummy blocks.
     Here that is 12 * 2 = 24 interaction columns on top of 12 + 2 main
     effects, so the constructor's nested REDUCE has to get both the count
@@ -846,7 +846,7 @@ def _life_spec(**overrides: SpecVariable) -> list[SpecVariable]:
     return spec
 
 
-def _life_partial_linear_log_spec(reference: object = "") -> list[SpecVariable]:
+def _life_linear_log_mixed_spec(reference: object = "") -> list[SpecVariable]:
     """L1 / L9 — Life expectancy ~ Ln(Population) + Ln(GDP) + Alcohol + C(Status).
 
     A **partial linear-log** model, and the suite's only ``(None, Mixed)``
@@ -1067,7 +1067,7 @@ def _life_country_fixed_effects_spec() -> list[SpecVariable]:
     )
 
 
-def _production_lots_fixed_effects_spec() -> list[SpecVariable]:
+def _production_fixed_effects_derived_spec() -> list[SpecVariable]:
     """Facility=Fixed Effects, Fiscal_Year=Sequence: log Cum Units -> log Unit Cost.
 
     The only shipped case that declares Role=Fixed Effects — a small
@@ -1093,10 +1093,10 @@ def _production_lots_fixed_effects_spec() -> list[SpecVariable]:
     ]
 
 
-def _production_lots_log_transform_spec() -> list[SpecVariable]:
+def _production_fixed_effects_transform_spec() -> list[SpecVariable]:
     """Facility=Fixed Effects, Fiscal_Year=Sequence: Cumulative_Units -Log-> Unit_Cost_BY.
 
-    Sibling of _production_lots_fixed_effects_spec(), pointed at the RAW
+    Sibling of _production_fixed_effects_derived_spec(), pointed at the RAW
     columns with transform="Log" instead of the precomputed "log Cum
     Units" / "log Unit Cost" columns it uses — the acceptance test for the
     v2.2 Transform=Log wiring on both a Predictor and the Response
@@ -1126,16 +1126,16 @@ def _production_lots_log_transform_spec() -> list[SpecVariable]:
     ]
 
 
-def _production_lots_derived_log_no_fe_spec() -> list[SpecVariable]:
+def _production_power_law_derived_no_fe_spec() -> list[SpecVariable]:
     """P3 — log Unit Cost ~ log Cum Units, NO Fixed Effects. Pre-derived columns.
 
-    The pre-derived half of the no-FE pair, and P03b's twin. It fits the
-    identical model by the other route: where P03b declares
+    The pre-derived half of the no-FE pair, and M20's twin. It fits the
+    identical model by the other route: where M20 declares
     ``Transform = Log`` on the raw ``Cumulative_Units`` / ``Unit_Cost_BY``
     columns, this one points the spec straight at the shipped ``log Cum
     Units`` / ``log Unit Cost`` columns and declares no transform at all.
 
-    **Why the suite wants both routes twice.** P01/P02 already pair
+    **Why the suite wants both routes twice.** M29/M30 already pair
     pre-derived against transform-axis, but only *with* Fixed Effects, so
     the cross-check has never run on a design the FE machinery does not
     touch. The two mechanisms reach the design matrix by different code
@@ -1145,11 +1145,11 @@ def _production_lots_derived_log_no_fe_spec() -> list[SpecVariable]:
     one cannot hide behind the other.
 
     It is also the cheapest strong oracle available: the shipped log
-    columns are exact logs of the raw ones, so this case and P03b must
+    columns are exact logs of the raw ones, so this case and M20 must
     agree BIT-for-bit on the design matrix and response vector and to
     floating point on every downstream statistic, with neither side
     reading the workbook. ``tests/test_transform_threading.py`` asserts
-    that, mirroring the P01/P02 assertion it already makes.
+    that, mirroring the M29/M30 assertion it already makes.
 
     The two legitimately differ on ``constructed_column_names`` — "log Cum
     Units" against "Ln(Cumulative_Units)" — and on the response display
@@ -1171,10 +1171,10 @@ def _production_lots_derived_log_no_fe_spec() -> list[SpecVariable]:
     ]
 
 
-def _production_lots_log_no_fe_spec() -> list[SpecVariable]:
+def _production_power_law_transform_no_fe_spec() -> list[SpecVariable]:
     """P3b — Log+Log with NO Fixed Effects: the (Log, Log) SWITCH branch.
 
-    Sibling of _production_lots_log_transform_spec() with ``Facility``
+    Sibling of _production_fixed_effects_transform_spec() with ``Facility``
     omitted instead of declared as Fixed Effects. Exercises the v3.3
     unit-space dispatcher's (Log, Log) branch where the level shift
     Y_Full − Y is exactly zero, so the unit-space arithmetic reduces
@@ -1183,9 +1183,9 @@ def _production_lots_log_no_fe_spec() -> list[SpecVariable]:
     smearing factor uses raw residuals, not within residuals.
 
     It is also the transform-axis half of the no-FE pair — the model
-    ``_production_lots_derived_log_no_fe_spec`` fits from the shipped
+    ``_production_power_law_derived_no_fe_spec`` fits from the shipped
     pre-derived log columns instead. The two sit adjacent in the registry
-    and on adjacent worksheets, exactly as P01/P02 do with Fixed Effects.
+    and on adjacent worksheets, exactly as M29/M30 do with Fixed Effects.
     """
     return [
         _spec_var("Lot_ID", _ROLE_IDENTIFIER),
@@ -1204,10 +1204,10 @@ def _production_lots_log_no_fe_spec() -> list[SpecVariable]:
     ]
 
 
-def _production_lots_log_mixed_predictors_spec() -> list[SpecVariable]:
+def _production_log_mixed_predictors_spec() -> list[SpecVariable]:
     """v3.3 — Mixed Log/None predictors with a Log response: the (Log, Mixed) branch.
 
-    Sibling of _production_lots_log_no_fe_spec() with an additional
+    Sibling of _production_power_law_transform_no_fe_spec() with an additional
     untransformed Continuous predictor (``Experience_Stock``) — exercises
     the ``(Log, Mixed)`` SWITCH branch the v2.2 transform-threading
     rewrite unlocked. The mixed case is the cell the user explicitly
@@ -1231,7 +1231,7 @@ def _production_lots_log_mixed_predictors_spec() -> list[SpecVariable]:
     ]
 
 
-def _production_lots_log_predictor_only_spec() -> list[SpecVariable]:
+def _production_log_predictor_only_spec() -> list[SpecVariable]:
     """v3.3 — Log predictor, None response: the (None, Log) branch.
 
     Single Log-transformed predictor against an untransformed response —
@@ -1269,81 +1269,56 @@ def _production_lots_log_predictor_only_spec() -> list[SpecVariable]:
 # characters cannot hold a model formula, and the corner a case exists for
 # is the useful thing to read off a tab.
 _CASE_SHEET_IDENTITY: dict[str, tuple[str, str]] = {
-    # § 1.1 Auto MPG — baseline, categoricals, interactions.
-    "default_t0_intercept": ("M01", "M01 Baseline Categoricals"),
-    "default_t0_no_intercept": ("M02", "M02 Intercept Off Categorical"),
-    "v1_full_continuous_intercept": ("M03", "M03 All Continuous"),
-    "v1_full_continuous_no_intercept": ("M03b", "M03b All Continuous NoInt"),
-    "continuous_subset_intercept": ("M04", "M04 Excluded Candidates"),
-    "continuous_subset_no_intercept": ("M04b", "M04b Excluded Cands NoInt"),
-    "mileage_log_log_na_masking": ("M05", "M05 Log-Log NA Masking"),
-    "interaction_quadratic_self_product": ("M06", "M06 Quadratic Self Product"),
-    "interaction_continuous_product": ("M07", "M07 Continuous Product"),
-    "interaction_categorical_broadcast": ("M08", "M08 Cont x Cat Broadcast"),
-    "interaction_categorical_cross": ("M09", "M09 Cat x Cat Full Product"),
-    "interaction_difference": ("M10", "M10 Difference Interaction"),
-    "interaction_ratio_reciprocal": ("M11", "M11 Ratio Reciprocal Pair"),
-    "origin_explicit_reference": ("M12", "M12 Explicit Reference"),
-    "origin_default_reference": ("M13", "M13 Default Reference"),
-    # The shipped case named model_year_origin_categorical keeps three
-    # Continuous predictors alongside its two Categoricals, so it is NOT the
-    # plan's "categorical-only design" — that corner is M14b, added
-    # alongside it. See docs/MODEL_TESTING_ASSETS.md § 1.1.
-    "model_year_origin_categorical": ("M14", "M14 Mixed Cat And Continuous"),
-    "categorical_only_design": ("M14b", "M14b Categorical Only Design"),
-    "usa_filter_degenerate_origin": ("M15", "M15 Filter Degenerate Cat"),
-    # M16 (typed Sequence Period override) and P07 (irregular panel
-    # spacing) are NOT here. Both fit exactly the model a neighbouring case
-    # already fits — M16 is M01's fit, P07 is P02's — and everything they
-    # actually test lives in the spec block's status cells (the Period In
-    # Use display, the Sequence Verdict, the Δ spectrum). Registering them
-    # as fittable cases would add two identical fits and violate the
-    # covering-array rule, so they are guard-state cases instead. See
-    # lambda_catalog/analyze_regression_guard_states.py.
-    # § 1.2 Life Expectancy — transform dispatch, scale, missingness.
-    "life_partial_linear_log": ("L01", "L01 Partial Linear-Log"),
-    "life_log_response_duan": ("L02", "L02 Log Response Duan"),
-    "life_log_response_naive": ("L03", "L03 Log Response Naive"),
-    "life_elasticity_log_log": ("L04", "L04 Elasticity Log-Log"),
-    "life_full_profile": ("L05", "L05 Kitchen Sink Profile"),
-    # L07 is NOT here. At k = 205 the workbook cannot invert the Gram
-    # matrix and every engine cell reads nan, which is precisely the state
-    # the width guard warns about — so a numeric oracle for it would be
-    # comparing against nothing. It ships as a guard-state case asserting
-    # the M2 WARNING instead. See analyze_regression_guard_states.py.
-    "life_country_fixed_effects": ("L08", "L08 High Cardinality FE"),
-    "life_status_explicit_reference": ("L09", "L09 Binary Cat Reference"),
-    # § 1.3 Production Lots — learning curves, fixed effects, sequence.
-    "production_lots_fixed_effects": ("P01", "P01 Learning Curve FE"),
-    "production_lots_log_transform": ("P02", "P02 FE Log Transform Axis"),
-    # P03/P03b are a pair: the same no-FE power law reached two ways. The
-    # sheet names say WHICH ROUTE, because that is the only thing that
-    # differs between the two tabs and the whole reason both exist.
-    "production_lots_derived_log_no_fe": ("P03", "P03 Power Law Derived Cols"),
-    "production_lots_log_no_fe": ("P03b", "P03b Power Law Transform Axis"),
-    "production_lots_log_mixed_predictors": ("P04", "P04 Log Mixed Predictors"),
-    "production_lots_log_predictor_only": ("P05", "P05 Log Predictor Only"),
-    "production_lots_lsdv_equivalence": ("P06", "P06 LSDV vs Within Estimator"),
-    # § 1.4 — G8 is the one guard-rail row that IS a fittable model (the
-    # invalid reference degrades to zero columns rather than erroring), so
-    # it lives with the fittable cases and carries a G-tier sheet name.
-    "origin_invalid_reference": ("G08", "G08 Invalid Reference Level"),
+    # § 1 fittable cases are ordered by the complexity of the concept they
+    # demonstrate, not by their source dataset. Sheet names state that concept.
+    "baseline_t0_intercept": ("M01", "M01 Baseline T0"),
+    "all_continuous_intercept": ("M02", "M02 All Continuous"),
+    "continuous_subset_intercept": ("M03", "M03 Continuous Subset"),
+    "all_continuous_no_intercept": ("M04", "M04 All Continuous NoInt"),
+    "continuous_subset_no_intercept": ("M05", "M05 Subset NoInt"),
+    "baseline_t0_no_intercept": ("M06", "M06 Baseline NoInt Cat"),
+    "origin_default_reference": ("M07", "M07 Default Reference"),
+    "origin_explicit_reference": ("M08", "M08 Explicit Reference"),
+    "origin_invalid_reference": ("M09", "M09 Invalid Reference"),
+    "life_status_reference": ("M10", "M10 Binary Cat Reference"),
+    "categorical_mixed_predictors": ("M11", "M11 Mixed Categoricals"),
+    "categorical_only_design": ("M12", "M12 Categorical Only"),
+    "filter_degenerate_categorical": ("M13", "M13 Degenerate Cat Filter"),
+    "mileage_log_log_missingness": ("M14", "M14 Log Log Missingness"),
+    "life_linear_log_mixed": ("M15", "M15 Linear Log Mixed"),
+    "life_log_response_duan": ("M16", "M16 Log Response Duan"),
+    "life_log_response_naive": ("M17", "M17 Log Response Naive"),
+    "life_elasticity_log_log": ("M18", "M18 Elasticity Log Log"),
+    "production_power_law_derived_no_fe": ("M19", "M19 Power Law Derived"),
+    "production_power_law_transform_no_fe": ("M20", "M20 Power Law Transform"),
+    "production_log_mixed_predictors": ("M21", "M21 Log Mixed Predictors"),
+    "production_log_predictor_only": ("M22", "M22 Log Predictor Only"),
+    "interaction_continuous_product": ("M23", "M23 Continuous Product"),
+    "interaction_quadratic_self_product": ("M24", "M24 Quadratic Self Product"),
+    "interaction_continuous_by_categorical": ("M25", "M25 Continuous By Cat"),
+    "interaction_categorical_cross": ("M26", "M26 Cat By Cat Product"),
+    "interaction_difference": ("M27", "M27 Difference Interaction"),
+    "interaction_ratio_reciprocal": ("M28", "M28 Ratio Reciprocal"),
+    "production_fixed_effects_derived": ("M29", "M29 FE Derived Logs"),
+    "production_fixed_effects_transform": ("M30", "M30 FE Transform Logs"),
+    "production_lsdv_equivalence": ("M31", "M31 LSDV Equivalence"),
+    "life_country_fixed_effects": ("M32", "M32 High Cardinality FE"),
+    "life_full_profile": ("M33", "M33 Numeric Stress Profile"),
 }
-
 # Cases whose sheets are too expensive to build by default — see
 # RegressionSpecCase.heavy. Kept as a set next to the identity table so the
 # two facts about "which cases are special" read together.
 #
-# Two reasons land a case here. The first is the obvious one — L08's 173
+# Two reasons land a case here. The first is the obvious one — M32's 173
 # Fixed Effects groups make every per-row residual / leverage / Cook's
 # calculation 173× wider than the next case, and the sheet build is what
-# hurts, not the Python oracle. The second is the one L05 occupies: at
+# hurts, not the Python oracle. The second is the one M33 occupies: at
 # k = 19 with n = 2117 and ~5% missingness on every predictor, the
 # statsmodels OLS reference and Excel's OLS implementation diverge in
 # the 5th–6th decimal place on most coefficients and residuals — not
 # because either side is wrong, but because the QR-with-column-pivoting
 # paths they each take through an ill-conditioned Gram matrix produce
-# near-tied numerics. L05's 73 mismatches on the regular run are that
+# near-tied numerics. M33's 73 mismatches on the regular run are that
 # floor, not a defect. A LOOSER tolerance would also work, but the
 # right thing to do with "this case demonstrates a precision floor the
 # production shipped formula can't go below" is keep it as a deliberate
@@ -1372,8 +1347,8 @@ def _identify(case: RegressionSpecCase) -> RegressionSpecCase:
     )
 
 
-def _production_lots_lsdv_equivalence_spec() -> list[SpecVariable]:
-    """P6 — production_lots_log_transform with Facility as a Categorical Predictor.
+def _production_lsdv_equivalence_spec() -> list[SpecVariable]:
+    """P6 — production_fixed_effects_transform with Facility as a Categorical Predictor.
 
     The strongest cheap oracle in the suite. This is P2's spec with exactly
     one edit — ``Facility`` declared as a Categorical Predictor rather than
@@ -1416,231 +1391,55 @@ def _production_lots_lsdv_equivalence_spec() -> list[SpecVariable]:
 def build_regression_spec_cases() -> list[RegressionSpecCase]:
     """Return the standard human-plan-core spec cases for QC.
 
-    Every case carries its plan ID and worksheet name (from
-    ``_CASE_SHEET_IDENTITY``), validated here against the naming contract in
-    ``lambda_catalog/test_model_sheets.py`` — so an illegal or duplicated
-    sheet name fails in the unit suite, not partway through a multi-minute
-    Excel build.
+    Cases are registered in the same demonstration-oriented order used by
+    ``docs/MODEL_TESTING_ASSETS.md``: simple OLS first, then categoricals,
+    transforms/missingness, interactions, fixed-effects equivalence, and the
+    high-cardinality/numerical-stress cases last.
     """
     cases: list[RegressionSpecCase] = []
 
-    for allow in (True, False):
-        suffix = "intercept" if allow else "no_intercept"
+    def _mileage_case(
+        name: str,
+        spec: list[SpecVariable],
+        *,
+        allow_intercept: bool = True,
+        extra_columns: tuple[ExtraSpecColumn, ...] = (),
+    ) -> None:
         cases.append(
             RegressionSpecCase(
-                name=f"default_t0_{suffix}",
-                spec=tuple(build_default_spec()),
-                allow_intercept=allow,
-            )
-        )
-        cases.append(
-            RegressionSpecCase(
-                name=f"v1_full_continuous_{suffix}",
-                spec=tuple(_v1_full_continuous_spec()),
-                allow_intercept=allow,
-            )
-        )
-        cases.append(
-            RegressionSpecCase(
-                name=f"continuous_subset_{suffix}",
-                spec=tuple(_continuous_subset_spec()),
-                allow_intercept=allow,
+                name=name,
+                spec=tuple(spec),
+                allow_intercept=allow_intercept,
+                extra_columns=extra_columns,
             )
         )
 
-    categorical_specs = [
-        ("origin_default_reference", _with_origin(_continuous_subset_spec())),
-        ("origin_explicit_reference", _with_origin(_continuous_subset_spec(), "Europe")),
-        ("origin_invalid_reference", _with_origin(_continuous_subset_spec(), 99)),
-        ("model_year_origin_categorical", _model_year_origin_categorical_spec()),
-        (
-            "usa_filter_degenerate_origin",
-            [
-                *build_default_spec(),
-                _spec_var("Is_USA", _ROLE_FILTER, False, "Continuous"),
-            ],
-        ),
-    ]
-    # v3.1 interaction wiring — the three width regimes the constructor has
-    # to get right: one column, the documented quadratic (a row pointing at
-    # itself), and the Continuous x Categorical broadcast to L-1 columns.
-    categorical_specs.extend([
-        ("interaction_continuous_product", _interaction_spec("Displacement")),
-        ("interaction_quadratic_self_product", _interaction_spec("Weight")),
-        (
-            "interaction_categorical_broadcast",
-            _interaction_spec("Origin", categorical_operand=True),
-        ),
-    ])
-    # The remaining Auto MPG rows of docs/MODEL_TESTING_ASSETS.md § 1.1:
-    # the two interaction operations the closed vocabulary still had no
-    # case for, the Cat x Cat width regime and its interaction-free base,
-    # and (Log, Log) combined with real missingness.
-    categorical_specs.extend([
-        ("mileage_log_log_na_masking", _mileage_log_log_na_masking_spec()),
-        ("categorical_only_design", _categorical_only_design_spec()),
-        ("interaction_categorical_cross", _interaction_categorical_cross_spec()),
-        ("interaction_difference", _interaction_difference_spec()),
-        ("interaction_ratio_reciprocal", _interaction_ratio_reciprocal_spec()),
-    ])
-
-    for name, spec in categorical_specs:
-        extra = (_IS_USA,) if name == "usa_filter_degenerate_origin" else ()
+    def _production_case(
+        name: str,
+        spec: list[SpecVariable],
+        *,
+        prediction_group: str | None = None,
+        sequence_period: float | None = None,
+    ) -> None:
         cases.append(
             RegressionSpecCase(
                 name=name,
                 spec=tuple(spec),
                 allow_intercept=True,
-                extra_columns=extra,
+                source_csv_path=PRODUCTION_LOTS_CSV_PATH,
+                row_loader=load_production_lots_source_rows,
+                source_table_ref="=ProductionLotsData[#All]",
+                prediction_group=prediction_group,
+                sequence_period=sequence_period,
             )
         )
 
-    cases.append(
-        RegressionSpecCase(
-            name="production_lots_fixed_effects",
-            spec=tuple(_production_lots_fixed_effects_spec()),
-            allow_intercept=True,
-            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
-            row_loader=load_production_lots_source_rows,
-            source_table_ref="=ProductionLotsData[#All]",
-            # Explicit (not the alphabetically-first default) — exercises the
-            # harness actually writing a non-default group into $AK$12, not
-            # just accepting whatever the sheet defaults to.
-            prediction_group="Site B",
-            # Declares what the panel actually is: annual lots, Δ = 1. This
-            # is the pair that makes the BFN panel Durbin-Watson cell live —
-            # Base_Period_Delta() is the TYPED-override accessor and returns
-            # #N/A when nothing is typed, so without this the AE12 cell on
-            # every Fixed Effects sheet sits at #N/A and the panel
-            # diagnostic is compared against nothing. P01/P02 are the
-            # natural home: Fiscal_Year is a real, evenly spaced annual
-            # axis, so 1 is a true statement about the data rather than
-            # wiring for its own sake.
-            sequence_period=1.0,
-        )
-    )
-    cases.append(
-        RegressionSpecCase(
-            name="production_lots_log_transform",
-            spec=tuple(_production_lots_log_transform_spec()),
-            allow_intercept=True,
-            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
-            row_loader=load_production_lots_source_rows,
-            source_table_ref="=ProductionLotsData[#All]",
-            prediction_group="Site B",
-            # Matches P01 — the pair must differ in exactly one thing (the
-            # route to the log columns), so the period is part of what is
-            # held fixed. It also extends the P01 == P02 cross-check to BFN.
-            sequence_period=1.0,
-        )
-    )
-
-    # The no-FE pre-derived/transform-axis PAIR, registered adjacent so the
-    # two land on adjacent worksheets. Same model, two routes to it: P03
-    # reads the shipped log columns, P03b computes them from the raw ones
-    # via Transform=Log. P01/P02 are the same pairing with Fixed Effects;
-    # having it both with and without FE is what separates a transform-axis
-    # regression from an FE-demeaning one.
-    cases.append(
-        RegressionSpecCase(
-            name="production_lots_derived_log_no_fe",
-            spec=tuple(_production_lots_derived_log_no_fe_spec()),
-            allow_intercept=True,
-            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
-            row_loader=load_production_lots_source_rows,
-            source_table_ref="=ProductionLotsData[#All]",
-            # Matches P03b: no Fixed Effects, so group recovery resolves to
-            # "(all)". The pair must agree on this too — a differing
-            # prediction group would move the prediction block and make the
-            # cross-check fail for a reason that has nothing to do with
-            # transforms.
-            prediction_group=None,
-        )
-    )
-
-    # v3.3 — three new spec cases covering the v3.3 unit-space dispatcher's
-    # (Log, Log), (Log, Mixed), and (None, Log) branches. Each is a sibling of
-    # production_lots_log_transform with a small spec edit. See
-    # tests/test_unit_space_dispatch.py for the cross-checks against the
-    # workbook arithmetic.
-    cases.append(
-        RegressionSpecCase(
-            name="production_lots_log_no_fe",
-            spec=tuple(_production_lots_log_no_fe_spec()),
-            allow_intercept=True,
-            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
-            row_loader=load_production_lots_source_rows,
-            source_table_ref="=ProductionLotsData[#All]",
-            # No Fixed Effects in this spec, so group_labels is None and
-            # group recovery resolves to "(all)" — leave prediction_group
-            # unset and let the harness default to that.
-            prediction_group=None,
-        )
-    )
-    cases.append(
-        RegressionSpecCase(
-            name="production_lots_log_mixed_predictors",
-            spec=tuple(_production_lots_log_mixed_predictors_spec()),
-            allow_intercept=True,
-            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
-            row_loader=load_production_lots_source_rows,
-            source_table_ref="=ProductionLotsData[#All]",
-            prediction_group=None,
-        )
-    )
-    cases.append(
-        RegressionSpecCase(
-            name="production_lots_log_predictor_only",
-            spec=tuple(_production_lots_log_predictor_only_spec()),
-            allow_intercept=True,
-            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
-            row_loader=load_production_lots_source_rows,
-            source_table_ref="=ProductionLotsData[#All]",
-            prediction_group=None,
-        )
-    )
-    # P6 — the LSDV form of P2. Same dataset, same Filter, same prediction
-    # group, so the only difference from production_lots_log_transform is
-    # Facility's Role; see the spec builder for why the pair is the
-    # suite's strongest cross-oracle.
-    cases.append(
-        RegressionSpecCase(
-            name="production_lots_lsdv_equivalence",
-            spec=tuple(_production_lots_lsdv_equivalence_spec()),
-            allow_intercept=True,
-            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
-            row_loader=load_production_lots_source_rows,
-            source_table_ref="=ProductionLotsData[#All]",
-            # No Fixed Effects row now (Facility is an ordinary Categorical
-            # Predictor), so group recovery resolves to "(all)" exactly as
-            # it does for the other no-FE Production Lots cases.
-            prediction_group=None,
-        )
-    )
-
-    # ── Life Expectancy (§ 1.2) ─────────────────────────────────────────
-    # All eight share the dataset, loader and Source_Table retarget; they
-    # differ only in spec (and, for L03, in the Back-Transform toggle).
-    # None declares Fixed Effects except L08, so prediction_group is left
-    # to resolve to "(all)" for the rest.
-    for name, spec, back_transform in (
-        ("life_partial_linear_log", _life_partial_linear_log_spec(), "Duan"),
-        ("life_log_response_duan", _life_log_response_spec(), "Duan"),
-        # L03 is L02's spec verbatim with the sheet's $AH$4 flipped to
-        # Naive: EXP(y_hat) with no smearing factor. Every unit-space
-        # number moves; the CI/PI bounds do not (they are EXP-only under
-        # both methods). Sharing the spec builder is what makes the
-        # difference attributable to the toggle alone.
-        ("life_log_response_naive", _life_log_response_spec(), "Naive"),
-        ("life_elasticity_log_log", _life_elasticity_log_log_spec(), "Duan"),
-        ("life_full_profile", _life_full_profile_spec(), "Duan"),
-        ("life_country_fixed_effects", _life_country_fixed_effects_spec(), "Duan"),
-        (
-            "life_status_explicit_reference",
-            _life_partial_linear_log_spec("Developing"),
-            "Duan",
-        ),
-    ):
+    def _life_case(
+        name: str,
+        spec: list[SpecVariable],
+        *,
+        back_transform: str = "Duan",
+    ) -> None:
         cases.append(
             RegressionSpecCase(
                 name=name,
@@ -1653,6 +1452,94 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
                 back_transform=back_transform,
             )
         )
+
+    # Baseline/simple OLS and continuous-predictor cases.
+    _mileage_case("baseline_t0_intercept", build_default_spec())
+    _mileage_case("all_continuous_intercept", _all_continuous_spec())
+    _mileage_case("continuous_subset_intercept", _continuous_subset_spec())
+    _mileage_case(
+        "all_continuous_no_intercept", _all_continuous_spec(), allow_intercept=False
+    )
+    _mileage_case(
+        "continuous_subset_no_intercept", _continuous_subset_spec(), allow_intercept=False
+    )
+    _mileage_case("baseline_t0_no_intercept", build_default_spec(), allow_intercept=False)
+
+    # Intercept/include/reference/filter categorical cases.
+    _mileage_case("origin_default_reference", _with_origin(_continuous_subset_spec()))
+    _mileage_case(
+        "origin_explicit_reference", _with_origin(_continuous_subset_spec(), "Europe")
+    )
+    _mileage_case("origin_invalid_reference", _with_origin(_continuous_subset_spec(), 99))
+    _life_case("life_status_reference", _life_linear_log_mixed_spec("Developing"))
+    _mileage_case("categorical_mixed_predictors", _categorical_mixed_predictors_spec())
+    _mileage_case("categorical_only_design", _categorical_only_design_spec())
+    _mileage_case(
+        "filter_degenerate_categorical",
+        [*build_default_spec(), _spec_var("Is_USA", _ROLE_FILTER, False, "Continuous")],
+        extra_columns=(_IS_USA,),
+    )
+
+    # Log/back-transform/missingness cases.
+    _mileage_case("mileage_log_log_missingness", _mileage_log_log_missingness_spec())
+    _life_case("life_linear_log_mixed", _life_linear_log_mixed_spec())
+    _life_case("life_log_response_duan", _life_log_response_spec())
+    _life_case("life_log_response_naive", _life_log_response_spec(), back_transform="Naive")
+    _life_case("life_elasticity_log_log", _life_elasticity_log_log_spec())
+    _production_case(
+        "production_power_law_derived_no_fe",
+        _production_power_law_derived_no_fe_spec(),
+        prediction_group=None,
+    )
+    _production_case(
+        "production_power_law_transform_no_fe",
+        _production_power_law_transform_no_fe_spec(),
+        prediction_group=None,
+    )
+    _production_case(
+        "production_log_mixed_predictors",
+        _production_log_mixed_predictors_spec(),
+        prediction_group=None,
+    )
+    _production_case(
+        "production_log_predictor_only",
+        _production_log_predictor_only_spec(),
+        prediction_group=None,
+    )
+
+    # Interaction cases, ordered by the operation/width regime demonstrated.
+    _mileage_case("interaction_continuous_product", _interaction_spec("Displacement"))
+    _mileage_case("interaction_quadratic_self_product", _interaction_spec("Weight"))
+    _mileage_case(
+        "interaction_continuous_by_categorical",
+        _interaction_spec("Origin", categorical_operand=True),
+    )
+    _mileage_case("interaction_categorical_cross", _interaction_categorical_cross_spec())
+    _mileage_case("interaction_difference", _interaction_difference_spec())
+    _mileage_case("interaction_ratio_reciprocal", _interaction_ratio_reciprocal_spec())
+
+    # Fixed-effects/equivalence/sequence-related cases.
+    _production_case(
+        "production_fixed_effects_derived",
+        _production_fixed_effects_derived_spec(),
+        prediction_group="Site B",
+        sequence_period=1.0,
+    )
+    _production_case(
+        "production_fixed_effects_transform",
+        _production_fixed_effects_transform_spec(),
+        prediction_group="Site B",
+        sequence_period=1.0,
+    )
+    _production_case(
+        "production_lsdv_equivalence",
+        _production_lsdv_equivalence_spec(),
+        prediction_group=None,
+    )
+
+    # High-cardinality/heavy/numerical-stress cases.
+    _life_case("life_country_fixed_effects", _life_country_fixed_effects_spec())
+    _life_case("life_full_profile", _life_full_profile_spec())
 
     identified = [_identify(case) for case in cases]
     assert_sheet_names_unique([case.sheet_name for case in identified])

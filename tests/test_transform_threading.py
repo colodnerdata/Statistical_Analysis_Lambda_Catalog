@@ -4,9 +4,9 @@ Python QC oracle (analyze_regression_spec.py / analyze_model_construction.py).
 The headline acceptance test: production_lots.csv ships both raw columns
 (Cumulative_Units, Unit_Cost_BY) and precomputed log columns ("log Cum
 Units", "log Unit Cost") that are bit-identical logs of the raw ones. The
-existing "production_lots_fixed_effects" QC case points its spec at the
+existing "production_fixed_effects_derived" QC case points its spec at the
 precomputed columns (a pre-Log-wiring workaround); the new
-"production_lots_log_transform" case points the SAME model at the raw
+"production_fixed_effects_transform" case points the SAME model at the raw
 columns with transform="Log" declared instead. If the two designs and
 every downstream statistic agree to floating-point precision, the Log
 wiring reproduces exactly what the precomputed-column workaround already
@@ -50,8 +50,8 @@ def _cases() -> dict:
 
 def test_log_transform_case_matches_precomputed_log_case_numerically() -> None:
     cases = _cases()
-    fe_case = cases["production_lots_fixed_effects"]
-    log_case = cases["production_lots_log_transform"]
+    fe_case = cases["production_fixed_effects_derived"]
+    log_case = cases["production_fixed_effects_transform"]
 
     fe_expected = calculate_regression_spec_case(fe_case, PRODUCTION_LOTS_CSV_PATH)
     log_expected = calculate_regression_spec_case(log_case, PRODUCTION_LOTS_CSV_PATH)
@@ -92,9 +92,9 @@ def test_log_transform_case_matches_precomputed_log_case_numerically() -> None:
 
 
 def test_no_fe_pair_agrees_the_same_way_the_fe_pair_does() -> None:
-    """P03 (pre-derived columns) == P03b (transform axis), without Fixed Effects.
+    """M19 (pre-derived columns) == M20 (transform axis), without Fixed Effects.
 
-    The same claim the test above makes for P01/P02, on the pair that has
+    The same claim the test above makes for M29/M30, on the pair that has
     no FE. Worth asserting separately rather than trusting the FE result to
     cover it: the two mechanisms reach the design matrix by different
     routes — one reads a shipped column, the other computes one — and
@@ -106,10 +106,10 @@ def test_no_fe_pair_agrees_the_same_way_the_fe_pair_does() -> None:
     """
     cases = _cases()
     derived_expected = calculate_regression_spec_case(
-        cases["production_lots_derived_log_no_fe"], PRODUCTION_LOTS_CSV_PATH
+        cases["production_power_law_derived_no_fe"], PRODUCTION_LOTS_CSV_PATH
     )
     log_expected = calculate_regression_spec_case(
-        cases["production_lots_log_no_fe"], PRODUCTION_LOTS_CSV_PATH
+        cases["production_power_law_transform_no_fe"], PRODUCTION_LOTS_CSV_PATH
     )
 
     # Bit-exact, for the same reason as the FE pair: the shipped log columns
@@ -150,7 +150,7 @@ def test_no_fe_pair_agrees_the_same_way_the_fe_pair_does() -> None:
 
 def test_log_transform_case_labels_match_the_transform_contract() -> None:
     cases = _cases()
-    log_case = cases["production_lots_log_transform"]
+    log_case = cases["production_fixed_effects_transform"]
     log_expected = calculate_regression_spec_case(log_case, PRODUCTION_LOTS_CSV_PATH)
 
     assert log_expected.design.constructed_column_names == ("Ln(Cumulative_Units)",)
@@ -174,7 +174,7 @@ def test_default_spec_has_no_transform_declared() -> None:
 def test_none_transform_design_is_unaffected_by_the_log_wiring() -> None:
     rows = load_production_lots_source_rows(PRODUCTION_LOTS_CSV_PATH)
     cases = _cases()
-    fe_case = cases["production_lots_fixed_effects"]
+    fe_case = cases["production_fixed_effects_derived"]
 
     # Rebuilding the design twice from the identical (all-"None"-transform)
     # spec must be exactly reproducible — no hidden state, no accidental

@@ -35,289 +35,83 @@ Notation: `C(x)` = Categorical, `Ln(x)` = `Transform = Log`, `| G` = Fixed Effec
 `×` / `−` / `÷` = interaction operations, `(resp, pred)` = the transform dispatch pair from
 `Fit_Context()`. Intercept is ON unless noted.
 
-### 1.1 Mileage / Auto MPG (406 rows, 392 complete) — baseline, categoricals, interactions
+Section 1 is ordered by **what the case demonstrates**, from lowest modelling complexity to
+highest. Dataset names appear only where they matter to the demonstration; the ordering does not
+preserve legacy Auto MPG / Life Expectancy / Production Lots blocks or old tab aliases.
 
-| ID | Model | Configuration | Covers | Status |
+### 1.1 Fittable model cases, ordered by demonstration complexity
+
+| ID | Demonstration | Model / configuration | Covers | Case |
 |---|---|---|---|---|
-| M1 | `MPG ~ Horsepower + Weight + C(Model Year) + C(Origin)` | Car Name = Identifier; **no Sequence axis** (see the note below); k = 16 | shipped T0 baseline; two categoricals + two continuous; (None, None) pair; unit-space reduction invariant (fit-space ≡ unit-space when no transform) | existing — `default_t0_intercept` |
-| M2 | M1, intercept OFF | carries the deliberate red CF (intercept-off + included categorical) | no-intercept with categoricals | existing — `default_t0_no_intercept` |
-| M3 | `MPG ~` all 5 continuous (Cylinders, Displacement, Horsepower, Weight, Acceleration), ± intercept | categoricals excluded | all-continuous fit, intercept on/off pair | existing — `v1_full_continuous_intercept` / `_no_intercept` |
-| M4 | `MPG ~` curated continuous subset, ± intercept | | `Include = FALSE` candidate rows | existing — `continuous_subset_intercept` / `_no_intercept` |
-| M5 | `Ln(MPG) ~ Ln(Weight) + Ln(Horsepower)` | Duan default | **(Log, Log) on a dataset other than Production Lots**; NA-propagation masking (8 missing MPG, 6 missing Horsepower) | existing — `mileage_log_log_na_masking` |
-| M6 | `MPG ~ Horsepower + Horsepower × Horsepower` | self-product | quadratic (x²) declaration | existing — `interaction_quadratic_self_product` |
-| M7 | continuous × continuous product | one extra design column | Cont×Cont `Product` | existing — `interaction_continuous_product` |
-| M8 | `Weight × C(Origin)` | L−1 extra columns | Cont×Cat broadcast | existing — `interaction_categorical_broadcast` |
-| M9 | `MPG ~ C(Model Year) + C(Origin) + C(Model Year) × C(Origin)` | Model Year as Categorical (numeric-valued, 13 levels) | **Cat×Cat full-product width** (12 × 2 = 24 interaction columns); numeric-valued categorical | existing — `interaction_categorical_cross` |
-| M10 | `MPG ~ Displacement + Weight + Displacement − Acceleration` | Acceleration is an excluded operand | **first `Difference` case**; antisymmetric op; `" − "` (U+2212) header; also covers G11's amber marginality path | existing — `interaction_difference` |
-| M11 | `MPG ~ Weight + Horsepower + Weight ÷ Horsepower + Horsepower ÷ Weight` | both reciprocal Ratio rows declared | **first `Ratio` case**; zero-denominator `#N/A` path; **legal reciprocal pair** (Ratio is asymmetric, so no singular-Gram flag) | existing — `interaction_ratio_reciprocal` |
-| M12 | M1 with `Origin` reference = `Europe` | typed reference | explicit reference override | existing — `origin_explicit_reference` |
-| M13 | M1 with `Origin` reference blank | first-in-sort-order default | default reference | existing — `origin_default_reference` |
-| M14 | `MPG ~ Displacement + Horsepower + Weight + C(Model Year) + C(Origin)` | two categoricals **plus** three continuous | multi-level categorical alongside continuous predictors | existing — `model_year_origin_categorical` |
-| M14b | `MPG ~ C(Model Year) + C(Origin)` | no continuous predictors at all | **categorical-only design**; the mask reduces to "response is numeric", so n grows 392 → 398; M9's interaction-free base | existing — `categorical_only_design` |
-| M15 | M1 + `Is_USA` Filter | `ExtraSpecColumn` fixture | filter-induced **degenerate categorical** (Origin collapses to one level → 0 columns, red K cell) | existing — `usa_filter_degenerate_origin` |
-| M16 | M1 + Model Year `Sequence = TRUE` and a typed `Sequence Period` = 2 | candidate Δ = 1 | **period override**; the verdict re-evaluates against the typed Δ (escalating to off-grid, since odd gaps are not multiples of 2) | existing — **guard state** `guard_sequence_period_override` |
+| M01 | Baseline T0 | `MPG ~ Horsepower + Weight + C(Model Year) + C(Origin)` | shipped baseline; categoricals + continuous; fit/unit-space identity | `baseline_t0_intercept` |
+| M02 | All continuous | `MPG ~` all five continuous predictors | plain OLS feature-order/full-data filter | `all_continuous_intercept` |
+| M03 | Continuous subset | curated continuous subset | `Include = FALSE` candidate rows | `continuous_subset_intercept` |
+| M04 | All continuous, no intercept | M02 with intercept OFF | no-intercept continuous OLS | `all_continuous_no_intercept` |
+| M05 | Continuous subset, no intercept | M03 with intercept OFF | no-intercept plus excluded candidates | `continuous_subset_no_intercept` |
+| M06 | Baseline categoricals, no intercept | M01 with intercept OFF | red advisory for intercept-off categorical models | `baseline_t0_no_intercept` |
+| M07 | Default categorical reference | Origin reference blank | first-in-sort-order reference | `origin_default_reference` |
+| M08 | Explicit categorical reference | Origin reference = `Europe` | typed reference override | `origin_explicit_reference` |
+| M09 | Invalid categorical reference | Origin reference = `99` | invalid reference degrades to zero columns but remains fittable | `origin_invalid_reference` |
+| M10 | Binary categorical reference | Life Status reference = `Developing` | binary categorical retained dummy | `life_status_reference` |
+| M11 | Mixed categoricals | `MPG ~ Displacement + Horsepower + Weight + C(Model Year) + C(Origin)` | multi-level categorical alongside continuous predictors | `categorical_mixed_predictors` |
+| M12 | Categorical-only design | `MPG ~ C(Model Year) + C(Origin)` | categorical design with no continuous predictors | `categorical_only_design` |
+| M13 | Filter-degenerate categorical | M01 + `Is_USA` filter | filter collapses Origin to one sampled level | `filter_degenerate_categorical` |
+| M14 | Mileage log-log missingness | `Ln(MPG) ~ Ln(Weight) + Ln(Horsepower)` | (Log, Log) and NA masking on Auto MPG | `mileage_log_log_missingness` |
+| M15 | Linear-log mixed | `Life expectancy ~ Ln(Population) + Ln(GDP) + Alcohol + C(Status)` | (None, Mixed) transform dispatch; heavy missingness | `life_linear_log_mixed` |
+| M16 | Log response, Duan | `Ln(Life expectancy) ~ Adult Mortality + Schooling + C(Status)` | smearing factor/original-units outputs | `life_log_response_duan` |
+| M17 | Log response, Naive | M16 with Back-Transform = Naive | naive back-transform branch | `life_log_response_naive` |
+| M18 | Elasticity log-log | `Ln(Life expectancy) ~ Ln(GDP) + Ln(Population)` | large-sample (Log, Log) | `life_elasticity_log_log` |
+| M19 | Power law from derived logs | `log Unit Cost ~ log Cum Units` | pre-derived log-column route, no FE | `production_power_law_derived_no_fe` |
+| M20 | Power law from transform axis | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units)` | transform-axis route, no FE; M19 twin | `production_power_law_transform_no_fe` |
+| M21 | Log response with mixed predictors | Production Lots mixed logged/unlogged predictors | (Log, Mixed) branch | `production_log_mixed_predictors` |
+| M22 | Log predictor only | `Unit_Cost_BY ~ Ln(Cumulative_Units)` | (None, Log) branch | `production_log_predictor_only` |
+| M23 | Continuous product | continuous × continuous `Product` | one-column product interaction | `interaction_continuous_product` |
+| M24 | Quadratic self-product | Horsepower × Horsepower | self-product/x² declaration | `interaction_quadratic_self_product` |
+| M25 | Continuous × categorical | Weight × C(Origin) | L−1 broadcast interaction columns | `interaction_continuous_by_categorical` |
+| M26 | Categorical × categorical | C(Model Year) × C(Origin) | full-product width regime | `interaction_categorical_cross` |
+| M27 | Difference interaction | Displacement − Acceleration | antisymmetric `Difference`; U+2212 header | `interaction_difference` |
+| M28 | Ratio reciprocal pair | Weight ÷ Horsepower and Horsepower ÷ Weight | asymmetric ratio pair; zero-denominator path | `interaction_ratio_reciprocal` |
+| M29 | Fixed effects from derived logs | `log Unit Cost ~ log Cum Units | Facility` | FE, filter, group prediction, typed annual sequence period | `production_fixed_effects_derived` |
+| M30 | Fixed effects from transform axis | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units) | Facility` | FE transform-axis twin of M29 | `production_fixed_effects_transform` |
+| M31 | LSDV equivalence | M30 with Facility as categorical predictor | LSDV ↔ within-estimator slope/residual equivalence | `production_lsdv_equivalence` |
+| M32 | High-cardinality FE | `Life expectancy ~ Schooling + Adult Mortality | Country` | 173 surviving FE groups; panel verdicts at scale | `life_country_fixed_effects` (**heavy**) |
+| M33 | Numerical stress profile | Life Expectancy kitchen-sink profile | k=19 ill-conditioned precision floor | `life_full_profile` (**heavy**) |
 
-**Auto MPG carries no Sequence axis, and no case here may add one.** The
-dataset is cross-sectional: each row is a distinct car model observed once,
-with no unit repeated across periods. `Model Year` used to be flagged
-`Sequence = TRUE` in the shipped T0 spec, and every case built on that spec
-inherited it — which asserted panel structure the data does not have, and
-bought a Base Period Δ candidate nobody can interpret plus a Durbin-Watson
-computed over an arbitrary row order. (The shipped Identifier, `Car Name`, is
-very nearly unique, so `Sequence_Deltas` finds no within-group consecutive
-pairs and the spacing verdict is blank regardless.)
-`_DEFAULT_SEQUENCE_VARIABLES` is now empty and the flag is gone from every
-Auto MPG case except **G3** and **M16**, which test the flag's *mechanics* —
-the H2 cardinality rule counts flags, and the typed-override path reads the
-flagged row positionally; both are dataset-independent and need a flag
-present to be reachable at all. The Sequence layer's substantive coverage
-lives on the two datasets that are real panels: Production Lots
-(`Fiscal_Year`, §1.3) and Life Expectancy (`Year`, §1.2).
-`test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis` and
-`test_only_the_two_mechanics_cases_flag_sequence_on_auto_mpg` pin both halves.
+### 1.2 Guard-rail / error-state configurations
 
-### 1.2 Life Expectancy (2938 rows) — transform dispatch, scale, missingness
+Not fittable models — these verify status lines, conditional formatting, model-formula degradation,
+Design Columns audits, and graceful refusal paths. They remain after the fittable cases and are
+ordered from the simplest validation failure to the highest structural complexity.
 
-Every row below was new before this pass; all nine are now implemented.
-
-| ID | Model | Configuration | Covers | Status |
-|---|---|---|---|---|
-| L1 | `Life expectancy ~ Ln(Population) + Ln(GDP) + Alcohol + C(Status)` | **partial linear-log** (`y ~ ln(x)`, logs on the predictors — see the note below); Country = Identifier | **(None, Mixed)** pair; binary categorical; heavy missingness masking (Population 652, GDP 448, Alcohol 194 blanks → n = 2117) | existing — `life_partial_linear_log` |
-| L2 | `Ln(Life expectancy) ~ Adult Mortality + Schooling + C(Status)` | **exponential model** (log-level, `ln(y) ~ x`); Back-Transform = Duan (default) | **(Log, None)** pair; smearing factor; unit-space R²/RMSE; Original-Units prediction + AZ/BA residual columns | existing — `life_log_response_duan` |
-| L3 | L2 with Back-Transform = **Naive** | flips `AH4` | naive point estimate `EXP(ŷ)`; confirms CI/PI bounds are EXP-only under both settings. **Required an oracle change** — the Python side computed both branches and discarded the Naive one, so `AH4` had never been verified against anything | existing — `life_log_response_naive` |
-| L4 | `Ln(Life expectancy) ~ Ln(GDP) + Ln(Population)` | elasticity form | (Log, Log) with large-sample masking | existing — `life_elasticity_log_log` |
-| L5 | `Life expectancy ~` all 18 continuous + `C(Status)` | shipped `life_expectancy` profile; Year = Sequence, Country = Identifier | k-stress kitchen sink (k = 19); the shipped default finally gets an oracle. **Heavy** — at k = 19 with n = 2117 the statsmodels OLS reference and Excel's OLS implementation diverge in the 5th–6th decimal place on most coefficients and residuals (both go through a QR-with-column-pivoting path on an ill-conditioned Gram matrix and produce near-tied numerics), so this case lives behind `--include-heavy` as a deliberate showcase for the floor, not as a defect to paper over. | existing — `life_full_profile` (**heavy**) |
-| L6 | `Life expectancy ~ Adult Mortality + Ln(Schooling)` | Schooling contains 28 true zeros | **`Ln_Positive` zero guard** — see the correction below: the rows do NOT drop out of the mask | existing — **guard state** `guard_ln_zero_propagation` |
-| L7 | `Life expectancy ~ C(Country) + C(Year) +` 8 continuous | 183 countries → 182 dummies, + 15 Year dummies + 8; k = 205 | **width-guard soft warning** (k = 200 threshold, `M2` status), and the engine degrading visibly rather than returning a plausible wrong number | existing — **guard state** `guard_width_guard_warning` |
-| L8 | `Life expectancy ~ Schooling + Adult Mortality \| Country` | Year = Sequence | **high-cardinality Fixed Effects** (173 surviving groups, 172 absorbed df); panel spacing verdicts at scale | existing — `life_country_fixed_effects` (**heavy**) |
-| L9 | L1 with `Status` reference = `Developing` | retained dummy = `Developed` | explicit reference on a **binary** categorical | existing — `life_status_explicit_reference` |
-
-**L1 is linear-log, not log-linear.** The two names describe opposite
-specifications and L1 is unambiguously the first: the logs sit on the
-*predictors* and the response is untransformed, so a coefficient reads as a
-semi-elasticity (years of life expectancy per 100% change in GDP).
-"Log-linear" (log-lin) is the mirror image, `ln(y) ~ x` — which in this table
-is **L2**, already carrying that model's other standard name, the exponential
-model. Calling L1 "log-linear" put the same label on both halves of the very
-dispatch pair the two cases exist to tell apart, so the case, its spec
-builder and its worksheet were renamed to `life_partial_linear_log` /
-`L01 Partial Linear-Log`. "Partial" is the `Mixed` half: Alcohol stays raw
-while Population and GDP are logged. The other three model names in this
-document — L2's exponential model, P1's and P3/P3b's power law — are the standard
-terms for what those cases fit and are unchanged.
-
-**Three of these did not survive contact with the data as written, and the
-deviations are recorded rather than papered over.**
-
-* **L6 contradicts the shipped mask.** The row above used to read "`NA()` on zero
-  → row drops out of the mask, not a silent 0". That is not what happens.
-  `Sample_Include` tests `ISNUMBER(col)` on the Response and the included
-  Continuous Predictors, and `ISNUMBER(0)` is TRUE — there is no Log-positivity
-  term anywhere in it. So the 28 zero-Schooling rows stay in the sample,
-  `Ln_Positive` returns `#N/A` for each, and the `#N/A` propagates through
-  `Predictor_Columns` into every downstream statistic. L6 is therefore a **guard
-  state** asserting that propagation, not a fittable model. Adding a positivity
-  term to `Sample_Include` would make the original description true and is
-  arguably better behaviour — it is an **open production question**, deliberately
-  not decided while writing an oracle. See `_LN_ZERO_GUARD_NOTE` in
-  `lambda_catalog/analyze_regression_guard_states.py`.
-* **L7 cannot reach k = 200 the way the plan assumed.** The arithmetic (193
-  countries → 192 dummies + 8 predictors = 200) ignores missingness: the response
-  itself is blank on rows covering 10 countries, so at most 183 countries ever
-  survive the mask and the dummy block caps at 182. Adding sparser predictors
-  drops further countries roughly as fast as it adds columns. Declaring `Year`
-  (16 levels) as a second Categorical Predictor adds 15 columns at no row cost,
-  putting k at 205 — over the threshold with margin. `test_width_guard_case_
-  actually_crosses_the_two_hundred_column_threshold` pins that, so a future data
-  or spec change cannot silently drop the case back under 200 and leave the guard
-  untested.
-* **L8 has 173 groups, not 193.** Schooling is blank for every row of 20
-  countries, so those panels leave the sample entirely.
-
-### 1.3 Production Lots (51 rows) — learning curves, fixed effects, sequence
-
-| ID | Model | Configuration | Covers | Status |
-|---|---|---|---|---|
-| P1 | `log Unit Cost ~ log Cum Units \| Facility` | **learning-curve power law with FE** (log-log ⟺ `cost = A·units^b`); pre-derived ln columns; `Full_Data` = Filter; Fiscal_Year = Sequence with a **typed `Sequence Period` = 1**; prediction group `Site B` | one-way FE; Filter role; group prediction; **the BFN panel Durbin-Watson** (the only cases that make that cell live) | existing — `production_lots_fixed_effects` |
-| P2 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units) \| Facility` | raw columns with `Transform = Log`; typed `Sequence Period` = 1, matching P1 | FE + (Log, Log) via the transform axis (vs. P1's pre-derived columns); BFN, equal to P1's | existing — `production_lots_log_transform` |
-| P3 | `log Unit Cost ~ log Cum Units` | **power law without FE**, from the pre-derived ln columns | the pre-derived half of the no-FE pair; P3b's twin | existing — `production_lots_derived_log_no_fe` |
-| P3b | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units)` | same model, raw columns with `Transform = Log` | (Log, Log), no level shift; **transform axis isolated from FE** (vs. P3's pre-derived columns) | existing — `production_lots_log_no_fe` |
-| P4 | mixed logged/unlogged predictors | | **(Log, Mixed)** pair | existing — `production_lots_log_mixed_predictors` |
-| P5 | `Unit_Cost_BY ~ Ln(Cumulative_Units)` | | **(None, Log)** pair; must reproduce ordinary fit-space stats exactly | existing — `production_lots_log_predictor_only` |
-| P6 | P2 with `Facility` as **Categorical Predictor** instead of Fixed Effects | intercept ON, default reference | **LSDV ↔ within-estimator equivalence** — identical slope and residual vector as P2 (agreement to ~1e-15), by a completely different estimator path; the strongest cheap cross-oracle in the suite | existing — `production_lots_lsdv_equivalence` |
-| P7 | P1 with `Facility` as the **Identifier** | per-facility Fiscal_Year gaps (A 1998–2023, B 2001–2020, C 2005–2024) | **irregular-spacing Regularity verdict** (yellow); typed Δ = 1 override on a gapped panel | existing — **guard state** `guard_irregular_panel_spacing` |
-
-**P7's Identifier change is not cosmetic.** `Sequence_Deltas` groups by the
-**Identifier** columns — the Identifier is what the spacing layer treats as the
-panel unit, not the Fixed Effects column. In P1/P2's shipped spec the Identifier
-is `Lot_ID`, which is unique per row, so every group is a singleton, there are no
-within-group consecutive pairs, and the verdict cell is unconditionally blank no
-matter how gapped the fiscal years are. Declaring `Facility` as the Identifier is
-what makes the three sites the groups and the verdict reachable at all.
-
-**Two pre-derived/transform-axis pairs, each pair adjacent.** P1/P2 and P3/P3b
-fit the same model twice by different routes: one spec reads the shipped
-`log Cum Units` / `log Unit Cost` columns and declares no transform, the other
-points at the raw `Cumulative_Units` / `Unit_Cost_BY` columns and declares
-`Transform = Log`. The shipped log columns are exact logs of the raw ones, so
-each pair must agree bit-for-bit on the design matrix and response vector and
-to floating point on every downstream statistic — the cheapest strong oracle
-available, with neither side reading the workbook.
-
-The pairing exists **twice on purpose**. The two mechanisms reach the design
-matrix by different code paths (one reads a column, the other computes one),
-and composing either with Fixed Effects demeaning is a third path again. With
-only the FE pair, a transform-axis regression could hide behind the demeaning
-or vice versa; P3/P3b has no FE, so the transform axis is the only thing
-between the CSV and the design matrix and a disagreement can only be the
-transform wiring. `tests/test_transform_threading.py` asserts both pairs.
-Each pair is registered adjacently so the two land on adjacent worksheets, and
-the sheet names state the route — `P03 Power Law Derived Cols` against
-`P03b Power Law Transform Axis` — because the route is the only thing that
-differs between the tabs and the whole reason both exist.
-
-**The BFN cell needs a typed Sequence Period, and only P1/P2 give it one.**
-`Base_Period_Delta()` is the **override** accessor: it reads the typed value in
-spec column I and returns `#N/A` when the cell is blank — never a silent 1, by
-design (see DECISIONS § *Sequence Period / Period In Use split*). The BFN panel
-Durbin-Watson cell passes that as its Δ, so a Fixed Effects sheet with no typed
-period leaves `AE12` at `#N/A` and its panel diagnostic is unverifiable. P1 and
-P2 declare `Sequence Period = 1`, which is a true statement about the data —
-Production Lots is an annual panel — and makes them the only cases where the
-statistic itself is compared. **L8 deliberately does not**: it is the case for
-high-cardinality FE degrees of freedom, and leaving its period untyped keeps one
-registered case covering the honest `#N/A` state.
-
-### 1.4 Guard-rail / error-state configurations
-
-Not fittable models — these verify status lines, conditional formatting, and graceful degradation.
-Any dataset works unless noted; Auto MPG is the default fixture.
-
-**They have their own oracle shape.** A guard case is a `GuardStateCase` in
-`lambda_catalog/analyze_regression_guard_states.py`, not a `RegressionSpecCase`:
-`calculate_regression_spec_case` raises on most of these by design, and what they
-assert is status text, the per-row Design Columns audit, the Model Formula, and
-which CF rules fire — not fit statistics. Flags are recorded as **predicates**
-recomputed from the same condition the CF expression encodes, never read back as
-`DisplayFormat.Interior.Color`: reading the colour would only re-report what Excel
-already decided from the rule, whereas recomputing the predicate is what makes a
-silent change to a CF expression fail. Names are pinned in
-`_EXPECTED_GUARD_NAMES` (`tests/test_regression_guard_states.py`), the same
-regime as `_EXPECTED_CASE_NAMES`.
-
-| ID | Configuration | Expected behavior | Status |
+| ID | Configuration | Expected behavior | Case |
 |---|---|---|---|
-| G1 | zero `Response (y)` rows | response readout degrades to `"(none)"`; the mask loses its response term so the sample GROWS (392 → 400) | existing — `guard_no_response` |
-| G1b | no included `Predictor (x)` rows | `Predictor_Columns` errors and every consumer's `IFERROR` degrades to `"(empty model)"`, never `#CALC!` | existing — `guard_empty_model` |
-| G2 | two `Response (y)` rows | audit-strip `responses` count red; `XMATCH` still resolves the first | existing — `guard_two_responses` |
-| G3 | two `Sequence = TRUE` flags | `E1`/`H2` "multiple Sequence flags" error + red H cells. The spacing layer keeps computing from the FIRST flagged row (that is what `XMATCH` resolves), so the oracle must not go quiet here | existing — `guard_two_sequence_flags` |
-| G4 | two `Fixed Effects` rows | `B1` cardinality error + red CF | existing — `guard_two_fixed_effects` |
-| G5 | Fixed Effects row + Intercept `TRUE` | red CF on the intercept toggle (double-counted demeaned design) | existing — `guard_fixed_effects_with_intercept` |
-| G6 | Intercept `FALSE` + included Categorical | red CF on the toggle; the formula renders `~ 0 + …` (M2 fits anyway — flag is advisory) | existing — `guard_intercept_off_with_categorical` |
-| G7 | `Transform = Log` on a Categorical predictor | red G cell; transform **never silently applied** (no `Ln(` in the model formula) | existing — `guard_log_on_categorical` |
-| G8 | typed reference absent from sample (`Origin` = `99`) | red E cell via `ISNA(Dummy_Levels(...))`; row contributes 0 columns | existing — *fittable* `origin_invalid_reference` |
-| G9 | Interaction Term naming a non-Predictor row (or no column) | red M cell; the row contributes its main effect only | existing — `guard_interaction_bad_operand` |
-| G10 | reciprocal `Product` declaration (A×B and B×A) | red N on **both** rows — symmetric op ⇒ singular Gram. M11 is the legal counterpart under `Ratio` | existing — `guard_reciprocal_product` |
-| G11 | interaction operand with `Include = FALSE` | **amber** — marginality violation, allowed. Also exercised by M10 | existing — `guard_excluded_operand` |
-| G12 | unrecognized Interaction Operation pasted past the dropdown | `" ? "` header + `NA()` design column. No CF rule fires: the refusal is visible in the header itself | existing — `guard_unknown_interaction_operation` |
-| G13 | width **hard** error (k > 16384 − design-matrix origin) | documented as conceptual only — not buildable at reasonable size; the soft warning is L7's job | conceptual |
-| G14 | spec block built for a **narrower** dataset than `Source_Table` points at | every part of the block resizes to `COLUMNS(Source_Data)` — bands, the four computed columns, the input fill — and the model fits correctly on the wider table | existing — `guard_spec_block_retarget_widens` (L10) |
+| G01 | zero `Response (y)` rows | response readout degrades to `"(none)"`; sample grows because the mask loses its response term | `guard_no_response` |
+| G01b | no included `Predictor (x)` rows | `Predictor_Columns` errors; consumers degrade to `"(empty model)"` | `guard_empty_model` |
+| G02 | two `Response (y)` rows | response count flags red; `XMATCH` still resolves the first | `guard_two_responses` |
+| G03 | two `Sequence = TRUE` flags | E1/H2 multiple-Sequence error and red H cells | `guard_two_sequence_flags` |
+| G04 | two `Fixed Effects` rows | B1 cardinality error and red CF | `guard_two_fixed_effects` |
+| G05 | Fixed Effects row + Intercept `TRUE` | red intercept-toggle advisory for a demeaned design | `guard_fixed_effects_with_intercept` |
+| G06 | Intercept `FALSE` + included categorical | red intercept-toggle advisory; model still fits elsewhere as M06 | `guard_intercept_off_with_categorical` |
+| G07 | `Transform = Log` on a Categorical predictor | red transform cell; dummies encode without silently applying `Ln` | `guard_log_on_categorical` |
+| G09 | Interaction Term names a non-Predictor row | red operand cell; row contributes main effect only | `guard_interaction_bad_operand` |
+| G10 | reciprocal `Product` declarations | red symmetric-operation flags on both rows | `guard_reciprocal_product` |
+| G11 | interaction operand has `Include = FALSE` | amber marginality warning; columns still build | `guard_excluded_operand` |
+| G12 | unrecognized Interaction Operation pasted past validation | visible `" ? "` header and `NA()` design column | `guard_unknown_interaction_operation` |
+| L06 | `Ln(Schooling)` where Schooling contains true zeros | zero rows stay in the mask and `Ln_Positive` propagates `#N/A` | `guard_ln_zero_propagation` |
+| L07 | Life Expectancy width soft warning (k = 205) | M2 WARNING and visible engine degradation instead of plausible wrong numbers | `guard_width_guard_warning` |
+| L10 | spec block built narrow then retargeted wider | `Spec_*` bands/input fill resize to the wider `Source_Table` | `guard_spec_block_retarget_widens` |
+| M16 | typed Sequence Period override on Auto MPG | Period In Use follows typed Δ = 2 and verdict re-evaluates against it | `guard_sequence_period_override` |
+| P07 | irregular Production Lots panel spacing | gapped facilities under typed Δ = 1 produce the yellow Regularity verdict | `guard_irregular_panel_spacing` |
 
-**G14 is the one case that exercises the retarget itself.** Every other case
-builds its sheet for exactly the dataset it reads, so the two always agree and
-the retarget path is never taken. `GuardStateCase.shell_profile_key` is what
-creates the disagreement deliberately: L10 builds its block with the Auto MPG
-profile (12 columns) and then points `Source_Table` at `LifeExpectancyData`
-(23), which is what a user does by hand from the Name Manager — the one-name
-edit the Instructions sheet promises.
+**Auto MPG carries no Sequence axis.** The dataset is cross-sectional: every fittable Auto MPG
+case leaves `Sequence` blank. Only the guard mechanics cases (`guard_two_sequence_flags` and
+`guard_sequence_period_override`) deliberately set Sequence flags on Auto MPG, because they test
+status-cell mechanics rather than panel diagnostics. Production Lots and Life Expectancy carry the
+substantive panel/sequence coverage.
 
-Before the spec block was made table-free this state produced `#REF!` through
-the entire engine. The `Spec_*` bands were structured references into a
-`SpecTable` ListObject sized at build time; a 12-row band under a 23-column
-table meant `TAKE` returned 12 rows (it does not pad) and `INDEX(rl, 23)` ran
-off the end. Excel cannot resize a ListObject from a formula and the workbook is
-macro-free, so the table was removed and the block now sizes itself.
-
-The case earns its sheet by where its evidence sits, not by the model it fits:
-`Schooling` contributes design columns from spec index 21 — sheet row 25, ten
-rows past the old table's bottom edge at row 15.
-`test_retarget_case_puts_its_evidence_past_the_narrow_shells_last_row` pins
-that, so a future edit that moves the predictors up into the first 12 rows
-fails rather than silently testing nothing.
-
-Four rows from other sections live here, because everything they test is
-spec-block state rather than a fit — and in one case because the fit does not
-exist:
-
-* **L6** (`guard_ln_zero_propagation`) — the mask has no Log-positivity term, so
-  the zero rows stay in and `#N/A` propagates.
-* **M16** (`guard_sequence_period_override`) and **P7**
-  (`guard_irregular_panel_spacing`) fit exactly the models M1 and P2 already fit,
-  so registering them as fittable cases would have added two duplicate fits and
-  covered nothing new.
-* **L7** (`guard_width_guard_warning`) — the workbook cannot invert a 205-column
-  Gram matrix, so there are no numbers to compare. What it asserts instead is the
-  guard doing its job.
-
-The last one is worth stating as a rule, since it will come up again: **a numeric
-oracle for a model the sheet cannot compute is comparing against nothing.** When
-a case's whole point is a limit, the limit is the assertion.
-
-**One reachability note worth recording.** The Sequence verdict's four branches
-are priority-ordered (off-grid → regularity → no-natural-period → calendar), and
-the ordering makes the last two very narrow. `no natural base period` requires Δ
-to divide and equal every spacing while no spacing repeats — reachable only with
-a single spacing. The `calendar` signature requires spacings to be *perfectly*
-uniform at a calendar-like value, so a realistic mixed 30/31-day monthly series
-reports regularity instead. Neither is a bug, but neither is as reachable as the
-message text implies.
-
-### 1.5 Coverage matrix
-
-| Feature axis / corner | Covered by |
-|---|---|
-| Role = Response (exactly one) | every model; G1/G2 for the violations |
-| Role = Predictor, Continuous | every model |
-| Role = Identifier | M1 (Car Name), L5 (Country), P1 (Lot_ID), P7 (Facility — the panel unit) |
-| Role = Filter | P1 (`Full_Data`), M15 (`Is_USA`) |
-| Role = Fixed Effects | P1/P2, L8 (173 groups); G4/G5 violations |
-| Role = Omit / blank ≡ Omit | M1 (Make, Model?) |
-| Include = FALSE candidates | M4; M10/G11 (as interaction operand); G1b (all of them) |
-| Type = Categorical, multi-level | M1, M9, M14, M14b, L7 |
-| Numeric-valued categorical | M1/M14/M14b/M9 (Model Year), L7 (Year) |
-| Binary categorical | L1, L9 |
-| Reference: default / explicit / invalid | M13 / M12, L9 / G8 |
-| Degenerate categorical (post-filter) | M15 |
-| Dispatch (None, None) | M1 |
-| Dispatch (None, Log) | P5 |
-| Dispatch (None, Mixed) | L1 |
-| Dispatch (Log, None) | L2 |
-| Dispatch (Log, Log) | M5, L4, P3b, P6 (and P2 under FE) |
-| Dispatch (Log, Mixed) | P4 |
-| Back-Transform = Duan / Naive | L2 / L3 (the toggle's first oracle) |
-| Unit-space reduction invariant (no transforms) | M1 |
-| `Ln_Positive` zero/negative guard | L6 (as #N/A propagation — see § 1.2) |
-| Missing-data NA propagation | M5, L1, L4, L7, L8 |
-| Intercept OFF | M2, M3/M4 variants |
-| FE + Log | P2 |
-| FE + intercept flag | G5 |
-| Serial correlation: plain DW / BFN panel form | every no-FE case / P1, P2 (the two mutually-gated cells; the oracle NaNs whichever one the sheet shows as text) |
-| Sequence: candidate Δ / typed override / irregular / calendar | P1 / M16 / P7 / **uncovered — needs a dated dataset (§2 `Time` role, §3)** |
-| Interaction: Product / self-product / Cont×Cat / Cat×Cat / Difference / Ratio | M7 / M6 / M8 / M9 / M10 / M11 |
-| Reciprocal declaration: legal (Ratio) / illegal (Product) | M11 / G10 |
-| Width guard: soft / hard | L7 (k = 205) / G13 (conceptual) |
-| `Source_Table` retarget onto a wider dataset | G14 / L10 (12-column shell → 23-column table) |
-| Group prediction under FE | P1 |
-| LSDV ↔ FE equivalence | P6 vs P2 |
-| Categorical-only design (mask without continuous predictors) | M14b |
-| Empty model / no response degradation | G1b / G1 |
-| Model Formula readout text | every guard case; corrected to mirror the cell exactly |
-
-The one axis Section 1 cannot cover with the wired data is the **calendar-signature Sequence
-verdict** (~28–31 / ~90–92 / ~365–366-day spacing clusters): no wired dataset carries real dates.
-See the `Time` role entry in §2 and §3.
-
----
+**Transform pairs remain paired by concept even when they use different datasets.** M19/M20 and
+M29/M30 are the pre-derived-column vs. transform-axis twins; M16/M17 are the Duan/Naive
+back-transform twins. Their adjacency is intentional and replaces the old source-dataset grouping.
 
 ## Section 1b — One worksheet per test model
 
@@ -335,7 +129,7 @@ rewritten on every iteration). With one sheet per case the verifier only **reads
 no writing, no per-case recalculation, no state to leak, and a failing case is a
 tab you can open.
 
-**Sheet names state the concept, not the variables.** `M05 Log-Log NA Masking`,
+**Sheet names state the concept, not the variables.** `M14 Log Log Missingness`,
 never `MPG ~ Ln(Weight) + Ln(HP)`. Excel allows 31 characters, which cannot hold a
 model formula, and the formula is the least interesting thing about a test case
 anyway — the sheet exists to exercise one corner, and that corner is what the tab
@@ -373,10 +167,10 @@ Charts are **off** on generated sheets. Roughly a dozen COM chart objects per sh
 across ~48 sheets is the single largest cost in the build, and no oracle reads one;
 chart wiring is verified once, on the production Regression sheet.
 
-**Two cases are opt-in.** L05 (Kitchen Sink Profile, k = 19, n = 2117) and L08
+**Two cases are opt-in.** M33 (Numeric Stress Profile, k = 19, n = 2117) and M32
 (173 Fixed Effects groups) carry `heavy=True` and are skipped unless
-`--include-heavy` or an explicit `--cases L05` / `--cases L08` is given. L08
-is gated on sheet-build cost; L05 is gated on the statsmodels-vs-Excel
+`--include-heavy` or an explicit `--cases M33` / `--cases M32` is given. M32
+is gated on sheet-build cost; M33 is gated on the statsmodels-vs-Excel
 floating-point floor at fdd = 5/6 that both implementations agree on (it
 lives here as a deliberate showcase for the floor, not as a defect). Their
 Python oracles always run in the unit suite — only the sheet build is gated.
@@ -385,9 +179,9 @@ fit a 205-column design at all — it is a guard state now, and guard sheets
 are cheap.
 
 ```
-python scripts/build_test_models.py                        # 47 sheets (31 models + 16 guards)
-python scripts/build_test_models.py --include-heavy        # 49, adding L05 and L08
-python scripts/build_test_models.py --cases M09,G10        # just those two
+python scripts/build_test_models.py                        # 48 sheets (31 non-heavy models + 17 guards)
+python scripts/build_test_models.py --include-heavy        # 50, adding M33 and M32
+python scripts/build_test_models.py --cases M26,G10        # just those two
 python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 poe verify-test-models                             # the same, verbose
 ```
@@ -424,14 +218,14 @@ call site can forget, and a test builds every name-registering writer against a
 spaced sheet name.
 
 **A fixture column widened the source table past the spec block.** `Is_USA`
-exists for M15, which declares it as a Filter. The legacy verifier adds it and
+exists for M13, which declares it as a Filter. The legacy verifier adds it and
 deletes it again around that one case; this workbook keeps it, which makes it
 part of *every* Auto MPG case's source table. Every constructor opens
 `n_c = COLUMNS(Source_Data)` and then indexes the `Spec_*` bands at `1..n_c`, so
 a 12-row spec block against a 13-column table makes `INDEX(rl, n_c)` run off the
 end — the row mask errors and every engine cell downstream reads as an error.
 The build succeeds, the sheet looks right, and it surfaces only as a verify run
-where an entire case reads `None`. M15 was the one Auto MPG sheet that worked,
+where an entire case reads `None`. M13 was the one Auto MPG sheet that worked,
 because its spec happens to declare the thirteenth column.
 
 The rule is now explicit and enforced: **a spec block must have exactly one row

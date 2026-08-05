@@ -30,41 +30,40 @@ LIFE_EXPECTANCY_CSV_PATH = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
 PRODUCTION_LOTS_CSV_PATH = ROOT_DIR / "sample_data" / "production_lots.csv"
 
 _EXPECTED_CASE_NAMES = [
-    "default_t0_intercept",
-    "v1_full_continuous_intercept",
+    "baseline_t0_intercept",
+    "all_continuous_intercept",
     "continuous_subset_intercept",
-    "default_t0_no_intercept",
-    "v1_full_continuous_no_intercept",
+    "all_continuous_no_intercept",
     "continuous_subset_no_intercept",
+    "baseline_t0_no_intercept",
     "origin_default_reference",
     "origin_explicit_reference",
     "origin_invalid_reference",
-    "model_year_origin_categorical",
-    "usa_filter_degenerate_origin",
-    "interaction_continuous_product",
-    "interaction_quadratic_self_product",
-    "interaction_categorical_broadcast",
-    "mileage_log_log_na_masking",
+    "life_status_reference",
+    "categorical_mixed_predictors",
     "categorical_only_design",
-    "interaction_categorical_cross",
-    "interaction_difference",
-    "interaction_ratio_reciprocal",
-    "production_lots_fixed_effects",
-    "production_lots_log_transform",
-    "production_lots_derived_log_no_fe",
-    "production_lots_log_no_fe",
-    "production_lots_log_mixed_predictors",
-    "production_lots_log_predictor_only",
-    "production_lots_lsdv_equivalence",
-    "life_partial_linear_log",
+    "filter_degenerate_categorical",
+    "mileage_log_log_missingness",
+    "life_linear_log_mixed",
     "life_log_response_duan",
     "life_log_response_naive",
     "life_elasticity_log_log",
-    "life_full_profile",
+    "production_power_law_derived_no_fe",
+    "production_power_law_transform_no_fe",
+    "production_log_mixed_predictors",
+    "production_log_predictor_only",
+    "interaction_continuous_product",
+    "interaction_quadratic_self_product",
+    "interaction_continuous_by_categorical",
+    "interaction_categorical_cross",
+    "interaction_difference",
+    "interaction_ratio_reciprocal",
+    "production_fixed_effects_derived",
+    "production_fixed_effects_transform",
+    "production_lsdv_equivalence",
     "life_country_fixed_effects",
-    "life_status_explicit_reference",
+    "life_full_profile",
 ]
-
 _EXPECTED_T0_NAMES = (
     "Horsepower",
     "Weight",
@@ -355,8 +354,8 @@ def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
-def test_default_t0_design_matches_current_constructor_semantics() -> None:
-    expected = calculate_regression_spec_case(_case("default_t0_intercept"), CSV_PATH)
+def test_baseline_t0_design_matches_current_constructor_semantics() -> None:
+    expected = calculate_regression_spec_case(_case("baseline_t0_intercept"), CSV_PATH)
     design = expected.design
 
     assert design.included_rows == 392
@@ -375,9 +374,9 @@ def test_default_t0_design_matches_current_constructor_semantics() -> None:
     assert design.sequence_values is None
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
-def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> None:
+def test_all_continuous_design_uses_full_data_filter_and_feature_order() -> None:
     expected = calculate_regression_spec_case(
-        _case("v1_full_continuous_intercept"), CSV_PATH
+        _case("all_continuous_intercept"), CSV_PATH
     )
     design = expected.design
 
@@ -440,9 +439,9 @@ def test_invalid_reference_skips_origin_but_model_still_computes() -> None:
     assert math.isfinite(expected.results.summary.r_squared)
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
-def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() -> None:
+def test_categorical_mixed_predictors_keeps_numeric_year_levels_as_dummies() -> None:
     expected = calculate_regression_spec_case(
-        _case("model_year_origin_categorical"), CSV_PATH
+        _case("categorical_mixed_predictors"), CSV_PATH
     )
     design = expected.design
 
@@ -454,10 +453,10 @@ def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() ->
     assert design.references_in_use["Model Year"] == 70
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
-def test_model_year_origin_categorical_gvif_shared_across_dummy_columns() -> None:
+def test_categorical_mixed_predictors_gvif_shared_across_dummy_columns() -> None:
     """GVIF collapses each categorical variable's dummy block to one shared value."""
     expected = calculate_regression_spec_case(
-        _case("model_year_origin_categorical"), CSV_PATH
+        _case("categorical_mixed_predictors"), CSV_PATH
     )
     names = expected.design.constructed_column_names
     gvif = expected.results.predictor_summary.gvif
@@ -497,7 +496,7 @@ def test_model_year_origin_categorical_gvif_shared_across_dummy_columns() -> Non
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     expected = calculate_regression_spec_case(
-        _case("usa_filter_degenerate_origin"),
+        _case("filter_degenerate_categorical"),
         CSV_PATH,
     )
     design = expected.design
@@ -522,22 +521,22 @@ def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
 def test_durbin_watson_is_a_real_statistic_where_an_ordering_axis_exists() -> None:
     """The bounds check the Auto MPG case above can no longer carry.
 
-    P03b has a Sequence axis (Fiscal_Year) and no Fixed Effects, which is
+    M20 has a Sequence axis (Fiscal_Year) and no Fixed Effects, which is
     the one state where the sheet's AE11 shows a number — so it is where
     the "DW is finite and in [0, 4]" invariant belongs. Keeping it here
     rather than dropping it with the Auto MPG pin is the point: the
     property is real, it was just being asserted on a model that cannot
     produce the statistic.
 
-    Its pre-derived twin P03 must agree exactly. Both fit the identical
+    Its pre-derived twin M19 must agree exactly. Both fit the identical
     model and DW is a pure function of the residual vector, which the two
     already agree on bit-for-bit.
     """
     transform_axis = calculate_regression_spec_case(
-        _case("production_lots_log_no_fe"), PRODUCTION_LOTS_CSV_PATH
+        _case("production_power_law_transform_no_fe"), PRODUCTION_LOTS_CSV_PATH
     ).results.summary.durbin_watson
     derived = calculate_regression_spec_case(
-        _case("production_lots_derived_log_no_fe"), PRODUCTION_LOTS_CSV_PATH
+        _case("production_power_law_derived_no_fe"), PRODUCTION_LOTS_CSV_PATH
     ).results.summary.durbin_watson
 
     assert math.isfinite(transform_axis)
@@ -592,10 +591,10 @@ def test_expected_outputs_are_internally_consistent() -> None:
 # un-demeaned design.y_train. Different derivation path, same expected answer.
 
 _LOG_SPEC_CASES = (
-    "production_lots_log_transform",  # Log response + Log predictor + FE
-    "production_lots_log_no_fe",  # Log + Log, no FE
-    "production_lots_log_mixed_predictors",  # Log response, Log + None predictors
-    "production_lots_log_predictor_only",  # None response, Log predictor
+    "production_fixed_effects_transform",  # Log response + Log predictor + FE
+    "production_power_law_transform_no_fe",  # Log + Log, no FE
+    "production_log_mixed_predictors",  # Log response, Log + None predictors
+    "production_log_predictor_only",  # None response, Log predictor
 )
 
 
@@ -659,7 +658,7 @@ def test_log_log_on_auto_mpg_logs_both_sides_and_masks_missing_rows() -> None:
     """M05. The (Log, Log) pair combined with real missingness — the corner
     Production Lots (a complete 51-row panel) structurally cannot cover."""
     expected = calculate_regression_spec_case(
-        _case("mileage_log_log_na_masking"), CSV_PATH
+        _case("mileage_log_log_missingness"), CSV_PATH
     )
     design = expected.design
 
@@ -675,7 +674,7 @@ def test_log_log_on_auto_mpg_logs_both_sides_and_masks_missing_rows() -> None:
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_categorical_only_design_widens_the_sample() -> None:
-    """M14b. With no included Continuous Predictor the mask reduces to "the
+    """M12. With no included Continuous Predictor the mask reduces to "the
     response is numeric", so the sample grows past the 392 every other Auto
     MPG case sees — proof the mask is per-model, not per-dataset."""
     expected = calculate_regression_spec_case(
@@ -695,7 +694,7 @@ def test_categorical_only_design_widens_the_sample() -> None:
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_categorical_cross_emits_the_full_product_width() -> None:
-    """M09. Cat x Cat is the one interaction width regime with no case: the
+    """M26. Cat x Cat is the one interaction width regime with no case: the
     constructor must emit (L1-1) * (L2-1) columns, here 12 * 2 = 24, in
     left-outer/right-inner order."""
     expected = calculate_regression_spec_case(
@@ -712,8 +711,8 @@ def test_categorical_cross_emits_the_full_product_width() -> None:
     assert len(names) == 38
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
-def test_categorical_cross_is_full_rank_and_shares_M14b_main_effects() -> None:
-    """M09 is M14b plus the interaction block, so their main effects must be
+def test_categorical_cross_is_full_rank_and_shares_M12_main_effects() -> None:
+    """M26 is M12 plus the interaction block, so their main effects must be
     identical — and the saturated design must actually be fittable, which is
     why the case crosses Model Year (all 39 cells populated) rather than the
     plan's Cylinders (six empty cells, two all-zero columns, singular)."""
@@ -788,7 +787,7 @@ def test_ratio_reciprocal_pair_is_legal_and_non_singular() -> None:
     not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
 )
 def test_lsdv_reproduces_the_within_estimator_exactly() -> None:
-    """P06 vs P02 — the suite's strongest cross-oracle.
+    """M31 vs M30 — the suite's strongest cross-oracle.
 
     Fixed Effects demeaning, the absorbed-df subtraction and the level-shift
     recovery are the only bespoke arithmetic in the engine; everything else
@@ -798,10 +797,10 @@ def test_lsdv_reproduces_the_within_estimator_exactly() -> None:
     than a second copy of the same code.
     """
     within = calculate_regression_spec_case(
-        _case("production_lots_log_transform"), CSV_PATH
+        _case("production_fixed_effects_transform"), CSV_PATH
     )
     lsdv = calculate_regression_spec_case(
-        _case("production_lots_lsdv_equivalence"), CSV_PATH
+        _case("production_lsdv_equivalence"), CSV_PATH
     )
 
     within_index = within.design.constructed_column_names.index("Ln(Cumulative_Units)")
@@ -829,11 +828,11 @@ def test_lsdv_reproduces_the_within_estimator_exactly() -> None:
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
 def test_partial_log_linear_is_the_mixed_predictor_dispatch_pair() -> None:
-    """L01. (None, Mixed) — two logged predictors and one unlogged against an
+    """M15. (None, Mixed) — two logged predictors and one unlogged against an
     untransformed response. The predictor-transform summary must report
     "Mixed" rather than latching to whichever transform it saw first."""
     expected = calculate_regression_spec_case(
-        _case("life_partial_linear_log"), CSV_PATH
+        _case("life_linear_log_mixed"), CSV_PATH
     )
     design = expected.design
 
@@ -856,14 +855,14 @@ def test_partial_log_linear_is_the_mixed_predictor_dispatch_pair() -> None:
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
 def test_binary_categorical_reference_flips_which_dummy_is_retained() -> None:
-    """L09 vs L01. On a two-level column an explicit reference is invisible in
+    """M10 vs M15. On a two-level column an explicit reference is invisible in
     the column COUNT — one dummy either way — and shows up only in WHICH level
     is retained. Getting it backwards flips the coefficient's sign."""
     default_reference = calculate_regression_spec_case(
-        _case("life_partial_linear_log"), CSV_PATH
+        _case("life_linear_log_mixed"), CSV_PATH
     ).design
     explicit = calculate_regression_spec_case(
-        _case("life_status_explicit_reference"), CSV_PATH
+        _case("life_status_reference"), CSV_PATH
     ).design
 
     assert default_reference.references_in_use["Status"] == "Developed"
@@ -882,7 +881,7 @@ def test_binary_categorical_reference_flips_which_dummy_is_retained() -> None:
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
 def test_log_response_is_the_log_none_dispatch_pair_with_real_smearing() -> None:
-    """L02. (Log, None) — the pair where the v3.3 unit-space machinery does
+    """M16. (Log, None) — the pair where the v3.3 unit-space machinery does
     the most work, and the suite's only one."""
     expected = calculate_regression_spec_case(_case("life_log_response_duan"), CSV_PATH)
     design = expected.design
@@ -903,7 +902,7 @@ def test_log_response_is_the_log_none_dispatch_pair_with_real_smearing() -> None
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
 def test_naive_back_transform_drops_the_smearing_factor_but_not_the_bounds() -> None:
-    """L03 vs L02 — the Back-Transform toggle, which had no oracle at all
+    """M17 vs M16 — the Back-Transform toggle, which had no oracle at all
     before: the Python side computed both branches and then discarded the
     Naive one, so `$AH$4` could have been wired to anything.
 
@@ -951,7 +950,7 @@ def test_naive_back_transform_drops_the_smearing_factor_but_not_the_bounds() -> 
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
 def test_elasticity_model_logs_both_sides_at_scale() -> None:
-    """L04. (Log, Log) against sparse predictors on the large dataset."""
+    """M18. (Log, Log) against sparse predictors on the large dataset."""
     expected = calculate_regression_spec_case(
         _case("life_elasticity_log_log"), CSV_PATH
     )
@@ -966,7 +965,7 @@ def test_elasticity_model_logs_both_sides_at_scale() -> None:
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
 def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
-    """L05. SPEC_DATASET_PROFILES["life_expectancy"] is what
+    """M33. SPEC_DATASET_PROFILES["life_expectancy"] is what
     `--regression-dataset life_expectancy` pre-fills, and nothing had ever
     verified that the model it ships actually fits."""
     from lambda_catalog.write_sheet_model_construction import SPEC_DATASET_PROFILES
@@ -988,7 +987,7 @@ def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
 def test_high_cardinality_fixed_effects_absorbs_the_right_degrees_of_freedom() -> None:
-    """L08. 193 groups against Production Lots' three. At 3 groups a df error
+    """M32. 193 groups against Production Lots' three. At 3 groups a df error
     of a few units hides inside the noise; at 182 absorbed df it moves every
     df-dependent statistic visibly."""
     expected = calculate_regression_spec_case(
@@ -1017,7 +1016,7 @@ def test_high_cardinality_fixed_effects_absorbs_the_right_degrees_of_freedom() -
 )
 @pytest.mark.parametrize(
     "case_name",
-    ("production_lots_fixed_effects", "production_lots_log_predictor_only"),
+    ("production_fixed_effects_derived", "production_log_predictor_only"),
 )
 def test_unit_space_reduces_to_the_ordinary_statistics_without_a_response_transform(
     case_name: str,

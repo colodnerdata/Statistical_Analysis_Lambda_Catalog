@@ -18,7 +18,7 @@ Three rules, in order of how badly breaking them hurts:
 2. **Uniqueness.** Two cases claiming one name would silently mean one case
    never gets verified (the second write lands on the first's sheet). Pinned
    by ``assert_sheet_names_unique``.
-3. **The name states the CONCEPT, not the variables.** ``M05 Log-Log NA
+3. **The name states the CONCEPT, not the variables.** ``M14 Log Log Missingness
    Masking``, never ``MPG ~ Ln(Weight) + Ln(HP)``. Thirty-one characters
    cannot hold a formula, and the formula is the least interesting thing
    about a test case anyway — the sheet exists to exercise one corner, and
@@ -101,7 +101,7 @@ def validate_sheet_name(name: str) -> None:
     if PLAN_ID_PATTERN.match(name) is None:
         raise SheetNameError(
             f"Sheet name {name!r} does not match '<PlanID> <Concept>' "
-            "(e.g. 'M05 Log-Log NA Masking') — the plan ID is what ties the "
+            "(e.g. 'M14 Log Log Missingness') — the plan ID is what ties the "
             "sheet back to docs/MODEL_TESTING_ASSETS.md."
         )
 
@@ -117,7 +117,7 @@ def plan_id_of(name: str) -> str:
     Returns
     -------
     str
-        The leading plan ID, e.g. ``"M05"`` or ``"M03b"``.
+        The leading plan ID, e.g. ``"M05"`` or ``"M04"``.
     """
     match = PLAN_ID_PATTERN.match(name)
     if match is None:

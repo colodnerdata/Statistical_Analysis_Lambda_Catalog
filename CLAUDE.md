@@ -80,7 +80,7 @@ tab you can open. Sheet names are governed by `lambda_catalog/test_model_sheets.
 characters, legal charset, `<PlanID> <Concept>`, unique across model *and* guard cases,
 validated at registry-build time so a bad name fails in the unit suite rather than partway
 through a multi-minute build. **The name states the concept under test, never the variables**
-(`M05 Log-Log NA Masking`, not `MPG ~ Ln(Weight) + Ln(HP)`): 31 characters cannot hold a model
+(`M14 Log Log Missingness`, not `MPG ~ Ln(Weight) + Ln(HP)`): 31 characters cannot hold a model
 formula, and the corner a case exists for is the useful thing to read off a tab.
 
 **The spec block has no fixed height, and no `SpecTable`.** Every part of it sizes itself from

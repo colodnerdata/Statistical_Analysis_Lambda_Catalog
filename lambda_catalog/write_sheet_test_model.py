@@ -125,7 +125,7 @@ def profile_key_for(source_table_ref: str) -> str:
 
 
 # Fixture columns this artifact adds to a shipped dataset's table, keyed by
-# SPEC_DATASET_PROFILES key. `Is_USA` exists for M15, which declares it as a
+# SPEC_DATASET_PROFILES key. `Is_USA` exists for M13, which declares it as a
 # Filter to collapse Origin to one level.
 #
 # The legacy verifier adds such a column and deletes it again around the one
@@ -149,8 +149,8 @@ def effective_variables(profile_key: str) -> tuple[str, ...]:
 
     That is not hypothetical: the first successful build of this workbook
     produced 74,065 mismatches for exactly this reason. `Is_USA` was added to
-    `MileageData` for M15's benefit, which widened the table to 13 columns
-    while every OTHER Auto MPG case still wrote a 12-row spec. M15 was the
+    `MileageData` for M13's benefit, which widened the table to 13 columns
+    while every OTHER Auto MPG case still wrote a 12-row spec. M13 was the
     one Auto MPG sheet that worked, because its spec happens to declare the
     thirteenth column.
     """

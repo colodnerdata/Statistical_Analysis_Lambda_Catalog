@@ -351,7 +351,7 @@ def test_typed_sequence_period_overrides_the_candidate_and_moves_the_verdict() -
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_irregular_panel_spacing_fires_the_regularity_verdict() -> None:
     """Requires the panel unit to be the IDENTIFIER: Sequence_Deltas groups by
-    Identifier columns, so P01/P02's unique Lot_ID leaves every group a
+    Identifier columns, so M29/M30's unique Lot_ID leaves every group a
     singleton and the verdict unconditionally blank."""
     expected = _expected("guard_irregular_panel_spacing")
 

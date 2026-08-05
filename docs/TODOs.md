@@ -609,7 +609,7 @@ milestone, behind Two-sample — see
 
 **Test assets — additive, no new data.** The seeded pre-drawn
 `Bootstrap_Random_Draws` table *is* the asset; Production Lots (n = 51) is the
-natural small-n bootstrap target (slope CI on the `production_lots_log_no_fe`
+natural small-n bootstrap target (slope CI on the `production_power_law_transform_no_fe`
 case), and PERT/MC cases need only parameter cells. See
 [docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
@@ -693,7 +693,7 @@ its place by covering something no other case does.
   high-cardinality Fixed Effects at 193 groups — is untested (L1–L9).
 
 - **READY · S · no Excel** — Add **P6**, the LSDV ↔ within-estimator
-  equivalence case: `production_lots_log_transform` with `Facility` declared as a
+  equivalence case: `production_fixed_effects_transform` with `Facility` declared as a
   Categorical Predictor instead of Fixed Effects must produce identical slopes and
   fit. The strongest cheap cross-oracle available, and it needs no new data.
 

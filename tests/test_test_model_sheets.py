@@ -59,7 +59,7 @@ def _all_cases() -> list:
 
 
 def test_validate_sheet_name_accepts_a_well_formed_name() -> None:
-    validate_sheet_name("M05 Log-Log NA Masking")
+    validate_sheet_name("M14 Log Log Missingness")
     validate_sheet_name("G01b Empty Model")
 
 
@@ -99,8 +99,8 @@ def test_assert_sheet_names_unique_folds_case() -> None:
 
 
 def test_plan_id_is_recoverable_from_a_sheet_name() -> None:
-    assert plan_id_of("M05 Log-Log NA Masking") == "M05"
-    assert plan_id_of("M03b All Continuous NoInt") == "M03b"
+    assert plan_id_of("M14 Log Log Missingness") == "M05"
+    assert plan_id_of("M04 All Continuous NoInt") == "M04"
     assert plan_id_of("G01b Empty Model") == "G01b"
 
 
@@ -148,10 +148,10 @@ def test_profile_key_for_refuses_an_unregistered_source_table() -> None:
 def test_heavy_is_exactly_the_two_gated_fittable_cases() -> None:
     """Two fittable cases are gated behind ``--include-heavy``:
 
-    * L08 (173 Fixed Effects groups over 2909 rows) — the sheet build is
+    * M32 (173 Fixed Effects groups over 2909 rows) — the sheet build is
       what hurts; the per-row residual / leverage / Cook's path is 173×
       wider than the next case.
-    * L05 (Kitchen Sink Profile, k = 19, n = 2117, ~5% missingness on
+    * M33 (Numeric Stress Profile, k = 19, n = 2117, ~5% missingness on
       every predictor) — the statsmodels OLS reference and Excel's OLS
       implementation diverge in the 5th–6th decimal place on most
       coefficients and residuals. Not a defect; both sides go through a
@@ -176,16 +176,16 @@ def test_chart_specs_qualify_references_with_the_given_sheet_name() -> None:
     prefix even for worksheet-scoped names. A spec built with the wrong name
     still PARSES — it just points at another sheet's data — so the prefix has
     to track the sheet actually being written."""
-    specs = _diagnostic_chart_specs("M05 Log-Log NA Masking")
+    specs = _diagnostic_chart_specs("M14 Log Log Missingness")
     references = [spec[2] for spec in specs if spec[2]] + [spec[3] for spec in specs]
     assert references
     for reference in references:
-        assert reference.startswith("='M05 Log-Log NA Masking'!"), reference
+        assert reference.startswith("='M14 Log Log Missingness'!"), reference
     assert not any("'Regression'!" in reference for reference in references)
 
 
 def test_chart_label_cells_follow_the_live_sheet_name() -> None:
-    sheet = RecordingSheet(name="M09 Cat x Cat Full Product")
+    sheet = RecordingSheet(name="M26 Cat By Cat Product")
     _write_chart_label_cells(_as_xw_sheet(sheet))
 
     keys = [spec[0] for spec in _diagnostic_chart_specs(sheet.name)]
@@ -212,7 +212,7 @@ def test_chart_specs_still_default_to_the_production_sheet() -> None:
 
 
 def test_a_cases_typed_sequence_period_lands_in_spec_column_i() -> None:
-    """P01/P02 declare Δ = 1, and the sheet has to receive it.
+    """M29/M30 declare Δ = 1, and the sheet has to receive it.
 
     Base_Period_Delta() reads the TYPED Sequence Period from column I and
     returns #N/A when the cell is blank — it is the override accessor,
@@ -238,9 +238,9 @@ def test_a_cases_typed_sequence_period_lands_in_spec_column_i() -> None:
 
     case = next(
         c for c in build_regression_spec_cases()
-        if c.name == "production_lots_fixed_effects"
+        if c.name == "production_fixed_effects_derived"
     )
-    assert case.sequence_period == 1.0, "P01 is the case that makes BFN live"
+    assert case.sequence_period == 1.0, "M29 is the case that makes BFN live"
 
     sheet = RecordingSheet(name=case.sheet_name)
     padded = _padded(calculate_regression_spec_case(case))
@@ -293,7 +293,7 @@ def test_the_spec_block_creates_no_list_object() -> None:
     inside one, so its return would silently re-break the retarget."""
     from lambda_catalog.write_sheet_model_construction import _write_spec_block
 
-    sheet = RecordingSheet(name="M05 Log-Log NA Masking")
+    sheet = RecordingSheet(name="M14 Log Log Missingness")
     _write_spec_block(_as_xw_sheet(sheet))
 
     assert list(sheet.api.ListObjects.items) == []
@@ -305,7 +305,7 @@ def test_spec_bands_are_sized_to_the_live_source_table() -> None:
     fixed row count is the bug this replaced."""
     from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
 
-    sheet = RecordingSheet(name="M05 Log-Log NA Masking")
+    sheet = RecordingSheet(name="M14 Log Log Missingness")
     _set_sheet_scoped_names(_as_xw_sheet(sheet), ())
 
     spec_names = [
@@ -316,7 +316,7 @@ def test_spec_bands_are_sized_to_the_live_source_table() -> None:
     assert spec_names
     for name in spec_names:
         assert "COLUMNS(Source_Data)" in name.RefersTo, name.Name
-        assert "'M05 Log-Log NA Masking'!" in name.RefersTo, name.Name
+        assert "'M14 Log Log Missingness'!" in name.RefersTo, name.Name
         # No structured reference may survive: that is what bound the band
         # to a fixed-height table.
         assert "[[#Data]," not in name.RefersTo, name.Name
@@ -521,22 +521,22 @@ def test_default_build_excludes_heavy_cases_and_include_heavy_adds_them() -> Non
 def test_case_filter_matches_plan_id_or_case_name_and_overrides_heavy() -> None:
     build_test_models = _load_build_test_models()
 
-    models, guards = build_test_models._selected_cases({"M09", "G10"}, False)
-    assert [case.plan_id for case in models] == ["M09"]
+    models, guards = build_test_models._selected_cases({"M26", "G10"}, False)
+    assert [case.plan_id for case in models] == ["M26"]
     assert [case.plan_id for case in guards] == ["G10"]
 
     # By case name, and a heavy case named explicitly is built anyway.
     models, _ = build_test_models._selected_cases(
         {"life_country_fixed_effects"}, False
     )
-    assert [case.plan_id for case in models] == ["L08"]
+    assert [case.plan_id for case in models] == ["M32"]
 
 
 def test_unmatched_case_filter_is_an_error_not_an_empty_build() -> None:
     build_test_models = _load_build_test_models()
 
     with pytest.raises(ValueError, match="No test-model case matches"):
-        build_test_models._selected_cases({"M09", "nonexistent"}, False)
+        build_test_models._selected_cases({"M26", "nonexistent"}, False)
 
 
 # ── Run-log archiving and verbose progress ───────────────────────────────
@@ -591,13 +591,13 @@ def test_progress_names_the_sheet_before_doing_the_work(capsys) -> None:
     build_test_models = _load_build_test_models()
 
     progress = build_test_models._Progress(enabled=True, run_start=0.0)
-    case = SimpleNamespace(plan_id="M09", sheet_name="M09 Cat x Cat Full Product")
+    case = SimpleNamespace(plan_id="M26", sheet_name="M26 Cat By Cat Product")
 
-    with progress.sheet(3, 46, case):
+    with progress.sheet(3, 48, case):
         # Mid-work: the line is already out, without its duration.
         partial = capsys.readouterr().out
-        assert "3/46" in partial
-        assert "M09 Cat x Cat Full Product" in partial
+        assert "3/48" in partial
+        assert "M26 Cat By Cat Product" in partial
         assert "s\n" not in partial
     assert capsys.readouterr().out.rstrip().endswith("s")
 
@@ -606,7 +606,7 @@ def test_progress_marks_the_failing_sheet(capsys) -> None:
     build_test_models = _load_build_test_models()
 
     progress = build_test_models._Progress(enabled=True, run_start=0.0)
-    case = SimpleNamespace(plan_id="L08", sheet_name="L08 High Cardinality FE")
+    case = SimpleNamespace(plan_id="M32", sheet_name="M32 High Cardinality FE")
 
     with pytest.raises(ValueError), progress.sheet(1, 1, case):
         raise ValueError("com error")
@@ -640,9 +640,9 @@ def test_every_case_spec_covers_its_whole_source_table() -> None:
     right, and the failure surfaces only as a verify run where an entire case
     reads `None`.
 
-    It bit because `Is_USA` was added to `MileageData` for M15's benefit,
+    It bit because `Is_USA` was added to `MileageData` for M13's benefit,
     widening the table to 13 columns while every other Auto MPG case still
-    wrote a 12-row spec. M15 was the one Auto MPG sheet that worked.
+    wrote a 12-row spec. M13 was the one Auto MPG sheet that worked.
     """
     from lambda_catalog.write_sheet_test_model import (
         effective_variables,
@@ -667,7 +667,7 @@ def test_padding_is_omit_so_it_cannot_change_the_model() -> None:
     from lambda_catalog.write_sheet_test_model import pad_spec_to_source_table
 
     case = next(
-        c for c in build_regression_spec_cases() if c.name == "default_t0_intercept"
+        c for c in build_regression_spec_cases() if c.name == "baseline_t0_intercept"
     )
     padded = pad_spec_to_source_table(case.spec, "auto_mpg")
     added = padded[len(case.spec):]
@@ -684,7 +684,7 @@ def test_a_spec_naming_a_column_the_table_lacks_is_rejected() -> None:
     from lambda_catalog.write_sheet_test_model import pad_spec_to_source_table
 
     case = next(
-        c for c in build_regression_spec_cases() if c.name == "default_t0_intercept"
+        c for c in build_regression_spec_cases() if c.name == "baseline_t0_intercept"
     )
     bogus = (*case.spec, SpecVariable("Not_A_Column", "Omit", False, "Continuous"))
     with pytest.raises(ValueError, match="Not_A_Column"):

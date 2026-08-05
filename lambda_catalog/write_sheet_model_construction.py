@@ -637,7 +637,7 @@ _LIFE_EXPECTANCY_PROFILE = SpecDatasetProfile(
 
 # Column order matches the Production Lots CSV's header order plus the
 # appended Full_Data column — the same shape as
-# analyze_regression_spec.py's _production_lots_fixed_effects_spec(), the
+# analyze_regression_spec.py's _production_fixed_effects_derived_spec(), the
 # QC-validated Crawford/Wright learning-curve model (ln(unit cost) = a +
 # b*ln(cumulative units)), reused here verbatim so the shipped default
 # matches a spec the test suite already proves fits correctly: Facility is

@@ -12,18 +12,42 @@ This installs the `lambda_catalog` package in editable mode along with all depen
 
 ### Task shorthands (`poe`)
 
-Every routine command in this file also exists as a [poethepoet](https://poethepoet.natn.io/) task defined in `[tool.poe.tasks]` in `pyproject.toml`. Run bare `poe` to list them all with help text.
+Every routine command in this file also exists as a [poethepoet](https://poethepoet.natn.io/) task defined in `[tool.poe.tasks]` in `pyproject.toml`. `poethepoet` is a standalone task runner, not a Poetry plugin or a Poetry-specific workflow. It is included in this project's default uv development environment (`[dependency-groups].dev` plus `[tool.uv].default-groups`), so `uv sync` installs the `poe` executable into `.venv` by default.
 
 ```powershell
-uv tool install poethepoet   # one-time, per machine
-poe verify-headless          # then run any task from anywhere in the repo
+uv sync                         # one-time, installs poe into the project .venv
+.venv\Scripts\Activate.ps1     # Windows PowerShell
+# source .venv/bin/activate     # macOS/Linux shells
+poe verify-headless
 ```
 
-`uv tool install` works identically on Windows, macOS, and Linux and needs no admin rights — which is why these shorthands are poe tasks and not a `Makefile`. If you'd rather install nothing globally, `uv run poe <task>` works out of the box, since `poethepoet` is in the dev group.
+Bare `poe <task>` is the default form in this document. It uses the repository's uv-managed environment after you activate `.venv` (or if your shell otherwise puts `.venv` on `PATH`). If you choose not to activate the environment, use `uv run poe <task>` as the equivalent explicit form. A global `uv tool install poethepoet` is optional and only useful when you want `poe` available outside this repository.
 
-**poe does not mean Poetry.** Despite the name, poethepoet is a standalone task runner. This project is uv-managed, and poe detects that from `[tool.uv]` / `uv.lock` and runs every task inside the uv environment — which is why no task carries a `uv run` prefix of its own. `[tool.poe.env]` sets `UV_FROZEN=1`, so tasks fail on a stale lockfile exactly as the old `--frozen` flag did.
+`[tool.poe.env]` sets `UV_FROZEN=1`, so tasks fail on a stale lockfile exactly as the old `--frozen` flag did.
 
 Both forms are shown throughout this document: the task where one exists, and the underlying command, which always remains runnable directly.
+
+#### Common poe shortcuts
+
+Use these shortcuts for day-to-day work from an activated `.venv`. If the environment is not activated, prefix the task with `uv run`, for example `uv run poe verify-headless`.
+
+| Goal | poe task | Equivalent direct command | Notes |
+|---|---|---|---|
+| Run the full unit-test suite | `poe test` | `uv run pytest` | No Excel required; this is the default local test pass. |
+| Run tests with coverage | `poe test-cov` | `uv run pytest --cov --cov-report=term-missing --cov-report=xml` | Matches the CI coverage step. |
+| Run the fast workbook invariant screen | `poe verify-headless` | `uv run pytest tests/test_workbook_invariants.py -v` | No Excel required; catches packaging/name/cache drift. |
+| Run pylint's CI check | `poe lint` | `uv run pylint --errors-only lambda_catalog scripts tools` | Error-only lint, matching CI. |
+| Build the Regression artifact | `poe build` | `uv run python scripts/build_production.py` | Needs desktop Excel. |
+| Build the Univariate artifact | `poe build-univariate` | `uv run python scripts/build_univariate.py` | Needs desktop Excel. |
+| Build the QC workbook | `poe qc` | `uv run python scripts/build_qc.py` | Needs desktop Excel; use after LAMBDA changes. |
+| Build + verify Regression | `poe verify-deep` | `uv run python scripts/build_production.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
+| Build + verify Univariate | `poe verify-deep-univariate` | `uv run python scripts/build_univariate.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
+| Build + verify test models | `poe verify-test-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose` | Needs desktop Excel; append `--include-heavy` to include the heavy cases (`L05`, `L08`). |
+| Run the whole verification ladder | `poe verify` | Run the four `verify-*` tasks in sequence | Needs desktop Excel after the headless layer; stops on first failure. |
+| Resync workbook-scoped catalog names | `poe resync-names -- <workbook.xlsx>` | `uv run python tools/resync_workbook_names.py <workbook.xlsx>` | Use the `--` separator before positional args. |
+| Rebuild static reference sheets | `poe static-sheets` | `uv run python scripts/rebuild_static_sheets.py` | Needs desktop Excel; manual template maintenance. |
+
+To pass extra arguments through a poe task, put them after the task name. For example, `poe verify-test-models --include-heavy` includes the heavy `L05` and `L08` cases, and `poe verify-deep --log scratch/regression-verify.log` overrides the archived transcript path. Use `poe --help` for task-runner options and bare `poe` for the current project task list.
 
 ## Quick start
 

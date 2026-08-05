@@ -176,7 +176,7 @@ There are two separate build scripts with distinct purposes. From v3.0 the produ
 | Regression | `Lambda_Library.xlsx` | **Automatic** (full) | Catalog, three sample datasets, Regression, the two reference sheets, Version History |
 | Univariate | `Lambda_Library_Univariate.xlsx` | **Automatic (including Beta's two two-input Data Tables — the artifact's only ones)** | Catalog, Life Expectancy Data, Univariate Analysis, Version History |
 
-**Both artifacts carry the complete function library.** All 131 LAMBDA definitions are written into both Name Managers. There is no bundling step, no dependency closure, and no per-artifact function subsetting — the artifacts differ only in which sheets they contain. When you add a function, it lands in both; there is no list to update.
+**Both artifacts carry the complete function library.** All 139 LAMBDA definitions are written into both Name Managers. There is no bundling step, no dependency closure, and no per-artifact function subsetting — the artifacts differ only in which sheets they contain. When you add a function, it lands in both; there is no list to update.
 
 **Why the split exists.** Excel's calculation mode is a workbook-level setting, and "Automatic except Data Tables" is the only mode under which a workbook with any Data Table can ship. Even with Weibull and Gamma reduced to 1-D profile-NLL columns, Beta still uses two two-input Data Tables for its two-stage grid search. A combined workbook would have to either: (a) ship "Automatic except Data Tables" so the Regression user can recalculate, leaving Univariate's Beta fits **stale until the user presses Ctrl+Alt+F9** (a live correctness bug against the library's visible-failure philosophy), or (b) ship "Automatic including Data Tables" so the Beta fits are live, but Data Tables are workbook-level and would affect every user of either sheet. Two artifacts, two calculation modes, no compromise. See [DECISIONS.md § v3.0](DECISIONS.md#univariate-becomes-its-own-workbook).
 
@@ -248,7 +248,7 @@ uv run python build_production.py --verify --no-launch
 uv run python build_univariate.py
 ```
 
-Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artifact committed to the repo. Writes four sheets: **LAMBDA_functions**, **Life Expectancy Data** (the dataset the Univariate data zone reads via `LifeExpectancyData[Life expectancy]`), **Univariate** (descriptive statistics, histogram binning, and the two-stage MLE fitting — Weibull and Gamma via 1-D profile-NLL searches, Beta via two two-input Data Tables, the other five distributions in closed form), and **Version History** (the Univariate artifact's own lineage, starting at 1.0.0). Carries the complete 131-function library; no Regression-side sheets.
+Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artifact committed to the repo. Writes four sheets: **LAMBDA_functions**, **Life Expectancy Data** (the dataset the Univariate data zone reads via `LifeExpectancyData[Life expectancy]`), **Univariate** (descriptive statistics, histogram binning, and the two-stage MLE fitting — Weibull and Gamma via 1-D profile-NLL searches, Beta via two two-input Data Tables, the other five distributions in closed form), and **Version History** (the Univariate artifact's own lineage, starting at 1.0.0). Carries the complete 139-function library; no Regression-side sheets.
 
 **All `build_univariate.py` options:**
 
@@ -524,7 +524,7 @@ All of this — the per-module CLIs and `rebuild_static_sheets.py` alike — req
 Two mechanical checks would catch most of this class. Both are pure Python, need no Excel, and would run in the existing Linux CI job:
 
 1. **Function names.** Every name written as a function reference in a doc table or fenced block resolves to an entry in `lambda_functions.json`, unless it is a native Excel function or explicitly tagged as planned. This is what would have caught the `Interact` claim and the older stale-rename list.
-2. **Cross-document anchors.** Every `](FILE.md#anchor)` link resolves to a heading that exists in the target file. Heading renames silently break these — the `ARCHITECTURE.md` §4 rename from `(A–L)` to `(A–N)` broke a `ROADMAP.md` link in exactly this way.
+2. **Cross-document anchors.** Every `](FILE.md#anchor)` link resolves to a heading that exists in the target file. Heading renames silently break these — the `ARCHITECTURE.md` §4 renames from `(A–L)` to `(A–N)` (v2.1, adding the Sequence Period / Period In Use pair) and from `(A–N)` to `(A–O)` (v3.0, adding the Design Columns audit column) each broke at least one `ROADMAP.md` link in exactly this way.
 
 Neither is built. They are recorded here as a scoped follow-up rather than as a claim, since the v3.0 documentation pass was documentation-only. The second is the cheaper and higher-yield of the two; a reasonable first cut is ~40 lines of `re` plus a `pytest` case, added to the tracked-modules list in `pyproject.toml`.
 

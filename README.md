@@ -4,7 +4,7 @@ Excel 365 LAMBDA functions that replicate and extend Analysis ToolPak regression
 
 ## Which workbook do I want?
 
-From v3.0 the build emits **two workbooks**. Both carry the **complete function library** — all 131 LAMBDA definitions, identical in each — so whichever you pick, every function in the catalog is available in your formulas. They differ only in which pre-built analysis sheets they contain.
+From v3.0 the build emits **two workbooks**. Both carry the **complete function library** — all 139 LAMBDA definitions, identical in each — so whichever you pick, every function in the catalog is available in your formulas. They differ only in which pre-built analysis sheets they contain.
 
 | Workbook | Contains | Pick this if |
 |---|---|---|
@@ -25,20 +25,20 @@ Most functions are defined as workbook-scoped names, so they work in any cell fo
 
 Around 30 catalog functions are called by no pre-built sheet. That is deliberate: they are the **standalone user-callable layer** — `Correlation_Matrix`, `Lag_By`, `Descriptive_Statistics`, `Design_Matrix` and others you call in your own cells on your own data. The pre-built sheets demonstrate the library; they are not the whole of it.
 
-To use these functions in a different workbook, you have two options. **The easy one:** if you are using one of the pre-built sheets (the Regression workbench or the Univariate Analysis sheet), copy the sheet into your own workbook. The sheet's named-range dependencies come with it — the **workbook-scoped LAMBDA definitions** (the 115 portable functions) and the **sheet-scoped definitions** (the Regression sheet's 16 constructor closures like `Predictor_Columns`, `Sample_Include`, `Design_Columns`; the Univariate sheet's `UV_Data`, `UV_Include`, `GoF_AIC`) travel inside the sheet-copy and are renamed automatically. Open your workbook, the sheet calculates, and every function is ready in formulas. **The other one:** if you only want a single function, or you would rather not pull in the pre-built sheet at all, open both files in Excel at the same time and reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
+To use these functions in a different workbook, you have two options. **The easy one:** if you are using one of the pre-built sheets (the Regression workbench or the Univariate Analysis sheet), copy the sheet into your own workbook. The sheet's named-range dependencies come with it — the **workbook-scoped LAMBDA definitions** (the 122 portable functions) and the **sheet-scoped definitions** (the Regression sheet's 17 constructor closures like `Predictor_Columns`, `Sample_Include`, `Design_Columns`; the Univariate sheet's `UV_Data`, `UV_Include`, `GoF_AIC`) travel inside the sheet-copy and are renamed automatically. Open your workbook, the sheet calculates, and every function is ready in formulas. **The other one:** if you only want a single function, or you would rather not pull in the pre-built sheet at all, open both files in Excel at the same time and reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
 
 ## Versions
 
 Two numbers, because there are two workbooks:
 
-- **Function library version** — the shared catalog of 131 LAMBDA definitions, identical in both workbooks. Moves when a function is added, renamed, or changes what it returns.
+- **Function library version** — the shared catalog of 139 LAMBDA definitions, identical in both workbooks. Moves when a function is added, renamed, or changes what it returns.
 - **Workbook version** — one per artifact, covering that workbook's sheets, input cells, and control blocks. Moves when its input surface changes.
 
 Each workbook's **Version History** sheet shows both, with its own workbook version as the headline:
 
 ```
-Regression Workbook 3.1.0   ·   Function Library 3.1.0
-Univariate Workbook 2.0.0   ·   Function Library 3.1.0
+Regression Workbook 3.3.0   ·   Function Library 3.3.0
+Univariate Workbook 2.0.0   ·   Function Library 3.3.0
 ```
 
 The **`Breaking?` flag belongs to the workbook version**, since it answers a question about your saved inputs. A library-version bump that adds a function breaks nothing. A change to the Univariate workbook's inputs does not move the number a Regression user reads.

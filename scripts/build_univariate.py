@@ -108,7 +108,14 @@ def _load_build_qc_module() -> object:
         )
     module = importlib.util.module_from_spec(spec)
     sys.modules["build_qc"] = module
-    spec.loader.exec_module(module)
+    try:
+        spec.loader.exec_module(module)
+    except BaseException:
+        # Mirror the import machinery: a module whose execution raised is not
+        # left registered, so a retry in the same process re-executes it rather
+        # than handing back a half-initialized object.
+        sys.modules.pop("build_qc", None)
+        raise
     return module
 
 

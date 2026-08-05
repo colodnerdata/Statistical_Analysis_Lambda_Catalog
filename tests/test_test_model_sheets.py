@@ -13,6 +13,7 @@ Three things this covers, none of which needs Excel:
 # pylint: disable=missing-function-docstring
 from __future__ import annotations
 
+import importlib.util
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -482,8 +483,25 @@ def test_row_constants_match_the_writers_own_layout() -> None:
 # ── Build-driver selection ───────────────────────────────────────────────
 
 
+def _load_build_test_models():
+    """Load scripts/build_test_models.py without relying on the repo root being on sys.path.
+
+    The script moved to ``scripts/`` alongside its siblings in the Chunk 1 reorganization;
+    the tests below exercise its driver directly, so we resolve it the same way
+    ``scripts/build_univariate.py`` resolves its sibling ``build_qc.py``.
+    """
+    scripts_dir = Path(__file__).resolve().parent.parent / "scripts"
+    spec = importlib.util.spec_from_file_location(
+        "build_test_models", scripts_dir / "build_test_models.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault("build_test_models", module)
+    spec.loader.exec_module(module)
+    return module
+
+
 def test_default_build_excludes_heavy_cases_and_include_heavy_adds_them() -> None:
-    import build_test_models
+    build_test_models = _load_build_test_models()
 
     default_models, default_guards = build_test_models._selected_cases(None, False)
     heavy_models, heavy_guards = build_test_models._selected_cases(None, True)
@@ -494,7 +512,7 @@ def test_default_build_excludes_heavy_cases_and_include_heavy_adds_them() -> Non
 
 
 def test_case_filter_matches_plan_id_or_case_name_and_overrides_heavy() -> None:
-    import build_test_models
+    build_test_models = _load_build_test_models()
 
     models, guards = build_test_models._selected_cases({"M09", "G10"}, False)
     assert [case.plan_id for case in models] == ["M09"]
@@ -508,7 +526,7 @@ def test_case_filter_matches_plan_id_or_case_name_and_overrides_heavy() -> None:
 
 
 def test_unmatched_case_filter_is_an_error_not_an_empty_build() -> None:
-    import build_test_models
+    build_test_models = _load_build_test_models()
 
     with pytest.raises(ValueError, match="No test-model case matches"):
         build_test_models._selected_cases({"M09", "nonexistent"}, False)
@@ -563,7 +581,7 @@ def test_tee_run_log_captures_stdout_stderr_and_the_traceback(tmp_path) -> None:
 def test_progress_names_the_sheet_before_doing_the_work(capsys) -> None:
     """A summary printed after each sheet says nothing about the one that
     hung. The name has to be on screen, flushed, before the work starts."""
-    import build_test_models
+    build_test_models = _load_build_test_models()
 
     progress = build_test_models._Progress(enabled=True, run_start=0.0)
     case = SimpleNamespace(plan_id="M09", sheet_name="M09 Cat x Cat Full Product")
@@ -578,7 +596,7 @@ def test_progress_names_the_sheet_before_doing_the_work(capsys) -> None:
 
 
 def test_progress_marks_the_failing_sheet(capsys) -> None:
-    import build_test_models
+    build_test_models = _load_build_test_models()
 
     progress = build_test_models._Progress(enabled=True, run_start=0.0)
     case = SimpleNamespace(plan_id="L08", sheet_name="L08 High Cardinality FE")
@@ -592,7 +610,7 @@ def test_progress_marks_the_failing_sheet(capsys) -> None:
 def test_progress_phases_print_even_without_verbose(capsys) -> None:
     """Phase checkpoints are the minimum that makes a hang attributable, so
     they are not gated on --verbose; only the per-sheet detail is."""
-    import build_test_models
+    build_test_models = _load_build_test_models()
 
     progress = build_test_models._Progress(enabled=False, run_start=0.0)
     progress.phase("Sync names")
@@ -670,7 +688,7 @@ def test_a_spec_naming_a_column_the_table_lacks_is_rejected() -> None:
 def test_fixture_columns_are_declared_once_for_both_writers() -> None:
     """The data-sheet writer and the spec block must read ONE list. Two copies
     is how the table grew a column the spec block did not know about."""
-    import build_test_models
+    build_test_models = _load_build_test_models()
     from lambda_catalog.write_sheet_test_model import (
         FIXTURE_COLUMNS,
         effective_variables,

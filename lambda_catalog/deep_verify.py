@@ -1,4 +1,16 @@
-"""Spec-driven deep verification helpers for generated workbooks."""
+"""Spec-driven deep verification helpers for generated workbooks.
+
+Importable from `lambda_catalog` so `build_production.py`, `build_univariate.py`
+and `tools/verify_workbook.py` can call `verify_test_sheets` directly instead of
+dynamically loading `scripts/build_qc.py`.
+
+**Runs from a repository checkout, not from an installed wheel.** It reads the
+`tools/` inspector scripts (`_load_module`) and the `sample_data/` CSVs (via
+`write_sheet_csv_dataset`'s `default_csv_path`s), and it drives desktop Excel
+through xlwings. The wheel packages `lambda_catalog` only, so none of those are
+present in an installed environment — which is also why CI never runs this
+layer (see CLAUDE.md).
+"""
 from __future__ import annotations
 
 from collections import Counter
@@ -168,6 +180,23 @@ def _calculate_verification_sheets(
 
 
 def _load_module(module_name: str, path: Path):
+    """Load one of the ``tools/`` inspector scripts by path.
+
+    ``tools/`` is not a package and is not on ``sys.path``, so the two
+    inspectors are loaded from their file. That makes this module — like
+    ``write_sheet_csv_dataset``, which reaches ``sample_data/`` the same
+    checkout-relative way — a repo-checkout facility, not something the
+    installed wheel (``packages = ["lambda_catalog"]``) can run. Say so when
+    the path is absent rather than surfacing a bare ``FileNotFoundError``
+    from ``exec_module``.
+    """
+    if not path.exists():
+        raise RuntimeError(
+            f"Could not load {module_name}: {path} does not exist. "
+            "The spec-driven verifier runs from a repository checkout — it "
+            "needs the tools/ inspectors and the sample_data/ CSVs, neither "
+            "of which ships in the wheel."
+        )
     spec = importlib.util.spec_from_file_location(module_name, path)
     if spec is None or spec.loader is None:
         raise RuntimeError(f"Could not load {module_name} from {path}")

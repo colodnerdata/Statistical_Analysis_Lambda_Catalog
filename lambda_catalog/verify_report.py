@@ -5,7 +5,7 @@ the same ``VerifyReport`` so a downstream agentic loop can read the result
 in a stable shape regardless of which layer ran.
 
 The human-readable renderer mirrors the existing ``lambda_catalog.deep_verify._report_qc_failure``
-style (the ``ERROR QC mismatch totals: ...`` line)
+style (the ``ERROR Verify mismatch totals: ...`` line)
 so the post-build handoff looks the same whether the verifier was run by
 ``build_production --verify`` or by the legacy ``build_qc`` workflow.
 """
@@ -94,7 +94,7 @@ def report_from_failures(
 def render_human(report: VerifyReport, *, max_failures: int = 20) -> str:
     """Format a VerifyReport for terminal output.
 
-    Mirrors the existing ``ERROR QC mismatch totals: ...`` format so the
+    Mirrors the existing ``ERROR Verify mismatch totals: ...`` format so the
     post-build handoff looks the same regardless of which verifier ran.
     """
     if report.passed:

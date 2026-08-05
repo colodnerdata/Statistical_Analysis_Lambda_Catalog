@@ -55,11 +55,11 @@ from lambda_catalog.write_sheet_univariate import (
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
 
 
-ROOT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = Path(__file__).resolve().parent.parent
 _MAX_REPORTED_QC_FAILURES = 200
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_QC.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
-DEFAULT_LOG_PATH = ROOT_DIR / "qc_log.log"
+DEFAULT_LOG_PATH = ROOT_DIR / "logs" / "qc_log.log"
 _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 _QC_SHEET_NAMES = (
     "MLR_Scalar_Test",

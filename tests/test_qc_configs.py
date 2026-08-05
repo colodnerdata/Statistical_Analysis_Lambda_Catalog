@@ -1,4 +1,4 @@
-"""Verify Python-side QC config/cache helpers for spec-driven Regression checks."""
+"""Verify Python-side QC config/cache helpers for Regression-sheet oracle results and cache round-trips."""
 from __future__ import annotations
 
 import json

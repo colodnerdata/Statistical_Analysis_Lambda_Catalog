@@ -21,11 +21,15 @@ from pathlib import Path
 import xlwings as xw
 
 from lambda_catalog.build_common import (
+    RUN_LOG_DIR_NAME,
+    RUN_LOG_FILE_SUFFIX,
     _close_workbook_quietly,
     _quit_app_quietly,
     _recalculate_and_save,
     _retry_on_open,
     print_name_sync_summary,
+    run_log_path,
+    tee_run_log,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.verify_report import (
@@ -524,6 +528,18 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--log",
+        type=Path,
+        default=None,
+        help=(
+            "Where to archive this run's transcript (stdout + stderr, "
+            "including a traceback from an aborted run). Defaults to "
+            f"'{RUN_LOG_DIR_NAME}/<script> <flags>{RUN_LOG_FILE_SUFFIX}' — the "
+            "same naming build_test_models.py uses, so a directory listing "
+            "reads as a list of what was actually run."
+        ),
+    )
+    parser.add_argument(
         "--regression-dataset",
         choices=tuple(SPEC_DATASET_PROFILES),
         default="auto_mpg",
@@ -542,10 +558,15 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def main() -> None:
-    """Build the production workbook and print a short sync summary for interactive use."""
-    args = parse_args()
-    workbook_path = args.workbook.resolve()
+def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
+    """Run the build, the recalculate phase and (optionally) the verifier.
+
+    Returns the process exit code — 1 when the spec-driven verifier reported
+    drift, 0 otherwise — rather than calling ``sys.exit`` itself. ``main``
+    runs this inside ``tee_run_log``, and a ``SystemExit`` raised in there
+    would be archived as a traceback, burying the ``VerifyReport`` that
+    actually explains the failure under a stack trace that explains nothing.
+    """
     total_start = time.monotonic()
     verify_elapsed: float | None = None
 
@@ -638,7 +659,7 @@ def main() -> None:
         print(f"Timing: verify        {verify_elapsed:.1f}s")
         print(f"Timing: total         {time.monotonic() - total_start:.1f}s")
         if not report.passed:
-            sys.exit(1)
+            return 1
     else:
         print(f"Timing: build+sync    {build_elapsed:.1f}s")
         if recalc_elapsed is None:
@@ -647,8 +668,41 @@ def main() -> None:
             print(f"Timing: recalculate   {recalc_elapsed:.1f}s")
         print(f"Timing: total         {time.monotonic() - total_start:.1f}s")
 
-    if not args.no_launch:
+    return 0
+
+
+def main() -> None:
+    """Build the production workbook, archiving the run's transcript.
+
+    The whole run — the verifier's ``VerifyReport`` on drift, and the
+    traceback of anything that aborts it, stderr included — is teed into
+    ``excel-only-runs/``. This build needs Excel, so it cannot run on the
+    GitHub-hosted Linux CI; that directory is the cross-tool substitute for
+    the CI log a failed ``poe verify-deep`` would otherwise leave only in
+    somebody's terminal scrollback. See ``excel-only-runs/README.md`` for
+    which transcripts belong on a branch and when to retire one.
+    """
+    args = parse_args()
+    workbook_path = args.workbook.resolve()
+    log_path = (
+        args.log
+        if args.log is not None
+        else run_log_path(ROOT_DIR, Path(__file__).name, sys.argv[1:])
+    )
+    command = f"python {Path(__file__).name} " + " ".join(sys.argv[1:])
+
+    with tee_run_log(log_path, command):
+        exit_code = _build_and_verify(args, workbook_path)
+        print(f"Log: {log_path}")
+
+    # The launch is gated on a clean run for the same reason the verify
+    # branch was: a workbook the verifier rejected must not be opened in
+    # place of a fresh one.
+    if not args.no_launch and exit_code == 0:
         subprocess.Popen(["cmd", "/c", "start", "", str(workbook_path)])
+
+    if exit_code:
+        sys.exit(exit_code)
 
 
 if __name__ == "__main__":

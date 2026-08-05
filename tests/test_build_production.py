@@ -2,6 +2,7 @@
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
@@ -200,7 +201,7 @@ def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:
     assert "retrying in a fresh Excel instance" in capsys.readouterr().err
 
 
-def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys) -> None:
+def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys, tmp_path) -> None:
     calls: list[bool] = []
     popen_calls: list[tuple[str, ...]] = []
 
@@ -218,6 +219,7 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(monkeypatch, capsys
             skip_data_table_calculations=True,
             verify=False,
             no_launch=False,
+            log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
         ),
     )
@@ -389,6 +391,7 @@ def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
 def test_main_always_rebuilds_regression_even_with_skip_data_table_calculations(
     monkeypatch,
     capsys,
+    tmp_path,
 ) -> None:
     """The Regression workbook has no Data Tables, so
     --skip-data-table-calculations is a no-op: the rebuild always runs (the
@@ -412,6 +415,7 @@ def test_main_always_rebuilds_regression_even_with_skip_data_table_calculations(
             skip_data_table_calculations=True,
             verify=False,
             no_launch=True,
+            log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
         ),
     )
@@ -441,6 +445,7 @@ def test_main_always_rebuilds_regression_even_with_skip_data_table_calculations(
 def test_main_no_launch_suppresses_post_build_excel_handoff(
     monkeypatch,
     capsys,
+    tmp_path,
 ) -> None:
     """When --no-launch is set, main() must not shell out to `cmd /c start`.
 
@@ -465,6 +470,7 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
             skip_data_table_calculations=True,
             verify=False,
             no_launch=True,
+            log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
         ),
     )
@@ -489,6 +495,7 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
 def test_main_runs_deep_verify_and_exits_zero_on_pass(
     monkeypatch,
     capsys,
+    tmp_path,
 ) -> None:
     """When --verify is set and the verifier passes, main() must NOT
     shell out to `cmd /c start` until the report is rendered, then
@@ -522,6 +529,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
             skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
+            log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
         ),
     )
@@ -554,6 +562,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
 def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     monkeypatch,
     capsys,
+    tmp_path,
 ) -> None:
     """When --verify is set and the verifier reports drift, main() must
     NOT shell out to `cmd /c start` (so a stale workbook cannot be
@@ -588,6 +597,7 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
             skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
+            log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
         ),
     )
@@ -614,6 +624,172 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
     output = capsys.readouterr().out
     assert "ERROR Verify mismatch totals" in output
     assert "Regression/scalars=2" in output
+
+
+def test_main_archives_the_verify_report_to_the_run_log(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """A failing --verify run must leave its VerifyReport in the transcript.
+
+    `poe verify-deep` cannot run on the GitHub-hosted Linux CI (no Excel),
+    so `excel-only-runs/` is the only place a reviewer or a future agent can
+    read what a failed deep verify actually said. The report has to be IN the
+    file, not just on the terminal that ran it.
+    """
+    log_path = tmp_path / "build_production verify.log"
+
+    def fake_run_deep_verify(workbook_path, csv_path, **_kwargs):
+        del csv_path
+        return VerifyReport(
+            passed=False,
+            categories={"Regression/scalars": 2},
+            failures=(
+                "[Regression/scalars] k=1 expected=1.0 excel_calc=1.5",
+                "[Regression/scalars] k=2 expected=2.0 excel_calc=2.5",
+            ),
+            elapsed_seconds=1.23,
+            mode="spec",
+            workbook=str(workbook_path),
+        )
+
+    monkeypatch.setattr(
+        build_production,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=True,
+            verify=True,
+            no_launch=True,
+            log=log_path,
+            regression_dataset="auto_mpg",
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "build_production_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(build_production, "_run_deep_verify", fake_run_deep_verify)
+
+    with pytest.raises(SystemExit) as exc_info:
+        build_production.main()
+
+    assert exc_info.value.code == 1
+    archived = log_path.read_text(encoding="utf-8")
+    assert "python build_production.py" in archived
+    assert "ERROR Verify mismatch totals" in archived
+    assert "Regression/scalars=2" in archived
+    assert "[Regression/scalars] k=1 expected=1.0 excel_calc=1.5" in archived
+    # The report is the payload, not a SystemExit stack trace: main() exits
+    # after the tee closes so the archived file stays readable.
+    assert "Traceback" not in archived
+    assert f"Log: {log_path}" in archived
+
+
+def test_main_archives_the_traceback_when_the_build_aborts(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    """A build that dies mid-run archives its own cause.
+
+    The failure most worth capturing here is a pywintypes.com_error, which
+    never touches stdout — so the transcript has to carry stderr and the
+    traceback, and the exception still has to propagate to the shell.
+    """
+    log_path = tmp_path / "build_production verify.log"
+
+    def explode(**_kwargs):
+        raise RuntimeError("Excel dispatch blew up")
+
+    monkeypatch.setattr(
+        build_production,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=True,
+            verify=True,
+            no_launch=True,
+            log=log_path,
+            regression_dataset="auto_mpg",
+        ),
+    )
+    monkeypatch.setattr(build_production, "build_production_workbook", explode)
+
+    with pytest.raises(RuntimeError, match="Excel dispatch blew up"):
+        build_production.main()
+
+    archived = log_path.read_text(encoding="utf-8")
+    assert "Traceback" in archived
+    assert "Excel dispatch blew up" in archived
+
+
+def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
+    """Without --log, the transcript lands in excel-only-runs/ named after the run.
+
+    Recorded rather than written: an actual file here would drop a unit-test
+    artifact into a tracked directory whose contents are meant to be real
+    Excel-required runs.
+    """
+    recorded: list[Path] = []
+
+    @contextlib.contextmanager
+    def fake_tee(log_path, command):
+        del command
+        recorded.append(log_path)
+        yield log_path
+
+    monkeypatch.setattr(build_production, "tee_run_log", fake_tee)
+    monkeypatch.setattr(
+        build_production.sys,
+        "argv",
+        ["scripts/build_production.py", "--verify", "--no-launch"],
+    )
+    monkeypatch.setattr(
+        build_production,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            mileage_csv=Path("mileage.csv"),
+            production_lots_csv=Path("production_lots.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=True,
+            verify=False,
+            no_launch=True,
+            log=None,
+            regression_dataset="auto_mpg",
+        ),
+    )
+    monkeypatch.setattr(
+        build_production,
+        "build_production_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(build_production, "_recalculate_and_save", lambda *_args, **_kwargs: None)
+
+    build_production.main()
+
+    assert recorded == [
+        build_production.ROOT_DIR
+        / "excel-only-runs"
+        / "build_production verify no launch.log"
+    ]
 
 
 def test_build_uses_life_expectancy_source_table_when_requested(

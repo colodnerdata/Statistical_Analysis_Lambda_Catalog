@@ -167,7 +167,7 @@ The unit tests above check functions. The **test-model suite** checks *model con
 5. Add the assertions that make the case worth having — the design-matrix facts (`constructed_column_names`, the row mask, k) plus whatever the corner is actually about.
 6. Run `uv run pytest tests/test_regression_spec_qc.py tests/test_test_model_sheets.py` (no Excel), then, on a machine with Excel, `python scripts/build_test_models.py --verify --no-launch` for the case's own sheet and `python scripts/build_production.py --verify --no-launch` for the shipped Regression sheet. See [Verifying builds](#verifying-builds).
 7. Update the coverage matrix in [docs/MODEL_TESTING_ASSETS.md § 1.5](docs/MODEL_TESTING_ASSETS.md#15-coverage-matrix) and flip the case's status from **new** to **existing**.
-8. Archive the build+verify transcript into [`excel-only-runs/`](excel-only-runs/) and commit it on the same branch. The transcript is item 4 of the [PR-shape rules](#the-pr-shape-rules--what-every-regression-pr-must-contain) below; a Regression-track PR without it has no verifiable paper trail because the spec-driven verifier cannot run on Linux CI.
+8. Commit the build+verify transcripts on the same branch. Each run writes its own into [`excel-only-runs/`](excel-only-runs/) — `build_test_models verify no launch.log` and `build_production verify no launch.log` — so this step is `git add`, not a copy-paste out of the terminal. The transcript is item 4 of the [PR-shape rules](#the-pr-shape-rules--what-every-regression-pr-must-contain) below; a Regression-track PR without it has no verifiable paper trail because the spec-driven verifier cannot run on Linux CI.
 
 ### The PR-shape rules — what every Regression PR must contain
 
@@ -254,6 +254,7 @@ No Univariate sheet (it ships in its own workbook — see [Univariate build](#un
 | `--no-launch` | off | Suppress the post-build `cmd /c start <workbook>` Excel handoff. Use in agentic/automated loops where no Excel window should pop up. |
 | `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
 | `--verbose` | off | Print per-phase timing checkpoints to stdout. |
+| `--log PATH` | `excel-only-runs/<script> <flags>.log` | Where to archive this run's transcript. Every run is teed to this file — stdout, stderr, the `VerifyReport` on drift, and the traceback of anything that aborts the build. This target cannot run in CI, so the transcript is the branch's only paper trail; commit it. |
 
 Common combinations:
 
@@ -264,6 +265,7 @@ uv run python scripts/build_production.py
 # The one-shot automated flow: build, sync names, run the spec-driven verifier,
 # exit non-zero on drift, and never open Excel. This is what `poe verify-deep` runs.
 # The Regression workbook has no Data Tables, so the rebuild is cheap and always runs.
+# The transcript lands in `excel-only-runs/build_production verify no launch.log`.
 uv run python scripts/build_production.py --verify --no-launch
 ```
 
@@ -289,6 +291,7 @@ Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artif
 | `--no-launch` | off | Suppress the post-build `cmd /c start <workbook>` Excel handoff. |
 | `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
 | `--verbose` | off | Print per-phase timing checkpoints to stdout. |
+| `--log PATH` | `excel-only-runs/<script> <flags>.log` | Where to archive this run's transcript, exactly as for `build_production.py` — including the `--no-calculation` + `--verify` warning, which goes to stderr. |
 
 Common combinations:
 
@@ -431,9 +434,9 @@ poe verify-test-models      # Layer 2, the ~48-sheet test-model suite (needs Exc
 
 `poe verify` is a sequence of those four and stops at the first one that exits non-zero.
 
-`poe verify-deep` shells out to `build_production.py --verify --no-launch` and `poe verify-deep-univariate` to `build_univariate.py --verify --no-launch`, so each both rebuilds and verifies its own artifact. To verify an already-built workbook, use `python tools/verify_workbook.py <workbook>` instead (with `--skip-regression` for the Univariate artifact).
+`poe verify-deep` shells out to `build_production.py --verify --no-launch` and `poe verify-deep-univariate` to `build_univariate.py --verify --no-launch`, so each both rebuilds and verifies its own artifact. Both tee their run into [`excel-only-runs/`](excel-only-runs/) (`<script> <flags>.log`, via `lambda_catalog.build_common.run_log_path`) — stderr and any traceback included — so a failed deep verify is a file you can commit and hand over rather than terminal scrollback; override the destination with `--log PATH`. To verify an already-built workbook, use `python tools/verify_workbook.py <workbook>` instead (with `--skip-regression` for the Univariate artifact).
 
-The `verify-test-models` task passes `--verbose` because that run takes minutes across ~48 sheets: it names each sheet *before* writing it, so an interrupted run leaves the offending case on screen. Every run archives its full transcript — stdout and stderr — to `excel-only-runs/`, so a `com_error` traceback is a file you can hand to somebody rather than terminal scrollback. The heavy `L08` case is excluded by default; append `--include-heavy` (`poe verify-test-models --include-heavy`) to include it. Its Python oracle runs in the unit suite regardless.
+The `verify-test-models` task passes `--verbose` because that run takes minutes across ~48 sheets: it names each sheet *before* writing it, so an interrupted run leaves the offending case on screen. It archives its transcript the same way — all three Excel-required drivers do. The heavy `L08` case is excluded by default; append `--include-heavy` (`poe verify-test-models --include-heavy`) to include it. Its Python oracle runs in the unit suite regardless.
 
 ### CI
 

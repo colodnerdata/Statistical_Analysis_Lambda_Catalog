@@ -10,8 +10,11 @@ forwards skip_regression=True to the spec-driven verifier.
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
+import contextlib
 from pathlib import Path
 from types import SimpleNamespace
+
+import pytest
 
 from lambda_catalog.verify_report import VerifyReport
 from tests.script_loader import load_script_module
@@ -344,7 +347,7 @@ def test_no_calculation_skips_the_rebuild_even_when_recalculate_is_true(
     assert recalc_calls == []
 
 
-def test_main_no_calculation_skips_rebuild_and_warns(monkeypatch, capsys) -> None:
+def test_main_no_calculation_skips_rebuild_and_warns(monkeypatch, capsys, tmp_path) -> None:
     """--no-calculation skips phase 2 and says the artifact is not shippable."""
     recalc_calls: list[Path] = []
     build_kwargs: dict = {}
@@ -362,6 +365,7 @@ def test_main_no_calculation_skips_rebuild_and_warns(monkeypatch, capsys) -> Non
             no_calculation=True,
             verify=False,
             no_launch=True,
+            log=tmp_path / "build.log",
         ),
     )
 
@@ -385,7 +389,7 @@ def test_main_no_calculation_skips_rebuild_and_warns(monkeypatch, capsys) -> Non
     assert "do not ship it" in out
 
 
-def test_main_warns_when_verify_is_combined_with_no_calculation(monkeypatch, capsys) -> None:
+def test_main_warns_when_verify_is_combined_with_no_calculation(monkeypatch, capsys, tmp_path) -> None:
     """Verifying a workbook that was never calculated compares nothing useful."""
     monkeypatch.setattr(
         build_univariate,
@@ -400,6 +404,7 @@ def test_main_warns_when_verify_is_combined_with_no_calculation(monkeypatch, cap
             no_calculation=True,
             verify=True,
             no_launch=True,
+            log=tmp_path / "build.log",
         ),
     )
     monkeypatch.setattr(
@@ -528,7 +533,7 @@ def test_reorder_puts_univariate_front_and_lambda_last(monkeypatch) -> None:
 
 
 def test_main_recalculate_skipped_when_skip_data_table_calculations(
-    monkeypatch, capsys
+    monkeypatch, capsys, tmp_path
 ) -> None:
     """--skip-data-table-calculations skips the (slow, 2,400-NLL-eval) rebuild
     for the Univariate artifact — this is the flag's now-primary purpose."""
@@ -547,6 +552,7 @@ def test_main_recalculate_skipped_when_skip_data_table_calculations(
             no_calculation=False,
             verify=False,
             no_launch=True,
+            log=tmp_path / "build.log",
         ),
     )
     monkeypatch.setattr(
@@ -567,7 +573,7 @@ def test_main_recalculate_skipped_when_skip_data_table_calculations(
     assert "Recalculate:    skipped (--skip-data-table-calculations)" in capsys.readouterr().out
 
 
-def test_main_recalculate_runs_by_default(monkeypatch) -> None:
+def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
     """Without --skip-data-table-calculations, main() runs the rebuild so the
     shipped artifact's Data Tables are computed (not stale pending Ctrl+Alt+F9)."""
     recalc_calls: list[Path] = []
@@ -585,6 +591,7 @@ def test_main_recalculate_runs_by_default(monkeypatch) -> None:
             no_calculation=False,
             verify=False,
             no_launch=True,
+            log=tmp_path / "build.log",
         ),
     )
     monkeypatch.setattr(
@@ -646,7 +653,7 @@ def test_run_deep_verify_forwards_skip_regression_true(monkeypatch) -> None:
     assert fake_build_qc.verify_kwargs.get("skip_univariate") is not True
 
 
-def test_main_verify_forwards_skip_regression_true(monkeypatch) -> None:
+def test_main_verify_forwards_skip_regression_true(monkeypatch, tmp_path) -> None:
     """--verify on the Univariate build must run _run_deep_verify, which
     forwards skip_regression=True to the verifier."""
     verify_calls: list[tuple] = []
@@ -675,6 +682,7 @@ def test_main_verify_forwards_skip_regression_true(monkeypatch) -> None:
             no_calculation=False,
             verify=True,
             no_launch=True,
+            log=tmp_path / "build.log",
         ),
     )
     monkeypatch.setattr(
@@ -690,3 +698,159 @@ def test_main_verify_forwards_skip_regression_true(monkeypatch) -> None:
 
     assert len(verify_calls) == 1
     assert verify_calls[0][0] == Path("Example.xlsx").resolve()
+
+def test_main_archives_the_verify_report_to_the_run_log(monkeypatch, tmp_path) -> None:
+    """A failing --verify run must leave its VerifyReport in the transcript.
+
+    Same reasoning as the Regression driver's copy of this test: this build
+    needs Excel, so `excel-only-runs/` is the only place the output of a
+    failed `poe verify-deep-univariate` survives the terminal that ran it.
+    """
+    log_path = tmp_path / "build_univariate verify.log"
+
+    def fake_run_deep_verify(workbook_path, csv_path, *, verbose=False):
+        del csv_path, verbose
+        return VerifyReport(
+            passed=False,
+            categories={"Univariate/fits": 1},
+            failures=("[Univariate/fits] Weibull shape expected=2.0 excel_calc=2.5",),
+            elapsed_seconds=4.5,
+            mode="spec",
+            workbook=str(workbook_path),
+        )
+
+    monkeypatch.setattr(
+        build_univariate,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=False,
+            no_calculation=False,
+            verify=True,
+            no_launch=True,
+            log=log_path,
+        ),
+    )
+    monkeypatch.setattr(
+        build_univariate,
+        "build_univariate_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(build_univariate, "_recalculate_and_save", lambda *_a, **_k: None)
+    monkeypatch.setattr(build_univariate, "_run_deep_verify", fake_run_deep_verify)
+
+    with pytest.raises(SystemExit) as exc_info:
+        build_univariate.main()
+
+    assert exc_info.value.code == 1
+    archived = log_path.read_text(encoding="utf-8")
+    assert "python build_univariate.py" in archived
+    assert "ERROR Verify mismatch totals" in archived
+    assert "Univariate/fits=1" in archived
+    assert "[Univariate/fits] Weibull shape expected=2.0 excel_calc=2.5" in archived
+    assert "Traceback" not in archived
+
+
+def test_main_archives_the_no_calculation_verify_warning(monkeypatch, tmp_path) -> None:
+    """The --no-calculation + --verify warning goes to stderr; it must be archived.
+
+    stderr is exactly what a terminal-only transcript loses first, and this
+    warning is what explains a wall of spurious fit mismatches further down
+    the same file.
+    """
+    log_path = tmp_path / "build_univariate verify no calculation.log"
+
+    monkeypatch.setattr(
+        build_univariate,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=False,
+            no_calculation=True,
+            verify=True,
+            no_launch=True,
+            log=log_path,
+        ),
+    )
+    monkeypatch.setattr(
+        build_univariate,
+        "build_univariate_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(
+        build_univariate,
+        "_run_deep_verify",
+        lambda workbook_path, csv_path, *, verbose=False: VerifyReport(
+            passed=True,
+            categories={},
+            failures=(),
+            elapsed_seconds=0.0,
+            mode="spec",
+            workbook=str(workbook_path),
+        ),
+    )
+
+    build_univariate.main()
+
+    archived = log_path.read_text(encoding="utf-8")
+    assert "--verify with --no-calculation" in archived
+
+
+def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
+    """Without --log, the transcript lands in excel-only-runs/ named after the run.
+
+    Recorded rather than written, so a unit test never drops an artifact
+    into a tracked directory that is meant to hold real Excel-required runs.
+    """
+    recorded: list[Path] = []
+
+    @contextlib.contextmanager
+    def fake_tee(log_path, command):
+        del command
+        recorded.append(log_path)
+        yield log_path
+
+    monkeypatch.setattr(build_univariate, "tee_run_log", fake_tee)
+    monkeypatch.setattr(
+        build_univariate.sys,
+        "argv",
+        ["scripts/build_univariate.py", "--verify", "--no-launch"],
+    )
+    monkeypatch.setattr(
+        build_univariate,
+        "parse_args",
+        lambda: SimpleNamespace(
+            workbook=Path("Example.xlsx"),
+            definitions=Path("lambda_functions.json"),
+            csv=Path("life_expectancy.csv"),
+            validate_reopen=False,
+            verbose=False,
+            skip_data_table_calculations=True,
+            no_calculation=False,
+            verify=False,
+            no_launch=True,
+            log=None,
+        ),
+    )
+    monkeypatch.setattr(
+        build_univariate,
+        "build_univariate_workbook",
+        lambda **_: NameSyncResult(created=0, updated=0),
+    )
+    monkeypatch.setattr(build_univariate, "_recalculate_and_save", lambda *_a, **_k: None)
+
+    build_univariate.main()
+
+    assert recorded == [
+        build_univariate.ROOT_DIR
+        / "excel-only-runs"
+        / "build_univariate verify no launch.log"
+    ]

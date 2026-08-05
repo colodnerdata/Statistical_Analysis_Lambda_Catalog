@@ -103,6 +103,12 @@ cmd = "pylint --errors-only lambda_catalog scripts tools"
 help = "Layer 1: fast zipfile/lxml invariant screen (<1 s, no Excel)."
 cmd = "pytest tests/test_workbook_invariants.py -v"
 
+# Both deep-verify tasks tee their whole run — the VerifyReport on drift,
+# stderr, and the traceback of anything that aborts the build — to
+# "excel-only-runs/<script> <flags>.log".  Since neither can run in CI, that
+# file is the only thing a reviewer or a future agent has to read a failure
+# from; commit it on the branch that produced it.  `--log PATH` overrides the
+# destination.
 [tool.poe.tasks.verify-deep]
 help = "Layer 2: build + spec-verify the Regression workbook (needs Excel)."
 cmd = "python scripts/build_production.py --verify --no-launch"

@@ -62,12 +62,16 @@ def _quit_app_quietly(app: xw.App | None) -> None:
         pass
 
 
-# Where a driver's terminal transcript is archived. Gitignored rather than
-# committed: a deep-verify run needs Excel, so the transcript only exists on
-# the machine that ran it. The directory is named after what produced it
-# (Excel-only run artifact) rather than where (a developer's box), so a
-# contributor who has never run a Windows-only verifier build still knows
-# what belongs here.
+# Where a driver's terminal transcript is archived. Every Excel-required
+# driver writes here — build_production.py, build_univariate.py and
+# build_test_models.py — because none of them can run on the GitHub-hosted
+# Linux CI, so this directory is the cross-tool substitute for the CI log a
+# failed run would otherwise leave only in somebody's terminal scrollback.
+# It is tracked, not gitignored: the transcript is committed on the branch
+# that did the work (see excel-only-runs/README.md for when to retire one).
+# The directory is named after what produced it (Excel-only run artifact)
+# rather than where (a developer's box), so a contributor who has never run
+# a Windows-only verifier build still knows what belongs here.
 RUN_LOG_DIR_NAME = "excel-only-runs"
 RUN_LOG_FILE_SUFFIX = ".log"
 

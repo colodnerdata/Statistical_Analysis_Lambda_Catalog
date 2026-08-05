@@ -1,6 +1,6 @@
 """QC verification of the Regression sheet's spec block and constructor path.
 
-The v3.0 changeover moved the declarative spec block onto the Regression
+The spec-block changeover moved the declarative spec block onto the Regression
 sheet, and the Model Construction sheet (with its dedicated verifier) left
 the build. The six regression QC configurations only exercise all-continuous
 designs — every config switches the default spec's Categorical predictors

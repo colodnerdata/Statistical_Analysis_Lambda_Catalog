@@ -127,7 +127,7 @@ def _as_xw_sheet(sheet: RecordingSheet) -> xw.Sheet:
 def _model_construction_closures():
     """The sheet-scoped constructor functions as a standalone rebuild installs them.
 
-    The closures moved to scope "Regression" with the v3.0 changeover; this
+    The closures moved to scope "Regression" with the v2.0 release; this
     module keeps installing the same set when its sheet is rebuilt standalone.
     """
     document = load_catalog_document(ROOT_DIR / "lambda_functions.json")

@@ -3,10 +3,8 @@
 Two-axis specification plus the Sequence structural axis (ROADMAP: v2.0 —
 Specification-Driven Regression; Sequence added post-v2.0):
 
-Note on numbering: this changeover was planned as "v3.0" and renumbered to
-v2.0 before release. Other modules and tests still carry the old label in
-comments; v3.0 now means the engine-interface release (ROADMAP). See
-TODOs.md for the cleanup item.
+Note on numbering: the spec-block changeover shipped as v2.0. In current
+comments, v3.0 means the engine-interface release (ROADMAP).
 
     A        B      C       D     E               F       G         H        I              J              K      L
     Variable Role   Include Type  Reference Level Order   Transform Sequence Sequence Period Period In Use Levels Reference In Use
@@ -54,7 +52,7 @@ documented string, never a raw #CALC! leak.
 Row 2 is a model-level control row above the spec table: A2 labels
 "Intercept" and C2 is the Allow_Intercept toggle, sitting at the top of the
 C/Include boolean column (mirroring the v1 Regression sheet's A2/B2
-control). It has no v3.0 consumer yet — the engine will read it. Because of
+control). It has no engine consumer yet — the engine will read it. Because of
 this control row the spec headers move to row 3 and the variable rows to
 4–(4+N−1), where N is the source table's column count; the row-1 audit
 strip is unaffected.
@@ -227,8 +225,8 @@ from .write_sheet_csv_dataset import LIFE_EXPECTANCY, MILEAGE, PRODUCTION_LOTS
 
 SHEET_NAME = "Model Construction"
 
-# The constructor closures moved to the Regression sheet with the v3.0
-# changeover (scope "Regression" in lambda_functions.json) — the spec block
+# The constructor closures moved to the Regression sheet with the v2.0
+# release (scope "Regression" in lambda_functions.json) — the spec block
 # now lives there and this sheet is no longer part of the production build.
 # A standalone rebuild of this sheet still works: the closures are generic
 # over the sheet they're registered on, so they are loaded by this scope and
@@ -1223,7 +1221,7 @@ def _set_sheet_scoped_names(
         ),
         "Spec_Design_Columns": _spec_band(sname, _C_DESIGN_COLUMNS),
         # Model-level Intercept toggle (row-2 control): a single boolean cell
-        # in the C/Include column. No v3.0 formula reads it yet — the engine
+        # in the C/Include column. No engine formula reads it yet — the engine
         # will, exactly as the v1 Regression sheet's Allow_Intercept did.
         "Allow_Intercept": (
             f"={sname}!${col_letter(_C_INCLUDE)}${_INTERCEPT_ROW}"
@@ -1928,7 +1926,7 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
 
     Mirrors the v1 Regression sheet's A2 label / boolean-column toggle, here
     aligned to column C so the toggle sits at the top of the Include column,
-    one row above the per-variable Include toggles. No v3.0 formula consumes
+    one row above the per-variable Include toggles. No engine formula consumes
     it yet — it restores the visible control and declares the intercept with
     the rest of the spec for the future engine to read.
 

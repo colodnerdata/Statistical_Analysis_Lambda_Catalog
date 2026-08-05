@@ -41,12 +41,14 @@ from .write_sheet_regression import (
     _C_MODEL_CONTEXT,
     _C_MODEL_CONTEXT_LABEL,
     _ROW_MODEL_CONTEXT_CHECK,
+    _ROW_MODEL_FORMULA,
     write_regression_output_sheet,
 )
 
 # Where a generated sheet states what it is: the Model Context block's own
-# two columns, BELOW the block and its health-check row with a blank row
-# between.
+# two columns, BELOW everything the Regression writer puts there — the block,
+# its health-check row, and the Model Formula readout under it — with a blank
+# row between.
 #
 # It was rows 1-2, which is inside the block — row 1 is its "MODEL CONTEXT"
 # heading and row 2 is the first of the four cells `Fit_Context()` reads as a
@@ -57,16 +59,25 @@ from .write_sheet_regression import (
 # outputs. The coefficients still computed, which is what made it look like a
 # subtle numerical problem rather than two clobbered cells.
 #
-# Derived from the block's own constants so the two can never drift back into
-# each other, and asserted below.
-_ROW_PROVENANCE_ID = _ROW_MODEL_CONTEXT_CHECK + 2
-_ROW_PROVENANCE_COVERS = _ROW_MODEL_CONTEXT_CHECK + 3
+# Derived from the LAST thing the Regression writer occupies in this column
+# pair — not from the block alone — so the two can never drift back into each
+# other, and asserted below. The provenance runs AFTER
+# write_regression_output_sheet, so an overlap is a silent clobber, not a
+# conflict anyone would see at build time.
+_ROW_PROVENANCE_ID = _ROW_MODEL_FORMULA + 2
+_ROW_PROVENANCE_COVERS = _ROW_MODEL_FORMULA + 3
 
-# The provenance must sit strictly below the Model Context block, including
-# its health-check row. A build that violates this produces a workbook whose
-# engine is silently poisoned, so it fails at import rather than at Excel.
+# The provenance must sit strictly below the Model Context block (including
+# its health-check row) AND below the Model Formula readout. A build that
+# violates the first produces a workbook whose engine is silently poisoned; a
+# build that violates the second overwrites the readout with the case name, so
+# every case's model-formula comparison fails against a caption. Both fail at
+# import rather than at Excel.
 assert _ROW_PROVENANCE_ID > _ROW_MODEL_CONTEXT_CHECK, (
     "Provenance would overwrite the Model Context block that Fit_Context reads"
+)
+assert _ROW_PROVENANCE_ID > _ROW_MODEL_FORMULA, (
+    "Provenance would overwrite the Model Formula readout"
 )
 
 # Source_Table ref -> SPEC_DATASET_PROFILES key. The profile decides how many

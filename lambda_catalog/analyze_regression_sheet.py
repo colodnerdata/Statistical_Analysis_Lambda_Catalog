@@ -129,10 +129,11 @@ def _build_model_formula(
     include_intercept: bool,
     fixed_effects_name: str | None,
 ) -> str:
-    """Assemble the AB2 model-formula cell text from the spec's display names.
+    """Assemble the Model Formula readout's text from the spec's display names.
 
-    A CHARACTER-EXACT mirror of the AB2 formula in
-    ``write_sheet_regression._write_regression_outputs_header``::
+    A CHARACTER-EXACT mirror of the sheet-scoped ``Model_Formula()`` closure
+    (``lambda_functions.json``, scope ``"Regression"``), which the readout
+    cell in the §4b materialization band calls::
 
         =<response>&" ~ "&IF(Allow_Intercept,"1 + ","0 + ")
          &IFERROR(TEXTJOIN(" + ",TRUE,Constructed_Column_Names()),"")
@@ -731,7 +732,7 @@ def calculate_regression_results_from_matrix(
         prediction_pi_lower_unit = nan_v
         prediction_pi_upper_unit = nan_v
 
-    # Model formula: mirror the sheet's AB2 cell. Built from the response
+    # Model formula: mirror the sheet's Model_Formula() readout. Built from the response
     # name, the Log/None transform flag on the response, the Allow_Intercept
     # value, the constructed column names (which already emit "Ln(name)" for
     # a logged predictor, level-qualified dummy names, and "left × right"

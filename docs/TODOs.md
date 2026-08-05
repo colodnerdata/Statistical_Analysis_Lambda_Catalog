@@ -377,10 +377,15 @@ gap-aware t−Δ semantics — verification in
   Naive = textbook EXP(ŷ), biased.* The resolution is in
   [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label).
 
-- **RESOLVED · SHIPPED** — Model Formula label: `AA2:AB2` cell, built from
-  the existing `_RESPONSE_NAME_FORMULA` (which already emits `Ln(name)` when
-  Log), `Allow_Intercept`, `Constructed_Column_Names()`, and the FE-name
-  suffix gated by the Fixed Effects count.
+- **RESOLVED · SHIPPED** — Model Formula label: the sheet-scoped
+  `Model_Formula()` catalog closure, rendered by a labelled readout in the
+  §4b materialization band under the Model Context block. It shipped inline
+  at `AA2:AB2` and moved off that cell afterwards — row 2 of the Regression
+  Outputs zone wraps and AutoFits, so the sheet's longest string set the
+  height of the whole header row. Built from the response-name lookup (which
+  already emits `Ln(name)` when Log), `Allow_Intercept`,
+  `Constructed_Column_Names()`, and the FE-name suffix gated by the Fixed
+  Effects count.
 
 ## v3.4 — Model Comparison Sheet
 

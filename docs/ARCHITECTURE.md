@@ -357,9 +357,10 @@ row mask is what every spilled array is aligned to.
 
 `Spec_Transform` (column G) is the worked example of that additive wiring:
 it is now read by exactly four constructors — `Response_Column()`, `Predictor_Columns()`,
-`Constructed_Column_Names()`, and `Constructed_Column_Transforms()` — and
-by nothing else; `Sample_Include()` and `Row_Labels()` still never
-reference it (confirmed by construction in
+`Constructed_Column_Names()`, and `Constructed_Column_Transforms()` — plus
+`Model_Formula()`, the display that renders the response's `Ln(...)` wrapping
+into the sheet's formula caption; and by nothing else. `Sample_Include()` and
+`Row_Labels()` still never reference it (confirmed by construction in
 `tests/test_model_construction_writer.py`).
 
 ### Cascading relevance
@@ -600,6 +601,20 @@ displaced by an ordinary modeling choice.
   row under the block reports both the height invariant and that no element
   errored — which is worth checking precisely because independent cells fail
   independently.
+- **The band also hosts the sheet's captions.** The Model Formula readout —
+  the assembled `<response> ~ 1 + <predictors> [| <FE>]` string, and the cell
+  `Comparison_Model_Formula` points at — is a labelled pair in the Model
+  Context block's own two columns, two rows under the block's `Context OK`
+  row and outside its border box. It shipped at `AA2:AB2`, at the head of the
+  Regression Outputs zone, where it was both the most prominent thing in that
+  zone and — because row 2 wraps and is then AutoFitted — the cell that set
+  the height of the sheet's entire header row. A caption is not a headline
+  statistic: it belongs where the sheet's other read-only, machine-consumed
+  surfaces already are. Its `WrapText` is explicitly FALSE, for the reason it
+  moved. Anything else written into these two columns must derive its row
+  from the readout's, not from the block's — the test-model builder's
+  provenance rows do, having already once been written *inside* the context
+  block and silently poisoned every engine on the sheet.
 - **Collapse state differs by zone.** Model Context (two columns, grouped as a
   pair so the labels never strand beside a collapsed value column) and
   `Sample_Include` (one column) ship **expanded**; the Constructed Design Matrix ships

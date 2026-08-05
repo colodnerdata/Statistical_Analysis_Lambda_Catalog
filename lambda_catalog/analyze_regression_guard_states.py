@@ -162,7 +162,7 @@ class GuardStateExpected:
     fixed_effects_count: int
     included_rows: int
     response_name: str
-    # The AA2 Model Formula cell: "<response> ~ 1 + <p1> + ... | <FE>".
+    # The Model Formula readout: "<response> ~ 1 + <p1> + ... | <FE>".
     # Degrades to "(empty model)" when the spec contributes no predictor
     # columns — G01's headline assertion, and the state that used to leak a
     # raw #CALC! before the IFERROR wrappers went in.

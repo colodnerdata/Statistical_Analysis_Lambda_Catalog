@@ -720,6 +720,7 @@ def test_provenance_leaves_the_fit_context_block_intact() -> None:
         _MODEL_CONTEXT_ELEMENTS,
         _MODEL_CONTEXT_LAST_ROW,
         _ROW_MODEL_CONTEXT_CHECK,
+        _ROW_MODEL_FORMULA,
         _write_materialization_zone,
     )
     from lambda_catalog.write_sheet_test_model import (
@@ -747,6 +748,20 @@ def test_provenance_leaves_the_fit_context_block_intact() -> None:
     for row in (_ROW_PROVENANCE_ID, _ROW_PROVENANCE_COVERS):
         assert row > _ROW_MODEL_CONTEXT_CHECK
         assert not (_MATERIALIZATION_FIRST_ROW <= row <= _MODEL_CONTEXT_LAST_ROW)
+
+    # ...and clear of the Model Formula readout, which shares these two
+    # columns one row further down. Provenance runs AFTER the Regression
+    # writer, so an overlap here would not conflict — it would silently
+    # replace the readout with the case name, and every case's model-formula
+    # comparison would then fail against a caption.
+    for row in (_ROW_PROVENANCE_ID, _ROW_PROVENANCE_COVERS):
+        assert row != _ROW_MODEL_FORMULA
+    assert sheet.ranges[((_ROW_MODEL_FORMULA, _C_MODEL_CONTEXT),)].state.formula2 == (
+        "=Model_Formula()"
+    )
+    assert sheet.ranges[
+        ((_ROW_MODEL_FORMULA, _C_MODEL_CONTEXT_LABEL),)
+    ].state.value == "Model Formula"
 
 
 def test_provenance_still_lands_on_the_sheet() -> None:

@@ -2788,6 +2788,17 @@ just records what was replaced, when, and by what.
   range behind `Fit_Context()` transiently blank for all ~30 engine
   call sites. The fixed-range read itself (no `#` inside a `LAMBDA`
   `RefersTo`) is unchanged.
+- **The Model Formula cell at `AA2:AB2`** (v3.3) → SUPERSEDED by the
+  labelled readout in the §4b materialization band, holding
+  `=Model_Formula()`. Row 2 of the Regression Outputs zone wraps and is
+  then AutoFitted, so the sheet's longest string set the height of the
+  whole header row; and an inline 300-character concatenation in one cell
+  documented nothing on the LAMBDA_functions sheet. `Comparison_Model_Formula`
+  is why the move cost its v3.4 consumer nothing — that surface is a NAME.
+- **Content-column widths keyed on literal column letters** (pre-v3.0) →
+  SUPERSEDED by `_COLUMN_WIDTHS`, keyed on the `_C_*` layout constants with
+  a coverage assertion. The letter keys survived the v3.0 layout break
+  unchanged and had been sizing the wrong columns ever since.
 
 ---
 
@@ -2960,7 +2971,10 @@ checks.
   `AL4:AL6` blank (no SE/t-critical counterpart). `AL7:AL10` CI/PI bounds via
   `Back_Transform_Response(AK{row}, Fit_Context(), "Naive", 1)`. Caveat row
   at `AJ15:AL15` (merged, wrapped) explaining the asymmetric placement.
-- **Model Formula cell at `AA2:AB2`**: AA2 bold label, AB2 the assembled
+- **Model Formula cell at `AA2:AB2`** *(SUPERSEDED at v3.3.x — the readout
+  moved into the §4b materialization band and the assembly became the
+  sheet-scoped `Model_Formula()` closure; see § Regression sheet layout
+  repair)*: AA2 bold label, AB2 the assembled
   string. Built from `_RESPONSE_NAME_FORMULA` (which already emits
   `Ln(name)` when Log), `Allow_Intercept`, `Constructed_Column_Names()`,
   and the FE-name suffix gated by the Fixed Effects count. The mixed
@@ -2982,7 +2996,8 @@ checks.
   `_setup_local_names`: `Comparison_Anchor` → `$AF$2` (response-name
   readout); `Comparison_Headline_GoF` → `$AH$6:$AH$8` (the three
   unit-space GoF statistics); `Comparison_Model_Formula` → `$AB$2` (the
-  assembled model formula string). All three are the v3.4 Model Comparison
+  assembled model formula string; retargeted at v3.3.x when the readout moved,
+  which is the point of naming the surface). All three are the v3.4 Model Comparison
   sheet's reading surface — the public-interface commitment this milestone
   ships.
 
@@ -3011,6 +3026,103 @@ cache schema version bumps to 17.
   scope checks.
 - `tests/test_catalog_schema.py` and `tests/test_lambda_catalog_plain_language.py`
   — pick up the 7 new entries automatically.
+---
+
+## v3.3.x — Regression sheet layout repair
+
+Three defects found by reading the built Regression sheet against its own
+layout constants, all with the same shape: something that had to move when the
+zones moved did not.
+
+### The content-column widths were still keyed on pre-layout-break letters
+
+**Question:** the Predictor Summary, Regression Outputs, Prediction Outputs and
+Residual Output zones render at visibly wrong widths — a name column too narrow
+to show a level-qualified name, a stats column too wide, a whole zone at Excel's
+default. Where does the width come from?
+
+**RESOLVED** — from a dict of literal column LETTERS in
+`write_regression_output_sheet`. The v3.0 layout break (three columns appended to
+the spec block, every zone right of it shifted three columns over) moved the
+zones and left that dict untouched, so from v3.0 on the widths were applied
+three columns to the left of where they were meant: `S` (constructed column
+names, wanting 24) took a stats column's 9, `X`/`Y` (GVIF/Tolerance) took the
+22/12 meant for the Regression Outputs labels, `AD` (diagnostics labels, longest
+`"BFN Panel Durbin-Watson"`) took 10, and `AJ`–`AL` (the entire Prediction
+Outputs zone) matched nothing in the dict at all and rendered at the default
+8.43. Nothing failed, because a wrong column letter is still a valid column —
+the same silent-wrong-answer mode ARCHITECTURE's "never spell an A1 address into
+a formula string" rule exists to prevent, in the one table that had been left
+outside it.
+
+The fix is the rule the rest of the sheet already follows: `_COLUMN_WIDTHS` is a
+tuple of `(column constant, width)` pairs, with module-level assertions that
+every zone content column is sized exactly once, that no gap column is sized (the
+`_GAP_COLUMNS` loop owns those), and that nothing outside the zones is sized
+except the two deliberate cases — column `I`, the Regression-only Verdict
+overlay on a spec-block column, and `BB`, the post-zone chart gutter. The next
+shift fails at import.
+
+**REJECTED — re-derive the letters and keep the dict.** It is a smaller diff and
+would have been correct on the day. It also leaves the next layout change with
+the same trap, and this trap had already been shipped once without anyone
+noticing, which is the argument against a fix that cannot fail loudly.
+
+### The Model Formula readout moved out of the Regression Outputs header
+
+**Question:** the assembled `<response> ~ 1 + <predictors> [| <FE>]` string
+shipped at `AA2:AB2` (v3.3). Row 2 of that zone has `WrapText` set across
+`S2:BA2` and is then `AutoFit`-ed, so the longest string on the sheet — in a
+12-wide column — dictates the height of the sheet's entire header row, pushing
+every zone's data down the screen. Where should a caption live?
+
+**RESOLVED** — in the ARCHITECTURE §4b materialization band, as a labelled pair
+in the Model Context block's own two columns, one blank row below that block's
+`Context OK` health check and outside its border box, with `WrapText` explicitly
+FALSE. It is a caption, not a headline statistic: the band past the charts is
+where the sheet's other read-only, machine-consumed surfaces already live
+(`Fit_Context`, the `Sample_Include` mask, the constructed design matrix), and
+the row/column constants derive from the Model Context block so the readout
+follows it if an element is ever added. The trade accepted: the value overflows
+only as far as the next gutter, so a long formula reads in full in the formula
+bar rather than on the grid.
+
+`Comparison_Model_Formula` is what makes the move free. The v3.4 reading surface
+is a sheet-scoped NAME, and its `RefersTo` is now built from the layout
+constants (`_abs_ref(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA)`) rather than the
+literal `$AB$2` it shipped with — the address was the last hardcoded A1 string in
+`_setup_local_names`.
+
+### The assembly became a catalog LAMBDA — sheet-scoped, not workbook-scoped
+
+**Question:** the readout's formula was a ~300-character inline concatenation
+built by string-formatting four Python constants together at build time. Extract
+it into a catalog LAMBDA, and at what scope?
+
+**RESOLVED** — `Model_Formula`, `scope: "Regression"`, under the existing
+`Sheet-Scoped Constructors` subcategory; the cell holds `=Model_Formula()`. The
+catalog is where an expression of this size is documented (it gets a row on the
+LAMBDA_functions sheet with its `yields`, description and plain-language summary
+like every other function), and the four assembly rules — Log-wrapped response,
+`"1 + "`/`"0 + "` intercept prefix, `TEXTJOIN` over `Constructed_Column_Names()`,
+FE suffix gated on the Fixed Effects count — stop being a build-time Python
+concatenation nobody can read in Excel.
+
+**REJECTED — workbook scope.** The body reads `Spec_Role`, `Spec_Transform`,
+`Header_Names`, `Allow_Intercept` and `Constructed_Column_Names()`, every one of
+which is sheet-scoped, so a workbook-scoped definition would resolve against
+whichever sheet is literally named `Regression` — wrong in a workbook with 47
+Regression-shaped sheets (the test-model artifact) and `#NAME?` in one with none.
+This is exactly the `Base_Period_Delta` case CLAUDE.md § *Workbook scope belongs
+to the catalog* records, and the same resolution applies: sheet-scoped, with
+unqualified names that resolve against the calling sheet.
+
+No new test-model case is warranted. The corner is not a new modelling corner —
+every existing spec case and guard case already asserts the readout's text
+against `_build_model_formula`, an independent Python mirror, so a broken
+`Model_Formula()` fails all of them at once. What the oracle chain gained is
+that it now covers the catalog body rather than an inline cell formula.
+
 ---
 
 ## v3.4+ — Ladder ordering and the test-model suite

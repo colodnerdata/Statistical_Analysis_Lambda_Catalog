@@ -759,7 +759,7 @@ this milestone finishes the release. Unit-space dispatch (eight new catalog
 functions under the `Back-Transformation` subcategory), Duan back-transformation
 with the `[Method]` Duan/Naive toggle, the original-units Prediction Outputs
 column (AL), the original-units residual columns (AZ/BA), the Model Formula
-cell (AA2:AB2), and the `Comparison_*` sheet-scoped named ranges are now in
+readout, and the `Comparison_*` sheet-scoped named ranges are now in
 production.
 
 **The standalone transform library is no longer part of this milestone.** It was
@@ -783,17 +783,23 @@ in the Regression track — it is that track's single most expensive item to tes
   estimator as the default, with a per-cell `Back_Transform_Method` toggle
   (`Duan` default | `Naive`). Naive is biased (Jensen's inequality); Duan is
   unbiased under iid residuals. Caveat visible on the sheet as a note on the Back-Transform label at AG4.
-- **Model Formula label, RESOLVED & SHIPPED** — `AA2:AB2` cell, built from
-  the existing `_RESPONSE_NAME_FORMULA` (which already emits `Ln(name)` when
-  Log), `Allow_Intercept`, `Constructed_Column_Names()`, and the FE-name
-  suffix gated by the Fixed Effects count. The mixed Log/None predictor case
+- **Model Formula label, RESOLVED & SHIPPED** — the sheet-scoped
+  `Model_Formula()` catalog closure, rendered by a labelled readout in the
+  §4b materialization band under the Model Context block. It shipped as an
+  inline expression at `AA2:AB2` and moved off that cell afterwards: row 2
+  of the Regression Outputs zone wraps and AutoFits, so the sheet's longest
+  string set the height of the whole header row. Built from the response-name
+  lookup (which already emits `Ln(name)` when Log), `Allow_Intercept`,
+  `Constructed_Column_Names()`, and the FE-name suffix gated by the Fixed
+  Effects count. The mixed Log/None predictor case
   renders correctly with no extra work because `Constructed_Column_Names()`
   already emits `Ln(name)` per logged predictor, level-qualified dummy
   names, and `left × right` interaction names.
 - **`Comparison_*` named ranges, RESOLVED & SHIPPED** — sheet-scoped
   `Comparison_Anchor` (`$AF$2`), `Comparison_Headline_GoF` (`$AH$6:$AH$8`),
-  `Comparison_Model_Formula` (`$AB$2`). v3.4 Model Comparison reads from
-  these surfaces.
+  `Comparison_Model_Formula` (the Model Formula readout in the §4b band).
+  v3.4 Model Comparison reads from these surfaces — by NAME, which is why
+  moving the readout off `$AB$2` cost its consumer nothing.
 - **Statistics with a unit-space counterpart:** R², Adjusted R², RMSE
   (SHIPPED). AIC / AICc / BIC deferred (likelihood depends on the Jacobian
   of the transformation; the "right" comparison is on the original

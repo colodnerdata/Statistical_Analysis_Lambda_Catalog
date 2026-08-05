@@ -152,6 +152,16 @@ The unit tests above check functions. The **test-model suite** checks *model con
 5. Add the assertions that make the case worth having — the design-matrix facts (`constructed_column_names`, the row mask, k) plus whatever the corner is actually about.
 6. Run `uv run pytest tests/test_regression_spec_qc.py tests/test_test_model_sheets.py` (no Excel), then, on a machine with Excel, `python build_test_models.py --verify --no-launch` for the case's own sheet and `python build_production.py --verify --no-launch` for the shipped Regression sheet. See [Verifying builds](#verifying-builds).
 7. Update the coverage matrix in [docs/MODEL_TESTING_ASSETS.md § 1.5](docs/MODEL_TESTING_ASSETS.md#15-coverage-matrix) and flip the case's status from **new** to **existing**.
+8. Archive the build+verify transcript into [`excel-only-runs/`](excel-only-runs/) and commit it on the same branch. The transcript is item 4 of the [PR-shape rules](#the-pr-shape-rules--what-every-regression-pr-must-contain) below; a Regression-track PR without it has no verifiable paper trail because the spec-driven verifier cannot run on Linux CI.
+
+### The PR-shape rules — what every Regression PR must contain
+
+1. **The feature itself.** The sheet writer, lambda, name, or engine call site that delivers the new behavior.
+2. **An oracle** in the spec-driven verifier chain — a new branch in `calculate_regression_spec_case` / `calculate_guard_state_case` (or a new `GuardStateCase`) that compares the workbook to an independent NumPy/statsmodels fit. Reading the cell back is not an oracle.
+3. **At least one new test-model case** in [docs/MODEL_TESTING_ASSETS.md § 1](docs/MODEL_TESTING_ASSETS.md) + the case registry, pinned in `_EXPECTED_CASE_NAMES` / `_EXPECTED_GUARD_NAMES`, with the § 1.5 coverage-matrix row flipped from **new** to **existing**.
+4. **A transcript in `excel-only-runs/`** for the new test-model sheet, archived by `lambda_catalog.build_common.run_log_path` and committed. The spec-driven verifier cannot run on the GitHub-hosted Linux CI (no Excel), so the transcript is the only verifiable artifact a reviewer or future agent has for the new case's first successful build + verify.
+
+A Regression PR that lands items 1–3 but whose transcript shows the new sheet failing `--verify` is still mergeable only if the failure mode is itself an open issue with a tracking link; otherwise the PR is incomplete and the verification commit (item 4) ships in a follow-up PR once the failure is closed.
 
 **Mark a case `heavy=True`** if its sheet is expensive — L08's 173 Fixed Effects groups and L05's k = 19 design matrix on n = 2117 are the current two. The first is gated on build cost; the second is gated on the statsmodels-vs-Excel floating-point floor at fdd = 5/6 that both implementations agree on (it lives here as a deliberate showcase for the floor, not as a defect). The Python oracle always runs; only the sheet build is gated, behind `build_test_models.py --include-heavy`. L07 was the third candidate until the live run showed the workbook cannot fit a 205-column design at all — it is a guard state now, and guard sheets are cheap.
 

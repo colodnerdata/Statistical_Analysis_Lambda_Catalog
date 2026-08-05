@@ -17,6 +17,37 @@ Read it before adding or changing a QC model case; add to it before adding a cas
 not list. `CONTRIBUTING.md` → *The regression test-model suite* has the step-by-step for
 adding one.
 
+**Every Regression-track feature ships with four things in the same PR.** A new
+functionality targeted at the Regression engine (any ROADMAP milestone under
+[§ Ladder order](ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+inside the Regression block) must land as one merged PR — never one commit and a
+follow-up — containing:
+
+1. **The feature itself** — the sheet writer, lambda, name, or engine call site that
+   actually delivers the new behavior.
+2. **An oracle** in the spec-driven verifier chain — a new branch in
+   `calculate_regression_spec_case` / `calculate_guard_state_case` (or a new
+   `GuardFlag` / `GuardStateCase` subclass) that compares the workbook's output to an
+   independent NumPy/statsmodels computation. Reading the cell back is not an oracle.
+3. **At least one new test-model case** in `docs/MODEL_TESTING_ASSETS.md` § 1 + the
+   `RegressionSpecCase` / `GuardStateCase` registry, pinned in `_EXPECTED_CASE_NAMES`
+   or `_EXPECTED_GUARD_NAMES`, materialized as a sheet in
+   `Lambda_Library_TestModels.xlsx`. The case must exercise the new feature's corner
+   specifically — not a re-statement of an existing case — so the coverage matrix row
+   for the corner flips from **new** to **existing** in the same PR.
+4. **A transcript in `excel-only-runs/`** for the new test-model sheet(s), archived
+   by `lambda_catalog.build_common.run_log_path` and committed to the branch. The
+   spec-driven verifier cannot run on the GitHub-hosted Linux CI (no Excel), so the
+   transcript is the only artifact a reviewer or a future agent has for the new
+   case's first successful build + verify. A PR without the transcript has no
+   verifiable paper trail for the work it claims; reviewers should ask for it.
+
+A Regression PR whose four corners are present but whose transcript shows the new
+sheet failing `--verify` is still mergeable as a work-in-progress only if the failure
+mode is itself an open issue with a tracking link. Otherwise the PR is incomplete:
+the feature needs the oracle-and-test-model-skeleton commit (items 1–3) for review,
+and a separate verification commit (item 4) once the failure is closed.
+
 **It is a covering array, not a full factorial.** Every implemented corner is exercised by
 at least one model, and every model earns its place by covering something no other model
 does — target ~25–30 fittable models plus ~10 guard-state configurations. Do not add a case

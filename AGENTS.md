@@ -17,6 +17,22 @@ Read it before adding or changing a QC model case; add to it before adding a cas
 not list. `CONTRIBUTING.md` → *The regression test-model suite* has the step-by-step for
 adding one.
 
+**Every Regression-track feature ships with four things in the same PR.** A new
+functionality targeted at the Regression engine (any ROADMAP milestone inside the
+Regression block of the ladder) must land as one merged PR containing: (1) the
+feature itself; (2) an oracle in `calculate_regression_spec_case` /
+`calculate_guard_state_case`; (3) at least one new test-model case in
+`docs/MODEL_TESTING_ASSETS.md` § 1 + the `RegressionSpecCase` / `GuardStateCase`
+registry, pinned in `_EXPECTED_CASE_NAMES` or `_EXPECTED_GUARD_NAMES`; and (4) a
+transcript in `excel-only-runs/` for the new test-model sheet, archived by
+`lambda_catalog.build_common.run_log_path` and committed. The spec-driven verifier
+cannot run on the GitHub-hosted Linux CI without Excel, so the transcript is the
+only verifiable paper trail the PR leaves for a reviewer or a future agent. A PR
+without the transcript is incomplete — ask the contributor for it before
+reviewing the other three. See [CONTRIBUTING.md → *The regression test-model
+suite*](CONTRIBUTING.md#the-regression-test-model-suite) and the four-rule block
+at the top of `CLAUDE.md` § *Testing regime* for the full text.
+
 **It is a covering array, not a full factorial.** Every implemented corner is exercised by
 at least one model, and every model earns its place by covering something no other model
 does — target ~25–30 fittable models plus ~10 guard-state configurations. Do not add a case

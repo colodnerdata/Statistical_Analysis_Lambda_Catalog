@@ -384,13 +384,25 @@ class RecordingSheet:
             # assignment rather than raise.
             Cells=SimpleNamespace(
                 Clear=lambda: None,
-                ClearOutline=lambda: setattr(self, "column_groups", []),
+                ClearOutline=self._clear_outline,
                 EntireColumn=SimpleNamespace(Hidden=False),
             ),
         )
         self.book = SimpleNamespace(
             api=SimpleNamespace(Names=RecordingNames(names=global_names))
         )
+
+    def _clear_outline(self) -> None:
+        """Drop every recorded outline — groups AND their collapse state.
+
+        Excel's ``ClearOutline`` removes the outline itself, so no group
+        survives to be collapsed or expanded. Clearing ``column_groups`` alone
+        would leave the mock reporting a collapse state for a band that no
+        longer has an outline, and an assertion after a rebuild's
+        ``reset_column_groups`` would read that stale entry as fact.
+        """
+        self.column_groups = []
+        self.column_show_detail = {}
 
     def range(self, *addresses: Any) -> RecordingRange:
         # xlwings accepts a single cell as either sheet.range(row, col) or

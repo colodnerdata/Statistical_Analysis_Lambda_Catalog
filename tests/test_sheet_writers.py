@@ -146,6 +146,26 @@ def _formula(sheet: RecordingSheet, row: int, col: int) -> str:
     return cast(str, sheet.cell(row, col).api.Formula2)
 
 
+def _column_index(letter: str) -> int:
+    """Inverse of ``col_letter`` — 1-based index for an Excel column letter."""
+    index = 0
+    for char in letter.strip().upper():
+        index = index * 26 + (ord(char) - ord("A") + 1)
+    return index
+
+
+def _band_covers(band: str, column: int) -> bool:
+    """True when the ``"A:C"``-style band SPANS ``column``.
+
+    Endpoint comparison is not enough: a band grouped wide enough to swallow
+    a zone as an INTERIOR column would slip past a test that only looked at
+    the two letters either side of the colon — which is exactly the
+    regression the §4b "never group a spill" assertions exist to catch.
+    """
+    first, _, last = band.partition(":")
+    return _column_index(first) <= column <= _column_index(last or first)
+
+
 def test_note_dimensions_clamps_width_to_configured_bounds() -> None:
     tiny_width, _ = _note_dimensions("tiny", "x")
     assert tiny_width >= _NOTE_MIN_WIDTH
@@ -574,12 +594,15 @@ def test_only_the_model_context_zone_is_grouped_and_collapsed() -> None:
     assert sheet.column_show_detail == {context_band: False}
 
     # Named explicitly, so re-adding a group over either spill fails here
-    # rather than being absorbed by a list comparison someone updated.
+    # rather than being absorbed by a list comparison someone updated. The
+    # check is CONTAINMENT, not endpoint equality: a band grouped wide enough
+    # to swallow a spill zone in its interior is the same bug by a longer
+    # route, and comparing the two letters either side of the colon would let
+    # it through.
     for column in (_C_SAMPLE_INCLUDE_MATERIALIZED, _C_DESIGN_MATRIX):
-        letter = col_letter(column)
-        assert not any(letter in band.split(":") for band in sheet.column_groups)
+        assert not any(_band_covers(band, column) for band in sheet.column_groups)
         assert not any(
-            letter in band.split(":") for band in sheet.column_show_detail
+            _band_covers(band, column) for band in sheet.column_show_detail
         )
 
     # The gutters stay OUT of every group — the Model Context zone has to be
@@ -589,8 +612,7 @@ def test_only_the_model_context_zone_is_grouped_and_collapsed() -> None:
         _C_GUTTER_AFTER_CONTEXT,
         _C_GUTTER_AFTER_SAMPLE_INCLUDE,
     ):
-        letter = col_letter(gutter)
-        assert not any(letter in band.split(":") for band in sheet.column_groups)
+        assert not any(_band_covers(band, gutter) for band in sheet.column_groups)
 
 
 def test_materialization_zone_widths_use_named_constants() -> None:

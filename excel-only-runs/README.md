@@ -10,7 +10,7 @@ The spec-driven verifier cannot run on the GitHub-hosted Linux CI without Excel 
 
 ## What goes here
 
-- Full stdout+stderr from `python scripts/build_production.py --verify`, `python scripts/build_test_models.py --verify --no-launch`, or `python scripts/build_univariate.py --verify --no-launch`.
+- Full stdout+stderr from `python scripts/build_production.py --verify`, `python scripts/build_test_models.py --verify --no-launch`, or `python scripts/build_univariate.py --verify --no-launch`. **All three drivers write their own transcript here** — stderr and the traceback of an aborted run included — so producing one is not a manual step; committing it is. Pass `--log PATH` to send a run somewhere else (e.g. out of the way while chasing something that reruns a lot).
 - Verbose-level output (`--verbose`) when comparing runs across debug sessions.
 - ERROR excerpts from any single-case run (`python scripts/build_test_models.py --cases M09`) where tracking down a flaky sheet.
 

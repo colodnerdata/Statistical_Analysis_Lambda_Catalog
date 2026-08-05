@@ -24,6 +24,12 @@ verify-headless:
 # Microsoft Office). Always recalculates (the recalc is the source of truth:
 # the verifier's per-sheet Calculate doesn't rebuild the dependency tree
 # after a name sync, so the Regression engines need CalculateFullRebuild).
+#
+# The whole transcript — the VerifyReport on drift, stderr and the traceback
+# of anything that aborts the run — is archived to
+# "excel-only-runs/build_production verify no launch.log". Since this target
+# cannot run in CI, that file is the only thing a reviewer or a future agent
+# has to read a failure from; commit it on the branch that produced it.
 verify-deep:
 	uv run --frozen python scripts/build_production.py --verify --no-launch
 
@@ -31,7 +37,8 @@ verify-deep:
 # build_qc.verify_test_sheets(..., skip_dummy=True, skip_regression=True) —
 # this artifact has no Regression / Mileage / Production Lots sheets, so
 # those checks are skipped; the Life Expectancy and Univariate checks run.
-# Requires Excel; not run in CI.
+# Requires Excel; not run in CI. Archives its transcript the same way
+# verify-deep does, to "excel-only-runs/build_univariate verify no launch.log".
 verify-deep-univariate:
 	uv run --frozen python scripts/build_univariate.py --verify --no-launch
 
@@ -46,9 +53,9 @@ verify-deep-univariate:
 # sheet BEFORE writing it, so an interrupted run leaves the offending case on
 # screen. The whole transcript is archived to "excel-only-runs/" either way,
 # stderr included, so a com_error traceback is a file somebody can hand over
-# rather than a terminal scrollback. The directory is gitignored — this
-# verifier needs Excel, so the transcript only exists on the machine that
-# ran it; the directory name reflects what produced it, not where.
+# rather than a terminal scrollback. The directory is tracked — this verifier
+# needs Excel, so its transcript is the branch's only paper trail; the
+# directory name reflects what produced it, not where.
 verify-test-models:
 	uv run --frozen python scripts/build_test_models.py --verify --no-launch --verbose
 

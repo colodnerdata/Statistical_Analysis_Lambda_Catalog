@@ -1,6 +1,6 @@
 """Write the Regression Instructions sheet into the target workbook.
 
-This sheet is a fixed, dataset-independent guide, so production/QC builds
+This sheet is a fixed, dataset-independent guide, so artifact builds
 just copy the already-styled sheet out of ``TEMPLATE_PATH`` (see
 ``copy_static_sheet``) instead of re-running the row-by-row COM writes on
 every build. ``_ROWS`` and ``_write_template_sheet`` remain the authored
@@ -223,7 +223,7 @@ _ROWS: list[tuple[int, str, str | None]] = [
 def _write_template_sheet(workbook: xw.Book) -> None:
     """(Re)build this sheet's content directly from ``_ROWS``.
 
-    Used only to author ``TEMPLATE_PATH`` — production/QC builds never call
+    Used only to author ``TEMPLATE_PATH`` — artifact builds never call
     this; they call ``write_regression_instructions_sheet``, which copies the
     sheet this function last wrote into the template.
     """

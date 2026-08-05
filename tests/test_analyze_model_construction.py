@@ -1,9 +1,9 @@
 """Tests for the Model Construction QC analyzer.
 
-Excel-side reads run only in the QC build; these tests pin the pure-Python
+Excel-side reads run only in the Excel verifier; these tests pin the pure-Python
 side — the default-spec expectations derived from the sample Mileage/Auto
 MPG CSV (the human test plan's T0 numbers), the stratified-Filter
-degeneracy case the QC build drives (the T8 mechanism from the T0 base
+degeneracy case the Excel verifier drives (the T8 mechanism from the T0 base
 state), the mask/label/level semantics that mirror the sheet's formulas,
 and the observed-vs-expected comparison layer's failure messages.
 """
@@ -112,7 +112,7 @@ def test_t0_constructed_names_are_level_qualified_in_spec_order(t0_expected) -> 
 
 
 # ---------------------------------------------------------------------------
-# The QC build's degenerate-Categorical case (T8 mechanism from T0 state)
+# The Excel verifier's degenerate-Categorical case (T8 mechanism from T0 state)
 # ---------------------------------------------------------------------------
 
 def test_stratifying_filter_degenerates_origin(rows) -> None:

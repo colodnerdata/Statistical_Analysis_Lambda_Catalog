@@ -42,7 +42,7 @@ OPEN_WORKBOOK_ERRORS: tuple[type[BaseException], ...] = tuple(
 # by looking for this substring, so it is a shared constant rather than a phrase
 # repeated at each site: rewording the message without updating a hand-copied
 # literal would silently stop every retry loop from retrying. Imported by
-# build_common (_retry_on_open, workbook_lock_holder) and build_qc.
+# build_common (_retry_on_open, workbook_lock_holder).
 LOCK_HINT = "likely open in Excel"
 
 

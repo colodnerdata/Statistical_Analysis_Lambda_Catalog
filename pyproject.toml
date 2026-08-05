@@ -142,10 +142,6 @@ cmd = "python scripts/build_production.py"
 help = "Build dist/Lambda_Library_Univariate.xlsx."
 cmd = "python scripts/build_univariate.py"
 
-[tool.poe.tasks.qc]
-help = "Legacy: build the combined QC workbook and run lambda_catalog.deep_verify."
-cmd = "python scripts/build_qc.py"
-
 [tool.poe.tasks.static-sheets]
 help = "Regenerate every static reference sheet into templates/static_sheets.xlsx."
 cmd = "python scripts/rebuild_static_sheets.py"

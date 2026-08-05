@@ -11,7 +11,7 @@ rows the Mileage Data sheet is built from, so every audit cell, spill
 height, and level-qualified column name has an independently derived
 expectation.
 
-Two verification passes run against the open QC workbook:
+Two verification passes run against the open generated workbook:
 
 1. **Default spec (T0)** — the build's shipped spec, untouched: audit strip
    (k, rows, response, responses, included rows, sequence flags), the header-strip /

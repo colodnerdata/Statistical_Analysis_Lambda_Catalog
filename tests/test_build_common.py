@@ -168,7 +168,7 @@ def test_retry_on_open_retries_dropped_rpc_session(capsys) -> None:
 def test_lock_hint_is_the_phrase_raise_excel_access_error_actually_plants() -> None:
     """LOCK_HINT is the contract between the raiser and every retry loop.
 
-    _retry_on_open, build_qc's loop and workbook_lock_holder all recognise a
+    _retry_on_open and workbook_lock_holder both recognise a
     locked workbook by this substring, so if the message drifts away from the
     constant every one of them silently stops retrying. Assert the real message
     against the real constant rather than trusting the two to stay in step.

@@ -1,6 +1,6 @@
 """Write the Diagnostic Guide sheet into the target workbook.
 
-This sheet is a fixed, dataset-independent reference, so production/QC
+This sheet is a fixed, dataset-independent reference, so artifact
 builds just copy the already-styled sheet out of ``TEMPLATE_PATH`` (see
 ``copy_static_sheet``) instead of re-running the row-by-row COM writes on
 every build. ``_write_template_sheet`` remains the authored source of the
@@ -73,7 +73,7 @@ def _row(sheet: xw.Sheet, row: int, values: list[str]) -> None:
 def _write_template_sheet(workbook: xw.Book) -> None:
     """(Re)build this sheet's content directly.
 
-    Used only to author ``TEMPLATE_PATH`` — production/QC builds never call
+    Used only to author ``TEMPLATE_PATH`` — artifact builds never call
     this; they call ``write_diagnostic_guide_sheet``, which copies the sheet
     this function last wrote into the template.
     """

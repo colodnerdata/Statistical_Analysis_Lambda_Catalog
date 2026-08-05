@@ -1,12 +1,11 @@
 """Import a ``scripts/`` build driver by path, for tests that exercise it directly.
 
-The ``build_*`` entry points moved into ``scripts/`` in the Chunk 1 reorganization
-so they sit alongside the package rather than spilling into the repo root. They
-are standalone scripts, not modules of ``lambda_catalog``, so a plain
-``import build_qc`` would rely on the consumer having put ``scripts/`` on
-``sys.path``. Tests that replace a driver's attributes or call its ``main()``
-resolve it explicitly here instead — one helper, so every test file loads a
-driver the same way and a missing script produces the same clear error.
+The ``build_*`` entry points live in ``scripts/`` so they sit alongside the
+package rather than spilling into the repo root. They are standalone scripts,
+not modules of ``lambda_catalog``. Tests that replace a driver's attributes or
+call its ``main()`` resolve it explicitly here instead — one helper, so every
+test file loads a driver the same way and a missing script produces the same
+clear error.
 """
 
 from __future__ import annotations

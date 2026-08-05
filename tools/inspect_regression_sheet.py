@@ -16,8 +16,8 @@ Both use ``lambda_catalog/regression_spec_sheet_io.py`` for the writing and
 the reading, so they cannot disagree about what a case is.
 
 Usage:
-    python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx
-    python tools/inspect_regression_sheet.py Lambda_Library_QC.xlsx --mileage path/to/data.csv
+    python tools/inspect_regression_sheet.py dist/Lambda_Library.xlsx
+    python tools/inspect_regression_sheet.py dist/Lambda_Library.xlsx --mileage path/to/data.csv
 """
 from __future__ import annotations
 
@@ -119,7 +119,7 @@ def read_regression_df(
     # redundant full recalculations/redraws instead of the one-per-config the
     # code below intends — this is what turns the loop from seconds into
     # (observed) hours. Suspend both for the whole loop, matching the
-    # Manual-during-writes convention build_qc.py/build_production.py already
+    # Manual-during-writes convention build_production.py/build_univariate.py already
     # use, and restore the caller's settings afterward.
     app = workbook.app
     previous_calculation = app.api.Calculation

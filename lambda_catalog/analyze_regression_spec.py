@@ -106,7 +106,7 @@ class RegressionSpecCase:
     # case's spec block — Source_Table is the ONE name that retargets which
     # data sheet the Regression sheet's spec block/design matrix read from
     # (see write_sheet_model_construction._set_sheet_scoped_names), so a case
-    # from a different dataset than the QC workbook's default (Mileage) must
+    # from a different dataset than the generated workbook's default (Mileage) must
     # switch it or its spec rows land on the wrong table's columns entirely.
     # Every case sets this explicitly (not Optional) so the QC harness resets
     # it on each case regardless of run order — no state leaks between cases.

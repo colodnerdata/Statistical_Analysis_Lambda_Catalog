@@ -383,7 +383,7 @@ the **Mileage Data** sheet — alongside Life Expectancy Data. It exists to
 make the one-name retarget concrete: repoint `Source_Table` at
 `MileageData[#All]` in Name Manager and the whole spec block re-populates
 from the new columns, with no data of the user's own required. This is
-the reason both `build_production.py` and `build_qc.py` write the two
+the reason both `build_production.py` and `build_univariate.py` write the two
 datasets as the default build output, and why the QC verifier checks each
 sheet's `Full_Data` completeness column independently.
 
@@ -818,7 +818,7 @@ Method." *Journal of the American Statistical Association*, 78(383),
 in `write_sheet_regression_instructions.py`) needed a correction once
 column G's Transform wiring shipped (it still called Transform an unread
 placeholder). Fixing the Python source alone turned out not to be
-enough — `build_production.py` / `build_qc.py` never execute `_ROWS`;
+enough — `build_production.py` / `build_univariate.py` never execute `_ROWS`;
 they only copy the already-baked sheet out of
 `templates/static_sheets.xlsx` (see CONTRIBUTING.md → "Static reference
 sheets"). Regenerating that template was, until now, a per-sheet manual
@@ -847,7 +847,7 @@ entirely or (with two sheets that changed together) regenerate only one
 of them. A single script that rebuilds every static sheet in one Excel
 session removes the "which CLI do I need to run" judgment call — there
 is one command, and it is always complete. This does not change the
-production/QC build's behavior at all: `write_regression_instructions_sheet`
+artifact build's behavior at all: `write_regression_instructions_sheet`
 / `write_diagnostic_guide_sheet` still only ever copy from the template
 (see the performance rationale in CONTRIBUTING.md — rebuilding hundreds
 of styled cells with COM calls on every build for text that never
@@ -1866,7 +1866,7 @@ from .write_sheet_model_construction import (
 spec-block writers are imported from write_sheet_model_construction so the two
 sheets can never drift."* Separately, the Model Construction **sheet** is
 deleted by both builds — `_delete_sheet_if_present(workbook, "Model
-Construction")` in `build_production.py` and `build_qc.py` — so only one spec
+Construction")` in `build_production.py` and `build_univariate.py` — so only one spec
 block ships at all.
 
 **Consequence for v3.0 scope:** the interaction columns, the audit column, and
@@ -3307,7 +3307,7 @@ slow. With one sheet per case the verifier only reads: no writing, no
 per-case recalculation, no state to leak, and a failing case is a tab.
 
 A third artifact rather than the QC or production workbook: ~48 heavy sheets
-have no business in a shipped file, and folding them into `build_qc.py` would
+have no business in a shipped file, and folding them into the artifact-specific verify builds would
 make every QC run pay for them. It is a fixture regenerated from the case
 registries on demand, so it is not committed.
 
@@ -3396,7 +3396,7 @@ unreachable in the oracle.
 
 ### The first live Excel run settled three things the headless suite could not
 
-**Question:** `build_production.py --verify` reported 22,898 mismatches and
+**Question:** a legacy combined verifier run reported 22,898 mismatches and
 `build_test_models.py` died on its first sheet. Which were real?
 
 **Resolution:** RESOLVED — all of them, and none was a false alarm. Recorded

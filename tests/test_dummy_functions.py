@@ -2,8 +2,8 @@
 
 The v3.0 rebuild changed the failure contract: degenerate input returns a
 genuine Excel error (NA()) instead of a descriptive string. Excel itself is
-exercised by the Dummy_Test QC sheet (see write_sheet_dummy_test.py and
-build_qc.py); these tests cover everything checkable without Excel — the
+exercised by the Dummy_Test sheet writer when that sheet is built; these tests
+cover everything checkable without Excel — the
 formula strings, the catalog metadata, the parser translation, and the
 pure-Python mirrors that generate the QC sheet's expected values.
 """

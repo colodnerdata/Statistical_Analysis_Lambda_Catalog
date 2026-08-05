@@ -16,15 +16,6 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_cases,
     calculate_regression_spec_case,
 )
-from tests.script_loader import load_script_module
-
-# build_qc.py moved into ``scripts/`` in the Chunk 1 reorganization so it sits
-# alongside the other build scripts; the tests below access its module
-# attributes (``_LEGACY_MLR_QC_SHEET_NAMES``, ``_run_main`` …) and so need it
-# imported under the same module name it would have had at root. Verifier
-# helper tests import ``lambda_catalog.deep_verify`` directly.
-build_qc = load_script_module("build_qc")
-
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
 # One path per wired dataset, and each test guards on the one IT reads.
@@ -87,7 +78,6 @@ def _case(name: str) -> RegressionSpecCase:
     cases = {case.name: case for case in build_regression_spec_cases()}
     return cases[name]
 
-
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_regression_spec_fixture_names_are_pinned() -> None:
     assert [case.name for case in build_regression_spec_cases()] == _EXPECTED_CASE_NAMES
@@ -121,17 +111,7 @@ def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> No
         ), f"{case.name} ({case.plan_id}) flags {flagged!r} as Sequence"
 
 
-def test_build_qc_keeps_mlr_names_only_for_legacy_stale_sheet_deletion() -> None:
-    mlr_names = {
-        "MLR_Scalar_Test",
-        "MLR_Vector_Outputs_Test",
-        "MLR_Observation_Test",
-    }
-    assert mlr_names <= set(build_qc._LEGACY_MLR_QC_SHEET_NAMES)
-    assert mlr_names.isdisjoint(deep_verify._VERIFY_CALC_SHEET_NAMES)
-
-
-def test_build_qc_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
+def test_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
     assert "Dummy_Test" in deep_verify._verification_calc_sheet_names(skip_dummy=False)
     assert "Dummy_Test" not in deep_verify._verification_calc_sheet_names(
         skip_dummy=True
@@ -186,7 +166,7 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
     ]
 
 
-def test_build_qc_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
+def test_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
 
     assert "Univariate" in deep_verify._verification_calc_sheet_names(
         skip_dummy=True, skip_univariate=False
@@ -374,41 +354,6 @@ def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None
         )
 
 
-def test_build_qc_run_main_skips_verified_summary_when_verification_disabled(
-    monkeypatch,
-    capsys,
-) -> None:
-    from lambda_catalog.workbook_builder import NameSyncResult
-
-    def fake_build_qc_workbook(*, timings_out, **_):
-        timings_out["prep_seconds"] = 1.0
-        timings_out["write_seconds"] = 2.0
-        timings_out["sync_seconds"] = 3.0
-        timings_out["verify_seconds"] = None
-        return NameSyncResult(created=0, updated=0)
-
-    monkeypatch.setattr(build_qc, "build_qc_workbook", fake_build_qc_workbook)
-    monkeypatch.setattr(build_qc.subprocess, "Popen", lambda *_: None)
-
-    build_qc._run_main(
-        SimpleNamespace(
-            workbook=Path("Example.xlsx"),
-            definitions=Path("lambda_functions.json"),
-            csv=Path("life_expectancy.csv"),
-            mileage_csv=Path("mileage.csv"),
-            production_lots_csv=Path("production_lots.csv"),
-            cache=Path("cache.json"),
-            validate_reopen=False,
-            verbose=False,
-            no_verify=True,
-        )
-    )
-
-    output = capsys.readouterr().out
-    assert "Sheet verified:" not in output
-    assert "Timing: verify        skipped" in output
-
-
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_default_t0_design_matches_current_constructor_semantics() -> None:
     expected = calculate_regression_spec_case(_case("default_t0_intercept"), CSV_PATH)
@@ -428,7 +373,6 @@ def test_default_t0_design_matches_current_constructor_semantics() -> None:
     # ordering axis (Production Lots' Fiscal_Year, Life Expectancy's Year)
     # and, for the flag mechanics themselves, by guard cases G03 and M16.
     assert design.sequence_values is None
-
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> None:
@@ -451,7 +395,6 @@ def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> 
     assert design.references_in_use == {}
     assert design.degenerate_categoricals == ()
 
-
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
     expected = calculate_regression_spec_case(
@@ -471,7 +414,6 @@ def test_dummy_columns_are_binary_reference_dropped_and_filtered() -> None:
     assert design.references_in_use["Origin"] == "Asia"
     assert design.included_rows == 392
 
-
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_explicit_reference_changes_origin_dummy_level() -> None:
     expected = calculate_regression_spec_case(
@@ -481,7 +423,6 @@ def test_explicit_reference_changes_origin_dummy_level() -> None:
     assert expected.design.references_in_use["Origin"] == "Europe"
     assert "Origin: Asia" in expected.design.constructed_column_names
     assert "Origin: Europe" not in expected.design.constructed_column_names
-
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_invalid_reference_skips_origin_but_model_still_computes() -> None:
@@ -498,7 +439,6 @@ def test_invalid_reference_skips_origin_but_model_still_computes() -> None:
     assert design.constructed_column_names == ("Displacement", "Horsepower", "Weight")
     assert math.isfinite(expected.results.summary.r_squared)
 
-
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() -> None:
     expected = calculate_regression_spec_case(
@@ -512,7 +452,6 @@ def test_model_year_origin_categorical_keeps_numeric_year_levels_as_dummies() ->
     assert "Origin: Europe" in design.constructed_column_names
     assert design.level_counts == {"Model Year": 13, "Origin": 3}
     assert design.references_in_use["Model Year"] == 70
-
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_model_year_origin_categorical_gvif_shared_across_dummy_columns() -> None:
@@ -554,7 +493,6 @@ def test_model_year_origin_categorical_gvif_shared_across_dummy_columns() -> Non
         assert gvif[j] == pytest.approx(expected_vif, rel=1e-6), continuous_name
 
     assert all(v >= 1.0 - 1e-9 for v in gvif)
-
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
@@ -605,7 +543,6 @@ def test_durbin_watson_is_a_real_statistic_where_an_ordering_axis_exists() -> No
     assert math.isfinite(transform_axis)
     assert 0.0 <= transform_axis <= 4.0
     assert transform_axis == derived
-
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_expected_outputs_are_internally_consistent() -> None:
@@ -717,7 +654,6 @@ def test_unit_space_oracle_matches_an_independent_recomputation(case_name: str) 
 
 # ── The cases added for docs/MODEL_TESTING_ASSETS.md § 1.1–1.3 ───────────────
 
-
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_log_log_on_auto_mpg_logs_both_sides_and_masks_missing_rows() -> None:
     """M05. The (Log, Log) pair combined with real missingness — the corner
@@ -736,7 +672,6 @@ def test_log_log_on_auto_mpg_logs_both_sides_and_masks_missing_rows() -> None:
     assert design.included_rows == 392
     # A Log response makes the smearing factor a real number, not 1.
     assert expected.results.unit_space.smearing_factor > 1.0
-
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_categorical_only_design_widens_the_sample() -> None:
@@ -758,7 +693,6 @@ def test_categorical_only_design_widens_the_sample() -> None:
         name in design.constructed_column_names for name in ("Horsepower", "Weight")
     )
 
-
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_categorical_cross_emits_the_full_product_width() -> None:
     """M09. Cat x Cat is the one interaction width regime with no case: the
@@ -776,7 +710,6 @@ def test_categorical_cross_emits_the_full_product_width() -> None:
     assert interactions[-1] == "Model Year: 82 × Origin: US"
     # 12 Model Year dummies + 24 interactions + 2 Origin dummies.
     assert len(names) == 38
-
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_categorical_cross_is_full_rank_and_shares_M14b_main_effects() -> None:
@@ -801,7 +734,6 @@ def test_categorical_cross_is_full_rank_and_shares_M14b_main_effects() -> None:
     )
     assert np.linalg.matrix_rank(x_with_intercept) == x_with_intercept.shape[1]
 
-
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_difference_interaction_uses_the_typographic_minus() -> None:
     """M10. The Difference operator, and its U+2212 MINUS SIGN header — a
@@ -824,7 +756,6 @@ def test_difference_interaction_uses_the_typographic_minus() -> None:
 def _acceleration_column(design) -> np.ndarray:
     """Recover Acceleration from the difference column and Displacement."""
     return design.x_features[:, 0] - design.x_features[:, 1]
-
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_ratio_reciprocal_pair_is_legal_and_non_singular() -> None:

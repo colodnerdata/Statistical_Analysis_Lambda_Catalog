@@ -39,7 +39,6 @@ Use these shortcuts for day-to-day work from an activated `.venv`. If the enviro
 | Run pylint's CI check | `poe lint` | `uv run pylint --errors-only lambda_catalog scripts tools` | Error-only lint, matching CI. |
 | Build the Regression artifact | `poe build` | `uv run python scripts/build_production.py` | Needs desktop Excel. |
 | Build the Univariate artifact | `poe build-univariate` | `uv run python scripts/build_univariate.py` | Needs desktop Excel. |
-| Build the legacy combined QC workbook | `poe qc` | `uv run python scripts/build_qc.py` | Needs desktop Excel; legacy `Lambda_Library_QC.xlsx` flow only. |
 | Build + verify Regression | `poe verify-deep` | `uv run python scripts/build_production.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify Univariate | `poe verify-deep-univariate` | `uv run python scripts/build_univariate.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify test models | `poe verify-test-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose` | Needs desktop Excel; append `--include-heavy` to include the heavy cases (`L05`, `L08`). |
@@ -77,11 +76,6 @@ uv run python scripts/build_univariate.py
 # `poe verify-deep` and `poe verify-deep-univariate`.
 uv run python scripts/build_production.py --verify --no-launch
 uv run python scripts/build_univariate.py --verify --no-launch
-
-# Legacy combined QC workbook build + expected-vs-actual pass (needs Excel).
-# Prefer the artifact-specific --verify builds above unless you are explicitly
-# maintaining the gitignored Lambda_Library_QC.xlsx workflow.
-uv run python scripts/build_qc.py
 
 # Verify an already-built workbook without rebuilding it  (needs Excel)
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
@@ -164,7 +158,7 @@ The coverage configuration in `pyproject.toml` tracks only the modules that are 
 - `analysis_cache.py`
 - `verify_report.py`
 
-The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the QC build instead (see below).
+The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the artifact-specific Excel verify builds instead.
 
 ### CI
 
@@ -351,42 +345,6 @@ rewrites and reports those names from the catalog in about a second. Reach for
 `--no-calculation` when you need the *sheet-scoped* names or the layout, which
 only the sheet writers produce.
 
-### QC build
-
-```powershell
-uv run python scripts/build_qc.py
-```
-
-Produces `Lambda_Library_QC.xlsx` (gitignored). Writes the Regression-production sheets above, plus the **Univariate** sheet and `Dummy_Test`, and runs the expected-vs-actual verification pass via `lambda_catalog.deep_verify.verify_test_sheets`. The former `MLR_Scalar_Test`, `MLR_Vector_Outputs_Test`, and `MLR_Observation_Test` smoke-test sheets are legacy cleanup targets only; current builds delete stale copies but do not write or verify them.
-
-The `Dummy_Test` sheet is self-checking: every case is a boolean Pass formula (e.g. `=ISNA(Dummy_Levels(...))`) evaluated by Excel, and the verification pass reads the Pass cells back and reports any that are not TRUE.
-
-The shared verification module forces Excel to recalculate all required sheets, reads the Calc columns, compares them against Python-computed expected values, and emits `ERROR ...` lines plus a mismatch summary when drift is found. A clean run produces no mismatch errors.
-
-**All `build_qc.py` options:**
-
-| Flag | Default | What it does |
-|---|---|---|
-| `--workbook PATH` | `Lambda_Library_QC.xlsx` | Path to the QC workbook to create or update. |
-| `--definitions PATH` | `lambda_functions.json` | Path to the JSON catalog of LAMBDA definitions. |
-| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV used for both the data sheet and the `Full_Data` QC comparison. |
-| `--cache PATH` | `.analysis_cache.json` | Retained for compatibility; spec-driven QC computes on demand, so this rarely matters. |
-| `--no-verify` | off | Skip the spec-driven verify pass. Escape hatch for iterating on a known-broken sheet; the skip is logged to `qc_log.txt` so the absence is visible. |
-| `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
-| `--verbose` | off | Print per-phase timing checkpoints to stdout. |
-
-```powershell
-# Full QC build + verification (the usual invocation)
-uv run python scripts/build_qc.py
-
-# Build the QC sheets but skip the spec-driven pass (iterating on a known-broken sheet)
-uv run python scripts/build_qc.py --no-verify
-```
-
-`build_qc.py` mirrors terminal output to `qc_log.txt` and includes end-of-run timing lines (`Timing: prep`, `write sheets`, `sync names`, `verify`, `total`) in both places.
-
-The QC build remains available only for the gitignored combined `Lambda_Library_QC.xlsx` workflow; it has not been removed because there is no repo-owner confirmation that this workbook is obsolete. For ordinary validation, prefer the artifact-specific `--verify --no-launch` builds, which import the shared deep verifier directly.
-
 ## Verifying builds
 
 There are two verifier layers with different speeds and different scopes. Run them in this order when in doubt; either can be skipped if the other has been run recently.
@@ -473,7 +431,6 @@ GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every 
 scripts/
   build_production.py        # Regression production entry point → dist/Lambda_Library.xlsx
   build_univariate.py        # Univariate production entry point → dist/Lambda_Library_Univariate.xlsx
-  build_qc.py                # QC entry point → Lambda_Library_QC.xlsx (gitignored fixture)
   build_test_models.py       # test-model builder → Lambda_Library_TestModels.xlsx (gitignored fixture)
   rebuild_static_sheets.py   # regenerates templates/static_sheets.xlsx from its Python source —
                               # see "Static reference sheets" below
@@ -534,10 +491,6 @@ tools/
 - `write_sheet_*.py` — worksheet writers, each responsible for one sheet; can also be run standalone
 - `lambda_catalog/` — installable package containing all writers and shared helpers
 
-## Analysis cache
-
-`build_qc.py` keeps the historical `--cache` option for CLI compatibility, but the spec-driven verifier now computes expected values on demand and does not use `.analysis_cache.json`.
-
 ## Writing individual sheets
 
 Each `write_sheet_*.py` module can be run standalone against any open workbook:
@@ -553,9 +506,9 @@ python -m lambda_catalog.write_sheet_csv_dataset production_lots Lambda_Library.
 
 ### Static reference sheets
 
-`write_sheet_regression_instructions.py` and `write_sheet_diagnostic_guide.py` write sheets whose content never depends on the target dataset — a fixed how-to guide and a fixed diagnostics reference. Rebuilding hundreds of styled cells with COM calls for unchanging text on every production/QC build is wasted work, so these two modules instead copy an already-styled sheet out of `templates/static_sheets.xlsx` via `workbook_helpers.copy_static_sheet` (Excel's native `Sheet.Copy` between two workbooks open in the same Excel instance — not an openpyxl round-trip; see CLAUDE.md's "Use xlwings COM API for all chart creation — never openpyxl" for why openpyxl is unsafe for anything Excel-native like this). `write_regression_instructions_sheet(workbook)` / `write_diagnostic_guide_sheet(workbook)` keep their original call signature, so `build_production.py` / `build_qc.py` and their tests are unaffected.
+`write_sheet_regression_instructions.py` and `write_sheet_diagnostic_guide.py` write sheets whose content never depends on the target dataset — a fixed how-to guide and a fixed diagnostics reference. Rebuilding hundreds of styled cells with COM calls for unchanging text on every artifact build is wasted work, so these two modules instead copy an already-styled sheet out of `templates/static_sheets.xlsx` via `workbook_helpers.copy_static_sheet` (Excel's native `Sheet.Copy` between two workbooks open in the same Excel instance — not an openpyxl round-trip; see CLAUDE.md's "Use xlwings COM API for all chart creation — never openpyxl" for why openpyxl is unsafe for anything Excel-native like this). `write_regression_instructions_sheet(workbook)` / `write_diagnostic_guide_sheet(workbook)` keep their original call signature, so `build_production.py` / `build_univariate.py` and their tests are unaffected.
 
-The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but neither `build_production.py` nor `build_qc.py` ever executes it; they only call the copy-from-template functions above. Regenerating the template is a separate, manual step.
+The authored content still lives in Python — `_ROWS` in `write_sheet_regression_instructions.py`, the body of `_write_template_sheet` in `write_sheet_diagnostic_guide.py` — but neither `build_production.py` nor `build_univariate.py` ever executes it; they only call the copy-from-template functions above. Regenerating the template is a separate, manual step.
 
 Run **`python scripts/rebuild_static_sheets.py`** after editing either sheet's content, then commit the updated `templates/static_sheets.xlsx` alongside the Python change. It opens the template once, calls every static sheet's `_write_template_sheet(workbook)` (so nothing is skipped or forgotten), and saves once. This is the standard command — prefer it over the per-module CLIs below, which exist only for regenerating a single sheet in isolation while debugging:
 
@@ -585,7 +538,7 @@ Neither is built. They are recorded here as a scoped follow-up rather than as a 
 1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `number_format`. Leave `test_table` unset unless you are adding an active sheet-level QC harness for that function in the same change.
 2. Add or update the relevant Python oracle when the function feeds a production analysis surface (for example, Regression outputs in `analyze_regression_sheet.py` / `analyze_regression_spec.py`, Univariate outputs in `analyze_univariate.py`, or `Dummy_Test` self-checks for dummy-specific helpers).
 3. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` when cached analysis output fields or methodology change.
-4. Run the appropriate verifier (`python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, or, only for the legacy combined workbook, `python scripts/build_qc.py`) and confirm no unexpected WARNING lines appear.
+4. Run the appropriate verifier (`python scripts/build_production.py --verify --no-launch` or `python scripts/build_univariate.py --verify --no-launch`) and confirm no unexpected WARNING lines appear.
 5. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
 6. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
 

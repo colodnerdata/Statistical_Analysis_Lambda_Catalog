@@ -7,7 +7,7 @@ in a stable shape regardless of which layer ran.
 The human-readable renderer mirrors the existing ``lambda_catalog.deep_verify._report_qc_failure``
 style (the ``ERROR Verify mismatch totals: ...`` line)
 so the post-build handoff looks the same whether the verifier was run by
-``build_production --verify`` or by the legacy ``build_qc`` workflow.
+artifact-specific ``--verify`` builds or ``tools/verify_workbook.py``.
 """
 
 from __future__ import annotations

@@ -30,6 +30,7 @@ from lambda_catalog.build_common import (
     print_name_sync_summary,
     run_log_path,
     tee_run_log,
+    warn_if_workbook_open,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.verify_report import (
@@ -569,6 +570,14 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     """
     total_start = time.monotonic()
     verify_elapsed: float | None = None
+
+    # Said up front rather than after the multi-minute write: Excel opens a
+    # locked workbook read-only without raising, so the first call that fails is
+    # the save at the END of phase 1 — _retry_on_open below would then discard
+    # every sheet write before telling the user to close Excel.
+    warn_if_workbook_open(
+        workbook_path, action_label=f"{args.workbook.name} is open in Excel"
+    )
 
     # Phase 1: write all sheets + sync names + inject charts.
     # If the workbook is open in Excel at this point the entire write must be retried.

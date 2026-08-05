@@ -50,6 +50,7 @@ from lambda_catalog.build_common import (
     print_name_sync_summary,
     run_log_path,
     tee_run_log,
+    warn_if_workbook_open,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
@@ -306,6 +307,14 @@ def build_test_models_workbook(
                 workbook.save(str(workbook_path))
             finally:
                 workbook.close()
+
+    # Checked before the write, not left to _retry_on_open below. This phase
+    # builds a fresh workbook and only touches workbook_path at the closing
+    # save, so a lock surfaces after every one of the ~47 case sheets has been
+    # written — the worst place in the project to discover it.
+    warn_if_workbook_open(
+        workbook_path, action_label=f"{workbook_path.name} is open in Excel"
+    )
 
     try:
         _retry_on_open(

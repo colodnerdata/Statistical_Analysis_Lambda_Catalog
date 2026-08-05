@@ -26,7 +26,11 @@ from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
     XL_CALCULATION_MANUAL,
 )
-from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
+from lambda_catalog.workbook_helpers import (
+    LOCK_HINT,
+    OPEN_WORKBOOK_ERRORS,
+    raise_excel_access_error,
+)
 
 # Phrases that indicate Excel's COM server disappeared mid-call rather than a
 # genuine build error — worth one retry in a fresh Excel instance.
@@ -276,7 +280,7 @@ def _retry_on_open(
                 if sys.stdin.isatty():
                     time.sleep(2)
                 continue
-            if "likely open in Excel" not in str(exc):
+            if LOCK_HINT not in str(exc):
                 raise
             if not sys.stdin.isatty():
                 raise
@@ -284,3 +288,97 @@ def _retry_on_open(
                 f"\n{action_label} — close it in Excel "
                 "and press Enter to retry (or Ctrl+C to cancel): "
             )
+
+
+def _lock_file_owner(workbook_path: Path) -> str | None:
+    """Return the owner name from Excel's ``~$`` sidecar, or None.
+
+    Excel drops a hidden ``~$<name>.xlsx`` next to an open workbook whose first
+    byte is the owner-name length and whose remainder is that name in UTF-16LE.
+    The format is undocumented and varies across Excel versions, so every
+    failure mode here — missing file, short read, bad decode, a build box where
+    the sidecar is unreadable — degrades to None and the caller falls back to
+    the unattributed message. Attribution is a nicety; never let it raise.
+    """
+    sidecar = workbook_path.with_name(f"~${workbook_path.name}")
+    try:
+        raw = sidecar.read_bytes()
+    except OSError:
+        return None
+    try:
+        length = raw[0]
+        name = raw[1 : 1 + length * 2].decode("utf-16-le").strip()
+    except (IndexError, UnicodeDecodeError):
+        return None
+    return name or None
+
+
+def workbook_lock_holder(workbook_path: Path) -> str | None:
+    """Return a description of what holds the workbook, or None if it is free.
+
+    The probe opens the file for writing (``r+b``) and closes it immediately —
+    it reads nothing and writes nothing, so it cannot disturb the workbook.
+    Excel holds an open .xlsx with write sharing denied, which is exactly what
+    makes this the cheap pre-flight signal: a locked workbook fails here in
+    milliseconds, where the build otherwise discovers it only when
+    ``workbook.save()`` fails at the end of a multi-minute write.
+
+    A missing file is not a lock — the build creates it.
+    """
+    if not workbook_path.exists():
+        return None
+    try:
+        with workbook_path.open("r+b"):
+            pass
+    except OSError:
+        owner = _lock_file_owner(workbook_path)
+        if owner is not None:
+            return f"{LOCK_HINT} (owner: {owner})"
+        if workbook_path.with_name(f"~${workbook_path.name}").exists():
+            return LOCK_HINT
+        return "locked by another process"
+    return None
+
+
+def warn_if_workbook_open(
+    workbook_path: Path,
+    *,
+    action_label: str,
+    probe: Callable[[Path], str | None] = workbook_lock_holder,
+) -> None:
+    """Warn before a build touches a workbook something else already holds.
+
+    ``_retry_on_open`` catches the same condition, but only reactively: Excel
+    opens a locked workbook read-only without raising, so the first call that
+    actually fails is the ``save()`` at the *end* of the write, and the user
+    pays the full build before being told to close Excel. This runs the cheap
+    probe up front and, on a TTY, offers the same close-and-press-Enter prompt
+    ``_retry_on_open`` uses, so the two surfaces read identically.
+
+    Off a TTY this warns and returns rather than raising. The probe is a
+    heuristic — a network share, an antivirus scanner or a transient handle can
+    all deny the write open on a workbook no human has open — and a false
+    positive must not abort an agentic ``poe build-verify``. The reactive path
+    still catches a genuine lock at save time exactly as it does today, so
+    non-interactive exit codes are unchanged.
+
+    ``probe`` is injectable so the unit suite can exercise the prompt loop
+    without a real locked file.
+    """
+    while True:
+        holder = probe(workbook_path)
+        if holder is None:
+            return
+        print(
+            f"\nWarning: {workbook_path.name} is {holder}. "
+            "The build writes every sheet before Excel refuses the save, so "
+            "closing it now saves the whole write.",
+            file=sys.stderr,
+            flush=True,
+        )
+        if not sys.stdin.isatty():
+            return
+        input(
+            f"\n{action_label} — close it in Excel "
+            "and press Enter to retry (or Ctrl+C to cancel): "
+        )

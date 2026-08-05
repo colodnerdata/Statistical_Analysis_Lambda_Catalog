@@ -43,6 +43,7 @@ from lambda_catalog.build_common import (
     run_log_path,
     set_calculate_before_save,
     tee_run_log,
+    warn_if_workbook_open,
 )
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.verify_report import (
@@ -545,6 +546,13 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
             file=sys.stderr,
             flush=True,
         )
+
+    # Same reason as the warning above — Excel opens a locked workbook read-only
+    # without raising, so the phase 1 _retry_on_open below only learns of the
+    # lock when the save fails, after every sheet has already been written.
+    warn_if_workbook_open(
+        workbook_path, action_label=f"{args.workbook.name} is open in Excel"
+    )
 
     # Phase 1: write all sheets + sync names.
     # If the workbook is open in Excel at this point the entire write must be retried.

@@ -19,7 +19,7 @@ from lambda_catalog.analyze_production_lots import calculate_production_lots_com
 from lambda_catalog.analyze_regression_spec import build_regression_spec_qc_configs
 from lambda_catalog.analyze_regression_spec_block import read_regression_spec_block_failures
 from lambda_catalog.analysis_cache import DEFAULT_CACHE_PATH
-from lambda_catalog.build_common import print_name_sync_summary
+from lambda_catalog.build_common import print_name_sync_summary, warn_if_workbook_open
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import (
     NameSyncResult,
@@ -30,7 +30,11 @@ from lambda_catalog.workbook_builder import (
     drop_workbook_names,
     sync_workbook_names,
 )
-from lambda_catalog.workbook_helpers import OPEN_WORKBOOK_ERRORS, raise_excel_access_error
+from lambda_catalog.workbook_helpers import (
+    LOCK_HINT,
+    OPEN_WORKBOOK_ERRORS,
+    raise_excel_access_error,
+)
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_dummy_test import (
     read_dummy_check_failures,
@@ -755,6 +759,12 @@ def main() -> None:
 def _run_main(args: argparse.Namespace) -> None:
     total_start = time.monotonic()
     timings: dict[str, float | None] = {}
+    # Up front, because the retry loop below only learns of a lock when the
+    # save fails at the end of the write: Excel opens a locked workbook
+    # read-only without raising, and this loop retries the ENTIRE build.
+    warn_if_workbook_open(
+        args.workbook, action_label=f"{args.workbook.name} is open in Excel"
+    )
     while True:
         try:
             result = build_qc_workbook(
@@ -771,7 +781,7 @@ def _run_main(args: argparse.Namespace) -> None:
             )
             break
         except RuntimeError as exc:
-            if "likely open in Excel" in str(exc):
+            if LOCK_HINT in str(exc):
                 if not sys.stdin.isatty():
                     raise
                 prompt = (

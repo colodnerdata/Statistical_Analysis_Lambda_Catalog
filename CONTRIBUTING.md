@@ -106,10 +106,9 @@ Tests live in `tests/`. The current test files are:
 | `test_regression_observation_vectors.py` | Observation-level diagnostics (rank fraction, normal scores, residuals) |
 | `test_internal_helpers.py` | `_parse_float`, `_normalize_header`, `_validate_required_headers`, `_build_training_arrays`, `_predict_single_row` |
 | `test_formula_parser.py` | LAMBDA formula → workbook.xml XML token translation |
-| `test_cache_serialization.py` | JSON serialization round-trips for `RegressionVectors` and `RegressionObservationVectors` |
 | `test_data_completeness_qc.py` | `calculate_data_completeness_flags` against the sample dataset |
-| `test_catalog_schema.py` | `CatalogDocument` loading, validation, duplicate rejection, `test_table` rules, projection methods |
-| `test_dummy_functions.py` | `Dummy_Levels`/`Dummy_Code` NA()-based error contract: formula statics, parser translation, and the pure-Python mirrors behind the `Dummy_Test` QC sheet |
+| `test_catalog_schema.py` | `CatalogDocument` loading, validation, duplicate rejection, projection methods |
+| `test_dummy_functions.py` | `Dummy_Levels`/`Dummy_Code` NA()-based error contract: formula statics, signatures, and parser translation to workbook XML |
 | `test_lambda_catalog_plain_language.py` | All LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
 | `test_sheet_writers.py` | Sheet writer integration (conditional formatting, named ranges) |
 | `test_model_construction_writer.py` | Model Construction sheet writer: sheet-scoped name definitions and order, T0 default-spec prefill, dropdowns, conditional formats, `Predictor_Columns`/`Constructed_Column_Names` twin invariants |
@@ -117,7 +116,7 @@ Tests live in `tests/`. The current test files are:
 | `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
 | `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
 | `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
-| `test_qc_configs.py` | Regression sheet QC config generation, diagnostics, and cache round-trips |
+| `test_qc_configs.py` | Internal-consistency invariants of the shared OLS oracle across six model shapes — hat diagonal sums to *p*, residuals sum to zero under an intercept, SS decomposition, prediction-interval symmetry |
 | `test_bfn_panel_durbin_watson_verification.py` | `BFN_Panel_Durbin_Watson` against the WHO panel — within-group differencing via `Difference_By`, mutual gating with `Durbin_Watson_By` |
 | `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the reserved-spec-column pattern) |
 | `test_difference_by_verification.py` | Gap-aware `Difference_By` — WHO exact counts plus the punched-out-year and calendar-date synthetic cases (the automated form of the retired v2.0 test plan's T17–T19) |
@@ -131,6 +130,7 @@ Tests live in `tests/`. The current test files are:
 | `test_group_panel_transforms.py` | v2.1 Fixed Effects phase 1 — `Group_Mean`, `Demean_By`, `Is_Balanced_Panel`, `Absorbed_Degrees_Of_Freedom` |
 | `test_df_absorbed_threading.py` | v2.1 Fixed Effects phase 3 — `[DF_Absorbed]` threaded through SE/t/p/CI/MS-Residual/AIC/BIC/AICc, against an independent `statsmodels` LSDV fit |
 | `test_group_prediction_interval.py` | v2.1 Fixed Effects phase 5 — `Group_Mean_At`, `Group_Count_At`, `Prediction_Group_Column`, `Group_Prediction_Interval` (the group-mean-recovery CI+PI form), against an explicit LSDV `get_prediction()` reference |
+| `test_doc_links.py` | Every relative `](*.md)` link in the repo's markdown resolves to a file that exists, relative to the linking file's own directory |
 | `test_workbook_helpers.py` | `safe_activate()` / `safe_freeze_top_row()` against stub sheet/window objects (headless/no-focus Excel session guards) |
 | `test_workbook_builder.py` | Workbook package-patching helpers (`sync_workbook_names` and friends) that don't require Excel |
 | `test_build_common.py` | Shared build scaffolding (`lambda_catalog.build_common`: recalculate-and-save calc-mode handling, retry-on-open) that doesn't require Excel |
@@ -156,10 +156,9 @@ The coverage configuration in `pyproject.toml` tracks only the modules that are 
 - `catalog_schema.py`
 - `lambda_formula_parser.py`
 - `regression_shared.py`
-- `analysis_cache.py`
 - `verify_report.py`
 
-The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `make_test_sheet.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the artifact-specific Excel verification commands instead (see [Verifying builds](#verifying-builds)).
+The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the artifact-specific Excel verification commands instead (see [Verifying builds](#verifying-builds)).
 
 ### CI
 
@@ -367,7 +366,7 @@ This is a fast screen. A green run does **not** mean the workbook calculates cor
 
 ### Layer 2 — spec-driven deep check
 
-Reuses `lambda_catalog.deep_verify.verify_test_sheets` against the production sheets and `Dummy_Test`, gated off the `Dummy_Test` block via `skip_dummy=True` because production workbooks do not contain a `Dummy_Test` sheet. This is the source of truth for cell-level correctness.
+Reuses `lambda_catalog.deep_verify.verify_test_sheets` against the production sheets. This is the source of truth for cell-level correctness.
 
 ```powershell
 # Run the Regression production build, recalculate, then verify against the
@@ -407,7 +406,6 @@ Expected terminal flow for the one-shot command:
 2. Spec verifier result (`Verify: passed ...` or `ERROR Verify mismatch totals: ...`).
 3. Timing summary lines (`Timing: build+sync`, `Timing: recalculate` or `skipped`, `Timing: verify`, `Timing: total`).
 
-When the production verifier runs, the deep-check pre-calc list excludes `Dummy_Test` (`skip_dummy=True`) because production workbooks do not include that sheet.
 
 ### `poe verify`
 
@@ -467,12 +465,10 @@ lambda_catalog/
                               # and the Fixed Effects within-transform/DF_Absorbed correction)
   analyze_model_construction.py # Model Construction QC analyzer: default-spec expectations, mask/level checks
   analyze_univariate.py      # univariate analysis: NLL functions, MLE estimators, binning, GoF
-  analysis_cache.py          # disk cache keyed on CSV SHA-256 + schema version
   lambda_formula_parser.py   # converts display formulas to workbook XML syntax
   inspection_compare.py      # numeric comparison helpers for QC value verification
   deep_verify.py             # shared xlwings spec-driven verifier used by build scripts and tools/verify_workbook.py
   verify_report.py           # VerifyReport: structured pass/fail result for the spec-driven verifier
-  make_test_sheet.py         # shared helpers for Excel ListObject test tables
   write_sheet_lambda_functions.py
   write_sheet_csv_dataset.py # unified loader/writer/CLI for Life Expectancy, Mileage, and Production Lots
   write_sheet_univariate.py
@@ -481,7 +477,6 @@ lambda_catalog/
   write_sheet_version_history.py
   write_sheet_regression.py
   write_sheet_model_construction.py
-  write_sheet_dummy_test.py
 tools/
   inspect_regression_sheet.py # Regression sheet comparison (loaded by lambda_catalog.deep_verify)
   inspect_univariate_sheet.py # Univariate sheet comparison (loaded by lambda_catalog.deep_verify)
@@ -495,10 +490,6 @@ tools/
 - `build_*.py` — workbook-level entry points that open or create an Excel workbook
 - `write_sheet_*.py` — worksheet writers, each responsible for one sheet; can also be run standalone
 - `lambda_catalog/` — installable package containing all writers and shared helpers
-
-## Analysis cache
-
-The spec-driven verifier computes expected values on demand and does not use `.analysis_cache.json`.
 
 ## Writing individual sheets
 
@@ -531,25 +522,25 @@ python -m lambda_catalog.write_sheet_diagnostic_guide         # single-sheet deb
 
 All of this — the per-module CLIs and `rebuild_static_sheets.py` alike — requires a real Excel COM engine (`xlwings.App`); none of it runs in a headless/CI environment.
 
-## Documentation drift (proposed check — not yet implemented)
+## Documentation drift
 
-`lambda_functions.json` is the source of truth for functions, but nothing is the source of truth for the *documented* state, and the planning docs have drifted from the code more than once. Recent examples, all caught by hand: `ROADMAP.md` listed a milestone as planned that was fully built; `ARCHITECTURE.md` documented Role dropdown values without the parenthetical suffixes that formulas actually string-compare against; `REVIEW.md` cited `Interact` as a shipping catalog function when it is only specified. This is finding **F7** in [REVIEW.md](REVIEW.md), and it stays open.
+`lambda_functions.json` is the source of truth for functions, but nothing is the source of truth for the *documented* state, and the planning docs have drifted from the code more than once. Examples caught by hand: `ROADMAP.md` listed a milestone as planned that was fully built; `ARCHITECTURE.md` documented Role dropdown values without the parenthetical suffixes that formulas actually string-compare against.
 
-Two mechanical checks would catch most of this class. Both are pure Python, need no Excel, and would run in the existing Linux CI job:
+Three mechanical checks would catch most of this class. All are pure Python and need no Excel, so they run in the existing Linux CI job. **One is built:**
 
-1. **Function names.** Every name written as a function reference in a doc table or fenced block resolves to an entry in `lambda_functions.json`, unless it is a native Excel function or explicitly tagged as planned. This is what would have caught the `Interact` claim and the older stale-rename list.
-2. **Cross-document anchors.** Every `](FILE.md#anchor)` link resolves to a heading that exists in the target file. Heading renames silently break these — the `ARCHITECTURE.md` §4 renames from `(A–L)` to `(A–N)` (v2.1, adding the Sequence Period / Period In Use pair) and from `(A–N)` to `(A–O)` (v3.0, adding the Design Columns audit column) each broke at least one `ROADMAP.md` link in exactly this way.
+1. **Link targets — built, `tests/test_doc_links.py`.** Every relative `](target.md)` link resolves to a file that exists, relative to the *linking file's own directory*. This is the check that would have caught two real breakages: the deletion of `REVIEW.md` while four documents still linked to it, and a docs-reorganization pass that prefixed every relative link with `docs/` — including links already inside `docs/`, where the prefix is one level too many. `docs/TODOs.md` → `docs/ROADMAP.md` resolves to `docs/docs/ROADMAP.md`; that single commit broke 171 links and nothing failed.
+2. **Cross-document anchors — not built.** Every `](target.md#anchor)` resolves to a heading that exists in the target file. Heading renames silently break these: the `ARCHITECTURE.md` §4 renames from `(A–L)` to `(A–N)` (v2.1, adding the Sequence Period / Period In Use pair) and from `(A–N)` to `(A–O)` (v3.0, adding the Design Columns audit column) each broke at least one `ROADMAP.md` link this way. `test_doc_links.py` deliberately checks only the path half; extending it to anchors means parsing target headings and reproducing GitHub's slug rules, which is why it is the larger of the two.
+3. **Function names — not built.** Every name written as a function reference in a doc table or fenced block resolves to an entry in `lambda_functions.json`, unless it is a native Excel function or explicitly tagged as planned. This is what would have caught an older review's claim that `Interact` was shipping when it was only specified, and the stale-rename list before that.
 
-Neither is built. They are recorded here as a scoped follow-up rather than as a claim, since the v3.0 documentation pass was documentation-only. The second is the cheaper and higher-yield of the two; a reasonable first cut is ~40 lines of `re` plus a `pytest` case, added to the tracked-modules list in `pyproject.toml`.
+Items 2 and 3 are recorded as scoped follow-ups, not claims.
 
 ## Adding a new LAMBDA function
 
-1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and optionally `number_format`. Leave `test_table` unset unless you are adding an active sheet-level QC harness for that function in the same change.
+1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and `plain_language_summary`. Add `notes` for the Name Manager tooltip (255 characters max), and `scope` only when the function is a sheet-scoped closure rather than a portable workbook name.
 2. Add or update the relevant Python oracle when the function feeds a production analysis surface (for example, Regression outputs in `analyze_regression_sheet.py` / `analyze_regression_spec.py` or Univariate outputs in `analyze_univariate.py`).
-3. Update `_CACHE_SCHEMA_VERSION` in `analysis_cache.py` when cached analysis output fields or methodology change.
-4. Run the appropriate verifier (`poe verify-headless`, `python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, and/or `python scripts/build_test_models.py --verify --no-launch`) and confirm no unexpected WARNING lines appear.
-5. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
-6. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
+3. Run the appropriate verifier (`poe verify-headless`, `python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, and/or `python scripts/build_test_models.py --verify --no-launch`) and confirm no unexpected WARNING lines appear.
+4. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
+5. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
 
 ## Cell styling
 

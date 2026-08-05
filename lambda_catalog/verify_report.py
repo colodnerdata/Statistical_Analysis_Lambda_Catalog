@@ -4,11 +4,12 @@ Both verifier layers (headless zipfile check, deep spec-driven check) emit
 the same ``VerifyReport`` so a downstream agentic loop can read the result
 in a stable shape regardless of which layer ran.
 
-The human-readable renderer mirrors the existing ``build_qc._report_qc_failure``
-style at ``build_qc.py:213-221`` (the ``ERROR QC mismatch totals: ...`` line)
+The human-readable renderer mirrors the existing ``lambda_catalog.deep_verify._report_qc_failure``
+style (the ``ERROR QC mismatch totals: ...`` line)
 so the post-build handoff looks the same whether the verifier was run by
-``build_production --verify`` or by ``build_qc``.
+``build_production --verify`` or by the legacy ``build_qc`` workflow.
 """
+
 from __future__ import annotations
 
 import json
@@ -64,7 +65,7 @@ def report_from_failures(
 
     Empty list -> passed=True with empty categories. Otherwise categories
     are derived by splitting each message on ``]`` (the existing
-    ``build_qc._report_qc_failure`` prefix convention) and tallying the
+    ``lambda_catalog.deep_verify._report_qc_failure`` prefix convention) and tallying the
     leading bracketed category name.
     """
     if not failures:
@@ -78,8 +79,7 @@ def report_from_failures(
         )
 
     category_counts = Counter(
-        message.split("]", 1)[0].removeprefix("[")
-        for message in failures
+        message.split("]", 1)[0].removeprefix("[") for message in failures
     )
     return VerifyReport(
         passed=False,
@@ -103,8 +103,7 @@ def render_human(report: VerifyReport, *, max_failures: int = 20) -> str:
             f"workbook={report.workbook!r})"
         )
     category_summary = ", ".join(
-        f"{category}={count}"
-        for category, count in sorted(report.categories.items())
+        f"{category}={count}" for category, count in sorted(report.categories.items())
     )
     shown = report.failures[:max_failures]
     extra = len(report.failures) - len(shown)

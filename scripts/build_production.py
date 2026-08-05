@@ -9,6 +9,7 @@ workbook returns to full Automatic and the Univariate Data Tables recalculate
 on edit in their own file (see DECISIONS.md § v3.0 "Univariate becomes its
 own workbook").
 """
+
 from __future__ import annotations
 
 import argparse
@@ -75,7 +76,11 @@ _PREDICTIONS_SHEET_NAME = "Life Expectancy Predictions"
 # Legacy MLR smoke-test sheets are no longer written or verified; keep
 # these names only to delete stale copies from workbooks built by older
 # versions of the pipeline.
-_LEGACY_MLR_QC_SHEET_NAMES = ("MLR_Scalar_Test", "MLR_Vector_Outputs_Test", "MLR_Observation_Test")
+_LEGACY_MLR_QC_SHEET_NAMES = (
+    "MLR_Scalar_Test",
+    "MLR_Vector_Outputs_Test",
+    "MLR_Observation_Test",
+)
 
 _TAB_COLOR_LIGHT_GRAY = (217, 217, 217)
 _TAB_COLOR_DARK_GRAY = (128, 128, 128)
@@ -572,7 +577,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
             production_lots_csv_path=args.production_lots_csv,
             validate_reopen=False,  # handled below after recalculate
             verbose=args.verbose,
-            recalculate=False,      # handled separately so only this step retries
+            recalculate=False,  # handled separately so only this step retries
             regression_dataset=args.regression_dataset,
         )
 
@@ -598,7 +603,10 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     # no-op here (it only matters for build_univariate.py, whose Univariate
     # Data Tables make the rebuild slow).
     if args.skip_data_table_calculations and args.verbose:
-        print("  Recalculate:    --skip-data-table-calculations is a no-op for the Regression workbook", flush=True)
+        print(
+            "  Recalculate:    --skip-data-table-calculations is a no-op for the Regression workbook",
+            flush=True,
+        )
     _t = time.monotonic()
     _retry_on_open(
         f"{args.workbook.name} is open in Excel",

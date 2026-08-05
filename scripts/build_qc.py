@@ -1,4 +1,5 @@
 """Build Lambda_Library_QC.xlsx and verify the QC workbook."""
+
 from __future__ import annotations
 
 import argparse
@@ -148,21 +149,32 @@ def build_qc_workbook(
                     workbook, mileage_headers, mileage_rows, MILEAGE, verbose=verbose
                 )
                 _verbose_checkpoint(verbose, phase_start, "Write: mileage done")
-                _verbose_checkpoint(verbose, phase_start, "Write: production lots start")
+                _verbose_checkpoint(
+                    verbose, phase_start, "Write: production lots start"
+                )
                 write_csv_dataset_sheet(
-                    workbook, production_lots_headers, production_lots_rows, PRODUCTION_LOTS
+                    workbook,
+                    production_lots_headers,
+                    production_lots_rows,
+                    PRODUCTION_LOTS,
                 )
                 _verbose_checkpoint(verbose, phase_start, "Write: production lots done")
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate start")
                 write_univariate_sheet(workbook)
                 _verbose_checkpoint(verbose, phase_start, "Write: univariate done")
-                _verbose_checkpoint(verbose, phase_start, "Write: regression instr start")
+                _verbose_checkpoint(
+                    verbose, phase_start, "Write: regression instr start"
+                )
                 write_regression_instructions_sheet(workbook)
-                _verbose_checkpoint(verbose, phase_start, "Write: regression instr done")
+                _verbose_checkpoint(
+                    verbose, phase_start, "Write: regression instr done"
+                )
                 _verbose_checkpoint(verbose, phase_start, "Write: diagnostic start")
                 write_diagnostic_guide_sheet(workbook)
                 _verbose_checkpoint(verbose, phase_start, "Write: diagnostic done")
-                _verbose_checkpoint(verbose, phase_start, "Write: version history start")
+                _verbose_checkpoint(
+                    verbose, phase_start, "Write: version history start"
+                )
                 write_version_history_sheet(workbook)
                 _verbose_checkpoint(verbose, phase_start, "Write: version history done")
                 _verbose_checkpoint(verbose, phase_start, "Write: regression start")

@@ -21,6 +21,7 @@ etc.) that ``sync_workbook_names`` writes into ``xl/workbook.xml``. The Life
 Expectancy Data sheet is required because the Univariate data zone reads
 ``LifeExpectancyData[Life expectancy]`` directly.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -541,7 +542,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
             csv_path=args.csv,
             validate_reopen=False,  # handled below after recalculate
             verbose=args.verbose,
-            recalculate=False,      # handled separately so only this step retries
+            recalculate=False,  # handled separately so only this step retries
             calculate=not args.no_calculation,
         )
 

@@ -177,7 +177,7 @@ and the two continuous predictors, no Full_Data over-filter).
 
 Not here (deliberately, per release scoping): the QC analyzer
 (analyze_model_construction.py) and the Version History / CHANGELOG bump
-to v3.0 — those land in the final wiring PR.
+to v2.0 — those landed in the final wiring PR of that release.
 """
 from __future__ import annotations
 

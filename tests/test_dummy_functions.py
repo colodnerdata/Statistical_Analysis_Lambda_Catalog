@@ -1,6 +1,6 @@
 """Static tests for the rebuilt Dummy_Levels / Dummy_Code catalog formulas.
 
-The v3.0 rebuild changed the failure contract: degenerate input returns a
+The v2.0 rebuild changed the failure contract: degenerate input returns a
 genuine Excel error (NA()) instead of a descriptive string. These tests cover
 what is checkable without Excel — the formula strings, the signatures, and the
 parser translation to workbook XML.

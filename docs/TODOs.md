@@ -87,6 +87,9 @@ the Regression track — they are also listed in their own working order.
 | [Time-series sheet (`write_sheet_time_series.py`)](#v36--time-role--time-series) | L | v3.6 |
 | [Two-sample sheet layout](#v310--bivariate--two-sample) | M | v3.10 |
 | [Simulation sheet layout](#v311--resampling--simulation) | M | v3.11 |
+| [Fix `warn_if_workbook_open`'s buffered-prompt deadlock](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
+| [Stop leaking Excel instances under `parallel`](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
+| [Clean the four `#VALUE!` cells out of the Regression artifact](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
 
 The Diagnostic Guide item also needs Excel for a second reason: that sheet is
 baked into `templates/static_sheets.xlsx` and only regenerates through
@@ -628,6 +631,62 @@ They are removed rather than restated, per this file's own rule.
   `Grunfeld`, `Insurance`, `sleep`, `ToothGrowth`). Same one-config-plus-profile
   shape as above, but each lands with the milestone that needs it — see
   [§ 3 Timing](MODEL_TESTING_ASSETS.md#timing).
+
+## Build tooling — found by the first real `poe verify` run
+
+Version-independent; not tied to a milestone. All four came out of the first
+developer-machine `poe verify` after the concurrency change, on 2026-08-06 —
+the run [CONTRIBUTING.md](../CONTRIBUTING.md) asks for and no CI can perform.
+The transcripts are in [excel-only-runs/](../excel-only-runs).
+
+The concurrency itself worked: three Excel instances built three artifacts side
+by side for ~84 minutes with no contention over `templates/static_sheets.xlsx`,
+and both completed verifiers passed (Univariate `Verify: passed`; test-models
+48/48 `ok`). What follows is what the run exposed around it.
+
+- **READY · S · needs Excel** — **`warn_if_workbook_open` deadlocks under
+  `poe verify`.** Its prompt is an `input()` call, but the warning above it goes
+  to **stderr with `flush=True`** while the prompt goes to **stdout**, which
+  `output_mode = "buffer"` holds until the task ends. So a locked workbook
+  prints a warning, then blocks forever on a question the user cannot see; the
+  prompt text only appeared when Ctrl+C flushed the buffer. It reads as a hang
+  with no Excel process consuming CPU. The function already returns early when
+  `not sys.stdin.isatty()`; it needs the same treatment when **stdout is not a
+  live terminal**, letting the reactive `_retry_on_open` catch a genuine lock at
+  save time instead. Verifiable without Excel — the probe is injectable, and
+  `tests/test_build_common.py` already drives the prompt loop with a stub.
+
+- **READY · S · needs Excel** — **Excel instances leak under `parallel`.**
+  Three `EXCEL.EXE` processes survived the run at 0% CPU, after the two
+  completed drivers should have quit theirs. `_quit_app_quietly` is a bare
+  `try/except: pass`, so a failed quit is invisible. The cost is not the idle
+  process: an orphan can hold the workbook and leave a `~$Lambda_Library.xlsx`
+  sidecar, which is what the *next* run's pre-flight probe trips on — plausibly
+  how this run acquired the stale lock that triggered the item above. At minimum
+  the swallowed exception should be reported; better, the quit should be
+  verified.
+
+- **READY · S · no Excel** — **`verify-headless` does not screen the artifacts
+  it was reordered to screen.** The task is `pytest tests/test_workbook_invariants.py -v`
+  with no `RUN_EXCEL_INTEGRATION=1`, so every test that opens `dist/*.xlsx` is
+  skipped: **29 passed, 11 skipped**, and the 11 are the real-artifact checks.
+  v3.x's fix to run builds *before* the screen — so it reads freshly built
+  artifacts rather than the previously committed ones — therefore delivers
+  nothing as wired. `poe test-excel` is the same file *with* the variable, which
+  is why the two were noted as "byte-identical commands differing only by an env
+  var" without the consequence being spotted. **Land this together with the item
+  below**: setting the variable turns the suite red until that one is fixed.
+
+- **READY · S · needs Excel** — **Four `#VALUE!` cells ship in the Regression
+  artifact.** `Mileage Data` J159, K159, J355, K355 hold literal `#VALUE!`
+  cached values. They are copied faithfully from
+  `sample_data/auto_mpg_data.csv`, which carries pre-split `Make` / `Model?`
+  columns: the two rows whose `Car Name` is `subaru` have no space to split on,
+  so the spreadsheet that produced the CSV wrote `#VALUE!` into both. The
+  documented exception in `tests/test_workbook_invariants.py` covers the `#N/A`
+  that `Difference_By` / `Lag_By` legitimately return at gap rows — this is
+  neither of those. Fix the two CSV rows, rebuild, commit the artifact. Present
+  on `main` today, and undetected precisely because of the item above.
 
 ## Documentation
 

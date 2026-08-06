@@ -3,9 +3,9 @@
 Resolved design decisions with their rationale, indexed by the version that
 resolved them. Each entry is self-contained: the question, the resolution,
 and the rationale in one paragraph. The version plan lives in
-[ROADMAP.md](docs/ROADMAP.md); foundational patterns live in
-[ARCHITECTURE.md](docs/ARCHITECTURE.md); active work lives in
-[TODOs.md](docs/TODOs.md). This file is the "why" record.
+[ROADMAP.md](ROADMAP.md); foundational patterns live in
+[ARCHITECTURE.md](ARCHITECTURE.md); active work lives in
+[TODOs.md](TODOs.md). This file is the "why" record.
 
 **Reading order for someone asking "why is the library shaped this way?"**
 Open the version of interest, find the decision entry, follow the
@@ -26,14 +26,14 @@ cross-link to ARCHITECTURE for the foundational pattern it instantiates.
 - **DEFERRED** — the question is open and intentionally held for a
   specific future version. The full deferral record (why, what changes
   when resolved) lives here; the action item (resolve it then) lives in
-  [TODOs.md](docs/TODOs.md).
+  [TODOs.md](TODOs.md).
 
 ---
 
 ## v1.0
 
 The v1.0 release predates the open-decisions convention; the design record
-lives in the git history of [ROADMAP.md](docs/ROADMAP.md) rather than in this
+lives in the git history of [ROADMAP.md](ROADMAP.md) rather than in this
 log. No entries.
 
 ---
@@ -215,7 +215,7 @@ Effects was never a predictor type: it contributes no columns and no
 coefficients. It moves to the Role axis (v2.1), the Type axis becomes
 permanently Continuous/Categorical, and all future growth happens on
 Role. The full taxonomy and cardinality rules live in
-[ARCHITECTURE.md § 3](docs/ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
+[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
 
 ### Spec-order assembly for `x_s()`
 
@@ -310,7 +310,7 @@ numeric AND every included Continuous Predictor numeric), so no separate
 **Remaining gap (the blank-categorical caveat):** Categorical Predictors
 impose no non-blank condition; a blank category value encodes as all-zero
 dummies, indistinguishable from the reference level. Tracked as an `OPEN`
-item in [TODOs.md § v2.0](docs/TODOs.md#v20-leftovers);
+item in [TODOs.md § v2.0](TODOs.md#v20-leftovers);
 interim workaround is a completeness column declared as a Filter.
 
 ### Spec-validation semantics (NA() everywhere)
@@ -401,7 +401,7 @@ parallel-function-set debate; and the single-axis "Predictor Type" design?
    Instructions sheet.
 2. *The WLS-as-optional-`[Weights]`-argument vs. parallel-function-set
    decision* — SUPERSEDED as a **`Weight` value on the Role axis** (see
-   [ARCHITECTURE.md § 3](docs/ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
+   [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
    and v2.6 below). The dedicated WLS Regression sheet plan is likewise
    superseded.
 3. *The single-axis "Predictor Type" design* — SUPERSEDED by the
@@ -412,7 +412,7 @@ parallel-function-set debate; and the single-axis "Predictor Type" design?
 ## v2.1 — Sequence, gap-aware longitudinal, serial-correlation diagnostics, fixed effects
 
 The full v2.1 ship list is in
-[TODOs.md § v2.1](docs/TODOs.md#v21-leftovers--follow-on-polish).
+[TODOs.md § v2.1](TODOs.md#v21-leftovers--follow-on-polish).
 This file records the *decisions* — what was resolved and why.
 
 ### df plumbing — optional `[DF_Absorbed]` argument
@@ -531,7 +531,7 @@ distinct from the Variable Role axis.
 Role = Predictor, Type = Continuous AND Sequence = TRUE simultaneously.
 Sequence never enters the design matrix. Cardinality is zero-or-one;
 two-plus is a visible status-line error. Cardinality rules live in
-[ARCHITECTURE.md § 3](docs/ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
+[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence).
 
 ### Sequence Period / Period In Use split (v2.1 #1)
 
@@ -578,7 +578,7 @@ live — `Order` (F) remains reserved. The function-side equivalent is a
 dormant branch in a `SWITCH` returning a `RESERVED — vN+` token; the
 v2.6+ `Cluster` branch in `Serial_Correlation_Group()` is the worked
 example. The general pattern is in
-[ARCHITECTURE.md § 7](docs/ARCHITECTURE.md#7-reserved-spec-column-pattern-general).
+[ARCHITECTURE.md § 7](ARCHITECTURE.md#7-reserved-spec-column-pattern-general).
 
 ### Durbin-Watson under FE — second cell + mutual gating
 
@@ -614,7 +614,7 @@ only (near 2 ⇒ no first-order autocorrelation in the within residuals).
 **Rationale:** BFN significance bounds are N,T-dependent (Bhargava et
 al. 1982 tables), and the standard DW bounds must not be presented
 next to it. Surfacing proper BFN bounds is the recorded open item.
-Tracked in [TODOs.md § v2.1](docs/TODOs.md#v21-leftovers--follow-on-polish).
+Tracked in [TODOs.md § v2.1](TODOs.md#v21-leftovers--follow-on-polish).
 
 ### Categorical × FE prediction encoding — DEFERRED
 
@@ -627,7 +627,7 @@ the *constructed* design-matrix space (dummies encoded through the
 same `Dummy_Code` path `x_s()` uses), not raw input space. Largely
 subsumed by v2.0 categorical prediction; recorded so the encoding
 step is not forgotten. Tracked in
-[TODOs.md § v2.1](docs/TODOs.md#v21-leftovers--follow-on-polish).
+[TODOs.md § v2.1](TODOs.md#v21-leftovers--follow-on-polish).
 
 ---
 
@@ -709,7 +709,7 @@ implemented by this wiring — the model fits correctly in log space
 end-to-end, but in-sample "Predicted Y" and the prediction outputs are
 labelled `(Log)` rather than back-transformed to the response's original
 units. Both remain tracked in
-[TODOs.md § v3.3](docs/TODOs.md#v33--transforms-remainder).
+[TODOs.md § v3.3](TODOs.md#v33--transforms-remainder).
 
 **Verification:** `tests/test_ln_positive_verification.py` (the
 primitive, pure-Python mirror + implementation-shape assertions);
@@ -771,7 +771,7 @@ style; when a family is combinatorial in its inputs (N transforms × M
 statistics), use a dispatcher. Future combinatorially-named families
 (e.g. a future `Cross_Product_Of_Transforms_*` if one ever exists)
 follow the same exception. See
-[ARCHITECTURE.md § 1 "Naming-style departures"](docs/ARCHITECTURE.md#1-naming-convention).
+[ARCHITECTURE.md § 1 "Naming-style departures"](ARCHITECTURE.md#1-naming-convention).
 
 ### Likelihood-based statistics (AIC / AICc / BIC) — DEFERRED
 
@@ -925,7 +925,7 @@ a single cell inside the status block;
 separate named ranges because they live in different blocks.
 
 **The public-interface commitment.** Per the Versioning definition in
-[ROADMAP.md](docs/ROADMAP.md), these three named ranges are part of the
+[ROADMAP.md](ROADMAP.md), these three named ranges are part of the
 library's public interface the moment they ship at v2.3: their
 existence, scope (sheet-scoped), and meaning (which status-block
 concept each points at) become a versioning commitment. A future
@@ -949,9 +949,9 @@ workbook (auditable, reproducible). The bootstrap loop indexes into
 this table via
 `INDEX(Bootstrap_Random_Draws, MOD(SEQUENCE(n_resamples), ROWS(Bootstrap_Random_Draws))+1)`,
 giving a resample-index sequence that wraps cleanly through the
-table. The random number seed is the same SHA-derived seed the QC
-build already uses (`analysis_cache.py`), so the draw is deterministic
-across builds. The table is sized once for the library's default
+table. The random number seed is a SHA-256 digest of the source CSV,
+so the draw is deterministic across builds and reproducible from the
+data alone. The table is sized once for the library's default
 n_resamples (e.g. 1,000 draws) and is rebuilt (not re-randomised at
 use time) only when a new build is generated.
 
@@ -989,7 +989,7 @@ Welch, and paired variants?
 Welch cases; the paired case is a separate code path the flag does
 not cover. A 3-way flag or a separate `paired` boolean is the open
 question, not yet resolved. Tracked in
-[TODOs.md § v3.10](docs/TODOs.md#v310--bivariate--two-sample).
+[TODOs.md § v3.10](TODOs.md#v310--bivariate--two-sample).
 
 ### v2.6 — WLS: `Weight` Role, default-uniform `[Weights]` argument
 
@@ -997,7 +997,7 @@ question, not yet resolved. Tracked in
 engine?
 
 **Resolution:** a `Weight` value on the Role axis (see
-[ARCHITECTURE.md § 3](docs/ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
+[ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)
 for the cardinality rule), with a single optional `[Weights]` argument
 (default uniform, i.e. OLS) on the inferential chain. The
 `[DF_Absorbed]` precedent (default 0, no-FE models identical) is the
@@ -1022,8 +1022,8 @@ the FE Role question.
 
 ## v3.0 — Two artifacts, a bounded model context, and the constructor pipeline
 
-The v3.0 decisions respond to [REVIEW.md](REVIEW.md), a standing architecture
-review whose findings share one shape: each individual decision was correct,
+The v3.0 decisions respond to the 2026 architecture review, a standing
+audit whose findings share one shape: each individual decision was correct,
 argued well, and recorded properly, and the cost is in the sum. Findings F1,
 F2, F3, F4, F6, and F8 are resolved by the decisions below and struck from that
 file. **F5** is struck too, but on different grounds — it was already fixed in
@@ -1031,7 +1031,7 @@ the code when the review was written, and the entry below records the correction
 rather than a decision. **F7** (documentation drift) remains open there.
 
 The v3.0 *scope* — which of these ship together — is the one open question, and
-it lives in [ROADMAP.md](docs/ROADMAP.md), in the v3.0 milestone entry.
+it lives in [ROADMAP.md](ROADMAP.md), in the v3.0 milestone entry.
 Everything below is resolved.
 
 ### Univariate becomes its own workbook
@@ -1063,7 +1063,7 @@ one calculation mode has to be wrong for one of them.
 
 **Breakage class: non-breaking, for both artifacts.** The split is packaging
 only — no formula, no input cell, and no named range changes meaning. Per the
-public-interface definition in [ROADMAP.md](docs/ROADMAP.md), every specification
+public-interface definition in [ROADMAP.md](ROADMAP.md), every specification
 valid before the split produces the same result after it.
 
 **Mechanism — shipped.** The two build targets now exist:
@@ -1203,7 +1203,7 @@ transforms from `Spec_Transform`.
 The context block introduces **no new state**. It is a materialized cache of a
 pure function of state that already exists. No user types into it. It belongs to
 the same family as the computed-display cells J, K, and L in
-[ARCHITECTURE.md § 4](docs/ARCHITECTURE.md#4-the-model-spec-block-ao) — cached for
+[ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao) — cached for
 performance rather than shown for display. Recorded explicitly so it is not later
 cited as precedent for putting genuine user input into a computed block: a cell
 whose value a user can change is an input, wherever it sits, and inputs belong in
@@ -1420,7 +1420,7 @@ direction.
 **Question:** in what order do the construction stages apply?
 
 **Resolution:** one fixed order, recorded in
-[ARCHITECTURE.md § 4a](docs/ARCHITECTURE.md#4a-the-constructor-pipeline):
+[ARCHITECTURE.md § 4a](ARCHITECTURE.md#4a-the-constructor-pipeline):
 
 > encode → transform → demean → intercept → weight
 
@@ -1473,7 +1473,7 @@ stages. Call sites read correctly without cross-referencing —
 `GVIF(Predictor_Columns())` — and the "design columns" vocabulary is shared with
 the Design Columns audit column and the Constructed Design Matrix zone below, so
 one term covers all three. The names satisfy the
-[§ 1 naming convention](docs/ARCHITECTURE.md#1-naming-convention): full English words,
+[§ 1 naming convention](ARCHITECTURE.md#1-naming-convention): full English words,
 Title_Case_With_Underscores, no abbreviations.
 
 Resolves REVIEW.md F2.
@@ -1518,8 +1518,8 @@ reserved-spec-column policy exists to enable. Resolves REVIEW.md F6.
 **One correction to F6's premise.** That finding states `Interact(x1, x2)` "exists
 as a standalone catalog function." It does not — `Interact`, `Model_Matrix`, and
 `Dummy_Column` are all *specified* in
-[ARCHITECTURE.md § 5](docs/ARCHITECTURE.md#5-data-transformation-taxonomy) and listed
-as v2.2 work items in [TODOs.md](docs/TODOs.md), but none is in
+[ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy) and listed
+as v2.2 work items in [TODOs.md](TODOs.md), but none is in
 `lambda_functions.json`. The finding's conclusion is unaffected; its evidence is
 corrected here.
 
@@ -1591,7 +1591,7 @@ layout, so a future reader does not mistake the limit for an oversight.
 
 ### Interactions make the Design Columns audit column required
 
-**Question:** [ARCHITECTURE.md § 4](docs/ARCHITECTURE.md#4-the-model-spec-block-ao)
+**Question:** [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao)
 notes that the gap column right of the spec block "visually reserves a future
 Design Columns slot." Does interaction support change its status?
 
@@ -1695,7 +1695,7 @@ Construction" zone — `Model Construction` is already a sheet name
 in the unbounded zone**. This single rule covers both the "nothing may ever be
 placed to the right of the Constructed Design Matrix" commitment and the question
 of where any future bounded materialization goes. It lives in
-[ARCHITECTURE.md § 4b](docs/ARCHITECTURE.md#4b-the-materialization-zone) as a pattern a
+[ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone) as a pattern a
 new feature must honor. It also supersedes REVIEW.md F3's framing: the sheet now
 has an explicit terminal boundary and a stated rule for what may be added, which
 is the eviction mechanism that finding said was missing.
@@ -1778,7 +1778,7 @@ both need the same Excel-verified `#`-inside-a-`LAMBDA` answer.
 
 ### Versioning across two artifacts
 
-**Question:** [ROADMAP.md](docs/ROADMAP.md) defines the public interface as "the user's
+**Question:** [ROADMAP.md](ROADMAP.md) defines the public interface as "the user's
 inputs to the workbook" — singular. Two emitted workbooks break that definition.
 What replaces it?
 
@@ -1804,7 +1804,7 @@ alone would have moved no version. On the Univariate side the split *is* the
 1.0.0 initial release, the artifact's first existence. The grid shrink is
 **MAJOR for the Univariate workbook version only** and does not move the
 Regression workbook version. The full display and changelog conventions are in
-[ROADMAP.md § Versioning](docs/ROADMAP.md#versioning--release-conventions). Resolves
+[ROADMAP.md § Versioning](ROADMAP.md#versioning--release-conventions). Resolves
 REVIEW.md F8.
 
 ### `PRESS` correctly omits `[DF_Absorbed]`
@@ -1892,7 +1892,7 @@ longer writes a shipped sheet; it is the spec-block component library the
 Regression sheet is built from, and it still carries the name of a sheet both
 builds delete. Renaming it — and dropping the unreachable
 `write_model_construction_sheet()` / `main()` standalone-CLI path — is tracked
-in [TODOs.md](docs/TODOs.md) as cosmetic follow-up. Deliberately **not** dropped:
+in [TODOs.md](TODOs.md) as cosmetic follow-up. Deliberately **not** dropped:
 `_write_audit_row` and `_write_filtered_zones`, which are the working reference
 implementations of the Design Columns audit column and the V/W filtered-display
 pattern that this release promotes to production.
@@ -1919,7 +1919,7 @@ tracked invariant.)
 
 ### v3.0 shipped in stages; the layout break lands last
 
-**Question:** the scope entry in [ROADMAP.md](docs/ROADMAP.md) settled *what* v3.0
+**Question:** the scope entry in [ROADMAP.md](ROADMAP.md) settled *what* v3.0
 contains but not how it lands. All of it in one change is a diff nobody can review
 against a workbook nobody can rebuild in CI.
 
@@ -2109,7 +2109,7 @@ That constructor has already demeaned when Fixed Effects are active, and this
 function demeans again by the prediction group; handing it the design matrix would
 double-demean, and the intercept column it strips would have to be re-added anyway.
 Taking predictor columns and applying `demean → intercept` internally is the same
-stage order [ARCHITECTURE.md § 4a](docs/ARCHITECTURE.md#4a-the-constructor-pipeline)
+stage order [ARCHITECTURE.md § 4a](ARCHITECTURE.md#4a-the-constructor-pipeline)
 fixes for the constructor, applied for the same reason: a ones column demeaned by
 group is a column of zeros.
 
@@ -2156,7 +2156,7 @@ box, reporting both the height invariant and that no element errored. The old
 the range's shape, which the build had already fixed — so the error half is the
 only part of that check that was ever load-bearing.
 
-**Generalized in [ARCHITECTURE.md § 4b](docs/ARCHITECTURE.md#4b-the-materialization-zone):**
+**Generalized in [ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone):**
 materialize a bounded, fixed-height artifact as cells; reserve spills for the
 data-dependent zones (`Sample_Include`, the design matrix), whose height genuinely
 follows the source table.
@@ -3238,8 +3238,8 @@ wrong trade for a tool with one user waiting on the Regression workbook.
 
 **Not frozen.** The tool is single-user and pre-release. A user pressing for a
 milestone reorders it; the rule is that
-[docs/MODEL_TESTING_ASSETS.md](docs/MODEL_TESTING_ASSETS.md) § 2 is edited
-first and the [ROADMAP.md](docs/ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+[docs/MODEL_TESTING_ASSETS.md](MODEL_TESTING_ASSETS.md) § 2 is edited
+first and the [ROADMAP.md](ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
 ladder second, so the two never disagree about why the order is what it is.
 
 ### The test-model plan is a document, not a test file
@@ -3248,7 +3248,7 @@ ladder second, so the two never disagree about why the order is what it is.
 in `tests/`, as a docstring or a list of pending cases, or as prose?
 
 **Resolution:** RESOLVED — as prose, in
-[docs/MODEL_TESTING_ASSETS.md](docs/MODEL_TESTING_ASSETS.md), and the code
+[docs/MODEL_TESTING_ASSETS.md](MODEL_TESTING_ASSETS.md), and the code
 holds only cases that actually run. The plan carries things a test file
 cannot: the coverage matrix (which feature corner each model is there for),
 the ~15 configurations not yet declared anywhere, the datasets future
@@ -3706,7 +3706,9 @@ they are not recomputed on every run.
 
 **Resolution:** REJECTED, on measurement. Computing **every** oracle in the
 suite — all 33 fittable `RegressionSpecCase` results plus all 16
-`GuardStateCase` results, across all three datasets — takes **1.71 s**. The
+`GuardStateCase` results, across all three datasets — takes **1.71 s**.
+*(Since settled the other way too: `analysis_cache.py` was deleted outright
+once the legacy configs it served were the only thing still reading it.)* The
 slowest single case is 0.15 s (L03, at 2938-row scale); the whole Life
 Expectancy block is about half the total.
 

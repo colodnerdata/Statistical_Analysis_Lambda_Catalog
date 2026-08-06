@@ -1120,7 +1120,6 @@ def test_run_deep_verify_forwards_skip_regression_false_and_skip_univariate_true
     # to False — the full Regression check runs (this artifact HAS a Regression
     # sheet). skip_univariate=True is passed explicitly (no Univariate sheet).
     assert fake_verify.verify_kwargs["skip_univariate"] is True
-    assert fake_verify.verify_kwargs["skip_dummy"] is True
     assert fake_verify.verify_kwargs.get("skip_regression", False) is False
     # The Regression path passes real regression_sheet_configs (not None).
     assert fake_verify.verify_kwargs["regression_sheet_configs"] is not None

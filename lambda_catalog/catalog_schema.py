@@ -2,17 +2,11 @@
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
 
 from lambda_catalog.lambda_formula_parser import to_workbook_xml_formula_from_display
-
-_MAX_TEST_SHEET_NAME_LEN = 31
-_INVALID_WORKSHEET_NAME_CHARS = set("[]:*?/\\")
-_VALID_TABLE_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
-_MAX_EXCEL_ROW = 1_048_576
 
 
 @dataclass(frozen=True)
@@ -65,10 +59,6 @@ class CatalogFunction:
         Full description shown in the catalog.
     plain_language_summary : str
         Short plain-English explanation shown in the catalog column.
-    test_table : str or None
-        Tag identifying which test sheet this function belongs to.
-    number_format : str
-        Excel number format string for test result cells.
     notes : str
         Tooltip text (max 255 characters) written to the workbook's defined-name
         ``comment`` attribute, shown by Excel in Name Manager and formula-bar
@@ -87,8 +77,6 @@ class CatalogFunction:
     yields: str
     description: str
     plain_language_summary: str
-    test_table: str | None
-    number_format: str
     notes: str
     scope: str = "workbook"
 
@@ -179,68 +167,6 @@ class CatalogDocument:
         return tuple(fn for fn in self.functions if fn.scope == sheet_name)
 
 
-def _looks_like_a1_reference(value: str) -> bool:
-    """Return True when a candidate name resembles an Excel A1-style cell reference."""
-    match = re.fullmatch(r"([A-Za-z]{1,3})([1-9][0-9]{0,6})", value)
-    if match is None:
-        return False
-    column_label = match.group(1).upper()
-    row_number = int(match.group(2))
-    column_number = 0
-    for char in column_label:
-        column_number = (column_number * 26) + (ord(char) - ord("A") + 1)
-    return column_number <= 16384 and row_number <= _MAX_EXCEL_ROW
-
-
-def _validate_test_table_tag(tag: str, entry_index: int) -> None:
-    """Validate a catalog test-table tag for worksheet and table-name usage.
-
-    Parameters
-    ----------
-    tag : str
-        The test_table string to validate.
-    entry_index : int
-        1-based index of the catalog entry, used in error messages.
-
-    Raises
-    ------
-    ValueError
-        If the tag exceeds the maximum worksheet name length, contains invalid
-        characters, starts or ends with an apostrophe, fails the table-name
-        regex, or resembles a cell reference.
-    """
-    if len(tag) > _MAX_TEST_SHEET_NAME_LEN:
-        raise ValueError(
-            f"'test_table' value {tag!r} in entry {entry_index} is "
-            f"{len(tag)} characters; worksheet names may be at most "
-            f"{_MAX_TEST_SHEET_NAME_LEN} characters."
-        )
-    if any(char in _INVALID_WORKSHEET_NAME_CHARS for char in tag):
-        invalid_chars = "".join(
-            sorted({c for c in tag if c in _INVALID_WORKSHEET_NAME_CHARS})
-        )
-        raise ValueError(
-            f"'test_table' value {tag!r} in entry {entry_index} contains invalid "
-            f"worksheet characters: {invalid_chars!r}."
-        )
-    if tag[0] == "'" or tag[-1] == "'":
-        raise ValueError(
-            f"'test_table' value {tag!r} in entry {entry_index} cannot begin or end "
-            "with an apostrophe in Excel worksheet names."
-        )
-    if not _VALID_TABLE_NAME_RE.fullmatch(tag):
-        raise ValueError(
-            f"'test_table' value {tag!r} in entry {entry_index} must be a valid Excel "
-            "table name: start with a letter or underscore and contain only letters, "
-            "numbers, and underscores."
-        )
-    if _looks_like_a1_reference(tag):
-        raise ValueError(
-            f"'test_table' value {tag!r} in entry {entry_index} cannot look like an "
-            "Excel cell reference when used as a table name."
-        )
-
-
 def load_catalog_document(
     path: Path, *, payload: dict | None = None
 ) -> CatalogDocument:
@@ -263,9 +189,8 @@ def load_catalog_document(
     ------
     ValueError
         If the JSON structure is invalid, required fields are missing or blank,
-        function names are duplicated, any test_table tag fails validation, or
-        regression_sheet_notes / univariate_sheet_notes are not string-to-string
-        mappings.
+        function names are duplicated, or regression_sheet_notes /
+        univariate_sheet_notes are not string-to-string mappings.
     """
     if payload is None:
         with path.open("r", encoding="utf-8") as handle:
@@ -342,17 +267,6 @@ def load_catalog_document(
                 optional=bool(arg.get("optional", False)),
             ))
 
-        raw_test_table = item.get("test_table")
-        test_table: str | None = None
-        if raw_test_table is not None:
-            if not isinstance(raw_test_table, str) or not raw_test_table.strip():
-                raise ValueError(f"Entry {index} 'test_table' must be a non-empty string.")
-            test_table = raw_test_table.strip()
-            _validate_test_table_tag(test_table, index)
-
-        raw_number_format = item.get("number_format", "General")
-        number_format = str(raw_number_format).strip() if raw_number_format else "General"
-
         raw_notes = item.get("notes", "")
         notes = str(raw_notes).strip() if raw_notes else ""
         if notes and len(notes) > 255:
@@ -377,8 +291,6 @@ def load_catalog_document(
             yields=raw_yields.strip(),
             description=raw_description.strip(),
             plain_language_summary=plain_language_summary,
-            test_table=test_table,
-            number_format=number_format,
             notes=notes,
             scope=scope,
         ))

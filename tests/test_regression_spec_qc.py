@@ -111,14 +111,7 @@ def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> No
         ), f"{case.name} ({case.plan_id}) flags {flagged!r} as Sequence"
 
 
-def test_verification_calc_sheet_names_respects_skip_dummy_flag() -> None:
-    assert "Dummy_Test" in deep_verify._verification_calc_sheet_names(skip_dummy=False)
-    assert "Dummy_Test" not in deep_verify._verification_calc_sheet_names(
-        skip_dummy=True
-    )
-
-
-def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
+def test_calculate_verification_sheets_calculates_every_required_sheet() -> None:
 
     calls: list[str] = []
 
@@ -154,7 +147,6 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
         workbook,
         verbose=False,
         phase_start=0.0,
-        skip_dummy=True,
     )
 
     assert calls == [
@@ -169,10 +161,10 @@ def test_calculate_verification_sheets_excludes_dummy_when_requested() -> None:
 def test_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
 
     assert "Univariate" in deep_verify._verification_calc_sheet_names(
-        skip_dummy=True, skip_univariate=False
+        skip_univariate=False
     )
     assert "Univariate" not in deep_verify._verification_calc_sheet_names(
-        skip_dummy=True, skip_univariate=True
+        skip_univariate=True
     )
 
 
@@ -214,7 +206,6 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
         workbook,
         verbose=False,
         phase_start=0.0,
-        skip_dummy=True,
     )
 
     assert "Univariate" not in calls
@@ -311,46 +302,6 @@ def test_calculate_verification_sheets_still_requires_regression_sheet() -> None
             workbook,
             verbose=False,
             phase_start=0.0,
-            skip_dummy=True,
-        )
-
-
-def test_calculate_verification_sheets_requires_dummy_when_not_skipped() -> None:
-
-    class _Sheet:
-        def __init__(self, name: str) -> None:
-            self.name = name
-            self.api = SimpleNamespace(Calculate=lambda: None)
-
-    class _Sheets:
-        def __init__(self, names: list[str]) -> None:
-            self._by_name = {name: _Sheet(name) for name in names}
-
-        def __iter__(self):
-            return iter(self._by_name.values())
-
-        def __getitem__(self, name: str):
-            return self._by_name[name]
-
-    workbook = SimpleNamespace(
-        app=SimpleNamespace(api=SimpleNamespace(Calculation=None)),
-        sheets=_Sheets(
-            [
-                "Life Expectancy Data",
-                "Mileage Data",
-                "Production Lots",
-                "Regression",
-                "Univariate",
-            ]
-        ),
-    )
-
-    with pytest.raises(RuntimeError, match="Dummy_Test"):
-        deep_verify._calculate_verification_sheets(
-            workbook,
-            verbose=False,
-            phase_start=0.0,
-            skip_dummy=False,
         )
 
 

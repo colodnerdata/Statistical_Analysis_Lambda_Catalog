@@ -502,14 +502,6 @@ _VALIDATION_LAST_ROW = 16000
 # _spec_band), so the blank cells below the live spec are never read.
 _SPEC_BAND_LAST_ROW = _VALIDATION_LAST_ROW
 
-# Sheet-scoped names this writer used to create and no longer does. They are
-# dropped explicitly on every build: sync_workbook_names only sweeps
-# WORKBOOK-scoped residue, so a sheet-scoped name outlives the code that
-# created it and stays in the artifact forever. Spec_Base_Period_Delta was
-# renamed to Spec_Sequence_Period and its $I$4:$I$15989 band is still in the
-# shipped workbook.
-_RETIRED_LOCAL_NAMES: tuple[str, ...] = ("Spec_Base_Period_Delta",)
-
 # Default spec: variable -> (role, include, type). Reference (E) starts
 # blank everywhere so the first-in-sort-order default is what gets
 # exercised; type an explicit level into E to exercise the override path.
@@ -1227,9 +1219,6 @@ def _set_sheet_scoped_names(
             f"={sname}!${col_letter(_C_INCLUDE)}${_INTERCEPT_ROW}"
         ),
     }
-
-    for name in _RETIRED_LOCAL_NAMES:
-        drop_local_name(sheet, name)
 
     # Wiring first: Excel resolves each name against the ones already added,
     # and the constructor closures below reference Source_Data / Spec_*.

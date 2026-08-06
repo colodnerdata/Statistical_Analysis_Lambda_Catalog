@@ -1,37 +1,62 @@
-"""Verify Regression expected-value configs used by artifact-specific verifiers.
+"""Internal-consistency checks on the shared OLS oracle.
 
-These tests run the same config-building functions that the Regression verifier
-uses for the spec-driven sheet oracle, then check that the results are
-internally consistent and survive cache round-trips. Since Excel is unavailable
-in CI, this validates the Python-side oracle rather than the workbook formulas
-themselves.
+Fits a spread of continuous-predictor models on the Life Expectancy sample
+and asserts the invariants every OLS fit must satisfy regardless of the
+model: the hat diagonal sums to *p*, residuals sum to zero under an
+intercept, predictions plus residuals recover y, the sums of squares
+decompose, and the prediction interval brackets its own point estimate.
+
+These are properties of the arithmetic, not of any particular model, so the
+config list below exists only to exercise them across several model shapes
+(sparse/medium/full x with/without intercept). Excel is unavailable in CI,
+so this validates the Python-side oracle, not the workbook formulas.
 """
-# pylint: disable=import-outside-toplevel,missing-function-docstring,too-many-public-methods,unused-variable
+# pylint: disable=missing-function-docstring,too-many-public-methods,unused-variable
 from __future__ import annotations
 
-import json
-import tempfile
 import unittest
-from pathlib import Path
 from typing import Any, ClassVar
 
-from lambda_catalog.analysis_cache import (
-    _CACHE_SCHEMA_VERSION,
-    _deserialize_regression_sheet_configs,
-    _serialize_regression_sheet_configs,
-    get_analysis_results,
-)
 from lambda_catalog.analyze_life_expectancy import (
     DEFAULT_INPUT_CSV,
 )
 from lambda_catalog.analyze_regression_sheet import (
-    REGRESSION_QC_CONFIGS,
     calculate_regression_sheet_results,
 )
+from lambda_catalog.regression_shared import FEATURE_COLUMNS
 
-# ── Helpers ─────────────────────────────────────────────────────────────────
+# -- Helpers ----------------------------------------------------------------
 
 _CSV = DEFAULT_INPUT_CSV
+
+_SPARSE_PREDICTORS = [
+    "Adult Mortality",
+    "BMI",
+    "HIV/AIDS",
+    "Schooling",
+]
+
+_MEDIUM_PREDICTORS = [
+    "Adult Mortality",
+    "Alcohol",
+    "Hepatitis B",
+    "Polio",
+    "HIV/AIDS",
+    "GDP",
+    "thinness 1-19 years",
+    "Schooling",
+]
+
+# The model shapes the invariants are checked over: (name, include_intercept,
+# predictors). Nothing outside this file consumes it.
+REGRESSION_QC_CONFIGS: list[tuple[str, bool, list[str]]] = [
+    ("sparse_intercept", True, _SPARSE_PREDICTORS),
+    ("sparse_no_intercept", False, _SPARSE_PREDICTORS),
+    ("medium_intercept", True, _MEDIUM_PREDICTORS),
+    ("medium_no_intercept", False, _MEDIUM_PREDICTORS),
+    ("full_intercept", True, FEATURE_COLUMNS),
+    ("full_no_intercept", False, FEATURE_COLUMNS),
+]
 
 
 def _has_csv() -> bool:
@@ -202,63 +227,3 @@ class TestRegressionSheetConfigs(unittest.TestCase):
                 results.summary.ss_regression + results.summary.ss_residual,
                 places=4, msg=name,
             )
-
-
-# ── Cache serialization round-trips ─────────────────────────────────────────
-
-
-@unittest.skipUnless(_has_csv(), _SKIP_MSG)
-class TestCacheRoundTrip(unittest.TestCase):
-    """Verify that Regression QC configs survive JSON serialization/deserialization."""
-
-    reg_configs: ClassVar[list[Any]]
-
-    @classmethod
-    def setUpClass(cls) -> None:
-        from lambda_catalog.analyze_regression_sheet import (
-            build_regression_sheet_qc_configs,
-        )
-        cls.reg_configs = build_regression_sheet_qc_configs(_CSV)
-
-    def test_regression_sheet_round_trip(self) -> None:
-        serialized = _serialize_regression_sheet_configs(self.reg_configs)
-        json_str = json.dumps(serialized)
-        deserialized = _deserialize_regression_sheet_configs(json.loads(json_str))
-        self.assertEqual(len(deserialized), len(self.reg_configs))
-        for (n1, ai1, r1), (n2, ai2, r2) in zip(self.reg_configs, deserialized):
-            self.assertEqual(n1, n2)
-            self.assertEqual(ai1, ai2)
-            self.assertEqual(r1.summary.observations, r2.summary.observations)
-            self.assertEqual(r1.summary.r_squared, r2.summary.r_squared)
-            self.assertEqual(r1.vectors.coefficients, r2.vectors.coefficients)
-            self.assertEqual(r1.predictor_summary.gvif, r2.predictor_summary.gvif)
-            self.assertEqual(r1.full_residuals.hat_diagonal, r2.full_residuals.hat_diagonal)
-            self.assertAlmostEqual(
-                r1.prediction_interval.point_estimate,
-                r2.prediction_interval.point_estimate,
-                places=12,
-            )
-
-    def test_full_cache_round_trip_via_file(self) -> None:
-        """Write to a temp cache file, then read back and compare."""
-        with tempfile.TemporaryDirectory() as tmp:
-            cache_path = Path(tmp) / "test_cache.json"
-            results1 = get_analysis_results(_CSV, cache_path)
-            self.assertTrue(cache_path.exists())
-            results2 = get_analysis_results(_CSV, cache_path)
-            self.assertEqual(len(results1), len(results2))
-
-    def test_cache_invalidation_on_schema_bump(self) -> None:
-        """Cache should be ignored when schema version doesn't match."""
-        with tempfile.TemporaryDirectory() as tmp:
-            cache_path = Path(tmp) / "test_cache.json"
-            get_analysis_results(_CSV, cache_path)
-            with cache_path.open("r") as f:
-                cached = json.load(f)
-            cached["schema_version"] = _CACHE_SCHEMA_VERSION - 1
-            with cache_path.open("w") as f:
-                json.dump(cached, f)
-            results = get_analysis_results(_CSV, cache_path)
-            self.assertGreater(len(results), 0)
-
-

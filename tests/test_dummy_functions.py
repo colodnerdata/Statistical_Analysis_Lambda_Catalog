@@ -1,25 +1,17 @@
-"""Static and reference-mirror tests for the rebuilt Dummy_Levels / Dummy_Code.
+"""Static tests for the rebuilt Dummy_Levels / Dummy_Code catalog formulas.
 
 The v3.0 rebuild changed the failure contract: degenerate input returns a
-genuine Excel error (NA()) instead of a descriptive string. Excel itself is
-exercised by the Dummy_Test sheet writer when that sheet is built; these tests
-cover everything checkable without Excel — the
-formula strings, the catalog metadata, the parser translation, and the
-pure-Python mirrors that generate the QC sheet's expected values.
+genuine Excel error (NA()) instead of a descriptive string. These tests cover
+what is checkable without Excel — the formula strings, the signatures, and the
+parser translation to workbook XML.
+
+The functions' Excel-side behaviour is exercised through the Regression
+engine's own spec-driven verifier; ``analyze_model_construction._masked_levels``
+carries the pure-Python mirror of ``Dummy_Levels`` used by that oracle.
 """
 from pathlib import Path
 
 from lambda_catalog.catalog_schema import load_catalog_document
-from lambda_catalog.write_sheet_dummy_test import (
-    CATEGORY_VALUES,
-    CHECK_CASES,
-    EXPECTED_DEFAULT_LEVELS,
-    EXPECTED_EXPLICIT_LEVELS,
-    INCLUDE_VALUES,
-    SINGLE_LEVEL_VALUES,
-    dummy_code_reference,
-    dummy_levels_reference,
-)
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 _DOCUMENT = load_catalog_document(ROOT_DIR / "lambda_functions.json")
@@ -95,75 +87,3 @@ def test_formulas_translate_to_workbook_xml() -> None:
     assert "_xlfn.LAMBDA" in code_xml
     assert "_xlfn.MAKEARRAY" in code_xml
 
-
-def test_test_table_tag_set() -> None:
-    assert _DUMMY_LEVELS.test_table == "Dummy_Test"
-    assert _DUMMY_CODE.test_table == "Dummy_Test"
-
-
-# ---------------------------------------------------------------------------
-# Pure-Python mirrors: pinned to independently hand-derived expectations, so
-# the QC sheet's expected values are not self-certifying.
-# ---------------------------------------------------------------------------
-
-
-def test_fixture_shape() -> None:
-    assert len(CATEGORY_VALUES) == len(INCLUDE_VALUES) == len(SINGLE_LEVEL_VALUES) == 8
-    assert CATEGORY_VALUES[5] == ""  # blank category cell (row 6)
-    assert INCLUDE_VALUES[6] is False  # excluded row (row 7)
-
-
-def test_mirror_levels_clean_binary_default_reference() -> None:
-    # Levels {Developed, Developing}; default reference = first sorted level.
-    assert dummy_levels_reference(CATEGORY_VALUES) == ["Developing"]
-    assert EXPECTED_DEFAULT_LEVELS == ["Developing"]
-
-
-def test_mirror_levels_empty_string_reference_defaults() -> None:
-    # "" and None request the same default reference.
-    assert dummy_levels_reference(CATEGORY_VALUES, "") == ["Developing"]
-    assert dummy_code_reference(CATEGORY_VALUES, "") == dummy_code_reference(
-        CATEGORY_VALUES
-    )
-
-
-def test_mirror_levels_explicit_valid_reference() -> None:
-    assert dummy_levels_reference(CATEGORY_VALUES, "Developing") == ["Developed"]
-    assert EXPECTED_EXPLICIT_LEVELS == ["Developed"]
-
-
-def test_mirror_levels_failure_conditions_return_none() -> None:
-    # Invalid reference — must fail, never silently one-hot.
-    assert dummy_levels_reference(CATEGORY_VALUES, "Developped") is None
-    # Single level — dropping the reference leaves nothing.
-    assert dummy_levels_reference(SINGLE_LEVEL_VALUES) is None
-    # Everything excluded by the mask.
-    assert dummy_levels_reference(CATEGORY_VALUES, "Developed", False) is None
-    # No non-blank values at all.
-    assert dummy_levels_reference([""] * 8) is None
-
-
-def test_mirror_code_default_matrix() -> None:
-    # include omitted: active = non-blank rows; retained level = Developing.
-    expected = [[0], [1], [0], [1], [1], [""], [0], [1]]
-    assert dummy_code_reference(CATEGORY_VALUES) == expected
-
-
-def test_mirror_code_masked_matrix() -> None:
-    # Row 6 blank and row 7 include=FALSE both emit "" (full height preserved).
-    expected = [[0], [1], [0], [1], [1], [""], [""], [1]]
-    assert dummy_code_reference(CATEGORY_VALUES, "Developed", INCLUDE_VALUES) == expected
-
-
-def test_mirror_code_failure_conditions_return_none() -> None:
-    assert dummy_code_reference(CATEGORY_VALUES, "Developped", INCLUDE_VALUES) is None
-    assert dummy_code_reference(SINGLE_LEVEL_VALUES) is None
-
-
-def test_check_case_formulas_are_wellformed_and_unique() -> None:
-    labels = [label for label, _ in CHECK_CASES]
-    assert len(labels) == len(set(labels))
-    for label, formula in CHECK_CASES:
-        assert formula.startswith("="), label
-        assert formula.count("(") == formula.count(")"), label
-        assert formula.count('"') % 2 == 0, label

@@ -2,8 +2,8 @@
 
 Follows the repo's QC split: expected values are computed in Python from the
 source xlsx (the ``analyze_regression_sheet`` pattern), sheet reads return
-failure strings in the standard ``[Sheet] check=...`` format (the
-``read_dummy_check_failures`` pattern). The calculator mirrors the sheet's
+failure strings in the standard ``[Sheet] check=...`` format that
+``deep_verify`` collects. The calculator mirrors the sheet's
 own semantics — ``Sample_Include()``'s role-aware mask, ``Dummy_Levels``'
 mask-scoped level sets with the reference dropped, and the ``Predictor_Columns()`` /
 ``Constructed_Column_Names()`` iteration predicate — over the same typed

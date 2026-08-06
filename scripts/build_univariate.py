@@ -110,7 +110,7 @@ def _run_deep_verify(
     """Run the spec-driven verifier against the standalone Univariate workbook.
 
     Opens the workbook in a headless Excel instance and calls
-    ``deep_verify.verify_test_sheets(..., skip_dummy=True, skip_regression=True,
+    ``deep_verify.verify_test_sheets(..., skip_regression=True,
     failures_out=...)``. ``skip_regression=True`` drops every Regression /
     Mileage / Production Lots check (this artifact carries none of those
     sheets); the Life Expectancy Full_Data check and the Univariate sheet
@@ -140,7 +140,6 @@ def _run_deep_verify(
                     None,  # regression_sheet_configs — none for this artifact
                     csv_path,
                     verbose=verbose,
-                    skip_dummy=True,
                     skip_regression=True,
                     failures_out=captured,
                 )

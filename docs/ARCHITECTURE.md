@@ -1,8 +1,8 @@
 # Architecture
 
 Foundational patterns that don't change version-to-version. The version plan
-lives in [ROADMAP.md](docs/ROADMAP.md); resolved design decisions with their
-rationale live in [DECISIONS.md](docs/DECISIONS.md); this file is the
+lives in [ROADMAP.md](ROADMAP.md); resolved design decisions with their
+rationale live in [DECISIONS.md](DECISIONS.md); this file is the
 between-versions reference — the rules and patterns a new feature must honor
 even if the version it ships in changes.
 
@@ -18,7 +18,7 @@ recorded here, not in ROADMAP, because they are constraints any future feature
 must honor rather than facts about one release — the pipeline order is what
 keeps the Gram matrix non-singular, and the materialization ordering rule is
 what keeps the sheet's right edge from being consumed. Their rationale lives in
-[DECISIONS.md § v3.0](docs/DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
+[DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
 v3.0 shipped in three stages and **both sections are now built** — they describe
 the sheet as it is, not as it is planned. Where a §4a example shows a
@@ -96,7 +96,7 @@ documented or taught form — they exist purely as optional shortcuts and
 should be introduced only after the canonical library is stable, to avoid
 maintaining two names for a function that's still under active revision.
 
-See [DECISIONS.md § Aliases](docs/DECISIONS.md#aliases) for the full alias table
+See [DECISIONS.md § Aliases](DECISIONS.md#aliases) for the full alias table
 and the deferral record.
 
 ### Naming-style departures
@@ -115,7 +115,7 @@ combinatorially-named families follow the same exception.
   under the `Back-Transformation` subcategory of `Model Construction`,
   document-ordered after `Context_Response_Transform` /
   `Context_Predictor_Transform` (consumers follow dependencies). See
-  [DECISIONS.md § v3.3](docs/DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label)
+  [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label)
   and the v2.2 design-record it supersedes.
 
 ---
@@ -248,7 +248,7 @@ lag/difference/serial-correlation features land on a declared axis.
 - **Continuous** — enters the design matrix as a single column.
 - **Categorical** — encoded via the level-vector split: training and
   prediction both call the same encoder with the same training level vector
-  (see [DECISIONS.md § v2.0 level-vector split](docs/DECISIONS.md#v20--specification-driven-regression)).
+  (see [DECISIONS.md § v2.0 level-vector split](DECISIONS.md#v20--specification-driven-regression)).
 Closed: the Predictor Type axis never grows. Fixed Effects is not a Type
 value; it contributes no columns and no coefficients. It moves to the Role
 axis (v2.1), and the Type axis becomes permanently Continuous/Categorical.
@@ -267,7 +267,7 @@ the upgrade. The cost is that two *inputs* now sit right of the J/K/L computed
 displays, which reads slightly against the block's otherwise
 inputs-then-displays order. That was judged the cheaper of the two — the
 alternative shifts eight columns to preserve a reading convention. See
-[DECISIONS.md § v3.0 interactions](docs/DECISIONS.md#interactions-are-declared-with-two-spec-columns).
+[DECISIONS.md § v3.0 interactions](DECISIONS.md#interactions-are-declared-with-two-spec-columns).
 
 | Col | Contents | UX |
 |---|---|---|
@@ -277,7 +277,7 @@ alternative shifts eight columns to preserve a reading convention. See
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
-| G | **Transform** *(live — v2.2 Log wiring, v3.3 back-transformation)* | Orange input, dropdown `None` · `Log`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). `Log` applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. The unit-space block at `AG3:AH9` (v3.3) computes Duan-smearing back-transformed GoF (`R²`, `Adj R²`, `RMSE` in original units), and the Prediction Outputs block's `AL` column carries the back-transformed point estimate (Duan by default, Naive on toggle) and the four CI/PI bounds (always Naive). Default `None` fits the raw column — under `None` everywhere, `Unit_Space_*` reduce to the ordinary statistics exactly. See [DECISIONS.md § v3.3](docs/DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label). |
+| G | **Transform** *(live — v2.2 Log wiring, v3.3 back-transformation)* | Orange input, dropdown `None` · `Log`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). `Log` applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. The unit-space block at `AG3:AH9` (v3.3) computes Duan-smearing back-transformed GoF (`R²`, `Adj R²`, `RMSE` in original units), and the Prediction Outputs block's `AL` column carries the back-transformed point estimate (Duan by default, Naive on toggle) and the four CI/PI bounds (always Naive). Default `None` fits the raw column — under `None` everywhere, `Unit_Space_*` reduce to the ordinary statistics exactly. See [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label). |
 | H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank. The shipped default pre-flags **Year** `TRUE` (the WHO panel's ordering axis; every other row blank) so the Sequence machinery is live at T0; on a non-panel dataset leave it blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer, by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`) since the base-period release, and — since the DW-gate release — by the serial-correlation accessor `Sequence_Column` (which feeds the gated `Durbin_Watson_By` diagnostic cell). No design-matrix constructor consumes it: Sequence orders the data, it never enters the model matrix. |
 | I | **Sequence Period** *(typed override input, post-v2.1 Sequence fix)* | Orange input — the user types a number on the Sequence-flagged row to declare a Δ that differs from the computed candidate. Blank by default; the spec falls back to the candidate. Read only by the in-use display at column J, not by any constructor. The cell is the load-bearing override point of the reference-level pattern. |
 | J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). No other on-sheet formula reads J; the workbook-scoped `Base_Period_Delta()` accessor (lambda_functions.json) separately provides the omitted-`[delta]` default for `Lag_By`/`Difference_By`. The J cell stays plain, with no on-sheet override-flagging display. |
@@ -416,7 +416,7 @@ Excel does not re-evaluate them at every use site. They are a *cache*, and the
 function remains the source of truth. The boundary that matters: a cell whose
 value a user can change is an input and belongs in the spec block, wherever it
 sits on the sheet. See
-[DECISIONS.md § v3.0 Model_Context](docs/DECISIONS.md#model_context--a-bounded-materialized-cache-of-spec-derived-scalars).
+[DECISIONS.md § v3.0 Model_Context](DECISIONS.md#model_context--a-bounded-materialized-cache-of-spec-derived-scalars).
 
 This is also what settled the `Dummy_Code` design: the level-vector split
 is required — it makes display and constructor provably consistent, and
@@ -436,7 +436,7 @@ item by construction; only the auto-completeness LAMBDA remains to build,
 and the hard-coded `Data_Completeness(...[Life expectancy]:[Schooling])`
 span dies with it. The `Sample_Include()` shipped-with role-aware
 completeness layer is the resolution — see
-[DECISIONS.md § v2.0 auto-completeness](docs/DECISIONS.md#v20--specification-driven-regression).
+[DECISIONS.md § v2.0 auto-completeness](DECISIONS.md#v20--specification-driven-regression).
 ### The `x_s()` row-mask contract
 
 The constructor reads the effective mask *only* to fix Categorical level
@@ -739,10 +739,10 @@ its own catalog category, separate from the version ladder.
 **Delivery, however, is pinned to the ladder.** The user-callable transform
 library was planned for **v2.2** alongside the column-G wiring, then carried
 as the v3.3 remainder, and now ships **last in the Regression track, at
-[v3.9](docs/ROADMAP.md#v39--standalone-data-transformation-library--planned)** —
+[v3.9](ROADMAP.md#v39--standalone-data-transformation-library--planned)** —
 it is the only item that widens the predictor-transform axis every model is
 crossed against, so it is the most expensive Regression milestone to test (see
-[docs/MODEL_TESTING_ASSETS.md § 2](docs/MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order)).
+[docs/MODEL_TESTING_ASSETS.md § 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order)).
 Four functions ship earlier than that, each with the column or milestone that
 first needed it: `Demean_By` and `Group_Mean` at **v2.1** as Fixed-Effects
 internals, `Ln_Positive` as part of the **v2.2 column-G Log wiring** itself
@@ -750,7 +750,7 @@ internals, `Ln_Positive` as part of the **v2.2 column-G Log wiring** itself
 the Location & Scale bundle), and the two-way functions
 (`Absorb_Two_Way_Fixed_Effects`, `Demean_Two_Way_Balanced`,
 `Fixed_Effects_Convergence_Check`) with the **two-way FE milestone,
-[v3.8](docs/ROADMAP.md#v38--two-way-fixed-effects--planned)**.
+[v3.8](ROADMAP.md#v38--two-way-fixed-effects--planned)**.
 
 The taxonomy itself is version-independent — reordering the ladder does not
 change what any of these functions mean.
@@ -814,7 +814,7 @@ change what any of these functions mean.
 - `Dummy_Levels(category, [reference], [include])` — **rebuilt for v2.0**
   (an earlier version existed as a catalog function with string-based
   error returns; dropped and replaced rather than amended — see
-  [DECISIONS.md § v2.0 Dummy rebuild](docs/DECISIONS.md#v20--specification-driven-regression)). Signals
+  [DECISIONS.md § v2.0 Dummy rebuild](DECISIONS.md#v20--specification-driven-regression)). Signals
   every downstream `IFERROR`/`ISNA` guard works without special-casing.
   Retained categorical levels as a horizontal header row; backs the v2.0
   prediction-input validation lists and is the hard dependency of
@@ -834,7 +834,7 @@ change what any of these functions mean.
   roles, via `Dummy_Levels`.
 The three entries below are **specified, not yet built** — none is in
 `lambda_functions.json`. They are v3.9 work items in
-[TODOs.md](docs/TODOs.md#v39--standalone-data-transformation-library) (planned as
+[TODOs.md](TODOs.md#v39--standalone-data-transformation-library) (planned as
 v2.2, carried as the v3.3 remainder, then moved to the end of the ladder — the
 standalone transform library is the most expensive item in the plan to test).
 Recorded explicitly because REVIEW.md F6 cited `Interact` as already shipping.
@@ -857,7 +857,7 @@ Recorded explicitly because REVIEW.md F6 cited `Interact` as already shipping.
 
 Shipped early, in the base-period release (ahead of the v2.2 bundle), to
 the gap-aware semantics recorded in
-[DECISIONS.md § v2.1 base-period layer](docs/DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects):
+[DECISIONS.md § v2.1 base-period layer](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects):
 - `Lag_By(x, group, seq, [delta], [include])` — prior-period value
   within the same group, keyed on `group`/`seq` **by exact time value,
   not physical row order** (exact-match lookup of `(group, seq − Δ)` pairs,
@@ -907,7 +907,7 @@ human test plan.
 
 ## 6. Chart patterns and pitfalls
 
-The full chart-creation rules live in [CLAUDE.md](CLAUDE.md) / [AGENTS.md](AGENTS.md)
+The full chart-creation rules live in [CLAUDE.md](../CLAUDE.md) / [AGENTS.md](../AGENTS.md)
 at the project-instructions tier (xlwings COM, never openpyxl; `.Text` for
 static titles, `.Formula` for cell-linked; histogram `GapWidth = 0`;
 identity lines as real data series; chart title cells outside the
@@ -927,7 +927,7 @@ cross-cutting context that's worth recording here:
 
 For the implementation details (chart-creation pattern, histogram
 formatting, chart positioning, identity-line construction, build-phase
-retry separation), see [CLAUDE.md § Charts](CLAUDE.md).
+retry separation), see [CLAUDE.md § Charts](../CLAUDE.md).
 
 ---
 
@@ -946,7 +946,7 @@ describes: `[DF_Absorbed]` on 24 functions, `[Allow_Intercept]` on 48, each
 addition individually non-breaking and therefore individually authorized, with
 no step at which the rule said stop. Properties of a fit now travel in the
 bounded `Model_Context` block instead
-([DECISIONS.md § v3.0](docs/DECISIONS.md#model_context--a-bounded-materialized-cache-of-spec-derived-scalars)).
+([DECISIONS.md § v3.0](DECISIONS.md#model_context--a-bounded-materialized-cache-of-spec-derived-scalars)).
 
 What survives is the **sheet-column** form and the **dormant `SWITCH` branch**
 form:

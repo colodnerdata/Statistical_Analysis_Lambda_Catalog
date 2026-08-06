@@ -28,33 +28,6 @@ from .regression_shared import (
     RegressionVectors,
 )
 
-_SPARSE_PREDICTORS = [
-    "Adult Mortality",
-    "BMI",
-    "HIV/AIDS",
-    "Schooling",
-]
-
-_MEDIUM_PREDICTORS = [
-    "Adult Mortality",
-    "Alcohol",
-    "Hepatitis B",
-    "Polio",
-    "HIV/AIDS",
-    "GDP",
-    "thinness 1-19 years",
-    "Schooling",
-]
-
-REGRESSION_QC_CONFIGS: list[tuple[str, bool, list[str]]] = [
-    ("sparse_intercept", True, _SPARSE_PREDICTORS),
-    ("sparse_no_intercept", False, _SPARSE_PREDICTORS),
-    ("medium_intercept", True, _MEDIUM_PREDICTORS),
-    ("medium_no_intercept", False, _MEDIUM_PREDICTORS),
-    ("full_intercept", True, FEATURE_COLUMNS),
-    ("full_no_intercept", False, FEATURE_COLUMNS),
-]
-
 
 def _predictor_groups(predictor_names: tuple[str, ...]) -> list[str]:
     """Group key per constructed column: the text before the first ``": "``.
@@ -795,18 +768,3 @@ def calculate_regression_sheet_results(
         alpha=alpha,
         response_name=TARGET_COLUMN,
     )
-
-
-def build_regression_sheet_qc_configs(
-    csv_path: Path = DEFAULT_INPUT_CSV,
-) -> list[tuple[str, bool, RegressionSheetResults]]:
-    """Compute RegressionSheetResults for the legacy continuous QC configs."""
-    results = []
-    for name, allow_intercept, predictors in REGRESSION_QC_CONFIGS:
-        result = calculate_regression_sheet_results(
-            input_csv_path=csv_path,
-            include_intercept=allow_intercept,
-            feature_columns=predictors,
-        )
-        results.append((name, allow_intercept, result))
-    return results

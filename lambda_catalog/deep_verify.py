@@ -37,7 +37,6 @@ from lambda_catalog.write_sheet_csv_dataset import (
     MILEAGE,
     PRODUCTION_LOTS,
 )
-from lambda_catalog.write_sheet_dummy_test import read_dummy_check_failures
 from lambda_catalog.write_sheet_univariate import UNIVARIATE_SHEET_NAME
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -48,7 +47,6 @@ _VERIFY_CALC_SHEET_NAMES = (
     PRODUCTION_LOTS.sheet_name,
     "Regression",
     "Univariate",
-    "Dummy_Test",
 )
 
 
@@ -59,12 +57,10 @@ def _verbose_checkpoint(verbose: bool, start_time: float, label: str) -> None:
 
 
 def _verification_calc_sheet_names(
-    *, skip_dummy: bool, skip_univariate: bool = False, skip_regression: bool = False
+    *, skip_univariate: bool = False, skip_regression: bool = False
 ) -> tuple[str, ...]:
     """Return workbook sheets that must be force-calculated before verify."""
     names = _VERIFY_CALC_SHEET_NAMES
-    if skip_dummy:
-        names = tuple(name for name in names if name != "Dummy_Test")
     if skip_univariate:
         names = tuple(name for name in names if name != "Univariate")
     if skip_regression:
@@ -140,12 +136,10 @@ def _calculate_verification_sheets(
     verbose: bool,
     phase_start: float,
     *,
-    skip_dummy: bool,
     skip_univariate: bool = False,
     skip_regression: bool = False,
 ) -> None:
     sheet_names = _verification_calc_sheet_names(
-        skip_dummy=skip_dummy,
         skip_univariate=skip_univariate,
         skip_regression=skip_regression,
     )
@@ -326,7 +320,6 @@ def verify_test_sheets(
     *,
     mileage_path: Path = MILEAGE.default_csv_path,
     production_lots_path: Path = PRODUCTION_LOTS.default_csv_path,
-    skip_dummy: bool = False,
     skip_univariate: bool = False,
     skip_regression: bool = False,
     failures_out: list[str] | None = None,
@@ -351,11 +344,6 @@ def verify_test_sheets(
     production_lots_path : Path
         Path to the Production Lots sample CSV used for the Production Lots
         sheet's Full_Data comparison. Defaults to the committed sample file.
-    skip_dummy : bool
-        When True, skip the Dummy_Test check (``read_dummy_check_failures``).
-        Used by artifact-specific verify builds that produce workbooks without
-        a ``Dummy_Test`` sheet. Defaults to False for callers that intentionally
-        include that sheet.
     skip_univariate : bool
         When True, skip the Univariate sheet check
         (``read_univariate_failures``). Hardcoded to True by
@@ -390,7 +378,6 @@ def verify_test_sheets(
         workbook,
         verbose,
         phase_start,
-        skip_dummy=skip_dummy,
         skip_univariate=skip_univariate,
         skip_regression=skip_regression,
     )
@@ -458,12 +445,6 @@ def verify_test_sheets(
         for failure in uv_mod.read_univariate_failures(workbook, csv_path):
             _report_qc_failure(failures, failure)
         _verbose_checkpoint(verbose, phase_start, "Verify: univariate done")
-
-    if not skip_dummy:
-        _verbose_checkpoint(verbose, phase_start, "Verify: dummy test start")
-        for failure in read_dummy_check_failures(workbook):
-            _report_qc_failure(failures, failure)
-        _verbose_checkpoint(verbose, phase_start, "Verify: dummy test done")
 
     if failures:
         if failures_out is not None:

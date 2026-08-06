@@ -216,7 +216,6 @@ omit = [
   # xlwings-dependent workbook writers cannot run without Excel on Windows
   "lambda_catalog/workbook_builder.py",
   "lambda_catalog/workbook_helpers.py",
-  "lambda_catalog/make_test_sheet.py",
   "lambda_catalog/sheet_styles.py",
   "lambda_catalog/write_sheet_*.py",
   "lambda_catalog/inspection_compare.py",

@@ -6,9 +6,6 @@ CSV). Useful for re-verifying a previously-built workbook without going
 through a full ``build_production`` cycle — for example, after manually
 editing a sheet to confirm the spec oracle still holds.
 
-The verifier always runs in ``skip_dummy=True`` mode because production
-workbooks do not contain a ``Dummy_Test`` sheet (that sheet is QC-only).
-
 Usage:
     python tools/verify_workbook.py Lambda_Library.xlsx
     python tools/verify_workbook.py Lambda_Library.xlsx --csv path/to/data.csv
@@ -83,7 +80,6 @@ def verify_workbook(
                     csv_path,
                     mileage_path=mileage_path,
                     verbose=verbose,
-                    skip_dummy=True,
                     skip_regression=skip_regression,
                     failures_out=captured,
                 )

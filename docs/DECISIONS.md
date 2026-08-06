@@ -2586,95 +2586,12 @@ shortcuts and should be introduced only after the canonical library
 is stable, to avoid maintaining two names for a function that's still
 under active revision.
 
-The full alias table is a future-implementation record (not active
-work), held here until the canonical library stabilizes enough to make
-alias maintenance cheap.
-
-### Regression — scalar outputs
-
-| Alias | Canonical |
-|---|---|
-| `R2` | `R_Squared` |
-| `ADJ_R2` | `Adjusted_R_Squared` |
-| `MULT_R` | `Multiple_R` |
-| `SE_REG` | `SE_Regression` |
-| `DW` | `Durbin_Watson` |
-| `QQ_CORR` | `QQ_Correlation` |
-| `DFR` | `Regression_Degrees_Of_Freedom` |
-| `DFE` | `Residual_Degrees_Of_Freedom` |
-| `DFT` | `Total_Degrees_Of_Freedom` |
-| `SSR` | `SS_Regression` |
-| `SSE` | `SS_Residual` |
-| `SST` | `SS_Total` |
-| `MSR` | `MS_Regression` |
-| `MSE` | `MS_Residual` |
-| `P_VAL_F` | `F_Statistic_P_Value` |
-
-### Regression — coefficient vectors
-
-| Alias | Canonical |
-|---|---|
-| `COEF` | `Coefficients` |
-| `SE_COEF` | `SE_Coefficients` |
-| `TSTAT` | `T_Statistics` |
-| `PVALS` | `P_Values` |
-| `CI_LOW` | `Confidence_Interval_Lower` |
-| `CI_UP` | `Confidence_Interval_Upper` |
-| `P_R2` | `Partial_R_Squared` |
-| `P_COR` | `Partial_Correlation` |
-| `BETA_W` | `Beta_Weights` |
-
-### Regression — observation vectors
-
-| Alias | Canonical |
-|---|---|
-| `PRED` | `Predictions` |
-| `RESID` | `Residuals` |
-| `STDR` | `Studentized_Residuals` |
-| `LEV` | `Hat_Diagonal` |
-| `COOK_D` | `Cooks_Distance` |
-| `LOOCV` | `LOOCV_Prediction` |
-| `PI` | `Prediction_Interval` |
-
-### Regression — utilities
-
-| Alias | Canonical |
-|---|---|
-| `COMPLETE` | `Complete_Cases_Filter` |
-| `CORMAT` | `Correlation_Matrix` |
-| `DESIGN` | `Design_Matrix` |
-
-### Univariate — descriptive
-
-| Alias | Canonical |
-|---|---|
-| `DSTAT` | `Descriptive_Statistics` |
-| `NMISS` | `Missing_Count` |
-
-### Univariate — histogram binning
-
-| Alias | Canonical |
-|---|---|
-| `NBINS` | `Number_Of_Histogram_Bins` |
-| `EDGES` | `Bin_Edges` |
-| `UEDGES` | `Upper_Bin_Edges` |
-| `LEDGES` | `Bin_Lower_Edges` |
-| `BIN_MIDS` | `Bin_Midpoints` |
-| `BIN_FREQS` | `Bin_Counts` |
-
-### Univariate — goodness-of-fit
-
-| Alias | Canonical |
-|---|---|
-| `GOF_AD` | `GoF_Anderson_Darling` |
-| `GOF_KS` | `GoF_Kolmogorov_Smirnov` |
-
-### Grid-search helpers
-
-| Alias | Canonical |
-|---|---|
-| `GS_MIN` | `Grid_Argument_Minimum` |
-| `GS_OPT` | `Grid_Search_Optimum` |
+**No alias table is kept here.** One was — 46 proposed short names against
+their canonical functions — and it was deleted rather than maintained: every
+row is a second name to rename in step with the first, for a layer nobody has
+committed to building. The naming convention above is enough to regenerate the
+whole set mechanically whenever the canonical library does stabilize, and
+regenerating it then is cheaper than keeping it correct until then.
 
 ---
 

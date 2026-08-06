@@ -51,8 +51,11 @@ single ungrouped GAP column so the zones collapse independently; see the
                    labelled cell per context element), the materialized
                    Sample_Include row mask, and the terminal Constructed
                    Design Matrix — the last two headed on row 2 and spilling
-                   from row 3 — each in its own outline group separated by
-                   ungrouped gutters. Nothing may ever be placed right of the
+                   from row 3 — separated by ungrouped gutters. Only the
+                   Model Context block is grouped: the two data-dependent
+                   zones are left ungrouped and visible, because collapsing
+                   a spilled zone hides the cells the engines recalculate
+                   through. Nothing may ever be placed right of the
                    design matrix; the Model Formula readout sits on ROW 1 of
                    its zone, above a body that only ever grows rightward.
 
@@ -111,6 +114,7 @@ from .workbook_helpers import (
     format_input,
     note_dimensions,
     rc,
+    reset_column_groups,
     safe_activate,
     section_heading,
     val,
@@ -556,14 +560,23 @@ _ROW_CHART_LABELS = 95     # first of 7 rows, one per chart in chart_specs order
 #   charts | gutter | Model Context | gutter | Sample_Include | gutter | matrix →
 #           (label + value, 4 rows)       (n x 1)            (n x k, unbounded)
 #
-# The three §4b content zones ship COLLAPSED. Model Context (a bounded
-# two-column label/value pair) and Sample_Include (a bounded single column) are
-# collapsed for the same reason as the terminal Constructed Design Matrix: the
-# whole far-right materialization band is secondary reading surface, so it
-# should open with the main analysis zones visible and expand on demand.
-# Gutters are width-2 ungrouped separators so each zone collapses independently
-# — the first gutter (after the charts) is structural, keeping the floating
-# chart anchors out of every collapsible outline group.
+# Only the Model Context zone is grouped, and it is the only one that ships
+# COLLAPSED. It is a bounded, fixed-height block of individual cells — nothing
+# spills into it — so hiding it is free, and the far-right band is secondary
+# reading surface that should open out of the way.
+#
+# The two DATA-DEPENDENT zones (the Sample_Include row mask and the terminal
+# Constructed Design Matrix) are deliberately left UNGROUPED and visible. Both
+# hold full-height dynamic-array spills, and a collapsed outline group over a
+# spill range is the configuration in which Excel fails to recompute the model:
+# the hidden columns leave the spilled arrays stale, and every engine reading
+# across them fits on the stale values. A scrolling nuisance is the accepted
+# cost — correct recalculation is not negotiable, and the §4b ordering rule
+# (nothing right of the design matrix) is what keeps an expanded terminal zone
+# from displacing anything.
+#
+# Gutters remain width-2 ungrouped separators — the first (after the charts) is
+# structural, keeping the floating chart anchors out of the collapsible group.
 #
 # The chart footprint needs an explicit bound. _C_BB is the chart ANCHOR, not
 # its extent: the seven diagnostic charts are floating objects tiled in a
@@ -744,7 +757,7 @@ _ROW_MODEL_CONTEXT_CHECK = _MODEL_CONTEXT_LAST_ROW + 1
 _MODEL_CONTEXT_LABEL_WIDTH = 20.0
 _MODEL_CONTEXT_VALUE_WIDTH = 14.0
 _SAMPLE_INCLUDE_MATERIALIZED_WIDTH = 14.0
-_DESIGN_MATRIX_GROUPED_WIDTH = 12.0
+_DESIGN_MATRIX_COLUMN_WIDTH = 12.0
 _CONSTRUCTED_DESIGN_MATRIX_LABEL_WIDTH = 24.0
 _MODEL_FORMULA_LABEL_WIDTH = 14.0
 
@@ -798,11 +811,14 @@ assert _DESIGN_MATRIX_MAX_COLUMNS == _MAX_EXCEL_COLUMN - (_LAST_CHART_COLUMN + 6
 _DESIGN_MATRIX_SOFT_COLUMNS = 200
 _DESIGN_MATRIX_SOFT_CELLS = 500_000
 
-# The collapse control over the terminal zone covers a bounded band: an
-# outline group has to name its columns, and grouping out to column 16,384
-# would bloat the sheet for a width no usable model reaches. The band is
-# sized to the soft column threshold — past it the guard has already fired.
-_DESIGN_MATRIX_GROUPED_COLUMNS = _DESIGN_MATRIX_SOFT_COLUMNS
+# How much of the terminal zone gets an explicit column width. The zone runs to
+# the sheet's right edge, but sizing out to column 16,384 would bloat the sheet
+# for a width no usable model reaches, so the sized band stops at the soft
+# column threshold — past it the width guard has already fired. (This band used
+# to be the terminal zone's outline group as well; the grouping is gone, because
+# a collapsed group over the design-matrix spill is what stops Excel
+# recalculating the model. The width is all that remains.)
+_DESIGN_MATRIX_SIZED_COLUMNS = _DESIGN_MATRIX_SOFT_COLUMNS
 
 # ── Visual formatting helpers ─────────────────────────────────────────────────
 
@@ -2482,8 +2498,11 @@ def _write_materialization_zone(
     ``_MATERIALIZATION_SPILL_ROW``, full height and row-aligned with the source
     table, so the mask reads straight across into the design-matrix row beside
     it. Both replaced a ``"reserved"`` placeholder that held the position while
-    stage 3 established the layout, the outline behaviour, and the pre-flight
-    width guard.
+    stage 3 established the layout and the pre-flight width guard. Neither is
+    grouped: they hold spills, and a collapsed outline group over a spill range
+    leaves it stale on recalculation, so the model refits on old values. Only
+    the fixed-height Model Context block — individual cells, no spill — carries
+    a group, and it is the only zone that ships collapsed.
 
     Surfacing the values is NOT the same as rewiring the readers, and only the
     first half lands here. ``Sample_Include()`` and ``Design_Columns()`` remain
@@ -2611,16 +2630,17 @@ def _write_materialization_zone(
     # The zone that terminates the band. Its width is unbounded and one
     # dropdown away — Country as a Categorical Predictor is 156 columns, and
     # interactions multiply — which is why nothing may ever be placed to its
-    # right. All three §4b content zones ship collapsed so the materialization
-    # band stays out of the way until explicitly expanded; this terminal zone
-    # especially needs that because an unbounded-width zone left open is a
-    # scrolling hazard.
+    # right. It used to ship collapsed, on the grounds that an unbounded-width
+    # zone left open is a scrolling hazard; it no longer does. Hiding the
+    # columns a full-height spill occupies is what leaves Design_Columns()
+    # stale on recalculation, so every engine reading the matrix fits on old
+    # values. The zone stays expanded and the scrolling stays.
     #
     # Establishing the zone and MATERIALIZING into it were deliberately
-    # separate steps: the position, the outline behaviour, and the width guard
-    # that reads the spec's pre-flight column count are what a later release
-    # could not add without moving columns again, so they landed first and the
-    # spill is a formula change into columns that already exist.
+    # separate steps: the position and the width guard that reads the spec's
+    # pre-flight column count are what a later release could not add without
+    # moving columns again, so they landed first and the spill is a formula
+    # change into columns that already exist.
     #
     # The header row is split across two cells because the matrix is one
     # column wider than its names when the intercept is on — the anchor cell
@@ -2675,7 +2695,8 @@ def _write_materialization_zone(
             "Sample Include mask to its left (the engines apply that mask "
             "themselves). Terminal §4b zone — nothing may ever be placed to "
             "its right, because its width is unbounded and one dropdown away. "
-            "Ships collapsed for that reason.\n\n"
+            "Left expanded and ungrouped on purpose: collapsing the columns a "
+            "spill occupies leaves the matrix stale on recalculation.\n\n"
             "Header row: the anchor cell names the intercept column the "
             "constructor prepends, and Constructed_Column_Names() spills from "
             "the column beside it. With Allow Intercept FALSE there is no "
@@ -2692,10 +2713,10 @@ def _write_materialization_zone(
     assert _MATERIALIZATION_FIRST_ROW == 2
 
     # ── Column widths + outline groups ───────────────────────────────────────
-    # All three §4b content zones ship collapsed. The width-2 gutters stay
-    # ungrouped so the zones collapse independently, and the first gutter
-    # (after the charts) is structural — it keeps the floating chart anchors
-    # out of every collapsible outline group.
+    # Only the Model Context zone is grouped, and only it ships collapsed. The
+    # width-2 gutters stay ungrouped, and the first gutter (after the charts)
+    # is structural — it keeps the floating chart anchors out of the
+    # collapsible outline group.
     for gutter in (
         _C_GUTTER_AFTER_CHARTS,
         _C_GUTTER_AFTER_CONTEXT,
@@ -2708,34 +2729,36 @@ def _write_materialization_zone(
         (_C_SAMPLE_INCLUDE_MATERIALIZED, _SAMPLE_INCLUDE_MATERIALIZED_WIDTH),
     ):
         sheet.range(f"{col_letter(content)}:{col_letter(content)}").column_width = width
-    # One outline group per ZONE, not per column: the Model Context zone is the
-    # label/value pair and has to collapse as a unit, or its labels would be
-    # left stranded beside a collapsed value column.
-    for first, last in (
-        (_C_MODEL_CONTEXT_LABEL, _C_MODEL_CONTEXT),
-        (_C_SAMPLE_INCLUDE_MATERIALIZED, _C_SAMPLE_INCLUDE_MATERIALIZED),
-    ):
-        band = f"{col_letter(first)}:{col_letter(last)}"
-        sheet.api.Columns(band).Group()
-        try:
-            sheet.api.Columns(band).ShowDetail = False
-        except Exception:  # pylint: disable=broad-except
-            pass
-
-    matrix_band = (
-        f"{col_letter(_C_DESIGN_MATRIX)}:"
-        f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_GROUPED_COLUMNS - 1)}"
-    )
-    sheet.range(matrix_band).column_width = _DESIGN_MATRIX_GROUPED_WIDTH
-    sheet.api.Columns(matrix_band).Group()
-    # Collapse it. ShowDetail is an ActiveWindow-free property on the range,
-    # but it still needs a real outline underneath, so guard it the way every
-    # other cosmetic COM call on this sheet is guarded — a workbook that
-    # opens with the zone expanded is a nuisance, not a broken build.
+    # The Model Context zone is grouped as the label/value PAIR, not per
+    # column, so it collapses as a unit — grouping the value column alone
+    # would strand its labels beside a collapsed column. It is the band's only
+    # group: it is a fixed-height block of individual cells, so hiding it
+    # hides no spill.
+    #
+    # Sample_Include and the Constructed Design Matrix are NOT grouped and NOT
+    # collapsed. Both are full-height dynamic-array spills, and a collapsed
+    # group over a spill range is the state in which Excel stops recalculating
+    # the model — the hidden columns keep the stale arrays, and the ~30 engine
+    # call sites reading across them fit on stale values. Do not re-add a
+    # Group()/ShowDetail call for either one.
+    context_band = f"{col_letter(_C_MODEL_CONTEXT_LABEL)}:{col_letter(_C_MODEL_CONTEXT)}"
+    sheet.api.Columns(context_band).Group()
+    # ShowDetail is an ActiveWindow-free property on the range, but it still
+    # needs a real outline underneath, so guard it the way every other cosmetic
+    # COM call on this sheet is guarded — a workbook that opens with the block
+    # expanded is a nuisance, not a broken build.
     try:
-        sheet.api.Columns(matrix_band).ShowDetail = False
+        sheet.api.Columns(context_band).ShowDetail = False
     except Exception:  # pylint: disable=broad-except
         pass
+
+    # Width only for the terminal zone — sized across the bounded band the
+    # width guard already bounds, with no outline over it.
+    matrix_band = (
+        f"{col_letter(_C_DESIGN_MATRIX)}:"
+        f"{col_letter(_C_DESIGN_MATRIX + _DESIGN_MATRIX_SIZED_COLUMNS - 1)}"
+    )
+    sheet.range(matrix_band).column_width = _DESIGN_MATRIX_COLUMN_WIDTH
 
     # ── Chart-footprint clearance assertion (Excel only) ────────────────────
     # _LAST_CHART_COLUMN is a conservative bound; this verifies the column
@@ -2998,8 +3021,14 @@ def write_regression_output_sheet(
         sheet.api.ChartObjects(idx).Delete()
     sheet.api.Cells.Clear()
     # Cells.Clear does not touch outline levels — drop any grouping from a
-    # previous build before the zone groups are re-applied below.
-    sheet.api.Cells.ClearOutline()
+    # previous build before the zone groups are re-applied below. It also does
+    # not UNHIDE: ClearOutline alone removes the outline and leaves the columns
+    # a collapsed group had hidden still hidden, with no "+" left to expand
+    # them. That is exactly the trap this rebuild has to clear when it lands on
+    # a workbook built before the §4b spill zones were ungrouped, so use the
+    # shared helper, which clears the outline AND unhides every column. The
+    # groups this build wants are re-applied below.
+    reset_column_groups(sheet)
     safe_activate(sheet)
 
     # Names FIRST, then the spec block. The block's four computed columns

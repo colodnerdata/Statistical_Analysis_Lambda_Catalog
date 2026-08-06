@@ -1706,6 +1706,11 @@ each and ship **expanded**; the Constructed Design Matrix ships **collapsed by
 default**, because an unbounded-width zone that cannot be collapsed is a scrolling
 hazard.
 
+> **SUPERSEDED** by v3.4+ *The spilled §4b zones are no longer grouped or
+> collapsed*. Only `Model_Context` is grouped now; the two zones that hold
+> spills are ungrouped and expanded, because a collapsed group over a spill
+> range leaves the array stale and the model refits on it.
+
 **The first gutter is structural, not cosmetic.** Charts anchored over columns
 inside a collapsed outline group get squashed. The gutter after the chart columns
 is what keeps the diagnostic-chart anchors outside every collapsible group.
@@ -3109,6 +3114,10 @@ hides its columns including row 1 — so the caption, like the zone's own headin
 is not visible until the zone is expanded. `Comparison_Model_Formula` reads it
 regardless; hidden columns still calculate.
 
+> **SUPERSEDED** by v3.4+ *The spilled §4b zones are no longer grouped or
+> collapsed*. The zone ships expanded, so this cost is not paid: the caption is
+> visible. `Comparison_Model_Formula` reads it by name either way.
+
 `Comparison_Model_Formula` is what makes the move free. The v3.4 reading surface
 is a sheet-scoped NAME, and its `RefersTo` is now built from the layout
 constants (`_abs_ref(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA)`) rather than the
@@ -3889,11 +3898,66 @@ that property so an edit moving the predictors into the first 12 rows fails
 instead of silently testing nothing.
 
 **A stale name was swept on the way.** `Spec_Base_Period_Delta`
-(`Regression!$I$4:$I$15989`) was residue from the rename to
-`Spec_Sequence_Period`: `sync_workbook_names` only sweeps **workbook**-scoped
-residue, so a sheet-scoped name outlives the code that created it indefinitely.
-A `_RETIRED_LOCAL_NAMES` drop-list cleared it, and once both shipped artifacts
-were confirmed free of it that list was removed as a no-op. The general problem
-stands — a sheet-scoped name the writers stopped creating has no sweeper — so
-the next such rename needs the same one-release drop-and-verify, not a
-permanent list.
+(`Regression!$I$4:$I$15989`) is residue from the rename to
+`Spec_Sequence_Period` and is still in the shipped artifact:
+`sync_workbook_names` only sweeps **workbook**-scoped residue, so a sheet-scoped
+name outlives the code that created it indefinitely. `_RETIRED_LOCAL_NAMES` now
+drops it on every build. Worth generalizing — a sheet-scoped name the writers
+stopped creating has no other sweeper.
+
+---
+
+## v3.4+ — The spilled §4b zones are no longer grouped or collapsed
+
+### Collapsing a zone that holds a spill stops the model recalculating
+
+**Question:** the Regression sheet's §4b materialization band shipped with all
+three content zones grouped and collapsed — `Model Context`, the
+`Sample_Include` row mask, and the terminal Constructed Design Matrix. The band
+is secondary reading surface and the terminal zone's width is one dropdown away
+from hundreds of columns, so collapsing it read as free. Is it?
+
+**RESOLVED — not for the two zones that hold spills.** `Sample_Include` and the
+Constructed Design Matrix are full-height dynamic arrays, and a collapsed
+outline group over a spill range is the configuration in which Excel fails to
+recompute the model: the hidden columns keep the stale arrays, and every engine
+that reads across them refits on stale values. The failure is silent in the
+worst way — the numbers are all present, all plausible, and all computed from a
+matrix that no longer matches the spec block. Both zones are now written
+**ungrouped and expanded**, and `_write_materialization_zone` carries a
+do-not-re-add note on the removed `Group()` / `ShowDetail` calls.
+
+**Model Context keeps its group.** It is a fixed-height block of *individual
+cells* — that is the v3.0 decision that made it cells rather than a `VSTACK`
+spill, taken for the torn-context race — so there is no spill to leave stale
+and hiding it costs nothing. It stays grouped as the label/value **pair** so
+its labels never strand beside a collapsed value column, and it remains the
+band's only collapsed zone.
+
+**Accepted cost: the scrolling hazard is back**, and it is the exact cost the
+original decision was buying off. An expanded terminal zone whose width follows
+the design matrix means a wide model leaves a long ride to the right of the
+sheet. That is a nuisance; refitting on stale values is a wrong answer. The
+§4b ordering rule (nothing may ever be placed to the right of the design
+matrix) is what keeps the expanded zone from displacing anything else, so the
+cost stays contained to scrolling.
+
+**What survived the removal.** The terminal zone still gets an explicit column
+width across a bounded band — `_DESIGN_MATRIX_SIZED_COLUMNS`, sized to the soft
+column threshold past which the width guard has already fired. That constant
+and `_DESIGN_MATRIX_COLUMN_WIDTH` were named `_DESIGN_MATRIX_GROUPED_*` when
+the band was also the outline group; they are renamed, because nothing about
+them is grouped now.
+
+**Supersedes** the v3.0 *Materialization zone layout* entry's "Collapse
+behavior differs by zone" paragraph (which had `Model_Context` and
+`Sample_Include` shipping expanded and the design matrix collapsed — the code
+had since collapsed all three) and the v3.3 *Model Formula readout* entry's
+accepted cost, which noted the caption on row 1 of the terminal zone was hidden
+until the zone was expanded. It no longer is: the zone ships expanded, so the
+caption is visible, and `Comparison_Model_Formula` reads the cell by name
+either way.
+
+**REJECTED — keep the group, ship it expanded.** An outline whose collapse
+button is one click away from a silently wrong fit is a trap with a label on
+it, not a feature. Removing the group removes the click.

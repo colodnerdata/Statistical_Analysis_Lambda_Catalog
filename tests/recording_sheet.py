@@ -321,17 +321,18 @@ class RecordingColumns:
 
     Several writers fold columns into Excel outline groups
     (``sheet.api.Columns("BO:BO").Group()``); the full regression writer does
-    it for every zone, and the §4b materialization zone does it for its two
-    bounded blocks. Recording the grouped addresses lets a headless test
-    confirm a column was grouped (and, just as importantly, that a gutter was
-    NOT).
+    it for every zone, and the §4b materialization zone does it for its one
+    groupable block (Model Context). Recording the grouped addresses lets a
+    headless test confirm a column was grouped (and, just as importantly, that
+    a gutter — or a zone holding a spill — was NOT).
 
     Assigning ``ShowDetail`` collapses or expands an existing outline group.
     A plain SimpleNamespace would swallow that assignment silently, so the
     proxy below is a real object that records it — collapse state is part of
-    the §4b zone contract (the unbounded design-matrix zone ships collapsed
-    while the bounded ones ship expanded), and a silently-dropped assignment
-    would make that untestable.
+    the §4b zone contract (Model Context ships collapsed; the ``Sample_Include``
+    and design-matrix zones are ungrouped and expanded, because a collapsed
+    group over a spill range leaves the array stale on recalculation), and a
+    silently-dropped assignment would make that untestable.
     """
 
     class _Proxy:
@@ -373,17 +374,35 @@ class RecordingSheet:
             Names=RecordingNames(f"{name}!"),
             ListObjects=RecordingListObjects(),
             Columns=RecordingColumns(self),
-            # ``Cells`` is used as a wholesale clear (``Cells.Clear()``) and to
-            # drop outline levels (``Cells.ClearOutline()``) before re-grouping;
-            # neither is load-bearing for a cell/name assertion, so they no-op.
+            # ``Cells`` is used as a wholesale clear (``Cells.Clear()``), to
+            # drop outline levels (``Cells.ClearOutline()``) before re-grouping,
+            # and — via ``reset_column_groups`` — to unhide every column after
+            # that (``Cells.EntireColumn.Hidden = False``, which is what stops a
+            # rebuild leaving a previously collapsed group's columns hidden with
+            # no outline to expand them). None is load-bearing for a cell/name
+            # assertion, so they no-op; ``EntireColumn`` just has to absorb the
+            # assignment rather than raise.
             Cells=SimpleNamespace(
                 Clear=lambda: None,
-                ClearOutline=lambda: setattr(self, "column_groups", []),
+                ClearOutline=self._clear_outline,
+                EntireColumn=SimpleNamespace(Hidden=False),
             ),
         )
         self.book = SimpleNamespace(
             api=SimpleNamespace(Names=RecordingNames(names=global_names))
         )
+
+    def _clear_outline(self) -> None:
+        """Drop every recorded outline — groups AND their collapse state.
+
+        Excel's ``ClearOutline`` removes the outline itself, so no group
+        survives to be collapsed or expanded. Clearing ``column_groups`` alone
+        would leave the mock reporting a collapse state for a band that no
+        longer has an outline, and an assertion after a rebuild's
+        ``reset_column_groups`` would read that stale entry as fact.
+        """
+        self.column_groups = []
+        self.column_show_detail = {}
 
     def range(self, *addresses: Any) -> RecordingRange:
         # xlwings accepts a single cell as either sheet.range(row, col) or

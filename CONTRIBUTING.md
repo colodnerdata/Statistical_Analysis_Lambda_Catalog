@@ -144,21 +144,11 @@ Tests live in `tests/`. The current test files are:
 
 ### Coverage scope
 
-The coverage configuration in `pyproject.toml` tracks only the modules that are testable without Excel:
+Coverage measures **all** of `lambda_catalog/` except the modules that drive Excel's COM API. Those are named in the `omit` list in `pyproject.toml`: the `write_sheet_*.py` writers, `workbook_helpers.py`, and `deep_verify.py`. They are validated by the artifact-specific Excel verification commands instead (see [Verifying builds](#verifying-builds)).
 
-- `analyze_life_expectancy.py`
-- `analyze_mileage.py`
-- `analyze_production_lots.py`
-- `analyze_model_construction.py`
-- `analyze_regression_spec.py`
-- `analyze_regression_spec_block.py`
-- `analyze_univariate.py`
-- `catalog_schema.py`
-- `lambda_formula_parser.py`
-- `regression_shared.py`
-- `verify_report.py`
+**The test for belonging on that list is whether the module imports `xlwings` or `pywin32`** — not whether it is *about* the workbook. The distinction is not pedantic: four modules sat in `omit` under the looser reading while importing neither, and reported 92 / 100 / 87 / 48 % coverage the moment they were let back in. The costly one was `analyze_regression_sheet.py`. It is the OLS core the live spec oracle calls (`analyze_regression_spec` → `calculate_regression_results_from_matrix`), so the headline coverage number was excluding the arithmetic the whole Regression suite is checking. Do not re-add a module to `omit` because it *sounds* Excel-shaped; check its imports.
 
-The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the artifact-specific Excel verification commands instead (see [Verifying builds](#verifying-builds)).
+This section deliberately no longer enumerates what *is* measured. The list it used to carry had drifted to omit four in-scope modules of its own, which is the failure mode a hand-maintained inventory always reaches — `pyproject.toml` is the source of truth, and it is short because it names only exceptions.
 
 ### CI
 

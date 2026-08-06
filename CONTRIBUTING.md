@@ -480,7 +480,6 @@ tools/
   inspect_regression_sheet.py # Regression sheet comparison (loaded by lambda_catalog.deep_verify)
   inspect_univariate_sheet.py # Univariate sheet comparison (loaded by lambda_catalog.deep_verify)
   inspect_xlsx.py            # workbook inspection utility
-  check_lengths.py           # print Name Manager comment lengths
   verify_workbook.py         # standalone CLI wrapping the spec-driven verifier
 ```
 

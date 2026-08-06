@@ -37,7 +37,7 @@ from .analyze_production_lots import (
 from .analyze_regression_sheet import calculate_regression_results_from_matrix
 from .regression_shared import RegressionSheetResults
 from .test_model_sheets import assert_sheet_names_unique, validate_sheet_name
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _ROLE_FILTER,
     _ROLE_FIXED_EFFECTS,
     _ROLE_IDENTIFIER,
@@ -105,7 +105,7 @@ class RegressionSpecCase:
     # The live workbook's Source_Table RefersTo to apply before writing this
     # case's spec block — Source_Table is the ONE name that retargets which
     # data sheet the Regression sheet's spec block/design matrix read from
-    # (see write_sheet_model_construction._set_sheet_scoped_names), so a case
+    # (see write_spec_block._set_sheet_scoped_names), so a case
     # from a different dataset than the generated workbook's default (Mileage) must
     # switch it or its spec rows land on the wrong table's columns entirely.
     # Every case sets this explicitly (not Optional) so the QC harness resets

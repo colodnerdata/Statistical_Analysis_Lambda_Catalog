@@ -170,7 +170,7 @@ suffixes are part of the value, not documentation shorthand: `Sample_Include()`
 string-compares `INDEX(rl, j) = "Response (y)"`, and
 `Absorbed_Degrees_Of_Freedom()` compares against `"Fixed Effects"`. The
 canonical list is `_ROLE_VALIDATION_LIST` in
-`write_sheet_model_construction.py`. Prose below refers to the roles by their
+`write_spec_block.py`. Prose below refers to the roles by their
 short names (Response, Predictor, Identifier) for readability; the dropdown
 values are the strings in the table.
 
@@ -260,7 +260,7 @@ alternative shifts eight columns to preserve a reading convention. See
 | Col | Contents | UX |
 |---|---|---|
 | A | Variable name | Spills from the table's header row |
-| B | **Role** | Dropdown: `Response` · `Predictor` · `Identifier` · `Filter` · `Omit` · `Fixed Effects` (v2.1). Short names here for readability — the dropdown carries the exact strings in §3, and `_ROLE_VALIDATION_LIST` in `write_sheet_model_construction.py` is the canonical list. Pre-filled by the build — no blank cells. Role precedes Include because it is the larger declaration. |
+| B | **Role** | Dropdown: `Response` · `Predictor` · `Identifier` · `Filter` · `Omit` · `Fixed Effects` (v2.1). Short names here for readability — the dropdown carries the exact strings in §3, and `_ROLE_VALIDATION_LIST` in `write_spec_block.py` is the canonical list. Pre-filled by the build — no blank cells. Role precedes Include because it is the larger declaration. |
 | C | Include toggle | Orange input; meaningful only when Role = Predictor |
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
@@ -701,10 +701,10 @@ total rather than from `COLUMNS(Design_Columns())`:
 ### Naming
 
 The terminal zone is the **Constructed Design Matrix**. Not the "Model
-Construction" zone — `Model Construction` is already a sheet name
-(`write_sheet_model_construction.py`) and the two have to stay
-distinguishable. That sheet's V/W filtered-display zones are the pattern this
-promotes to production.
+Construction" zone — `Model Construction` was already a sheet name
+(`write_sheet_model_construction.py`, retired at v2.0) and the two had to
+stay distinguishable. That sheet's V/W filtered-display zones are the
+pattern this promotes to production.
 
 ### The cost, recorded honestly
 

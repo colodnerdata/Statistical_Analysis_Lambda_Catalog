@@ -920,7 +920,7 @@ def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
     """L05. SPEC_DATASET_PROFILES["life_expectancy"] is what
     `--regression-dataset life_expectancy` pre-fills, and nothing had ever
     verified that the model it ships actually fits."""
-    from lambda_catalog.write_sheet_model_construction import SPEC_DATASET_PROFILES
+    from lambda_catalog.write_spec_block import SPEC_DATASET_PROFILES
 
     expected = calculate_regression_spec_case(_case("life_full_profile"), CSV_PATH)
     design = expected.design

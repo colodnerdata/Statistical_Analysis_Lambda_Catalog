@@ -22,7 +22,7 @@ from lambda_catalog.analyze_model_construction import (
     compare_observed_to_expected,
     load_source_rows,
 )
-from lambda_catalog.write_sheet_model_construction import (
+from lambda_catalog.write_spec_block import (
     _DEFAULT_SEQUENCE_VARIABLES,
     _DEFAULT_SPEC,
     _ROLE_FILTER,
@@ -199,7 +199,7 @@ def test_row_labels_fall_back_to_positional_without_identifiers(rows) -> None:
 def test_blank_role_behaves_identically_to_explicit_omit(rows) -> None:
     # No constructor closure and no check here ever compares Role against
     # _ROLE_OMIT by name (see the comment next to _ROLE_OMIT in
-    # write_sheet_model_construction.py) — Omit is purely the implicit
+    # write_spec_block.py) — Omit is purely the implicit
     # "none of the active roles" bucket, so a blank Role cell must be
     # indistinguishable from an explicit "Omit" in every respect. This is
     # what makes a freshly-added, not-yet-classified spec row safe: it's

@@ -68,10 +68,10 @@ from .analyze_regression_spec import (
     _spec_var,
 )
 from .test_model_sheets import assert_sheet_names_unique, validate_sheet_name
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _FIRST_DATA_ROW as SPEC_FIRST_DATA_ROW,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _MSG_CALENDAR,
     _MSG_NO_NATURAL,
     _MSG_OFF_GRID,
@@ -88,7 +88,7 @@ from .write_sheet_regression import (
 )
 
 # The empty-model string the audit strip's IFERROR degrades to, matching
-# _EMPTY_MODEL_FALLBACK in write_sheet_model_construction. Kept as a plain
+# _EMPTY_MODEL_FALLBACK in write_spec_block. Kept as a plain
 # string here (that constant carries Excel's own quoting).
 EMPTY_MODEL = "(empty model)"
 

@@ -949,7 +949,7 @@ def test_column_widths_cover_every_zone_column_and_no_gap_column() -> None:
 
     # Every content column of every zone past the spec block is sized exactly
     # once. (The spec block A–O owns its own widths in
-    # write_sheet_model_construction; column I is the one override here.)
+    # write_spec_block; column I is the one override here.)
     content = {
         col for first, last in _ZONES[1:] for col in range(first, last + 1)
     } | {_C_P, _C_Q}  # zone 1's spec-feedback columns; A–O is the spec block

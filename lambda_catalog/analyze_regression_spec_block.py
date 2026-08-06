@@ -1,22 +1,22 @@
 """QC verification of the Regression sheet's spec block and constructor path.
 
 The spec-block changeover moved the declarative spec block onto the Regression
-sheet, and the Model Construction sheet (with its dedicated verifier) left
-the build. The six regression QC configurations only exercise all-continuous
+sheet, and the Model Construction sheet (with its dedicated verifier, now
+``analyze_model_construction`` reading the Regression sheet) was retired at
+v2.0. The six regression QC configurations only exercise all-continuous
 designs — every config switches the default spec's Categorical predictors
 (Model Year, Origin) OFF — so without this module the categorical
 constructor path (dummy encoding, level-qualified names, the degenerate
 skip, the Levels and Reference In Use displays) would have no live-Excel
 verification at all.
 
-This is the Model Construction verifier ported to the Regression sheet. The
-expectation side is reused verbatim (``analyze_model_construction``'s
+This is the historical Model Construction verifier ported to the Regression
+sheet. The expectation side is reused verbatim (``analyze_model_construction``'s
 calculator is pure Python and sheet-agnostic), and the spec block occupies
 identical coordinates on both sheets (columns A–O; intercept row 2, headers
 row 3, the spec data rows below that — the writers are shared), so the
 Levels / Reference In Use reads port unchanged. Only the assertions against
-the Model Construction sheet's display zones are remapped onto the
-Regression sheet's own display of the same facts:
+the Regression sheet's display zones are retained:
 
     MC audit k / twin tripwire   → S3 constructed-names spill width, and the
                                    AA21 coefficient-label spill (k+1 rows with
@@ -70,7 +70,7 @@ from .analyze_model_construction import (
     load_source_rows,
 )
 from .write_sheet_csv_dataset import MILEAGE
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_LEVELS,
     _C_REF_IN_USE,
     _C_ROLE,
@@ -78,10 +78,10 @@ from .write_sheet_model_construction import (
     _ROLE_FILTER,
     _VARIABLES,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _INTERCEPT_ROW as _SEQUENCE_STATUS_ROW,
 )
 from .write_sheet_regression import (

@@ -1,4 +1,4 @@
-"""RecordingSheet tests for the Model Construction sheet writer.
+"""RecordingSheet tests for the spec-block component library (Regression sheet).
 
 Excel-side behavior (spill evaluation, Dummy_Levels calls, conditional
 formatting rendering) is exercised by the Excel verifier; these tests pin
@@ -23,7 +23,7 @@ from lambda_catalog.sheet_styles import (
     INPUT_COLOR,
 )
 from lambda_catalog.workbook_helpers import excel_color
-from lambda_catalog.write_sheet_model_construction import (
+from lambda_catalog.write_spec_block import (
     _AUDIT_PAIRS,
     _AUDIT_ROW,
     _C_BREAK_LEFT,
@@ -65,7 +65,6 @@ from lambda_catalog.write_sheet_model_construction import (
     _N_VARIABLES,
     _VALIDATION_LAST_ROW,
     _VARIABLES,
-    SHEET_NAME,
     SPEC_DATASET_PROFILES,
     _set_sheet_scoped_names,
     _set_spec_block_column_widths,
@@ -78,6 +77,14 @@ from lambda_catalog.write_sheet_model_construction import (
 from tests.recording_sheet import RecordingSheet
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
+
+# Local label for the ``RecordingSheet`` instances below — historically
+# this module targeted a standalone "Model Construction" sheet; the sheet
+# was dropped at v2.0 (the spec block now lives on the Regression sheet),
+# and the ``SHEET_NAME`` constant that used to live in
+# ``write_sheet_model_construction.py`` went with it. The label survives
+# here only as a string the tests build ``RecordingSheet`` mocks with.
+SHEET_NAME = "Model Construction"
 
 _EXPECTED_NAME_ORDER = [
     "Source_Table",
@@ -185,23 +192,18 @@ def test_both_writers_register_names_before_the_spec_block() -> None:
     """
     import inspect
 
-    from lambda_catalog.write_sheet_model_construction import (
-        write_model_construction_sheet,
-    )
     from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 
-    for writer, names_call in (
-        (write_model_construction_sheet, "_set_sheet_scoped_names("),
-        (write_regression_output_sheet, "_setup_local_names("),
-    ):
-        source = inspect.getsource(writer)
-        # Each appears exactly once, so "first occurrence" is the call site
-        # and cannot drift to some other mention.
-        assert source.count(names_call) == 1, writer.__name__
-        assert source.count("_write_spec_block(") == 1, writer.__name__
-        assert source.index(names_call) < source.index("_write_spec_block("), (
-            writer.__name__
-        )
+    # The Regression sheet's write_regression_output_sheet registers
+    # sheet-scoped names via _setup_local_names *before* calling
+    # _write_spec_block — so a name like RegChartFitY is created before
+    # any formula that references it lands on the sheet.
+    source = inspect.getsource(write_regression_output_sheet)
+    # Each appears exactly once, so "first occurrence" is the call site
+    # and cannot drift to some other mention.
+    assert source.count("_setup_local_names(") == 1
+    assert source.count("_write_spec_block(") == 1
+    assert source.index("_setup_local_names(") < source.index("_write_spec_block(")
 
 
 def test_only_the_retarget_name_references_the_table_directly() -> None:
@@ -597,7 +599,7 @@ def test_reserved_spec_order_is_not_referenced_repo_wide() -> None:
     # it legitimately appears in lambda_functions.json (the four
     # transform-aware constructors) and in write_sheet_regression.py's
     # note-swap import.
-    own_module = "write_sheet_model_construction.py"
+    own_module = "write_spec_block.py"
     sources = [
         path
         for path in (ROOT_DIR / "lambda_catalog").glob("*.py")
@@ -1105,7 +1107,7 @@ def test_sequence_status_line_validates_zero_or_one_flags() -> None:
     # "Sequence" column header, and a status cell on top of a header reads
     # as a visual collision. (It moved when the spec area became a
     # structured table; the table is gone, the placement stands.)
-    from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
+    from lambda_catalog.write_spec_block import _write_spec_feedback
     _write_spec_feedback(_as_xw_sheet(sheet))
 
     # E1: blank while the spec carries zero-or-one flags, a red error line
@@ -1127,7 +1129,7 @@ def test_sequence_status_line_validates_zero_or_one_flags() -> None:
 def test_fixed_effects_status_line_validates_zero_or_one_rows() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
-    from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
+    from lambda_catalog.write_spec_block import _write_spec_feedback
     _write_spec_feedback(_as_xw_sheet(sheet))
 
     # B1: the Fixed Effects cardinality error — same pattern as E1's
@@ -1147,7 +1149,7 @@ def test_fixed_effects_status_line_validates_zero_or_one_rows() -> None:
 
 def test_fixed_effects_status_block_shows_variable_groups_and_absorbed_df() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
-    from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
+    from lambda_catalog.write_spec_block import _write_spec_feedback
     _write_spec_feedback(_as_xw_sheet(sheet))
 
     for col, label in (
@@ -1185,7 +1187,7 @@ def test_spec_feedback_writes_delta_count_verdict_with_priority_cf() -> None:
     yellow via StopIfTrue.
     """
     sheet = RecordingSheet(name=SHEET_NAME)
-    from lambda_catalog.write_sheet_model_construction import _write_spec_feedback
+    from lambda_catalog.write_spec_block import _write_spec_feedback
     _write_spec_feedback(_as_xw_sheet(sheet))
 
     # M1/N1 headers, bold via bold_row (range-level bold, not per-cell).

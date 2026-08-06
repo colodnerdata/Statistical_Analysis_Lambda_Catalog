@@ -24,7 +24,7 @@ from lambda_catalog.analyze_regression_guard_states import (
     delta_spectrum,
     sequence_verdict,
 )
-from lambda_catalog.write_sheet_model_construction import (
+from lambda_catalog.write_spec_block import (
     _MSG_CALENDAR,
     _MSG_NO_NATURAL,
     _MSG_OFF_GRID,
@@ -435,7 +435,7 @@ def test_retarget_case_puts_its_evidence_past_the_narrow_shells_last_row() -> No
     A future edit that moves the model's predictors up into the first 12
     rows would leave the case passing while testing nothing.
     """
-    from lambda_catalog.write_sheet_model_construction import (
+    from lambda_catalog.write_spec_block import (
         _FIRST_DATA_ROW,
         _LAST_DATA_ROW,
         _N_VARIABLES,

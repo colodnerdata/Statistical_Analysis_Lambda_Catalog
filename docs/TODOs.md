@@ -48,7 +48,7 @@ Three self-contained items, in ascending cost:
 |---|---|---|
 | [Finish drift check 3 — function names resolve](#documentation) | S | Documentation |
 | [Wire the calendar-dated monthly series](#test-model-suite) | M | Test suite |
-| [Rename `write_sheet_model_construction.py` → `write_spec_block.py`](#v20-leftovers) | M | v2.0 |
+| ~~[Rename `write_sheet_model_construction.py` → `write_spec_block.py`](#v20-leftovers)~~ ✅ DONE 2026-08-06 | M | v2.0 |
 | [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
 | [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
 | [`Moving_Average` / `Exponential_Smoothing`](#v36--time-role--time-series) | M | v3.6 |
@@ -173,21 +173,7 @@ Specification-Driven Regression shipped 2026-07-05; the human test plan
 `tests/test_difference_by_verification.py`. What remains is one open decision
 and two cleanups.
 
-- **READY · M · no Excel** — **Rename `write_sheet_model_construction.py` to
-  match what it is.** It no longer writes a shipped sheet — both
-  `build_production.py` and `build_univariate.py` call
-  `_delete_sheet_if_present(workbook, "Model Construction")`. What it actually is
-  now is the **spec-block component library**: `write_sheet_regression.py`
-  imports `_write_spec_block`, `_write_spec_feedback`, `_write_intercept_control`,
-  `_set_sheet_scoped_names`, `_set_spec_block_column_widths`, and every `_C_*`
-  column constant from it. Proposed: rename to `write_spec_block.py` and update
-  the importers (`write_sheet_regression.py`, `analyze_model_construction.py`,
-  `analyze_regression_spec.py`, `analyze_regression_spec_block.py`,
-  `tools/inspect_regression_sheet.py`, and five test modules). Mechanical;
-  changes no behavior.
-
-  Drop at the same time: `write_model_construction_sheet()`, `main()`, and
-  `SHEET_NAME` — the standalone-CLI path, unreachable from any build.
+- **DONE 2026-08-06** — Renamed `write_sheet_model_construction.py` to `write_spec_block.py`. Importer rewrites landed in `write_sheet_regression.py`, `analyze_model_construction.py`, `analyze_regression_spec.py`, `analyze_regression_spec_block.py`, `analyze_regression_guard_states.py`, `regression_spec_sheet_io.py`, `write_sheet_test_model.py`, `scripts/build_production.py`, `tools/inspect_test_model_sheets.py`, the renamed `tests/test_spec_block_writer.py`, and 8 other test modules. Dropped at the same time: `write_model_construction_sheet()`, `main()`, `SHEET_NAME`, and the standalone-CLI path. `_write_audit_row` and `_write_filtered_zones` kept as planned.
 
   **Keep** `_write_audit_row` and `_write_filtered_zones`. They are the working
   reference implementations of the Design Columns audit column (now required —

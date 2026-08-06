@@ -6,7 +6,7 @@ Layout (five horizontal zones, each preceded — after the spec block — by a
 single ungrouped GAP column so the zones collapse independently; see the
 "Column-layout paradigm" note above the _C_* constants):
   Col A–O        — Model Specification: the declarative spec block shared with
-                   write_sheet_model_construction (Variable / Role / Include /
+                   write_spec_block (Variable / Role / Include /
                    Type / Reference Level / Order / Transform / Sequence /
                    Sequence Period / Period In Use / Levels / Reference In Use /
                    Interaction Term / Interaction Operation / Design Columns).
@@ -76,7 +76,7 @@ Allow_Intercept in B2). Everything the v1 sheet hard-wired is now derived:
 The constructor closures come from lambda_functions.json (scope
 "Regression") and are registered sheet-scoped here, exactly as the Model
 Construction sheet registered them; the spec-block writers are imported from
-write_sheet_model_construction so the two sheets can never drift.
+write_spec_block so the two sheets can never drift.
 """
 # pylint: disable=too-many-lines
 from __future__ import annotations
@@ -119,52 +119,52 @@ from .workbook_helpers import (
     section_heading,
     val,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_DESIGN_COLUMNS as _C_SPEC_DESIGN_COLUMNS,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_INCLUDE as _C_SPEC_INCLUDE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_INTERACTION_OPERATION as _C_SPEC_INTERACTION_OPERATION,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_INTERACTION_TERM as _C_SPEC_INTERACTION_TERM,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_LABEL as _C_SPEC_LABEL,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_LEVELS as _C_SPEC_LEVELS,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_ORDER as _C_SPEC_ORDER,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_PERIOD_IN_USE as _C_SPEC_PERIOD_IN_USE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_REF_IN_USE as _C_SPEC_REF_IN_USE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_REFERENCE as _C_SPEC_REFERENCE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_ROLE as _C_SPEC_ROLE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_SEQUENCE as _C_SPEC_SEQUENCE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_TRANSFORM as _C_SPEC_TRANSFORM,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_TYPE as _C_SPEC_TYPE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _DESIGN_COLUMNS_NOTE,
     _FIXED_EFFECTS_COUNT_FORMULA,
     _FIXED_EFFECTS_NAME_FORMULA,
@@ -195,10 +195,10 @@ from .write_sheet_model_construction import (
     _write_spec_block,
     _write_spec_feedback,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _HEADER_ROW as _SPEC_HEADER_ROW,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _set_sheet_scoped_names as _set_spec_scoped_names,
 )
 
@@ -237,7 +237,7 @@ _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.j
 # of truth for both column widths and outline grouping (see _ZONES / _GAP_COLUMNS).
 
 # Zone 1: Model Specification — columns A–O are owned by the shared spec-block
-# writers in write_sheet_model_construction (imported above); only the section
+# writers in write_spec_block (imported above); only the section
 # heading cell is written here.
 _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 
@@ -427,8 +427,8 @@ _COLUMN_GROUPS: tuple[tuple[int, int], ...] = _ZONES
 # than its column costs height rather than truncation.
 _COLUMN_WIDTHS: tuple[tuple[int, float], ...] = (
     # ── Spec block (A–O) ────────────────────────────────────────────────────
-    # The spec block owns its own widths (_set_spec_block_column_widths, shared
-    # with the standalone Model Construction sheet). Column I is the ONE
+    # The spec block owns its own widths (_set_spec_block_column_widths in
+    # ``write_spec_block``). Column I is the ONE
     # Regression-only override: this sheet overlays the combined Sequence
     # Verdict switch on I2, a long message and the widest cell on the sheet.
     (_C_SPEC_SEQUENCE_PERIOD, 38),
@@ -1196,7 +1196,7 @@ def _setup_local_names(
     The spec wiring (Source_Data / Header_Names / Spec_* / Allow_Intercept)
     and the constructor closures (Sample_Include / Response_Column /
     Row_Labels / Predictor_Columns / Constructed_Column_Names) are registered by
-    ``_set_sheet_scoped_names`` from write_sheet_model_construction; this
+    ``_set_sheet_scoped_names`` from write_spec_block; this
     function adds the Regression-only names on top.
     """
     # ALWAYS single-quoted. A sheet name containing a space — which every
@@ -1205,7 +1205,7 @@ def _setup_local_names(
     # Names.Add with "There's a problem with this formula". Quoting a name
     # that does not need it is always legal, so carrying the quotes on the
     # variable removes the entire class of bug instead of relying on each
-    # call site to remember. write_sheet_model_construction's own
+    # call site to remember. write_spec_block's own
     # _set_sheet_scoped_names already did this; this function did not, and
     # four of its seven references were unquoted.
     sname = f"'{sheet.name}'"
@@ -1372,9 +1372,11 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     """Zone A–O: the shared spec block + row-2 Intercept control.
 
     The block itself (headers, defaults, dropdowns, CF, the Levels and
-    Reference In Use displays) is written by the same functions that build
-    the standalone Model Construction sheet, so the two layouts can never
-    drift. Only the zone heading and the reserved-column notes are local.
+    Reference In Use displays) is written by the same ``_write_spec_block``
+    / ``_write_spec_feedback`` / ``_set_spec_block_column_widths`` family
+    in ``write_spec_block.py`` that built the original standalone sheet,
+    so the layout cannot drift. Only the zone heading and the
+    reserved-column notes are local.
 
     The block itself is written earlier in ``write_regression_output_sheet``,
     right after the sheet-scoped names — its four computed columns are spills
@@ -1391,7 +1393,7 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     # not the first variable row. All twelve spec-block headers carry a
     # plain-language note; the four (Order, Transform, Sequence, Sequence
     # Period) that double as the shipped spec-feature headers use the
-    # longer notes defined in write_sheet_model_construction.py.
+    # longer notes defined in write_spec_block.py.
     _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_LABEL, _LABEL_NOTE, label="Variable")
     _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_ROLE, _ROLE_NOTE, label="Role")
     _set_note(sheet, _SPEC_HEADER_ROW, _C_SPEC_INCLUDE, _INCLUDE_NOTE, label="Include")
@@ -3070,7 +3072,7 @@ def write_regression_output_sheet(
 
     sheet.range(rc(2, _C_S), rc(2, _C_BA)).api.WrapText = True
 
-    # A–O (spec block) widths are owned by write_sheet_model_construction.py
+    # A–O (spec block) widths are owned by write_spec_block.py
     # so the standalone and shared-block builds can never drift.
     _set_spec_block_column_widths(sheet)
 

@@ -31,40 +31,40 @@ import xlwings as xw
 
 from .analyze_regression_spec import RegressionSpecExpected
 from .inspection_compare import compare_values, to_float_or_none
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_INCLUDE as _C_SPEC_INCLUDE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_INTERACTION_OPERATION as _C_SPEC_INTERACTION_OPERATION,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_INTERACTION_TERM as _C_SPEC_INTERACTION_TERM,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_REFERENCE as _C_SPEC_REFERENCE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_ROLE as _C_SPEC_ROLE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_SEQUENCE as _C_SPEC_SEQUENCE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_TRANSFORM as _C_SPEC_TRANSFORM,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _C_TYPE as _C_SPEC_TYPE,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _INTERCEPT_ROW,
 )
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _LAST_DATA_ROW as _SPEC_LAST_DATA_ROW,
 )
 from .write_sheet_regression import (

@@ -551,7 +551,7 @@ covering-array philosophy already bounds.
 
 **Wiring cost (future work, per dataset):** one `CsvDatasetConfig` + one `SpecDatasetProfile` +
 a registry entry (`lambda_catalog/write_sheet_csv_dataset.py`, `SPEC_DATASET_PROFILES` in
-`write_sheet_model_construction.py`).
+`write_spec_block.py`).
 
 ### Recommended additions
 

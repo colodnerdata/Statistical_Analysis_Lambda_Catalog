@@ -61,7 +61,7 @@ from lambda_catalog.write_sheet_csv_dataset import (
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
-from lambda_catalog.write_sheet_model_construction import SPEC_DATASET_PROFILES
+from lambda_catalog.write_spec_block import SPEC_DATASET_PROFILES
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
     write_regression_instructions_sheet,
@@ -85,7 +85,7 @@ _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
 
 # Dataset profiles: maps the --regression-dataset choice to both the
 # Source_Table RefersTo formula and the spec block's default Role/Include/
-# Type/Sequence values — SPEC_DATASET_PROFILES (write_sheet_model_construction.py)
+# Type/Sequence values — SPEC_DATASET_PROFILES (write_spec_block.py)
 # is the single source of truth for both, so retargeting the dataset also
 # retargets the shipped default model instead of leaving every column of
 # the newly-targeted dataset an un-flagged Predictor. "auto_mpg" is the

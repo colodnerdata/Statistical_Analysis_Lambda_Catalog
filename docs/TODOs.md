@@ -715,16 +715,27 @@ its place by covering something no other case does.
 
 Version-independent; not tied to a milestone.
 
-- **READY · S · no Excel** — **Build one of the two mechanical drift checks**
-  proposed in
-  [CONTRIBUTING.md § Documentation drift](../CONTRIBUTING.md#documentation-drift-proposed-check--not-yet-implemented)
-  and tracked as review finding F7 (documentation drift is measurable),
-  the one finding still open. The cheaper and higher-yield of the two is the
-  **cross-document anchor check**: every `](FILE.md#anchor)` and `](#anchor)`
-  resolves to a real heading in the target file. Roughly 40 lines of `re` plus a
-  pytest case, no Excel, runs in the existing Linux CI job. The 2026-08-03 review
-  ran it by hand (zero unresolved targets) and then deleted three documents —
-  exactly the change that breaks anchors with no error anywhere. The second check
-  (function names in docs resolving against `lambda_functions.json`) would have
-  caught the stale `X_s` references and the 126-vs-131 count drift that same
-  review found by hand.
+Three mechanical drift checks are proposed in
+[CONTRIBUTING.md § Documentation drift](../CONTRIBUTING.md#documentation-drift),
+tracked as review finding F7 (documentation drift is measurable). **Two and a
+half are built**; what is below is the remainder.
+
+- Check 1, **link targets** — built in `tests/test_doc_links.py`.
+- Check 2, **cross-document anchors** — built in the same file. It caught its
+  first live breakage on the commit that introduced it: the heading rename that
+  built check 1 broke the link *this entry used to carry* into it.
+- Check 3, **function names in docs resolve against `lambda_functions.json`** —
+  the *count* half is built in `tests/test_doc_catalog_counts.py`, which found
+  four stale numbers (139/139/131 for a 140-entry catalog, and 17 for 18
+  sheet-scoped closures). The name half is what remains.
+
+- **READY · S · no Excel** — **Finish check 3: resolve function *names*.** Every
+  name written as a function reference in a doc table or fenced block resolves to
+  an entry in `lambda_functions.json`, unless it is a native Excel function or
+  explicitly tagged as planned. This is what would have caught the stale `X_s`
+  references the 2026-08-03 review found by hand. The hard part is not the
+  lookup, it is the exclusion list — the docs legitimately name native Excel
+  functions (`TAKE`, `MAP`, `XLOOKUP`), *planned* functions that do not exist
+  yet by design (every `READY` item above names one), and prose words that
+  happen to be capitalized. Start from the count half's file, which already
+  loads the catalog and pins the phrasings the docs use.

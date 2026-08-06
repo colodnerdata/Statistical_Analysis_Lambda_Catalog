@@ -28,17 +28,12 @@ jobs:
       - name: Install dependencies
         run: uv sync --all-groups --frozen
 
-      # These two steps go through the poethepoet tasks defined in
-      # pyproject.toml, so CI and a developer machine run the same command
-      # definitions and cannot drift. `uv sync --all-groups` above installs
-      # poethepoet from the dev group; `--frozen` is supplied by the
-      # UV_FROZEN=1 set in [tool.poe.env].
+      # This step goes through the poethepoet task defined in pyproject.toml,
+      # so CI and a developer machine run the same command definitions and
+      # cannot drift. `uv sync --all-groups` above installs poethepoet from the
+      # dev group; `--frozen` is supplied by the UV_FROZEN=1 in [tool.poe.env].
       - name: Run tests with coverage
         run: uv run poe test-cov
-
-      - name: Run static checks
-        if: matrix.python-version == '3.12'
-        run: uv run poe lint
 
       - name: Upload coverage to Codecov
         if: matrix.python-version == '3.12'
@@ -46,6 +41,31 @@ jobs:
         with:
           files: coverage.xml
           fail_ci_if_error: false
+
+  # Its own job, not a step inside the 3.12 matrix leg. As a step it queued
+  # behind a full coverage run, so a one-line pylint error took the whole suite
+  # to report; as a job it runs concurrently and fails in about the time it
+  # takes to install. `poe check` runs the same two tasks in parallel locally,
+  # but CI wants them as two independently reportable checks rather than one
+  # combined pass/fail.
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv and set up Python
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "latest"
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: uv sync --all-groups --frozen
+
+      - name: Run static checks
+        run: uv run poe lint
 
 # Note: a previous draft of this workflow included a `windows-verify` job
 # that ran `python scripts/build_production.py --verify --no-launch` on

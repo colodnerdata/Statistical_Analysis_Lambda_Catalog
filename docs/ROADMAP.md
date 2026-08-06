@@ -66,7 +66,7 @@ question for two artifacts with entirely different input surfaces. The scheme:
 
 | Number | Covers | Moves when |
 |---|---|---|
-| **Library version** | The shared function catalog — all 131 LAMBDA definitions, identical in both workbooks | A function is added, renamed, or changes what it returns |
+| **Library version** | The shared function catalog — all 140 LAMBDA definitions, identical in both workbooks | A function is added, renamed, or changes what it returns |
 | **Workbook version** *(one per artifact)* | That artifact's sheets, input cells, control blocks, and sheet-scoped names | That workbook's input surface changes |
 
 **Why split this way.** Both workbooks carry the identical complete function

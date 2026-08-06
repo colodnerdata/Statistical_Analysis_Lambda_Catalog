@@ -37,12 +37,13 @@ Use these shortcuts for day-to-day work from an activated `.venv`. If the enviro
 | Run tests with coverage | `poe test-cov` | `uv run pytest --cov --cov-report=term-missing --cov-report=xml` | Matches the CI coverage step. |
 | Run the fast workbook invariant screen | `poe verify-headless` | `uv run pytest tests/test_workbook_invariants.py -v` | No Excel required; catches packaging/name/cache drift. |
 | Run pylint's CI check | `poe lint` | `uv run pylint --errors-only lambda_catalog scripts tools` | Error-only lint, matching CI. |
+| Run both CI checks at once | `poe check` | — | `test-cov` and `lint` in parallel; the local pre-push screen. |
 | Build the Regression artifact | `poe build` | `uv run python scripts/build_production.py` | Needs desktop Excel. |
 | Build the Univariate artifact | `poe build-univariate` | `uv run python scripts/build_univariate.py` | Needs desktop Excel. |
 | Build + verify Regression | `poe verify-deep` | `uv run python scripts/build_production.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify Univariate | `poe verify-deep-univariate` | `uv run python scripts/build_univariate.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify test models | `poe verify-test-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose` | Needs desktop Excel; append `--include-heavy` to include the heavy cases (`L05`, `L08`). |
-| Run the whole verification ladder | `poe verify` | Run the four `verify-*` tasks in sequence | Needs desktop Excel after the headless layer; stops on first failure. |
+| Run the whole verification ladder | `poe verify` | Run the three deep `verify-*` tasks concurrently, then `verify-headless` over their output | Needs desktop Excel; stops on first failure. |
 | Resync workbook-scoped catalog names | `poe resync-names -- <workbook.xlsx>` | `uv run python tools/resync_workbook_names.py <workbook.xlsx>` | Use the `--` separator before positional args. |
 | Rebuild static reference sheets | `poe static-sheets` | `uv run python scripts/rebuild_static_sheets.py` | Needs desktop Excel; manual template maintenance. |
 
@@ -144,21 +145,15 @@ Tests live in `tests/`. The current test files are:
 
 ### Coverage scope
 
-The coverage configuration in `pyproject.toml` tracks only the modules that are testable without Excel:
+Coverage measures **all** of `lambda_catalog/` except the modules that drive Excel's COM API. Those are named in the `omit` list in `pyproject.toml`: the `write_sheet_*.py` writers, `workbook_helpers.py`, and `deep_verify.py`. They are validated by the artifact-specific Excel verification commands instead (see [Verifying builds](#verifying-builds)).
 
-- `analyze_life_expectancy.py`
-- `analyze_mileage.py`
-- `analyze_production_lots.py`
-- `analyze_model_construction.py`
-- `analyze_regression_spec.py`
-- `analyze_regression_spec_block.py`
-- `analyze_univariate.py`
-- `catalog_schema.py`
-- `lambda_formula_parser.py`
-- `regression_shared.py`
-- `verify_report.py`
+**That list is an explicit set of exceptions, not a rule you can re-derive.** Sixteen modules in `lambda_catalog/` import `xlwings`, and only those three are omitted — `workbook_builder.py` (87 %), `build_common.py` (92 %) and `analyze_model_construction.py` (76 %) are all measured, because the `RecordingSheet` COM double exercises most of what they do without Excel. Coverage level is not the boundary either: omitted `write_sheet_version_history.py` reports 100 %, while measured `regression_spec_sheet_io.py` reports 43 %. If you are wondering whether a module is measured, read `pyproject.toml`; there is nothing to infer.
 
-The `write_sheet_*.py` modules, `workbook_builder.py`, `workbook_helpers.py`, `sheet_styles.py`, `inspection_compare.py`, `analyze_regression_sheet.py`, `deep_verify.py`, and other xlwings-dependent modules are omitted from CI coverage measurement. They are validated by the artifact-specific Excel verification commands instead (see [Verifying builds](#verifying-builds)).
+**What *is* a rule is negative: a module that imports neither `xlwings` nor `pywin32` does not belong in `omit` at all.** That is the one this section previously stated too loosely — as "is it about the workbook" — and four modules sat in `omit` under that reading while importing neither, reporting 92 / 87 / 100 / 48 % the moment they were let back in. The costly one was `analyze_regression_sheet.py`. It is the OLS core the live spec oracle calls (`analyze_regression_spec` → `calculate_regression_results_from_matrix`), so the headline coverage number was excluding the arithmetic the whole Regression suite is checking. Do not re-add a module because it *sounds* Excel-shaped; if it does not import a COM binding, it stays measured.
+
+The nine `write_sheet_*.py` writers stay as one glob rather than nine entries. Their individual coverage ranges from 23 % to 100 % depending on how much of each is `RecordingSheet`-reachable, but they are one family with one reason to be listed, and per-file entries would be nine things to keep current instead of one.
+
+This section deliberately no longer enumerates what *is* measured. The list it used to carry had drifted to omit four in-scope modules of its own, which is the failure mode a hand-maintained inventory always reaches — `pyproject.toml` is the source of truth, and it is short because it names only exceptions.
 
 ### CI
 
@@ -220,7 +215,7 @@ There are two separate build scripts with distinct purposes. From v3.0 the produ
 | Regression | `Lambda_Library.xlsx` | **Automatic** (full) | Catalog, three sample datasets, Regression, the two reference sheets, Version History |
 | Univariate | `Lambda_Library_Univariate.xlsx` | **Automatic (including Beta's two two-input Data Tables — the artifact's only ones)** | Catalog, Life Expectancy Data, Univariate Analysis, Version History |
 
-**Both artifacts carry the complete function library.** All 139 LAMBDA definitions are written into both Name Managers. There is no bundling step, no dependency closure, and no per-artifact function subsetting — the artifacts differ only in which sheets they contain. When you add a function, it lands in both; there is no list to update.
+**Both artifacts carry the complete function library.** All 140 LAMBDA definitions are written into both Name Managers. There is no bundling step, no dependency closure, and no per-artifact function subsetting — the artifacts differ only in which sheets they contain. When you add a function, it lands in both; there is no list to update.
 
 **Why the split exists.** Excel's calculation mode is a workbook-level setting, and "Automatic except Data Tables" is the only mode under which a workbook with any Data Table can ship. Even with Weibull and Gamma reduced to 1-D profile-NLL columns, Beta still uses two two-input Data Tables for its two-stage grid search. A combined workbook would have to either: (a) ship "Automatic except Data Tables" so the Regression user can recalculate, leaving Univariate's Beta fits **stale until the user presses Ctrl+Alt+F9** (a live correctness bug against the library's visible-failure philosophy), or (b) ship "Automatic including Data Tables" so the Beta fits are live, but Data Tables are workbook-level and would affect every user of either sheet. Two artifacts, two calculation modes, no compromise. See [DECISIONS.md § v3.0](docs/DECISIONS.md#univariate-becomes-its-own-workbook).
 
@@ -417,7 +412,11 @@ poe verify-deep-univariate  # Layer 2, Univariate artifact (needs Excel)
 poe verify-test-models      # Layer 2, the ~48-sheet test-model suite (needs Excel)
 ```
 
-`poe verify` is a sequence of those four and stops at the first one that exits non-zero.
+**`poe verify` runs the three builds concurrently, then screens their output.** It stops at the first stage that exits non-zero, and the stage boundary is what makes the order matter: `verify-headless` reads whatever `.xlsx` files are sitting in `dist/`, and the deep tasks *rewrite* those files. The task used to run the screen first, which meant it validated the previously committed artifacts and never looked at the ones the run had just built — a rebuild that broke a defined name or orphaned a chart relationship passed `verify` clean. Builds first, screen last.
+
+The three builds overlap safely because they share nothing: each driver opens its own `xw.App(visible=False, add_book=False)` and reaches every workbook through that instance's `app.books` handle (there is no bare `xw.Book()` or `xw.apps.active` anywhere in the package), and they write three different artifacts and three differently-named transcripts. The one file two of them could have contended over is `templates/static_sheets.xlsx`, which `copy_static_sheet` opens read-only. Output is buffered per task rather than interleaved, so each transcript stays contiguous.
+
+Wall time becomes roughly the longest build — `verify-test-models`, minutes — instead of the sum of all three. The cost is three Excel instances competing for CPU; on a constrained machine, run the `verify-*` tasks one at a time instead. **None of this is checkable in CI** (no GitHub-hosted runner has Office), so a change to the `verify` task needs a developer-machine run archived to `excel-only-runs/`.
 
 `poe verify-deep` shells out to `build_production.py --verify --no-launch` and `poe verify-deep-univariate` to `build_univariate.py --verify --no-launch`, so each both rebuilds and verifies its own artifact. Both tee their run into [`excel-only-runs/`](excel-only-runs/) (`<script> <flags>.log`, via `lambda_catalog.build_common.run_log_path`) — stderr and any traceback included — so a failed deep verify is a file you can commit and hand over rather than terminal scrollback; override the destination with `--log PATH`. To verify an already-built workbook, use `python tools/verify_workbook.py <workbook>` instead (with `--skip-regression` for the Univariate artifact).
 
@@ -526,13 +525,15 @@ All of this — the per-module CLIs and `rebuild_static_sheets.py` alike — req
 
 `lambda_functions.json` is the source of truth for functions, but nothing is the source of truth for the *documented* state, and the planning docs have drifted from the code more than once. Examples caught by hand: `ROADMAP.md` listed a milestone as planned that was fully built; `ARCHITECTURE.md` documented Role dropdown values without the parenthetical suffixes that formulas actually string-compare against.
 
-Three mechanical checks would catch most of this class. All are pure Python and need no Excel, so they run in the existing Linux CI job. **One is built:**
+Three mechanical checks would catch most of this class. All are pure Python and need no Excel, so they run in the existing Linux CI job. **Two and a half are built:**
 
 1. **Link targets — built, `tests/test_doc_links.py`.** Every relative `](target.md)` link resolves to a file that exists, relative to the *linking file's own directory*. This is the check that would have caught two real breakages: the deletion of `REVIEW.md` while four documents still linked to it, and a docs-reorganization pass that prefixed every relative link with `docs/` — including links already inside `docs/`, where the prefix is one level too many. `docs/TODOs.md` → `docs/ROADMAP.md` resolves to `docs/docs/ROADMAP.md`; that single commit broke 171 links and nothing failed.
-2. **Cross-document anchors — not built.** Every `](target.md#anchor)` resolves to a heading that exists in the target file. Heading renames silently break these: the `ARCHITECTURE.md` §4 renames from `(A–L)` to `(A–N)` (v2.1, adding the Sequence Period / Period In Use pair) and from `(A–N)` to `(A–O)` (v3.0, adding the Design Columns audit column) each broke at least one `ROADMAP.md` link this way. `test_doc_links.py` deliberately checks only the path half; extending it to anchors means parsing target headings and reproducing GitHub's slug rules, which is why it is the larger of the two.
-3. **Function names — not built.** Every name written as a function reference in a doc table or fenced block resolves to an entry in `lambda_functions.json`, unless it is a native Excel function or explicitly tagged as planned. This is what would have caught an older review's claim that `Interact` was shipping when it was only specified, and the stale-rename list before that.
+2. **Cross-document anchors — built, same file.** Every `](target.md#anchor)` and `](#anchor)` resolves to a heading that exists in the target file, matched by reproducing GitHub's slug rules. Heading renames silently break these: the `ARCHITECTURE.md` §4 renames from `(A–L)` to `(A–N)` (v2.1, adding the Sequence Period / Period In Use pair) and from `(A–N)` to `(A–O)` (v3.0, adding the Design Columns audit column) each broke at least one `ROADMAP.md` link this way. It found one live break the moment it was written — retitling *this very section* from "Documentation drift (proposed check — not yet implemented)" broke the `TODOs.md` link into it, in the same commit that built check 1.
+3. **Function names — the count half is built, `tests/test_doc_catalog_counts.py`.** The built half asserts that every *count* of catalog functions stated in README / CONTRIBUTING / ROADMAP matches `lambda_functions.json` — total, workbook-scoped, and Regression-scoped. It found four stale numbers on its first run. The unbuilt half is the harder one: every *name* written as a function reference resolves to a catalog entry, unless it is a native Excel function or explicitly tagged as planned. That is what would have caught an older review's claim that `Interact` was shipping when it was only specified, and the stale-rename list before that.
 
-Items 2 and 3 are recorded as scoped follow-ups, not claims.
+The name half of item 3 is recorded as a scoped follow-up in [docs/TODOs.md](docs/TODOs.md#documentation), not a claim.
+
+**Both built checks pin their inputs rather than sniffing them,** and both will fail when the docs grow a phrasing they do not know — that is the intended bargain, the same one `_EXPECTED_TASK_NAMES` and `_EXPECTED_CASE_NAMES` make. The count check in particular matches three exact phrasings instead of "a number near the word LAMBDA", because README's first line reads *"Excel 365 LAMBDA functions…"* and a looser rule would fail the build on the Office release number.
 
 ## Adding a new LAMBDA function
 

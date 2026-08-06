@@ -253,15 +253,27 @@ addopts = ["--tb=short"]
 [tool.coverage.run]
 source = ["lambda_catalog"]
 omit = [
-  # Excel-dependent: these drive the COM API, so the bulk of each one cannot
-  # execute without Microsoft Office and would report as permanently missed.
-  # The test that a module belongs here is whether it imports xlwings/pywin32
-  # -- not whether it is *about* the workbook. Four modules were listed here
-  # under the old, looser reading despite importing neither, and were measured
-  # at 92 / 100 / 87 / 48 % the moment they were let back in; the worst of it
-  # was analyze_regression_sheet.py, which is the live spec oracle's OLS core
+  # An explicit list of exceptions, not a rule with an inferable boundary.
+  # Sixteen modules import xlwings and only these are omitted: workbook_builder
+  # (87 %), build_common (92 %) and analyze_model_construction (76 %) are all
+  # measured, because the RecordingSheet COM double exercises most of what they
+  # do without Excel.  Coverage is not the boundary either -- omitted
+  # write_sheet_version_history reports 100 %, measured regression_spec_sheet_io
+  # reports 43 %.  So do not try to derive membership; read the list.
+  #
+  # The one thing that IS a rule, and the one this PR enforced, is negative:
+  # a module that imports neither xlwings nor pywin32 does not belong here at
+  # all.  Four were listed under the old comment's looser "is about the
+  # workbook" reading despite importing neither, and measured 92 / 87 / 100 /
+  # 48 % the moment they were let back in -- worst of them
+  # analyze_regression_sheet.py, the live spec oracle's OLS core
   # (analyze_regression_spec calls calculate_regression_results_from_matrix),
   # so the headline number was excluding the arithmetic under test.
+  #
+  # The writers stay as one glob rather than nine entries: their coverage
+  # varies (23 % to 100 %) with how much of each is RecordingSheet-reachable,
+  # but they are one family with one reason to be here, and per-file entries
+  # would be nine things to maintain instead of one.
   "lambda_catalog/workbook_helpers.py",
   "lambda_catalog/write_sheet_*.py",
   "lambda_catalog/deep_verify.py",

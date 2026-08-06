@@ -76,12 +76,9 @@ def build_beta_only_workbook(
         app.api.DisplayAlerts = False
         app.api.AskToUpdateLinks = False
 
-        if workbook_path.exists():
-            workbook = app.books.open(str(workbook_path))
-            for sheet in list(workbook.sheets):
-                sheet.delete()
-        else:
-            workbook = app.books.add()
+        # Always start from a fresh workbook so we don't try to delete the
+        # last visible sheet (Excel refuses once only one remains).
+        workbook = app.books.add()
 
         write_catalog_sheet(workbook, document.functions)
         write_csv_dataset_sheet(workbook, csv_headers, csv_rows, LIFE_EXPECTANCY)

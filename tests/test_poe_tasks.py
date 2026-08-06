@@ -33,6 +33,7 @@ _EXPECTED_TASK_NAMES = [
     "test-cov",
     "test-excel",
     "lint",
+    "check",
     "verify-headless",
     "verify-deep",
     "verify-deep-univariate",
@@ -94,10 +95,43 @@ def test_lockfile_strictness_is_configured(poe_config: dict[str, Any]) -> None:
     assert poe_config["env"]["UV_FROZEN"] == "1"
 
 
-def test_verify_sequences_both_layers(tasks: dict[str, Any]) -> None:
-    assert tasks["verify"]["sequence"] == [
-        "verify-headless",
+def test_verify_builds_the_artifacts_before_screening_them(
+    tasks: dict[str, Any],
+) -> None:
+    """The screen has to run LAST.
+
+    ``verify-headless`` reads whatever is sitting in ``dist/``; the three deep
+    tasks rewrite those files. The original sequence put the screen first, so
+    it validated the previously committed artifacts and never looked at the
+    ones the run had just built — a rebuild that broke a defined name or
+    orphaned a chart relationship passed ``verify`` clean.
+    """
+    steps = tasks["verify"]["sequence"]
+
+    assert steps[-1] == "verify-headless"
+    assert steps[0]["parallel"] == [
         "verify-deep",
         "verify-deep-univariate",
         "verify-test-models",
     ]
+
+
+def test_parallel_excel_output_is_buffered_not_interleaved(
+    tasks: dict[str, Any],
+) -> None:
+    """Streaming three concurrent drivers line-by-line would shred exactly the
+    transcripts ``excel-only-runs/`` exists to preserve."""
+    assert tasks["verify"]["sequence"][0]["output_mode"] == "buffer"
+
+
+def test_parallel_tasks_need_a_poe_that_has_them(poe_config: dict[str, Any]) -> None:
+    """``parallel`` is not in every poethepoet. An older one reads the key as an
+    unknown task type and refuses to run ``verify`` at all, so the floor in the
+    dev dependency group is load-bearing, not cosmetic."""
+    del poe_config  # the pin lives in [dependency-groups], read separately
+    with _PYPROJECT.open("rb") as handle:
+        dev_group = tomllib.load(handle)["dependency-groups"]["dev"]
+
+    poe_pin = next(spec for spec in dev_group if spec.startswith("poethepoet"))
+    floor = poe_pin.split(">=")[1].split(",")[0]
+    assert tuple(int(part) for part in floor.split(".")) >= (0, 48)

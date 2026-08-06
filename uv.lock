@@ -808,7 +808,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "poethepoet", specifier = ">=0.30,<1" },
+    { name = "poethepoet", specifier = ">=0.48,<1" },
     { name = "pylint", specifier = ">=3.2,<4" },
     { name = "pytest", specifier = ">=9.0.3,<10" },
     { name = "pytest-cov", specifier = ">=5.0,<8" },

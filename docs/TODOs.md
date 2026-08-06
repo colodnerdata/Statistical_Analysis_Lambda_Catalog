@@ -38,19 +38,16 @@ tag is deliberate, not an entry someone forgot to finish tagging.
 
 Three self-contained items, in ascending cost:
 
-1. [Retire the stale `v3.0` label](#v20-leftovers) — comments only, no executable logic reads it. `S · no Excel`
-2. [Build the cross-document anchor check](#documentation) — ~40 lines of `re` plus a pytest case, runs in the existing Linux CI job. `S · no Excel`
-3. [Add the P6 LSDV ↔ FE equivalence case](#test-model-suite) — one spec builder over data already wired, and the strongest cheap cross-oracle in the suite. `S · no Excel`
+1. [`Numeric_Complete_Cases`](#v39--standalone-data-transformation-library) — one catalog LAMBDA with a Python mirror; the sample-construction helper the rest of v3.9 builds on, and it widens no axis. `S · no Excel`
+2. [Finish drift check 3 — function names resolve](#documentation) — the count half is built; this is the name half, and the work is the exclusion list, not the lookup. `S · no Excel`
+3. [Wire the calendar-dated monthly series](#test-model-suite) — one dataset config closes the single axis the coverage matrix still lists as uncovered. `M · no Excel`
 
 ### Ready now — no Excel required
 
 | Task | Size | Milestone |
 |---|---|---|
-| [Retire the stale `v3.0` label in comments](#v20-leftovers) | S | v2.0 |
-| [Cross-document anchor check](#documentation) | S | Documentation |
-| [LSDV ↔ FE equivalence case (P6)](#test-model-suite) | S | Test suite |
-| [Auto MPG coverage gaps — `Difference`, `Ratio`, Cat×Cat, period override](#test-model-suite) | M | Test suite |
-| [Wire Life Expectancy into the regression QC suite](#test-model-suite) | M | Test suite |
+| [Finish drift check 3 — function names resolve](#documentation) | S | Documentation |
+| [Wire the calendar-dated monthly series](#test-model-suite) | M | Test suite |
 | [Rename `write_sheet_model_construction.py` → `write_spec_block.py`](#v20-leftovers) | M | v2.0 |
 | [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
 | [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
@@ -90,6 +87,9 @@ the Regression track — they are also listed in their own working order.
 | [Time-series sheet (`write_sheet_time_series.py`)](#v36--time-role--time-series) | L | v3.6 |
 | [Two-sample sheet layout](#v310--bivariate--two-sample) | M | v3.10 |
 | [Simulation sheet layout](#v311--resampling--simulation) | M | v3.11 |
+| [Fix `warn_if_workbook_open`'s buffered-prompt deadlock](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
+| [Stop leaking Excel instances under `parallel`](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
+| [Clean the four `#VALUE!` cells out of the Regression artifact](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
 
 The Diagnostic Guide item also needs Excel for a second reason: that sheet is
 baked into `templates/static_sheets.xlsx` and only regenerates through
@@ -103,7 +103,6 @@ baked into `templates/static_sheets.xlsx` and only regenerates through
 | [Mismatched-predictor-set fallback for the Comparison sheet](#v34--model-comparison-sheet) | v3.4 |
 | [Can a column be both `Sequence` and `Time`](#v36--time-role--time-series) | v3.6 |
 | [Two-sample selector — 3-way flag or separate `paired` boolean](#v310--bivariate--two-sample) | v3.10 |
-| [How the guard-state configurations (G1–G13) are exercised](#test-model-suite) | Test suite |
 
 Deliberately held, not available to pick up: [BFN critical
 values](#v21-leftovers--follow-on-polish), [Categorical × FE prediction
@@ -206,21 +205,6 @@ and two cleanups.
   Context: this is what remains of REVIEW.md F5 after the finding itself was
   struck as never-true — see
   [DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
-
-- **READY · S · no Excel** — **Retire the stale `v3.0` label for the spec-block
-  changeover.** This changeover was planned as v3.0 and renumbered to v2.0 before
-  release; v3.0 now means the engine-interface release (see
-  [ROADMAP.md](ROADMAP.md)), so the old label is a live collision. The docstring
-  in `write_sheet_model_construction.py` is corrected and the human test plan
-  that carried the old label in its filename is retired. Still carrying the old
-  label in **comments only** — no executable logic reads it:
-  `write_sheet_model_construction.py` (several inline comments),
-  `analyze_regression_spec_block.py` (module docstring), `build_production.py`
-  (one comment), and `tests/test_dummy_functions.py`,
-  `tests/test_model_construction_writer.py`, `tests/test_catalog_schema.py`.
-  Deliberately left out of the v3.0 documentation pass, which was
-  documentation-only and would otherwise have touched three test modules; do it
-  as its own small commit.
 
 - **OPEN · M · needs Excel** — Resolve the blank-categorical caveat.
   `Sample_Include()`'s role-aware completeness layer requires numeric Response
@@ -328,66 +312,6 @@ is rewiring the readers, which is where the performance win actually is.
   row-mask contract that keeps every spilled array row-aligned. The live closure
   is untouched and remains the row mask until then. See
   [DECISIONS.md § materialization in two steps](DECISIONS.md#materialization-lands-in-two-steps--model_context-now-sample_include-deferred).
-
-## v3.3 — Transforms remainder
-
-Planned as the second half of v2.2; moved after v3.0 when the feature train was
-resequenced — see [ROADMAP.md § v3.3](ROADMAP.md#v33--transforms-remainder--shipped-dispatcher--duan--model-formula-label).
-**The standalone transform library is no longer part of this milestone** — it now
-ships as [v3.9](#v39--standalone-data-transformation-library), at the end of the
-Regression track, because it is that track's most expensive item to test.
-The column-G `Log` wiring already shipped at v2.2: `Response_Column()` / `X_s()`
-read column G, `Constructed_Column_Names()` / `Constructed_Column_Transforms()`
-relabel and carry the per-column Log/None flag, the Prediction Inputs band
-auto-logs, and `Ln_Positive` is in the catalog
-([DECISIONS.md § v2.2](DECISIONS.md#v22--transforms--unit-space-comparability)).
-The longitudinal transforms `Lag_By` / `Difference_By` also shipped early, with
-gap-aware t−Δ semantics — verification in
-`tests/test_difference_by_verification.py`.
-
-- **RESOLVED · SHIPPED** — **Unit-space dispatcher functions** (design
-  RESOLVED, code SHIPPED): eight catalog functions under the
-  `Back-Transformation` subcategory — `Smearing_Factor`,
-  `Back_Transform_Response`, `Unit_Space_Predictions`,
-  `Unit_Space_Observed`, `Unit_Space_Residuals`, `Unit_Space_R_Squared`,
-  `Unit_Space_Adjusted_R_Squared`, `Unit_Space_RMSE`. The dispatcher pattern
-  (one canonical name per statistic, internal `SWITCH` on the transform pair)
-  is the documented naming-style-departure pattern, in
-  [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label)
-  and [ARCHITECTURE.md § 1 "Naming-style departures"](ARCHITECTURE.md#1-naming-convention).
-  The transform pair is read off `Fit_Context()` (elements 3–4 the v3.0
-  context array reserved for just this) rather than passed as positional
-  arguments. SWITCH on the six recognised `(response, predictor)` pairs and
-  `NA()` outside.
-
-- **RESOLVED · SHIPPED** — Unit-space section on the Regression sheet:
-  `AG3:AH9` block with the Back-Transform Method input (row 4), Smearing
-  Factor (row 5), R² / Adj R² / RMSE in original units (rows 6–8), and the
-  Response Space readout (row 9). The Original Units column (AL) in the
-  Prediction Outputs block carries the back-transformed point estimate
-  (Duan by default, Naive on toggle) and the four CI/PI bounds (always
-  Naive, never smeared). The two new residual columns (AZ, BA) hold the
-  back-transformed predicted and residual series. The `Comparison_*`
-  sheet-scoped named ranges (`Comparison_Anchor`, `Comparison_Headline_GoF`,
-  `Comparison_Model_Formula`) are the v3.4 Model Comparison sheet's reading
-  surface.
-
-- **RESOLVED · SHIPPED** — **Prediction back-transformation** (design
-  RESOLVED, code SHIPPED): Duan's smearing estimator as the default, with a
-  per-cell `Back_Transform_Method` toggle (`Duan` default | `Naive`).
-  Caveat visible on the sheet as a note on the Back-Transform label at `AG4`: *Duan = Duan (1983) smearing;
-  Naive = textbook EXP(ŷ), biased.* The resolution is in
-  [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label).
-
-- **RESOLVED · SHIPPED** — Model Formula label: the sheet-scoped
-  `Model_Formula()` catalog closure, rendered by a labelled readout on
-  row 1 of the terminal Constructed Design Matrix zone, right of that zone's heading (header two columns over, readout three columns past the header). It shipped inline
-  at `AA2:AB2` and moved off that cell afterwards — row 2 of the Regression
-  Outputs zone wraps and AutoFits, so the sheet's longest string set the
-  height of the whole header row. Built from the response-name lookup (which
-  already emits `Ln(name)` when Log), `Allow_Intercept`,
-  `Constructed_Column_Names()`, and the FE-name suffix gated by the Fixed
-  Effects count.
 
 ## v3.4 — Model Comparison Sheet
 
@@ -673,58 +597,122 @@ thing actually needed.
 ## Test-model suite
 
 Version-independent; the plan of record is
-[docs/MODEL_TESTING_ASSETS.md](MODEL_TESTING_ASSETS.md). Section 1 of that
-document lists ~15 model configurations tagged **new** — declared nowhere in the
-code yet — against the three wired datasets. Each is a `RegressionSpecCase` in
-`lambda_catalog/analyze_regression_spec.py` plus a pinned expectation in
-`tests/test_regression_spec_qc.py`; the covering-array rule is that a case earns
-its place by covering something no other case does.
+[docs/MODEL_TESTING_ASSETS.md](MODEL_TESTING_ASSETS.md). Every model in Section 1
+now has an oracle: 33 fittable `RegressionSpecCase` entries in
+`lambda_catalog/analyze_regression_spec.py` and 17 `GuardStateCase` entries in
+`lambda_catalog/analyze_regression_guard_states.py`, each pinned in
+`_EXPECTED_CASE_NAMES` / `_EXPECTED_GUARD_NAMES` and materialized as a worksheet.
+The covering-array rule is that a case earns its place by covering something no
+other case does — so **the way to find work here is the
+[§ 1.5 coverage matrix](MODEL_TESTING_ASSETS.md#15-coverage-matrix), not this
+page**. A corner with no case named against it is the open work; there is
+currently one.
 
-- **READY · M · no Excel** — Add the **Auto MPG** gaps: the first `Difference`
-  case (M10), the first `Ratio` case with its zero-denominator `#N/A` path and
-  legal reciprocal pair (M11), the Cat×Cat full-product width (M9), the
-  (Log, Log) pair on a dataset other than Production Lots (M5), and the typed
-  Sequence-period override (M16).
+This section carried five items that the suite has since absorbed — the Auto MPG
+`Difference` / `Ratio` / Cat×Cat / (Log, Log) gaps, the typed Sequence-period
+override, the Life Expectancy wiring ("zero spec cases"), the P6 LSDV ↔ within
+equivalence case, and the open question of how guard states get exercised. All
+are in the registry; the guard-state question is resolved in
+[DECISIONS.md](DECISIONS.md#guard-states-get-their-own-case-type-not-a-flag-on-regressionspeccase).
+They are removed rather than restated, per this file's own rule.
 
-- **READY · M · no Excel** — Wire the **Life Expectancy** dataset into the
-  regression QC suite. It currently has *zero* spec cases, so every dispatch pair
-  it would cover — (None, Mixed), (Log, None) with Duan *and* Naive, the
-  `Ln_Positive` zero guard, the k = 200 width-guard soft warning, and
-  high-cardinality Fixed Effects at 193 groups — is untested (L1–L9).
+- **READY · M · no Excel** — Wire a **calendar-dated monthly series**
+  (~144 rows, AirPassengers-shaped, with a real date column). This closes the one
+  axis § 1.5 lists as uncovered: the Sequence **calendar-signature verdict**
+  (~28–31 / ~90–92 / ~365–366-day spacing clusters), untestable today because no
+  wired dataset carries real dates. One `CsvDatasetConfig` + one
+  `SpecDatasetProfile` + a registry entry. It is pulled out of the DEFERRED entry
+  below because it is the only one of those datasets that closes a gap existing
+  *now* rather than arriving with a milestone; the case can be written as soon as
+  the data lands, ahead of the [v3.6](#v36--time-role--time-series) `Time` Role
+  it also serves.
 
-- **READY · S · no Excel** — Add **P6**, the LSDV ↔ within-estimator
-  equivalence case: `production_lots_log_transform` with `Facility` declared as a
-  Categorical Predictor instead of Fixed Effects must produce identical slopes and
-  fit. The strongest cheap cross-oracle available, and it needs no new data.
+- **DEFERRED** — Wire the remaining supplemental datasets (`warpbreaks`,
+  `Grunfeld`, `Insurance`, `sleep`, `ToothGrowth`). Same one-config-plus-profile
+  shape as above, but each lands with the milestone that needs it — see
+  [§ 3 Timing](MODEL_TESTING_ASSETS.md#timing).
 
-- **OPEN · M · no Excel** — Decide how the ~10 **guard-state configurations**
-  (G1–G13 — zero/duplicate Response rows, duplicate Sequence flags, Transform on a
-  Categorical, unrecognized interaction operations) are exercised. They are not
-  fittable models, so they do not fit the `RegressionSpecCase` oracle shape; they
-  verify status lines and conditional formatting instead.
+## Build tooling — found by the first real `poe verify` run
 
-- **DEFERRED** — Wire the supplemental datasets (`warpbreaks`, the calendar-dated
-  monthly series, `Grunfeld`, `Insurance`, `sleep`, `ToothGrowth`). Each one is
-  one `CsvDatasetConfig` + one `SpecDatasetProfile` + a registry entry, and each
-  lands with the milestone that needs it — see
-  [§ 3 Timing](MODEL_TESTING_ASSETS.md#timing). The calendar-dated series is
-  the exception worth pulling forward: it closes a coverage gap that exists today
-  (see [v3.6](#v36--time-role--time-series)).
+Version-independent; not tied to a milestone. All four came out of the first
+developer-machine `poe verify` after the concurrency change, on 2026-08-06 —
+the run [CONTRIBUTING.md](../CONTRIBUTING.md) asks for and no CI can perform.
+The transcripts are in [excel-only-runs/](../excel-only-runs).
+
+The concurrency itself worked: three Excel instances built three artifacts side
+by side for ~84 minutes with no contention over `templates/static_sheets.xlsx`,
+and both completed verifiers passed (Univariate `Verify: passed`; test-models
+48/48 `ok`). What follows is what the run exposed around it.
+
+- **READY · S · needs Excel** — **`warn_if_workbook_open` deadlocks under
+  `poe verify`.** Its prompt is an `input()` call, but the warning above it goes
+  to **stderr with `flush=True`** while the prompt goes to **stdout**, which
+  `output_mode = "buffer"` holds until the task ends. So a locked workbook
+  prints a warning, then blocks forever on a question the user cannot see; the
+  prompt text only appeared when Ctrl+C flushed the buffer. It reads as a hang
+  with no Excel process consuming CPU. The function already returns early when
+  `not sys.stdin.isatty()`; it needs the same treatment when **stdout is not a
+  live terminal**, letting the reactive `_retry_on_open` catch a genuine lock at
+  save time instead. Verifiable without Excel — the probe is injectable, and
+  `tests/test_build_common.py` already drives the prompt loop with a stub.
+
+- **READY · S · needs Excel** — **Excel instances leak under `parallel`.**
+  Three `EXCEL.EXE` processes survived the run at 0% CPU, after the two
+  completed drivers should have quit theirs. `_quit_app_quietly` is a bare
+  `try/except: pass`, so a failed quit is invisible. The cost is not the idle
+  process: an orphan can hold the workbook and leave a `~$Lambda_Library.xlsx`
+  sidecar, which is what the *next* run's pre-flight probe trips on — plausibly
+  how this run acquired the stale lock that triggered the item above. At minimum
+  the swallowed exception should be reported; better, the quit should be
+  verified.
+
+- **READY · S · no Excel** — **`verify-headless` does not screen the artifacts
+  it was reordered to screen.** The task is `pytest tests/test_workbook_invariants.py -v`
+  with no `RUN_EXCEL_INTEGRATION=1`, so every test that opens `dist/*.xlsx` is
+  skipped: **29 passed, 11 skipped**, and the 11 are the real-artifact checks.
+  v3.x's fix to run builds *before* the screen — so it reads freshly built
+  artifacts rather than the previously committed ones — therefore delivers
+  nothing as wired. `poe test-excel` is the same file *with* the variable, which
+  is why the two were noted as "byte-identical commands differing only by an env
+  var" without the consequence being spotted. **Land this together with the item
+  below**: setting the variable turns the suite red until that one is fixed.
+
+- **READY · S · needs Excel** — **Four `#VALUE!` cells ship in the Regression
+  artifact.** `Mileage Data` J159, K159, J355, K355 hold literal `#VALUE!`
+  cached values. They are copied faithfully from
+  `sample_data/auto_mpg_data.csv`, which carries pre-split `Make` / `Model?`
+  columns: the two rows whose `Car Name` is `subaru` have no space to split on,
+  so the spreadsheet that produced the CSV wrote `#VALUE!` into both. The
+  documented exception in `tests/test_workbook_invariants.py` covers the `#N/A`
+  that `Difference_By` / `Lag_By` legitimately return at gap rows — this is
+  neither of those. Fix the two CSV rows, rebuild, commit the artifact. Present
+  on `main` today, and undetected precisely because of the item above.
 
 ## Documentation
 
 Version-independent; not tied to a milestone.
 
-- **READY · S · no Excel** — **Build one of the two mechanical drift checks**
-  proposed in
-  [CONTRIBUTING.md § Documentation drift](../CONTRIBUTING.md#documentation-drift-proposed-check--not-yet-implemented)
-  and tracked as review finding F7 (documentation drift is measurable),
-  the one finding still open. The cheaper and higher-yield of the two is the
-  **cross-document anchor check**: every `](FILE.md#anchor)` and `](#anchor)`
-  resolves to a real heading in the target file. Roughly 40 lines of `re` plus a
-  pytest case, no Excel, runs in the existing Linux CI job. The 2026-08-03 review
-  ran it by hand (zero unresolved targets) and then deleted three documents —
-  exactly the change that breaks anchors with no error anywhere. The second check
-  (function names in docs resolving against `lambda_functions.json`) would have
-  caught the stale `X_s` references and the 126-vs-131 count drift that same
-  review found by hand.
+Three mechanical drift checks are proposed in
+[CONTRIBUTING.md § Documentation drift](../CONTRIBUTING.md#documentation-drift),
+tracked as review finding F7 (documentation drift is measurable). **Two and a
+half are built**; what is below is the remainder.
+
+- Check 1, **link targets** — built in `tests/test_doc_links.py`.
+- Check 2, **cross-document anchors** — built in the same file. It caught its
+  first live breakage on the commit that introduced it: the heading rename that
+  built check 1 broke the link *this entry used to carry* into it.
+- Check 3, **function names in docs resolve against `lambda_functions.json`** —
+  the *count* half is built in `tests/test_doc_catalog_counts.py`, which found
+  four stale numbers (139/139/131 for a 140-entry catalog, and 17 for 18
+  sheet-scoped closures). The name half is what remains.
+
+- **READY · S · no Excel** — **Finish check 3: resolve function *names*.** Every
+  name written as a function reference in a doc table or fenced block resolves to
+  an entry in `lambda_functions.json`, unless it is a native Excel function or
+  explicitly tagged as planned. This is what would have caught the stale `X_s`
+  references the 2026-08-03 review found by hand. The hard part is not the
+  lookup, it is the exclusion list — the docs legitimately name native Excel
+  functions (`TAKE`, `MAP`, `XLOOKUP`), *planned* functions that do not exist
+  yet by design (every `READY` item above names one), and prose words that
+  happen to be capitalized. Start from the count half's file, which already
+  loads the catalog and pins the phrasings the docs use.

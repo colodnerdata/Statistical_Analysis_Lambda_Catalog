@@ -1,0 +1,241 @@
+python build_test_models.py --verify --no-launch --verbose
+[    0.0s] Plan: 32 model + 16 guard = 48 sheet(s)
+           M01   M01 Baseline Categoricals
+           M03   M03 All Continuous
+           M04   M04 Excluded Candidates
+           M02   M02 Intercept Off Categorical
+           M03b  M03b All Continuous NoInt
+           M04b  M04b Excluded Cands NoInt
+           M13   M13 Default Reference
+           M12   M12 Explicit Reference
+           G08   G08 Invalid Reference Level
+           M14   M14 Mixed Cat And Continuous
+           M15   M15 Filter Degenerate Cat
+           M07   M07 Continuous Product
+           M06   M06 Quadratic Self Product
+           M08   M08 Cont x Cat Broadcast
+           M05   M05 Log-Log NA Masking
+           M14b  M14b Categorical Only Design
+           M09   M09 Cat x Cat Full Product
+           M10   M10 Difference Interaction
+           M11   M11 Ratio Reciprocal Pair
+           P01   P01 Learning Curve FE
+           P02   P02 FE Log Transform Axis
+           P03   P03 Power Law Derived Cols
+           P03b  P03b Power Law Transform Axis
+           P04   P04 Log Mixed Predictors
+           P05   P05 Log Predictor Only
+           P06   P06 LSDV vs Within Estimator
+           L01   L01 Partial Linear-Log
+           L02   L02 Log Response Duan
+           L03   L03 Log Response Naive
+           L04   L04 Elasticity Log-Log
+           L05   L05 Kitchen Sink Profile
+           L09   L09 Binary Cat Reference
+           G01   G01 No Response Row
+           G01b  G01b Empty Model
+           G02   G02 Two Response Rows
+           G03   G03 Two Sequence Flags
+           G04   G04 Two Fixed Effects Rows
+           G05   G05 FE Plus Intercept
+           G06   G06 Intercept Off With Cat
+           G07   G07 Log On Categorical
+           G09   G09 Interaction Bad Operand
+           G10   G10 Symmetric Product Pair
+           G11   G11 Excluded Operand
+           G12   G12 Unknown Interaction Op
+           L06   L06 Ln Zero Guard
+           L07   L07 Width Guard Warning
+           M16   M16 Sequence Period Override
+           P07   P07 Irregular Panel Spacing
+[    0.0s] Oracles: computing
+[    0.8s] Oracles: done
+[    1.8s] Catalog + data sheets
+[    7.3s] Sheets: writing 48
+[    7.3s]   1/48 M01   M01 Baseline Categoricals          7.1s
+[   14.4s]   2/48 M03   M03 All Continuous                 7.2s
+[   21.6s]   3/48 M04   M04 Excluded Candidates            7.5s
+[   29.1s]   4/48 M02   M02 Intercept Off Categorical      8.0s
+[   37.0s]   5/48 M03b  M03b All Continuous NoInt          8.3s
+[   45.3s]   6/48 M04b  M04b Excluded Cands NoInt          7.1s
+[   52.4s]   7/48 M13   M13 Default Reference              7.3s
+[   59.7s]   8/48 M12   M12 Explicit Reference             8.0s
+[   67.7s]   9/48 G08   G08 Invalid Reference Level        9.0s
+[   76.8s]  10/48 M14   M14 Mixed Cat And Continuous      14.3s
+[   91.1s]  11/48 M15   M15 Filter Degenerate Cat         11.9s
+[  103.0s]  12/48 M07   M07 Continuous Product            12.3s
+[  115.3s]  13/48 M06   M06 Quadratic Self Product        13.9s
+[  129.2s]  14/48 M08   M08 Cont x Cat Broadcast          13.5s
+[  142.7s]  15/48 M05   M05 Log-Log NA Masking            13.9s
+[  156.6s]  16/48 M14b  M14b Categorical Only Design      17.5s
+[  174.1s]  17/48 M09   M09 Cat x Cat Full Product        16.9s
+[  191.0s]  18/48 M10   M10 Difference Interaction        16.9s
+[  207.9s]  19/48 M11   M11 Ratio Reciprocal Pair         27.2s
+[  235.1s]  20/48 P01   P01 Learning Curve FE             33.7s
+[  268.7s]  21/48 P02   P02 FE Log Transform Axis         28.4s
+[  297.1s]  22/48 P03   P03 Power Law Derived Cols        22.2s
+[  319.3s]  23/48 P03b  P03b Power Law Transform Axis     25.4s
+[  344.7s]  24/48 P04   P04 Log Mixed Predictors          29.2s
+[  373.8s]  25/48 P05   P05 Log Predictor Only            25.6s
+[  399.5s]  26/48 P06   P06 LSDV vs Within Estimator      89.0s
+[  488.5s]  27/48 L01   L01 Partial Linear-Log            32.6s
+[  521.1s]  28/48 L02   L02 Log Response Duan             34.0s
+[  555.1s]  29/48 L03   L03 Log Response Naive            34.9s
+[  590.1s]  30/48 L04   L04 Elasticity Log-Log            35.2s
+[  625.2s]  31/48 L05   L05 Kitchen Sink Profile          36.0s
+[  661.3s]  32/48 L09   L09 Binary Cat Reference          35.5s
+[  696.8s]  33/48 G01   G01 No Response Row               28.6s
+[  725.3s]  34/48 G01b  G01b Empty Model                  31.7s
+[  757.0s]  35/48 G02   G02 Two Response Rows             31.8s
+[  788.8s]  36/48 G03   G03 Two Sequence Flags            32.3s
+[  821.1s]  37/48 G04   G04 Two Fixed Effects Rows        34.1s
+[  855.2s]  38/48 G05   G05 FE Plus Intercept             34.2s
+[  889.4s]  39/48 G06   G06 Intercept Off With Cat        36.5s
+[  926.0s]  40/48 G07   G07 Log On Categorical            37.4s
+[  963.4s]  41/48 G09   G09 Interaction Bad Operand       42.9s
+[ 1006.3s]  42/48 G10   G10 Symmetric Product Pair        41.7s
+[ 1047.9s]  43/48 G11   G11 Excluded Operand              43.1s
+[ 1091.1s]  44/48 G12   G12 Unknown Interaction Op        45.2s
+[ 1136.2s]  45/48 L06   L06 Ln Zero Guard                 52.1s
+[ 1188.4s]  46/48 L07   L07 Width Guard Warning           54.8s
+[ 1243.1s]  47/48 M16   M16 Sequence Period Override      50.2s
+[ 1293.3s]  48/48 P07   P07 Irregular Panel Spacing       49.6s
+[ 1342.8s] Save
+[ 1352.1s] Sync names
+[ 1352.4s] CalculateFullRebuild
+Timing: write sheets  1351.3s
+Timing: sync names    0.4s
+Timing: rebuild       1474.3s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 48
+Created names: 122
+Updated names: 0
+Removed names: 0
+[ 2826.8s] Verify: reading 48 sheet(s)
+             1/48 M01   M01 Baseline Categoricals        ok
+             2/48 M03   M03 All Continuous               ok
+             3/48 M04   M04 Excluded Candidates          ok
+             4/48 M02   M02 Intercept Off Categorical    ok
+             5/48 M03b  M03b All Continuous NoInt        ok
+             6/48 M04b  M04b Excluded Cands NoInt        ok
+             7/48 M13   M13 Default Reference            ok
+             8/48 M12   M12 Explicit Reference           ok
+             9/48 G08   G08 Invalid Reference Level      ok
+            10/48 M14   M14 Mixed Cat And Continuous     ok
+            11/48 M15   M15 Filter Degenerate Cat        ok
+            12/48 M07   M07 Continuous Product           ok
+            13/48 M06   M06 Quadratic Self Product       ok
+            14/48 M08   M08 Cont x Cat Broadcast         ok
+            15/48 M05   M05 Log-Log NA Masking           ok
+            16/48 M14b  M14b Categorical Only Design     ok
+            17/48 M09   M09 Cat x Cat Full Product       ok
+            18/48 M10   M10 Difference Interaction       ok
+            19/48 M11   M11 Ratio Reciprocal Pair        ok
+            20/48 P01   P01 Learning Curve FE            ok
+            21/48 P02   P02 FE Log Transform Axis        ok
+            22/48 P03   P03 Power Law Derived Cols       ok
+            23/48 P03b  P03b Power Law Transform Axis    ok
+            24/48 P04   P04 Log Mixed Predictors         ok
+            25/48 P05   P05 Log Predictor Only           ok
+            26/48 P06   P06 LSDV vs Within Estimator     ok
+            27/48 L01   L01 Partial Linear-Log           ok
+            28/48 L02   L02 Log Response Duan            ok
+            29/48 L03   L03 Log Response Naive           ok
+            30/48 L04   L04 Elasticity Log-Log           ok
+            31/48 L05   L05 Kitchen Sink Profile         73 mismatch(es)
+            32/48 L09   L09 Binary Cat Reference         ok
+            33/48 G01   G01 No Response Row              ok
+            34/48 G01b  G01b Empty Model                 ok
+            35/48 G02   G02 Two Response Rows            ok
+            36/48 G03   G03 Two Sequence Flags           ok
+            37/48 G04   G04 Two Fixed Effects Rows       ok
+            38/48 G05   G05 FE Plus Intercept            ok
+            39/48 G06   G06 Intercept Off With Cat       ok
+            40/48 G07   G07 Log On Categorical           ok
+            41/48 G09   G09 Interaction Bad Operand      ok
+            42/48 G10   G10 Symmetric Product Pair       ok
+            43/48 G11   G11 Excluded Operand             ok
+            44/48 G12   G12 Unknown Interaction Op       ok
+            45/48 L06   L06 Ln Zero Guard                ok
+            46/48 L07   L07 Width Guard Warning          ok
+            47/48 M16   M16 Sequence Period Override     ok
+            48/48 P07   P07 Irregular Panel Spacing      ok
+Timing: verify        103.8s
+Verify: mismatch totals by case:
+    L05   73
+ERROR [TestModel/L05 Kitchen Sink Profile/coefficients] config_name='life_full_profile' stat_name='T_Statistics' term_name='Population': expected=-0.36739346594386835, excel_calc=-0.3673941937551009, abs_diff=7.278112325592723e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Studentized_Residuals_Ranked' row_idx=118: expected=-1.40019750024204, excel_calc=-1.400197448552228, abs_diff=5.168981198622191e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=125: expected=4.813514455281151, excel_calc=4.813514651158573, abs_diff=1.9587742183801993e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=129: expected=3.379385446514533, excel_calc=3.3793856421731525, abs_diff=1.95658619528416e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=238: expected=73.92825951140489, excel_calc=73.92825926497521, abs_diff=2.4642967844101804e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=238: expected=-0.3282595114048945, excel_calc=-0.32825926497521607, abs_diff=2.4642967844101804e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=243: expected=-4.1422136773990275, excel_calc=-4.142213442792786, abs_diff=2.3460624110072104e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=244: expected=74.22518064454538, excel_calc=74.2251804154666, abs_diff=2.290787790570903e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=244: expected=-2.425180644545378, excel_calc=-2.425180415466599, abs_diff=2.290787790570903e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=247: expected=1.5318263550534112, excel_calc=1.5318265757295033, abs_diff=2.206760920664408e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=506: expected=60.15522654025036, excel_calc=60.15522642687663, abs_diff=1.1337372995967598e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=506: expected=3.1447734597496364, excel_calc=3.1447735731233664, abs_diff=1.1337372995967598e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=575: expected=81.26148651075549, excel_calc=81.26148640538165, abs_diff=1.0537384298459074e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=575: expected=-1.6614865107554948, excel_calc=-1.6614864053816518, abs_diff=1.0537384298459074e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=578: expected=-1.6870905717664613, excel_calc=-1.687090464539638, abs_diff=1.0722682319830312e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=665: expected=70.45192118729999, excel_calc=70.4519195879659, abs_diff=1.5993340838349468e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=665: expected=-2.4519211872999875, excel_calc=-2.4519195879659037, abs_diff=1.5993340838349468e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=665: expected=-3.280485198286769, excel_calc=-3.280483058498659, abs_diff=2.1397881098117466e-06, fdd=5
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=668: expected=62.7633475925423, excel_calc=62.76334748713205, abs_diff=1.0541025119437109e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=668: expected=4.036652407457694, excel_calc=4.036652512867946, abs_diff=1.0541025119437109e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=668: expected=4.387239403166689, excel_calc=4.387239517731919, abs_diff=1.145652301914879e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=670: expected=69.82070552229766, excel_calc=69.82070543219227, abs_diff=9.010538803977397e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=670: expected=-3.820705522297658, excel_calc=-3.8207054321922698, abs_diff=9.010538803977397e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=672: expected=63.44513567670133, excel_calc=63.445134244676765, abs_diff=1.4320245611543214e-06, fdd=5
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=672: expected=1.7548643232986763, excel_calc=1.7548657553232374, abs_diff=1.4320245611543214e-06, fdd=5
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Scale_Location' row_idx=672: expected=0.7349352558449171, excel_calc=0.7349355557100158, abs_diff=2.998650986407725e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=672: expected=2.140089454189507, excel_calc=2.140091200569912, abs_diff=1.7463804051764953e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=673: expected=65.31416926582412, excel_calc=65.31416786169174, abs_diff=1.4041323765923153e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=673: expected=-0.5141692658241226, excel_calc=-0.514167861691746, abs_diff=1.4041323765923153e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Studentized_Residuals' row_idx=673: expected=-0.15694854789606671, excel_calc=-0.15694811928908553, abs_diff=4.286069811842985e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=673: expected=-0.6167194365105928, excel_calc=-0.6167177523264514, abs_diff=1.684184141370615e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=674: expected=62.093146167159944, excel_calc=62.093144786615625, abs_diff=1.3805443188630306e-06, fdd=5
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=674: expected=2.306853832840062, excel_calc=2.306855213384381, abs_diff=1.3805443188630306e-06, fdd=5
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Studentized_Residuals' row_idx=674: expected=0.7038771161827428, excel_calc=0.7038775374203368, abs_diff=4.2123759391721194e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=674: expected=2.764730221795922, excel_calc=2.7647318763578874, abs_diff=1.6545619652141852e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=675: expected=63.89214602209611, excel_calc=63.89214466991108, abs_diff=1.3521850235065358e-06, fdd=5
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=675: expected=0.1078539779038934, excel_calc=0.1078553300889169, abs_diff=1.3521850235065358e-06, fdd=5
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Studentized_Residuals' row_idx=675: expected=0.03290733240934539, excel_calc=0.03290774497458338, abs_diff=4.1256523799354516e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Scale_Location' row_idx=675: expected=0.1814037827867583, excel_calc=0.18140491992937618, abs_diff=1.1371426178741206e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=675: expected=0.12924934005452826, excel_calc=0.12925096047711623, abs_diff=1.6204225879723477e-06, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=678: expected=71.18740658686937, excel_calc=71.18740627408158, abs_diff=3.1278779033527826e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=678: expected=-2.687406586869372, excel_calc=-2.6874062740815816, abs_diff=3.1278779033527826e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=682: expected=69.70790278835568, excel_calc=69.7079024925823, abs_diff=2.9577337556929706e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=682: expected=-2.007902788355679, excel_calc=-2.0079024925823035, abs_diff=2.9577337556929706e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=686: expected=66.74832551078013, excel_calc=66.74832523136678, abs_diff=2.794133564520962e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=686: expected=-1.448325510780137, excel_calc=-1.4483252313667805, abs_diff=2.794133564520962e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Studentized_Residuals_Ranked' row_idx=705: expected=-0.15694854789606671, excel_calc=-0.15694811928908553, abs_diff=4.286069811842985e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Studentized_Residuals_Ranked' row_idx=854: expected=0.03290733240934539, excel_calc=0.03290774497458338, abs_diff=4.1256523799354516e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=995: expected=3.7004754019890242, excel_calc=3.70047555482299, abs_diff=1.5283396592735699e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=998: expected=73.00002261484535, excel_calc=73.00002247337466, abs_diff=1.414706929381282e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=998: expected=2.9999773851546507, excel_calc=2.9999775266253437, abs_diff=1.414706929381282e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=1059: expected=67.92444351052006, excel_calc=67.92444344342535, abs_diff=6.7094717337568e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=1059: expected=-1.524443510520058, excel_calc=-1.5244434434253407, abs_diff=6.7094717337568e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=1060: expected=67.45321951504305, excel_calc=67.45321944854551, abs_diff=6.649753458987107e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=1060: expected=-1.2532195150430425, excel_calc=-1.253219448545508, abs_diff=6.649753458987107e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=1070: expected=61.93911250127869, excel_calc=61.939112441312574, abs_diff=5.996611918135386e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=1070: expected=1.26088749872131, excel_calc=1.260887558687429, abs_diff=5.996611918135386e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=1115: expected=1.4977183503266431, excel_calc=1.4977185550396614, abs_diff=2.0471301831470612e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Scale_Location' row_idx=1123: expected=0.0663848822779557, excel_calc=0.06638441704012463, abs_diff=4.652378310793237e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=1124: expected=66.84328370783501, excel_calc=66.84328349345427, abs_diff=2.1438074782054173e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=1124: expected=-0.8432837078350133, excel_calc=-0.8432834934542655, abs_diff=2.1438074782054173e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=1253: expected=71.84216652081486, excel_calc=71.8421663385823, abs_diff=1.8223255437987973e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=1253: expected=-3.642166520814854, excel_calc=-3.6421663385822995, abs_diff=1.8223255437987973e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=1253: expected=-3.687314632359758, excel_calc=-3.687314447868252, abs_diff=1.844915060722485e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=1259: expected=69.59542760108422, excel_calc=69.59542741667258, abs_diff=1.844116468419088e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=1259: expected=-4.995427601084231, excel_calc=-4.995427416672584, abs_diff=1.844116468419088e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Studentized_Residuals' row_idx=1259: expected=-1.40019750024204, excel_calc=-1.400197448552228, abs_diff=5.168981198622191e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Studentized_Residuals_Ranked' row_idx=1282: expected=0.7038771161827428, excel_calc=0.7038775374203368, abs_diff=4.2123759391721194e-07, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=1527: expected=-1.8537125814277715, excel_calc=-1.8537124836341596, abs_diff=9.779361187511881e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Predictions' row_idx=1531: expected=73.25857950140264, excel_calc=73.25857941089912, abs_diff=9.050351934547507e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='Residuals' row_idx=1531: expected=0.6414204985973697, excel_calc=0.6414205891008891, abs_diff=9.050351934547507e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=1539: expected=5.383514430901542, excel_calc=5.383514513492408, abs_diff=8.259086570205909e-08, fdd=6
+ERROR [TestModel/L05 Kitchen Sink Profile/residuals] config_name='life_full_profile' stat_name='PRESS_Residual' row_idx=1567: expected=4.132636494180559, excel_calc=4.1326365572029085, abs_diff=6.302234911714777e-08, fdd=6
+Verify: FAILED with 73 mismatch(es).
+Timing: total         2930.7s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Local Run Logs\build_test_models verify no launch verbose.txt

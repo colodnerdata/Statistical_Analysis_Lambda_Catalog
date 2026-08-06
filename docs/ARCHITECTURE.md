@@ -78,26 +78,14 @@ Other sign-offs from the same pass:
 
 ### Alias layer (future, optional)
 
-A separate, optional layer of short, ALL-CAPS aliases may be added in a
-later pass for power-user typing speed (e.g. `ABSORB2FE` as an alias for
-`Absorb_Two_Way_Fixed_Effects`). Aliases are thin wrappers — each alias
-LAMBDA's entire body is a call to the canonical function, with no
-independent logic:
+A layer of short, ALL-CAPS aliases (`ABSORB2FE` for
+`Absorb_Two_Way_Fixed_Effects`) may be added later for typing speed. It is
+deferred, not planned: nothing in the catalog is an alias today, and none is
+the documented or taught form of anything.
 
-```excel
-ABSORB2FE = LAMBDA(x, group1, group2, [include], [passes],
-    Absorb_Two_Way_Fixed_Effects(x, group1, group2, include, passes)
-)
-```
-
-This keeps a single source of truth: if the canonical implementation
-changes, every alias inherits the fix automatically. Aliases are never the
-documented or taught form — they exist purely as optional shortcuts and
-should be introduced only after the canonical library is stable, to avoid
-maintaining two names for a function that's still under active revision.
-
-See [DECISIONS.md § Aliases](DECISIONS.md#aliases) for the full alias table
-and the deferral record.
+The rationale, the thin-wrapper shape an alias must take, and why the layer
+waits on the canonical library stabilizing are recorded once in
+[DECISIONS.md § Aliases](DECISIONS.md#aliases).
 
 ### Naming-style departures
 

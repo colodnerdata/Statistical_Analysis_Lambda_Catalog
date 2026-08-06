@@ -322,30 +322,16 @@ class CatalogFunctionProjectionTests(unittest.TestCase):
         cf = self._make_function(arguments=[])
         self.assertEqual(cf.argument_names, ())
 
-    def test_name_manager_comment_required_args(self) -> None:
-        cf = self._make_function(arguments=[
-            {"name": "x_s", "description": "Predictors."},
-            {"name": "y", "description": "Target."},
-        ])
-        self.assertEqual(cf.name_manager_comment, "x_s: Predictors.\n\ny: Target.")
-
-    def test_name_manager_comment_optional_arg_uses_brackets(self) -> None:
-        cf = self._make_function(arguments=[
-            {"name": "x_s", "description": "Predictors."},
-            {"name": "filter", "description": "Row mask.", "optional": True},
-        ])
-        self.assertIn("[filter]: Row mask.", cf.name_manager_comment)
-
-    def test_name_manager_comment_empty_when_no_args(self) -> None:
-        cf = self._make_function(arguments=[])
-        self.assertEqual(cf.name_manager_comment, "")
-
     def test_arguments_cell_text_uses_single_newline_separator(self) -> None:
         cf = self._make_function(arguments=[
             {"name": "x_s", "description": "Predictors."},
             {"name": "y", "description": "Target."},
         ])
         self.assertEqual(cf.arguments_cell_text(), "x_s: Predictors.\ny: Target.")
+        # One line per argument, never a blank line between them: the catalog
+        # sheet's Arguments cell is read as a list, and a double newline would
+        # render it as loose paragraphs.
+        self.assertNotIn("\n\n", cf.arguments_cell_text())
 
     def test_arguments_cell_text_empty_when_no_args(self) -> None:
         cf = self._make_function(arguments=[])
@@ -362,14 +348,6 @@ class CatalogFunctionProjectionTests(unittest.TestCase):
         xml_formula = cf.workbook_xml_formula_from_display
         self.assertTrue(xml_formula.startswith("_xlfn.LAMBDA("))
         self.assertIn("_xlpm.x", xml_formula)
-
-    def test_name_manager_comment_separator_is_double_newline(self) -> None:
-        cf = self._make_function(arguments=[
-            {"name": "a", "description": "First."},
-            {"name": "b", "description": "Second."},
-        ])
-        self.assertIn("\n\n", cf.name_manager_comment)
-        self.assertNotIn("\n\n", cf.arguments_cell_text())
 
     def test_notes_field_round_trips_through_loader(self) -> None:
         cf = self._make_function(notes="A 255-character-or-shorter tooltip.")

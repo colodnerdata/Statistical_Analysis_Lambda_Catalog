@@ -85,24 +85,6 @@ class CatalogFunction:
         """Ordered tuple of bare argument names, without optional brackets."""
         return tuple(arg.name for arg in self.arguments)
 
-    @property
-    def name_manager_comment(self) -> str:
-        """Argument documentation formatted for the Name Manager comment field.
-
-        Each argument appears as ``display_name: description`` on its own block,
-        separated by double newlines.
-
-        Returns
-        -------
-        str
-            The formatted comment string, or an empty string when there are no arguments.
-        """
-        lines = [
-            f"{arg.display_name()}: {arg.description}"
-            for arg in self.arguments
-        ]
-        return "\n\n".join(lines)
-
     def arguments_cell_text(self) -> str:
         """Format all arguments as multi-line text for the catalog Arguments cell.
 

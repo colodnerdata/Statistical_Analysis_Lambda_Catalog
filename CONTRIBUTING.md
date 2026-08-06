@@ -37,12 +37,13 @@ Use these shortcuts for day-to-day work from an activated `.venv`. If the enviro
 | Run tests with coverage | `poe test-cov` | `uv run pytest --cov --cov-report=term-missing --cov-report=xml` | Matches the CI coverage step. |
 | Run the fast workbook invariant screen | `poe verify-headless` | `uv run pytest tests/test_workbook_invariants.py -v` | No Excel required; catches packaging/name/cache drift. |
 | Run pylint's CI check | `poe lint` | `uv run pylint --errors-only lambda_catalog scripts tools` | Error-only lint, matching CI. |
+| Run both CI checks at once | `poe check` | — | `test-cov` and `lint` in parallel; the local pre-push screen. |
 | Build the Regression artifact | `poe build` | `uv run python scripts/build_production.py` | Needs desktop Excel. |
 | Build the Univariate artifact | `poe build-univariate` | `uv run python scripts/build_univariate.py` | Needs desktop Excel. |
 | Build + verify Regression | `poe verify-deep` | `uv run python scripts/build_production.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify Univariate | `poe verify-deep-univariate` | `uv run python scripts/build_univariate.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify test models | `poe verify-test-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose` | Needs desktop Excel; append `--include-heavy` to include the heavy cases (`L05`, `L08`). |
-| Run the whole verification ladder | `poe verify` | Run the four `verify-*` tasks in sequence | Needs desktop Excel after the headless layer; stops on first failure. |
+| Run the whole verification ladder | `poe verify` | Run the three deep `verify-*` tasks concurrently, then `verify-headless` over their output | Needs desktop Excel; stops on first failure. |
 | Resync workbook-scoped catalog names | `poe resync-names -- <workbook.xlsx>` | `uv run python tools/resync_workbook_names.py <workbook.xlsx>` | Use the `--` separator before positional args. |
 | Rebuild static reference sheets | `poe static-sheets` | `uv run python scripts/rebuild_static_sheets.py` | Needs desktop Excel; manual template maintenance. |
 
@@ -407,7 +408,11 @@ poe verify-deep-univariate  # Layer 2, Univariate artifact (needs Excel)
 poe verify-test-models      # Layer 2, the ~48-sheet test-model suite (needs Excel)
 ```
 
-`poe verify` is a sequence of those four and stops at the first one that exits non-zero.
+**`poe verify` runs the three builds concurrently, then screens their output.** It stops at the first stage that exits non-zero, and the stage boundary is what makes the order matter: `verify-headless` reads whatever `.xlsx` files are sitting in `dist/`, and the deep tasks *rewrite* those files. The task used to run the screen first, which meant it validated the previously committed artifacts and never looked at the ones the run had just built — a rebuild that broke a defined name or orphaned a chart relationship passed `verify` clean. Builds first, screen last.
+
+The three builds overlap safely because they share nothing: each driver opens its own `xw.App(visible=False, add_book=False)` and reaches every workbook through that instance's `app.books` handle (there is no bare `xw.Book()` or `xw.apps.active` anywhere in the package), and they write three different artifacts and three differently-named transcripts. The one file two of them could have contended over is `templates/static_sheets.xlsx`, which `copy_static_sheet` opens read-only. Output is buffered per task rather than interleaved, so each transcript stays contiguous.
+
+Wall time becomes roughly the longest build — `verify-test-models`, minutes — instead of the sum of all three. The cost is three Excel instances competing for CPU; on a constrained machine, run the `verify-*` tasks one at a time instead. **None of this is checkable in CI** (no GitHub-hosted runner has Office), so a change to the `verify` task needs a developer-machine run archived to `excel-only-runs/`.
 
 `poe verify-deep` shells out to `build_production.py --verify --no-launch` and `poe verify-deep-univariate` to `build_univariate.py --verify --no-launch`, so each both rebuilds and verifies its own artifact. Both tee their run into [`excel-only-runs/`](excel-only-runs/) (`<script> <flags>.log`, via `lambda_catalog.build_common.run_log_path`) — stderr and any traceback included — so a failed deep verify is a file you can commit and hand over rather than terminal scrollback; override the destination with `--log PATH`. To verify an already-built workbook, use `python tools/verify_workbook.py <workbook>` instead (with `--skip-regression` for the Univariate artifact).
 

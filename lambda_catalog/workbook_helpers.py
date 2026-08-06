@@ -258,7 +258,13 @@ def copy_static_sheet(workbook: xw.Book, template_path: Path, sheet_name: str) -
     opened_here = template_book is None
     if opened_here:
         try:
-            template_book = app.books.open(str(resolved_template_path))
+            # read_only because this helper only ever copies a sheet OUT of the
+            # template — and because it is the one file two concurrent builds
+            # could contend over. `poe verify` runs its three Excel drivers in
+            # parallel; a read-write open would give the second one Excel's
+            # file-in-use path (a modal prompt with no window to show it in, or
+            # a silent read-only downgrade) instead of a clean shared read.
+            template_book = app.books.open(str(resolved_template_path), read_only=True)
         except OPEN_WORKBOOK_ERRORS as exc:
             # Attribute the failure to the template, not `workbook` — a
             # missing/locked/corrupt template would otherwise surface as a

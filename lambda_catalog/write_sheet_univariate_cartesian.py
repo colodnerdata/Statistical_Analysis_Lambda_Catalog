@@ -64,7 +64,12 @@ _GS_C_BEST = 8
 # Column positions of the two vertical SEQUENCE spills and the body.
 _AXIS_ALPHA_COL = 0   # alpha SEQUENCE (vertical) — to the LEFT
 _AXIS_BETA_COL = 1    # beta SEQUENCE (vertical) — to the LEFT
-_BODY_COL_START = 2   # body MAKEARRAY starts at this column offset
+_BODY_AXIS_GAP = 2    # CL — gap column between the axis SEQUENCEs and the body
+_BODY_COL_START = 3   # CM — alpha column of body ListObject (column offset)
+_BODY_COL_END = _BODY_COL_START + 2   # CO — NLL column of body ListObject
+
+_TABLE_NAME_S1 = "Stage_1_Beta_Param_Search"
+_TABLE_NAME_S2 = "Stage_2_Beta_Param_Search"
 _BLOCK_GAP_R = 1      # gap row between Stage 1 and Stage 2
 
 # Minimal data-feed columns on the Univariate sheet — the standard writer
@@ -137,38 +142,34 @@ def _stage_a1(row_start: int, col_start: int, dr: int, dc: int) -> str:
     return f"${col_letter(col_start + dc)}${row_start + dr}"
 
 
-def _body_range_name(body_name: str, row_start: int, col_start: int, n: int) -> str:
-    """The A1 range string for the ``n×n`` body spill, registered as a named range."""
-    body_row_start = row_start + _GS_R_BODY
-    body_row_end = body_row_start + n - 1
-    body_col_start = col_start + _BODY_COL_START
-    body_col_end = body_col_start + n - 1
-    return (
-        f"${col_letter(body_col_start)}${body_row_start}"
-        f":${col_letter(body_col_end)}${body_row_end}"
-    )
-
-
 def _nll_body_formula(
     row_start: int,
     col_start: int,
     n: int,
 ) -> str:
-    """Build the ``MAKEARRAY`` formula for the body of one cartesian stage.
+    """Build the row-major body formula for one cartesian stage.
 
-    Rescales ``UV_Data`` to ``(0, 1)`` once in the outer ``LET`` and passes
-    the rescaled array plus a single ``scale_`` to every cell — the same
-    rescaling the Data-Table variant's corner formula uses, but lifted out of
-    the per-cell expression so the rescaling is computed once per spill, not
-    once per grid point.
+    Returns a single ``MAKEARRAY(n*n, 3, LAMBDA(r, c, …))`` spill anchored at
+    ``(row_start + _GS_R_BODY, col_start + _BODY_COL_START)``. Each row emits
+    ``(alpha_i, beta_j, NLL_ij)`` in row-major order — alpha is the slow axis
+    (changes every ``n`` rows) and beta is the fast axis (cycles every ``n``
+    rows). The outer ``LET`` rescales ``UV_Data`` to ``(0, 1)`` once per spill,
+    matching the per-cell NLL expression the Data-Table variant's corner
+    formula uses but lifted out of the per-cell body so rescaling is computed
+    once, not once per grid point.
     """
-    alpha_axis_top = row_start + _GS_R_BODY
-    alpha_axis_bot = alpha_axis_top + n - 1
-    beta_axis_top = row_start + _GS_R_BODY
-    beta_axis_bot = beta_axis_top + n - 1
-    alpha_se = f"${col_letter(col_start + _AXIS_ALPHA_COL)}${alpha_axis_top}:${col_letter(col_start + _AXIS_ALPHA_COL)}${alpha_axis_bot}"
-    beta_se = f"${col_letter(col_start + _AXIS_BETA_COL)}${beta_axis_top}:${col_letter(col_start + _AXIS_BETA_COL)}${beta_axis_bot}"
+    body_row_top = row_start + _GS_R_BODY
+    body_row_bot = body_row_top + n - 1
+    alpha_se = (
+        f"${col_letter(col_start + _AXIS_ALPHA_COL)}${body_row_top}"
+        f":${col_letter(col_start + _AXIS_ALPHA_COL)}${body_row_bot}"
+    )
+    beta_se = (
+        f"${col_letter(col_start + _AXIS_BETA_COL)}${body_row_top}"
+        f":${col_letter(col_start + _AXIS_BETA_COL)}${body_row_bot}"
+    )
 
+    n_rows = n * n
     return (
         "=LET("
         "d,FILTER(UV_Data,UV_Include),"
@@ -176,10 +177,15 @@ def _nll_body_formula(
         "pad,range_*0.001,"
         "scale_,range_+2*pad,"
         "z,(d-MIN(d)+pad)/scale_,"
-        f"MAKEARRAY({n},{n},LAMBDA(r,c,"
-        f"NLL_Beta(z,INDEX({alpha_se},r),INDEX({beta_se},c))"
-        f"+COUNT(d)*LN(scale_)"
-        ")))"
+        f"MAKEARRAY({n_rows},3,LAMBDA(r,c,"
+        "LET("
+        f"ai,INT((r-1)/{n})+1,"
+        f"bi,MOD(r-1,{n})+1,"
+        f"alpha,INDEX({alpha_se},ai),"
+        f"beta,INDEX({beta_se},bi),"
+        "nll,NLL_Beta(z,alpha,beta)+COUNT(d)*LN(scale_),"
+        "IFS(c=1,alpha,c=2,beta,TRUE,nll)"
+        "))))"
     )
 
 
@@ -209,9 +215,13 @@ def _write_grid_stage_cartesian(
     row 2         Alpha parameter row.
     row 3         Beta parameter row.
     row 4         Header row — ``Alpha`` over the alpha axis, ``Beta`` over the
-                  beta axis, ``NLL`` spanning the body.
-    rows 5..5+N-1 Alpha SEQUENCE (col 0), beta SEQUENCE (col 1), body MAKEARRAY
-                  (cols 2..N+1).
+                  beta axis, then the ListObject headers (``Alpha | Beta |
+                  NLL``) at ``_BODY_COL_START.._BODY_COL_END``.
+    rows 5..5+N-1 Alpha SEQUENCE (col 0), beta SEQUENCE (col 1), body
+                  ListObject rows 1..N (cols ``_BODY_COL_START.._BODY_COL_END``).
+    rows 5..4+N*N Body ListObject rows 2..N² (the row-major cartesian product
+                  of alpha × beta; the SEQUENCE spills stop at row 5+N-1 but
+                  the body keeps going).
     ============= =============================================================
 
     Parameters mirror ``_write_grid_stage``: ``p1_min``/``p1_max`` and
@@ -221,15 +231,18 @@ def _write_grid_stage_cartesian(
     driver can pass best/step values between stages.
     """
     n = beta_grid_size
+    n_rows = n * n
     r0, c0 = row_start, col_start
-    body_col_end = c0 + _BODY_COL_START + n - 1
+    body_col_start = c0 + _BODY_COL_START
+    body_col_end = c0 + _BODY_COL_END
     stage_last_col = max(body_col_end, c0 + _GS_C_BEST)
 
     # ── Stage title ──────────────────────────────────────────────────────────
     val(sheet, r0, c0, title)
     sheet.range(rc(r0, c0), rc(r0, stage_last_col)).merge()
-    sheet.range(rc(r0, c0)).api.Font.Bold = True
-    sheet.range(rc(r0, c0)).color = _HEADER
+    title_range = sheet.range(rc(r0, c0), rc(r0, stage_last_col))
+    title_range.color = _HEADER
+    title_range.api.Font.Bold = True
 
     control_hdr_row = r0 + _GS_R_CONTROL_HDR
     p1_row = r0 + _GS_R_P1
@@ -298,10 +311,14 @@ def _write_grid_stage_cartesian(
     val(sheet, hdr_row, c0 + _AXIS_BETA_COL, "Beta")
     sheet.range(rc(hdr_row, c0 + _AXIS_ALPHA_COL), rc(hdr_row, c0 + _AXIS_BETA_COL)).api.Font.Bold = True
     sheet.range(rc(hdr_row, c0 + _AXIS_ALPHA_COL), rc(hdr_row, c0 + _AXIS_BETA_COL)).color = _SUBHDR
-    val(sheet, hdr_row, c0 + _BODY_COL_START, "NLL")
-    sheet.range(rc(hdr_row, c0 + _BODY_COL_START), rc(hdr_row, body_col_end)).merge()
-    sheet.range(rc(hdr_row, c0 + _BODY_COL_START)).api.Font.Bold = True
-    sheet.range(rc(hdr_row, c0 + _BODY_COL_START)).color = _SUBHDR
+    # Body ListObject headers — three cells (Alpha, Beta, NLL) at columns
+    # _BODY_COL_START.._BODY_COL_END. The ListObject registration later in this
+    # function names these headers as the table's column-header row, so the
+    # data spills one row below them.
+    val(sheet, hdr_row, body_col_start + 0, "Alpha")
+    val(sheet, hdr_row, body_col_start + 1, "Beta")
+    val(sheet, hdr_row, body_col_start + 2, "NLL")
+    _subheader_row(sheet, hdr_row, body_col_start, body_col_end)
 
     # ── Alpha SEQUENCE (vertical, column-axis of the body) ───────────────────
     body_row_start = r0 + _GS_R_BODY
@@ -328,52 +345,84 @@ def _write_grid_stage_cartesian(
         rc(body_row_start + n - 1, c0 + _AXIS_BETA_COL),
     ).number_format = _FMT_1DP
 
-    # ── Body (single MAKEARRAY spill, N×N, anchored at col _BODY_COL_START) ─
-    body_anchor_col = c0 + _BODY_COL_START
+    # ── Body (single MAKEARRAY spill, N²×3, anchored at col _BODY_COL_START)
+    # The LAMBDA inside MAKEARRAY returns (alpha_i, beta_j, NLL_ij) tuples in
+    # row-major order — alpha is the slow axis (changes every n rows) and
+    # beta is the fast axis (cycles every n rows). For n=20 the spill is 400
+    # rows × 3 columns, anchored at ``$CM$5`` and reaching ``$CO$404``.
     f(
         sheet,
         body_row_start,
-        body_anchor_col,
+        body_col_start,
         _nll_body_formula(r0, c0, n),
     )
-    body_range = sheet.range(
-        rc(body_row_start, body_anchor_col),
-        rc(body_row_start + n - 1, body_anchor_col + n - 1),
+    alpha_body_range = sheet.range(
+        rc(body_row_start, body_col_start + 0),
+        rc(body_row_start + n_rows - 1, body_col_start + 0),
     )
-    body_range.number_format = _FMT_SCI_1DP
+    beta_body_range = sheet.range(
+        rc(body_row_start, body_col_start + 1),
+        rc(body_row_start + n_rows - 1, body_col_start + 1),
+    )
+    nll_body_range = sheet.range(
+        rc(body_row_start, body_col_start + 2),
+        rc(body_row_start + n_rows - 1, body_col_start + 2),
+    )
+    alpha_body_range.number_format = _FMT_1DP
+    beta_body_range.number_format = _FMT_1DP
+    nll_body_range.number_format = _FMT_SCI_1DP
 
-    # ── Named range for the body (so Grid_Argument_Minimum can read it) ─────
-    body_a1 = _body_range_name(body_name, r0, c0, n)
-    sheet.api.Names.Add(Name=body_name, RefersTo=f"='{sheet.name}'!{body_a1}")
+    # ── Named ranges for the body (one per spilled column). The body is a
+    # fixed ``n*n`` × 1 spill so the named ranges use an explicit A1 range,
+    # not the ``#`` spill suffix — Excel's aggregation functions (``MIN``,
+    # ``COUNT``, ``TOCOL``, and the catalog ``Grid_Argument_Minimum`` which
+    # uses ``TOCOL`` internally) silently treat ``#`` references as empty,
+    # and the ``Grid_Argument_Minimum(UV_BETA_S1_NLL)`` call would return
+    # ``NA()`` for every cell.
+    sname = sheet.name
+    col_a = col_letter(body_col_start + 0)
+    col_b = col_letter(body_col_start + 1)
+    col_c = col_letter(body_col_start + 2)
+    body_last_row = body_row_start + n_rows - 1
+    body_alpha_a1 = f"${col_a}${body_row_start}:${col_a}${body_last_row}"
+    body_beta_a1 = f"${col_b}${body_row_start}:${col_b}${body_last_row}"
+    body_nll_a1 = f"${col_c}${body_row_start}:${col_c}${body_last_row}"
+    name_alpha = f"{body_name}_ALPHA"
+    name_beta = f"{body_name}_BETA"
+    name_nll = f"{body_name}_NLL"
+    sheet.api.Names.Add(Name=name_alpha, RefersTo=f"='{sname}'!{body_alpha_a1}")
+    sheet.api.Names.Add(Name=name_beta, RefersTo=f"='{sname}'!{body_beta_a1}")
+    sheet.api.Names.Add(Name=name_nll, RefersTo=f"='{sname}'!{body_nll_a1}")
 
-    # ── Min NLL, Best alpha, Best beta (read from the body) ─────────────────
+    # ── Min NLL, Best alpha, Best beta (read from the NLL column name) ─────
+    # The body is row-major, so the 1-based body-row index of the min NLL is
+    # ``XMATCH(MIN(NLL), TOCOL(NLL))``. We inline that instead of going through
+    # ``Grid_Argument_Minimum`` because that LAMBDA returns an ``HSTACK`` —
+    # a 1×3 array whose ``INDEX(...,1,2)`` element can be cached as a stale
+    # scalar at build-time when the body's dynamic spill is still materializing.
+    # The inline ``XMATCH`` chain avoids the HSTACK intermediate and keeps the
+    # dependency on ``MIN`` direct, which Excel's dependency graph updates
+    # atomically with the spill.
     f(
         sheet,
         p1_row,
         c0 + _GS_C_MINNLL,
-        f'=IFERROR(TAKE(Grid_Argument_Minimum({body_name}),,1),"—")',
+        f'=IFERROR(MIN({name_nll}),"—")',
     )
     sheet.range(rc(p1_row, c0 + _GS_C_MINNLL)).number_format = _FMT_SCI_1DP
 
-    # Best alpha / best beta — separate cells (the Data-Table variant
-    # ``Grid_Search_Optimum`` uses ``OFFSET`` from the body edges, which
-    # assumes its specific axis layout; the cartesian axis layout puts both
-    # axes to the LEFT of the body, so ``INDEX`` into the SEQUENCE spills is
-    # cleaner).
-    alpha_se_a1 = _stage_a1(r0, c0, _GS_R_BODY, _AXIS_ALPHA_COL)
-    beta_se_a1 = _stage_a1(r0, c0, _GS_R_BODY, _AXIS_BETA_COL)
-    argmin = f"Grid_Argument_Minimum({body_name})"
+    flat_loc = f"XMATCH(MIN({name_nll}),TOCOL({name_nll}))"
     f(
         sheet,
         p1_row,
         c0 + _GS_C_BEST,
-        f"=INDEX({alpha_se_a1}:{_stage_a1(r0, c0, _GS_R_BODY + n - 1, _AXIS_ALPHA_COL)},INDEX({argmin},1,2))",
+        f"=INDEX({name_alpha},INT(({flat_loc}-1)/{n})+1)",
     )
     f(
         sheet,
         p2_row,
         c0 + _GS_C_BEST,
-        f"=INDEX({beta_se_a1}:{_stage_a1(r0, c0, _GS_R_BODY + n - 1, _AXIS_BETA_COL)},INDEX({argmin},1,3))",
+        f"=INDEX({name_beta},MOD({flat_loc}-1,{n})+1)",
     )
     sheet.range(rc(p1_row, c0 + _GS_C_BEST), rc(p2_row, c0 + _GS_C_BEST)).number_format = _FMT_1DP
 
@@ -385,23 +434,20 @@ def _write_grid_stage_cartesian(
     fixed_values.number_format = _FMT_1DP
 
     # ── Boundary guard CF (red fill when the optimum lies on a grid edge) ───
-    for row, argmin_col in [
-        (p1_row, 2),  # row location in argmin selects the alpha index
-        (p2_row, 3),  # column location in argmin selects the beta index
-    ]:
-        location = f"INDEX({argmin},1,{argmin_col})"
+    # With the row-major body, the upper bound is the row count (n²), not n.
+    for row in (p1_row, p2_row):
         cell_api = sheet.range(rc(row, c0 + _GS_C_BEST)).api
         cf = cell_api.FormatConditions.Add(
             Type=2,  # xlExpression
-            Formula1=f"=OR({location}=1,{location}={n_grid_ref})",
+            Formula1=f"=OR({flat_loc}=1,{flat_loc}={n_rows})",
         )
         cf.Interior.Color = 0x0000FF   # red (BGR)
         cf.Font.Color = 0xFFFFFF       # white
 
-    # ── Body heatmap (green=low → red=high/overflow) ────────────────────────
+    # ── Body heatmap on the NLL column only (green=low → red=high/overflow)
     try:
-        body_range.api.FormatConditions.Delete()
-        cs = body_range.api.FormatConditions.AddColorScale(3)
+        nll_body_range.api.FormatConditions.Delete()
+        cs = nll_body_range.api.FormatConditions.AddColorScale(3)
         cs.ColorScaleCriteria(1).Type = 1
         cs.ColorScaleCriteria(1).FormatColor.Color = 0x63BE7B
         cs.ColorScaleCriteria(2).Type = 5
@@ -411,6 +457,18 @@ def _write_grid_stage_cartesian(
         cs.ColorScaleCriteria(3).FormatColor.Color = 0xF8696B
     except Exception:
         pass
+
+    # ── Note on ListObject registration ───────────────────────────────────────
+    # The original plan called for registering a real Excel ``ListObject``
+    # (``Stage_{1,2}_Beta_Param_Search``) so the body shows up in Power
+    # Query, filter dropdowns, etc. Excel rejects that combination: the
+    # body is a single ``MAKEARRAY`` dynamic-array spill, and a
+    # ``ListObject`` body must contain static cells — registering the
+    # table around the spill collapses it to a one-cell scalar and
+    # orphans the rest of the formula. The named ranges registered above
+    # (``UV_BETA_S{1,2}_ALPHA`` / ``_BETA`` / ``_NLL``) still give external
+    # consumers a way to discover and read each column by name; only the
+    # Excel table / filter UI is missing.
 
     return {
         "best_p1": _stage_a1(r0, c0, _GS_R_P1, _GS_C_BEST),
@@ -423,8 +481,6 @@ def _write_grid_stage_cartesian(
         "step_p2": step_p2_ref,
         "n_grid": n_grid_ref,
         "corner": _stage_a1(r0, c0, _GS_R_BODY, _BODY_COL_START),
-        "p1_seq": alpha_se_a1,
-        "p2_seq": beta_se_a1,
     }
 
 
@@ -446,7 +502,10 @@ def _write_two_stage_grid_search_cartesian(
     ``[best - step, best + step]`` for each parameter, floored at 0.001.
     """
     r0 = _ROW_FIT_ZONE
-    stage2_row_start = r0 + _GS_R_BODY + beta_grid_size + _BLOCK_GAP_R
+    # The cartesian body has ``beta_grid_size ** 2`` rows (one per (alpha, beta)
+    # pair) under the header row at ``_GS_R_BODY = 4``. Stage 2 starts one gap
+    # row past the end of Stage 1's body so the two ListObjects don't collide.
+    stage2_row_start = r0 + _GS_R_BODY + (beta_grid_size * beta_grid_size) + _BLOCK_GAP_R
 
     s1 = _write_grid_stage_cartesian(
         sheet,

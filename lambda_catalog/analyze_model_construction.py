@@ -1,4 +1,4 @@
-"""Python expected values and QC reads for the Model Construction sheet.
+"""Python expected values and QC reads for the spec block (Regression sheet).
 
 Follows the repo's QC split: expected values are computed in Python from the
 source xlsx (the ``analyze_regression_sheet`` pattern), sheet reads return
@@ -40,7 +40,7 @@ import xlwings as xw
 from .analyze_mileage import calculate_mileage_completeness_flags
 from .workbook_builder import XL_CALCULATION_MANUAL, XL_CALCULATION_SEMIAUTOMATIC
 from .write_sheet_csv_dataset import MILEAGE, load_csv_rows
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _AUDIT_PAIRS,
     _AUDIT_ROW,
     _C_FILTERED_LABELS,
@@ -64,12 +64,18 @@ from .write_sheet_model_construction import (
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
     _VARIABLES,
-    SHEET_NAME,
 )
 
 DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
 FULL_DATA_HEADER = MILEAGE.full_data_header
 DATA_SHEET_NAME = MILEAGE.sheet_name
+# The spec block has lived on the Regression sheet since the v2.0 release;
+# the standalone ``Model Construction`` sheet was dropped. The oracle is
+# still named ``analyze_model_construction`` for historical reasons (it is
+# the pure-Python half of the regression spec-block QC), but its reads
+# target the Regression sheet, the only place the spec block ships.
+from .write_sheet_regression import REGRESSION_SHEET_NAME
+SPEC_BLOCK_SHEET_NAME = REGRESSION_SHEET_NAME
 
 _QC_PREFIX = "[Model Construction]"
 _TABLE_NAME = "MileageData"
@@ -699,7 +705,7 @@ def _verify_degenerate_filter_case(
     saving, so the shipped workbook stays in its T0 state either way.
     """
     data_sheet = workbook.sheets[DATA_SHEET_NAME]
-    sheet = workbook.sheets[SHEET_NAME]
+    sheet = workbook.sheets[SPEC_BLOCK_SHEET_NAME]
 
     spec = build_default_spec() + [
         SpecVariable(_EXTRA_FILTER_HEADER, _ROLE_FILTER, False, "Continuous")
@@ -745,7 +751,7 @@ def _verify_degenerate_filter_case(
 def read_model_construction_failures(
     workbook: xw.Book, csv_path: Path = DEFAULT_INPUT_CSV
 ) -> list[str]:
-    """Verify the Model Construction sheet; return QC failure messages.
+    """Verify the spec block on the Regression sheet; return QC failure messages.
 
     Pass 1 asserts the shipped default spec (the human test plan's T0
     state); pass 2 drives the degenerate-Categorical Filter case and
@@ -755,7 +761,7 @@ def read_model_construction_failures(
     spec = build_default_spec()
     expected = calculate_model_construction_expectations(spec, rows)
 
-    sheet = workbook.sheets[SHEET_NAME]
+    sheet = workbook.sheets[SPEC_BLOCK_SHEET_NAME]
     observed = read_observed_values(sheet, expected.total_rows, max(expected.k, 1))
     failures = compare_observed_to_expected(observed, expected, "default spec")
 

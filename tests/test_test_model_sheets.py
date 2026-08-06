@@ -230,7 +230,7 @@ def test_a_cases_typed_sequence_period_lands_in_spec_column_i() -> None:
         calculate_regression_spec_case,
     )
     from lambda_catalog.regression_spec_sheet_io import apply_sequence_period_overrides
-    from lambda_catalog.write_sheet_model_construction import (
+    from lambda_catalog.write_spec_block import (
         _C_SEQUENCE_PERIOD,
         _FIRST_DATA_ROW,
     )
@@ -272,7 +272,7 @@ def test_only_cases_that_need_a_period_declare_one() -> None:
     spread by copy-paste the way the Sequence flag itself once did.
     """
     from lambda_catalog.analyze_regression_spec import build_regression_spec_cases
-    from lambda_catalog.write_sheet_model_construction import _ROLE_FIXED_EFFECTS
+    from lambda_catalog.write_spec_block import _ROLE_FIXED_EFFECTS
 
     for case in build_regression_spec_cases():
         if case.sequence_period is None:
@@ -291,7 +291,7 @@ def test_the_spec_block_creates_no_list_object() -> None:
     which pinned it to the build-time dataset. It must not come back: a
     ListObject cannot be resized by a formula, and a spill cannot live
     inside one, so its return would silently re-break the retarget."""
-    from lambda_catalog.write_sheet_model_construction import _write_spec_block
+    from lambda_catalog.write_spec_block import _write_spec_block
 
     sheet = RecordingSheet(name="M05 Log-Log NA Masking")
     _write_spec_block(_as_xw_sheet(sheet))
@@ -303,7 +303,7 @@ def test_spec_bands_are_sized_to_the_live_source_table() -> None:
     """Each band TAKE-trims its column to COLUMNS(Source_Data), which is what
     makes a Source_Table retarget resize the spec block. A band pinned to a
     fixed row count is the bug this replaced."""
-    from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
+    from lambda_catalog.write_spec_block import _set_sheet_scoped_names
 
     sheet = RecordingSheet(name="M05 Log-Log NA Masking")
     _set_sheet_scoped_names(_as_xw_sheet(sheet), ())
@@ -327,7 +327,7 @@ def test_spec_bands_carry_no_retired_names() -> None:
     $I$4:$I$15989 band is still in the shipped artifact — sync_workbook_names
     only sweeps WORKBOOK-scoped residue, so this one has to be dropped by
     the writer that stopped creating it."""
-    from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
+    from lambda_catalog.write_spec_block import _set_sheet_scoped_names
 
     sheet = RecordingSheet(name="Regression")
     _set_sheet_scoped_names(_as_xw_sheet(sheet), ())
@@ -338,7 +338,7 @@ def test_spec_bands_carry_no_retired_names() -> None:
 
 
 def test_spec_role_band_is_the_dataset_sized_role_column() -> None:
-    from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
+    from lambda_catalog.write_spec_block import _set_sheet_scoped_names
 
     sheet = RecordingSheet(name="Regression")
     _set_sheet_scoped_names(_as_xw_sheet(sheet), ())
@@ -368,7 +368,7 @@ def test_every_refers_to_quotes_a_sheet_name_containing_spaces() -> None:
     `<PlanID> <Concept>` contract), so this asserts the property directly
     rather than trusting the convention.
     """
-    from lambda_catalog.write_sheet_model_construction import _set_sheet_scoped_names
+    from lambda_catalog.write_spec_block import _set_sheet_scoped_names
     from lambda_catalog.write_sheet_regression import (
         _setup_local_names,
         _write_materialization_zone,

@@ -190,7 +190,7 @@ def test_none_transform_design_is_unaffected_by_the_log_wiring() -> None:
 # ── Categorical x Log is disallowed and must never leak into the design ────
 
 def test_log_on_a_categorical_predictor_is_ignored_by_the_design_builder() -> None:
-    # The sheet flags this combination red (write_sheet_model_construction.py);
+    # The sheet flags this combination red (write_spec_block.py);
     # the design builder mirrors Predictor_Columns()'s own behavior — the Categorical
     # branch never reads .transform, so a mislabelled row is computationally
     # inert, not an error and not silently logged.

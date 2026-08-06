@@ -27,7 +27,7 @@ from lambda_catalog.analyze_regression_spec_block import (
     compare_spec_observed_to_expected,
 )
 from lambda_catalog.workbook_helpers import col_letter
-from lambda_catalog.write_sheet_model_construction import (
+from lambda_catalog.write_spec_block import (
     _C_SEQUENCE,
     _INTERCEPT_ROW,
 )

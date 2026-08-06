@@ -52,12 +52,12 @@ from lambda_catalog.workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
     raise_excel_access_error,
 )
-from lambda_catalog.write_sheet_model_construction import (
+from lambda_catalog.write_spec_block import (
     _C_DESIGN_COLUMNS,
     _C_REFERENCE,
     _C_ROLE,
 )
-from lambda_catalog.write_sheet_model_construction import (
+from lambda_catalog.write_spec_block import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
 )
 
@@ -75,9 +75,9 @@ TOLERANCE_DECIMALS = _D * 2  # 6
 # the spec data area became a structured table, and a status line on top
 # of a header reads as a visual collision — so it moved to E1, which is
 # Reference Level's row-1 cell (Reference Level is a per-row input, blank
-# on row 1 by default). See write_sheet_model_construction.py:_write_spec_feedback.
+# on row 1 by default). See write_spec_block.py:_write_spec_feedback.
 _ROW_STATUS = 1
-_ROW_SEQUENCE_STATUS = 1  # E1 — see write_sheet_model_construction
+_ROW_SEQUENCE_STATUS = 1  # E1 — see write_spec_block
 
 
 def _as_text(value: object) -> str:

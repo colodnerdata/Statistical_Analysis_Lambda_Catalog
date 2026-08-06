@@ -1688,8 +1688,9 @@ diagnostic-chart columns:
 ```
 
 **Naming.** The terminal zone is the **Constructed Design Matrix**, not the "Model
-Construction" zone — `Model Construction` is already a sheet name
-(`write_sheet_model_construction.py`) and the two must stay distinguishable.
+Construction" zone — `Model Construction` was already a sheet name
+(`write_sheet_model_construction.py`, retired at v2.0) and the two had to
+stay distinguishable.
 
 **Ordering rule:** the materialized zones run in **increasing width and terminate
 in the unbounded zone**. This single rule covers both the "nothing may ever be
@@ -1854,10 +1855,11 @@ does that double cost need paying — or unwinding — as part of this release?
 
 **Resolution:** neither. The premise is false. There is **one** implementation.
 `write_sheet_regression.py` imports the spec-block writers from
-`write_sheet_model_construction.py` and calls them:
+`write_spec_block.py` (formerly `write_sheet_model_construction.py`, renamed
+2026-08-06) and calls them:
 
 ```python
-from .write_sheet_model_construction import (
+from .write_spec_block import (
     _set_sheet_scoped_names as _set_spec_scoped_names,
     _set_spec_block_column_widths,
     _write_intercept_control,
@@ -1868,7 +1870,7 @@ from .write_sheet_model_construction import (
 ```
 
 `write_sheet_regression.py`'s own module docstring states the intent: *"the
-spec-block writers are imported from write_sheet_model_construction so the two
+spec-block writers are imported from write_spec_block so the two
 sheets can never drift."* Separately, the Model Construction **sheet** is
 deleted by both builds — `_delete_sheet_if_present(workbook, "Model
 Construction")` in `build_production.py` and `build_univariate.py` — so only one spec
@@ -1887,11 +1889,11 @@ on the same reasoning. Both inferred coupling from two large files without
 reading the import. Writing down that the coupling does not exist is what stops
 a third round.
 
-**What remains is a naming problem.** `write_sheet_model_construction.py` no
-longer writes a shipped sheet; it is the spec-block component library the
-Regression sheet is built from, and it still carries the name of a sheet both
-builds delete. Renaming it — and dropping the unreachable
-`write_model_construction_sheet()` / `main()` standalone-CLI path — is tracked
+**Naming problem resolved 2026-08-06.** `write_sheet_model_construction.py`
+was renamed to `write_spec_block.py`, and the unreachable
+`write_model_construction_sheet()` / `main()` standalone-CLI path and the
+`SHEET_NAME` constant were dropped — see git history for the
+implementation.
 in [TODOs.md](TODOs.md) as cosmetic follow-up. Deliberately **not** dropped:
 `_write_audit_row` and `_write_filtered_zones`, which are the working reference
 implementations of the Design Columns audit column and the V/W filtered-display
@@ -2244,7 +2246,7 @@ three operations?
 
 **Resolution:** no. Each operation renders its own operator — ` × ` for Product,
 ` − ` for Difference, ` ÷ ` for Ratio — with ` ? ` for anything else.
-`_INTERACTION_HEADER_SYMBOLS` in `write_sheet_model_construction.py` is the
+`_INTERACTION_HEADER_SYMBOLS` in `write_spec_block.py` is the
 single source, and `test_interaction_header_symbols_match_the_catalog_formula`
 pins it to the `SWITCH` inside `Constructed_Column_Names()`.
 

@@ -55,8 +55,9 @@ def test_signatures_unchanged() -> None:
 
 def test_empty_string_reference_means_default() -> None:
     # A provided "" behaves exactly like an omitted reference (use the first
-    # sorted level) — the Model Construction sheet passes blank Reference
-    # cells straight through, and "" must mean "default", not "invalid".
+    # sorted level) — the spec block on the Regression sheet passes blank
+    # Reference cells straight through, and "" must mean "default", not
+    # "invalid".
     assert 'IF(ISOMITTED(reference), "", reference)' in _DUMMY_LEVELS.formula_display
     assert (
         'IF(ref_raw = "", IFERROR(INDEX(All_Levels, 1, 1), NA()), ref_raw)'

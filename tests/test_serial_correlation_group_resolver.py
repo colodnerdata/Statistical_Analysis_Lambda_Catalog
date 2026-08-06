@@ -69,7 +69,7 @@ from tests.test_difference_by_verification import NA
 ROOT_DIR = Path(__file__).resolve().parents[1]
 CATALOG_PATH = ROOT_DIR / "lambda_functions.json"
 
-# The exact spec tokens (write_sheet_model_construction role constants).
+# The exact spec tokens (write_spec_block role constants).
 _ROLE_FIXED_EFFECTS = "Fixed Effects"
 _ROLE_CLUSTER = "Cluster"
 _ROLE_RESPONSE = "Response (y)"

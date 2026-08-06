@@ -1,4 +1,14 @@
-"""Build the Model Construction worksheet — v2.0 declarative specification block.
+"""Spec-block component library for the Regression sheet.
+
+This module is the canonical home of the column/row constants, role tokens,
+validation lists, ``SpecDatasetProfile`` records, and the ~15 helper writers
+(``_write_spec_block``, ``_write_spec_feedback``, ``_set_sheet_scoped_names``,
+``_set_spec_block_column_widths``, ``_set_spec_block_optional_outline_group``,
+``_write_intercept_control``, ...) consumed by ``write_sheet_regression.py``.
+
+The module deliberately contains no runner: the spec block lives on the
+Regression sheet in the shipped artifact, and the standalone ``Model
+Construction`` sheet and ``__main__`` CLI were dropped at the v2.0 release.
 
 Two-axis specification plus the Sequence structural axis (ROADMAP: v2.0 —
 Specification-Driven Regression; Sequence added post-v2.0):
@@ -183,11 +193,10 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from pathlib import Path
 
 import xlwings as xw
 
-from .catalog_schema import CatalogFunction, load_catalog_document
+from .catalog_schema import CatalogFunction
 from .lambda_formula_parser import (
     _normalize_user_formula,
     _strip_non_string_whitespace,
@@ -211,31 +220,23 @@ from .workbook_helpers import (
     excel_color,
     f,
     format_input,
-    get_or_create_sheet,
     group_and_hide_columns,
     note_dimensions,
     open_or_create_workbook,
     rc,
-    reset_generated_sheet,
     section_heading,
     set_column_widths,
     val,
 )
 from .write_sheet_csv_dataset import LIFE_EXPECTANCY, MILEAGE, PRODUCTION_LOTS
 
-SHEET_NAME = "Model Construction"
-
-# The constructor closures moved to the Regression sheet with the v2.0
-# release (scope "Regression" in lambda_functions.json) — the spec block
-# now lives there and this sheet is no longer part of the production build.
-# A standalone rebuild of this sheet still works: the closures are generic
-# over the sheet they're registered on, so they are loaded by this scope and
-# installed sheet-scoped here exactly as before.
+# The constructor closures live on the Regression sheet (scope "Regression"
+# in lambda_functions.json) — the spec block now lives there and the
+# standalone ``Model Construction`` sheet was dropped at the v2.0 release.
+# The helpers in this module remain the canonical owners of the spec-block
+# column/row constants, role tokens, validation lists, and sheet-scoped
+# named ranges consumed by ``write_sheet_regression.py``.
 _CLOSURE_SCOPE = "Regression"
-
-# The catalog file backing the constructor closures. Used when a caller does
-# not pass them in explicitly.
-_DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.json"
 
 # Every MileageData column, in table order (incl. the computed Full_Data
 # completeness column — the spec spans the whole table).
@@ -2126,88 +2127,3 @@ def _write_filtered_zones(sheet: xw.Sheet) -> None:
         )
 
 
-def write_model_construction_sheet(
-    workbook: xw.Book,
-    closures: Sequence[CatalogFunction] | None = None,
-) -> xw.Sheet:
-    """Create or rebuild the Model Construction sheet.
-
-    Parameters
-    ----------
-    workbook : xw.Book
-        The open workbook to write into.
-    closures : Sequence[CatalogFunction] or None, optional
-        The sheet-scoped constructor functions (scope ``"Model Construction"``),
-        in dependency order. When None, they are loaded from
-        ``lambda_functions.json`` — so a standalone rebuild works without the
-        caller threading the catalog through.
-    """
-    if closures is None:
-        closures = load_catalog_document(_DEFINITIONS_PATH).functions_for_sheet(
-            _CLOSURE_SCOPE
-        )
-
-    sheet = get_or_create_sheet(workbook, SHEET_NAME)
-    reset_generated_sheet(sheet)
-
-    section_heading(sheet, 1, _C_LABEL, "Model Construction")
-
-    # Names FIRST, then the spec block — the same order
-    # write_regression_output_sheet uses, and for the same reason: the
-    # block's four computed columns are spills that read the Spec_* bands,
-    # Source_Data, Header_Names and the constructor closures.
-    #
-    # This is the reverse of the order used through v3.3, when the block
-    # created a SpecTable ListObject that the bands bound to via structured
-    # references and Excel validated at Names.Add time.
-    _set_sheet_scoped_names(sheet, closures)
-    _write_spec_block(sheet)
-    _write_spec_feedback(sheet)
-    _write_intercept_control(sheet)
-    _write_row_zones(sheet)
-    _write_audit_row(sheet)
-    _write_filtered_zones(sheet)
-
-    # Reserved-column and Sequence notes are COM comment calls; keep them
-    # out of the RecordingSheet-testable spec block. They attach to the
-    # header row (row 3) so the tooltip appears when the user hovers the
-    # column heading the notes describe, not the first variable row.
-    _set_note(sheet, _HEADER_ROW, _C_LABEL, _LABEL_NOTE, label="Variable")
-    _set_note(sheet, _HEADER_ROW, _C_ROLE, _ROLE_NOTE, label="Role")
-    _set_note(sheet, _HEADER_ROW, _C_INCLUDE, _INCLUDE_NOTE, label="Include")
-    _set_note(sheet, _HEADER_ROW, _C_TYPE, _TYPE_NOTE, label="Type")
-    _set_note(sheet, _HEADER_ROW, _C_REFERENCE, _REFERENCE_NOTE, label="Reference Level")
-    _set_note(sheet, _HEADER_ROW, _C_ORDER, _RESERVED_NOTE, label="Order")
-    _set_note(sheet, _HEADER_ROW, _C_TRANSFORM, _TRANSFORM_NOTE, label="Transform")
-    _set_note(sheet, _HEADER_ROW, _C_SEQUENCE, _SEQUENCE_NOTE, label="Sequence")
-    _set_note(sheet, _HEADER_ROW, _C_SEQUENCE_PERIOD, _SEQUENCE_PERIOD_NOTE, label="Sequence Period")
-    _set_note(sheet, _HEADER_ROW, _C_PERIOD_IN_USE, _PERIOD_IN_USE_NOTE, label="Period In Use")
-    _set_note(sheet, _HEADER_ROW, _C_LEVELS, _LEVELS_NOTE, label="Levels")
-    _set_note(sheet, _HEADER_ROW, _C_REF_IN_USE, _REF_IN_USE_NOTE, label="Reference In Use")
-    _set_note(sheet, _HEADER_ROW, _C_INTERACTION_TERM, _INTERACTION_TERM_NOTE, label="Interaction Term")
-    _set_note(sheet, _HEADER_ROW, _C_INTERACTION_OPERATION, _INTERACTION_OPERATION_NOTE, label="Interaction Operation")
-    _set_note(sheet, _HEADER_ROW, _C_DESIGN_COLUMNS, _DESIGN_COLUMNS_NOTE, label="Design Columns")
-
-    _set_spec_block_column_widths(sheet)
-    _set_spec_block_optional_outline_group(sheet)
-    return sheet
-
-
-def main(workbook_path: str | Path = "Lambda_Library.xlsx") -> None:
-    """Standalone runner: add/rebuild the sheet in the given workbook."""
-    path = Path(workbook_path).resolve()
-    app = xw.App(visible=True, add_book=False)
-    try:
-        workbook, existed = open_or_create_workbook(app, path)
-        write_model_construction_sheet(workbook)
-        workbook.save(str(path))
-        state = "existing" if existed else "new"
-        print(f"Sheet written: {SHEET_NAME} ({state} workbook: {path})")
-    finally:
-        app.quit()
-
-
-if __name__ == "__main__":
-    import sys
-
-    main(sys.argv[1] if len(sys.argv) > 1 else "Lambda_Library.xlsx")

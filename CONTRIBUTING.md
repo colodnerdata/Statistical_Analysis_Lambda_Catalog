@@ -112,8 +112,8 @@ Tests live in `tests/`. The current test files are:
 | `test_dummy_functions.py` | `Dummy_Levels`/`Dummy_Code` NA()-based error contract: formula statics, signatures, and parser translation to workbook XML |
 | `test_lambda_catalog_plain_language.py` | All LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
 | `test_sheet_writers.py` | Sheet writer integration (conditional formatting, named ranges) |
-| `test_model_construction_writer.py` | Model Construction sheet writer: sheet-scoped name definitions and order, T0 default-spec prefill, dropdowns, conditional formats, `Predictor_Columns`/`Constructed_Column_Names` twin invariants |
-| `test_analyze_model_construction.py` | Model Construction QC analyzer: default-spec expectations pinned against the sample CSV (mask size, k, level-qualified names), the stratified-Filter degeneracy case, and the observed-vs-expected comparison layer |
+| `test_spec_block_writer.py` | Spec-block component library: sheet-scoped name definitions and order, T0 default-spec prefill, dropdowns, conditional formats, `Predictor_Columns`/`Constructed_Column_Names` twin invariants |
+| `test_analyze_model_construction.py` | Spec-block QC analyzer: default-spec expectations pinned against the sample CSV (mask size, k, level-qualified names), the stratified-Filter degeneracy case, and the observed-vs-expected comparison layer |
 | `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
 | `test_inspection_compare.py` | QC value comparison logic (`to_float_or_none`, `first_digit_deviation`, `compare_values`) |
 | `test_independent_verification.py` | Independent numpy/scipy verification of all LAMBDA function outputs (scalars, vectors, observation diagnostics, predictor summary, prediction interval) |
@@ -202,7 +202,7 @@ Every case is also materialized as its own worksheet in `Lambda_Library_TestMode
 
 ### Datasets
 
-Three are wired: Auto MPG (406 rows — baseline, categoricals, interactions), Life Expectancy (2938 rows — transform dispatch, scale, missingness), Production Lots (51 rows — learning curves, fixed effects, sequence). A new dataset must buy a corner those three cannot; keep additions at ~250 rows or fewer, prefer CSVs already in `sample_data/`, and expect to write one `CsvDatasetConfig` (`lambda_catalog/write_sheet_csv_dataset.py`) plus one `SpecDatasetProfile` registry entry (`SPEC_DATASET_PROFILES` in `write_sheet_model_construction.py`). The shortlist and what each one buys is [§ 3](docs/MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-minimal).
+Three are wired: Auto MPG (406 rows — baseline, categoricals, interactions), Life Expectancy (2938 rows — transform dispatch, scale, missingness), Production Lots (51 rows — learning curves, fixed effects, sequence). A new dataset must buy a corner those three cannot; keep additions at ~250 rows or fewer, prefer CSVs already in `sample_data/`, and expect to write one `CsvDatasetConfig` (`lambda_catalog/write_sheet_csv_dataset.py`) plus one `SpecDatasetProfile` registry entry (`SPEC_DATASET_PROFILES` in `write_spec_block.py`). The shortlist and what each one buys is [§ 3](docs/MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-minimal).
 
 ## Building
 
@@ -250,7 +250,7 @@ Produces `Lambda_Library.xlsx` — the distributable Regression artifact committ
 - **Regression Instructions** — step-by-step guide for adapting the sheet to new datasets
 - **Diagnostic Guide** — interpretation guide for regression diagnostics
 - **Version History** — changelog that travels with the workbook
-- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_sheet_model_construction.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `Predictor_Columns`, `Design_Columns`, `Design_Response`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
+- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_spec_block.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `Predictor_Columns`, `Design_Columns`, `Design_Response`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
 
 No Univariate sheet (it ships in its own workbook — see [Univariate build](#univariate-build) below), no test sheets, no OLS analysis, no cache dependency.
 
@@ -261,7 +261,7 @@ No Univariate sheet (it ships in its own workbook — see [Univariate build](#un
 | `--workbook PATH` | `Lambda_Library.xlsx` | Path to the workbook to create or update. |
 | `--definitions PATH` | `lambda_functions.json` | Path to the JSON catalog of LAMBDA definitions. |
 | `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. (The **Mileage Data** and **Production Lots** sources are fixed committed sample files with no CLI override.) |
-| `--regression-dataset {auto_mpg,life_expectancy,production_lots}` | `auto_mpg` | Which dataset the Regression sheet's `Source_Table` targets, **and** which shipped default spec pre-fills the MODEL SPECIFICATION block (`SPEC_DATASET_PROFILES` in `write_sheet_model_construction.py`) — every column starts with a real Role/Include/Type instead of falling back to an un-flagged Predictor. The profile decides which rows arrive pre-filled, not how many spec rows exist: the block sizes itself from `COLUMNS(Source_Data)`, so retargeting `Source_Table` by hand afterwards resizes it too. `life_expectancy` ships Response=`Life expectancy`, the 18-column `FEATURE_COLUMNS` predictor set, `Country` as Identifier, `Status` as a Categorical predictor, and `Year` as the Sequence axis. `production_lots` is the one to pick for a ready-made Fixed Effects example (Facility as the FE role, Fiscal_Year as Sequence) — its default spec is the QC-validated Crawford/Wright learning-curve model (`log Unit Cost` ~ `log Cum Units`). |
+| `--regression-dataset {auto_mpg,life_expectancy,production_lots}` | `auto_mpg` | Which dataset the Regression sheet's `Source_Table` targets, **and** which shipped default spec pre-fills the MODEL SPECIFICATION block (`SPEC_DATASET_PROFILES` in `write_spec_block.py`) — every column starts with a real Role/Include/Type instead of falling back to an un-flagged Predictor. The profile decides which rows arrive pre-filled, not how many spec rows exist: the block sizes itself from `COLUMNS(Source_Data)`, so retargeting `Source_Table` by hand afterwards resizes it too. `life_expectancy` ships Response=`Life expectancy`, the 18-column `FEATURE_COLUMNS` predictor set, `Country` as Identifier, `Status` as a Categorical predictor, and `Year` as the Sequence axis. `production_lots` is the one to pick for a ready-made Fixed Effects example (Facility as the FE role, Fiscal_Year as Sequence) — its default spec is the QC-validated Crawford/Wright learning-curve model (`log Unit Cost` ~ `log Cum Units`). |
 | `--skip-data-table-calculations` | off | No effect for the Regression workbook (it has no Data Tables). The final `CalculateFullRebuild` is cheap and the Regression sheet needs it (the verifier's per-sheet `Calculate` doesn't rebuild the dependency tree after a name sync), so the rebuild always runs regardless of this flag. The flag matters for `build_univariate.py`, whose Beta two-input Data Tables make the rebuild slow. |
 | `--verify` | off | After the build, run the spec-driven verifier (`lambda_catalog.deep_verify.verify_test_sheets` with `skip_univariate=True`) against the production sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. The Excel handoff only fires when verify passes, so a stale build can't launch in place of a fresh one. |
 | `--no-verify` | (default) | Explicitly disable the verifier pass. Mainly for wrapper scripts that default to `--verify`. |
@@ -475,7 +475,7 @@ lambda_catalog/
   write_sheet_diagnostic_guide.py
   write_sheet_version_history.py
   write_sheet_regression.py
-  write_sheet_model_construction.py
+  write_spec_block.py
 tools/
   inspect_regression_sheet.py # Regression sheet comparison (loaded by lambda_catalog.deep_verify)
   inspect_univariate_sheet.py # Univariate sheet comparison (loaded by lambda_catalog.deep_verify)

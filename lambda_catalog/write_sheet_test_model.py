@@ -35,7 +35,7 @@ from .regression_spec_sheet_io import (
     set_prediction_inputs,
 )
 from .workbook_helpers import bold, val
-from .write_sheet_model_construction import _ROLE_OMIT, SPEC_DATASET_PROFILES
+from .write_spec_block import _ROLE_OMIT, SPEC_DATASET_PROFILES
 from .write_sheet_regression import (
     _C_MODEL_CONTEXT,
     _C_MODEL_CONTEXT_LABEL,
@@ -120,7 +120,7 @@ def profile_key_for(source_table_ref: str) -> str:
             f"No SPEC_DATASET_PROFILES entry targets {source_table_ref!r}. "
             "A test-model case needs one for its spec-block defaults; "
             "add the profile in "
-            "write_sheet_model_construction.py."
+            "write_spec_block.py."
         ) from None
 
 

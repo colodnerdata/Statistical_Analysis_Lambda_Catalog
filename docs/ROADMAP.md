@@ -648,7 +648,7 @@ work with no second layout break behind them.
 **What this scope does *not* cost.** F5 read as though the layout work would have
 to be done twice — "the spec block is implemented twice; a layout change touches
 both writers." It is not, and it does not. `write_sheet_regression.py` imports
-the spec-block writers from `write_sheet_model_construction.py` and calls them,
+the spec-block writers from `write_spec_block.py` and calls them,
 so the two interaction columns, the audit column, and the materialization zone
 each land in **one** writer. That single-implementation structure is part of what
 makes this scope affordable, and it is why F5 does not appear in the release
@@ -1159,12 +1159,12 @@ Design rationale: [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bound
 
 The Specification-Driven Regression changeover was planned as v3.0 and renumbered
 to **v2.0** before release, under the interface definition above. The old label
-survives in comments and docstrings across `write_sheet_model_construction.py`,
+survives in comments and docstrings across `write_spec_block.py`,
 `analyze_regression_spec_block.py`, `build_production.py`, and three test modules,
 where "v3.0" means the spec-block changeover.
 
 **v3.0 now means the engine-interface release.** The two are unrelated, and the
-collision is live. `write_sheet_model_construction.py`'s docstring is corrected,
+collision is live. `write_spec_block.py`'s docstring is corrected,
 and the human test plan that carried the old label in its filename has been
 retired; the remaining comment references are tracked as a cleanup item in
 [TODOs.md](TODOs.md). They are comments only — no executable logic reads the

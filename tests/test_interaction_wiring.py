@@ -30,7 +30,7 @@ from lambda_catalog.analyze_regression_spec import (
     _with_origin,
     build_spec_design,
 )
-from lambda_catalog.write_sheet_model_construction import (
+from lambda_catalog.write_spec_block import (
     _INTERACTION_HEADER_SYMBOLS,
     _INTERACTION_HEADER_UNKNOWN,
     _ROLE_IDENTIFIER,

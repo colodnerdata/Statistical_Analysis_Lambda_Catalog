@@ -480,7 +480,7 @@ def _bfn_crosscheck_case():
         _spec_var,
         load_life_expectancy_source_rows,
     )
-    from lambda_catalog.write_sheet_model_construction import (
+    from lambda_catalog.write_spec_block import (
         _ROLE_FIXED_EFFECTS,
         _ROLE_OMIT,
         _ROLE_PREDICTOR,
@@ -575,7 +575,7 @@ def test_dw_and_bfn_are_never_both_live_in_the_registry() -> None:
         build_regression_spec_cases,
         calculate_regression_spec_case,
     )
-    from lambda_catalog.write_sheet_model_construction import _ROLE_FIXED_EFFECTS
+    from lambda_catalog.write_spec_block import _ROLE_FIXED_EFFECTS
 
     live = []
     for case in build_regression_spec_cases():

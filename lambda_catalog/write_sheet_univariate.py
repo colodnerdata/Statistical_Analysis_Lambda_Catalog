@@ -201,8 +201,12 @@ _HIST_BLOCKS = [
 ]
 
 # Zone 6: two-parameter MLE search — Beta's 2-D grid dimensions
-_N_GRID   = 20             # grid points per axis per stage (20×20 = 400/stage)
-_GS_W     = _N_GRID + 1   # cols per Beta stage = 21  (1 row-axis col + N body cols)
+# The sheet layout needs a stable default at import time so the module can
+# define the right-hand band and its column constants before any caller passes a
+# custom grid size. Individual grid-search writers still take
+# ``beta_grid_size`` and size their bodies from that runtime argument.
+_N_GRID = 20
+_GS_W = _N_GRID + 1
 
 # Within-stage row offsets from block row_start
 _GS_R_CONTROL_HDR = 1   # Min NLL label + parameter-table headers
@@ -996,7 +1000,7 @@ _STAGE2_ANCHORS: dict[str, tuple[int, int]] = {
 
 
 
-def _final_grid_best_refs(distribution: str) -> tuple[str, str]:
+def _final_grid_best_refs(distribution: str, *, beta_grid_size: int = _N_GRID) -> tuple[str, str]:
     """Return the Stage 2 Best cells for a fit, as fitting-table formulas.
 
     Reads ``_STAGE2_ANCHORS`` so the reference follows the zone the search
@@ -1005,6 +1009,8 @@ def _final_grid_best_refs(distribution: str) -> tuple[str, str]:
     are per-distribution.
     """
     zone_col, stage2_row = _STAGE2_ANCHORS[distribution]
+    if distribution == "Beta":
+        stage2_row = _GS_R_BODY + beta_grid_size + _GS_BLOCK_GAP_R
     best_col = col_letter(zone_col + _GS_C_BEST)
     title_row = _ROW_FIT_ZONE + stage2_row
     return (
@@ -1027,7 +1033,7 @@ def _nll_beta_rescaled_formula(alpha_ref: str, beta_ref: str) -> str:
     )
 
 
-def _dist_rows(base_row: int) -> list[tuple]:
+def _dist_rows(base_row: int, *, beta_grid_size: int = _N_GRID) -> list[tuple]:
     """Return distribution row specs.  base_row = row of first distribution."""
 
     def _r(row: int) -> str:
@@ -1044,7 +1050,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
 
     weibull_shape_ref, weibull_scale_ref = _final_grid_best_refs("Weibull")
     gamma_shape_ref, gamma_rate_ref = _final_grid_best_refs("Gamma")
-    beta_alpha_ref, beta_beta_ref = _final_grid_best_refs("Beta")
+    beta_alpha_ref, beta_beta_ref = _final_grid_best_refs("Beta", beta_grid_size=beta_grid_size)
 
     rows: list[tuple] = []
     dist_specs = [
@@ -1162,7 +1168,7 @@ def _dist_rows(base_row: int) -> list[tuple]:
     return rows
 
 
-def _write_fitting_table(sheet: xw.Sheet) -> None:
+def _write_fitting_table(sheet: xw.Sheet, *, beta_grid_size: int = _N_GRID) -> None:
     # Zone heading at row 2, merged across all fitting columns
     section_heading(sheet, _ROW_METHOD_HDR, _C_FIT_FIRST, "Distribution Fitting/Comparison")
     sheet.range(rc(_ROW_METHOD_HDR, _C_FIT_FIRST), rc(_ROW_METHOD_HDR, _C_FIT_LAST)).merge()
@@ -1171,7 +1177,7 @@ def _write_fitting_table(sheet: xw.Sheet) -> None:
         val(sheet, _ROW_COL_HDRS, col, label)
     _subheader_row(sheet, _ROW_COL_HDRS, _C_FIT_FIRST, _C_FIT_LAST)
 
-    dist_data = _dist_rows(_ROW_DIST_START)
+    dist_data = _dist_rows(_ROW_DIST_START, beta_grid_size=beta_grid_size)
     for row, name, l1, f1, l2, f2, l3, f3, nll_f, k, cdf_expr in dist_data:
         val(sheet, row, _C_DIST_NAME, name)
         val(sheet, row, _C_T1_LBL, l1)
@@ -1405,6 +1411,7 @@ def _write_grid_stage(
     p2_min,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     p2_max,   # numeric default (Stage 1) or Excel formula string (Stage 2)
     editable_bounds: bool = True,
+    beta_grid_size: int = 20,
 ) -> dict:
     """Write one 20×20 NLL grid-search stage for a two-parameter fit.
 
@@ -1419,7 +1426,7 @@ def _write_grid_stage(
     closed form); Weibull and Gamma go through ``_write_profile_stage``.
     """
     sname = sheet.name
-    n = _N_GRID
+    n = beta_grid_size
     r0, c0 = row_start, col_start
     last_col = c0 + n
 
@@ -1673,13 +1680,19 @@ def _write_two_stage_grid_search(
     p1_max,
     p2_min,
     p2_max,
+    beta_grid_size: int = 20,
 ) -> None:
     """Write Stage 1 and Stage 2 grid-search blocks for one distribution.
 
     Both stages share this fit's own column zone and stack vertically, Stage 2
-    ``_GS_R_STAGE2`` rows below Stage 1 — a full grid block plus one gap row.
+    one full block + one gap row below Stage 1. The block height scales with
+    ``beta_grid_size`` (Data Table body has one row per grid step plus a
+    header row), so the Stage 2 offset is computed here and passed to
+    ``_write_grid_stage`` as the Stage 2 row start.
     """
     r0 = _ROW_FIT_ZONE
+    stage2_row_start = r0 + _GS_R_BODY + beta_grid_size + _GS_BLOCK_GAP_R
+
     s1 = _write_grid_stage(
         sheet,
         row_start   = r0,
@@ -1694,11 +1707,12 @@ def _write_two_stage_grid_search(
         p2_min      = p2_min,
         p2_max      = p2_max,
         editable_bounds = True,
+        beta_grid_size = beta_grid_size,
     )
 
     _write_grid_stage(
         sheet,
-        row_start   = r0 + _GS_R_STAGE2,
+        row_start   = stage2_row_start,
         col_start   = col_start,
         title       = f"{dist_name} Grid-Search MLE  —  Stage 2  (refined)",
         body_name   = f"{body_prefix}_S2",
@@ -1710,6 +1724,7 @@ def _write_two_stage_grid_search(
         p2_min      = f"=MAX(0.001,{s1['best_p2']}-{s1['step_p2']})",
         p2_max      = f"={s1['best_p2']}+{s1['step_p2']}",
         editable_bounds = False,
+        beta_grid_size = beta_grid_size,
     )
 
 
@@ -2120,7 +2135,7 @@ _PROFILE_SEARCHES = [
 ]
 
 
-def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
+def _write_two_parameter_grid_search(sheet: xw.Sheet, beta_grid_size: int = 20) -> None:
     """Write the two-stage MLE search blocks for all two-parameter fits.
 
     Weibull and Gamma search one dimension: their scale / rate parameter is
@@ -2144,12 +2159,13 @@ def _write_two_parameter_grid_search(sheet: xw.Sheet) -> None:
         p1_max      = 50.0,
         p2_min      = 0.2,
         p2_max      = 50.0,
+        beta_grid_size = beta_grid_size,
     )
 
 
-def _write_weibull_grid_search(sheet: xw.Sheet) -> None:
+def _write_weibull_grid_search(sheet: xw.Sheet, beta_grid_size: int = 20) -> None:
     """Compatibility wrapper for the two-parameter grid-search section."""
-    _write_two_parameter_grid_search(sheet)
+    _write_two_parameter_grid_search(sheet, beta_grid_size=beta_grid_size)
 
 
 def _write_profile_charts(sheet: xw.Sheet) -> None:
@@ -2301,6 +2317,7 @@ def _finalize_sheet(sheet: xw.Sheet) -> None:
 def write_univariate_sheet(
     workbook: xw.Book,
     sheet_notes: dict[str, str] | None = None,
+    beta_grid_size: int = 20,
 ) -> xw.Sheet:
     """Create or replace the Univariate sheet and write all content.
 
@@ -2341,10 +2358,10 @@ def write_univariate_sheet(
 
     _write_descriptive_stats(sheet)
     _write_histograms(sheet)
-    _write_fitting_table(sheet)
+    _write_fitting_table(sheet, beta_grid_size=beta_grid_size)
     _write_qq_data(sheet)
 
-    _write_weibull_grid_search(sheet)
+    _write_weibull_grid_search(sheet, beta_grid_size=beta_grid_size)
     _autofit_column_widths(sheet)
 
     _write_histogram_chart_title_cells(sheet)

@@ -243,6 +243,7 @@ def build_univariate_workbook(
     verbose: bool = False,
     recalculate: bool = True,
     calculate: bool = True,
+    beta_grid_size: int = 20,
 ) -> NameSyncResult:
     """Build the standalone Univariate workbook and sync the LAMBDA name manager.
 
@@ -334,7 +335,7 @@ def build_univariate_workbook(
                 workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS
             write_catalog_sheet(workbook, document.functions)
             write_csv_dataset_sheet(workbook, csv_headers, csv_rows, LIFE_EXPECTANCY)
-            write_univariate_sheet(workbook, document.univariate_sheet_notes)
+            write_univariate_sheet(workbook, document.univariate_sheet_notes, beta_grid_size=beta_grid_size)
             write_version_history_sheet(workbook, artifact="univariate")
             _reorder_and_style_sheet_tabs(workbook)
             if calculate:
@@ -452,6 +453,12 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--beta-grid-size",
+        type=int,
+        default=20,
+        help="Size of the Beta distribution grid search (default: 20). Smaller values reduce build time but may decrease accuracy.",
+    )
+    parser.add_argument(
         "--verify",
         action="store_true",
         default=False,
@@ -543,6 +550,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
             verbose=args.verbose,
             recalculate=False,  # handled separately so only this step retries
             calculate=not args.no_calculation,
+            beta_grid_size=args.beta_grid_size,
         )
 
     build_phase_start = time.monotonic()

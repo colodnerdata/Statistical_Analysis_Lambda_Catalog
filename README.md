@@ -11,8 +11,6 @@ From v3.0 the build emits **two workbooks**. Both carry the **complete function 
 | **`Lambda_Library.xlsx`** | The Regression workbench, the three sample datasets, and the reference sheets | You are fitting models — regression, fixed effects, prediction, diagnostics. **This is the default.** |
 | **`Lambda_Library_Univariate.xlsx`** | The Univariate Analysis sheet — descriptive statistics, histogram binning, distribution fitting | You are characterizing a single variable's distribution, or fitting a distribution for cost/risk work |
 
-**Why two.** Originally the split was forced by Excel's Data-Table handling: the Univariate sheet's Beta fit used native two-input Data Tables for its two-stage grid search, and Excel can only skip Data Tables workbook-wide, so a single workbook would force one of two bad outcomes — either every Regression user paid the Data-Table cost, or Univariate's fits sat stale until the user pressed Ctrl+Alt+F9. That driver is now gone: Beta's grid search is a `Full_Factorial` → `BYROW` NLL → `HSTACK` dynamic-array spill sized by an in-sheet grid-points cell, and **the Univariate workbook no longer uses any Excel Data Table**. Both workbooks now run full **Automatic** calculation and update live. The split stays because the two artifacts are genuinely different products — different data sheets, different analysis sheets, different audiences (a Regression modeler vs. a distribution fitter) — and the build/test/ship cycle for each stays separate.
-
 Nothing is lost by choosing one: the function library is the same in both, and you can open both at once if you want both sets of sheets.
 
 ## Getting started

@@ -104,12 +104,16 @@ from typing import NamedTuple
 
 import xlwings as xw
 
+from .build_common import MIN_GRID_POINTS
+from .sheet_styles import CF_DARK_RED_TEXT as _CF_RED_TEXT
+from .sheet_styles import CF_LIGHT_RED_FILL as _CF_RED_FILL
 from .sheet_styles import HEADER_COLOR as _HEADER
 from .sheet_styles import INPUT_COLOR as _INPUT
 from .sheet_styles import SUBHDR_COLOR as _SUBHDR
 from .workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
     a1,
+    add_expression_format,
     anchor_comment_right_of_cell,
     border_box,
     col_letter,
@@ -209,21 +213,29 @@ _HIST_BLOCKS = [
 
 # Zone 6: two-parameter MLE search — grid dimensions
 #
-# Two parameter searches share the right-hand band:
+# Two parameter searches share the right-hand band.  Every stage of every fit
+# is TWO dynamic-array spills — a Full_Factorial grid and a BYROW NLL column
+# that reads it via the `#` operator — sized by an in-sheet "Grid Points" cell,
+# so N is editable live and the NLL column follows the grid to whatever height
+# the user asks for:
 #   • Weibull and Gamma search ONE dimension (the shape). Their scale / rate
-#     parameter is profiled out in closed form, so each stage is a fixed
-#     _N_PROFILE-point profile-NLL column whose axis is Full_Factorial(N, Min,
-#     Max) — the d=1 reduction of the same grid Beta uses (Step documents the
-#     spacing and brackets Stage 2 but no longer feeds the axis).
+#     parameter is profiled out in closed form, so each stage is an
+#     Full_Factorial(N, Min, Max) axis → N rows — the d=1 reduction of the same
+#     grid Beta uses — beside a BYROW profile-NLL column (Step documents the
+#     spacing and brackets Stage 2; the axis reads Min/Max/N directly).
+#     _N_PROFILE is the default written into that cell.
 #   • Beta searches TWO dimensions (both conditional MLEs involve digamma).
-#     Each stage is a Full_Factorial(_N_GRID × _N_GRID) grid → _N_GRID² rows,
-#     written as TWO dynamic-array spills (the N²×2 grid, then a separate BYROW
-#     NLL column that reads it via `#`) and sized by an in-sheet "Grid Points"
-#     cell so N is editable live.  _N_GRID is the default written into that cell.
-# Both stages sit SIDE BY SIDE inside one column zone, so a dynamic Beta body
-# height (N² rows) never makes a Stage 2 row anchor depend on Stage 1's spill.
-_N_PROFILE = 20   # profile points per stage (Weibull / Gamma) — fixed resolution
+#     Each stage is a Full_Factorial(N × N) grid → N² rows in two columns
+#     (Alpha | Beta), beside a BYROW NLL column.  _N_GRID is the default.
+# Both stages sit SIDE BY SIDE inside one column zone, so a dynamic body height
+# never makes a Stage 2 row anchor depend on Stage 1's spill.
+_N_PROFILE = 20   # default profile points per stage (Weibull / Gamma; editable live)
 _N_GRID    = 10    # default Beta grid points per axis (N² rows/stage; editable live)
+
+# Floor on every Grid Points cell, re-exported from build_common so the flag,
+# the in-sheet Validation, and the invalid-N conditional format cannot drift
+# apart.  See MIN_GRID_POINTS there for why the floor is 2 and not 1.
+_MIN_GRID_POINTS = MIN_GRID_POINTS
 
 # ── Fit-zone row skeleton (offsets from _ROW_FIT_ZONE = 1) ───────────────────
 # Every fit zone uses the same skeleton: a control field-list, a chart band,
@@ -236,7 +248,7 @@ _R_CONTROL_FIRST = 3    # row 4 — first control field
 _R_CHART_TOP     = 12   # row 13 — chart top (Weibull/Gamma); reserved blank (Beta)
 _R_CHART_BOTTOM  = 29   # row 30 — chart bottom
 _R_BODY_HDR      = 31   # row 32 — body column headers
-_R_BODY          = 32   # row 33 — first body row (fixed 20 for profile; N² for Beta)
+_R_BODY          = 32   # row 33 — first body row (N rows for profile; N² for Beta)
 
 # Every fit zone's row anchor.  The zones sit side by side, so they all start
 # on the same row and differ only in column.
@@ -254,7 +266,7 @@ _PR_W        = 4   # profile zone width
 
 # Profile-zone control field rows (offsets 3–10 → rows 4–11).  Recovery and the
 # profiled-out partner use the same Grid_Argument_Minimum mechanism as before.
-_PR_R_GRID_POINTS = 3   # row 4 — Grid Points (= _N_PROFILE)
+_PR_R_GRID_POINTS = 3   # row 4 — Grid Points (default _N_PROFILE; editable live)
 _PR_R_MIN         = 4
 _PR_R_MAX         = 5
 _PR_R_START       = 6   # closed-form starting value (searched parameter)
@@ -1007,9 +1019,7 @@ _FIT_NUMBER_FORMATS: dict[int, str] = {
 # table can never reference a block the writers did not put there.
 #
 # Stages sit SIDE BY SIDE, so Stage 2's Best cells are at FIXED control rows in
-# the Stage 2 value column(s) — Beta's dynamic N² body height no longer moves
-# its Stage 2 anchor (the old stacked layout added a beta_grid_size**2 row
-# offset, which is gone).  Weibull/Gamma put both Best cells in the one Stage 2
+# the Stage 2 value column(s), independent of Beta's dynamic N² body height.  Weibull/Gamma put both Best cells in the one Stage 2
 # value column (Optimal Shape row 10, Optimal Scale row 11); Beta splits Best α
 # and Best β across the two Stage 2 value columns, both on row 12.
 _STAGE2_ANCHORS: dict[str, tuple[int, int, int, int, int]] = {
@@ -1393,21 +1403,21 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
 #            body (_R_CHART_TOP .. _R_CHART_BOTTOM).  Beta reserves this band
 #            blank for a potential future chart.
 #   r0+31  : body column headers (_R_BODY_HDR)
-#   r0+32… : body — fixed 20 rows for Weibull/Gamma; N² rows for Beta (_R_BODY)
+#   r0+32… : body — N rows for Weibull/Gamma; N² rows for Beta (_R_BODY)
 #
-# Two writers:
+# Two writers, one body shape.  Each stage is a Full_Factorial spill beside a
+# BYROW NLL spill that reads it through the `#` operator, so the NLL column is
+# always exactly as tall as the grid it scores and both follow the stage's live
+# Grid Points cell.  OFFSET named ranges track that same cell, and recovery is
+# Grid_Argument_Minimum over the materialized NLL column.
 #   _write_profile_fit  — Weibull/Gamma, 4-col zone.  One dimension searched;
-#            scale/rate profiled out in closed form.  Body = per-row NLL arrays
-#            (fixed 20).  Recovery via Grid_Argument_Minimum (catalog LAMBDA),
-#            the same mechanism the legacy stacked writer used.
+#            scale/rate profiled out in closed form.  Body = an
+#            Full_Factorial(N, Min, Max) axis (N rows) beside its BYROW column.
 #   _write_beta_fit     — Beta, 6-col zone (3 cols/stage: Alpha | Beta | NLL).
-#            Two dimensions searched.  Body = two spills per stage: a
-#            Full_Factorial grid (N²×2, Alpha | Beta) across the first two cols
-#            and a separate BYROW NLL spill in the third col reading the grid via
-#            `#` (not HSTACK'd); N is an in-sheet cell so the grid resizes live,
-#            and OFFSET named ranges track N².  No Data Table, no Range.Table,
-#            no Grid_Search_Optimum — recovery uses Grid_Argument_Minimum over
-#            the materialized NLL column.
+#            Two dimensions searched.  Body = a Full_Factorial grid (N²×2,
+#            Alpha | Beta) across the first two cols beside its BYROW column.
+#            The grid stands alone as the pure Cartesian product; the NLL reads
+#            it by reference.
 
 
 def _gs_a1(row_start: int, col_start: int, dr: int, dc: int) -> str:
@@ -1454,6 +1464,58 @@ _GAMMA_SHAPE_START = (
 )
 
 
+# Window over which a profile body's number formats, colour scale, and border
+# box are painted.  Both fit writers share one rule: the body is a live spill
+# whose height follows the stage's Grid Points cell, so the static formatting is
+# applied over the DEFAULT-size window and rows that a live N-increase adds
+# beyond it stay unshaded.  Cosmetic, not correctness — the named ranges and the
+# recovery formulas track the real height.  (Beta's counterpart is
+# _BETA_BODY_CF_ROWS_CAP, squared because its body is N² rows.)
+_PROFILE_BODY_CF_ROWS_CAP = _N_PROFILE
+
+
+# Excel COM validation constants, declared locally the way write_spec_block.py
+# declares its own (the xlwings constants module is not imported here).
+_XL_VALIDATE_WHOLE_NUMBER = 1
+_XL_VALID_ALERT_STOP = 1
+_XL_GREATER_EQUAL = 7
+
+
+def _guard_grid_points_cell(sheet: xw.Sheet, row: int, col: int) -> None:
+    """Fill, validate, and flag a Grid Points cell.
+
+    The cell drives a live spill, so it is an input: it takes ``INPUT_COLOR``,
+    a whole-number Validation with a Stop alert at ``_MIN_GRID_POINTS``, and a
+    conditional format that turns red on anything the Validation cannot see.
+    Both guards are wanted — a Stop alert catches typing, and the CF catches a
+    paste, which bypasses Validation entirely.  ``--beta-grid-size`` applies the
+    same floor at build time via ``build_common.positive_grid_size``.
+    """
+    cell = sheet.range(rc(row, col))
+    cell.color = _INPUT
+
+    # Unguarded, like write_spec_block's validations: a try/except here would
+    # swallow a malformed rule and ship a cell with no validation at all, which
+    # no test could see.
+    cell.api.Validation.Delete()
+    cell.api.Validation.Add(
+        Type=_XL_VALIDATE_WHOLE_NUMBER,
+        AlertStyle=_XL_VALID_ALERT_STOP,
+        Operator=_XL_GREATER_EQUAL,
+        Formula1=str(_MIN_GRID_POINTS),
+    )
+    cell.api.Validation.IgnoreBlank = False
+
+    ref = f"${col_letter(col)}${row}"
+    add_expression_format(
+        sheet,
+        rc(row, col),
+        f"=OR(NOT(ISNUMBER({ref})),{ref}<{_MIN_GRID_POINTS},INT({ref})<>{ref})",
+        fill=_CF_RED_FILL,
+        font_color=_CF_RED_TEXT,
+    )
+
+
 def _write_profile_fit(
     sheet: xw.Sheet,
     *,
@@ -1471,12 +1533,14 @@ def _write_profile_fit(
     col0 carries the field labels and the S1 axis body; col1 the S1 values and
     S1 NLL body; col2 the S2 values and S2 axis body; col3 the S2 NLL body.
     Control is a vertical field-list (rows 4–11); the profile-NLL chart occupies
-    rows 13–30; the body sits at rows 33–52 (fixed _N_PROFILE points).  Each
-    stage's axis is ``Full_Factorial(N, Min, Max)`` — the d=1 reduction of the
-    same grid Beta uses, so Step (=(Max-Min)/(N-1)) no longer feeds the axis; it
-    documents the spacing and brackets Stage 2's Min/Max around Stage 1's
-    optimum by ±1 step.  Both stages use the same ``Grid_Argument_Minimum``
-    recovery and the profiled-out partner closed form.
+    rows 13–30; the body starts at row 33 and runs N rows, where N is the
+    stage's live Grid Points cell (default ``_N_PROFILE``).  Each stage is two
+    spills: an ``Full_Factorial(N, Min, Max)`` axis — the d=1 reduction of the
+    same grid Beta uses — and a ``BYROW`` profile-NLL column that reads that
+    axis through the ``#`` operator, so the two heights always agree.  Step
+    (=(Max-Min)/(N-1)) documents the spacing and brackets Stage 2's Min/Max
+    around Stage 1's optimum by ±1 step.  Both stages use the same
+    ``Grid_Argument_Minimum`` recovery and the profiled-out partner closed form.
 
     ``partner_formula(ref, data)`` returns the Excel expression (no leading ``=``)
     for the profiled-out parameter at the searched value ``ref``; ``nll_formula(
@@ -1489,7 +1553,8 @@ def _write_profile_fit(
     last_col = c0 + _PR_W - 1
     body_hdr_row = r0 + _R_BODY_HDR
     body_row = r0 + _R_BODY
-    body_row_end = body_row + n - 1
+    # The default-size formatting window (see _PROFILE_BODY_CF_ROWS_CAP).
+    body_row_end = body_row + max(n, _PROFILE_BODY_CF_ROWS_CAP) - 1
 
     # ── Title + stage sub-headers ─────────────────────────────────────────────
     val(sheet, r0, c0, f"{dist_name} Profile-NLL MLE  —  {p1_label}; {p2_label} profiled out")
@@ -1540,6 +1605,7 @@ def _write_profile_fit(
     # place a user widens the search when the boundary guard fires.
     val(sheet, r0 + _PR_R_GRID_POINTS, c0 + _PR_C_S1, n)
     sheet.range(rc(r0 + _PR_R_GRID_POINTS, c0 + _PR_C_S1)).number_format = _FMT_INT
+    _guard_grid_points_cell(sheet, r0 + _PR_R_GRID_POINTS, c0 + _PR_C_S1)
     f(sheet, r0 + _PR_R_START, c0 + _PR_C_S1, p1_start)
     f(sheet, r0 + _PR_R_MIN, c0 + _PR_C_S1, f"=MAX(0.001,{s1_start_ref}/{_PROFILE_BRACKET})")
     f(sheet, r0 + _PR_R_MAX, c0 + _PR_C_S1, f"={s1_start_ref}*{_PROFILE_BRACKET}")
@@ -1585,8 +1651,8 @@ def _write_profile_fit(
 
     # Each stage's axis is Full_Factorial(N, Min, Max) — N evenly-spaced points
     # from Min to Max.  This is the d=1 reduction of the same grid Beta uses:
-    # Step (below) still documents the spacing (=(Max-Min)/(N-1)) and brackets
-    # Stage 2, but the axis no longer reads it.  Full_Factorial's MAX(1,N-1)
+    # The axis reads Min, Max and N directly; Step (below) documents the spacing
+    # (=(Max-Min)/(N-1)) and brackets Stage 2.  Full_Factorial's MAX(1,N-1)
     # divisor makes the N=1 case a single point at Min, matching SEQUENCE.
     f(sheet, body_row, c0 + _PR_C_LABEL,
       f"=Full_Factorial({s1_n_ref},{s1_min_ref},{s1_max_ref})")
@@ -1595,39 +1661,53 @@ def _write_profile_fit(
     sheet.range(rc(body_row, c0 + _PR_C_LABEL), rc(body_row_end, c0 + _PR_C_LABEL)).number_format = _FMT_1DP
     sheet.range(rc(body_row, c0 + _PR_C_S2), rc(body_row_end, c0 + _PR_C_S2)).number_format = _FMT_1DP
 
-    # One NLL call per trial value, partner substituted in closed form.  The
-    # filtered sample is bound once per cell as `x` and passed to both the
-    # partner and the NLL call (the naive form pays two full-range FILTERs per
-    # cell).  Written as a single N×1 Formula2 array so a stage costs one COM
-    # round-trip.  Each row references its own axis cell ($<axiscol>$<row>).
-    s1_axis_refs = [f"${col_letter(c0 + _PR_C_LABEL)}${body_row + i}" for i in range(n)]
-    s2_axis_refs = [f"${col_letter(c0 + _PR_C_S2)}${body_row + i}" for i in range(n)]
+    # One NLL call per trial value, partner substituted in closed form, as a
+    # single BYROW spill over the stage's axis spill.  Reading the axis through
+    # `<anchor>#` is what keeps the two columns the same height: raise Grid
+    # Points and the axis grows, and the NLL column grows with it.
+    #
+    # Three details are load-bearing.  INDEX(r,1,1) scalarizes the row BYROW
+    # hands the callback (a 1x1 array passed straight into the NLL call or the
+    # partner closed form broadcasts instead of evaluating).  IFERROR sits
+    # INSIDE the LAMBDA, so a single non-evaluable trial value costs its own row
+    # rather than collapsing the column.  And the filtered sample is bound once
+    # per stage as `x` and passed to both the partner and the NLL call — the
+    # per-row form paid a full-range FILTER for every point.
+    def _stage_nll(axis_anchor: str) -> str:
+        return (
+            f"=LET(x,{_FILTERED_DATA},"
+            f"BYROW({axis_anchor}#,LAMBDA(r,LET(p,INDEX(r,1,1),"
+            f"IFERROR({nll_formula('x', 'p', partner_formula('p', 'x'))},1E+15)))))"
+        )
+
+    s1_axis_anchor = f"${col_letter(c0 + _PR_C_LABEL)}${body_row}"
+    s2_axis_anchor = f"${col_letter(c0 + _PR_C_S2)}${body_row}"
+    f(sheet, body_row, c0 + _PR_C_S1, _stage_nll(s1_axis_anchor))
+    f(sheet, body_row, c0 + _PR_C_S2_NLL, _stage_nll(s2_axis_anchor))
+
     s1_body_range = sheet.range(rc(body_row, c0 + _PR_C_S1), rc(body_row_end, c0 + _PR_C_S1))
     s2_body_range = sheet.range(rc(body_row, c0 + _PR_C_S2_NLL), rc(body_row_end, c0 + _PR_C_S2_NLL))
-    s1_body_range.api.Formula2 = [
-        [f"=IFERROR(LET(x,{_FILTERED_DATA},p,{ref},"
-         f"{nll_formula('x', 'p', partner_formula('p', 'x'))}),1E+15)"]
-        for ref in s1_axis_refs
-    ]
-    s2_body_range.api.Formula2 = [
-        [f"=IFERROR(LET(x,{_FILTERED_DATA},p,{ref},"
-         f"{nll_formula('x', 'p', partner_formula('p', 'x'))}),1E+15)"]
-        for ref in s2_axis_refs
-    ]
     s1_body_range.number_format = _FMT_SCI_1DP
     s2_body_range.number_format = _FMT_SCI_1DP
 
-    # ── Named ranges (static A1 — N is fixed at _N_PROFILE) ───────────────────
-    for name, col_off in (
-        (body_s1, _PR_C_S1), (axis_s1, _PR_C_LABEL),
-        (body_s2, _PR_C_S2_NLL), (axis_s2, _PR_C_S2),
+    # ── OFFSET named ranges (height N, tracking the live Grid Points cell) ────
+    # The same shape _write_beta_fit uses for UV_BETA_S*, without the square: a
+    # profile axis is N points, not N².  Sizing these off the cell rather than
+    # pinning them to the default window is what lets Min NLL, the Optimal
+    # Shape recovery, and the boundary guard all see a resized grid.
+    for name, col_off, n_ref in (
+        (body_s1, _PR_C_S1,     s1_n_ref), (axis_s1, _PR_C_LABEL, s1_n_ref),
+        (body_s2, _PR_C_S2_NLL, s2_n_ref), (axis_s2, _PR_C_S2,    s2_n_ref),
     ):
         cl = col_letter(c0 + col_off)
         _drop_wb_name(sheet, name)
         drop_local_name(sheet, name)
         sheet.api.Names.Add(
             Name=name,
-            RefersTo=f"='{sname}'!${cl}${body_row}:${cl}${body_row_end}",
+            RefersTo=(
+                f"=OFFSET('{sname}'!${cl}${body_row},0,0,"
+                f"MAX(IFERROR('{sname}'!{n_ref},1),1),1)"
+            ),
         )
 
     # ── OFFSET chart ranges (sized by each stage's Grid Points cell) ───────────
@@ -1686,10 +1766,10 @@ def _write_profile_fit(
     }
 
 
-# Window over which the Beta NLL colour scale is applied.  The Beta body is a
-# dynamic N² spill; the colour scale is painted over the default-size window so
-# the shipped artifact is fully shaded, and rows a live N-increase adds beyond it
-# simply stay unshaded (a cosmetic, not a correctness, matter).
+# Window over which the Beta NLL colour scale is applied — the N² counterpart
+# of _PROFILE_BODY_CF_ROWS_CAP, and the same rule: painted over the default-size
+# window so the shipped artifact is fully shaded, with rows a live N-increase
+# adds beyond it staying unshaded (cosmetic, not correctness).
 _BETA_BODY_CF_ROWS_CAP = 20 * 20
 
 
@@ -1698,13 +1778,11 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
 
     6-col zone (3 cols/stage: Alpha | Beta | NLL): each stage's body is TWO
     spills at row 33 — a ``Full_Factorial`` grid (N²×2, Alpha | Beta) across the
-    stage's first two cols, and a separate ``BYROW`` NLL spill in the third col
-    that reads the grid via the ``#`` operator (the NLL is not HSTACK'd onto the
-    grid) — so the two stages grow down independently.  N is an in-sheet cell
-    (editable live); OFFSET named ranges track N².  No Data Table, no
-    ``Range.Table``, no ``Grid_Search_Optimum`` — recovery uses
-    ``Grid_Argument_Minimum`` over the materialized NLL column, the same
-    mechanism the profile fits use.
+    stage's first two cols, and a ``BYROW`` NLL spill in the third col that
+    reads the grid via the ``#`` operator — so the two stages grow down
+    independently.  N is an in-sheet cell (editable live); OFFSET named ranges
+    track N².  Recovery is ``Grid_Argument_Minimum`` over the materialized NLL
+    column, the same mechanism the profile fits use.
     """
     sname = sheet.name
     n = beta_grid_size
@@ -1767,6 +1845,7 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     # Stage 1 control values (numeric defaults; Min/Max editable overrides).
     val(sheet, r0 + _BETA_R_GRID_POINTS, c0 + _BETA_C_S1_A, n)
     sheet.range(rc(r0 + _BETA_R_GRID_POINTS, c0 + _BETA_C_S1_A)).number_format = _FMT_INT
+    _guard_grid_points_cell(sheet, r0 + _BETA_R_GRID_POINTS, c0 + _BETA_C_S1_A)
     val(sheet, r0 + _BETA_R_A_MIN, c0 + _BETA_C_S1_A, 0.2)
     val(sheet, r0 + _BETA_R_A_MAX, c0 + _BETA_C_S1_A, 50.0)
     val(sheet, r0 + _BETA_R_B_MIN, c0 + _BETA_C_S1_B, 0.2)
@@ -1798,9 +1877,10 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     # The grid is a Full_Factorial(N, mins, maxs) spill → N²×2 (col1 = α slow
     # axis, col2 = β fast axis) across the stage's first two cols (Alpha | Beta).
     # The NLL is a SEPARATE spill in the stage's third col: a BYROW over the grid
-    # spill (via the `#` operator) that evaluates NLL_Beta at each (α,β).  Keeping
-    # the grid and the NLL as two spills (not one HSTACK'd spill) lets the grid
-    # stand alone as the pure Cartesian product and the NLL read it by reference.
+    # spill (via the `#` operator) that evaluates NLL_Beta at each (α,β).  Two
+    # spills rather than one lets the grid stand alone as the pure Cartesian
+    # product and the NLL read it by reference — the same shape the profile fits
+    # use for their axis and NLL columns.
     # Stage 1 grid at col0 (BY33), NLL at col2 (CA33); Stage 2 grid at col3 (CB33),
     # NLL at col5 (CD33) — same row, independent height.
     val(sheet, body_hdr_row, c0 + _BETA_C_LABEL, "Alpha (α)")
@@ -1954,10 +2034,11 @@ def _write_two_parameter_grid_search(sheet: xw.Sheet, beta_grid_size: int = _N_G
     """Write the two-stage MLE search blocks for all two-parameter fits.
 
     Weibull and Gamma search one dimension: their scale / rate parameter is
-    profiled out in closed form, so each stage is a 20-point profile-NLL curve
+    profiled out in closed form, so each stage is an N-point profile-NLL curve
     (``_write_profile_fit``).  Beta stays two-dimensional — both of its
-    conditional MLEs involve digamma — and uses a ``Full_Factorial`` dynamic-
-    array grid per stage (``_write_beta_fit``), no Data Table.
+    conditional MLEs involve digamma — and uses an N² ``Full_Factorial`` grid
+    per stage (``_write_beta_fit``).  Every stage is a grid spill beside a
+    ``BYROW`` NLL column that reads it, sized live by a Grid Points cell.
     """
     for spec in _PROFILE_SEARCHES:
         _write_profile_fit(sheet, **spec)

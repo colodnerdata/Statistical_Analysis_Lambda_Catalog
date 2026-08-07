@@ -1,8 +1,8 @@
 """Tests for the cartesian Beta grid-search writer.
 
 This module exists separately from ``test_sheet_writers.py`` (which is
-dedicated to the standard Data-Table writer) so the cartesian writer can
-grow its own unit coverage without swelling the standard-writer suite.
+dedicated to the standard writer) so the cartesian writer can grow its own
+unit coverage without swelling the standard-writer suite.
 """
 # pylint: disable=missing-function-docstring,protected-access
 from typing import Any, cast
@@ -57,8 +57,8 @@ def test_nll_body_formula_is_row_major_three_columns() -> None:
     assert "MOD(r-1,20)+1" in formula
     # Three-column projection via IFS
     assert "IFS(c=1,alpha,c=2,beta,TRUE,nll)" in formula
-    # Per-cell NLL matches the Data-Table corner expression (sans the
-    # Data-Table cell references; here we read the rescaled z from the LET)
+    # Per-cell NLL matches the standard writer's expression; here the rescaled
+    # z comes from the enclosing LET rather than from the grid spill.
     assert "NLL_Beta(z,alpha,beta)+COUNT(d)*LN(scale_)" in formula
 
 

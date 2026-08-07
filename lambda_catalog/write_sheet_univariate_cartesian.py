@@ -1,12 +1,12 @@
 """Write the univariate sheet using a Cartesian product approach for the Beta distribution grid search.
 
 This module provides an alternative to the standard Univariate sheet writer that
-replaces the Beta distribution's two-dimensional Data Table grid search with a
-Cartesian product approach: two vertical ``SEQUENCE`` spills (alpha, beta) sit
+replaces the Beta distribution's two-dimensional grid search with a Cartesian
+product approach: two vertical ``SEQUENCE`` spills (alpha, beta) sit
 side by side, and the ``N×N`` body is a single ``MAKEARRAY`` spill to their
 right that evaluates ``NLL_Beta`` at each ``(alpha_i, beta_j)``. Stage 2 mirrors
 Stage 1 with bounds derived from the Stage-1 optimum (best ± step), exactly as
-``_write_two_stage_grid_search`` does for the Data-Table variant.
+``_write_two_stage_grid_search`` does for the standard writer.
 
 Only the Beta distribution zone is written — the rest of the Univariate sheet
 (histograms, other distributions, charts) is omitted, since this module exists
@@ -35,13 +35,13 @@ _FMT_SCI_1DP = "0.0E+00"
 
 _UNIVARIATE_SHEET_NAME = "Univariate"
 
-# Anchor at the same column the Data-Table variant uses so the fitting-table
+# Anchor at the same column the standard writer uses so the fitting-table
 # Best-cell references (computed from ``_C_GS_BETA``) line up regardless of
 # which writer built the sheet.
 _C_GS_BETA = 88    # CJ — first column of the Beta fit zone (matches write_sheet_univariate)
 _ROW_FIT_ZONE = 1  # first row of the Beta fit zone
 
-# Stage row anchors — mirror the Data-Table variant so the fitting-table row
+# Stage row anchors — mirror the standard writer so the fitting-table row
 # math (offset 2 and 3 from r0) keeps landing on the parameter table.
 _GS_R_CONTROL_HDR = 1
 _GS_R_P1 = 2
@@ -53,9 +53,9 @@ _GS_R_BODY = 5
 _GS_C_MINNLL = 0   # Min NLL label/value
 _GS_C_N_GRID = 1   # Rows/Columns label/value
 _GS_C_PARAM = 3    # Parameter label
-_GS_C_INPUT = 4    # Input (Data-Table substitution cell — unused here, kept
-                   # so the parameter table keeps the same shape as the
-                   # Data-Table variant for visual comparison)
+_GS_C_INPUT = 4    # Input (informational only, kept so the parameter table
+                   # keeps the same shape as the standard writer's for
+                   # visual comparison)
 _GS_C_MIN = 5
 _GS_C_MAX = 6
 _GS_C_STEP = 7
@@ -154,9 +154,9 @@ def _nll_body_formula(
     ``(alpha_i, beta_j, NLL_ij)`` in row-major order — alpha is the slow axis
     (changes every ``n`` rows) and beta is the fast axis (cycles every ``n``
     rows). The outer ``LET`` rescales ``UV_Data`` to ``(0, 1)`` once per spill,
-    matching the per-cell NLL expression the Data-Table variant's corner
-    formula uses but lifted out of the per-cell body so rescaling is computed
-    once, not once per grid point.
+    matching the per-cell NLL expression the standard writer's body uses but
+    lifted out of the per-cell body so rescaling is computed once, not once per
+    grid point.
     """
     body_row_top = row_start + _GS_R_BODY
     body_row_bot = body_row_top + n - 1
@@ -227,7 +227,7 @@ def _write_grid_stage_cartesian(
     Parameters mirror ``_write_grid_stage``: ``p1_min``/``p1_max`` and
     ``p2_min``/``p2_max`` are either numeric defaults (Stage 1) or Excel
     formula strings referencing Stage 1 (Stage 2). The returned dict holds the
-    same keys the Data-Table variant returns so the higher-level two-stage
+    same keys the standard writer returns so the higher-level two-stage
     driver can pass best/step values between stages.
     """
     n = beta_grid_size
@@ -271,8 +271,7 @@ def _write_grid_stage_cartesian(
 
     val(sheet, p1_row, c0 + _GS_C_PARAM, p1_label)
     val(sheet, p2_row, c0 + _GS_C_PARAM, p2_label)
-    # Cartesian variant has no Data Table substitution cell; the visible
-    # ``Input`` cell is informational only.
+    # The visible ``Input`` cell is informational only.
     val(sheet, p1_row, c0 + _GS_C_INPUT, 1.0)
     val(sheet, p2_row, c0 + _GS_C_INPUT, 1.0)
 
@@ -498,7 +497,7 @@ def _write_two_stage_grid_search_cartesian(
 ) -> None:
     """Write Stage 1 and Stage 2 grid-search blocks for Beta using Cartesian product.
 
-    Stage 2 uses the same data-driven bounds the Data-Table variant uses:
+    Stage 2 uses the same data-driven bounds the standard writer uses:
     ``[best - step, best + step]`` for each parameter, floored at 0.001.
     """
     r0 = _ROW_FIT_ZONE

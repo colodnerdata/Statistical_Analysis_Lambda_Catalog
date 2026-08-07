@@ -4,20 +4,20 @@ From v3.0 the build emits two artifacts: ``build_production.py`` builds the
 Regression workbook (``Lambda_Library.xlsx``), and this script builds the
 standalone Univariate workbook (``Lambda_Library_Univariate.xlsx``). Moving
 Univariate Analysis into its own workbook lets each artifact set its own
-calculation mode: the Univariate grid searches — Beta's two
-``Full_Factorial`` dynamic-array grid stages (N² NLL evaluations each) plus
-Weibull/Gamma static formula profile grids, ~2,400 NLL evaluations per recalc in
-total — now recalculate on edit in full Automatic inside this file, instead of
-forcing the shared workbook into ``XL_CALCULATION_SEMIAUTOMATIC`` and leaving
-fit results stale until a manual Ctrl+Alt+F9 (see DECISIONS.md § v3.0
-"Univariate becomes its own workbook").  None of the fits use an Excel Data
-Table object: Weibull/Gamma are 1-D profile-NLL columns and Beta is a
-``Full_Factorial`` → ``BYROW`` NLL → ``HSTACK`` spill, sized live by an in-sheet
-Grid Points cell.
+calculation mode: the Univariate grid searches — Beta's two ``Full_Factorial``
+grid stages (N² NLL evaluations each) plus the Weibull and Gamma profile grids
+(N per stage), ~280 NLL evaluations per recalc at the shipped defaults — now
+recalculate on edit in full Automatic inside this file, instead of forcing the
+shared workbook into ``XL_CALCULATION_SEMIAUTOMATIC`` and leaving fit results
+stale until a manual Ctrl+Alt+F9 (see DECISIONS.md § v3.0 "Univariate becomes
+its own workbook").  Every fit has the same shape: a ``Full_Factorial`` spill
+beside a ``BYROW`` NLL column that reads it through the ``#`` operator, both
+sized live by an in-sheet Grid Points cell — a 1-D shape axis for Weibull and
+Gamma, a 2-D (α, β) grid for Beta.
 
 The shipped sheet set is small — LAMBDA_functions, Life Expectancy Data,
 Univariate, Version History — but the workbook carries the complete
-126-function LAMBDA library (no subsetting): the Univariate sheet depends on
+141-function LAMBDA library (no subsetting): the Univariate sheet depends on
 30 workbook-scoped LAMBDA names (Skewness, Kurtosis, the NLL_*/CDF_* families,
 etc.) that ``sync_workbook_names`` writes into ``xl/workbook.xml``. The Life
 Expectancy Data sheet is required because the Univariate data zone reads
@@ -41,6 +41,7 @@ from lambda_catalog.build_common import (
     _quit_app_quietly,
     _recalculate_and_save,
     _retry_on_open,
+    positive_grid_size,
     print_name_sync_summary,
     run_log_path,
     set_calculate_before_save,
@@ -457,14 +458,15 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--beta-grid-size",
-        type=int,
+        type=positive_grid_size,
         default=10,
         help=(
             "Number of grid points per axis for the Beta Full_Factorial search "
-            "(default: 10, i.e. 100 NLL evaluations per stage). N is written into "
-            "an in-sheet cell and editable live in the workbook; this flag only "
-            "sets the shipped default. Smaller values reduce build time but may "
-            "decrease accuracy."
+            "(default: 10, i.e. 100 NLL evaluations per stage). Must be a whole "
+            "number of at least 2 — the Step cell divides by N-1. N is written "
+            "into an in-sheet cell and editable live in the workbook, under the "
+            "same floor; this flag only sets the shipped default. Smaller values "
+            "reduce build time but may decrease accuracy."
         ),
     )
     parser.add_argument(

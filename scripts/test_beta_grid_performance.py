@@ -9,8 +9,8 @@ This script tests the Beta distribution grid search performance by:
 
 The minimal workbook includes only the catalog LAMBDA sheet, the Life
 Expectancy data sheet, and the Univariate sheet (no charts, no other
-distributions, no version history). This isolates the Beta Data Table for
-timing.
+distributions, no version history). This isolates Beta's two-stage
+``Full_Factorial`` grid search for timing.
 """
 
 from __future__ import annotations

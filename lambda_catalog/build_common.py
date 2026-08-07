@@ -11,6 +11,7 @@ retry/recalc logic.
 """
 from __future__ import annotations
 
+import argparse
 import contextlib
 import io
 import sys
@@ -78,6 +79,36 @@ def _quit_app_quietly(app: xw.App | None) -> None:
 # a Windows-only verifier build still knows what belongs here.
 RUN_LOG_DIR_NAME = "excel-only-runs"
 RUN_LOG_FILE_SUFFIX = ".log"
+
+
+# Floor shared by every grid-size surface: the --beta-grid-size flag here, and
+# the in-sheet Grid Points Validation and conditional format in
+# write_sheet_univariate (_MIN_GRID_POINTS).  A stage's Step cell is
+# (Max-Min)/(N-1), so N=1 divides by zero, and a one-point grid searches
+# nothing.  Full_Factorial itself tolerates N=1 via its MAX(1,N-1) divisor;
+# the sheet built around it does not.
+MIN_GRID_POINTS = 2
+
+
+def positive_grid_size(value: str) -> int:
+    """argparse type for a grid-size flag: a whole number >= MIN_GRID_POINTS.
+
+    Without this an accidental ``--beta-grid-size 0`` builds a workbook whose
+    Step cells are #DIV/0! and whose Full_Factorial grids are degenerate — a
+    broken artifact produced without a single error message.
+    """
+    try:
+        parsed = int(value)
+    except ValueError:
+        raise argparse.ArgumentTypeError(
+            f"expected a whole number, got {value!r}"
+        ) from None
+    if parsed < MIN_GRID_POINTS:
+        raise argparse.ArgumentTypeError(
+            f"must be at least {MIN_GRID_POINTS} (the Step cell divides by "
+            f"grid size - 1), got {parsed}"
+        )
+    return parsed
 
 
 class _Tee(io.TextIOBase):

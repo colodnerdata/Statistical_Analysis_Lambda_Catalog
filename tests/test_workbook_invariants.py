@@ -1263,6 +1263,19 @@ class TestShippedUnivariateLayout:
     transcribed constant.
     """
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "PENDING REBUILD. The profile fits' body and axis names moved from "
+            "static A1 ranges to OFFSET ranges sized by the live Grid Points "
+            "cell, and their NLL columns from 20 per-row formulas to one BYROW "
+            "spill. Rebuilding needs Excel via COM, which the Linux CI host and "
+            "the container this change was written in do not have. Rebuild with "
+            "`python scripts/build_univariate.py --verify --no-launch` on a "
+            "machine with Office, commit the artifact, and DELETE THIS MARKER — "
+            "strict=True makes the rebuilt artifact fail here until it is gone."
+        ),
+    )
     def test_fit_zone_bodies_match_the_writer(
         self, univariate_workbook_package: WorkbookPackage
     ) -> None:
@@ -1276,29 +1289,34 @@ class TestShippedUnivariateLayout:
             _BETA_C_S2_B,
             _BETA_C_S2_NLL,
             _BETA_R_GRID_POINTS,
-            _N_PROFILE,
             _PR_C_LABEL,
             _PR_C_S1,
             _PR_C_S2,
             _PR_C_S2_NLL,
+            _PR_R_GRID_POINTS,
             _R_BODY,
             _ROW_FIT_ZONE,
         )
 
         first = _ROW_FIT_ZONE + _R_BODY                       # row 33
-        last = first + _N_PROFILE - 1                          # row 52
         expected: dict[str, str] = {}
 
-        # Weibull / Gamma: static A1 bodies (fixed 20-point profile columns),
-        # two stages side by side — S1 body/axis in cols 0/1, S2 in cols 3/2.
+        # Weibull / Gamma: OFFSET bodies whose height tracks that stage's live
+        # Grid Points cell (unsquared — a profile axis is N points, not N²).
+        # Two stages side by side: S1 body/axis in cols 1/0, S2 in cols 3/2,
+        # each stage's N cell on row 4 of its own value column.
         for name, zone in (("UV_WB", "weibull"), ("UV_GAMMA", "gamma")):
             c0 = _BAND_COL[zone]
-            for suffix, off in (
-                ("S1", _PR_C_S1), ("S1_Axis", _PR_C_LABEL),
-                ("S2", _PR_C_S2_NLL), ("S2_Axis", _PR_C_S2),
+            for suffix, off, n_off in (
+                ("S1", _PR_C_S1, _PR_C_S1), ("S1_Axis", _PR_C_LABEL, _PR_C_S1),
+                ("S2", _PR_C_S2_NLL, _PR_C_S2), ("S2_Axis", _PR_C_S2, _PR_C_S2),
             ):
                 cl = col_letter(c0 + off)
-                expected[f"{name}_{suffix}"] = f"Univariate!${cl}${first}:${cl}${last}"
+                n_ref = f"${col_letter(c0 + n_off)}${_ROW_FIT_ZONE + _PR_R_GRID_POINTS}"
+                expected[f"{name}_{suffix}"] = (
+                    f"OFFSET(Univariate!${cl}${first},0,0,"
+                    f"MAX(IFERROR(Univariate!{n_ref},1),1),1)"
+                )
 
         # Beta: OFFSET bodies whose height tracks the live Grid Points cell
         # (^2). Three names per stage (Alpha / Beta / NLL); S1's N cell is the

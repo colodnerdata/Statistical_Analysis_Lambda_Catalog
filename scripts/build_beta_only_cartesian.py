@@ -1,9 +1,12 @@
-"""Build a Beta-only workbook using the Cartesian product writer (no Data Table).
+"""Build a Beta-only workbook using the Cartesian product writer.
 
 Thin wrapper around ``scripts/build_beta_only.py`` that swaps in
-``write_univariate_sheet_cartesian`` for the standard Data-Table writer. The
-Cartesian product variant writes Stage 1 only (Stage 2 is not yet implemented)
-and exists for performance comparison.
+``write_univariate_sheet_cartesian`` for the standard writer. The Cartesian
+product variant writes both stages (via
+``_write_two_stage_grid_search_cartesian``) and exists for performance
+comparison: its body is a single ``MAKEARRAY`` spill over two ``SEQUENCE``
+axes, against the standard writer's ``Full_Factorial`` grid plus ``BYROW`` NLL
+column.
 """
 
 from __future__ import annotations
@@ -23,7 +26,7 @@ def main() -> None:
         default_workbook=DEFAULT_CARTESIAN_WORKBOOK_PATH,
         description=(
             "Build a minimal workbook for Beta grid search performance testing "
-            "using the Cartesian product approach (no Data Tables)."
+            "using the Cartesian product approach."
         ),
     )
     build_beta_only_workbook(

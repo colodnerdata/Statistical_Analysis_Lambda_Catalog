@@ -6,6 +6,7 @@ from typing import cast
 import xlwings as xw
 
 from lambda_catalog.catalog_schema import load_catalog_document
+from lambda_catalog.build_common import MIN_GRID_POINTS
 from lambda_catalog.sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_LIGHT_RED_FILL,
@@ -1496,17 +1497,26 @@ def test_fit_zones_use_side_by_side_layout_and_named_bodies() -> None:
     ]
 
     names = sheet.api.Names
-    # Weibull / Gamma bodies are fixed 20 rows (rows 33–52): static A1 names.
-    assert names.by_short_name("UV_WB_S1").RefersTo == "='Univariate'!$BQ$33:$BQ$52"
-    assert names.by_short_name("UV_WB_S1_Axis").RefersTo == "='Univariate'!$BP$33:$BP$52"
-    assert names.by_short_name("UV_WB_S2").RefersTo == "='Univariate'!$BS$33:$BS$52"
-    assert names.by_short_name("UV_WB_S2_Axis").RefersTo == "='Univariate'!$BR$33:$BR$52"
-    assert names.by_short_name("UV_GAMMA_S1").RefersTo == "='Univariate'!$BV$33:$BV$52"
-    assert names.by_short_name("UV_GAMMA_S1_Axis").RefersTo == "='Univariate'!$BU$33:$BU$52"
-    assert names.by_short_name("UV_GAMMA_S2").RefersTo == "='Univariate'!$BX$33:$BX$52"
-    assert names.by_short_name("UV_GAMMA_S2_Axis").RefersTo == "='Univariate'!$BW$33:$BW$52"
-    # Beta bodies are dynamic N² spills: OFFSET names whose height tracks the
-    # live Grid Points cell (^2). Three names per stage (Alpha / Beta / NLL).
+
+    def _offset(col: str, n_cell: str, *, square: str = "") -> str:
+        return (
+            f"=OFFSET('Univariate'!${col}$33,0,0,"
+            f"MAX(IFERROR('Univariate'!${n_cell}$4,1),1){square},1)"
+        )
+
+    # Weibull / Gamma bodies are dynamic N spills: OFFSET names whose height
+    # tracks that stage's live Grid Points cell. The axis and its NLL column
+    # share the cell, so the pair can never disagree about how tall the stage is.
+    assert names.by_short_name("UV_WB_S1").RefersTo == _offset("BQ", "BQ")
+    assert names.by_short_name("UV_WB_S1_Axis").RefersTo == _offset("BP", "BQ")
+    assert names.by_short_name("UV_WB_S2").RefersTo == _offset("BS", "BR")
+    assert names.by_short_name("UV_WB_S2_Axis").RefersTo == _offset("BR", "BR")
+    assert names.by_short_name("UV_GAMMA_S1").RefersTo == _offset("BV", "BV")
+    assert names.by_short_name("UV_GAMMA_S1_Axis").RefersTo == _offset("BU", "BV")
+    assert names.by_short_name("UV_GAMMA_S2").RefersTo == _offset("BX", "BW")
+    assert names.by_short_name("UV_GAMMA_S2_Axis").RefersTo == _offset("BW", "BW")
+    # Beta bodies are dynamic N² spills: same shape, squared because the grid is
+    # a Cartesian product. Three names per stage (Alpha / Beta / NLL).
     assert names.by_short_name("UV_BETA_S1_Alpha").RefersTo == (
         "=OFFSET('Univariate'!$BY$33,0,0,MAX(IFERROR('Univariate'!$BZ$4,1),1)^2,1)"
     )
@@ -1589,6 +1599,47 @@ def test_profile_chart_ranges_are_offset_sized_by_the_grid_point_cell() -> None:
     )
 
 
+def test_grid_points_cells_are_guarded_at_the_shared_floor() -> None:
+    """Every editable Grid Points cell carries both in-sheet guards.
+
+    The cell drives a live spill, so it is an input (INPUT_COLOR) and it is
+    fenced twice: a whole-number Stop Validation at MIN_GRID_POINTS catches
+    typing, and a conditional format on the same predicate catches a paste,
+    which bypasses Validation entirely. Three cells — Weibull BQ4, Gamma BV4,
+    Beta BZ4. The Stage 2 cells are `=<Stage 1 cell>` formulas, so they inherit
+    the floor and need no guard of their own.
+
+    The floor itself is MIN_GRID_POINTS, shared with the --beta-grid-size
+    argparse type: a stage's Step cell is (Max-Min)/(N-1), so N=1 is #DIV/0!.
+    """
+    sheet = RecordingSheet()
+
+    _write_weibull_grid_search(_as_xw_sheet(sheet))
+
+    for col, ref in ((69, "$BQ$4"), (74, "$BV$4"), (78, "$BZ$4")):
+        cell = sheet.cell(4, col)
+        assert cell.color == INPUT_COLOR, f"{ref} should read as an input"
+
+        validation = cell.api.Validation
+        assert validation.rules == [
+            {
+                "Type": 1,          # xlValidateWholeNumber
+                "AlertStyle": 1,    # xlValidAlertStop
+                "Operator": 7,      # xlGreaterEqual
+                "Formula1": str(MIN_GRID_POINTS),
+            }
+        ], f"{ref} is missing its whole-number floor"
+        # A blank cell is not a valid grid size either.
+        assert validation.IgnoreBlank is False
+
+        conditions = cell.api.FormatConditions.items
+        assert [c.Formula1 for c in conditions] == [
+            f"=OR(NOT(ISNUMBER({ref})),{ref}<{MIN_GRID_POINTS},INT({ref})<>{ref})"
+        ], f"{ref} is missing its invalid-value conditional format"
+        assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+        assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
+
+
 def test_profile_charts_anchor_above_the_body() -> None:
     """The profile-NLL charts sit ABOVE the body, between control and body.
 
@@ -1642,27 +1693,30 @@ def test_profile_stage_formulas_reference_visible_controls() -> None:
     assert sheet.cell(6, 69).api.Formula2 == "=$BQ$7*3"
     assert sheet.cell(9, 69).api.Formula2 == "=($BQ$6-$BQ$5)/($BQ$4-1)"
 
-    # One column of trial shapes, one column of profile NLL beside it. The S1
-    # axis spills from BP33; each NLL row references its own $BP$<row>. The axis
-    # is Full_Factorial(N, Min, Max) — the d=1 reduction of Beta's grid; Step
-    # (BQ9) no longer feeds the axis, only documents the spacing and brackets S2.
+    # One column of trial shapes, one column of profile NLL beside it — two
+    # spills, not a spill and 20 formulas. The S1 axis is Full_Factorial(N, Min,
+    # Max) at BP33 (the d=1 reduction of Beta's grid; Step at BQ9 documents the
+    # spacing and brackets S2 rather than feeding the axis), and the NLL beside
+    # it is ONE BYROW over `$BP$33#`, so raising Grid Points grows both columns.
     assert sheet.cell(33, 68).api.Formula2 == "=Full_Factorial($BQ$4,$BQ$5,$BQ$6)"
-    # The sample is bound once per cell and passed to both the partner and the
-    # NLL call — the naive form re-filters the full input range twice per cell.
-    # NLL's optional [filter] is omitted because x is already the included
-    # numeric sample, so its ISNUMBER default filters nothing.
+    # INDEX(r,1,1) scalarizes the 1x1 row BYROW hands the callback; IFERROR sits
+    # INSIDE the LAMBDA so one bad trial value costs its own row instead of the
+    # column; and x is bound once per stage, not once per row. NLL's optional
+    # [filter] is omitted because x is already the included numeric sample, so
+    # its ISNUMBER default filters nothing.
     assert sheet.cell(33, 69).api.Formula2 == (
-        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BP$33,"
-        "NLL_Weibull(x,p,((AVERAGE(x^p))^(1/p)))),1E+15)"
-    )
-    assert sheet.cell(52, 69).api.Formula2 == (
-        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BP$52,"
-        "NLL_Weibull(x,p,((AVERAGE(x^p))^(1/p)))),1E+15)"
+        "=LET(x,FILTER(UV_Data,UV_Include),"
+        "BYROW($BP$33#,LAMBDA(r,LET(p,INDEX(r,1,1),"
+        "IFERROR(NLL_Weibull(x,p,((AVERAGE(x^p))^(1/p))),1E+15)))))"
     )
     assert sheet.cell(33, 74).api.Formula2 == (
-        "=IFERROR(LET(x,FILTER(UV_Data,UV_Include),p,$BU$33,"
-        "NLL_Gamma(x,p,(p/AVERAGE(x)))),1E+15)"
+        "=LET(x,FILTER(UV_Data,UV_Include),"
+        "BYROW($BU$33#,LAMBDA(r,LET(p,INDEX(r,1,1),"
+        "IFERROR(NLL_Gamma(x,p,(p/AVERAGE(x))),1E+15)))))"
     )
+    # The spill owns the rest of the column: nothing is written below row 33.
+    assert sheet.cell(34, 69).api.Formula2 is None
+    assert sheet.cell(52, 69).api.Formula2 is None
 
     # Min NLL and Best Shape recover via Grid_Argument_Minimum over the 1-D
     # NLL column — a single-column grid puts the minimum in the row slot, so

@@ -2,8 +2,9 @@
 
 The "Beta-only" build is a bare-bones shim: catalog, CSV data, Univariate, save.
 No tab colors, no version history, no sheet reordering — this exists only to
-isolate the Beta two-stage Data Table for timing the alternative ``beta_grid_size``
-choices. See ``scripts/test_beta_grid_performance.py`` for the consumer.
+isolate Beta's two-stage ``Full_Factorial`` grid search for timing the
+alternative ``beta_grid_size`` choices. See
+``scripts/test_beta_grid_performance.py`` for the consumer.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from typing import Callable
 
 import xlwings as xw
 
+from lambda_catalog.build_common import positive_grid_size
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import sync_workbook_names
 from lambda_catalog.write_sheet_csv_dataset import (
@@ -55,7 +57,7 @@ def build_beta_only_workbook(
     calculate : bool, optional
         If True (default), the workbook is switched to Automatic before save.
     write_univariate : Callable, optional
-        Univariate writer to call. Defaults to the standard Data-Table writer
+        Univariate writer to call. Defaults to the standard writer
         ``write_univariate_sheet``. Pass ``write_univariate_sheet_cartesian``
         to compare the Cartesian product approach.
     """
@@ -142,9 +144,12 @@ def parse_args(
     )
     parser.add_argument(
         "--beta-grid-size",
-        type=int,
+        type=positive_grid_size,
         default=20,
-        help="Size of the Beta distribution grid search (default: 20).",
+        help=(
+            "Size of the Beta distribution grid search (default: 20). Must be a "
+            "whole number of at least 2 — the Step cell divides by N-1."
+        ),
     )
     parser.add_argument(
         "--skip-recalculation",

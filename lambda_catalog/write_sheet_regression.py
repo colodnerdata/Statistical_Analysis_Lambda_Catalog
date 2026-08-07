@@ -2466,8 +2466,14 @@ def _diagnostic_chart_specs(
             "Cook's Distance", "bar",
             None,
             _name_ref("RegChartCookDist"),
+            # The IFERROR is around TEXT, not inside _COOKS_CUTOFF. The cutoff
+            # is deliberately NA() in the zero-predictor state so every
+            # COMPARISON against it fails closed, but TEXT(NA(),…) is #N/A and
+            # would propagate through the concatenation, leaving the whole
+            # chart title rendering as "#N/A". The em dash is the same
+            # not-available token the Univariate fit tables use.
             '="Cook\'s Distance  (flag: D > "'
-            f'&TEXT({_COOKS_CUTOFF},"0.000")&")"',
+            f'&IFERROR(TEXT({_COOKS_CUTOFF},"0.000"),"—")&")"',
             '="Observation"', '="Cook\'s Distance"',
             3, 1,
         ),

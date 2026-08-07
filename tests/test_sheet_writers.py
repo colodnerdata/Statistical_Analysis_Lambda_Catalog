@@ -72,6 +72,7 @@ from lambda_catalog.write_sheet_regression import (
     _C_Y,
     _CHART_Y_TICK_FORMAT_DEFAULT,
     _CHART_Y_TICK_FORMATS,
+    _COOKS_CUTOFF,
     _COLUMN_WIDTHS,
     _DESIGN_MATRIX_COLUMN_WIDTH,
     _DESIGN_MATRIX_INTERCEPT_HEADER,
@@ -313,6 +314,10 @@ def test_chart_label_cells_reference_live_statistics_and_stay_ordered() -> None:
     # from the Sigma Design Columns total (intercept included) — matching the
     # p that Cooks_Distance itself divides by — and n-p from the ANOVA.
     assert "F.INV(0.5,$O$1,$AB$16)" in cooks_title
+    # TEXT() is wrapped, not the cutoff: the cutoff stays NA() so comparisons
+    # fail closed, but TEXT(NA(),…) is #N/A and would take the whole title
+    # down with it through the concatenation.
+    assert f'IFERROR(TEXT({_COOKS_CUTOFF},"0.000"),"—")' in cooks_title
 
     qq_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Normal Q-Q")
     qq_title = sheet.ranges[((qq_row, _C_CHART_TITLE),)].state.formula2

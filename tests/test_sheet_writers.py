@@ -117,6 +117,7 @@ from lambda_catalog.write_sheet_univariate import (
     _C_FIT_FIRST,
     _HIST_COLUMNS,
     _STAT_ROWS,
+    _annotate_univariate_terms,
     _dist_rows,
     _setup_local_names,
     _write_data_zone,
@@ -1401,33 +1402,43 @@ def test_univariate_number_formats_are_one_decimal_or_integer_unless_nll() -> No
     assert sheet.range((5, 23), (2003, 23)).number_format == "0"
 
     _write_fitting_table(_as_xw_sheet(sheet))
-    assert sheet.cell(5, 9).number_format == "0.0"
+    assert sheet.cell(8, 9).number_format == "0.00"        # Weibull shape I8
+    assert sheet.cell(9, 9).number_format == "0.00"        # Gamma shape I9
+    assert sheet.cell(11, 9).number_format == "0.00"       # Beta alpha I11
+    assert sheet.cell(11, 11).number_format == "0.00"      # Beta beta K11
     assert sheet.cell(5, 14).number_format == "0.0E+00"
     assert sheet.cell(5, 15).number_format == "0"
     assert sheet.cell(5, 16).number_format == "0.0"
 
     _write_weibull_grid_search(_as_xw_sheet(sheet))
     # Weibull zone BP:BS, stages side by side: BQ4/BR4 grid points (integer),
-    # control field-list BQ5:BR10 (1 dp), Min NLL BQ8/BR8 (sci), S1 axis body
-    # BP32:BP51 (1 dp), S1 NLL body BQ32:BQ51 (sci).
+    # parameter controls/results BQ5:BR7 and BQ9:BR10 (2 dp), Min NLL BQ8/BR8
+    # (sci), S1 axis body BP32:BP... (2 dp), S1 NLL body BQ32:BQ... (sci).
     assert sheet.cell(4, 69).number_format == "0"           # Grid Points BQ4
     assert sheet.cell(4, 70).number_format == "0"           # Grid Points BR4
-    assert sheet.range((5, 69), (10, 70)).number_format == "0.0"
+    assert sheet.cell(5, 69).number_format == "0.00"
+    assert sheet.cell(5, 70).number_format == "0.00"
+    assert sheet.cell(7, 69).number_format == "0.00"
+    assert sheet.cell(7, 70).number_format == "0.00"
+    assert sheet.cell(9, 69).number_format == "0.00"
+    assert sheet.cell(9, 70).number_format == "0.00"
+    assert sheet.cell(10, 69).number_format == "0.00"
+    assert sheet.cell(10, 70).number_format == "0.00"
     assert sheet.cell(8, 69).number_format == "0.0E+00"     # Min NLL BQ8
     assert sheet.cell(8, 70).number_format == "0.0E+00"     # Min NLL BR8
-    assert sheet.range((32, 68), (10031, 68)).number_format == "0.0"
+    assert sheet.range((32, 68), (10031, 68)).number_format == "0.00"
     assert sheet.range((32, 69), (10031, 69)).number_format == "0.0E+00"
 
     # Beta zone BZ:CE, with BY as the gutter; stages side by side: CA4/CC4 grid points (integer),
-    # control field-list BZ5:CC9 (1 dp), Min NLL BZ7/CB7 (sci), Optimal (α, β)
-    # row 8 spill (1 dp), body NLL columns CA32 / CD32 (sci).
+    # control field-list BZ5:CC6 (2 dp), Min NLL BZ7/CB7 (sci), Optimal (α, β)
+    # row 8 spill (2 dp), body NLL columns CA32 / CD32 (sci).
     assert sheet.cell(4, 79).number_format == "0"           # Grid Points CA4
     assert sheet.cell(4, 81).number_format == "0"           # Grid Points CC4
-    assert sheet.range((5, 79), (6, 82)).number_format == "0.0"
+    assert sheet.range((5, 79), (6, 82)).number_format == "0.00"
     assert sheet.cell(7, 79).number_format == "0.0E+00"     # Min NLL CA7
     assert sheet.cell(7, 81).number_format == "0.0E+00"     # Min NLL CC7
-    assert sheet.cell(8, 79).number_format == "0.0"         # Optimal α CA8
-    assert sheet.cell(8, 82).number_format == "0.0"         # Optimal β CD8
+    assert sheet.cell(8, 79).number_format == "0.00"        # Optimal α CA8
+    assert sheet.cell(8, 82).number_format == "0.00"        # Optimal β CD8
 
 
 def test_histogram_chart_title_cells_reference_method_headers():
@@ -1446,6 +1457,26 @@ def test_histogram_chart_title_cells_reference_method_headers():
     assert f1 == '=W2&" Method Histogram"'
     assert f2 == '=AI2&" Method Histogram"'
     assert f3 == '=AU2&" Method Histogram"'
+
+
+def test_binning_method_notes_attach_to_method_name_cells() -> None:
+    sheet = RecordingSheet()
+
+    _annotate_univariate_terms(
+        _as_xw_sheet(sheet),
+        {
+            "Sturges": "sturges note",
+            "Scott": "scott note",
+            "FD": "fd note",
+        },
+    )
+
+    assert sheet.cell(2, 23).api.Comment.Text == "sturges note"   # W2
+    assert sheet.cell(2, 35).api.Comment.Text == "scott note"     # AI2
+    assert sheet.cell(2, 47).api.Comment.Text == "fd note"        # AU2
+    assert sheet.cell(2, 21).api.Comment is None                  # U2 stays blank
+    assert sheet.cell(2, 33).api.Comment is None                  # AG2 stays blank
+    assert sheet.cell(2, 45).api.Comment is None                  # AS2 stays blank
 
 
 def test_fit_zones_use_side_by_side_layout_and_named_bodies() -> None:
@@ -1474,14 +1505,14 @@ def test_fit_zones_use_side_by_side_layout_and_named_bodies() -> None:
         "Grid Points", "Min", "Max", "Start", "Min NLL",
         "Optimal Shape (k)", "Optimal Scale (λ) (profiled)",
     ]
-    assert sheet.cell(4, 69).value == 20        # Weibull Grid Points (BQ4)
-    assert sheet.cell(4, 74).value == 20        # Gamma Grid Points (BV4)
+    assert sheet.cell(4, 69).value == 30        # Weibull Grid Points (BQ4)
+    assert sheet.cell(4, 74).value == 30        # Gamma Grid Points (BV4)
 
     # Beta control field-list (labels col0/BZ rows 4–8) and Grid Points (CA4).
     assert [sheet.cell(row, 78).value for row in range(4, 9)] == [
         "Grid Points", "Min", "Max", "Min NLL", "Optimal (α, β)",
     ]
-    assert sheet.cell(4, 79).value == 10        # Beta Grid Points (CA4) — default N
+    assert sheet.cell(4, 79).value == 30        # Beta Grid Points (CA4) — default N
 
     # Body stage/header rows 30–31.
     assert sheet.cell(30, 68).value == "Stage 1 (Wide Scope)"
@@ -1678,7 +1709,7 @@ def test_profile_charts_anchor_above_the_body() -> None:
 
     body_top = _ROW_FIT_ZONE + _R_BODY
     body_bottom = body_top + _N_PROFILE - 1
-    assert (body_top, body_bottom) == (32, 51)
+    assert (body_top, body_bottom) == (32, 32 + _N_PROFILE - 1)
     assert _ROW_PROFILE_CHART == _ROW_FIT_ZONE + _R_CHART_TOP == 13
     assert (_BAND_COL["weibull"], _BAND_COL["gamma"]) == (68, 73)  # BP, BU
 
@@ -1795,7 +1826,7 @@ def test_beta_grid_stage_uses_full_factorial_side_by_side() -> None:
         assert "HSTACK" not in grid
 
     # Grid Points: Stage 1 is a literal (default N); Stage 2 mirrors Stage 1.
-    assert sheet.cell(4, 79).value == 10            # CA4
+    assert sheet.cell(4, 79).value == 30            # CA4
     assert sheet.cell(4, 81).api.Formula2 == "=$CA$4"   # CC4
 
     # Stage 2 bounds bracket Stage 1's optimum by ±1 step (α in CB, β in CC).

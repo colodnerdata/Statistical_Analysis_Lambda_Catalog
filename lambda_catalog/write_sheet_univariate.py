@@ -232,8 +232,8 @@ _HIST_BLOCKS = [
 #     (Alpha | Beta), beside a BYROW NLL column.  _N_GRID is the default.
 # Both stages sit SIDE BY SIDE inside one column zone, so a dynamic body height
 # never makes a Stage 2 row anchor depend on Stage 1's spill.
-_N_PROFILE = 20   # default profile points per stage (Weibull / Gamma; editable live)
-_N_GRID    = 10    # default Beta grid points per axis (N² rows/stage; editable live)
+_N_PROFILE = 30   # default profile points per stage (Weibull / Gamma; editable live)
+_N_GRID    = 30    # default Beta grid points per axis (N² rows/stage; editable live)
 
 # Floor on every Grid Points cell, re-exported from build_common so the flag,
 # the in-sheet Validation, and the invalid-N conditional format cannot drift
@@ -432,6 +432,7 @@ UNIVARIATE_SHEET_NAME = "Univariate"
 
 _FMT_INT = "0"
 _FMT_1DP = "0.0"
+_FMT_2DP = "0.00"
 _FMT_4DP = "0.0000"
 _FMT_SCI_1DP = "0.0E+00"
 
@@ -1019,6 +1020,12 @@ _FIT_NUMBER_FORMATS: dict[int, str] = {
     _C_KS: _FMT_4DP,
 }
 
+_FIT_PARAMETER_FORMAT_OVERRIDES: dict[str, dict[int, str]] = {
+    "Weibull": {_C_T1_VAL: _FMT_2DP},
+    "Gamma": {_C_T1_VAL: _FMT_2DP},
+    "Beta": {_C_T1_VAL: _FMT_2DP, _C_T2_VAL: _FMT_2DP},
+}
+
 
 # Where each fit's Stage 2 Best cells sit: (zone first column, Best-P1 column
 # offset, Best-P2 column offset, Best-P1 row offset, Best-P2 row offset).  This
@@ -1234,6 +1241,8 @@ def _write_fitting_table(sheet: xw.Sheet, *, beta_grid_size: int = _N_GRID) -> N
           f"=GoF_Kolmogorov_Smirnov(UV_Data,{cdf_expr},UV_Include)")
 
         for col, fmt in _FIT_NUMBER_FORMATS.items():
+            sheet.range(rc(row, col)).number_format = fmt
+        for col, fmt in _FIT_PARAMETER_FORMAT_OVERRIDES.get(name, {}).items():
             sheet.range(rc(row, col)).number_format = fmt
 
     # Border around the table (col headers through last data row)
@@ -1637,6 +1646,9 @@ def _write_profile_fit(
         rc(r0 + _PR_R_MIN, c0 + _PR_C_S1),
         rc(r0 + _PR_R_BEST_P2, c0 + _PR_C_S2),
     ).number_format = _FMT_1DP
+    sheet.range(rc(r0 + _PR_R_MIN, c0 + _PR_C_S1), rc(r0 + _PR_R_MAX, c0 + _PR_C_S2)).number_format = _FMT_2DP
+    sheet.range(rc(r0 + _PR_R_START, c0 + _PR_C_S1), rc(r0 + _PR_R_START, c0 + _PR_C_S2)).number_format = _FMT_2DP
+    sheet.range(rc(r0 + _PR_R_BEST_P1, c0 + _PR_C_S1), rc(r0 + _PR_R_BEST_P2, c0 + _PR_C_S2)).number_format = _FMT_2DP
     sheet.range(rc(r0 + _PR_R_MINNLL, c0 + _PR_C_S1)).number_format = _FMT_SCI_1DP
     sheet.range(rc(r0 + _PR_R_MINNLL, c0 + _PR_C_S2)).number_format = _FMT_SCI_1DP
 
@@ -1663,8 +1675,8 @@ def _write_profile_fit(
       f"=Full_Factorial({s1_n_ref},{s1_min_ref},{s1_max_ref})")
     f(sheet, body_row, c0 + _PR_C_S2,
       f"=Full_Factorial({s2_n_ref},{s2_min_ref},{s2_max_ref})")
-    sheet.range(rc(body_row, c0 + _PR_C_LABEL), rc(body_row_end, c0 + _PR_C_LABEL)).number_format = _FMT_1DP
-    sheet.range(rc(body_row, c0 + _PR_C_S2), rc(body_row_end, c0 + _PR_C_S2)).number_format = _FMT_1DP
+    sheet.range(rc(body_row, c0 + _PR_C_LABEL), rc(body_row_end, c0 + _PR_C_LABEL)).number_format = _FMT_2DP
+    sheet.range(rc(body_row, c0 + _PR_C_S2), rc(body_row_end, c0 + _PR_C_S2)).number_format = _FMT_2DP
 
     # One NLL call per trial value, partner substituted in closed form, as a
     # single BYROW spill over the stage's axis spill.  Reading the axis through
@@ -1856,7 +1868,7 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     sheet.range(
         rc(r0 + _BETA_R_A_MIN, c0 + _BETA_C_S1_A),
         rc(r0 + _BETA_R_B_MAX, c0 + _BETA_C_S2_B),
-    ).number_format = _FMT_1DP
+    ).number_format = _FMT_2DP
 
     # ── Body spills (row 32): Full_Factorial grid + a separate BYROW NLL col ─────
     # The grid is a Full_Factorial(N, mins, maxs) spill → N²×2 (col1 = α slow
@@ -1915,8 +1927,8 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     # anchor so variable-size bodies remain formatted after live N edits.
     cf_row_end = body_row + _FIT_BODY_FORMAT_ROWS - 1
     for c_off, fmt in (
-        (_BETA_C_LABEL, _FMT_1DP), (_BETA_C_S1_A, _FMT_1DP), (_BETA_C_S1_B, _FMT_SCI_1DP),
-        (_BETA_C_S2_A, _FMT_1DP), (_BETA_C_S2_B, _FMT_1DP), (_BETA_C_S2_NLL, _FMT_SCI_1DP),
+        (_BETA_C_LABEL, _FMT_2DP), (_BETA_C_S1_A, _FMT_2DP), (_BETA_C_S1_B, _FMT_SCI_1DP),
+        (_BETA_C_S2_A, _FMT_2DP), (_BETA_C_S2_B, _FMT_2DP), (_BETA_C_S2_NLL, _FMT_SCI_1DP),
     ):
         sheet.range(rc(body_row, c0 + c_off), rc(cf_row_end, c0 + c_off)).number_format = fmt
 
@@ -1972,9 +1984,9 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
         f(sheet, r0 + _BETA_R_BEST, c0 + best_a_coff,
           f'=IFERROR(Min_NLL_Params(HSTACK({alpha_name},{beta_name}),{nll_name}),"—")')
         sheet.range(rc(r0 + _BETA_R_MINNLL, c0 + minnll_coff)).number_format = _FMT_SCI_1DP
-        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff), rc(r0 + _BETA_R_BEST, c0 + best_a_coff + 1)).number_format = _FMT_1DP
-        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff)).number_format = _FMT_1DP
-        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff + 1)).number_format = _FMT_1DP
+        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff), rc(r0 + _BETA_R_BEST, c0 + best_a_coff + 1)).number_format = _FMT_2DP
+        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff)).number_format = _FMT_2DP
+        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff + 1)).number_format = _FMT_2DP
         # Boundary guard on Best α and Best β: red when the optimum is on an
         # edge of the N²-long grid (location 1 or N²).
         for best_coff in (best_a_coff, best_a_coff + 1):
@@ -2226,9 +2238,9 @@ def _annotate_univariate_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> 
     """
     note_cells = [
         # Three histogram method labels (row 2, one per binning block)
-        (_ROW_METHOD_HDR, _C_STUR, "Sturges"),
-        (_ROW_METHOD_HDR, _C_SCOTT, "Scott"),
-        (_ROW_METHOD_HDR, _C_FD, "FD"),
+        (_ROW_METHOD_HDR, _C_STUR + _HB_COUNT, "Sturges"),
+        (_ROW_METHOD_HDR, _C_SCOTT + _HB_COUNT, "Scott"),
+        (_ROW_METHOD_HDR, _C_FD + _HB_COUNT, "FD"),
         # Distribution fitting table — acronym headers in row 4
         (_ROW_COL_HDRS, _C_NLL, "NLL"),
         (_ROW_COL_HDRS, _C_K_PARAM, "k"),

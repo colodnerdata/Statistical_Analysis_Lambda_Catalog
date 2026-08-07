@@ -141,6 +141,7 @@ class RecordingRangeApi:
         self.Interior = SimpleNamespace(Color=None)
         self.FormatConditions = RecordingFormatConditions()
         self.Validation = RecordingValidation()
+        self.Comment = None
 
     def Table(self, *, RowInput: Any, ColumnInput: Any) -> None:
         self._sheet.tables.append({
@@ -154,6 +155,12 @@ class RecordingRangeApi:
             edge,
             SimpleNamespace(LineStyle=None, Weight=None),
         )
+
+    def AddComment(self, text: str) -> None:
+        self.Comment = SimpleNamespace(Text=text, Visible=None)
+
+    def ClearComments(self) -> None:
+        self.Comment = None
 
     def _block_bounds(self) -> tuple[int, int, int, int] | None:
         """``(r1, c1, r2, c2)`` when this range spans a ``(top_left, bottom_right)`` block."""
@@ -246,6 +253,12 @@ class RecordingRange:
     @number_format.setter
     def number_format(self, value: str) -> None:
         self.state.number_format = value
+        bounds = self.api._block_bounds()
+        if bounds is not None:
+            r1, c1, r2, c2 = bounds
+            for row in range(r1, r2 + 1):
+                for col in range(c1, c2 + 1):
+                    self._sheet.cell(row, col).state.number_format = value
 
     @property
     def column_width(self) -> float | None:

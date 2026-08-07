@@ -1,15 +1,15 @@
-python build_univariate.py --verify --no-launch
+python build_univariate.py --verify --no-launch --log excel-only-runs/build_univariate verify no launch.log
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library_Univariate.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
 Sheet updated: Univariate
 Sheet updated: Version History
-Created names: 0
+Created names: 1
 Updated names: 122
 Removed names: 0
-Verify: passed (spec mode, 59.6s, workbook='C:\\Users\\Stephen_Colodner\\windows code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library_Univariate.xlsx')
-Timing: build+sync    155.0s
-Timing: recalculate   144.1s
-Timing: verify        59.7s
-Timing: total         358.8s
-Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_univariate verify no launch.log
+Verify: passed (spec mode, 2.2s, workbook='C:\\Users\\Stephen_Colodner\\windows code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library_Univariate.xlsx')
+Timing: build+sync    48.8s
+Timing: recalculate   3.1s
+Timing: verify        2.2s
+Timing: total         54.1s
+Log: excel-only-runs\build_univariate verify no launch.log

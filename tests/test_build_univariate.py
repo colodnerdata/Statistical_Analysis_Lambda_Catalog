@@ -247,8 +247,9 @@ def test_build_passes_univariate_artifact_to_version_history(
 
 
 def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
-    """The Univariate workbook ships in full Automatic so the Data Tables
-    recalculate on edit (the whole point of the split)."""
+    """The Univariate workbook ships in full Automatic so the Beta
+    Full_Factorial grid and the Weibull/Gamma profile-NLL columns recalculate
+    on edit (the whole point of the split)."""
     app = _FakeApp()
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
 
@@ -269,8 +270,9 @@ def test_no_calculation_never_leaves_manual_mode(monkeypatch, tmp_path) -> None:
     """calculate=False must never set Automatic.
 
     Setting Automatic on the open workbook is itself a full calculation — the
-    Beta Data Tables included — so it is the step that has to not happen, not
-    just the final rebuild. --skip-data-table-calculations does not cover it.
+    Beta Full_Factorial grid included — so it is the step that has to not
+    happen, not just the final rebuild. --skip-data-table-calculations does not
+    cover it.
     """
     app = _FakeApp()
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
@@ -385,6 +387,7 @@ def test_main_no_calculation_skips_rebuild_and_warns(
             no_calculation=True,
             verify=False,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -428,6 +431,7 @@ def test_main_warns_when_verify_is_combined_with_no_calculation(
             no_calculation=True,
             verify=True,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -570,8 +574,9 @@ def test_reorder_puts_univariate_front_and_lambda_last(monkeypatch) -> None:
 def test_main_recalculate_skipped_when_skip_data_table_calculations(
     monkeypatch, capsys, tmp_path
 ) -> None:
-    """--skip-data-table-calculations skips the (slow, 2,400-NLL-eval) rebuild
-    for the Univariate artifact — this is the flag's now-primary purpose."""
+    """--skip-data-table-calculations skips the (slow, Full_Factorial grid +
+    profile-NLL) recalc rebuild for the Univariate artifact — this is the
+    flag's now-primary purpose."""
     recalc_calls: list[Path] = []
 
     monkeypatch.setattr(
@@ -587,6 +592,7 @@ def test_main_recalculate_skipped_when_skip_data_table_calculations(
             no_calculation=False,
             verify=False,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -613,7 +619,8 @@ def test_main_recalculate_skipped_when_skip_data_table_calculations(
 
 def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
     """Without --skip-data-table-calculations, main() runs the rebuild so the
-    shipped artifact's Data Tables are computed (not stale pending Ctrl+Alt+F9)."""
+    shipped artifact's Beta Full_Factorial grid and profile-NLL columns are
+    computed (not stale pending Ctrl+Alt+F9)."""
     recalc_calls: list[Path] = []
 
     monkeypatch.setattr(
@@ -629,6 +636,7 @@ def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
             no_calculation=False,
             verify=False,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -719,6 +727,7 @@ def test_main_verify_forwards_skip_regression_true(monkeypatch, tmp_path) -> Non
             no_calculation=False,
             verify=True,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -772,6 +781,7 @@ def test_main_archives_the_verify_report_to_the_run_log(monkeypatch, tmp_path) -
             no_calculation=False,
             verify=True,
             no_launch=True,
+            beta_grid_size=10,
             log=log_path,
         ),
     )
@@ -819,6 +829,7 @@ def test_main_archives_the_no_calculation_verify_warning(monkeypatch, tmp_path) 
             no_calculation=True,
             verify=True,
             no_launch=True,
+            beta_grid_size=10,
             log=log_path,
         ),
     )
@@ -879,6 +890,7 @@ def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
             no_calculation=False,
             verify=False,
             no_launch=True,
+            beta_grid_size=10,
             log=None,
         ),
     )

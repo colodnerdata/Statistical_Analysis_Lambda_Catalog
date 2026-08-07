@@ -65,10 +65,13 @@ _ROWS: list[tuple[int, str, str | None]] = [
             '(the "Refers To" field) to your table, including its header row — for '
             "example =MyTable[#All]. Everything else derives from this one name: the "
             "header row, the data body, and the variable list in the MODEL SPECIFICATION "
-            "block all update automatically. Source_Table points at MileageData by "
-            "default; a second sample table, LifeExpectancyData (on the Life Expectancy "
-            "Data sheet), ships with the workbook if you want to practice this retarget "
-            "before pointing at your own data."
+            "block all update automatically. Source_Table points at LifeExpectancyData "
+            "by default (a curated four-driver Life Expectancy model — Adult Mortality, "
+            "Alcohol, percentage expenditure, and Status); a second sample table, "
+            "MileageData (on the Mileage Data sheet), ships with the workbook for a "
+            "multi-level categorical-encoding demo (MPG ~ Horsepower + Weight + "
+            "C(Model Year) + C(Origin) — reach it with --regression-dataset auto_mpg). "
+            "Practice the retarget on either before pointing at your own data."
         ),
         "body",
     ),

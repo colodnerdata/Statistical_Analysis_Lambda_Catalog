@@ -214,6 +214,7 @@ def _write_shell(
     sheet_notes: dict[str, str] | None,
     closures: tuple[CatalogFunction, ...] | None,
     shell_profile_key: str | None = None,
+    include_charts: bool = False,
 ) -> xw.Sheet:
     """Write the Regression sheet layout under a per-case identity.
 
@@ -246,8 +247,10 @@ def _write_shell(
         # Charts are the single biggest cost in this build — roughly a dozen
         # COM chart objects per sheet across ~48 sheets — and no oracle reads
         # one. Chart wiring is verified once, on the production Regression
-        # sheet, by build_production.py.
-        include_charts=False,
+        # sheet, by build_production.py. The demo workbook opts IN to charts on
+        # the plot-teaching beats (include_charts=True) where the visual is the
+        # point; every test-model sheet leaves them off.
+        include_charts=include_charts,
     )
     return workbook.sheets[sheet_name]
 
@@ -257,6 +260,8 @@ def write_test_model_sheet(
     expected: RegressionSpecExpected,
     sheet_notes: dict[str, str] | None = None,
     closures: tuple[CatalogFunction, ...] | None = None,
+    *,
+    include_charts: bool = False,
 ) -> xw.Sheet:
     """Build one fittable case's sheet, spec applied and inputs prefilled.
 
@@ -264,6 +269,11 @@ def write_test_model_sheet(
     mean, matching what the legacy verifier writes before reading the
     Prediction Interval box — so the box on a generated sheet holds a
     comparable number rather than whatever the shipped default produces.
+
+    ``include_charts`` defaults to ``False`` (the test-model build keeps
+    charts off — no oracle reads one, and they are the build's biggest
+    cost). The presentation demo workbook passes ``True`` on the
+    plot-teaching beats where the chart IS the point.
     """
     case = expected.case
     sheet = _write_shell(
@@ -272,6 +282,7 @@ def write_test_model_sheet(
         source_table_ref=case.source_table_ref,
         sheet_notes=sheet_notes,
         closures=closures,
+        include_charts=include_charts,
     )
     padded = _padded(expected)
     apply_spec_case(sheet, padded)

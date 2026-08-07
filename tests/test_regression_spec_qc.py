@@ -16,6 +16,7 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_cases,
     calculate_regression_spec_case,
 )
+from lambda_catalog.write_spec_block import _ROLE_PREDICTOR
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
 # One path per wired dataset, and each test guards on the one IT reads.
@@ -63,6 +64,7 @@ _EXPECTED_CASE_NAMES = [
     "life_full_profile",
     "life_country_fixed_effects",
     "life_status_explicit_reference",
+    "life_talk_demo",
 ]
 
 _EXPECTED_T0_NAMES = (
@@ -916,10 +918,14 @@ def test_elasticity_model_logs_both_sides_at_scale() -> None:
 @pytest.mark.skipif(
     not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
 )
-def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
-    """L05. SPEC_DATASET_PROFILES["life_expectancy"] is what
-    `--regression-dataset life_expectancy` pre-fills, and nothing had ever
-    verified that the model it ships actually fits."""
+def test_life_full_profile_is_the_k_stress_showcase() -> None:
+    """L05 — the full 18-predictor kitchen sink, the suite's k-stress showcase.
+
+    The shipped default is the curated ``life_talk_demo`` model (L11); L5 is
+    the wide design every predictor-summary statistic is stressed on. The
+    spec is restated in its own right in ``_life_full_profile_spec`` rather
+    than derived from the profile, so a change to the shipped default cannot
+    silently shrink this case."""
     from lambda_catalog.write_spec_block import SPEC_DATASET_PROFILES
 
     expected = calculate_regression_spec_case(_case("life_full_profile"), CSV_PATH)
@@ -929,9 +935,58 @@ def test_shipped_life_expectancy_profile_finally_has_an_oracle() -> None:
     # 18 continuous predictors + the single Status dummy.
     assert len(design.constructed_column_names) == 19
     assert "Status: Developing" in design.constructed_column_names
-    # Derived from the profile, so it tracks the shipped default rather than
-    # pinning a copy of it.
+    # The spec itself — not just the design it produces — pins the 18 + 1
+    # kitchen sink. Restating _life_full_profile_spec explicitly means a future
+    # edit that shrinks it drops this count before it drops k, so the k-stress
+    # case cannot quietly stop being one.
+    included_predictors = [
+        v for v in expected.case.spec if v.include and v.role == _ROLE_PREDICTOR
+    ]
+    assert sum(1 for v in included_predictors if v.var_type == "Continuous") == 18
+    assert sum(1 for v in included_predictors if v.var_type == "Categorical") == 1
+    # One spec row per Source_Table column, in dataset order.
     assert [item.name for item in expected.case.spec] == list(profile.variables)
+    assert math.isfinite(expected.results.summary.r_squared)
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_curated_talk_demo_is_the_shipped_default_and_fits() -> None:
+    """L11 — the curated four-driver model both decks headline, and the shipped
+    default. Pins the exact spec the workbook opens with so the slide-19
+    coefficient table is oracle-checked, not illustrative."""
+    from lambda_catalog.write_spec_block import SPEC_DATASET_PROFILES
+
+    expected = calculate_regression_spec_case(_case("life_talk_demo"), CSV_PATH)
+    design = expected.design
+
+    # (None, None) dispatch — untransformed response, untransformed predictors.
+    assert (design.response_transform, design.predictor_transform) == ("None", "None")
+    # 3 continuous predictors + the single Status dummy = 4 design columns.
+    # Status sits earlier in the dataset column order than the feature columns,
+    # so its dummy is constructed first.
+    assert design.constructed_column_names == (
+        "Status: Developing",
+        "Adult Mortality",
+        "Alcohol",
+        "percentage expenditure",
+    )
+    # The shipped profile default and the registered case are the same model:
+    # the cold open a user sees is the one this oracle verifies.
+    profile = SPEC_DATASET_PROFILES["life_expectancy"]
+    included = {
+        name: spec
+        for name, spec in profile.default_spec.items()
+        if spec[1] is True  # Include = True
+    }
+    assert set(included) == {
+        "Adult Mortality",
+        "Alcohol",
+        "percentage expenditure",
+        "Status",
+    }
+    assert included["Status"][2] == "Categorical"
     assert math.isfinite(expected.results.summary.r_squared)
 
 

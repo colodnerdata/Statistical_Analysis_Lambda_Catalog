@@ -91,7 +91,7 @@ from lambda_catalog.write_sheet_csv_dataset import (
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-DEFAULT_WORKBOOK_PATH = ROOT_DIR / "presentations" / "Lambda_Library_Regression_Demo.xlsx"
+DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Presentations" / "Lambda_Library_Regression_Demo.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 
 

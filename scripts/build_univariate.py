@@ -265,8 +265,10 @@ def build_univariate_workbook(
         Full_Factorial spills and the Weibull/Gamma profile-NLL columns) so the
         shipped artifact is not stale. Pass False when the caller manages the
         recalculate step separately (``main`` does, so the slow recalc gets its
-        own retry phase). The workbook is always switched to Automatic before
-        the save, so the saved artifact recalculates on edit.
+        own retry phase). When False the workbook is saved in Manual mode here;
+        the caller's ``_recalculate_and_save`` call is what switches to
+        Automatic and persists it, so the final artifact still recalculates on
+        edit.
 
     Returns
     -------
@@ -317,10 +319,9 @@ def build_univariate_workbook(
             write_univariate_sheet(workbook, document.univariate_sheet_notes, beta_grid_size=beta_grid_size)
             write_version_history_sheet(workbook, artifact="univariate")
             _reorder_and_style_sheet_tabs(workbook)
-            # Setting Automatic on an open workbook calculates it there and
-            # then — the Beta Full_Factorial spill included. The workbook is
-            # always saved in Automatic so the artifact recalculates on edit.
-            app.api.Calculation = XL_CALCULATION_AUTOMATIC
+            # Save in Manual — the expensive fit-spill calculation is deferred
+            # to _recalculate_and_save (phase 2), which runs CalculateFullRebuild
+            # and persists Automatic so the final artifact recalculates on edit.
             workbook.save(str(workbook_path))
         finally:
             _close_workbook_quietly(workbook)

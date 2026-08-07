@@ -31,6 +31,9 @@ from .workbook_helpers import (
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 INTEGER_PATTERN = re.compile(r"-?\d+")
+_EXCEL_ERROR_LITERALS = frozenset(
+    {"#VALUE!", "#REF!", "#NAME?", "#NULL!", "#DIV/0!", "#N/A", "#NUM!"}
+)
 
 
 @dataclass(frozen=True)
@@ -154,6 +157,19 @@ def _parse_cell(raw_value: str, missing_values: frozenset[str]) -> str | int | f
         return value
 
 
+def _excel_safe_cell_value(value: str | int | float | None) -> str | int | float | None:
+    """Return a value that Excel will keep as a literal cell value.
+
+    Excel treats strings matching its error literals (for example ``"#VALUE!"``)
+    as actual error cells when written through COM. Prefix them with an
+    apostrophe so the displayed text stays the same but the stored cell type is
+    text, not ``<c t="e">``.
+    """
+    if isinstance(value, str) and value in _EXCEL_ERROR_LITERALS:
+        return f"'{value}"
+    return value
+
+
 def load_csv_rows(
     csv_path: Path,
     config: CsvDatasetConfig,
@@ -253,7 +269,11 @@ def write_csv_dataset_sheet(
     sheet.range((1, 1), (1, last_column_index)).value = all_headers
     checkpoint("headers done")
     checkpoint(f"row write start ({len(rows)} rows)")
-    sheet.range((2, 1), (last_data_row, len(headers))).value = rows
+    safe_rows = [
+        [_excel_safe_cell_value(value) for value in row]
+        for row in rows
+    ]
+    sheet.range((2, 1), (last_data_row, len(headers))).value = safe_rows
     checkpoint("row write done")
 
     table_range = sheet.range((1, 1), (last_data_row, last_column_index))

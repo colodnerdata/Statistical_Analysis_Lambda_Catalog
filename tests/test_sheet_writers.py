@@ -1784,8 +1784,8 @@ def test_profile_stage_formulas_reference_visible_controls() -> None:
 
     # Stage 2 sits SIDE BY SIDE with Stage 1 (col2/BR), refining to ±1 step.
     assert sheet.cell(4, 70).api.Formula2 == "=$BQ$4"
-    assert sheet.cell(5, 70).api.Formula2 == "=LET(Stage1_Opt,$BQ$9,Stage1_Step,($BQ$6-$BQ$5)/$BQ$4,MAX(0.001,Stage1_Opt-Stage1_Step))"
-    assert sheet.cell(6, 70).api.Formula2 == "=LET(Stage1_Opt,$BQ$9,Stage1_Step,($BQ$6-$BQ$5)/$BQ$4,MAX(0.001,Stage1_Opt+Stage1_Step))"
+    assert sheet.cell(5, 70).api.Formula2 == "=LET(Stage1_Opt,$BQ$9,Stage1_Step,($BQ$6-$BQ$5)/MAX(1,$BQ$4-1),MAX(0.001,Stage1_Opt-Stage1_Step))"
+    assert sheet.cell(6, 70).api.Formula2 == "=LET(Stage1_Opt,$BQ$9,Stage1_Step,($BQ$6-$BQ$5)/MAX(1,$BQ$4-1),MAX(0.001,Stage1_Opt+Stage1_Step))"
 
 
 def test_beta_grid_stage_uses_full_factorial_side_by_side() -> None:
@@ -1830,10 +1830,10 @@ def test_beta_grid_stage_uses_full_factorial_side_by_side() -> None:
     assert sheet.cell(4, 81).api.Formula2 == "=$CA$4"   # CC4
 
     # Stage 2 bounds bracket Stage 1's optimum by ±1 step (α in CB, β in CC).
-    assert sheet.cell(5, 81).api.Formula2 == "=LET(Stage1_Opt,$CA$8,Stage1_Step,($CA$6-$CA$5)/$CA$4,MAX(0.001,Stage1_Opt-Stage1_Step))"   # α Min
-    assert sheet.cell(6, 81).api.Formula2 == "=LET(Stage1_Opt,$CA$8,Stage1_Step,($CA$6-$CA$5)/$CA$4,MAX(0.001,Stage1_Opt+Stage1_Step))"   # α Max
-    assert sheet.cell(5, 82).api.Formula2 == "=LET(Stage1_Opt,$CB$8,Stage1_Step,($CB$6-$CB$5)/$CA$4,MAX(0.001,Stage1_Opt-Stage1_Step))"   # β Min
-    assert sheet.cell(6, 82).api.Formula2 == "=LET(Stage1_Opt,$CB$8,Stage1_Step,($CB$6-$CB$5)/$CA$4,MAX(0.001,Stage1_Opt+Stage1_Step))"   # β Max
+    assert sheet.cell(5, 81).api.Formula2 == "=LET(Stage1_Opt,$CA$8,Stage1_Step,($CA$6-$CA$5)/MAX(1,$CA$4-1),MAX(0.001,Stage1_Opt-Stage1_Step))"   # α Min
+    assert sheet.cell(6, 81).api.Formula2 == "=LET(Stage1_Opt,$CA$8,Stage1_Step,($CA$6-$CA$5)/MAX(1,$CA$4-1),MAX(0.001,Stage1_Opt+Stage1_Step))"   # α Max
+    assert sheet.cell(5, 82).api.Formula2 == "=LET(Stage1_Opt,$CB$8,Stage1_Step,($CB$6-$CB$5)/MAX(1,$CA$4-1),MAX(0.001,Stage1_Opt-Stage1_Step))"   # β Min
+    assert sheet.cell(6, 82).api.Formula2 == "=LET(Stage1_Opt,$CB$8,Stage1_Step,($CB$6-$CB$5)/MAX(1,$CA$4-1),MAX(0.001,Stage1_Opt+Stage1_Step))"   # β Max
 
     # Recovery uses MIN for the Min NLL cells and Min_NLL_Params for the optimal
     # pair spill.

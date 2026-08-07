@@ -2,6 +2,7 @@
 # pylint: disable=missing-module-docstring,reimported
 from __future__ import annotations
 
+import inspect
 import math
 import unittest
 
@@ -360,7 +361,10 @@ class GoFTests(unittest.TestCase):
         sd = float(np.std(data, ddof=1))
         cdf = [float(scipy_stats.norm.cdf(x, mu, sd)) for x in data]
         ad = gof_anderson_darling(data, cdf)
-        scipy_ad = scipy_stats.anderson(data, dist="norm").statistic
+        anderson_kwargs = {"dist": "norm"}
+        if "method" in inspect.signature(scipy_stats.anderson).parameters:
+            anderson_kwargs["method"] = "interpolate"
+        scipy_ad = scipy_stats.anderson(data, **anderson_kwargs).statistic
         self.assertAlmostEqual(ad, scipy_ad, places=6)
 
     def test_ad_bounded_support_no_crash(self) -> None:

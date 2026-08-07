@@ -1,0 +1,17 @@
+python build_production.py --no-launch
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
+Sheet updated: LAMBDA_functions
+Sheet updated: Life Expectancy Data
+Sheet updated: Mileage Data
+Sheet updated: Production Lots
+Sheet updated: Regression Instructions
+Sheet updated: Diagnostic Guide
+Sheet updated: Version History
+Sheet updated: Regression
+Created names: 0
+Updated names: 123
+Removed names: 0
+Timing: build+sync    48.2s
+Timing: recalculate   4.0s
+Timing: total         52.2s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production no launch.log

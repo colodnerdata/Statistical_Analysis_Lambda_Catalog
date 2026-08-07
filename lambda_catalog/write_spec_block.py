@@ -619,7 +619,7 @@ _LIFE_EXPECTANCY_VARIABLES: tuple[str, ...] = (
     *_LIFE_EXPECTANCY_FEATURE_COLUMNS,
     "Full_Data",
 )
-# The four curated drivers that ship active.
+# The three curated drivers that ship active.
 _LIFE_TALK_DEMO_PREDICTORS: frozenset[str] = frozenset(
     {"Adult Mortality", "Alcohol", "percentage expenditure"}
 )

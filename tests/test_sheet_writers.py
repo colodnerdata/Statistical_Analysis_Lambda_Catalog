@@ -1692,30 +1692,41 @@ def test_profile_stage_formulas_reference_visible_controls() -> None:
 
 
 def test_beta_grid_stage_uses_full_factorial_side_by_side() -> None:
-    """Beta is a Full_Factorial dynamic-array spill per stage, no Data Table.
+    """Beta is two Full_Factorial spills per stage, no Data Table, no HSTACK.
 
-    Each stage's body is ONE spill at row 33: Full_Factorial → BYROW NLL →
-    HSTACK, producing an N²×3 (Alpha | Beta | NLL) array. The two stages sit
-    SIDE BY SIDE (Stage 1 at BY33, Stage 2 at CB33), so a dynamic N² height
-    never makes Stage 2's row anchor depend on Stage 1's spill. N is an in-sheet
-    cell (BZ4, editable live); Stage 2's Grid Points (CB4) mirrors it. No
-    ``Range.Table``, no ``Grid_Search_Optimum`` — recovery uses
+    Each stage's body is TWO spills at row 33: a Full_Factorial grid (N²×2,
+    Alpha | Beta) across the stage's first two cols, and a separate BYROW NLL
+    spill in the third col that reads the grid via the ``#`` operator. The two
+    stages sit SIDE BY SIDE (Stage 1 grid at BY33 / NLL at CA33, Stage 2 grid at
+    CB33 / NLL at CD33), so a dynamic N² height never makes Stage 2's row
+    anchor depend on Stage 1's spill. N is an in-sheet cell (BZ4, editable
+    live); Stage 2's Grid Points (CB4) mirrors it. No ``Range.Table``, no
+    ``Grid_Search_Optimum``, no ``HSTACK`` — recovery uses
     ``Grid_Argument_Minimum`` over the materialized NLL column.
     """
     sheet = RecordingSheet()
 
     _write_weibull_grid_search(_as_xw_sheet(sheet))
 
-    # Stage 1 spill at BY33 (col 77); Stage 2 spill at CB33 (col 80) — same row,
-    # independent height. Both carry the Full_Factorial → BYROW NLL → HSTACK body.
-    s1_spill = sheet.cell(33, 77).api.Formula2
-    s2_spill = sheet.cell(33, 80).api.Formula2
-    assert "Full_Factorial($BZ$4,VSTACK($BZ$5,$CA$8),VSTACK($BZ$6,$CA$9))" in s1_spill
-    assert "Full_Factorial($CB$4,VSTACK($CB$5,$CC$8),VSTACK($CB$6,$CC$9))" in s2_spill
-    for spill in (s1_spill, s2_spill):
-        assert "BYROW(grid,LAMBDA(ab,IFERROR(NLL_Beta(z,INDEX(ab,1,1),INDEX(ab,1,2))" in spill
-        assert "COUNT(d)*LN(scale_)" in spill
-        assert "HSTACK(grid,nll))" in spill
+    # Stage 1 grid at BY33 (col 77), NLL at CA33 (col 79); Stage 2 grid at CB33
+    # (col 80), NLL at CD33 (col 82) — same row, independent height. The grid is
+    # the pure Full_Factorial (no BYROW/HSTACK); the NLL is a separate BYROW over
+    # the grid spill via `#`.
+    s1_grid = sheet.cell(33, 77).api.Formula2
+    s2_grid = sheet.cell(33, 80).api.Formula2
+    s1_nll = sheet.cell(33, 79).api.Formula2
+    s2_nll = sheet.cell(33, 82).api.Formula2
+    assert s1_grid == "=Full_Factorial($BZ$4,VSTACK($BZ$5,$CA$8),VSTACK($BZ$6,$CA$9))"
+    assert s2_grid == "=Full_Factorial($CB$4,VSTACK($CB$5,$CC$8),VSTACK($CB$6,$CC$9))"
+    for nll, grid_anchor in ((s1_nll, "$BY$33#"), (s2_nll, "$CB$33#")):
+        assert "BYROW(" + grid_anchor + ",LAMBDA(ab,IFERROR(NLL_Beta(z,INDEX(ab,1,1),INDEX(ab,1,2))" in nll
+        assert "COUNT(d)*LN(scale_)" in nll
+        assert "FILTER(UV_Data,UV_Include)" in nll
+        assert "HSTACK" not in nll
+    # The grid spills carry no NLL machinery — pure Full_Factorial.
+    for grid in (s1_grid, s2_grid):
+        assert "BYROW" not in grid
+        assert "HSTACK" not in grid
 
     # Grid Points: Stage 1 is a literal (default N); Stage 2 mirrors Stage 1.
     assert sheet.cell(4, 78).value == 10            # BZ4

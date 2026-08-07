@@ -217,7 +217,8 @@ _HIST_BLOCKS = [
 #     spacing and brackets Stage 2 but no longer feeds the axis).
 #   • Beta searches TWO dimensions (both conditional MLEs involve digamma).
 #     Each stage is a Full_Factorial(_N_GRID × _N_GRID) grid → _N_GRID² rows,
-#     written as one dynamic-array spill and sized by an in-sheet "Grid Points"
+#     written as TWO dynamic-array spills (the N²×2 grid, then a separate BYROW
+#     NLL column that reads it via `#`) and sized by an in-sheet "Grid Points"
 #     cell so N is editable live.  _N_GRID is the default written into that cell.
 # Both stages sit SIDE BY SIDE inside one column zone, so a dynamic Beta body
 # height (N² rows) never makes a Stage 2 row anchor depend on Stage 1's spill.
@@ -1400,11 +1401,13 @@ def _write_qq_charts(sheet: xw.Sheet) -> None:
 #            (fixed 20).  Recovery via Grid_Argument_Minimum (catalog LAMBDA),
 #            the same mechanism the legacy stacked writer used.
 #   _write_beta_fit     — Beta, 6-col zone (3 cols/stage: Alpha | Beta | NLL).
-#            Two dimensions searched.  Body = one Full_Factorial → BYROW NLL →
-#            HSTACK spill of N²×3 per stage; N is an in-sheet cell so the grid
-#            resizes live, and OFFSET named ranges track N².  No Data Table,
-#            no Range.Table, no Grid_Search_Optimum — recovery uses
-#            Grid_Argument_Minimum over the materialized NLL column.
+#            Two dimensions searched.  Body = two spills per stage: a
+#            Full_Factorial grid (N²×2, Alpha | Beta) across the first two cols
+#            and a separate BYROW NLL spill in the third col reading the grid via
+#            `#` (not HSTACK'd); N is an in-sheet cell so the grid resizes live,
+#            and OFFSET named ranges track N².  No Data Table, no Range.Table,
+#            no Grid_Search_Optimum — recovery uses Grid_Argument_Minimum over
+#            the materialized NLL column.
 
 
 def _gs_a1(row_start: int, col_start: int, dr: int, dc: int) -> str:
@@ -1693,12 +1696,15 @@ _BETA_BODY_CF_ROWS_CAP = 20 * 20
 def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     """Write both stages of Beta's 2-D Full_Factorial search, side by side.
 
-    6-col zone (3 cols/stage: Alpha | Beta | NLL): each stage is one
-    ``Full_Factorial`` → ``BYROW`` NLL → ``HSTACK`` spill of N²×3 at row 33, so
-    the two stages grow down independently.  N is an in-sheet cell (editable
-    live); OFFSET named ranges track N².  No Data Table, no ``Range.Table``, no
-    ``Grid_Search_Optimum`` — recovery uses ``Grid_Argument_Minimum`` over the
-    materialized NLL column, the same mechanism the profile fits use.
+    6-col zone (3 cols/stage: Alpha | Beta | NLL): each stage's body is TWO
+    spills at row 33 — a ``Full_Factorial`` grid (N²×2, Alpha | Beta) across the
+    stage's first two cols, and a separate ``BYROW`` NLL spill in the third col
+    that reads the grid via the ``#`` operator (the NLL is not HSTACK'd onto the
+    grid) — so the two stages grow down independently.  N is an in-sheet cell
+    (editable live); OFFSET named ranges track N².  No Data Table, no
+    ``Range.Table``, no ``Grid_Search_Optimum`` — recovery uses
+    ``Grid_Argument_Minimum`` over the materialized NLL column, the same
+    mechanism the profile fits use.
     """
     sname = sheet.name
     n = beta_grid_size
@@ -1788,11 +1794,15 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
         rc(r0 + _BETA_R_B_STEP, c0 + _BETA_C_S2_B),
     ).number_format = _FMT_1DP
 
-    # ── Body spills (row 33): Full_Factorial → BYROW NLL → HSTACK ──────────────
-    # Full_Factorial(N, mins, maxs) yields N²×2 (col1 = α slow axis, col2 = β
-    # fast axis); BYROW evaluates NLL_Beta at each (α,β); HSTACK appends the NLL
-    # column → an N²×3 (Alpha | Beta | NLL) spill.  Stage 1 at col0, Stage 2 at
-    # col3 — same row, independent height.
+    # ── Body spills (row 33): Full_Factorial grid + a separate BYROW NLL col ─────
+    # The grid is a Full_Factorial(N, mins, maxs) spill → N²×2 (col1 = α slow
+    # axis, col2 = β fast axis) across the stage's first two cols (Alpha | Beta).
+    # The NLL is a SEPARATE spill in the stage's third col: a BYROW over the grid
+    # spill (via the `#` operator) that evaluates NLL_Beta at each (α,β).  Keeping
+    # the grid and the NLL as two spills (not one HSTACK'd spill) lets the grid
+    # stand alone as the pure Cartesian product and the NLL read it by reference.
+    # Stage 1 grid at col0 (BY33), NLL at col2 (CA33); Stage 2 grid at col3 (CB33),
+    # NLL at col5 (CD33) — same row, independent height.
     val(sheet, body_hdr_row, c0 + _BETA_C_LABEL, "Alpha (α)")
     val(sheet, body_hdr_row, c0 + _BETA_C_S1_A, "Beta (β)")
     val(sheet, body_hdr_row, c0 + _BETA_C_S1_B, "NLL")
@@ -1801,7 +1811,15 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     val(sheet, body_hdr_row, c0 + _BETA_C_S2_NLL, "NLL")
     _subheader_row(sheet, body_hdr_row, c0, last_col)
 
-    def _stage_spill(n_ref: str, amin: str, amax: str, bmin: str, bmax: str) -> str:
+    def _stage_grid(n_ref: str, amin: str, amax: str, bmin: str, bmax: str) -> str:
+        # Full_Factorial grid: N²×2 (Alpha | Beta) spill at the stage's first col.
+        return f"=Full_Factorial({n_ref},VSTACK({amin},{bmin}),VSTACK({amax},{bmax}))"
+
+    def _stage_nll(grid_anchor: str) -> str:
+        # BYROW NLL over the grid spill — a separate spill in the NLL col.  The
+        # scaled sample z is bound once here and reused across every row; the
+        # grid_anchor is the absolute ref of the stage's grid spill (`<anchor>#`
+        # expands to the full N²×2 grid, so each row ab is an (α,β) pair).
         return (
             "=LET("
             "d,FILTER(UV_Data,UV_Include),"
@@ -1809,16 +1827,21 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
             "pad,range_*0.001,"
             "scale_,range_+2*pad,"
             "z,(d-MIN(d)+pad)/scale_,"
-            f"grid,Full_Factorial({n_ref},VSTACK({amin},{bmin}),VSTACK({amax},{bmax})),"
-            "nll,BYROW(grid,LAMBDA(ab,IFERROR("
-            "NLL_Beta(z,INDEX(ab,1,1),INDEX(ab,1,2))+COUNT(d)*LN(scale_),1E+15))),"
-            "HSTACK(grid,nll))"
+            f"BYROW({grid_anchor}#,LAMBDA(ab,IFERROR("
+            "NLL_Beta(z,INDEX(ab,1,1),INDEX(ab,1,2))+COUNT(d)*LN(scale_),1E+15)))"
+            ")"
         )
 
+    s1_grid_anchor = a1(_R_BODY, _BETA_C_LABEL)   # $BY$33
+    s2_grid_anchor = a1(_R_BODY, _BETA_C_S2_A)     # $CB$33
     f(sheet, body_row, c0 + _BETA_C_LABEL,
-      _stage_spill(s1_n, s1_amin, s1_amax, s1_bmin, s1_bmax))
+      _stage_grid(s1_n, s1_amin, s1_amax, s1_bmin, s1_bmax))
+    f(sheet, body_row, c0 + _BETA_C_S1_B,
+      _stage_nll(s1_grid_anchor))
     f(sheet, body_row, c0 + _BETA_C_S2_A,
-      _stage_spill(s2_n, s2_amin, s2_amax, s2_bmin, s2_bmax))
+      _stage_grid(s2_n, s2_amin, s2_amax, s2_bmin, s2_bmax))
+    f(sheet, body_row, c0 + _BETA_C_S2_NLL,
+      _stage_nll(s2_grid_anchor))
 
     # Number formats + colour scale over the default-size body window.
     cf_row_end = body_row + max(n * n, _BETA_BODY_CF_ROWS_CAP) - 1

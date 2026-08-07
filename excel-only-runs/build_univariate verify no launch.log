@@ -1,15 +1,15 @@
 python build_univariate.py --verify --no-launch --log excel-only-runs/build_univariate verify no launch.log
-Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library_Univariate.xlsx
-Sheet updated: LAMBDA_functions
-Sheet updated: Life Expectancy Data
-Sheet updated: Univariate
-Sheet updated: Version History
-Created names: 0
-Updated names: 123
-Removed names: 0
-Verify: passed (spec mode, 2.5s, workbook='C:\\Users\\Stephen_Colodner\\windows code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library_Univariate.xlsx')
-Timing: build+sync    32.0s
-Timing: recalculate   3.0s
-Timing: verify        2.5s
-Timing: total         37.4s
-Log: excel-only-runs\build_univariate verify no launch.log
+
+Warning: Lambda_Library_Univariate.xlsx is likely open in Excel. The build writes every sheet before Excel refuses the save, so closing it now saves the whole write.
+
+Lambda_Library_Univariate.xlsx is open in Excel — close it in Excel and press Enter to retry (or Ctrl+C to cancel): Traceback (most recent call last):
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\lambda_catalog\build_common.py", line 139, in tee_run_log
+    yield log_path
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\scripts\build_univariate.py", line 666, in main
+    exit_code = _build_and_verify(args, workbook_path)
+                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\scripts\build_univariate.py", line 544, in _build_and_verify
+    warn_if_workbook_open(
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\lambda_catalog\build_common.py", line 382, in warn_if_workbook_open
+    input(
+EOFError: EOF when reading a line

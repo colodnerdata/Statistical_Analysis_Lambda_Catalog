@@ -921,8 +921,8 @@ def test_build_uses_life_expectancy_source_table_when_requested(
     assert called["source_table_ref"] == "=LifeExpectancyData[#All]"
 
 
-def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
-    """Default regression_dataset must resolve to MileageData[#All]."""
+def test_build_defaults_to_life_expectancy_source_table(monkeypatch, tmp_path) -> None:
+    """Default regression_dataset must resolve to LifeExpectancyData[#All]."""
     app = _RecordingApp()
     monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
     monkeypatch.setattr(
@@ -970,7 +970,7 @@ def test_build_defaults_to_auto_mpg_source_table(monkeypatch, tmp_path) -> None:
         recalculate=False,
     )
 
-    assert called["source_table_ref"] == "=MileageData[#All]"
+    assert called["source_table_ref"] == "=LifeExpectancyData[#All]"
 
 
 class _TabOrderSheet:

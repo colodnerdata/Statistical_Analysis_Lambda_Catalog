@@ -35,7 +35,7 @@ from .analyze_production_lots import (
     load_production_lots_source_rows,
 )
 from .analyze_regression_sheet import calculate_regression_results_from_matrix
-from .regression_shared import RegressionSheetResults
+from .regression_shared import FEATURE_COLUMNS, RegressionSheetResults
 from .test_model_sheets import assert_sheet_names_unique, validate_sheet_name
 from .write_spec_block import (
     _ROLE_FILTER,
@@ -941,29 +941,58 @@ def _life_elasticity_log_log_spec() -> list[SpecVariable]:
 
 
 def _life_full_profile_spec() -> list[SpecVariable]:
-    """L5 — the shipped ``life_expectancy`` spec profile, finally with an oracle.
+    """L5 — the full 18-predictor Life Expectancy profile, the k-stress showcase.
 
-    ``SPEC_DATASET_PROFILES["life_expectancy"]`` is what
-    ``build_production.py --regression-dataset life_expectancy`` pre-fills
-    into the spec block, and nothing has ever verified that the model it
-    ships actually fits: all 18 continuous predictors plus C(Status),
-    Country as Identifier, Year as the Sequence axis. Derived from the
-    profile itself rather than restated, so the case tracks the shipped
-    default automatically if that default ever changes.
+    All 18 continuous predictors plus C(Status): Country as Identifier, Year
+    as the Sequence axis. This is the suite's k-stress case at k = 19 — every
+    predictor-summary statistic (GVIF in particular, which inverts a 19x19
+    correlation matrix) is computed on a wide design here.
 
-    It is the suite's k-stress case at k = 19 — every predictor-summary
-    statistic (GVIF in particular, which inverts a 19x19 correlation
-    matrix) is computed on a wide design here.
+    **Restated explicitly, not derived from the profile.** The shipped
+    ``SPEC_DATASET_PROFILES["life_expectancy"]`` default is the curated talk
+    model (slide 19's four drivers) — see ``life_talk_demo`` (L11) for that
+    oracle. If L5 derived its spec from the profile's ``default_spec`` it would
+    track that curated model and shrink to k ≈ 5, destroying the one purpose
+    this case exists for, so the 18-predictor design is stated here in its own
+    right and is immune to a change of the shipped default.
     """
-    profile = SPEC_DATASET_PROFILES["life_expectancy"]
-    return [
-        _spec_var(
-            name,
-            *profile.default_spec[name],
-            sequence=name in profile.sequence_variables,
-        )
-        for name in profile.variables
-    ]
+    return _life_spec(
+        response=_spec_var("Life expectancy", _ROLE_RESPONSE),
+        status=_spec_var("Status", _ROLE_PREDICTOR, True, "Categorical"),
+        **{
+            f"p{index}": _spec_var(name, _ROLE_PREDICTOR, True, "Continuous")
+            for index, name in enumerate(FEATURE_COLUMNS)
+        },
+    )
+
+
+def _life_talk_demo_spec() -> list[SpecVariable]:
+    """L11 — the curated talk-demo model, the shipped default, with an oracle.
+
+    ``Life expectancy ~ Adult Mortality + Alcohol + percentage expenditure +
+    C(Status)`` — the four-driver model both presentation decks headline
+    (the slide-19 coefficient table), and the spec ``build_production.py``
+    ships by default. ``Country`` is the Identifier and ``Year`` the Sequence
+    axis (Omit, so it never enters the design matrix); every other column is
+    Omit. ``(None, None)`` dispatch with a binary categorical on Life
+    Expectancy — the same dispatch family as M1, but on a different dataset
+    and with a binary rather than multi-level categorical, which is what
+    makes the shipped default's oracle worth pinning independently.
+
+    Distinct from L05 (the k-stress kitchen sink): the shipped default is the
+    curated cold open, not the full 18-predictor profile, so the workbook opens
+    fast on a low-compute machine and matches the deck's headline numbers.
+    L05 keeps the wide design in its own right; see ``_life_full_profile_spec``.
+    """
+    return _life_spec(
+        response=_spec_var("Life expectancy", _ROLE_RESPONSE),
+        status=_spec_var("Status", _ROLE_PREDICTOR, True, "Categorical"),
+        adult_mortality=_spec_var("Adult Mortality", _ROLE_PREDICTOR, True, "Continuous"),
+        alcohol=_spec_var("Alcohol", _ROLE_PREDICTOR, True, "Continuous"),
+        percentage_expenditure=_spec_var(
+            "percentage expenditure", _ROLE_PREDICTOR, True, "Continuous"
+        ),
+    )
 
 
 # The eight continuous predictors L7 crosses with C(Country) + C(Year).
@@ -1313,6 +1342,11 @@ _CASE_SHEET_IDENTITY: dict[str, tuple[str, str]] = {
     # the M2 WARNING instead. See analyze_regression_guard_states.py.
     "life_country_fixed_effects": ("L08", "L08 High Cardinality FE"),
     "life_status_explicit_reference": ("L09", "L09 Binary Cat Reference"),
+    # L11 is the curated talk-demo model — the shipped default. It is NOT the
+    # k-stress kitchen sink (that is L05); it is the four-driver model both
+    # presentation decks headline, pinned so the numbers the shipped workbook
+    # opens with are oracle-checked rather than illustrative.
+    "life_talk_demo": ("L11", "L11 Curated Talk Default"),
     # § 1.3 Production Lots — learning curves, fixed effects, sequence.
     "production_lots_fixed_effects": ("P01", "P01 Learning Curve FE"),
     "production_lots_log_transform": ("P02", "P02 FE Log Transform Axis"),
@@ -1640,6 +1674,10 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             _life_partial_linear_log_spec("Developing"),
             "Duan",
         ),
+        # L11 — the curated talk-demo default (slide 19's model). Appended
+        # last so it lands on the final test-model tab; its oracle pins the
+        # numbers the shipped workbook opens with.
+        ("life_talk_demo", _life_talk_demo_spec(), "Duan"),
     ):
         cases.append(
             RegressionSpecCase(

@@ -86,10 +86,11 @@ _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
 # Type/Sequence values — SPEC_DATASET_PROFILES (write_spec_block.py)
 # is the single source of truth for both, so retargeting the dataset also
 # retargets the shipped default model instead of leaving every column of
-# the newly-targeted dataset an un-flagged Predictor. "auto_mpg" is the
-# shipped default (MileageData table on the Mileage Data sheet).
-# "life_expectancy" retargets to the Life Expectancy Data sheet.
-# "production_lots" retargets to the Production Lots learning-curve panel —
+# the newly-targeted dataset an un-flagged Predictor. "life_expectancy" is the
+# shipped default (LifeExpectancyData table on the Life Expectancy Data sheet —
+# the curated four-driver cold open both decks headline).
+# "auto_mpg" retargets to the Mileage Data sheet (the multi-level categorical-
+# encoding demo). "production_lots" retargets to the Production Lots learning-curve panel —
 # the only shipped dataset with a natural Fixed Effects grouping column
 # (Facility) and Sequence column (Fiscal_Year), so it is what exercises the
 # Fixed Effects role end to end (see analyze_regression_spec.py's
@@ -249,7 +250,7 @@ def build_production_workbook(
     validate_reopen: bool = False,
     verbose: bool = False,
     recalculate: bool = True,
-    regression_dataset: str = "auto_mpg",
+    regression_dataset: str = "life_expectancy",
 ) -> NameSyncResult:
     """Build the production sheets and sync the LAMBDA name manager.
 
@@ -273,10 +274,10 @@ def build_production_workbook(
         Sequence column (Fiscal_Year), for retargeting Source_Table to
         exercise the Fixed Effects role.
     regression_dataset : str, optional
-        Regression source-table profile: ``"auto_mpg"`` (default, targets
-        ``MileageData[#All]``), ``"life_expectancy"`` (targets
-        ``LifeExpectancyData[#All]``), or ``"production_lots"`` (targets
-        ``ProductionLotsData[#All]``).
+        Regression source-table profile: ``"life_expectancy"`` (default,
+        targets ``LifeExpectancyData[#All]`` — the curated four-driver cold
+        open), ``"auto_mpg"`` (targets ``MileageData[#All]``), or
+        ``"production_lots"`` (targets ``ProductionLotsData[#All]``).
     validate_reopen : bool, optional
         If True, reopens the workbook in Excel after patching to verify it.
     verbose : bool, optional
@@ -494,17 +495,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--regression-dataset",
         choices=tuple(SPEC_DATASET_PROFILES),
-        default="auto_mpg",
+        default="life_expectancy",
         help=(
             "Which dataset the Regression sheet's Source_Table points to, "
             "and which shipped default spec (Role/Include/Type/Sequence "
             "per column) pre-fills the MODEL SPECIFICATION block. "
-            "'auto_mpg' (default) targets MileageData[#All]; "
-            "'life_expectancy' targets LifeExpectancyData[#All] (Response: "
-            "Life expectancy; Predictors: the 18-column FEATURE_COLUMNS "
-            "model); 'production_lots' targets ProductionLotsData[#All] "
-            "(Facility as Fixed Effects, Fiscal_Year as Sequence, the "
-            "Crawford/Wright learning-curve model)."
+            "'life_expectancy' (default) targets LifeExpectancyData[#All] "
+            "(the curated four-driver model both decks headline: Life "
+            "expectancy ~ Adult Mortality + Alcohol + percentage expenditure "
+            "+ C(Status); the 18-predictor kitchen sink is the L05 case, "
+            "toggle rows on to reach it); 'auto_mpg' targets MileageData[#All] "
+            "(MPG ~ Horsepower + Weight + C(Model Year) + C(Origin) — the "
+            "multi-level categorical-encoding demo); 'production_lots' "
+            "targets ProductionLotsData[#All] (Facility as Fixed Effects, "
+            "Fiscal_Year as Sequence, the Crawford/Wright learning-curve model)."
         ),
     )
     return parser.parse_args()

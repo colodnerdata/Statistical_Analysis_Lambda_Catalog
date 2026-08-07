@@ -1,0 +1,26 @@
+python build_demo_workbook.py --verify --no-launch --verbose
+Oracles: computing
+Oracles: done
+Data sheets
+Sheets: writing 6 beats
+  1/6 1 Declare   9.5s
+  2/6 2 Screen   9.9s
+  3/6 3 Trim   9.2s
+  4/6 4 Diagnose  10.5s
+  5/6 5 Predict  11.7s
+  6/6 6 Fixed Effects   9.9s
+Catalog sheet
+Save
+Sync names
+CalculateFullRebuild
+Timing: write sheets  91.8s
+Timing: sync names    0.1s
+Timing: rebuild       120.8s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Presentations\Lambda_Library_Regression_Demo.xlsx
+Sheets built: 6 (1 Declare, 2 Screen, 3 Trim, 4 Diagnose, 5 Predict, 6 Fixed Effects)
+Created names: 123
+Updated names: 0
+Removed names: 0
+Verify: passed
+Timing: total         269.9s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_demo_workbook verify no launch verbose.log

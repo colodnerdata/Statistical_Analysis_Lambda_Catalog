@@ -97,6 +97,9 @@ Sheet-scoped named ranges
   UV_Profile_<WB|GAMMA>_<S1|S2>_<Axis|NLL> — OFFSET-based chart ranges, one
                    pair per stage, each sized by its own stage's Grid Points
                    cell; the two series of that fit's profile-NLL chart
+  UV_Profile_BETA_S{1,2}_{Alpha_Axis,Beta_Axis,NLL} — OFFSET-based chart
+                   ranges over the Beta Full_Factorial body columns; these feed
+                   the two Beta scatter charts (Profile NLL vs Alpha / vs Beta)
 """
 from __future__ import annotations
 
@@ -247,8 +250,9 @@ _R_STAGE_SUBHDR  = 2    # row 3 — "Stage 1 (Wide Scope)" / "Stage 2 (refined)"
 _R_CONTROL_FIRST = 3    # row 4 — first control field
 _R_CHART_TOP     = 12   # row 13 — chart top (Weibull/Gamma); reserved blank (Beta)
 _R_CHART_BOTTOM  = 29   # row 30 — chart bottom
-_R_BODY_HDR      = 31   # row 32 — body column headers
-_R_BODY          = 32   # row 33 — first body row (N rows for profile; N² for Beta)
+_R_BODY_STAGE_HDR = 29  # row 30 — Stage 1 / Stage 2 centered across each stage span
+_R_BODY_HDR      = 30   # row 31 — array headers
+_R_BODY          = 31   # row 32 — first body row (N rows for profile; N² for Beta)
 
 # Every fit zone's row anchor.  The zones sit side by side, so they all start
 # on the same row and differ only in column.
@@ -271,9 +275,8 @@ _PR_R_MIN         = 4
 _PR_R_MAX         = 5
 _PR_R_START       = 6   # closed-form starting value (searched parameter)
 _PR_R_MINNLL      = 7
-_PR_R_STEP        = 8
-_PR_R_BEST_P1     = 9   # Optimal Shape (k) / (α) — searched parameter's MLE
-_PR_R_BEST_P2     = 10  # Optimal Scale (λ) / Rate (β) — profiled out, closed form
+_PR_R_BEST_P1     = 8   # Optimal Shape (k) / (α) — searched parameter's MLE
+_PR_R_BEST_P2     = 9   # Optimal Scale (λ) / Rate (β) — profiled out, closed form
 
 # ── Beta Full_Factorial search (6-col zone, two stages side by side) ────────
 # 3 cols/stage (Alpha | Beta | NLL).  col0 = labels + S1 Alpha body;
@@ -296,12 +299,10 @@ _BETA_W        = 6   # Beta zone width
 _BETA_R_GRID_POINTS = 3   # row 4
 _BETA_R_A_MIN       = 4
 _BETA_R_A_MAX       = 5
-_BETA_R_A_STEP      = 6
-_BETA_R_B_MIN       = 7
-_BETA_R_B_MAX       = 8
-_BETA_R_B_STEP      = 9
-_BETA_R_MINNLL      = 10  # row 11 — Min NLL (S1 col2, S2 col5)
-_BETA_R_BEST        = 11  # row 12 — Best α (α cols) and Best β (β cols)
+_BETA_R_B_MIN       = 4
+_BETA_R_B_MAX       = 5
+_BETA_R_MINNLL      = 6   # row 7 — Min NLL (S1 α col, S2 α col)
+_BETA_R_BEST        = 7   # row 8 — Optimal (α, β) spill
 
 # Stage 1 brackets the closed-form start by this multiplicative factor either
 # side.  Both starting estimates land within a few percent of the MLE, so 3×
@@ -322,12 +323,8 @@ _PROFILE_BRACKET = 3
 # nothing may sit right of the design-matrix zone.  The Q-Q data is a fixed 10
 # columns and is read alongside the fitting table, so it leads.
 #
-# Each zone is followed by one gap column, with ONE exception: Beta (BY:CD)
-# follows Gamma (BU:BX) with NO gutter between them, per the owner's explicit
-# column letters (the two stages sit side by side across the pair, so a gutter
-# would split a single visual block).  The per-zone ``gutter_after`` flag below
-# encodes that one relaxation; the histogram band's own trailing gap (BD) serves
-# as the leading one before the Q-Q zone.
+# Each zone is followed by one gap column. In the reworked layout Gamma ends at
+# BX, BY is the gutter, and Beta begins at BZ.
 #
 # The band is Zone 5 (Q-Q data) then Zone 6 (the three fit zones) — the two
 # swapped physical order when Q-Q moved ahead of the fits, and the numbering
@@ -336,13 +333,12 @@ _QQ_W = 10   # Zone 5 width: P, Sample, 8 theoretical-quantile columns
 
 _BAND_FIRST_COL = 57   # BE — first column after the FD histogram block's gap
 _BAND_GAP_W = 1
-# (zone name, width, gutter_after) — width is the content span; gutter_after
-# is False only for gamma, which sits flush against Beta.
+# (zone name, width, gutter_after) — width is the content span.
 _BAND_ZONES = (
     ("qq", _QQ_W, True),        # BE–BN  → gap BO
     ("weibull", _PR_W, True),    # BP–BS  → gap BT
-    ("gamma", _PR_W, False),     # BU–BX  → no gap (Beta flush to the right)
-    ("beta", _BETA_W, False),    # BY–CD  → last zone
+    ("gamma", _PR_W, True),      # BU–BX  → gap BY
+    ("beta", _BETA_W, False),    # BZ–CE  → last zone
 )
 
 
@@ -365,7 +361,7 @@ _BAND_COL, _BAND_GAP_COLS, _BAND_LAST_COL = _derive_band_columns()
 _C_QQ        = _BAND_COL["qq"]        # 57  (BE)
 _C_GS_WB     = _BAND_COL["weibull"]   # 68  (BP)
 _C_GS_GAMMA  = _BAND_COL["gamma"]     # 73  (BU)
-_C_GS_BETA   = _BAND_COL["beta"]      # 77  (BY)
+_C_GS_BETA   = _BAND_COL["beta"]      # 78  (BZ)
 
 # Within the Q-Q block: (offset, header, name suffix, distribution)
 _QQ_P      = 0   # Hazen plotting positions (i - 0.5)/n
@@ -443,6 +439,17 @@ _FMT_SCI_1DP = "0.0E+00"
 def _subheader_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
     sheet.range(rc(row, c1), rc(row, c2)).color = _SUBHDR
     sheet.range(rc(row, c1), rc(row, c2)).api.Font.Bold = True
+
+
+def _center_across_row(sheet: xw.Sheet, row: int, c1: int, c2: int) -> None:
+    """Apply the standard subheader style with Center Across Selection."""
+    rng = sheet.range(rc(row, c1), rc(row, c2))
+    rng.color = _SUBHDR
+    rng.api.Font.Bold = True
+    try:
+        rng.api.HorizontalAlignment = 7  # xlHAlignCenterAcrossSelection
+    except Exception:
+        pass
 
 
 # ── Column widths ─────────────────────────────────────────────────────────────
@@ -1464,14 +1471,12 @@ _GAMMA_SHAPE_START = (
 )
 
 
-# Window over which a profile body's number formats, colour scale, and border
-# box are painted.  Both fit writers share one rule: the body is a live spill
-# whose height follows the stage's Grid Points cell, so the static formatting is
-# applied over the DEFAULT-size window and rows that a live N-increase adds
-# beyond it stay unshaded.  Cosmetic, not correctness — the named ranges and the
-# recovery formulas track the real height.  (Beta's counterpart is
-# _BETA_BODY_CF_ROWS_CAP, squared because its body is N² rows.)
-_PROFILE_BODY_CF_ROWS_CAP = _N_PROFILE
+# Window over which fit-body number formats and colour scales are painted.
+# The bodies are live spills whose height follows the stage's Grid Points cell,
+# so format a generous fixed tail from the spill anchor rather than the seeded
+# default size. This keeps live N increases formatted without targeting the
+# worksheet's full row count.
+_FIT_BODY_FORMAT_ROWS = 10_000
 
 
 # Excel COM validation constants, declared locally the way write_spec_block.py
@@ -1532,15 +1537,14 @@ def _write_profile_fit(
 
     col0 carries the field labels and the S1 axis body; col1 the S1 values and
     S1 NLL body; col2 the S2 values and S2 axis body; col3 the S2 NLL body.
-    Control is a vertical field-list (rows 4–11); the profile-NLL chart occupies
-    rows 13–30; the body starts at row 33 and runs N rows, where N is the
+    Control is a vertical field-list (rows 4–10); the profile-NLL chart occupies
+    rows 13–30; the body starts at row 32 and runs N rows, where N is the
     stage's live Grid Points cell (default ``_N_PROFILE``).  Each stage is two
     spills: a ``Full_Factorial(N, Min, Max)`` axis — the d=1 reduction of the
     same grid Beta uses — and a ``BYROW`` profile-NLL column that reads that
-    axis through the ``#`` operator, so the two heights always agree.  Step
-    (=(Max-Min)/(N-1)) documents the spacing and brackets Stage 2's Min/Max
-    around Stage 1's optimum by ±1 step.  Both stages use the same
-    ``Grid_Argument_Minimum`` recovery and the profiled-out partner closed form.
+    axis through the ``#`` operator, so the two heights always agree.  Stage 2's
+    Min/Max bracket Stage 1's optimum by ±1 step, and the optimal searched
+    parameter is recovered with ``Min_NLL_Params`` from the axis/NLL pair.
 
     ``partner_formula(ref, data)`` returns the Excel expression (no leading ``=``)
     for the profiled-out parameter at the searched value ``ref``; ``nll_formula(
@@ -1551,10 +1555,11 @@ def _write_profile_fit(
     n = _N_PROFILE
     r0, c0 = _ROW_FIT_ZONE, col_start
     last_col = c0 + _PR_W - 1
+    body_stage_hdr_row = r0 + _R_BODY_STAGE_HDR
+    body_stage_hdr_row = r0 + _R_BODY_STAGE_HDR
     body_hdr_row = r0 + _R_BODY_HDR
     body_row = r0 + _R_BODY
-    # The default-size formatting window (see _PROFILE_BODY_CF_ROWS_CAP).
-    body_row_end = body_row + max(n, _PROFILE_BODY_CF_ROWS_CAP) - 1
+    body_row_end = body_row + _FIT_BODY_FORMAT_ROWS - 1
 
     # ── Title + stage sub-headers ─────────────────────────────────────────────
     val(sheet, r0, c0, f"{dist_name} Profile-NLL MLE  —  {p1_label}; {p2_label} profiled out")
@@ -1568,14 +1573,13 @@ def _write_profile_fit(
     val(sheet, sub_row, c0 + _PR_C_S2, "Stage 2 (refined)")
     _subheader_row(sheet, sub_row, c0 + _PR_C_S1, c0 + _PR_C_S2)
 
-    # ── Control field-list (rows 4–11): label col0, S1 value col1, S2 value col2 ─
+    # ── Control field-list (rows 4–10): label col0, S1 value col1, S2 value col2 ─
     fields = [
         (_PR_R_GRID_POINTS, "Grid Points"),
         (_PR_R_MIN,         "Min"),
         (_PR_R_MAX,         "Max"),
         (_PR_R_START,       "Start"),
         (_PR_R_MINNLL,      "Min NLL"),
-        (_PR_R_STEP,        "Step Size"),
         (_PR_R_BEST_P1,     f"Optimal {p1_label}"),
         (_PR_R_BEST_P2,     f"Optimal {p2_label} (profiled)"),
     ]
@@ -1585,14 +1589,12 @@ def _write_profile_fit(
     s1_n_ref    = _gs_a1(r0, c0, _PR_R_GRID_POINTS, _PR_C_S1)
     s1_min_ref  = _gs_a1(r0, c0, _PR_R_MIN,        _PR_C_S1)
     s1_max_ref  = _gs_a1(r0, c0, _PR_R_MAX,        _PR_C_S1)
-    s1_step_ref = _gs_a1(r0, c0, _PR_R_STEP,       _PR_C_S1)
     s1_start_ref= _gs_a1(r0, c0, _PR_R_START,      _PR_C_S1)
     s1_best1_ref= _gs_a1(r0, c0, _PR_R_BEST_P1,     _PR_C_S1)
     s1_best2_ref= _gs_a1(r0, c0, _PR_R_BEST_P2,     _PR_C_S1)
     s2_n_ref    = _gs_a1(r0, c0, _PR_R_GRID_POINTS, _PR_C_S2)
     s2_min_ref  = _gs_a1(r0, c0, _PR_R_MIN,        _PR_C_S2)
     s2_max_ref  = _gs_a1(r0, c0, _PR_R_MAX,        _PR_C_S2)
-    s2_step_ref = _gs_a1(r0, c0, _PR_R_STEP,       _PR_C_S2)
     s2_best1_ref= _gs_a1(r0, c0, _PR_R_BEST_P1,     _PR_C_S2)
     s2_best2_ref= _gs_a1(r0, c0, _PR_R_BEST_P2,     _PR_C_S2)
 
@@ -1611,12 +1613,10 @@ def _write_profile_fit(
     f(sheet, r0 + _PR_R_MAX, c0 + _PR_C_S1, f"={s1_start_ref}*{_PROFILE_BRACKET}")
     sheet.range(rc(r0 + _PR_R_MIN, c0 + _PR_C_S1)).color = _INPUT
     sheet.range(rc(r0 + _PR_R_MAX, c0 + _PR_C_S1)).color = _INPUT
-    f(sheet, r0 + _PR_R_STEP, c0 + _PR_C_S1,
-      f"=({s1_max_ref}-{s1_min_ref})/({s1_n_ref}-1)")
     f(sheet, r0 + _PR_R_MINNLL, c0 + _PR_C_S1,
-      f'=IFERROR(TAKE(Grid_Argument_Minimum({body_s1}),,1),"—")')
+      f'=IFERROR(MIN({body_s1}),"—")')
     f(sheet, r0 + _PR_R_BEST_P1, c0 + _PR_C_S1,
-      f'=IFERROR(INDEX({axis_s1},INDEX(Grid_Argument_Minimum({body_s1}),1,2)),"—")')
+      f'=IFERROR(Min_NLL_Params({axis_s1},{body_s1}),"—")')
     f(sheet, r0 + _PR_R_BEST_P2, c0 + _PR_C_S1,
       f'=IFERROR({partner_formula(s1_best1_ref)},"—")')
 
@@ -1624,14 +1624,12 @@ def _write_profile_fit(
     f(sheet, r0 + _PR_R_GRID_POINTS, c0 + _PR_C_S2, f"={s1_n_ref}")
     sheet.range(rc(r0 + _PR_R_GRID_POINTS, c0 + _PR_C_S2)).number_format = _FMT_INT
     f(sheet, r0 + _PR_R_START, c0 + _PR_C_S2, f"={s1_best1_ref}")
-    f(sheet, r0 + _PR_R_MIN, c0 + _PR_C_S2, f"=MAX(0.001,{s1_best1_ref}-{s1_step_ref})")
-    f(sheet, r0 + _PR_R_MAX, c0 + _PR_C_S2, f"={s1_best1_ref}+{s1_step_ref}")
-    f(sheet, r0 + _PR_R_STEP, c0 + _PR_C_S2,
-      f"=({s2_max_ref}-{s2_min_ref})/({s2_n_ref}-1)")
+    f(sheet, r0 + _PR_R_MIN, c0 + _PR_C_S2, f"=LET(Stage1_Opt,{s1_best1_ref},Stage1_Step,({s1_max_ref}-{s1_min_ref})/{s1_n_ref},MAX(0.001,Stage1_Opt-Stage1_Step))")
+    f(sheet, r0 + _PR_R_MAX, c0 + _PR_C_S2, f"=LET(Stage1_Opt,{s1_best1_ref},Stage1_Step,({s1_max_ref}-{s1_min_ref})/{s1_n_ref},MAX(0.001,Stage1_Opt+Stage1_Step))")
     f(sheet, r0 + _PR_R_MINNLL, c0 + _PR_C_S2,
-      f'=IFERROR(TAKE(Grid_Argument_Minimum({body_s2}),,1),"—")')
+      f'=IFERROR(MIN({body_s2}),"—")')
     f(sheet, r0 + _PR_R_BEST_P1, c0 + _PR_C_S2,
-      f'=IFERROR(INDEX({axis_s2},INDEX(Grid_Argument_Minimum({body_s2}),1,2)),"—")')
+      f'=IFERROR(Min_NLL_Params({axis_s2},{body_s2}),"—")')
     f(sheet, r0 + _PR_R_BEST_P2, c0 + _PR_C_S2,
       f'=IFERROR({partner_formula(s2_best1_ref)},"—")')
 
@@ -1642,7 +1640,11 @@ def _write_profile_fit(
     sheet.range(rc(r0 + _PR_R_MINNLL, c0 + _PR_C_S1)).number_format = _FMT_SCI_1DP
     sheet.range(rc(r0 + _PR_R_MINNLL, c0 + _PR_C_S2)).number_format = _FMT_SCI_1DP
 
-    # ── Body (rows 33–52): axes + profile NLL, two stages side by side ─────────
+    # ── Body (rows 30–32+): stage labels, array headers, then axes + NLL ──────
+    val(sheet, body_stage_hdr_row, c0 + _PR_C_LABEL, "Stage 1 (Wide Scope)")
+    val(sheet, body_stage_hdr_row, c0 + _PR_C_S2, "Stage 2 (refined)")
+    _center_across_row(sheet, body_stage_hdr_row, c0 + _PR_C_LABEL, c0 + _PR_C_S1)
+    _center_across_row(sheet, body_stage_hdr_row, c0 + _PR_C_S2, c0 + _PR_C_S2_NLL)
     val(sheet, body_hdr_row, c0 + _PR_C_LABEL, p1_label)
     val(sheet, body_hdr_row, c0 + _PR_C_S1, "Profile NLL")
     val(sheet, body_hdr_row, c0 + _PR_C_S2, p1_label)
@@ -1727,7 +1729,7 @@ def _write_profile_fit(
             drop_local_name(sheet, name)
             sheet.api.Names.Add(
                 Name=name,
-                RefersTo=f"=OFFSET('{sname}'!${cl}${body_hdr_row},1,0,{size},1)",
+                RefersTo=f"=OFFSET('{sname}'!${cl}${body_row},0,0,{size},1)",
             )
 
     # ── Boundary guard (Best P1 cells) + NLL colour scale ─────────────────────
@@ -1758,22 +1760,13 @@ def _write_profile_fit(
             pass
 
     border_box(sheet, r0 + _PR_R_GRID_POINTS, c0, r0 + _PR_R_BEST_P2, c0 + _PR_C_S2)
-    border_box(sheet, body_hdr_row, c0 + _PR_C_LABEL, body_row_end, c0 + _PR_C_S1)
-    border_box(sheet, body_hdr_row, c0 + _PR_C_S2, body_row_end, c0 + _PR_C_S2_NLL)
 
     return {
         "s1": {"best_p1": s1_best1_ref, "best_p2": s1_best2_ref,
-                "step_p1": s1_step_ref, "n_points": s1_n_ref},
+                "n_points": s1_n_ref},
         "s2": {"best_p1": s2_best1_ref, "best_p2": s2_best2_ref,
-                "step_p1": s2_step_ref, "n_points": s2_n_ref},
+                "n_points": s2_n_ref},
     }
-
-
-# Window over which the Beta NLL colour scale is applied — the N² counterpart
-# of _PROFILE_BODY_CF_ROWS_CAP, and the same rule: painted over the default-size
-# window so the shipped artifact is fully shaded, with rows a live N-increase
-# adds beyond it staying unshaded (cosmetic, not correctness).
-_BETA_BODY_CF_ROWS_CAP = 20 * 20
 
 
 def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
@@ -1791,6 +1784,7 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     n = beta_grid_size
     r0, c0 = _ROW_FIT_ZONE, _C_GS_BETA
     last_col = c0 + _BETA_W - 1
+    body_stage_hdr_row = r0 + _R_BODY_STAGE_HDR
     body_hdr_row = r0 + _R_BODY_HDR
     body_row = r0 + _R_BODY
 
@@ -1800,19 +1794,15 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     s1_n    = a1(_BETA_R_GRID_POINTS, _BETA_C_S1_A)
     s1_amin = a1(_BETA_R_A_MIN,  _BETA_C_S1_A)
     s1_amax = a1(_BETA_R_A_MAX,  _BETA_C_S1_A)
-    s1_astep= a1(_BETA_R_A_STEP, _BETA_C_S1_A)
     s1_bmin = a1(_BETA_R_B_MIN,  _BETA_C_S1_B)
     s1_bmax = a1(_BETA_R_B_MAX,  _BETA_C_S1_B)
-    s1_bstep= a1(_BETA_R_B_STEP, _BETA_C_S1_B)
     s1_best_a = a1(_BETA_R_BEST, _BETA_C_S1_A)
     s1_best_b = a1(_BETA_R_BEST, _BETA_C_S1_B)
     s2_n    = a1(_BETA_R_GRID_POINTS, _BETA_C_S2_A)
     s2_amin = a1(_BETA_R_A_MIN,  _BETA_C_S2_A)
     s2_amax = a1(_BETA_R_A_MAX,  _BETA_C_S2_A)
-    s2_astep= a1(_BETA_R_A_STEP, _BETA_C_S2_A)
     s2_bmin = a1(_BETA_R_B_MIN,  _BETA_C_S2_B)
     s2_bmax = a1(_BETA_R_B_MAX,  _BETA_C_S2_B)
-    s2_bstep= a1(_BETA_R_B_STEP, _BETA_C_S2_B)
     s2_best_a = a1(_BETA_R_BEST, _BETA_C_S2_A)
     s2_best_b = a1(_BETA_R_BEST, _BETA_C_S2_B)
 
@@ -1829,18 +1819,14 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     _subheader_row(sheet, sub_row, c0 + _BETA_C_S1_A, c0 + _BETA_C_S2_A)
 
     # ── Control field-list (rows 4–12) ────────────────────────────────────────
-    # α values in the α cols (S1 col1, S2 col3); β values in the β cols (S1 col2,
-    # S2 col4); Min NLL in the NLL cols (S1 col2, S2 col5); Best α/β on row 12.
+    # Stage 1 and Stage 2 each expose α/β bounds, the stage's Min NLL, and a
+    # single spilled ``Optimal (α, β)`` result recovered with ``Min_NLL_Params``.
     fields = [
         (_BETA_R_GRID_POINTS, "Grid Points"),
-        (_BETA_R_A_MIN, "α Min"),
-        (_BETA_R_A_MAX, "α Max"),
-        (_BETA_R_A_STEP, "α Step"),
-        (_BETA_R_B_MIN, "β Min"),
-        (_BETA_R_B_MAX, "β Max"),
-        (_BETA_R_B_STEP, "β Step"),
+        (_BETA_R_A_MIN, "Min"),
+        (_BETA_R_A_MAX, "Max"),
         (_BETA_R_MINNLL, "Min NLL"),
-        (_BETA_R_BEST, "Best (α, β)"),
+        (_BETA_R_BEST, "Optimal (α, β)"),
     ]
     for r_off, label in fields:
         val(sheet, r0 + r_off, c0, label)
@@ -1853,8 +1839,6 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     val(sheet, r0 + _BETA_R_A_MAX, c0 + _BETA_C_S1_A, 50.0)
     val(sheet, r0 + _BETA_R_B_MIN, c0 + _BETA_C_S1_B, 0.2)
     val(sheet, r0 + _BETA_R_B_MAX, c0 + _BETA_C_S1_B, 50.0)
-    f(sheet, r0 + _BETA_R_A_STEP, c0 + _BETA_C_S1_A, f"=({s1_amax}-{s1_amin})/({s1_n}-1)")
-    f(sheet, r0 + _BETA_R_B_STEP, c0 + _BETA_C_S1_B, f"=({s1_bmax}-{s1_bmin})/({s1_n}-1)")
     for r_off, c_off in (
         (_BETA_R_A_MIN, _BETA_C_S1_A), (_BETA_R_A_MAX, _BETA_C_S1_A),
         (_BETA_R_B_MIN, _BETA_C_S1_B), (_BETA_R_B_MAX, _BETA_C_S1_B),
@@ -1864,19 +1848,17 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     # Stage 2 control values — bracket Stage 1's optimum by ±1 step.
     f(sheet, r0 + _BETA_R_GRID_POINTS, c0 + _BETA_C_S2_A, f"={s1_n}")
     sheet.range(rc(r0 + _BETA_R_GRID_POINTS, c0 + _BETA_C_S2_A)).number_format = _FMT_INT
-    f(sheet, r0 + _BETA_R_A_MIN, c0 + _BETA_C_S2_A, f"=MAX(0.001,{s1_best_a}-{s1_astep})")
-    f(sheet, r0 + _BETA_R_A_MAX, c0 + _BETA_C_S2_A, f"={s1_best_a}+{s1_astep}")
-    f(sheet, r0 + _BETA_R_B_MIN, c0 + _BETA_C_S2_B, f"=MAX(0.001,{s1_best_b}-{s1_bstep})")
-    f(sheet, r0 + _BETA_R_B_MAX, c0 + _BETA_C_S2_B, f"={s1_best_b}+{s1_bstep}")
-    f(sheet, r0 + _BETA_R_A_STEP, c0 + _BETA_C_S2_A, f"=({s2_amax}-{s2_amin})/({s2_n}-1)")
-    f(sheet, r0 + _BETA_R_B_STEP, c0 + _BETA_C_S2_B, f"=({s2_bmax}-{s2_bmin})/({s2_n}-1)")
+    f(sheet, r0 + _BETA_R_A_MIN, c0 + _BETA_C_S2_A, f"=LET(Stage1_Opt,{s1_best_a},Stage1_Step,({s1_amax}-{s1_amin})/{s1_n},MAX(0.001,Stage1_Opt-Stage1_Step))")
+    f(sheet, r0 + _BETA_R_A_MAX, c0 + _BETA_C_S2_A, f"=LET(Stage1_Opt,{s1_best_a},Stage1_Step,({s1_amax}-{s1_amin})/{s1_n},MAX(0.001,Stage1_Opt+Stage1_Step))")
+    f(sheet, r0 + _BETA_R_B_MIN, c0 + _BETA_C_S2_B, f"=LET(Stage1_Opt,{s1_best_b},Stage1_Step,({s1_bmax}-{s1_bmin})/{s1_n},MAX(0.001,Stage1_Opt-Stage1_Step))")
+    f(sheet, r0 + _BETA_R_B_MAX, c0 + _BETA_C_S2_B, f"=LET(Stage1_Opt,{s1_best_b},Stage1_Step,({s1_bmax}-{s1_bmin})/{s1_n},MAX(0.001,Stage1_Opt+Stage1_Step))")
 
     sheet.range(
         rc(r0 + _BETA_R_A_MIN, c0 + _BETA_C_S1_A),
-        rc(r0 + _BETA_R_B_STEP, c0 + _BETA_C_S2_B),
+        rc(r0 + _BETA_R_B_MAX, c0 + _BETA_C_S2_B),
     ).number_format = _FMT_1DP
 
-    # ── Body spills (row 33): Full_Factorial grid + a separate BYROW NLL col ─────
+    # ── Body spills (row 32): Full_Factorial grid + a separate BYROW NLL col ─────
     # The grid is a Full_Factorial(N, mins, maxs) spill → N²×2 (col1 = α slow
     # axis, col2 = β fast axis) across the stage's first two cols (Alpha | Beta).
     # The NLL is a SEPARATE spill in the stage's third col: a BYROW over the grid
@@ -1884,8 +1866,11 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     # spills rather than one lets the grid stand alone as the pure Cartesian
     # product and the NLL read it by reference — the same shape the profile fits
     # use for their axis and NLL columns.
-    # Stage 1 grid at col0 (BY33), NLL at col2 (CA33); Stage 2 grid at col3 (CB33),
-    # NLL at col5 (CD33) — same row, independent height.
+    # Stage 1 grid at col0, NLL at col2; Stage 2 grid at col3, NLL at col5.
+    val(sheet, body_stage_hdr_row, c0 + _BETA_C_LABEL, "Stage 1 (Wide Scope)")
+    val(sheet, body_stage_hdr_row, c0 + _BETA_C_S2_A, "Stage 2 (refined)")
+    _center_across_row(sheet, body_stage_hdr_row, c0 + _BETA_C_LABEL, c0 + _BETA_C_S1_B)
+    _center_across_row(sheet, body_stage_hdr_row, c0 + _BETA_C_S2_A, c0 + _BETA_C_S2_NLL)
     val(sheet, body_hdr_row, c0 + _BETA_C_LABEL, "Alpha (α)")
     val(sheet, body_hdr_row, c0 + _BETA_C_S1_A, "Beta (β)")
     val(sheet, body_hdr_row, c0 + _BETA_C_S1_B, "NLL")
@@ -1915,8 +1900,8 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
             ")"
         )
 
-    s1_grid_anchor = a1(_R_BODY, _BETA_C_LABEL)   # $BY$33
-    s2_grid_anchor = a1(_R_BODY, _BETA_C_S2_A)     # $CB$33
+    s1_grid_anchor = a1(_R_BODY, _BETA_C_LABEL)
+    s2_grid_anchor = a1(_R_BODY, _BETA_C_S2_A)
     f(sheet, body_row, c0 + _BETA_C_LABEL,
       _stage_grid(s1_n, s1_amin, s1_amax, s1_bmin, s1_bmax))
     f(sheet, body_row, c0 + _BETA_C_S1_B,
@@ -1926,8 +1911,9 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     f(sheet, body_row, c0 + _BETA_C_S2_NLL,
       _stage_nll(s2_grid_anchor))
 
-    # Number formats + colour scale over the default-size body window.
-    cf_row_end = body_row + max(n * n, _BETA_BODY_CF_ROWS_CAP) - 1
+    # Number formats + colour scale over a long fixed tail from the spill
+    # anchor so variable-size bodies remain formatted after live N edits.
+    cf_row_end = body_row + _FIT_BODY_FORMAT_ROWS - 1
     for c_off, fmt in (
         (_BETA_C_LABEL, _FMT_1DP), (_BETA_C_S1_A, _FMT_1DP), (_BETA_C_S1_B, _FMT_SCI_1DP),
         (_BETA_C_S2_A, _FMT_1DP), (_BETA_C_S2_B, _FMT_1DP), (_BETA_C_S2_NLL, _FMT_SCI_1DP),
@@ -1956,24 +1942,42 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
             ),
         )
 
-    # ── Recovery: Min NLL, Best α, Best β (via Grid_Argument_Minimum) ─────────
-    for nll_name, alpha_name, beta_name, minnll_coff, best_a_coff, best_b_coff, n_ref in (
-        (name_s1_nll, name_s1_alpha, name_s1_beta, _BETA_C_S1_B, _BETA_C_S1_A, _BETA_C_S1_B, s1_n),
-        (name_s2_nll, name_s2_alpha, name_s2_beta, _BETA_C_S2_NLL, _BETA_C_S2_A, _BETA_C_S2_B, s2_n),
+    for name, col_off, n_ref in (
+        ("UV_Profile_BETA_S1_Alpha_Axis", _BETA_C_LABEL, s1_n),
+        ("UV_Profile_BETA_S1_Beta_Axis", _BETA_C_S1_A, s1_n),
+        ("UV_Profile_BETA_S1_NLL", _BETA_C_S1_B, s1_n),
+        ("UV_Profile_BETA_S2_Alpha_Axis", _BETA_C_S2_A, s2_n),
+        ("UV_Profile_BETA_S2_Beta_Axis", _BETA_C_S2_B, s2_n),
+        ("UV_Profile_BETA_S2_NLL", _BETA_C_S2_NLL, s2_n),
+    ):
+        cl = col_letter(c0 + col_off)
+        _drop_wb_name(sheet, name)
+        drop_local_name(sheet, name)
+        sheet.api.Names.Add(
+            Name=name,
+            RefersTo=(
+                f"=OFFSET('{sname}'!${cl}${body_row},0,0,"
+                f"MAX(IFERROR('{sname}'!{n_ref},1),1)^2,1)"
+            ),
+        )
+
+    # ── Recovery: Min NLL and Optimal (α, β) ───────────────────────────────────
+    for nll_name, alpha_name, beta_name, minnll_coff, best_a_coff, n_ref in (
+        (name_s1_nll, name_s1_alpha, name_s1_beta, _BETA_C_S1_A, _BETA_C_S1_A, s1_n),
+        (name_s2_nll, name_s2_alpha, name_s2_beta, _BETA_C_S2_A, _BETA_C_S2_A, s2_n),
     ):
         loc = f"INDEX(Grid_Argument_Minimum({nll_name}),1,2)"
         f(sheet, r0 + _BETA_R_MINNLL, c0 + minnll_coff,
-          f'=IFERROR(TAKE(Grid_Argument_Minimum({nll_name}),,1),"—")')
+          f'=IFERROR(MIN({nll_name}),"—")')
         f(sheet, r0 + _BETA_R_BEST, c0 + best_a_coff,
-          f'=IFERROR(INDEX({alpha_name},{loc}),"—")')
-        f(sheet, r0 + _BETA_R_BEST, c0 + best_b_coff,
-          f'=IFERROR(INDEX({beta_name},{loc}),"—")')
+          f'=IFERROR(Min_NLL_Params(HSTACK({alpha_name},{beta_name}),{nll_name}),"—")')
         sheet.range(rc(r0 + _BETA_R_MINNLL, c0 + minnll_coff)).number_format = _FMT_SCI_1DP
+        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff), rc(r0 + _BETA_R_BEST, c0 + best_a_coff + 1)).number_format = _FMT_1DP
         sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff)).number_format = _FMT_1DP
-        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_b_coff)).number_format = _FMT_1DP
+        sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_a_coff + 1)).number_format = _FMT_1DP
         # Boundary guard on Best α and Best β: red when the optimum is on an
         # edge of the N²-long grid (location 1 or N²).
-        for best_coff in (best_a_coff, best_b_coff):
+        for best_coff in (best_a_coff, best_a_coff + 1):
             cell_api = sheet.range(rc(r0 + _BETA_R_BEST, c0 + best_coff)).api
             cf = cell_api.FormatConditions.Add(
                 Type=2,  # xlExpression
@@ -2055,13 +2059,13 @@ def _write_weibull_grid_search(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -
 
 
 def _write_profile_charts(sheet: xw.Sheet) -> None:
-    """Insert the Weibull and Gamma profile-NLL line charts.
+    """Insert the Weibull/Gamma profile charts and the two Beta scatter charts.
 
     One chart per one-dimensional fit, anchored ABOVE its fit zone's body — in
     the band between the control block (rows 4–11) and the body header (row 32),
     one zone wide — so the curve and the body column it is drawn from read
-    together.  (Beta reserves the same band, BY13:CD30, blank for a potential
-    future chart.)
+    together. Beta uses two charts in the same band: one for Profile NLL vs
+    Alpha and one for Profile NLL vs Beta.
 
     This is what replaces the 2-D NLL heatmap those two distributions used to
     carry: a 1-D search would reduce the heatmap to a single colour strip,
@@ -2114,6 +2118,71 @@ def _write_profile_charts(sheet: xw.Sheet) -> None:
         x_axis = chart.Axes(_XL_CATEGORY)
         x_axis.HasTitle = True
         x_axis.AxisTitle.Text = spec["p1_label"]
+        y_axis = chart.Axes(_XL_VALUE)
+        y_axis.HasTitle = True
+        y_axis.AxisTitle.Text = "Profile NLL"
+
+    beta_chart_specs = [
+        {
+            "left_col": _C_GS_BETA,
+            "title": "Beta Profile NLL vs Alpha",
+            "x_title": "Alpha (α)",
+            "s1_axis": "UV_Profile_BETA_S1_Alpha_Axis",
+            "s2_axis": "UV_Profile_BETA_S2_Alpha_Axis",
+            "s1_name": "Beta profile NLL vs Alpha",
+            "s2_name": "Beta profile NLL vs Alpha — refined",
+        },
+        {
+            "left_col": _C_GS_BETA + _BETA_W - 1,
+            "title": "Beta Profile NLL vs Beta",
+            "x_title": "Beta (β)",
+            "s1_axis": "UV_Profile_BETA_S1_Beta_Axis",
+            "s2_axis": "UV_Profile_BETA_S2_Beta_Axis",
+            "s1_name": "Beta profile NLL",
+            "s2_name": "Beta profile NLL — refined",
+        },
+    ]
+
+    for spec in beta_chart_specs:
+        chart_anchor = sheet.range(rc(_ROW_PROFILE_CHART, spec["left_col"]))
+        co = sheet.api.ChartObjects().Add(
+            chart_anchor.left, chart_anchor.top, 376.5, 270
+        )
+        chart = co.Chart
+
+        while chart.SeriesCollection().Count > 0:
+            chart.SeriesCollection(1).Delete()
+
+        chart.ChartType = _XL_XY_SCATTER
+
+        stage1 = chart.SeriesCollection().NewSeries()
+        stage1.XValues = f"='{sname}'!{spec['s1_axis']}"
+        stage1.Values = f"='{sname}'!UV_Profile_BETA_S1_NLL"
+        stage1.Name = spec["s1_name"]
+        stage1.MarkerStyle = 8
+        stage1.MarkerSize = 4
+        try:
+            stage1.Format.Line.Visible = False
+        except Exception:
+            pass
+
+        stage2 = chart.SeriesCollection().NewSeries()
+        stage2.XValues = f"='{sname}'!{spec['s2_axis']}"
+        stage2.Values = f"='{sname}'!UV_Profile_BETA_S2_NLL"
+        stage2.Name = spec["s2_name"]
+        stage2.MarkerStyle = _XL_MARKER_PLUS
+        stage2.MarkerSize = 5
+        try:
+            stage2.Format.Line.Visible = False
+        except Exception:
+            pass
+
+        chart.HasLegend = False
+        chart.HasTitle = True
+        chart.ChartTitle.Text = spec["title"]
+        x_axis = chart.Axes(_XL_CATEGORY)
+        x_axis.HasTitle = True
+        x_axis.AxisTitle.Text = spec["x_title"]
         y_axis = chart.Axes(_XL_VALUE)
         y_axis.HasTitle = True
         y_axis.AxisTitle.Text = "Profile NLL"

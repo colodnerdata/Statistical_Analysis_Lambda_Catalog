@@ -440,24 +440,21 @@ class RealCatalogIntegrationTests(unittest.TestCase):
     def test_grid_search_helpers_load_with_expected_contracts(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}
         self.assertIn("Grid_Argument_Minimum", functions)
-        self.assertIn("Grid_Search_Optimum", functions)
+        self.assertIn("Min_NLL_Params", functions)
         self.assertEqual(functions["Grid_Argument_Minimum"].argument_names, ("grid",))
-        self.assertEqual(functions["Grid_Search_Optimum"].argument_names, ("grid",))
+        self.assertEqual(functions["Min_NLL_Params"].argument_names, ("Param_Array", "NLL_Array"))
 
-    def test_grid_search_optimum_uses_scalar_index_and_native_offset(self) -> None:
+    def test_min_nll_params_uses_xmatch_and_dynamic_column_selection(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}
-        display = functions["Grid_Search_Optimum"].formula_display.replace(" ", "")
-        self.assertIn("INDEX(argmin,1,2)", display)
-        self.assertIn("INDEX(argmin,1,3)", display)
-        self.assertNotIn("CHOOSECOLS", display)
-        self.assertIn("OFFSET(grid", display)
+        display = functions["Min_NLL_Params"].formula_display.replace(" ", "")
+        self.assertIn("XMATCH(MIN(NLL_Array),NLL_Array)", display)
+        self.assertIn("SEQUENCE(,COLUMNS(Param_Array))", display)
+        self.assertNotIn("OFFSET(", display)
 
-        xml = functions["Grid_Search_Optimum"].workbook_xml_formula_from_display
-        self.assertIn("INDEX(_xlpm.argmin,1,2)", xml)
-        self.assertIn("INDEX(_xlpm.argmin,1,3)", xml)
-        self.assertIn("OFFSET(_xlpm.grid", xml)
+        xml = functions["Min_NLL_Params"].workbook_xml_formula_from_display
+        self.assertIn("_xlfn.XMATCH(MIN(_xlpm.NLL_Array),_xlpm.NLL_Array)", xml)
+        self.assertIn("_xlfn.SEQUENCE(,COLUMNS(_xlpm.Param_Array))", xml)
         self.assertNotIn("_xlfn.OFFSET", xml)
-        self.assertIn("_xlfn.VSTACK", xml)
 
     def test_grid_argmin_dynamic_functions_receive_parser_prefixes(self) -> None:
         functions = {fn.name: fn for fn in self.document.functions}

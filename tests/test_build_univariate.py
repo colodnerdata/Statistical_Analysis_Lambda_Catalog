@@ -250,9 +250,10 @@ def test_build_passes_univariate_artifact_to_version_history(
 
 
 def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
-    """The Univariate workbook ships in full Automatic so the Beta
-    Full_Factorial spill and the Weibull/Gamma profile-NLL columns recalculate
-    on edit."""
+    """The write phase saves in Manual to avoid triggering the expensive
+    Beta Full_Factorial spill during sheet-writing.  The final Automatic mode
+    is deferred to _recalculate_and_save (phase 2); with recalculate=False the
+    last value recorded by the write-phase app is XL_CALCULATION_MANUAL."""
     app = _FakeApp()
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
 
@@ -266,7 +267,7 @@ def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
         recalculate=False,
     )
 
-    assert app.api.calculation_values[-1] == XL_CALCULATION_AUTOMATIC
+    assert app.api.calculation_values[-1] == XL_CALCULATION_MANUAL
 
 
 def test_default_build_leaves_calculate_before_save_alone(

@@ -40,6 +40,7 @@ import xlwings as xw
 from .analyze_mileage import calculate_mileage_completeness_flags
 from .workbook_builder import XL_CALCULATION_MANUAL, XL_CALCULATION_SEMIAUTOMATIC
 from .write_sheet_csv_dataset import MILEAGE, load_csv_rows
+from .write_sheet_regression import REGRESSION_SHEET_NAME
 from .write_spec_block import (
     _AUDIT_PAIRS,
     _AUDIT_ROW,
@@ -66,15 +67,14 @@ from .write_spec_block import (
     _VARIABLES,
 )
 
-DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
-FULL_DATA_HEADER = MILEAGE.full_data_header
-DATA_SHEET_NAME = MILEAGE.sheet_name
 # The spec block has lived on the Regression sheet since the v2.0 release;
 # the standalone ``Model Construction`` sheet was dropped. The oracle is
 # still named ``analyze_model_construction`` for historical reasons (it is
 # the pure-Python half of the regression spec-block QC), but its reads
 # target the Regression sheet, the only place the spec block ships.
-from .write_sheet_regression import REGRESSION_SHEET_NAME
+DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
+FULL_DATA_HEADER = MILEAGE.full_data_header
+DATA_SHEET_NAME = MILEAGE.sheet_name
 SPEC_BLOCK_SHEET_NAME = REGRESSION_SHEET_NAME
 
 _QC_PREFIX = "[Model Construction]"

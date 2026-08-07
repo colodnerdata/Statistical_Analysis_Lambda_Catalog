@@ -1263,40 +1263,77 @@ class TestShippedUnivariateLayout:
     transcribed constant.
     """
 
+    @pytest.mark.xfail(
+        strict=True,
+        reason=(
+            "PENDING REBUILD. The profile fits' body and axis names moved from "
+            "static A1 ranges to OFFSET ranges sized by the live Grid Points "
+            "cell, and their NLL columns from 20 per-row formulas to one BYROW "
+            "spill. Rebuilding needs Excel via COM, which the Linux CI host and "
+            "the container this change was written in do not have. Rebuild with "
+            "`python scripts/build_univariate.py --verify --no-launch` on a "
+            "machine with Office, commit the artifact, and DELETE THIS MARKER — "
+            "strict=True makes the rebuilt artifact fail here until it is gone."
+        ),
+    )
     def test_fit_zone_bodies_match_the_writer(
         self, univariate_workbook_package: WorkbookPackage
     ) -> None:
         from lambda_catalog.workbook_helpers import col_letter
         from lambda_catalog.write_sheet_univariate import (
             _BAND_COL,
-            _GS_R_BODY,
-            _N_GRID,
-            _N_PROFILE,
-            _PS_BODY_COLS,
-            _PS_R_BODY,
+            _BETA_C_LABEL,
+            _BETA_C_S1_A,
+            _BETA_C_S1_B,
+            _BETA_C_S2_A,
+            _BETA_C_S2_B,
+            _BETA_C_S2_NLL,
+            _BETA_R_GRID_POINTS,
+            _PR_C_LABEL,
+            _PR_C_S1,
+            _PR_C_S2,
+            _PR_C_S2_NLL,
+            _PR_R_GRID_POINTS,
+            _R_BODY,
             _ROW_FIT_ZONE,
         )
 
-        (s1_axis, s1_body), _ = _PS_BODY_COLS
-        first = _ROW_FIT_ZONE + _PS_R_BODY
-        last = first + _N_PROFILE - 1
-        beta_first = _ROW_FIT_ZONE + _GS_R_BODY
-        expected = {}
+        first = _ROW_FIT_ZONE + _R_BODY                       # row 33
+        expected: dict[str, str] = {}
+
+        # Weibull / Gamma: OFFSET bodies whose height tracks that stage's live
+        # Grid Points cell (unsquared — a profile axis is N points, not N²).
+        # Two stages side by side: S1 body/axis in cols 1/0, S2 in cols 3/2,
+        # each stage's N cell on row 4 of its own value column.
         for name, zone in (("UV_WB", "weibull"), ("UV_GAMMA", "gamma")):
             c0 = _BAND_COL[zone]
-            expected[f"{name}_S1"] = (
-                f"Univariate!${col_letter(c0 + s1_body)}${first}"
-                f":${col_letter(c0 + s1_body)}${last}"
-            )
-            expected[f"{name}_S1_Axis"] = (
-                f"Univariate!${col_letter(c0 + s1_axis)}${first}"
-                f":${col_letter(c0 + s1_axis)}${last}"
-            )
+            for suffix, off, n_off in (
+                ("S1", _PR_C_S1, _PR_C_S1), ("S1_Axis", _PR_C_LABEL, _PR_C_S1),
+                ("S2", _PR_C_S2_NLL, _PR_C_S2), ("S2_Axis", _PR_C_S2, _PR_C_S2),
+            ):
+                cl = col_letter(c0 + off)
+                n_ref = f"${col_letter(c0 + n_off)}${_ROW_FIT_ZONE + _PR_R_GRID_POINTS}"
+                expected[f"{name}_{suffix}"] = (
+                    f"OFFSET(Univariate!${cl}${first},0,0,"
+                    f"MAX(IFERROR(Univariate!{n_ref},1),1),1)"
+                )
+
+        # Beta: OFFSET bodies whose height tracks the live Grid Points cell
+        # (^2). Three names per stage (Alpha / Beta / NLL); S1's N cell is the
+        # S1 α column (row 4), S2's is the S2 α column.
         beta = _BAND_COL["beta"]
-        expected["UV_BETA_S1"] = (
-            f"Univariate!${col_letter(beta + 1)}${beta_first}"
-            f":${col_letter(beta + _N_GRID)}${beta_first + _N_GRID - 1}"
-        )
+        n_row = _ROW_FIT_ZONE + _BETA_R_GRID_POINTS             # row 4
+        for stage, a_off, b_off, nll_off, n_off in (
+            ("S1", _BETA_C_LABEL, _BETA_C_S1_A, _BETA_C_S1_B, _BETA_C_S1_A),
+            ("S2", _BETA_C_S2_A, _BETA_C_S2_B, _BETA_C_S2_NLL, _BETA_C_S2_A),
+        ):
+            n_ref = f"${col_letter(beta + n_off)}${n_row}"
+            for suffix, body_off in (("Alpha", a_off), ("Beta", b_off), ("NLL", nll_off)):
+                cl = col_letter(beta + body_off)
+                expected[f"UV_BETA_{stage}_{suffix}"] = (
+                    f"OFFSET(Univariate!${cl}${first},0,0,"
+                    f"MAX(IFERROR(Univariate!{n_ref},1),1)^2,1)"
+                )
 
         actual = {
             name.split("!", 1)[-1]: body

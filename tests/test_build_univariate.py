@@ -11,12 +11,15 @@ forwards skip_regression=True to the spec-driven verifier.
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
+import argparse
 import contextlib
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
+from lambda_catalog.build_common import positive_grid_size
 from lambda_catalog.verify_report import VerifyReport
 from lambda_catalog.workbook_builder import (
     XL_CALCULATION_AUTOMATIC,
@@ -247,8 +250,9 @@ def test_build_passes_univariate_artifact_to_version_history(
 
 
 def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
-    """The Univariate workbook ships in full Automatic so the Data Tables
-    recalculate on edit (the whole point of the split)."""
+    """The Univariate workbook ships in full Automatic so the Beta
+    Full_Factorial grid and the Weibull/Gamma profile-NLL columns recalculate
+    on edit (the whole point of the split)."""
     app = _FakeApp()
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
 
@@ -269,8 +273,9 @@ def test_no_calculation_never_leaves_manual_mode(monkeypatch, tmp_path) -> None:
     """calculate=False must never set Automatic.
 
     Setting Automatic on the open workbook is itself a full calculation — the
-    Beta Data Tables included — so it is the step that has to not happen, not
-    just the final rebuild. --skip-data-table-calculations does not cover it.
+    Beta Full_Factorial grid included — so it is the step that has to not
+    happen, not just the final rebuild. --skip-data-table-calculations does not
+    cover it.
     """
     app = _FakeApp()
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
@@ -385,6 +390,7 @@ def test_main_no_calculation_skips_rebuild_and_warns(
             no_calculation=True,
             verify=False,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -428,6 +434,7 @@ def test_main_warns_when_verify_is_combined_with_no_calculation(
             no_calculation=True,
             verify=True,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -570,8 +577,9 @@ def test_reorder_puts_univariate_front_and_lambda_last(monkeypatch) -> None:
 def test_main_recalculate_skipped_when_skip_data_table_calculations(
     monkeypatch, capsys, tmp_path
 ) -> None:
-    """--skip-data-table-calculations skips the (slow, 2,400-NLL-eval) rebuild
-    for the Univariate artifact — this is the flag's now-primary purpose."""
+    """--skip-data-table-calculations skips the (slow, Full_Factorial grid +
+    profile-NLL) recalc rebuild for the Univariate artifact — this is the
+    flag's now-primary purpose."""
     recalc_calls: list[Path] = []
 
     monkeypatch.setattr(
@@ -587,6 +595,7 @@ def test_main_recalculate_skipped_when_skip_data_table_calculations(
             no_calculation=False,
             verify=False,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -613,7 +622,8 @@ def test_main_recalculate_skipped_when_skip_data_table_calculations(
 
 def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
     """Without --skip-data-table-calculations, main() runs the rebuild so the
-    shipped artifact's Data Tables are computed (not stale pending Ctrl+Alt+F9)."""
+    shipped artifact's Beta Full_Factorial grid and profile-NLL columns are
+    computed (not stale pending Ctrl+Alt+F9)."""
     recalc_calls: list[Path] = []
 
     monkeypatch.setattr(
@@ -629,6 +639,7 @@ def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
             no_calculation=False,
             verify=False,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -719,6 +730,7 @@ def test_main_verify_forwards_skip_regression_true(monkeypatch, tmp_path) -> Non
             no_calculation=False,
             verify=True,
             no_launch=True,
+            beta_grid_size=10,
             log=tmp_path / "build.log",
         ),
     )
@@ -772,6 +784,7 @@ def test_main_archives_the_verify_report_to_the_run_log(monkeypatch, tmp_path) -
             no_calculation=False,
             verify=True,
             no_launch=True,
+            beta_grid_size=10,
             log=log_path,
         ),
     )
@@ -819,6 +832,7 @@ def test_main_archives_the_no_calculation_verify_warning(monkeypatch, tmp_path) 
             no_calculation=True,
             verify=True,
             no_launch=True,
+            beta_grid_size=10,
             log=log_path,
         ),
     )
@@ -879,6 +893,7 @@ def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
             no_calculation=False,
             verify=False,
             no_launch=True,
+            beta_grid_size=10,
             log=None,
         ),
     )
@@ -898,3 +913,48 @@ def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
         / "excel-only-runs"
         / "build_univariate verify no launch.log"
     ]
+
+
+# ── --beta-grid-size validation ───────────────────────────────────────────────
+#
+# The flag only sets the shipped default for the in-sheet Grid Points cell, but
+# an out-of-range value still builds: Full_Factorial tolerates N=1 via its
+# MAX(1,N-1) divisor, so nothing raises, and the artifact ships with #DIV/0!
+# Step cells and degenerate grids. The floor is enforced at parse time instead,
+# by the same MIN_GRID_POINTS the in-sheet Validation and conditional format
+# use, so all three surfaces agree.
+
+
+@pytest.mark.parametrize("value", ["2", "10", "40"])
+def test_positive_grid_size_accepts_values_at_or_above_the_floor(value: str) -> None:
+    assert positive_grid_size(value) == int(value)
+
+
+@pytest.mark.parametrize("value", ["1", "0", "-5"])
+def test_positive_grid_size_rejects_values_below_the_floor(value: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError, match="at least 2"):
+        positive_grid_size(value)
+
+
+@pytest.mark.parametrize("value", ["abc", "2.5", ""])
+def test_positive_grid_size_rejects_non_integers(value: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError, match="whole number"):
+        positive_grid_size(value)
+
+
+def test_beta_grid_size_flag_is_validated_on_both_build_scripts(monkeypatch) -> None:
+    """Both CLIs route --beta-grid-size through positive_grid_size.
+
+    build_beta_only.py is the performance-experiment script — the one most
+    likely to be handed an ad-hoc grid size — so it needs the guard as much as
+    the production build does.
+    """
+    build_beta_only = load_script_module("build_beta_only")
+
+    for module, argv in (
+        (build_univariate, ["build_univariate.py", "--beta-grid-size", "1"]),
+        (build_beta_only, ["build_beta_only.py", "--beta-grid-size", "0"]),
+    ):
+        monkeypatch.setattr(sys, "argv", argv)
+        with pytest.raises(SystemExit):
+            module.parse_args()

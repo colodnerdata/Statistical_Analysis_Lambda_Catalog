@@ -4,18 +4,20 @@ From v3.0 the build emits two artifacts: ``build_production.py`` builds the
 Regression workbook (``Lambda_Library.xlsx``), and this script builds the
 standalone Univariate workbook (``Lambda_Library_Univariate.xlsx``). Moving
 Univariate Analysis into its own workbook lets each artifact set its own
-calculation mode: the Univariate grid searches — two two-input Data Tables
-(Beta, across two stages) plus Weibull/Gamma static formula grids, ~2,400 NLL
-evaluations per recalc in total — now recalculate on edit in full Automatic
-inside this file, instead of forcing the shared workbook into
-``XL_CALCULATION_SEMIAUTOMATIC`` and leaving fit results stale until a manual
-Ctrl+Alt+F9 (see DECISIONS.md § v3.0 "Univariate becomes its own workbook").
-Weibull and Gamma keep their 2-D grids as plain formula cells (no Data Table
-object) pending the planned grid-shrink migration to 1-D profile line charts.
+calculation mode: the Univariate grid searches — Beta's two ``Full_Factorial``
+grid stages (N² NLL evaluations each) plus the Weibull and Gamma profile grids
+(N per stage), ~280 NLL evaluations per recalc at the shipped defaults — now
+recalculate on edit in full Automatic inside this file, instead of forcing the
+shared workbook into ``XL_CALCULATION_SEMIAUTOMATIC`` and leaving fit results
+stale until a manual Ctrl+Alt+F9 (see DECISIONS.md § v3.0 "Univariate becomes
+its own workbook").  Every fit has the same shape: a ``Full_Factorial`` spill
+beside a ``BYROW`` NLL column that reads it through the ``#`` operator, both
+sized live by an in-sheet Grid Points cell — a 1-D shape axis for Weibull and
+Gamma, a 2-D (α, β) grid for Beta.
 
 The shipped sheet set is small — LAMBDA_functions, Life Expectancy Data,
 Univariate, Version History — but the workbook carries the complete
-126-function LAMBDA library (no subsetting): the Univariate sheet depends on
+141-function LAMBDA library (no subsetting): the Univariate sheet depends on
 30 workbook-scoped LAMBDA names (Skewness, Kurtosis, the NLL_*/CDF_* families,
 etc.) that ``sync_workbook_names`` writes into ``xl/workbook.xml``. The Life
 Expectancy Data sheet is required because the Univariate data zone reads
@@ -39,6 +41,7 @@ from lambda_catalog.build_common import (
     _quit_app_quietly,
     _recalculate_and_save,
     _retry_on_open,
+    positive_grid_size,
     print_name_sync_summary,
     run_log_path,
     set_calculate_before_save,
@@ -243,6 +246,7 @@ def build_univariate_workbook(
     verbose: bool = False,
     recalculate: bool = True,
     calculate: bool = True,
+    beta_grid_size: int = 10,
 ) -> NameSyncResult:
     """Build the standalone Univariate workbook and sync the LAMBDA name manager.
 
@@ -261,12 +265,12 @@ def build_univariate_workbook(
         If True, prints timing information for each build phase to stdout.
     recalculate : bool, optional
         If True (default), recalculates and saves as the final build step —
-        this is what computes the Univariate grid searches (the two Beta Data
-        Tables and the Weibull/Gamma formula grids) so the shipped artifact is
-        not stale. Pass False (or use ``--skip-data-table-calculations``) when
-        the caller manages the recalculate step separately, or for fast
-        iteration where the ~2,400 NLL evaluations per recalc would dominate
-        build time.
+        this is what computes the Univariate grid searches (the Beta
+        Full_Factorial grid stages and the Weibull/Gamma profile grids) so the
+        shipped artifact is not stale. Pass False (or use
+        ``--skip-data-table-calculations``) when the caller manages the
+        recalculate step separately, or for fast iteration where the ~2,400
+        NLL evaluations per recalc would dominate build time.
     calculate : bool, optional
         If True (default), the workbook is switched to Automatic before the
         save, which is what makes the shipped artifact recalculate on edit.
@@ -334,13 +338,13 @@ def build_univariate_workbook(
                 workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS
             write_catalog_sheet(workbook, document.functions)
             write_csv_dataset_sheet(workbook, csv_headers, csv_rows, LIFE_EXPECTANCY)
-            write_univariate_sheet(workbook, document.univariate_sheet_notes)
+            write_univariate_sheet(workbook, document.univariate_sheet_notes, beta_grid_size=beta_grid_size)
             write_version_history_sheet(workbook, artifact="univariate")
             _reorder_and_style_sheet_tabs(workbook)
             if calculate:
                 # Setting Automatic on an open workbook calculates it there and
-                # then — the Beta Data Tables included. That is the point when
-                # building for real, and the cost --no-calculation avoids.
+                # then — the Beta Full_Factorial grid included. That is the point
+                # when building for real, and the cost --no-calculation avoids.
                 app.api.Calculation = XL_CALCULATION_AUTOMATIC
             workbook.save(str(workbook_path))
         finally:
@@ -427,12 +431,13 @@ def parse_args() -> argparse.Namespace:
         help=(
             "Skip the final Excel CalculateFullRebuild phase. The Univariate "
             "grid searches make that rebuild slow (~2,400 NLL evaluations per "
-            "recalc across the Beta Data Tables and the Weibull/Gamma formula "
-            "grids), so this is the primary fast-iteration flag for this "
-            "artifact. Note: the spec-driven verifier (deep_verify) only does a "
-            "per-sheet Calculate, which does not reliably resolve the Data "
-            "Tables after a name sync — so combining this flag with --verify "
-            "may report stale-fit mismatches that a real rebuild would not."
+            "recalc across the Beta Full_Factorial grid stages and the "
+            "Weibull/Gamma profile grids), so this is the primary fast-iteration "
+            "flag for this artifact. Note: the spec-driven verifier (deep_verify) "
+            "only does a per-sheet Calculate, which does not reliably resolve the "
+            "Beta Full_Factorial spills after a name sync — so combining this "
+            "flag with --verify may report stale-fit mismatches that a real "
+            "rebuild would not."
         ),
     )
     parser.add_argument(
@@ -449,6 +454,19 @@ def parse_args() -> argparse.Namespace:
             "Automatic ahead of the save. The workbook it leaves behind has "
             "stale computed cells and is saved in Manual mode, so do not ship "
             "it; the next ordinary build fixes both."
+        ),
+    )
+    parser.add_argument(
+        "--beta-grid-size",
+        type=positive_grid_size,
+        default=10,
+        help=(
+            "Number of grid points per axis for the Beta Full_Factorial search "
+            "(default: 10, i.e. 100 NLL evaluations per stage). Must be a whole "
+            "number of at least 2 — the Step cell divides by N-1. N is written "
+            "into an in-sheet cell and editable live in the workbook, under the "
+            "same floor; this flag only sets the shipped default. Smaller values "
+            "reduce build time but may decrease accuracy."
         ),
     )
     parser.add_argument(
@@ -543,6 +561,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
             verbose=args.verbose,
             recalculate=False,  # handled separately so only this step retries
             calculate=not args.no_calculation,
+            beta_grid_size=args.beta_grid_size,
         )
 
     build_phase_start = time.monotonic()
@@ -554,14 +573,15 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     build_elapsed = time.monotonic() - build_phase_start
     assert result is not None
 
-    # Phase 2: recalculate the Data Tables and save.
-    # This is the slow step for this artifact (the six Univariate Data Tables),
-    # and the one most likely to fail when the user opens the workbook to
-    # inspect progress — so it gets its own retry phase, separate from the
-    # multi-minute write. Skipping it (--skip-data-table-calculations) leaves
-    # the Data Tables uncomputed; the shipped artifact is built without it.
-    # --no-calculation skips it too — that flag's contract is that the run
-    # calculates nothing at all, so it cannot make an exception for the rebuild.
+    # Phase 2: recalculate the grid searches and save.
+    # This is the slow step for this artifact (the Beta Full_Factorial spills
+    # plus the Weibull/Gamma profile grids), and the one most likely to fail
+    # when the user opens the workbook to inspect progress — so it gets its own
+    # retry phase, separate from the multi-minute write. Skipping it
+    # (--skip-data-table-calculations) leaves the grid searches uncomputed; the
+    # shipped artifact is built without it. --no-calculation skips it too —
+    # that flag's contract is that the run calculates nothing at all, so it
+    # cannot make an exception for the rebuild.
     if args.no_calculation:
         print(
             "Recalculate:    skipped (--no-calculation; workbook saved in "

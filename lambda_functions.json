@@ -2131,6 +2131,30 @@
       "notes": "The two parameter values (column then row) at the minimum of a two-input Data Table. Use after NLL grid search to extract optimal parameters."
     },
     {
+      "name": "Full_Factorial",
+      "category": "Data Transformation",
+      "subcategory": "Grid Generation",
+      "formula_display": "=LAMBDA(N,minimums,maximums,\n    LET(\n        mins,TOROW(minimums),\n        maxs,TOROW(maximums),\n        d,COLUMNS(mins),\n        MAKEARRAY(\n            N^d,\n            d,\n            LAMBDA(r,c,\n                LET(\n                    i,MOD(QUOTIENT(r-1,N^(d-c)),N),\n                    INDEX(mins,1,c)\n                        +i*(INDEX(maxs,1,c)-INDEX(mins,1,c))/MAX(1,N-1)\n                )\n            )\n        )\n    )\n)",
+      "arguments": [
+        {
+          "name": "N",
+          "description": "number of levels per axis — the grid has N evenly-spaced values along every dimension; N must be ≥ 1 (the MAX(1,N-1) divisor guards the N=1 case, which yields the single point at the minimum)"
+        },
+        {
+          "name": "minimums",
+          "description": "lower bound for each dimension — a 1×d row vector or d×1 column vector; TOROW normalizes either to a single row, so orientation does not matter"
+        },
+        {
+          "name": "maximums",
+          "description": "upper bound for each dimension — same shape contract as minimums; the c-th entry pairs with the c-th minimum"
+        }
+      ],
+      "yields": "N^d × d matrix — one row per level combination, one column per dimension, each dimension evenly spaced from its minimum to its maximum; column 1 is the slowest-varying axis, column d the fastest",
+      "description": "Full_Factorial generates the complete N-level Cartesian-product grid over a d-dimensional box bounded by minimums and maximums. TOROW normalizes both bound vectors to single rows, so a row or column vector may be passed interchangeably; d is COLUMNS of the normalized minimums, and the two bound vectors must agree in length. MAKEARRAY builds N^d rows by d columns, where the level index for dimension c at row r is i = MOD(QUOTIENT(r-1, N^(d-c)), N) — mixed-radix counting with column 1 the slowest-varying axis and column d the fastest — and the value is the linear interpolation mins[c] + i·(maxs[c]-mins[c])/MAX(1,N-1). With i ranging 0 to N-1, each dimension spans its full [min, max] range in N evenly-spaced points: the N=2 case is the 2^d corners of the box, and larger N densifies every dimension uniformly. The MAX(1,N-1) divisor guards the N=1 case (where N-1 would be zero): N=1 yields a single row at the minimum of every dimension, so the single-dimension case d=1 reduces to SEQUENCE(N,1,min,(max-min)/MAX(1,N-1)) — an N-point linear spacing from minimums to maximums, and a single point when N=1. N must be ≥ 1. This is the general grid the Beta (and any two-parameter) grid search is a specialization of — a 2-D N×N grid is Full_Factorial(N, VSTACK(alpha_min, beta_min), VSTACK(alpha_max, beta_max)).",
+      "plain_language_summary": "Every N-level combination of d variables, each spanning its own [min, max] range — the full-factorial grid.",
+      "notes": "N^d × d full-factorial grid: N evenly-spaced levels per dimension between minimums and maximums. Column 1 slowest-varying, column d fastest. N must be ≥ 1; MAX(1,N-1) guards the N=1 single-point case."
+    },
+    {
       "name": "NLL_Normal",
       "formula_display": "=LAMBDA(data, mean, sd, [filter],\n  LET(\n    filt_arg, IF(ISOMITTED(filter), ISNUMBER(data), filter),\n    x, FILTER(data, filt_arg),\n    IFERROR(-SUMPRODUCT(LN(NORM.DIST(x, mean, sd, FALSE))), 1E+15)\n  ))",
       "arguments": [

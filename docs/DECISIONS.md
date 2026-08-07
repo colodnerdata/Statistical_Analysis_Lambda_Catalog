@@ -3880,3 +3880,51 @@ either way.
 **REJECTED — keep the group, ship it expanded.** An outline whose collapse
 button is one click away from a silently wrong fit is a trap with a label on
 it, not a feature. Removing the group removes the click.
+
+## v3.x+ — Beta's grid search becomes a Full_Factorial spill; the Data-Table driver for the workbook split retires
+
+**Question:** the v3.0 split ([§ Univariate becomes its own workbook](#univariate-becomes-its-own-workbook)) was forced by Excel's "Automatic except Data Tables" mode — Beta's two-stage grid search used two two-input Data Tables, and a combined workbook would either stale the Univariate fits or impose semiautomatic mode on every Regression user. The pending "grid shrink" entry ([§ The grid shrink ships as a later release](#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)) left "Beta's method-of-moments start and ~12×12 grid" open. With Beta now reworked onto a `Full_Factorial` dynamic-array spill, the Univariate artifact contains no Data Table at all. Does the split still earn its keep?
+
+**Resolution:** the mechanism changed; the split question is left open. Beta's grid search is now two dynamic-array spills per stage — a `Full_Factorial(N, mins, maxs)` grid of N²×2 (`Alpha | Beta`) and a `BYROW` NLL column that reads it through the `#` operator — laid out two stages side by side in a 6-column zone (BY:CD), sized live by an in-sheet N cell (default N=10). Both artifacts therefore ship in full Automatic, and the original driver — "Automatic except Data Tables" is the only mode that can ship a workbook containing a Data Table — is retired. **Whether to re-merge the two workbooks is undecided and deliberately not settled here.** This entry records only that the reason the split originally existed no longer applies; anyone revisiting the question starts from a blank slate rather than from a rationale written to defend the status quo.
+
+**Supersedes** the v3.0 *Univariate becomes its own workbook* entry's Data-Table rationale paragraph and closes the "Beta's method-of-moments start and ~12×12 grid are still open" tail of the *grid shrink* entry. The CLAUDE.md / CONTRIBUTING.md / README.md narratives describe the current mechanism and no longer argue for or against the split.
+
+**Breakage class: MAJOR for the Univariate workbook version only.** The three fit zones relayout from 9/9/21 cols (stacked stages, Data Table) to 4/4/6 cols (stages side by side, vertical field-list control block, profile-NLL charts re-anchored above the body at rows 13–30, body rows 33+). The Beta Scale/Shape Min/Max/Step input cells the old Data Table exposed are replaced by α/β Min/Max/Step cells feeding `Full_Factorial`'s `VSTACK(mins)/VSTACK(maxs)`, with the NLL as its own `BYROW` column beside the grid, and the old `UV_BETA_S1`/`UV_BETA_S2` ranges are replaced by `UV_BETA_S{1,2}_{Alpha,Beta,NLL}` OFFSET ranges sized by the live N cell. A user's saved Beta bounds carry over in spirit but not in cell address. No Regression-side change.
+
+## v3.x+ — the profile fits read their axis spill, so Grid Points is live in all three
+
+**Question:** Beta's NLL column reads its `Full_Factorial` grid through the `#` operator, so
+raising Beta's Grid Points resizes both spills together. The Weibull and Gamma profile fits
+were left as they were: their axis is a live `Full_Factorial(N, Min, Max)` spill, but the NLL
+beside it was 20 individual per-row formulas, each hard-pointing at its own axis cell
+(`$BP$33` … `$BP$52`), and `UV_WB_S1` / `UV_GAMMA_S1` and their `_Axis` partners were fixed
+A1 ranges. Raise Grid Points on a profile fit and the axis grew while the NLL column, the
+recovery formulas, and the charts all stayed at 20. Should the profile fits get the same
+treatment, or should Grid Points be frozen there instead?
+
+**Resolution:** the same treatment. Each stage's NLL is now one spill —
+`=LET(x,FILTER(UV_Data,UV_Include),BYROW($<axis>$#,LAMBDA(r,LET(p,INDEX(r,1,1),IFERROR(<NLL at p>,1E+15)))))`
+— and all four names per zone become OFFSET ranges sized `MAX(IFERROR(<N cell>,1),1)`, the
+un-squared form of what `UV_BETA_S*` already uses. Every fit in the artifact now has one
+shape: a `Full_Factorial` spill beside a `BYROW` column that reads it, both following one live
+cell. Three details in the new formula are load-bearing and should not be simplified away:
+
+* **`INDEX(r,1,1)`** — `BYROW` hands the callback a 1×1 array, and passing that straight into
+  `NLL_Weibull` or the profiled-out closed form broadcasts instead of evaluating.
+* **`IFERROR` inside the `LAMBDA`** — outside it, one non-evaluable trial value collapses the
+  whole column to `1E+15` instead of costing its own row.
+* **`x` bound once per stage** — the per-row form paid a full-range `FILTER` for every point.
+
+**Grid Points gets a floor of 2, applied three times.** The Step cell is `(Max-Min)/(N-1)`, so
+N=1 is a `#DIV/0!` and a one-point grid searches nothing — `Full_Factorial` itself tolerates
+N=1 via its `MAX(1,N-1)` divisor, but the sheet built around it does not. The floor lives in
+`build_common.MIN_GRID_POINTS` and is enforced by `positive_grid_size` (the `--beta-grid-size`
+argparse type on both build scripts), by a whole-number Stop `Validation` on each editable
+Grid Points cell, and by a red conditional format on the same cells. Both in-sheet guards are
+wanted: the Validation catches typing, and the CF catches a paste, which bypasses Validation
+entirely.
+
+**Accepted cost.** Number formats, the colour scale, and the border box are still painted over
+the *default*-size window (`_PROFILE_BODY_CF_ROWS_CAP`, `_BETA_BODY_CF_ROWS_CAP`), so rows a
+live N-increase adds beyond it are unshaded until the next build. Cosmetic — the named ranges
+and every recovery formula track the real height.

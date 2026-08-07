@@ -170,6 +170,14 @@ cmd = "python scripts/build_production.py"
 help = "Build dist/Lambda_Library_Univariate.xlsx."
 cmd = "python scripts/build_univariate.py"
 
+[tool.poe.tasks.build-presentation-demo]
+help = "Build Presentations/Lambda_Library_Regression_Demo.xlsx."
+cmd = "python scripts/build_demo_workbook.py --no-launch"
+
+[tool.poe.tasks.build-presentation]
+help = "Build the presentation workbook set: Regression, Univariate, and the Regression demo."
+sequence = ["build", "build-univariate", "build-presentation-demo"]
+
 [tool.poe.tasks.static-sheets]
 help = "Regenerate every static reference sheet into templates/static_sheets.xlsx."
 cmd = "python scripts/rebuild_static_sheets.py"

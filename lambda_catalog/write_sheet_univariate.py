@@ -13,22 +13,21 @@ searches.
 
 **Weibull and Gamma search one dimension** (the grid shrink).  Their scale /
 rate parameter is *profiled out* in closed form at every trial shape, so each
-stage evaluates a 20-point profile-NLL curve rather than a 20×20 surface:
+stage evaluates a 20-point profile-NLL curve:
 
   Weibull   λ̂(k) = ((1/n)·Σxᵢᵏ)^(1/k)
   Gamma     β̂(α) = α / x̄
 
 Profiling is still genuine MLE — the profile maximizer is the joint maximizer —
-so the two returned parameters are the same estimates the 2-D grid produced,
-at 20 evaluations per stage instead of 400.  Each stage 1 brackets a
+so the two returned parameters are the joint-maximizer estimates,
+at 20 evaluations per stage.  Each stage 1 brackets a
 closed-form starting value (Weibull: probability-plot regression of
 ln(−ln(1−F̂)) on ln x, F̂ the Hazen positions Zone 5 already uses; Gamma:
-Minka's approximation from s = ln(AM/GM)); stage 2 refines to ±1 stage-1 step.  The two-dimensional
-NLL heatmap is replaced by a **profile-NLL line chart** per distribution.
+Minka's approximation from s = ln(AM/GM)); stage 2 refines to ±1 stage-1 step.  The NLL is shown as a **profile-NLL line chart** per distribution.
 
 **Beta stays two-dimensional** — both conditional MLEs involve digamma — and
-keeps its two two-input Data Tables.  They are the only Data Tables in the
-artifact.
+searches a 2-D ``Full_Factorial`` spill (the Cartesian product of candidate
+parameters) with a BYROW NLL column per stage.
 
 Sheet layout
 ────────────
@@ -2054,9 +2053,10 @@ def _write_two_parameter_grid_search(sheet: xw.Sheet, beta_grid_size: int = _N_G
     Weibull and Gamma search one dimension: their scale / rate parameter is
     profiled out in closed form, so each stage is an N-point profile-NLL curve
     (``_write_profile_fit``).  Beta stays two-dimensional — both of its
-    conditional MLEs involve digamma — and uses an N² ``Full_Factorial`` grid
-    per stage (``_write_beta_fit``).  Every stage is a grid spill beside a
-    ``BYROW`` NLL column that reads it, sized live by a Grid Points cell.
+    conditional MLEs involve digamma — and uses an N² ``Full_Factorial`` spill
+    per stage (``_write_beta_fit``) — the Cartesian product of candidate
+    parameters.  Every stage is that spill beside a ``BYROW`` NLL column that
+    reads it, sized live by a Grid Points cell.
     """
     for spec in _PROFILE_SEARCHES:
         _write_profile_fit(sheet, **spec)

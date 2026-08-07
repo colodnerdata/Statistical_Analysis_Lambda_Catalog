@@ -131,7 +131,7 @@ Rationale in
 | v3.10 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Planned — MINOR. *Planned as v2.5; claimed as v3.6, briefly held at v3.5.* **The first milestone that is not Regression work** — a new sheet and a new analysis surface, held until the Regression artifact is feature-complete. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix`. **Test scale: additive** — a fixed set of cases on two small new datasets |
 | v3.11 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4; claimed as v3.5, briefly held at v3.6.* The second non-Regression milestone. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The artifact build seeds the table from a SHA-256 digest of the source CSV, so the draw is reproducible from the data alone. **Test scale: additive** — no new data at all |
 | v3.12+ | Multi-group means (ANOVA), Fourier, Decision analysis | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+.* Design-not-started, and nothing about their test cost sequences them |
-| *(Univariate artifact)* | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | Unnumbered in this ladder on purpose: under the two-number scheme these move the **Univariate workbook version**, not the library version, so they do not take a v3.x slot. The split is packaging-only and non-breaking for both artifacts; the grid shrink that follows is MAJOR for the Univariate workbook version only and does not move the Regression workbook version. Split shipped as Univariate 1.0.0; the grid shrink's Weibull/Gamma half shipped as Univariate 2.0.0, with the Beta half still open |
+| *(Univariate artifact)* | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | Unnumbered in this ladder on purpose: under the two-number scheme these move the **Univariate workbook version**, not the library version, so they do not take a v3.x slot. The split is packaging-only and non-breaking for both artifacts; the grid shrink that follows is MAJOR for the Univariate workbook version only and does not move the Regression workbook version. Split shipped as Univariate 1.0.0; the grid shrink's Weibull/Gamma half shipped as Univariate 2.0.0, with the Beta half superseded (overcome by events) |
 
 **Ladder rationale.** Under the interface definition above, exactly two milestones
 break user inputs. Specification-Driven Regression took v2.0; everything after it
@@ -300,8 +300,9 @@ distribution choice in the fitting section.
 - **Distribution fitting** — eight candidates (Normal, Lognormal, Exponential,
   Weibull, Gamma, Triangular, Beta, BetaPERT) ranked in a single comparison
   table. Closed-form MLE where possible; search-based MLE for the two-parameter
-  shape family (native two-input Data Tables at v1.1; Weibull and Gamma moved to
-  1-D profile searches at Univariate 2.0.0). Per-distribution Q-Q plots
+  shape family (Weibull and Gamma via 1-D profile searches, Beta via a 2-D
+  `Full_Factorial` spill — the Cartesian product of candidate parameters).
+  Per-distribution Q-Q plots
   and histogram distribution overlays (post-release v1.1 leftovers, shipped
   with the next workbook build).
 - **The MLE-via-grid reframing** — the wall was never "MLE without Solver"; it
@@ -1098,7 +1099,7 @@ nobody is asking for.
 
 ---
 
-## Univariate artifact releases — the split (SHIPPED), then the grid shrink (Weibull/Gamma SHIPPED; Beta PLANNED)
+## Univariate artifact releases — the split (SHIPPED), then the grid shrink (Weibull/Gamma SHIPPED; Beta SUPERSEDED)
 
 Two releases, deliberately not bundled. Under the two-number scheme
 ([Two numbers](#two-numbers-once-the-build-emits-two-workbooks)) these move the
@@ -1113,43 +1114,35 @@ carry the complete 131-function library — there is no bundling, no dependency
 closure, and no per-artifact function subsetting; they differ only in which sheets
 they contain. It is **non-breaking for both**.
 
-The reason was a live correctness bug, not tidiness. A single workbook had to ship
-in `XL_CALCULATION_SEMIAUTOMATIC` — Automatic except Data Tables — forced by the
-Univariate sheet's six two-input Data Tables (2,400 NLL evaluations per full
-recalculation). So **Univariate fit results were stale until the user pressed
-Ctrl+Alt+F9**: the flagship distribution-fitting sheet displayed a previous answer
-with no indication it had done so, which is the exact silent wrongness the
-library's visible-failure philosophy exists to prevent. Splitting lets each
-artifact set its own calculation mode, and the Regression workbook returns to full
-Automatic. **Shipped:** `build_production.py` emits the Regression artifact and
+Splitting lets each artifact set its own calculation mode, so the Regression
+workbook runs in full Automatic. **Shipped:** `build_production.py` emits the Regression artifact and
 `build_univariate.py` emits the Univariate artifact (shared scaffolding in
 `lambda_catalog/build_common.py`); the verifier carries a `skip_regression` mode for
 the Univariate-only workbook.
 
 **The grid shrink** follows as a separate release of the Univariate artifact, and
 is **MAJOR for that workbook's version only**. Weibull and Gamma collapse to
-one-dimensional searches by profiling out the scale/rate parameter in closed form;
-Beta stays two-dimensional but gets a method-of-moments start and a smaller grid.
-Total evaluations fall from ~2,400 to ~370. Profiling is still genuine MLE — the
-profile maximizer is the joint maximizer — so this extends the v1.1 MLE-via-grid
-reframing rather than replacing it. The two-dimensional NLL heatmap becomes a
-profile-NLL line chart for Weibull and Gamma, which is an upgrade in legibility:
-the basin, the interior minimum, and any boundary hit are more visible in a line
-chart than in a one-row colour strip.
+one-dimensional searches by profiling out the scale/rate parameter in closed form,
+and use a profile-NLL line chart — an upgrade in legibility: the basin, the
+interior minimum, and any boundary hit are more visible in a line chart than
+across a 2-D grid. Profiling is still genuine MLE — the profile maximizer is the
+joint maximizer — so this extends the v1.1 MLE-via-grid reframing rather than
+replacing it. The planned Beta half — a method-of-moments start and a smaller
+fixed grid to take the total to ~370 — was never implemented and is superseded:
+the PR #203 rework moved Beta onto a live `Full_Factorial` spill with an editable
+`Grid Points` cell, retiring the Data-Table-recalc-cost driver that motivated a
+fixed shrink. See [TODOs.md § Univariate 2.1](TODOs.md#univariate-21--the-beta-half-of-the-grid-shrink).
 
 It is MAJOR because the Scale Min/Max/Step input cells change or disappear, so a
 user's saved bounds stop meaning anything. That is a workbook-interface break, and
 it does not move the Regression workbook version.
 
 **Status — the Weibull and Gamma half SHIPPED as Univariate 2.0.0.** Those four
-stage blocks are now 1-D profile searches with closed-form starting values, each
-stage 20 evaluations instead of 400, and the two heatmaps are replaced by
-profile-NLL line charts. Evaluations fall from ~2,400 to ~880, and the fits got
-*more* accurate on the shipped dataset, not less — the old Gamma grid's coarse
-2-D bracket had been landing 6.8 NLL units above the true MLE. **The Beta half is
-still open:** it keeps its 20×20 two-input Data Tables and has not yet received
-the method-of-moments start or the ~12×12 grid that takes the total to ~370. See
-[TODOs.md § Univariate 2.1](TODOs.md#univariate-21--the-beta-half-of-the-grid-shrink).
+stage blocks are 1-D profile searches with closed-form starting values and
+profile-NLL line charts. **The Beta half is superseded (overcome by events)** as
+noted above — the method-of-moments start and fixed smaller grid were a
+Data-Table-era recalc-cost optimization, retired by the PR #203 rework onto a
+live `Full_Factorial` spill with an editable `Grid Points` cell.
 
 Design rationale: [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 

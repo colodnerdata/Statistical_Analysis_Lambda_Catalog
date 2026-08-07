@@ -3,11 +3,9 @@
 From v3.0 the build emits two artifacts: this script builds the Regression
 workbook (``Lambda_Library.xlsx``), and ``build_univariate.py`` builds the
 standalone Univariate workbook (``Lambda_Library_Univariate.xlsx``). The
-Univariate Analysis sheet no longer ships here — moving it to its own
-workbook lets each artifact set its own calculation mode, so the Regression
-workbook returns to full Automatic and the Univariate Data Tables recalculate
-on edit in their own file (see DECISIONS.md § v3.0 "Univariate becomes its
-own workbook").
+Univariate Analysis sheet ships in its own workbook, so each artifact sets
+its own calculation mode and the Regression workbook runs in full Automatic
+(see DECISIONS.md § v3.0 "Univariate becomes its own workbook").
 """
 
 from __future__ import annotations
@@ -401,7 +399,7 @@ def parse_args() -> argparse.Namespace:
     -------
     argparse.Namespace
         Parsed arguments with workbook, definitions, csv, validate_reopen,
-        verbose, and skip_data_table_calculations attributes.
+        verbose, verify, and no_launch attributes.
     """
     parser = argparse.ArgumentParser(
         description=(
@@ -449,18 +447,6 @@ def parse_args() -> argparse.Namespace:
         "--verbose",
         action="store_true",
         help="Print timing information for each build phase.",
-    )
-    parser.add_argument(
-        "--skip-data-table-calculations",
-        action="store_true",
-        help=(
-            "Skip the final Excel CalculateFullRebuild phase. No effect for the "
-            "Regression workbook (it has no Data Tables); the rebuild is cheap "
-            "and the Regression sheet needs it (the verifier's per-sheet "
-            "Calculate doesn't rebuild the dependency tree after a name sync). "
-            "Matters for build_univariate.py, whose Univariate Data Tables make "
-            "the rebuild slow."
-        ),
     )
     parser.add_argument(
         "--verify",
@@ -580,14 +566,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     # Calculate(), which does NOT rebuild the dependency tree after 100+
     # workbook names are re-synced — skipping the rebuild would leave the
     # Regression engines uncomputed and every QC value reading nan. So the
-    # Regression build always rebuilds; --skip-data-table-calculations is a
-    # no-op here (it only matters for build_univariate.py, whose Univariate
-    # Data Tables make the rebuild slow).
-    if args.skip_data_table_calculations and args.verbose:
-        print(
-            "  Recalculate:    --skip-data-table-calculations is a no-op for the Regression workbook",
-            flush=True,
-        )
+    # Regression build always rebuilds.
     _t = time.monotonic()
     _retry_on_open(
         f"{args.workbook.name} is open in Excel",

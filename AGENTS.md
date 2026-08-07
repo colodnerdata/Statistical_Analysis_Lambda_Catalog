@@ -8,7 +8,7 @@
 
 **Automated verification.** Run `python scripts/build_production.py --verify --no-launch` (Regression) or `build_univariate.py --verify --no-launch` (Univariate). The spec-driven verifier is **not in CI** — GitHub-hosted `windows-latest` lacks Microsoft Office, so `xw.App` fails with `pywintypes.com_error: (-2147221005, 'Invalid class string')`. Layer 1 (`poe verify-headless`) runs on every push. Full pipeline + flag tables: `CONTRIBUTING.md` → *Verifying builds*.
 
-**Recalculate mode is artifact-specific.** The Regression workbook always runs `CalculateFullRebuild` (no Data Tables; cheap). For Univariate, `--skip-data-table-calculations` skips the slow Beta Data-Table rebuild; `--no-calculation` is stronger (never sets Automatic; ships Manual-mode stale cells — never ship its output). Full flag tables and the `--no-calculation` rationale: `CONTRIBUTING.md` → *Production build* / *Univariate build*.
+**Recalculate mode is unconditional.** Both production constructors always run `CalculateFullRebuild` and save in full **Automatic** — there are no skip-calculation flags. (Regression's rebuild is cheap; Univariate's is slower because it materializes the Beta `Full_Factorial` spills, but it always runs.) Full flag tables: `CONTRIBUTING.md` → *Production build* / *Univariate build*.
 
 ## Testing regime
 
@@ -107,45 +107,50 @@ Everything right of the histograms is **one zone per topic**, each followed by a
 | Zone | Columns | Width | Rows |
 |---|---|---|---|
 | 5 — Q-Q plot data | BE–BN | 10 | — |
-| 6 — Weibull fit | BP–BX | 9 | 1–31 |
-| 6 — Gamma fit | BZ–CH | 9 | 1–31 |
-| 6 — Beta fit | CJ–DD | 21 | 1–51 |
+| 6 — Weibull fit | BP–BS | 4 | 1–52 |
+| 6 — Gamma fit | BU–BX | 4 | 1–52 |
+| 6 — Beta fit | BY–CD | 6 | 1+ (N² body) |
 
-**The fit zones must stay last.** They are the only zones whose width is a tunable (`_N_GRID`, `_N_PROFILE` — and Beta's pending shrink to a ~12×12 grid will change its width by nine columns), so keeping them at the end means a resize displaces nothing. Same principle as the Regression sheet's rule that nothing may sit right of the design-matrix zone.
+**The fit zones must stay last.** They are the only zones whose width is a tunable (Beta's 6 cols reflect its two-stages-side-by-side Alpha|Beta|NLL layout; editing N resizes the body **downward**, not the band **width**, but keeping the fits at the end still means a width change displaces nothing), so keeping them at the end means a resize displaces nothing. Same principle as the Regression sheet's rule that nothing may sit right of the design-matrix zone. **Beta follows Gamma with no gutter** (per-zone `gutter_after` flag on `_BAND_ZONES`; `gamma`→False) — the one deliberate exception to the uniform-gutter rule, matching the owner's hand-laid reference.
 
 ### Univariate fit zones
 
-**One zone per distribution, with that fit's two stages stacked inside it** — not one band per stage. **The three fits use two different stage writers.**
+**One zone per distribution, with that fit's two stages side by side inside it** (S1 left, S2 right). Stacking is not viable: every body is a spill whose height follows an in-sheet `Grid Points` cell, so a stacked Stage 2's row anchor would depend on Stage 1's dynamic spill height. Side-by-side stages both start at the same body row and grow down independently, so the dynamic size just works. **Every stage of every fit has the same shape** — a `Full_Factorial` spill beside a `BYROW` NLL column that reads it through the `#` operator, so the NLL is always exactly as tall as the grid it scores. **The three fits use two stage writers**, both sharing one row skeleton per zone: control field-list rows 4–(≤12), profile-NLL chart rows 13–30, body header row 32, body rows 33+.
 
-**Beta — `_write_grid_stage`, a 2-D two-input Data Table** spanning 21 columns (1 row-axis col + 20 body cols). These two stages are the artifact's **only** Data Tables. Stage 2 sits `_GS_R_STAGE2` (26) rows below Stage 1 — a full grid block plus a gap row:
+**Beta — `_write_beta_fit`, a 2-D `Full_Factorial` grid plus a BYROW NLL column** in a 6-column (`BY:CD`) zone, two stages side by side. Each stage's body is **two** spills at row 33: a `Full_Factorial` grid spill (N²×2, `Alpha | Beta`) across the stage's first two cols — `=Full_Factorial($<Ncell>,VSTACK($<αmin>$,$<βmin>$),VSTACK($<αmax>$,$<βmax>$))` — and a `BYROW` NLL spill in the third col that reads the grid via the `#` operator: `=LET(…,z,(d-MIN(d)+pad)/scale_,BYROW($<grid>$#,LAMBDA(ab,NLL_Beta(z,INDEX(ab,1,1),INDEX(ab,1,2))+COUNT(d)*LN(scale_))))`. Two spills rather than one lets the grid stand alone as the pure Cartesian product and the NLL read it by reference. Stage 1 grid at BY33 (cols BY,BZ) + NLL at CA33; Stage 2 grid at CB33 (cols CB,CC) + NLL at CD33, refined bounds (α/β Min/Max = best±step from Stage 1). Recovery is `Grid_Argument_Minimum` over the materialized NLL column. The control block is a vertical field-list with **two value columns per stage** (α and β side by side) so the block fits in ≤9 rows and clears the chart space at row 13:
 
-| dr | Row | Contents |
-|---|---|---|
-| 0 | row 1 | stage title merged across c0:c0+20 with `_HEADER` fill |
-| 1 | row 2 | `Min NLL` (c0), `Rows/Columns` (c0+1), blank spacer (c0+2), parameter headers (c0+3:c0+8) |
-| 2 | row 3 | Min NLL and grid-count values; Alpha row: `Parameter | Input | Min | Max | Step Size | Best` |
-| 3 | row 4 | Beta row in the same six-column parameter table |
-| 4 | row 5 | corner NLL cell (c0); Alpha SEQUENCE spills right across 20 columns |
-| 5–24 | rows 6–25 | Beta SEQUENCE (c0); Data Table body (c0+1:c0+20) |
+| Row | Contents |
+|---|---|
+| 1 | stage title (unmerged) |
+| 3 | stage sub-headers (S1 / S2) |
+| 4 | Grid Points (N) — S1 literal default 10, S2 `=<S1 Ncell>`; N editable live |
+| 5–7, 9 | α / β Min, Max, Step Size (S1 wide scope; S2 = best±step) |
+| 8 | Min NLL (`=IFERROR(TAKE(Grid_Argument_Minimum(UV_BETA_S{1,2}_NLL),,1),"—")`) |
+| 10 | Min NLL value (Stage 2 anchor) |
+| 11–12 | Best α / Best β (`=IFERROR(INDEX(UV_BETA_S{1,2}_Alpha,INDEX(Grid_Argument_Minimum(UV_BETA_S{1,2}_NLL),1,2)),"—")` / `_Beta`) |
+| 32 | body headers: `Alpha` / `Beta` / `NLL` per stage |
+| 33+ | `Full_Factorial` N²×3 spill per stage |
 
-**Weibull and Gamma — `_write_profile_stage`, a 1-D profile-NLL column** in a 9-column (`_PS_W`) zone. The scale / rate parameter is profiled out in closed form (`_weibull_profile_scale`, `_gamma_profile_rate`), so a stage is 20 evaluations, not 400. **A profile stage's control block and its body are positioned independently**: the two stages' control blocks stack vertically (`_PS_R_STAGE_STRIDE` = 5 rows apart) while their two bodies sit side by side on shared rows, each under one half of the control block, reusing its offset-2 spacer (`_PS_BODY_COLS`):
+**Weibull and Gamma — `_write_profile_fit`, a 1-D `Full_Factorial` axis plus a BYROW profile-NLL column** in a 4-column (`_PS_W`) zone. The scale / rate parameter is profiled out in closed form (`_weibull_profile_scale`, `_gamma_profile_rate`), so a stage is N evaluations, not N². The axis is `=Full_Factorial($<Ncell>,$<Min>,$<Max>)` — the d=1 reduction of Beta's grid — and the NLL beside it is `=LET(x,FILTER(UV_Data,UV_Include),BYROW($<axis>$#,LAMBDA(r,LET(p,INDEX(r,1,1),IFERROR(<NLL at p, partner profiled out>,1E+15)))))`. Three details are load-bearing: `INDEX(r,1,1)` scalarizes the 1×1 row `BYROW` hands the callback; `IFERROR` sits **inside** the `LAMBDA`, so one non-evaluable trial value costs its own row instead of collapsing the column; and `x` is bound once per stage, not once per row. The control block is a vertical field-list (label col + one value col per stage); both stages' bodies sit side by side on shared rows:
 
-| dr | Row | Contents |
-|---|---|---|
-| 0 / 5 | rows 1, 6 | Stage 1 / Stage 2 title merged across c0:c0+8 with `_HEADER` fill |
-| 1 / 6 | rows 2, 7 | `Min NLL` (c0), `Grid Points` (c0+1), blank spacer (c0+2), parameter headers (c0+3:c0+8) |
-| 2 / 7 | rows 3, 8 | Min NLL and point-count values; searched row: `Parameter | Start | Min | Max | Step Size | Best` |
-| 3 / 8 | rows 4, 9 | profiled-out row — `Parameter` and `Best` only; it is solved, not searched, so it has no bounds, no step, and no boundary rule |
-| 10 | row 11 | body headers: Stage 1 axis + `Profile NLL` (c0+0/c0+1), Stage 2 axis + `Profile NLL` (c0+3/c0+4) |
-| 11–30 | rows 12–31 | both stages' searched-parameter SEQUENCE and profile NLL, side by side |
+| Row | Contents |
+|---|---|
+| 1 | stage title (unmerged) |
+| 3 | stage sub-headers (S1 wide / S2 refined) |
+| 4–9 | Grid Points, Min, Max, Start, Min NLL, Step Size — S1 vals in col1, S2 vals in col2 |
+| 10–11 | Optimal Shape (searched) / Optimal Scale (profiled-out closed form) |
+| 32 | body headers: `Shape (k)` / `Profile NLL` per stage |
+| 33+ | `Full_Factorial` axis and `BYROW` profile NLL, side by side (N rows, default 20) |
 
-Both writers **share the `_GS_R_*` row offsets within a stage**, and `_PS_C_*` mirrors `_GS_C_*` — only the meaning of offset 4 differs (Data Table substitution `Input` vs. closed-form `Start`). Each fit has its own Best column and Stage 2 row (one zone per fit), so **`_final_grid_best_refs` is per-distribution**, reading `_STAGE2_ANCHORS`. That dict is the single point of agreement between the fitting table and the search writers — the table cannot reference a block the writers did not produce.
+Both writers share the `_GS_R_*` / `_PS_R_*` row offsets. Each fit has its own Best cells and Stage 2 anchor (one zone per fit), so **`_final_grid_best_refs` is per-distribution**, reading `_STAGE2_ANCHORS`. Side-by-side stages ⇒ Stage 2's Best cells are at **fixed control rows** in the Stage 2 value col (no N² row offset), so the old `beta_grid_size**2` row-offset logic is gone. `_STAGE2_ANCHORS` is the single point of agreement between the fitting table and the search writers — the table cannot reference a block the writers did not produce.
 
-Row and column positions come from the `_BAND_ZONES` table and the `_GS_R_*` / `_GS_C_*` / `_PS_C_*` / `_PS_R_*` constants at the top of `write_sheet_univariate.py` — never hard-code them inside either stage writer. Beta's visible Alpha and Beta Input cells are its Data Table substitution cells. `Rows/Columns` is generated from `_N_GRID` (`Grid Points` from `_N_PROFILE`) and documents the physical body size; editing it does not resize the Data Table.
+Row and column positions come from the `_BAND_ZONES` table and the `_GS_R_*` / `_PS_R_*` / `_PR_C_*` constants at the top of `write_sheet_univariate.py` — never hard-code them inside either stage writer. Beta's visible Alpha and Beta Input cells are its `Full_Factorial` bound cells.
 
-A 1-D stage cannot use `Grid_Search_Optimum` — on a single-column grid its column-parameter half reads the cell above the body, which is the `Profile NLL` header, not a parameter value. Use `INDEX(<axis name>, INDEX(Grid_Argument_Minimum(<body name>),1,2))`, as `_write_profile_stage` does.
+**`Grid Points` (N) is a live cell in all three fits.** Editing it resizes that stage's grid (N² rows for Beta, N for a profile fit) and its NLL column follows through the `#` reference, and the OFFSET named ranges — `UV_BETA_S{1,2}_{Alpha,Beta,NLL}`, `UV_{WB,GAMMA}_S{1,2}` and their `_Axis` partners, `UV_Profile_*` — are all sized `MAX(IFERROR(<N cell>,1),1)` (squared for Beta) so Min NLL, the Best-parameter recovery, the boundary guard, and the charts all track the new height. Each cell carries a whole-number `Validation` and a red conditional format at the `MIN_GRID_POINTS` floor (2 — the Step cell divides by N−1); `build_common.positive_grid_size` applies the same floor to `--beta-grid-size`. Static formatting (number formats, colour scale, border box) is painted over the **default-size** window — `_PROFILE_BODY_CF_ROWS_CAP` / `_BETA_BODY_CF_ROWS_CAP` — so rows a live increase adds beyond it stay unshaded; cosmetic, and deliberate.
 
-Zone 5 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts and per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges. The two Weibull / Gamma profile-NLL charts are **not** in that band: each is anchored under its own fit zone (BP33, BZ33 — one clear row below the bodies, one zone wide), and each plots *both* stages from `UV_Profile_<dist>_<S1|S2>_<Axis|NLL>`, with `+` markers on Stage 2 so the refined region stays visible where it overlaps the wide Stage 1 curve.
+A 1-D stage cannot use `Grid_Search_Optimum` — on a single-column grid its column-parameter half reads the cell above the body, which is the `Profile NLL` header, not a parameter value. Use `INDEX(<axis name>, INDEX(Grid_Argument_Minimum(<body name>),1,2))`, as `_write_profile_fit` does. Beta uses `Grid_Argument_Minimum` over its materialized NLL column (`UV_BETA_S{1,2}_NLL`) for Min NLL / Best α / Best β recovery — safe because the NLL column is already materialized before the name reads it.
+
+Zone 5 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` column, and the per-distribution theoretical-quantile columns referencing the fit-table parameter cells. Charts occupy the band under the fitting table — histogram combo charts and per-distribution Q-Q scatter charts fed by OFFSET-based `UV_QQ_*` named ranges. The two Weibull / Gamma profile-NLL charts are anchored **above the body**, at rows 13–30, one zone wide (Weibull `BP13:BS30`, Gamma `BU13:BX30` — between the control block and the body, matching the hand-laid reference), and each plots *both* stages from `UV_Profile_<dist>_<S1|S2>_<Axis|NLL>` OFFSET names (which point at the live-N body starting at row 33), with `+` markers on Stage 2 so the refined region stays visible where it overlaps the wide Stage 1 curve. **Beta has no chart yet**: `BY13:CD30` is left blank, reserved for a potential future Beta chart.
 
 ### Regression sheet heading hierarchy
 
@@ -211,7 +216,7 @@ series.Values  = f"='{sheet.name}'!NamedRangeCounts"
 
 ```python
 # Static title (fixed label):
-chart.ChartTitle.Text = "Residuals vs Fitted"
+chart.ChartTitle.Text = "Residuals vs. Fitted"
 
 # Dynamic title (linked to a formula cell):
 chart.ChartTitle.Formula = "='Sheet'!$Q$14"

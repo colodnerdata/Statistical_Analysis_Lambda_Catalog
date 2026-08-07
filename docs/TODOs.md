@@ -81,7 +81,6 @@ the Regression track — they are also listed in their own working order.
 | [Re-examine the intercept-only closed-form bypass](#v30-leftovers) | M | v3.0 |
 | [Diagnostic-chart reference lines](#v1x--regression-sheet) | M | v1.x |
 | [Suppress worst-fit distributions from the combo charts](#v11-leftovers--univariate-sheet-writer) | M | v1.1 |
-| [Beta: method-of-moments start + ~12×12 grid](#univariate-21--the-beta-half-of-the-grid-shrink) | L | Univariate 2.1 |
 | [Relabel within-model residual outputs + Diagnostic Guide paragraph](#v21-leftovers--follow-on-polish) | S | v2.1 |
 | [Model Comparison sheet layout](#v34--model-comparison-sheet) | L | v3.4 |
 | [Time-series sheet (`write_sheet_time_series.py`)](#v36--time-role--time-series) | L | v3.6 |
@@ -144,26 +143,22 @@ Shipped 2026-06-29; see [ROADMAP.md](ROADMAP.md#v11--univariate--shipped-2026-06
 ## Univariate 2.1 — the Beta half of the grid shrink
 
 The Weibull and Gamma half shipped as Univariate 2.0.0 (#160): both fits profile
-their scale / rate parameter out in closed form and search a 20-point profile-NLL
-column per stage, and the rebuilt artifact is committed —
-`TestShippedUnivariateLayout` passes against it. Beta was deliberately out of
-that scope and still runs the artifact's only two Data Tables at 20×20, so the
-total is ~880 evaluations rather than the ~370 the shrink was costed at.
+their scale / rate parameter out in closed form and search a profile-NLL column
+per stage, and the rebuilt artifact is committed —
+`TestShippedUnivariateLayout` passes against it.
 
-- **READY · L · needs Excel** — **Give Beta a method-of-moments start and a
-  ~12×12 grid.** On the rescaled data with mean m and variance v:
-  α₀ = m·(m(1−m)/v − 1), β₀ = (1−m)·α₀/m. Bracket both axes around that start
-  the way `_write_profile_stage` brackets its 1-D start (`_PROFILE_BRACKET`),
-  then drop `_N_GRID` from 20 to ~12. Beta stays two-dimensional — both of its
-  conditional MLEs involve digamma, so neither parameter profiles out — and
-  keeps `_write_grid_stage`, its two Data Tables, its heatmap, and both boundary
-  rules. Breakage class: **MAJOR for the Univariate workbook version** if the
-  Alpha/Beta Min/Max cells stop being plain typed inputs, the same call made for
-  the Weibull/Gamma bounds at 2.0.0. See
+- **SUPERSEDED — overcome by events.** The planned Beta method-of-moments start
+  and ~12×12 body shrink were never implemented. They were a Data-Table-era cost
+  optimization — a fixed smaller grid to cut the expensive Data-Table recalc —
+  and that driver is gone: the PR #203 rework moved Beta onto a live
+  `Full_Factorial` spill (the Cartesian product of candidate parameters) with an
+  editable `Grid Points` (N) cell, so the grid size is a live user control, not a
+  build-time constant to shrink. The estimator (α₀, β₀ from the rescaled mean and
+  variance) and the 1-D-half design notes are kept in
   [DECISIONS.md § the grid shrink](DECISIONS.md#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)
-  for the estimator and
-  [DECISIONS.md § Univariate 2.0.0](DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half)
-  for how the 1-D half resolved the equivalent questions.
+  and
+  [DECISIONS.md § Univariate 2.0.0](DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half);
+  revisit them there if a Beta starting-value heuristic is ever wanted again.
 
 ## v2.0 leftovers
 

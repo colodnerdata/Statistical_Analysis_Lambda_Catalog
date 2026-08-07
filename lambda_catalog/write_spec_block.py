@@ -1122,7 +1122,7 @@ def _spec_band(sname: str, col: int) -> str:
 
     ``TAKE`` (not ``OFFSET``) for the same reason ``Source_Data`` and
     ``Header_Names`` use it: it is non-volatile, so the band is not
-    re-evaluated on every Data Table substitution pass.
+    re-evaluated on every recalculation pass.
 
     ``MAX(1,...)`` keeps the name resolvable while ``Source_Table`` is
     momentarily broken — mid-retarget, a zero-row TAKE would be an error
@@ -1175,7 +1175,7 @@ def _set_sheet_scoped_names(
         # body and header row derive from it, so a dataset changeover is a
         # ONE-name edit. DROP/TAKE (not OFFSET) keep the derivations
         # non-volatile — a volatile Header_Names would be re-evaluated on
-        # every Data Table substitution pass during workbook calculation.
+        # every recalculation pass during workbook calculation.
         "Source_Table": source_table_ref,
         "Source_Data": "=DROP(Source_Table,1)",
         "Header_Names": "=TAKE(Source_Table,1)",

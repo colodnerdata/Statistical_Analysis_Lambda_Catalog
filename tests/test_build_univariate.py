@@ -3,9 +3,9 @@
 These tests do not require Excel. They mirror tests/test_build_production.py's
 stub-the-writers / capture-the-shell-out pattern: the writers and the Excel
 open are stubbed via monkeypatch, and the tests assert the Univariate
-artifact's sheet set, default output path, calculation mode, the
---skip-data-table-calculations gate on the rebuild, and that --verify
-forwards skip_regression=True to the spec-driven verifier.
+artifact's sheet set, default output path, calculation mode, that main()
+always runs the recalc rebuild, and that --verify forwards skip_regression=True
+to the spec-driven verifier.
 """
 
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
@@ -250,9 +250,10 @@ def test_build_passes_univariate_artifact_to_version_history(
 
 
 def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
-    """The Univariate workbook ships in full Automatic so the Beta
-    Full_Factorial grid and the Weibull/Gamma profile-NLL columns recalculate
-    on edit (the whole point of the split)."""
+    """The write phase saves in Manual to avoid triggering the expensive
+    Beta Full_Factorial spill during sheet-writing.  The final Automatic mode
+    is deferred to _recalculate_and_save (phase 2); with recalculate=False the
+    last value recorded by the write-phase app is XL_CALCULATION_MANUAL."""
     app = _FakeApp()
     monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
 
@@ -266,64 +267,7 @@ def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
         recalculate=False,
     )
 
-    assert app.api.calculation_values[-1] == XL_CALCULATION_AUTOMATIC
-
-
-def test_no_calculation_never_leaves_manual_mode(monkeypatch, tmp_path) -> None:
-    """calculate=False must never set Automatic.
-
-    Setting Automatic on the open workbook is itself a full calculation — the
-    Beta Full_Factorial grid included — so it is the step that has to not
-    happen, not just the final rebuild. --skip-data-table-calculations does not
-    cover it.
-    """
-    app = _FakeApp()
-    monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
-
-    writer_calls: list[str] = []
-    _stub_writers(monkeypatch, writer_calls)
-
-    build_univariate.build_univariate_workbook(
-        workbook_path=tmp_path / "Example.xlsx",
-        definitions_path=tmp_path / "lambda_functions.json",
-        csv_path=tmp_path / "life_expectancy.csv",
-        recalculate=False,
-        calculate=False,
-    )
-
-    assert XL_CALCULATION_AUTOMATIC not in app.api.calculation_values
-    assert app.api.calculation_values == [XL_CALCULATION_MANUAL]
-    # The sheets are still written — the point is inspecting them uncalculated.
-    assert "write_univariate_sheet" in writer_calls
-    assert app.book.saved_paths == [str(tmp_path / "Example.xlsx")]
-
-
-def test_no_calculation_suppresses_calculate_before_save_then_restores_it(
-    monkeypatch, tmp_path
-) -> None:
-    """Manual mode alone still calculates on save; the setting must go off.
-
-    And it must come back on: Application.CalculateBeforeSave is Excel-wide, so
-    leaving it off would silently change every later session on that machine.
-    """
-    app = _FakeApp()
-    monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
-    _stub_writers(monkeypatch, [])
-
-    build_univariate.build_univariate_workbook(
-        workbook_path=tmp_path / "Example.xlsx",
-        definitions_path=tmp_path / "lambda_functions.json",
-        csv_path=tmp_path / "life_expectancy.csv",
-        recalculate=False,
-        calculate=False,
-    )
-
-    assert app.api.calculate_before_save_values == [False, True]
-    assert app.api.CalculateBeforeSave is True
-
-    # The save happens while it is still suppressed, not after the restore.
-    save_index = app.events.index(("calculate_before_save", True))
-    assert ("calculate_before_save", False) in app.events[:save_index]
+    assert app.api.calculation_values[-1] == XL_CALCULATION_MANUAL
 
 
 def test_default_build_leaves_calculate_before_save_alone(
@@ -342,127 +286,6 @@ def test_default_build_leaves_calculate_before_save_alone(
     )
 
     assert app.api.calculate_before_save_values == []
-
-
-def test_no_calculation_skips_the_rebuild_even_when_recalculate_is_true(
-    monkeypatch, tmp_path
-) -> None:
-    """calculate=False wins over recalculate=True — nothing calculates."""
-    app = _FakeApp()
-    monkeypatch.setattr(build_univariate.xw, "App", lambda **_: app)
-    _stub_writers(monkeypatch, [])
-
-    recalc_calls: list[Path] = []
-    monkeypatch.setattr(
-        build_univariate,
-        "_recalculate_and_save",
-        lambda path: recalc_calls.append(path),
-    )
-
-    build_univariate.build_univariate_workbook(
-        workbook_path=tmp_path / "Example.xlsx",
-        definitions_path=tmp_path / "lambda_functions.json",
-        csv_path=tmp_path / "life_expectancy.csv",
-        recalculate=True,
-        calculate=False,
-    )
-
-    assert recalc_calls == []
-
-
-def test_main_no_calculation_skips_rebuild_and_warns(
-    monkeypatch, capsys, tmp_path
-) -> None:
-    """--no-calculation skips phase 2 and says the artifact is not shippable."""
-    recalc_calls: list[Path] = []
-    build_kwargs: dict = {}
-
-    monkeypatch.setattr(
-        build_univariate,
-        "parse_args",
-        lambda: SimpleNamespace(
-            workbook=Path("Example.xlsx"),
-            definitions=Path("lambda_functions.json"),
-            csv=Path("life_expectancy.csv"),
-            validate_reopen=False,
-            verbose=False,
-            skip_data_table_calculations=False,
-            no_calculation=True,
-            verify=False,
-            no_launch=True,
-            beta_grid_size=10,
-            log=tmp_path / "build.log",
-        ),
-    )
-
-    def capture_build(**kwargs):
-        build_kwargs.update(kwargs)
-        return NameSyncResult(created=0, updated=0)
-
-    monkeypatch.setattr(build_univariate, "build_univariate_workbook", capture_build)
-    monkeypatch.setattr(
-        build_univariate,
-        "_recalculate_and_save",
-        lambda path: recalc_calls.append(path),
-    )
-    monkeypatch.setattr(build_univariate.subprocess, "Popen", lambda args: None)
-
-    build_univariate.main()
-
-    assert build_kwargs["calculate"] is False
-    # Skipped despite --skip-data-table-calculations being off.
-    assert recalc_calls == []
-    out = capsys.readouterr().out
-    assert "--no-calculation" in out
-    assert "do not ship it" in out
-
-
-def test_main_warns_when_verify_is_combined_with_no_calculation(
-    monkeypatch, capsys, tmp_path
-) -> None:
-    """Verifying a workbook that was never calculated compares nothing useful."""
-    monkeypatch.setattr(
-        build_univariate,
-        "parse_args",
-        lambda: SimpleNamespace(
-            workbook=Path("Example.xlsx"),
-            definitions=Path("lambda_functions.json"),
-            csv=Path("life_expectancy.csv"),
-            validate_reopen=False,
-            verbose=False,
-            skip_data_table_calculations=True,
-            no_calculation=True,
-            verify=True,
-            no_launch=True,
-            beta_grid_size=10,
-            log=tmp_path / "build.log",
-        ),
-    )
-    monkeypatch.setattr(
-        build_univariate,
-        "build_univariate_workbook",
-        lambda **_: NameSyncResult(created=0, updated=0),
-    )
-    monkeypatch.setattr(
-        build_univariate, "_recalculate_and_save", lambda *_a, **_k: None
-    )
-    monkeypatch.setattr(
-        build_univariate,
-        "_run_deep_verify",
-        lambda *_a, **_k: VerifyReport(
-            passed=True,
-            categories={},
-            failures=(),
-            elapsed_seconds=0.0,
-            mode="spec",
-            workbook="Example.xlsx",
-        ),
-    )
-    monkeypatch.setattr(build_univariate.subprocess, "Popen", lambda args: None)
-
-    build_univariate.main()
-
-    assert "spurious mismatches" in capsys.readouterr().err
 
 
 def test_build_drops_stray_regression_sheets_from_reused_file(
@@ -574,56 +397,10 @@ def test_reorder_puts_univariate_front_and_lambda_last(monkeypatch) -> None:
     }
 
 
-def test_main_recalculate_skipped_when_skip_data_table_calculations(
-    monkeypatch, capsys, tmp_path
-) -> None:
-    """--skip-data-table-calculations skips the (slow, Full_Factorial grid +
-    profile-NLL) recalc rebuild for the Univariate artifact — this is the
-    flag's now-primary purpose."""
-    recalc_calls: list[Path] = []
-
-    monkeypatch.setattr(
-        build_univariate,
-        "parse_args",
-        lambda: SimpleNamespace(
-            workbook=Path("Example.xlsx"),
-            definitions=Path("lambda_functions.json"),
-            csv=Path("life_expectancy.csv"),
-            validate_reopen=False,
-            verbose=True,
-            skip_data_table_calculations=True,
-            no_calculation=False,
-            verify=False,
-            no_launch=True,
-            beta_grid_size=10,
-            log=tmp_path / "build.log",
-        ),
-    )
-    monkeypatch.setattr(
-        build_univariate,
-        "build_univariate_workbook",
-        lambda **_: NameSyncResult(created=1, updated=2),
-    )
-    monkeypatch.setattr(
-        build_univariate,
-        "_recalculate_and_save",
-        lambda path: recalc_calls.append(path),
-    )
-    monkeypatch.setattr(build_univariate.subprocess, "Popen", lambda args: None)
-
-    build_univariate.main()
-
-    assert recalc_calls == []
-    assert (
-        "Recalculate:    skipped (--skip-data-table-calculations)"
-        in capsys.readouterr().out
-    )
-
-
 def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
-    """Without --skip-data-table-calculations, main() runs the rebuild so the
-    shipped artifact's Beta Full_Factorial grid and profile-NLL columns are
-    computed (not stale pending Ctrl+Alt+F9)."""
+    """main() always runs the rebuild so the shipped artifact's Beta
+    Full_Factorial spill and profile-NLL columns are computed (not stale
+    pending Ctrl+Alt+F9)."""
     recalc_calls: list[Path] = []
 
     monkeypatch.setattr(
@@ -635,8 +412,6 @@ def test_main_recalculate_runs_by_default(monkeypatch, tmp_path) -> None:
             csv=Path("life_expectancy.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=False,
-            no_calculation=False,
             verify=False,
             no_launch=True,
             beta_grid_size=10,
@@ -726,8 +501,6 @@ def test_main_verify_forwards_skip_regression_true(monkeypatch, tmp_path) -> Non
             csv=Path("life_expectancy.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
-            no_calculation=False,
             verify=True,
             no_launch=True,
             beta_grid_size=10,
@@ -780,8 +553,6 @@ def test_main_archives_the_verify_report_to_the_run_log(monkeypatch, tmp_path) -
             csv=Path("life_expectancy.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=False,
-            no_calculation=False,
             verify=True,
             no_launch=True,
             beta_grid_size=10,
@@ -808,56 +579,6 @@ def test_main_archives_the_verify_report_to_the_run_log(monkeypatch, tmp_path) -
     assert "Univariate/fits=1" in archived
     assert "[Univariate/fits] Weibull shape expected=2.0 excel_calc=2.5" in archived
     assert "Traceback" not in archived
-
-
-def test_main_archives_the_no_calculation_verify_warning(monkeypatch, tmp_path) -> None:
-    """The --no-calculation + --verify warning goes to stderr; it must be archived.
-
-    stderr is exactly what a terminal-only transcript loses first, and this
-    warning is what explains a wall of spurious fit mismatches further down
-    the same file.
-    """
-    log_path = tmp_path / "build_univariate verify no calculation.log"
-
-    monkeypatch.setattr(
-        build_univariate,
-        "parse_args",
-        lambda: SimpleNamespace(
-            workbook=Path("Example.xlsx"),
-            definitions=Path("lambda_functions.json"),
-            csv=Path("life_expectancy.csv"),
-            validate_reopen=False,
-            verbose=False,
-            skip_data_table_calculations=False,
-            no_calculation=True,
-            verify=True,
-            no_launch=True,
-            beta_grid_size=10,
-            log=log_path,
-        ),
-    )
-    monkeypatch.setattr(
-        build_univariate,
-        "build_univariate_workbook",
-        lambda **_: NameSyncResult(created=0, updated=0),
-    )
-    monkeypatch.setattr(
-        build_univariate,
-        "_run_deep_verify",
-        lambda workbook_path, csv_path, *, verbose=False: VerifyReport(
-            passed=True,
-            categories={},
-            failures=(),
-            elapsed_seconds=0.0,
-            mode="spec",
-            workbook=str(workbook_path),
-        ),
-    )
-
-    build_univariate.main()
-
-    archived = log_path.read_text(encoding="utf-8")
-    assert "--verify with --no-calculation" in archived
 
 
 def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
@@ -889,8 +610,6 @@ def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
             csv=Path("life_expectancy.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
-            no_calculation=False,
             verify=False,
             no_launch=True,
             beta_grid_size=10,
@@ -942,19 +661,10 @@ def test_positive_grid_size_rejects_non_integers(value: str) -> None:
         positive_grid_size(value)
 
 
-def test_beta_grid_size_flag_is_validated_on_both_build_scripts(monkeypatch) -> None:
-    """Both CLIs route --beta-grid-size through positive_grid_size.
-
-    build_beta_only.py is the performance-experiment script — the one most
-    likely to be handed an ad-hoc grid size — so it needs the guard as much as
-    the production build does.
-    """
-    build_beta_only = load_script_module("build_beta_only")
-
-    for module, argv in (
-        (build_univariate, ["build_univariate.py", "--beta-grid-size", "1"]),
-        (build_beta_only, ["build_beta_only.py", "--beta-grid-size", "0"]),
-    ):
-        monkeypatch.setattr(sys, "argv", argv)
-        with pytest.raises(SystemExit):
-            module.parse_args()
+def test_beta_grid_size_flag_is_validated(monkeypatch) -> None:
+    """The CLI routes --beta-grid-size through positive_grid_size."""
+    monkeypatch.setattr(
+        sys, "argv", ["build_univariate.py", "--beta-grid-size", "1"]
+    )
+    with pytest.raises(SystemExit):
+        build_univariate.parse_args()

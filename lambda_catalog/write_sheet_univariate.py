@@ -1535,7 +1535,7 @@ def _write_profile_fit(
     Control is a vertical field-list (rows 4–11); the profile-NLL chart occupies
     rows 13–30; the body starts at row 33 and runs N rows, where N is the
     stage's live Grid Points cell (default ``_N_PROFILE``).  Each stage is two
-    spills: an ``Full_Factorial(N, Min, Max)`` axis — the d=1 reduction of the
+    spills: a ``Full_Factorial(N, Min, Max)`` axis — the d=1 reduction of the
     same grid Beta uses — and a ``BYROW`` profile-NLL column that reads that
     axis through the ``#`` operator, so the two heights always agree.  Step
     (=(Max-Min)/(N-1)) documents the spacing and brackets Stage 2's Min/Max
@@ -1652,8 +1652,11 @@ def _write_profile_fit(
     # Each stage's axis is Full_Factorial(N, Min, Max) — N evenly-spaced points
     # from Min to Max.  This is the d=1 reduction of the same grid Beta uses:
     # The axis reads Min, Max and N directly; Step (below) documents the spacing
-    # (=(Max-Min)/(N-1)) and brackets Stage 2.  Full_Factorial's MAX(1,N-1)
-    # divisor makes the N=1 case a single point at Min, matching SEQUENCE.
+    # (=(Max-Min)/(N-1)) and brackets Stage 2.  N is guarded to >= 2 at every
+    # surface that can set it (_MIN_GRID_POINTS — the argparse type, the cell's
+    # Validation, and its conditional format), because that Step expression
+    # divides by N-1; Full_Factorial's own MAX(1,N-1) divisor would tolerate
+    # N=1, but the Step cell beside it would not.
     f(sheet, body_row, c0 + _PR_C_LABEL,
       f"=Full_Factorial({s1_n_ref},{s1_min_ref},{s1_max_ref})")
     f(sheet, body_row, c0 + _PR_C_S2,

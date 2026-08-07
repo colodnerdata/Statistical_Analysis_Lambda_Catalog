@@ -54,8 +54,12 @@ from lambda_catalog.workbook_helpers import (
 )
 from lambda_catalog.write_spec_block import (
     _C_DESIGN_COLUMNS,
-    _C_REFERENCE,
     _C_ROLE,
+    _C_SEQUENCE,
+    _C_TRANSFORM,
+)
+from lambda_catalog.write_spec_block import (
+    _FEEDBACK_STATUS_ROW as _ROW_STATUS,
 )
 from lambda_catalog.write_spec_block import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
@@ -67,17 +71,10 @@ _D = 3
 TOLERANCE_DECIMALS = _D * 2  # 6
 
 # Where the guard-state facts live, all imported rather than spelled out.
-# The Fixed Effects cardinality error sits at B1 (_C_ROLE × row 1); the
-# Sequence multi-flag status sits at E1 (_C_REFERENCE × row 1). Both
-# occupy otherwise-blank model-level cells in the row-1 zone above the
-# spec-table area (which begins on row 3). The Sequence status used to
-# live at H2, but H2 became the spec-table's "Sequence" header cell when
-# the spec data area became a structured table, and a status line on top
-# of a header reads as a visual collision — so it moved to E1, which is
-# Reference Level's row-1 cell (Reference Level is a per-row input, blank
-# on row 1 by default). See write_spec_block.py:_write_spec_feedback.
-_ROW_STATUS = 1
-_ROW_SEQUENCE_STATUS = 1  # E1 — see write_spec_block
+# Every status line sits on _ROW_STATUS in the spec column it is about: Role
+# cardinality above Role (B2), the Log domain above Transform (G2), Sequence
+# cardinality above Sequence (H2). See write_spec_block.py's
+# _FEEDBACK_LABEL_ROW comment for the grammar.
 
 
 def _as_text(value: object) -> str:
@@ -158,12 +155,17 @@ def verify_guard_sheet(sheet: xw.Sheet, expected: GuardStateExpected) -> list[st
     _check(
         "sequence_status",
         _as_text(expected.sequence_status),
-        _as_text(sheet.range(_ROW_SEQUENCE_STATUS, _C_REFERENCE).value),
+        _as_text(sheet.range(_ROW_STATUS, _C_SEQUENCE).value),
     )
     _check(
-        "fixed_effects_status",
-        _as_text(expected.fixed_effects_status),
+        "role_status",
+        _as_text(expected.role_status),
         _as_text(sheet.range(_ROW_STATUS, _C_ROLE).value),
+    )
+    _check(
+        "log_domain_status",
+        _as_text(expected.log_domain_status),
+        _as_text(sheet.range(_ROW_STATUS, _C_TRANSFORM).value),
     )
 
     # Column O, one cell per spec row. A non-Predictor row shows "" and a

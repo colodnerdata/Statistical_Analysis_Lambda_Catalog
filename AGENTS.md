@@ -49,6 +49,36 @@ they cannot disagree about how far the block can grow.
 
 **The ladder-order rule** (track-then-growth-rate, v3.10/v3.11 ship last as a block, ladder follows the MODEL_TESTING_ASSETS § 2 table): `docs/ROADMAP.md` § *Ladder order* and `CONTRIBUTING.md` → *The regime, in four rules*.
 
+## The Transform column has two Log tokens
+
+`None` · `Log` · `Log (drop ≤ 0)`, from `_TRANSFORM_LOG` / `_TRANSFORM_LOG_DROP`
+in `write_spec_block.py`. **Both build the identical `Ln(x)` column and both
+report `"Log"` to `Constructed_Column_Transforms()`** — the unit-space / Duan
+dispatcher sees one transform, not two, which is why a second token cost the
+test suite two cases instead of a multiplier. They differ in exactly one thing:
+what happens to a row whose value is zero or negative.
+
+* **`Log`** leaves the row in the sample. `Ln_Positive` returns `#N/A` and it
+  propagates through every statistic — the fit is dead, not degraded. The
+  Transform cell goes red and `G2` names the variable, the count and the fix.
+* **`Log (drop ≤ 0)`** is the only thing that adds the positivity term to
+  `Sample_Include`. `G2` reports the excluded-row count in amber.
+
+Filtering never happens because the workbook decided to — narrowing the sample
+changes the model, so it is a declaration in the spec. Don't "fix" `Log` by
+making it filter.
+
+**Every Excel-side test of "is this a Log row?" goes through `_is_log(expr)`,
+and its Python mirror is `_logs(transform)` in `analyze_regression_spec.py`.**
+Never compare a Transform cell against one token. `Sample_Include` is the sole
+deliberate exception — it tests `= "Log (drop ≤ 0)"` alone, because plain `Log`
+not filtering is the whole distinction.
+
+The token also lives literally inside `lambda_functions.json`, which no import
+can reach; `test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform`
+pins the two spellings together across all six readers so a rename cannot
+half-land.
+
 ## Cell styling
 
 All cell colors are defined once in `lambda_catalog/sheet_styles.py` and imported by every sheet writer. Never hard-code RGB tuples in a sheet writer.
@@ -154,7 +184,9 @@ Zone 5 (Q-Q plot data) holds Hazen plotting positions `P`, the sorted `Sample` c
 
 ### Regression sheet heading hierarchy
 
-Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY", "REGRESSION OUTPUTS", "PREDICTION OUTPUTS", "RESIDUAL OUTPUT"). Lower section headings appear at the relevant data rows within each zone. The MODEL SPECIFICATION zone (A–O) is the shared spec block imported from `write_spec_block.py` (headers row 3, spec rows from `_FIRST_DATA_ROW` to `_LAST_DATA_ROW` — currently rows 4–15, sized to `len(_VARIABLES)` — Intercept control A2/C2, Sequence status line H2; H = Sequence structural flag, I = Sequence Period (typed override input), J = Period In Use (candidate-with-override display), K/L = Levels / Reference In Use displays, M/N = the reserved Interaction Term / Interaction Operation pair, O = the Design Columns audit with its Σ total at O1 and the width-guard status at M2); every other zone keeps headers on row 2 with spills from row 3. Every `_C_*` column constant in `write_sheet_regression.py` matches its actual column letter (`_C_N` is column N).
+Row 1 holds the top-level zone labels ("MODEL SPECIFICATION", "PREDICTOR SUMMARY", "REGRESSION OUTPUTS", "PREDICTION OUTPUTS", "RESIDUAL OUTPUT"). Lower section headings appear at the relevant data rows within each zone. The MODEL SPECIFICATION zone (A–O) is the shared spec block imported from `write_spec_block.py` (headers row 3, spec rows from `_FIRST_DATA_ROW` to `_LAST_DATA_ROW` — currently rows 4–15, sized to `len(_VARIABLES)`; H = Sequence structural flag, I = Sequence Period (typed override input), J = Period In Use (candidate-with-override display), K/L = Levels / Reference In Use displays, M/N = the reserved Interaction Term / Interaction Operation pair, O = the Design Columns audit with its Σ total at O1); every other zone keeps headers on row 2 with spills from row 3. Every `_C_*` column constant in `write_sheet_regression.py` matches its actual column letter (`_C_N` is column N).
+
+**Rows 1–2 above the spec block have one grammar: row 1 is labels, row 2 is the control, value or status — and every status sits in the spec column it is about.** Role cardinality at B2, the Log domain at G2, Sequence cardinality at H2, the spacing verdict at I2, the design-matrix width guard at O2 (under its own Σ total, not at M2 above Interaction Term). Status cells carry no row-1 label: they are blank whenever the spec is legal, and the message names its own subject when it appears. Only readouts are labelled — Intercept (C1/C2), the FE trio (J1:L2), Σ Design Columns (N1/O1), Δ/Count (P3/Q3 with the spectrum spilling from P4, aligned with the spec block's own header and data rows). Because each status owns a column it has almost no overflow runway, so every one of them is `WrapText` with a short imperative message and a hover Note carrying the full guidance; row 2 stays on automatic height, so it is one line while the spec is legal and grows when a message fires. Readouts whose feature is not in play are hidden white-on-white with their labels (`_hide_when`) rather than printing `"n/a"`. Add a new status by putting it on row 2 of its own column — never by parking it in whichever cell happens to be free, which is what the old E1/B1/M2 scatter was.
 
 **Never spell an A1 address into a formula string.** Conditional-formatting expressions, chart titles, and OFFSET-based named ranges all need addresses as literal text, and hand-written letters are what turn a column insertion into a silent-wrong-answer bug — the formula still parses, it just reads a different cell. Build every one of them from the `_C_*` constants via the `_abs_ref(row, col)` / `_band(col)` helpers and the `_A_*` anchors (`_A_ALPHA`, `_A_OBSERVATIONS`, `_A_MEAN_LEVERAGE`, …) at the top of `write_sheet_regression.py`. The same rule applies to anything reading the sheet: `tools/inspect_regression_sheet.py` and `lambda_catalog/analyze_regression_spec_block.py` IMPORT the column constants rather than keeping a parallel copy.
 
@@ -264,7 +296,7 @@ See `_add_identity_line` in `write_sheet_regression.py`.
 
 ### Selective data labels — an `NA()`-masked overlay series, not per-point COM loops
 
-To label only the points that meet some value-based criterion (e.g., Cook's Distance points above the standard `4/n` or `0.9` influence cutoffs), add a helper column that returns the real value for qualifying rows and `NA()` for everything else, expose it as its own `RegChart`-prefixed named range, and add it to the chart as an extra series with `HasDataLabels = True`. Excel skips `NA()` points for both plotting and labeling, so only the flagged points render a label — no per-point `Points(i).HasDataLabel` loop, and no reading calculated values back into Python during the sheet-writing phase (which runs under `XL_CALCULATION_MANUAL` and would see stale or unfit values; see "Sheet writer conventions" below).
+To label only the points that meet some value-based criterion (e.g., Cook's Distance points above the `F.INV(0.5, p, n-p)` influence cutoff — see `_COOKS_CUTOFF`), add a helper column that returns the real value for qualifying rows and `NA()` for everything else, expose it as its own `RegChart`-prefixed named range, and add it to the chart as an extra series with `HasDataLabels = True`. Excel skips `NA()` points for both plotting and labeling, so only the flagged points render a label — no per-point `Points(i).HasDataLabel` loop, and no reading calculated values back into Python during the sheet-writing phase (which runs under `XL_CALCULATION_MANUAL` and would see stale or unfit values; see "Sheet writer conventions" below).
 
 On a **column-chart** target, do not give the overlay series the chart's own `xlColumnClustered` type — a second column series joins the cluster group and narrows/shifts the real bars, misaligning any label from the bar it annotates. Instead set the overlay series' own `ChartType = xlLine` (constant `4`) with `Format.Line.Visible = False` and `MarkerStyle = xlMarkerStyleNone (-4142)`: a Line-type series shares the same category axis as a Column series without joining its cluster, so it overlays exactly in place. Setting a per-series `ChartType` that differs from the chart's own is how Excel builds a **combo chart** — expect the chart to become one.
 

@@ -163,7 +163,7 @@ def test_two_sequence_flags_errors_and_reddens_every_flagged_cell() -> None:
     expected = _expected("guard_two_sequence_flags")
 
     assert expected.sequence_flag_count == 2
-    assert expected.sequence_status.startswith("ERROR: multiple Sequence flags")
+    assert expected.sequence_status.startswith("ERROR: multiple Sequence rows")
     flagged_rows = sorted(f.row for f in expected.flags if f.column == "H")
     assert len(flagged_rows) == 2
     assert all(f.severity == SEVERITY_RED for f in expected.flags)
@@ -210,9 +210,10 @@ def test_two_fixed_effects_rows_raise_the_cardinality_error() -> None:
     expected = _expected("guard_two_fixed_effects")
 
     assert expected.fixed_effects_count == 2
-    assert expected.fixed_effects_status.startswith(
-        "ERROR: multiple Fixed Effects rows"
-    )
+    # The Role column owns one status cell (B2), which picks between the
+    # Response-cardinality and Fixed-Effects-cardinality errors by severity.
+    # This spec has a legal Response, so the FE error is what surfaces.
+    assert expected.role_status.startswith("ERROR: multiple Fixed Effects rows")
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
@@ -220,7 +221,7 @@ def test_fixed_effects_with_intercept_flags_the_toggle() -> None:
     expected = _expected("guard_fixed_effects_with_intercept")
 
     assert ("C", SEVERITY_RED, "intercept_with_fixed_effects") in _flag_rules(expected)
-    assert expected.fixed_effects_status == ""
+    assert expected.role_status == ""
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
@@ -287,9 +288,14 @@ def test_unknown_interaction_operation_renders_the_refusal_marker() -> None:
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
 def test_ln_zero_guard_does_not_narrow_the_sample() -> None:
-    """The recorded expectation, which contradicts the plan's prose: the mask
-    has no Log-positivity term, so Schooling's 28 zero rows stay in and the
-    #N/A propagates instead of the rows dropping out. See
+    """Strict ``Log`` does not filter, and now says so.
+
+    The mask has no Log-positivity term for this token, so Schooling's 28 zero
+    rows stay in and the #N/A propagates instead of the rows dropping out —
+    unchanged, and it is the half of the pair that must stay this way. What is
+    new is that the sheet no longer leaves the user to discover it from a wall
+    of #N/A: the Transform cell goes red and G2 names the column, the count and
+    the token that would exclude them. L11 is the other half. See
     analyze_regression_guard_states._LN_ZERO_GUARD_NOTE."""
     from lambda_catalog.analyze_life_expectancy import (
         load_life_expectancy_source_rows,
@@ -318,6 +324,16 @@ def test_ln_zero_guard_does_not_narrow_the_sample() -> None:
     # The zero rows are INSIDE the sample, not excluded from it.
     assert expected.included_rows == unmasked
     assert "Ln(Schooling)" in expected.model_formula
+
+    # Red on the Transform cell, pointing at the row the user has to change.
+    assert ("G", SEVERITY_RED, "log_nonpositive_rows") in _flag_rules(expected)
+    # G2 names the variable, the count of offending rows IN THE SAMPLE (26 of
+    # the 28 zeros — two are already out on the response or Adult Mortality),
+    # and the token that would exclude them.
+    assert expected.log_domain_status == (
+        "ERROR: Schooling has 26 values ≤ 0 under Log — "
+        "the fit is #N/A. Use Log (drop ≤ 0)."
+    )
 
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")

@@ -67,7 +67,6 @@ from lambda_catalog.write_sheet_regression import (
     _C_SAMPLE_INCLUDE_MATERIALIZED,
     _C_SPEC_DESIGN_COLUMNS,
     _C_SPEC_INTERACTION_OPERATION,
-    _C_SPEC_INTERACTION_TERM,
     _C_SPEC_SEQUENCE_PERIOD,
     _C_X,
     _C_Y,
@@ -282,7 +281,7 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
         "RegChartStudResid": "Studentized Residuals vs. Leverage chart: Y values",
         "RegChartPRESSResid": "PRESS Residuals chart: bar values",
         "RegChartCookDistFlag": (
-            "Cook's Distance chart: flagged-point overlay for data labels (D > 4/n or D > 0.9)"
+            "Cook's Distance chart: flagged-point overlay for data labels (D > F(0.5, p, n-p))"
         ),
         "RegChartObsLabel": (
             "Cook's Distance chart: observation identifier for flagged-point data labels"
@@ -310,7 +309,10 @@ def test_chart_label_cells_reference_live_statistics_and_stay_ordered() -> None:
 
     cooks_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Cook's Distance")
     cooks_title = sheet.ranges[((cooks_row, _C_CHART_TITLE),)].state.formula2
-    assert "MIN(4/$AB$8,0.9)" in cooks_title
+    # The cutoff is the median of the reference F distribution, with p taken
+    # from the Sigma Design Columns total (intercept included) — matching the
+    # p that Cooks_Distance itself divides by — and n-p from the ANOVA.
+    assert "F.INV(0.5,$O$1,$AB$16)" in cooks_title
 
     qq_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Normal Q-Q")
     qq_title = sheet.ranges[((qq_row, _C_CHART_TITLE),)].state.formula2
@@ -661,7 +663,9 @@ def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:
     )
     assert sheet.cell(1, _C_SPEC_INTERACTION_OPERATION).value == "Σ Design Columns"
 
-    status = _formula(sheet, 2, _C_SPEC_INTERACTION_TERM)
+    # The status sits under the total it is a verdict on, in the Design
+    # Columns column — not two columns away above Interaction Term.
+    status = _formula(sheet, 2, _C_SPEC_DESIGN_COLUMNS)
     assert "Design_Columns()" not in status
     assert "$O$1" in status                      # reads the audit total
     assert "n,ROWS(Source_Data)" in status       # cell count needs n as well
@@ -676,11 +680,11 @@ def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:
 
     # Red outranks yellow via StopIfTrue, and both the status line and the
     # total carry the flag — the total is the number a user actually reads.
-    for cell in ("$M$2", "$O$1"):
+    for cell in ("$O$2", "$O$1"):
         rules = sheet.range(cell).api.FormatConditions.items
         assert [c.Formula1 for c in rules] == [
-            '=ISNUMBER(SEARCH("ERROR",$M$2))',
-            '=ISNUMBER(SEARCH("WARNING",$M$2))',
+            '=ISNUMBER(SEARCH("ERROR",$O$2))',
+            '=ISNUMBER(SEARCH("WARNING",$O$2))',
         ], cell
         assert rules[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
         assert rules[0].StopIfTrue is True
@@ -753,8 +757,12 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
     assert readout.startswith("=LET(n_c,COLUMNS(Source_Data),")
     assert 'XMATCH("Response (y)"' in readout
     # v2.2 Log wiring: relabelled Ln(name) when the Response row's
-    # Transform is Log, so the readout never lies about what's fitted.
-    assert 'IF(INDEX(TAKE(Spec_Transform,n_c),p)="Log","Ln("&h&")",h)' in readout
+    # Transform is either Log token, so the readout never lies about what's
+    # fitted. Both tokens build the same Ln() column.
+    assert (
+        'IF(OR(INDEX(TAKE(Spec_Transform,n_c),p)="Log",'
+        'INDEX(TAKE(Spec_Transform,n_c),p)="Log (drop ≤ 0)"),"Ln("&h&")",h)'
+    ) in readout
     assert sheet.cell(2, _C_AF).api.Font.Bold is True
     assert sheet.cell(2, _C_AF).color == HEADER_COLOR
 
@@ -825,7 +833,7 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # Cook's Distance (Flagged): NA()'d below both influence cutoffs, so the
     # Cook's Distance chart's overlay series only labels flagged points.
     assert sheet.cell(3, _C_AY).api.Formula2 == (
-        "=IF(AT3#>MIN(4/$AB$8,0.9),AT3#,NA())"
+        "=IF(AT3#>IFERROR(F.INV(0.5,$O$1,$AB$16),NA()),AT3#,NA())"
     )
 
 

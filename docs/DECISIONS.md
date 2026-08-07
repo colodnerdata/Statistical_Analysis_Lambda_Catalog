@@ -3928,3 +3928,136 @@ entirely.
 the *default*-size window (`_PROFILE_BODY_CF_ROWS_CAP`, `_BETA_BODY_CF_ROWS_CAP`), so rows a
 live N-increase adds beyond it are unshaded until the next build. Cosmetic — the named ranges
 and every recovery formula track the real height.
+
+---
+
+## v3.3.y — Cook's screening, the Log domain, and the spec-block header band
+
+Four changes to the Regression sheet, all requested by the repo owner.
+
+### Cook's Distance screens on `F(0.5, p, n−p)`, not `4/n`
+
+**Question:** the influence cutoff was `MIN(4/n, 0.9)` — two rules of thumb
+collapsed into one lower bound. `4/n` is a function of the row count alone and
+says nothing about the model; `0.9` is a bare constant. What should the sheet
+actually compare Cook's D against?
+
+**RESOLVED** — the median of the reference F distribution,
+`F.INV(0.5, p, n−p)`, written once as `_COOKS_CUTOFF` in
+`write_sheet_regression.py` and reused by the `AT`/`AY` conditional formats,
+the `AY` flag column and the chart title, so the three cannot disagree about
+what "flagged" means.
+
+**The numerator df is `p`, not the ANOVA Regression df.** `$AB$15`
+(`Regression_Degrees_Of_Freedom`) is `COLUMNS(X) − has_intercept`, i.e. `p−1`.
+`Cooks_Distance` divides by `COLUMNS(Design_Matrix(X, Include))` — the
+intercept column included — so `p` is what makes the statistic and its
+reference distribution the same quantity, and `p + (n−p) = n` rather than
+`n−1`. `$O$1` (the Σ Design Columns total) already holds exactly that, which
+is why the cutoff reads it instead of the ANOVA table.
+
+**One tier, not two.** The old pair graded amber at `4/n` and red at `0.9`.
+`F(0.5, p, n−p)` lands between them for most models, so keeping either
+alongside it would draw a line the cutoff itself does not recognize.
+
+**The `IFERROR` is load-bearing.** Under `Zero_Predictors_Selected()` the
+design collapses, `F.INV` sees a zero df and returns `#NUM!`. `NA()` makes
+every comparison fail closed — nothing flagged — where a raw `#NUM!` would
+propagate into the flag column and light the whole band.
+
+### Two Log transforms — strict and drop-non-positive
+
+**Question:** a `Log` transform on a column containing zeros or negatives kills
+the fit. `Ln_Positive` returns `#N/A` on an included non-positive row and
+`Sample_Include()` had no positivity term, so the `#N/A` propagated through
+`Predictor_Columns()` into every statistic on the sheet. Life Expectancy's
+`Schooling` has 28 true zeros and demonstrated it. This was recorded as an open
+question in `_LN_ZERO_GUARD_NOTE` and in MODEL_TESTING_ASSETS § 1.2: should
+`Sample_Include` grow a positivity term?
+
+**RESOLVED — yes, but as a SECOND dropdown token rather than by changing what
+`Log` means.**
+
+* `Log` behaves exactly as before: the rows stay, `Ln_Positive` returns
+  `#N/A`, the sample does not narrow. What is new is that it is no longer
+  silent about it — the Transform cell turns red, and the `G2` status line
+  names the variable, its count of non-positive rows *in the sample*, and the
+  token that would exclude them.
+* `Log (drop ≤ 0)` adds the positivity term to `Sample_Include` for its own
+  columns only, and reports the excluded-row count in amber at `G2`.
+
+**Why not simply make `Log` filter.** Dropping rows changes the sample being
+fitted, which changes the model. A workbook that quietly did that to a spec the
+user had already written would be answering a modeling question on their
+behalf — the same objection that settled Intercept × Categorical and
+Categorical × Log, and the same resolution: flag red and instruct, never
+silently switch. It would also have contradicted `Ln_Positive`'s recorded
+`NA()`-exception convention (`""` means "not in the sample", `#N/A` means "in
+the sample and genuinely undefined"), which the two-token split preserves
+exactly — under the filtering token those rows arrive with `include = 0` and
+get `""`, which is the same contract, not an exception to it.
+
+**Why this is not the ~10× axis-widener MODEL_TESTING_ASSETS § 2 warns about.**
+Both tokens build the identical `Ln(x)` column and
+`Constructed_Column_Transforms()` reports `"Log"` for both, so the
+`(response_transform, predictor_transform)` unit-space dispatcher gains no new
+combination and the Duan / back-transformation family needs no change at all.
+The test cost is two cases, not a multiplier: L06 keeps the strict half
+(unchanged behaviour, plus the new red flag) and L11 is the fittable filtering
+half.
+
+**`Sample_Include` gained an optional argument, not a twin.**
+`Sample_Include(FALSE)` is the mask before the positivity layer; the difference
+between the two populations is the excluded-row count. One predicate, evaluated
+twice — the display and the constructor read the same closure, as
+ARCHITECTURE § "display derives, never feeds" requires, and there is no second
+copy to drift.
+
+**The token string lives in two places that no import can bridge** — the Python
+constant `_TRANSFORM_LOG_DROP` and the catalog bodies in
+`lambda_functions.json`, which are JSON string data.
+`test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform` pins
+the two spellings together across all six readers, so a rename cannot
+half-land. Writing that test is what caught `Model_Formula` still testing
+`= "Log"` alone, which would have printed the raw response name instead of
+`Ln(name)` under the new token.
+
+### The rows 1–2 band above the spec block has one grammar
+
+**Question:** the band had accreted. The Fixed Effects cardinality error sat at
+`B1`, the Sequence error at `E1` (above Reference Level, a column with nothing
+to do with sequencing), the width guard at `M2` (above Interaction Term, ditto)
+relying on `N2:O2` as overflow, the FE readouts printed a literal `"n/a"` on
+every non-panel model, and `_write_sequence_status` — which writes `H2`, the
+right cell — had stopped being called at all, so the repo carried two copies of
+the Sequence message and shipped the wrong one. Where does the next status go?
+
+**RESOLVED — row 1 is labels, row 2 is the control/value/status, and every
+status sits in the spec column it is about.** Role cardinality at `B2`, the Log
+domain at `G2`, Sequence cardinality at `H2` (the dead writer revived, and now
+the only copy), the spacing verdict at `I2`, the width guard at `O2` directly
+under the Σ total it is a verdict on.
+
+**Status cells carry no row-1 label.** They are blank whenever the spec is
+legal, so a permanent label would caption nothing most of the time; the message
+names its own subject when it appears. Only readouts are labelled.
+
+**The accepted cost is runway.** One status per column means a long message has
+nowhere to overflow. Every status cell is therefore `WrapText` with a short
+imperative message and a hover Note carrying the full guidance, and row 2 is
+left on automatic height — one line while the spec is legal, growing the moment
+a message fires, which makes an error more prominent rather than less.
+
+**Inactive readouts hide white-on-white** (`_hide_when`) instead of printing
+`"n/a"` — the font-matches-fill idiom the spec rows already use for cascading
+relevance, applied one band up. The Δ spectrum moved from `P1/Q1` + `P2` down
+to `P3/Q3` + `P4`, aligning its header with the spec block's header row and its
+body with the spec data rows; that also freed `P2:Q2` as the only overflow
+runway anything on row 2 has, which is what `O2` uses.
+
+**Known consequence:** `E`–`O` is a collapsed-by-default outline sub-group, so
+the Log, Sequence, verdict and width-guard statuses are hidden until the user
+expands it. That is not a regression (the old `E1`/`M2` placements were inside
+the same group) and it is coherent under the new grammar: a status shares the
+visibility of the control it is about, and a user who has set a Log token has
+necessarily expanded the group to do so.

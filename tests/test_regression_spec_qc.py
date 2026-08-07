@@ -63,6 +63,7 @@ _EXPECTED_CASE_NAMES = [
     "life_full_profile",
     "life_country_fixed_effects",
     "life_status_explicit_reference",
+    "life_log_drop_nonpositive",
 ]
 
 _EXPECTED_T0_NAMES = (
@@ -827,6 +828,64 @@ def test_binary_categorical_reference_flips_which_dummy_is_retained() -> None:
     assert len(default_reference.constructed_column_names) == len(
         explicit.constructed_column_names
     )
+
+
+@pytest.mark.skipif(
+    not LIFE_EXPECTANCY_CSV_PATH.exists(), reason="Life Expectancy CSV not found"
+)
+def test_log_drop_nonpositive_narrows_the_sample_where_strict_log_poisons_it() -> None:
+    """L11 vs L06. The two Log tokens on the same column and the same data.
+
+    L06 declares the strict ``Log`` on Schooling and is a guard state: the 28
+    true zeros stay in the sample, ``Ln_Positive`` returns #N/A for each, and
+    nothing computes. This case declares ``Log (drop ≤ 0)`` instead, which is
+    the only difference between the two specs, and the model fits.
+
+    26, not 28: two of the zero-Schooling rows are already outside the sample
+    on the response or Adult Mortality, so the positivity layer only has 26
+    left to remove. Pinning the number rather than just "fewer rows" is what
+    would catch the layer silently widening to rows it should not touch.
+    """
+    from lambda_catalog.analyze_regression_guard_states import (
+        build_guard_state_cases,
+        calculate_guard_state_case,
+    )
+
+    expected = calculate_regression_spec_case(
+        _case("life_log_drop_nonpositive"), CSV_PATH
+    )
+    design = expected.design
+
+    strict = calculate_guard_state_case(
+        next(
+            case
+            for case in build_guard_state_cases()
+            if case.name == "guard_ln_zero_propagation"
+        )
+    )
+
+    # Same constructed column under either token — they differ in the mask,
+    # not in the arithmetic.
+    assert design.constructed_column_names == ("Adult Mortality", "Ln(Schooling)")
+    assert design.constructed_column_transforms == ("None", "Log")
+    assert design.predictor_transform == "Mixed"
+
+    assert design.log_excluded_rows == 26
+    assert design.included_rows == strict.included_rows - 26
+
+    # The strict token flags the cell red and names the fix; the filtering
+    # token flags nothing, because excluding those rows is what it is for.
+    assert ("G", "red", "log_nonpositive_rows") in {
+        (flag.column, flag.severity, flag.rule) for flag in strict.flags
+    }
+    assert "Log (drop ≤ 0)" in strict.log_domain_status
+
+    # And the filtered sample actually fits — the thing L06 cannot do.
+    summary = expected.results.summary
+    assert summary.observations == design.included_rows
+    assert summary.df_regression == 2
+    assert 0.0 < summary.r_squared < 1.0
+    assert np.isfinite(expected.results.vectors.coefficients).all()
 
 
 @pytest.mark.skipif(

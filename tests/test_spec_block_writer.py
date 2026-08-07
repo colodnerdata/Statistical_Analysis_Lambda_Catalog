@@ -22,7 +22,7 @@ from lambda_catalog.sheet_styles import (
     HEADER_COLOR,
     INPUT_COLOR,
 )
-from lambda_catalog.workbook_helpers import excel_color
+from lambda_catalog.workbook_helpers import col_letter, excel_color
 from lambda_catalog.write_spec_block import (
     _AUDIT_PAIRS,
     _AUDIT_ROW,
@@ -52,6 +52,8 @@ from lambda_catalog.write_spec_block import (
     _DEFAULT_SEQUENCE_VARIABLES,
     _DEFAULT_SPEC,
     _FALLBACK_SPEC,
+    _FEEDBACK_LABEL_ROW,
+    _FEEDBACK_STATUS_ROW,
     _FIRST_DATA_ROW,
     _FIXED_EFFECTS_COUNT_FORMULA,
     _HEADER_ROW,
@@ -63,6 +65,7 @@ from lambda_catalog.write_spec_block import (
     _MSG_OFF_GRID,
     _MSG_REGULARITY,
     _N_VARIABLES,
+    _RESPONSE_COUNT_FORMULA,
     _VALIDATION_LAST_ROW,
     _VARIABLES,
     SPEC_DATASET_PROFILES,
@@ -266,28 +269,42 @@ def test_sample_include_is_the_reduce_product_mask() -> None:
     sheet = _named_sheet()
     mask = _refers_to(sheet, "Sample_Include")
 
-    assert mask.startswith("=LAMBDA(LET(")
+    # One optional argument: Sample_Include(FALSE) is the mask WITHOUT the
+    # Log positivity layer, which is what the G2 status cell differences
+    # against the default to report the excluded-row count. Every existing
+    # call site omits it and is unaffected.
+    assert mask.startswith("=LAMBDA([apply_log_domain],LET(")
+    assert (
+        "use_log,IF(ISOMITTED(apply_log_domain),TRUE,apply_log_domain)"
+    ) in mask
     # Filter columns: truthy — TRUE and 1 pass, FALSE/0/blank/text fail.
     # Coercion is (col+0), NOT N(col): col is a bare range reference, and N()
     # of a bare reference implicit-intersects it to a scalar, silently voiding
     # the Filter (the 2482-vs-1649 mask bug). Arithmetic broadcasts instead.
     assert 'IF(INDEX(rl,j)="Filter",acc*--(IFERROR((col+0)=1,FALSE))' in mask
     assert "N(IFERROR(N(col)" not in mask
-    # Completeness: the Response and every included Continuous Predictor.
+    # Completeness: the Response and every included Continuous Predictor —
+    # and, for those declaring Log (drop ≤ 0) only, strict positivity. Same
+    # (col+0) coercion as the Filter branch, for the same reason.
     assert (
         'IF(OR(INDEX(rl,j)="Response (y)",'
         'AND(INDEX(rl,j)="Predictor (x)",INDEX(inc,j)=TRUE,'
-        'INDEX(typ,j)="Continuous")),acc*N(ISNUMBER(col)),acc)'
+        'INDEX(typ,j)="Continuous")),acc*N(ISNUMBER(col))'
+        '*IF(AND(use_log,INDEX(trn,j)="Log (drop ≤ 0)"),'
+        "--(IFERROR((col+0)>0,FALSE)),1),acc)"
     ) in mask
+    # Plain Log must NOT filter — the #N/A is the signal, and the token test
+    # is an equality against the filtering token alone.
+    assert 'INDEX(trn,j)="Log"' not in mask
     # Full-height ones seed; product over {0,1} is the AND, no per-row loop.
     assert "seed,SEQUENCE(ROWS(Source_Data),1,1,0)" in mask
     assert "BYROW(" not in mask
     assert mask.endswith("prod=1))")
-    # Reads the model axes only — never the reserved columns or the
+    # Reads the model axes only — never the reserved Order column or the
     # Sequence structural axis (which no constructor may consume).
+    # Spec_Transform IS read now, and only for the positivity layer above.
     for non_model_axis in (
         "Spec_Order",
-        "Spec_Transform",
         "Spec_Sequence",
         "Spec_Sequence_Period",
     ):
@@ -339,9 +356,10 @@ def test_spec_block_column_widths_hide_the_reserved_order_column() -> None:
 
     assert sheet.range((1, _C_LABEL), (1, _C_LABEL)).column_width == 28
     assert sheet.range((1, _C_ORDER), (1, _C_ORDER)).column_width == 0
-    # G (Transform) went live at v2.2 — it gets a real width now, matching
-    # _C_TYPE's (both hold comparably-sized dropdown tokens).
-    assert sheet.range((1, _C_TRANSFORM), (1, _C_TRANSFORM)).column_width == 11
+    # G (Transform) went live at v2.2. Widened from 11 to 14 when the second
+    # Log token arrived — "Log (drop ≤ 0)" has to render in the cell, not only
+    # in the dropdown, or the two tokens are indistinguishable at a glance.
+    assert sheet.range((1, _C_TRANSFORM), (1, _C_TRANSFORM)).column_width == 14
     assert sheet.range((1, _C_REF_IN_USE), (1, _C_REF_IN_USE)).column_width == 16
 
 
@@ -377,7 +395,10 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     # v2.2 Log wiring: a Continuous column is Ln_Positive-transformed when
     # its row's Transform is Log; the Categorical branch never reads trn.
     assert "trn,TAKE(Spec_Transform,n_c)" in x_s
-    assert 'IF(INDEX(trn,x)="Log",Ln_Positive(col,Sample_Include()),col)' in x_s
+    assert (
+        'IF(OR(INDEX(trn,x)="Log",INDEX(trn,x)="Log (drop ≤ 0)"),'
+        "Ln_Positive(col,Sample_Include()),col)"
+    ) in x_s
 
 
 def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
@@ -409,12 +430,19 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     # relabelled "Ln(header)" for a Log-transformed Continuous predictor.
     assert 'INDEX(hdrs,1,x)&": "&lv' in names
     assert 'trn,TAKE(Spec_Transform,n_c)' in names
-    assert 'IF(INDEX(trn,x)="Log","Ln("&INDEX(hdrs,1,x)&")",INDEX(hdrs,1,x))' in names
+    assert (
+        'IF(OR(INDEX(trn,x)="Log",INDEX(trn,x)="Log (drop ≤ 0)"),'
+        '"Ln("&INDEX(hdrs,1,x)&")",INDEX(hdrs,1,x))'
+    ) in names
     assert names.endswith("DROP(built,,1)))")
     # Constructed_Column_Transforms: "Log"/"None" per Continuous column;
     # every dummy column from a Categorical Predictor reads "None"
     # unconditionally, regardless of its spec row's own Transform cell.
-    assert 'IF(INDEX(trn,x)="Log","Log","None")' in transforms
+    # Both tokens report "Log" here: the unit-space dispatcher keys on the
+    # SPACE the column is in, and they produce the same one.
+    assert (
+        'IF(OR(INDEX(trn,x)="Log",INDEX(trn,x)="Log (drop ≤ 0)"),"Log","None")'
+    ) in transforms
     assert 'EXPAND("None",1,COLUMNS(lv),"None")' in transforms
 
 
@@ -503,12 +531,18 @@ def test_reserved_spec_order_is_defined_but_read_by_nothing() -> None:
 
 
 def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> None:
-    # Confirm-by-construction property, preserved rather than merely
-    # relaxed when G went live: Spec_Transform is read by exactly the four
-    # constructors the Log wiring touches — plus Model_Formula, the DISPLAY
-    # that renders the response's Log wrapping into the formula caption —
-    # and by nothing else; in particular NOT by Sample_Include or
-    # Row_Labels, which never transform anything.
+    # Confirm-by-construction property: Spec_Transform is read by exactly the
+    # four constructors the Log wiring touches, plus Model_Formula (the
+    # DISPLAY that renders the response's Log wrapping into the formula
+    # caption), plus Sample_Include — and by nothing else; in particular NOT
+    # by Row_Labels, which never transforms anything.
+    #
+    # Sample_Include joined this list with the second Log token. It is the one
+    # reader that does not transform: it reads Spec_Transform ONLY to decide
+    # whether a column's non-positive rows leave the sample, which is the sole
+    # difference between "Log" and "Log (drop ≤ 0)". The narrower assertion
+    # below is what keeps that from widening into the mask making transform
+    # decisions of its own.
     sheet = _named_sheet()
     readers = sorted(
         item.Name.split("!", 1)[-1]
@@ -522,9 +556,15 @@ def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> No
         "Model_Formula",
         "Predictor_Columns",
         "Response_Column",
+        "Sample_Include",
     ]
-    for non_reader in ("Sample_Include", "Row_Labels"):
-        assert "Spec_Transform" not in _refers_to(sheet, non_reader), non_reader
+    assert "Spec_Transform" not in _refers_to(sheet, "Row_Labels")
+    # Sample_Include tests the filtering token and nothing else: no Ln, no
+    # renaming, no branch on plain "Log".
+    mask = _refers_to(sheet, "Sample_Include")
+    assert 'INDEX(trn,j)="Log (drop ≤ 0)"' in mask
+    assert "Ln_Positive" not in mask
+    assert 'INDEX(trn,j)="Log"' not in mask
 
 
 def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
@@ -986,7 +1026,7 @@ def test_dropdowns_cover_exactly_the_list_columns() -> None:
         ((r, 2), (16000, 2)),  # B Role
         ((r, 3), (16000, 3)),  # C Include
         ((r, 4), (16000, 4)),  # D Type
-        ((r, 7), (16000, 7)),  # G Transform (None or Log, live at v2.2)
+        ((r, 7), (16000, 7)),  # G Transform (None or either Log token)
         ((r, 8), (16000, 8)),  # H Sequence (TRUE or blank)
         ((r, 13), (16000, 13)),  # M Interaction Term (the variable-name spill)
         ((r, 14), (16000, 14)),  # N Interaction Operation (closed axis)
@@ -998,7 +1038,7 @@ def test_dropdowns_cover_exactly_the_list_columns() -> None:
     assert formulas[2] == "Response (y),Predictor (x),Identifier (Row Label),Filter,Omit,Fixed Effects"
     assert formulas[3] == "TRUE,FALSE"
     assert formulas[4] == "Continuous,Categorical"
-    assert formulas[7] == "None,Log"
+    assert formulas[7] == "None,Log,Log (drop ≤ 0)"
     assert formulas[8] == "TRUE"
     # M sources its list from the variable-name spill at A4, so the offered
     # names resize with the dataset instead of a fixed range going stale.
@@ -1035,11 +1075,25 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
     ).api.FormatConditions.items
     assert [c.Formula1 for c in transform_col] == [
         f'=AND($B{r}<>"Predictor (x)",$B{r}<>"Response (y)")',
-        f'=AND($B{r}="Predictor (x)",$D{r}="Categorical",$G{r}="Log")',
+        # Categorical x Log — either token, since dummy columns are never
+        # logged under either.
+        f'=AND($B{r}="Predictor (x)",$D{r}="Categorical",'
+        f'OR($G{r}="Log",$G{r}="Log (drop ≤ 0)"))',
+        # Strict Log on a column that holds a zero or a negative among the
+        # rows the model would fit. Equality against "Log" alone, NOT _is_log:
+        # the whole point of the filtering token is that it does not fire this.
+        # Sample_Include(FALSE) is the mask before the positivity layer, so
+        # the count is of rows the fit would otherwise have used.
+        f'=AND($G{r}="Log",'
+        f'OR($B{r}="Response (y)",'
+        f'AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Continuous")),'
+        "SUMPRODUCT(--Sample_Include(FALSE),"
+        f"--IFERROR((INDEX(Source_Data,0,ROW()-{off})+0)<=0,FALSE))>0)",
     ]
     assert transform_col[0].Font.Color == excel_color(INPUT_COLOR)
-    assert transform_col[1].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
-    assert transform_col[1].Font.Color == excel_color(CF_DARK_RED_TEXT)
+    for rule in transform_col[1:]:
+        assert rule.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+        assert rule.Font.Color == excel_color(CF_DARK_RED_TEXT)
 
     role_keyed_computed = sheet.range(
         f"$K${r}:$L${_VALIDATION_LAST_ROW}"
@@ -1100,116 +1154,245 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
     assert invalid[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
-def test_sequence_status_line_validates_zero_or_one_flags() -> None:
-    sheet = RecordingSheet(name=SHEET_NAME)
-    _write_spec_block(_as_xw_sheet(sheet))
-    # The status cell lives in _write_spec_feedback (E1), not H2: H2 is the
-    # "Sequence" column header, and a status cell on top of a header reads
-    # as a visual collision. (It moved when the spec area became a
-    # structured table; the table is gone, the placement stands.)
-    from lambda_catalog.write_spec_block import _write_spec_feedback
-    _write_spec_feedback(_as_xw_sheet(sheet))
-
-    # E1: blank while the spec carries zero-or-one flags, a red error line
-    # at two-plus — the exactly-one-Response pattern with a >1 threshold
-    # (zero flags is a valid non-panel spec).
-    status = sheet.cell(1, _C_REFERENCE)
-    assert status.api.Formula2 == (
-        "=IF(SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))>1,"
-        '"ERROR: multiple Sequence flags (mark at most one variable)","")'
+def _feedback_sheet() -> RecordingSheet:
+    """A sheet carrying the whole rows 1-2 band, as the Regression writer builds it."""
+    from lambda_catalog.write_spec_block import (
+        _write_sequence_status,
+        _write_spec_feedback,
     )
-    assert status.api.Font.Bold is True
 
-    conditions = sheet.range("$E$1").api.FormatConditions.items
-    assert [c.Formula1 for c in conditions] == ['=$E$1<>""']
+    sheet = RecordingSheet(name=SHEET_NAME)
+    _write_spec_feedback(_as_xw_sheet(sheet))
+    _write_sequence_status(_as_xw_sheet(sheet))
+    return sheet
+
+
+def test_every_status_line_sits_in_the_spec_column_it_is_about() -> None:
+    """The rule the whole band is arranged by, asserted as one statement.
+
+    Role cardinality above Role, the Log domain above Transform, Sequence
+    cardinality above Sequence, the spacing verdict above Sequence Period.
+    Before this they were scattered across whichever cells happened to be
+    free — Sequence's error above Reference Level, Fixed Effects' above Role,
+    the width guard above Interaction Term — so a message's position said
+    nothing about its subject.
+    """
+    sheet = _feedback_sheet()
+
+    for col, marker in (
+        (_C_ROLE, "Response (y)"),
+        (_C_TRANSFORM, "Log"),
+        (_C_SEQUENCE, "Spec_Sequence"),
+        (_C_SEQUENCE_PERIOD, "Spec_Period_In_Use"),
+    ):
+        formula = cast(str, sheet.cell(_FEEDBACK_STATUS_ROW, col).api.Formula2)
+        assert formula is not None, col
+        assert marker in formula, (col, marker)
+        # Every status cell wraps: row 2 has no runway between columns, so a
+        # message grows the row rather than truncating against its neighbour.
+        assert sheet.cell(_FEEDBACK_STATUS_ROW, col).api.WrapText is True, col
+        assert sheet.cell(_FEEDBACK_STATUS_ROW, col).api.Font.Bold is True, col
+        # ...and carries the long form as a hover note.
+        assert sheet.cell(_FEEDBACK_STATUS_ROW, col).api.Comment.Text, col
+
+    # The cells the statuses used to occupy are now empty. E1 in particular:
+    # it held a duplicate of the H2 Sequence error for as long as H2's writer
+    # was dead code.
+    for row, col in ((1, _C_ROLE), (1, _C_REFERENCE), (2, _C_LABEL)):
+        assert sheet.cell(row, col).value is None, (row, col)
+        assert sheet.cell(row, col).api.Formula2 is None, (row, col)
+
+
+def test_role_status_ranks_response_cardinality_above_fixed_effects() -> None:
+    """B2 — one cell, three conditions, most severe first.
+
+    Exactly one Response is required, so zero and two-plus are both errors and
+    they need different instructions. Sequence and Fixed Effects allow zero, so
+    only a second row of either is flagged; Fixed Effects is checked here
+    because Role is the column it is declared in.
+    """
+    sheet = _feedback_sheet()
+
+    status = sheet.cell(_FEEDBACK_STATUS_ROW, _C_ROLE)
+    formula = cast(str, status.api.Formula2)
+    assert formula == (
+        f"=IF({_RESPONSE_COUNT_FORMULA}=0,"
+        '"ERROR: no Response (y) row — mark the variable being modeled.",'
+        f"IF({_RESPONSE_COUNT_FORMULA}>1,"
+        '"ERROR: multiple Response (y) rows — mark exactly one.",'
+        f"IF({_FIXED_EFFECTS_COUNT_FORMULA}>1,"
+        '"ERROR: multiple Fixed Effects rows — mark at most one.",'
+        '"")))'
+    )
+    # Severity order is inside the formula, so the cell needs only one rule.
+    conditions = sheet.range("$B$2").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ['=$B$2<>""']
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
-def test_fixed_effects_status_line_validates_zero_or_one_rows() -> None:
-    sheet = RecordingSheet(name=SHEET_NAME)
-    _write_spec_block(_as_xw_sheet(sheet))
-    from lambda_catalog.write_spec_block import _write_spec_feedback
-    _write_spec_feedback(_as_xw_sheet(sheet))
+def test_log_domain_status_reports_the_poisoned_column_then_the_dropped_count() -> None:
+    """G2 — the two Log states, red outranking amber.
 
-    # B1: the Fixed Effects cardinality error — same pattern as E1's
-    # Sequence check, on Role's own row-1 cell instead of Reference Level's.
-    status = sheet.cell(1, _C_ROLE)
+    RED names the variable, its count of non-positive rows IN THE SAMPLE, and
+    the token that would exclude them: with strict Log the fit is #N/A
+    everywhere, and the fix is a different dropdown value the user has no way
+    to guess from a sheet full of errors.
+
+    AMBER is Log (drop ≤ 0) doing its job — not a problem, but the sample is
+    now smaller than the data and that must never be invisible.
+
+    StopIfTrue on red matters because a spec can declare both tokens on
+    different variables, making both states true at once.
+    """
+    sheet = _feedback_sheet()
+
+    formula = cast(str, sheet.cell(_FEEDBACK_STATUS_ROW, _C_TRANSFORM).api.Formula2)
+    # Only the STRICT token is counted as poisoned — the whole point of the
+    # filtering token is that these rows leaving is intended.
+    assert 'INDEX(trn,j)="Log"' in formula
+    assert "Use Log (drop ≤ 0)." in formula
+    # The eligibility test mirrors Sample_Include's own branch, so a Log left
+    # on an Identifier or an excluded row is inert and uncounted.
+    assert (
+        'elig,((rl="Response (y)")+((rl="Predictor (x)")*(inc=TRUE)'
+        '*(typ="Continuous")))>0'
+    ) in formula
+    # Sample_Include(FALSE) — the mask BEFORE the positivity layer — is what
+    # makes both halves count the same population.
+    assert "base,Sample_Include(FALSE)" in formula
+    assert (
+        "d,SUMPRODUCT(N(Sample_Include(FALSE)))-SUMPRODUCT(N(Sample_Include()))"
+    ) in formula
+    assert '" rows excluded: Log of ≤ 0"' in formula
+
+    conditions = sheet.range("$G$2").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == [
+        '=ISNUMBER(SEARCH("ERROR",$G$2))',
+        '=$G$2<>""',
+    ]
+    red, amber = conditions
+    assert red.Interior.Color == excel_color(CF_LIGHT_RED_FILL)
+    assert red.Font.Color == excel_color(CF_DARK_RED_TEXT)
+    assert red.StopIfTrue is True
+    assert amber.Interior.Color == excel_color(CF_YELLOW_FILL)
+    assert amber.Font.Color == excel_color(CF_DARK_YELLOW_TEXT)
+    assert amber.StopIfTrue is False
+
+
+def test_sequence_status_line_validates_zero_or_one_flags() -> None:
+    """H2 — back in the Sequence column, and the only copy.
+
+    This cell was written by a function that stopped being called, so the
+    message lived at E1 (above Reference Level) instead. Both existed in the
+    source; only E1 reached the sheet.
+    """
+    sheet = _feedback_sheet()
+
+    status = sheet.cell(_FEEDBACK_STATUS_ROW, _C_SEQUENCE)
     assert status.api.Formula2 == (
-        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>1,'
-        '"ERROR: multiple Fixed Effects rows (mark at most one variable)","")'
+        "=IF(SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))>1,"
+        '"ERROR: multiple Sequence rows — mark at most one.","")'
     )
     assert status.api.Font.Bold is True
 
-    conditions = sheet.range("$B$1").api.FormatConditions.items
-    assert [c.Formula1 for c in conditions] == ['=$B$1<>""']
+    conditions = sheet.range("$H$2").api.FormatConditions.items
+    assert [c.Formula1 for c in conditions] == ['=$H$2<>""']
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
 
 def test_fixed_effects_status_block_shows_variable_groups_and_absorbed_df() -> None:
-    sheet = RecordingSheet(name=SHEET_NAME)
-    from lambda_catalog.write_spec_block import _write_spec_feedback
-    _write_spec_feedback(_as_xw_sheet(sheet))
+    """J1:L2 — labels over values, and both disappear when there is no FE row.
+
+    The values used to render the literal string "n/a" three times on every
+    non-panel model. They now return "" and the labels white-out with them, so
+    an inactive block leaves no trace instead of three cells of filler.
+    """
+    sheet = _feedback_sheet()
 
     for col, label in (
         (_C_PERIOD_IN_USE, "FE Variable"),
         (_C_LEVELS, "FE Groups"),
-        (_C_REF_IN_USE, "FE df absorbed"),
+        (_C_REF_IN_USE, "FE df Absorbed"),
     ):
         cell = sheet.cell(1, col)
         assert cell.value == label, (col, label)
         assert cell.api.Font.Bold is True
 
+        # Label and value share one hide rule over the two-row range.
+        letter = col_letter(col)
+        hide = sheet.range(f"${letter}$1:${letter}$2").api.FormatConditions.items
+        assert [c.Formula1 for c in hide] == [
+            f"={_FIXED_EFFECTS_COUNT_FORMULA}=0"
+        ], col
+        assert hide[0].Font.Color == excel_color((255, 255, 255)), col
+
     variable = cast(str, sheet.cell(2, _C_PERIOD_IN_USE).api.Formula2)
-    assert variable.startswith(f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",')
+    assert variable.startswith(f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"",')
     assert 'XMATCH("Fixed Effects",TAKE(Spec_Role,COLUMNS(Source_Data)))' in variable
 
     groups = sheet.cell(2, _C_LEVELS).api.Formula2
     assert groups == (
-        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom()+1)'
+        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"",Absorbed_Degrees_Of_Freedom()+1)'
     )
 
     absorbed = sheet.cell(2, _C_REF_IN_USE).api.Formula2
     assert absorbed == (
-        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom())'
+        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"",Absorbed_Degrees_Of_Freedom())'
     )
 
 
 def test_spec_feedback_writes_delta_count_verdict_with_priority_cf() -> None:
-    """The M/N spectrum and the I1/I2 verdict overlay (Verdict overlays the
-    Sequence_Period column's row-1/row-2 cells, which sit above the spec
-    block's own rows and are unused by it).
+    """The P/Q spectrum and the I1/I2 spacing verdict.
 
-    M1/N1: bold headers (Δ, Count). M2: the Sequence_Delta_Spectrum() spill,
-    wrapped in IFERROR so a no-axis / no-spacings case degrades to blank.
+    The spectrum moved off rows 1-2 onto the spec block's own rows — headers
+    at P3/Q3 beside the spec headers, body from P4 beside the spec data — so
+    it reads as a second table rather than a third row-2 thing, and so O2's
+    width-guard message gains P2:Q2 as the only overflow runway anything on
+    row 2 has.
+
     I1/I2: the combined switch — one cell, one message, with red CF outranking
     yellow via StopIfTrue.
     """
-    sheet = RecordingSheet(name=SHEET_NAME)
-    from lambda_catalog.write_spec_block import _write_spec_feedback
-    _write_spec_feedback(_as_xw_sheet(sheet))
+    sheet = _feedback_sheet()
 
-    # M1/N1 headers, bold via bold_row (range-level bold, not per-cell).
     for col, label in (
         (_C_FEEDBACK_DELTA, "Δ"),
         (_C_FEEDBACK_COUNT, "Count"),
-        (_C_SEQUENCE_PERIOD, "Verdict"),
     ):
-        cell = sheet.cell(1, col)
+        cell = sheet.cell(_HEADER_ROW, col)
         assert cell.value == label, (col, label)
-    # Bold-row applied across M:N — the Verdict header (I1) is bolded
-    # independently (lives in column I, outside the M:N range).
     assert (
-        sheet.range((1, _C_FEEDBACK_DELTA), (1, _C_FEEDBACK_COUNT)).api.Font.Bold
+        sheet.range(
+            (_HEADER_ROW, _C_FEEDBACK_DELTA), (_HEADER_ROW, _C_FEEDBACK_COUNT)
+        ).api.Font.Bold
         is True
     )
-    assert sheet.cell(1, _C_SEQUENCE_PERIOD).api.Font.Bold is True
+    # Nothing left on rows 1-2 of P:Q — that space is O2's runway now.
+    for row in (1, 2):
+        for col in (_C_FEEDBACK_DELTA, _C_FEEDBACK_COUNT):
+            assert sheet.cell(row, col).value is None, (row, col)
+            assert sheet.cell(row, col).api.Formula2 is None, (row, col)
 
-    # M2 spectrum spill.
-    assert sheet.cell(2, _C_FEEDBACK_DELTA).api.Formula2 == (
+    # P4 spectrum spill, aligned with the spec block's first data row.
+    assert sheet.cell(_FIRST_DATA_ROW, _C_FEEDBACK_DELTA).api.Formula2 == (
         '=IFERROR(Sequence_Delta_Spectrum(),"")'
     )
+
+    # "Spacing Verdict", not "Verdict" — the sheet has several verdicts now,
+    # and this one is specifically about how the Sequence axis is spaced.
+    assert sheet.cell(1, _C_SEQUENCE_PERIOD).value == "Spacing Verdict"
+    assert sheet.cell(1, _C_SEQUENCE_PERIOD).api.Font.Bold is True
+
+    # The label and the spectrum headers white out together when no axis is
+    # declared, on the same gate: COUNT of Sequence_Deltas()'s #N/A is 0.
+    for address in ("$I$1", f"$P${_HEADER_ROW}:$Q${_HEADER_ROW}"):
+        hide = sheet.range(address).api.FormatConditions.items
+        assert [c.Formula1 for c in hide] == [
+            "=NOT(COUNT(Sequence_Deltas())>0)"
+        ], address
+        assert hide[0].Font.Color == excel_color((255, 255, 255)), address
 
     # I2 combined switch formula — the priority-ordered switch replacing
     # the four A31:A34 verdict cells. Reads Spec_Period_In_Use via the
@@ -1236,6 +1419,7 @@ def test_spec_feedback_writes_delta_count_verdict_with_priority_cf() -> None:
     assert yellow.Font.Color == excel_color(CF_DARK_YELLOW_TEXT)
     assert yellow.StopIfTrue is False
 
+
 _CAT_INCLUDED = (
     "SUMPRODUCT("
     'N(TAKE(Spec_Role,COLUMNS(Source_Data))="Predictor (x)"),'
@@ -1253,9 +1437,12 @@ def test_intercept_control_is_a_toggle_with_coupling_cf() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_intercept_control(_as_xw_sheet(sheet))
 
-    # A2 label (bold), C2 toggle prefilled TRUE with input styling.
-    assert sheet.cell(_INTERCEPT_ROW, _C_LABEL).value == "Intercept"
-    assert sheet.cell(_INTERCEPT_ROW, _C_LABEL).api.Font.Bold is True
+    # C1 label (bold), C2 toggle prefilled TRUE with input styling. The label
+    # sits directly above the cell it names — it used to be at A2, two columns
+    # left of the toggle with a blank cell between them.
+    assert sheet.cell(_FEEDBACK_LABEL_ROW, _C_INCLUDE).value == "Intercept"
+    assert sheet.cell(_FEEDBACK_LABEL_ROW, _C_INCLUDE).api.Font.Bold is True
+    assert sheet.cell(_INTERCEPT_ROW, _C_LABEL).value is None
     toggle_cell = sheet.cell(_INTERCEPT_ROW, _C_INCLUDE)
     assert toggle_cell.value is True
     assert toggle_cell.color == INPUT_COLOR
@@ -1297,7 +1484,7 @@ _RESPONSE_NAME = (
     "LET(n_c,COLUMNS(Source_Data),"
     'p,XMATCH("Response (y)",TAKE(Spec_Role,n_c)),'
     "h,INDEX(TOROW(Header_Names),p),"
-    'IFERROR(IF(INDEX(TAKE(Spec_Transform,n_c),p)="Log","Ln("&h&")",h),"(none)"))'
+    'IFERROR(IF(OR(INDEX(TAKE(Spec_Transform,n_c),p)="Log",INDEX(TAKE(Spec_Transform,n_c),p)="Log (drop ≤ 0)"),"Ln("&h&")",h),"(none)"))'
 )
 
 
@@ -1434,3 +1621,58 @@ def test_interaction_header_symbols_are_distinct_and_operation_specific() -> Non
         for other in symbols:
             if other != symbol:
                 assert symbol.strip() not in other, (symbol, other)
+
+
+def test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform() -> None:
+    """The two spellings live in Python AND in lambda_functions.json.
+
+    No import can bridge that gap: the catalog bodies are JSON string data, so
+    the token appears there as a literal. Five closures read Spec_Transform,
+    and a rename or a half-applied edit that updated only some of them would
+    leave the sheet silently treating one token as unrecognized — the column
+    would fit raw, unlogged, with no error anywhere. This asserts the two
+    tokens travel together through every body that mentions either.
+
+    Sample_Include is the deliberate exception in the other direction: it must
+    mention ONLY the filtering token, since plain Log not filtering is the
+    whole distinction between them.
+    """
+    import json
+    from pathlib import Path
+
+    from lambda_catalog.write_spec_block import _TRANSFORM_LOG, _TRANSFORM_LOG_DROP
+
+    document = json.loads(
+        (Path(__file__).resolve().parents[1] / "lambda_functions.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    bodies = {
+        entry["name"]: entry["formula_display"]
+        for entry in document["functions"]
+        if "Spec_Transform" in entry.get("formula_display", "")
+    }
+
+    assert set(bodies) == {
+        "Constructed_Column_Names",
+        "Constructed_Column_Transforms",
+        "Model_Formula",
+        "Predictor_Columns",
+        "Response_Column",
+        "Sample_Include",
+    }
+
+    for name, body in bodies.items():
+        if name == "Sample_Include":
+            assert _TRANSFORM_LOG_DROP in body
+            assert f'="{_TRANSFORM_LOG}"' not in body, name
+            continue
+        # Whitespace around "=" varies between bodies, so normalize it out
+        # rather than pinning each body's own formatting.
+        compact = body.replace(" ", "").replace("\n", "")
+        assert f'="{_TRANSFORM_LOG}"' in compact, name
+        # Paired, not merely both present: every equality test against the
+        # strict token is matched by one against the other.
+        assert compact.count(f'="{_TRANSFORM_LOG}"') == compact.count(
+            f'="{_TRANSFORM_LOG_DROP.replace(" ", "")}"'
+        ), name

@@ -119,6 +119,9 @@ encoding](#v21-leftovers--follow-on-polish).
   identity-line-via-real-data-series approach as the v1.2 diagnostic chart
   pattern — see
   [DECISIONS.md § v1.2 identity-line](DECISIONS.md#v12--workbook-hardening).
+  Cook's now has ONE threshold, `_COOKS_CUTOFF` (`F.INV(0.5, p, n-p)`), so its
+  reference line is a single series rather than the yellow/red pair the other
+  two charts want.
 
 ## v1.1 leftovers — Univariate sheet writer
 

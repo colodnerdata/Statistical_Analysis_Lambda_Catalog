@@ -265,7 +265,7 @@ alternative shifts eight columns to preserve a reading convention. See
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
-| G | **Transform** *(live — v2.2 Log wiring, v3.3 back-transformation)* | Orange input, dropdown `None` · `Log`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). `Log` applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. The unit-space block at `AG3:AH9` (v3.3) computes Duan-smearing back-transformed GoF (`R²`, `Adj R²`, `RMSE` in original units), and the Prediction Outputs block's `AL` column carries the back-transformed point estimate (Duan by default, Naive on toggle) and the four CI/PI bounds (always Naive). Default `None` fits the raw column — under `None` everywhere, `Unit_Space_*` reduce to the ordinary statistics exactly. See [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label). |
+| G | **Transform** *(live — v2.2 Log wiring, v3.3 back-transformation)* | Orange input, dropdown `None` · `Log` · `Log (drop ≤ 0)`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). The two Log tokens build the IDENTICAL column and differ only in what happens to a row whose value is zero or negative: under `Log` the row stays in the sample, `Ln_Positive` returns `#N/A`, and the fit is `#N/A` throughout — flagged red on the cell, with the `G2` status line naming the variable, the count and the fix; under `Log (drop ≤ 0)` the row leaves the sample (row-mask layer 3) and `G2` reports the count in amber. `Constructed_Column_Transforms()` reports `Log` for both, so the unit-space dispatcher gains no new combination. Either token applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. The unit-space block at `AG3:AH9` (v3.3) computes Duan-smearing back-transformed GoF (`R²`, `Adj R²`, `RMSE` in original units), and the Prediction Outputs block's `AL` column carries the back-transformed point estimate (Duan by default, Naive on toggle) and the four CI/PI bounds (always Naive). Default `None` fits the raw column — under `None` everywhere, `Unit_Space_*` reduce to the ordinary statistics exactly. See [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label). |
 | H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank. The shipped default pre-flags **Year** `TRUE` (the WHO panel's ordering axis; every other row blank) so the Sequence machinery is live at T0; on a non-panel dataset leave it blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer, by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`) since the base-period release, and — since the DW-gate release — by the serial-correlation accessor `Sequence_Column` (which feeds the gated `Durbin_Watson_By` diagnostic cell). No design-matrix constructor consumes it: Sequence orders the data, it never enters the model matrix. |
 | I | **Sequence Period** *(typed override input, post-v2.1 Sequence fix)* | Orange input — the user types a number on the Sequence-flagged row to declare a Δ that differs from the computed candidate. Blank by default; the spec falls back to the candidate. Read only by the in-use display at column J, not by any constructor. The cell is the load-bearing override point of the reference-level pattern. |
 | J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). No other on-sheet formula reads J; the workbook-scoped `Base_Period_Delta()` accessor (lambda_functions.json) separately provides the omitted-`[delta]` default for `Lag_By`/`Difference_By`. The J cell stays plain, with no on-sheet override-flagging display. |
@@ -412,12 +412,24 @@ gives prediction the training level set.
 
 ### The effective row mask
 
-Composes two layers:
+Composes three layers:
 
 1. *Automatic role-aware completeness* — numeric required for Continuous
    Predictors and the Response; non-blank for Categorical Predictors;
    ignored for Identifier/Filter/Omit.
 2. *Declared Filter columns* — zero-or-more, ANDed.
+3. *Declared log domain* — strict positivity on the Response and any included
+   Continuous Predictor whose Transform is `Log (drop ≤ 0)`, since a
+   non-positive value has no logarithm. This layer fires for that ONE token;
+   plain `Log` deliberately leaves the row in so `Ln_Positive` returns `#N/A`
+   and the fit fails visibly. `Sample_Include(FALSE)` returns the mask without
+   this layer — the two populations differ by exactly the rows the transform
+   excluded, which is what the `G2` status cell reports. See
+   [DECISIONS.md § two Log transforms](DECISIONS.md#two-log-transforms--strict-and-drop-non-positive).
+
+Layer 3 is the only one a user can turn on per-column, and that is deliberate:
+narrowing the sample changes the model being fitted, so it is a declaration in
+the spec rather than something the mask decides.
 
 This settles the architecture of the former role-aware-completeness open
 item by construction; only the auto-completeness LAMBDA remains to build,

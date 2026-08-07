@@ -64,6 +64,7 @@ from .write_spec_block import (
     _ROLE_IDENTIFIER,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
+    _TRANSFORM_LOG_DROP,
     _VARIABLES,
 )
 
@@ -223,19 +224,48 @@ def _format_value(value: object) -> str:
 
 
 def _compute_mask(
-    spec: list[SpecVariable], rows: list[dict[str, object]]
+    spec: list[SpecVariable],
+    rows: list[dict[str, object]],
+    *,
+    apply_log_domain: bool = True,
 ) -> list[bool]:
-    """Mirror ``Sample_Include()``: AND over role-derived row conditions."""
+    """Mirror ``Sample_Include()``: AND over role-derived row conditions.
+
+    Three layers, matching the closure's three:
+
+    1. every ``Filter``-role column must be truthy;
+    2. the Response and every included Continuous Predictor must be numeric;
+    3. any of those columns declaring ``Log (drop ≤ 0)`` must also be strictly
+       positive, since a non-positive value has no logarithm.
+
+    Layer 3 fires for that one token only. Plain ``Log`` deliberately leaves the
+    row in, so ``Ln_Positive`` returns ``#N/A`` and the fit fails visibly —
+    which is why ``build_spec_design`` still raises on it.
+
+    ``apply_log_domain=False`` mirrors ``Sample_Include(FALSE)``: the mask
+    before layer 3, which is what the sheet's G2 status cell differences
+    against the default to report how many rows the transform excluded.
+    """
     filter_columns = [v.name for v in spec if v.role == _ROLE_FILTER]
-    numeric_columns = [
-        v.name
+    eligible = [
+        v
         for v in spec
         if v.role == _ROLE_RESPONSE
         or (v.role == _ROLE_PREDICTOR and v.include and v.var_type == "Continuous")
     ]
+    numeric_columns = [v.name for v in eligible]
+    positive_columns = (
+        [v.name for v in eligible if v.transform == _TRANSFORM_LOG_DROP]
+        if apply_log_domain
+        else []
+    )
     return [
         all(_is_truthy_filter(row[name]) for name in filter_columns)
         and all(_is_number(row[name]) for name in numeric_columns)
+        and all(
+            _is_number(row[name]) and float(row[name]) > 0  # type: ignore[arg-type]
+            for name in positive_columns
+        )
         for row in rows
     ]
 

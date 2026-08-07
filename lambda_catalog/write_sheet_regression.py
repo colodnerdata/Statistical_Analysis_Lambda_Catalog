@@ -165,6 +165,7 @@ from .write_spec_block import (
     _C_TYPE as _C_SPEC_TYPE,
 )
 from .write_spec_block import (
+    _DEFAULT_TRANSFORM,
     _DESIGN_COLUMNS_NOTE,
     _FIXED_EFFECTS_COUNT_FORMULA,
     _FIXED_EFFECTS_NAME_FORMULA,
@@ -185,6 +186,8 @@ from .write_spec_block import (
     _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
     _SEQUENCE_PERIOD_NOTE,
+    _TRANSFORM_LOG,
+    _TRANSFORM_LOG_DROP,
     _TRANSFORM_NOTE,
     _TYPE_NOTE,
     SPEC_DATASET_PROFILES,
@@ -192,6 +195,13 @@ from .write_spec_block import (
     _set_spec_block_column_widths,
     _set_spec_block_optional_outline_group,
     _write_intercept_control,
+    _write_sequence_status,
+)
+from .write_spec_block import (
+    _FEEDBACK_STATUS_ROW as _SPEC_STATUS_ROW,
+)
+from .write_spec_block import (
+    _status_cell,
     _write_spec_block,
     _write_spec_feedback,
 )
@@ -338,6 +348,7 @@ _ROW_MEAN_LEVERAGE = 6
 _ROW_QQ_CORRELATION = 10
 _ROW_ALPHA = 12                # confidence-level input
 _ROW_SIGNIFICANCE_F = 15
+_ROW_ANOVA_RESIDUAL_DF = 16    # ANOVA table: the Residual row's df cell
 _ROW_COEFF_FIRST = 21
 _ROW_RESPONSE_READOUT = 2      # Predicted Variable readout
 _ROW_FE_GROUP = 12             # prediction-zone FE group selector
@@ -366,6 +377,34 @@ _A_QQ_CORRELATION = _abs_ref(_ROW_QQ_CORRELATION, _C_AE)
 _A_SIGNIFICANCE_F = _abs_ref(_ROW_SIGNIFICANCE_F, _C_AF)
 _A_RESPONSE_READOUT = _abs_ref(_ROW_RESPONSE_READOUT, _C_AF)
 _A_FE_GROUP = _abs_ref(_ROW_FE_GROUP, _C_AK)
+# The ANOVA Residual df cell (n − p − absorbed) and the spec block's Σ Design
+# Columns total (p, intercept column included). Together they are the reference
+# F distribution for Cook's Distance — see _COOKS_CUTOFF below.
+_A_RESIDUAL_DF = _abs_ref(_ROW_ANOVA_RESIDUAL_DF, _C_AB)
+_A_DESIGN_COLUMNS_TOTAL = _abs_ref(1, _C_SPEC_DESIGN_COLUMNS)
+
+# ── The Cook's Distance influence cutoff ──────────────────────────────────────
+# D_i > F(0.5, p, n−p): the median of the reference F distribution, which is the
+# standard rule and the one this sheet screens on. Written once and reused by the
+# AT/AY conditional formats, the AY flag column, and the chart title, so the three
+# can never disagree about what "flagged" means.
+#
+# The numerator df is p — the design matrix's COLUMN COUNT, intercept included —
+# not the ANOVA Regression df at $AB$15, which is p−1. Cooks_Distance divides by
+# COLUMNS(Design_Matrix(X, Include)), so p is what makes the statistic and its
+# reference distribution the same quantity. $O$1 already totals exactly that
+# (Σ of the spec's Design Columns audit plus N(Allow_Intercept)).
+#
+# The IFERROR is load-bearing, not defensive habit: under Zero_Predictors_Selected()
+# the design collapses, F.INV sees a zero df and returns #NUM!. NA() makes every
+# comparison against the cutoff fail closed — nothing flagged — where a raw #NUM!
+# would propagate into the flag column and light the whole band.
+#
+# F.INV needs no _xlfn. prefix here. That prefix belongs to catalog formulas
+# written into lambda_functions.json (see lambda_formula_parser); a formula
+# handed to Formula2 goes through Excel's own parser, exactly like the T.INV.2T
+# calls in the coefficient block below.
+_COOKS_CUTOFF = f"IFERROR(F.INV(0.5,{_A_DESIGN_COLUMNS_TOTAL},{_A_RESIDUAL_DF}),NA())"
 # Unit-space block anchors (v3.3). The Method cell lives at row 4 of the
 # block — sibling to the section heading at row 3 — so the rest of the block
 # (rows 5–9) and the prediction column (AL) can reference a single source.
@@ -665,9 +704,19 @@ _DESIGN_MATRIX_INTERCEPT_HEADER = '=IF(Allow_Intercept,"Intercept","")'
 #
 # It also makes the block readable: each element gets its own labelled row
 # instead of four anonymous spilled cells, so the sheet shows what it computed.
+#
+# Both Log tokens report here as plain "Log". The context feeds the unit-space
+# dispatcher, which keys on the (response_transform, predictor_transform) PAIR;
+# the two tokens produce the identical Ln(x) column and differ only in the row
+# mask, so telling them apart here would double the dispatcher's axis to
+# distinguish two cases with the same back-transformation. See
+# write_spec_block._TRANSFORM_LOG_DROP.
 _RESPONSE_TRANSFORM_FORMULA = (
-    'IFERROR(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),'
-    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data)))),"None")'
+    "IFERROR(IF(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),"
+    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))'
+    f'="{_TRANSFORM_LOG_DROP}","{_TRANSFORM_LOG}",'
+    "INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),"
+    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))),"None")'
 )
 # None/Log/Mixed over the INCLUDED CONTINUOUS predictors — masked to Continuous
 # so a Categorical dummy's transform never yields a false "Mixed".
@@ -678,8 +727,11 @@ _PREDICTOR_TRANSFORM_FORMULA = (
     "typ,TAKE(Spec_Type,n_c),"
     "trn,TAKE(Spec_Transform,n_c),"
     f'mask,(rl="{_ROLE_PREDICTOR}")*(inc=TRUE)*(typ="Continuous"),'
-    'nL,SUMPRODUCT(mask*N(trn="Log")),'
-    'nN,SUMPRODUCT(mask*N(trn="None")),'
+    # N() of an OR() would collapse the per-column array to one scalar, so the
+    # two tokens are summed as indicators and clamped instead.
+    f'nL,SUMPRODUCT(mask*(((trn="{_TRANSFORM_LOG}")'
+    f'+(trn="{_TRANSFORM_LOG_DROP}"))>0)),'
+    f'nN,SUMPRODUCT(mask*N(trn="{_DEFAULT_TRANSFORM}")),'
     'IF(nL=0,"None",IF(nN=0,"Log","Mixed")))'
 )
 
@@ -1051,29 +1103,22 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         )
 
     # ── Cook's distance (and its "Flagged" duplicate) ───────────────────────
-    # The Observations cell holds n. The Flagged column mirrors Cook's D
-    # (NA() below both cutoffs), so the same two rules applied to it just
-    # recolor whatever value the source column already produced there — kept
-    # visually consistent with the column it duplicates.
+    # ONE tier, not two. The old pair — amber at 4/n, red at 0.9 — graded by
+    # two unrelated rules of thumb, and F(0.5, p, n−p) lands between them for
+    # most models, so keeping either alongside it would draw a line the cutoff
+    # itself does not recognize. The Flagged column mirrors Cook's D (NA()
+    # below the cutoff), so the same rule applied to it just recolors whatever
+    # value the source column already produced there — kept visually
+    # consistent with the column it duplicates.
     for column, address in [
         (col_letter(_C_AT), addresses["cooks"]),
         (col_letter(_C_AY), addresses["cooks_flag"]),
     ]:
         cell = f"{column}{_ROW_DATA_FIRST}"
-        # 4/n < D <= 0.9: light-yellow fill and dark-yellow text.
         add_expression_format(
             sheet,
             address,
-            f"=AND(ISNUMBER({cell}),{cell}>4/{_A_OBSERVATIONS},{cell}<=0.9)",
-            fill=CF_YELLOW_FILL,
-            font_color=CF_DARK_YELLOW_TEXT,
-        )
-
-        # D > 0.9: light-red fill and dark-red text.
-        add_expression_format(
-            sheet,
-            address,
-            f"=AND(ISNUMBER({cell}),{cell}>0.9)",
+            f"=AND(ISNUMBER({cell}),{cell}>{_COOKS_CUTOFF})",
             fill=CF_LIGHT_RED_FILL,
             font_color=CF_DARK_RED_TEXT,
         )
@@ -1319,7 +1364,7 @@ def _setup_local_names(
         ("RegChartPRESSResid", col_letter(_C_AX),
          "PRESS Residuals chart: bar values"),
         ("RegChartCookDistFlag", col_letter(_C_AY),
-         "Cook's Distance chart: flagged-point overlay for data labels (D > 4/n or D > 0.9)"),
+         "Cook's Distance chart: flagged-point overlay for data labels (D > F(0.5, p, n-p))"),
         ("RegChartObsLabel", col_letter(_C_AN),
          "Cook's Distance chart: observation identifier for flagged-point data labels"),
     ]:
@@ -1381,11 +1426,13 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     The block itself is written earlier in ``write_regression_output_sheet``,
     right after the sheet-scoped names — its four computed columns are spills
     that read those names, which is why the names go first. Here we just
-    layer the spec feedback (E1 status, M/N spectrum, I Verdict overlay), the
-    Intercept control, and the column notes on top.
+    layer the rows 1-2 band (labels, readouts and the per-column status
+    cells), the Intercept control, the design-matrix width guard, and the
+    column notes on top.
     """
     section_heading(sheet, 1, _C_A, "MODEL SPECIFICATION")
     _write_spec_feedback(sheet)
+    _write_sequence_status(sheet)
     _write_intercept_control(sheet)
     _write_design_matrix_width_guard(sheet)
     # Spec-block notes anchor on the header row (row 3) so the tooltip
@@ -1427,6 +1474,21 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     _set_note(sheet, 4, _C_AG, _BACK_TRANSFORM_NOTE, label="Back-Transform")
 
 
+_WIDTH_GUARD_NOTE = (
+    "Whether the design matrix this spec describes will fit and compute.\n\n"
+    "RED — the matrix needs more columns than there is room for to the right "
+    "of the materialization band. It cannot be built at all. Reduce a "
+    "Categorical predictor's level count or exclude it.\n\n"
+    "AMBER — it fits, but it is large enough to be slow: Gram_Inverse is "
+    "cubic in the column count inside MMULT, and every materialized cell "
+    "recalculates on any input change. Expect the workbook to lag while you "
+    "edit the spec.\n\n"
+    "Both thresholds are read from the SPEC — the Σ above this cell — never "
+    "from the built matrix. A matrix too wide to fit cannot be built in order "
+    "to be measured, which is the whole point of checking here first."
+)
+
+
 def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
     """The ARCHITECTURE §4b pre-flight width guard, in the spec-block area.
 
@@ -1436,13 +1498,17 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
         N1 = "Σ Design Columns"   (bold label)
         O1 = the total            — Σ(spec column O) plus the intercept
                                     column, i.e. exactly COLUMNS(Design_Columns())
-        M2 = the guard status     — blank while the model is within limits,
+        O2 = the guard status     — blank while the model is within limits,
                                     a WARNING line at the soft threshold, an
                                     ERROR line at the hard one
 
     O1 sits directly above the per-row Design Columns audit it totals, so the
-    number and its breakdown read as one column. M2's message overflows
-    rightward across N2/O2, which the spec block leaves empty.
+    number and its breakdown read as one column, and O2 sits directly under the
+    number it is a verdict on. The status used to be at M2, above Interaction
+    Term — a column with nothing to do with design-matrix width — and relied on
+    N2/O2 as overflow space. It is now in its own column like every other status
+    in this band; the runway it lost is made up by P2/Q2, which the Δ spectrum
+    vacated when it moved down to align with the spec block's own rows.
 
     Both thresholds are read from the SPEC, never from
     ``COLUMNS(Design_Columns())`` — a matrix too wide to fit cannot be built
@@ -1454,7 +1520,7 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
     not breach "display derives, never feeds" — see ARCHITECTURE §4.
     """
     total_cell = _abs_ref(1, _C_SPEC_DESIGN_COLUMNS)
-    status_cell = _abs_ref(2, _C_SPEC_INTERACTION_TERM)
+    status_cell = _abs_ref(_SPEC_STATUS_ROW, _C_SPEC_DESIGN_COLUMNS)
 
     val(sheet, 1, _C_SPEC_INTERACTION_OPERATION, "Σ Design Columns")
     bold(sheet, 1, _C_SPEC_INTERACTION_OPERATION)
@@ -1470,10 +1536,9 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
     )
     bold(sheet, 1, _C_SPEC_DESIGN_COLUMNS)
 
-    f(
+    _status_cell(
         sheet,
-        2,
-        _C_SPEC_INTERACTION_TERM,
+        _C_SPEC_DESIGN_COLUMNS,
         (
             f"=LET(k,{total_cell},n,ROWS(Source_Data),"
             f"IF(k>{_DESIGN_MATRIX_MAX_COLUMNS},"
@@ -1487,6 +1552,8 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
             'materialized cell recalculates on any input change.",'
             '"")))'
         ),
+        _WIDTH_GUARD_NOTE,
+        label="Width guard",
     )
 
     # Red outranks yellow via StopIfTrue, the same priority idiom the
@@ -2292,17 +2359,16 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
     f(sheet, 3, _C_AX, "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())")
-    # Cook's Distance (Flagged): NA()'d except where D exceeds the standard
-    # influence cutoffs (4/n or 0.9 — algebraically MIN(4/n, 0.9) since these
-    # are two lower bounds on the same "flag it" union, for every n). This
-    # feeds the Cook's Distance chart's data-label overlay series (see
-    # RegChartCookDistFlag in _setup_local_names / _write_diagnostic_charts):
-    # NA() points are skipped for both plotting and labeling, so only the
-    # flagged points get a label.
+    # Cook's Distance (Flagged): NA()'d except where D exceeds the influence
+    # cutoff, F(0.5, p, n−p) — see _COOKS_CUTOFF for why p comes from $O$1 and
+    # not the ANOVA Regression df. This feeds the Cook's Distance chart's
+    # data-label overlay series (see RegChartCookDistFlag in _setup_local_names
+    # / _write_diagnostic_charts): NA() points are skipped for both plotting
+    # and labeling, so only the flagged points get a label.
     cooks_col = col_letter(_C_AT)
     f(
         sheet, 3, _C_AY,
-        f"=IF({cooks_col}3#>MIN(4/{_A_OBSERVATIONS},0.9),{cooks_col}3#,NA())",
+        f"=IF({cooks_col}3#>{_COOKS_CUTOFF},{cooks_col}3#,NA())",
     )
     # AZ: Predicted Y in original units — the unit-space siblings of AP/AR/AQ
     # /AX. Method defaults to Duan smearing when the response is Log, which
@@ -2401,7 +2467,7 @@ def _diagnostic_chart_specs(
             None,
             _name_ref("RegChartCookDist"),
             '="Cook\'s Distance  (flag: D > "'
-            f'&TEXT(MIN(4/{_A_OBSERVATIONS},0.9),"0.000")&")"',
+            f'&TEXT({_COOKS_CUTOFF},"0.000")&")"',
             '="Observation"', '="Cook\'s Distance"',
             3, 1,
         ),
@@ -2418,7 +2484,7 @@ def _diagnostic_chart_specs(
             "PRESS Residuals", "bar",
             None,
             _name_ref("RegChartPRESSResid"),
-            f'="PRESS Residuals  (PRESS = "&TEXT({_A_PRESS},"#,##0.0000")&")"',
+            f'="PRESS Residuals  (PRESS = "&TEXT({_A_PRESS},"#,##0")&")"',
             '="Observation"', '="PRESS Residual"',
             4, 1,
         ),
@@ -2906,7 +2972,7 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
 
             # Overlay series for selective data labels: NA()'d rows in
             # RegChartCookDistFlag plot/label nothing, so only points past
-            # the 4/n or 0.9 threshold get a marker+label. ChartType=xlLine
+            # the F(0.5, p, n−p) cutoff get a marker+label. ChartType=xlLine
             # (rather than the chart's own xlColumnClustered) keeps this
             # series off the bar cluster — sharing the category axis
             # without narrowing/shifting the real bars — which makes this
@@ -2915,7 +2981,7 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
             flag_series.XValues = _name_ref("RegChartObsLabel")
             flag_series.Values = _name_ref("RegChartCookDistFlag")
             flag_series.ChartType = _XL_LINE
-            flag_series.Name = "Flagged (D > 4/n or D > 0.9)"
+            flag_series.Name = "Flagged (D > F(0.5, p, n-p))"
             flag_series.Format.Line.Visible = False  # msoFalse — no connecting line
             flag_series.MarkerStyle = -4142          # xlMarkerStyleNone — label only
             flag_series.HasDataLabels = True

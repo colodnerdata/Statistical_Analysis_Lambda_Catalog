@@ -262,6 +262,36 @@ _N_VARIABLES = len(_VARIABLES)  # 12
 _INTERCEPT_ROW = 2
 _HEADER_ROW = 3
 _FIRST_DATA_ROW = 4
+
+# ── The two rows above the spec block ─────────────────────────────────────────
+# One grammar, applied without exception:
+#
+#   ROW 1 — LABELS for the readouts on row 2, and nothing else.
+#   ROW 2 — the CONTROL, VALUE or STATUS itself, in the spec column it is about.
+#
+# "In the spec column it is about" is the rule that decides every placement
+# here. The Role cardinality errors sit above Role, the Log-domain message above
+# Transform, the Sequence cardinality error above Sequence, the design-matrix
+# width guard above Design Columns. Before this, each status had been parked in
+# whichever cell happened to be free — the Sequence error above Reference Level,
+# the Fixed Effects error above Role, the width guard above Interaction Term —
+# so nothing about a message's position told you what it was about, and there
+# was no principled place to put the next one.
+#
+# Status cells get NO row-1 label. They are blank whenever the spec is legal, so
+# a permanent label would be a caption for nothing most of the time; the message
+# names its own subject when it appears. Only readouts — the Intercept toggle,
+# the Fixed Effects trio, Σ Design Columns, the Δ spectrum — carry labels.
+#
+# The cost of putting each status in its own column is that row 2 has almost no
+# horizontal runway: a long message has nowhere to overflow. Every status cell is
+# therefore WrapText with a short, imperative message and a hover Note carrying
+# the full guidance. Row 2 is left on automatic height (Rows(2).AutoFit() in
+# write_sheet_regression), so it is one line tall while the spec is legal and
+# grows the moment a message fires — which makes an error more prominent, not
+# less.
+_FEEDBACK_LABEL_ROW = 1
+_FEEDBACK_STATUS_ROW = _INTERCEPT_ROW  # 2 — the controls and the toggle share it
 # The last spec row of the SHIPPED Auto MPG default — NOT the block's height.
 # The block has no fixed height: every part of it sizes itself from
 # COLUMNS(Source_Data), so a Source_Table retarget resizes it. This constant
@@ -333,7 +363,9 @@ _SPEC_COLUMN_WIDTHS: dict[int, float] = {
     _C_TYPE: 11,
     _C_REFERENCE: 15,
     _C_ORDER: 0,
-    _C_TRANSFORM: 11,
+    # 14, not 11: wide enough for the "Log (drop ≤ 0)" token to render in the
+    # cell rather than only in the dropdown.
+    _C_TRANSFORM: 14,
     _C_SEQUENCE: 10,
     _C_SEQUENCE_PERIOD: 14,
     _C_PERIOD_IN_USE: 14,
@@ -476,6 +508,48 @@ _ROLE_OMIT = "Omit"
 # absorbed-df correction, not silent pooled OLS.
 _ROLE_FIXED_EFFECTS = "Fixed Effects"
 
+_DEFAULT_TRANSFORM = "None"
+
+# The two Log tokens. They build the IDENTICAL constructed column — Ln(x), with
+# Constructed_Column_Transforms() reporting "Log" for both — and differ in
+# exactly one thing: what happens to a row whose value is zero or negative.
+#
+#   Log             the row stays in the sample and Ln_Positive returns #N/A,
+#                   which propagates through the whole fit. Loud, and correct:
+#                   the user asked to log a value that has no log.
+#   Log (drop ≤ 0)  the row leaves the sample (Sample_Include grows a
+#                   positivity term for this token only) and the count is
+#                   reported at G2.
+#
+# Two tokens rather than one token that silently filters: dropping rows changes
+# the sample the user is fitting, and that must be something they DECLARED, not
+# something the workbook did on their behalf. Same "flag red and instruct, never
+# silently switch" precedent as Intercept x Categorical and Categorical x Log.
+#
+# Because both report as "Log" to Constructed_Column_Transforms(), the
+# (response_transform, predictor_transform) unit-space dispatcher gains no new
+# combination and the Duan / back-transformation family is untouched — which is
+# what keeps this from being the ~10x axis-widener MODEL_TESTING_ASSETS section 2
+# warns every new Transform value about.
+#
+# These strings ALSO appear literally inside the catalog bodies in
+# lambda_functions.json, which no import can reach; test_transform_tokens_match
+# _the_catalog_bodies pins the two spellings together so a rename cannot
+# half-land.
+_TRANSFORM_LOG = "Log"
+_TRANSFORM_LOG_DROP = "Log (drop ≤ 0)"
+
+
+def _is_log(expr: str) -> str:
+    """``OR(<expr>="Log",<expr>="Log (drop ≤ 0)")`` — "this row logs its column".
+
+    Every Excel-side test of "is this a Log row?" goes through here rather than
+    comparing against one token, so adding the second token could not leave a
+    call site testing only the first. ``expr`` is any formula fragment that
+    evaluates to a Transform cell's value.
+    """
+    return f'OR({expr}="{_TRANSFORM_LOG}",{expr}="{_TRANSFORM_LOG_DROP}")'
+
 # The derived response name, shared by the audit strip and the filtered-y
 # header: the header of the first Role=Response spec row, "(none)" when
 # no row carries the role. XMATCH position over the TAKE-trimmed roles is
@@ -488,7 +562,9 @@ _RESPONSE_NAME_FORMULA = (
     "LET(n_c,COLUMNS(Source_Data),"
     f'p,XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,n_c)),'
     "h,INDEX(TOROW(Header_Names),p),"
-    'IFERROR(IF(INDEX(TAKE(Spec_Transform,n_c),p)="Log","Ln("&h&")",h),"(none)"))'
+    "IFERROR(IF("
+    + _is_log("INDEX(TAKE(Spec_Transform,n_c),p)")
+    + ',"Ln("&h&")",h),"(none)"))'
 )
 
 # Dropdown validations cover the repo's standard 16000-row input band so a
@@ -680,8 +756,6 @@ SPEC_DATASET_PROFILES: dict[str, SpecDatasetProfile] = {
     "production_lots": _PRODUCTION_LOTS_PROFILE,
 }
 
-_DEFAULT_TRANSFORM = "None"
-
 _ROLE_VALIDATION_LIST = ",".join(
     (
         _ROLE_RESPONSE,
@@ -694,7 +768,9 @@ _ROLE_VALIDATION_LIST = ",".join(
 )
 _INCLUDE_VALIDATION_LIST = "TRUE,FALSE"
 _TYPE_VALIDATION_LIST = "Continuous,Categorical"
-_TRANSFORM_VALIDATION_LIST = ",".join((_DEFAULT_TRANSFORM, "Log"))
+_TRANSFORM_VALIDATION_LIST = ",".join(
+    (_DEFAULT_TRANSFORM, _TRANSFORM_LOG, _TRANSFORM_LOG_DROP)
+)
 # Sequence flag: TRUE or blank (IgnoreBlank keeps blank legal).
 _SEQUENCE_VALIDATION_LIST = "TRUE"
 
@@ -763,8 +839,16 @@ _TRANSFORM_NOTE = (
     "coefficient table, Prediction Inputs). Every model statistic "
     "(coefficients, R², residuals, prediction interval) is then in "
     "log space; predictions are NOT back-transformed to the original "
-    "units. A zero, negative, or non-numeric value on an included row "
-    "makes the model return #N/A rather than fit silently."
+    "units.\n\n"
+    "Zeros and negatives have no logarithm, and the two Log options differ "
+    "only in what happens to those rows. “Log” keeps them in the "
+    "sample, so the model returns #N/A rather than fit silently — the cell "
+    "turns red and the message above this column names the variable and the "
+    "row count. “Log (drop ≤ 0)” excludes them from the sample "
+    "instead and reports how many it dropped. Both build the same "
+    "“Ln(name)” column; excluding rows changes the sample you are "
+    "fitting, so it is a choice you declare here rather than one the "
+    "workbook makes for you."
 )
 _SEQUENCE_NOTE = (
     "Sequence structural axis: mark AT MOST ONE variable TRUE as the "
@@ -897,6 +981,146 @@ _FIXED_EFFECTS_COUNT_FORMULA = (
     f'="{_ROLE_FIXED_EFFECTS}"))'
 )
 
+# Count of Role="Response (y)" spec rows. Exactly one is the legal range —
+# unlike Sequence and Fixed Effects, where zero is also legal — so the Role
+# status line below flags both zero and two-plus. Same TAKE-trimmed idiom.
+_RESPONSE_COUNT_FORMULA = (
+    "SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))"
+    f'="{_ROLE_RESPONSE}"))'
+)
+
+# "A Sequence axis is declared AND produced spacings" — the gate the Verdict
+# label, the Δ spectrum headers and their hide-in-place rules all share, so a
+# workbook with no ordering axis shows none of that machinery rather than
+# showing it empty. Sequence_Deltas() returns #N/A with no axis; COUNT of an
+# error is 0, so no IFERROR is needed.
+_SEQUENCE_ACTIVE_FORMULA = "COUNT(Sequence_Deltas())>0"
+
+# ── The row-2 status messages ─────────────────────────────────────────────────
+# Each is one cell holding one message, picked in severity order by a nested IF
+# — the idiom the Sequence verdict (I2) and the design-matrix width guard (O2)
+# already use. Keeping the priority inside the formula rather than spreading it
+# over several cells is what lets each column own exactly one status cell.
+#
+# Messages are short and imperative because they wrap inside a single column;
+# the hover Note beside each carries the long form.
+
+# B2 — Role cardinality. Exactly one Response is required (zero and two-plus are
+# both errors, and they need different instructions), while Sequence and Fixed
+# Effects allow zero, so those only flag the two-plus case. Fixed Effects is
+# checked here rather than in its own cell because Role is the column all three
+# conditions are declared in.
+_ROLE_STATUS_FORMULA = (
+    f"=IF({_RESPONSE_COUNT_FORMULA}=0,"
+    '"ERROR: no Response (y) row — mark the variable being modeled.",'
+    f"IF({_RESPONSE_COUNT_FORMULA}>1,"
+    '"ERROR: multiple Response (y) rows — mark exactly one.",'
+    f"IF({_FIXED_EFFECTS_COUNT_FORMULA}>1,"
+    '"ERROR: multiple Fixed Effects rows — mark at most one.",'
+    '"")))'
+)
+_ROLE_STATUS_NOTE = (
+    "Role cardinality, in severity order.\n\n"
+    "A model needs exactly one Response (y) row: with none there is nothing to "
+    "fit, and with two the constructor silently takes the first, so both states "
+    "are errors rather than warnings.\n\n"
+    "Sequence and Fixed Effects each allow zero — plenty of models have no "
+    "ordering axis and no panel structure — so only a second row of either is "
+    "flagged. Two Fixed Effects rows would be two-way absorption, which this "
+    "workbook does not implement; the engine absorbs the first row and ignores "
+    "the second, which is why it is called out here rather than left to be "
+    "discovered in the coefficients."
+)
+
+# H2 — Sequence cardinality, above the Sequence column it is declared in.
+_SEQUENCE_STATUS_FORMULA = (
+    f"=IF({_SEQUENCE_FLAG_COUNT_FORMULA}>1,"
+    '"ERROR: multiple Sequence rows — mark at most one.","")'
+)
+_SEQUENCE_STATUS_NOTE = (
+    "Zero or one Sequence flag is the legal range. Zero is an ordinary "
+    "non-panel spec; one designates the ordering axis for the lag, difference "
+    "and serial-correlation features; two or more is a spec error, because "
+    "there is no defined answer to which axis a lag is taken along.\n\n"
+    "The flagged cells in the Sequence column turn red at the same time, so "
+    "this line tells you what is wrong and the column tells you where."
+)
+
+# G2 — the Log domain, above the Transform column. Two states, most severe
+# first:
+#
+#   red    a row declares the strict "Log" token on a column that holds a zero
+#          or a negative among the rows the model would fit. Those rows stay in
+#          the sample, so Ln_Positive returns #N/A for each and the #N/A reaches
+#          every statistic. The message names the variable, the count and the
+#          fix, because the fix is a different dropdown value and the user has
+#          no way to guess that from a sheet full of #N/A.
+#   amber  "Log (drop ≤ 0)" is in use and actually excluded something. Not a
+#          problem — it is the declared behaviour — but the sample is now
+#          smaller than the data, and that must never be invisible.
+#
+# `bad` counts, per spec column, the non-positive rows a strict Log would poison;
+# MAP over SEQUENCE(nc) gives one count per column, and XMATCH recovers which
+# column the worst one came from. Sample_Include(FALSE) is the mask BEFORE the
+# positivity layer — the rows the fit would otherwise have used — which is what
+# makes both halves of this formula count the same population.
+_LOG_DOMAIN_STATUS_FORMULA = (
+    "=LET(nc,COLUMNS(Source_Data),"
+    "rl,TAKE(Spec_Role,nc),"
+    "inc,TAKE(Spec_Include,nc),"
+    "typ,TAKE(Spec_Type,nc),"
+    "trn,TAKE(Spec_Transform,nc),"
+    "hdr,TOROW(Header_Names),"
+    "base,Sample_Include(FALSE),"
+    f'elig,((rl="{_ROLE_RESPONSE}")+((rl="{_ROLE_PREDICTOR}")*(inc=TRUE)'
+    '*(typ="Continuous")))>0,'
+    "bad,MAP(SEQUENCE(nc),LAMBDA(j,"
+    f'IF(AND(INDEX(elig,j),INDEX(trn,j)="{_TRANSFORM_LOG}"),'
+    "SUMPRODUCT(--base,--IFERROR((INDEX(Source_Data,0,j)+0)<=0,FALSE)),0))),"
+    "worst,MAX(bad),"
+    "IF(worst>0,"
+    '"ERROR: "&INDEX(hdr,XMATCH(worst,bad))&" has "&worst&'
+    f'" values ≤ 0 under Log — the fit is #N/A. Use {_TRANSFORM_LOG_DROP}.",'
+    "LET(d,SUMPRODUCT(N(Sample_Include(FALSE)))-SUMPRODUCT(N(Sample_Include())),"
+    'IF(d=0,"",d&" rows excluded: Log of ≤ 0"))))'
+)
+_LOG_DOMAIN_STATUS_NOTE = (
+    "What the Log transforms are doing to the sample.\n\n"
+    "RED — a variable declaring “Log” contains zeros or negatives on rows "
+    "the model would fit. A non-positive number has no logarithm, so "
+    "Ln_Positive returns #N/A for those rows, and because they stay in the "
+    "sample the #N/A propagates into every coefficient, statistic and residual "
+    "on the sheet. Nothing is salvageable until it is resolved. Either exclude "
+    "those rows by switching that variable to “Log (drop ≤ 0)”, "
+    "declare a Filter column that removes them, or drop the transform.\n\n"
+    "AMBER — “Log (drop ≤ 0)” is declared somewhere and has excluded "
+    "rows. That is what it is for; the count is here so a shrinking sample is "
+    "never something you have to notice on your own. Compare it against "
+    "Observations in the Regression Statistics block.\n\n"
+    "Blank means neither applies: either no Log is declared, or every logged "
+    "column is strictly positive throughout."
+)
+
+# I2 — how the declared Sequence axis is actually spaced.
+_SPACING_VERDICT_NOTE = (
+    "How the Sequence axis is spaced, compared against the period in use.\n\n"
+    "RED “off-grid” — some spacings are not whole multiples of the "
+    "period, so the data does not sit on the grid the spec declares. Lags and "
+    "differences computed along it will pair the wrong observations.\n\n"
+    "RED “calendar” — the spacings look like month, quarter or year "
+    "day-counts (28-31, 90-92, 365-366). Calendar arithmetic is not a constant "
+    "period; add an integer period index upstream and sequence on that "
+    "instead.\n\n"
+    "AMBER “not evenly spaced” — the axis has spacings besides the "
+    "period. Everything still computes, but a gap is silently treated as one "
+    "step by any lag taken along it.\n\n"
+    "AMBER “no natural period” — no spacing occurs more often than "
+    "the others, so there is no modal value to adopt and the candidate falls "
+    "back to the minimum. Type a Sequence Period on the flagged row if that "
+    "is not what you want.\n\n"
+    "Blank means either no axis is declared or its spacing is uniform."
+)
+
 # The active Fixed Effects variable's header name — the same XMATCH-on-Role
 # lookup that fills the spec feedback block's "FE Variable" cell (J2 below),
 # factored out so the Residual Output headers (write_sheet_regression.py) can
@@ -926,8 +1150,12 @@ _FIXED_EFFECTS_NAME_FORMULA = (
 # and show #N/A in the residual headers instead of degrading to the plain
 # (non-"(Log)") label.
 _RESPONSE_LOG_FORMULA = (
-    'IFERROR(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),'
-    f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))="Log",FALSE)'
+    "IFERROR("
+    + _is_log(
+        "INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),"
+        f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))'
+    )
+    + ",FALSE)"
 )
 
 # ── The four computed spec columns (J, K, L, O) ────────────────────────────
@@ -1626,7 +1854,42 @@ def _write_spec_block(
         (
             f'=AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
             f'$D{_FIRST_DATA_ROW}="Categorical",'
-            f'$G{_FIRST_DATA_ROW}="Log")'
+            f"{_is_log(f'$G{_FIRST_DATA_ROW}')})"
+        ),
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+    )
+
+    # Log-domain flag: red G when a row declares the STRICT "Log" token on a
+    # column that actually contains a zero or a negative among the rows the
+    # model would fit. Those rows stay in the sample by design, so Ln_Positive
+    # returns #N/A for each one and the #N/A propagates through
+    # Predictor_Columns() into every statistic on the sheet — a fit that is
+    # dead, not degraded. The cell is where the user can act on it, and the G2
+    # message beside it names the variable, the count, and the fix.
+    #
+    # "Log (drop ≤ 0)" never fires this rule. It is a correct declaration whose
+    # consequence — a narrower sample — is reported at G2 in amber instead.
+    #
+    # The row test mirrors Sample_Include's own eligibility branch exactly:
+    # only the Response and included Continuous Predictors reach Ln_Positive,
+    # so a Log left on an Identifier or an excluded row is inert and unflagged.
+    # Sample_Include(FALSE) is the mask BEFORE the positivity layer, which is
+    # what makes this count the rows the fit would otherwise have used.
+    # Calling a closure with INDEX(Source_Data,0,ROW()-offset) from inside a CF
+    # expression is the same idiom the invalid-reference rule below uses.
+    add_expression_format(
+        sheet,
+        f"$G${_FIRST_DATA_ROW}:$G${_VALIDATION_LAST_ROW}",
+        (
+            f'=AND($G{_FIRST_DATA_ROW}="{_TRANSFORM_LOG}",'
+            f'OR($B{_FIRST_DATA_ROW}="{_ROLE_RESPONSE}",'
+            f'AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
+            f"$C{_FIRST_DATA_ROW}=TRUE,"
+            f'$D{_FIRST_DATA_ROW}="Continuous")),'
+            "SUMPRODUCT(--Sample_Include(FALSE),"
+            "--IFERROR((INDEX(Source_Data,0,"
+            f"ROW()-{_ROW_TO_COL_OFFSET})+0)<=0,FALSE))>0)"
         ),
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
@@ -1675,152 +1938,190 @@ def _write_spec_block(
         )
 
 
-def _write_spec_feedback(sheet: xw.Sheet) -> None:
-    """The P/Q spectrum and the I1/I2 verdict overlay.
+def _status_cell(
+    sheet: xw.Sheet,
+    col: int,
+    formula: str,
+    note: str,
+    *,
+    label: str,
+) -> str:
+    """Write one row-2 status cell and return its ``$G$2``-style address.
 
-    Layout (cells land on row 1 for headers, row 2 for content; row 1 is
-    shared with the row-1 audit strip on the right side of the sheet, and
-    row 2 holds the row-2 Intercept control — both unaffected by the
-    feedback cells to the right of E2):
-
-        P1 = "Δ"          (bold header)
-        Q1 = "Count"      (bold header)
-        P2 = IFERROR(Sequence_Delta_Spectrum(), "")
-            — spills downward into empty territory (P and Q are spec
-              feedback columns with no other content, so the spill never
-              collides with the spec block below row 3)
-        I1 = "Verdict"    (bold header — overlays the Sequence_Period
-                          column's row-1 cell, which is unused)
-        I2 = combined switch formula (priority-ordered, single message)
-
-    The E1 Sequence error status is written here too. H2 is the "Sequence"
-    column header, and a status cell sitting on top of a header reads as a
-    visual collision — so E1 it is. (It moved off H2 when the spec area
-    became a structured table; that table is gone, the placement stands.)
-    E1 keeps the same pattern as the old H2: blank while the spec is legal,
-    a red error line when it is not.
-
-    B1 carries the parallel Fixed Effects cardinality error (same pattern,
-    Role's own column instead of Sequence's), and J1/K1/L1 (headers) with
-    J2/K2/L2 (values) surface the active FE variable, its group count, and
-    the degrees of freedom it absorbs — TODOs #2's status-block cells, live
-    now that the phase 1-3 engine backs them instead of showing a
-    forthcoming-engine placeholder. J/K/L are the Period In Use / Levels /
-    Reference In Use spec columns; rows 1-2 sit above the table's own
-    per-row content (row 3 header, row 4+ data), the same free space I1/I2
-    already uses for the Sequence Verdict.
+    Every status cell in this band is built the same way: bold, WrapText (row 2
+    is on automatic height, so a message that fires makes the row grow rather
+    than truncating against its neighbour), and a hover Note carrying the long
+    form the cell itself has no width for. The caller adds the conditional
+    formatting, because severity differs per status.
     """
-    feedback_header_row = 1
-    feedback_content_row = 2
+    f(sheet, _FEEDBACK_STATUS_ROW, col, formula)
+    bold(sheet, _FEEDBACK_STATUS_ROW, col)
+    cell = sheet.range(rc(_FEEDBACK_STATUS_ROW, col))
+    try:
+        cell.api.WrapText = True
+    except Exception:  # pylint: disable=broad-exception-caught
+        pass
+    _set_note(sheet, _FEEDBACK_STATUS_ROW, col, note, label=label)
+    return f"${col_letter(col)}${_FEEDBACK_STATUS_ROW}"
 
-    # E1: the Sequence multi-flag error status (moved from H2 — see above).
-    # E1 sits inside the A1–L1 row-1 zone above the spec data area; the E
-    # column is otherwise Reference Level (an input, blank on row 1 by
-    # default), so the status cell shares the column with no other content.
-    status_cell = f"${col_letter(_C_REFERENCE)}${feedback_header_row}"  # $E$1
-    f(
-        sheet,
-        feedback_header_row,
-        _C_REFERENCE,
-        (
-            f"=IF({_SEQUENCE_FLAG_COUNT_FORMULA}>1,"
-            '"ERROR: multiple Sequence flags (mark at most one variable)","")'
-        ),
-    )
-    bold(sheet, feedback_header_row, _C_REFERENCE)
+
+def _hide_when(sheet: xw.Sheet, address: str, condition: str) -> None:
+    """White-on-white a label or readout whose feature is not in play.
+
+    The font-matches-fill idiom the spec rows already use for cascading
+    relevance, applied to the band above them: rather than showing "n/a" or an
+    empty labelled cell, an inactive readout and its label both disappear. The
+    cells here have no fill, so white font on white cell is the match.
+    """
     add_expression_format(
         sheet,
-        status_cell,
-        f'={status_cell}<>""',
-        fill=CF_LIGHT_RED_FILL,
-        font_color=CF_DARK_RED_TEXT,
+        address,
+        f"={condition}",
+        font_color=(255, 255, 255),
     )
 
-    # B1: the parallel Fixed Effects cardinality error. B is otherwise Role
-    # (a dropdown input, blank on row 1 by default), so the status cell
-    # shares the column with no other content — same placement logic as E1
-    # sharing Reference Level's row-1 cell.
-    fe_status_cell = f"${col_letter(_C_ROLE)}${feedback_header_row}"  # $B$1
-    f(
+
+def _write_spec_feedback(sheet: xw.Sheet) -> None:
+    """Rows 1-2 above the spec block: labels on row 1, status/readouts on row 2.
+
+    See the ``_FEEDBACK_LABEL_ROW`` comment block for the grammar. What this
+    function writes, left to right:
+
+        B2  Role cardinality status      (red)      — above Role
+        G2  Log domain status            (red/amber)— above Transform
+        I1  "Spacing Verdict" label                 — hidden with no axis
+        I2  Sequence spacing verdict     (red/amber)— above Sequence Period
+        J1  "FE Variable"   / J2 value              — hidden with no FE row
+        K1  "FE Groups"     / K2 value              — hidden with no FE row
+        L1  "FE df Absorbed"/ L2 value              — hidden with no FE row
+        P3  "Δ" / Q3 "Count" labels                 — hidden with no axis
+        P4  IFERROR(Sequence_Delta_Spectrum(), "")  — spills down P:Q
+
+    The Sequence cardinality error (H2) is ``_write_sequence_status``, the
+    Intercept label and toggle (C1/C2) are ``_write_intercept_control``, and the
+    Σ Design Columns total (N1/O1) with its width guard (O2) belong to the
+    Regression sheet writer, which owns the design-matrix layout the guard's
+    thresholds are derived from.
+
+    The Δ spectrum sits on rows 3+ rather than rows 1-2 so its header aligns
+    with the spec block's own header row and its body with the spec data rows —
+    it reads as a second table beside the first instead of a third row-2 thing.
+    Moving it down also gives O2's width-guard message P2:Q2 to overflow into,
+    which is the only runway anything on row 2 has.
+    """
+    # ── B2: Role cardinality ────────────────────────────────────────────────
+    role_status = _status_cell(
         sheet,
-        feedback_header_row,
         _C_ROLE,
-        (
-            f"=IF({_FIXED_EFFECTS_COUNT_FORMULA}>1,"
-            '"ERROR: multiple Fixed Effects rows (mark at most one variable)","")'
-        ),
+        _ROLE_STATUS_FORMULA,
+        _ROLE_STATUS_NOTE,
+        label="Role status",
     )
-    bold(sheet, feedback_header_row, _C_ROLE)
     add_expression_format(
         sheet,
-        fe_status_cell,
-        f'={fe_status_cell}<>""',
+        role_status,
+        f'={role_status}<>""',
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,
     )
 
-    # J1/K1/L1 + J2/K2/L2: the Fixed Effects status block. All three values
-    # key off the same FE-count gate, self-guarding like the BFN/DW trigger
-    # matrix's "n/a" tokens — "n/a" when no Fixed Effects row is declared,
-    # live values once one is (still resolves the FIRST FE row even in the
-    # 2-plus-rows error state, exactly like Fixed_Effects_Column() itself;
-    # the B1 error above is what flags that state, not these display cells).
-    val(sheet, feedback_header_row, _C_PERIOD_IN_USE, "FE Variable")
-    val(sheet, feedback_header_row, _C_LEVELS, "FE Groups")
-    val(sheet, feedback_header_row, _C_REF_IN_USE, "FE df absorbed")
-    bold(sheet, feedback_header_row, _C_PERIOD_IN_USE)
-    bold(sheet, feedback_header_row, _C_LEVELS)
-    bold(sheet, feedback_header_row, _C_REF_IN_USE)
-    f(
+    # ── G2: the Log domain ──────────────────────────────────────────────────
+    # Red first with StopIfTrue so a poisoned strict-Log column outranks the
+    # amber excluded-row count, which is otherwise true at the same time (a
+    # spec can declare both tokens on different variables). Keyed on the
+    # message's own leading token, the same way the width guard is, so the
+    # formula above stays the single source of which state is which.
+    log_status = _status_cell(
         sheet,
-        feedback_content_row,
-        _C_PERIOD_IN_USE,
+        _C_TRANSFORM,
+        _LOG_DOMAIN_STATUS_FORMULA,
+        _LOG_DOMAIN_STATUS_NOTE,
+        label="Log domain",
+    )
+    add_expression_format(
+        sheet,
+        log_status,
+        f'=ISNUMBER(SEARCH("ERROR",{log_status}))',
+        fill=CF_LIGHT_RED_FILL,
+        font_color=CF_DARK_RED_TEXT,
+        stop_if_true=True,
+    )
+    add_expression_format(
+        sheet,
+        log_status,
+        f'={log_status}<>""',
+        fill=CF_YELLOW_FILL,
+        font_color=CF_DARK_YELLOW_TEXT,
+    )
+
+    # ── J1:L2 — the Fixed Effects readouts ──────────────────────────────────
+    # All three key off the same FE-count gate and return "" rather than the
+    # literal "n/a" they used to: with the labels hidden alongside them, an
+    # inactive block leaves no trace instead of three cells of filler. They
+    # still resolve the FIRST FE row in the 2-plus-rows error state, exactly
+    # like Fixed_Effects_Column() itself — B2 above is what flags that state,
+    # not these display cells.
+    for col, label, value in (
         (
-            f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",'
-            f"{_FIXED_EFFECTS_NAME_FORMULA})"
+            _C_PERIOD_IN_USE,
+            "FE Variable",
+            f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"",{_FIXED_EFFECTS_NAME_FORMULA})',
         ),
-    )
-    f(
-        sheet,
-        feedback_content_row,
-        _C_LEVELS,
-        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom()+1)',
-    )
-    f(
-        sheet,
-        feedback_content_row,
-        _C_REF_IN_USE,
-        f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"n/a",Absorbed_Degrees_Of_Freedom())',
-    )
+        (
+            _C_LEVELS,
+            "FE Groups",
+            f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"",'
+            "Absorbed_Degrees_Of_Freedom()+1)",
+        ),
+        (
+            _C_REF_IN_USE,
+            "FE df Absorbed",
+            f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}=0,"",'
+            "Absorbed_Degrees_Of_Freedom())",
+        ),
+    ):
+        val(sheet, _FEEDBACK_LABEL_ROW, col, label)
+        bold(sheet, _FEEDBACK_LABEL_ROW, col)
+        f(sheet, _FEEDBACK_STATUS_ROW, col, value)
+        _hide_when(
+            sheet,
+            f"${col_letter(col)}${_FEEDBACK_LABEL_ROW}:"
+            f"${col_letter(col)}${_FEEDBACK_STATUS_ROW}",
+            f"{_FIXED_EFFECTS_COUNT_FORMULA}=0",
+        )
 
-    # P1/Q1: bold headers (no fill, default font size). The Verdict header
-    # (I1) is bolded separately below; it lives in column I (the spec
-    # block's Sequence_Period column) and so is NOT in the P:Q range.
-    val(sheet, feedback_header_row, _C_FEEDBACK_DELTA, "Δ")
-    val(sheet, feedback_header_row, _C_FEEDBACK_COUNT, "Count")
-    bold_row(
+    # ── P3/Q3 + P4: the Δ spectrum ──────────────────────────────────────────
+    # Headers on the spec block's own header row, body from its first data row.
+    # P and Q carry no other content, so the N×2 spill has the whole column
+    # below it and never collides with anything.
+    val(sheet, _HEADER_ROW, _C_FEEDBACK_DELTA, "Δ")
+    val(sheet, _HEADER_ROW, _C_FEEDBACK_COUNT, "Count")
+    bold_row(sheet, _HEADER_ROW, _C_FEEDBACK_DELTA, _C_FEEDBACK_COUNT)
+    _hide_when(
         sheet,
-        feedback_header_row,
-        _C_FEEDBACK_DELTA,
-        _C_FEEDBACK_COUNT,
+        f"${col_letter(_C_FEEDBACK_DELTA)}${_HEADER_ROW}:"
+        f"${col_letter(_C_FEEDBACK_COUNT)}${_HEADER_ROW}",
+        f"NOT({_SEQUENCE_ACTIVE_FORMULA})",
     )
-
-    # P2: Sequence_Delta_Spectrum() — an N×2 array of (delta, count) pairs,
-    # spilling downward into empty territory. IFERROR degrades the
-    # no-axis / no-spacings #N/A to a quiet blank.
+    # IFERROR degrades the no-axis / no-spacings #N/A to a quiet blank.
     f(
         sheet,
-        feedback_content_row,
+        _FIRST_DATA_ROW,
         _C_FEEDBACK_DELTA,
         '=IFERROR(Sequence_Delta_Spectrum(),"")',
     )
 
-    # I1: the Verdict header (bold). I is the Sequence_Period spec column,
-    # but only the spec data rows (_FIRST_DATA_ROW.._LAST_DATA_ROW) use it
-    # for the per-variable override; the row-1 and row-2 cells are above
-    # the spec table and free to carry feedback.
-    val(sheet, feedback_header_row, _C_SEQUENCE_PERIOD, "Verdict")
-    bold(sheet, feedback_header_row, _C_SEQUENCE_PERIOD)
+    # ── I1/I2: the spacing verdict ──────────────────────────────────────────
+    # "Spacing Verdict", not "Verdict": the sheet has several verdicts now, and
+    # this one is specifically about how the Sequence axis is spaced. Hidden
+    # with the rest of the sequence machinery when no axis is declared.
+    val(sheet, _FEEDBACK_LABEL_ROW, _C_SEQUENCE_PERIOD, "Spacing Verdict")
+    bold(sheet, _FEEDBACK_LABEL_ROW, _C_SEQUENCE_PERIOD)
+    _hide_when(
+        sheet,
+        f"${col_letter(_C_SEQUENCE_PERIOD)}${_FEEDBACK_LABEL_ROW}",
+        f"NOT({_SEQUENCE_ACTIVE_FORMULA})",
+    )
 
     # I2: the combined verdict switch — one cell, one message, with
     # conditional formatting carrying the priority (red outranks yellow
@@ -1838,7 +2139,7 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
     # Formula2's rejection of direct structured references.
     # outer guard returns blank when no Sequence axis is flagged OR the
     # flagged row's I/J is non-numeric.
-    o2_formula = (
+    verdict_formula = (
         "=LET("
         "d,Sequence_Deltas(),"
         "v,INDEX(Spec_Period_In_Use,"
@@ -1854,13 +2155,18 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
         '""'
         "))))))"
     )
-    f(sheet, feedback_content_row, _C_SEQUENCE_PERIOD, o2_formula)
+    verdict_cell = _status_cell(
+        sheet,
+        _C_SEQUENCE_PERIOD,
+        verdict_formula,
+        _SPACING_VERDICT_NOTE,
+        label="Spacing Verdict",
+    )
 
     # I2 CF: red for off-grid or calendar (StopIfTrue outranks yellow);
     # yellow for regularity or no-natural. Each rule keys on a SEARCH
     # of the cell's rendered text for the message keyword — the same
     # four message constants _MSG_* used to build the formula.
-    verdict_cell = f"${col_letter(_C_SEQUENCE_PERIOD)}${feedback_content_row}"  # $I$2
     add_expression_format(
         sheet,
         verdict_cell,
@@ -1881,27 +2187,26 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
 
 
 def _write_sequence_status(sheet: xw.Sheet) -> None:
-    """Row-2 status line above the Sequence column (the H2 cell).
+    """H2 — the Sequence cardinality status, above the Sequence column.
 
     Zero-or-one Sequence flags is the legal range: zero is a valid spec
     (non-panel data), one designates the ordering axis, two-plus is a spec
-    error. Same pattern as the exactly-one-Response audit: a visible
-    status cell that renders blank while the spec is legal and a red error
-    line when it is not (the message overflows rightward across the empty
-    row-2 display-column cells). Per-cell red CF on the flagged H cells
-    (added in _write_spec_block) points at the offending rows.
+    error. The per-cell red CF on the flagged H cells (added in
+    ``_write_spec_block``) points at the offending rows while this line says
+    what is wrong.
+
+    This cell used to be written here and then abandoned — the function stopped
+    being called and the message moved to E1, above Reference Level, a column
+    with nothing to do with sequencing. It is back where it belongs, and it is
+    the only copy: E1 no longer carries a duplicate.
     """
-    status_cell = f"${col_letter(_C_SEQUENCE)}${_INTERCEPT_ROW}"  # $H$2
-    f(
+    status_cell = _status_cell(
         sheet,
-        _INTERCEPT_ROW,
         _C_SEQUENCE,
-        (
-            f"=IF({_SEQUENCE_FLAG_COUNT_FORMULA}>1,"
-            '"ERROR: multiple Sequence flags (mark at most one variable)","")'
-        ),
+        _SEQUENCE_STATUS_FORMULA,
+        _SEQUENCE_STATUS_NOTE,
+        label="Sequence status",
     )
-    bold(sheet, _INTERCEPT_ROW, _C_SEQUENCE)
     add_expression_format(
         sheet,
         status_cell,
@@ -1912,13 +2217,14 @@ def _write_sequence_status(sheet: xw.Sheet) -> None:
 
 
 def _write_intercept_control(sheet: xw.Sheet) -> None:
-    """Row-2 model-level Intercept toggle (the ``Allow_Intercept`` cell).
+    """C1/C2 — the model-level Intercept label and ``Allow_Intercept`` toggle.
 
-    Mirrors the v1 Regression sheet's A2 label / boolean-column toggle, here
-    aligned to column C so the toggle sits at the top of the Include column,
-    one row above the per-variable Include toggles. No engine formula consumes
-    it yet — it restores the visible control and declares the intercept with
-    the rest of the spec for the future engine to read.
+    The toggle sits at the top of the Include column, one row above the
+    per-variable Include toggles, because that is what it is: the intercept's
+    Include cell. Its label is at C1 rather than A2, which is where it used to
+    be — the label now sits directly above the thing it names, like every other
+    labelled readout in this band, instead of two columns to its left with a
+    blank cell between them.
 
     Conditional formatting encodes the reference-coding coupling
     (ROADMAP: "Intercept coupling — flag, don't switch"): treatment coding
@@ -1932,8 +2238,8 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
       invalid combination, flagged not forced. Added first with StopIfTrue so
       it outranks the hide rule on the same cell.
     """
-    val(sheet, _INTERCEPT_ROW, _C_LABEL, "Intercept")
-    bold(sheet, _INTERCEPT_ROW, _C_LABEL)
+    val(sheet, _FEEDBACK_LABEL_ROW, _C_INCLUDE, "Intercept")
+    bold(sheet, _FEEDBACK_LABEL_ROW, _C_INCLUDE)
     val(sheet, _INTERCEPT_ROW, _C_INCLUDE, True)
     format_input(sheet, _INTERCEPT_ROW, _C_INCLUDE)
 

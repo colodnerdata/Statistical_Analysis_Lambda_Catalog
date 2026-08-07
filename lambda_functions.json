@@ -2117,18 +2117,22 @@
       "notes": "Minimum value in a grid plus its 1-based row and column. Pass the body of a two-input Data Table to locate MLE parameter estimates."
     },
     {
-      "name": "Grid_Search_Optimum",
-      "formula_display": "=LAMBDA(grid,\n  LET(\n    argmin, Grid_Argument_Minimum(grid),\n    row_location, INDEX(argmin, 1, 2),\n    column_location, INDEX(argmin, 1, 3),\n    best_column_parameter, OFFSET(grid, -1, column_location - 1, 1, 1),\n    best_row_parameter, OFFSET(grid, row_location - 1, -1, 1, 1),\n    VSTACK(best_column_parameter, best_row_parameter)\n  ))",
+      "name": "Min_NLL_Params",
+      "formula_display": "=LAMBDA(Param_Array,NLL_Array,INDEX(Param_Array,XMATCH(MIN(NLL_Array),NLL_Array),SEQUENCE(,COLUMNS(Param_Array))))",
       "arguments": [
         {
-          "name": "grid",
-          "description": "complete body range of a two-input Data Table, with column-parameter values immediately above and row-parameter values immediately to the left"
+          "name": "Param_Array",
+          "description": "candidate parameter rows, one row per trial and one column per parameter"
+        },
+        {
+          "name": "NLL_Array",
+          "description": "matching NLL values, one per trial row"
         }
       ],
-      "yields": "2×1 column vector: optimal column-parameter value, then optimal row-parameter value",
-      "description": "Grid_Search_Optimum returns the two parameter values associated with the first minimum in a two-input Excel Data Table. It calls Grid_Argument_Minimum to determine the minimum's row and column internally, then uses OFFSET to retrieve the corresponding column-parameter value from the row immediately above the grid and the row-parameter value from the column immediately to its left.\n\nThe function is distribution-agnostic: for Weibull the outputs can represent shape and scale; for Beta they can represent alpha and beta. The supplied grid must be the full worksheet range of the Data Table body, not a single cell containing the TABLE array formula and not a detached calculated array.",
-      "plain_language_summary": "The two parameter values that produce the smallest result in a two-input Data Table.",
-      "notes": "The two parameter values (column then row) at the minimum of a two-input Data Table. Use after NLL grid search to extract optimal parameters."
+      "yields": "1×d row vector containing the parameter row associated with the minimum NLL",
+      "description": "Min_NLL_Params returns the parameter row aligned to the first minimum in an NLL vector. XMATCH locates MIN(NLL_Array) within the NLL results, and INDEX returns the full matching row from Param_Array across however many parameter columns it contains.\n\nThis works for a single searched parameter (for example a 1-D profile-NLL axis) and for multi-parameter searches such as a Full_Factorial Alpha/Beta grid materialized as an N^2×2 parameter array.",
+      "plain_language_summary": "The parameter value or values attached to the smallest NLL result.",
+      "notes": "Use with a parameter array and its matching NLL array to recover the optimal parameter row at the first minimum."
     },
     {
       "name": "Full_Factorial",

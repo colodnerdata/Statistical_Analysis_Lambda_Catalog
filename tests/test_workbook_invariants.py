@@ -1263,19 +1263,6 @@ class TestShippedUnivariateLayout:
     transcribed constant.
     """
 
-    @pytest.mark.xfail(
-        strict=True,
-        reason=(
-            "PENDING REBUILD. The profile fits' body and axis names moved from "
-            "static A1 ranges to OFFSET ranges sized by the live Grid Points "
-            "cell, and their NLL columns from 20 per-row formulas to one BYROW "
-            "spill. Rebuilding needs Excel via COM, which the Linux CI host and "
-            "the container this change was written in do not have. Rebuild with "
-            "`python scripts/build_univariate.py --verify --no-launch` on a "
-            "machine with Office, commit the artifact, and DELETE THIS MARKER — "
-            "strict=True makes the rebuilt artifact fail here until it is gone."
-        ),
-    )
     def test_fit_zone_bodies_match_the_writer(
         self, univariate_workbook_package: WorkbookPackage
     ) -> None:

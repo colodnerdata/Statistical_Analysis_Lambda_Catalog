@@ -249,6 +249,7 @@ disable = [
 testpaths = ["tests"]
 python_files = ["test_*.py"]
 addopts = ["--tb=short"]
+cache_dir = ".cache/pytest"
 
 [tool.coverage.run]
 source = ["lambda_catalog"]

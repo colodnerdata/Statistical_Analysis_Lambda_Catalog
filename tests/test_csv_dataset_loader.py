@@ -9,6 +9,7 @@ from lambda_catalog.write_sheet_csv_dataset import (
     LIFE_EXPECTANCY,
     MILEAGE,
     PRODUCTION_LOTS,
+    _excel_safe_cell_value,
     load_csv_rows,
 )
 
@@ -169,3 +170,15 @@ def test_load_csv_rows_raises_on_headers_but_no_data_rows(tmp_path: Path) -> Non
 
     with pytest.raises(ValueError, match="headers but no data rows"):
         load_csv_rows(csv_path, MILEAGE)
+
+
+def test_excel_safe_cell_value_escapes_excel_error_literals() -> None:
+    assert _excel_safe_cell_value("#VALUE!") == "'#VALUE!"
+    assert _excel_safe_cell_value("#N/A") == "'#N/A"
+
+
+def test_excel_safe_cell_value_leaves_normal_values_unchanged() -> None:
+    assert _excel_safe_cell_value("subaru") == "subaru"
+    assert _excel_safe_cell_value(18) == 18
+    assert _excel_safe_cell_value(15.5) == 15.5
+    assert _excel_safe_cell_value(None) is None

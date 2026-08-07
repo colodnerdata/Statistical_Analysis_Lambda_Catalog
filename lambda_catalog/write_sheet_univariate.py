@@ -1565,7 +1565,6 @@ def _write_profile_fit(
     r0, c0 = _ROW_FIT_ZONE, col_start
     last_col = c0 + _PR_W - 1
     body_stage_hdr_row = r0 + _R_BODY_STAGE_HDR
-    body_stage_hdr_row = r0 + _R_BODY_STAGE_HDR
     body_hdr_row = r0 + _R_BODY_HDR
     body_row = r0 + _R_BODY
     body_row_end = body_row + _FIT_BODY_FORMAT_ROWS - 1
@@ -1633,8 +1632,8 @@ def _write_profile_fit(
     f(sheet, r0 + _PR_R_GRID_POINTS, c0 + _PR_C_S2, f"={s1_n_ref}")
     sheet.range(rc(r0 + _PR_R_GRID_POINTS, c0 + _PR_C_S2)).number_format = _FMT_INT
     f(sheet, r0 + _PR_R_START, c0 + _PR_C_S2, f"={s1_best1_ref}")
-    f(sheet, r0 + _PR_R_MIN, c0 + _PR_C_S2, f"=LET(Stage1_Opt,{s1_best1_ref},Stage1_Step,({s1_max_ref}-{s1_min_ref})/{s1_n_ref},MAX(0.001,Stage1_Opt-Stage1_Step))")
-    f(sheet, r0 + _PR_R_MAX, c0 + _PR_C_S2, f"=LET(Stage1_Opt,{s1_best1_ref},Stage1_Step,({s1_max_ref}-{s1_min_ref})/{s1_n_ref},MAX(0.001,Stage1_Opt+Stage1_Step))")
+    f(sheet, r0 + _PR_R_MIN, c0 + _PR_C_S2, f"=LET(Stage1_Opt,{s1_best1_ref},Stage1_Step,({s1_max_ref}-{s1_min_ref})/MAX(1,{s1_n_ref}-1),MAX(0.001,Stage1_Opt-Stage1_Step))")
+    f(sheet, r0 + _PR_R_MAX, c0 + _PR_C_S2, f"=LET(Stage1_Opt,{s1_best1_ref},Stage1_Step,({s1_max_ref}-{s1_min_ref})/MAX(1,{s1_n_ref}-1),MAX(0.001,Stage1_Opt+Stage1_Step))")
     f(sheet, r0 + _PR_R_MINNLL, c0 + _PR_C_S2,
       f'=IFERROR(MIN({body_s2}),"—")')
     f(sheet, r0 + _PR_R_BEST_P1, c0 + _PR_C_S2,
@@ -1860,10 +1859,10 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     # Stage 2 control values — bracket Stage 1's optimum by ±1 step.
     f(sheet, r0 + _BETA_R_GRID_POINTS, c0 + _BETA_C_S2_A, f"={s1_n}")
     sheet.range(rc(r0 + _BETA_R_GRID_POINTS, c0 + _BETA_C_S2_A)).number_format = _FMT_INT
-    f(sheet, r0 + _BETA_R_A_MIN, c0 + _BETA_C_S2_A, f"=LET(Stage1_Opt,{s1_best_a},Stage1_Step,({s1_amax}-{s1_amin})/{s1_n},MAX(0.001,Stage1_Opt-Stage1_Step))")
-    f(sheet, r0 + _BETA_R_A_MAX, c0 + _BETA_C_S2_A, f"=LET(Stage1_Opt,{s1_best_a},Stage1_Step,({s1_amax}-{s1_amin})/{s1_n},MAX(0.001,Stage1_Opt+Stage1_Step))")
-    f(sheet, r0 + _BETA_R_B_MIN, c0 + _BETA_C_S2_B, f"=LET(Stage1_Opt,{s1_best_b},Stage1_Step,({s1_bmax}-{s1_bmin})/{s1_n},MAX(0.001,Stage1_Opt-Stage1_Step))")
-    f(sheet, r0 + _BETA_R_B_MAX, c0 + _BETA_C_S2_B, f"=LET(Stage1_Opt,{s1_best_b},Stage1_Step,({s1_bmax}-{s1_bmin})/{s1_n},MAX(0.001,Stage1_Opt+Stage1_Step))")
+    f(sheet, r0 + _BETA_R_A_MIN, c0 + _BETA_C_S2_A, f"=LET(Stage1_Opt,{s1_best_a},Stage1_Step,({s1_amax}-{s1_amin})/MAX(1,{s1_n}-1),MAX(0.001,Stage1_Opt-Stage1_Step))")
+    f(sheet, r0 + _BETA_R_A_MAX, c0 + _BETA_C_S2_A, f"=LET(Stage1_Opt,{s1_best_a},Stage1_Step,({s1_amax}-{s1_amin})/MAX(1,{s1_n}-1),MAX(0.001,Stage1_Opt+Stage1_Step))")
+    f(sheet, r0 + _BETA_R_B_MIN, c0 + _BETA_C_S2_B, f"=LET(Stage1_Opt,{s1_best_b},Stage1_Step,({s1_bmax}-{s1_bmin})/MAX(1,{s1_n}-1),MAX(0.001,Stage1_Opt-Stage1_Step))")
+    f(sheet, r0 + _BETA_R_B_MAX, c0 + _BETA_C_S2_B, f"=LET(Stage1_Opt,{s1_best_b},Stage1_Step,({s1_bmax}-{s1_bmin})/MAX(1,{s1_n}-1),MAX(0.001,Stage1_Opt+Stage1_Step))")
 
     sheet.range(
         rc(r0 + _BETA_R_A_MIN, c0 + _BETA_C_S1_A),

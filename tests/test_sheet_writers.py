@@ -1643,8 +1643,10 @@ def test_profile_stage_formulas_reference_visible_controls() -> None:
     assert sheet.cell(9, 69).api.Formula2 == "=($BQ$6-$BQ$5)/($BQ$4-1)"
 
     # One column of trial shapes, one column of profile NLL beside it. The S1
-    # axis spills from BP33; each NLL row references its own $BP$<row>.
-    assert sheet.cell(33, 68).api.Formula2 == "=SEQUENCE($BQ$4,1,$BQ$5,$BQ$9)"
+    # axis spills from BP33; each NLL row references its own $BP$<row>. The axis
+    # is Full_Factorial(N, Min, Max) — the d=1 reduction of Beta's grid; Step
+    # (BQ9) no longer feeds the axis, only documents the spacing and brackets S2.
+    assert sheet.cell(33, 68).api.Formula2 == "=Full_Factorial($BQ$4,$BQ$5,$BQ$6)"
     # The sample is bound once per cell and passed to both the partner and the
     # NLL call — the naive form re-filters the full input range twice per cell.
     # NLL's optional [filter] is omitted because x is already the included

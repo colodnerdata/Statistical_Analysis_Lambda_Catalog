@@ -4,12 +4,12 @@ Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
 Sheet updated: Univariate
 Sheet updated: Version History
-Created names: 1
-Updated names: 122
+Created names: 0
+Updated names: 123
 Removed names: 0
-Verify: passed (spec mode, 2.2s, workbook='C:\\Users\\Stephen_Colodner\\windows code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library_Univariate.xlsx')
-Timing: build+sync    48.8s
-Timing: recalculate   3.1s
-Timing: verify        2.2s
-Timing: total         54.1s
+Verify: passed (spec mode, 2.5s, workbook='C:\\Users\\Stephen_Colodner\\windows code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library_Univariate.xlsx')
+Timing: build+sync    32.0s
+Timing: recalculate   3.0s
+Timing: verify        2.5s
+Timing: total         37.4s
 Log: excel-only-runs\build_univariate verify no launch.log

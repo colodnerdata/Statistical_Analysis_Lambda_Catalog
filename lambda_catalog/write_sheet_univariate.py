@@ -212,7 +212,9 @@ _HIST_BLOCKS = [
 # Two parameter searches share the right-hand band:
 #   • Weibull and Gamma search ONE dimension (the shape). Their scale / rate
 #     parameter is profiled out in closed form, so each stage is a fixed
-#     _N_PROFILE-point profile-NLL column.
+#     _N_PROFILE-point profile-NLL column whose axis is Full_Factorial(N, Min,
+#     Max) — the d=1 reduction of the same grid Beta uses (Step documents the
+#     spacing and brackets Stage 2 but no longer feeds the axis).
 #   • Beta searches TWO dimensions (both conditional MLEs involve digamma).
 #     Each stage is a Full_Factorial(_N_GRID × _N_GRID) grid → _N_GRID² rows,
 #     written as one dynamic-array spill and sized by an in-sheet "Grid Points"
@@ -1466,9 +1468,12 @@ def _write_profile_fit(
     col0 carries the field labels and the S1 axis body; col1 the S1 values and
     S1 NLL body; col2 the S2 values and S2 axis body; col3 the S2 NLL body.
     Control is a vertical field-list (rows 4–11); the profile-NLL chart occupies
-    rows 13–30; the body sits at rows 33–52 (fixed _N_PROFILE points).  Stage 2's
-    Min/Max bracket Stage 1's optimum by ±1 step; both stages use the same
-    ``Grid_Argument_Minimum`` recovery and the profiled-out partner closed form.
+    rows 13–30; the body sits at rows 33–52 (fixed _N_PROFILE points).  Each
+    stage's axis is ``Full_Factorial(N, Min, Max)`` — the d=1 reduction of the
+    same grid Beta uses, so Step (=(Max-Min)/(N-1)) no longer feeds the axis; it
+    documents the spacing and brackets Stage 2's Min/Max around Stage 1's
+    optimum by ±1 step.  Both stages use the same ``Grid_Argument_Minimum``
+    recovery and the profiled-out partner closed form.
 
     ``partner_formula(ref, data)`` returns the Excel expression (no leading ``=``)
     for the profiled-out parameter at the searched value ``ref``; ``nll_formula(
@@ -1575,10 +1580,15 @@ def _write_profile_fit(
     val(sheet, body_hdr_row, c0 + _PR_C_S2_NLL, "Profile NLL")
     _subheader_row(sheet, body_hdr_row, c0, last_col)
 
+    # Each stage's axis is Full_Factorial(N, Min, Max) — N evenly-spaced points
+    # from Min to Max.  This is the d=1 reduction of the same grid Beta uses:
+    # Step (below) still documents the spacing (=(Max-Min)/(N-1)) and brackets
+    # Stage 2, but the axis no longer reads it.  Full_Factorial's MAX(1,N-1)
+    # divisor makes the N=1 case a single point at Min, matching SEQUENCE.
     f(sheet, body_row, c0 + _PR_C_LABEL,
-      f"=SEQUENCE({s1_n_ref},1,{s1_min_ref},{s1_step_ref})")
+      f"=Full_Factorial({s1_n_ref},{s1_min_ref},{s1_max_ref})")
     f(sheet, body_row, c0 + _PR_C_S2,
-      f"=SEQUENCE({s2_n_ref},1,{s2_min_ref},{s2_step_ref})")
+      f"=Full_Factorial({s2_n_ref},{s2_min_ref},{s2_max_ref})")
     sheet.range(rc(body_row, c0 + _PR_C_LABEL), rc(body_row_end, c0 + _PR_C_LABEL)).number_format = _FMT_1DP
     sheet.range(rc(body_row, c0 + _PR_C_S2), rc(body_row_end, c0 + _PR_C_S2)).number_format = _FMT_1DP
 

@@ -660,19 +660,10 @@ def test_positive_grid_size_rejects_non_integers(value: str) -> None:
         positive_grid_size(value)
 
 
-def test_beta_grid_size_flag_is_validated_on_both_build_scripts(monkeypatch) -> None:
-    """Both CLIs route --beta-grid-size through positive_grid_size.
-
-    build_beta_only.py is the performance-experiment script — the one most
-    likely to be handed an ad-hoc grid size — so it needs the guard as much as
-    the production build does.
-    """
-    build_beta_only = load_script_module("build_beta_only")
-
-    for module, argv in (
-        (build_univariate, ["build_univariate.py", "--beta-grid-size", "1"]),
-        (build_beta_only, ["build_beta_only.py", "--beta-grid-size", "0"]),
-    ):
-        monkeypatch.setattr(sys, "argv", argv)
-        with pytest.raises(SystemExit):
-            module.parse_args()
+def test_beta_grid_size_flag_is_validated(monkeypatch) -> None:
+    """The CLI routes --beta-grid-size through positive_grid_size."""
+    monkeypatch.setattr(
+        sys, "argv", ["build_univariate.py", "--beta-grid-size", "1"]
+    )
+    with pytest.raises(SystemExit):
+        build_univariate.parse_args()

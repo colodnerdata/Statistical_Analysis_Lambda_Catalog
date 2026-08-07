@@ -1,0 +1,8 @@
+python build_demo_workbook.py --no-launch
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Presentations\Lambda_Library_Regression_Demo.xlsx
+Sheets built: 6 (1 Declare, 2 Screen, 3 Trim, 4 Diagnose, 5 Predict, 6 Fixed Effects)
+Created names: 123
+Updated names: 0
+Removed names: 0
+Timing: total         225.4s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_demo_workbook no launch.log

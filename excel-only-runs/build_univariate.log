@@ -7,7 +7,7 @@ Sheet updated: Version History
 Created names: 0
 Updated names: 123
 Removed names: 0
-Timing: build+sync    35.7s
-Timing: recalculate   3.0s
-Timing: total         38.7s
+Timing: build+sync    53.1s
+Timing: recalculate   2.9s
+Timing: total         56.0s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_univariate.log

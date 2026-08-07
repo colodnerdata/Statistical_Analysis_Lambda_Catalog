@@ -217,6 +217,32 @@ _ROWS: list[tuple[int, str, str | None]] = [
         ),
         "body",
     ),
+    (21, "", None),
+    (
+        22,
+        "Optional – faster charts on a fixed-size dataset:",
+        "heading",
+    ),
+    (
+        23,
+        (
+            "The seven diagnostic charts read each series from a worksheet-scoped "
+            "named range (the RegChart* names) built with OFFSET and sized to the "
+            "live observation count at $Y$8. OFFSET is volatile, so those ranges "
+            "re-evaluate on every recalculation pass. If your dataset size is "
+            "stable, you can remove that overhead by pointing each chart series "
+            "directly at the absolute range the name resolves to — from row 3 "
+            "(one below the column header) down to row 2+N, where N is the count "
+            "shown at $Y$8 (for 200 observations, for example "
+            "='Regression'!$AM$3:$AM$202). Select the chart, click a series, and "
+            "replace the ='Regression'!RegChart... reference in the formula bar "
+            "with the absolute range. The trade-off is that the chart no longer "
+            "resizes if you add or drop rows — you must re-point it when the "
+            "row count changes. The named ranges can stay defined; there is no "
+            "need to delete them."
+        ),
+        "body",
+    ),
 ]
 
 

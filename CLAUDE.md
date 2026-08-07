@@ -8,7 +8,7 @@
 
 **Automated verification.** Run `python scripts/build_production.py --verify --no-launch` (Regression) or `build_univariate.py --verify --no-launch` (Univariate). The spec-driven verifier is **not in CI** — GitHub-hosted `windows-latest` lacks Microsoft Office, so `xw.App` fails with `pywintypes.com_error: (-2147221005, 'Invalid class string')`. Layer 1 (`poe verify-headless`) runs on every push. Full pipeline + flag tables: `CONTRIBUTING.md` → *Verifying builds*.
 
-**Recalculate mode is artifact-specific.** The Regression workbook always runs `CalculateFullRebuild` — cheap, and both artifacts ship in full **Automatic**. For Univariate, `--skip-data-table-calculations` (flag name kept for CLI stability) skips the slow Beta grid-spill rebuild; `--no-calculation` is stronger (never sets Automatic; ships Manual-mode stale cells — never ship its output). Full flag tables and the `--no-calculation` rationale: `CONTRIBUTING.md` → *Production build* / *Univariate build*.
+**Recalculate mode is unconditional.** Both production constructors always run `CalculateFullRebuild` and save in full **Automatic** — there are no skip-calculation flags. (Regression's rebuild is cheap; Univariate's is slower because it materializes the Beta `Full_Factorial` spills, but it always runs.) Full flag tables: `CONTRIBUTING.md` → *Production build* / *Univariate build*.
 
 ## Testing regime
 

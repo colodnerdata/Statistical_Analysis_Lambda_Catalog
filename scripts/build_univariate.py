@@ -6,11 +6,9 @@ standalone Univariate workbook (``Lambda_Library_Univariate.xlsx``). Moving
 Univariate Analysis into its own workbook lets each artifact set its own
 calculation mode: the Univariate grid searches — Beta's two ``Full_Factorial``
 grid stages (N² NLL evaluations each) plus the Weibull and Gamma profile grids
-(N per stage), ~280 NLL evaluations per recalc at the shipped defaults — now
-recalculate on edit in full Automatic inside this file, instead of forcing the
-shared workbook into ``XL_CALCULATION_SEMIAUTOMATIC`` and leaving fit results
-stale until a manual Ctrl+Alt+F9 (see DECISIONS.md § v3.0 "Univariate becomes
-its own workbook").  Every fit has the same shape: a ``Full_Factorial`` spill
+(N per stage), ~280 NLL evaluations per recalc at the shipped defaults. They recalculate on edit in full Automatic
+inside this file (see DECISIONS.md § v3.0 "Univariate becomes its own
+workbook").  Every fit has the same shape: a ``Full_Factorial`` spill
 beside a ``BYROW`` NLL column that reads it through the ``#`` operator, both
 sized live by an in-sheet Grid Points cell — a 1-D shape axis for Weibull and
 Gamma, a 2-D (α, β) grid for Beta.
@@ -44,7 +42,6 @@ from lambda_catalog.build_common import (
     positive_grid_size,
     print_name_sync_summary,
     run_log_path,
-    set_calculate_before_save,
     tee_run_log,
     warn_if_workbook_open,
 )
@@ -245,7 +242,6 @@ def build_univariate_workbook(
     validate_reopen: bool = False,
     verbose: bool = False,
     recalculate: bool = True,
-    calculate: bool = True,
     beta_grid_size: int = 10,
 ) -> NameSyncResult:
     """Build the standalone Univariate workbook and sync the LAMBDA name manager.
@@ -265,26 +261,12 @@ def build_univariate_workbook(
         If True, prints timing information for each build phase to stdout.
     recalculate : bool, optional
         If True (default), recalculates and saves as the final build step —
-        this is what computes the Univariate grid searches (the Beta
-        Full_Factorial grid stages and the Weibull/Gamma profile grids) so the
-        shipped artifact is not stale. Pass False (or use
-        ``--skip-data-table-calculations``) when the caller manages the
-        recalculate step separately, or for fast iteration where the ~2,400
-        NLL evaluations per recalc would dominate build time.
-    calculate : bool, optional
-        If True (default), the workbook is switched to Automatic before the
-        save, which is what makes the shipped artifact recalculate on edit.
-        Pass False (or use ``--no-calculation``) to keep Excel in Manual for
-        the whole run and never calculate: Automatic is never set, Excel's
-        "recalculate before saving" is suppressed for the duration, and the
-        final rebuild is skipped whatever ``recalculate`` says.
-
-        This is the flag for inspecting structure — the name manager, the
-        sheet layout, the spill anchors — without paying for the grid
-        searches. What it costs is that **every computed cell in the saved
-        file is stale and the file is saved in Manual mode**, so an artifact
-        built this way must not be shipped. A normal build sets Automatic
-        before saving and runs the rebuild, so the next one heals both.
+        this is what computes the Univariate fit searches (the Beta
+        Full_Factorial spills and the Weibull/Gamma profile-NLL columns) so the
+        shipped artifact is not stale. Pass False when the caller manages the
+        recalculate step separately (``main`` does, so the slow recalc gets its
+        own retry phase). The workbook is always switched to Automatic before
+        the save, so the saved artifact recalculates on edit.
 
     Returns
     -------
@@ -326,14 +308,8 @@ def build_univariate_workbook(
             if sheet.name not in _TARGET_SHEET_NAMES and sheet.name != "Sheet1":
                 sheet.delete()
 
-        previous_calculate_before_save: bool | None = None
         try:
             app.api.Calculation = XL_CALCULATION_MANUAL
-            if not calculate:
-                # Under Manual, Excel still calculates on save unless this is
-                # off — the one calculation a Manual-mode build would
-                # otherwise still pay for.
-                previous_calculate_before_save = set_calculate_before_save(app, False)
             if "Sheet1" in {sheet.name for sheet in workbook.sheets}:
                 workbook.sheets["Sheet1"].name = _SHEET_NAME_LAMBDA_FUNCTIONS
             write_catalog_sheet(workbook, document.functions)
@@ -341,15 +317,12 @@ def build_univariate_workbook(
             write_univariate_sheet(workbook, document.univariate_sheet_notes, beta_grid_size=beta_grid_size)
             write_version_history_sheet(workbook, artifact="univariate")
             _reorder_and_style_sheet_tabs(workbook)
-            if calculate:
-                # Setting Automatic on an open workbook calculates it there and
-                # then — the Beta Full_Factorial grid included. That is the point
-                # when building for real, and the cost --no-calculation avoids.
-                app.api.Calculation = XL_CALCULATION_AUTOMATIC
+            # Setting Automatic on an open workbook calculates it there and
+            # then — the Beta Full_Factorial spill included. The workbook is
+            # always saved in Automatic so the artifact recalculates on edit.
+            app.api.Calculation = XL_CALCULATION_AUTOMATIC
             workbook.save(str(workbook_path))
         finally:
-            if previous_calculate_before_save is not None:
-                set_calculate_before_save(app, previous_calculate_before_save)
             _close_workbook_quietly(workbook)
     except OPEN_WORKBOOK_ERRORS as exc:
         raise_excel_access_error(workbook_path, "open or save", exc)
@@ -368,7 +341,7 @@ def build_univariate_workbook(
     if verbose:
         print(f"  Sync names:     {time.monotonic() - _t:.1f}s", flush=True)
 
-    if recalculate and calculate:
+    if recalculate:
         _t = time.monotonic()
         _recalculate_and_save(workbook_path)
         if verbose:
@@ -387,8 +360,7 @@ def parse_args() -> argparse.Namespace:
     -------
     argparse.Namespace
         Parsed arguments with workbook, definitions, csv, validate_reopen,
-        verbose, skip_data_table_calculations, verify, and no_launch
-        attributes.
+        verbose, verify, and no_launch attributes.
     """
     parser = argparse.ArgumentParser(
         description=(
@@ -424,37 +396,6 @@ def parse_args() -> argparse.Namespace:
         "--verbose",
         action="store_true",
         help="Print timing information for each build phase.",
-    )
-    parser.add_argument(
-        "--skip-data-table-calculations",
-        action="store_true",
-        help=(
-            "Skip the final Excel CalculateFullRebuild phase. The Univariate "
-            "grid searches make that rebuild slow (~2,400 NLL evaluations per "
-            "recalc across the Beta Full_Factorial grid stages and the "
-            "Weibull/Gamma profile grids), so this is the primary fast-iteration "
-            "flag for this artifact. Note: the spec-driven verifier (deep_verify) "
-            "only does a per-sheet Calculate, which does not reliably resolve the "
-            "Beta Full_Factorial spills after a name sync — so combining this "
-            "flag with --verify may report stale-fit mismatches that a real "
-            "rebuild would not."
-        ),
-    )
-    parser.add_argument(
-        "--no-calculation",
-        action="store_true",
-        help=(
-            "Never calculate. Excel stays in Manual for the whole run: the "
-            "build does not switch to Automatic before saving, suppresses "
-            "Excel's recalculate-before-saving for the duration, and skips the "
-            "final rebuild. Use it to inspect structure — the name manager, "
-            "the sheet layout, the spill anchors — without paying for the grid "
-            "searches. Stronger than --skip-data-table-calculations, which "
-            "still pays a full calculation when the build switches to "
-            "Automatic ahead of the save. The workbook it leaves behind has "
-            "stale computed cells and is saved in Manual mode, so do not ship "
-            "it; the next ordinary build fixes both."
-        ),
     )
     parser.add_argument(
         "--beta-grid-size",
@@ -528,21 +469,9 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     total_start = time.monotonic()
     recalc_elapsed: float | None = None
 
-    # Said up front rather than after the multi-minute write: --verify compares
-    # computed cells, and under --no-calculation there are none to compare, so
-    # every fit-value check would report a mismatch that means nothing.
-    if args.no_calculation and args.verify:
-        print(
-            "Warning: --verify with --no-calculation checks a workbook that "
-            "was never calculated; expect spurious mismatches on every "
-            "computed value. Drop --no-calculation to verify for real.",
-            file=sys.stderr,
-            flush=True,
-        )
-
-    # Same reason as the warning above — Excel opens a locked workbook read-only
-    # without raising, so the phase 1 _retry_on_open below only learns of the
-    # lock when the save fails, after every sheet has already been written.
+    # Excel opens a locked workbook read-only without raising, so the phase 1
+    # _retry_on_open below only learns of the lock when the save fails, after
+    # every sheet has already been written.
     warn_if_workbook_open(
         workbook_path, action_label=f"{args.workbook.name} is open in Excel"
     )
@@ -560,7 +489,6 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
             validate_reopen=False,  # handled below after recalculate
             verbose=args.verbose,
             recalculate=False,  # handled separately so only this step retries
-            calculate=not args.no_calculation,
             beta_grid_size=args.beta_grid_size,
         )
 
@@ -573,32 +501,21 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     build_elapsed = time.monotonic() - build_phase_start
     assert result is not None
 
-    # Phase 2: recalculate the grid searches and save.
-    # This is the slow step for this artifact (the Beta Full_Factorial spills
-    # plus the Weibull/Gamma profile grids), and the one most likely to fail
-    # when the user opens the workbook to inspect progress — so it gets its own
-    # retry phase, separate from the multi-minute write. Skipping it
-    # (--skip-data-table-calculations) leaves the grid searches uncomputed; the
-    # shipped artifact is built without it. --no-calculation skips it too —
-    # that flag's contract is that the run calculates nothing at all, so it
-    # cannot make an exception for the rebuild.
-    if args.no_calculation:
-        print(
-            "Recalculate:    skipped (--no-calculation; workbook saved in "
-            "Manual mode with stale computed cells — do not ship it)"
-        )
-    elif not args.skip_data_table_calculations:
-        _t = time.monotonic()
-        _retry_on_open(
-            f"{args.workbook.name} is open in Excel",
-            lambda: _recalculate_and_save(workbook_path),
-            retry_rpc=True,
-        )
-        recalc_elapsed = time.monotonic() - _t
-        if args.verbose:
-            print(f"  Recalculate:    {recalc_elapsed:.1f}s", flush=True)
-    elif args.verbose:
-        print("  Recalculate:    skipped (--skip-data-table-calculations)", flush=True)
+    # Phase 2: recalculate the fit searches and save. This is the slow step for
+    # this artifact (the Beta Full_Factorial spills plus the Weibull/Gamma
+    # profile-NLL columns) and the one most likely to fail when the user opens
+    # the workbook to inspect progress — so it gets its own retry phase, separate
+    # from the multi-minute write. The rebuild always runs: it is what computes
+    # the fit searches and what sets Automatic before the final save.
+    _t = time.monotonic()
+    _retry_on_open(
+        f"{args.workbook.name} is open in Excel",
+        lambda: _recalculate_and_save(workbook_path),
+        retry_rpc=True,
+    )
+    recalc_elapsed = time.monotonic() - _t
+    if args.verbose:
+        print(f"  Recalculate:    {recalc_elapsed:.1f}s", flush=True)
 
     if args.validate_reopen:
         _validate_workbook_reopen(workbook_path)

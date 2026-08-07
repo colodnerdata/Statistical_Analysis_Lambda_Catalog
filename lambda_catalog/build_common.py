@@ -244,7 +244,7 @@ def _recalculate_and_save(
 
     Opens a headless Excel, sets Manual mode (so the open does not trigger a
     full recalc), runs ``CalculateFullRebuild`` (which rebuilds the dependency
-    tree and evaluates every formula — including the Univariate Data Tables
+    tree and evaluates every formula, including the Univariate grid spills
     when present), sets the workbook's persisted calculation mode to
     ``calc_mode`` (full Automatic for both artifacts post-split), and saves.
 
@@ -255,8 +255,8 @@ def _recalculate_and_save(
     calc_mode : int
         Excel ``XlCalculation`` constant to persist as the workbook's
         calculation mode. Both production artifacts use full Automatic
-        (``XL_CALCULATION_AUTOMATIC``); the Univariate Data Tables recalculate
-        on edit under that mode, which is the point of the split.
+        (``XL_CALCULATION_AUTOMATIC``); the Univariate grid spills recalculate
+        on edit under that mode.
     """
     app: xw.App | None = None
     workbook: xw.Book | None = None

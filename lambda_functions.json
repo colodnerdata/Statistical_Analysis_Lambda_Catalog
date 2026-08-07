@@ -2108,13 +2108,13 @@
       "arguments": [
         {
           "name": "grid",
-          "description": "rectangular numeric grid to search; for a two-input Data Table, pass the complete body range only"
+          "description": "rectangular numeric grid to search; pass the complete body range only"
         }
       ],
       "yields": "1×3 row vector: minimum value, 1-based row location, and 1-based column location of the first minimum",
-      "description": "Grid_Argument_Minimum finds the minimum numeric value in a rectangular grid and returns that value together with its 1-based row and column locations. TOCOL scans the grid by row, XMATCH selects the first occurrence of the minimum, and QUOTIENT/MOD convert the flattened position back to grid coordinates. Returning one matched position avoids combining the row of one tied minimum with the column of another.\n\nFor a two-input Excel Data Table, pass only the Data Table body, excluding the parameter headings, parameter-value axes, and corner formula cell. The grid is expected to contain numeric results; an all-nonnumeric grid returns NA() in all three output positions.",
+      "description": "Grid_Argument_Minimum finds the minimum numeric value in a rectangular grid and returns that value together with its 1-based row and column locations. TOCOL scans the grid by row, XMATCH selects the first occurrence of the minimum, and QUOTIENT/MOD convert the flattened position back to grid coordinates. Returning one matched position avoids combining the row of one tied minimum with the column of another.\n\nFor a rectangular grid such as a 2-D Full_Factorial spill, pass only the grid body, excluding any header and axis-value columns. The grid is expected to contain numeric results; an all-nonnumeric grid returns NA() in all three output positions.",
       "plain_language_summary": "The smallest value in a grid and the row and column where its first occurrence appears.",
-      "notes": "Minimum value in a grid plus its 1-based row and column. Pass the body of a two-input Data Table to locate MLE parameter estimates."
+      "notes": "Minimum value in a grid plus its 1-based row and column. Pass the body of the grid to locate MLE parameter estimates."
     },
     {
       "name": "Min_NLL_Params",
@@ -2258,9 +2258,9 @@
         }
       ],
       "yields": "negative log-likelihood for Weibull(shape, scale) given data; returns 1E+15 for invalid parameter combinations",
-      "description": "NLL_Weibull evaluates −Σ ln f(xᵢ | k, λ) using WEIBULL.DIST. The IFERROR sentinel maps overflow or invalid regions (shape → 0, or data violating support) to 1E+15, keeping MIN and grid-search argmin robust.\n\nWeibull is the standard model for failure times and wind speeds. No closed-form MLE exists; fit using a two-input Data Table grid-search (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "description": "NLL_Weibull evaluates −Σ ln f(xᵢ | k, λ) using WEIBULL.DIST. The IFERROR sentinel maps overflow or invalid regions (shape → 0, or data violating support) to 1E+15, keeping MIN and grid-search argmin robust.\n\nWeibull is the standard model for failure times and wind speeds. No closed-form MLE exists; fit by searching a Full_Factorial spill. Pass to GoF_AIC and GoF_BIC with k = 2.",
       "plain_language_summary": "How unlikely the Weibull distribution is to have generated this data at the given shape and scale.",
-      "notes": "Negative log-likelihood for Weibull(shape, scale). Data must be > 0. No closed-form MLE; fit using a two-input Data Table grid search."
+      "notes": "Negative log-likelihood for Weibull(shape, scale). Data must be > 0. No closed-form MLE; fit by searching a Full_Factorial spill."
     },
     {
       "name": "NLL_Gamma",
@@ -2285,9 +2285,9 @@
         }
       ],
       "yields": "negative log-likelihood for Gamma(shape, rate) given data; returns 1E+15 for invalid parameter combinations",
-      "description": "NLL_Gamma evaluates −Σ ln f(xᵢ | α, β) via GAMMA.DIST, converting rate to scale internally (scale = 1/rate). IFERROR maps overflow near shape → 0 to a large sentinel.\n\nGamma fits well for right-skewed positive data (insurance claims, rainfall, queuing times). No closed-form MLE; fit using grid-search Data Table (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "description": "NLL_Gamma evaluates −Σ ln f(xᵢ | α, β) via GAMMA.DIST, converting rate to scale internally (scale = 1/rate). IFERROR maps overflow near shape → 0 to a large sentinel.\n\nGamma fits well for right-skewed positive data (insurance claims, rainfall, queuing times). No closed-form MLE; fit by searching a Full_Factorial spill. Pass to GoF_AIC and GoF_BIC with k = 2.",
       "plain_language_summary": "How unlikely the Gamma distribution is to have generated this data at the given shape and rate.",
-      "notes": "Negative log-likelihood for Gamma(shape, rate = 1/scale). Data must be > 0. No closed-form MLE; fit using a grid-search Data Table."
+      "notes": "Negative log-likelihood for Gamma(shape, rate = 1/scale). Data must be > 0. No closed-form MLE; fit by searching a Full_Factorial spill."
     },
     {
       "name": "NLL_Triangular",
@@ -2343,9 +2343,9 @@
         }
       ],
       "yields": "negative log-likelihood for Beta(α, β) given data on (0,1); returns 1E+15 for boundary or invalid values",
-      "description": "NLL_Beta evaluates −Σ ln f(xᵢ | α, β) via BETA.DIST. Values exactly at 0 or 1 cause BETA.DIST to return errors; the IFERROR sentinel catches these and maps the entire NLL to 1E+15, making the cell visible as an overflow region in grid-search heatmaps.\n\nBeta fits proportions and rates bounded on [0, 1] (e.g. efficiencies, fractions). Data must be rescaled to (0, 1) before fitting. No closed-form MLE; fit using grid-search Data Table (v2.1). Pass to GoF_AIC and GoF_BIC with k = 2.",
+      "description": "NLL_Beta evaluates −Σ ln f(xᵢ | α, β) via BETA.DIST. Values exactly at 0 or 1 cause BETA.DIST to return errors; the IFERROR sentinel catches these and maps the entire NLL to 1E+15, making the cell visible as an overflow region in the spill search.\n\nBeta fits proportions and rates bounded on [0, 1] (e.g. efficiencies, fractions). Data must be rescaled to (0, 1) before fitting. No closed-form MLE; fit by searching a 2-D Full_Factorial spill (the Cartesian product of candidate α, β). Pass to GoF_AIC and GoF_BIC with k = 2.",
       "plain_language_summary": "How unlikely the Beta distribution is to have generated this (0,1)-bounded data at the given shape parameters.",
-      "notes": "Negative log-likelihood for Beta(alpha, beta). Data must be strictly on (0, 1). No closed-form MLE; use a grid-search Data Table."
+      "notes": "Negative log-likelihood for Beta(alpha, beta). Data must be strictly on (0, 1). No closed-form MLE; search a 2-D Full_Factorial spill (the Cartesian product of candidate parameters)."
     },
     {
       "name": "NLL_BetaPERT",
@@ -3429,8 +3429,8 @@
     "P": "Hazen plotting position (i - 0.5) / n, where i is the rank of each sorted sample value and n is the count of included rows. The same convention the Normal Q-Q machinery uses in the regression sheet.",
     "Sample": "The included sample, sorted smallest to largest. Built as SORT(FILTER(UV_Data, UV_Include)) — only rows passing the filter, in rank order.",
     "Min NLL": "The negative log-likelihood at the best-fit parameter values found by the search. The number the parameter columns are tuned against.",
-    "Best": "The best-fit value of the corresponding parameter — read it as the MLE. For Weibull and Gamma the searched parameter is the minimum of the 20-point Profile NLL column and its partner is the closed-form value at that minimum; for Beta both come from the corner of the (Min, Max, Step Size) Data Table grid that minimizes the NLL. A red fill means the minimum landed on an end of the search range — widen Min/Max and re-read.",
+    "Best": "The best-fit value of the corresponding parameter — read it as the MLE. For Weibull and Gamma the searched parameter is the minimum of the 20-point Profile NLL column and its partner is the closed-form value at that minimum; for Beta both come from the cell of the (Min, Max, Step Size) Full_Factorial spill (the Cartesian product of candidate parameters) that minimizes the NLL. A red fill means the minimum landed on an end of the search range — widen Min/Max and re-read.",
     "Start": "Closed-form starting value for the searched parameter, used to bracket Stage 1: Weibull from a probability-plot regression of ln(-ln(1-F)) on ln x, Gamma from Minka's approximation. Stage 1's Min and Max default to one third and three times this value; type over them to widen the search.",
-    "Profile NLL": "Negative log-likelihood at each trial value of the searched parameter, with the other parameter eliminated in closed form (Weibull scale, Gamma rate). The minimum of this curve is the joint MLE, so one 20-point column replaces a 20x20 grid. Charted below as the profile-NLL line chart."
+    "Profile NLL": "Negative log-likelihood at each trial value of the searched parameter, with the other parameter eliminated in closed form (Weibull scale, Gamma rate). The minimum of this curve is the joint MLE. Charted below as the profile-NLL line chart."
   }
 }

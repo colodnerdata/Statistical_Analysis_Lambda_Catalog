@@ -223,7 +223,6 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
             verify=False,
             no_launch=False,
             log=tmp_path / "build.log",
@@ -310,7 +309,6 @@ def test_workbook_open_check_runs_before_the_first_sheet_write(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
             verify=False,
             no_launch=True,
             log=tmp_path / "build.log",
@@ -445,13 +443,11 @@ def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
     assert app.api.calculation_values[-1] == XL_CALCULATION_AUTOMATIC
 
 
-def test_main_always_rebuilds_regression_even_with_skip_data_table_calculations(
+def test_main_always_rebuilds_regression(
     monkeypatch,
-    capsys,
     tmp_path,
 ) -> None:
-    """The Regression workbook has no Data Tables, so
-    --skip-data-table-calculations is a no-op: the rebuild always runs (the
+    """main() always runs the recalc rebuild for the Regression workbook (the
     verifier's per-sheet Calculate doesn't rebuild the dependency tree after
     a name sync, so the Regression sheet needs the rebuild to avoid every QC
     value reading nan)."""
@@ -469,7 +465,6 @@ def test_main_always_rebuilds_regression_even_with_skip_data_table_calculations(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=True,
-            skip_data_table_calculations=True,
             verify=False,
             no_launch=True,
             log=tmp_path / "build.log",
@@ -495,8 +490,6 @@ def test_main_always_rebuilds_regression_even_with_skip_data_table_calculations(
     build_production.main()
 
     assert len(recalc_calls) == 1
-    output = capsys.readouterr().out
-    assert "no-op for the Regression workbook" in output
 
 
 def test_main_no_launch_suppresses_post_build_excel_handoff(
@@ -524,7 +517,6 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
             verify=False,
             no_launch=True,
             log=tmp_path / "build.log",
@@ -592,7 +584,6 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
             log=tmp_path / "build.log",
@@ -669,7 +660,6 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
             verify=True,
             no_launch=False,
             log=tmp_path / "build.log",
@@ -741,7 +731,6 @@ def test_main_archives_the_verify_report_to_the_run_log(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
             verify=True,
             no_launch=True,
             log=log_path,
@@ -799,7 +788,6 @@ def test_main_archives_the_traceback_when_the_build_aborts(
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
             verify=True,
             no_launch=True,
             log=log_path,
@@ -848,7 +836,6 @@ def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
             production_lots_csv=Path("production_lots.csv"),
             validate_reopen=False,
             verbose=False,
-            skip_data_table_calculations=True,
             verify=False,
             no_launch=True,
             log=None,

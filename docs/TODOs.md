@@ -147,16 +147,17 @@ The Weibull and Gamma half shipped as Univariate 2.0.0 (#160): both fits profile
 their scale / rate parameter out in closed form and search a 20-point profile-NLL
 column per stage, and the rebuilt artifact is committed —
 `TestShippedUnivariateLayout` passes against it. Beta was deliberately out of
-that scope and still runs the artifact's only two Data Tables at 20×20, so the
-total is ~880 evaluations rather than the ~370 the shrink was costed at.
+that scope and still runs its 2-D `Full_Factorial` spill (the Cartesian product
+of candidate parameters) at 20×20, so the total is ~880 evaluations rather than
+the ~370 the shrink was costed at.
 
 - **READY · L · needs Excel** — **Give Beta a method-of-moments start and a
-  ~12×12 grid.** On the rescaled data with mean m and variance v:
+  ~12×12 body.** On the rescaled data with mean m and variance v:
   α₀ = m·(m(1−m)/v − 1), β₀ = (1−m)·α₀/m. Bracket both axes around that start
-  the way `_write_profile_stage` brackets its 1-D start (`_PROFILE_BRACKET`),
+  the way `_write_profile_fit` brackets its 1-D start (`_PROFILE_BRACKET`),
   then drop `_N_GRID` from 20 to ~12. Beta stays two-dimensional — both of its
   conditional MLEs involve digamma, so neither parameter profiles out — and
-  keeps `_write_grid_stage`, its two Data Tables, its heatmap, and both boundary
+  keeps `_write_beta_fit`, its 2-D `Full_Factorial` spill, and both boundary
   rules. Breakage class: **MAJOR for the Univariate workbook version** if the
   Alpha/Beta Min/Max cells stop being plain typed inputs, the same call made for
   the Weibull/Gamma bounds at 2.0.0. See

@@ -1,0 +1,17 @@
+python build_production.py 
+Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
+Sheet updated: LAMBDA_functions
+Sheet updated: Life Expectancy Data
+Sheet updated: Mileage Data
+Sheet updated: Production Lots
+Sheet updated: Regression Instructions
+Sheet updated: Diagnostic Guide
+Sheet updated: Version History
+Sheet updated: Regression
+Created names: 0
+Updated names: 123
+Removed names: 0
+Timing: build+sync    151.4s
+Timing: recalculate   20.5s
+Timing: total         171.9s
+Log: C:\local_python\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production.log

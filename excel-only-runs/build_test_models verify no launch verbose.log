@@ -1,5 +1,5 @@
 python build_test_models.py --verify --no-launch --verbose
-[    0.0s] Plan: 31 model + 17 guard = 48 sheet(s)
+[    0.0s] Plan: 32 model + 17 guard = 49 sheet(s)
            M01   M01 Baseline Categoricals
            M03   M03 All Continuous
            M04   M04 Excluded Candidates
@@ -31,6 +31,7 @@ python build_test_models.py --verify --no-launch --verbose
            L03   L03 Log Response Naive
            L04   L04 Elasticity Log-Log
            L09   L09 Binary Cat Reference
+           L11   L11 Curated Talk Default
            G01   G01 No Response Row
            G01b  G01b Empty Model
            G02   G02 Two Response Rows
@@ -49,119 +50,47 @@ python build_test_models.py --verify --no-launch --verbose
            M16   M16 Sequence Period Override
            P07   P07 Irregular Panel Spacing
 [    0.0s] Oracles: computing
-[    0.9s] Oracles: done
-[    1.4s] Catalog + data sheets
-[    8.2s] Sheets: writing 48
-[    8.2s]   1/48 M01   M01 Baseline Categoricals          8.1s
-[   16.3s]   2/48 M03   M03 All Continuous                 6.3s
-[   22.6s]   3/48 M04   M04 Excluded Candidates           18.1s
-[   40.7s]   4/48 M02   M02 Intercept Off Categorical     10.8s
-[   51.5s]   5/48 M03b  M03b All Continuous NoInt         13.1s
-[   64.6s]   6/48 M04b  M04b Excluded Cands NoInt         64.7s
-[  129.2s]   7/48 M13   M13 Default Reference             32.1s
-[  161.4s]   8/48 M12   M12 Explicit Reference            15.5s
-[  176.9s]   9/48 G08   G08 Invalid Reference Level       17.2s
-[  194.1s]  10/48 M14   M14 Mixed Cat And Continuous      19.7s
-[  213.8s]  11/48 M15   M15 Filter Degenerate Cat         21.5s
-[  235.3s]  12/48 M07   M07 Continuous Product            25.0s
-[  260.3s]  13/48 M06   M06 Quadratic Self Product        28.0s
-[  288.3s]  14/48 M08   M08 Cont x Cat Broadcast          30.2s
-[  318.5s]  15/48 M05   M05 Log-Log NA Masking            32.7s
-[  351.2s]  16/48 M14b  M14b Categorical Only Design      35.4s
-[  386.6s]  17/48 M09   M09 Cat x Cat Full Product        41.5s
-[  428.0s]  18/48 M10   M10 Difference Interaction        44.5s
-[  472.5s]  19/48 M11   M11 Ratio Reciprocal Pair         47.5s
-[  520.0s]  20/48 P01   P01 Learning Curve FE             49.2s
-[  569.2s]  21/48 P02   P02 FE Log Transform Axis         50.9s
-[  620.1s]  22/48 P03   P03 Power Law Derived Cols        54.8s
-[  674.9s]  23/48 P03b  P03b Power Law Transform Axis     52.5s
-[  727.4s]  24/48 P04   P04 Log Mixed Predictors          53.7s
-[  781.1s]  25/48 P05   P05 Log Predictor Only            54.0s
-[  835.1s]  26/48 P06   P06 LSDV vs Within Estimator      55.8s
-[  891.0s]  27/48 L01   L01 Partial Linear-Log            72.2s
-[  963.2s]  28/48 L02   L02 Log Response Duan            104.1s
-[ 1067.2s]  29/48 L03   L03 Log Response Naive            85.4s
-[ 1152.6s]  30/48 L04   L04 Elasticity Log-Log            86.1s
-[ 1238.7s]  31/48 L09   L09 Binary Cat Reference          87.0s
-[ 1325.7s]  32/48 G01   G01 No Response Row               70.7s
-[ 1396.4s]  33/48 G01b  G01b Empty Model                  72.1s
-[ 1468.5s]  34/48 G02   G02 Two Response Rows             76.2s
-[ 1544.6s]  35/48 G03   G03 Two Sequence Flags            76.0s
-[ 1620.6s]  36/48 G04   G04 Two Fixed Effects Rows        79.6s
-[ 1700.2s]  37/48 G05   G05 FE Plus Intercept             85.5s
-[ 1785.7s]  38/48 G06   G06 Intercept Off With Cat        89.9s
-[ 1875.6s]  39/48 G07   G07 Log On Categorical           113.8s
-[ 1989.4s]  40/48 G09   G09 Interaction Bad Operand      109.9s
-[ 2099.2s]  41/48 G10   G10 Symmetric Product Pair       114.9s
-[ 2214.1s]  42/48 G11   G11 Excluded Operand             119.8s
-[ 2333.9s]  43/48 G12   G12 Unknown Interaction Op       135.9s
-[ 2469.9s]  44/48 L06   L06 Ln Zero Guard                139.6s
-[ 2609.5s]  45/48 L07   L07 Width Guard Warning          138.8s
-[ 2748.2s]  46/48 L10   L10 Retarget Widens Spec         131.1s
-[ 2879.4s]  47/48 M16   M16 Sequence Period Override     127.2s
-[ 3006.5s]  48/48 P07   P07 Irregular Panel Spacing      132.3s
-[ 3138.9s] Save
-[ 3145.7s] Sync names
-[ 3146.0s] CalculateFullRebuild
-Timing: write sheets  3144.8s
-Timing: sync names    0.2s
-Timing: rebuild       1759.1s
-Timing:   CalculateFullRebuild only   1159.2s
-Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
-Sheets built: 48
-Created names: 122
-Updated names: 0
-Removed names: 0
-[ 4905.1s] Verify: reading 48 sheet(s)
-             1/48 M01   M01 Baseline Categoricals        ok
-             2/48 M03   M03 All Continuous               ok
-             3/48 M04   M04 Excluded Candidates          ok
-             4/48 M02   M02 Intercept Off Categorical    ok
-             5/48 M03b  M03b All Continuous NoInt        ok
-             6/48 M04b  M04b Excluded Cands NoInt        ok
-             7/48 M13   M13 Default Reference            ok
-             8/48 M12   M12 Explicit Reference           ok
-             9/48 G08   G08 Invalid Reference Level      ok
-            10/48 M14   M14 Mixed Cat And Continuous     ok
-            11/48 M15   M15 Filter Degenerate Cat        ok
-            12/48 M07   M07 Continuous Product           ok
-            13/48 M06   M06 Quadratic Self Product       ok
-            14/48 M08   M08 Cont x Cat Broadcast         ok
-            15/48 M05   M05 Log-Log NA Masking           ok
-            16/48 M14b  M14b Categorical Only Design     ok
-            17/48 M09   M09 Cat x Cat Full Product       ok
-            18/48 M10   M10 Difference Interaction       ok
-            19/48 M11   M11 Ratio Reciprocal Pair        ok
-            20/48 P01   P01 Learning Curve FE            ok
-            21/48 P02   P02 FE Log Transform Axis        ok
-            22/48 P03   P03 Power Law Derived Cols       ok
-            23/48 P03b  P03b Power Law Transform Axis    ok
-            24/48 P04   P04 Log Mixed Predictors         ok
-            25/48 P05   P05 Log Predictor Only           ok
-            26/48 P06   P06 LSDV vs Within Estimator     ok
-            27/48 L01   L01 Partial Linear-Log           ok
-            28/48 L02   L02 Log Response Duan            ok
-            29/48 L03   L03 Log Response Naive           ok
-            30/48 L04   L04 Elasticity Log-Log           ok
-            31/48 L09   L09 Binary Cat Reference         ok
-            32/48 G01   G01 No Response Row              ok
-            33/48 G01b  G01b Empty Model                 ok
-            34/48 G02   G02 Two Response Rows            ok
-            35/48 G03   G03 Two Sequence Flags           ok
-            36/48 G04   G04 Two Fixed Effects Rows       ok
-            37/48 G05   G05 FE Plus Intercept            ok
-            38/48 G06   G06 Intercept Off With Cat       ok
-            39/48 G07   G07 Log On Categorical           ok
-            40/48 G09   G09 Interaction Bad Operand      ok
-            41/48 G10   G10 Symmetric Product Pair       ok
-            42/48 G11   G11 Excluded Operand             ok
-            43/48 G12   G12 Unknown Interaction Op       ok
-            44/48 L06   L06 Ln Zero Guard                ok
-            45/48 L07   L07 Width Guard Warning          ok
-            46/48 L10   L10 Retarget Widens Spec         ok
-            47/48 M16   M16 Sequence Period Override     ok
-            48/48 P07   P07 Irregular Panel Spacing      ok
-Timing: verify        125.0s
-Verify: passed
-Timing: total         5030.1s
-Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch verbose.log
+[    1.0s] Oracles: done
+[    1.6s] Catalog + data sheets
+[   11.3s] Sheets: writing 49
+[   11.3s]   1/49 M01   M01 Baseline Categoricals         10.0s
+[   21.3s]   2/49 M03   M03 All Continuous                10.1s
+[   31.5s]   3/49 M04   M04 Excluded Candidates            9.6s
+[   41.0s]   4/49 M02   M02 Intercept Off Categorical      9.3s
+[   50.4s]   5/49 M03b  M03b All Continuous NoInt          9.6s
+[   60.0s]   6/49 M04b  M04b Excluded Cands NoInt         11.0s
+[   71.0s]   7/49 M13   M13 Default Reference             12.1s
+[   83.1s]   8/49 M12   M12 Explicit Reference            16.7s
+[   99.8s]   9/49 G08   G08 Invalid Reference Level       18.0s
+[  117.8s]  10/49 M14   M14 Mixed Cat And Continuous      18.1s
+[  135.9s]  11/49 M15   M15 Filter Degenerate Cat         21.5s
+[  157.5s]  12/49 M07   M07 Continuous Product            21.7s
+Traceback (most recent call last):
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\scripts\build_test_models.py", line 320, in build_test_models_workbook
+    _retry_on_open(
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\lambda_catalog\build_common.py", line 300, in _retry_on_open
+    fn()
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\scripts\build_test_models.py", line 289, in _run_write
+    with progress.sheet(
+         ^^^^^^^^^^^^^^^
+  File "C:\Users\Stephen_Colodner\AppData\Local\Programs\Python\Python312\Lib\contextlib.py", line 144, in __exit__
+    next(self.gen)
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\scripts\build_test_models.py", line 146, in sheet
+    print(f" {time.monotonic() - started:6.1f}s", flush=True)
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\lambda_catalog\build_common.py", line 127, in flush
+    self._primary.flush()
+OSError: [Errno 22] Invalid argument
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\lambda_catalog\build_common.py", line 170, in tee_run_log
+    yield log_path
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\scripts\build_test_models.py", line 521, in main
+    result, built = build_test_models_workbook(
+                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\scripts\build_test_models.py", line 326, in build_test_models_workbook
+    raise_excel_access_error(workbook_path, "open or save", exc)
+  File "C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\lambda_catalog\workbook_helpers.py", line 106, in raise_excel_access_error
+    raise RuntimeError(
+RuntimeError: Excel could not open or save 'Lambda_Library_TestModels.xlsx': [Errno 22] Invalid argument

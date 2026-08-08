@@ -16,6 +16,8 @@ explicit, discoverable module rather than something buried at the top of a
 """
 from __future__ import annotations
 
+import xlwings as xw
+
 from .sheet_styles import (
     HEADER_COLOR,
     INPUT_COLOR,

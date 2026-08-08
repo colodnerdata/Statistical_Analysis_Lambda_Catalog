@@ -1,0 +1,83 @@
+python build_test_models.py --verify --no-launch --verbose --cases G01,G01b,G02,G03,G04,G05,G06,G07,G08,G09,G10,G11,G12,M15,M16,L06,L07,L10,L12,P07
+[    0.0s] Plan: 3 model + 17 guard = 20 sheet(s)
+           G08   G08 Invalid Reference Level
+           M15   M15 Filter Degenerate Cat
+           L12   L12 Log Drop Nonpositive
+           G01   G01 No Response Row
+           G01b  G01b Empty Model
+           G02   G02 Two Response Rows
+           G03   G03 Two Sequence Flags
+           G04   G04 Two Fixed Effects Rows
+           G05   G05 FE Plus Intercept
+           G06   G06 Intercept Off With Cat
+           G07   G07 Log On Categorical
+           G09   G09 Interaction Bad Operand
+           G10   G10 Symmetric Product Pair
+           G11   G11 Excluded Operand
+           G12   G12 Unknown Interaction Op
+           L06   L06 Ln Zero Guard
+           L07   L07 Width Guard Warning
+           L10   L10 Retarget Widens Spec
+           M16   M16 Sequence Period Override
+           P07   P07 Irregular Panel Spacing
+[    0.0s] Oracles: computing
+[    0.3s] Oracles: done
+[    0.8s] Catalog + data sheets
+[    6.3s] Sheets: writing 20
+[    6.3s]   1/20 G08   G08 Invalid Reference Level        7.5s
+[   13.8s]   2/20 M15   M15 Filter Degenerate Cat          8.3s
+[   22.1s]   3/20 L12   L12 Log Drop Nonpositive          23.3s
+[   45.4s]   4/20 G01   G01 No Response Row                9.8s
+[   55.2s]   5/20 G01b  G01b Empty Model                   9.6s
+[   64.8s]   6/20 G02   G02 Two Response Rows             11.0s
+[   75.8s]   7/20 G03   G03 Two Sequence Flags            12.8s
+[   88.7s]   8/20 G04   G04 Two Fixed Effects Rows        14.8s
+[  103.5s]   9/20 G05   G05 FE Plus Intercept             17.0s
+[  120.5s]  10/20 G06   G06 Intercept Off With Cat        19.4s
+[  139.9s]  11/20 G07   G07 Log On Categorical            22.0s
+[  161.9s]  12/20 G09   G09 Interaction Bad Operand       24.8s
+[  186.7s]  13/20 G10   G10 Symmetric Product Pair        27.8s
+[  214.5s]  14/20 G11   G11 Excluded Operand              31.2s
+[  245.7s]  15/20 G12   G12 Unknown Interaction Op        34.5s
+[  280.2s]  16/20 L06   L06 Ln Zero Guard                 52.8s
+[  333.0s]  17/20 L07   L07 Width Guard Warning           53.9s
+[  386.8s]  18/20 L10   L10 Retarget Widens Spec          48.4s
+[  435.3s]  19/20 M16   M16 Sequence Period Override      43.0s
+[  478.2s]  20/20 P07   P07 Irregular Panel Spacing       45.8s
+[  524.0s] Save
+[  528.4s] Sync names
+[  528.5s] CalculateFullRebuild
+Timing: write sheets  528.0s
+Timing: sync names    0.2s
+Timing: rebuild       1314.4s
+Timing:   CalculateFullRebuild only   777.2s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 20
+Created names: 123
+Updated names: 0
+Removed names: 0
+[ 1842.9s] Verify: reading 20 sheet(s)
+             1/20 G08   G08 Invalid Reference Level      ok
+             2/20 M15   M15 Filter Degenerate Cat        ok
+             3/20 L12   L12 Log Drop Nonpositive         ok
+             4/20 G01   G01 No Response Row              ok
+             5/20 G01b  G01b Empty Model                 ok
+             6/20 G02   G02 Two Response Rows            ok
+             7/20 G03   G03 Two Sequence Flags           ok
+             8/20 G04   G04 Two Fixed Effects Rows       ok
+             9/20 G05   G05 FE Plus Intercept            ok
+            10/20 G06   G06 Intercept Off With Cat       ok
+            11/20 G07   G07 Log On Categorical           ok
+            12/20 G09   G09 Interaction Bad Operand      ok
+            13/20 G10   G10 Symmetric Product Pair       ok
+            14/20 G11   G11 Excluded Operand             ok
+            15/20 G12   G12 Unknown Interaction Op       ok
+            16/20 L06   L06 Ln Zero Guard                ok
+            17/20 L07   L07 Width Guard Warning          ok
+            18/20 L10   L10 Retarget Widens Spec         ok
+            19/20 M16   M16 Sequence Period Override     ok
+            20/20 P07   P07 Irregular Panel Spacing      ok
+Timing: verify        99.9s
+Verify: passed
+Timing: total         1942.8s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch verbose cases.log

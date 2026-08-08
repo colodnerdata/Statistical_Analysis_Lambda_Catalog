@@ -129,8 +129,71 @@ cmd = "python scripts/build_univariate.py --verify --no-launch"
 # default; pass --include-heavy for it (its Python oracle runs in the unit
 # suite regardless).
 [tool.poe.tasks.verify-test-models]
-help = "Layer 2: build + read back the ~48-sheet test-model suite (needs Excel)."
+help = "Layer 2: build + read back the ~50-sheet test-model suite (needs Excel)."
 cmd = "python scripts/build_test_models.py --verify --no-launch --verbose"
+
+# -- Narrower Layer 2 slices -------------------------------------------------
+#
+# verify-test-models is the whole suite and runs for minutes.  These three cut
+# it along the axes a developer actually iterates on, so a change to one part
+# of the sheet is not a full rebuild to check.  All three need Excel.
+#
+# Two of them select STRUCTURALLY (--kind), which is deliberate: the registry
+# already knows which cases are fittable models and which are guard states, so
+# neither task carries a list of plan IDs that goes stale the next time a case
+# is added.  Only verify-spec-errors names cases, because "which cases are an
+# error surface" is a judgement, not something derivable — and
+# test_poe_tasks.py pins every ID it names against the live registry so it
+# cannot rot into naming a case that no longer exists.
+
+[tool.poe.tasks.verify-guards]
+help = "Layer 2: every guard-state case except the oversized L07 (needs Excel)."
+# The GuardStateCase registry minus one.  L07 is the 205-design-column width
+# guard: its whole assertion is that the model is too wide to build, so the
+# sheet materializes a 206 x 2909 design matrix and then fails to invert the
+# Gram — minutes of work to confirm a WARNING string.  It is covered by
+# verify-spec-errors, which is where a width-guard change is checked.
+cmd = """
+python scripts/build_test_models.py --verify --no-launch --verbose
+  --kind guards --exclude L07
+"""
+
+[tool.poe.tasks.verify-spec-errors]
+help = "Layer 2: every spec-block error surface — status lines and CF flags (needs Excel)."
+# Every case whose point is something the spec block SAYS rather than
+# something it computes: the five row-2 status cells and the ten
+# conditional-format rules _collect_flags recomputes.
+#
+#   B2 role cardinality    G01 (none) · G02 (two) · G04 (two FE)
+#   G2 log domain          L06 (red, strict Log on zeros) · L12 (amber count)
+#   H2 sequence            G03
+#   I2 spacing verdict     M16 (typed override) · P07 (irregular panel)
+#   O2 width guard         L07  <- the slow one; see verify-guards
+#   spec-row CF flags      G05 G06 (intercept) · G07 (Categorical x Log) ·
+#                          G08 (invalid reference) · M15 (degenerate) ·
+#                          G09 G10 G11 (interaction pair) · G12 (no flag fires)
+#   degradation            G01b (empty model) · L10 (retarget widens)
+#
+# G08, M15 and L12 are registered as FITTABLE cases, not guard states — they
+# produce a real fit and an error surface at the same time — which is why this
+# list is not just "--kind guards".
+cmd = """
+python scripts/build_test_models.py --verify --no-launch --verbose
+  --cases G01,G01b,G02,G03,G04,G05,G06,G07,G08,G09,G10,G11,G12,M15,M16,L06,L07,L10,L12,P07
+"""
+
+[tool.poe.tasks.verify-models]
+help = "Layer 2: every fittable case that produces a working regression, heavy excluded (needs Excel)."
+# The happy path: 33 fittable cases, no guard sheets.  --include-heavy is off,
+# which is what keeps the runtime sane — L05 (k = 19 over n = 2117) and L08
+# (173 Fixed Effects groups over 2909 rows) are the two Gram matrices big
+# enough to dominate the run, and both have Python oracles in the unit suite
+# regardless.  Add --include-heavy when the fit arithmetic itself is what
+# changed.
+cmd = """
+python scripts/build_test_models.py --verify --no-launch --verbose
+  --kind models
+"""
 
 # The three builds run CONCURRENTLY, then the screen runs over their output.
 #

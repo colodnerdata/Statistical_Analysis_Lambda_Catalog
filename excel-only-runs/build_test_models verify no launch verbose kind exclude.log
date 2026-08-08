@@ -1,0 +1,71 @@
+python build_test_models.py --verify --no-launch --verbose --kind guards --exclude L07
+[    0.0s] Plan: 0 model + 16 guard = 16 sheet(s)
+           G01   G01 No Response Row
+           G01b  G01b Empty Model
+           G02   G02 Two Response Rows
+           G03   G03 Two Sequence Flags
+           G04   G04 Two Fixed Effects Rows
+           G05   G05 FE Plus Intercept
+           G06   G06 Intercept Off With Cat
+           G07   G07 Log On Categorical
+           G09   G09 Interaction Bad Operand
+           G10   G10 Symmetric Product Pair
+           G11   G11 Excluded Operand
+           G12   G12 Unknown Interaction Op
+           L06   L06 Ln Zero Guard
+           L10   L10 Retarget Widens Spec
+           M16   M16 Sequence Period Override
+           P07   P07 Irregular Panel Spacing
+[    0.0s] Oracles: computing
+[    0.2s] Oracles: done
+[    0.7s] Catalog + data sheets
+[    6.2s] Sheets: writing 16
+[    6.2s]   1/16 G01   G01 No Response Row                7.8s
+[   14.0s]   2/16 G01b  G01b Empty Model                   8.3s
+[   22.3s]   3/16 G02   G02 Two Response Rows              7.9s
+[   30.2s]   4/16 G03   G03 Two Sequence Flags             8.8s
+[   38.9s]   5/16 G04   G04 Two Fixed Effects Rows        10.2s
+[   49.1s]   6/16 G05   G05 FE Plus Intercept             11.9s
+[   61.0s]   7/16 G06   G06 Intercept Off With Cat        13.9s
+[   74.9s]   8/16 G07   G07 Log On Categorical            16.1s
+[   91.0s]   9/16 G09   G09 Interaction Bad Operand       18.5s
+[  109.5s]  10/16 G10   G10 Symmetric Product Pair        21.2s
+[  130.7s]  11/16 G11   G11 Excluded Operand              23.9s
+[  154.6s]  12/16 G12   G12 Unknown Interaction Op        27.0s
+[  181.6s]  13/16 L06   L06 Ln Zero Guard                 43.9s
+[  225.5s]  14/16 L10   L10 Retarget Widens Spec          38.8s
+[  264.3s]  15/16 M16   M16 Sequence Period Override      32.9s
+[  297.2s]  16/16 P07   P07 Irregular Panel Spacing       35.1s
+[  332.3s] Save
+[  334.5s] Sync names
+[  334.6s] CalculateFullRebuild
+Timing: write sheets  334.2s
+Timing: sync names    0.2s
+Timing: rebuild       105.6s
+Timing:   CalculateFullRebuild only   91.9s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 16
+Created names: 123
+Updated names: 0
+Removed names: 0
+[  440.3s] Verify: reading 16 sheet(s)
+             1/16 G01   G01 No Response Row              ok
+             2/16 G01b  G01b Empty Model                 ok
+             3/16 G02   G02 Two Response Rows            ok
+             4/16 G03   G03 Two Sequence Flags           ok
+             5/16 G04   G04 Two Fixed Effects Rows       ok
+             6/16 G05   G05 FE Plus Intercept            ok
+             7/16 G06   G06 Intercept Off With Cat       ok
+             8/16 G07   G07 Log On Categorical           ok
+             9/16 G09   G09 Interaction Bad Operand      ok
+            10/16 G10   G10 Symmetric Product Pair       ok
+            11/16 G11   G11 Excluded Operand             ok
+            12/16 G12   G12 Unknown Interaction Op       ok
+            13/16 L06   L06 Ln Zero Guard                ok
+            14/16 L10   L10 Retarget Widens Spec         ok
+            15/16 M16   M16 Sequence Period Override     ok
+            16/16 P07   P07 Irregular Panel Spacing      ok
+Timing: verify        23.1s
+Verify: passed
+Timing: total         463.4s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch verbose kind exclude.log

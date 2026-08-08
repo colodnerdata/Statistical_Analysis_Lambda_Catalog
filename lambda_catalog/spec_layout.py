@@ -18,10 +18,6 @@ from __future__ import annotations
 
 import xlwings as xw
 
-from .sheet_styles import (
-    HEADER_COLOR,
-    INPUT_COLOR,
-)
 from .workbook_helpers import (
     group_and_hide_columns,
     set_column_widths,

@@ -53,8 +53,6 @@ from .write_spec_block import (
     _C_REF_IN_USE,
     _C_ROLE,
     _C_ROW_LABELS,
-    _DEFAULT_SEQUENCE_VARIABLES,
-    _DEFAULT_SPEC,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
     _HEADER_ROW,
@@ -66,6 +64,8 @@ from .write_spec_block import (
     _ROLE_RESPONSE,
     _TRANSFORM_LOG_DROP,
     _VARIABLES,
+    SPEC_DATASET_PROFILES,
+    SpecDatasetProfile,
 )
 
 # The spec block has lived on the Regression sheet since the v2.0 release;
@@ -125,26 +125,43 @@ class SpecVariable:
     interaction_operation: str = ""
 
 
-def build_default_spec() -> list[SpecVariable]:
-    """Return the build's shipped T0 spec, one entry per table column.
+def build_profile_spec(profile: SpecDatasetProfile) -> list[SpecVariable]:
+    """Return one dataset profile's shipped spec, one entry per table column.
 
-    Derived from the sheet writer's own ``_DEFAULT_SPEC``/``_FALLBACK_SPEC``
-    constants so the expectation side can never drift from what the build
-    pre-fills.
+    Derived from the profile the sheet writer pre-fills from, so the
+    expectation side can never drift from what the build wrote. The
+    dataset-agnostic half of ``build_default_spec`` — factored out when the
+    shipped Regression default became a build-time CHOICE
+    (``--regression-dataset``) rather than a constant, so a verifier can
+    describe whichever dataset the workbook in front of it actually targets.
     """
     spec: list[SpecVariable] = []
-    for variable in _VARIABLES:
-        role, include, var_type = _DEFAULT_SPEC.get(variable, _FALLBACK_SPEC)
+    for variable in profile.variables:
+        role, include, var_type = profile.default_spec.get(variable, _FALLBACK_SPEC)
         spec.append(
             SpecVariable(
                 variable,
                 role,
                 include,
                 var_type,
-                sequence=variable in _DEFAULT_SEQUENCE_VARIABLES,
+                sequence=variable in profile.sequence_variables,
             )
         )
     return spec
+
+
+def build_default_spec() -> list[SpecVariable]:
+    """Return the AUTO MPG T0 spec, one entry per table column.
+
+    Named for the era when Auto MPG was the only shipped default. It is now
+    one profile among three and no longer describes what
+    ``build_production.py`` writes by default — callers that mean "whatever
+    this workbook actually ships" want ``build_profile_spec`` against the
+    resolved profile instead. Kept as-is because ~a dozen call sites mean
+    Auto MPG specifically: the M-series QC cases, the guard-state specs, and
+    the transform-threading tests all build from it.
+    """
+    return build_profile_spec(SPEC_DATASET_PROFILES["auto_mpg"])
 
 
 def load_source_rows(csv_path: Path = DEFAULT_INPUT_CSV) -> list[dict[str, object]]:

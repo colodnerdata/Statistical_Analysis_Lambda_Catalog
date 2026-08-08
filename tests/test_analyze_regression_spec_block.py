@@ -8,6 +8,7 @@ tests/test_analyze_model_construction.py — not re-pinned here).
 """
 # pylint: disable=missing-function-docstring,protected-access
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -30,6 +31,7 @@ from lambda_catalog.workbook_helpers import col_letter
 from lambda_catalog.write_spec_block import (
     _C_SEQUENCE,
     _INTERCEPT_ROW,
+    SPEC_DATASET_PROFILES,
 )
 from lambda_catalog.write_sheet_regression import _C_AA, _C_AB, _C_AF, _C_AN, _C_S
 
@@ -68,15 +70,18 @@ def test_reads_anchor_to_the_documented_regression_cells() -> None:
 
 
 def test_expectations_delegate_to_the_shared_calculator() -> None:
-    # One expectation side for both verifiers: the T0/T8 numbers pinned in
+    # One expectation side for both verifiers: the numbers pinned in
     # test_analyze_model_construction.py cover this module too.
     assert (
         analyze_regression_spec_block.calculate_model_construction_expectations
         is analyze_model_construction.calculate_model_construction_expectations
     )
+    # build_PROFILE_spec, not build_default_spec: this verifier describes
+    # whichever dataset the workbook in front of it targets, and
+    # build_default_spec is Auto MPG specifically.
     assert (
-        analyze_regression_spec_block.build_default_spec
-        is analyze_model_construction.build_default_spec
+        analyze_regression_spec_block.build_profile_spec
+        is analyze_model_construction.build_profile_spec
     )
 
 
@@ -135,3 +140,104 @@ def test_comparison_reports_standard_format_failures(t0_expected) -> None:
     assert "expected=17" in tripwire and "excel_calc=7" in tripwire
     reference = next(f for f in failures if "Reference In Use" in f)
     assert "expected='Asia'" in reference and "excel_calc=2.0" in reference
+
+
+# ---------------------------------------------------------------------------
+# Dataset resolution — the layer that stops this verifier comparing the
+# wrong dataset when the shipped default changes
+# ---------------------------------------------------------------------------
+
+
+class _FakeNames:
+    def __init__(self, refers_to: object) -> None:
+        self._refers_to = refers_to
+
+    def Item(self, name: str):  # noqa: N802 — mirrors the COM API
+        assert name == "Source_Table"
+        if self._refers_to is None:
+            raise KeyError(name)
+        return SimpleNamespace(RefersTo=self._refers_to)
+
+
+class _FakeSheet:
+    """Just enough of an xlwings Sheet to answer 'what is Source_Table?'."""
+
+    def __init__(self, refers_to: object) -> None:
+        self.api = SimpleNamespace(Names=_FakeNames(refers_to))
+
+
+@pytest.mark.parametrize(
+    "refers_to, expected_key",
+    [
+        ("=MileageData[#All]", "auto_mpg"),
+        ("=LifeExpectancyData[#All]", "life_expectancy"),
+        ("=ProductionLotsData[#All]", "production_lots"),
+        # Excel hands the ref back requoted or sheet-qualified depending on
+        # how it was written; matching on the table name absorbs that.
+        ("='Mileage Data'!MileageData[#All]", "auto_mpg"),
+        ("=lifeexpectancydata[#all]", "life_expectancy"),
+    ],
+)
+def test_source_table_resolves_to_the_shipped_dataset(refers_to, expected_key) -> None:
+    resolved = analyze_regression_spec_block._resolve_shipped_profile(
+        _FakeSheet(refers_to)
+    )
+
+    assert resolved is not None
+    key, profile = resolved
+    assert key == expected_key
+    assert profile is SPEC_DATASET_PROFILES[expected_key]
+
+
+@pytest.mark.parametrize("refers_to", [None, "=SomeOtherTable[#All]", "=$A$1:$C$9"])
+def test_unresolvable_source_table_is_a_failure_not_a_default(refers_to) -> None:
+    """The whole point of resolving rather than assuming.
+
+    Falling back to a default dataset here is what produced the original bug:
+    the verifier compared Auto MPG expectations against a workbook shipping
+    Life Expectancy and reported ten mismatches that all meant one thing. An
+    unknown target has to say so.
+    """
+    assert (
+        analyze_regression_spec_block._resolve_shipped_profile(_FakeSheet(refers_to))
+        is None
+    )
+
+
+def test_every_registered_profile_has_a_loader_and_they_agree() -> None:
+    """A profile the spec block can target but this module cannot load would
+    resolve to None and report 'no registered profile' — a confusing way to
+    say 'somebody added a dataset and not its loader'."""
+    assert set(analyze_regression_spec_block._DATASET_LOADERS) == set(
+        SPEC_DATASET_PROFILES
+    )
+    for key, profile in SPEC_DATASET_PROFILES.items():
+        config, loader = analyze_regression_spec_block._DATASET_LOADERS[key]
+        assert config.table_name in profile.source_table_ref, key
+        assert callable(loader), key
+
+
+@pytest.mark.parametrize("profile_key", sorted(SPEC_DATASET_PROFILES))
+def test_every_profile_produces_computable_expectations(profile_key) -> None:
+    """Each shipped default must be describable by the expectation side.
+
+    This is the assertion that would have caught the breakage at unit-test
+    time instead of on a Windows machine: it fits every profile the
+    --regression-dataset flag can select, not just the one that happens to
+    ship today.
+    """
+    config, loader = analyze_regression_spec_block._DATASET_LOADERS[profile_key]
+    if not config.default_csv_path.exists():
+        pytest.skip(f"{config.default_csv_path.name} not present")
+
+    expected = calculate_model_construction_expectations(
+        analyze_model_construction.build_profile_spec(
+            SPEC_DATASET_PROFILES[profile_key]
+        ),
+        loader(config.default_csv_path),
+    )
+
+    assert expected.response_name
+    assert expected.k >= 1
+    assert 0 < expected.included_rows <= expected.total_rows
+    assert len(expected.constructed_column_names) == expected.k

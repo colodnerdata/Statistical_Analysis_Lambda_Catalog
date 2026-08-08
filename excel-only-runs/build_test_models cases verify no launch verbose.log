@@ -1,0 +1,26 @@
+python build_test_models.py --cases L11 --verify --no-launch --verbose
+[    0.0s] Plan: 1 model + 0 guard = 1 sheet(s)
+           L11   L11 Curated Talk Default
+[    0.0s] Oracles: computing
+[    0.1s] Oracles: done
+[    0.5s] Catalog + data sheets
+[    5.9s] Sheets: writing 1
+[    5.9s]   1/1 L11   L11 Curated Talk Default           11.7s
+[   17.6s] Save
+[   18.5s] Sync names
+[   18.5s] CalculateFullRebuild
+Timing: write sheets  18.4s
+Timing: sync names    0.1s
+Timing: rebuild       17.2s
+Timing:   CalculateFullRebuild only   10.3s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 1
+Created names: 123
+Updated names: 0
+Removed names: 0
+[   35.8s] Verify: reading 1 sheet(s)
+             1/1 L11   L11 Curated Talk Default         ok
+Timing: verify        5.5s
+Verify: passed
+Timing: total         41.3s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models cases verify no launch verbose.log

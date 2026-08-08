@@ -747,7 +747,10 @@ def test_spec_block_defaults_to_the_given_profile() -> None:
 
     Life Expectancy has 23 columns vs. Auto MPG's 12. The profile no longer
     sizes anything — the block's height follows COLUMNS(Source_Data) — but
-    it still decides which rows arrive with shipped defaults.
+    it still decides which rows arrive with shipped defaults. The shipped
+    default is the curated four-driver model (Adult Mortality, Alcohol,
+    percentage expenditure, Status); every other predictor is present in
+    the block with Include off, ready to toggle on.
     """
     profile = SPEC_DATASET_PROFILES["life_expectancy"]
     sheet = RecordingSheet(name=SHEET_NAME)
@@ -757,11 +760,24 @@ def test_spec_block_defaults_to_the_given_profile() -> None:
     assert sheet.cell(by_variable["Life expectancy"], _C_ROLE).value == "Response (y)"
     assert sheet.cell(by_variable["Country"], _C_ROLE).value == "Identifier (Row Label)"
     assert sheet.cell(by_variable["Full_Data"], _C_ROLE).value == "Omit"
+    assert sheet.cell(by_variable["Year"], _C_SEQUENCE).value is True
+
+    # The curated, shipped-on predictors.
+    adult_mortality_row = by_variable["Adult Mortality"]
+    assert sheet.cell(adult_mortality_row, _C_ROLE).value == "Predictor (x)"
+    assert sheet.cell(adult_mortality_row, _C_INCLUDE).value is True
+    assert sheet.cell(adult_mortality_row, _C_TYPE).value == "Continuous"
+    status_row = by_variable["Status"]
+    assert sheet.cell(status_row, _C_ROLE).value == "Predictor (x)"
+    assert sheet.cell(status_row, _C_INCLUDE).value is True
+    assert sheet.cell(status_row, _C_TYPE).value == "Categorical"
+
+    # A predictor the curated default leaves off — present in the block,
+    # ready to toggle on for the screen/trim beats, but Include=False.
     schooling_row = by_variable["Schooling"]
     assert sheet.cell(schooling_row, _C_ROLE).value == "Predictor (x)"
-    assert sheet.cell(schooling_row, _C_INCLUDE).value is True
+    assert sheet.cell(schooling_row, _C_INCLUDE).value is False
     assert sheet.cell(schooling_row, _C_TYPE).value == "Continuous"
-    assert sheet.cell(by_variable["Year"], _C_SEQUENCE).value is True
 
 
 def test_spec_block_defaults_to_the_auto_mpg_profile_when_omitted() -> None:

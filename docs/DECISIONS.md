@@ -4003,7 +4003,7 @@ Both tokens build the identical `Ln(x)` column and
 `(response_transform, predictor_transform)` unit-space dispatcher gains no new
 combination and the Duan / back-transformation family needs no change at all.
 The test cost is two cases, not a multiplier: L06 keeps the strict half
-(unchanged behaviour, plus the new red flag) and L11 is the fittable filtering
+(unchanged behaviour, plus the new red flag) and L12 is the fittable filtering
 half.
 
 **`Sample_Include` gained an optional argument, not a twin.**

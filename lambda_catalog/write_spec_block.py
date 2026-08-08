@@ -667,14 +667,26 @@ _AUTO_MPG_PROFILE = SpecDatasetProfile(
 )
 
 # Column order matches the Life Expectancy CSV's normalized header order
-# plus the appended Full_Data column. Response/Predictor set mirrors
-# regression_shared.FEATURE_COLUMNS, the same 18-predictor model
-# analyze_life_expectancy.py validates against — Country is a text
-# identifier (row labeling only), Year is the natural panel ordering axis
-# (Sequence-flagged, Role Omit so it never enters the design matrix itself),
-# Status is the one categorical predictor, and Full_Data ships Omit for the
-# same reason Auto MPG's does: the built-in per-predictor completeness mask
-# already covers it, so a Filter role would only over-filter.
+# plus the appended Full_Data column. Country is a text identifier (row
+# labeling only), Year is the natural panel ordering axis (Sequence-flagged,
+# Role Omit so it never enters the design matrix itself), Status is the one
+# categorical predictor, and Full_Data ships Omit for the same reason Auto
+# MPG's does: the built-in per-predictor completeness mask already covers it,
+# so a Filter role would only over-filter.
+#
+# The SHIPPED DEFAULT is the curated four-driver model both presentation decks
+# headline (the slide-19 coefficient table): Life expectancy ~ Adult Mortality
+# + Alcohol + percentage expenditure + C(Status). Those four predictors ship
+# Include=True; every other FEATURE_COLUMNS entry ships Include=False — present
+# in the block (so the block still sizes to all 23 source columns) but off,
+# ready to toggle on for the EDA / VIF-trim / kitchen-sink beats. This is the
+# cold open: k ≈ 5, fast on a low-compute machine, matching the deck. The
+# 18-predictor kitchen sink is still a registered case (L05,
+# ``_life_full_profile_spec``), just no longer what the workbook opens with —
+# and the curated default's own oracle is the registered case ``life_talk_demo``
+# (L11). ``_LIFE_EXPECTANCY_VARIABLES`` is unchanged: the block sizes itself
+# from COLUMNS(Source_Data), so the 19 dormant rows cost nothing and are one
+# toggle away.
 _LIFE_EXPECTANCY_VARIABLES: tuple[str, ...] = (
     "Country",
     "Year",
@@ -683,13 +695,21 @@ _LIFE_EXPECTANCY_VARIABLES: tuple[str, ...] = (
     *_LIFE_EXPECTANCY_FEATURE_COLUMNS,
     "Full_Data",
 )
+# The three curated drivers that ship active.
+_LIFE_TALK_DEMO_PREDICTORS: frozenset[str] = frozenset(
+    {"Adult Mortality", "Alcohol", "percentage expenditure"}
+)
 _LIFE_EXPECTANCY_DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "Country": (_ROLE_IDENTIFIER, False, "Continuous"),
     "Year": (_ROLE_OMIT, False, "Continuous"),
     "Status": (_ROLE_PREDICTOR, True, "Categorical"),
     "Life expectancy": (_ROLE_RESPONSE, False, "Continuous"),
     **{
-        column: (_ROLE_PREDICTOR, True, "Continuous")
+        column: (
+            _ROLE_PREDICTOR,
+            column in _LIFE_TALK_DEMO_PREDICTORS,
+            "Continuous",
+        )
         for column in _LIFE_EXPECTANCY_FEATURE_COLUMNS
     },
     "Full_Data": (_ROLE_OMIT, False, "Continuous"),

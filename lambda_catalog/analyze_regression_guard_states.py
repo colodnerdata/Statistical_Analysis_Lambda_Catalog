@@ -123,7 +123,7 @@ by adding a SECOND Transform token rather than by changing this one:
 
 Two tokens rather than one that silently filters, because narrowing the
 sample changes the model being fitted and must be something the user
-declared. L11 is the filtering half; this case is the strict half, and the
+declared. L12 is the filtering half; this case is the strict half, and the
 red flag it now also asserts is what points a user from one to the other."""
 
 

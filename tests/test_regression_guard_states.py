@@ -295,7 +295,7 @@ def test_ln_zero_guard_does_not_narrow_the_sample() -> None:
     unchanged, and it is the half of the pair that must stay this way. What is
     new is that the sheet no longer leaves the user to discover it from a wall
     of #N/A: the Transform cell goes red and G2 names the column, the count and
-    the token that would exclude them. L11 is the other half. See
+    the token that would exclude them. L12 is the other half. See
     analyze_regression_guard_states._LN_ZERO_GUARD_NOTE."""
     from lambda_catalog.analyze_life_expectancy import (
         load_life_expectancy_source_rows,

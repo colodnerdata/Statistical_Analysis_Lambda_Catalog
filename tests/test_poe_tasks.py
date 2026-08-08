@@ -41,6 +41,10 @@ _EXPECTED_TASK_NAMES = [
     "verify",
     "build",
     "build-univariate",
+    # Added with the presentation demo workbook; the pin was not updated in
+    # the same commit, so this list was one merge away from failing on main.
+    "build-presentation-demo",
+    "build-presentation",
     "static-sheets",
     "resync-names",
 ]

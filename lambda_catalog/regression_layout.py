@@ -20,13 +20,13 @@ from pathlib import Path
 from typing import NamedTuple
 
 from .workbook_helpers import MAX_EXCEL_ROW, col_letter
-from .write_spec_block import (
+from .spec_layout import (
     _C_DESIGN_COLUMNS as _C_SPEC_DESIGN_COLUMNS,
 )
-from .write_spec_block import (
+from .spec_layout import (
     _C_SEQUENCE_PERIOD as _C_SPEC_SEQUENCE_PERIOD,
 )
-from .write_spec_block import (
+from .spec_layout import (
     _DEFAULT_TRANSFORM,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
@@ -67,7 +67,7 @@ _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.j
 # of truth for both column widths and outline grouping (see _ZONES / _GAP_COLUMNS).
 
 # Zone 1: Model Specification — columns A–O are owned by the shared spec-block
-# writers in write_spec_block (imported above); only the section
+# writers in spec_layout (imported above); only the section
 # heading cell is written here.
 _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 
@@ -287,7 +287,7 @@ _COLUMN_GROUPS: tuple[tuple[int, int], ...] = _ZONES
 _COLUMN_WIDTHS: tuple[tuple[int, float], ...] = (
     # ── Spec block (A–O) ────────────────────────────────────────────────────
     # The spec block owns its own widths (_set_spec_block_column_widths in
-    # ``write_spec_block``). Column I is the ONE
+    # ``spec_layout``). Column I is the ONE
     # Regression-only override: this sheet overlays the combined Sequence
     # Verdict switch on I2, a long message and the widest cell on the sheet.
     (_C_SPEC_SEQUENCE_PERIOD, 38),
@@ -530,7 +530,7 @@ _DESIGN_MATRIX_INTERCEPT_HEADER = '=IF(Allow_Intercept,"Intercept","")'
 # the two tokens produce the identical Ln(x) column and differ only in the row
 # mask, so telling them apart here would double the dispatcher's axis to
 # distinguish two cases with the same back-transformation. See
-# write_spec_block._TRANSFORM_LOG_DROP.
+# spec_layout._TRANSFORM_LOG_DROP.
 _RESPONSE_TRANSFORM_FORMULA = (
     "IFERROR(IF(INDEX(TAKE(Spec_Transform,COLUMNS(Source_Data)),"
     f'XMATCH("{_ROLE_RESPONSE}",TAKE(Spec_Role,COLUMNS(Source_Data))))'

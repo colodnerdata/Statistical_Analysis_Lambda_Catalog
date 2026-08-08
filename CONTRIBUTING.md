@@ -43,6 +43,9 @@ Use these shortcuts for day-to-day work from an activated `.venv`. If the enviro
 | Build + verify Regression | `poe verify-deep` | `uv run python scripts/build_production.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify Univariate | `poe verify-deep-univariate` | `uv run python scripts/build_univariate.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify test models | `poe verify-test-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose` | Needs desktop Excel; append `--include-heavy` to include the heavy cases (`L05`, `L08`). |
+| Build + verify the guard states | `poe verify-guards` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --kind guards --exclude L07` | Needs desktop Excel; every `GuardStateCase` except the 205-column `L07`. |
+| Build + verify the spec-block error surfaces | `poe verify-spec-errors` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --cases <20 IDs>` | Needs desktop Excel; the five row-2 status cells and the ten CF flag rules. Includes `L07`, so it is the slower of the two guard slices. |
+| Build + verify the happy-path fits | `poe verify-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --kind models` | Needs desktop Excel; the 33 fittable cases, heavy excluded. No guard sheets. |
 | Run the whole verification ladder | `poe verify` | Run the three deep `verify-*` tasks concurrently, then `verify-headless` over their output | Needs desktop Excel; stops on first failure. |
 | Resync workbook-scoped catalog names | `poe resync-names -- <workbook.xlsx>` | `uv run python tools/resync_workbook_names.py <workbook.xlsx>` | Use the `--` separator before positional args. |
 | Rebuild static reference sheets | `poe static-sheets` | `uv run python scripts/rebuild_static_sheets.py` | Needs desktop Excel; manual template maintenance. |
@@ -357,6 +360,48 @@ uv run python tools/verify_workbook.py Lambda_Library.xlsx
 uv run python tools/verify_workbook.py Lambda_Library_Univariate.xlsx --skip-regression
 uv run python tools/verify_workbook.py Lambda_Library.xlsx --json   # agentic consumption
 ```
+
+#### Narrower slices of the test-model suite
+
+`verify-test-models` builds all ~50 sheets and runs for minutes. Three tasks cut
+it along the axes worth iterating on:
+
+```powershell
+poe verify-guards        # every guard state except the oversized L07
+poe verify-spec-errors   # every spec-block status line and CF flag
+poe verify-models        # the 33 fittable cases, heavy excluded
+```
+
+**Two of them select structurally, and that is the point.** `--kind guards` and
+`--kind models` ask the registry which half a case belongs to, so neither task
+carries a list of plan IDs that goes stale the next time a case is registered.
+Only `verify-spec-errors` names cases, because *which* cases are an error
+surface is a judgement rather than something derivable — and
+`tests/test_poe_tasks.py` resolves every ID it names against the live registry,
+so it cannot rot into naming a case that no longer exists.
+
+**`L07` is the one documented hole.** Its whole assertion is that a 205-column
+model is too wide to build, so the sheet materializes a 206 × 2909 design
+matrix and then fails to invert the Gram — minutes of work to confirm a
+`WARNING` string. `verify-guards` excludes it; `verify-spec-errors` keeps it,
+because `O2` is the width guard's status cell and no other case reaches it.
+
+**`verify-models` is the happy path.** `--include-heavy` stays off, which is
+what keeps the runtime sane: `L05` (k = 19 over n = 2117) and `L08` (173 Fixed
+Effects groups over 2909 rows) are the two Gram matrices large enough to
+dominate a run, and both have Python oracles in the unit suite regardless. Add
+`--include-heavy` when the fit arithmetic itself is what changed.
+
+The same selection flags work directly on the script:
+
+```powershell
+python scripts/build_test_models.py --verify --no-launch --kind guards
+python scripts/build_test_models.py --verify --no-launch --exclude L05,L07,L08
+python scripts/build_test_models.py --verify --no-launch --cases L06,L12   # the Log-domain pair
+```
+
+`--exclude` is validated against the whole registry, so a typo is an error
+rather than a silent no-op that excludes nothing.
 
 **All `tools/verify_workbook.py` options** (positional `workbook` path is required):
 

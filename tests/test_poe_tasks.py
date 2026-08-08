@@ -38,9 +38,16 @@ _EXPECTED_TASK_NAMES = [
     "verify-deep",
     "verify-deep-univariate",
     "verify-test-models",
+    "verify-guards",
+    "verify-spec-errors",
+    "verify-models",
     "verify",
     "build",
     "build-univariate",
+    # Added with the presentation demo workbook; the pin was not updated in
+    # the same commit, so this list was one merge away from failing on main.
+    "build-presentation-demo",
+    "build-presentation",
     "static-sheets",
     "resync-names",
 ]
@@ -135,3 +142,105 @@ def test_parallel_tasks_need_a_poe_that_has_them(poe_config: dict[str, Any]) -> 
     poe_pin = next(spec for spec in dev_group if spec.startswith("poethepoet"))
     floor = poe_pin.split(">=")[1].split(",")[0]
     assert tuple(int(part) for part in floor.split(".")) >= (0, 48)
+
+
+# ── The Layer 2 slice tasks ──────────────────────────────────────────────────
+
+
+def _case_selection_tokens(command: str, flag: str) -> list[str]:
+    """Every comma-separated token a task passes to ``--cases`` / ``--exclude``.
+
+    The commands are written across several lines in pyproject.toml, so the
+    value is found by scanning the whitespace-split argv rather than by
+    slicing the raw string.
+    """
+    parts = command.split()
+    if flag not in parts:
+        return []
+    return [
+        token.strip()
+        for token in parts[parts.index(flag) + 1].split(",")
+        if token.strip()
+    ]
+
+
+def test_task_case_selections_all_resolve_to_registered_cases(
+    tasks: dict[str, Any],
+) -> None:
+    """A plan ID named by a task must exist.
+
+    ``verify-spec-errors`` names its cases explicitly, because "which cases are
+    an error surface" is a judgement rather than something derivable from the
+    registry. That makes it exactly the kind of hand-maintained list that goes
+    stale silently — the case gets renamed or dropped and the task quietly
+    stops covering it, or fails at build time on a machine that has Excel,
+    which is the slowest possible place to learn it. This resolves every token
+    against the live registry instead.
+
+    It cannot catch a NEW error surface that nobody added to the list; adding
+    one is a deliberate act that the PR-shape rules already route through
+    docs/MODEL_TESTING_ASSETS.md.
+    """
+    from lambda_catalog.analyze_regression_guard_states import build_guard_state_cases
+    from lambda_catalog.analyze_regression_spec import build_regression_spec_cases
+
+    known = {
+        token.casefold()
+        for case in (*build_regression_spec_cases(), *build_guard_state_cases())
+        for token in (case.plan_id, case.name)
+    }
+
+    for name, task in tasks.items():
+        command = task.get("cmd")
+        if command is None:
+            continue
+        for flag in ("--cases", "--exclude"):
+            for token in _case_selection_tokens(command, flag):
+                assert token.casefold() in known, f"{name} {flag} {token}"
+
+
+def test_spec_error_task_covers_every_row2_status_surface(
+    tasks: dict[str, Any],
+) -> None:
+    """The five status cells the spec block's row-2 grammar defines.
+
+    One case per surface, so a task that silently lost one would still look
+    plausible. The width guard (O2) is the reason L07 is in this list despite
+    being the case verify-guards excludes for size: it is the only case that
+    reaches that cell at all.
+    """
+    selected = {
+        token.casefold()
+        for token in _case_selection_tokens(
+            tasks["verify-spec-errors"]["cmd"], "--cases"
+        )
+    }
+
+    for surface, plan_id in (
+        ("B2 role cardinality", "G01"),
+        ("G2 log domain", "L06"),
+        ("H2 sequence cardinality", "G03"),
+        ("I2 spacing verdict", "P07"),
+        ("O2 width guard", "L07"),
+    ):
+        assert plan_id.casefold() in selected, surface
+
+
+def test_structural_slices_do_not_hardcode_plan_ids(tasks: dict[str, Any]) -> None:
+    """``verify-guards`` and ``verify-models`` select with ``--kind``.
+
+    Enumerating either half would put a list of ~17 or ~33 plan IDs in
+    pyproject.toml that nothing keeps current — the registry already knows the
+    split, so the task should ask it. The single ``--exclude`` on verify-guards
+    is the documented hole, not an enumeration.
+    """
+    guards = tasks["verify-guards"]["cmd"].split()
+    models = tasks["verify-models"]["cmd"].split()
+
+    assert "--kind" in guards and guards[guards.index("--kind") + 1] == "guards"
+    assert "--kind" in models and models[models.index("--kind") + 1] == "models"
+    assert "--cases" not in guards
+    assert "--cases" not in models
+    # The happy-path slice must not pull in the two heavy Gram matrices.
+    assert "--include-heavy" not in models
+    assert _case_selection_tokens(tasks["verify-guards"]["cmd"], "--exclude") == ["L07"]

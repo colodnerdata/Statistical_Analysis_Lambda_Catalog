@@ -3,12 +3,10 @@
 The spec-block changeover moved the declarative spec block onto the Regression
 sheet, and the Model Construction sheet (with its dedicated verifier, now
 ``analyze_model_construction`` reading the Regression sheet) was retired at
-v2.0. The six regression QC configurations only exercise all-continuous
-designs — every config switches the default spec's Categorical predictors
-(Model Year, Origin) OFF — so without this module the categorical
-constructor path (dummy encoding, level-qualified names, the degenerate
-skip, the Levels and Reference In Use displays) would have no live-Excel
-verification at all.
+v2.0. The six regression QC configurations that run beside this one only
+exercise all-continuous designs — every config switches the shipped spec's
+Categorical predictors OFF — so without this module nothing would check the
+shipped workbook's own spec against an independent expectation at all.
 
 This is the historical Model Construction verifier ported to the Regression
 sheet. The expectation side is reused verbatim (``analyze_model_construction``'s
@@ -36,47 +34,62 @@ The full-height contract, filtered-y column, y-header, and responses-count
 assertions are dropped: the Regression sheet displays none of them, and the
 closures behind them are pinned by the unit suite.
 
-Two passes, mirroring the retired verifier:
+**This verifier checks whatever the workbook actually ships.** It resolves the
+dataset by reading the live ``Source_Table`` name off the Regression sheet and
+matching it to a registered profile, then builds its expectations from that
+profile. It used to hardcode Auto MPG, which was correct only while Auto MPG
+was the sole possible default: ``build_production.py --regression-dataset``
+made the shipped default a build-time CHOICE, and when the shipped workbook
+flipped to the curated Life Expectancy model every single assertion here
+compared the wrong dataset (`expected='MPG'`, `excel_calc='Life expectancy'`,
+and so on down). Deriving the dataset from the artifact is what makes that
+unrepresentable rather than merely fixed.
 
-1. **Default spec (T0)** — the build's shipped state, Model Year/Origin ON.
-2. **Degenerate Categorical via a Filter column** (the human test plan's T8
-   mechanism): an ``Is_USA`` column is added to the data table and
-   declared as a Filter in the spec, collapsing Origin to one level inside
-   the mask; Origin must contribute zero columns, not an error. The mutation
-   is reverted, and the QC verify phase closes the workbook without saving
-   as a backstop.
+**The categorical corners moved to the test-model suite.** This module used to
+carry a second pass — an ``Is_USA`` Filter column added to the Auto MPG table
+to collapse ``Origin`` to one level and assert the degenerate skip — and its
+first pass leaned on Auto MPG's two multi-level categoricals (Model Year 13,
+Origin 3). Neither belongs to a verifier whose job is the SHIPPED artifact:
+they describe a configuration the shipped workbook is no longer in, and
+reproducing them here would mean retargeting ``Source_Table`` on the
+production sheet mid-verify. They are covered on their own sheets by
+``build_test_models.py --verify``:
+
+    multi-level dummies, level-qualified names   M01, M09, M14, M14b
+    degenerate Categorical via a Filter column   M15
+    Levels / Reference In Use displays           every categorical case
+
+What remains here is the one thing only this module can check: that the
+workbook a user opens computes its own shipped spec correctly.
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
 import xlwings as xw
 
+from .analyze_life_expectancy import load_life_expectancy_source_rows
 from .analyze_model_construction import (
-    _EXTRA_FILTER_FORMULA,
-    _EXTRA_FILTER_HEADER,
     _READ_MARGIN,
-    _TABLE_NAME,
     ModelConstructionExpectations,
-    SpecVariable,
     _contiguous_height,
     _is_blank,
     _read_column,
-    _recalculate_sheets,
     _values_match,
-    build_default_spec,
+    build_profile_spec,
     calculate_model_construction_expectations,
     load_source_rows,
 )
-from .write_sheet_csv_dataset import MILEAGE
+from .analyze_production_lots import load_production_lots_source_rows
+from .write_sheet_csv_dataset import LIFE_EXPECTANCY, MILEAGE, PRODUCTION_LOTS
 from .write_spec_block import (
     _C_LEVELS,
     _C_REF_IN_USE,
-    _C_ROLE,
     _C_SEQUENCE,
-    _ROLE_FILTER,
-    _VARIABLES,
+    SPEC_DATASET_PROFILES,
+    SpecDatasetProfile,
 )
 from .write_spec_block import (
     _FIRST_DATA_ROW as _SPEC_FIRST_DATA_ROW,
@@ -97,6 +110,46 @@ DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
 DATA_SHEET_NAME = MILEAGE.sheet_name
 
 _QC_PREFIX = "[Regression Spec]"
+
+# Every dataset the spec block can be pointed at, keyed by the profile key
+# SPEC_DATASET_PROFILES uses. The row loader is per-dataset because each CSV
+# needs its own normalization (header casing, the appended Full_Data column),
+# and all three share one signature: (csv_path) -> list[dict].
+_DATASET_LOADERS = {
+    "auto_mpg": (MILEAGE, load_source_rows),
+    "life_expectancy": (LIFE_EXPECTANCY, load_life_expectancy_source_rows),
+    "production_lots": (PRODUCTION_LOTS, load_production_lots_source_rows),
+}
+
+
+def _resolve_shipped_profile(
+    sheet: xw.Sheet,
+) -> tuple[str, SpecDatasetProfile] | None:
+    """Which dataset is this Regression sheet actually pointed at?
+
+    ``Source_Table`` is the ONE name that decides which table the spec block
+    reads, so the sheet's own copy of it is the authoritative answer — not the
+    build flag that produced the file, which a verifier handed an existing
+    workbook does not have.
+
+    Returns ``(profile_key, profile)``, or ``None`` when the name is missing
+    or targets a table with no registered profile. The caller turns that into
+    a QC failure rather than guessing: comparing against the wrong dataset is
+    exactly the failure mode this resolution exists to prevent, and silently
+    falling back to a default would reintroduce it.
+    """
+    try:
+        refers_to = str(sheet.api.Names.Item("Source_Table").RefersTo)
+    except Exception:  # pylint: disable=broad-exception-caught
+        return None
+
+    # Excel may hand back the ref sheet-qualified or requoted; matching on the
+    # table name rather than the whole string keeps this robust to that.
+    for key, profile in SPEC_DATASET_PROFILES.items():
+        config, _loader = _DATASET_LOADERS[key]
+        if config.table_name.casefold() in refers_to.casefold():
+            return key, profile
+    return None
 
 # Row anchors on the Regression sheet (1-based; must match
 # write_sheet_regression.py's section writers).
@@ -123,13 +176,22 @@ class RegressionSpecObserved:
 
 
 def read_observed_spec_values(
-    sheet: xw.Sheet, total_rows: int, k_bound: int
+    sheet: xw.Sheet,
+    total_rows: int,
+    k_bound: int,
+    variables: Sequence[str],
 ) -> RegressionSpecObserved:
     """Read every asserted zone from the Regression sheet.
 
     ``total_rows``/``k_bound`` size the reads only — every read extends
     ``_READ_MARGIN`` cells past the expected spill so an over-long spill
     shows up as a height/width mismatch instead of being clipped.
+
+    ``variables`` is the resolved dataset's column list, in spec-block row
+    order, and it is a PARAMETER for the same reason the expectations are:
+    the Levels and Reference In Use cells are read POSITIONALLY, so iterating
+    a hardcoded Auto MPG list against a Life Expectancy block read the wrong
+    rows and reported every categorical display as ``None``.
     """
     names = _read_column(
         sheet, _C_S, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN
@@ -142,13 +204,13 @@ def read_observed_spec_values(
 
     level_cells = {
         variable: sheet.range((_SPEC_FIRST_DATA_ROW + offset, _C_LEVELS)).value
-        for offset, variable in enumerate(_VARIABLES)
+        for offset, variable in enumerate(variables)
     }
     reference_cells = {
         variable: sheet.range(
             (_SPEC_FIRST_DATA_ROW + offset, _C_REF_IN_USE)
         ).value
-        for offset, variable in enumerate(_VARIABLES)
+        for offset, variable in enumerate(variables)
     }
 
     resid_labels = _read_column(
@@ -245,82 +307,48 @@ def compare_spec_observed_to_expected(
     return failures
 
 
-def _verify_degenerate_filter_case(
-    workbook: xw.Book, rows: list[dict[str, object]]
-) -> list[str]:
-    """Drive the T8 mechanism: add an Is_USA Filter, assert the skip.
-
-    The added ListColumn and the typed Filter role are reverted before
-    returning; the verify phase additionally closes the workbook without
-    saving, so the shipped workbook stays in its T0 state either way.
-    """
-    data_sheet = workbook.sheets[DATA_SHEET_NAME]
-    sheet = workbook.sheets[REGRESSION_SHEET_NAME]
-
-    spec = build_default_spec() + [
-        SpecVariable(_EXTRA_FILTER_HEADER, _ROLE_FILTER, False, "Continuous")
-    ]
-    mutated_rows = [
-        {**row, _EXTRA_FILTER_HEADER: 1 if row["Origin"] == "US" else 0}
-        for row in rows
-    ]
-    expected = calculate_model_construction_expectations(spec, mutated_rows)
-
-    # The new table column's spec row appears right below the shipped ones.
-    filter_role_row = _SPEC_FIRST_DATA_ROW + len(_VARIABLES)
-    table = data_sheet.api.ListObjects(_TABLE_NAME)
-    column = table.ListColumns.Add()
-    try:
-        column.Name = _EXTRA_FILTER_HEADER
-        column.DataBodyRange.Formula = _EXTRA_FILTER_FORMULA
-        sheet.range((filter_role_row, _C_ROLE)).value = _ROLE_FILTER
-        _recalculate_sheets(workbook, data_sheet, sheet)
-
-        observed = read_observed_spec_values(
-            sheet, expected.total_rows, max(expected.k, 1)
-        )
-        failures = compare_spec_observed_to_expected(
-            observed, expected, "Is_USA filter"
-        )
-        # The point of the case: Origin degenerates inside the stratified
-        # mask and must be skipped (zero contributed columns), not errored.
-        if "Origin" not in expected.degenerate_categoricals:
-            failures.append(
-                f"{_QC_PREFIX} [Is_USA filter] check='Origin degenerates': "
-                f"expected Origin in degenerate_categoricals, "
-                f"got {expected.degenerate_categoricals!r}"
-            )
-    finally:
-        sheet.range((filter_role_row, _C_ROLE)).clear_contents()
-        column.Delete()
-        _recalculate_sheets(workbook, data_sheet, sheet)
-
-    return failures
-
-
 def read_regression_spec_block_failures(
-    workbook: xw.Book, csv_path: Path = DEFAULT_INPUT_CSV
+    workbook: xw.Book, csv_path: Path | None = None
 ) -> list[str]:
     """Verify the Regression sheet's spec block; return QC failure messages.
 
-    Pass 1 asserts the shipped default spec (the human test plan's T0 state,
-    Model Year/Origin ON — the only live-Excel coverage of the categorical
-    constructor path); pass 2 drives the degenerate-Categorical Filter case
-    and reverts it. Must run while the spec block is in its shipped state —
-    i.e. BEFORE the six-configuration regression pass, which mutates the
-    Include cells.
+    Asserts that the workbook computes ITS OWN shipped spec correctly. The
+    dataset is resolved from the sheet's live ``Source_Table`` rather than
+    assumed, so this tracks ``--regression-dataset`` instead of breaking on it
+    — see the module docstring for what that replaced and where the
+    categorical corners went.
+
+    ``csv_path`` overrides the resolved profile's default CSV, for a caller
+    whose sample data lives elsewhere. Leave it None to use the dataset's own.
+
+    Must run while the spec block is in its shipped state — i.e. BEFORE the
+    six-configuration regression pass, which mutates the Include cells.
     """
-    rows = load_source_rows(csv_path)
-    spec = build_default_spec()
-    expected = calculate_model_construction_expectations(spec, rows)
-
     sheet = workbook.sheets[REGRESSION_SHEET_NAME]
-    observed = read_observed_spec_values(
-        sheet, expected.total_rows, max(expected.k, 1)
-    )
-    failures = compare_spec_observed_to_expected(
-        observed, expected, "default spec"
+
+    resolved = _resolve_shipped_profile(sheet)
+    if resolved is None:
+        return [
+            f"{_QC_PREFIX} [shipped spec] check='Source_Table resolves to a "
+            "known dataset': the Regression sheet's Source_Table names no "
+            "registered profile, so there is nothing to compare against. "
+            f"Known tables: "
+            + ", ".join(
+                config.table_name for config, _ in _DATASET_LOADERS.values()
+            )
+        ]
+
+    profile_key, profile = resolved
+    config, loader = _DATASET_LOADERS[profile_key]
+
+    rows = loader(csv_path or config.default_csv_path)
+    expected = calculate_model_construction_expectations(
+        build_profile_spec(profile), rows
     )
 
-    failures.extend(_verify_degenerate_filter_case(workbook, rows))
-    return failures
+    observed = read_observed_spec_values(
+        sheet, expected.total_rows, max(expected.k, 1), profile.variables
+    )
+    return compare_spec_observed_to_expected(
+        observed, expected, f"shipped spec ({profile_key})"
+    )

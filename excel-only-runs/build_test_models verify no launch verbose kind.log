@@ -1,0 +1,122 @@
+python build_test_models.py --verify --no-launch --verbose --kind models
+[    0.0s] Plan: 33 model + 0 guard = 33 sheet(s)
+           M01   M01 Baseline Categoricals
+           M03   M03 All Continuous
+           M04   M04 Excluded Candidates
+           M02   M02 Intercept Off Categorical
+           M03b  M03b All Continuous NoInt
+           M04b  M04b Excluded Cands NoInt
+           M13   M13 Default Reference
+           M12   M12 Explicit Reference
+           G08   G08 Invalid Reference Level
+           M14   M14 Mixed Cat And Continuous
+           M15   M15 Filter Degenerate Cat
+           M07   M07 Continuous Product
+           M06   M06 Quadratic Self Product
+           M08   M08 Cont x Cat Broadcast
+           M05   M05 Log-Log NA Masking
+           M14b  M14b Categorical Only Design
+           M09   M09 Cat x Cat Full Product
+           M10   M10 Difference Interaction
+           M11   M11 Ratio Reciprocal Pair
+           P01   P01 Learning Curve FE
+           P02   P02 FE Log Transform Axis
+           P03   P03 Power Law Derived Cols
+           P03b  P03b Power Law Transform Axis
+           P04   P04 Log Mixed Predictors
+           P05   P05 Log Predictor Only
+           P06   P06 LSDV vs Within Estimator
+           L01   L01 Partial Linear-Log
+           L02   L02 Log Response Duan
+           L03   L03 Log Response Naive
+           L04   L04 Elasticity Log-Log
+           L09   L09 Binary Cat Reference
+           L12   L12 Log Drop Nonpositive
+           L11   L11 Curated Talk Default
+[    0.0s] Oracles: computing
+[    0.7s] Oracles: done
+[    1.2s] Catalog + data sheets
+[    6.1s] Sheets: writing 33
+[    6.1s]   1/33 M01   M01 Baseline Categoricals          5.7s
+[   11.8s]   2/33 M03   M03 All Continuous                 6.5s
+[   18.2s]   3/33 M04   M04 Excluded Candidates            7.4s
+[   25.7s]   4/33 M02   M02 Intercept Off Categorical      8.8s
+[   34.5s]   5/33 M03b  M03b All Continuous NoInt         10.3s
+[   44.8s]   6/33 M04b  M04b Excluded Cands NoInt         12.0s
+[   56.7s]   7/33 M13   M13 Default Reference             14.0s
+[   70.7s]   8/33 M12   M12 Explicit Reference            16.2s
+[   86.9s]   9/33 G08   G08 Invalid Reference Level       18.5s
+[  105.3s]  10/33 M14   M14 Mixed Cat And Continuous      21.1s
+[  126.4s]  11/33 M15   M15 Filter Degenerate Cat         24.0s
+[  150.4s]  12/33 M07   M07 Continuous Product            27.0s
+[  177.4s]  13/33 M06   M06 Quadratic Self Product        30.4s
+[  207.8s]  14/33 M08   M08 Cont x Cat Broadcast          34.6s
+[  242.4s]  15/33 M05   M05 Log-Log NA Masking            38.1s
+[  280.5s]  16/33 M14b  M14b Categorical Only Design      42.0s
+[  322.5s]  17/33 M09   M09 Cat x Cat Full Product        46.2s
+[  368.7s]  18/33 M10   M10 Difference Interaction        49.9s
+[  418.6s]  19/33 M11   M11 Ratio Reciprocal Pair         54.4s
+[  472.9s]  20/33 P01   P01 Learning Curve FE             58.7s
+[  531.6s]  21/33 P02   P02 FE Log Transform Axis         59.7s
+[  591.3s]  22/33 P03   P03 Power Law Derived Cols        60.8s
+[  652.1s]  23/33 P03b  P03b Power Law Transform Axis     62.0s
+[  714.1s]  24/33 P04   P04 Log Mixed Predictors          63.3s
+[  777.4s]  25/33 P05   P05 Log Predictor Only            64.9s
+[  842.3s]  26/33 P06   P06 LSDV vs Within Estimator      66.6s
+[  908.9s]  27/33 L01   L01 Partial Linear-Log            83.0s
+[  991.9s]  28/33 L02   L02 Log Response Duan             84.5s
+[ 1076.4s]  29/33 L03   L03 Log Response Naive            85.5s
+[ 1162.0s]  30/33 L04   L04 Elasticity Log-Log            87.0s
+[ 1249.0s]  31/33 L09   L09 Binary Cat Reference          88.4s
+[ 1337.4s]  32/33 L12   L12 Log Drop Nonpositive          90.3s
+[ 1427.7s]  33/33 L11   L11 Curated Talk Default          92.6s
+[ 1520.3s] Save
+[ 1525.5s] Sync names
+[ 1525.7s] CalculateFullRebuild
+Timing: write sheets  1524.8s
+Timing: sync names    0.2s
+Timing: rebuild       267.7s
+Timing:   CalculateFullRebuild only   237.9s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 33
+Created names: 123
+Updated names: 0
+Removed names: 0
+[ 1793.4s] Verify: reading 33 sheet(s)
+             1/33 M01   M01 Baseline Categoricals        ok
+             2/33 M03   M03 All Continuous               ok
+             3/33 M04   M04 Excluded Candidates          ok
+             4/33 M02   M02 Intercept Off Categorical    ok
+             5/33 M03b  M03b All Continuous NoInt        ok
+             6/33 M04b  M04b Excluded Cands NoInt        ok
+             7/33 M13   M13 Default Reference            ok
+             8/33 M12   M12 Explicit Reference           ok
+             9/33 G08   G08 Invalid Reference Level      ok
+            10/33 M14   M14 Mixed Cat And Continuous     ok
+            11/33 M15   M15 Filter Degenerate Cat        ok
+            12/33 M07   M07 Continuous Product           ok
+            13/33 M06   M06 Quadratic Self Product       ok
+            14/33 M08   M08 Cont x Cat Broadcast         ok
+            15/33 M05   M05 Log-Log NA Masking           ok
+            16/33 M14b  M14b Categorical Only Design     ok
+            17/33 M09   M09 Cat x Cat Full Product       ok
+            18/33 M10   M10 Difference Interaction       ok
+            19/33 M11   M11 Ratio Reciprocal Pair        ok
+            20/33 P01   P01 Learning Curve FE            ok
+            21/33 P02   P02 FE Log Transform Axis        ok
+            22/33 P03   P03 Power Law Derived Cols       ok
+            23/33 P03b  P03b Power Law Transform Axis    ok
+            24/33 P04   P04 Log Mixed Predictors         ok
+            25/33 P05   P05 Log Predictor Only           ok
+            26/33 P06   P06 LSDV vs Within Estimator     ok
+            27/33 L01   L01 Partial Linear-Log           ok
+            28/33 L02   L02 Log Response Duan            ok
+            29/33 L03   L03 Log Response Naive           ok
+            30/33 L04   L04 Elasticity Log-Log           ok
+            31/33 L09   L09 Binary Cat Reference         ok
+            32/33 L12   L12 Log Drop Nonpositive         ok
+            33/33 L11   L11 Curated Talk Default         ok
+Timing: verify        53.3s
+Verify: passed
+Timing: total         1846.7s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch verbose kind.log

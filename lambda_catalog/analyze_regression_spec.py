@@ -44,6 +44,8 @@ from .write_spec_block import (
     _ROLE_OMIT,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
+    _TRANSFORM_LOG,
+    _TRANSFORM_LOG_DROP,
     SPEC_DATASET_PROFILES,
 )
 
@@ -166,6 +168,12 @@ class RegressionSpecDesign:
     sequence_values: np.ndarray | None
     group_labels: np.ndarray | None
     included_rows: int
+    # How many rows the "Log (drop ≤ 0)" positivity layer removed — the number
+    # the sheet's G2 status cell reports, computed the same way it is: the
+    # population of the mask WITHOUT that layer minus the population with it.
+    # 0 whenever no row declares the token, or when every logged column is
+    # strictly positive throughout.
+    log_excluded_rows: int
     level_counts: dict[str, int]
     references_in_use: dict[str, object]
     degenerate_categoricals: tuple[str, ...]
@@ -183,6 +191,17 @@ class RegressionSpecExpected:
     # sheet's own $AK$12 default formula) — what the QC harness writes into
     # that cell before reading the Prediction Interval box back.
     resolved_prediction_group: str
+
+
+def _logs(transform: str) -> bool:
+    """Does this Transform token natural-log its column?
+
+    Both do. The Python mirror of ``write_spec_block._is_log``, and the reason
+    every ``transform ==`` comparison in this module goes through it: the two
+    tokens differ only in the row mask, which ``_compute_mask`` has already
+    applied by the time any of this runs.
+    """
+    return transform in (_TRANSFORM_LOG, _TRANSFORM_LOG_DROP)
 
 
 def _copy_spec(spec: tuple[SpecVariable, ...] | list[SpecVariable]) -> list[SpecVariable]:
@@ -277,9 +296,24 @@ def build_spec_design(
     """Build the same row mask, names, and numeric design matrix as the sheet."""
     spec_tuple = tuple(spec)
     mask = tuple(_compute_mask(list(spec_tuple), rows))
+    # The same mask WITHOUT the Log (drop ≤ 0) positivity layer, so the
+    # difference in population is the excluded-row count the sheet's G2 status
+    # cell reports. Computed here rather than by re-deriving which rows were
+    # non-positive, for the same reason the cell differences two calls to
+    # Sample_Include: one predicate, two evaluations, nothing to drift.
+    unfiltered_mask = _compute_mask(
+        list(spec_tuple), rows, apply_log_domain=False
+    )
+    log_excluded_rows = sum(unfiltered_mask) - sum(mask)
     response_name = _numeric_response_name(spec_tuple)
-    response_transform = next(
+    # Normalized to "Log", matching what the sheet's Model Context reports for
+    # either token — this value drives the unit-space / Duan dispatcher, which
+    # keys on the space the response is in, not on how the sample was built.
+    raw_response_transform = next(
         item.transform for item in spec_tuple if item.role == _ROLE_RESPONSE
+    )
+    response_transform = (
+        _TRANSFORM_LOG if _logs(raw_response_transform) else raw_response_transform
     )
     identifiers = [item.name for item in spec_tuple if item.role == _ROLE_IDENTIFIER]
     included_indices = [idx for idx, included in enumerate(mask) if included]
@@ -293,11 +327,14 @@ def build_spec_design(
         if not _is_number(value):
             raise ValueError(f"Included row has nonnumeric response: row={idx + 1}")
         numeric_value = float(value)
-        if response_transform == "Log":
-            # Parity contract with Ln_Positive: the sheet returns #N/A for
-            # a non-positive included value under Log; a QC case must
-            # describe a legal, fully-computable model, so this raises
-            # instead of silently emitting NaN.
+        if _logs(response_transform):
+            # Parity contract with Ln_Positive under the STRICT token: the
+            # sheet leaves the row in the sample and returns #N/A for it, and
+            # a QC case must describe a legal, fully-computable model, so this
+            # raises instead of silently emitting NaN. Under
+            # "Log (drop ≤ 0)" the row is already gone — _compute_mask
+            # excluded it — so this branch only ever sees positives and the
+            # check is unreachable for that token.
             if numeric_value <= 0:
                 raise ValueError(
                     "Included row has non-positive value for Log-transformed "
@@ -319,11 +356,14 @@ def build_spec_design(
         level and its own Log transform.
         """
         if variable.var_type != "Categorical":
-            is_log = variable.transform == "Log"
+            is_log = _logs(variable.transform)
             values = []
             for idx in included_indices:
                 raw = _numeric_cell(rows[idx], variable.name)
                 if is_log:
+                    # Same split as the response above: reachable only under
+                    # the strict token, since "Log (drop ≤ 0)" already
+                    # removed these rows from included_indices.
                     if raw <= 0:
                         raise ValueError(
                             "Included row has non-positive value for "
@@ -332,8 +372,10 @@ def build_spec_design(
                         )
                     raw = math.log(raw)
                 values.append(raw)
+            # Both tokens build the same column and report the same flag —
+            # they differ only in the mask, which has already been applied.
             name = f"Ln({variable.name})" if is_log else variable.name
-            return ([name], ["Log" if is_log else "None"], [values])
+            return ([name], [_TRANSFORM_LOG if is_log else "None"], [values])
 
         retained = _retained_levels(variable, rows, list(mask))
         if retained is None:
@@ -428,10 +470,13 @@ def build_spec_design(
     # _PREDICTOR_TRANSFORM_FORMULA ("None"/"Log"/"Mixed" over the
     # included Continuous predictors — Categorical dummies are excluded so
     # their Transform value can never spuriously flip a "None" to "Mixed").
+    # Both Log tokens count as Log here, exactly as they do on the sheet: the
+    # summary feeds the unit-space dispatcher, which cares which SPACE the
+    # predictors are in, not which rows were dropped getting them there.
     inc_log = sum(
         1 for item in spec_tuple
         if item.role == _ROLE_PREDICTOR and item.include
-        and item.var_type == "Continuous" and item.transform == "Log"
+        and item.var_type == "Continuous" and _logs(item.transform)
     )
     inc_none = sum(
         1 for item in spec_tuple
@@ -477,6 +522,7 @@ def build_spec_design(
         predictor_transform=predictor_transform,
         x_features=x_features,
         y_train=np.asarray(y_values, dtype=np.float64),
+        log_excluded_rows=log_excluded_rows,
         sequence_values=sequence_values,
         group_labels=group_labels,
         included_rows=len(included_indices),
@@ -908,8 +954,10 @@ def _life_log_response_spec() -> list[SpecVariable]:
     attributable to the toggle and nothing else.
 
     Schooling is deliberately used raw here, not logged. Logging it is L6's
-    job, and L6 is a guard state rather than a model because the column
-    contains 28 true zeros (see analyze_regression_guard_states.py).
+    and L12's job: L6 is a guard state because the strict ``Log`` token on a
+    column with 28 true zeros produces #N/A rather than a fit (see
+    analyze_regression_guard_states.py), and L12 is the fittable half using
+    ``Log (drop ≤ 0)``.
     """
     return _life_spec(
         status=_spec_var("Status", _ROLE_PREDICTOR, True, "Categorical"),
@@ -918,6 +966,45 @@ def _life_log_response_spec() -> list[SpecVariable]:
             "Adult Mortality", _ROLE_PREDICTOR, True, "Continuous"
         ),
         schooling=_spec_var("Schooling", _ROLE_PREDICTOR, True, "Continuous"),
+    )
+
+
+def _life_log_drop_nonpositive_spec() -> list[SpecVariable]:
+    """L12 — Life expectancy ~ Adult Mortality + Ln(Schooling), zeros dropped.
+
+    The fittable half of the Log-domain pair. L06 declares the strict ``Log``
+    token on this exact column and asserts what that produces: Schooling's 28
+    true zeros stay in the sample, ``Ln_Positive`` returns #N/A for each, and
+    the #N/A reaches every statistic — so it is a guard state, not a model.
+    This case declares ``Log (drop ≤ 0)`` on the same column, which adds the
+    positivity term to ``Sample_Include`` and excludes those 28 rows, and the
+    model computes.
+
+    That contrast is the whole point of the case, and it is why this is a
+    numeric oracle rather than another guard state: the two tokens have to
+    produce different SAMPLES, and the only way to prove the filtered one is
+    right is to fit it independently in NumPy/statsmodels and compare
+    coefficients. ``log_excluded_rows`` on the design pins the count the
+    sheet's G2 cell reports, so the sample size cannot drift silently while
+    the fit statistics still happen to match.
+
+    Adult Mortality rides along unlogged so the case also covers a
+    ``(None, Mixed)`` dispatch — one logged and one unlogged continuous
+    predictor — with the log arriving through the new token rather than the
+    old one.
+    """
+    return _life_spec(
+        response=_spec_var("Life expectancy", _ROLE_RESPONSE),
+        adult_mortality=_spec_var(
+            "Adult Mortality", _ROLE_PREDICTOR, True, "Continuous"
+        ),
+        schooling=_spec_var(
+            "Schooling",
+            _ROLE_PREDICTOR,
+            True,
+            "Continuous",
+            transform=_TRANSFORM_LOG_DROP,
+        ),
     )
 
 
@@ -1347,6 +1434,7 @@ _CASE_SHEET_IDENTITY: dict[str, tuple[str, str]] = {
     # presentation decks headline, pinned so the numbers the shipped workbook
     # opens with are oracle-checked rather than illustrative.
     "life_talk_demo": ("L11", "L11 Curated Talk Default"),
+    "life_log_drop_nonpositive": ("L12", "L12 Log Drop Nonpositive"),
     # § 1.3 Production Lots — learning curves, fixed effects, sequence.
     "production_lots_fixed_effects": ("P01", "P01 Learning Curve FE"),
     "production_lots_log_transform": ("P02", "P02 FE Log Transform Axis"),
@@ -1672,6 +1760,11 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
         (
             "life_status_explicit_reference",
             _life_partial_linear_log_spec("Developing"),
+            "Duan",
+        ),
+        (
+            "life_log_drop_nonpositive",
+            _life_log_drop_nonpositive_spec(),
             "Duan",
         ),
         # L11 — the curated talk-demo default (slide 19's model). Appended

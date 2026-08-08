@@ -80,6 +80,8 @@ from .write_spec_block import (
     _ROLE_IDENTIFIER,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
+    _TRANSFORM_LOG,
+    _TRANSFORM_LOG_DROP,
 )
 from .write_sheet_regression import (
     _DESIGN_MATRIX_MAX_COLUMNS,
@@ -97,25 +99,32 @@ EMPTY_MODEL = "(empty model)"
 SEVERITY_RED = "red"
 SEVERITY_AMBER = "amber"
 
-_LN_ZERO_GUARD_NOTE = """L06's plan entry does not describe what the sheet does.
+_LN_ZERO_GUARD_NOTE = """L06 is the strict-Log half of a two-token pair.
 
-docs/MODEL_TESTING_ASSETS.md § 1.2 says a Log transform on a column with
-true zeros makes the row "drop out of the mask, not a silent 0". It does
-not. ``Sample_Include`` tests ``ISNUMBER(col)`` on the Response and the
-included Continuous Predictors, and ``ISNUMBER(0)`` is TRUE, so a zero-valued
-row stays in the sample; ``Ln_Positive`` then returns ``#N/A`` for it, and
-the #N/A propagates through Predictor_Columns into every downstream
-statistic. The mask has no Log-positivity term anywhere.
+docs/MODEL_TESTING_ASSETS.md § 1.2 used to say a Log transform on a column
+with true zeros makes the row "drop out of the mask, not a silent 0", and
+that was never what the sheet did: ``Sample_Include`` tests ``ISNUMBER(col)``
+on the Response and the included Continuous Predictors, and ``ISNUMBER(0)``
+is TRUE, so a zero-valued row stays in the sample; ``Ln_Positive`` then
+returns ``#N/A`` for it, and the #N/A propagates through Predictor_Columns
+into every downstream statistic.
 
-So the honest expectation for Schooling's 28 zeros is total #N/A
-propagation, not a narrower sample — which is what this case asserts.
+That discrepancy was recorded here as an open question — should
+``Sample_Include`` grow a positivity term? — and it has since been answered,
+by adding a SECOND Transform token rather than by changing this one:
 
-Adding a positivity term to ``Sample_Include`` would make the plan's
-description true, and is arguably the better behaviour (it is what the
-Response's own non-positive guard effectively achieves by raising). That is a
-production change to a constructor every model depends on, so it is recorded
-here as an open question rather than made as a side effect of writing an
-oracle."""
+* ``Log`` behaves exactly as this case asserts, and always will. The rows
+  stay, the #N/A propagates, the sample does not narrow. What is new is that
+  the Transform cell now turns red and the G2 status line names the variable,
+  the offending row count, and the fix.
+* ``Log (drop ≤ 0)`` is the filtering variant. It adds the positivity term to
+  ``Sample_Include`` for its own columns only, and reports how many rows it
+  excluded.
+
+Two tokens rather than one that silently filters, because narrowing the
+sample changes the model being fitted and must be something the user
+declared. L12 is the filtering half; this case is the strict half, and the
+red flag it now also asserts is what points a user from one to the other."""
 
 
 @dataclass(frozen=True)
@@ -194,13 +203,15 @@ class GuardStateExpected:
     # row, else the column count this row contributes.
     design_columns: tuple[object, ...]
     design_columns_total: int
-    # Status lines. Empty string is the legal, quiet state for all four.
-    sequence_status: str        # E1 / H2
-    fixed_effects_status: str   # B1
-    width_guard_status: str     # M2
-    verdict: str                # I2
+    # Status lines, each in the spec column it is about. Empty string is the
+    # legal, quiet state for all five.
+    sequence_status: str        # H2 — above Sequence
+    role_status: str            # B2 — above Role
+    log_domain_status: str      # G2 — above Transform
+    width_guard_status: str     # O2 — above Design Columns
+    verdict: str                # I2 — above Sequence Period
     # Sequence layer: the Δ in effect on the flagged row (typed override or
-    # the MODE candidate), and the (Δ, count) spectrum at P2.
+    # the MODE candidate), and the (Δ, count) spectrum at P4.
     period_in_use: float | None
     delta_spectrum: tuple[tuple[float, int], ...]
     flags: tuple[GuardFlag, ...]
@@ -210,12 +221,92 @@ class GuardStateExpected:
 # Mirrored from _write_sequence_status / _write_spec_feedback /
 # _write_design_matrix_width_guard. Imported where the source is a module
 # constant; restated only where the writer inlines the literal.
-_SEQUENCE_MULTI_FLAG_ERROR = (
-    "ERROR: multiple Sequence flags (mark at most one variable)"
+_SEQUENCE_MULTI_FLAG_ERROR = "ERROR: multiple Sequence rows — mark at most one."
+# The three Role-column conditions, in the severity order the B2 formula
+# picks between them.
+_NO_RESPONSE_ERROR = (
+    "ERROR: no Response (y) row — mark the variable being modeled."
+)
+_MULTIPLE_RESPONSES_ERROR = (
+    "ERROR: multiple Response (y) rows — mark exactly one."
 )
 _FIXED_EFFECTS_MULTI_ROW_ERROR = (
-    "ERROR: multiple Fixed Effects rows (mark at most one variable)"
+    "ERROR: multiple Fixed Effects rows — mark at most one."
 )
+
+
+def _role_status(spec: tuple[SpecVariable, ...]) -> str:
+    """Mirror the B2 Role-cardinality status, same severity order."""
+    responses = sum(1 for item in spec if item.role == _ROLE_RESPONSE)
+    if responses == 0:
+        return _NO_RESPONSE_ERROR
+    if responses > 1:
+        return _MULTIPLE_RESPONSES_ERROR
+    if sum(1 for item in spec if item.role == _ROLE_FIXED_EFFECTS) > 1:
+        return _FIXED_EFFECTS_MULTI_ROW_ERROR
+    return ""
+
+
+def _log_domain_columns(
+    spec: tuple[SpecVariable, ...], rows: list[dict[str, object]]
+) -> list[tuple[SpecVariable, int]]:
+    """Every strict-``Log`` column, with its count of non-positive fit rows.
+
+    "Fit rows" means the mask BEFORE the positivity layer — the rows the model
+    would otherwise have used — which is what ``Sample_Include(FALSE)`` gives
+    the sheet. Only columns that actually reach ``Ln_Positive`` are considered:
+    the Response and included Continuous Predictors, exactly the eligibility
+    branch ``_compute_mask`` uses. Columns with a zero count are included so
+    callers can tell "checked, clean" from "not checked".
+    """
+    base = _compute_mask(list(spec), rows, apply_log_domain=False)
+    eligible = [
+        item
+        for item in spec
+        if item.transform == _TRANSFORM_LOG
+        and (
+            item.role == _ROLE_RESPONSE
+            or (
+                item.role == _ROLE_PREDICTOR
+                and item.include
+                and item.var_type == "Continuous"
+            )
+        )
+    ]
+    out = []
+    for item in eligible:
+        bad = sum(
+            1
+            for idx, keep in enumerate(base)
+            if keep
+            and _is_number(rows[idx][item.name])
+            and float(rows[idx][item.name]) <= 0  # type: ignore[arg-type]
+        )
+        out.append((item, bad))
+    return out
+
+
+def _log_domain_status(
+    spec: tuple[SpecVariable, ...], rows: list[dict[str, object]]
+) -> str:
+    """Mirror the G2 Log-domain status: red error, else amber count, else "".
+
+    Same two states and the same precedence as the cell: a poisoned strict-Log
+    column outranks the excluded-row count, which can be true at the same time
+    when a spec declares both tokens on different variables.
+    """
+    offenders = _log_domain_columns(spec, rows)
+    worst = max((bad for _item, bad in offenders), default=0)
+    if worst > 0:
+        name = next(item.name for item, bad in offenders if bad == worst)
+        return (
+            f"ERROR: {name} has {worst} values ≤ 0 under Log — "
+            f"the fit is #N/A. Use {_TRANSFORM_LOG_DROP}."
+        )
+    dropped = sum(_compute_mask(list(spec), rows, apply_log_domain=False)) - sum(
+        _compute_mask(list(spec), rows)
+    )
+    return f"{dropped} rows excluded: Log of ≤ 0" if dropped else ""
 
 
 def _sequence_deltas(
@@ -438,6 +529,7 @@ def _collect_flags(
         for item in spec
     )
     headers = {item.name.casefold() for item in spec}
+    log_domain_columns = _log_domain_columns(spec, rows)
 
     # C2, the intercept toggle. Three rules, red first (StopIfTrue).
     if not allow_intercept and categorical_included:
@@ -480,14 +572,29 @@ def _collect_flags(
 
         # G: Log declared on a Categorical Predictor. Note the rule does NOT
         # test Include — a Categorical Predictor carrying Log is flagged
-        # whether or not it is currently in the model.
+        # whether or not it is currently in the model. Either Log token
+        # qualifies: dummy columns are never logged under either.
         if (
             item.role == _ROLE_PREDICTOR
             and item.var_type == "Categorical"
-            and item.transform == "Log"
+            and item.transform in (_TRANSFORM_LOG, _TRANSFORM_LOG_DROP)
         ):
             flags.append(
                 GuardFlag("G", SEVERITY_RED, "log_on_categorical", row)
+            )
+
+        # G: the strict "Log" token on a column that actually contains a zero
+        # or a negative among the rows the model would fit. Those rows stay in
+        # the sample, so Ln_Positive returns #N/A for each and the #N/A reaches
+        # every statistic — a dead fit, flagged where the user can change it.
+        # "Log (drop ≤ 0)" never fires this: excluding those rows is what it is
+        # for, and its consequence is the G2 count, not a flag on the input.
+        if item.transform == _TRANSFORM_LOG and any(
+            offender is item and bad > 0
+            for offender, bad in log_domain_columns
+        ):
+            flags.append(
+                GuardFlag("G", SEVERITY_RED, "log_nonpositive_rows", row)
             )
 
         # M/N: the interaction pair. Red-M outranks amber-M (StopIfTrue).
@@ -609,9 +716,8 @@ def calculate_guard_state_case(case: GuardStateCase) -> GuardStateExpected:
         sequence_status=(
             _SEQUENCE_MULTI_FLAG_ERROR if sequence_count > 1 else ""
         ),
-        fixed_effects_status=(
-            _FIXED_EFFECTS_MULTI_ROW_ERROR if fixed_effects_count > 1 else ""
-        ),
+        role_status=_role_status(spec),
+        log_domain_status=_log_domain_status(spec, rows),
         width_guard_status=_width_guard_status(total, len(rows)),
         verdict=sequence_verdict(deltas, period_in_use),
         period_in_use=period_in_use,

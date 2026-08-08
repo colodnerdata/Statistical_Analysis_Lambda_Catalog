@@ -539,6 +539,68 @@ def test_unmatched_case_filter_is_an_error_not_an_empty_build() -> None:
         build_test_models._selected_cases({"M09", "nonexistent"}, False)
 
 
+def test_kind_splits_the_registry_without_enumerating_plan_ids() -> None:
+    """The structural selection behind ``poe verify-models`` / ``verify-guards``.
+
+    The registry already knows which cases are fittable and which are guard
+    states, so neither task carries a list of plan IDs that goes stale the
+    next time a case is registered.
+    """
+    build_test_models = _load_build_test_models()
+
+    everything = build_test_models._selected_cases(None, False)
+    models, no_guards = build_test_models._selected_cases(
+        None, False, build_test_models.KIND_MODELS
+    )
+    no_models, guards = build_test_models._selected_cases(
+        None, False, build_test_models.KIND_GUARDS
+    )
+
+    assert no_guards == [] and no_models == []
+    # Each half is exactly what the unfiltered selection held.
+    assert models == everything[0]
+    assert guards == everything[1]
+    # --kind models still honours the heavy gate; that is what keeps the
+    # happy-path slice from pulling in the two large Gram matrices.
+    assert not any(case.heavy for case in models)
+
+
+def test_exclude_drops_named_cases_after_every_other_filter() -> None:
+    build_test_models = _load_build_test_models()
+
+    _, guards = build_test_models._selected_cases(
+        None, False, build_test_models.KIND_GUARDS, {"L07"}
+    )
+
+    assert "L07" not in [case.plan_id for case in guards]
+    assert guards, "excluding one case must not empty the selection"
+
+    # By case name too, and composable with --cases.
+    models, _ = build_test_models._selected_cases(
+        {"M09", "M10"}, False, build_test_models.KIND_ALL, {"interaction_difference"}
+    )
+    assert [case.plan_id for case in models] == ["M09"]
+
+
+def test_unmatched_exclude_is_an_error_not_a_silent_no_op() -> None:
+    """A typo in --exclude would otherwise exclude nothing and look fine.
+
+    Validated against the whole registry rather than the current selection, so
+    excluding a case that --kind already removed stays legal (redundant, not
+    wrong) while a misspelling is caught.
+    """
+    build_test_models = _load_build_test_models()
+
+    with pytest.raises(ValueError, match="No test-model case matches --exclude"):
+        build_test_models._selected_cases(None, False, build_test_models.KIND_ALL, {"L99"})
+
+    # Redundant but legal: L07 is a guard, already gone from a models-only run.
+    models, _ = build_test_models._selected_cases(
+        None, False, build_test_models.KIND_MODELS, {"L07"}
+    )
+    assert models
+
+
 # ── Run-log archiving and verbose progress ───────────────────────────────
 
 

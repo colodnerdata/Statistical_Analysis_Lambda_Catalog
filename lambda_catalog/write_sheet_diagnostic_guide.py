@@ -143,7 +143,9 @@ def _write_template_sheet(workbook: xw.Book) -> None:
             "Cook's Distance",
             "Observation (bar position)",
             "Cook's Distance",
-            "Spikes above 4/n (yellow) or above 0.9 (red) mark observations with "
+            "Spikes above F.INV(0.5, p, n-p) — the median of the reference F "
+            "distribution, so the bar to beat scales with the model's own size — "
+            "mark observations with "
             "outsized influence on the fitted coefficients. Bars are ordered by "
             "observation number. Inspect those rows for data entry errors or genuine "
             "outliers before removing them. Remove outliers only when you have a "
@@ -192,17 +194,25 @@ def _write_template_sheet(workbook: xw.Book) -> None:
          "< 0.98  (mild non-normality)", "< 0.95  (clear non-normality)"],
         ["Significance F", "Cell Q15, ANOVA Table",
          "—", "P-value > alpha  (model not significant)"],
-        ["Coefficient P-values", "Col P, Coefficients",
+        # Column letters are the CURRENT layout. They had drifted a whole zone
+        # out of date (AB/AC/AD/AG/AH) from before the Residual Output zone
+        # moved to AN:BA, which is easy to miss because this sheet is baked
+        # into templates/static_sheets.xlsx and no build re-derives it.
+        ["Coefficient P-values", "Col AE, Coefficients",
          "—", "P-value > alpha  (term not significant)"],
-        ["Hat Diagonal (leverage)", "Col AB, Residual Output",
+        ["Hat Diagonal (leverage)", "Col AR, Residual Output",
          "—", "h > 2p/n  (high leverage)"],
-        ["Studentized Residuals", "Col AC, Residual Output",
+        ["Studentized Residuals", "Col AS, Residual Output",
          "|r*| > 2  (moderate outlier)", "|r*| ≥ 3  (strong outlier)"],
-        ["Cook's Distance", "Col AD, Residual Output",
-         "D > 4/n  (review)", "D > 0.9  (high influence)"],
-        ["Scale-Location", "Col AG, Residual Output",
+        # One tier, not two. F(0.5, p, n-p) is the median of the reference F
+        # distribution, so it tracks the model's own dimensionality instead of
+        # just its row count — p is the design matrix's column width
+        # (intercept included) and n-p the ANOVA residual df.
+        ["Cook's Distance", "Col AT, Residual Output",
+         "—", "D > F.INV(0.5, p, n-p)  (high influence)"],
+        ["Scale-Location", "Col AW, Residual Output",
          "> √2 ≈ 1.41  (|r*| > 2 equivalent)", "> √3 ≈ 1.73  (|r*| > 3 equivalent)"],
-        ["PRESS Residual", "Col AH, Residual Output",
+        ["PRESS Residual", "Col AX, Residual Output",
          "|PRESS| > 2 × SE", "|PRESS| > 3 × SE"],
     ]
     for vals in thresholds:
@@ -228,7 +238,7 @@ def _write_template_sheet(workbook: xw.Book) -> None:
          "With n > 100 moderate departures rarely invalidate inference. For small n, "
          "consider robust standard errors or a bootstrap Confidence Interval approach."],
         ["Influential observations\n(high Cook's D or PRESS)",
-         "Cook's D > 4/n or |PRESS| > 2 × SE for one or more rows.",
+         "Cook's D > F.INV(0.5, p, n-p) or |PRESS| > 2 × SE for one or more rows.",
          "Inspect those rows. Verify data entry. Refit without the observation(s) and "
          "compare coefficients — if they shift substantially, see which ones and "
          "research the reasons why those data points are different. If there's a "

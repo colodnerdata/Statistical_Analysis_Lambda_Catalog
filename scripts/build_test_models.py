@@ -81,6 +81,17 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 DEFAULT_WORKBOOK_PATH = ROOT_DIR / "Lambda_Library_TestModels.xlsx"
 DEFAULT_DEFINITIONS_PATH = ROOT_DIR / "lambda_functions.json"
 
+# --kind: the structural halves of the registry. "models" is the fittable
+# RegressionSpecCase set (a working regression with a NumPy/statsmodels
+# oracle); "guards" is the GuardStateCase set (status text, the Design Columns
+# audit and CF predicates, most of which raise in the fittable oracle by
+# design). The split already exists in the registry — this just exposes it to
+# the command line so a caller never has to enumerate one of them by hand.
+KIND_ALL = "all"
+KIND_MODELS = "models"
+KIND_GUARDS = "guards"
+KINDS = (KIND_ALL, KIND_MODELS, KIND_GUARDS)
+
 # Which shipped dataset each SPEC_DATASET_PROFILES key writes to. The fixture
 # columns themselves are declared once in write_sheet_test_model.FIXTURE_COLUMNS,
 # because the SPEC BLOCK has to know about them too: a column added here widens
@@ -147,40 +158,81 @@ class _Progress:
 
 
 def _selected_cases(
-    case_filter: set[str] | None, include_heavy: bool
+    case_filter: set[str] | None,
+    include_heavy: bool,
+    kind: str = KIND_ALL,
+    exclude: set[str] | None = None,
 ) -> tuple[list, list]:
-    """Return (fittable cases, guard cases) after --cases / --include-heavy.
+    """Return (fittable cases, guard cases) after the four selection flags.
 
-    ``case_filter`` matches a plan ID (``"M09"``) or a case name
-    (``"interaction_categorical_cross"``), case-insensitively, so either
+    ``case_filter`` and ``exclude`` both match a plan ID (``"M09"``) or a case
+    name (``"interaction_categorical_cross"``), case-insensitively, so either
     identifier a developer has to hand works. An explicit ``--cases``
     selection overrides ``heavy``: naming L07 means you want L07.
+
+    ``kind`` is the STRUCTURAL half of the selection, and exists so a caller
+    that wants "every guard" or "every fittable model" does not have to spell
+    out a list of plan IDs that goes stale the next time a case is registered
+    — the failure mode this repo keeps hitting (a pinned list nobody updated).
+    ``--cases`` stays the semantic half: a curated subset is a list because it
+    IS a judgement about which cases belong, not something derivable.
+
+    ``exclude`` is subtracted last, from whatever the other three selected. It
+    is what lets "every guard except the one that cannot be built in
+    reasonable time" stay a structural selection with one documented hole,
+    rather than an enumeration.
     """
     model_cases = build_regression_spec_cases()
     guard_cases = build_guard_state_cases()
 
+    def _tokens(case) -> tuple[str, str]:
+        return (case.plan_id.casefold(), case.name.casefold())
+
+    def _unmatched(wanted: set[str], cases) -> set[str]:
+        return wanted - {token for case in cases for token in _tokens(case)}
+
     if case_filter is not None:
         wanted = {token.casefold() for token in case_filter}
-
-        def _matches(case) -> bool:
-            return (
-                case.plan_id.casefold() in wanted
-                or case.name.casefold() in wanted
-            )
-
-        model_cases = [case for case in model_cases if _matches(case)]
-        guard_cases = [case for case in guard_cases if _matches(case)]
-        unmatched = wanted - {
-            token
+        selected = [
+            case
             for case in (*model_cases, *guard_cases)
-            for token in (case.plan_id.casefold(), case.name.casefold())
-        }
+            if wanted.intersection(_tokens(case))
+        ]
+        unmatched = _unmatched(wanted, selected)
         if unmatched:
             raise ValueError(
                 "No test-model case matches: " + ", ".join(sorted(unmatched))
             )
+        model_cases = [case for case in model_cases if case in selected]
+        guard_cases = [case for case in guard_cases if case in selected]
     elif not include_heavy:
         model_cases = [case for case in model_cases if not case.heavy]
+
+    if kind == KIND_MODELS:
+        guard_cases = []
+    elif kind == KIND_GUARDS:
+        model_cases = []
+
+    if exclude:
+        dropped = {token.casefold() for token in exclude}
+        # Validated against the WHOLE registry, not the current selection: an
+        # --exclude naming a case that --kind already removed is redundant but
+        # legitimate, while one naming a case that does not exist is a typo
+        # that would otherwise silently exclude nothing.
+        unmatched = _unmatched(
+            dropped, (*build_regression_spec_cases(), *build_guard_state_cases())
+        )
+        if unmatched:
+            raise ValueError(
+                "No test-model case matches --exclude: "
+                + ", ".join(sorted(unmatched))
+            )
+        model_cases = [
+            case for case in model_cases if not dropped.intersection(_tokens(case))
+        ]
+        guard_cases = [
+            case for case in guard_cases if not dropped.intersection(_tokens(case))
+        ]
 
     return model_cases, guard_cases
 
@@ -209,6 +261,8 @@ def build_test_models_workbook(
     *,
     case_filter: set[str] | None = None,
     include_heavy: bool = False,
+    kind: str = KIND_ALL,
+    exclude: set[str] | None = None,
     verbose: bool = False,
     progress: _Progress | None = None,
 ) -> tuple[NameSyncResult, list[str]]:
@@ -222,7 +276,9 @@ def build_test_models_workbook(
 
     document = load_catalog_document(definitions_path)
     closures = document.functions_for_sheet("Regression")
-    model_cases, guard_cases = _selected_cases(case_filter, include_heavy)
+    model_cases, guard_cases = _selected_cases(
+        case_filter, include_heavy, kind, exclude
+    )
     total_sheets = len(model_cases) + len(guard_cases)
 
     progress.phase(
@@ -453,6 +509,25 @@ def parse_args() -> argparse.Namespace:
         "Overrides --include-heavy for the cases named.",
     )
     parser.add_argument(
+        "--kind",
+        choices=KINDS,
+        default=KIND_ALL,
+        help="Which half of the registry to build: 'models' for the fittable "
+        "cases (a working regression with a NumPy/statsmodels oracle), "
+        "'guards' for the spec-block state cases (status text, the Design "
+        "Columns audit, CF predicates). Structural, so it never needs a "
+        "hand-maintained list of plan IDs. Default: all.",
+    )
+    parser.add_argument(
+        "--exclude",
+        type=str,
+        default=None,
+        help="Comma-separated plan IDs or case names to drop, applied after "
+        "--cases / --kind / --include-heavy (e.g. 'L07' to skip the "
+        "205-column width-guard case). Validated against the whole "
+        "registry, so a typo is an error rather than a silent no-op.",
+    )
+    parser.add_argument(
         "--include-heavy",
         action="store_true",
         help="Also build the cases marked heavy — currently L08 (173 Fixed "
@@ -507,6 +582,11 @@ def main() -> None:
         if args.cases
         else None
     )
+    exclude = (
+        {token.strip() for token in args.exclude.split(",") if token.strip()}
+        if args.exclude
+        else None
+    )
     log_path = (
         args.log
         if args.log is not None
@@ -523,6 +603,8 @@ def main() -> None:
             definitions_path=args.definitions,
             case_filter=case_filter,
             include_heavy=args.include_heavy,
+            kind=args.kind,
+            exclude=exclude,
             verbose=args.verbose,
             progress=progress,
         )

@@ -87,11 +87,12 @@ Every row below was new before this pass; all nine are now implemented.
 | L3 | L2 with Back-Transform = **Naive** | flips `AH4` | naive point estimate `EXP(ŷ)`; confirms CI/PI bounds are EXP-only under both settings. **Required an oracle change** — the Python side computed both branches and discarded the Naive one, so `AH4` had never been verified against anything | existing — `life_log_response_naive` |
 | L4 | `Ln(Life expectancy) ~ Ln(GDP) + Ln(Population)` | elasticity form | (Log, Log) with large-sample masking | existing — `life_elasticity_log_log` |
 | L5 | `Life expectancy ~` all 18 continuous + `C(Status)` | full `life_expectancy` feature set; Year = Sequence, Country = Identifier | k-stress kitchen sink (k = 19). **Heavy** — at k = 19 with n = 2117 the statsmodels OLS reference and Excel's OLS implementation diverge in the 5th–6th decimal place on most coefficients and residuals (both go through a QR-with-column-pivoting path on an ill-conditioned Gram matrix and produce near-tied numerics), so this case lives behind `--include-heavy` as a deliberate showcase for the floor, not as a defect to paper over. | existing — `life_full_profile` (**heavy**) |
-| L6 | `Life expectancy ~ Adult Mortality + Ln(Schooling)` | Schooling contains 28 true zeros | **`Ln_Positive` zero guard** — see the correction below: the rows do NOT drop out of the mask | existing — **guard state** `guard_ln_zero_propagation` |
-| L7 | `Life expectancy ~ C(Country) + C(Year) +` 8 continuous | 183 countries → 182 dummies, + 15 Year dummies + 8; k = 205 | **width-guard soft warning** (k = 200 threshold, `M2` status), and the engine degrading visibly rather than returning a plausible wrong number | existing — **guard state** `guard_width_guard_warning` |
+| L6 | `Life expectancy ~ Adult Mortality + Ln(Schooling)`, Transform = **`Log`** | Schooling contains 28 true zeros (26 of them in this model's sample) | **strict-`Log` domain guard** — the rows do NOT drop out of the mask; `Ln_Positive` returns `#N/A` and it propagates. Also asserts the red `G`-column flag and the `G2` message naming the variable, the count and the fix | existing — **guard state** `guard_ln_zero_propagation` |
+| L7 | `Life expectancy ~ C(Country) + C(Year) +` 8 continuous | 183 countries → 182 dummies, + 15 Year dummies + 8; k = 205 | **width-guard soft warning** (k = 200 threshold, `O2` status), and the engine degrading visibly rather than returning a plausible wrong number | existing — **guard state** `guard_width_guard_warning` |
 | L8 | `Life expectancy ~ Schooling + Adult Mortality \| Country` | Year = Sequence | **high-cardinality Fixed Effects** (173 surviving groups, 172 absorbed df); panel spacing verdicts at scale | existing — `life_country_fixed_effects` (**heavy**) |
 | L9 | L1 with `Status` reference = `Developing` | retained dummy = `Developed` | explicit reference on a **binary** categorical | existing — `life_status_explicit_reference` |
 | L11 | `Life expectancy ~ Adult Mortality + Alcohol + percentage expenditure + C(Status)` | the curated four-driver model that ships as the Regression template's cold open; Country = Identifier, Year = Sequence-Omit | **(None, None) dispatch with a binary categorical on Life Expectancy** — distinct from M1's multi-level categorical encoding and from L5's k-stress showcase; gives the shipped default an oracle so a template opened cold is a verified, not assumed, fit | new — `life_talk_demo` |
+| L12 | `Life expectancy ~ Adult Mortality + Ln(Schooling)`, Transform = **`Log (drop ≤ 0)`** | same spec as L6, one dropdown value apart | **the filtering half of the pair** — the positivity layer excludes 26 rows and the model fits. Pins `log_excluded_rows` so the sample size cannot drift while the fit statistics still match. Also a `(None, Mixed)` dispatch with the log arriving through the new token | existing — `life_log_drop_nonpositive` |
 
 **L1 is linear-log, not log-linear.** The two names describe opposite
 specifications and L1 is unambiguously the first: the logs sit on the
@@ -110,18 +111,23 @@ terms for what those cases fit and are unchanged.
 **Three of these did not survive contact with the data as written, and the
 deviations are recorded rather than papered over.**
 
-* **L6 contradicts the shipped mask.** The row above used to read "`NA()` on zero
-  → row drops out of the mask, not a silent 0". That is not what happens.
-  `Sample_Include` tests `ISNUMBER(col)` on the Response and the included
-  Continuous Predictors, and `ISNUMBER(0)` is TRUE — there is no Log-positivity
-  term anywhere in it. So the 28 zero-Schooling rows stay in the sample,
-  `Ln_Positive` returns `#N/A` for each, and the `#N/A` propagates through
-  `Predictor_Columns` into every downstream statistic. L6 is therefore a **guard
-  state** asserting that propagation, not a fittable model. Adding a positivity
-  term to `Sample_Include` would make the original description true and is
-  arguably better behaviour — it is an **open production question**, deliberately
-  not decided while writing an oracle. See `_LN_ZERO_GUARD_NOTE` in
-  `lambda_catalog/analyze_regression_guard_states.py`.
+* **L6 contradicted the shipped mask, and the fix was a second token.** The row
+  used to read "`NA()` on zero → row drops out of the mask, not a silent 0".
+  That was not what happened: `Sample_Include` tests `ISNUMBER(col)` on the
+  Response and the included Continuous Predictors, and `ISNUMBER(0)` is TRUE, so
+  the zero-Schooling rows stayed in the sample, `Ln_Positive` returned `#N/A`
+  for each, and the `#N/A` propagated through `Predictor_Columns` into every
+  downstream statistic. Whether to add a positivity term to `Sample_Include` was
+  recorded here as an **open production question**.
+
+  It is now answered — by adding a second Transform token rather than by
+  changing what `Log` means. `Log` still behaves exactly as L6 asserts (and
+  always will), but now flags red and says why; `Log (drop ≤ 0)` is the
+  filtering variant, and L12 is its fittable case. Narrowing the sample changes
+  the model, so it is something the user declares rather than something the mask
+  decides. See `_LN_ZERO_GUARD_NOTE` in
+  `lambda_catalog/analyze_regression_guard_states.py` and
+  [DECISIONS.md § two Log transforms](DECISIONS.md#two-log-transforms--strict-and-drop-non-positive).
 * **L7 cannot reach k = 200 the way the plan assumed.** The arithmetic (193
   countries → 192 dummies + 8 predictors = 200) ignores missingness: the response
   itself is blank on rows covering 10 countries, so at most 183 countries ever
@@ -297,7 +303,7 @@ message text implies.
 | Dispatch (Log, Mixed) | P4 |
 | Back-Transform = Duan / Naive | L2 / L3 (the toggle's first oracle) |
 | Unit-space reduction invariant (no transforms) | M1, L11 |
-| `Ln_Positive` zero/negative guard | L6 (as #N/A propagation — see § 1.2) |
+| `Ln_Positive` zero/negative guard — strict / filtering | L6 (`Log` → #N/A propagation + red flag) / L12 (`Log (drop ≤ 0)` → 26 rows excluded, model fits) |
 | Missing-data NA propagation | M5, L1, L4, L7, L8 |
 | Intercept OFF | M2, M3/M4 variants |
 | FE + Log | P2 |
@@ -371,7 +377,7 @@ disagreed about what a case *is*, the sheets would be verifying something other
 than what the QC harness fits.
 
 Charts are **off** on generated sheets. Roughly a dozen COM chart objects per sheet
-across ~49 sheets is the single largest cost in the build, and no oracle reads one;
+across ~50 sheets is the single largest cost in the build, and no oracle reads one;
 chart wiring is verified once, on the production Regression sheet.
 
 **Two cases are opt-in.** L05 (Kitchen Sink Profile, k = 19, n = 2117) and L08
@@ -386,8 +392,8 @@ fit a 205-column design at all — it is a guard state now, and guard sheets
 are cheap.
 
 ```
-python scripts/build_test_models.py                        # 48 sheets (32 models + 16 guards)
-python scripts/build_test_models.py --include-heavy        # 50, adding L05 and L08
+python scripts/build_test_models.py                        # 50 sheets (33 models + 17 guards)
+python scripts/build_test_models.py --include-heavy        # 52, adding L05 and L08
 python scripts/build_test_models.py --cases M09,G10        # just those two
 python scripts/build_test_models.py --verify --no-launch   # build, check, exit 1 on drift
 poe verify-test-models                             # the same, verbose
@@ -513,7 +519,7 @@ Two framing notes:
 | 3 | **`Time` role / time series** | **v3.6** *(was unordered v3.8+)* | near-additive — **and unlocks a today-gap** | A real **calendar-dated monthly series** (~144 rows, AirPassengers-shaped, with an actual date column). No wired dataset has dates; this asset also enables the Sequence **calendar-signature verdict** test in Section 1 immediately, before the Time role ships. Also serves `Moving_Average` / `Exponential_Smoothing` cases. |
 | 4 | **WLS `Weight` role** | **v3.7** *(unchanged number, new reasoning)* | ~2× over a representative subset | Grouped/heteroskedastic data with a natural weight column: R/MASS `Insurance` (64 rows, claims with exposure `Holders`) or a grouped-mean aggregation of an existing dataset. Plan **weighted variants of ~6 representative Section-1 models** (one per dispatch-pair family), not the whole suite. Include the recorded trap as an oracle assertion: `DEVSQ(√w ⊙ y)` ≠ weighted SST. |
 | 5 | **Two-way Fixed Effects** | **v3.8** *(was unordered v3.8+)* | ~2× over the FE family | A balanced two-factor panel: R `Grunfeld` (200 rows, 10 firms × 20 years) plus an **unbalanced variant** (rows deleted) to exercise `Is_Balanced_Panel` and the convergence check. Re-run the FE family (P1/P2/L8 analogues) two-way. |
-| 6 | **Standalone transform library** | **v3.9** *(was the v3.3 remainder)* | the **~10× axis-widener — last in the track** | Each new Transform value (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`) widens the predictor-transform axis that currently holds {None, Log}, and every widening multiplies the response × predictor dispatch table (six recognized pairs today). No new data needed — existing datasets cover all of them. Sequencing *within* the item: (a) the additive helpers first (`Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix` — standalone LAMBDAs, fixed test count); (b) predictor-side location/scale transforms next (each adds pairs but not back-transform semantics); (c) **any response-side extension last** — a response transform also multiplies the back-transformation / unit-space semantics (what is the smearing analogue for Zscore⁻¹?), which is the single most expensive kind of growth this project has. |
+| 6 | **Standalone transform library** | **v3.9** *(was the v3.3 remainder)* | the **~10× axis-widener — last in the track** | Each new Transform value (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`) widens the predictor-transform axis that currently holds {None, Log}, and every widening multiplies the response × predictor dispatch table (six recognized pairs today). **`Log (drop ≤ 0)` is the one exception on record and it is instructive**: it is a new Transform value that widened the axis by nothing, because it builds the identical `Ln(x)` column and `Constructed_Column_Transforms()` reports `"Log"` for it — it differs only in the row mask. A new value costs a multiplier when it produces a new SPACE, not merely a new token. No new data needed — existing datasets cover all of them. Sequencing *within* the item: (a) the additive helpers first (`Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix` — standalone LAMBDAs, fixed test count); (b) predictor-side location/scale transforms next (each adds pairs but not back-transform semantics); (c) **any response-side extension last** — a response transform also multiplies the back-transformation / unit-space semantics (what is the smearing analogue for Zscore⁻¹?), which is the single most expensive kind of growth this project has. |
 
 ### Then the new analysis surfaces
 

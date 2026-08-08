@@ -387,7 +387,11 @@ def verify_test_sheets(
         _verify_production_lots_full_data(workbook, production_lots_path, failures)
 
         _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
-        for failure in read_regression_spec_block_failures(workbook, mileage_path):
+        # No csv_path: the spec-block verifier resolves the dataset from the
+        # sheet's own Source_Table and loads that dataset's CSV. Passing
+        # mileage_path here was the bug — it forced Auto MPG expectations onto
+        # whatever the workbook actually shipped.
+        for failure in read_regression_spec_block_failures(workbook):
             _report_qc_failure(failures, failure)
         _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block done")
 

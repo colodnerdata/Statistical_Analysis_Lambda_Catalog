@@ -53,8 +53,6 @@ from .write_spec_block import (
     _C_REF_IN_USE,
     _C_ROLE,
     _C_ROW_LABELS,
-    _DEFAULT_SEQUENCE_VARIABLES,
-    _DEFAULT_SPEC,
     _FALLBACK_SPEC,
     _FIRST_DATA_ROW,
     _HEADER_ROW,
@@ -64,7 +62,10 @@ from .write_spec_block import (
     _ROLE_IDENTIFIER,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
+    _TRANSFORM_LOG_DROP,
     _VARIABLES,
+    SPEC_DATASET_PROFILES,
+    SpecDatasetProfile,
 )
 
 # The spec block has lived on the Regression sheet since the v2.0 release;
@@ -124,26 +125,43 @@ class SpecVariable:
     interaction_operation: str = ""
 
 
-def build_default_spec() -> list[SpecVariable]:
-    """Return the build's shipped T0 spec, one entry per table column.
+def build_profile_spec(profile: SpecDatasetProfile) -> list[SpecVariable]:
+    """Return one dataset profile's shipped spec, one entry per table column.
 
-    Derived from the sheet writer's own ``_DEFAULT_SPEC``/``_FALLBACK_SPEC``
-    constants so the expectation side can never drift from what the build
-    pre-fills.
+    Derived from the profile the sheet writer pre-fills from, so the
+    expectation side can never drift from what the build wrote. The
+    dataset-agnostic half of ``build_default_spec`` — factored out when the
+    shipped Regression default became a build-time CHOICE
+    (``--regression-dataset``) rather than a constant, so a verifier can
+    describe whichever dataset the workbook in front of it actually targets.
     """
     spec: list[SpecVariable] = []
-    for variable in _VARIABLES:
-        role, include, var_type = _DEFAULT_SPEC.get(variable, _FALLBACK_SPEC)
+    for variable in profile.variables:
+        role, include, var_type = profile.default_spec.get(variable, _FALLBACK_SPEC)
         spec.append(
             SpecVariable(
                 variable,
                 role,
                 include,
                 var_type,
-                sequence=variable in _DEFAULT_SEQUENCE_VARIABLES,
+                sequence=variable in profile.sequence_variables,
             )
         )
     return spec
+
+
+def build_default_spec() -> list[SpecVariable]:
+    """Return the AUTO MPG T0 spec, one entry per table column.
+
+    Named for the era when Auto MPG was the only shipped default. It is now
+    one profile among three and no longer describes what
+    ``build_production.py`` writes by default — callers that mean "whatever
+    this workbook actually ships" want ``build_profile_spec`` against the
+    resolved profile instead. Kept as-is because ~a dozen call sites mean
+    Auto MPG specifically: the M-series QC cases, the guard-state specs, and
+    the transform-threading tests all build from it.
+    """
+    return build_profile_spec(SPEC_DATASET_PROFILES["auto_mpg"])
 
 
 def load_source_rows(csv_path: Path = DEFAULT_INPUT_CSV) -> list[dict[str, object]]:
@@ -223,19 +241,48 @@ def _format_value(value: object) -> str:
 
 
 def _compute_mask(
-    spec: list[SpecVariable], rows: list[dict[str, object]]
+    spec: list[SpecVariable],
+    rows: list[dict[str, object]],
+    *,
+    apply_log_domain: bool = True,
 ) -> list[bool]:
-    """Mirror ``Sample_Include()``: AND over role-derived row conditions."""
+    """Mirror ``Sample_Include()``: AND over role-derived row conditions.
+
+    Three layers, matching the closure's three:
+
+    1. every ``Filter``-role column must be truthy;
+    2. the Response and every included Continuous Predictor must be numeric;
+    3. any of those columns declaring ``Log (drop ≤ 0)`` must also be strictly
+       positive, since a non-positive value has no logarithm.
+
+    Layer 3 fires for that one token only. Plain ``Log`` deliberately leaves the
+    row in, so ``Ln_Positive`` returns ``#N/A`` and the fit fails visibly —
+    which is why ``build_spec_design`` still raises on it.
+
+    ``apply_log_domain=False`` mirrors ``Sample_Include(FALSE)``: the mask
+    before layer 3, which is what the sheet's G2 status cell differences
+    against the default to report how many rows the transform excluded.
+    """
     filter_columns = [v.name for v in spec if v.role == _ROLE_FILTER]
-    numeric_columns = [
-        v.name
+    eligible = [
+        v
         for v in spec
         if v.role == _ROLE_RESPONSE
         or (v.role == _ROLE_PREDICTOR and v.include and v.var_type == "Continuous")
     ]
+    numeric_columns = [v.name for v in eligible]
+    positive_columns = (
+        [v.name for v in eligible if v.transform == _TRANSFORM_LOG_DROP]
+        if apply_log_domain
+        else []
+    )
     return [
         all(_is_truthy_filter(row[name]) for name in filter_columns)
         and all(_is_number(row[name]) for name in numeric_columns)
+        and all(
+            _is_number(row[name]) and float(row[name]) > 0  # type: ignore[arg-type]
+            for name in positive_columns
+        )
         for row in rows
     ]
 

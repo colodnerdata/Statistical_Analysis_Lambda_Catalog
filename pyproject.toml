@@ -213,7 +213,7 @@ python scripts/build_test_models.py --verify --no-launch --verbose
 # runner has Office -- so a change to this block needs a developer-machine run
 # archived to excel-only-runs/.
 [tool.poe.tasks.verify]
-help = "Both layers, both artifacts, plus the test-model suite (needs Excel)."
+help = "Both layers (headless + deep), the unified workbook, plus the test-model suite (needs Excel)."
 sequence = [
   { parallel = ["verify-deep", "verify-test-models"], output_mode = "buffer" },
   "verify-headless",

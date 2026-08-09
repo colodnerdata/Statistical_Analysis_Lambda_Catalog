@@ -1,4 +1,5 @@
-"""Build scaffolding shared by the production build script.
+"""Build scaffolding shared by the production build script and other
+Excel-required build drivers (build_test_models.py, build_demo_workbook.py).
 
 ``build_production.py`` builds the unified ``Lambda_Library.xlsx`` workbook
 which carries the Regression template, the Univariate template, the LAMBDA
@@ -6,8 +7,8 @@ function catalog, reference sheets, and the data sheets. It follows a
 three-phase structure (write sheets + sync names; recalculate and save;
 optional deep verify), and needs Excel-open retry handling and the same
 "open headless Excel, run CalculateFullRebuild, save under a chosen
-calculation mode" recalc step. Those helpers live here so the driver script
-stays thin and does not duplicate the retry/recalc logic.
+calculation mode" recalc step. Those helpers live here so the driver scripts
+stay thin and do not duplicate the retry/recalc logic.
 """
 from __future__ import annotations
 

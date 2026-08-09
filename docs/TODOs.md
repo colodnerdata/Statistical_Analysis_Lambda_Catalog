@@ -51,13 +51,18 @@ Three self-contained items, in ascending cost:
 | ~~[Rename `write_sheet_model_construction.py` → `write_spec_block.py`](#v20-leftovers)~~ ✅ DONE 2026-08-06 | M | v2.0 |
 | [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
 | [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
-| [`Moving_Average` / `Exponential_Smoothing`](#v36--time-role--time-series) | M | v3.6 |
 | [`Numeric_Complete_Cases`](#v39--standalone-data-transformation-library) | S | v3.9 |
 | [`Dummy_Column`, `Interact`, `Model_Matrix`](#v39--standalone-data-transformation-library) | M | v3.9 |
 | [Location & Scale transforms — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`](#v39--standalone-data-transformation-library) | M | v3.9 |
 | [Group & Panel transforms — `Zscore_By`, `Decompose_By`](#v39--standalone-data-transformation-library) | M | v3.9 |
 | [Two-sample tests — `T_Test_OneSample`, `F_Test_Variance`, `Covariance_Matrix`](#v310--bivariate--two-sample) | L | v3.10 |
 | [`Bootstrap_CI` / `MC_Percentile` / `PERT_Sample`](#v311--resampling--simulation) | L | v3.11 |
+| [`Autocorrelation` / `Bartlett_Bands` / `Partial_Autocorrelation`](#v312--time-series-analysis-sheet) | M | v3.12 |
+| [`Ljung_Box_Q` / `Box_Pierce_Q`](#v312--time-series-analysis-sheet) | S | v3.12 |
+| [`ADF_Statistic` + critical-value table](#v312--time-series-analysis-sheet) | L | v3.12 |
+| [`KPSS_Statistic` + critical-value table](#v312--time-series-analysis-sheet) | M | v3.12 |
+| [`Classical_Decomposition`](#v312--time-series-analysis-sheet) | M | v3.12 |
+| [`Moving_Average` / `Exponential_Smoothing` / MAE / MAPE](#v312--time-series-analysis-sheet) | M | v3.12 |
 
 The catalog-function items above are headless by construction: a LAMBDA lands in
 `lambda_functions.json` with a Python mirror and tests, and only the *sheet* that
@@ -67,9 +72,9 @@ Backlog and version-independent rows come first; the milestone rows below them a
 in ladder order. The ladder sorts on two keys — all remaining Regression work
 first, then, within that, how much the
 [regression test-model suite](MODEL_TESTING_ASSETS.md) has to grow to cover
-each milestone. That is why the two flat-cost non-Regression milestones (v3.10,
-v3.11) sit below four more expensive ones, and why the four v3.9 rows are last in
-the Regression track — they are also listed in their own working order.
+each milestone. That is why the three flat-cost non-Regression milestones (v3.10,
+v3.11, v3.12) sit below four more expensive ones, and why the four v3.9 rows are
+last in the Regression track — they are also listed in their own working order.
 
 ### Needs Excel on a developer machine
 
@@ -83,9 +88,9 @@ the Regression track — they are also listed in their own working order.
 | [Suppress worst-fit distributions from the combo charts](#v11-leftovers--univariate-sheet-writer) | M | v1.1 |
 | [Relabel within-model residual outputs + Diagnostic Guide paragraph](#v21-leftovers--follow-on-polish) | S | v2.1 |
 | [Model Comparison sheet layout](#v34--model-comparison-sheet) | L | v3.4 |
-| [Time-series sheet (`write_sheet_time_series.py`)](#v36--time-role--time-series) | L | v3.6 |
 | [Two-sample sheet layout](#v310--bivariate--two-sample) | M | v3.10 |
 | [Simulation sheet layout](#v311--resampling--simulation) | M | v3.11 |
+| [Time-series sheet (`write_sheet_time_series.py`)](#v312--time-series-analysis-sheet) | L | v3.12 |
 | [Fix `warn_if_workbook_open`'s buffered-prompt deadlock](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
 | [Stop leaking Excel instances under `parallel`](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
 | [Clean the four `#VALUE!` cells out of the Regression artifact](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
@@ -100,8 +105,10 @@ baked into `templates/static_sheets.xlsx` and only regenerates through
 |---|---|
 | [Blank-categorical caveat in `Sample_Include()`](#v20-leftovers) | v2.0 |
 | [Mismatched-predictor-set fallback for the Comparison sheet](#v34--model-comparison-sheet) | v3.4 |
-| [Can a column be both `Sequence` and `Time`](#v36--time-role--time-series) | v3.6 |
+| [Can a column be both `Sequence` and `Time`](#v36--time-role--lagdifference-semantics) | v3.6 |
 | [Two-sample selector — 3-way flag or separate `paired` boolean](#v310--bivariate--two-sample) | v3.10 |
+| [Does the Time Series sheet declare its own series, or read a `Time` Role](#v312--time-series-analysis-sheet) | v3.12 |
+| [Is the differenced series a materialized column or a closure](#v312--time-series-analysis-sheet) | v3.12 |
 
 Deliberately held, not available to pick up: [BFN critical
 values](#v21-leftovers--follow-on-polish), [Categorical × FE prediction
@@ -346,10 +353,15 @@ with [v3.8](#v38--two-way-fixed-effects) and supplies 10–11 proper clusters. S
   the BFN cell when Cluster is active (the BFN formula already uses
   `Serial_Correlation_Group()` as its resolver, so the wiring is partial).
 
-## v3.6 — `Time` Role + time series
+## v3.6 — `Time` Role + lag/difference semantics
 
 Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering.
-See [ROADMAP.md](ROADMAP.md#v36--time-role--time-series--planned).
+See [ROADMAP.md](ROADMAP.md#v36--time-role--lagdifference-semantics--planned).
+
+**The sheet half moved to [v3.12](#v312--time-series-analysis-sheet).** This
+milestone was carrying both an engine change and a new worksheet;
+`Moving_Average`, `Exponential_Smoothing` and `write_sheet_time_series.py` now
+live there. What remains here is Regression-track work plus the dataset.
 
 **Test assets — near-additive, and the one item that closes a coverage gap
 existing today.** Wiring a calendar-dated monthly series (~144 rows,
@@ -362,19 +374,9 @@ and [§ 3](MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-minimal
 
 - **OPEN · L · no Excel** — Design and implement the `Time` Role. Partially
   forward-wired via the v2.1 Sequence axis, but the full `Time` Role adds
-  time-index semantics (for the future time-series sheet, for cross-sheet
+  time-index semantics (for the v3.12 time-series sheet, for cross-sheet
   `Lag_By` / `Difference_By` calls). The open question: can a column be both
   `Sequence` and `Time`, or are they mutually exclusive?
-
-- **READY · M · no Excel** — Implement `Moving_Average(data, window, [include])`.
-
-- **READY · M · no Excel** — Implement `Exponential_Smoothing(data,
-  alpha_smooth, [include])` — note: use `alpha_smooth` to distinguish from the
-  significance-level `alpha`.
-
-- **READY · L · needs Excel** — Implement `write_sheet_time_series.py` with
-  forecast output, error metrics (MAE, RMSE, MAPE), and an actual vs. smoothed
-  series chart.
 
 ## v3.7 — `Weight` Role (WLS)
 
@@ -549,14 +551,88 @@ case), and PERT/MC cases need only parameter cells. See
   Monte Carlo section; may share one sheet). Implement
   `write_sheet_simulation.py`.
 
-## v3.12+ — Unordered candidates (no claim)
+## v3.12 — Time Series Analysis sheet
 
-What is left after the ladder reordering gave the other candidates numbers.
-Nothing about their test cost sequences them: ANOVA-as-regression needs only
-`warpbreaks` plus the existing categorical machinery, and the other two are
-design-not-started. A user pressing for one of these would reorder it; absent that
-signal, a single maintainer should not pre-order work that may not be the next
-thing actually needed.
+The third and last new analysis surface, and it absorbs the sheet half of v3.6.
+See [ROADMAP.md](ROADMAP.md#v312--time-series-analysis-sheet--planned).
+
+**Test assets — additive, no new data.** The calendar-dated monthly series v3.6
+wires is the only dataset needed: in levels it is the non-stationary seasonal
+case, log-differenced at `d=1, D=1, m=12` the stationary counterpart, so one
+series gives both verdicts of every test. Oracles are `statsmodels.tsa`
+(`acf`, `pacf`, `acorr_ljungbox`, `adfuller`, `kpss`, `seasonal_decompose`)
+through a `TimeSeriesSpecCase` registry mirroring `RegressionSpecCase`. See
+[docs/MODEL_TESTING_ASSETS.md § 2 item 9](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+
+- **BLOCKED · — · no Excel** — Decide whether the sheet declares its own series
+  or consumes a Regression sheet's `Time` Role. Leaning independent; cross-sheet
+  reading is the v3.4 Comparison sheet's job. Everything else here waits on the
+  answer only for where the series comes from, not for what it is.
+
+- **BLOCKED · — · no Excel** — Decide whether the differenced series is a
+  materialized column or a per-consumer constructor closure. The ARCHITECTURE
+  §4b lesson (one spill everything reads) argues for the column; ACF, PACF, both
+  tests and the decomposition all want the identical vector.
+
+- **READY · M · no Excel** — Implement `Autocorrelation(data, max_lag,
+  [include])` returning lag / r / SE, and `Bartlett_Bands` for the widening
+  confidence band.
+
+- **READY · M · no Excel** — Implement `Partial_Autocorrelation` via the
+  Durbin–Levinson recursion — **not** a Yule–Walker solve, which would pull in
+  `Gram_Inverse` and a singularity path for no gain.
+
+- **READY · S · no Excel** — Implement `Ljung_Box_Q(acf, n, h, [df_fitted])` and
+  `Box_Pierce_Q`. The `df_fitted` argument is what makes the same function
+  correct on fitted residuals (`h − p − q`) as on a raw series (`h`).
+
+- **READY · L · no Excel** — Implement `ADF_Statistic(data, lags, spec)` as a
+  regression of Δy on y(t−1) plus lagged differences, routed through the
+  existing OLS engine, with `ADF_Critical_Value(n, spec, alpha)` as a lookup
+  table (MacKinnon). Non-standard null distribution — the table is the point.
+
+- **READY · M · no Excel** — Implement `KPSS_Statistic(data, lags, spec)` and
+  `KPSS_Critical_Value(n, spec, alpha)`. Ships with ADF, not after it: opposite
+  nulls, and the four reject/fail-to-reject combinations are the actual reading.
+
+- **READY · M · no Excel** — Implement `Classical_Decomposition` (additive and
+  multiplicative) returning trend / seasonal / remainder as one spill; trend by
+  centered `Moving_Average` at period `m`, seasonal indices as de-trended period
+  means.
+
+- **READY · M · no Excel** — Implement `Moving_Average(data, window, [include])`.
+  *Moved from v3.6.*
+
+- **READY · M · no Excel** — Implement `Exponential_Smoothing(data,
+  alpha_smooth, [include])` — note: use `alpha_smooth` to distinguish from the
+  significance-level `alpha`. *Moved from v3.6.*
+
+- **READY · S · no Excel** — Implement `MAE` / `MAPE` forecast-error metrics.
+  `RMSE` already exists in unit-space form (`Unit_Space_RMSE`); check whether it
+  generalizes before adding a third.
+
+- **READY · L · needs Excel** — Implement `write_sheet_time_series.py`: the
+  series spec block (Time / Value / Group / `Log` / `d` / `D` / `m`), the
+  ACF and PACF tables and charts with bands as **real data series, never
+  shapes**, the test blocks showing statistic + critical value + verdict side by
+  side, the decomposition block, and the forecast block with an
+  actual-vs-smoothed chart. Register the `TSChart`-prefixed sheet-scoped named
+  ranges in the sheet's own `_setup_local_names`, following the `RegChart`
+  precedent. *Moved from v3.6.*
+
+- **OPEN · S · no Excel** — Decide whether `Ljung_Box_Q` also belongs on the
+  Regression sheet's diagnostic band beside `Durbin_Watson`. DW tests lag 1
+  only; a portmanteau over h lags is strictly more informative, and `df_fitted`
+  already exists to make it correct there.
+
+## v3.13+ — Unordered candidates (no claim)
+
+What is left after the ladder reordering gave the other candidates numbers, and
+after the Time Series sheet took v3.12. Nothing about their test cost sequences
+them: ANOVA-as-regression needs only `warpbreaks` plus the existing categorical
+machinery, and the other two are design-not-started. A user pressing for one of
+these would reorder it; absent that signal, a single maintainer should not
+pre-order work that may not be the next thing actually needed.
 
 ### Multi-group means (ANOVA)
 
@@ -608,7 +684,7 @@ They are removed rather than restated, per this file's own rule.
   `SpecDatasetProfile` + a registry entry. It is pulled out of the DEFERRED entry
   below because it is the only one of those datasets that closes a gap existing
   *now* rather than arriving with a milestone; the case can be written as soon as
-  the data lands, ahead of the [v3.6](#v36--time-role--time-series) `Time` Role
+  the data lands, ahead of the [v3.6](#v36--time-role--lagdifference-semantics) `Time` Role
   it also serves.
 
 - **DEFERRED** — Wire the remaining supplemental datasets (`warpbreaks`,

@@ -3088,9 +3088,10 @@ unordered "v3.8+" bucket.
 keys, in this order:
 
 1. **All remaining Regression work ships first.** A milestone that extends
-   the Regression sheet, its spec block, or its engine precedes either
-   milestone that opens a *new* analysis surface. Two-sample and Resampling
-   are the only two of the latter, and they go last as a block.
+   the Regression sheet, its spec block, or its engine precedes any
+   milestone that opens a *new* analysis surface. Two-sample, Resampling and
+   the Time Series sheet are the three of the latter, and they go last as a
+   block.
 2. **Within the Regression track, by how much the test-model suite has to
    grow** — additive first, per-model multipliers next, axis-wideners last;
    within a tier, the most commonly used feature first.
@@ -3098,20 +3099,33 @@ keys, in this order:
 | Track | Tier | Milestones |
 |---|---|---|
 | Regression | additive | v3.4 Model Comparison |
-| Regression | near-additive | v3.5 `Cluster` · v3.6 `Time` / time series |
+| Regression | near-additive | v3.5 `Cluster` · v3.6 `Time` Role |
 | Regression | ~2× | v3.7 WLS · v3.8 Two-way FE |
 | Regression | ~10× axis-widener | v3.9 standalone transform library |
-| New surface | additive | v3.10 Two-sample · v3.11 Resampling |
+| New surface | additive | v3.10 Two-sample · v3.11 Resampling · v3.12 Time Series |
 
 Three milestones changed number and three left the unordered bucket:
-`Cluster` → **v3.5**, `Time` / time series → **v3.6**, two-way FE →
+`Cluster` → **v3.5**, `Time` → **v3.6**, two-way FE →
 **v3.8** (all promoted); the standalone transform library out of the v3.3
 remainder to **v3.9**; Two-sample v3.6 → **v3.10** and Resampling v3.5 →
 **v3.11**. WLS holds **v3.7**, the number it was claimed under, but reaches
 it as the first ~2× item in the Regression track rather than by inheritance.
 v3.3 keeps its number for the half that shipped. What was left unordered —
-ANOVA, Fourier, decision analysis — stays unordered as **v3.12+**, because
-nothing about their test cost sequences them either.
+ANOVA, Fourier, decision analysis — stays unordered, because nothing about
+their test cost sequences them either; it was numbered **v3.12+** at the time
+of this decision and is **v3.13+** since the Time Series sheet took v3.12 (see
+below).
+
+**Later amendment — v3.6 splits, and the Time Series sheet becomes v3.12.**
+This decision applied key 1 to every milestone except one it did not notice:
+v3.6 was itself half Regression work and half a new analysis surface. Its
+entry read "`Time` Role + time series" and bundled time-index semantics on the
+spec block with a whole new worksheet. Under key 1 those belong on opposite
+ends of the ladder, so the sheet moved to **v3.12**, ahead of the unordered
+bucket, and v3.6 kept the Role, the lag/difference semantics, and the
+calendar-dated dataset. The split also makes v3.6's near-additive rating
+honest — its test cost was always the dataset, never the sheet. See
+[§ v3.12 below](#v312--time-series-analysis-sheet).
 
 **Rationale, key 2.** The suite is a covering array over the implemented
 feature axes, so a feature's cost is not the code it adds but the *cross* it
@@ -3131,16 +3145,19 @@ satisfied.
 tiebreaker *within* one artifact and the wrong primary key across two. Every
 Regression-track milestone extends a surface that already exists and is
 verified by the harness that already exists — a spec column, an engine change,
-more cases in the same oracle. Two-sample and Resampling each need a new sheet
-writer, a new layout, and a verification path sharing nothing with
-`calculate_regression_spec_case`. Interleaving them means carrying two
-half-built analysis surfaces at once and leaving the artifact users actually
-have feature-incomplete for longer while effort goes elsewhere. The deferral
-costs no rework: neither milestone depends on any Regression milestone, and
-none depends on them, so both cost the same whenever they are built.
+more cases in the same oracle. Two-sample, Resampling and the Time Series sheet
+each need a new sheet writer, a new layout, and a verification path sharing
+nothing with `calculate_regression_spec_case`. Interleaving them means carrying
+several half-built analysis surfaces at once and leaving the artifact users
+actually have feature-incomplete for longer while effort goes elsewhere. The
+deferral costs no rework: none depends on any Regression milestone, and no
+Regression milestone depends on them, so all cost the same whenever they are
+built. The one prerequisite anywhere in the block is a *dataset* — the Time
+Series sheet wants the calendar series v3.6 wires, which is why it goes last of
+the three.
 
-**The inversion is deliberate.** v3.10 and v3.11 are *cheaper* to test than
-four of the milestones ahead of them and still ship last. That is key 1
+**The inversion is deliberate.** v3.10, v3.11 and v3.12 are *cheaper* to test
+than four of the milestones ahead of them and still ship last. That is key 1
 overriding key 2, recorded explicitly so a future reader does not "correct"
 the ladder back to pure test-scale order.
 
@@ -4061,3 +4078,134 @@ expands it. That is not a regression (the old `E1`/`M2` placements were inside
 the same group) and it is coherent under the new grammar: a status shares the
 visibility of the control it is about, and a user who has set a Log token has
 necessarily expanded the group to do so.
+
+---
+
+## v3.12 — Time Series Analysis sheet
+
+The milestone that gives the library an identification surface: ACF and PACF,
+white-noise and stationarity testing, decomposition, and the smoothing and
+forecasting that used to sit under v3.6. Planned entry:
+[ROADMAP.md § v3.12](ROADMAP.md#v312--time-series-analysis-sheet--planned).
+
+### The sheet splits off v3.6 rather than shipping inside it
+
+**Question:** v3.6 was written as "`Time` Role + time series" and carried both
+an engine change and a new worksheet. Should the ACF/PACF work extend that
+entry, or take a number of its own?
+
+**Resolution:** RESOLVED — split. v3.6 keeps the `Time` Role, the cross-sheet
+`Lag_By` / `Difference_By` semantics, and the calendar-dated dataset; the
+worksheet and every function that only exists to feed it become **v3.12**,
+after Two-sample and Resampling.
+
+**Rationale.** Key 1 of the ladder ordering already answers this: a milestone
+that opens a new analysis surface ships behind every milestone that extends the
+Regression artifact. v3.6 was the one entry that straddled the rule, and it did
+so by accident of history rather than by argument — the Role and the sheet were
+written into one bullet before key 1 existed. Splitting applies the rule the
+ladder already committed to, and it makes v3.6's *near-additive* test rating
+true: the cost of that milestone was always wiring one dataset, never building
+a worksheet, and the rating was quietly counting only the former.
+
+The split costs no rework. The Role is what the sheet would read anyway, and it
+lands two milestones earlier; the dataset it wires is the only asset v3.12
+needs, which is also why v3.12 goes *last* of the three new surfaces rather
+than first — it is the only one with a prerequisite anywhere on the ladder,
+cheap as that prerequisite is.
+
+**REJECTED — leave the sheet at v3.6.** It would put a new sheet writer, a new
+layout, and a verification path sharing nothing with
+`calculate_regression_spec_case` in the middle of the Regression track, which
+is exactly the interleaving key 1 exists to prevent.
+
+### Differencing is declared in a spec block, not built by hand
+
+**Question:** where do the `Log` toggle and the differencing orders `d` / `D` /
+`m` live — in an on-sheet specification, or in helper columns a user adds to
+their own data table?
+
+**Resolution:** RESOLVED — a series spec block on the sheet, in the Regression
+spec-block idiom: Time column, Value column, optional Group, `Log`, `d`, `D`,
+`m`. Every zone downstream reads the constructed series.
+
+**Rationale.** This is the Transform column's argument, one analysis surface
+over. Differencing a series changes what is being modelled every bit as much as
+logging a response does, and the library's position on that is already on
+record: filtering and transformation "never happen because the workbook decided
+to — narrowing the sample changes the model, so it is a declaration in the
+spec." A helper column is a transformation no status cell knows about, which
+means no cell can report it, flag it, or include it in a model formula readout.
+It also makes the sheet's central promise unreachable: changing `d` should
+re-drive the ACF, the PACF, both tests and the decomposition at once, and that
+only works if one declaration owns the constructed series.
+
+**Consequence.** The differenced series wants to be a *materialized* column
+rather than a closure each consumer re-evaluates — five zones want the
+identical vector — but that is left open, because it is the same tension
+ARCHITECTURE §4b resolved for the design matrix and the answer should be
+re-derived against this sheet's actual dependency graph rather than assumed.
+
+### ADF and KPSS ship together, and their critical values are a table
+
+**Question:** is one stationarity test enough, and how is the verdict computed
+when the null distribution is non-standard?
+
+**Resolution:** RESOLVED — both tests, always together, each with a companion
+`*_Critical_Value(n, spec, alpha)` **lookup table**; the sheet shows the
+statistic, the critical value it was compared against, and the verdict side by
+side.
+
+**Rationale, the pairing.** ADF and KPSS have opposite nulls — unit root versus
+stationarity — and the reading that matters is which of the four
+reject / fail-to-reject combinations a series lands in, including the
+inconclusive corners. Shipping ADF alone invites the standard error of reading
+"failed to reject" as "is stationary", which is precisely the inference a
+non-specialist will make from a single p-value. Two tests, four outcomes, and a
+sheet that names the outcome is the difference between a number and an answer.
+
+**Rationale, the table.** Neither statistic has a standard null distribution, so
+the honest options are an interpolated critical-value table or a fitted
+p-value surface. A table is data — a user can click the cell, see the value
+their statistic was compared against, and check it against any textbook. A
+fitted surface would make the single most consequential number on the block the
+one number in this library that cannot be interrogated, which inverts the
+project's premise for the sake of a decimal place.
+
+**ADF reuses the OLS engine.** The test is a regression of Δy on y(t−1) plus
+lagged differences; there is no reason for a second estimator to exist in the
+workbook, and routing it through the engine means the auxiliary regression is
+itself inspectable.
+
+### PACF by Durbin–Levinson, not a Yule–Walker solve
+
+**Question:** how is the partial autocorrelation computed?
+
+**Resolution:** RESOLVED — the Durbin–Levinson recursion.
+
+**Rationale.** The matrix form would need `Gram_Inverse` on a Toeplitz system
+that is near-singular for exactly the series a user is most likely to feed it
+(strongly trending, or over-differenced), which imports a singularity path this
+sheet has no reason to carry. The recursion is also *inspectable lag by lag* —
+each φ(k,k) is built from the previous order's coefficients, so a suspicious
+spike can be traced backwards through the recursion. A matrix inversion is one
+opaque step, which is the wrong shape for a library whose premise is that any
+result can be interrogated by clicking the cell.
+
+### Significance bands are data series, never shapes
+
+**Question:** how are the ±1.96/√n and Bartlett bands drawn on the ACF and PACF
+charts?
+
+**Resolution:** RESOLVED — real data series pointed at named ranges, with
+`Bartlett_Bands` exposed as its own catalog function so the band is a value
+before it is a line.
+
+**Rationale.** This is the `_add_identity_line` rule restated for the next
+surface that will be tempted to break it. `chart.Shapes.AddLine(...)` positions
+a line in plot-area pixel coordinates computed at creation time; it silently
+goes wrong when the chart is resized, moved, or its axis scaling changes — and
+an ACF chart's axis scaling changes the moment the user edits `max_lag` or the
+differencing order, which is the one thing this sheet is built to encourage.
+Recorded here because a horizontal threshold line is the most natural place in
+the whole project to reach for a shape.

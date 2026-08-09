@@ -227,7 +227,9 @@ lag/difference/serial-correlation features land on a declared axis.
   wiring is partial (the dormant branch in `Serial_Correlation_Group()`'s
   SWITCH).
 - **Time** *(v3.6)* — time-index designation. Partially forward-wired via
-  the Sequence axis but the full semantics still need design work.
+  the Sequence axis but the full semantics still need design work. Its
+  consumers are cross-sheet `Lag_By` / `Difference_By` calls and the v3.12
+  Time Series sheet; the Role ships first, the sheet last.
 - **Weight** *(v3.7)* — WLS. See DECISIONS § v2.6, recorded under the
   milestone's original number.
 

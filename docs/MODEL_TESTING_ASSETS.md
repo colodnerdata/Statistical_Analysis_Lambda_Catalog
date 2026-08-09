@@ -478,9 +478,9 @@ asserted headlessly by `tests/test_test_model_sheets.py`,
 **test-scale multiplier**:
 
 1. **Regression work ships first.** Every milestone that extends the Regression sheet, its spec
-   block, or its engine comes before either milestone that opens a *new* analysis surface. The
-   two exceptions to the Regression track — Two-sample and Resampling — go last as a block, even
-   though both are flat-cost to test.
+   block, or its engine comes before any milestone that opens a *new* analysis surface. The
+   three exceptions to the Regression track — Two-sample, Resampling, and the Time Series sheet —
+   go last as a block, even though all three are flat-cost to test.
 2. **Within the Regression track, cheapest-to-cover first.** Additive features first (each adds a
    fixed number of cases), per-model multipliers next, axis-widening multipliers last — so the
    suite grows linearly for as long as possible and the biggest lift lands when the harness is at
@@ -488,11 +488,13 @@ asserted headlessly by `tests/test_test_model_sheets.py`,
 
 Key 1 outranks key 2 deliberately. Test cost is the right tiebreaker inside one artifact and the
 wrong primary key across two: a Regression milestone is a spec column, an engine change, and more
-cases in the oracle that already exists, while Two-sample and Resampling each need a new sheet
-writer, a new layout, and a verification path sharing nothing with
-`calculate_regression_spec_case`. Interleaving them means two half-built analysis surfaces at
+cases in the oracle that already exists, while Two-sample, Resampling and the Time Series sheet
+each need a new sheet writer, a new layout, and a verification path sharing nothing with
+`calculate_regression_spec_case`. Interleaving them means several half-built analysis surfaces at
 once, and it leaves the artifact users actually have feature-incomplete for longer. The deferral
-costs no rework — neither milestone depends on any Regression milestone, and none depends on them.
+costs no rework — none of the three depends on any Regression milestone, and no Regression
+milestone depends on them. The one edge is the Time Series sheet's dependency on the v3.6 calendar
+dataset, which is a *dataset*, wired long before the sheet is built.
 
 **This ordering is the roadmap's ordering.** The `Ships as` column below is the version ladder
 from v3.4 on: ROADMAP.md was renumbered to follow this table rather than the other way round.
@@ -516,7 +518,7 @@ Two framing notes:
 |---|---|---|---|---|
 | 1 | **Model Comparison sheet** | **v3.4** *(unchanged)* | additive (~1×) — reads existing models | ≥3 registered models with shared prediction inputs — Section 1 already supplies them (e.g. M1, L2, P2). Add **one mismatched-predictor-set pair** (e.g. M1 vs M14) to exercise the `XLOOKUP [if_not_found]` open question. |
 | 2 | **`Cluster` role** | **v3.5** *(was unordered v3.8+)* | near-additive — a variance-estimator variant on a few models | Within-group correlated data: Production Lots facilities suffice initially (3 clusters — deliberately few, to test the small-cluster warning path); `Grunfeld` (item 5) later provides 10–11 proper clusters. |
-| 3 | **`Time` role / time series** | **v3.6** *(was unordered v3.8+)* | near-additive — **and unlocks a today-gap** | A real **calendar-dated monthly series** (~144 rows, AirPassengers-shaped, with an actual date column). No wired dataset has dates; this asset also enables the Sequence **calendar-signature verdict** test in Section 1 immediately, before the Time role ships. Also serves `Moving_Average` / `Exponential_Smoothing` cases. |
+| 3 | **`Time` role / lag-difference semantics** | **v3.6** *(was unordered v3.8+)* | near-additive — **and unlocks a today-gap** | A real **calendar-dated monthly series** (~144 rows, AirPassengers-shaped, with an actual date column). No wired dataset has dates; this asset also enables the Sequence **calendar-signature verdict** test in Section 1 immediately, before the Time role ships. The same series is later the whole of item 9's asset requirement, so wiring it here is what makes the Time Series sheet a no-new-data milestone. |
 | 4 | **WLS `Weight` role** | **v3.7** *(unchanged number, new reasoning)* | ~2× over a representative subset | Grouped/heteroskedastic data with a natural weight column: R/MASS `Insurance` (64 rows, claims with exposure `Holders`) or a grouped-mean aggregation of an existing dataset. Plan **weighted variants of ~6 representative Section-1 models** (one per dispatch-pair family), not the whole suite. Include the recorded trap as an oracle assertion: `DEVSQ(√w ⊙ y)` ≠ weighted SST. |
 | 5 | **Two-way Fixed Effects** | **v3.8** *(was unordered v3.8+)* | ~2× over the FE family | A balanced two-factor panel: R `Grunfeld` (200 rows, 10 firms × 20 years) plus an **unbalanced variant** (rows deleted) to exercise `Is_Balanced_Panel` and the convergence check. Re-run the FE family (P1/P2/L8 analogues) two-way. |
 | 6 | **Standalone transform library** | **v3.9** *(was the v3.3 remainder)* | the **~10× axis-widener — last in the track** | Each new Transform value (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`) widens the predictor-transform axis that currently holds {None, Log}, and every widening multiplies the response × predictor dispatch table (six recognized pairs today). **`Log (drop ≤ 0)` is the one exception on record and it is instructive**: it is a new Transform value that widened the axis by nothing, because it builds the identical `Ln(x)` column and `Constructed_Column_Transforms()` reports `"Log"` for it — it differs only in the row mask. A new value costs a multiplier when it produces a new SPACE, not merely a new token. No new data needed — existing datasets cover all of them. Sequencing *within* the item: (a) the additive helpers first (`Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix` — standalone LAMBDAs, fixed test count); (b) predictor-side location/scale transforms next (each adds pairs but not back-transform semantics); (c) **any response-side extension last** — a response transform also multiplies the back-transformation / unit-space semantics (what is the smearing analogue for Zscore⁻¹?), which is the single most expensive kind of growth this project has. |
@@ -527,6 +529,7 @@ Two framing notes:
 |---|---|---|---|---|
 | 7 | **Two-sample / bivariate** | **v3.10** *(was v3.6, briefly v3.5)* | additive — fixed set of test cases | A small two-group dataset (R `ToothGrowth`, 60 rows — or the in-repo `Status` split of Life Expectancy) and a **paired** dataset (R `sleep`, 20 rows). Cases: equal-variance t, Welch t, paired t, F-test of variances feeding the selector cell. |
 | 8 | **Resampling & simulation** | **v3.11** *(was v3.5, briefly v3.6)* | additive | No new data. The **seeded pre-drawn `Bootstrap_Random_Draws` table** is itself the asset; Production Lots (n = 51) is the natural small-n bootstrap target (slope CI on P3b). PERT/MC cases need only parameter cells. |
+| 9 | **Time Series Analysis sheet** *(ACF/PACF, white-noise and stationarity tests, decomposition, smoothing & forecast)* | **v3.12** *(new; absorbs the sheet half of v3.6)* | additive — a fixed set of cases, **no new data** | The v3.6 calendar-dated monthly series is the **only** dataset needed, because one series supplies both sides of every verdict: in **levels** it is the non-stationary seasonal case (ADF fails to reject, KPSS rejects, ACF decays slowly, decomposition is multiplicative), and **log-differenced at `d=1, D=1, m=12`** it is the stationary counterpart with the opposite verdict on both tests. Cases: ACF/PACF at `max_lag = 24` on both series; Ljung–Box and Box–Pierce at h ∈ {12, 24}, with and without `df_fitted`; ADF and KPSS in all three specs (none / drift / trend) on both series; additive and multiplicative decomposition; MA / exponential-smoothing forecasts scored by MAE / RMSE / MAPE. Plus one **guard state** — a series shorter than `max_lag` — pinning the PACF recursion's degenerate path. Oracles are `statsmodels.tsa` (`acf`, `pacf`, `acorr_ljungbox`, `adfuller`, `kpss`, `seasonal_decompose`), already a dependency, through a `TimeSeriesSpecCase` registry mirroring `RegressionSpecCase`. |
 
 **Why the numbers moved.** `Cluster` and `Time` are pulled out of the unordered bucket ahead of
 WLS because a variance-estimator variant on a handful of models is cheaper to cover than a
@@ -537,15 +540,17 @@ against; the v3.3 milestone keeps its number for what already shipped (the unit-
 Duan back-transformation, the model formula label), and only the unshipped remainder moves.
 Two-sample and Resampling move to the end of the whole ladder under key 1, keeping their relative
 order — both are flat-cost, and two-sample is the more common ask (the ToolPak parity gap a user
-hits first).
+hits first). The **Time Series sheet joins that block at v3.12**, behind both, for two reasons: it
+is a new analysis surface like them, and its one asset is the calendar series v3.6 wires — so it
+is the only new surface with a prerequisite anywhere on the ladder, however cheap.
 
-**Note the deliberate inversion.** Items 7 and 8 are cheaper to test than items 2–6 and still ship
+**Note the deliberate inversion.** Items 7–9 are cheaper to test than items 2–6 and still ship
 last. That is key 1 doing its job, and it is the one place in this document where test scale does
 *not* decide the order — recorded here so a future reader does not "fix" it back.
 
 Unscheduled long-tail items (multi-group means/ANOVA, Fourier, decision analysis) need no assets
 beyond the above: ANOVA-as-regression is `warpbreaks` + the existing categorical machinery. They
-stay in the unordered v3.12+ bucket, since nothing about their test cost sequences them.
+stay in the unordered v3.13+ bucket, since nothing about their test cost sequences them.
 
 ---
 
@@ -565,7 +570,7 @@ a registry entry (`lambda_catalog/write_sheet_csv_dataset.py`, `SPEC_DATASET_PRO
 | Dataset | Rows | Buys | Needed by |
 |---|---|---|---|
 | R `warpbreaks` | 54 | balanced 3×2 **Cat×Cat factorial** (tension × wool) — the textbook ANOVA-as-regression fixture, cleaner than M9's unbalanced cross | Section 1 (optional M9 companion); future multi-group means |
-| Calendar-dated monthly series (AirPassengers-shaped, real date column) | ~144 | **the only uncovered Section-1 axis** (calendar-signature Sequence verdict); later the Time role and time-series functions | §1.5 gap; **v3.6** `Time` role |
+| Calendar-dated monthly series (AirPassengers-shaped, real date column) | ~144 | **the only uncovered Section-1 axis** (calendar-signature Sequence verdict); later the Time role, and then every case on the Time Series sheet — levels and log-differenced give opposite ADF/KPSS verdicts from one series | §1.5 gap; **v3.6** `Time` role; **v3.12** Time Series sheet |
 | R `Grunfeld` | 200 | balanced 10×20 two-factor panel; proper cluster count | **v3.8** two-way FE; back-fills **v3.5** `Cluster` |
 | R/MASS `Insurance` | 64 | natural weight column (`Holders` exposure) | **v3.7** WLS |
 | R `sleep` | 20 | paired two-sample data | **v3.10** two-sample |
@@ -584,6 +589,12 @@ a registry entry (`lambda_catalog/write_sheet_csv_dataset.py`, `SPEC_DATASET_PRO
 
 Only the calendar-dated series affects Section-1 coverage; every other addition can wait until the
 milestone in its `Needed by` column starts. Nothing needs to be imported in this pass.
+
+That series is also the one dataset two milestones want, and it is the **earliest**-needed of the
+list rather than the latest: v3.6 needs it, v3.12 needs nothing else, and it closes a Section-1
+gap the moment it lands. Wiring it well — a real date column, no pre-derived log, no pre-derived
+difference — is what keeps the Time Series sheet a no-new-data milestone, since every case there
+is a transformation the sheet's own spec block is supposed to declare.
 
 The two two-sample datasets (`sleep`, `ToothGrowth`) are now the **last** to be needed, since
 v3.10 sits at the end of the ladder. That is a scheduling fact, not a demotion — they are still

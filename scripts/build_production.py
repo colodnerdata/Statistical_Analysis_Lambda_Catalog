@@ -1,11 +1,11 @@
-"""Build Lambda_Library.xlsx — the Regression workbook — with its production sheets and LAMBDA name sync.
+"""Build Lambda_Library.xlsx — the unified workbook — with all sheets and LAMBDA name sync.
 
-From v3.0 the build emits two artifacts: this script builds the Regression
-workbook (``Lambda_Library.xlsx``), and ``build_univariate.py`` builds the
-standalone Univariate workbook (``Lambda_Library_Univariate.xlsx``). The
-Univariate Analysis sheet ships in its own workbook, so each artifact sets
-its own calculation mode and the Regression workbook runs in full Automatic
-(see DECISIONS.md § v3.0 "Univariate becomes its own workbook").
+The workbook carries the Regression template, the Univariate template, the
+LAMBDA function catalog, reference sheets (instructions, diagnostic guide,
+version history), and the three data sheets. All sheets run in full Automatic
+calculation mode — the Data Tables that once forced a split into two artifacts
+were removed; both the Regression and Univariate engines use Full_Factorial
+spills and 1-D profile searches that recalculate on edit under Automatic.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from lambda_catalog.build_common import (
     _quit_app_quietly,
     _recalculate_and_save,
     _retry_on_open,
+    positive_grid_size,
     print_name_sync_summary,
     run_log_path,
     tee_run_log,
@@ -64,6 +65,10 @@ from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
     write_regression_instructions_sheet,
 )
+from lambda_catalog.write_sheet_univariate import (
+    UNIVARIATE_SHEET_NAME,
+    write_univariate_sheet,
+)
 from lambda_catalog.write_sheet_version_history import write_version_history_sheet
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -80,6 +85,7 @@ _SHEET_NAME_VERSION_HISTORY = "Version History"
 _SHEET_NAME_REGRESSION_INSTRUCTIONS = "Regression Instructions"
 _SHEET_NAME_REGRESSION = "Regression"
 _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
+_SHEET_NAME_UNIVARIATE = UNIVARIATE_SHEET_NAME
 
 # Dataset profiles: maps the --regression-dataset choice to both the
 # Source_Table RefersTo formula and the spec block's default Role/Include/
@@ -105,22 +111,20 @@ def _run_deep_verify(
     production_lots_path: Path = PRODUCTION_LOTS.default_csv_path,
     verbose: bool = False,
 ) -> VerifyReport:
-    """Run the spec-driven verifier against the Regression production workbook.
+    """Run the spec-driven verifier against the unified workbook.
 
     Opens the workbook in a headless Excel instance, computes the per-config
     Python oracle, and calls ``deep_verify.verify_test_sheets(...,
-    skip_univariate=True, failures_out=...)``. On success, returns
+    failures_out=...)``. On success, returns
     a passing ``VerifyReport``. On drift, ``verify_test_sheets`` raises
     ``RuntimeError("QC verification failed with N mismatch(es).")``;
     ``failures_out`` is populated before the raise so we can return a
     structured ``VerifyReport`` for the caller to render and ``sys.exit(1)``
     without unwinding the build pipeline. Other exceptions propagate.
 
-    ``skip_univariate=True`` is hardcoded: the Regression workbook ships no
-    Univariate sheet (it moved to its own artifact in v3.0; see
-    DECISIONS.md § v3.0 "Univariate becomes its own workbook"). The
-    verifier therefore skips its Univariate checks silently — no warning
-    is printed because the absence is by design, not a build regression.
+    The unified workbook carries both the Regression and Univariate sheets,
+    so no ``skip_univariate`` or ``skip_regression`` flag is passed — the
+    verifier checks both.
     """
     start = time.monotonic()
     if verbose:
@@ -143,7 +147,6 @@ def _run_deep_verify(
                     mileage_path=mileage_path,
                     production_lots_path=production_lots_path,
                     verbose=verbose,
-                    skip_univariate=True,
                     failures_out=captured,
                 )
             except RuntimeError as exc:
@@ -204,17 +207,24 @@ def _set_tab_color(sheet: xw.Sheet, color: tuple[int, int, int]) -> None:
 
 
 def _reorder_and_style_sheet_tabs(workbook: xw.Book) -> None:
-    """Apply build-time tab order and tab colors for the Regression workbook's sheets."""
+    """Apply build-time tab order and tab colors for the unified workbook's sheets.
+
+    Tab order (left to right):
+    Regression, Regression Instructions, Diagnostic Guide, Univariate,
+    LAMBDA_functions, Version History, Production Lots, Life Expectancy Data,
+    Mileage Data.
+    """
     ordered_front = [
-        _SHEET_NAME_MILEAGE_DATA,
-        _SHEET_NAME_LIFE_EXPECTANCY_DATA,
-        _SHEET_NAME_PRODUCTION_LOTS,
-        _SHEET_NAME_VERSION_HISTORY,
-        _SHEET_NAME_REGRESSION_INSTRUCTIONS,
         _SHEET_NAME_REGRESSION,
+        _SHEET_NAME_REGRESSION_INSTRUCTIONS,
         _SHEET_NAME_DIAGNOSTIC_GUIDE,
+        _SHEET_NAME_UNIVARIATE,
+        _SHEET_NAME_LAMBDA_FUNCTIONS,
+        _SHEET_NAME_VERSION_HISTORY,
+        _SHEET_NAME_PRODUCTION_LOTS,
+        _SHEET_NAME_LIFE_EXPECTANCY_DATA,
+        _SHEET_NAME_MILEAGE_DATA,
     ]
-    ordered_front.append(_SHEET_NAME_LAMBDA_FUNCTIONS)
 
     present = _sheet_names(workbook)
     for sheet_name in reversed(ordered_front):
@@ -230,6 +240,7 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book) -> None:
         _SHEET_NAME_LIFE_EXPECTANCY_DATA: _TAB_COLOR_LIGHT_GRAY,
         _SHEET_NAME_PRODUCTION_LOTS: _TAB_COLOR_LIGHT_GRAY,
         _SHEET_NAME_VERSION_HISTORY: _TAB_COLOR_DARK_GRAY,
+        _SHEET_NAME_UNIVARIATE: SUBHDR_COLOR,
         _SHEET_NAME_REGRESSION_INSTRUCTIONS: SUBHDR_COLOR,
         _SHEET_NAME_REGRESSION: SUBHDR_COLOR,
         _SHEET_NAME_DIAGNOSTIC_GUIDE: SUBHDR_COLOR,
@@ -251,6 +262,7 @@ def build_production_workbook(
     verbose: bool = False,
     recalculate: bool = True,
     regression_dataset: str = "life_expectancy",
+    beta_grid_size: int = 10,
 ) -> NameSyncResult:
     """Build the production sheets and sync the LAMBDA name manager.
 
@@ -286,6 +298,13 @@ def build_production_workbook(
         If True (default), recalculates and saves as the final build step.
         Pass False when the caller manages the recalculate step separately
         (e.g. to allow a targeted retry without re-running the full build).
+    beta_grid_size : int, optional
+        Number of grid points per axis for the Univariate Beta
+        Full_Factorial search (default: 10, i.e. 100 NLL evaluations per
+        stage). Must be a whole number of at least 2 — the Step cell
+        divides by N-1. N is written into an in-sheet cell and editable
+        live in the workbook, under the same floor; this flag only sets
+        the shipped default.
 
     Returns
     -------
@@ -359,6 +378,11 @@ def build_production_workbook(
                 source_table_ref=source_table_ref,
                 spec_profile=regression_spec_profile,
             )
+            write_univariate_sheet(
+                workbook,
+                document.univariate_sheet_notes,
+                beta_grid_size=beta_grid_size,
+            )
             _reorder_and_style_sheet_tabs(workbook)
             app.api.Calculation = XL_CALCULATION_AUTOMATIC
             workbook.save(str(workbook_path))
@@ -404,9 +428,10 @@ def parse_args() -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser(
         description=(
-            "Build Lambda_Library.xlsx — the Regression workbook — from "
-            "lambda_functions.json. The Univariate Analysis sheet ships in "
-            "its own workbook (build_univariate.py)."
+            "Build Lambda_Library.xlsx — the unified workbook — from "
+            "lambda_functions.json. The workbook carries the Regression "
+            "and Univariate templates, the LAMBDA function catalog, "
+            "reference sheets, and the data sheets."
         )
     )
     parser.add_argument(
@@ -455,11 +480,11 @@ def parse_args() -> argparse.Namespace:
         default=False,
         help=(
             "After the build, run the spec-driven verifier (deep_verify."
-            "verify_test_sheets) against the production sheets. On any "
-            "drift, print a structured VerifyReport and sys.exit(1). The "
-            "post-build Excel handoff (cmd /c start) only fires when "
-            "verify passes. Combine with --no-launch to run verify without "
-            "opening Excel at all."
+            "verify_test_sheets) against both the Regression and Univariate "
+            "production sheets. On any drift, print a structured "
+            "VerifyReport and sys.exit(1). The post-build Excel handoff "
+            "(cmd /c start) only fires when verify passes. Combine with "
+            "--no-launch to run verify without opening Excel at all."
         ),
     )
     parser.add_argument(
@@ -511,6 +536,20 @@ def parse_args() -> argparse.Namespace:
             "Fiscal_Year as Sequence, the Crawford/Wright learning-curve model)."
         ),
     )
+    parser.add_argument(
+        "--beta-grid-size",
+        type=positive_grid_size,
+        default=10,
+        help=(
+            "Number of grid points per axis for the Univariate Beta "
+            "Full_Factorial search (default: 10, i.e. 100 NLL evaluations "
+            "per stage). Must be a whole number of at least 2 — the Step "
+            "cell divides by N-1. N is written into an in-sheet cell and "
+            "editable live in the workbook, under the same floor; this "
+            "flag only sets the shipped default. Smaller values reduce "
+            "build time but may decrease accuracy."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -550,6 +589,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
             verbose=args.verbose,
             recalculate=False,  # handled separately so only this step retries
             regression_dataset=args.regression_dataset,
+            beta_grid_size=args.beta_grid_size,
         )
 
     build_phase_start = time.monotonic()
@@ -561,16 +601,16 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     build_elapsed = time.monotonic() - build_phase_start
     assert result is not None
 
-    # Phase 2: recalculate Data Tables and save.
-    # This is a quick step; if the workbook is open in Excel now (e.g. the user
-    # opened it to inspect progress), only this step is retried — not the full build.
-    #
-    # The Regression workbook has no Data Tables, so CalculateFullRebuild is
-    # cheap. It is also required: the spec-driven verifier only does a per-sheet
-    # Calculate(), which does NOT rebuild the dependency tree after 100+
-    # workbook names are re-synced — skipping the rebuild would leave the
-    # Regression engines uncomputed and every QC value reading nan. So the
-    # Regression build always rebuilds.
+    # Phase 2: recalculate the fit searches and save.
+    # This is the slow step for the Univariate engine (the Beta Full_Factorial
+    # spills plus the Weibull/Gamma profile-NLL columns) and the one most
+    # likely to fail when the user opens the workbook to inspect progress —
+    # so it gets its own retry phase, separate from the multi-minute write.
+    # The rebuild always runs: it is what computes the Univariate fit searches
+    # and what sets Automatic before the final save, and the spec-driven
+    # verifier's per-sheet Calculate does NOT rebuild the dependency tree
+    # after 100+ workbook names are re-synced — skipping the rebuild would
+    # leave the Regression engines uncomputed and every QC value reading nan.
     _t = time.monotonic()
     _retry_on_open(
         f"{args.workbook.name} is open in Excel",
@@ -593,6 +633,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")
+    print("Sheet updated: Univariate")
     print_name_sync_summary(result)
     if args.validate_reopen:
         print("Reopen validation: passed")

@@ -114,12 +114,8 @@ cmd = "pytest tests/test_workbook_invariants.py -v"
 # from; commit it on the branch that produced it.  `--log PATH` overrides the
 # destination.
 [tool.poe.tasks.verify-deep]
-help = "Layer 2: build + spec-verify the Regression workbook (needs Excel)."
+help = "Layer 2: build + spec-verify the unified workbook (needs Excel)."
 cmd = "python scripts/build_production.py --verify --no-launch"
-
-[tool.poe.tasks.verify-deep-univariate]
-help = "Layer 2: build + spec-verify the Univariate workbook (needs Excel)."
-cmd = "python scripts/build_univariate.py --verify --no-launch"
 
 # --verbose because this one runs for minutes over ~48 sheets: it names each
 # sheet BEFORE writing it, so an interrupted run leaves the offending case on
@@ -217,29 +213,25 @@ python scripts/build_test_models.py --verify --no-launch --verbose
 # runner has Office -- so a change to this block needs a developer-machine run
 # archived to excel-only-runs/.
 [tool.poe.tasks.verify]
-help = "Both layers, both artifacts, plus the test-model suite (needs Excel)."
+help = "Both layers (headless + deep), the unified workbook, plus the test-model suite (needs Excel)."
 sequence = [
-  { parallel = ["verify-deep", "verify-deep-univariate", "verify-test-models"], output_mode = "buffer" },
+  { parallel = ["verify-deep", "verify-test-models"], output_mode = "buffer" },
   "verify-headless",
 ]
 
 # -- Builds (all need Excel) -------------------------------------------------
 
 [tool.poe.tasks.build]
-help = "Build the distributable Regression workbook, dist/Lambda_Library.xlsx."
+help = "Build the distributable unified workbook, dist/Lambda_Library.xlsx."
 cmd = "python scripts/build_production.py"
-
-[tool.poe.tasks.build-univariate]
-help = "Build dist/Lambda_Library_Univariate.xlsx."
-cmd = "python scripts/build_univariate.py"
 
 [tool.poe.tasks.build-presentation-demo]
 help = "Build Presentations/Lambda_Library_Regression_Demo.xlsx."
 cmd = "python scripts/build_demo_workbook.py --no-launch"
 
 [tool.poe.tasks.build-presentation]
-help = "Build the presentation workbook set: Regression, Univariate, and the Regression demo."
-sequence = ["build", "build-univariate", "build-presentation-demo"]
+help = "Build the presentation workbook set: the unified workbook and the Regression demo."
+sequence = ["build", "build-presentation-demo"]
 
 [tool.poe.tasks.static-sheets]
 help = "Regenerate every static reference sheet into templates/static_sheets.xlsx."

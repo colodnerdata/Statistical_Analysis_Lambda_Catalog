@@ -38,15 +38,13 @@ Use these shortcuts for day-to-day work from an activated `.venv`. If the enviro
 | Run the fast workbook invariant screen | `poe verify-headless` | `uv run pytest tests/test_workbook_invariants.py -v` | No Excel required; catches packaging/name/cache drift. |
 | Run pylint's CI check | `poe lint` | `uv run pylint --errors-only lambda_catalog scripts tools` | Error-only lint, matching CI. |
 | Run both CI checks at once | `poe check` | — | `test-cov` and `lint` in parallel; the local pre-push screen. |
-| Build the Regression artifact | `poe build` | `uv run python scripts/build_production.py` | Needs desktop Excel. |
-| Build the Univariate artifact | `poe build-univariate` | `uv run python scripts/build_univariate.py` | Needs desktop Excel. |
-| Build + verify Regression | `poe verify-deep` | `uv run python scripts/build_production.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
-| Build + verify Univariate | `poe verify-deep-univariate` | `uv run python scripts/build_univariate.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
+| Build the workbook | `poe build` | `uv run python scripts/build_production.py` | Needs desktop Excel. |
+| Build + verify the workbook | `poe verify-deep` | `uv run python scripts/build_production.py --verify --no-launch` | Needs desktop Excel; archives a transcript in `excel-only-runs/`. |
 | Build + verify test models | `poe verify-test-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose` | Needs desktop Excel; append `--include-heavy` to include the heavy cases (`L05`, `L08`). |
 | Build + verify the guard states | `poe verify-guards` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --kind guards --exclude L07` | Needs desktop Excel; every `GuardStateCase` except the 205-column `L07`. |
 | Build + verify the spec-block error surfaces | `poe verify-spec-errors` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --cases <20 IDs>` | Needs desktop Excel; the five row-2 status cells and the ten CF flag rules. Includes `L07`, so it is the slower of the two guard slices. |
 | Build + verify the happy-path fits | `poe verify-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --kind models` | Needs desktop Excel; the 33 fittable cases, heavy excluded. No guard sheets. |
-| Run the whole verification ladder | `poe verify` | Run the three deep `verify-*` tasks concurrently, then `verify-headless` over their output | Needs desktop Excel; stops on first failure. |
+| Run the whole verification ladder | `poe verify` | Run `verify-deep` + `verify-test-models` concurrently, then `verify-headless` over their output | Needs desktop Excel; stops on first failure. |
 | Resync workbook-scoped catalog names | `poe resync-names -- <workbook.xlsx>` | `uv run python tools/resync_workbook_names.py <workbook.xlsx>` | Use the `--` separator before positional args. |
 | Rebuild static reference sheets | `poe static-sheets` | `uv run python scripts/rebuild_static_sheets.py` | Needs desktop Excel; manual template maintenance. |
 
@@ -69,24 +67,20 @@ uv run pytest --cov --cov-report=term-missing
 # Fast headless structural check of the committed workbook (no Excel needed)
 uv run pytest tests/test_workbook_invariants.py -v      # or: poe verify-headless
 
-# Build the distributable Regression workbook, Lambda_Library.xlsx  (needs Excel)
+# Build the distributable workbook, Lambda_Library.xlsx  (needs Excel)
 uv run python scripts/build_production.py
 
-# Build the standalone Univariate workbook, Lambda_Library_Univariate.xlsx  (needs Excel)
-uv run python scripts/build_univariate.py
-
-# Recommended verification path (headless first, then artifact-specific deep checks).
-# The three build_* --verify commands need desktop Excel; poe verify-headless does not.
+# Recommended verification path (headless first, then deep checks).
+# The build_* --verify command needs desktop Excel; poe verify-headless does not.
 poe verify-headless
 uv run python scripts/build_production.py --verify --no-launch
-uv run python scripts/build_univariate.py --verify --no-launch
 uv run python scripts/build_test_models.py --verify --no-launch
 
 # Verify an already-built workbook without rebuilding it  (needs Excel)
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
 ```
 
-New to the repo? A typical loop is: edit code → `uv run pytest` → `poe verify-headless` → the artifact-specific deep verifier for the surface you touched (`uv run python scripts/build_production.py --verify --no-launch`, `uv run python scripts/build_univariate.py --verify --no-launch`, and/or `uv run python scripts/build_test_models.py --verify --no-launch`) → rebuild the committed distributable(s) with `uv run python scripts/build_production.py` and/or `uv run python scripts/build_univariate.py`. The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
+New to the repo? A typical loop is: edit code → `uv run pytest` → `poe verify-headless` → the deep verifier for the surface you touched (`uv run python scripts/build_production.py --verify --no-launch` and/or `uv run python scripts/build_test_models.py --verify --no-launch`) → rebuild the committed distributable with `uv run python scripts/build_production.py`. The full flag reference for each script is under [Building](#building) and [Verifying builds](#verifying-builds) below.
 
 ## Running tests
 
@@ -139,9 +133,9 @@ Tests live in `tests/`. The current test files are:
 | `test_workbook_builder.py` | Workbook package-patching helpers (`sync_workbook_names` and friends) that don't require Excel |
 | `test_build_common.py` | Shared build scaffolding (`lambda_catalog.build_common`: recalculate-and-save calc-mode handling, retry-on-open) that doesn't require Excel |
 | `test_build_production.py` | `build_production.py`'s pure-Python logic (Regression-only sheet set, dataset selection, tab order/color, verify forwards `skip_univariate=True`) that doesn't require Excel |
-| `test_build_univariate.py` | `build_univariate.py`'s pure-Python logic (Univariate four-sheet set, default output path, Automatic calc mode, the always-on recalc rebuild, verify forwards `skip_regression=True`) that doesn't require Excel |
+| `test_build_univariate.py` | `build_univariate.py`'s pure-Python logic (Univariate sheet set, Automatic calc mode, the always-on recalc rebuild) that doesn't require Excel — *retained for historical coverage; the script itself is no longer in the build* |
 | `test_version_history_writer.py` | `write_sheet_version_history`'s per-artifact version lineage (`artifact="regression"` vs `"univariate"`) and the bad-artifact guard |
-| `test_workbook_invariants.py` | Layer 1 headless structural check of a built `.xlsx` package (`zipfile` + `lxml`): dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken package parts, orphan chart-relationship targets, sheet drift — for both the Regression and Univariate artifacts — see [Verifying builds](#verifying-builds) |
+| `test_workbook_invariants.py` | Layer 1 headless structural check of a built `.xlsx` package (`zipfile` + `lxml`): dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken package parts, orphan chart-relationship targets, sheet drift — see [Verifying builds](#verifying-builds) |
 | `test_ln_positive_verification.py` | v2.2 Transform=Log — `Ln_Positive` pure-Python mirror (the `NA()`-exception contract, the geometric-mean round-trip the Prediction Inputs fix relies on) and implementation-shape assertions on the catalog formula |
 | `test_transform_threading.py` | v2.2 Transform=Log wiring end to end — cross-checks the new `production_lots_log_transform` QC case (raw columns, `transform="Log"`) against the pre-existing precomputed-log-column case to floating-point precision; Categorical×Log inertness |
 | `test_interaction_wiring.py` | v3.1 interaction wiring — the spec block's M/N pair against the Python mirror in `analyze_regression_spec.build_spec_design`: the three width regimes (1 / L−1 / (L₁−1)(L₂−1)), the closed Product/Difference/Ratio arithmetic, the four operand Role/Include cases, the two-way limit, the documented quadratic, and Ratio's zero-denominator refusal |
@@ -209,32 +203,31 @@ Three are wired: Auto MPG (406 rows — baseline, categoricals, interactions), L
 
 ## Building
 
-There are two separate build scripts with distinct purposes. From v3.0 the production script emits **two artifacts** rather than one.
+One build script produces one workbook. `build_production.py` emits the unified `Lambda_Library.xlsx` — the function library plus the pre-built templates (Regression and Univariate), reference sheets, and data sheets.
 
-### The two production artifacts
+### The production artifact
 
 | Target | Produces | Calculation mode | Sheets |
 |---|---|---|---|
-| Regression | `Lambda_Library.xlsx` | **Automatic** (full) | Catalog, three sample datasets, Regression, the two reference sheets, Version History |
-| Univariate | `Lambda_Library_Univariate.xlsx` | **Automatic** (full) | Catalog, Life Expectancy Data, Univariate Analysis, Version History |
+| `Lambda_Library.xlsx` | The unified workbook | **Automatic** (full) | Regression, Regression Instructions, Diagnostic Guide, Univariate, LAMBDA_functions, Version History, Production Lots, Life Expectancy Data, Mileage Data |
 
-**Both artifacts carry the complete function library.** All 141 LAMBDA definitions are written into both Name Managers. There is no bundling step, no dependency closure, and no per-artifact function subsetting — the artifacts differ only in which sheets they contain. When you add a function, it lands in both; there is no list to update.
+**The workbook carries the complete function library.** All 141 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
 
-**Two named build targets, not flags.** `build_production.py` (Regression) and `build_univariate.py` (Univariate) are separate driver scripts sharing one scaffolding module (`lambda_catalog/build_common.py`). The old `--skip-univariate` flag is retired — the Regression target simply never writes the Univariate sheet, and the Univariate target never writes the Regression sheets. Both targets always run the full `CalculateFullRebuild` and save in full Automatic — there is no skip-calculation flag.
+**The production constructor always runs the full `CalculateFullRebuild` and saves in full Automatic** — there is no skip-calculation flag.
 
 ### Which version number moves
 
-Two numbers, and a change usually moves exactly one:
+One workbook means one version number, plus the library version that tracks the catalog:
 
 | You changed | Moves |
 |---|---|
-| A LAMBDA definition in `lambda_functions.json` — added, renamed, or different return | **The library version.** It affects *both* artifacts, because both ship the whole catalog |
-| A sheet's layout, input cells, or control block | **That workbook's version only** |
+| A LAMBDA definition in `lambda_functions.json` — added, renamed, or different return | **The library version.** It affects the workbook, because the workbook ships the whole catalog. |
+| A sheet's layout, input cells, or control block | **The workbook version only** |
 | Both | Both |
 
-**A change to a shared function is a shared event.** There is no such thing as "a Univariate-only function change" — every function ships in both workbooks, so a catalog edit reaches every user of either artifact and moves the one library version. Conversely, a Univariate sheet-layout change must **not** move the Regression workbook version: that number is what a Regression user reads to answer "do my existing inputs still work?"
+**A change to a shared function is a shared event.** Every function ships in the workbook, so a catalog edit reaches every user and moves the one library version. A sheet-layout change on one template moves the workbook version only.
 
-The `Breaking?` flag in each Version History sheet attaches to the **workbook** version, never the library version. Full conventions in [ROADMAP.md § Versioning](docs/ROADMAP.md#versioning--release-conventions).
+The `Breaking?` flag in the Version History sheet attaches to the **workbook** version, never the library version. Full conventions in [ROADMAP.md § Versioning](docs/ROADMAP.md#versioning--release-conventions).
 
 ### Production build
 
@@ -242,18 +235,19 @@ The `Breaking?` flag in each Version History sheet attaches to the **workbook** 
 uv run python scripts/build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable Regression artifact committed to the repo. Writes eight sheets:
+Produces `Lambda_Library.xlsx` — the distributable workbook committed to the repo. Writes nine sheets:
 
-- **LAMBDA_functions** — browsable catalog of all function definitions
-- **Life Expectancy Data** — WHO dataset as a structured table; this is the dataset the Regression sheet's `Source_Table` targets by default (a curated four-driver model: Adult Mortality, Alcohol, percentage expenditure, and `Status`)
+- **LAMBDA_functions** — browsable catalog of all function definitions (the library)
+- **Life Expectancy Data** — WHO dataset as a structured table; this is one of the datasets the Regression template's `Source_Table` can target (a curated four-driver model: Adult Mortality, Alcohol, percentage expenditure, and `Status`)
 - **Mileage Data** — Auto MPG dataset as a structured table (a second sample dataset for the multi-level categorical-encoding demo, and for practicing the Source_Table retarget workflow)
 - **Production Lots** — a small unbalanced learning-curve panel (3 facilities, 51 lots) as a structured table; a third sample dataset, and the only one with a natural Fixed Effects grouping column (Facility) and Sequence column (Fiscal_Year)
-- **Regression Instructions** — step-by-step guide for adapting the sheet to new datasets
-- **Diagnostic Guide** — interpretation guide for regression diagnostics
+- **Regression Instructions** — step-by-step guide for adapting the template to new datasets (reference sheet)
+- **Diagnostic Guide** — interpretation guide for regression diagnostics (reference sheet)
+- **Univariate** — descriptive statistics, histogram binning, and two-stage MLE distribution fitting (a pre-built template)
 - **Version History** — changelog that travels with the workbook
-- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_spec_block.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `Predictor_Columns`, `Design_Columns`, `Design_Response`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
+- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. A pre-built template. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_spec_block.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `Predictor_Columns`, `Design_Columns`, `Design_Response`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
 
-No Univariate sheet (it ships in its own workbook — see [Univariate build](#univariate-build) below), no test sheets, no OLS analysis, no cache dependency.
+No test sheets, no OLS analysis, no cache dependency.
 
 **All `build_production.py` options:**
 
@@ -283,42 +277,6 @@ uv run python scripts/build_production.py
 uv run python scripts/build_production.py --verify --no-launch
 ```
 
-### Univariate build
-
-```powershell
-uv run python scripts/build_univariate.py
-```
-
-Produces `Lambda_Library_Univariate.xlsx` — the distributable Univariate artifact committed to the repo. Writes four sheets: **LAMBDA_functions**, **Life Expectancy Data** (the dataset the Univariate data zone reads via `LifeExpectancyData[Life expectancy]`), **Univariate** (descriptive statistics, histogram binning, and the two-stage MLE fitting — Weibull and Gamma via 1-D profile-NLL searches, Beta via two `Full_Factorial` dynamic-array spills (the Cartesian product of candidate parameters), the other five distributions in closed form; **no Excel Data Tables**), and **Version History** (the Univariate artifact's own lineage, starting at 1.0.0). Carries the complete 141-function library; no Regression-side sheets.
-
-**All `build_univariate.py` options:**
-
-| Flag | Default | What it does |
-|---|---|---|
-| `--workbook PATH` | `Lambda_Library_Univariate.xlsx` | Path to the workbook to create or update. |
-| `--definitions PATH` | `lambda_functions.json` | Path to the JSON catalog of LAMBDA definitions. |
-| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV written to the **Life Expectancy Data** sheet. |
-| `--verify` | off | After the build, run the spec-driven verifier (`lambda_catalog.deep_verify.verify_test_sheets` with `skip_regression=True`) against the Life Expectancy and Univariate sheets. On any drift, print a structured `VerifyReport` and `sys.exit(1)`. |
-| `--no-verify` | (default) | Explicitly disable the verifier pass. |
-| `--no-launch` | off | Suppress the post-build `cmd /c start <workbook>` Excel handoff. |
-| `--validate-reopen` | off | Reopen the workbook after syncing names to confirm Excel accepts the result. |
-| `--verbose` | off | Print per-phase timing checkpoints to stdout. |
-| `--log PATH` | `excel-only-runs/<script> <flags>.log` | Where to archive this run's transcript, exactly as for `build_production.py`. |
-
-Common combinations:
-
-```powershell
-# Build + verify the standalone Univariate workbook. This is `poe verify-deep-univariate`.
-# The rebuild always runs so the shipped Beta Full_Factorial spills are computed, not stale.
-uv run python scripts/build_univariate.py --verify --no-launch
-
-# If all you need is the workbook-scoped name manager, you do not need Excel
-# at all — `python tools/resync_workbook_names.py Lambda_Library_Univariate.xlsx`
-# rewrites and reports those names from the catalog in about a second. The
-# sheet-scoped names and the layout only the sheet writers produce.
-uv run python scripts/build_univariate.py --no-launch
-```
-
 ## Verifying builds
 
 There are two verifier layers with different speeds and different scopes. Run them in this order when in doubt; either can be skipped if the other has been run recently.
@@ -343,21 +301,17 @@ This is a fast screen. A green run does **not** mean the workbook calculates cor
 Reuses `lambda_catalog.deep_verify.verify_test_sheets` against the production sheets. This is the source of truth for cell-level correctness.
 
 ```powershell
-# Run the Regression production build, recalculate, then verify against the
+# Run the production build, recalculate, then verify against the
 # spec oracle. On drift: print a structured VerifyReport, sys.exit(1), and do
 # NOT open Excel (so a stale build cannot be launched in place of a fresh one).
 # The rebuild is cheap and always runs — it is the source of truth the verifier reads.
 python scripts/build_production.py --verify --no-launch
-
-# Same, for the standalone Univariate workbook:
-python scripts/build_univariate.py --verify --no-launch
 
 # Same, for the Regression model-case fixture workbook:
 python scripts/build_test_models.py --verify --no-launch
 
 # Or, on the just-built workbook without rebuilding:
 uv run python tools/verify_workbook.py Lambda_Library.xlsx
-uv run python tools/verify_workbook.py Lambda_Library_Univariate.xlsx --skip-regression
 uv run python tools/verify_workbook.py Lambda_Library.xlsx --json   # agentic consumption
 ```
 
@@ -409,7 +363,6 @@ rather than a silent no-op that excludes nothing.
 |---|---|---|
 | `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV used for the `Full_Data` comparison. |
 | `--mileage PATH` | `sample_data/auto_mpg_data.csv` | Auto MPG CSV for the Mileage Data `Full_Data` comparison and the Regression spec oracle. |
-| `--skip-regression` | off | Skip every Regression / Mileage / Production Lots check. Use to verify the standalone Univariate workbook, which carries none of those sheets; the Life Expectancy and Univariate checks still run. |
 | `--json` | off | Emit the report as JSON (stable schema, for agentic consumption) instead of the human-readable form. |
 | `--verbose` | off | Print per-phase checkpoints from the spec-driven verifier. |
 
@@ -425,20 +378,19 @@ Expected terminal flow for the one-shot command:
 ### `poe verify`
 
 ```powershell
-poe verify                  # both layers, both artifacts, plus the test-model suite
+poe verify                  # both layers, plus the test-model suite
 poe verify-headless         # Layer 1 only (any platform)
-poe verify-deep             # Layer 2, Regression artifact (needs Excel)
-poe verify-deep-univariate  # Layer 2, Univariate artifact (needs Excel)
+poe verify-deep             # Layer 2, the workbook (needs Excel)
 poe verify-test-models      # Layer 2, the ~48-sheet test-model suite (needs Excel)
 ```
 
-**`poe verify` runs the three builds concurrently, then screens their output.** It stops at the first stage that exits non-zero, and the stage boundary is what makes the order matter: `verify-headless` reads whatever `.xlsx` files are sitting in `dist/`, and the deep tasks *rewrite* those files. The task used to run the screen first, which meant it validated the previously committed artifacts and never looked at the ones the run had just built — a rebuild that broke a defined name or orphaned a chart relationship passed `verify` clean. Builds first, screen last.
+**`poe verify` runs the two builds concurrently, then screens their output.** It stops at the first stage that exits non-zero, and the stage boundary is what makes the order matter: `verify-headless` reads whatever `.xlsx` files are sitting in `dist/`, and the deep tasks *rewrite* those files. The task used to run the screen first, which meant it validated the previously committed artifacts and never looked at the ones the run had just built — a rebuild that broke a defined name or orphaned a chart relationship passed `verify` clean. Builds first, screen last.
 
-The three builds overlap safely because they share nothing: each driver opens its own `xw.App(visible=False, add_book=False)` and reaches every workbook through that instance's `app.books` handle (there is no bare `xw.Book()` or `xw.apps.active` anywhere in the package), and they write three different artifacts and three differently-named transcripts. The one file two of them could have contended over is `templates/static_sheets.xlsx`, which `copy_static_sheet` opens read-only. Output is buffered per task rather than interleaved, so each transcript stays contiguous.
+The two builds overlap safely because they share nothing: each driver opens its own `xw.App(visible=False, add_book=False)` and reaches every workbook through that instance's `app.books` handle (there is no bare `xw.Book()` or `xw.apps.active` anywhere in the package), and they write two different artifacts and two differently-named transcripts. The one file they could have contended over is `templates/static_sheets.xlsx`, which `copy_static_sheet` opens read-only. Output is buffered per task rather than interleaved, so each transcript stays contiguous.
 
-Wall time becomes roughly the longest build — `verify-test-models`, minutes — instead of the sum of all three. The cost is three Excel instances competing for CPU; on a constrained machine, run the `verify-*` tasks one at a time instead. **None of this is checkable in CI** (no GitHub-hosted runner has Office), so a change to the `verify` task needs a developer-machine run archived to `excel-only-runs/`.
+Wall time becomes roughly the longest build — `verify-test-models`, minutes — instead of the sum of both. The cost is two Excel instances competing for CPU; on a constrained machine, run the `verify-*` tasks one at a time instead. **None of this is checkable in CI** (no GitHub-hosted runner has Office), so a change to the `verify` task needs a developer-machine run archived to `excel-only-runs/`.
 
-`poe verify-deep` shells out to `build_production.py --verify --no-launch` and `poe verify-deep-univariate` to `build_univariate.py --verify --no-launch`, so each both rebuilds and verifies its own artifact. Both tee their run into [`excel-only-runs/`](excel-only-runs/) (`<script> <flags>.log`, via `lambda_catalog.build_common.run_log_path`) — stderr and any traceback included — so a failed deep verify is a file you can commit and hand over rather than terminal scrollback; override the destination with `--log PATH`. To verify an already-built workbook, use `python tools/verify_workbook.py <workbook>` instead (with `--skip-regression` for the Univariate artifact).
+`poe verify-deep` shells out to `build_production.py --verify --no-launch`, so it both rebuilds and verifies the workbook. It tees its run into [`excel-only-runs/`](excel-only-runs/) (`<script> <flags>.log`, via `lambda_catalog.build_common.run_log_path`) — stderr and any traceback included — so a failed deep verify is a file you can commit and hand over rather than terminal scrollback; override the destination with `--log PATH`. To verify an already-built workbook, use `python tools/verify_workbook.py <workbook>` instead.
 
 The `verify-test-models` task passes `--verbose` because that run takes minutes across ~48 sheets: it names each sheet *before* writing it, so an interrupted run leaves the offending case on screen. It archives its transcript the same way — all three Excel-required drivers do. The heavy `L08` case is excluded by default; append `--include-heavy` (`poe verify-test-models --include-heavy`) to include it. Its Python oracle runs in the unit suite regardless.
 
@@ -450,13 +402,12 @@ GitHub Actions runs the unit-test suite on Python 3.10–3.13 (Ubuntu) on every 
 
 ```
 scripts/
-  build_production.py        # Regression production entry point → dist/Lambda_Library.xlsx
-  build_univariate.py        # Univariate production entry point → dist/Lambda_Library_Univariate.xlsx
+  build_production.py        # production entry point → dist/Lambda_Library.xlsx
   build_test_models.py       # Regression model-case fixture builder → Lambda_Library_TestModels.xlsx
                               # (gitignored; verify with --verify --no-launch)
   rebuild_static_sheets.py   # regenerates templates/static_sheets.xlsx from its Python source —
                               # see "Static reference sheets" below
-dist/                        # the two shipped .xlsx artifacts (build output, committed)
+dist/                        # the shipped .xlsx artifact (build output, committed)
 excel-only-runs/             # archived --verify transcripts from developer-machine runs
 lambda_functions.json         # LAMBDA definitions (source of truth)
 sample_data/
@@ -470,7 +421,7 @@ templates/
                               # "Static reference sheets" below
 lambda_catalog/
   catalog_schema.py          # typed document model: CatalogArgument, CatalogFunction, CatalogDocument
-  build_common.py            # shared build scaffolding (retry-on-open, recalculate-and-save) for the two production scripts
+  build_common.py            # shared build scaffolding (retry-on-open, recalculate-and-save) for the production script
   regression_shared.py       # shared regression dataclasses: RegressionSummary, RegressionVectors, etc.
   sheet_styles.py            # shared cell-formatting constants (colors, conditional formatting)
   workbook_builder.py        # shared core: sync_workbook_names, workbook XML patching
@@ -558,8 +509,8 @@ The name half of item 3 is recorded as a scoped follow-up in [docs/TODOs.md](doc
 
 1. Add an entry to `lambda_functions.json` with `name`, `formula_display`, `arguments`, `yields`, `description`, and `plain_language_summary`. Add `notes` for the Name Manager tooltip (255 characters max), and `scope` only when the function is a sheet-scoped closure rather than a portable workbook name.
 2. Add or update the relevant Python oracle when the function feeds a production analysis surface (for example, Regression outputs in `analyze_regression_sheet.py` / `analyze_regression_spec.py` or Univariate outputs in `analyze_univariate.py`).
-3. Run the appropriate verifier (`poe verify-headless`, `python scripts/build_production.py --verify --no-launch`, `python scripts/build_univariate.py --verify --no-launch`, and/or `python scripts/build_test_models.py --verify --no-launch`) and confirm no unexpected WARNING lines appear.
-4. Run `python scripts/build_production.py` and/or `python scripts/build_univariate.py` to rebuild the distributables that carry the function.
+3. Run the appropriate verifier (`poe verify-headless`, `python scripts/build_production.py --verify --no-launch`, and/or `python scripts/build_test_models.py --verify --no-launch`) and confirm no unexpected WARNING lines appear.
+4. Run `python scripts/build_production.py` to rebuild the distributable that carries the function.
 5. Move the **library version**, not a workbook version — a new function ships through the catalog. See [Which version number moves](#which-version-number-moves).
 
 ## Cell styling
@@ -627,14 +578,14 @@ Two scopes, two owners, no overlap:
 
 `sync_workbook_names` enforces the second row literally. On every build it removes **every** workbook-scoped `<definedName>` that is neither a catalog function nor one of Excel's reserved `_xlnm.*` names, then writes the catalog entries fresh. Sheet-scoped entries are never touched.
 
-Anything workbook-scoped and outside the catalog is residue from an earlier build, and the v3.0 split produced a lot of it: each artifact was carrying the other one's chart ranges at workbook scope, pointing at `#REF!` (twelve `RegChart*` entries in the Univariate workbook, forty-two `UV_*` entries in the Regression workbook), plus twenty-one LAMBDA names the catalog had retired. The sheet-scoped originals were correct the whole time — only the stale workbook-scoped copies were broken, which is why the workbooks still rendered their charts.
+Anything workbook-scoped and outside the catalog is residue from an earlier build. The sheet-scoped originals were correct the whole time — only stale workbook-scoped copies were broken, which is why the workbook still rendered its charts. (The v3.0 split briefly produced cross-artifact residue when there were two workbooks; reunification eliminated that class of issue.)
 
 **A catalog function that names a missing worksheet is skipped, not written.** Excel does not leave such a reference unresolved: it rebinds it to an external workbook (`Regression!Source_Data` becomes `[1]!Source_Data`), writes an `xlExternalLinkPath/xlPathMissing` external-link part, and prompts about broken links every time the file is opened. No catalog function is sheet-qualified today. `Base_Period_Delta` was the one — its body read `'Regression'!Source_Data` / `Spec_Sequence` / `Spec_Sequence_Period`, so the standalone Univariate artifact did not carry it — and it is now **sheet-scoped** with unqualified references, one definition per Regression-shaped sheet. The guard stays because it is what stops the next sheet-qualified body shipping a broken link. The build prints `Skipped names: …` when it happens. When the last external reference goes, the orphaned external-link parts, relationships and content-type overrides are stripped with it.
 
-Keep a new workbook-scoped catalog LAMBDA sheet-agnostic unless it is deliberately Regression-only. If it must read the spec block, expect it to be skipped in the Univariate artifact.
+Keep a new workbook-scoped catalog LAMBDA sheet-agnostic unless it is deliberately Regression-only (sheet-scoped). If it must read the spec block, it should be sheet-scoped to `Regression` rather than workbook-scoped.
 
-**Checks and repair.** `tests/test_workbook_invariants.py::TestRealWorkbookNameScope` asserts workbook-scope ownership, error-free defined-name bodies, and the absence of external links against both committed artifacts on every commit — pure zipfile + lxml, so it runs in CI without Excel. To re-apply the cleanup to a built artifact without a full rebuild (also Excel-free):
+**Checks and repair.** `tests/test_workbook_invariants.py::TestRealWorkbookNameScope` asserts workbook-scope ownership, error-free defined-name bodies, and the absence of external links against the committed artifact on every commit — pure zipfile + lxml, so it runs in CI without Excel. To re-apply the cleanup to a built artifact without a full rebuild (also Excel-free):
 
 ```bash
-python tools/resync_workbook_names.py Lambda_Library.xlsx Lambda_Library_Univariate.xlsx
+python tools/resync_workbook_names.py Lambda_Library.xlsx
 ```

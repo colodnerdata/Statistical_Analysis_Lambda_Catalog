@@ -36,14 +36,12 @@ _EXPECTED_TASK_NAMES = [
     "check",
     "verify-headless",
     "verify-deep",
-    "verify-deep-univariate",
     "verify-test-models",
     "verify-guards",
     "verify-spec-errors",
     "verify-models",
     "verify",
     "build",
-    "build-univariate",
     # Added with the presentation demo workbook; the pin was not updated in
     # the same commit, so this list was one merge away from failing on main.
     "build-presentation-demo",
@@ -118,7 +116,6 @@ def test_verify_builds_the_artifacts_before_screening_them(
     assert steps[-1] == "verify-headless"
     assert steps[0]["parallel"] == [
         "verify-deep",
-        "verify-deep-univariate",
         "verify-test-models",
     ]
 

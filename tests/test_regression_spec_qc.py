@@ -161,23 +161,19 @@ def test_calculate_verification_sheets_calculates_every_required_sheet() -> None
     ]
 
 
-def test_verification_calc_sheet_names_respects_skip_univariate_flag() -> None:
+def test_verification_calc_sheet_names_always_includes_univariate() -> None:
 
+    assert "Univariate" in deep_verify._verification_calc_sheet_names()
     assert "Univariate" in deep_verify._verification_calc_sheet_names(
-        skip_univariate=False
-    )
-    assert "Univariate" not in deep_verify._verification_calc_sheet_names(
-        skip_univariate=True
+        skip_regression=True
     )
 
 
 def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate_missing() -> (
     None
 ):
-    """The Regression workbook (built by build_production.py) never contains
-    a Univariate sheet post-v3.0. Verification must skip it with a warning,
-    not raise, regardless of whether skip_univariate was explicitly passed
-    for this call."""
+    """A workbook without a Univariate sheet (e.g. a test-model artifact)
+    must skip it with a warning, not raise."""
 
     calls: list[str] = []
 
@@ -203,8 +199,6 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
         ),
     )
 
-    # skip_univariate not passed (defaults False) — the sheet is simply
-    # absent from this workbook, which must still be handled gracefully.
     deep_verify._calculate_verification_sheets(
         workbook,
         verbose=False,
@@ -220,57 +214,33 @@ def test_calculate_verification_sheets_warns_instead_of_crashing_when_univariate
     ]
 
 
-def test_univariate_stage_is_silent_when_the_caller_opted_out() -> None:
-    """skip_univariate=True must skip the stage outright, not fall through to it.
-
-    This is the bug that made `build_production.py --verify` exit 1 on a
-    perfectly good Regression artifact. The old branch read
-
-        if "Univariate" not in sheets and not skip_univariate:  warn
-        else:                                                   check
-
-    so the Regression case — sheet absent *and* skip_univariate=True — landed
-    in the else and ran the check anyway, which reported
-    "[Univariate] sheet is missing" as a QC failure. The absence is by design
-    since the v3.0 split: nothing to check, nothing to warn about.
-    """
+def test_univariate_stage_warns_when_sheet_is_missing() -> None:
+    """A workbook without a Univariate sheet (e.g. a test-model artifact)
+    must warn rather than run the comparison — the absence is by design for
+    those artifacts, not a QC failure."""
 
     assert (
         deep_verify._univariate_verification_action(
-            {"Regression", "Mileage Data"}, skip_univariate=True
-        )
-        == "skip"
-    )
-
-
-def test_univariate_stage_warns_when_the_sheet_is_unexpectedly_missing() -> None:
-    """A caller that did NOT opt out and has no Univariate sheet gets a warning
-    — worth saying out loud, but not a QC failure."""
-
-    assert (
-        deep_verify._univariate_verification_action(
-            {"Regression"}, skip_univariate=False
+            {"Regression", "Mileage Data"}
         )
         == "warn"
     )
 
 
 def test_univariate_stage_checks_when_the_sheet_is_present() -> None:
-    """The Univariate artifact's own verify run must actually run the check."""
+    """The unified workbook's verify run must actually run the Univariate check
+    when the sheet is present."""
 
     assert (
         deep_verify._univariate_verification_action(
-            {"Univariate", "Life Expectancy Data"}, skip_univariate=False
+            {"Regression", "Univariate", "Life Expectancy Data"}
         )
         == "check"
     )
-    # Opting out wins even when the sheet is there, so a caller can always
-    # bound what it verifies.
+    # A workbook with only the Univariate sheet still checks it.
     assert (
-        deep_verify._univariate_verification_action(
-            {"Univariate"}, skip_univariate=True
-        )
-        == "skip"
+        deep_verify._univariate_verification_action({"Univariate"})
+        == "check"
     )
 
 

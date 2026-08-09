@@ -241,10 +241,11 @@ Two-way FE is deliberately deferred until this framework is finished — see
 ## v3.0 leftovers
 
 The engine-interface release shipped 2026-08-02 in three stages plus the
-two-artifact split: stage 1 constructor pipeline + intercept relocation (#148),
-stage 2 `Model_Context` (#150), stage 3 layout (#152), plus polish (#153, #154).
-Every stage cleared the spec-driven Excel gate at 0 mismatches across all 12 QC
-cases. Narrative in [ROADMAP.md](ROADMAP.md#v30--the-engine-interface-release--shipped-2026-08-02);
+Univariate split (later reunified): stage 1 constructor pipeline + intercept
+relocation (#148), stage 2 `Model_Context` (#150), stage 3 layout (#152), plus
+polish (#153, #154). Every stage cleared the spec-driven Excel gate at 0
+mismatches across all 12 QC cases. Narrative in
+[ROADMAP.md](ROADMAP.md#v30--the-engine-interface-release--shipped-2026-08-02);
 rationale in
 [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
 
@@ -270,8 +271,9 @@ cross-artifact name residue. See
   the `"reserved"` placeholders where the `Sample_Include` and Constructed Design
   Matrix spills now belong. Its Version History and interaction wiring are
   current (2.1.0 / 2.2.0 / 3.1.0 entries are all present), so this is the
-  materialization work and nothing else. The Univariate artifact is already
-  rebuilt and committed (#160) — this item is Regression-only now.
+  materialization work and nothing else. The Univariate sheet was already
+  rebuilt and committed (#160) — this item was Regression-only before the
+  reunification merged both sheets into one workbook.
 
   A second, cosmetic reason has since joined it: the Normal Q-Q chart no longer
   forces equal axis limits, so the shipped chart still carries the old scaling
@@ -699,10 +701,12 @@ developer-machine `poe verify` after the concurrency change, on 2026-08-06 —
 the run [CONTRIBUTING.md](../CONTRIBUTING.md) asks for and no CI can perform.
 The transcripts are in [excel-only-runs/](../excel-only-runs).
 
-The concurrency itself worked: three Excel instances built three artifacts side
+The concurrency itself worked: multiple Excel instances built artifacts side
 by side for ~84 minutes with no contention over `templates/static_sheets.xlsx`,
-and both completed verifiers passed (Univariate `Verify: passed`; test-models
-48/48 `ok`). What follows is what the run exposed around it.
+and the verifiers passed (Univariate `Verify: passed`; test-models 48/48 `ok`).
+What follows is what the run exposed around it. (The three-artifact concurrency
+described here was from the pre-reunification split era; the unified build
+now produces one workbook.)
 
 - **READY · S · needs Excel** — **`warn_if_workbook_open` deadlocks under
   `poe verify`.** Its prompt is an `input()` call, but the warning above it goes

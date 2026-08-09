@@ -1,15 +1,18 @@
-"""Tests for the Regression production build driver that do not require Excel."""
+"""Tests for the unified production build driver that do not require Excel."""
 
 # pylint: disable=invalid-name,missing-function-docstring,protected-access,too-few-public-methods
 from __future__ import annotations
 
+import argparse
 import contextlib
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from typing import cast
 
 import pytest
 
+from lambda_catalog.build_common import positive_grid_size
 from lambda_catalog.verify_report import VerifyReport
 from lambda_catalog.workbook_builder import NameSyncResult
 from tests.script_loader import load_script_module
@@ -142,6 +145,7 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
         lambda _: SimpleNamespace(
             functions=(),
             regression_sheet_notes={},
+            univariate_sheet_notes={},
             functions_for_sheet=lambda _sheet: (),
         ),
     )
@@ -227,6 +231,7 @@ def test_main_retries_dropped_rpc_session_during_sheet_write(
             no_launch=False,
             log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
     )
     monkeypatch.setattr(
@@ -313,6 +318,7 @@ def test_workbook_open_check_runs_before_the_first_sheet_write(
             no_launch=True,
             log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
         Path("Example.xlsx").resolve(),
     )
@@ -365,6 +371,7 @@ def _stub_regression_build_writers(monkeypatch, writer_calls: list[str]) -> None
             functions=(),
             workbook_functions=(),
             regression_sheet_notes={},
+            univariate_sheet_notes={},
             functions_for_sheet=lambda _sheet: (),
         ),
     )
@@ -384,6 +391,7 @@ def _stub_regression_build_writers(monkeypatch, writer_calls: list[str]) -> None
         "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
         "write_regression_output_sheet",
+        "write_univariate_sheet",
     ]:
         monkeypatch.setattr(
             build_production,
@@ -397,10 +405,9 @@ def _stub_regression_build_writers(monkeypatch, writer_calls: list[str]) -> None
     )
 
 
-def test_build_never_writes_univariate_sheet(monkeypatch, tmp_path) -> None:
-    """The Regression workbook ships no Univariate sheet (it moved to its own
-    artifact in v3.0), so build_production_workbook must never call a Univariate
-    writer — and indeed does not even import one."""
+def test_build_writes_univariate_sheet(monkeypatch, tmp_path) -> None:
+    """The unified workbook ships the Univariate sheet alongside the Regression
+    sheet, so build_production_workbook must call write_univariate_sheet."""
     app = _RecordingApp()
     monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
 
@@ -414,17 +421,15 @@ def test_build_never_writes_univariate_sheet(monkeypatch, tmp_path) -> None:
         recalculate=False,
     )
 
-    assert "write_univariate_sheet" not in writer_calls
+    assert "write_univariate_sheet" in writer_calls
     assert "write_regression_output_sheet" in writer_calls
     assert "write_csv_dataset_sheet" in writer_calls
     assert app.book.saved_paths == [str(tmp_path / "Example.xlsx")]
-    # build_production must not import the Univariate writer at all.
-    assert not hasattr(build_production, "write_univariate_sheet")
 
 
 def test_build_sets_full_automatic_calc_mode(monkeypatch, tmp_path) -> None:
-    """The Regression workbook returns to full Automatic (the Univariate Data
-    Tables that forced SEMIAUTOMATIC moved to their own artifact)."""
+    """The unified workbook returns to full Automatic (the Data Tables that
+    once forced a split into two artifacts were removed)."""
     app = _RecordingApp()
     monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
 
@@ -469,6 +474,7 @@ def test_main_always_rebuilds_regression(
             no_launch=True,
             log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
     )
     monkeypatch.setattr(
@@ -521,6 +527,7 @@ def test_main_no_launch_suppresses_post_build_excel_handoff(
             no_launch=True,
             log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
     )
     monkeypatch.setattr(
@@ -588,6 +595,7 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
             no_launch=False,
             log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
     )
     monkeypatch.setattr(
@@ -664,6 +672,7 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
             no_launch=False,
             log=tmp_path / "build.log",
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
     )
     monkeypatch.setattr(
@@ -735,6 +744,7 @@ def test_main_archives_the_verify_report_to_the_run_log(
             no_launch=True,
             log=log_path,
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
     )
     monkeypatch.setattr(
@@ -792,6 +802,7 @@ def test_main_archives_the_traceback_when_the_build_aborts(
             no_launch=True,
             log=log_path,
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
     )
     monkeypatch.setattr(build_production, "build_production_workbook", explode)
@@ -840,6 +851,7 @@ def test_main_defaults_the_run_log_to_excel_only_runs(monkeypatch) -> None:
             no_launch=True,
             log=None,
             regression_dataset="auto_mpg",
+            beta_grid_size=10,
         ),
     )
     monkeypatch.setattr(
@@ -874,6 +886,7 @@ def test_build_uses_life_expectancy_source_table_when_requested(
             functions=(),
             workbook_functions=(),
             regression_sheet_notes={},
+            univariate_sheet_notes={},
             functions_for_sheet=lambda _sheet: (),
         ),
     )
@@ -898,6 +911,9 @@ def test_build_uses_life_expectancy_source_table_when_requested(
         build_production, "write_version_history_sheet", lambda *_, **__: None
     )
     monkeypatch.setattr(
+        build_production, "write_univariate_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
         build_production,
         "write_regression_output_sheet",
         lambda *args, **kwargs: called.__setitem__(
@@ -916,6 +932,7 @@ def test_build_uses_life_expectancy_source_table_when_requested(
         csv_path=tmp_path / "life_expectancy.csv",
         recalculate=False,
         regression_dataset="life_expectancy",
+        beta_grid_size=10,
     )
 
     assert called["source_table_ref"] == "=LifeExpectancyData[#All]"
@@ -932,6 +949,7 @@ def test_build_defaults_to_life_expectancy_source_table(monkeypatch, tmp_path) -
             functions=(),
             workbook_functions=(),
             regression_sheet_notes={},
+            univariate_sheet_notes={},
             functions_for_sheet=lambda _sheet: (),
         ),
     )
@@ -948,6 +966,7 @@ def test_build_defaults_to_life_expectancy_source_table(monkeypatch, tmp_path) -
         "write_regression_instructions_sheet",
         "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
+        "write_univariate_sheet",
     ]:
         monkeypatch.setattr(build_production, name, lambda *_, **__: None)
     monkeypatch.setattr(
@@ -1010,9 +1029,10 @@ class _TabOrderBook:
 def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
     monkeypatch,
 ) -> None:
-    """The Regression workbook's tab order puts the three data sheets first, then
-    Version History, then the Regression workbench sheets, with LAMBDA_functions
-    last. There is no Univariate tab (it ships in its own workbook)."""
+    """The unified workbook's tab order puts the analysis templates first
+    (Regression, Regression Instructions, Diagnostic Guide, Univariate),
+    then the reference sheets (LAMBDA_functions, Version History), then the
+    data sheets (Production Lots, Life Expectancy Data, Mileage Data)."""
     book = _TabOrderBook(
         [
             "LAMBDA_functions",
@@ -1023,6 +1043,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
             "Production Lots",
             "Version History",
             "Regression Instructions",
+            "Univariate",
         ]
     )
     tab_colors: dict[str, tuple[int, int, int]] = {}
@@ -1038,21 +1059,23 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
 
     build_production._reorder_and_style_sheet_tabs(book)
 
-    assert book.sheets.names()[:8] == [
-        "Mileage Data",
-        "Life Expectancy Data",
-        "Production Lots",
-        "Version History",
-        "Regression Instructions",
+    assert book.sheets.names() == [
         "Regression",
+        "Regression Instructions",
         "Diagnostic Guide",
+        "Univariate",
         "LAMBDA_functions",
+        "Version History",
+        "Production Lots",
+        "Life Expectancy Data",
+        "Mileage Data",
     ]
     assert tab_colors == {
         "Mileage Data": (217, 217, 217),
         "Life Expectancy Data": (217, 217, 217),
         "Production Lots": (217, 217, 217),
         "Version History": (128, 128, 128),
+        "Univariate": build_production.SUBHDR_COLOR,
         "Regression Instructions": build_production.SUBHDR_COLOR,
         "Regression": build_production.SUBHDR_COLOR,
         "Diagnostic Guide": build_production.SUBHDR_COLOR,
@@ -1076,12 +1099,12 @@ class _FakeVerifyRecorder:
         }
 
 
-def test_run_deep_verify_forwards_skip_regression_false_and_skip_univariate_true(
+def test_run_deep_verify_does_not_skip_univariate_or_regression(
     monkeypatch,
 ) -> None:
-    """The Regression artifact's verify path must run the full Regression check
-    (skip_regression defaults to False) while still skipping the Univariate
-    check (the Regression workbook ships no Univariate sheet)."""
+    """The unified workbook's verify path must run both the full Regression
+    check and the Univariate check — both sheets are present in the single
+    workbook, so no skip flag is passed."""
     app = _FakeApp()
     monkeypatch.setattr(build_production.xw, "App", lambda **_: app)
 
@@ -1103,10 +1126,45 @@ def test_run_deep_verify_forwards_skip_regression_false_and_skip_univariate_true
     )
 
     assert report.passed is True
-    # _run_deep_verify does not pass skip_regression explicitly, so it defaults
-    # to False — the full Regression check runs (this artifact HAS a Regression
-    # sheet). skip_univariate=True is passed explicitly (no Univariate sheet).
-    assert fake_verify.verify_kwargs["skip_univariate"] is True
+    # Neither skip_univariate nor skip_regression is passed — both sheets
+    # are present in the unified workbook, so both checks run.
+    assert "skip_univariate" not in fake_verify.verify_kwargs
     assert fake_verify.verify_kwargs.get("skip_regression", False) is False
     # The Regression path passes real regression_sheet_configs (not None).
     assert fake_verify.verify_kwargs["regression_sheet_configs"] is not None
+
+
+# ── --beta-grid-size validation ───────────────────────────────────────────────
+#
+# The flag only sets the shipped default for the in-sheet Grid Points cell, but
+# an out-of-range value still builds: Full_Factorial tolerates N=1 via its
+# MAX(1,N-1) divisor, so nothing raises, and the artifact ships with #DIV/0!
+# Step cells and degenerate grids. The floor is enforced at parse time instead,
+# by the same MIN_GRID_POINTS the in-sheet Validation and conditional format
+# use, so all three surfaces agree.
+
+
+@pytest.mark.parametrize("value", ["2", "10", "40"])
+def test_positive_grid_size_accepts_values_at_or_above_the_floor(value: str) -> None:
+    assert positive_grid_size(value) == int(value)
+
+
+@pytest.mark.parametrize("value", ["1", "0", "-5"])
+def test_positive_grid_size_rejects_values_below_the_floor(value: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError, match="at least 2"):
+        positive_grid_size(value)
+
+
+@pytest.mark.parametrize("value", ["abc", "2.5", ""])
+def test_positive_grid_size_rejects_non_integers(value: str) -> None:
+    with pytest.raises(argparse.ArgumentTypeError, match="whole number"):
+        positive_grid_size(value)
+
+
+def test_beta_grid_size_flag_is_validated(monkeypatch) -> None:
+    """The CLI routes --beta-grid-size through positive_grid_size."""
+    monkeypatch.setattr(
+        sys, "argv", ["build_production.py", "--beta-grid-size", "1"]
+    )
+    with pytest.raises(SystemExit):
+        build_production.parse_args()

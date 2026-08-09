@@ -1,5 +1,5 @@
 python build_production.py 
-Workbook: C:\local_python\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
 Sheet updated: Mileage Data
@@ -8,10 +8,11 @@ Sheet updated: Regression Instructions
 Sheet updated: Diagnostic Guide
 Sheet updated: Version History
 Sheet updated: Regression
+Sheet updated: Univariate
 Created names: 0
 Updated names: 123
 Removed names: 0
-Timing: build+sync    151.4s
-Timing: recalculate   20.5s
-Timing: total         171.9s
-Log: C:\local_python\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production.log
+Timing: build+sync    174.8s
+Timing: recalculate   21.8s
+Timing: total         196.6s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production.log

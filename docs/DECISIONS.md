@@ -818,8 +818,8 @@ Method." *Journal of the American Statistical Association*, 78(383),
 in `write_sheet_regression_instructions.py`) needed a correction once
 column G's Transform wiring shipped (it still called Transform an unread
 placeholder). Fixing the Python source alone turned out not to be
-enough — `build_production.py` / `build_univariate.py` never execute `_ROWS`;
-they only copy the already-baked sheet out of
+enough — `build_production.py` never executes `_ROWS`;
+it only copies the already-baked sheet out of
 `templates/static_sheets.xlsx` (see CONTRIBUTING.md → "Static reference
 sheets"). Regenerating that template was, until now, a per-sheet manual
 step (`python -m lambda_catalog.write_sheet_regression_instructions`,
@@ -1034,7 +1034,19 @@ The v3.0 *scope* — which of these ship together — is the one open question, 
 it lives in [ROADMAP.md](ROADMAP.md), in the v3.0 milestone entry.
 Everything below is resolved.
 
-### Univariate becomes its own workbook
+### Univariate becomes its own workbook — SUPERSEDED
+
+> **SUPERSEDED** by
+> [§ the Data-Table driver for the workbook split retires](#v3x--betas-grid-search-becomes-a-full_factorial-spill-the-data-table-driver-for-the-workbook-split-retires).
+> The split was driven by a Data Tables calculation-mode conflict: Beta's
+> two-stage grid search used two two-input Data Tables, forcing
+> `XL_CALCULATION_SEMIAUTOMATIC` on any workbook that contained them, which
+> stale-ified the Regression sheet's live results. Once Beta moved to a
+> `Full_Factorial` dynamic-array spill, the Data Tables were gone, the
+> calculation-mode conflict vanished, and the two workbooks were reunified
+> into one (`Lambda_Library.xlsx`), built by one script
+> (`build_production.py`). The decision below is preserved as the historical
+> record; its rationale no longer applies.
 
 **Question:** the shipped workbook leaves Excel in
 `XL_CALCULATION_SEMIAUTOMATIC` — Automatic except Data Tables. Should the build
@@ -1042,7 +1054,7 @@ keep emitting one artifact?
 
 **Resolution:** the build emits **two workbooks**. Univariate Analysis moves to
 its own artifact; the Regression workbook keeps every other sheet. **Both
-workbooks carry the complete function library** — all 131 catalog functions ship
+workbooks carry the complete function library** — all catalog functions ship
 in both Name Managers. There is no bundling, no dependency closure, and no
 per-artifact function subsetting; the workbooks differ only in which sheets they
 contain. Splitting lets each artifact set its own calculation mode, and the
@@ -1066,13 +1078,16 @@ only — no formula, no input cell, and no named range changes meaning. Per the
 public-interface definition in [ROADMAP.md](ROADMAP.md), every specification
 valid before the split produces the same result after it.
 
-**Mechanism — shipped.** The two build targets now exist:
-`build_production.py` emits the Regression artifact (`Lambda_Library.xlsx`,
-Regression-only, full Automatic) and `build_univariate.py` emits the Univariate
+**Mechanism — shipped (later reunified).** The two build targets that
+existed during the split era:
+`build_production.py` emitted the Regression artifact (`Lambda_Library.xlsx`,
+Regression-only, full Automatic) and `build_univariate.py` emitted the Univariate
 artifact (`Lambda_Library_Univariate.xlsx`, full Automatic including Data
 Tables). Shared build scaffolding lives in `lambda_catalog/build_common.py`,
 and the verifier carries a `skip_regression` mode so a Univariate-only workbook
 is checked without its absent Regression / Mileage / Production Lots sheets.
+After the `Full_Factorial` rework eliminated Data Tables, the two scripts were
+merged back into the single `build_production.py` and the workbook was reunified.
 Resolves REVIEW.md F4.
 
 ### The grid shrink ships as a later release of the Univariate artifact
@@ -1777,7 +1792,15 @@ reason, so the band now carries two reserved positions and one live spill. The
 promotion lands at v3.2 alongside the design matrix's own materialization, since
 both need the same Excel-verified `#`-inside-a-`LAMBDA` answer.
 
-### Versioning across two artifacts
+### Versioning across two artifacts — SUPERSEDED
+
+> **SUPERSEDED** by the workbook reunification. The two-artifact split was
+> driven by a Data Tables calculation-mode conflict that no longer exists
+> (see
+> [§ the Data-Table driver for the workbook split retires](#v3x--betas-grid-search-becomes-a-full_factorial-spill-the-data-table-driver-for-the-workbook-split-retires)).
+> The build now emits one workbook, and one workbook version covers its input
+> surface. The decision below is the historical record of the two-artifact
+> era; its rationale no longer applies.
 
 **Question:** [ROADMAP.md](ROADMAP.md) defines the public interface as "the user's
 inputs to the workbook" — singular. Two emitted workbooks break that definition.
@@ -1872,9 +1895,11 @@ from .write_spec_block import (
 `write_sheet_regression.py`'s own module docstring states the intent: *"the
 spec-block writers are imported from write_spec_block so the two
 sheets can never drift."* Separately, the Model Construction **sheet** is
-deleted by both builds — `_delete_sheet_if_present(workbook, "Model
-Construction")` in `build_production.py` and `build_univariate.py` — so only one spec
-block ships at all.
+deleted by the build — `_delete_sheet_if_present(workbook, "Model
+Construction")` in `build_production.py` — so only one spec
+block ships at all. (During the split era, `build_univariate.py` carried the
+same delete; both scripts have since been merged back into the single
+`build_production.py`.)
 
 **Consequence for v3.0 scope:** the interaction columns, the audit column, and
 the materialization zone each land in **one** writer. F5 is not a cost of this
@@ -1933,7 +1958,7 @@ version: the four changes answer one question together, so they carry one number
 |---|---|---|
 | 1 | The constructor pipeline and the intercept relocation | **Shipped** (#148) |
 | 2 | `Model_Context` — `[Has_Intercept]` and `[DF_Absorbed]` collapse into `[Context]`; the two-name split (`Model_Context` constructor / `Fit_Context` reader) keeps `Model_Context` unshadowed; four `Context_*` accessors make the row order a contract enforced in one place; all four context rows materialized (1-2 feed the engines, 3-4 populated from the spec block for v3.3); `Sample_Include` placed at its final §4b position as a reserved placeholder (thunk materialization deferred to an Excel-verified follow-up) | **Shipped** (#150) |
-| + split | Univariate Analysis becomes its own workbook; the Regression workbook returns to full Automatic | **Shipped** (#151) |
+| + split | Univariate Analysis becomes its own workbook (later reunified); the Regression workbook returns to full Automatic | **Shipped** (#151) |
 | 3 | Layout — interaction spec columns M/N reserved, the Design Columns audit column and its pre-flight width guard, the Constructed Design Matrix zone | **Shipped** |
 
 **Rationale:** the order is forced by the dependencies the scope entry already
@@ -2345,7 +2370,8 @@ scope and no part of what v3.1 set out to do.
 named ranges at workbook scope — twelve `RegChart*` entries reading
 `OFFSET(#REF!,…)` in the Univariate workbook, forty-two `UV_*` entries in the
 Regression workbook, alongside twenty-one LAMBDA names the catalog retired
-releases ago. `sync_workbook_names` already stripped workbook-scoped residue,
+releases ago. (This was the split-era state; the workbooks have since been
+reunified, but the rule that caught the residue remains.) `sync_workbook_names` already stripped workbook-scoped residue,
 but only when the body *was* an error literal, and none of these were: they
 wrap the `#REF!` inside an `OFFSET(...)`. What is the rule that catches all of
 them?
@@ -2370,7 +2396,13 @@ name families come and go.
 `tests/test_workbook_invariants.py` asserts it against both committed
 artifacts on every commit — pure zipfile, no Excel, so it runs in CI.
 
-### The Univariate artifact does not carry `Base_Period_Delta`
+### The Univariate artifact did not carry `Base_Period_Delta` (historical — split era)
+
+> **Historical note.** This entry describes the behavior during the split era
+> when Univariate was a separate workbook. The workbooks have since been
+> reunified; `Base_Period_Delta` is now sheet-scoped (see
+> [§ `Base_Period_Delta` is sheet-scoped](#base_period_delta-is-sheet-scoped-not-workbook-scoped-and-sheet-qualified)),
+> so the cross-artifact concern no longer applies.
 
 **Question:** `Base_Period_Delta()` is workbook-scoped (workbook-scoped
 callers like `Difference_By` and `BFN_Panel_Durbin_Watson` fall back to it when
@@ -2697,7 +2729,25 @@ just records what was replaced, when, and by what.
   v2.x) → SUPERSEDED at v3.0 by one library version plus a
   per-workbook version, once the build began emitting two artifacts.
   The `Breaking?` flag moves to the workbook version, where the
-  question it answers actually lives.
+  question it answers actually lives. → **SUPERSEDED again** by the
+  workbook reunification: the build now emits one workbook
+  (`Lambda_Library.xlsx`), built by one script (`build_production.py`),
+  so there is one workbook version. The two-artifact split was driven by
+  a Data Tables calculation-mode conflict (Beta's two-input Data Tables
+  forcing `XL_CALCULATION_SEMIAUTOMATIC`); once Beta moved to a
+  `Full_Factorial` dynamic-array spill the Data Tables were gone and the
+  conflict vanished. See
+  [§ the Data-Table driver for the workbook split retires](#v3x--betas-grid-search-becomes-a-full_factorial-spill-the-data-table-driver-for-the-workbook-split-retires).
+- **Univariate becomes its own workbook** (v3.0) → SUPERSEDED by
+  the workbook reunification. The split was driven by a Data Tables
+  calculation-mode conflict that no longer exists (Beta moved to
+  `Full_Factorial` spills, Data Tables removed, calculation-mode conflict
+  gone). The two workbooks were reunified into one
+  (`Lambda_Library.xlsx`), built by one script (`build_production.py`).
+  See
+  [§ Univariate becomes its own workbook](#univariate-becomes-its-own-workbook--superseded)
+  and
+  [§ the Data-Table driver for the workbook split retires](#v3x--betas-grid-search-becomes-a-full_factorial-spill-the-data-table-driver-for-the-workbook-split-retires).
 - **Weibull and Gamma NLL as static 20×20 formula grids** (v3.0) →
   SUPERSEDED at Univariate 2.0.0 by the 1-D profile search. The formula
   grid was a holding position — it removed the Data Table object while
@@ -3883,9 +3933,9 @@ it, not a feature. Removing the group removes the click.
 
 ## v3.x+ — Beta's grid search becomes a Full_Factorial spill; the Data-Table driver for the workbook split retires
 
-**Question:** the v3.0 split ([§ Univariate becomes its own workbook](#univariate-becomes-its-own-workbook)) was forced by Excel's "Automatic except Data Tables" mode — Beta's two-stage grid search used two two-input Data Tables, and a combined workbook would either stale the Univariate fits or impose semiautomatic mode on every Regression user. The pending "grid shrink" entry ([§ The grid shrink ships as a later release](#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)) left "Beta's method-of-moments start and ~12×12 grid" open. With Beta now reworked onto a `Full_Factorial` dynamic-array spill, the Univariate artifact contains no Data Table at all. Does the split still earn its keep?
+**Question:** the v3.0 split ([§ Univariate becomes its own workbook](#univariate-becomes-its-own-workbook--superseded)) was forced by Excel's "Automatic except Data Tables" mode — Beta's two-stage grid search used two two-input Data Tables, and a combined workbook would either stale the Univariate fits or impose semiautomatic mode on every Regression user. The pending "grid shrink" entry ([§ The grid shrink ships as a later release](#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)) left "Beta's method-of-moments start and ~12×12 grid" open. With Beta now reworked onto a `Full_Factorial` dynamic-array spill, the Univariate artifact contains no Data Table at all. Does the split still earn its keep?
 
-**Resolution:** the mechanism changed; the split question is left open. Beta's grid search is now two dynamic-array spills per stage — a `Full_Factorial(N, mins, maxs)` grid of N²×2 (`Alpha | Beta`) and a `BYROW` NLL column that reads it through the `#` operator — laid out two stages side by side in a 6-column zone (BY:CD), sized live by an in-sheet N cell (default N=10). Both artifacts therefore ship in full Automatic, and the original driver — "Automatic except Data Tables" is the only mode that can ship a workbook containing a Data Table — is retired. **Whether to re-merge the two workbooks is undecided and deliberately not settled here.** This entry records only that the reason the split originally existed no longer applies; anyone revisiting the question starts from a blank slate rather than from a rationale written to defend the status quo.
+**Resolution:** the mechanism changed; the split question is left open. Beta's grid search is now two dynamic-array spills per stage — a `Full_Factorial(N, mins, maxs)` grid of N²×2 (`Alpha | Beta`) and a `BYROW` NLL column that reads it through the `#` operator — laid out two stages side by side in a 6-column zone (BY:CD), sized live by an in-sheet N cell (default N=10). The workbook therefore ships in full Automatic, and the original driver — "Automatic except Data Tables" is the only mode that can ship a workbook containing a Data Table — is retired. **Whether to re-merge the two workbooks is undecided and deliberately not settled here.** This entry records only that the reason the split originally existed no longer applies; anyone revisiting the question starts from a blank slate rather than from a rationale written to defend the status quo. *(The workbooks have since been reunified; this entry is the historical record of the mechanism change that made reunification possible.)*
 
 **Supersedes** the v3.0 *Univariate becomes its own workbook* entry's Data-Table rationale paragraph and closes the "Beta's method-of-moments start and ~12×12 grid are still open" tail of the *grid shrink* entry. The CLAUDE.md / CONTRIBUTING.md / README.md narratives describe the current mechanism and no longer argue for or against the split.
 

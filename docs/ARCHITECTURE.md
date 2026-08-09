@@ -875,11 +875,14 @@ the gap-aware semantics recorded in
   `Base_Period_Delta_Candidate` / `Sequence_Delta_Spectrum` remain
   available in the catalog but are not currently surfaced by any on-sheet
   display. It is workbook-scoped (its callers are), but its body reads the
-  Regression sheet, so it is the one catalog function the **standalone
-  Univariate artifact does not carry** — writing it into a workbook with no
-  Regression sheet makes Excel rebind the reference to a missing external
+  Regression sheet, so it is the one catalog function that is
+  **sheet-scoped** — it reads the Regression sheet's spec block, so it
+  resolves correctly in any workbook that carries a Regression template.
+  (During the split era when Univariate shipped in its own workbook without
+  a Regression sheet, Excel rebound the reference to a missing external
+  workbook; that concern is moot now that both templates ship in one
   workbook. See DECISIONS.md → v3.1 *"The Univariate artifact does not carry
-  `Base_Period_Delta`"*.
+  `Base_Period_Delta`"*, marked superseded by the reunification.)
 
 ### The row-aligned `""` convention
 

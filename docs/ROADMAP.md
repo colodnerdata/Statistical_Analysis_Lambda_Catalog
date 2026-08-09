@@ -58,55 +58,25 @@ existing inputs still work?" — without the number also having to convey "how b
 this release." Deliverable size is described in the changelog prose; breakage is the
 flag.
 
-### Two numbers, once the build emits two workbooks
+### One workbook, one number
 
-The definition above says "the user's inputs to **the** workbook" — singular. From
-the Univariate split that is no longer true, and one number cannot answer the
-question for two artifacts with entirely different input surfaces. The scheme:
+The build emits one workbook (`Lambda_Library.xlsx`), so there is one workbook
+version alongside the one library version. Both move under the same conditions
+stated above; the `Breaking?` flag attaches to the workbook version, since it
+answers a question about a user's saved inputs.
 
-| Number | Covers | Moves when |
-|---|---|---|
-| **Library version** | The shared function catalog — all 141 LAMBDA definitions, identical in both workbooks | A function is added, renamed, or changes what it returns |
-| **Workbook version** *(one per artifact)* | That artifact's sheets, input cells, control blocks, and sheet-scoped names | That workbook's input surface changes |
-
-**Why split this way.** Both workbooks carry the identical complete function
-library, so a function change is genuinely a shared event and should move one
-number. The input surfaces share nothing, so a Univariate layout change must not
-move the number a Regression user reads as the answer to "do my existing inputs
-still work?"
-
-**The `Breaking?` flag attaches to the workbook version, not the library version.**
-It answers a question about a user's saved inputs, and inputs are a property of a
-workbook's sheets. A library-version bump that adds a function breaks nothing.
-
-**How they display.** Each workbook's Version History sheet shows both, with its
-own workbook version as the headline and the library version beside it:
-
-```
-Regression Workbook 3.1.0   ·   Function Library 3.1.0
-Univariate Workbook 1.0.0   ·   Function Library 3.1.0
-```
-
-**One changelog serves both.** Entries stay in a single chronological list, each
-tagged with which artifact's version it moves (or `Library` for a shared function
-change). A reader filters by their artifact; a maintainer does not keep two files
-in sync. The Version History sheet in each workbook renders the entries tagged
-`Library` plus those tagged with that workbook.
-
-**Worked example — the first two uses.** The Univariate split is packaging only
-— every specification valid before it produces the same result after — so it
-moves neither workbook's *major*. It shipped as the Univariate artifact's **1.0.0**
-initial release; on the Regression side it was bundled into the non-breaking
-**3.0.0** (the split alone would have moved no Regression version, but it landed
-inside the v3.0 engine-interface release, whose 3.0.0 MAJOR marks the
-architectural milestone rather than a user-facing break). The grid shrink that
-follows is MAJOR for the Univariate workbook version alone, because its Scale
-Min/Max/Step input cells change meaning; it does not move the Regression workbook
-version, and neither does the library version unless a catalog function changes
-with it.
-
-Rationale in
-[DECISIONS.md § v3.0 versioning](DECISIONS.md#versioning-across-two-artifacts).
+**History.** From v3.0 through the Beta `Full_Factorial` rework, the build
+emitted two artifacts — a Regression workbook and a Univariate workbook — and
+the versioning scheme carried a separate per-workbook version. That split was
+driven by a Data Tables calculation-mode conflict: the Univariate sheet's Beta
+fit used two two-input Data Tables, forcing `XL_CALCULATION_SEMIAUTOMATIC`, which
+stale-ified the Regression sheet's live results. Once Beta moved to a
+`Full_Factorial` dynamic-array spill the Data Tables were gone, the
+calculation-mode conflict vanished, and the two workbooks were reunified into
+one. The split decision is marked SUPERSEDED in
+[DECISIONS.md § Univariate becomes its own workbook](DECISIONS.md#univariate-becomes-its-own-workbook--superseded);
+the reunification rationale is in
+[DECISIONS.md § the Data-Table driver for the workbook split retires](DECISIONS.md#v3x--betas-grid-search-becomes-a-full_factorial-spill-the-data-table-driver-for-the-workbook-split-retires).
 
 **Version ladder (current plan):**
 
@@ -118,7 +88,7 @@ Rationale in
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
 | v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Shipped inside the 3.0.0 artifact** — every TODOs #1–#10 item is DONE and verified against a live build (0 mismatches across all 12 spec-driven QC cases), with the FE engine independently pinned against `statsmodels` LSDV by `test_within_estimator`, `test_df_absorbed_threading`, and `test_group_prediction_interval`. `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Never got its own release build — the features reached users inside 3.0.0, and the 2.1.0 Version History entry was backfilled later, at v3.1, rather than written at release. DEFERRED follow-on polish remains |
 | v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR, and likewise shipped inside the 3.0.0 artifact; its 2.2.0 Version History entry was backfilled later, at v3.1, rather than written at release. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()` — renamed `Predictor_Columns()` at v3.0 — plus `Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open and ship as **v3.3**, after v3.0 |
-| **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the two-artifact split, and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
+| **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the Univariate split (later reunified — see below), and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0, later reunified). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
 | v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | **Shipped 2026-08-03** (workbook 3.1.0) — MINOR, and exactly the follow-on the reserved columns were for: three LAMBDA definitions and one audit formula changed, and no column moved. `Predictor_Columns()` and its two twins read M/N and emit the pairwise combination (1 column for Continuous × Continuous, L−1 for Continuous × Categorical, (L₁−1)(L₂−1) for Categorical × Categorical); the Design Columns audit gained its `k(row)×k(operand)` term in the same edit, off the same width helper. A spec with M and N blank computes identically to 3.0.0 |
 | v3.2 | Full materialization of the design matrix | No | Partially delivered — MINOR. The other follow-on: stage 3 established the terminal zone and its width guard, and the spills that fill it — `Design_Columns()` into the design-matrix zone, `Sample_Include()` into its own — landed in the code, replacing both `"reserved"` placeholders. Still open: pointing the ~30 engine call sites at those spills (the performance win the zone exists for), the deferred `Sample_Include()` thunk-over-a-spill promotion, which needs the `#` spill operator inside a `LAMBDA` defined-name and is only verifiable with Excel present, and the artifact rebuild that carries any of it to users |
 | v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the model formula label | No | **SHIPPED** — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2. The **standalone transform library** was planned inside this milestone and now ships as **v3.11** — it is the ladder's most expensive item to test, and nothing else waits on it |
@@ -128,10 +98,10 @@ Rationale in
 | v3.7 | `Weight` Role (WLS) | No | Planned — MINOR. *Planned as v2.6; claimed as v3.7 all along, though it reaches the slot by a different route.* User-supplied weights as the first stage; variance-driver-derived weights and FGLS as later follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument. Shipping after v3.0 is what makes that the first implementation rather than a rewrite. **Test scale: ~2×** over a representative subset |
 | v3.8 | Two-way Fixed Effects | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Forward wiring from the v2.1 FE engine. **Test scale: ~2×** over the FE family |
 | v3.9 | Standalone Data Transformation library (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix`) | No | Planned — MINOR. *Planned as the second half of v2.2, then carried as the v3.3 remainder.* **The last regression milestone**, because it is **the ~10× axis-widener** — every added Transform value multiplies the response × predictor dispatch table, so it lands against the most mature harness the Regression track ever has |
-| v3.10 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Planned — MINOR. *Planned as v2.5; claimed as v3.6, briefly held at v3.5.* **The first milestone that is not Regression work** — a new sheet and a new analysis surface, held until the Regression artifact is feature-complete. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix`. **Test scale: additive** — a fixed set of cases on two small new datasets |
+| v3.10 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Planned — MINOR. *Planned as v2.5, claimed as v3.6, briefly held at v3.5.* **The first milestone that is not Regression work** — a new sheet and a new analysis surface, held until the Regression template is feature-complete. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix`. **Test scale: additive** — a fixed set of cases on two small new datasets |
 | v3.11 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4; claimed as v3.5, briefly held at v3.6.* The second non-Regression milestone. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The artifact build seeds the table from a SHA-256 digest of the source CSV, so the draw is reproducible from the data alone. **Test scale: additive** — no new data at all |
 | v3.12+ | Multi-group means (ANOVA), Fourier, Decision analysis | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+.* Design-not-started, and nothing about their test cost sequences them |
-| *(Univariate artifact)* | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | Unnumbered in this ladder on purpose: under the two-number scheme these move the **Univariate workbook version**, not the library version, so they do not take a v3.x slot. The split is packaging-only and non-breaking for both artifacts; the grid shrink that follows is MAJOR for the Univariate workbook version only and does not move the Regression workbook version. Split shipped as Univariate 1.0.0; the grid shrink's Weibull/Gamma half shipped as Univariate 2.0.0, with the Beta half superseded (overcome by events) |
+
 
 **Ladder rationale.** Under the interface definition above, exactly two milestones
 break user inputs. Specification-Driven Regression took v2.0; everything after it
@@ -168,7 +138,7 @@ being compared are unit-space comparable.
 
 Everything at v3.4 and beyond is sequenced by two keys, in this order:
 
-1. **Finish the Regression artifact first.** Every milestone that extends the
+1. **Finish the Regression template first.** Every milestone that extends the
    Regression sheet, its spec block, or its engine ships before either milestone
    that opens a *new* analysis surface. Two-sample (v3.10) and Resampling (v3.11)
    are the only two of the latter, and they go last as a block.
@@ -201,7 +171,7 @@ already exists — a milestone there is a spec column, an engine change, and mor
 cases in the same oracle. Two-sample and Resampling each need a new sheet writer,
 a new layout, and a verification path that shares nothing with
 `calculate_regression_spec_case`. Interleaving them means carrying two half-built
-analysis surfaces at once, and it means the Regression artifact — the thing users
+analysis surfaces at once, and it means the Regression template — the thing users
 actually have — sits feature-incomplete for longer while effort goes somewhere
 else. Deferring them costs nothing in rework: neither depends on any Regression
 milestone, and neither is depended on by one.
@@ -252,8 +222,9 @@ v3.1 and v3.2 are formula changes against columns that already exist.
 
 Univariate shipped **before** Specification-Driven Regression despite the lower version
 gap, as planned: its engine was already implemented and its sheet writer was wired into
-`build_production.py`. Specification-Driven Regression was greenfield by comparison,
-so the near-finished milestone shipped first.
+`build_production.py` (now the single build script; during the split era it had a
+separate `build_univariate.py`). Specification-Driven Regression was greenfield by
+comparison, so the near-finished milestone shipped first.
 
 **Fixed Effects breakage flag (v2.1) — RESOLVED as non-breaking.** The absorbed-df
 correction is threaded as an **optional `[DF_Absorbed]` argument defaulting to 0**,
@@ -542,8 +513,8 @@ review, whose findings share one shape: each decision was correct
 in isolation and the cost is in the sum. Every design question below is
 **resolved** in
 [DECISIONS.md § v3.0](DECISIONS.md#v30--two-artifacts-a-bounded-model-context-and-the-constructor-pipeline).
-The release shipped as three stages plus the two-artifact split (workbook 3.0.0,
-Univariate artifact 1.0.0), each a separate reviewable pull request with its own
+The release shipped as three stages plus the split (workbook 3.0.0,
+Univariate artifact 1.0.0, later reunified), each a separate reviewable pull request with its own
 verification gate (see the scope section below).
 
 - **Bounded `Model_Context`** — engine signatures collapse from
@@ -566,8 +537,11 @@ verification gate (see the scope section below).
 - **The materialization zone** — `Model_Context`, `Sample_Include`, and the
   Constructed Design Matrix at the far right, in increasing width, terminating in
   the unbounded zone. Resolves F3.
-- **Two artifacts and two version numbers** — see the Versioning section above.
-  Resolves F4 and F8.
+- **One workbook, one version** — the build emits one workbook
+  (`Lambda_Library.xlsx`). The split into two artifacts that originally shipped
+  with v3.0 was later reunified (see
+  [Versioning & Release Conventions](#one-workbook-one-number) above). Resolves
+  F4 and F8.
 
 **What replaces "one breaking restructure, never a second."** That rule failed
 because it constrained the *count* of breaks without constraining what could
@@ -592,8 +566,9 @@ materialized; and the interaction columns and the audit column both touch the
 spec-block layout. That argued for one release, against the general principle of
 small increments.
 
-**Resolved: shipped as three stages plus the two-artifact split.** v3.0 shipped as
-four reviewable pull requests — workbook 3.0.0, Univariate artifact 1.0.0,
+**Resolved: shipped as three stages plus the split.** v3.0 shipped as
+four reviewable pull requests — workbook 3.0.0, Univariate artifact 1.0.0 (later
+reunified),
 2026-08-02. Splitting the release into stages did not split the release: all four
 land under the one version number, because they answer the one question together.
 
@@ -601,7 +576,7 @@ land under the one version number, because they answer the one question together
 |---|---|---|
 | **1** | Constructor pipeline · intercept relocation | **Shipped** (merged as #148, QC gate cleared) |
 | **2** | `Model_Context` · `Sample_Include` materialized · `[Has_Intercept]`/`[DF_Absorbed]` collapse into `[Context]` · two-name split (`Model_Context` constructor / `Fit_Context` reader) + 4 context accessors · rows 3-4 populated | **Shipped** (merged as #150, QC gate green) |
-| **+ split** | Univariate Analysis → its own workbook; Regression workbook → full Automatic | **Shipped** with v3.0 (merged as #151) |
+| **+ split** | Univariate Analysis → its own workbook (later reunified); Regression workbook → full Automatic | **Shipped** with v3.0 (merged as #151) |
 | **3** | Interaction spec columns M/N (reserved) · Design Columns audit column + pre-flight width guard · Constructed Design Matrix zone | **Shipped** — the layout break; spec-driven verifier passed, no fitted number moved |
 
 v3.3 onward is the feature train resequenced behind v3.0 — a different thing, and
@@ -632,7 +607,7 @@ meaning break — the far more recoverable of the two. See
 
 | Stage | Contents | Break |
 |---|---|---|
-| 1-2 + split | `Model_Context` · intercept relocation · constructor pipeline · two-artifact split (Univariate → its own workbook; Regression → full Automatic) | **No** |
+| 1-2 + split | `Model_Context` · intercept relocation · constructor pipeline · Univariate split (later reunified; Regression → full Automatic) | **No** |
 | 3 | Interaction spec columns M/N reserved-and-unwired · Design Columns audit column · Constructed Design Matrix zone + width guard | **Yes** (addresses right of the spec block shift three columns) |
 | v3.1 | Interaction wiring — the constructor actually builds the columns stage 3 declared | MINOR (follows v3.0) |
 | v3.2 | Full materialization of the design matrix | MINOR (follows v3.0) |
@@ -738,11 +713,11 @@ mismatch** — neither on the three new cases nor on the twelve pre-existing one
 which is the behaviour-preserving property this release had to hold: a spec with
 M and N blank must compute exactly what it computed under 3.0.0.
 
-The run's one reported failure, `[Univariate] sheet is missing`, is the verifier
-checking a sheet this artifact stopped carrying at v3.0. It is a false positive
-against the post-split layout, not a result — `skip_univariate` reaches the
-force-calc list but does not yet guard the check itself. Tracked as its own
-follow-up; see [TODOs.md](TODOs.md#v31-leftovers).
+The run's one reported failure, `[Univariate] sheet is missing`, was the verifier
+checking a sheet the Regression-only artifact stopped carrying at v3.0 (during the
+split era). It was a false positive against the post-split layout, not a result —
+`skip_univariate` reaches the force-calc list but does not yet guard the check
+itself. Tracked as its own follow-up; see [TODOs.md](TODOs.md#v31-leftovers).
 
 Design rationale: [DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring),
 building on the representation decisions in
@@ -1099,26 +1074,28 @@ nobody is asking for.
 
 ---
 
-## Univariate artifact releases — the split (SHIPPED), then the grid shrink (Weibull/Gamma SHIPPED; Beta SUPERSEDED)
+## Univariate releases — the split (SHIPPED, later reunified), then the grid shrink (Weibull/Gamma SHIPPED; Beta SUPERSEDED)
 
-Two releases, deliberately not bundled. Under the two-number scheme
-([Two numbers](#two-numbers-once-the-build-emits-two-workbooks)) these move the
-**Univariate workbook version**, not the library version, so they neither take a
-v3.x slot nor block one. The split shipped with v3.0 as the Univariate artifact's
-1.0.0 initial release; on the Regression side it is bundled into the non-breaking
-3.0.0 (the split alone would move no Regression version, but it landed inside the
-v3.0 release). The grid shrink is MAJOR for the Univariate workbook alone.
+The Univariate sheet shipped as its own workbook from v3.0 until the Beta
+`Full_Factorial` rework retired the Data Tables calculation-mode conflict that
+motivated the split. The split shipped with v3.0 as the Univariate artifact's
+1.0.0 initial release; on the Regression side it was bundled into the
+non-breaking 3.0.0. The grid shrink was MAJOR for the Univariate workbook alone.
+The two workbooks have since been reunified; the Version History changelog
+preserves the full record of both eras.
 
-**The split** moves Univariate Analysis into its own workbook. Both artifacts
-carry the complete 131-function library — there is no bundling, no dependency
-closure, and no per-artifact function subsetting; they differ only in which sheets
-they contain. It is **non-breaking for both**.
+**The split** moved Univariate Analysis into its own workbook. Both artifacts
+carried the complete function library — there was no bundling, no dependency
+closure, and no per-artifact function subsetting; they differed only in which
+sheets they contained. It was **non-breaking for both**.
 
-Splitting lets each artifact set its own calculation mode, so the Regression
-workbook runs in full Automatic. **Shipped:** `build_production.py` emits the Regression artifact and
-`build_univariate.py` emits the Univariate artifact (shared scaffolding in
-`lambda_catalog/build_common.py`); the verifier carries a `skip_regression` mode for
-the Univariate-only workbook.
+Splitting let each artifact set its own calculation mode, so the Regression
+workbook ran in full Automatic. **Shipped:** `build_production.py` emitted the
+Regression artifact and `build_univariate.py` emitted the Univariate artifact
+(shared scaffolding in `lambda_catalog/build_common.py`); the verifier carried a
+`skip_regression` mode for the Univariate-only workbook. Both scripts were
+merged back into the single `build_production.py` when the workbooks were
+reunified.
 
 **The grid shrink** follows as a separate release of the Univariate artifact, and
 is **MAJOR for that workbook's version only**. Weibull and Gamma collapse to

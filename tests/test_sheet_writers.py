@@ -678,10 +678,9 @@ def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:
     assert f"OR(k>{_DESIGN_MATRIX_SOFT_COLUMNS},n*k>{_DESIGN_MATRIX_SOFT_CELLS})" in status
     assert status.endswith('"")))')
 
-    # The hard limit is DERIVED from the layout constants — it is exactly the
-    # column budget left of Excel's right edge once the materialization band
-    # is placed, so moving a zone moves the limit with it.
-    assert _DESIGN_MATRIX_MAX_COLUMNS == 16384 - _C_DESIGN_MATRIX + 1
+    # The hard limit is empirical — the point where Excel cannot reliably
+    # invert the Gram matrix (X'X). Not derived from the sheet width.
+    assert _DESIGN_MATRIX_MAX_COLUMNS == 200
 
     # Red outranks yellow via StopIfTrue, and both the status line and the
     # total carry the flag — the total is the number a user actually reads.

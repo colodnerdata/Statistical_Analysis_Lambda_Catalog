@@ -666,22 +666,21 @@ _C_MODEL_FORMULA = _C_MODEL_FORMULA_LABEL + 1
 # to discover it does not fit is the failure being prevented.
 _MAX_EXCEL_COLUMN = 16384
 
-# HARD ERROR — the widest matrix that still fits on the sheet, derived from
-# the layout constants rather than hard-coded. Equivalently
-# 16,384 - (_LAST_CHART_COLUMN + 6), the six columns being the three gutters
-# plus the Model Context label/value pair and the Sample_Include column.
-_DESIGN_MATRIX_MAX_COLUMNS = _MAX_EXCEL_COLUMN - _C_DESIGN_MATRIX + 1
-assert _DESIGN_MATRIX_MAX_COLUMNS == _MAX_EXCEL_COLUMN - (_LAST_CHART_COLUMN + 6)
+# HARD ERROR — the practical limit where Excel cannot invert the Gram
+# matrix. Empirically, k = 205 on n = 2909 rows produces all-nan results
+# (verified by the L07 guard-state case). Gram_Inverse is O(k^3) in MMULT,
+# so 200 columns is near the wall on real datasets. A model reaching this
+# many constructed columns needs dimensionality reduction, not a wider sheet.
+_DESIGN_MATRIX_MAX_COLUMNS = 200
 
 # SOFT WARNING — k constructed columns, or n x k materialized cells,
-# whichever trips first. Gram_Inverse is O(k^3) in MMULT, so the practical
-# wall is in the hundreds; a model that reaches 16k columns has been unusable
-# for a long time already. The cell count is the second threshold because
-# materialization cost scales with n too: on the WHO data with Country as a
-# Categorical Predictor the matrix is roughly 2,938 x 156 = 458,000 live cells
-# that recalculate on any input change.
-_DESIGN_MATRIX_SOFT_COLUMNS = 200
-_DESIGN_MATRIX_SOFT_CELLS = 500_000
+# whichever trips first. This fires before the hard error, warning the user
+# that recalculation is getting slow (every materialized cell recalculates
+# on any input change) and that they are approaching the Gram inversion
+# limit. On the WHO data with Country as a Categorical Predictor the matrix
+# is roughly 2,938 x 156 = 458,000 live cells.
+_DESIGN_MATRIX_SOFT_COLUMNS = 100
+_DESIGN_MATRIX_SOFT_CELLS = 200_000
 
 # How much of the terminal zone gets an explicit column width. The zone runs to
 # the sheet's right edge, but sizing out to column 16,384 would bloat the sheet

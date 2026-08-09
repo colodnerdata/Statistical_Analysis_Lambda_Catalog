@@ -961,17 +961,21 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
 
 
 _WIDTH_GUARD_NOTE = (
-    "Whether the design matrix this spec describes will fit and compute.\n\n"
-    "RED — the matrix needs more columns than there is room for to the right "
-    "of the materialization band. It cannot be built at all. Reduce a "
-    "Categorical predictor's level count or exclude it.\n\n"
-    "AMBER — it fits, but it is large enough to be slow: Gram_Inverse is "
-    "cubic in the column count inside MMULT, and every materialized cell "
-    "recalculates on any input change. Expect the workbook to lag while you "
-    "edit the spec.\n\n"
+    "Whether the design matrix this spec describes will compute in Excel.\n\n"
+    "RED — the Gram matrix (X'X) cannot be reliably inverted. Excel's MINVERSE "
+    "on X'X squares the condition number of the design matrix, so beyond ~200 "
+    "constructed columns the inversion produces all-nan results. This is an "
+    "empirical limit, dataset-dependent: 200 orthogonal continuous predictors "
+    "may invert fine; 200 collinear dummy columns will not. Reduce a "
+    "Categorical predictor's level count, exclude predictors, or group them.\n\n"
+    "AMBER — it computes, but it is large enough to be slow: MINVERSE is "
+    "cubic in the column count, and every materialized cell recalculates on "
+    "any input change. Expect the workbook to lag while you edit the spec.\n\n"
     "Both thresholds are read from the SPEC — the Σ above this cell — never "
-    "from the built matrix. A matrix too wide to fit cannot be built in order "
-    "to be measured, which is the whole point of checking here first."
+    "from the built matrix. A matrix too wide to invert cannot be built in order "
+    "to be measured, which is the whole point of checking here first.\n\n"
+    "A future QR-decomposition path (Coefficients_QR in the roadmap) would "
+    "avoid forming X'X entirely, lifting this limit substantially."
 )
 
 
@@ -1028,15 +1032,16 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
         (
             f"=LET(k,{total_cell},n,ROWS(Source_Data),"
             f"IF(k>{_DESIGN_MATRIX_MAX_COLUMNS},"
-            '"ERROR: the design matrix needs "&k&" columns; only '
-            f'{_DESIGN_MATRIX_MAX_COLUMNS} fit right of the materialization '
-            "band. Reduce a Categorical predictor's levels or exclude it.\","
+            '"ERROR: the design matrix has \"&k&\" constructed columns; '
+            f'the Gram matrix cannot be reliably inverted above {_DESIGN_MATRIX_MAX_COLUMNS} '
+            "columns in Excel (MINVERSE on X'X squares the condition number). "
+            "Reduce a Categorical predictor's levels, exclude predictors, or group them.\","
             f"IF(OR(k>{_DESIGN_MATRIX_SOFT_COLUMNS},"
             f"n*k>{_DESIGN_MATRIX_SOFT_CELLS}),"
-            '"WARNING: "&k&" constructed columns x "&n&" rows = "&(n*k)&'
-            '" materialized cells. Gram_Inverse is O(k^3) in MMULT, and every '
-            'materialized cell recalculates on any input change.",'
-            '"")))'
+            '"WARNING: \"&k&\" constructed columns x \"&n&\" rows = \"&(n*k)&'
+            '" materialized cells. Recalculation is O(k^3) in MINVERSE, and every '
+            'materialized cell recalculates on any input change. Approaching the Gram inversion limit.",'
+            '\"\")))'
         ),
         _WIDTH_GUARD_NOTE,
         label="Width guard",

@@ -474,7 +474,7 @@ def _row_design_columns(
 
 
 def _width_guard_status(total_columns: int, source_rows: int) -> str:
-    """Mirror the M2 width-guard status cell (its leading token only).
+    """Mirror the O2 width-guard status cell (its leading token only).
 
     The full message embeds counts and prose; what a QC comparison needs is
     which of the three states the cell is in, so this returns ``"ERROR"``,
@@ -1008,8 +1008,8 @@ def build_guard_state_cases() -> list[GuardStateCase]:
             source_csv_path=LIFE_EXPECTANCY_CSV_PATH,
             row_loader=load_life_expectancy_source_rows,
             source_table_ref="=LifeExpectancyData[#All]",
-            covers="k = 205 design columns: the M2 width guard reads "
-            "WARNING, and the engine returns #N/A rather than a plausible "
+            covers="k = 205 design columns: the O2 width guard reads "
+            "ERROR, and the engine returns #N/A rather than a plausible "
             "wrong number — the workbook cannot invert a Gram matrix this "
             "wide, which is what the guard exists to say.",
         ),

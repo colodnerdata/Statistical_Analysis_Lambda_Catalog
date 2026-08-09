@@ -124,13 +124,14 @@ Rationale in
 | v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the model formula label | No | **SHIPPED** — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2. The **standalone transform library** was planned inside this milestone and now ships as **v3.11** — it is the ladder's most expensive item to test, and nothing else waits on it |
 | v3.4 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one. **Test scale: additive (~1×)** — it reads models the suite already has |
 | v3.5 | `Cluster` Role (clustered-robust SEs) | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket by the [ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).* Forward-wired from `Serial_Correlation_Group()`'s dormant branch. **Test scale: near-additive** — a variance-estimator variant over a few existing models |
-| v3.6 | `Time` Role + time series (`Moving_Average`, `Exponential_Smoothing`) | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Partially forward-wired via the v2.1 Sequence axis. **Test scale: near-additive — and it closes a coverage gap that exists today**: its calendar-dated dataset is what finally makes the Sequence calendar-signature verdict testable |
+| v3.6 | `Time` Role + lag/difference semantics | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Partially forward-wired via the v2.1 Sequence axis. **The sheet half moved to v3.12** — this milestone is the engine work (the Role, cross-sheet `Lag_By` / `Difference_By` time semantics, the calendar-dated dataset), which is Regression-track and belongs here; the worksheet that consumes it is a new analysis surface and ships with the trailing block. **Test scale: near-additive — and it closes a coverage gap that exists today**: its calendar-dated dataset is what finally makes the Sequence calendar-signature verdict testable |
 | v3.7 | `Weight` Role (WLS) | No | Planned — MINOR. *Planned as v2.6; claimed as v3.7 all along, though it reaches the slot by a different route.* User-supplied weights as the first stage; variance-driver-derived weights and FGLS as later follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument. Shipping after v3.0 is what makes that the first implementation rather than a rewrite. **Test scale: ~2×** over a representative subset |
 | v3.8 | Two-way Fixed Effects | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Forward wiring from the v2.1 FE engine. **Test scale: ~2×** over the FE family |
 | v3.9 | Standalone Data Transformation library (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix`) | No | Planned — MINOR. *Planned as the second half of v2.2, then carried as the v3.3 remainder.* **The last regression milestone**, because it is **the ~10× axis-widener** — every added Transform value multiplies the response × predictor dispatch table, so it lands against the most mature harness the Regression track ever has |
 | v3.10 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Planned — MINOR. *Planned as v2.5; claimed as v3.6, briefly held at v3.5.* **The first milestone that is not Regression work** — a new sheet and a new analysis surface, held until the Regression artifact is feature-complete. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix`. **Test scale: additive** — a fixed set of cases on two small new datasets |
 | v3.11 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4; claimed as v3.5, briefly held at v3.6.* The second non-Regression milestone. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The artifact build seeds the table from a SHA-256 digest of the source CSV, so the draw is reproducible from the data alone. **Test scale: additive** — no new data at all |
-| v3.12+ | Multi-group means (ANOVA), Fourier, Decision analysis | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+.* Design-not-started, and nothing about their test cost sequences them |
+| v3.12 | Time Series Analysis sheet (ACF/PACF, white-noise and stationarity tests, decomposition, smoothing & forecast) | No | Planned — MINOR, a new sheet. **New milestone**, and it absorbs the sheet half of v3.6 — `Moving_Average`, `Exponential_Smoothing` and the forecast output move here, joined by the identification surface the ladder never had: ACF and PACF with significance bands, Ljung–Box / Box–Pierce, ADF and KPSS as a pair, and classical decomposition. The third and last new analysis surface, behind Two-sample and Resampling. **Test scale: additive, and no new data** — the calendar series v3.6 wires supplies both sides of every verdict, in levels and log-differenced |
+| v3.13+ | Multi-group means (ANOVA), Fourier, Decision analysis | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+, carried as v3.12+ until the Time Series sheet took that slot.* Design-not-started, and nothing about their test cost sequences them |
 | *(Univariate artifact)* | Univariate as its own workbook; then the grid shrink | No / **Yes** (Univariate workbook only) | Unnumbered in this ladder on purpose: under the two-number scheme these move the **Univariate workbook version**, not the library version, so they do not take a v3.x slot. The split is packaging-only and non-breaking for both artifacts; the grid shrink that follows is MAJOR for the Univariate workbook version only and does not move the Regression workbook version. Split shipped as Univariate 1.0.0; the grid shrink's Weibull/Gamma half shipped as Univariate 2.0.0, with the Beta half superseded (overcome by events) |
 
 **Ladder rationale.** Under the interface definition above, exactly two milestones
@@ -169,9 +170,10 @@ being compared are unit-space comparable.
 Everything at v3.4 and beyond is sequenced by two keys, in this order:
 
 1. **Finish the Regression artifact first.** Every milestone that extends the
-   Regression sheet, its spec block, or its engine ships before either milestone
-   that opens a *new* analysis surface. Two-sample (v3.10) and Resampling (v3.11)
-   are the only two of the latter, and they go last as a block.
+   Regression sheet, its spec block, or its engine ships before any milestone
+   that opens a *new* analysis surface. Two-sample (v3.10), Resampling (v3.11)
+   and the Time Series sheet (v3.12) are the three of the latter, and they go
+   last as a block.
 2. **Within the Regression track, order by how much the test-model suite has to
    grow** — additive features first, per-model multipliers next, axis-wideners
    last, and within a tier the most commonly used feature first.
@@ -186,25 +188,27 @@ That table is the source; this ladder follows it.
 | Tier | Effect on the suite | Milestones |
 |---|---|---|
 | Additive | a fixed number of new cases | v3.4 Model Comparison |
-| Near-additive | a variant over a few existing models | v3.5 `Cluster` · v3.6 `Time` / time series |
+| Near-additive | a variant over a few existing models | v3.5 `Cluster` · v3.6 `Time` Role |
 | ~2× multiplier | re-runs a whole model family | v3.7 WLS · v3.8 Two-way FE |
 | ~10× axis-widener | widens an axis every model is crossed against | v3.9 standalone transform library |
 
-**Then the new surfaces:** v3.10 Two-sample, v3.11 Resampling. Both are
-flat-cost to test — cheaper than four of the milestones ahead of them — and they
-are held anyway, because key 1 outranks key 2.
+**Then the new surfaces:** v3.10 Two-sample, v3.11 Resampling, v3.12 Time Series.
+All three are flat-cost to test — cheaper than four of the milestones ahead of
+them — and they are held anyway, because key 1 outranks key 2.
 
 **Why key 1 outranks key 2.** Test cost is the right tiebreaker *within* one
 artifact; it is the wrong primary key across two. Everything in the Regression
 track extends surfaces that already exist and is verified by the harness that
 already exists — a milestone there is a spec column, an engine change, and more
-cases in the same oracle. Two-sample and Resampling each need a new sheet writer,
-a new layout, and a verification path that shares nothing with
-`calculate_regression_spec_case`. Interleaving them means carrying two half-built
-analysis surfaces at once, and it means the Regression artifact — the thing users
-actually have — sits feature-incomplete for longer while effort goes somewhere
-else. Deferring them costs nothing in rework: neither depends on any Regression
-milestone, and neither is depended on by one.
+cases in the same oracle. Two-sample, Resampling and the Time Series sheet each
+need a new sheet writer, a new layout, and a verification path that shares nothing
+with `calculate_regression_spec_case`. Interleaving them means carrying several
+half-built analysis surfaces at once, and it means the Regression artifact — the
+thing users actually have — sits feature-incomplete for longer while effort goes
+somewhere else. Deferring them costs nothing in rework: none depends on any
+Regression milestone, and no Regression milestone depends on them. The Time Series
+sheet has the one prerequisite anywhere in this block, and it is a *dataset* — the
+v3.6 calendar series — wired long before the sheet is built.
 
 Consequences worth stating plainly, because each moved a number:
 
@@ -215,14 +219,23 @@ Consequences worth stating plainly, because each moved a number:
   closes a Section-1 coverage gap *existing today* — the Sequence
   calendar-signature verdict has no test because no wired dataset carries real
   dates.
+- **The time-series *sheet* splits off v3.6 and becomes v3.12.** v3.6 was
+  carrying two unlike things under one number: engine wiring (the `Time` Role
+  and the lag/difference semantics — Regression-track work) and a new worksheet.
+  Key 1 says a new analysis surface ships in the trailing block, so the sheet
+  goes there and v3.6 keeps the engine. Splitting also makes v3.6's
+  near-additive rating honest: its test cost was always the dataset, never the
+  sheet.
 - **The standalone transform library leaves v3.3 for v3.9**, the last slot in the
   Regression track. It is the one item that widens the predictor-transform axis
   {None, Log}, and every widening multiplies the response × predictor dispatch
   table that every other model is scored against. v3.3 keeps its number for what
   actually shipped.
-- **Two-sample (v3.10) still precedes Resampling (v3.11).** Both are flat-cost, so
-  the tie breaks on value: two-sample tests are the ToolPak-parity gap a user hits
-  first, and neither depends on the other.
+- **Two-sample (v3.10) still precedes Resampling (v3.11), and both precede Time
+  Series (v3.12).** All three are flat-cost, so the ties break on value and on
+  dependency: two-sample tests are the ToolPak-parity gap a user hits first;
+  Time Series goes last of the three because it is the only one waiting on
+  another milestone's asset.
 
 This is a rework-minimizing default, not a commitment. The tool is single-user and
 pre-release; a user pressing for one of these reorders it, and reordering means
@@ -883,22 +896,36 @@ token on the BFN cell when Cluster is active.
 datasets already supply: Production Lots' three facilities are enough to start (and
 deliberately few, so the small-cluster warning path is exercised); `Grunfeld`
 arrives with v3.8 and provides 10–11 proper clusters. See
-[docs/MODEL_TESTING_ASSETS.md § 2 item 4](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+[docs/MODEL_TESTING_ASSETS.md § 2 item 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 ---
 
-## v3.6 — `Time` Role + time series — PLANNED
+## v3.6 — `Time` Role + lag/difference semantics — PLANNED
 
 *Planned as v2.7+ and carried in the unordered bucket until the
 [ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).
 It is the one milestone that closes a coverage gap existing **today**.*
 
-The `Time` Role (time-index semantics for cross-sheet `Lag_By` / `Difference_By`
-calls and the time-series sheet) plus `Moving_Average` and
-`Exponential_Smoothing` with a forecast sheet — error metrics (MAE, RMSE, MAPE)
-and an actual-vs-smoothed chart. Partially forward-wired via the v2.1 Sequence
-axis. The open design question stands: **can a column be both `Sequence` and
-`Time`**, or are they mutually exclusive?
+**Engine work only — the sheet this used to carry is now [v3.12](#v312--time-series-analysis-sheet--planned).**
+This entry was written as "`Time` Role + time series" and bundled two unlike
+things: time-index semantics on the Regression spec block, and a whole new
+worksheet. Key 1 of the ladder ordering says a new analysis surface ships in the
+trailing block, so `Moving_Average`, `Exponential_Smoothing`, the forecast
+output and its error metrics move to v3.12. What stays here is what extends the
+Regression artifact.
+
+The `Time` Role gives a column time-index semantics, which is what cross-sheet
+`Lag_By` / `Difference_By` calls resolve against — today those functions read
+the `Sequence` axis, which answers a narrower question (what orders the rows)
+than "what is the calendar". Partially forward-wired via the v2.1 Sequence axis:
+`Sequence_Deltas`, `Sequence_Delta_Spectrum` and `Base_Period_Delta_Candidate`
+already compute the spacing this Role needs to interpret. The open design
+question stands: **can a column be both `Sequence` and `Time`**, or are they
+mutually exclusive?
+
+The milestone also wires the calendar-dated dataset, and that is the half with a
+consumer waiting on it in two directions — the Section-1 coverage gap below, and
+every case on the v3.12 sheet.
 
 **Test assets — near-additive, plus one gap closed.** This milestone brings the
 first **calendar-dated** dataset into the workbook (~144 rows, AirPassengers-shaped,
@@ -907,7 +934,7 @@ Sequence **calendar-signature verdict** (~28–31 / ~90–92 / ~365–366-day sp
 clusters) is the single uncovered axis in the Section-1 coverage matrix. That test
 becomes writable as soon as the dataset is wired — *before* the `Time` Role itself
 ships. See
-[docs/MODEL_TESTING_ASSETS.md § 2 item 5](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order)
+[docs/MODEL_TESTING_ASSETS.md § 2 item 3](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order)
 and [§ 1.5](MODEL_TESTING_ASSETS.md#15-coverage-matrix).
 
 ---
@@ -958,7 +985,7 @@ with a natural weight column (R/MASS `Insurance`, 64 rows, claims with exposure
 family — not the whole suite**; that bound is what keeps a ~2× item from becoming a
 full re-run. The trap above is an oracle assertion, not just prose:
 `DEVSQ(√w ⊙ y)` ≠ weighted SST. See
-[docs/MODEL_TESTING_ASSETS.md § 2 item 6](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+[docs/MODEL_TESTING_ASSETS.md § 2 item 4](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 ---
 
@@ -980,7 +1007,7 @@ wiring from the v2.1 FE engine; the one-way-scope rationale is in
 deleted) to exercise `Is_Balanced_Panel` and the convergence check, with the FE
 family (P1/P2/L8 analogues) re-run two-way. `Grunfeld` also back-fills v3.5's
 cluster count. See
-[docs/MODEL_TESTING_ASSETS.md § 2 item 7](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+[docs/MODEL_TESTING_ASSETS.md § 2 item 5](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 ---
 
@@ -1016,7 +1043,7 @@ matters as much as its position on the ladder:
    has.
 
 See
-[docs/MODEL_TESTING_ASSETS.md § 2 item 8](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+[docs/MODEL_TESTING_ASSETS.md § 2 item 6](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 ---
 
@@ -1046,7 +1073,7 @@ F-test assumption check.
 two-group dataset (R `ToothGrowth`, 60 rows, or the in-repo `Status` split of Life
 Expectancy) and a **paired** dataset (R `sleep`, 20 rows). Cases: equal-variance t,
 Welch t, paired t, and the F-test of variances feeding the selector cell. See
-[docs/MODEL_TESTING_ASSETS.md § 2 item 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+[docs/MODEL_TESTING_ASSETS.md § 2 item 7](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 ---
 
@@ -1078,24 +1105,138 @@ the ladder. Bootstrap and Monte Carlo pair naturally and may share a single shee
 `Bootstrap_Random_Draws` table *is* the asset; Production Lots (n = 51) is the
 natural small-n bootstrap target (slope CI on P3), and PERT/MC cases need only
 parameter cells. See
-[docs/MODEL_TESTING_ASSETS.md § 2 item 3](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+[docs/MODEL_TESTING_ASSETS.md § 2 item 8](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 Design rationale and resolved decisions: [DECISIONS.md § v2.4](DECISIONS.md#v24--resampling--simulation),
 recorded there under the original milestone number.
 
 ---
 
-## v3.12+ — Unordered (no claim; planned as v2.7+)
+## v3.12 — Time Series Analysis sheet — PLANNED
 
-What is left after the reordering gave the other candidates numbers:
-multi-group means (ANOVA, with Tukey HSD or Bonferroni post-hoc comparisons);
-Fourier analysis and Decision analysis (long-tail, out of planning horizon).
+*New milestone, and the last of the three new analysis surfaces. It takes this
+slot for two reasons: [key 1](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+puts new surfaces behind all Regression work, and within that block it goes last
+because it is the only one waiting on another milestone's asset — the
+calendar-dated series [v3.6](#v36--time-role--lagdifference-semantics--planned)
+wires. It **absorbs the sheet half of v3.6**, which was carrying a worksheet
+inside the Regression track by historical accident.*
+
+A dedicated `Time Series` sheet organized around the **identification
+workflow**, in the order an analyst actually works: declare the series and how
+it is differenced → look at the ACF and PACF → test whether what is left is
+white noise and whether the level is stationary → decompose, then smooth and
+forecast. Each step is a zone, and every zone reads the *constructed* series, so
+changing the differencing order re-drives the whole sheet — the same one-edit
+promise `Source_Table` makes on the Regression sheet.
+
+This is also the roadmap's clearest parity-exceeding claim. The Analysis ToolPak
+has no ACF, no PACF, and no stationarity test of any kind; its entire
+time-series offering is Moving Average and Exponential Smoothing, both of which
+land here as one bullet out of six.
+
+- **Series spec block** — the Regression spec-block idiom narrowed to one
+  series: Time column, Value column, optional Group, a `Log` toggle reusing
+  `Ln_Positive` and the established Transform vocabulary, regular differencing
+  order `d`, seasonal order `D`, and period `m`. **Differencing is declared, not
+  hand-built.** The reasoning is the Transform column's, exactly: transforming
+  or narrowing the series changes the model, so it belongs in a specification
+  the sheet can read and report, not in a helper column whose existence no
+  status cell knows about. The spacing / regularity verdict reuses the v2.1
+  Sequence machinery — `Sequence_Deltas`, `Sequence_Delta_Spectrum`,
+  `Base_Period_Delta_Candidate` — rather than implementing the same question
+  twice.
+- **ACF / PACF tables and charts** — `Autocorrelation(data, max_lag,
+  [include])` spilling lag / r / SE, and `Partial_Autocorrelation` by the
+  **Durbin–Levinson recursion** rather than a Yule–Walker solve: no
+  `Gram_Inverse` dependency, no singularity path, and a recursion is
+  inspectable lag by lag in a way a matrix inversion is not. Two column charts,
+  with the significance bands as **real data series, never shapes** (the
+  `_add_identity_line` rule — a shape is positioned in plot-area pixels fixed at
+  creation time and silently goes wrong on resize). Bartlett's widening band on
+  the ACF, ±1.96/√n on the PACF, with `Bartlett_Bands` exposed as its own
+  function so the band is a value you can click.
+- **White-noise test** — `Ljung_Box_Q(acf, n, h, [df_fitted])` and
+  `Box_Pierce_Q`. The optional `df_fitted` is what lets one cell serve both
+  audiences: a raw series tests on `h` degrees of freedom, fitted residuals on
+  `h − p − q`. It is also what would let this statistic appear on the Regression
+  sheet's diagnostic band beside `Durbin_Watson` — see the open questions.
+- **Unit-root and stationarity, as a pair** — `ADF_Statistic(data, lags, spec)`
+  built as a regression of Δy on y(t−1) plus lagged differences and evaluated
+  **through the existing OLS engine**, not a second estimator; and
+  `KPSS_Statistic(data, lags, spec)` for the complementary null. They ship
+  together deliberately: their nulls are opposites, the four
+  reject / fail-to-reject combinations are the actual reading, and shipping ADF
+  alone invites the standard error of treating "failed to reject" as "is
+  stationary". The sheet names which of the four cells the series lands in.
+- **Critical values are a table, not a formula** — both statistics have
+  non-standard null distributions, so each ships a companion
+  `*_Critical_Value(n, spec, alpha)` lookup. The sheet shows the statistic, the
+  critical value it was compared against, and the verdict side by side, so the
+  comparison stays clickable. A `p`-value alone would be the one number in this
+  library a user cannot interrogate.
+- **Classical decomposition** — additive and multiplicative: trend by centered
+  `Moving_Average` at period `m`, seasonal indices as the de-trended period
+  means (normalized to sum 0 or average 1 respectively), remainder by
+  subtraction or division. `Classical_Decomposition` returns the three columns
+  as one spill, charted under the time plot.
+- **Smoothing and forecast** — `Moving_Average(data, window, [include])` and
+  `Exponential_Smoothing(data, alpha_smooth, [include])`, forecast output scored
+  by MAE / RMSE / MAPE, and an actual-vs-smoothed chart. **Moved here from
+  v3.6.** The `alpha_smooth` argument name is deliberate — `alpha` is already
+  the significance level throughout the catalog, and a smoothing parameter
+  sharing that name in a library whose whole premise is clickable formulas would
+  be a standing trap.
+- **Interface contract** — the `TSChart`-prefixed sheet-scoped named ranges the
+  charts read (following the `RegChart` precedent in `_setup_local_names`) and
+  the series-constructor closures become part of the public interface the moment
+  they ship. The v3.12.0 changelog entry must name them, exactly as v3.4's
+  entry must name its three.
+
+**Open design questions:**
+
+- **Does the sheet declare its own series, or consume a Regression sheet's
+  `Time` Role?** Leaning independent — this is not a Regression sheet, and
+  cross-sheet reading is the v3.4 Comparison sheet's job. Consuming would couple
+  a new surface to a Regression sheet's spec for no capability gain.
+- **Is the differenced series a materialized column, or a constructor closure
+  each consumer evaluates?** The ARCHITECTURE §4b lesson — one materialized
+  spill everything reads, rather than N re-evaluations of the same
+  transformation — argues for the column, as does the fact that ACF, PACF, both
+  tests and the decomposition all want the identical vector.
+- **Should `Ljung_Box_Q` also appear on the Regression sheet**, next to
+  `Durbin_Watson`? Durbin–Watson tests lag 1 only; a portmanteau test over the
+  first h lags is strictly more informative about the residuals, and the
+  `df_fitted` argument already exists to make it correct there.
+
+**Test assets — additive, and no new data.** The calendar-dated monthly series
+v3.6 wires (~144 rows, AirPassengers-shaped) is the only dataset this milestone
+needs, because **one series supplies both sides of every verdict**: in levels it
+is the non-stationary seasonal case (ADF fails to reject, KPSS rejects, ACF
+decays slowly, decomposition is multiplicative), and log-differenced at
+`d=1, D=1, m=12` it is the stationary counterpart with the opposite verdict on
+both tests. Oracles come from `statsmodels.tsa` (`acf`, `pacf`,
+`acorr_ljungbox`, `adfuller`, `kpss`, `seasonal_decompose`) — the same library
+the Regression oracle already depends on — through a `TimeSeriesSpecCase`
+registry mirroring `RegressionSpecCase`. One guard state, a series shorter than
+`max_lag`, pins the PACF recursion's degenerate path. See
+[docs/MODEL_TESTING_ASSETS.md § 2 item 9](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
+
+---
+
+## v3.13+ — Unordered (no claim; planned as v2.7+)
+
+What is left after the reordering gave the other candidates numbers, and after
+the Time Series sheet took v3.12: multi-group means (ANOVA, with Tukey HSD or
+Bonferroni post-hoc comparisons); Fourier analysis and Decision analysis
+(long-tail, out of planning horizon).
 
 These stay unordered because **nothing about their test cost sequences them** —
 ANOVA-as-regression needs only `warpbreaks` plus the existing categorical
 machinery, and the other two are design-not-started. A user pressing for one would
 reorder it; absent that signal, a single maintainer should not pre-order work
-nobody is asking for.
+nobody is asking for. That is precisely how the Time Series sheet got a number:
+it was asked for.
 
 ---
 
@@ -1176,8 +1317,15 @@ predictors via the declarative spec, which the ToolPak has never offered; fixed-
 panel regression follows at v2.1.
 
 **Planned:** Rank/Percentile; t-tests, F-test,
-Covariance (future two-sample); one-way ANOVA (future); Moving Average + Exponential
-Smoothing (future time series).
+Covariance (v3.10 two-sample); one-way ANOVA (unordered, v3.13+); Moving Average +
+Exponential Smoothing (v3.12 Time Series sheet).
+
+**Planned to exceed — the Time Series sheet (v3.12).** The ToolPak's entire
+time-series offering is Moving Average and Exponential Smoothing. It has no ACF,
+no PACF, and no stationarity or white-noise test of any kind, so ACF/PACF with
+significance bands, Ljung–Box, ADF and KPSS are not parity items — there is
+nothing to reach. They are listed here because a reader scanning this table for
+"what does the library do that the ToolPak cannot" should find them.
 
 **Intentionally skipped:**
 

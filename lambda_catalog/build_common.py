@@ -1,13 +1,13 @@
-"""Build scaffolding shared by the two production build scripts.
+"""Build scaffolding shared by the production build script.
 
-From v3.0 the project ships two artifacts — `build_production.py` (the
-Regression workbook) and `build_univariate.py` (the standalone Univariate
-workbook). Both follow the same three-phase structure (write sheets + sync
-names; recalculate and save; optional deep verify), and both need the same
-Excel-open retry handling and the same "open headless Excel, run
-CalculateFullRebuild, save under a chosen calculation mode" recalc step. Those
-helpers live here so the two driver scripts stay thin and do not duplicate the
-retry/recalc logic.
+``build_production.py`` builds the unified ``Lambda_Library.xlsx`` workbook
+which carries the Regression template, the Univariate template, the LAMBDA
+function catalog, reference sheets, and the data sheets. It follows a
+three-phase structure (write sheets + sync names; recalculate and save;
+optional deep verify), and needs Excel-open retry handling and the same
+"open headless Excel, run CalculateFullRebuild, save under a chosen
+calculation mode" recalc step. Those helpers live here so the driver script
+stays thin and does not duplicate the retry/recalc logic.
 """
 from __future__ import annotations
 

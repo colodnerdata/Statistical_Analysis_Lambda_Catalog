@@ -1059,7 +1059,7 @@
     },
     {
       "name": "Normal_Scores",
-      "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)),\n    n,        ROWS(filtered),\n    NORM.S.INV(\n      (BYROW(filtered, LAMBDA(v, SUMPRODUCT((filtered < v) * 1))) + 0.5) / n\n    )\n  ))",
+      "formula_display": "=LAMBDA(Y, [Include],\n  LET(\n    filtered, FILTER(Y, IF(ISOMITTED(Include), TRUE, Include)),\n    n,        ROWS(filtered),\n    rounded,  ROUND(filtered, 9),\n    NORM.S.INV(\n      (BYROW(rounded, LAMBDA(v, SUMPRODUCT((rounded < v) * 1))) + 0.5) / n\n    )\n  ))",
       "arguments": [
         {
           "name": "Y",
@@ -1074,7 +1074,7 @@
       "yields": "theoretical standard-normal scores as a spilled vector",
       "description": "Intended for normal probability plot x-values.",
       "plain_language_summary": "The bell-curve quantiles used to build a Q-Q plot.",
-      "notes": "Theoretical standard-normal quantiles (Blom approximation) for each filtered row. Use as x-axis values on a Q-Q plot."
+      "notes": "Rankit scores Φ⁻¹((rank−0.5)/n); rank = strict-less count + 1. The count rounds both operands to 9 decimals so tied values collapse to one rank identically across Excel and the Python oracle, not split by sub-ULP float differences. Q-Q plot x-axis."
     },
     {
       "name": "Design_Matrix",

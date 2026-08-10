@@ -529,7 +529,14 @@ def calculate_regression_observation_vectors(
     observation_num = tuple(range(1, n + 1))
     sorted_y = np.sort(y_train)
     count_leq = np.searchsorted(sorted_y, y_train, side='right')   # SUMPRODUCT(filtered<=v)
-    count_less = np.searchsorted(sorted_y, y_train, side='left')   # SUMPRODUCT(filtered<v)
+    # Normal_Scores ranks on values rounded to 9 decimals so tied rows collapse to one
+    # rank identically in Excel and the Python oracle, instead of being split by sub-ULP
+    # float differences. Mirrors the Normal_Scores LAMBDA's ROUND(filtered, 9) and
+    # analyze_regression_sheet.calculate_regression_results_from_matrix. rank_fraction
+    # (count_leq) is left unrounded: it is a different field and not part of the tie fix.
+    y_for_rank = np.round(y_train, 9)
+    sorted_y_ranked = np.sort(y_for_rank)
+    count_less = np.searchsorted(sorted_y_ranked, y_for_rank, side='left')   # SUMPRODUCT(ROUND(filtered,9)<ROUND(v,9))
     rank_fraction_array = count_leq / n
     normal_dist = NormalDist()
     normal_scores_array = np.array([normal_dist.inv_cdf(float((cl + 0.5) / n)) for cl in count_less])

@@ -492,8 +492,17 @@ def calculate_regression_results_from_matrix(
     # every other fit-stage quantity above (see the docstring: the whole
     # Residual Output table has to read as one internally consistent block).
     loocv_predictions = predictions - h * e / (1.0 - h)
-    sorted_y = np.sort(y_fit)
-    count_less = np.searchsorted(sorted_y, y_fit, side="left")
+    # Normal_Scores ranks the within-demeaned response y_fit by its strict-less-than
+    # count (Rankit: Φ⁻¹((rank − 0.5)/n)). The response is reported to few decimals, so
+    # after country Fixed-Effects demeaning it is heavily tied (Life Expectancy: ~61% of
+    # rows sit in exact-tie groups). Rank on values rounded to 9 decimals so tied rows
+    # collapse to one rank — matching the Normal_Scores LAMBDA's ROUND(filtered, 9) —
+    # instead of being split by sub-ULP float differences between NumPy and Excel, which
+    # otherwise shift the Q-Q axis by one rank at hundreds of tied positions. The
+    # dependent_var column below stays unrounded; only the ranking is rounded.
+    y_for_rank = np.round(y_fit, 9)
+    sorted_y = np.sort(y_for_rank)
+    count_less = np.searchsorted(sorted_y, y_for_rank, side="left")
     nd = NormalDist()
     normal_scores = np.array([nd.inv_cdf(float((cl + 0.5) / n)) for cl in count_less])
     studentized = e / (se_regression * np.sqrt(1.0 - h))

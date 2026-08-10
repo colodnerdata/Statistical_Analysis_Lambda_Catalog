@@ -438,6 +438,85 @@ class TestObservationVectorsIndependent(unittest.TestCase):
             self.assertAlmostEqual(act, exp, places=12, msg=f"y_ranked[{i}]")
 
 
+# ── Normal_Scores tie-robustness ─────────────────────────────────────────────
+
+class TestNormalScoresTieRobustness(unittest.TestCase):
+    """Normal_Scores must collapse tied response values to one rank.
+
+    The response is reported to few decimals, so after within-demeaned Fixed
+    Effects it is heavily tied (Life Expectancy: ~61% of rows sit in exact-tie
+    groups). The strict-less-than rank count rounds both operands to 9 decimals
+    so a tied group collapses to one rank identically in Excel and the Python
+    oracle, instead of being split by sub-ULP float differences between the two
+    engines — which shifts the Q-Q axis by one rank at hundreds of positions
+    (the ``life_country_fixed_effects`` ``Normal_Scores_Ranked`` verifier red).
+    Mirrors the ``Normal_Scores`` LAMBDA's ``ROUND(filtered, 9)``.
+    """
+
+    @staticmethod
+    def _vectors(tmp: Path, y_values: list[float]):
+        # Distinct, non-collinear predictors so the OLS fit is well-posed; the
+        # response values carry the ties under test. feature_columns is the
+        # first two LIFE_EXPECTANCY predictors, matching the existing fixture.
+        rows = [
+            _make_row(y, float(i) * 1.7 + 1.0, float(i) * 0.9 + 2.0)
+            for i, y in enumerate(y_values)
+        ]
+        csv_path = tmp / "tie.csv"
+        _write_csv(csv_path, rows)
+        return calculate_regression_observation_vectors(
+            csv_path, include_intercept=True, feature_columns=FEATURE_COLUMNS[:2]
+        )
+
+    def test_tied_rows_share_one_normal_score(self) -> None:
+        # Ties at 20 (x2), 30 (x3), 50 (x2); 10 distinct-on-paper rows.
+        y = [10.0, 20.0, 20.0, 30.0, 30.0, 30.0, 40.0, 50.0, 50.0, 60.0]
+        with tempfile.TemporaryDirectory() as tmp:
+            obs = self._vectors(Path(tmp), y)
+        nd = NormalDist()
+        n = len(y)
+        # Independent rounded-rank expectation (not delegating to the oracle).
+        y_r = np.round(np.array(y, dtype=np.float64), 9)
+        s = np.sort(y_r)
+        expected = [
+            nd.inv_cdf(float((int(np.searchsorted(s, v, side="left")) + 0.5) / n))
+            for v in y_r
+        ]
+        for i in range(n):
+            self.assertAlmostEqual(
+                obs.normal_scores[i], expected[i], places=10, msg=f"ns[{i}]"
+            )
+        # The tied groups collapse to a single normal score.
+        self.assertEqual(obs.normal_scores[1], obs.normal_scores[2])   # two 20s
+        self.assertEqual(obs.normal_scores[3], obs.normal_scores[4])   # three 30s
+        self.assertEqual(obs.normal_scores[4], obs.normal_scores[5])
+        self.assertEqual(obs.normal_scores[7], obs.normal_scores[8])   # two 50s
+
+    def test_sub_ulp_perturbation_does_not_split_ties(self) -> None:
+        y_clean = [10.0, 20.0, 20.0, 30.0, 30.0, 30.0, 40.0, 50.0, 50.0, 60.0]
+        # 1e-13 is above one ULP at 30 (~7e-15) so it is a genuine, distinct
+        # float64 value that WITHOUT rounding would sort after the other 30s and
+        # split the tie (shifting this row's rank by +1); it is below the 1e-9
+        # rounding tolerance, so round(_, 9) collapses it back to 30.0.
+        y_noisy = list(y_clean)
+        y_noisy[4] = 30.0 + 1e-13
+        self.assertNotEqual(np.float64(30.0), np.float64(y_noisy[4]))
+        with tempfile.TemporaryDirectory() as tmp:
+            obs_clean = self._vectors(Path(tmp), y_clean)
+            obs_noisy = self._vectors(Path(tmp), y_noisy)
+        # normal_scores is invariant to the sub-ULP perturbation: the tie did not
+        # split. Without the rounding fix, obs_noisy.normal_scores[4] would jump
+        # by one rank (here ~inv_norm(5.5/10) - inv_norm(3.5/10) ≈ 0.51) and the
+        # two arrays would disagree at the split position.
+        for i in range(len(y_clean)):
+            self.assertAlmostEqual(
+                obs_clean.normal_scores[i],
+                obs_noisy.normal_scores[i],
+                places=10,
+                msg=f"ns[{i}] split by sub-ULP noise",
+            )
+
+
 # ── Regression sheet: predictor summary ─────────────────────────────────────
 
 class TestPredictorSummaryIndependent(unittest.TestCase):

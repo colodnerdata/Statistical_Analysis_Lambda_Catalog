@@ -3514,7 +3514,7 @@ carries the name at workbook scope from its last build, and
 `sync_workbook_names` only makes workbook scope match the catalog — the
 sheet-scoped replacement is installed by the sheet writer, which needs Excel.
 Until `build_production.py` is re-run and the artifact committed,
-`test_regression_workbook_scope_belongs_to_the_catalog` reports the stale
+`test_workbook_scope_belongs_to_the_catalog` reports the stale
 name as residue, which is exactly what it is.
 
 ### Auto MPG ships no Sequence axis — `Model Year` was never one

@@ -10,7 +10,7 @@ Usage:
     python tools/verify_workbook.py Lambda_Library.xlsx
     python tools/verify_workbook.py Lambda_Library.xlsx --csv path/to/data.csv
     python tools/verify_workbook.py Lambda_Library.xlsx --json
-    python tools/verify_workbook.py Lambda_Library_Univariate.xlsx --skip-regression
+    python tools/verify_workbook.py Lambda_Library.xlsx --skip-regression
 """
 
 from __future__ import annotations
@@ -163,9 +163,8 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help=(
             "Skip every Regression-sheet, Mileage-Data, and Production-Lots "
-            "check. Use this to verify a standalone Univariate workbook "
-            "(Lambda_Library_Univariate.xlsx), which carries none of those "
-            "sheets; the Life Expectancy Data and Univariate checks still run."
+            "check. Use this to verify only the Univariate side of the unified "
+            "workbook; the Life Expectancy Data and Univariate checks still run."
         ),
     )
     return parser.parse_args()

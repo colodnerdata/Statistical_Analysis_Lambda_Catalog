@@ -12,15 +12,13 @@ the ``xl/externalLinks/*`` parts go too — along with their entries in
 ``xl/_rels/workbook.xml.rels`` and ``[Content_Types].xml``. Sheet-scoped names,
 worksheets, cell values, charts and formatting are untouched.
 
-This is a maintenance tool, not a build step. The builds
-(``build_production.py`` / ``build_univariate.py``) already call
-``sync_workbook_names`` and are the normal way to produce a clean artifact;
-reach for this when the artifact is otherwise current and only its name manager
-is stale.
+This is a maintenance tool, not a build step. ``build_production.py`` already
+calls ``sync_workbook_names`` and is the normal way to produce a clean
+artifact; reach for this when the artifact is otherwise current and only its
+name manager is stale.
 
 Usage:
     python tools/resync_workbook_names.py Lambda_Library.xlsx
-    python tools/resync_workbook_names.py Lambda_Library.xlsx Lambda_Library_Univariate.xlsx
 """
 from __future__ import annotations
 

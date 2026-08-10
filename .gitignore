@@ -58,9 +58,8 @@ Lambda_Library_TestModels.xlsx
 # logs/ holds the rerouted outputs of detached build_*.py runs. Always local dev only.
 /logs/
 
-# Force-include the shipped workbooks (build outputs that live in dist/)
+# Force-include the shipped workbook (build output that lives in dist/)
 !dist/Lambda_Library.xlsx
-!dist/Lambda_Library_Univariate.xlsx
 
 # Manual updates folder
 Manual Updates/

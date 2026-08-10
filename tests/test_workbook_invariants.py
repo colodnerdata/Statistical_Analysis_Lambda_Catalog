@@ -8,10 +8,10 @@ existing `RecordingSheet` unit tests cannot see:
   * orphan defined names (empty body, invalid characters, duplicates)
   * workbook-scope ownership: only catalog functions and Excel's `_xlnm.*`
     names may be workbook-scoped, no defined-name body may carry an error
-    literal, and neither artifact may link to another workbook (the v3.0 split
-    left the other artifact's chart ranges at workbook scope in both files, and
-    a Regression-coupled catalog LAMBDA left a broken external link in the
-    Univariate one)
+    literal, and the workbook may not link to another workbook (the pre-reunify
+    v3.0 split left one artifact's chart ranges at workbook scope in the other
+    file, and a Regression-coupled catalog LAMBDA left a broken external link
+    in the Univariate one)
   * localSheetId values that fall outside [0, sheet_count)
   * #REF! / #NAME? / #VALUE! / #NULL! / #DIV/0! / #N/A / #NUM! literals leaking
     into cached cell values (the writers' LAMBDA formulas legitimately wrap
@@ -26,17 +26,16 @@ existing `RecordingSheet` unit tests cannot see:
 
 The synthetic 4-sheet fixture (``build_headless_fixture``) is the always-on
 source of truth for these invariants, alongside ``TestRealWorkbookNameScope``,
-which runs the workbook-scope and external-link checks against both committed
-artifacts on every commit. The broader ``TestRealWorkbook`` /
-``TestRealUnivariateWorkbook`` classes are opt-in via
-``RUN_EXCEL_INTEGRATION=1``: their cached-value scan still flags the ``#N/A``
-values ``Difference_By`` and ``Lag_By`` legitimately return at gap rows.
+which runs the workbook-scope and external-link checks against the committed
+unified workbook on every commit. The broader ``TestRealWorkbook`` class is
+opt-in via ``RUN_EXCEL_INTEGRATION=1``: its cached-value scan still flags the
+``#N/A`` values ``Difference_By`` and ``Lag_By`` legitimately return at gap rows.
 
 The deep spec-driven check (``lambda_catalog.deep_verify.verify_test_sheets``, xlwings + Excel
 required) is the source of truth for cell-level correctness — *except* for the
 Univariate fitting table, which it does not read at all. It checks the twelve
 descriptive statistics and the three histogram blocks and stops there, so a
-passing ``build_univariate.py --verify`` says nothing about whether the
+passing ``build_production.py --verify`` says nothing about whether the
 distribution fits are right. That is the gap the two ``TestShipped*`` classes
 close, and they close it headlessly: a built .xlsx caches every formula's last
 computed result, so the shipped parameters can be read out of the zip and
@@ -127,33 +126,23 @@ _NA_LITERAL = "#N/A"
 _OFFSET_ANCHOR_RE = re.compile(r"OFFSET\([^!,]*!\$([A-Z]{1,3})\$\d+", re.IGNORECASE)
 _CELL_COLUMN_RE = re.compile(r"^([A-Z]{1,3})\d+$")
 
-# Real Lambda_Library.xlsx (the Regression artifact) ships eight sheets in
-# the tab order that build_production._reorder_and_style_sheet_tabs applies:
-# the three data sheets, Version History, the three Regression workbench
-# sheets, then the LAMBDA_functions catalog last. (Pre-v3.0 the committed
-# artifact carried the Univariate sheet too; it moved to its own workbook in
-# the v3.0 split — see EXPECTED_UNIVARIATE_SHEETS below.)
+# Real Lambda_Library.xlsx (the unified production artifact) ships nine sheets
+# in the tab order that build_production._reorder_and_style_sheet_tabs
+# applies: the three Regression workbench sheets front-most, then the Univariate
+# workbench, the LAMBDA_functions catalog, Version History, and the three data
+# sheets last. (Pre-v3.0 the Univariate sheet lived in its own standalone
+# workbook, Lambda_Library_Univariate.xlsx; the reunification merged it back
+# in and that artifact is no longer built or shipped.)
 EXPECTED_REAL_SHEETS: tuple[str, ...] = (
-    "Mileage Data",
-    "Life Expectancy Data",
-    "Production Lots",
-    "Version History",
-    "Regression Instructions",
     "Regression",
+    "Regression Instructions",
     "Diagnostic Guide",
-    "LAMBDA_functions",
-)
-
-# Real Lambda_Library_Univariate.xlsx (the standalone Univariate artifact from
-# v3.0) ships four sheets: the Univariate workbench front-most, its data
-# source, the Version History, then the LAMBDA_functions catalog last. It
-# carries the complete 126-function library (no subsetting) but none of the
-# Regression-side sheets.
-EXPECTED_UNIVARIATE_SHEETS: tuple[str, ...] = (
     "Univariate",
-    "Life Expectancy Data",
-    "Version History",
     "LAMBDA_functions",
+    "Version History",
+    "Production Lots",
+    "Life Expectancy Data",
+    "Mileage Data",
 )
 
 # Synthetic 4-sheet fixture.
@@ -552,7 +541,6 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 # reads a committed artifact, which is the whole of Layer 1 in CI.
 DIST_DIR = ROOT_DIR / "dist"
 REAL_WORKBOOK_PATH = DIST_DIR / "Lambda_Library.xlsx"
-UNIVARIATE_WORKBOOK_PATH = DIST_DIR / "Lambda_Library_Univariate.xlsx"
 CATALOG_PATH = ROOT_DIR / "lambda_functions.json"
 
 
@@ -587,14 +575,6 @@ def real_workbook_package() -> WorkbookPackage | None:
     if not REAL_WORKBOOK_PATH.exists():
         pytest.skip(f"Real workbook not present at {REAL_WORKBOOK_PATH}")
     return WorkbookPackage(REAL_WORKBOOK_PATH)
-
-
-@pytest.fixture(scope="module")
-def univariate_workbook_package() -> WorkbookPackage | None:
-    """Return a parsed view of the committed standalone Univariate workbook, or skip."""
-    if not UNIVARIATE_WORKBOOK_PATH.exists():
-        pytest.skip(f"Univariate workbook not present at {UNIVARIATE_WORKBOOK_PATH}")
-    return WorkbookPackage(UNIVARIATE_WORKBOOK_PATH)
 
 
 def _inject_calc_chain(workbook_path: Path) -> None:
@@ -1021,46 +1001,33 @@ def _replace_member(workbook_path: Path, member_name: str, new_bytes: bytes) -> 
 
 
 # ---------------------------------------------------------------------------
-# Always-on real-workbook tests. Unlike the opt-in classes below, these run on
-# every commit against both committed artifacts: they are the regression guard
-# for the v3.0 split's cross-artifact leakage (the other artifact's chart
-# ranges promoted to workbook scope, and the external link a Regression-coupled
-# catalog LAMBDA produced in the Univariate workbook).
+# Always-on real-workbook tests. Unlike the opt-in class below, these run on
+# every commit against the committed unified workbook: they are the
+# regression guard for the pre-reunify v3.0 split's cross-artifact leakage
+# (one artifact's chart ranges promoted to workbook scope in the other file,
+# and the external link a Regression-coupled catalog LAMBDA produced in the
+# Univariate workbook). Both Regression and Univariate sheets now live in the
+# one artifact, so a single set of checks covers it.
 # ---------------------------------------------------------------------------
 
 
 class TestRealWorkbookNameScope:
-    """Workbook scope and link hygiene for both committed artifacts."""
+    """Workbook scope and link hygiene for the committed unified workbook."""
 
-    def test_regression_workbook_scope_belongs_to_the_catalog(
+    def test_workbook_scope_belongs_to_the_catalog(
         self, real_workbook_package: WorkbookPackage
     ) -> None:
         _assert_workbook_scope_belongs_to_the_catalog(real_workbook_package)
 
-    def test_univariate_workbook_scope_belongs_to_the_catalog(
-        self, univariate_workbook_package: WorkbookPackage
-    ) -> None:
-        _assert_workbook_scope_belongs_to_the_catalog(univariate_workbook_package)
-
-    def test_regression_defined_names_have_no_error_literals(
+    def test_defined_names_have_no_error_literals(
         self, real_workbook_package: WorkbookPackage
     ) -> None:
         _assert_no_error_literals_in_defined_names(real_workbook_package)
 
-    def test_univariate_defined_names_have_no_error_literals(
-        self, univariate_workbook_package: WorkbookPackage
-    ) -> None:
-        _assert_no_error_literals_in_defined_names(univariate_workbook_package)
-
-    def test_regression_workbook_has_no_external_links(
+    def test_workbook_has_no_external_links(
         self, real_workbook_package: WorkbookPackage
     ) -> None:
         _assert_no_external_links(real_workbook_package)
-
-    def test_univariate_workbook_has_no_external_links(
-        self, univariate_workbook_package: WorkbookPackage
-    ) -> None:
-        _assert_no_external_links(univariate_workbook_package)
 
 
 # ---------------------------------------------------------------------------
@@ -1071,7 +1038,7 @@ class TestRealWorkbookNameScope:
 #
 # The spec-driven verifier (lambda_catalog.deep_verify.verify_test_sheets, Excel required) reads
 # only the descriptive statistics and the three histogram blocks — it never
-# touches the fitting table. So a passing `build_univariate.py --verify` says
+# touches the fitting table. So a passing `build_production.py --verify` says
 # nothing about the distribution fits. A built .xlsx caches every formula's
 # last computed result, which is what lets these run headlessly in CI.
 # ---------------------------------------------------------------------------
@@ -1182,12 +1149,12 @@ class TestShippedUnivariateFits:
     """
 
     def test_weibull_fit_is_at_the_maximum_likelihood(
-        self, univariate_workbook_package: WorkbookPackage
+        self, real_workbook_package: WorkbookPackage
     ) -> None:
         from lambda_catalog.analyze_univariate import mle_weibull, nll_weibull
 
         shape, scale, cached_nll = _shipped_two_parameter_fit(
-            univariate_workbook_package, "Weibull"
+            real_workbook_package, "Weibull"
         )
         data = _life_expectancy_column()
 
@@ -1203,12 +1170,12 @@ class TestShippedUnivariateFits:
         )
 
     def test_gamma_fit_is_at_the_maximum_likelihood(
-        self, univariate_workbook_package: WorkbookPackage
+        self, real_workbook_package: WorkbookPackage
     ) -> None:
         from lambda_catalog.analyze_univariate import mle_gamma, nll_gamma
 
         shape, rate, cached_nll = _shipped_two_parameter_fit(
-            univariate_workbook_package, "Gamma"
+            real_workbook_package, "Gamma"
         )
         data = _life_expectancy_column()
 
@@ -1223,13 +1190,13 @@ class TestShippedUnivariateFits:
         )
 
     def test_beta_fit_is_finite_and_not_the_error_sentinel(
-        self, univariate_workbook_package: WorkbookPackage
+        self, real_workbook_package: WorkbookPackage
     ) -> None:
         """Beta has no closed-form MLE to compare against, so this is the
         weaker invariant: the grid search returned real parameters rather than
         collapsing to the IFERROR sentinel."""
         alpha, beta, cached_nll = _shipped_two_parameter_fit(
-            univariate_workbook_package, "Beta"
+            real_workbook_package, "Beta"
         )
 
         assert 0.0 < alpha < _NLL_SENTINEL and 0.0 < beta < _NLL_SENTINEL
@@ -1239,7 +1206,7 @@ class TestShippedUnivariateFits:
         )
 
     def test_every_fit_beats_the_worst_and_none_is_the_sentinel(
-        self, univariate_workbook_package: WorkbookPackage
+        self, real_workbook_package: WorkbookPackage
     ) -> None:
         """No distribution row may ship the sentinel: it would rank first or
         last in the AIC/BIC comparison for the wrong reason."""
@@ -1247,7 +1214,7 @@ class TestShippedUnivariateFits:
             "Normal", "Lognormal", "Exponential", "Weibull",
             "Gamma", "Triangular", "Beta", "BetaPERT",
         ):
-            cached_nll = _shipped_nll(univariate_workbook_package, distribution)
+            cached_nll = _shipped_nll(real_workbook_package, distribution)
             assert cached_nll < _NLL_SENTINEL, (
                 f"{distribution} ships the {_NLL_SENTINEL:g} NLL sentinel"
             )
@@ -1264,7 +1231,7 @@ class TestShippedUnivariateLayout:
     """
 
     def test_fit_zone_bodies_match_the_writer(
-        self, univariate_workbook_package: WorkbookPackage
+        self, real_workbook_package: WorkbookPackage
     ) -> None:
         from lambda_catalog.workbook_helpers import col_letter
         from lambda_catalog.write_sheet_univariate import (
@@ -1324,7 +1291,7 @@ class TestShippedUnivariateLayout:
 
         actual = {
             name.split("!", 1)[-1]: body
-            for name, body in _defined_name_bodies(univariate_workbook_package)
+            for name, body in _defined_name_bodies(real_workbook_package)
         }
         mismatched = {
             key: (want, actual.get(key))
@@ -1332,8 +1299,8 @@ class TestShippedUnivariateLayout:
             if actual.get(key) != want
         }
         assert not mismatched, (
-            "the committed Lambda_Library_Univariate.xlsx does not match the "
-            "current writer — rebuild it with `python scripts/build_univariate.py "
+            "the committed Lambda_Library.xlsx's Univariate sheet does not match "
+            "the current writer — rebuild it with `python scripts/build_production.py "
             f"--verify --no-launch` on a machine with Excel and commit it. {mismatched}"
         )
 
@@ -1443,74 +1410,4 @@ class TestRealWorkbook:
         assert not missing, (
             "Chart/drawing relationship Targets don't resolve:\n  "
             + "\n  ".join(f"{part}: Id={rid!r} -> {t!r}" for part, rid, t in missing)
-        )
-
-
-@skip_real_workbook
-class TestRealUnivariateWorkbook:
-    """Real-workbook checks for the standalone Univariate artifact; opt-in via
-    RUN_EXCEL_INTEGRATION=1. Mirrors the Regression class but asserts the
-    four-sheet Univariate set and that the package is structurally sound
-    (no orphan names, no leaked error literals, consistent content types and
-    rels). The deep spec-driven check (lambda_catalog.deep_verify.verify_test_sheets with
-    skip_regression=True) is the source of truth for cell-level correctness.
-    """
-
-    def test_sheet_inventory_matches_spec(
-        self, univariate_workbook_package: WorkbookPackage
-    ) -> None:
-        """The Univariate workbook's sheet set must equal the documented
-        four-sheet inventory."""
-        _assert_sheet_inventory(univariate_workbook_package, EXPECTED_UNIVARIATE_SHEETS)
-
-    def test_no_orphan_named_ranges(
-        self, univariate_workbook_package: WorkbookPackage
-    ) -> None:
-        _assert_no_orphan_named_ranges(univariate_workbook_package)
-
-    def test_no_error_literals_in_cached_values(
-        self, univariate_workbook_package: WorkbookPackage
-    ) -> None:
-        _assert_no_error_literals_in_cached_values(univariate_workbook_package)
-
-    def test_content_types_consistent(
-        self, univariate_workbook_package: WorkbookPackage
-    ) -> None:
-        """[Content_Types].xml must reference every actual worksheet part, and vice versa."""
-        namelist = univariate_workbook_package.namelist
-        actual_worksheets = {
-            f"/{name}"
-            for name in namelist
-            if name.startswith("xl/worksheets/") and name.endswith(".xml")
-        }
-        root = univariate_workbook_package.content_types_root
-        declared_worksheets = {
-            override.get("PartName")
-            for override in root.findall(_OVERRIDE_TAG)
-            if (override.get("ContentType") or "").endswith("worksheet+xml")
-        }
-        missing = actual_worksheets - declared_worksheets
-        extra = declared_worksheets - actual_worksheets
-        assert not missing and not extra, (
-            f"Worksheet <-> Content_Types mismatch: missing={missing!r}, extra={extra!r}"
-        )
-
-    def test_workbook_rels_consistent(
-        self, univariate_workbook_package: WorkbookPackage
-    ) -> None:
-        """Every <Relationship> in xl/_rels/workbook.xml.rels must resolve to a zip member."""
-        namelist = univariate_workbook_package.namelist
-        rels = univariate_workbook_package.workbook_rels_root
-        missing: list[tuple[str, str]] = []
-        for rel in rels.findall(_RELATIONSHIP_TAG):
-            target = rel.get("Target") or ""
-            if target.startswith("/"):
-                resolved = target.lstrip("/")
-            else:
-                resolved = f"xl/{target}"
-            if resolved not in namelist:
-                missing.append((rel.get("Id", "?"), resolved))
-        assert not missing, (
-            "xl/_rels/workbook.xml.rels references parts not in the zip:\n  "
-            + "\n  ".join(f"Id={rid!r} Target={t!r}" for rid, t in missing)
         )

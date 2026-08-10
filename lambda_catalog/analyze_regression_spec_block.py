@@ -113,8 +113,10 @@ _QC_PREFIX = "[Regression Spec]"
 
 # Every dataset the spec block can be pointed at, keyed by the profile key
 # SPEC_DATASET_PROFILES uses. The row loader is per-dataset because each CSV
-# needs its own normalization (header casing, the appended Full_Data column),
-# and all three share one signature: (csv_path) -> list[dict].
+# needs its own normalization (header casing, an optional appended derived
+# column — Life Expectancy appends "Developed Country after 2013"; the
+# others append none) — and all three share one signature:
+# (csv_path) -> list[dict].
 _DATASET_LOADERS = {
     "auto_mpg": (MILEAGE, load_source_rows),
     "life_expectancy": (LIFE_EXPECTANCY, load_life_expectancy_source_rows),

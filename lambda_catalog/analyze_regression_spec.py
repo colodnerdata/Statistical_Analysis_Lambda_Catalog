@@ -596,8 +596,6 @@ def _v1_full_continuous_spec() -> list[SpecVariable]:
             spec.append(_spec_var(variable.name, _ROLE_OMIT))
         elif variable.name == "MPG":
             spec.append(_spec_var(variable.name, _ROLE_RESPONSE))
-        elif variable.name == "Full_Data":
-            spec.append(_spec_var(variable.name, _ROLE_FILTER))
         elif variable.name in numeric_predictors:
             spec.append(_spec_var(variable.name, _ROLE_PREDICTOR, True, "Continuous"))
         else:
@@ -684,7 +682,6 @@ def _mileage_log_log_na_masking_spec() -> list[SpecVariable]:
         _spec_var("Car Name", _ROLE_IDENTIFIER),
         _spec_var("Make", _ROLE_OMIT),
         _spec_var("Model?", _ROLE_OMIT),
-        _spec_var("Full_Data", _ROLE_OMIT),
     ]
 
 
@@ -796,7 +793,6 @@ def _interaction_difference_spec() -> list[SpecVariable]:
         _spec_var("Car Name", _ROLE_IDENTIFIER),
         _spec_var("Make", _ROLE_OMIT),
         _spec_var("Model?", _ROLE_OMIT),
-        _spec_var("Full_Data", _ROLE_OMIT),
     ]
 
 
@@ -839,7 +835,6 @@ def _interaction_ratio_reciprocal_spec() -> list[SpecVariable]:
         _spec_var("Car Name", _ROLE_IDENTIFIER),
         _spec_var("Make", _ROLE_OMIT),
         _spec_var("Model?", _ROLE_OMIT),
-        _spec_var("Full_Data", _ROLE_OMIT),
     ]
 
 
@@ -1191,8 +1186,7 @@ def _production_lots_fixed_effects_spec() -> list[SpecVariable]:
     fit-time pair (calculate_regression_results_from_matrix's group_labels
     branch) against a real spec-driven build, unlike Auto MPG (no natural
     panel-unit variable). Column order matches the Production Lots CSV's
-    header order plus the appended Full_Data column — spec rows are
-    positional, one per Source_Table column.
+    header order — spec rows are positional, one per Source_Table column.
     """
     return [
         _spec_var("Lot_ID", _ROLE_IDENTIFIER),
@@ -1205,7 +1199,6 @@ def _production_lots_fixed_effects_spec() -> list[SpecVariable]:
         _spec_var("log Cum Units", _ROLE_PREDICTOR, True, "Continuous"),
         _spec_var("log experience", _ROLE_OMIT),
         _spec_var("log Unit Cost", _ROLE_RESPONSE),
-        _spec_var("Full_Data", _ROLE_FILTER),
     ]
 
 
@@ -1238,7 +1231,6 @@ def _production_lots_log_transform_spec() -> list[SpecVariable]:
         _spec_var("log Cum Units", _ROLE_OMIT),
         _spec_var("log experience", _ROLE_OMIT),
         _spec_var("log Unit Cost", _ROLE_OMIT),
-        _spec_var("Full_Data", _ROLE_FILTER),
     ]
 
 
@@ -1283,7 +1275,6 @@ def _production_lots_derived_log_no_fe_spec() -> list[SpecVariable]:
         _spec_var("log Cum Units", _ROLE_PREDICTOR, True, "Continuous"),
         _spec_var("log experience", _ROLE_OMIT),
         _spec_var("log Unit Cost", _ROLE_RESPONSE),
-        _spec_var("Full_Data", _ROLE_FILTER),
     ]
 
 
@@ -1316,7 +1307,6 @@ def _production_lots_log_no_fe_spec() -> list[SpecVariable]:
         _spec_var("log Cum Units", _ROLE_OMIT),
         _spec_var("log experience", _ROLE_OMIT),
         _spec_var("log Unit Cost", _ROLE_OMIT),
-        _spec_var("Full_Data", _ROLE_FILTER),
     ]
 
 
@@ -1343,7 +1333,6 @@ def _production_lots_log_mixed_predictors_spec() -> list[SpecVariable]:
         _spec_var("log Cum Units", _ROLE_OMIT),
         _spec_var("log experience", _ROLE_OMIT),
         _spec_var("log Unit Cost", _ROLE_OMIT),
-        _spec_var("Full_Data", _ROLE_FILTER),
     ]
 
 
@@ -1370,7 +1359,6 @@ def _production_lots_log_predictor_only_spec() -> list[SpecVariable]:
         _spec_var("log Cum Units", _ROLE_OMIT),
         _spec_var("log experience", _ROLE_OMIT),
         _spec_var("log Unit Cost", _ROLE_OMIT),
-        _spec_var("Full_Data", _ROLE_FILTER),
     ]
 
 
@@ -1531,7 +1519,6 @@ def _production_lots_lsdv_equivalence_spec() -> list[SpecVariable]:
         _spec_var("log Cum Units", _ROLE_OMIT),
         _spec_var("log experience", _ROLE_OMIT),
         _spec_var("log Unit Cost", _ROLE_OMIT),
-        _spec_var("Full_Data", _ROLE_FILTER),
     ]
 
 

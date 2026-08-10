@@ -68,7 +68,7 @@ this control row the spec headers move to row 3 and the variable rows to
 strip is unaffected.
 
 The spec spans EVERY column of the Source_Table-targeted table (currently
-MileageData, 12 rows: [MPG]..[Model?] plus [Full_Data]). Two axes:
+MileageData, 11 rows: [MPG]..[Model?]). Two axes:
 
     Variable Role  — Response (y) | Predictor (x) | Identifier (Row Label) |
                      Filter | Omit | Fixed Effects
@@ -173,17 +173,14 @@ Mileage/Auto MPG dataset since Source_Table now defaults to MileageData):
     Horsepower, Weight → Predictor/Continuous/TRUE
     Cylinders, Displacement, Acceleration → Predictor/Continuous/FALSE (candidates)
     Make, Model?     → Omit                   (text columns parsed out of Car Name)
-    Full_Data        → Omit                    (its all-features completeness
-                                               flag is redundant with the mask's
-                                               built-in completeness and
-                                               over-filters; no default Filter)
 Full-height contract: ROWS(Predictor_Columns()) = ROWS(Row_Labels()) =
 ROWS(Sample_Include()) = 406 always — the constructor reads the mask ONLY
 to fix level sets; nothing here ever row-filters. With the real mask live,
 the T0 mask-dependent values are real on the sheet: k = 16 (2 continuous +
 2 Origin dummies + 12 Model Year dummies), and
 SUMPRODUCT(N(Sample_Include())) = 392 (completeness-only on the response
-and the two continuous predictors, no Full_Data over-filter).
+and the two continuous predictors; Auto MPG ships no Filter-by-default
+column, so the active Filter role is exercised only by the Is_USA fixture).
 
 Not here (deliberately, per release scoping): the QC analyzer
 (analyze_model_construction.py) and the Version History / CHANGELOG bump

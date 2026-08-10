@@ -79,7 +79,7 @@ def test_default_spec_mirrors_the_writer_prefill() -> None:
 
 def test_t0_expectations_pin_the_csv_derived_values(rows, t0_expected) -> None:
     assert t0_expected.total_rows == 406
-    # Full_Data ships as Omit (not Filter), so the mask is completeness-only on
+    # Auto MPG ships no Filter column, so the mask is completeness-only on
     # the response and the model's two continuous predictors — 392 rows.
     assert t0_expected.included_rows == 392
     assert t0_expected.k == 16
@@ -125,8 +125,8 @@ def test_stratifying_filter_degenerates_origin(rows) -> None:
     ]
     expected = calculate_model_construction_expectations(spec, mutated)
 
-    # Full_Data ships as Omit, so the only Filter is Is_USA: the mask is
-    # completeness-on-the-model's-predictors AND Origin = "US" → 245.
+    # The only Filter is Is_USA: the mask is completeness-on-the-model's-
+    # predictors AND Origin = "US" → 245.
     assert expected.included_rows == 245
     assert expected.degenerate_categoricals == ("Origin",)
     assert expected.level_counts == {"Model Year": 13, "Origin": 1}

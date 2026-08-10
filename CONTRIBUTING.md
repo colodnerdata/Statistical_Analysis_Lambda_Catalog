@@ -361,8 +361,8 @@ rather than a silent no-op that excludes nothing.
 
 | Flag | Default | What it does |
 |---|---|---|
-| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV used for the `Full_Data` comparison. |
-| `--mileage PATH` | `sample_data/auto_mpg_data.csv` | Auto MPG CSV for the Mileage Data `Full_Data` comparison and the Regression spec oracle. |
+| `--csv PATH` | `sample_data/Life Expectancy Data.csv` | Life Expectancy CSV used for the `Developed Country after 2013` derived-column comparison. |
+| `--mileage PATH` | `sample_data/auto_mpg_data.csv` | Auto MPG CSV for the Regression spec oracle (the Regression sheet's `Source_Table` default). |
 | `--json` | off | Emit the report as JSON (stable schema, for agentic consumption) instead of the human-readable form. |
 | `--verbose` | off | Print per-phase checkpoints from the spec-driven verifier. |
 
@@ -471,7 +471,7 @@ python -m lambda_catalog.write_sheet_csv_dataset mileage Lambda_Library.xlsx
 python -m lambda_catalog.write_sheet_csv_dataset production_lots Lambda_Library.xlsx
 ```
 
-`write_sheet_csv_dataset.py` is a single config-driven module backing all three sample datasets (Life Expectancy, Mileage, Production Lots) — one `CsvDatasetConfig` per dataset (`LIFE_EXPECTANCY`, `MILEAGE`, `PRODUCTION_LOTS`) captures its sheet/table name, `Full_Data` formula, and CSV-parsing quirks (missing-value markers, header normalization), and the shared `load_csv_rows` / `write_csv_dataset_sheet` functions do the actual work. All three CSVs are real committed sample files (`sample_data/Life Expectancy Data.csv`, `sample_data/auto_mpg_data.csv`, `sample_data/production_lots.csv`) that can be pointed at a different CSV via `--csv`, or via `build_production.py`'s `--csv` / `--mileage-csv` / `--production-lots-csv` flags. The loader (`load_csv_rows`) has no Excel dependency, so the Python QC oracles (`analyze_mileage.calculate_mileage_completeness_flags`, `analyze_production_lots.calculate_production_lots_completeness_flags`) can run on any platform.
+`write_sheet_csv_dataset.py` is a single config-driven module backing all three sample datasets (Life Expectancy, Mileage, Production Lots) — one `CsvDatasetConfig` per dataset (`LIFE_EXPECTANCY`, `MILEAGE`, `PRODUCTION_LOTS`) captures its sheet/table name, an optional appended derived column (Life Expectancy ships `Developed Country after 2013` = `AND([@Status]="Developed",[@Year]>2013)`; Mileage and Production Lots ship none), and CSV-parsing quirks (missing-value markers, header normalization), and the shared `load_csv_rows` / `write_csv_dataset_sheet` functions do the actual work. All three CSVs are real committed sample files (`sample_data/Life Expectancy Data.csv`, `sample_data/auto_mpg_data.csv`, `sample_data/production_lots.csv`) that can be pointed at a different CSV via `--csv`, or via `build_production.py`'s `--csv` / `--mileage-csv` / `--production-lots-csv` flags. The loader (`load_csv_rows`) has no Excel dependency, so the Python QC oracle (`analyze_life_expectancy.calculate_developed_country_flags`) can run on any platform.
 
 ### Static reference sheets
 

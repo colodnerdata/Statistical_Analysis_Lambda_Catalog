@@ -384,8 +384,8 @@ make the one-name retarget concrete: repoint `Source_Table` at
 `MileageData[#All]` in Name Manager and the whole spec block re-populates
 from the new columns, with no data of the user's own required. This is
 the reason `build_production.py` writes the two
-datasets as the default build output, and why the spec-driven Excel verifier checks each
-sheet's `Full_Data` completeness column independently.
+datasets as the default build output, and why the spec-driven Excel verifier checks the
+Life Expectancy sheet's `Developed Country after 2013` derived column independently.
 
 ### Supersession notes from the v1 planning
 

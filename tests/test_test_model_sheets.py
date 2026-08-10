@@ -703,8 +703,8 @@ def test_every_case_spec_covers_its_whole_source_table() -> None:
     reads `None`.
 
     It bit because `Is_USA` was added to `MileageData` for M15's benefit,
-    widening the table to 13 columns while every other Auto MPG case still
-    wrote a 12-row spec. M15 was the one Auto MPG sheet that worked.
+    widening the table to 12 columns while every other Auto MPG case still
+    wrote an 11-row spec. M15 was the one Auto MPG sheet that worked.
     """
     from lambda_catalog.write_sheet_test_model import (
         effective_variables,

@@ -145,7 +145,7 @@ deviations are recorded rather than papered over.**
 
 | ID | Model | Configuration | Covers | Status |
 |---|---|---|---|---|
-| P1 | `log Unit Cost ~ log Cum Units \| Facility` | **learning-curve power law with FE** (log-log ⟺ `cost = A·units^b`); pre-derived ln columns; `Full_Data` = Filter; Fiscal_Year = Sequence with a **typed `Sequence Period` = 1**; prediction group `Site B` | one-way FE; Filter role; group prediction; **the BFN panel Durbin-Watson** (the only cases that make that cell live) | existing — `production_lots_fixed_effects` |
+| P1 | `log Unit Cost ~ log Cum Units \| Facility` | **learning-curve power law with FE** (log-log ⟺ `cost = A·units^b`); pre-derived ln columns; Fiscal_Year = Sequence with a **typed `Sequence Period` = 1**; prediction group `Site B` | one-way FE; group prediction; **the BFN panel Durbin-Watson** (the only cases that make that cell live) | existing — `production_lots_fixed_effects` |
 | P2 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units) \| Facility` | raw columns with `Transform = Log`; typed `Sequence Period` = 1, matching P1 | FE + (Log, Log) via the transform axis (vs. P1's pre-derived columns); BFN, equal to P1's | existing — `production_lots_log_transform` |
 | P3 | `log Unit Cost ~ log Cum Units` | **power law without FE**, from the pre-derived ln columns | the pre-derived half of the no-FE pair; P3b's twin | existing — `production_lots_derived_log_no_fe` |
 | P3b | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units)` | same model, raw columns with `Transform = Log` | (Log, Log), no level shift; **transform axis isolated from FE** (vs. P3's pre-derived columns) | existing — `production_lots_log_no_fe` |
@@ -286,7 +286,7 @@ message text implies.
 | Role = Response (exactly one) | every model; G1/G2 for the violations |
 | Role = Predictor, Continuous | every model |
 | Role = Identifier | M1 (Car Name), L5 (Country), P1 (Lot_ID), P7 (Facility — the panel unit) |
-| Role = Filter | P1 (`Full_Data`), M15 (`Is_USA`) |
+| Role = Filter | M15 (`Is_USA`); P07 guard (Production Lots degenerate Filter). The Production Lots `Full_Data` Filter was redundant (no missing values) and is gone; the dormant `Developed Country after 2013` column on Life Expectancy is one Role-dropdown flip from active. |
 | Role = Fixed Effects | P1/P2, L8 (173 groups); G4/G5 violations |
 | Role = Omit / blank ≡ Omit | M1 (Make, Model?) |
 | Include = FALSE candidates | M4; M10/G11 (as interaction operand); G1b (all of them) |

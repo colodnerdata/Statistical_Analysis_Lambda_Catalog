@@ -208,7 +208,6 @@ def test_log_on_a_categorical_predictor_is_ignored_by_the_design_builder() -> No
         SpecVariable("log Cum Units", "Omit", False, "Continuous"),
         SpecVariable("log experience", "Omit", False, "Continuous"),
         SpecVariable("log Unit Cost", "Omit", False, "Continuous"),
-        SpecVariable("Full_Data", "Filter", False, "Continuous"),
     ]
     design = build_spec_design(spec, rows)
 

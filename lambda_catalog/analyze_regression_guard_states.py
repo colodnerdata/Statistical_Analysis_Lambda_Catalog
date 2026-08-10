@@ -764,7 +764,6 @@ def _irregular_panel_spacing_spec() -> list[SpecVariable]:
         _spec_var("log Cum Units", _ROLE_PREDICTOR, True, "Continuous"),
         _spec_var("log experience", "Omit"),
         _spec_var("log Unit Cost", _ROLE_RESPONSE),
-        _spec_var("Full_Data", "Filter"),
     ]
 
 

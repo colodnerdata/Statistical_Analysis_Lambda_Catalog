@@ -20,10 +20,8 @@ from pathlib import Path
 
 import xlwings as xw
 
-from lambda_catalog.analyze_life_expectancy import calculate_data_completeness_flags
-from lambda_catalog.analyze_mileage import calculate_mileage_completeness_flags
-from lambda_catalog.analyze_production_lots import (
-    calculate_production_lots_completeness_flags,
+from lambda_catalog.analyze_life_expectancy import (
+    calculate_developed_country_flags,
 )
 from lambda_catalog.analyze_regression_spec_block import (
     read_regression_spec_block_failures,
@@ -191,12 +189,12 @@ def _load_module(module_name: str, path: Path):
     return module
 
 
-def _verify_life_expectancy_full_data(
+def _verify_life_expectancy_developed_country(
     workbook: xw.Book,
     csv_path: Path,
     failures: list[str],
 ) -> None:
-    full_data_expected = calculate_data_completeness_flags(csv_path)
+    expected_flags = calculate_developed_country_flags(csv_path)
     life_expectancy_sheet = workbook.sheets[LIFE_EXPECTANCY.sheet_name]
     life_expectancy_data = life_expectancy_sheet.used_range.value
     if not life_expectancy_data:
@@ -210,91 +208,29 @@ def _verify_life_expectancy_full_data(
         str(header).strip() if header is not None else ""
         for header in life_expectancy_rows[0]
     ]
-    full_data_col_idx = life_expectancy_headers.index(LIFE_EXPECTANCY.full_data_header)
-    for row_offset, expected in enumerate(full_data_expected, start=1):
+    derived_header = LIFE_EXPECTANCY.derived_header
+    if derived_header is None:
+        _report_qc_failure(
+            failures,
+            "[Life Expectancy Data] expected 'Developed Country after 2013' "
+            "column but the dataset config ships no derived header.",
+        )
+        return
+    col_idx = life_expectancy_headers.index(derived_header)
+    for row_offset, expected in enumerate(expected_flags, start=1):
         row = (
             life_expectancy_rows[row_offset]
             if row_offset < len(life_expectancy_rows)
             else []
         )
         actual = _normalize_excel_bool(
-            row[full_data_col_idx] if full_data_col_idx < len(row) else None
+            row[col_idx] if col_idx < len(row) else None
         )
         if actual is not expected:
             _report_qc_failure(
                 failures,
-                f"[Life Expectancy Data] row={row_offset + 1} stat='Full_Data': "
-                f"expected={expected!r}, excel_calc={actual!r}",
-            )
-
-
-def _verify_mileage_full_data(
-    workbook: xw.Book,
-    mileage_path: Path,
-    failures: list[str],
-) -> None:
-    full_data_expected = calculate_mileage_completeness_flags(mileage_path)
-    mileage_sheet = workbook.sheets[MILEAGE.sheet_name]
-    mileage_data = mileage_sheet.used_range.value
-    if not mileage_data:
-        return
-
-    if isinstance(mileage_data[0], list):
-        mileage_rows = mileage_data
-    else:
-        mileage_rows = [mileage_data]
-    mileage_headers = [
-        str(header).strip() if header is not None else "" for header in mileage_rows[0]
-    ]
-    full_data_col_idx = mileage_headers.index(MILEAGE.full_data_header)
-    for row_offset, expected in enumerate(full_data_expected, start=1):
-        row = mileage_rows[row_offset] if row_offset < len(mileage_rows) else []
-        actual = _normalize_excel_bool(
-            row[full_data_col_idx] if full_data_col_idx < len(row) else None
-        )
-        if actual is not expected:
-            _report_qc_failure(
-                failures,
-                f"[Mileage Data] row={row_offset + 1} stat='Full_Data': "
-                f"expected={expected!r}, excel_calc={actual!r}",
-            )
-
-
-def _verify_production_lots_full_data(
-    workbook: xw.Book,
-    production_lots_path: Path,
-    failures: list[str],
-) -> None:
-    full_data_expected = calculate_production_lots_completeness_flags(
-        production_lots_path
-    )
-    production_lots_sheet = workbook.sheets[PRODUCTION_LOTS.sheet_name]
-    production_lots_data = production_lots_sheet.used_range.value
-    if not production_lots_data:
-        return
-
-    if isinstance(production_lots_data[0], list):
-        production_lots_rows = production_lots_data
-    else:
-        production_lots_rows = [production_lots_data]
-    production_lots_headers = [
-        str(header).strip() if header is not None else ""
-        for header in production_lots_rows[0]
-    ]
-    full_data_col_idx = production_lots_headers.index(PRODUCTION_LOTS.full_data_header)
-    for row_offset, expected in enumerate(full_data_expected, start=1):
-        row = (
-            production_lots_rows[row_offset]
-            if row_offset < len(production_lots_rows)
-            else []
-        )
-        actual = _normalize_excel_bool(
-            row[full_data_col_idx] if full_data_col_idx < len(row) else None
-        )
-        if actual is not expected:
-            _report_qc_failure(
-                failures,
-                f"[Production Lots] row={row_offset + 1} stat='Full_Data': "
+                f"[Life Expectancy Data] row={row_offset + 1} "
+                f"stat='Developed Country after 2013': "
                 f"expected={expected!r}, excel_calc={actual!r}",
             )
 
@@ -305,8 +241,6 @@ def verify_test_sheets(
     csv_path: Path,
     verbose: bool = False,
     *,
-    mileage_path: Path = MILEAGE.default_csv_path,
-    production_lots_path: Path = PRODUCTION_LOTS.default_csv_path,
     skip_regression: bool = False,
     failures_out: list[str] | None = None,
 ) -> None:
@@ -321,22 +255,16 @@ def verify_test_sheets(
         May be ``None`` when ``skip_regression`` is set (a test-model
         artifact may have no Regression sheet to compare against).
     csv_path : Path
-        Path to the canonical CSV used for Full_Data comparison.
+        Path to the Life Expectancy CSV used for the "Developed Country
+        after 2013" derived-column comparison.
     verbose : bool
         Print per-phase checkpoints to stdout.
-    mileage_path : Path
-        Path to the Auto MPG sample CSV used for the Mileage Data sheet's
-        Full_Data comparison. Defaults to the committed sample file.
-    production_lots_path : Path
-        Path to the Production Lots sample CSV used for the Production Lots
-        sheet's Full_Data comparison. Defaults to the committed sample file.
     skip_regression : bool
-        When True, skip every Regression-side check (the Mileage and
-        Production Lots Full_Data comparisons, the Regression spec-block
-        check, and the Regression DF comparison against
+        When True, skip every Regression-side check (the Regression
+        spec-block check and the Regression DF comparison against
         ``regression_sheet_configs``). Used when verifying a workbook with
-        no Regression / Mileage / Production Lots sheets. Defaults to False.
-        The Life Expectancy Full_Data check and the Univariate sheet check
+        no Regression sheet. Defaults to False. The Life Expectancy
+        "Developed Country after 2013" check and the Univariate sheet check
         still run.
     failures_out : list[str] | None
         Optional external list. When supplied, every captured failure message
@@ -353,11 +281,8 @@ def verify_test_sheets(
         phase_start,
         skip_regression=skip_regression,
     )
-    _verify_life_expectancy_full_data(workbook, csv_path, failures)
+    _verify_life_expectancy_developed_country(workbook, csv_path, failures)
     if not skip_regression:
-        _verify_mileage_full_data(workbook, mileage_path, failures)
-        _verify_production_lots_full_data(workbook, production_lots_path, failures)
-
         _verbose_checkpoint(verbose, phase_start, "Verify: reg spec block start")
         # No csv_path: the spec-block verifier resolves the dataset from the
         # sheet's own Source_Table and loads that dataset's CSV. Passing

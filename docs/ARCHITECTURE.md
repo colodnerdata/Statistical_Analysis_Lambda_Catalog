@@ -198,7 +198,7 @@ lag/difference/serial-correlation features land on a declared axis.
   validates each the same way it validates exactly-one-Response.
 - **Zero-or-more** Filter columns. AND-composed: no Filter columns → all rows
   included; multiple → logical AND (declarative stratification, e.g.
-  `Full_Data` AND a hand-built "Developing only" flag).
+  `Developed Country after 2013` AND a hand-built "Developing only" flag).
 - **No cardinality constraint** on Identifier or Omit.
 
 ### Role semantics

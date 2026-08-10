@@ -220,7 +220,7 @@ Every named range a sheet writer creates is **sheet-scoped** — `sheet.api.Name
 
 ### Use xlwings COM API for all chart creation — never openpyxl
 
-openpyxl's `load_workbook()`/`save()` **rewrites the entire .xlsx package** and silently drops chart parts, VML drawings, and chartUserShapes it didn't create. Loading a workbook that already has Excel-created charts (e.g., the Regression diagnostic charts) and saving it back will destroy those charts — this is a fundamental openpyxl limitation, not fixable. All charts in this project use `sheet.api.ChartObjects().Add(...)` via xlwings COM. Follow the existing pattern in `write_sheet_regression.py:_write_diagnostic_charts`.
+openpyxl's `load_workbook()`/`save()` **rewrites the entire .xlsx package** and silently drops chart parts, VML drawings, and chartUserShapes it didn't create. Loading a workbook that already has Excel-created charts (e.g., the Regression diagnostic charts) and saving it back will destroy those charts — this is a fundamental openpyxl limitation, not fixable. All charts in this project use `sheet.api.ChartObjects().Add(...)` via xlwings COM. Follow the existing pattern in `regression_charts.py:_write_diagnostic_charts`.
 
 ### Chart creation pattern
 
@@ -292,7 +292,7 @@ series.Name = "Identity"
 series.ChartType = _XL_XY_SCATTER_LINES_NO_MARKERS
 ```
 
-See `_add_identity_line` in `write_sheet_regression.py`.
+See `_add_identity_line` in `regression_charts.py`.
 
 ### Selective data labels — an `NA()`-masked overlay series, not per-point COM loops
 
@@ -302,7 +302,7 @@ On a **column-chart** target, do not give the overlay series the chart's own `xl
 
 To label the point by something more meaningful than its raw value (e.g., the observation's row identifier instead of, or alongside, the Cook's D number), set the overlay series' `XValues` to a named range over the identifier column and turn on `ShowCategoryName` on its `DataLabels()`, combined with `ShowValue` if the number should show too.
 
-See the `RegChartCookDistFlag` / `RegChartObsLabel` names in `_setup_local_names` and the Cook's Distance branch of `_write_diagnostic_charts` in `write_sheet_regression.py`.
+See the `RegChartCookDistFlag` / `RegChartObsLabel` names in `_setup_local_names` and the Cook's Distance branch of `_write_diagnostic_charts` in `regression_charts.py`.
 
 ### Separate chart title cells from chart insertion
 

@@ -175,7 +175,7 @@ its axis scaling changed. The data-series approach auto-rescales with the
 chart, since its pixel coordinates are *not* fixed. The "Never draw
 reference lines as shapes" guide in CLAUDE.md / AGENTS.md captures the
 rationale; the helper `_add_identity_line` in
-`write_sheet_regression.py` is the implementation.
+`regression_charts.py` is the implementation.
 
 ### Undersized-sample failure mode
 

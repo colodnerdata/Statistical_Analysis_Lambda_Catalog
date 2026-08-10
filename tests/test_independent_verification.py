@@ -506,7 +506,7 @@ class TestNormalScoresTieRobustness(unittest.TestCase):
             obs_noisy = self._vectors(Path(tmp), y_noisy)
         # normal_scores is invariant to the sub-ULP perturbation: the tie did not
         # split. Without the rounding fix, obs_noisy.normal_scores[4] would jump
-        # by one rank (here ~inv_norm(5.5/10) - inv_norm(3.5/10) ≈ 0.12) and the
+        # by one rank (here ~inv_norm(5.5/10) - inv_norm(3.5/10) ≈ 0.51) and the
         # two arrays would disagree at the split position.
         for i in range(len(y_clean)):
             self.assertAlmostEqual(

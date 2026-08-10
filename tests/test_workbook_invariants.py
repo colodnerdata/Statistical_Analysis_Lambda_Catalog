@@ -130,7 +130,7 @@ _CELL_COLUMN_RE = re.compile(r"^([A-Z]{1,3})\d+$")
 # in the tab order that build_production._reorder_and_style_sheet_tabs
 # applies: the three Regression workbench sheets front-most, then the Univariate
 # workbench, the LAMBDA_functions catalog, Version History, and the three data
-# sheets last. (Pre-v3.0 the Univariate sheet lived in its own standalone
+# sheets last. (During the v3.0 split the Univariate sheet lived in its own standalone
 # workbook, Lambda_Library_Univariate.xlsx; the reunification merged it back
 # in and that artifact is no longer built or shipped.)
 EXPECTED_REAL_SHEETS: tuple[str, ...] = (

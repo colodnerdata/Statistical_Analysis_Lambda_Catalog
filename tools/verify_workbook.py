@@ -166,7 +166,7 @@ def parse_args() -> argparse.Namespace:
             "Skip every Regression-sheet check. Use this to verify only the "
             "Univariate side of the unified workbook; the Life Expectancy "
             "Data 'Developed Country after 2013' check and the Univariate "
-            "check still run."
+            "checks still run."
         ),
     )
     return parser.parse_args()

@@ -37,7 +37,6 @@ from typing import TypeGuard
 
 import xlwings as xw
 
-from .analyze_mileage import calculate_mileage_completeness_flags
 from .workbook_builder import XL_CALCULATION_MANUAL, XL_CALCULATION_SEMIAUTOMATIC
 from .write_sheet_csv_dataset import MILEAGE, load_csv_rows
 from .write_sheet_regression import REGRESSION_SHEET_NAME
@@ -74,7 +73,6 @@ from .write_spec_block import (
 # the pure-Python half of the regression spec-block QC), but its reads
 # target the Regression sheet, the only place the spec block ships.
 DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
-FULL_DATA_HEADER = MILEAGE.full_data_header
 DATA_SHEET_NAME = MILEAGE.sheet_name
 SPEC_BLOCK_SHEET_NAME = REGRESSION_SHEET_NAME
 
@@ -168,17 +166,11 @@ def load_source_rows(csv_path: Path = DEFAULT_INPUT_CSV) -> list[dict[str, objec
     """Load the source CSV as row dicts matching the MileageData table.
 
     Cell values are typed exactly as the data sheet writer types them
-    (int/float/str/None), and the computed ``Full_Data`` column is appended
-    with the same completeness rule the sheet's ``Data_Completeness``
-    formula applies.
+    (int/float/str/None). The Mileage Data sheet ships no appended derived
+    column, so the row dicts span only the CSV columns.
     """
     headers, rows = load_csv_rows(csv_path, MILEAGE)
-    flags = calculate_mileage_completeness_flags(csv_path)
-    table_headers = [*headers, FULL_DATA_HEADER]
-    return [
-        dict(zip(table_headers, [*row, flag]))
-        for row, flag in zip(rows, flags)
-    ]
+    return [dict(zip(headers, row)) for row in rows]
 
 
 # ---------------------------------------------------------------------------

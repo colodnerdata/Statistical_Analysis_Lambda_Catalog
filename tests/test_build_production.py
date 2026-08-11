@@ -566,10 +566,9 @@ def test_main_runs_deep_verify_and_exits_zero_on_pass(
         csv_path,
         *,
         mileage_path=None,
-        production_lots_path=None,
         verbose=False,
     ):
-        del mileage_path, production_lots_path, verbose
+        del mileage_path, verbose
         verify_calls.append((workbook_path, csv_path))
         return VerifyReport(
             passed=True,
@@ -641,10 +640,9 @@ def test_main_verify_failure_skips_excel_handoff_and_exits_nonzero(
         csv_path,
         *,
         mileage_path=None,
-        production_lots_path=None,
         verbose=False,
     ):
-        del csv_path, mileage_path, production_lots_path, verbose
+        del csv_path, mileage_path, verbose
         return VerifyReport(
             passed=False,
             categories={"Regression/scalars": 2},
@@ -1122,7 +1120,6 @@ def test_run_deep_verify_does_not_skip_univariate_or_regression(
         Path("Example.xlsx"),
         Path("life_expectancy.csv"),
         mileage_path=Path("mileage.csv"),
-        production_lots_path=Path("production_lots.csv"),
     )
 
     assert report.passed is True

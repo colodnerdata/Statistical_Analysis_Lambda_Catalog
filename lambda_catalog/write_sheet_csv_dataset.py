@@ -44,8 +44,13 @@ class CsvDatasetConfig:
     default_csv_path: Path
     sheet_name: str
     table_name: str
-    full_data_header: str
-    full_data_formula: str
+    # An optional formula column appended after the CSV columns (written once
+    # across the whole body range, evaluated per row via structured refs). None
+    # for datasets that ship no appended column. Life Expectancy appends
+    # "Developed Country after 2013" (=AND([@Status]="Developed",[@Year]>2013));
+    # Mileage and Production Lots append nothing.
+    derived_header: str | None = None
+    derived_formula: str | None = None
     missing_values: frozenset[str] = frozenset({""})
     normalize_headers: bool = False
 
@@ -55,12 +60,6 @@ MILEAGE = CsvDatasetConfig(
     default_csv_path=ROOT_DIR / "sample_data" / "auto_mpg_data.csv",
     sheet_name="Mileage Data",
     table_name="MileageData",
-    full_data_header="Full_Data",
-    # The 6 contiguous continuous-measurement columns. Model Year/Origin are
-    # ordinal/categorical grouping columns (excluded, same reasoning Life
-    # Expectancy uses to exclude Status), and Car Name/Make/Model? are text
-    # (ISNUMBER would always be FALSE, making Full_Data permanently FALSE).
-    full_data_formula="=Data_Completeness(MileageData[@[MPG]:[Acceleration]])",
     # Missing values in this CSV are encoded as the literal text "NA" (the
     # source conversion process normalized the canonical UCI dataset's "?"
     # markers to "NA"), unlike Life Expectancy's CSV which uses blank cells.
@@ -72,8 +71,12 @@ LIFE_EXPECTANCY = CsvDatasetConfig(
     default_csv_path=ROOT_DIR / "sample_data" / "Life Expectancy Data.csv",
     sheet_name="Life Expectancy Data",
     table_name="LifeExpectancyData",
-    full_data_header="Full_Data",
-    full_data_formula="=Data_Completeness(LifeExpectancyData[@[Life expectancy]:[Schooling]])",
+    # The one shipped derived column: a dormant filter flagging developed
+    # countries from 2014 on. Ships Role=Omit (dormant) in the spec block --
+    # flip Role to Filter to restrict the sample. AND([@Status]="Developed",
+    # [@Year]>2013) is TRUE for developed-country rows with Year >= 2014.
+    derived_header="Developed Country after 2013",
+    derived_formula='=AND([@Status]="Developed",[@Year]>2013)',
     normalize_headers=True,
 )
 
@@ -82,14 +85,6 @@ PRODUCTION_LOTS = CsvDatasetConfig(
     default_csv_path=ROOT_DIR / "sample_data" / "production_lots.csv",
     sheet_name="Production Lots",
     table_name="ProductionLotsData",
-    full_data_header="Full_Data",
-    # Every column except Lot_ID (text identifier) and Facility (categorical
-    # grouping column) is numeric, so completeness spans Fiscal_Year through
-    # the derived log columns -- same reasoning Mileage/Life Expectancy use
-    # to exclude their own text/categorical columns from Data_Completeness.
-    full_data_formula=(
-        "=Data_Completeness(ProductionLotsData[@[Fiscal_Year]:[log Unit Cost]])"
-    ),
 )
 
 _DATASETS = {config.name: config for config in (MILEAGE, LIFE_EXPECTANCY, PRODUCTION_LOTS)}
@@ -239,12 +234,12 @@ def write_csv_dataset_sheet(
     workbook : xw.Book
         The open xlwings workbook to write into.
     headers : list[str]
-        Column header strings (without the computed Full_Data column).
+        Column header strings (without the optional derived column).
     rows : list[list[str | int | float | None]]
         Typed data rows aligned with headers.
     config : CsvDatasetConfig
-        The dataset config supplying the sheet name, table name, and
-        Full_Data formula.
+        The dataset config supplying the sheet name, table name, and optional
+        derived formula column.
     """
     start_time = monotonic()
 
@@ -260,10 +255,17 @@ def write_csv_dataset_sheet(
     safe_activate(sheet)
     checkpoint("activate done")
 
-    all_headers = headers + [config.full_data_header]
+    # The optional derived formula column (Life Expectancy's "Developed
+    # Country after 2013"); None for Mileage/Production Lots, which ship no
+    # appended column. When present it is the last column of the table.
+derived_header = config.derived_header
+if (derived_header is None) != (config.derived_formula is None):
+    raise ValueError(
+        "CsvDatasetConfig.derived_header and derived_formula must both be set or both be None"
+    )
+all_headers = headers + [derived_header] if derived_header is not None else headers
     last_data_row = len(rows) + 1
     last_column_index = len(all_headers)
-    full_data_column_index = last_column_index
 
     checkpoint(f"headers start ({len(headers)} cols)")
     sheet.range((1, 1), (1, last_column_index)).value = all_headers
@@ -290,16 +292,20 @@ def write_csv_dataset_sheet(
     table.ShowTableStyleColumnStripes = False
     checkpoint("table style done")
 
-    checkpoint("formula start")
-    sheet.range(
-        (2, full_data_column_index), (last_data_row, full_data_column_index)
-    ).formula = config.full_data_formula
-    checkpoint("formula done")
+    # Write the derived formula across its body range only when a derived
+    # column is present. last_column_index is that column's index then.
+    if config.derived_formula is not None:
+        checkpoint("formula start")
+        sheet.range(
+            (2, last_column_index), (last_data_row, last_column_index)
+        ).formula = config.derived_formula
+        checkpoint("formula done")
     checkpoint("autofit start")
     sheet.used_range.columns.autofit()
     checkpoint("autofit done")
-    full_data_col = sheet.range((1, full_data_column_index))
-    full_data_col.column_width = max(full_data_col.column_width or 0, 12)
+    if last_column_index > len(headers):
+        derived_col = sheet.range((1, last_column_index))
+        derived_col.column_width = max(derived_col.column_width or 0, 12)
     checkpoint("width done")
     checkpoint("freeze start")
     safe_freeze_top_row(sheet)

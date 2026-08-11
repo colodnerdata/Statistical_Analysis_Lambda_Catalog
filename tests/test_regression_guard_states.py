@@ -448,7 +448,7 @@ def test_retarget_case_puts_its_evidence_past_the_narrow_shells_last_row() -> No
     So this pins the two things that make the case a detector rather than
     just another Life Expectancy fit: the audit is 23 long, and a predictor
     that actually contributes design columns sits past the old bottom edge.
-    A future edit that moves the model's predictors up into the first 12
+    A future edit that moves the model's predictors up into the first 11
     rows would leave the case passing while testing nothing.
     """
     from lambda_catalog.write_spec_block import (

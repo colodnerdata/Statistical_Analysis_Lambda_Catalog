@@ -108,7 +108,6 @@ def _run_deep_verify(
     csv_path: Path,
     *,
     mileage_path: Path = MILEAGE.default_csv_path,
-    production_lots_path: Path = PRODUCTION_LOTS.default_csv_path,
     verbose: bool = False,
 ) -> VerifyReport:
     """Run the spec-driven verifier against the unified workbook.
@@ -124,7 +123,10 @@ def _run_deep_verify(
 
     The unified workbook carries both the Regression and Univariate sheets,
     so no ``skip_univariate`` or ``skip_regression`` flag is passed — the
-    verifier checks both.
+    verifier checks both. ``mileage_path`` feeds the Regression QC oracle
+    configs (``build_regression_spec_qc_configs``); the Mileage and
+    Production Lots data sheets no longer carry a Full_Data column, so the
+    verifier has no per-sheet completeness check for them.
     """
     start = time.monotonic()
     if verbose:
@@ -144,8 +146,6 @@ def _run_deep_verify(
                     workbook,
                     build_regression_spec_qc_configs(mileage_path),
                     csv_path,
-                    mileage_path=mileage_path,
-                    production_lots_path=production_lots_path,
                     verbose=verbose,
                     failures_out=captured,
                 )
@@ -647,7 +647,6 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
             workbook_path,
             args.csv,
             mileage_path=args.mileage_csv,
-            production_lots_path=args.production_lots_csv,
             verbose=args.verbose,
         )
         verify_elapsed = time.monotonic() - verify_start

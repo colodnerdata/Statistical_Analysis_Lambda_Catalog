@@ -78,7 +78,6 @@ def verify_workbook(
                     workbook,
                     regression_sheet_configs,
                     csv_path,
-                    mileage_path=mileage_path,
                     verbose=verbose,
                     skip_regression=skip_regression,
                     failures_out=captured,
@@ -134,15 +133,17 @@ def parse_args() -> argparse.Namespace:
         "--csv",
         type=Path,
         default=DEFAULT_CSV_PATH,
-        help="Path to the Life Expectancy CSV used for Full_Data comparison.",
+        help=(
+            "Path to the Life Expectancy CSV used for the 'Developed Country "
+            "after 2013' derived-column comparison."
+        ),
     )
     parser.add_argument(
         "--mileage",
         type=Path,
         default=DEFAULT_MILEAGE_CSV_PATH,
         help=(
-            "Path to the Auto MPG sample CSV used for the Mileage Data "
-            "sheet's Full_Data comparison and the Regression sheet's "
+            "Path to the Auto MPG sample CSV used for the Regression sheet's "
             "spec-driven QC oracle (the Regression sheet's Source_Table "
             "default)."
         ),
@@ -162,9 +163,10 @@ def parse_args() -> argparse.Namespace:
         "--skip-regression",
         action="store_true",
         help=(
-            "Skip every Regression-sheet, Mileage-Data, and Production-Lots "
-            "check. Use this to verify only the Univariate side of the unified "
-            "workbook; the Life Expectancy Data and Univariate checks still run."
+            "Skip every Regression-sheet check. Use this to verify only the "
+            "Univariate side of the unified workbook; the Life Expectancy "
+            "Data 'Developed Country after 2013' check and the Univariate "
+            "checks still run."
         ),
     )
     return parser.parse_args()

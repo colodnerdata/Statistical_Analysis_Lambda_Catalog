@@ -666,7 +666,7 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
     sheet = RecordingSheet(name=SHEET_NAME)
     _write_spec_block(_as_xw_sheet(sheet))
 
-    assert _N_VARIABLES == 12
+    assert _N_VARIABLES == 11
     assert sheet.cell(_FIRST_DATA_ROW, 1).api.Formula2 == "=TRANSPOSE(Header_Names)"
     header_row = sheet.range((_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST))
     assert header_row.color == HEADER_COLOR
@@ -695,13 +695,15 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
             assert sheet.cell(row, 10).api.Formula2 is None, variable
 
     # Spot-check the named T0 roles — the shipped spec demonstrates Identifier,
-    # Response, Predictor, and Omit. Full_Data ships as Omit (not Filter): its
-    # all-features completeness flag is redundant with the built-in mask and
-    # over-filters, so it is not the default Filter.
+    # Response, Predictor, and Omit. Auto MPG ships no Filter-by-default column:
+    # the old Full_Data completeness column was redundant with the per-predictor
+    # mask (it checked the same measurement columns the built-in mask already
+    # filters for blanks) and is gone, so the active Filter role is exercised
+    # only by the Is_USA fixture in the test-model suite (M15).
     by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(_VARIABLES)}
+    assert "Full_Data" not in by_variable
     assert sheet.cell(by_variable["Car Name"], 2).value == "Identifier (Row Label)"
     assert sheet.cell(by_variable["MPG"], 2).value == "Response (y)"
-    assert sheet.cell(by_variable["Full_Data"], 2).value == "Omit"
     assert sheet.cell(by_variable["Make"], 2).value == "Omit"
     assert sheet.cell(by_variable["Model?"], 2).value == "Omit"
     for categorical in ("Model Year", "Origin"):
@@ -745,7 +747,7 @@ def test_the_four_computed_columns_are_one_spill_each() -> None:
 def test_spec_block_defaults_to_the_given_profile() -> None:
     """--regression-dataset life_expectancy must pre-fill its own defaults.
 
-    Life Expectancy has 23 columns vs. Auto MPG's 12. The profile no longer
+    Life Expectancy has 23 columns vs. Auto MPG's 11. The profile no longer
     sizes anything — the block's height follows COLUMNS(Source_Data) — but
     it still decides which rows arrive with shipped defaults. The shipped
     default is the curated four-driver model (Adult Mortality, Alcohol,
@@ -759,7 +761,7 @@ def test_spec_block_defaults_to_the_given_profile() -> None:
     by_variable = {v: _FIRST_DATA_ROW + i for i, v in enumerate(profile.variables)}
     assert sheet.cell(by_variable["Life expectancy"], _C_ROLE).value == "Response (y)"
     assert sheet.cell(by_variable["Country"], _C_ROLE).value == "Identifier (Row Label)"
-    assert sheet.cell(by_variable["Full_Data"], _C_ROLE).value == "Omit"
+    assert sheet.cell(by_variable["Developed Country after 2013"], _C_ROLE).value == "Omit"
     assert sheet.cell(by_variable["Year"], _C_SEQUENCE).value is True
 
     # The curated, shipped-on predictors.

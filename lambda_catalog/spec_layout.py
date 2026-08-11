@@ -31,8 +31,9 @@ from .workbook_helpers import (
 # named ranges consumed by ``write_sheet_regression.py``.
 _CLOSURE_SCOPE = "Regression"
 
-# Every MileageData column, in table order (incl. the computed Full_Data
-# completeness column — the spec spans the whole table).
+# Every MileageData column, in table order. The Mileage Data sheet ships no
+# appended derived column (the Full_Data completeness column was removed), so
+# the spec spans the 11 CSV columns.
 _VARIABLES: list[str] = [
     "MPG",
     "Cylinders",
@@ -45,9 +46,8 @@ _VARIABLES: list[str] = [
     "Car Name",
     "Make",
     "Model?",
-    "Full_Data",
 ]
-_N_VARIABLES = len(_VARIABLES)  # 12
+_N_VARIABLES = len(_VARIABLES)  # 11
 
 # Row 2 is the model-level Intercept control (label A2, toggle C2 — aligned
 # to the C/Include boolean column). The spec block sits one row below it:
@@ -383,15 +383,14 @@ _SPEC_BAND_LAST_ROW = _VALIDATION_LAST_ROW
 # and its graying are demonstrated; Omit contributes no column and imposes no
 # mask condition, leaving the fitted model identical to a plain excluded row.
 #
-# Full_Data ships as Omit, NOT Filter: the Full_Data completeness column
-# demands EVERY continuous-measurement column be present, which is (a)
-# redundant with the built-in completeness the mask already applies to the
-# response and the model's included continuous predictors, and (b) an
-# over-filter — it drops rows missing a sparse predictor the model does not
-# even use. With no Filter declared, the shipped model includes every row
-# complete on its OWN columns (392, vs fewer under Full_Data). The Filter
-# role is exercised in the human test plan via a purpose-built filter
-# column, not the completeness flag.
+# No Filter role ships on Auto MPG: the built-in completeness the mask
+# already applies to the response and the model's included continuous
+# predictors is the right filter, and a completeness flag demanding EVERY
+# measurement column be present would over-filter (dropping rows missing a
+# sparse predictor the model does not even use). The shipped model includes
+# every row complete on its OWN columns (392). The Filter role is exercised
+# in the test-model suite via a purpose-built fixture column (Is_USA, M15),
+# not a shipped completeness flag.
 _DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "MPG": (_ROLE_RESPONSE, False, "Continuous"),
     "Horsepower": (_ROLE_PREDICTOR, True, "Continuous"),
@@ -401,7 +400,6 @@ _DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "Car Name": (_ROLE_IDENTIFIER, False, "Continuous"),
     "Make": (_ROLE_OMIT, False, "Continuous"),
     "Model?": (_ROLE_OMIT, False, "Continuous"),
-    "Full_Data": (_ROLE_OMIT, False, "Continuous"),
 }
 _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
 

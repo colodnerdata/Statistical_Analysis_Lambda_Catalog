@@ -62,12 +62,15 @@ _AUTO_MPG_PROFILE = SpecDatasetProfile(
 )
 
 # Column order matches the Life Expectancy CSV's normalized header order
-# plus the appended Full_Data column. Country is a text identifier (row
-# labeling only), Year is the natural panel ordering axis (Sequence-flagged,
-# Role Omit so it never enters the design matrix itself), Status is the one
-# categorical predictor, and Full_Data ships Omit for the same reason Auto
-# MPG's does: the built-in per-predictor completeness mask already covers it,
-# so a Filter role would only over-filter.
+# plus the appended "Developed Country after 2013" derived column. Country is
+# a text identifier (row labeling only), Year is the natural panel ordering
+# axis (Sequence-flagged, Role Omit so it never enters the design matrix
+# itself), Status is the one categorical predictor, and "Developed Country
+# after 2013" (=AND(Status="Developed", Year>2013)) ships Omit — dormant. A
+# Filter role is always-on regardless of Include (Sample_Include applies every
+# Filter column unconditionally), so a column with FALSE values would actively
+# restrict the sample; Omit keeps the shipped default fitting all rows, one
+# Role-dropdown flip from becoming a developed-country-after-2013 filter.
 #
 # The SHIPPED DEFAULT is the curated four-driver model both presentation decks
 # headline (the slide-19 coefficient table): Life expectancy ~ Adult Mortality
@@ -88,7 +91,7 @@ _LIFE_EXPECTANCY_VARIABLES: tuple[str, ...] = (
     "Status",
     "Life expectancy",
     *_LIFE_EXPECTANCY_FEATURE_COLUMNS,
-    "Full_Data",
+    "Developed Country after 2013",
 )
 # The three curated drivers that ship active.
 _LIFE_TALK_DEMO_PREDICTORS: frozenset[str] = frozenset(
@@ -107,7 +110,7 @@ _LIFE_EXPECTANCY_DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
         )
         for column in _LIFE_EXPECTANCY_FEATURE_COLUMNS
     },
-    "Full_Data": (_ROLE_OMIT, False, "Continuous"),
+    "Developed Country after 2013": (_ROLE_OMIT, False, "Continuous"),
 }
 _LIFE_EXPECTANCY_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Year"})
 _LIFE_EXPECTANCY_PROFILE = SpecDatasetProfile(
@@ -117,16 +120,18 @@ _LIFE_EXPECTANCY_PROFILE = SpecDatasetProfile(
     sequence_variables=_LIFE_EXPECTANCY_SEQUENCE_VARIABLES,
 )
 
-# Column order matches the Production Lots CSV's header order plus the
-# appended Full_Data column — the same shape as
-# analyze_regression_spec.py's _production_lots_fixed_effects_spec(), the
-# QC-validated Crawford/Wright learning-curve model (ln(unit cost) = a +
+# Column order matches the Production Lots CSV's header order — the same
+# shape as analyze_regression_spec.py's _production_lots_fixed_effects_spec(),
+# the QC-validated Crawford/Wright learning-curve model (ln(unit cost) = a +
 # b*ln(cumulative units)), reused here verbatim so the shipped default
 # matches a spec the test suite already proves fits correctly: Facility is
 # the Fixed Effects panel-grouping column, Fiscal_Year is the Sequence
-# axis, log Cum Units is the sole predictor, log Unit Cost is the
-# response, and Full_Data is a Filter (unlike the other two datasets — this
-# is the one shipped case that exercises Role=Filter by default).
+# axis, log Cum Units is the sole predictor, log Unit Cost is the response.
+# The Production Lots sheet ships no appended derived column: Full_Data was
+# always TRUE for every row (the dataset has no missing values), so the
+# Filter was a no-op and is gone. No shipped dataset column is Role=Filter
+# by default now; the Filter role is exercised by the Is_USA fixture (M15)
+# in the test-model suite.
 _PRODUCTION_LOTS_VARIABLES: tuple[str, ...] = (
     "Lot_ID",
     "Facility",
@@ -138,7 +143,6 @@ _PRODUCTION_LOTS_VARIABLES: tuple[str, ...] = (
     "log Cum Units",
     "log experience",
     "log Unit Cost",
-    "Full_Data",
 )
 _PRODUCTION_LOTS_DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "Lot_ID": (_ROLE_IDENTIFIER, False, "Continuous"),
@@ -151,7 +155,6 @@ _PRODUCTION_LOTS_DEFAULT_SPEC: dict[str, tuple[str, bool, str]] = {
     "log Cum Units": (_ROLE_PREDICTOR, True, "Continuous"),
     "log experience": (_ROLE_OMIT, False, "Continuous"),
     "log Unit Cost": (_ROLE_RESPONSE, False, "Continuous"),
-    "Full_Data": (_ROLE_FILTER, False, "Continuous"),
 }
 _PRODUCTION_LOTS_SEQUENCE_VARIABLES: frozenset[str] = frozenset({"Fiscal_Year"})
 _PRODUCTION_LOTS_PROFILE = SpecDatasetProfile(

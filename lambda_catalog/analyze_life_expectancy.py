@@ -29,24 +29,30 @@ DEFAULT_INPUT_CSV = ROOT_DIR / "sample_data" / "Life Expectancy Data.csv"
 TARGET_COLUMN = "Life expectancy"
 
 
-def calculate_data_completeness_flags(
-    input_csv_path: Path,
+def calculate_developed_country_flags(
+    input_csv_path: Path = DEFAULT_INPUT_CSV,
 ) -> tuple[bool, ...]:
-    """Return expected Full_Data flags matching the workbook Data_Completeness formula.
+    """Return expected "Developed Country after 2013" flags for each row.
 
-    The Life Expectancy Data sheet computes ``Full_Data`` with
-    ``Data_Completeness(LifeExpectancyData[@[Life expectancy]:[Schooling]])``,
-    so the Python-side QC expectation is that the target and all predictor
-    columns parse as numeric on a given row.
+    The Life Expectancy Data sheet appends a ``Developed Country after 2013``
+    column computed with ``=AND([@Status]="Developed",[@Year]>2013)`` — TRUE
+    for developed-country rows with Year >= 2014. This is the Python-side QC
+    mirror of that formula, used by the source-row loader and the deep
+    verifier. ``Status`` is the developed/developing text column and ``Year``
+    is an integer, matching the typed values ``load_csv_rows`` returns.
     """
-    original_headers, normalized_rows = _load_normalized_rows(input_csv_path)
-    _validate_required_headers(original_headers)
-
-    required_columns = [TARGET_COLUMN, *FEATURE_COLUMNS]
+    headers, rows = load_csv_rows(input_csv_path, LIFE_EXPECTANCY)
+    status_idx = headers.index("Status")
+    year_idx = headers.index("Year")
     return tuple(
-        all(_parse_float(row.get(column)) is not None for column in required_columns)
-        for row in normalized_rows
+        bool(row[status_idx] == "Developed" and _is_int_over_2013(row[year_idx]))
+        for row in rows
     )
+
+
+def _is_int_over_2013(value: object) -> bool:
+    """Year > 2013 test that tolerates int/float/None (None/blank -> False)."""
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and value > 2013
 
 
 def load_life_expectancy_source_rows(
@@ -55,11 +61,13 @@ def load_life_expectancy_source_rows(
     """Load the source CSV as row dicts matching the LifeExpectancyData table.
 
     Cell values are typed exactly as the data sheet writer types them
-    (int/float/str/None), and the computed ``Full_Data`` column is appended
-    with the same completeness rule the sheet's ``Data_Completeness`` formula
-    applies. Mirrors ``analyze_production_lots.load_production_lots_source_rows``
-    and ``analyze_model_construction.load_source_rows``, which are hardcoded to
-    the Production Lots and Mileage tables respectively.
+    (int/float/str/None), and the appended ``Developed Country after 2013``
+    column is computed with the same ``AND([@Status]="Developed",
+    [@Year]>2013)`` rule the sheet's derived formula applies. Mirrors
+    ``analyze_production_lots.load_production_lots_source_rows`` and
+    ``analyze_model_construction.load_source_rows``, which are hardcoded to
+    the Production Lots and Mileage tables respectively (neither of which
+    appends a derived column).
 
     Headers come back normalized (``LIFE_EXPECTANCY.normalize_headers`` is
     True), so the keys are the collapsed-whitespace names the spec block and
@@ -67,8 +75,10 @@ def load_life_expectancy_source_rows(
     not the CSV's ``"Life expectancy "`` with its trailing space.
     """
     headers, rows = load_csv_rows(csv_path, LIFE_EXPECTANCY)
-    flags = calculate_data_completeness_flags(csv_path)
-    table_headers = [*headers, LIFE_EXPECTANCY.full_data_header]
+    flags = calculate_developed_country_flags(csv_path)
+    derived_header = LIFE_EXPECTANCY.derived_header
+    assert derived_header is not None  # LE ships "Developed Country after 2013"
+    table_headers = [*headers, derived_header]
     return [
         dict(zip(table_headers, [*row, flag]))
         for row, flag in zip(rows, flags)
@@ -199,8 +209,9 @@ def _build_training_arrays(
 
     ``filter_columns`` controls which columns must be non-null for a row to be
     included. It defaults to ``feature_columns``, but callers can supply the
-    full ``FEATURE_COLUMNS`` list to match an Excel Full_Data filter that always
-    checks all columns regardless of how many predictors are actually used.
+    full ``FEATURE_COLUMNS`` list to mimic an all-columns completeness filter
+    that always checks every column regardless of how many predictors are
+    actually used.
 
     Parameters
     ----------
@@ -331,9 +342,10 @@ def calculate_regression_summary(
         Predictor columns to include. Defaults to FEATURE_COLUMNS.
     filter_columns : list[str] or None, optional
         Columns that must be non-null for a row to be included. Defaults to
-        the full ``FEATURE_COLUMNS`` (the ``Full_Data`` completeness rule the
-        MLR test sheets bind to). Pass the model's own ``feature_columns`` for
-        the spec-driven completeness the Regression sheet now uses.
+        the full ``FEATURE_COLUMNS`` (the all-columns completeness rule the
+        legacy MLR test sheets bind to). Pass the model's own
+        ``feature_columns`` for the spec-driven completeness the Regression
+        sheet now uses.
 
     Returns
     -------
@@ -442,8 +454,9 @@ def calculate_regression_vectors(
         Significance level for confidence intervals. Default 0.05 yields 95% CIs.
     filter_columns : list[str] or None, optional
         Columns that must be non-null for a row to be included. Defaults to the
-        full ``FEATURE_COLUMNS`` (Full_Data). Pass the model's own
-        ``feature_columns`` for the Regression sheet's spec-driven completeness.
+        full ``FEATURE_COLUMNS`` (the all-columns completeness rule). Pass the
+        model's own ``feature_columns`` for the Regression sheet's spec-driven
+        completeness.
 
     Returns
     -------

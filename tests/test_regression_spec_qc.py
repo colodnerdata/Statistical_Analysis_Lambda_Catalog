@@ -299,7 +299,12 @@ def test_default_t0_design_matches_current_constructor_semantics() -> None:
     assert design.sequence_values is None
 
 @pytest.mark.skipif(not CSV_PATH.exists(), reason="Auto MPG CSV not found")
-def test_v1_full_continuous_design_uses_full_data_filter_and_feature_order() -> None:
+def test_v1_full_continuous_design_uses_per_predictor_mask_and_feature_order() -> None:
+    # M03 includes all five _MILEAGE_FEATURE_COLUMNS plus MPG (the response) —
+    # exactly the [MPG]:[Acceleration] range the old Full_Data completeness
+    # column checked. The per-predictor blank mask already drops the same 14
+    # Horsepower-missing rows, so dropping the redundant Full_Data Filter left
+    # included_rows at 392. The redundancy is now the point of this test.
     expected = calculate_regression_spec_case(
         _case("v1_full_continuous_intercept"), CSV_PATH
     )

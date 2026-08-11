@@ -258,11 +258,12 @@ def write_csv_dataset_sheet(
     # The optional derived formula column (Life Expectancy's "Developed
     # Country after 2013"); None for Mileage/Production Lots, which ship no
     # appended column. When present it is the last column of the table.
-    derived_header = config.derived_header
-    if derived_header is not None:
-        all_headers = headers + [derived_header]
-    else:
-        all_headers = headers
+derived_header = config.derived_header
+if (derived_header is None) != (config.derived_formula is None):
+    raise ValueError(
+        "CsvDatasetConfig.derived_header and derived_formula must both be set or both be None"
+    )
+all_headers = headers + [derived_header] if derived_header is not None else headers
     last_data_row = len(rows) + 1
     last_column_index = len(all_headers)
 

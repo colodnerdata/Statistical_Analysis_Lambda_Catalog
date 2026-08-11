@@ -216,7 +216,14 @@ def _verify_life_expectancy_developed_country(
             "column but the dataset config ships no derived header.",
         )
         return
+try:
     col_idx = life_expectancy_headers.index(derived_header)
+except ValueError:
+    _report_qc_failure(
+        failures,
+        f"[Life Expectancy Data] missing expected derived column: {derived_header!r}",
+    )
+    return
     for row_offset, expected in enumerate(expected_flags, start=1):
         row = (
             life_expectancy_rows[row_offset]

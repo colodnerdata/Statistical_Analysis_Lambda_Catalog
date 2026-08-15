@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 from lambda_catalog.workbook_helpers import (
     copy_static_sheet,
+    f,
     safe_activate,
     safe_freeze_top_row,
 )
@@ -110,6 +111,52 @@ def _target_workbook(books: _Books) -> SimpleNamespace:
         app=SimpleNamespace(books=books),
         sheets=_Sheets(["Regression", "Diagnostic Guide"]),
     )
+
+
+def _make_sheet(api_value):
+    """Return a minimal sheet stub whose range() returns a cell with given api."""
+
+    class _Cell:
+        def __init__(self):
+            self.api = api_value
+            self.formula = None
+
+    class _Sheet:
+        def range(self, _addr):
+            return _Cell()
+
+    return _Sheet()
+
+
+def test_f_uses_formula2_when_api_available() -> None:
+    recorded = {}
+
+    class _Api:
+        def __setattr__(self, name, value):
+            if name != "__class__":
+                recorded[name] = value
+            super().__setattr__(name, value)
+
+    sheet = _make_sheet(_Api())
+    f(sheet, 1, 1, "=SUM(A1:A10)")
+    assert recorded.get("Formula2") == "=SUM(A1:A10)"
+
+
+def test_f_falls_back_to_formula_property_when_api_is_none() -> None:
+    class _Cell:
+        def __init__(self):
+            self.api = None
+            self.formula = None
+
+    cell = _Cell()
+
+    class _Sheet:
+        def range(self, _addr):
+            return cell
+
+    f(_Sheet(), 1, 1, "=SUM(A1:A10)")
+    assert cell.formula == "=SUM(A1:A10)"
+
 
 
 def test_copy_static_sheet_opens_the_template_read_only(tmp_path: Path) -> None:

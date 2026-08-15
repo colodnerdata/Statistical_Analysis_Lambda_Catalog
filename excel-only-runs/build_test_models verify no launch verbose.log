@@ -1,5 +1,5 @@
 python build_test_models.py --verify --no-launch --verbose
-[    0.0s] Plan: 31 model + 17 guard = 48 sheet(s)
+[    0.0s] Plan: 33 model + 17 guard = 50 sheet(s)
            M01   M01 Baseline Categoricals
            M03   M03 All Continuous
            M04   M04 Excluded Candidates
@@ -31,6 +31,8 @@ python build_test_models.py --verify --no-launch --verbose
            L03   L03 Log Response Naive
            L04   L04 Elasticity Log-Log
            L09   L09 Binary Cat Reference
+           L12   L12 Log Drop Nonpositive
+           L11   L11 Curated Talk Default
            G01   G01 No Response Row
            G01b  G01b Empty Model
            G02   G02 Two Response Rows
@@ -51,117 +53,121 @@ python build_test_models.py --verify --no-launch --verbose
 [    0.0s] Oracles: computing
 [    0.9s] Oracles: done
 [    1.4s] Catalog + data sheets
-[    8.2s] Sheets: writing 48
-[    8.2s]   1/48 M01   M01 Baseline Categoricals          8.1s
-[   16.3s]   2/48 M03   M03 All Continuous                 6.3s
-[   22.6s]   3/48 M04   M04 Excluded Candidates           18.1s
-[   40.7s]   4/48 M02   M02 Intercept Off Categorical     10.8s
-[   51.5s]   5/48 M03b  M03b All Continuous NoInt         13.1s
-[   64.6s]   6/48 M04b  M04b Excluded Cands NoInt         64.7s
-[  129.2s]   7/48 M13   M13 Default Reference             32.1s
-[  161.4s]   8/48 M12   M12 Explicit Reference            15.5s
-[  176.9s]   9/48 G08   G08 Invalid Reference Level       17.2s
-[  194.1s]  10/48 M14   M14 Mixed Cat And Continuous      19.7s
-[  213.8s]  11/48 M15   M15 Filter Degenerate Cat         21.5s
-[  235.3s]  12/48 M07   M07 Continuous Product            25.0s
-[  260.3s]  13/48 M06   M06 Quadratic Self Product        28.0s
-[  288.3s]  14/48 M08   M08 Cont x Cat Broadcast          30.2s
-[  318.5s]  15/48 M05   M05 Log-Log NA Masking            32.7s
-[  351.2s]  16/48 M14b  M14b Categorical Only Design      35.4s
-[  386.6s]  17/48 M09   M09 Cat x Cat Full Product        41.5s
-[  428.0s]  18/48 M10   M10 Difference Interaction        44.5s
-[  472.5s]  19/48 M11   M11 Ratio Reciprocal Pair         47.5s
-[  520.0s]  20/48 P01   P01 Learning Curve FE             49.2s
-[  569.2s]  21/48 P02   P02 FE Log Transform Axis         50.9s
-[  620.1s]  22/48 P03   P03 Power Law Derived Cols        54.8s
-[  674.9s]  23/48 P03b  P03b Power Law Transform Axis     52.5s
-[  727.4s]  24/48 P04   P04 Log Mixed Predictors          53.7s
-[  781.1s]  25/48 P05   P05 Log Predictor Only            54.0s
-[  835.1s]  26/48 P06   P06 LSDV vs Within Estimator      55.8s
-[  891.0s]  27/48 L01   L01 Partial Linear-Log            72.2s
-[  963.2s]  28/48 L02   L02 Log Response Duan            104.1s
-[ 1067.2s]  29/48 L03   L03 Log Response Naive            85.4s
-[ 1152.6s]  30/48 L04   L04 Elasticity Log-Log            86.1s
-[ 1238.7s]  31/48 L09   L09 Binary Cat Reference          87.0s
-[ 1325.7s]  32/48 G01   G01 No Response Row               70.7s
-[ 1396.4s]  33/48 G01b  G01b Empty Model                  72.1s
-[ 1468.5s]  34/48 G02   G02 Two Response Rows             76.2s
-[ 1544.6s]  35/48 G03   G03 Two Sequence Flags            76.0s
-[ 1620.6s]  36/48 G04   G04 Two Fixed Effects Rows        79.6s
-[ 1700.2s]  37/48 G05   G05 FE Plus Intercept             85.5s
-[ 1785.7s]  38/48 G06   G06 Intercept Off With Cat        89.9s
-[ 1875.6s]  39/48 G07   G07 Log On Categorical           113.8s
-[ 1989.4s]  40/48 G09   G09 Interaction Bad Operand      109.9s
-[ 2099.2s]  41/48 G10   G10 Symmetric Product Pair       114.9s
-[ 2214.1s]  42/48 G11   G11 Excluded Operand             119.8s
-[ 2333.9s]  43/48 G12   G12 Unknown Interaction Op       135.9s
-[ 2469.9s]  44/48 L06   L06 Ln Zero Guard                139.6s
-[ 2609.5s]  45/48 L07   L07 Width Guard Warning          138.8s
-[ 2748.2s]  46/48 L10   L10 Retarget Widens Spec         131.1s
-[ 2879.4s]  47/48 M16   M16 Sequence Period Override     127.2s
-[ 3006.5s]  48/48 P07   P07 Irregular Panel Spacing      132.3s
-[ 3138.9s] Save
-[ 3145.7s] Sync names
-[ 3146.0s] CalculateFullRebuild
-Timing: write sheets  3144.8s
-Timing: sync names    0.2s
-Timing: rebuild       1759.1s
-Timing:   CalculateFullRebuild only   1159.2s
+[    5.8s] Sheets: writing 50
+[    5.8s]   1/50 M01   M01 Baseline Categoricals          6.0s
+[   11.8s]   2/50 M03   M03 All Continuous                 6.4s
+[   18.2s]   3/50 M04   M04 Excluded Candidates            7.4s
+[   25.6s]   4/50 M02   M02 Intercept Off Categorical      8.8s
+[   34.4s]   5/50 M03b  M03b All Continuous NoInt         10.3s
+[   44.6s]   6/50 M04b  M04b Excluded Cands NoInt         11.9s
+[   56.5s]   7/50 M13   M13 Default Reference             14.3s
+[   70.8s]   8/50 M12   M12 Explicit Reference            16.1s
+[   86.9s]   9/50 G08   G08 Invalid Reference Level       18.4s
+[  105.4s]  10/50 M14   M14 Mixed Cat And Continuous      21.0s
+[  126.4s]  11/50 M15   M15 Filter Degenerate Cat         23.8s
+[  150.2s]  12/50 M07   M07 Continuous Product            26.8s
+[  177.0s]  13/50 M06   M06 Quadratic Self Product        30.1s
+[  207.1s]  14/50 M08   M08 Cont x Cat Broadcast          33.5s
+[  240.7s]  15/50 M05   M05 Log-Log NA Masking            37.3s
+[  278.0s]  16/50 M14b  M14b Categorical Only Design      41.5s
+[  319.4s]  17/50 M09   M09 Cat x Cat Full Product        45.5s
+[  364.9s]  18/50 M10   M10 Difference Interaction        49.9s
+[  414.8s]  19/50 M11   M11 Ratio Reciprocal Pair         54.3s
+[  469.1s]  20/50 P01   P01 Learning Curve FE             58.3s
+[  527.4s]  21/50 P02   P02 FE Log Transform Axis         59.5s
+[  586.8s]  22/50 P03   P03 Power Law Derived Cols        60.3s
+[  647.1s]  23/50 P03b  P03b Power Law Transform Axis     61.6s
+[  708.7s]  24/50 P04   P04 Log Mixed Predictors          62.9s
+[  771.6s]  25/50 P05   P05 Log Predictor Only            64.5s
+[  836.0s]  26/50 P06   P06 LSDV vs Within Estimator      66.3s
+[  902.3s]  27/50 L01   L01 Partial Linear-Log            82.5s
+[  984.9s]  28/50 L02   L02 Log Response Duan             84.2s
+[ 1069.1s]  29/50 L03   L03 Log Response Naive            85.1s
+[ 1154.2s]  30/50 L04   L04 Elasticity Log-Log            86.6s
+[ 1240.8s]  31/50 L09   L09 Binary Cat Reference          88.0s
+[ 1328.8s]  32/50 L12   L12 Log Drop Nonpositive          89.8s
+[ 1418.6s]  33/50 L11   L11 Curated Talk Default          91.5s
+[ 1510.1s]  34/50 G01   G01 No Response Row               80.2s
+[ 1590.3s]  35/50 G01b  G01b Empty Model                  84.5s
+[ 1674.9s]  36/50 G02   G02 Two Response Rows             89.5s
+[ 1764.3s]  37/50 G03   G03 Two Sequence Flags            95.3s
+[ 1859.6s]  38/50 G04   G04 Two Fixed Effects Rows       100.5s
+[ 1960.2s]  39/50 G05   G05 FE Plus Intercept            106.6s
+[ 2066.7s]  40/50 G06   G06 Intercept Off With Cat       112.8s
+[ 2179.6s]  41/50 G07   G07 Log On Categorical           119.1s
+[ 2298.7s]  42/50 G09   G09 Interaction Bad Operand      125.7s
+[ 2424.4s]  43/50 G10   G10 Symmetric Product Pair       132.5s
+[ 2556.9s]  44/50 G11   G11 Excluded Operand             139.6s
+[ 2696.5s]  45/50 G12   G12 Unknown Interaction Op       146.8s
+[ 2843.3s]  46/50 L06   L06 Ln Zero Guard                167.9s
+[ 3011.2s]  47/50 L07   L07 Width Guard Warning          171.4s
+[ 3182.5s]  48/50 L10   L10 Retarget Widens Spec         167.3s
+[ 3349.8s]  49/50 M16   M16 Sequence Period Override     162.9s
+[ 3512.7s]  50/50 P07   P07 Irregular Panel Spacing      169.0s
+[ 3681.8s] Save
+[ 3690.2s] Sync names
+[ 3690.5s] CalculateFullRebuild
+Timing: write sheets  3689.2s
+Timing: sync names    0.3s
+Timing: rebuild       1854.5s
+Timing:   CalculateFullRebuild only   1299.3s
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
-Sheets built: 48
-Created names: 122
+Sheets built: 50
+Created names: 123
 Updated names: 0
 Removed names: 0
-[ 4905.1s] Verify: reading 48 sheet(s)
-             1/48 M01   M01 Baseline Categoricals        ok
-             2/48 M03   M03 All Continuous               ok
-             3/48 M04   M04 Excluded Candidates          ok
-             4/48 M02   M02 Intercept Off Categorical    ok
-             5/48 M03b  M03b All Continuous NoInt        ok
-             6/48 M04b  M04b Excluded Cands NoInt        ok
-             7/48 M13   M13 Default Reference            ok
-             8/48 M12   M12 Explicit Reference           ok
-             9/48 G08   G08 Invalid Reference Level      ok
-            10/48 M14   M14 Mixed Cat And Continuous     ok
-            11/48 M15   M15 Filter Degenerate Cat        ok
-            12/48 M07   M07 Continuous Product           ok
-            13/48 M06   M06 Quadratic Self Product       ok
-            14/48 M08   M08 Cont x Cat Broadcast         ok
-            15/48 M05   M05 Log-Log NA Masking           ok
-            16/48 M14b  M14b Categorical Only Design     ok
-            17/48 M09   M09 Cat x Cat Full Product       ok
-            18/48 M10   M10 Difference Interaction       ok
-            19/48 M11   M11 Ratio Reciprocal Pair        ok
-            20/48 P01   P01 Learning Curve FE            ok
-            21/48 P02   P02 FE Log Transform Axis        ok
-            22/48 P03   P03 Power Law Derived Cols       ok
-            23/48 P03b  P03b Power Law Transform Axis    ok
-            24/48 P04   P04 Log Mixed Predictors         ok
-            25/48 P05   P05 Log Predictor Only           ok
-            26/48 P06   P06 LSDV vs Within Estimator     ok
-            27/48 L01   L01 Partial Linear-Log           ok
-            28/48 L02   L02 Log Response Duan            ok
-            29/48 L03   L03 Log Response Naive           ok
-            30/48 L04   L04 Elasticity Log-Log           ok
-            31/48 L09   L09 Binary Cat Reference         ok
-            32/48 G01   G01 No Response Row              ok
-            33/48 G01b  G01b Empty Model                 ok
-            34/48 G02   G02 Two Response Rows            ok
-            35/48 G03   G03 Two Sequence Flags           ok
-            36/48 G04   G04 Two Fixed Effects Rows       ok
-            37/48 G05   G05 FE Plus Intercept            ok
-            38/48 G06   G06 Intercept Off With Cat       ok
-            39/48 G07   G07 Log On Categorical           ok
-            40/48 G09   G09 Interaction Bad Operand      ok
-            41/48 G10   G10 Symmetric Product Pair       ok
-            42/48 G11   G11 Excluded Operand             ok
-            43/48 G12   G12 Unknown Interaction Op       ok
-            44/48 L06   L06 Ln Zero Guard                ok
-            45/48 L07   L07 Width Guard Warning          ok
-            46/48 L10   L10 Retarget Widens Spec         ok
-            47/48 M16   M16 Sequence Period Override     ok
-            48/48 P07   P07 Irregular Panel Spacing      ok
-Timing: verify        125.0s
+[ 5545.0s] Verify: reading 50 sheet(s)
+             1/50 M01   M01 Baseline Categoricals        ok
+             2/50 M03   M03 All Continuous               ok
+             3/50 M04   M04 Excluded Candidates          ok
+             4/50 M02   M02 Intercept Off Categorical    ok
+             5/50 M03b  M03b All Continuous NoInt        ok
+             6/50 M04b  M04b Excluded Cands NoInt        ok
+             7/50 M13   M13 Default Reference            ok
+             8/50 M12   M12 Explicit Reference           ok
+             9/50 G08   G08 Invalid Reference Level      ok
+            10/50 M14   M14 Mixed Cat And Continuous     ok
+            11/50 M15   M15 Filter Degenerate Cat        ok
+            12/50 M07   M07 Continuous Product           ok
+            13/50 M06   M06 Quadratic Self Product       ok
+            14/50 M08   M08 Cont x Cat Broadcast         ok
+            15/50 M05   M05 Log-Log NA Masking           ok
+            16/50 M14b  M14b Categorical Only Design     ok
+            17/50 M09   M09 Cat x Cat Full Product       ok
+            18/50 M10   M10 Difference Interaction       ok
+            19/50 M11   M11 Ratio Reciprocal Pair        ok
+            20/50 P01   P01 Learning Curve FE            ok
+            21/50 P02   P02 FE Log Transform Axis        ok
+            22/50 P03   P03 Power Law Derived Cols       ok
+            23/50 P03b  P03b Power Law Transform Axis    ok
+            24/50 P04   P04 Log Mixed Predictors         ok
+            25/50 P05   P05 Log Predictor Only           ok
+            26/50 P06   P06 LSDV vs Within Estimator     ok
+            27/50 L01   L01 Partial Linear-Log           ok
+            28/50 L02   L02 Log Response Duan            ok
+            29/50 L03   L03 Log Response Naive           ok
+            30/50 L04   L04 Elasticity Log-Log           ok
+            31/50 L09   L09 Binary Cat Reference         ok
+            32/50 L12   L12 Log Drop Nonpositive         ok
+            33/50 L11   L11 Curated Talk Default         ok
+            34/50 G01   G01 No Response Row              ok
+            35/50 G01b  G01b Empty Model                 ok
+            36/50 G02   G02 Two Response Rows            ok
+            37/50 G03   G03 Two Sequence Flags           ok
+            38/50 G04   G04 Two Fixed Effects Rows       ok
+            39/50 G05   G05 FE Plus Intercept            ok
+            40/50 G06   G06 Intercept Off With Cat       ok
+            41/50 G07   G07 Log On Categorical           ok
+            42/50 G09   G09 Interaction Bad Operand      ok
+            43/50 G10   G10 Symmetric Product Pair       ok
+            44/50 G11   G11 Excluded Operand             ok
+            45/50 G12   G12 Unknown Interaction Op       ok
+            46/50 L06   L06 Ln Zero Guard                ok
+            47/50 L07   L07 Width Guard Warning          ok
+            48/50 L10   L10 Retarget Widens Spec         ok
+            49/50 M16   M16 Sequence Period Override     ok
+            50/50 P07   P07 Irregular Panel Spacing      ok
+Timing: verify        144.5s
 Verify: passed
-Timing: total         5030.1s
+Timing: total         5689.5s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch verbose.log

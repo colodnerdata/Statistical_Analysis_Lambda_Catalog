@@ -1,6 +1,4 @@
 python build_production.py --verify --no-launch
-
-Excel's COM session dropped; retrying in a fresh Excel instance...
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
@@ -10,8 +8,9 @@ Sheet updated: Regression Instructions
 Sheet updated: Diagnostic Guide
 Sheet updated: Version History
 Sheet updated: Regression
-Created names: 0
-Updated names: 123
+Sheet updated: Univariate
+Created names: 123
+Updated names: 0
 Removed names: 0
 ERROR [Regression/scalars] config_name='production_lots_fixed_effects' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
 ERROR [Regression/scalars] config_name='production_lots_log_transform' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
@@ -88,138 +87,12 @@ ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=Tru
 ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1531 stat_name='Residuals': expected=0.6414204985973697, excel_calc=0.6414205891008891, abs_diff=9.050351934547507e-08, fdd=6.0
 ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1539 stat_name='PRESS_Residual': expected=5.383514430901542, excel_calc=5.383514513492408, abs_diff=8.259086570205909e-08, fdd=6.0
 ERROR [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=1567 stat_name='PRESS_Residual': expected=4.132636494180559, excel_calc=4.1326365572029085, abs_diff=6.302234911714777e-08, fdd=6.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=63 stat_name='Normal_Scores_Ranked': expected=-2.009950612783992, excel_calc=-2.0031707922894935, abs_diff=0.006779820494498434, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=93 stat_name='Normal_Scores_Ranked': expected=-1.8376586759132476, excel_calc=-1.832780231657382, abs_diff=0.004878444255865588, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=104 stat_name='Normal_Scores_Ranked': expected=-1.7862382294111443, excel_calc=-1.781791511720791, abs_diff=0.004446717690353319, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=139 stat_name='Normal_Scores_Ranked': expected=-1.648014425715814, excel_calc=-1.6445034399114207, abs_diff=0.0035109858043933517, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=164 stat_name='Normal_Scores_Ranked': expected=-1.5688162904104557, excel_calc=-1.562646187420684, abs_diff=0.006170102989771609, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=170 stat_name='Normal_Scores_Ranked': expected=-1.5474758026382882, excel_calc=-1.544484108021855, abs_diff=0.002991694616433227, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=176 stat_name='Normal_Scores_Ranked': expected=-1.5297290292319234, excel_calc=-1.526817662223045, abs_diff=0.002911367008878507, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=180 stat_name='Normal_Scores_Ranked': expected=-1.5181603177685348, excel_calc=-1.5152996702925239, abs_diff=0.0028606474760108913, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=188 stat_name='Normal_Scores_Ranked': expected=-1.4928483849016099, excel_calc=-1.495613760183912, abs_diff=0.0027653752823020294, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=191 stat_name='Normal_Scores_Ranked': expected=-1.4846200216685665, excel_calc=-1.4873516286013129, abs_diff=0.002731606932746322, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=197 stat_name='Normal_Scores_Ranked': expected=-1.4711253320325646, excel_calc=-1.468458324257146, abs_diff=0.002667007775418506, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=207 stat_name='Normal_Scores_Ranked': expected=-1.4474886407758918, excel_calc=-1.4423445355128361, abs_diff=0.005144105263055643, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=211 stat_name='Normal_Scores_Ranked': expected=-1.432169298932233, excel_calc=-1.43469919972023, abs_diff=0.002529900787997086, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=213 stat_name='Normal_Scores_Ranked': expected=-1.4271368159008326, excel_calc=-1.4296485315297616, abs_diff=0.0025117156289289344, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=220 stat_name='Normal_Scores_Ranked': expected=-1.4098016276399954, excel_calc=-1.4122521757211193, abs_diff=0.0024505480811238822, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=224 stat_name='Normal_Scores_Ranked': expected=-1.4000830863199256, excel_calc=-1.402500316853733, abs_diff=0.0024172305338074906, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=226 stat_name='Normal_Scores_Ranked': expected=-1.397674008903266, excel_calc=-1.3952730159011895, abs_diff=0.0024009930020765236, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=227 stat_name='Normal_Scores_Ranked': expected=-1.397674008903266, excel_calc=-1.3952730159011895, abs_diff=0.0024009930020765236, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=228 stat_name='Normal_Scores_Ranked': expected=-1.397674008903266, excel_calc=-1.3952730159011895, abs_diff=0.0024009930020765236, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=231 stat_name='Normal_Scores_Ranked': expected=-1.385748544315922, excel_calc=-1.3833869729712442, abs_diff=0.0023615713446778486, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=236 stat_name='Normal_Scores_Ranked': expected=-1.3716932213083637, excel_calc=-1.374016963381202, abs_diff=0.002323742072838364, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=240 stat_name='Normal_Scores_Ranked': expected=-1.3670678280023674, excel_calc=-1.3624714985785409, abs_diff=0.004596329423826484, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=249 stat_name='Normal_Scores_Ranked': expected=-1.346606696122717, excel_calc=-1.3421356298698286, abs_diff=0.0044710662528884, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=251 stat_name='Normal_Scores_Ranked': expected=-1.3399101234179558, excel_calc=-1.3376912336609657, abs_diff=0.002218889756990139, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=253 stat_name='Normal_Scores_Ranked': expected=-1.335478910510911, excel_calc=-1.3332731044516022, abs_diff=0.002205806059308868, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=254 stat_name='Normal_Scores_Ranked': expected=-1.3310737665298162, excel_calc=-1.3332731044516022, abs_diff=0.0021993379217859488, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=259 stat_name='Normal_Scores_Ranked': expected=-1.3201724239568025, excel_calc=-1.322340136379424, abs_diff=0.0021677124226215927, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=263 stat_name='Normal_Scores_Ranked': expected=-1.315855511174911, excel_calc=-1.3115629819976073, abs_diff=0.004292529177303717, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=275 stat_name='Normal_Scores_Ranked': expected=-1.2863006656287712, excel_calc=-1.2925390829498284, abs_diff=0.0062384173210572325, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=282 stat_name='Normal_Scores_Ranked': expected=-1.2760131601617835, excel_calc=-1.2719357350423715, abs_diff=0.004077425119412004, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=283 stat_name='Normal_Scores_Ranked': expected=-1.2760131601617835, excel_calc=-1.2719357350423715, abs_diff=0.004077425119412004, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=285 stat_name='Normal_Scores_Ranked': expected=-1.2678793473866656, excel_calc=-1.265858954248757, abs_diff=0.0020203931379085827, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=289 stat_name='Normal_Scores_Ranked': expected=-1.259828561979298, excel_calc=-1.2578285801729583, abs_diff=0.0019999818063396457, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=290 stat_name='Normal_Scores_Ranked': expected=-1.255833616972072, excel_calc=-1.2578285801729583, abs_diff=0.001994963200886213, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=292 stat_name='Normal_Scores_Ranked': expected=-1.2518586146177475, excel_calc=-1.253843639352949, abs_diff=0.001985024735201568, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=299 stat_name='Normal_Scores_Ranked': expected=-1.238099442059646, excel_calc=-1.240050685668583, abs_diff=0.0019512436089368368, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=300 stat_name='Normal_Scores_Ranked': expected=-1.238099442059646, excel_calc=-1.2361529009768535, abs_diff=0.0019465410827925744, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=313 stat_name='Normal_Scores_Ranked': expected=-1.211262547701894, excel_calc=-1.2131505811867054, abs_diff=0.00188803348481148, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=321 stat_name='Normal_Scores_Ranked': expected=-1.1963111877021826, excel_calc=-1.1981654802501005, abs_diff=0.0018542925479179129, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=328 stat_name='Normal_Scores_Ranked': expected=-1.1852707750010807, excel_calc=-1.1834447069144642, abs_diff=0.0018260680866164503, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=334 stat_name='Normal_Scores_Ranked': expected=-1.1725701935185817, excel_calc=-1.1743729758739476, abs_diff=0.0018027823553659061, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=343 stat_name='Normal_Scores_Ranked': expected=-1.1565137020434546, excel_calc=-1.158283028496429, abs_diff=0.0017693264529743402, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=346 stat_name='Normal_Scores_Ranked': expected=-1.1547479886860241, excel_calc=-1.1512273205894266, abs_diff=0.003520668096597568, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=350 stat_name='Normal_Scores_Ranked': expected=-1.1442284634769315, excel_calc=-1.1477208645355776, abs_diff=0.003492401058646122, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=351 stat_name='Normal_Scores_Ranked': expected=-1.1442284634769315, excel_calc=-1.1477208645355776, abs_diff=0.003492401058646122, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=352 stat_name='Normal_Scores_Ranked': expected=-1.1442284634769315, excel_calc=-1.1477208645355776, abs_diff=0.003492401058646122, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=353 stat_name='Normal_Scores_Ranked': expected=-1.1442284634769315, excel_calc=-1.1477208645355776, abs_diff=0.003492401058646122, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=356 stat_name='Normal_Scores_Ranked': expected=-1.133834057939419, excel_calc=-1.135557943805436, abs_diff=0.0017238858660169054, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=357 stat_name='Normal_Scores_Ranked': expected=-1.1321135350119504, excel_calc=-1.135557943805436, abs_diff=0.0034444087934855094, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=358 stat_name='Normal_Scores_Ranked': expected=-1.1321135350119504, excel_calc=-1.135557943805436, abs_diff=0.0034444087934855094, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=371 stat_name='Normal_Scores_Ranked': expected=-1.1100446912219062, excel_calc=-1.1083694057081994, abs_diff=0.0016752855137067701, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=372 stat_name='Normal_Scores_Ranked': expected=-1.1100446912219062, excel_calc=-1.1083694057081994, abs_diff=0.0016752855137067701, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=373 stat_name='Normal_Scores_Ranked': expected=-1.1100446912219062, excel_calc=-1.1083694057081994, abs_diff=0.0016752855137067701, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=377 stat_name='Normal_Scores_Ranked': expected=-1.0983823360983116, excel_calc=-1.1000392315562155, abs_diff=0.0016568954579039286, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=378 stat_name='Normal_Scores_Ranked': expected=-1.0983823360983116, excel_calc=-1.1000392315562155, abs_diff=0.0016568954579039286, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=379 stat_name='Normal_Scores_Ranked': expected=-1.0983823360983116, excel_calc=-1.1000392315562155, abs_diff=0.0016568954579039286, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=383 stat_name='Normal_Scores_Ranked': expected=-1.0885036358326228, excel_calc=-1.0901427008322748, abs_diff=0.0016390649996520512, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=384 stat_name='Normal_Scores_Ranked': expected=-1.0885036358326228, excel_calc=-1.0901427008322748, abs_diff=0.0016390649996520512, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=385 stat_name='Normal_Scores_Ranked': expected=-1.0885036358326228, excel_calc=-1.0852342483802502, abs_diff=0.0032693874523725963, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=389 stat_name='Normal_Scores_Ranked': expected=-1.0787300346504969, excel_calc=-1.0803518040507778, abs_diff=0.0016217694002809147, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=390 stat_name='Normal_Scores_Ranked': expected=-1.0787300346504969, excel_calc=-1.0803518040507778, abs_diff=0.0016217694002809147, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=391 stat_name='Normal_Scores_Ranked': expected=-1.0787300346504969, excel_calc=-1.0803518040507778, abs_diff=0.0016217694002809147, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=399 stat_name='Normal_Scores_Ranked': expected=-1.0690584055445986, excel_calc=-1.062665821041645, abs_diff=0.006392584502953547, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=412 stat_name='Normal_Scores_Ranked': expected=-1.0453061354639832, excel_calc=-1.0421835470226644, abs_diff=0.003122588441318852, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=413 stat_name='Normal_Scores_Ranked': expected=-1.0453061354639832, excel_calc=-1.0406260571524024, abs_diff=0.004680078311580793, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=414 stat_name='Normal_Scores_Ranked': expected=-1.0390710875238607, excel_calc=-1.0406260571524024, abs_diff=0.0015549696285417358, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=415 stat_name='Normal_Scores_Ranked': expected=-1.0390710875238607, excel_calc=-1.0406260571524024, abs_diff=0.0015549696285417358, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=419 stat_name='Normal_Scores_Ranked': expected=-1.0313336296715834, excel_calc=-1.0328761748317228, abs_diff=0.001542545160139408, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=420 stat_name='Normal_Scores_Ranked': expected=-1.0313336296715834, excel_calc=-1.0328761748317228, abs_diff=0.001542545160139408, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=422 stat_name='Normal_Scores_Ranked': expected=-1.0282558782581546, excel_calc=-1.026720649257424, abs_diff=0.0015352290007306646, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=423 stat_name='Normal_Scores_Ranked': expected=-1.0282558782581546, excel_calc=-1.0251878363569642, abs_diff=0.003068041901190366, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=429 stat_name='Normal_Scores_Ranked': expected=-1.0160410760335419, excel_calc=-1.017559624569948, abs_diff=0.0015185485364062057, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=432 stat_name='Normal_Scores_Ranked': expected=-1.0145248668697244, excel_calc=-1.0114994240439918, abs_diff=0.0030254428257325827, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=433 stat_name='Normal_Scores_Ranked': expected=-1.009990169249582, excel_calc=-1.0114994240439918, abs_diff=0.0015092547944097756, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=436 stat_name='Normal_Scores_Ranked': expected=-1.0069785405861433, excel_calc=-1.0054761459977812, abs_diff=0.0015023945883620993, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=450 stat_name='Normal_Scores_Ranked': expected=-0.9935377220855203, excel_calc=-0.9846760166330215, abs_diff=0.008861705452498758, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=455 stat_name='Normal_Scores_Ranked': expected=-0.9773499064272445, excel_calc=-0.9788109254445544, abs_diff=0.0014610190173098836, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=456 stat_name='Normal_Scores_Ranked': expected=-0.9773499064272445, excel_calc=-0.9758909706648723, abs_diff=0.0014589357623722155, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=457 stat_name='Normal_Scores_Ranked': expected=-0.9744341091283898, excel_calc=-0.9758909706648723, abs_diff=0.001456861536482501, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=458 stat_name='Normal_Scores_Ranked': expected=-0.9744341091283898, excel_calc=-0.9758909706648723, abs_diff=0.001456861536482501, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=459 stat_name='Normal_Scores_Ranked': expected=-0.9744341091283898, excel_calc=-0.9715265728967161, abs_diff=0.002907536231673724, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=463 stat_name='Normal_Scores_Ranked': expected=-0.9671806027150578, excel_calc=-0.9657360000299836, abs_diff=0.001444602685074181, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=464 stat_name='Normal_Scores_Ranked': expected=-0.9642934099107098, excel_calc=-0.9657360000299836, abs_diff=0.0014425901192738344, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=469 stat_name='Normal_Scores_Ranked': expected=-0.9571103488480224, excel_calc=-0.958543004001818, abs_diff=0.0014326551537956478, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=470 stat_name='Normal_Scores_Ranked': expected=-0.9571103488480224, excel_calc=-0.958543004001818, abs_diff=0.0014326551537956478, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=471 stat_name='Normal_Scores_Ranked': expected=-0.9571103488480224, excel_calc=-0.958543004001818, abs_diff=0.0014326551537956478, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=472 stat_name='Normal_Scores_Ranked': expected=-0.9571103488480224, excel_calc=-0.958543004001818, abs_diff=0.0014326551537956478, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=473 stat_name='Normal_Scores_Ranked': expected=-0.9571103488480224, excel_calc=-0.958543004001818, abs_diff=0.0014326551537956478, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=476 stat_name='Normal_Scores_Ranked': expected=-0.9499763348241118, excel_calc=-0.9471362321023638, abs_diff=0.0028401027217480612, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=477 stat_name='Normal_Scores_Ranked': expected=-0.9457190419572091, excel_calc=-0.9471362321023638, abs_diff=0.0014171901451546232, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=479 stat_name='Normal_Scores_Ranked': expected=-0.9428903443708794, excel_calc=-0.9443037486795022, abs_diff=0.001413404308622801, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=480 stat_name='Normal_Scores_Ranked': expected=-0.9428903443708794, excel_calc=-0.9414788211796454, abs_diff=0.0014115231912339432, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=484 stat_name='Normal_Scores_Ranked': expected=-0.9358513841670086, excel_calc=-0.9400691713003952, abs_diff=0.004217787133386608, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=490 stat_name='Normal_Scores_Ranked': expected=-0.9302534287769305, excel_calc=-0.9274653559730552, abs_diff=0.0027880728038752745, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=494 stat_name='Normal_Scores_Ranked': expected=-0.9260740198375007, excel_calc=-0.9219107247804078, abs_diff=0.004163295057092897, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=505 stat_name='Normal_Scores_Ranked': expected=-0.9067800507437429, excel_calc=-0.9095155855557755, abs_diff=0.0027355348120325917, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=506 stat_name='Normal_Scores_Ranked': expected=-0.9067800507437429, excel_calc=-0.9054148250029836, abs_diff=0.0013652257407592572, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=508 stat_name='Normal_Scores_Ranked': expected=-0.9026894232375229, excel_calc=-0.9040512847293886, abs_diff=0.001361861491865679, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=509 stat_name='Normal_Scores_Ranked': expected=-0.9026894232375229, excel_calc=-0.9040512847293886, abs_diff=0.001361861491865679, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=510 stat_name='Normal_Scores_Ranked': expected=-0.9026894232375229, excel_calc=-0.9040512847293886, abs_diff=0.001361861491865679, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=511 stat_name='Normal_Scores_Ranked': expected=-0.9026894232375229, excel_calc=-0.8986138451528803, abs_diff=0.004075578084642539, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=512 stat_name='Normal_Scores_Ranked': expected=-0.9026894232375229, excel_calc=-0.8986138451528803, abs_diff=0.004075578084642539, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=520 stat_name='Normal_Scores_Ranked': expected=-0.8864756466276724, excel_calc=-0.8932028448283467, abs_diff=0.006727198200674245, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=522 stat_name='Normal_Scores_Ranked': expected=-0.8837959771878763, excel_calc=-0.8851350174294098, abs_diff=0.001339040241533529, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=523 stat_name='Normal_Scores_Ranked': expected=-0.8837959771878763, excel_calc=-0.8851350174294098, abs_diff=0.001339040241533529, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=524 stat_name='Normal_Scores_Ranked': expected=-0.8837959771878763, excel_calc=-0.8851350174294098, abs_diff=0.001339040241533529, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=545 stat_name='Normal_Scores_Ranked': expected=-0.8534228481261619, excel_calc=-0.8547269772668495, abs_diff=0.001304129140687671, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=547 stat_name='Normal_Scores_Ranked': expected=-0.8521201688339081, excel_calc=-0.8508189339642555, abs_diff=0.0013012348696526121, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=549 stat_name='Normal_Scores_Ranked': expected=-0.8495191381191805, excel_calc=-0.848220775928264, abs_diff=0.0012983621909165022, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=550 stat_name='Normal_Scores_Ranked': expected=-0.8495191381191805, excel_calc=-0.848220775928264, abs_diff=0.0012983621909165022, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=551 stat_name='Normal_Scores_Ranked': expected=-0.8495191381191805, excel_calc=-0.848220775928264, abs_diff=0.0012983621909165022, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=552 stat_name='Normal_Scores_Ranked': expected=-0.8495191381191805, excel_calc=-0.848220775928264, abs_diff=0.0012983621909165022, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=553 stat_name='Normal_Scores_Ranked': expected=-0.8495191381191805, excel_calc=-0.8430415572532249, abs_diff=0.006477580865955512, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=555 stat_name='Normal_Scores_Ranked': expected=-0.8417502837295338, excel_calc=-0.8404604122064311, abs_diff=0.0012898715231026703, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=557 stat_name='Normal_Scores_Ranked': expected=-0.8378848544579034, excel_calc=-0.8391719375013723, abs_diff=0.0012870830434689173, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=560 stat_name='Normal_Scores_Ranked': expected=-0.8340319041199933, excel_calc=-0.8353148428592626, abs_diff=0.0012829387392693237, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=561 stat_name='Normal_Scores_Ranked': expected=-0.832750336673759, excel_calc=-0.8353148428592626, abs_diff=0.0025645061855036344, fdd=2.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=563 stat_name='Normal_Scores_Ranked': expected=-0.8301912955705568, excel_calc=-0.8314701354918446, abs_diff=0.0012788399212877444, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=571 stat_name='Normal_Scores_Ranked': expected=-0.8200089892594419, excel_calc=-0.8212771162830697, abs_diff=0.0012681270236277742, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=572 stat_name='Normal_Scores_Ranked': expected=-0.8200089892594419, excel_calc=-0.8212771162830697, abs_diff=0.0012681270236277742, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=577 stat_name='Normal_Scores_Ranked': expected=-0.813688019108672, excel_calc=-0.8124277250551362, abs_diff=0.001260294053535782, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=580 stat_name='Normal_Scores_Ranked': expected=-0.8111687200946719, excel_calc=-0.8086545589713238, abs_diff=0.0025141611233481242, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=582 stat_name='Normal_Scores_Ranked': expected=-0.8061454989971333, excel_calc=-0.8073993936231411, abs_diff=0.0012538946260077788, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=585 stat_name='Normal_Scores_Ranked': expected=-0.8023913941824081, excel_calc=-0.8036415037821248, abs_diff=0.00125010959971672, fdd=3.0
-ERROR [Regression/residuals] config_name='life_country_fixed_effects' allow_intercept=True row_idx=586 stat_name='Normal_Scores_Ranked': expected=-0.8023913941824081, excel_calc=-0.801142537283147, abs_diff=0.0012488568992611304, fdd=3.0
-ERROR Additional QC mismatches suppressed.
-ERROR QC mismatch totals: Regression/coefficients=1, Regression/residuals=959, Regression/scalars=2
-ERROR Verify mismatch totals: Regression/coefficients=1, Regression/residuals=959, Regression/scalars=2
+ERROR QC mismatch totals: Regression/coefficients=1, Regression/residuals=72, Regression/scalars=2
+ERROR Verify mismatch totals: Regression/coefficients=1, Regression/residuals=72, Regression/scalars=2
   mode: spec
   workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
-  elapsed: 72.3s
-  failures (962 total):
+  elapsed: 74.4s
+  failures (75 total):
     - [Regression/scalars] config_name='production_lots_fixed_effects' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
     - [Regression/scalars] config_name='production_lots_log_transform' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
     - [Regression/coefficients] config_name='life_full_profile' allow_intercept=True term_name='Population' stat_name='T_Statistics': expected=-0.36739346594386835, excel_calc=-0.3673941937551009, abs_diff=7.278112325592723e-07, fdd=6.0
@@ -240,9 +113,9 @@ ERROR Verify mismatch totals: Regression/coefficients=1, Regression/residuals=95
     - [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='Predictions': expected=70.45192118729999, excel_calc=70.4519195879659, abs_diff=1.5993340838349468e-06, fdd=6.0
     - [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='Residuals': expected=-2.4519211872999875, excel_calc=-2.4519195879659037, abs_diff=1.5993340838349468e-06, fdd=6.0
     - [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='PRESS_Residual': expected=-3.280485198286769, excel_calc=-3.280483058498659, abs_diff=2.1397881098117466e-06, fdd=5.0
-    ... and 942 more (use --json for the full list)
-Timing: build+sync    238.5s
-Timing: recalculate   17.2s
-Timing: verify        73.9s
-Timing: total         329.7s
+    ... and 55 more (use --json for the full list)
+Timing: build+sync    128.5s
+Timing: recalculate   23.9s
+Timing: verify        78.7s
+Timing: total         231.1s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production verify no launch.log

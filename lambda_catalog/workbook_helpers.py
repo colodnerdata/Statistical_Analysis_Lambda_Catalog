@@ -370,7 +370,12 @@ def val(sheet: xw.Sheet, row: int, col: int, value: object) -> None:
 
 
 def f(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:
-    sheet.range(rc(row, col)).api.Formula2 = formula
+    cell = sheet.range(rc(row, col))
+    api = cell.api
+    if api is None:
+        cell.formula = formula
+        return
+    api.Formula2 = formula
 
 
 def f_structured(sheet: xw.Sheet, row: int, col: int, formula: str) -> None:

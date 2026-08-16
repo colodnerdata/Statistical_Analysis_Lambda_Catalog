@@ -561,8 +561,9 @@ memoize a name whose Refers To is a formula — it re-evaluates at every use sit
 ```
 
 The column letters are illustrative, not the contract: every one of them is
-derived in `write_sheet_regression.py` from `_LAST_CHART_COLUMN`, which itself
-tracks the chart anchor. Read the constants, not this diagram.
+derived in `regression_layout.py` from `_LAST_CHART_COLUMN`, which itself
+tracks the chart anchor. Read the constants, not this diagram. The band is
+written by `_write_materialization_zone` in `regression_materialization.py`.
 
 ### The ordering rule
 
@@ -584,7 +585,7 @@ displaced by an ordinary modeling choice.
   of same-level grouped columns into one outline, so a missing gutter merges two
   zones into a single collapse control — same mechanism as the `_C_R` / `_C_Z` /
   `_C_AI` / `_C_AM` gap columns that separate the existing content zones
-  (derived in `write_sheet_regression.py` as `_GAP_COLUMNS`, one per adjacent
+  (derived in `regression_layout.py` as `_GAP_COLUMNS`, one per adjacent
   `_ZONES` pair, asserted exactly one column wide). But in this band only the
   Model Context zone qualifies for a group at all: see *Collapse state* below.
 - **The first gutter is structural, not cosmetic.** Charts anchored over columns

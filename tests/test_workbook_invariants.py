@@ -18,6 +18,10 @@ existing `RecordingSheet` unit tests cannot see:
     `NA()` inside `IFERROR`, so we only scan <v> and <t> elements, not <f>)
   * [Content_Types].xml / xl/_rels/workbook.xml.rels inconsistencies
   * chart-relationship Targets that don't resolve to a real zip member
+  * a chart referencing a sheet other than the one it sits on — SERIES formulas
+    and the `c15:datalabelsRange` "Value From Cells" extension alike, since a
+    chart lives in its own package part and every reference in it names a sheet
+    explicitly, so a wrong name plots another sheet's model without erroring
   * workbook_builder.py: post-`sync_workbook_names` rebuilds must leave no
     calcChain part or relationship behind
   * the shipped Univariate distribution fits are at the maximum likelihood, and
@@ -358,6 +362,77 @@ class WorkbookPackage:
             exempt.setdefault(parts[index], set()).add(match.group(1).upper())
         return exempt
 
+    def chart_sheet_references(self) -> dict[str, tuple[str, set[str]]]:
+        """Return {chart part: (sheet the chart sits on, sheet names it references)}.
+
+        A chart is its own package part, not sheet content, so every reference
+        inside it has to name a sheet — which is exactly why a wrong name still
+        parses and silently reads another sheet's numbers. Both formula kinds
+        are collected: the `<c:f>` of a SERIES and the `<c15:f>` of the
+        `datalabelsRange` extension that backs "Value From Cells" labels. They
+        live in different namespaces, so the scan matches on the local name `f`
+        and picks up any future extension for free.
+
+        Which sheet owns a chart is a relationship walk, worksheet ->
+        `<drawing r:id>` -> drawing rels -> chart part; a chart part no drawing
+        claims is not in the result at all.
+        """
+        with zipfile.ZipFile(self.path) as zf:
+
+            def _rels_for(part: str) -> dict[str, str]:
+                folder, base = posixpath.split(part)
+                rels_part = posixpath.join(folder, "_rels", base + ".rels")
+                try:
+                    data = zf.read(rels_part)
+                except KeyError:
+                    return {}
+                return {
+                    rel.get("Id") or "": rel.get("Target") or ""
+                    for rel in etree.fromstring(data).findall(_RELATIONSHIP_TAG)
+                }
+
+            def _resolve(base_part: str, target: str) -> str:
+                if target.startswith("/"):
+                    return target.lstrip("/")
+                return posixpath.normpath(
+                    posixpath.join(posixpath.dirname(base_part), target)
+                )
+
+            sheet_names = [
+                sheet.get("name") or ""
+                for sheet in self.workbook_root.findall(f".//{_WB}sheets/{_WB}sheet")
+            ]
+            references: dict[str, tuple[str, set[str]]] = {}
+            for sheet_name, sheet_part in zip(sheet_names, self.sheet_parts_by_index):
+                try:
+                    sheet_root = etree.fromstring(zf.read(sheet_part))
+                except KeyError:
+                    continue
+                sheet_rels = _rels_for(sheet_part)
+                for drawing in sheet_root.iter(f"{_WB}drawing"):
+                    rid = drawing.get(f"{{{OFFICE_RELS_NS}}}id")
+                    if rid is None or rid not in sheet_rels:
+                        continue
+                    drawing_part = _resolve(sheet_part, sheet_rels[rid])
+                    for target in _rels_for(drawing_part).values():
+                        chart_part = _resolve(drawing_part, target)
+                        if "/charts/" not in chart_part:
+                            continue
+                        try:
+                            chart_root = etree.fromstring(zf.read(chart_part))
+                        except KeyError:
+                            continue
+                        prefixes: set[str] = set()
+                        for element in chart_root.iter():
+                            if etree.QName(element).localname != "f":
+                                continue
+                            text = (element.text or "").strip()
+                            if "!" not in text:
+                                continue
+                            prefixes.add(text.split("!", 1)[0].strip("=").strip("'"))
+                        references[chart_part] = (sheet_name, prefixes)
+        return references
+
     def worksheet_cached_values(self, sheet_part: str) -> list[str]:
         """Return the text of every <v> and <t> element in the given worksheet."""
         with zipfile.ZipFile(self.path) as zf:
@@ -416,6 +491,29 @@ def _assert_no_orphan_named_ranges(package: WorkbookPackage) -> None:
                 )
             seen_local.add(key)
     assert not offenders, "Defined-name violations:\n  " + "\n  ".join(offenders)
+
+
+def _assert_charts_reference_only_their_own_sheet(package: WorkbookPackage) -> None:
+    """No chart may read data from a sheet other than the one it sits on.
+
+    Every Regression-templated sheet carries its own copy of the sheet-scoped
+    `RegChart*` ranges, and each sheet's charts are written against that
+    sheet's name. A chart whose reference names a *different* sheet is the
+    silent-wrong-answer failure: the formula still resolves, the chart still
+    draws, and it plots another model's numbers. In the pre-reunify workbook
+    this is precisely what a promoted-to-workbook-scope name did.
+    """
+    offenders: list[str] = []
+    for chart_part, (owner, prefixes) in sorted(package.chart_sheet_references().items()):
+        foreign = prefixes - {owner}
+        if foreign:
+            offenders.append(
+                f"{chart_part} sits on {owner!r} but references "
+                + ", ".join(repr(name) for name in sorted(foreign))
+            )
+    assert not offenders, (
+        "Charts referencing another sheet's data:\n  " + "\n  ".join(offenders)
+    )
 
 
 def _assert_no_error_literals_in_cached_values(package: WorkbookPackage) -> None:
@@ -955,6 +1053,126 @@ def test_one_sheets_exemption_does_not_leak_to_another(tmp_path: Path) -> None:
         _assert_no_error_literals_in_cached_values(package)
 
 
+# ---------------------------------------------------------------------------
+# Charts must reference only the sheet they sit on.
+#
+# These fixtures wire the full ownership walk a real workbook uses — worksheet
+# -> <drawing r:id> -> drawing rels -> chart part — because that walk is what
+# decides which sheet a chart is allowed to name.
+# ---------------------------------------------------------------------------
+
+_CHART_NS = "http://schemas.openxmlformats.org/drawingml/2006/chart"
+_CHART_EXT_NS = "http://schemas.microsoft.com/office/drawing/2012/chart"
+
+
+def _sheet_xml_with_drawing() -> bytes:
+    return (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '
+        b'xmlns:r="' + OFFICE_RELS_NS.encode("utf-8") + b'">'
+        b"<sheetData/><drawing r:id=\"rId1\"/>"
+        b"</worksheet>"
+    )
+
+
+def _chart_xml(series_ref: str, label_range_ref: str) -> bytes:
+    """A chart part carrying one SERIES formula and one Value-From-Cells range.
+
+    The two references sit in different namespaces on purpose: `c:f` is the
+    series, `c15:f` inside the `datalabelsRange` extension is what Excel writes
+    for "Value From Cells" labels. A scan that only knew the `c` namespace
+    would pass this fixture while the label range pointed anywhere at all.
+    """
+    return (
+        f'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<c:chartSpace xmlns:c="{_CHART_NS}" xmlns:c15="{_CHART_EXT_NS}">'
+        f"<c:ser><c:val><c:numRef><c:f>{series_ref}</c:f></c:numRef></c:val>"
+        f"<c:extLst><c:ext><c15:datalabelsRange>"
+        f"<c15:f>{label_range_ref}</c15:f>"
+        f"</c15:datalabelsRange></c:ext></c:extLst></c:ser>"
+        f"</c:chartSpace>"
+    ).encode("utf-8")
+
+
+def _rels_xml(pairs: list[tuple[str, str, str]]) -> bytes:
+    body = "".join(
+        f'<Relationship Id="{rid}" Type="{rel_type}" Target="{target}"/>'
+        for rid, rel_type, target in pairs
+    )
+    return (
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        b'<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + body.encode("utf-8")
+        + b"</Relationships>"
+    )
+
+
+def _build_chart_fixture(
+    tmp_path: Path, *, series_ref: str, label_range_ref: str
+) -> WorkbookPackage:
+    """A 2-sheet workbook with one chart, anchored to the first sheet."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    workbook_path = tmp_path / "charts.xlsx"
+    sheet_names = ("Regression", "Mileage Data")
+    drawing_type = f"{OFFICE_RELS_NS}/drawing"
+    chart_type = f"{OFFICE_RELS_NS}/chart"
+    with zipfile.ZipFile(workbook_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr("[Content_Types].xml", _content_types(len(sheet_names)))
+        zf.writestr("xl/workbook.xml", _workbook_xml(sheet_names))
+        zf.writestr("xl/_rels/workbook.xml.rels", _workbook_rels(len(sheet_names)))
+        zf.writestr("xl/worksheets/sheet1.xml", _sheet_xml_with_drawing())
+        zf.writestr("xl/worksheets/sheet2.xml", _blank_sheet_xml())
+        zf.writestr(
+            "xl/worksheets/_rels/sheet1.xml.rels",
+            _rels_xml([("rId1", drawing_type, "../drawings/drawing1.xml")]),
+        )
+        zf.writestr("xl/drawings/drawing1.xml", b"<?xml version='1.0'?><drawing/>")
+        zf.writestr(
+            "xl/drawings/_rels/drawing1.xml.rels",
+            _rels_xml([("rId1", chart_type, "../charts/chart1.xml")]),
+        )
+        zf.writestr("xl/charts/chart1.xml", _chart_xml(series_ref, label_range_ref))
+    return WorkbookPackage(workbook_path)
+
+
+def test_a_chart_referencing_its_own_sheet_passes(tmp_path: Path) -> None:
+    package = _build_chart_fixture(
+        tmp_path,
+        series_ref="Regression!RegChartCookDist",
+        label_range_ref="Regression!RegChartCookDistFlag",
+    )
+    assert package.chart_sheet_references() == {
+        "xl/charts/chart1.xml": ("Regression", {"Regression"})
+    }
+    _assert_charts_reference_only_their_own_sheet(package)
+
+
+def test_a_chart_series_naming_another_sheet_fails(tmp_path: Path) -> None:
+    package = _build_chart_fixture(
+        tmp_path,
+        series_ref="'Mileage Data'!RegChartCookDist",
+        label_range_ref="Regression!RegChartCookDistFlag",
+    )
+    with pytest.raises(AssertionError, match="Mileage Data"):
+        _assert_charts_reference_only_their_own_sheet(package)
+
+
+def test_a_value_from_cells_range_naming_another_sheet_fails(tmp_path: Path) -> None:
+    """The data-label range is an extension element, not a SERIES formula.
+
+    It is the reference most easily left pointing at the template sheet — it is
+    written once, by name, and nothing about a wrong sheet shows up as an
+    error. This is the case that must not slip through.
+    """
+    package = _build_chart_fixture(
+        tmp_path,
+        series_ref="Regression!RegChartCookDist",
+        label_range_ref="'Mileage Data'!RegChartCookDistFlag",
+    )
+    with pytest.raises(AssertionError, match="Mileage Data"):
+        _assert_charts_reference_only_their_own_sheet(package)
+
+
 def test_masked_column_matches_the_writers_column_constant() -> None:
     """Cross-check the artifact against the writer.
 
@@ -1376,6 +1594,14 @@ class TestRealWorkbook:
             "xl/_rels/workbook.xml.rels references parts not in the zip:\n  "
             + "\n  ".join(f"Id={rid!r} Target={t!r}" for rid, t in missing)
         )
+
+    def test_charts_reference_only_their_own_sheet(
+        self, real_workbook_package: WorkbookPackage
+    ) -> None:
+        """Every chart in the shipped artifact reads its own sheet, and only it."""
+        references = real_workbook_package.chart_sheet_references()
+        assert references, "the artifact declares no charts to check"
+        _assert_charts_reference_only_their_own_sheet(real_workbook_package)
 
     def test_chart_relationship_targets_resolve(
         self, real_workbook_package: WorkbookPackage

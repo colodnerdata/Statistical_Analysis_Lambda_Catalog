@@ -688,21 +688,25 @@ _SEQUENCE_ACTIVE_FORMULA = "COUNT(Sequence_Deltas())>0"
 #
 # Messages are short and imperative because they wrap inside a single column;
 # the hover Note beside each carries the long form.
+#
+# THE FORMULAS THEMSELVES ARE NO LONGER HERE (reunify Part 6.2). B2, G2 and H2
+# hold `=Role_Status()`, `=Log_Domain_Status()` and `=Sequence_Status()` —
+# sheet-scoped catalog LAMBDAs in lambda_functions.json, alongside O2's
+# `=Design_Width_Status()`. A cell that used to show a wall of nested IFs now
+# names what it checks, and the logic is documented on the LAMBDA_functions
+# sheet like every other function. What stays in Python is what the catalog
+# cannot carry: the long hover Notes below (the catalog's own `notes` field is
+# capped at 255 characters and goes to Name Manager), and the count
+# sub-formulas above, which many other cells still build on.
+#
+# The message text is pinned across the Python/JSON gap by
+# test_spec_block_writer.py — no import can reach a JSON string literal.
 
 # B2 — Role cardinality. Exactly one Response is required (zero and two-plus are
 # both errors, and they need different instructions), while Sequence and Fixed
 # Effects allow zero, so those only flag the two-plus case. Fixed Effects is
 # checked here rather than in its own cell because Role is the column all three
 # conditions are declared in.
-_ROLE_STATUS_FORMULA = (
-    f"=IF({_RESPONSE_COUNT_FORMULA}=0,"
-    '"ERROR: no Response (y) row — mark the variable being modeled.",'
-    f"IF({_RESPONSE_COUNT_FORMULA}>1,"
-    '"ERROR: multiple Response (y) rows — mark exactly one.",'
-    f"IF({_FIXED_EFFECTS_COUNT_FORMULA}>1,"
-    '"ERROR: multiple Fixed Effects rows — mark at most one.",'
-    '"")))'
-)
 _ROLE_STATUS_NOTE = (
     "Role cardinality, in severity order.\n\n"
     "A model needs exactly one Response (y) row: with none there is nothing to "
@@ -717,10 +721,6 @@ _ROLE_STATUS_NOTE = (
 )
 
 # H2 — Sequence cardinality, above the Sequence column it is declared in.
-_SEQUENCE_STATUS_FORMULA = (
-    f"=IF({_SEQUENCE_FLAG_COUNT_FORMULA}>1,"
-    '"ERROR: multiple Sequence rows — mark at most one.","")'
-)
 _SEQUENCE_STATUS_NOTE = (
     "Zero or one Sequence flag is the legal range. Zero is an ordinary "
     "non-panel spec; one designates the ordering axis for the lag, difference "
@@ -748,26 +748,6 @@ _SEQUENCE_STATUS_NOTE = (
 # column the worst one came from. Sample_Include(FALSE) is the mask BEFORE the
 # positivity layer — the rows the fit would otherwise have used — which is what
 # makes both halves of this formula count the same population.
-_LOG_DOMAIN_STATUS_FORMULA = (
-    "=LET(nc,COLUMNS(Source_Data),"
-    "rl,TAKE(Spec_Role,nc),"
-    "inc,TAKE(Spec_Include,nc),"
-    "typ,TAKE(Spec_Type,nc),"
-    "trn,TAKE(Spec_Transform,nc),"
-    "hdr,TOROW(Header_Names),"
-    "base,Sample_Include(FALSE),"
-    f'elig,((rl="{_ROLE_RESPONSE}")+((rl="{_ROLE_PREDICTOR}")*(inc=TRUE)'
-    '*(typ="Continuous")))>0,'
-    "bad,MAP(SEQUENCE(nc),LAMBDA(j,"
-    f'IF(AND(INDEX(elig,j),INDEX(trn,j)="{_TRANSFORM_LOG}"),'
-    "SUMPRODUCT(--base,--IFERROR((INDEX(Source_Data,0,j)+0)<=0,FALSE)),0))),"
-    "worst,MAX(bad),"
-    "IF(worst>0,"
-    '"ERROR: "&INDEX(hdr,XMATCH(worst,bad))&" has "&worst&'
-    f'" values ≤ 0 under Log — the fit is #N/A. Use {_TRANSFORM_LOG_DROP}.",'
-    "LET(d,SUMPRODUCT(N(Sample_Include(FALSE)))-SUMPRODUCT(N(Sample_Include())),"
-    'IF(d=0,"",d&" rows excluded: Log of ≤ 0"))))'
-)
 _LOG_DOMAIN_STATUS_NOTE = (
     "What the Log transforms are doing to the sample.\n\n"
     "RED — a variable declaring “Log” contains zeros or negatives on rows "

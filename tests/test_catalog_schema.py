@@ -428,6 +428,16 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 "Sequence_Delta_Spectrum",
                 # Reads Constructed_Column_Names above it, so it lands last.
                 "Model_Formula",
+                # The row-2 status readouts (reunify Part 6.2). Sheet-scoped
+                # for the same reason the constructors are — each Regression
+                # sheet validates its own spec — but NOT constructors: they
+                # feed no fit, they only say what is wrong with the spec.
+                # Log_Domain_Status calls Sample_Include(), so it has to come
+                # after it; this list IS the install order.
+                "Role_Status",
+                "Sequence_Status",
+                "Log_Domain_Status",
+                "Design_Width_Status",
             ],
         )
         # Sheet-scoped closures must never be synced as workbook names — a

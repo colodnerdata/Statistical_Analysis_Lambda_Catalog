@@ -211,7 +211,7 @@ One build script produces one workbook. `build_production.py` emits the unified 
 |---|---|---|---|
 | `Lambda_Library.xlsx` | The unified workbook | **Automatic** (full) | Regression, Regression Instructions, Diagnostic Guide, Univariate, LAMBDA_functions, Version History, Production Lots, Life Expectancy Data, Mileage Data |
 
-**The workbook carries the complete function library.** All 141 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
+**The workbook carries the complete function library.** All 145 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
 
 **The production constructor always runs the full `CalculateFullRebuild` and saves in full Automatic** — there is no skip-calculation flag.
 
@@ -245,7 +245,7 @@ Produces `Lambda_Library.xlsx` — the distributable workbook committed to the r
 - **Diagnostic Guide** — interpretation guide for regression diagnostics (reference sheet)
 - **Univariate** — descriptive statistics, histogram binning, and two-stage MLE distribution fitting (a pre-built template)
 - **Version History** — changelog that travels with the workbook
-- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. A pre-built template. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_spec_block.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `Predictor_Columns`, `Design_Columns`, `Design_Response`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide
+- **Regression** — ToolPak-style analysis interface driven by a declarative variable-specification block (the spec block) and the sheet-scoped names that assemble the design matrix from it. A pre-built template. The wiring names (`Source_Data`, `Header_Names`, `Spec_*`) hardcode the spec block's cell addresses and are defined in `write_spec_block.py` (imported by `write_sheet_regression.py`); the constructor closures (`Sample_Include`, `Response_Column`, `Row_Labels`, `Predictor_Columns`, `Design_Columns`, `Design_Response`, `Constructed_Column_Names`) live in `lambda_functions.json` with `"scope": "Regression"`, so they are the single source of truth and appear on the LAMBDA_functions catalog sheet (Scope column) like any other function — they are just installed on this sheet rather than workbook-wide. Sheet scope is not the same as being a constructor: the row-2 status readouts (`Role_Status`, `Sequence_Status`, `Log_Domain_Status`, `Design_Width_Status`) are sheet-scoped for the same reason — each Regression sheet validates its own spec — but they feed no fit, they only say what is wrong with the specification. A new status cell is a new sheet-scoped catalog entry, not an inline formula in a writer
 
 No test sheets, no OLS analysis, no cache dependency.
 

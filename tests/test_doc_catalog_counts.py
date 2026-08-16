@@ -35,14 +35,22 @@ import pytest
 ROOT_DIR = Path(__file__).resolve().parents[1]
 CATALOG_PATH = ROOT_DIR / "lambda_functions.json"
 
-# Scope of a claim: the whole catalog, the portable subset, or the Regression
-# sheet's closures. Each maps to a phrasing the documentation actually uses.
+# Scope of a claim: the whole catalog, the portable subset, or the names
+# installed on the Regression sheet. Each maps to a phrasing the documentation
+# actually uses.
+#
+# The sheet-scoped phrasing was "constructor closures" until Part 6.2 added the
+# row-2 status readouts (Role_Status and friends). Those are sheet-scoped for
+# the same reason the constructors are, but they construct nothing — they only
+# report on the spec — so counting them under "constructor closures" would have
+# made the docs say something false. Renaming the claim rather than just
+# bumping the number is what keeps this guard pointed at a true sentence.
 _TOTAL, _WORKBOOK, _SHEET_SCOPED = "total", "workbook-scoped", "Regression-scoped"
 
 _COUNT_CLAIMS = (
     (re.compile(r"(\d+) LAMBDA definitions"), _TOTAL),
     (re.compile(r"(\d+) portable functions"), _WORKBOOK),
-    (re.compile(r"(\d+) constructor closures"), _SHEET_SCOPED),
+    (re.compile(r"(\d+) Regression-scoped definitions"), _SHEET_SCOPED),
 )
 
 # The documents that describe the catalog as it is now. DECISIONS.md is left

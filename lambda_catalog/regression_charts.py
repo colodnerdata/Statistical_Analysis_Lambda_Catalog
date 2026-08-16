@@ -37,6 +37,7 @@ from .regression_layout import (
     _C_CHART_XLABEL,
     _C_CHART_YLABEL,
     _COOKS_CUTOFF,
+    _MSO_CHART_FIELD_RANGE,
     _ROW_CHART_LABELS,
     _XL_CATEGORY,
     _XL_COLUMN_CLUSTERED,
@@ -281,13 +282,14 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
         if key == "Cook's Distance":
             x_axis.TickLabelPosition = -4142  # xlTickLabelPositionNone
 
-            # Overlay series for selective data labels: NA()'d rows in
-            # RegChartCookDistFlag plot/label nothing, so only points past
-            # the F(0.5, p, n−p) cutoff get a marker+label. ChartType=xlLine
-            # (rather than the chart's own xlColumnClustered) keeps this
-            # series off the bar cluster — sharing the category axis
-            # without narrowing/shifting the real bars — which makes this
-            # a Column+Line combo chart.
+            # Overlay series for selective data labels: RegChartCookDistFlag
+            # carries the Cook's D value only past the F(0.5, p, n−p) cutoff
+            # and an empty string everywhere else, and the labels read that
+            # column directly through "Value From Cells" — so only the flagged
+            # points render label text. ChartType=xlLine (rather than the
+            # chart's own xlColumnClustered) keeps this series off the bar
+            # cluster — sharing the category axis without narrowing/shifting
+            # the real bars — which makes this a Column+Line combo chart.
             flag_series = chart.SeriesCollection().NewSeries()
             flag_series.XValues = _name_ref("RegChartObsLabel")
             flag_series.Values = _name_ref("RegChartCookDistFlag")
@@ -297,8 +299,18 @@ def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-ma
             flag_series.MarkerStyle = -4142          # xlMarkerStyleNone — label only
             flag_series.HasDataLabels = True
             dls = flag_series.DataLabels()
-            dls.ShowCategoryName = True  # observation identifier, e.g. "United States"
-            dls.ShowValue = True         # ...plus the Cook's D value
+            # Value From Cells: insert the range field into the label text
+            # first, then turn ShowRange on and every other label element off.
+            # Value and Category Name must BOTH be off — the non-flagged rows
+            # hold "" rather than NA(), so Excel plots them (at zero) instead
+            # of skipping them, and any element left on would print on all n
+            # observations instead of just the flagged ones.
+            dls.Format.TextFrame2.TextRange.InsertChartField(
+                _MSO_CHART_FIELD_RANGE, _name_ref("RegChartCookDistFlag"), 0
+            )
+            dls.ShowRange = True
+            dls.ShowValue = False
+            dls.ShowCategoryName = False
             dls.NumberFormat = y_tick_format  # same format as the y-axis ticks
             dls.Position = 0              # xlLabelPositionAbove
         if key == "Studentized Residuals vs. Leverage":

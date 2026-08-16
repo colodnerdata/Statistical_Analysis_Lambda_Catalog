@@ -368,6 +368,10 @@ _XL_COLUMN_CLUSTERED = 51    # Excel xlColumnClustered
 _XL_LINE = 4                 # Excel xlLine
 _XL_CATEGORY = 1             # horizontal axis
 _XL_VALUE = 2                # vertical axis
+# Office msoChartFieldRange — the "Value From Cells" data-label field, inserted
+# into a DataLabels TextRange via InsertChartField. See the Cook's Distance
+# branch of _write_diagnostic_charts.
+_MSO_CHART_FIELD_RANGE = 7
 _CHART_WIDTH = 310.0         # points
 _CHART_HEIGHT = 310.0        # points
 _CHART_GAP = 10.0            # gap between charts in points

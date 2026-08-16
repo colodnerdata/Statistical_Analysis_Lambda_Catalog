@@ -94,12 +94,16 @@ _DEFINED_NAME_TAG = f"{_WB}definedName"
 # ---------------------------------------------------------------------------
 # Deliberately-#N/A columns.
 #
-# The Cook's Distance chart labels only the influential points. It does that
-# with an NA()-masked overlay column — the real value where D exceeds the
-# cutoff, NA() everywhere else — because Excel skips NA() points for both
-# plotting and labeling (see CLAUDE.md -> "Selective data labels"). So every
-# non-flagged row in that column caches a perfectly correct #N/A, and a naive
-# scan reports hundreds of false offenders.
+# The Cook's Distance chart labels only the influential points, from a masked
+# overlay column — the real value where D exceeds the cutoff, a masking token
+# everywhere else (see CLAUDE.md -> "Selective data labels"). The token was
+# NA() while the labels came from ShowValue/ShowCategoryName, and every
+# non-flagged row of that column cached a perfectly correct #N/A, which a naive
+# scan reports as hundreds of false offenders. The labels now read the column
+# through Value From Cells and the token is "", so a freshly built artifact has
+# no #N/A there at all — but the exemption stays: it is what keeps an artifact
+# built before that change (and any future NA()-masked overlay) from failing a
+# scan over cells that are behaving exactly as designed.
 #
 # The exempt column is NOT hard-coded. It is read per sheet from the
 # sheet-scoped RegChart named range that feeds the overlay series, so a layout

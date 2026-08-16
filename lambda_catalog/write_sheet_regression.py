@@ -593,7 +593,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
     # ONE tier, not two. The old pair — amber at 4/n, red at 0.9 — graded by
     # two unrelated rules of thumb, and F(0.5, p, n−p) lands between them for
     # most models, so keeping either alongside it would draw a line the cutoff
-    # itself does not recognize. The Flagged column mirrors Cook's D (NA()
+    # itself does not recognize. The Flagged column mirrors Cook's D (blank
     # below the cutoff), so the same rule applied to it just recolors whatever
     # value the source column already produced there — kept visually
     # consistent with the column it duplicates.
@@ -853,7 +853,7 @@ def _setup_local_names(
         ("RegChartCookDistFlag", col_letter(_C_AY),
          "Cook's Distance chart: flagged-point overlay for data labels (D > F(0.5, p, n-p))"),
         ("RegChartObsLabel", col_letter(_C_AN),
-         "Cook's Distance chart: observation identifier for flagged-point data labels"),
+         "Cook's Distance chart: observation identifier — the flagged-point overlay's categories"),
     ]:
         drop_local_name(sheet, _name)
         _nm = sheet.api.Names.Add(
@@ -1851,16 +1851,21 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
     f(sheet, 3, _C_AX, "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())")
-    # Cook's Distance (Flagged): NA()'d except where D exceeds the influence
+    # Cook's Distance (Flagged): blank except where D exceeds the influence
     # cutoff, F(0.5, p, n−p) — see _COOKS_CUTOFF for why p comes from $O$1 and
     # not the ANOVA Regression df. This feeds the Cook's Distance chart's
     # data-label overlay series (see RegChartCookDistFlag in _setup_local_names
-    # / _write_diagnostic_charts): NA() points are skipped for both plotting
-    # and labeling, so only the flagged points get a label.
+    # / _write_diagnostic_charts), whose labels read this column through
+    # "Value From Cells" — which renders the cell's text verbatim, so the
+    # non-flagged branch is "" and not NA(): #N/A would print as a literal
+    # "#N/A" on every unflagged point. The empty string costs the overlay its
+    # skipped points (Excel plots a ""-returning formula at zero rather than
+    # treating it as a gap), which is why the chart leaves Value and Category
+    # Name off and lets the range supply the whole label.
     cooks_col = col_letter(_C_AT)
     f(
         sheet, 3, _C_AY,
-        f"=IF({cooks_col}3#>{_COOKS_CUTOFF},{cooks_col}3#,NA())",
+        f'=IF({cooks_col}3#>{_COOKS_CUTOFF},{cooks_col}3#,"")',
     )
     # AZ: Predicted Y in original units — the unit-space siblings of AP/AR/AQ
     # /AX. Method defaults to Duan smearing when the response is Log, which

@@ -2,7 +2,8 @@
 
 **Branch:** `refactor/reunify-workbook` (merged; follow-on work lands off `main`)
 **Date:** 2026-08-08
-**Status:** partially shipped — see the table below
+**Status:** structural work complete (Parts 1–5); Part 6 formula cleanup outstanding —
+see the table below
 
 | Part | State | Landed as |
 |---|---|---|
@@ -12,7 +13,7 @@
 | 3 Reunify the build scripts | **Shipped** | #211, `fe4fddf` |
 | 4 Update documentation | **Shipped** | `836da11`, `fe4fddf` |
 | 5.1 Extract `regression_charts.py` | **Shipped** | #214 |
-| 5.2 Extract `regression_materialization.py` | **Open** | `_write_materialization_zone` is ~345 lines of the writer's remaining 2,441 |
+| 5.2 Extract `regression_materialization.py` | **Shipped** | #220 — writer 2,441 → 2,098 lines |
 | 6.1 Audit the inline cell formulas | **Shipped** | `.hermes/plans/lambda-extraction-audit.md` |
 | 6.2 Extract the status-cell LAMBDAs | **Open** | catalog is still 141 = 123 workbook + 18 Regression-scoped |
 | 6.3 Split the prediction-interval VSTACK | **Open** | |
@@ -242,6 +243,14 @@ Move `_write_materialization_zone` (345 lines, lines 2520-2864) to its own modul
 After 5.1 + 5.2, `write_sheet_regression.py` is down to ~1,700 lines (zone writers + orchestrator), which is navigable.
 
 **Decision:** defer unless the file still feels unwieldy after Parts 1-2. These extractions are low-risk but not urgent.
+
+**Resolved — both landed.** Parts 1-2 left the writer at 3,000+ lines rather than the
+projected shrink, so the deferral condition was met: 5.1 took the charts out (#214) and
+5.2 the materialization band (#220), ending at 2,098 lines of zone writers +
+orchestrator. Both were pure moves — every symbol they needed was already a
+`regression_layout.py` constant or a leaf helper, so neither module imports back into
+the writer and the writer re-exports both under `# noqa: F401` so no call site or test
+import changed.
 
 ## Part 6 -- Extract complex cell formulas into named LAMBDA functions
 

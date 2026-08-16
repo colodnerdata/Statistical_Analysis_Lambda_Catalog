@@ -93,6 +93,30 @@ def test_no_task_re_enters_uv(tasks: dict[str, Any]) -> None:
             assert not command.startswith("uv "), name
 
 
+def test_the_excel_task_targets_the_suite_that_reads_the_env_var(
+    tasks: dict[str, Any],
+) -> None:
+    """``test-excel`` must run the tests ``RUN_EXCEL_INTEGRATION`` actually gates.
+
+    The task sets the env var, so it is only worth running against a suite that
+    reads it. It used to point at ``test_workbook_invariants.py``, whose
+    committed-artifact checks were opt-in behind the same var; those are
+    always-on now (zipfile reads, no Excel), which left the task setting a
+    variable nothing downstream consulted — a slower spelling of
+    ``verify-headless``. Pinned to the pair so a future edit to either side
+    fails here instead of quietly reintroducing that.
+    """
+    task = tasks["test-excel"]
+    assert task["env"]["RUN_EXCEL_INTEGRATION"] == "1"
+
+    target = Path(__file__).resolve().parent.parent / task["cmd"].split()[1]
+    assert target.exists(), target
+    assert "RUN_EXCEL_INTEGRATION" in target.read_text(encoding="utf-8"), (
+        f"{target.name} does not read RUN_EXCEL_INTEGRATION, so test-excel "
+        "setting it buys nothing"
+    )
+
+
 def test_lockfile_strictness_is_configured(poe_config: dict[str, Any]) -> None:
     """The Makefile passed ``--frozen`` on every recipe. UV_FROZEN carries that
     intent for every task at once; dropping it would let a stale lockfile

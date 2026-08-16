@@ -286,12 +286,18 @@ There are two verifier layers with different speeds and different scopes. Run th
 Pure `zipfile` + `lxml` reads of the produced `.xlsx`. Runs in <1 s on Linux CI without Excel. Catches packaging regressions the unit-test suite misses: dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken `[Content_Types].xml`/`workbook.xml.rels`, orphan chart-relationship targets, `localSheetId` out of range, sheet drift.
 
 ```powershell
-poe verify-headless
-poe test-excel               # + the opt-in real-workbook tests
+poe verify-headless          # includes the committed-artifact checks
 
 # Or directly:
 uv run pytest tests/test_workbook_invariants.py -v
-RUN_EXCEL_INTEGRATION=1 uv run pytest tests/test_workbook_invariants.py -v   # + real-workbook tests
+```
+
+Every check in this layer is always-on, the committed-artifact ones included: they read `dist/Lambda_Library.xlsx` as a zip, so a stale or hand-edited workbook fails here rather than shipping. If it does fail, rebuild and commit the artifact (`python scripts/build_production.py --verify --no-launch`, needs Excel) — the check is not the thing to relax.
+
+`RUN_EXCEL_INTEGRATION=1` now gates one suite only, the Excel COM checks for the grid-search helpers:
+
+```powershell
+poe test-excel               # needs desktop Excel; skips without it
 ```
 
 This is a fast screen. A green run does **not** mean the workbook calculates correctly — that is what Layer 2 is for.

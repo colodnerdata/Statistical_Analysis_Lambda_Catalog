@@ -529,33 +529,33 @@ All cell colors are defined once in `lambda_catalog/sheet_styles.py` and importe
 
 Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AI$3:$AI$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
 
-Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$Y$8` (the `Observations` cell in the Regression Outputs zone):
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$AB$8` (the `Observations` cell in the Regression Outputs zone):
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AM$2,1,0,MAX(IFERROR('{sname}'!$Y$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AP$2,1,0,MAX(IFERROR('{sname}'!$AB$8,1),1),1)",
 )
 ```
 
-This starts one row below the column header (row 2) and extends exactly `$Y$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$Y$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
+This starts one row below the column header (row 2) and extends exactly `$AB$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$AB$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
 **Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`Design_Columns`, `Sample_Include`, etc.) and formula-helper names:
 
 | Name | Column | Contents |
 |---|---|---|
-| `RegChartQQX` | AR | Normal Scores Ranked (QQ theoretical axis) |
-| `RegChartQQY` | AS | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | AM | Predicted Y — shared by multiple charts |
-| `RegChartResid` | AN | Residuals |
-| `RegChartActY` | AL | Actual Y |
-| `RegChartScaleLoc` | AT | Scale-Location |
-| `RegChartCookDist` | AQ | Cook's Distance |
-| `RegChartLeverage` | AO | Hat Diagonal |
-| `RegChartStudResid` | AP | Studentized Residuals |
-| `RegChartPRESSResid` | AU | PRESS Residual — the leave-one-out (LOOCV) residual; there is no separate "LOOCV Residual" column |
-| `RegChartCookDistFlag` | AV | Cook's Distance, `""` below the `F.INV(0.5, p, n-p)` influence cutoff — feeds the Cook's Distance chart's data-label overlay series, whose labels read this range through **Value From Cells** (which is why the mask is `""` and not `NA()`: the label would print a literal `#N/A`) |
-| `RegChartObsLabel` | AK | Row identifier (Row_Labels()) — the flagged-point overlay series' `XValues`, i.e. its categories |
+| `RegChartQQX` | AU | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AV | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | AP | Predicted Y — shared by multiple charts |
+| `RegChartResid` | AQ | Residuals |
+| `RegChartActY` | AO | Actual Y |
+| `RegChartScaleLoc` | AW | Scale-Location |
+| `RegChartCookDist` | AT | Cook's Distance |
+| `RegChartLeverage` | AR | Hat Diagonal |
+| `RegChartStudResid` | AS | Studentized Residuals |
+| `RegChartPRESSResid` | AX | PRESS Residual — the leave-one-out (LOOCV) residual; there is no separate "LOOCV Residual" column |
+| `RegChartCookDistFlag` | AY | Cook's Distance, `""` below the `F.INV(0.5, p, n-p)` influence cutoff — feeds the Cook's Distance chart's data-label overlay series, whose labels read this range through **Value From Cells** (which is why the mask is `""` and not `NA()`: the label would print a literal `#N/A`) |
+| `RegChartObsLabel` | AN | Row identifier (Row_Labels()) — the flagged-point overlay series' `XValues`, i.e. its categories |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`), and so is every other range a sheet writer creates. Workbook scope is the catalog's alone — see [Workbook scope belongs to the catalog](#workbook-scope-belongs-to-the-catalog) below. Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 

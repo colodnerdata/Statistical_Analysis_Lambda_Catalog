@@ -1219,8 +1219,11 @@ The Univariate sheet shipped as its own workbook from v3.0 until the Beta
 motivated the split. The split shipped with v3.0 as the Univariate artifact's
 1.0.0 initial release; on the Regression side it was bundled into the
 non-breaking 3.0.0. The grid shrink was MAJOR for the Univariate workbook alone.
-The two workbooks have since been reunified; the Version History changelog
-preserves the full record of both eras.
+The two workbooks have since been reunified. The Version History sheet now
+carries one lineage — the Regression one, which always held the pre-split
+Univariate history — and the two standalone Univariate releases described below
+are recorded here, in this section, rather than in a second changelog no build
+could publish.
 
 **The split** moved Univariate Analysis into its own workbook. Both artifacts
 carried the complete function library — there was no bundling, no dependency

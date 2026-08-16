@@ -66,9 +66,15 @@ cmd = "pytest"
 help = "Run the unit-test suite with coverage reports. This is the CI step."
 cmd = "pytest --cov --cov-report=term-missing --cov-report=xml"
 
+# The one suite RUN_EXCEL_INTEGRATION still gates: it dispatches Excel over COM
+# to evaluate the grid-search helper LAMBDAs, and skips itself when Excel is
+# unavailable. This task used to point at test_workbook_invariants.py back when
+# that file's committed-artifact checks were opt-in too; they are always-on now
+# (they are zipfile reads, not Excel), so pointing here instead is what keeps
+# the task from being a slower spelling of `verify-headless`.
 [tool.poe.tasks.test-excel]
-help = "Unit suite plus the opt-in real-workbook tests (needs the built artifacts)."
-cmd = "pytest tests/test_workbook_invariants.py -v"
+help = "Run the Excel COM integration tests (needs desktop Excel; skips without it)."
+cmd = "pytest tests/test_weibull_grid_excel.py -v"
 env = { RUN_EXCEL_INTEGRATION = "1" }
 
 [tool.poe.tasks.lint]

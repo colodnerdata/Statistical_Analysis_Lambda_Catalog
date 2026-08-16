@@ -1,8 +1,34 @@
 # Reunify the Workbook and Refactor Sheet Creation
 
-**Branch:** `refactor/reunify-workbook`
+**Branch:** `refactor/reunify-workbook` (merged; follow-on work lands off `main`)
 **Date:** 2026-08-08
-**Status:** Draft
+**Status:** partially shipped — see the table below
+
+| Part | State | Landed as |
+|---|---|---|
+| 1.1 Extract `regression_layout.py` | **Shipped** | `1fe76b5` |
+| 1.2 Extract `spec_layout.py` | **Shipped** | #209 |
+| 2.1 Extract `spec_dataset_profiles.py` | **Shipped** | #210 |
+| 3 Reunify the build scripts | **Shipped** | #211, `fe4fddf` |
+| 4 Update documentation | **Shipped** | `836da11`, `fe4fddf` |
+| 5.1 Extract `regression_charts.py` | **Shipped** | #214 |
+| 5.2 Extract `regression_materialization.py` | **Open** | `_write_materialization_zone` is ~345 lines of the writer's remaining 2,441 |
+| 6.1 Audit the inline cell formulas | **Shipped** | `.hermes/plans/lambda-extraction-audit.md` |
+| 6.2 Extract the status-cell LAMBDAs | **Open** | catalog is still 141 = 123 workbook + 18 Regression-scoped |
+| 6.3 Split the prediction-interval VSTACK | **Open** | |
+| 6.4 Prediction-input prefill spill | **Open** | follow-on, as scoped |
+
+Cleanup the reunification itself needed, tracked here because it is not a numbered
+Part: the merge committed a hand-edited `dist/Lambda_Library.xlsx` (15,369 cached error
+literals) and it survived eight merges because `TestRealWorkbook` was gated behind
+`RUN_EXCEL_INTEGRATION=1`. The artifact was rebuilt in #218; the gate is removed and the
+last two-artifact leftovers retired in the PR that added this table.
+
+**Before starting 6.2**, settle one thing the plan does not: the O2 thresholds
+(`_DESIGN_MATRIX_MAX_COLUMNS` and the soft pair) live in `regression_layout.py` and also
+size the sheet, so moving that formula into `lambda_functions.json` duplicates them. It
+wants a JSON↔Python pin test in the style of
+`test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform`.
 
 ## Goal
 

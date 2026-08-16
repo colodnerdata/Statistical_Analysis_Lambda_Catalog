@@ -25,11 +25,16 @@ existing `RecordingSheet` unit tests cannot see:
     (``TestShippedUnivariateFits`` / ``TestShippedUnivariateLayout``)
 
 The synthetic 4-sheet fixture (``build_headless_fixture``) is the always-on
-source of truth for these invariants, alongside ``TestRealWorkbookNameScope``,
-which runs the workbook-scope and external-link checks against the committed
-unified workbook on every commit. The broader ``TestRealWorkbook`` class is
-opt-in via ``RUN_EXCEL_INTEGRATION=1``: its cached-value scan still flags the
-``#N/A`` values ``Difference_By`` and ``Lag_By`` legitimately return at gap rows.
+source of truth for these invariants, alongside ``TestRealWorkbookNameScope``
+and ``TestRealWorkbook``, which run the same checks against the committed
+unified workbook on every commit. ``TestRealWorkbook`` used to be opt-in behind
+``RUN_EXCEL_INTEGRATION=1``, gated "until the committed artifact is cleaned
+up" — a temporary state that outlived its reason and took the shipped workbook
+out of CI's reach: the reunification committed a hand-edited artifact whose
+Regression sheet carried 15,369 cached error literals, and it survived eight
+merges because the one check that would have failed was skipped. Nothing here
+needs Excel — it is zipfile and lxml — so the gate is gone and the committed
+artifact is screened on every push.
 
 The deep spec-driven check (``lambda_catalog.deep_verify.verify_test_sheets``, xlwings + Excel
 required) is the source of truth for cell-level correctness — *except* for the
@@ -60,20 +65,6 @@ from lxml import etree  # type: ignore[import-untyped]
 
 from lambda_catalog.catalog_schema import load_catalog_document
 from lambda_catalog.workbook_builder import drop_workbook_names
-
-# ---------------------------------------------------------------------------
-# Opt-in env var. RUN_EXCEL_INTEGRATION=1 enables the TestRealWorkbook class,
-# which exercises the same invariants against the committed production
-# workbook. The class is skipped by default until the in-flight bug fix in
-# workbook_builder.py cleans up the committed artifact.
-# ---------------------------------------------------------------------------
-
-RUN_REAL_WORKBOOK_TESTS = os.environ.get("RUN_EXCEL_INTEGRATION") == "1"
-skip_real_workbook = pytest.mark.skipif(
-    not RUN_REAL_WORKBOOK_TESTS,
-    reason="real-workbook checks are opt-in via RUN_EXCEL_INTEGRATION=1 "
-    "until the committed artifact is cleaned up",
-)
 
 # ---------------------------------------------------------------------------
 # Namespaces and the constant set of Excel error literals we never want to see
@@ -1031,10 +1022,10 @@ class TestRealWorkbookNameScope:
 
 
 # ---------------------------------------------------------------------------
-# Shipped-Univariate checks. Always on, like TestRealWorkbookNameScope above —
-# deliberately NOT under skip_real_workbook, because these two guard the one
-# thing no automated check covered before: whether the workbook we ship is the
-# one the current writer produces, and whether its fits are right.
+# Shipped-Univariate checks. Always on, like every other committed-artifact
+# class in this file — these two guard the one thing no automated check covered
+# before: whether the workbook we ship is the one the current writer produces,
+# and whether its fits are right.
 #
 # The spec-driven verifier (lambda_catalog.deep_verify.verify_test_sheets, Excel required) reads
 # only the descriptive statistics and the three histogram blocks — it never
@@ -1306,18 +1297,21 @@ class TestShippedUnivariateLayout:
 
 
 # ---------------------------------------------------------------------------
-# Real-workbook tests; opt-in via RUN_EXCEL_INTEGRATION=1
+# Real-workbook tests; always on, against the committed artifact
 # ---------------------------------------------------------------------------
 
 
-@skip_real_workbook
 class TestRealWorkbook:
-    """Real-workbook checks; opt-in via RUN_EXCEL_INTEGRATION=1.
+    """Structural checks against the committed ``dist/Lambda_Library.xlsx``.
 
-    These are deferred until the in-flight bug fix in workbook_builder.py
-    cleans up the committed production artifact (workbook-scoped defined-name
-    duplicates that point to #REF!). The synthetic-fixture tests above are
-    the always-on source of truth for the invariants.
+    These answer the one question the synthetic fixture cannot: is the file we
+    ship the file the writers produce? They were opt-in for as long as a known
+    bad artifact sat committed; that artifact is rebuilt, so they run on every
+    push. Nothing here needs Excel — the checks read the .xlsx as a zip.
+
+    A failure here means the committed workbook is stale or was saved by hand.
+    The fix is to rebuild and commit it, not to relax the check:
+    ``python scripts/build_production.py --verify --no-launch`` (needs Excel).
     """
 
     def test_sheet_inventory_matches_spec(

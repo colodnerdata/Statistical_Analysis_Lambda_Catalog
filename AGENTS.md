@@ -214,7 +214,7 @@ Every named range a sheet writer creates is **sheet-scoped** — `sheet.api.Name
 
 **Workbook-scoped catalog LAMBDAs must be sheet-agnostic.** A body that hardcodes `'Regression'!` is wrong in two directions: in a workbook with SEVERAL Regression-shaped sheets (the test-model artifact has 47) every sheet reads whichever one is literally named `Regression`, and in a workbook with none it is skipped and every call site reads `#NAME?`. `Base_Period_Delta` is the example: it is **sheet-scoped** (`"scope": "Regression"`) with unqualified spec references, so an unqualified name resolves against the sheet the calling formula lives on and each Regression sheet gets its own Δ. The skip mechanism (a catalog function that names a missing worksheet is skipped, not written) is what stops the next sheet-qualified body shipping a broken link. Full history: `CONTRIBUTING.md` → *Workbook scope belongs to the catalog*.
 
-`tests/test_workbook_invariants.py::TestRealWorkbookNameScope` asserts all of this against both committed artifacts on every commit (pure zipfile, no Excel). To re-apply the cleanup to a built artifact without rebuilding it: `python tools/resync_workbook_names.py <workbook.xlsx>`.
+`tests/test_workbook_invariants.py::TestRealWorkbookNameScope` asserts all of this against the committed `dist/Lambda_Library.xlsx` on every commit (pure zipfile, no Excel), as does `TestRealWorkbook` alongside it — every committed-artifact check in that file is always-on, so a stale or hand-edited workbook fails the suite instead of shipping. To re-apply the cleanup to a built artifact without rebuilding it: `python tools/resync_workbook_names.py <workbook.xlsx>`.
 
 ## Charts — patterns and pitfalls
 

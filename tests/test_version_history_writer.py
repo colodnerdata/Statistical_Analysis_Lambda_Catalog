@@ -59,25 +59,31 @@ def _version_rows(sheet: _VHSheet) -> list[str]:
     return rows
 
 
-def test_univariate_artifact_writes_univariate_lineage(stub_helpers) -> None:
-    """artifact='univariate' writes the Univariate lineage, which begins at the
-    v3.0 split — NOT the Regression lineage."""
-    vh.write_version_history_sheet(object(), artifact="univariate")
+def test_the_writer_takes_no_artifact_selector(stub_helpers) -> None:
+    """One workbook, one lineage — there is no second changelog to select.
 
-    assert _version_rows(stub_helpers) == ["1.0.0", "2.0.0"]
+    The writer used to take ``artifact="regression"|"univariate"``, one lineage
+    per v3.0 artifact. The reunification left the Univariate branch unreachable
+    (no build passed the argument, and the artifact it described was deleted),
+    so the parameter went with the lineage. Pinned because the failure mode of
+    reintroducing it is silent: a second changelog nothing publishes.
+    """
+    import inspect
+
+    signature = inspect.signature(vh.write_version_history_sheet)
+    assert list(signature.parameters) == ["workbook"]
+    assert not hasattr(vh, "_UNIVARIATE_VERSIONS")
 
 
-def test_regression_artifact_writes_regression_lineage(stub_helpers) -> None:
-    """artifact='regression' (the default) writes the Regression lineage, in
-    ascending order from 1.0.0 with no gaps."""
-    vh.write_version_history_sheet(object())  # default artifact
+def test_the_changelog_is_ascending_from_1_0_0_with_no_gaps(stub_helpers) -> None:
+    vh.write_version_history_sheet(object())
 
     rows = _version_rows(stub_helpers)
     assert rows[0] == "1.0.0"
     assert rows[-1] == "3.3.0"
-    # The Regression lineage carries the pre-split Univariate history
-    # (1.1.0's "Univariate Analysis release"); the standalone Univariate
-    # artifact's lineage does not — its history begins at the split.
+    # This lineage carries the pre-split Univariate history (1.1.0's
+    # "Univariate Analysis release") — the Regression workbook carried the
+    # sheet until 3.0.0, so reunifying changed nothing about these rows.
     assert "1.1.0" in rows
     # Every shipped minor has an entry. This sheet IS the changelog for
     # non-git users, so a release reaching them with no row is the defect —
@@ -93,7 +99,7 @@ def test_regression_artifact_writes_regression_lineage(stub_helpers) -> None:
     assert "3.2.0" not in rows
 
 
-def test_no_shipped_version_is_missing_from_the_regression_changelog(
+def test_no_shipped_version_is_missing_from_the_changelog(
     stub_helpers,
 ) -> None:
     # Ascending, strictly increasing, no duplicates — checked structurally so
@@ -104,8 +110,3 @@ def test_no_shipped_version_is_missing_from_the_regression_changelog(
     parsed = [tuple(int(part) for part in row.split(".")) for row in _version_rows(stub_helpers)]
     assert parsed == sorted(parsed)
     assert len(set(parsed)) == len(parsed)
-
-
-def test_unknown_artifact_raises_value_error(stub_helpers) -> None:
-    with pytest.raises(ValueError, match="artifact must be 'regression' or 'univariate'"):
-        vh.write_version_history_sheet(object(), artifact="mileage")

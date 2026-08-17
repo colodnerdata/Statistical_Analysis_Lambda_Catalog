@@ -136,7 +136,7 @@ Tests live in `tests/`. The current test files are:
 | `test_build_production.py` | `build_production.py`'s pure-Python logic (Regression-only sheet set, dataset selection, tab order/color, verify forwards `skip_univariate=True`) that doesn't require Excel |
 | `test_build_univariate.py` | `build_univariate.py`'s pure-Python logic (Univariate sheet set, Automatic calc mode, the always-on recalc rebuild) that doesn't require Excel — *retained for historical coverage; the script itself is no longer in the build* |
 | `test_version_history_writer.py` | `write_sheet_version_history`'s per-artifact version lineage (`artifact="regression"` vs `"univariate"`) and the bad-artifact guard |
-| `test_workbook_invariants.py` | Layer 1 headless structural check of a built `.xlsx` package (`zipfile` + `lxml`): dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken package parts, orphan chart-relationship targets, sheet drift — see [Verifying builds](#verifying-builds) |
+| `test_workbook_invariants.py` | Layer 1 headless structural check of a built `.xlsx` package (`zipfile` + `lxml`): dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken package parts, orphan chart-relationship targets, charts reading a sheet other than the one they sit on, sheet drift — see [Verifying builds](#verifying-builds) |
 | `test_ln_positive_verification.py` | v2.2 Transform=Log — `Ln_Positive` pure-Python mirror (the `NA()`-exception contract, the geometric-mean round-trip the Prediction Inputs fix relies on) and implementation-shape assertions on the catalog formula |
 | `test_transform_threading.py` | v2.2 Transform=Log wiring end to end — cross-checks the new `production_lots_log_transform` QC case (raw columns, `transform="Log"`) against the pre-existing precomputed-log-column case to floating-point precision; Categorical×Log inertness |
 | `test_interaction_wiring.py` | v3.1 interaction wiring — the spec block's M/N pair against the Python mirror in `analyze_regression_spec.build_spec_design`: the three width regimes (1 / L−1 / (L₁−1)(L₂−1)), the closed Product/Difference/Ratio arithmetic, the four operand Role/Include cases, the two-way limit, the documented quadratic, and Ratio's zero-denominator refusal |
@@ -284,7 +284,7 @@ There are two verifier layers with different speeds and different scopes. Run th
 
 ### Layer 1 — headless structural check
 
-Pure `zipfile` + `lxml` reads of the produced `.xlsx`. Runs in <1 s on Linux CI without Excel. Catches packaging regressions the unit-test suite misses: dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken `[Content_Types].xml`/`workbook.xml.rels`, orphan chart-relationship targets, `localSheetId` out of range, sheet drift.
+Pure `zipfile` + `lxml` reads of the produced `.xlsx`. Runs in <1 s on Linux CI without Excel. Catches packaging regressions the unit-test suite misses: dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken `[Content_Types].xml`/`workbook.xml.rels`, orphan chart-relationship targets, charts whose references name a sheet other than the one they sit on (SERIES formulas and the `c15:datalabelsRange` "Value From Cells" extension alike), `localSheetId` out of range, sheet drift.
 
 ```powershell
 poe verify-headless          # includes the committed-artifact checks
@@ -547,33 +547,33 @@ All cell colors are defined once in `lambda_catalog/sheet_styles.py` and importe
 
 Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AI$3:$AI$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
 
-Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$Y$8` (the `Observations` cell in the Regression Outputs zone):
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$AB$8` (the `Observations` cell in the Regression Outputs zone):
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AM$2,1,0,MAX(IFERROR('{sname}'!$Y$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AP$2,1,0,MAX(IFERROR('{sname}'!$AB$8,1),1),1)",
 )
 ```
 
-This starts one row below the column header (row 2) and extends exactly `$Y$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$Y$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
+This starts one row below the column header (row 2) and extends exactly `$AB$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$AB$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
 **Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`Design_Columns`, `Sample_Include`, etc.) and formula-helper names:
 
 | Name | Column | Contents |
 |---|---|---|
-| `RegChartQQX` | AR | Normal Scores Ranked (QQ theoretical axis) |
-| `RegChartQQY` | AS | Studentized Residuals Ranked (QQ actual axis) |
-| `RegChartFitY` | AM | Predicted Y — shared by multiple charts |
-| `RegChartResid` | AN | Residuals |
-| `RegChartActY` | AL | Actual Y |
-| `RegChartScaleLoc` | AT | Scale-Location |
-| `RegChartCookDist` | AQ | Cook's Distance |
-| `RegChartLeverage` | AO | Hat Diagonal |
-| `RegChartStudResid` | AP | Studentized Residuals |
-| `RegChartPRESSResid` | AU | PRESS Residual — the leave-one-out (LOOCV) residual; there is no separate "LOOCV Residual" column |
-| `RegChartCookDistFlag` | AV | Cook's Distance, `NA()`'d below both influence cutoffs (`D > 4/n` or `D > 0.9`) — feeds the Cook's Distance chart's data-label overlay series |
-| `RegChartObsLabel` | AK | Row identifier (Row_Labels()) — the flagged-point overlay series' `XValues`, so its data labels read as the observation identifier rather than a bare index |
+| `RegChartQQX` | AU | Normal Scores Ranked (QQ theoretical axis) |
+| `RegChartQQY` | AV | Studentized Residuals Ranked (QQ actual axis) |
+| `RegChartFitY` | AP | Predicted Y — shared by multiple charts |
+| `RegChartResid` | AQ | Residuals |
+| `RegChartActY` | AO | Actual Y |
+| `RegChartScaleLoc` | AW | Scale-Location |
+| `RegChartCookDist` | AT | Cook's Distance |
+| `RegChartLeverage` | AR | Hat Diagonal |
+| `RegChartStudResid` | AS | Studentized Residuals |
+| `RegChartPRESSResid` | AX | PRESS Residual — the leave-one-out (LOOCV) residual; there is no separate "LOOCV Residual" column |
+| `RegChartCookDistFlag` | AY | Cook's Distance, `""` below the `F.INV(0.5, p, n-p)` influence cutoff — feeds the Cook's Distance chart's data-label overlay series, whose labels read this range through **Value From Cells** (which is why the mask is `""` and not `NA()`: the label would print a literal `#N/A`) |
+| `RegChartObsLabel` | AN | Row identifier (Row_Labels()) — the flagged-point overlay series' `XValues`, i.e. its categories |
 
 **Scope:** all names are worksheet-scoped (created via `sheet.api.Names.Add`), and so is every other range a sheet writer creates. Workbook scope is the catalog's alone — see [Workbook scope belongs to the catalog](#workbook-scope-belongs-to-the-catalog) below. Chart `SERIES` formulas must include the sheet prefix even for worksheet-scoped names, because charts live above the sheet layer:
 

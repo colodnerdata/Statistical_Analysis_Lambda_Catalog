@@ -292,7 +292,7 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
             "Cook's Distance chart: flagged-point overlay for data labels (D > F(0.5, p, n-p))"
         ),
         "RegChartObsLabel": (
-            "Cook's Distance chart: observation identifier for flagged-point data labels"
+            "Cook's Distance chart: observation identifier — the flagged-point overlay's categories"
         ),
     }
 
@@ -874,10 +874,14 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     assert sheet.cell(3, _C_AX).api.Formula2 == (
         "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())"
     )
-    # Cook's Distance (Flagged): NA()'d below both influence cutoffs, so the
-    # Cook's Distance chart's overlay series only labels flagged points.
+    # Cook's Distance (Flagged): blank below the influence cutoff, so the
+    # Cook's Distance chart's overlay series — whose data labels read this
+    # column through "Value From Cells" — only renders text on the flagged
+    # points. The false branch is "" and not NA() precisely because Value From
+    # Cells prints the cell verbatim, and #N/A would show up as a literal
+    # "#N/A" label on every unflagged point.
     assert sheet.cell(3, _C_AY).api.Formula2 == (
-        "=IF(AT3#>IFERROR(F.INV(0.5,$O$1,$AB$16),NA()),AT3#,NA())"
+        '=IF(AT3#>IFERROR(F.INV(0.5,$O$1,$AB$16),NA()),AT3#,"")'
     )
 
 

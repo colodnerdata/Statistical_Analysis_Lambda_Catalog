@@ -182,7 +182,11 @@ def _catalog_body(name: str) -> str:
     one: these bodies carry message strings with meaningful spaces.
     """
     document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
-    entry = next(fn for fn in document.functions if fn.name == name)
+    entry = next((fn for fn in document.functions if fn.name == name), None)
+    # A missing name is the likeliest way this helper gets called wrong — a
+    # rename that half-landed, or a typo in an assertion. Say which name, not
+    # StopIteration from somewhere inside the generator.
+    assert entry is not None, f"{name!r} is not in lambda_functions.json"
     assert entry.scope == _CLOSURE_SCOPE, (name, entry.scope)
     display = entry.formula_display
     assert display.startswith(_LAMBDA_OPEN) and display.endswith(_LAMBDA_CLOSE), name

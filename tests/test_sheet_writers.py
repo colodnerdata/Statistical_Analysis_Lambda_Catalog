@@ -428,6 +428,46 @@ def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
     )
 
 
+def test_exactly_two_call_sites_read_the_materialized_spills() -> None:
+    """The v3.2 spike, scoped as a spike and pinned as one.
+
+    `#` inside a defined-name RefersTo is used nowhere else in this workbook
+    and cannot be verified without Excel, so PR 1 migrates TWO cells and stops.
+    This pins that count: the point of a spike is that a failed mechanism costs
+    two cells to revert, not fifty, and "we'll only do a couple" is exactly the
+    kind of intent that erodes without a test.
+
+    The two are chosen by SHAPE, because the fallback differs by shape — a 1-D
+    spill needs one OFFSET count, a 2-D spill needs a height and a width — and
+    by ORACLE: R² and Observations are both compared cell-by-cell against NumPy
+    by the spec-driven verifier, which is what turns a silently misaligned read
+    into a failure instead of a plausible wrong number.
+
+    When the migration proceeds this test is what gets rewritten, deliberately.
+    """
+    from lambda_catalog.write_sheet_regression import _write_regression_statistics
+
+    sheet = RecordingSheet(name="Regression")
+    _write_regression_statistics(_as_xw_sheet(sheet))
+
+    assert _formula(sheet, 5, _C_AB) == (
+        "=R_Squared(Fit_Design_Columns(),Design_Response(),"
+        "Sample_Include(),Fit_Context())"
+    )
+    assert _formula(sheet, 8, _C_AB) == (
+        "=Observations(Design_Response(),Fit_Sample_Include())"
+    )
+
+    # ...and nothing else in the block moved yet. Rows 4, 6 and 7 still call
+    # the constructors directly, which is what makes this a spike.
+    for row in (4, 6, 7):
+        formula = _formula(sheet, row, _C_AB)
+        assert "Fit_Design_Columns()" not in formula, row
+        assert "Fit_Sample_Include()" not in formula, row
+        assert "Design_Columns()" in formula, row
+        assert "Sample_Include()" in formula, row
+
+
 def test_materialization_zone_materializes_model_context() -> None:
     # The §4b band materializes the context ONCE and exposes it through a
     # sheet-scoped reader name (Fit_Context), so the ~30 engine call sites that
@@ -507,6 +547,30 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert "Model_Context" not in {
         item.Name.split("!", 1)[-1] for item in sheet.api.Names.items
     }
+
+    # The two DYNAMIC readers (v3.2). Unlike Fit_Context they cannot wrap a
+    # fixed range — the mask is as tall as the source table and the design
+    # matrix is n x k with both dimensions spec-dependent — so they carry the
+    # spill operator, which nothing else in this workbook does. Pinned as exact
+    # strings because a name that resolves to the WRONG range does not error:
+    # it silently returns numbers from the wrong rows.
+    assert sheet.api.Names.by_short_name("Fit_Sample_Include").RefersTo == (
+        f"=LAMBDA('Regression'!${col_letter(_C_SAMPLE_INCLUDE_MATERIALIZED)}"
+        f"${_MATERIALIZATION_SPILL_ROW}#)"
+    )
+    assert sheet.api.Names.by_short_name("Fit_Design_Columns").RefersTo == (
+        f"=LAMBDA('Regression'!${col_letter(_C_DESIGN_MATRIX)}"
+        f"${_MATERIALIZATION_SPILL_ROW}#)"
+    )
+    # Each name anchors on the cell that actually holds its spill, not on a
+    # neighbour — the assertion above would still pass if the two were swapped,
+    # so tie each anchor to the formula underneath it.
+    assert sheet.cell(
+        _MATERIALIZATION_SPILL_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED
+    ).api.Formula2 == "=Sample_Include()"
+    assert sheet.cell(
+        _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX
+    ).api.Formula2 == "=Design_Columns()"
 
     # Health check one row under the block: the height is the build-time
     # invariant, and — the part decomposition made worth checking — every

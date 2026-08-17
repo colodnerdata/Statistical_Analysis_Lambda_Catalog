@@ -105,6 +105,7 @@ from .workbook_helpers import (
     f,
     format_input,
     note_dimensions,
+    quoted_sheet_name,
     rc,
     reset_column_groups,
     safe_activate,
@@ -740,7 +741,7 @@ def _setup_local_names(
     # call site to remember. write_spec_block's own
     # _set_sheet_scoped_names already did this; this function did not, and
     # four of its seven references were unquoted.
-    sname = f"'{sheet.name}'"
+    sname = quoted_sheet_name(sheet.name)
 
     if closures is None:
         closures = load_catalog_document(_DEFINITIONS_PATH).functions_for_sheet(

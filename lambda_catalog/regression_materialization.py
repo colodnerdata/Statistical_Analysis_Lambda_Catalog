@@ -63,6 +63,7 @@ from .workbook_helpers import (
     col_letter,
     drop_local_name,
     f,
+    quoted_sheet_name,
     rc,
     section_heading,
     val,
@@ -109,7 +110,10 @@ def _add_spill_reader(
         1-based column of the spill's anchor cell; the row is always
         ``_MATERIALIZATION_SPILL_ROW``.
     """
-    anchor = f"'{sheet_name}'!${col_letter(column)}${_MATERIALIZATION_SPILL_ROW}"
+    anchor = (
+        f"{quoted_sheet_name(sheet_name)}"
+        f"!${col_letter(column)}${_MATERIALIZATION_SPILL_ROW}"
+    )
     drop_local_name(sheet, name)
     sheet.api.Names.Add(Name=name, RefersTo=f"=LAMBDA({anchor}#)")
 
@@ -245,7 +249,7 @@ def _write_materialization_zone(
     # pre-split build) and any stale "Fit_Context" before re-adding, so a
     # rebuild never leaves a shadow.
     ctx_ref = (
-        f"'{sname}'!${ctx_col}${_MATERIALIZATION_FIRST_ROW}"
+        f"{quoted_sheet_name(sname)}!${ctx_col}${_MATERIALIZATION_FIRST_ROW}"
         f":${ctx_col}${_MODEL_CONTEXT_LAST_ROW}"
     )
     drop_local_name(sheet, "Model_Context")

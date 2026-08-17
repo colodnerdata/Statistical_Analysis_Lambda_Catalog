@@ -15,7 +15,7 @@ see the table below
 | 5.1 Extract `regression_charts.py` | **Shipped** | #214 |
 | 5.2 Extract `regression_materialization.py` | **Shipped** | #220 — writer 2,441 → 2,098 lines |
 | 6.1 Audit the inline cell formulas | **Shipped** | `.hermes/plans/lambda-extraction-audit.md` |
-| 6.2 Extract the status-cell LAMBDAs | **Open** | catalog is still 141 = 123 workbook + 18 Regression-scoped |
+| 6.2 Extract the status-cell LAMBDAs | **Shipped** | catalog 141 → 145 = 123 workbook + 22 Regression-scoped |
 | 6.3 Split the prediction-interval VSTACK | **Open** | |
 | 6.4 Prediction-input prefill spill | **Open** | follow-on, as scoped |
 
@@ -25,10 +25,16 @@ literals) and it survived eight merges because `TestRealWorkbook` was gated behi
 `RUN_EXCEL_INTEGRATION=1`. The artifact was rebuilt in #218; the gate is removed and the
 last two-artifact leftovers retired in the PR that added this table.
 
-**Before starting 6.2**, settle one thing the plan does not: the O2 thresholds
-(`_DESIGN_MATRIX_MAX_COLUMNS` and the soft pair) live in `regression_layout.py` and also
-size the sheet, so moving that formula into `lambda_functions.json` duplicates them. It
-wants a JSON↔Python pin test in the style of
+**The O2 threshold question, resolved.** `_DESIGN_MATRIX_MAX_COLUMNS` and the soft pair
+live in `regression_layout.py` and also size the design-matrix band, so they could not
+simply move into `lambda_functions.json`. Python keeps the only editable copy and
+`Design_Width_Status`'s body carries literals pinned to it by
+`test_the_width_guard_thresholds_in_the_catalog_match_the_layout_constants`, which asserts
+the COMPLETE set of integers in the body so a stray fourth number fails rather than
+shipping as an unowned threshold. The guard also recomputes k from the spec instead of
+reading `$O$1`: a catalog body cannot import the `_C_*` constants, and an A1 address in
+JSON is the failure the never-spell-an-address rule exists to prevent. Same pin-test shape
+as
 `test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform`.
 
 ## Goal

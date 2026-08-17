@@ -1,5 +1,6 @@
 """Tests for workbook-writing logic that do not require a live Excel process."""
 # pylint: disable=import-outside-toplevel,missing-function-docstring,protected-access
+import re
 from pathlib import Path
 from typing import cast
 
@@ -128,6 +129,12 @@ from lambda_catalog.write_sheet_univariate import (
     _write_weibull_grid_search,
 )
 from tests.recording_sheet import RecordingName, RecordingNames, RecordingSheet
+
+# The width guard's logic lives in lambda_functions.json since Part 6.2, and
+# the reader that unwraps a status LAMBDA back into the cell formula it
+# replaced already exists next door. Shared rather than duplicated so the two
+# files cannot disagree about how a body is read.
+from tests.test_spec_block_writer import _catalog_body
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
@@ -670,9 +677,18 @@ def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:
 
     # The status sits under the total it is a verdict on, in the Design
     # Columns column — not two columns away above Interaction Term.
-    status = _formula(sheet, 2, _C_SPEC_DESIGN_COLUMNS)
-    assert "Design_Columns()" not in status
-    assert "$O$1" in status                      # reads the audit total
+    assert _formula(sheet, 2, _C_SPEC_DESIGN_COLUMNS) == "=Design_Width_Status()"
+
+    # The guard itself is a sheet-scoped catalog LAMBDA since Part 6.2, so the
+    # thresholds are asserted where they now live. It recomputes k from the
+    # spec rather than reading $O$1 — a catalog body cannot import the _C_*
+    # constants, and hard-coding an A1 address into JSON is the failure this
+    # repo's "never spell an address into a formula string" rule exists to
+    # prevent. Same expression the total above holds, so the same number.
+    status = _catalog_body("Design_Width_Status")
+    assert "Design_Columns()" not in status      # still reads the SPEC, not the matrix
+    assert "$O$1" not in status                  # ...and no longer via an address
+    assert "k,SUM(TAKE(Spec_Design_Columns,COLUMNS(Source_Data)))+N(Allow_Intercept)" in status
     assert "n,ROWS(Source_Data)" in status       # cell count needs n as well
     assert f"IF(k>{_DESIGN_MATRIX_MAX_COLUMNS}," in status
     assert f"OR(k>{_DESIGN_MATRIX_SOFT_COLUMNS},n*k>{_DESIGN_MATRIX_SOFT_CELLS})" in status
@@ -693,6 +709,30 @@ def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:
         assert rules[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
         assert rules[0].StopIfTrue is True
         assert rules[1].Interior.Color == excel_color(CF_YELLOW_FILL)
+
+
+def test_the_width_guard_thresholds_in_the_catalog_match_the_layout_constants() -> None:
+    """The duplication Part 6.2 knowingly created, held closed by a test.
+
+    Moving the guard into lambda_functions.json put the three thresholds in a
+    JSON string literal, which no import can reach. Python keeps the only
+    editable copy — ``_DESIGN_MATRIX_SOFT_COLUMNS`` also sizes the
+    design-matrix band via ``_DESIGN_MATRIX_SIZED_COLUMNS``, so the constants
+    could not simply move — and this is what stops the two drifting.
+
+    Asserted as the COMPLETE set of integers in the body, not merely as three
+    substrings present: a stray hard-coded number added later fails here
+    rather than shipping as a fourth, unowned threshold.
+    """
+    body = _catalog_body("Design_Width_Status")
+
+    literals = {int(match) for match in re.findall(r"(?<![\w.])\d+(?![\w.])", body)}
+    assert literals == {
+        _DESIGN_MATRIX_MAX_COLUMNS,
+        _DESIGN_MATRIX_SOFT_COLUMNS,
+        _DESIGN_MATRIX_SOFT_CELLS,
+        3,  # the O(k^3) in the WARNING prose, not a threshold
+    }
 
 
 def test_prediction_prefills_index_the_single_training_mean_spill() -> None:

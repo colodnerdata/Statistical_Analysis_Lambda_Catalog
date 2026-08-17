@@ -290,7 +290,6 @@ from .spec_layout import (  # noqa: F401  — re-exported for importers
     _LABEL_NOTE,
     _LAST_DATA_ROW,
     _LEVELS_NOTE,
-    _LOG_DOMAIN_STATUS_FORMULA,
     _LOG_DOMAIN_STATUS_NOTE,
     _N_VARIABLES,
     _PERIOD_IN_USE_NOTE,
@@ -307,7 +306,6 @@ from .spec_layout import (  # noqa: F401  — re-exported for importers
     _ROLE_OMIT,
     _ROLE_PREDICTOR,
     _ROLE_RESPONSE,
-    _ROLE_STATUS_FORMULA,
     _ROLE_STATUS_NOTE,
     _ROLE_VALIDATION_LIST,
     _ROW_TO_COL_OFFSET,
@@ -315,7 +313,6 @@ from .spec_layout import (  # noqa: F401  — re-exported for importers
     _SEQUENCE_FLAG_COUNT_FORMULA,
     _SEQUENCE_NOTE,
     _SEQUENCE_PERIOD_NOTE,
-    _SEQUENCE_STATUS_FORMULA,
     _SEQUENCE_STATUS_NOTE,
     _SEQUENCE_VALIDATION_LIST,
     _SPACING_VERDICT_NOTE,
@@ -1216,7 +1213,7 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
     role_status = _status_cell(
         sheet,
         _C_ROLE,
-        _ROLE_STATUS_FORMULA,
+        "=Role_Status()",
         _ROLE_STATUS_NOTE,
         label="Role status",
     )
@@ -1237,7 +1234,7 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
     log_status = _status_cell(
         sheet,
         _C_TRANSFORM,
-        _LOG_DOMAIN_STATUS_FORMULA,
+        "=Log_Domain_Status()",
         _LOG_DOMAIN_STATUS_NOTE,
         label="Log domain",
     )
@@ -1406,7 +1403,7 @@ def _write_sequence_status(sheet: xw.Sheet) -> None:
     status_cell = _status_cell(
         sheet,
         _C_SEQUENCE,
-        _SEQUENCE_STATUS_FORMULA,
+        "=Sequence_Status()",
         _SEQUENCE_STATUS_NOTE,
         label="Sequence status",
     )

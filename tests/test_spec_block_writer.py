@@ -127,6 +127,13 @@ _EXPECTED_NAME_ORDER = [
     "Base_Period_Delta_Candidate",
     "Sequence_Delta_Spectrum",
     "Model_Formula",
+    # The row-2 status readouts. Three read only the wiring names, but
+    # Log_Domain_Status calls Sample_Include(), so the whole group installs
+    # after the constructors rather than being interleaved among them.
+    "Role_Status",
+    "Sequence_Status",
+    "Log_Domain_Status",
+    "Design_Width_Status",
 ]
 
 
@@ -152,6 +159,38 @@ def _named_sheet() -> RecordingSheet:
 
 def _refers_to(sheet: RecordingSheet, name: str) -> str:
     return sheet.api.Names.by_short_name(name).RefersTo
+
+
+_LAMBDA_OPEN = "=LAMBDA(\n    "
+_LAMBDA_CLOSE = "\n)"
+
+
+def _catalog_body(name: str) -> str:
+    """One status LAMBDA's body, as the cell formula it replaced.
+
+    Part 6.2 moved the row-2 status logic out of Python and into
+    lambda_functions.json, so the assertions that used to read a module
+    constant read the shipped catalog body instead. No import can reach a JSON
+    string literal, which is exactly why these assertions have to stay: they
+    are the only thing standing between a message edit and a silently changed
+    verdict on the sheet.
+
+    The zero-argument wrapper is stripped rather than the whole display string
+    being compared, so what comes back is character-for-character the formula
+    the cell used to hold — which keeps these assertions readable AND exact.
+    Compacting whitespace instead would have been the easy way and the wrong
+    one: these bodies carry message strings with meaningful spaces.
+    """
+    document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
+    entry = next((fn for fn in document.functions if fn.name == name), None)
+    # A missing name is the likeliest way this helper gets called wrong — a
+    # rename that half-landed, or a typo in an assertion. Say which name, not
+    # StopIteration from somewhere inside the generator.
+    assert entry is not None, f"{name!r} is not in lambda_functions.json"
+    assert entry.scope == _CLOSURE_SCOPE, (name, entry.scope)
+    display = entry.formula_display
+    assert display.startswith(_LAMBDA_OPEN) and display.endswith(_LAMBDA_CLOSE), name
+    return "=" + display[len(_LAMBDA_OPEN) : -len(_LAMBDA_CLOSE)]
 
 
 def _all_written_formulas(sheet: RecordingSheet) -> list[str]:
@@ -543,6 +582,12 @@ def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> No
     # difference between "Log" and "Log (drop ≤ 0)". The narrower assertion
     # below is what keeps that from widening into the mask making transform
     # decisions of its own.
+    #
+    # Log_Domain_Status joined it with Part 6.2, and is the second non-
+    # transforming reader: it REPORTS on the Log declarations (which column a
+    # strict Log poisoned, how many rows the filtering token dropped) without
+    # building a single column. A status readout is allowed to read the spec;
+    # what this test still forbids is a new CONSTRUCTOR appearing here.
     sheet = _named_sheet()
     readers = sorted(
         item.Name.split("!", 1)[-1]
@@ -553,6 +598,7 @@ def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> No
     assert readers == [
         "Constructed_Column_Names",
         "Constructed_Column_Transforms",
+        "Log_Domain_Status",
         "Model_Formula",
         "Predictor_Columns",
         "Response_Column",
@@ -584,7 +630,17 @@ def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
     # the flagged row's Period In Use cell, which is the sequence layer's job.
     # It is an ACCESSOR, not a constructor — the assertion below is the one
     # that matters, and it is unchanged.
-    assert readers == ["Base_Period_Delta", "Sequence_Column", "Sequence_Deltas"]
+    #
+    # Sequence_Status joined it in Part 6.2. It is the H2 zero-or-one
+    # validation named in this test's own first line; it simply moved out of
+    # the cell and into the catalog, so the reader set describes the same
+    # layers it always did.
+    assert readers == [
+        "Base_Period_Delta",
+        "Sequence_Column",
+        "Sequence_Deltas",
+        "Sequence_Status",
+    ]
     for constructor in (
         "Sample_Include",
         "Response_Column",
@@ -891,6 +947,12 @@ def test_design_columns_audit_is_read_only_by_the_width_guard() -> None:
     # Spec_Design_Columns is a computed display: "display derives, never
     # feeds". No constructor closure may reference it — only the
     # pre-flight width guard, which is itself a display.
+    #
+    # Since Part 6.2 the guard is a defined name rather than an inline cell
+    # formula, so it shows up in the reader list. That is the same single
+    # reader this test always allowed, now spelled out: what still fails is
+    # any CONSTRUCTOR appearing beside it, which would mean a display had
+    # started feeding the model.
     sheet = _named_sheet()
     _write_all_zones(sheet)
 
@@ -900,7 +962,7 @@ def test_design_columns_audit_is_read_only_by_the_width_guard() -> None:
         for item in sheet.api.Names.items
         if band in item.RefersTo and item.Name.split("!", 1)[-1] != band
     ]
-    assert readers == []
+    assert readers == ["Design_Width_Status"]
     for formula in _all_written_formulas(sheet):
         assert band not in formula, formula
 
@@ -1197,15 +1259,28 @@ def test_every_status_line_sits_in_the_spec_column_it_is_about() -> None:
     """
     sheet = _feedback_sheet()
 
-    for col, marker in (
-        (_C_ROLE, "Response (y)"),
-        (_C_TRANSFORM, "Log"),
-        (_C_SEQUENCE, "Spec_Sequence"),
-        (_C_SEQUENCE_PERIOD, "Spec_Period_In_Use"),
+    # Since Part 6.2 three of the four cells hold a CALL rather than the logic,
+    # so the check runs in two hops: the cell names its function, and that
+    # function's catalog body reads the spec band the column is about. Both
+    # halves are needed. The cell alone would pass a wall of nested IFs that
+    # happened to mention the right token, which is the state this test was
+    # written against; the function name alone would pass a cell wired to a
+    # plausibly-named wrong function, which is the state moving the logic out
+    # newly makes possible. I2's spacing verdict is still inline, so it has no
+    # second hop — its marker is matched in the cell.
+    for col, function_name, marker in (
+        (_C_ROLE, "Role_Status", "Response (y)"),
+        (_C_TRANSFORM, "Log_Domain_Status", "Spec_Transform"),
+        (_C_SEQUENCE, "Sequence_Status", "Spec_Sequence"),
+        (_C_SEQUENCE_PERIOD, None, "Spec_Period_In_Use"),
     ):
         formula = cast(str, sheet.cell(_FEEDBACK_STATUS_ROW, col).api.Formula2)
         assert formula is not None, col
-        assert marker in formula, (col, marker)
+        if function_name is None:
+            assert marker in formula, (col, marker)
+        else:
+            assert formula == f"={function_name}()", (col, function_name)
+            assert marker in _catalog_body(function_name), (col, marker)
         # Every status cell wraps: row 2 has no runway between columns, so a
         # message grows the row rather than truncating against its neighbour.
         assert sheet.cell(_FEEDBACK_STATUS_ROW, col).api.WrapText is True, col
@@ -1232,8 +1307,12 @@ def test_role_status_ranks_response_cardinality_above_fixed_effects() -> None:
     sheet = _feedback_sheet()
 
     status = sheet.cell(_FEEDBACK_STATUS_ROW, _C_ROLE)
-    formula = cast(str, status.api.Formula2)
-    assert formula == (
+    assert cast(str, status.api.Formula2) == "=Role_Status()"
+    # The logic moved into the catalog (Part 6.2), so the three conditions and
+    # their order are asserted where they now live. Same statement, one
+    # indirection further out: the count sub-formulas are still built in
+    # Python, so this also pins the two halves together across the JSON gap.
+    assert _catalog_body("Role_Status") == (
         f"=IF({_RESPONSE_COUNT_FORMULA}=0,"
         '"ERROR: no Response (y) row — mark the variable being modeled.",'
         f"IF({_RESPONSE_COUNT_FORMULA}>1,"
@@ -1265,7 +1344,11 @@ def test_log_domain_status_reports_the_poisoned_column_then_the_dropped_count() 
     """
     sheet = _feedback_sheet()
 
-    formula = cast(str, sheet.cell(_FEEDBACK_STATUS_ROW, _C_TRANSFORM).api.Formula2)
+    assert (
+        cast(str, sheet.cell(_FEEDBACK_STATUS_ROW, _C_TRANSFORM).api.Formula2)
+        == "=Log_Domain_Status()"
+    )
+    formula = _catalog_body("Log_Domain_Status")
     # Only the STRICT token is counted as poisoned — the whole point of the
     # filtering token is that these rows leaving is intended.
     assert 'INDEX(trn,j)="Log"' in formula
@@ -1308,7 +1391,8 @@ def test_sequence_status_line_validates_zero_or_one_flags() -> None:
     sheet = _feedback_sheet()
 
     status = sheet.cell(_FEEDBACK_STATUS_ROW, _C_SEQUENCE)
-    assert status.api.Formula2 == (
+    assert status.api.Formula2 == "=Sequence_Status()"
+    assert _catalog_body("Sequence_Status") == (
         "=IF(SUMPRODUCT(N(TAKE(Spec_Sequence,COLUMNS(Source_Data))=TRUE))>1,"
         '"ERROR: multiple Sequence rows — mark at most one.","")'
     )
@@ -1641,6 +1725,51 @@ def test_interaction_header_symbols_are_distinct_and_operation_specific() -> Non
                 assert symbol.strip() not in other, (symbol, other)
 
 
+def test_status_lambda_messages_are_the_ones_the_guard_oracle_expects() -> None:
+    """The sheet says what the oracle predicts, pinned across the JSON gap.
+
+    The guard-state QC compares each row-2 cell's text against a Python mirror
+    in analyze_regression_guard_states. Before Part 6.2 both halves were
+    Python, so an edit to one was an edit to a shared constant or an obvious
+    two-place change. Now the sheet's half is a JSON string literal no import
+    can reach, and the two could drift silently — the message would change,
+    the oracle would keep predicting the old text, and the mismatch would only
+    surface on a machine with Excel running Layer 2.
+
+    Pinning them here means a message edit fails in the unit suite, in CI,
+    against the exact string the QC harness will look for.
+    """
+    from lambda_catalog.analyze_regression_guard_states import (
+        _FIXED_EFFECTS_MULTI_ROW_ERROR,
+        _MULTIPLE_RESPONSES_ERROR,
+        _NO_RESPONSE_ERROR,
+        _SEQUENCE_MULTI_FLAG_ERROR,
+    )
+
+    role = _catalog_body("Role_Status")
+    for expected in (
+        _NO_RESPONSE_ERROR,
+        _MULTIPLE_RESPONSES_ERROR,
+        _FIXED_EFFECTS_MULTI_ROW_ERROR,
+    ):
+        assert f'"{expected}"' in role, expected
+
+    assert f'"{_SEQUENCE_MULTI_FLAG_ERROR}"' in _catalog_body("Sequence_Status")
+
+    # The Log messages are built around live counts, so the oracle formats
+    # them rather than holding them whole; the fixed fragments either side of
+    # the interpolated values are what both sides have to agree on.
+    log = _catalog_body("Log_Domain_Status")
+    assert '" values ≤ 0 under Log — the fit is #N/A. Use Log (drop ≤ 0)."' in log
+    assert '" rows excluded: Log of ≤ 0"' in log
+
+    # The width guard's oracle deliberately mirrors only the leading token —
+    # the full message embeds counts and prose — so that is what is pinned.
+    width = _catalog_body("Design_Width_Status")
+    assert '"ERROR: ' in width
+    assert '"WARNING: ' in width
+
+
 def test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform() -> None:
     """The two spellings live in Python AND in lambda_functions.json.
 
@@ -1674,6 +1803,7 @@ def test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform() ->
     assert set(bodies) == {
         "Constructed_Column_Names",
         "Constructed_Column_Transforms",
+        "Log_Domain_Status",
         "Model_Formula",
         "Predictor_Columns",
         "Response_Column",
@@ -1684,6 +1814,21 @@ def test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform() ->
         if name == "Sample_Include":
             assert _TRANSFORM_LOG_DROP in body
             assert f'="{_TRANSFORM_LOG}"' not in body, name
+            continue
+        if name == "Log_Domain_Status":
+            # The mirror of Sample_Include's exception, and the other half of
+            # the same distinction. Sample_Include tests ONLY the filtering
+            # token because plain Log not filtering is the whole difference
+            # between them; this body tests ONLY the strict token because the
+            # rows it counts are the ones a strict Log leaves in the sample to
+            # poison the fit. Rows the filtering token removed are not an
+            # error, so there is nothing here to equality-test them against —
+            # the drop token appears as the REMEDY the message names, which is
+            # prose, not a comparison. Pairing the counts here would mean
+            # inventing a test that must never fire.
+            assert f'="{_TRANSFORM_LOG}"' in body.replace(" ", "").replace("\n", "")
+            assert f"Use {_TRANSFORM_LOG_DROP}." in body
+            assert f'="{_TRANSFORM_LOG_DROP}"' not in body, name
             continue
         # Whitespace around "=" varies between bodies, so normalize it out
         # rather than pinning each body's own formatting.

@@ -1027,23 +1027,21 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
     )
     bold(sheet, 1, _C_SPEC_DESIGN_COLUMNS)
 
+    # The verdict itself is Design_Width_Status(), a sheet-scoped catalog
+    # LAMBDA (reunify Part 6.2). The thresholds and the message text moved into
+    # lambda_functions.json with it; _DESIGN_MATRIX_MAX_COLUMNS and the soft
+    # pair remain the source of truth here — they also size the design-matrix
+    # band — and test_sheet_writers pins the catalog body's numbers to them.
+    #
+    # The LAMBDA recomputes k from the spec rather than reading `total_cell`: a
+    # catalog body cannot import the _C_* constants, so keeping the read would
+    # mean spelling $O$1 into JSON. The expression is the one this function
+    # writes into O1 above, so the number is identical; the cells are simply
+    # independent now.
     _status_cell(
         sheet,
         _C_SPEC_DESIGN_COLUMNS,
-        (
-            f"=LET(k,{total_cell},n,ROWS(Source_Data),"
-            f"IF(k>{_DESIGN_MATRIX_MAX_COLUMNS},"
-            '"ERROR: the design matrix has \"&k&\" constructed columns; '
-            f'the Gram matrix cannot be reliably inverted above {_DESIGN_MATRIX_MAX_COLUMNS} '
-            "columns in Excel (MINVERSE on X'X squares the condition number). "
-            "Reduce a Categorical predictor's levels, exclude predictors, or group them.\","
-            f"IF(OR(k>{_DESIGN_MATRIX_SOFT_COLUMNS},"
-            f"n*k>{_DESIGN_MATRIX_SOFT_CELLS}),"
-            '"WARNING: \"&k&\" constructed columns x \"&n&\" rows = \"&(n*k)&'
-            '" materialized cells. Recalculation is O(k^3) in MINVERSE, and every '
-            'materialized cell recalculates on any input change. Approaching the Gram inversion limit.",'
-            '\"\")))'
-        ),
+        "=Design_Width_Status()",
         _WIDTH_GUARD_NOTE,
         label="Width guard",
     )

@@ -22,41 +22,41 @@ python build_test_models.py --verify --no-launch --verbose --cases G01,G01b,G02,
            P07   P07 Irregular Panel Spacing
 [    0.0s] Oracles: computing
 [    0.3s] Oracles: done
-[    0.9s] Catalog + data sheets
-[    7.2s] Sheets: writing 20
-[    7.2s]   1/20 G08   G08 Invalid Reference Level        6.8s
-[   14.0s]   2/20 M15   M15 Filter Degenerate Cat          6.5s
-[   20.6s]   3/20 L12   L12 Log Drop Nonpositive          20.8s
-[   41.3s]   4/20 G01   G01 No Response Row                9.0s
-[   50.3s]   5/20 G01b  G01b Empty Model                   9.6s
-[   59.9s]   6/20 G02   G02 Two Response Rows             11.2s
-[   71.2s]   7/20 G03   G03 Two Sequence Flags            12.7s
-[   83.9s]   8/20 G04   G04 Two Fixed Effects Rows        14.8s
-[   98.7s]   9/20 G05   G05 FE Plus Intercept             16.9s
-[  115.6s]  10/20 G06   G06 Intercept Off With Cat        19.3s
-[  134.8s]  11/20 G07   G07 Log On Categorical            21.9s
-[  156.7s]  12/20 G09   G09 Interaction Bad Operand       24.8s
-[  181.5s]  13/20 G10   G10 Symmetric Product Pair        27.8s
-[  209.3s]  14/20 G11   G11 Excluded Operand              31.2s
-[  240.5s]  15/20 G12   G12 Unknown Interaction Op        34.6s
-[  275.1s]  16/20 L06   L06 Ln Zero Guard                 51.5s
-[  326.6s]  17/20 L07   L07 Width Guard Warning           53.3s
-[  379.9s]  18/20 L10   L10 Retarget Widens Spec          47.9s
-[  427.8s]  19/20 M16   M16 Sequence Period Override      42.9s
-[  470.6s]  20/20 P07   P07 Irregular Panel Spacing       45.4s
-[  516.0s] Save
-[  520.2s] Sync names
-[  520.3s] CalculateFullRebuild
-Timing: write sheets  519.8s
+[    0.8s] Catalog + data sheets
+[    7.1s] Sheets: writing 20
+[    7.1s]   1/20 G08   G08 Invalid Reference Level        8.3s
+[   15.4s]   2/20 M15   M15 Filter Degenerate Cat          9.0s
+[   24.4s]   3/20 L12   L12 Log Drop Nonpositive          21.0s
+[   45.4s]   4/20 G01   G01 No Response Row                9.1s
+[   54.5s]   5/20 G01b  G01b Empty Model                   9.9s
+[   64.4s]   6/20 G02   G02 Two Response Rows             11.4s
+[   75.8s]   7/20 G03   G03 Two Sequence Flags            13.1s
+[   88.9s]   8/20 G04   G04 Two Fixed Effects Rows        15.1s
+[  103.9s]   9/20 G05   G05 FE Plus Intercept             17.4s
+[  121.3s]  10/20 G06   G06 Intercept Off With Cat        19.8s
+[  141.1s]  11/20 G07   G07 Log On Categorical            22.3s
+[  163.4s]  12/20 G09   G09 Interaction Bad Operand       25.2s
+[  188.7s]  13/20 G10   G10 Symmetric Product Pair        28.3s
+[  217.0s]  14/20 G11   G11 Excluded Operand              31.6s
+[  248.6s]  15/20 G12   G12 Unknown Interaction Op        35.2s
+[  283.8s]  16/20 L06   L06 Ln Zero Guard                 52.0s
+[  335.8s]  17/20 L07   L07 Width Guard Warning           53.8s
+[  389.6s]  18/20 L10   L10 Retarget Widens Spec          48.3s
+[  437.9s]  19/20 M16   M16 Sequence Period Override      43.4s
+[  481.3s]  20/20 P07   P07 Irregular Panel Spacing       46.0s
+[  527.3s] Save
+[  531.6s] Sync names
+[  531.8s] CalculateFullRebuild
+Timing: write sheets  531.2s
 Timing: sync names    0.2s
-Timing: rebuild       1345.8s
-Timing:   CalculateFullRebuild only   815.9s
+Timing: rebuild       1326.6s
+Timing:   CalculateFullRebuild only   785.1s
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
 Sheets built: 20
 Created names: 123
 Updated names: 0
 Removed names: 0
-[ 1866.1s] Verify: reading 20 sheet(s)
+[ 1858.4s] Verify: reading 20 sheet(s)
              1/20 G08   G08 Invalid Reference Level      ok
              2/20 M15   M15 Filter Degenerate Cat        ok
              3/20 L12   L12 Log Drop Nonpositive         ok
@@ -77,7 +77,7 @@ Removed names: 0
             18/20 L10   L10 Retarget Widens Spec         ok
             19/20 M16   M16 Sequence Period Override     ok
             20/20 P07   P07 Irregular Panel Spacing      ok
-Timing: verify        97.8s
+Timing: verify        100.2s
 Verify: passed
-Timing: total         1963.9s
+Timing: total         1958.7s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch verbose cases.log

@@ -40,6 +40,9 @@ _EXPECTED_TASK_NAMES = [
     "verify-guards",
     "verify-spec-errors",
     "verify-models",
+    # The resume slice: verify-models minus the fittable cases verify-spec-errors
+    # already built. See test_the_two_resumable_slices_partition_the_registry.
+    "verify-models-rest",
     "verify",
     "build",
     # Added with the presentation demo workbook; the pin was not updated in
@@ -218,6 +221,55 @@ def test_task_case_selections_all_resolve_to_registered_cases(
         for flag in ("--cases", "--exclude"):
             for token in _case_selection_tokens(command, flag):
                 assert token.casefold() in known, f"{name} {flag} {token}"
+
+
+def test_the_two_resumable_slices_partition_the_registry(
+    tasks: dict[str, Any],
+) -> None:
+    """``verify-spec-errors`` + ``verify-models-rest`` = every case, exactly once.
+
+    The pair exists so a developer who has run one slice can finish the job
+    without rebuilding sheets. That only holds if the second slice excludes
+    precisely the fittable cases the first already built — G08, M15 and L12,
+    which are registered as ``RegressionSpecCase`` because they produce a real
+    fit and an error surface at the same time.
+
+    Derived here rather than restated, because a hand-copied list is what went
+    wrong last time: ``verify-guards``' comment claimed L07 was its only
+    overlap with ``verify-spec-errors`` when in truth the whole task was a
+    subset, and the cost was a redundant multi-minute Excel run. A comment
+    cannot be executed; this can.
+    """
+    from lambda_catalog.analyze_regression_guard_states import build_guard_state_cases
+    from lambda_catalog.analyze_regression_spec import build_regression_spec_cases
+
+    spec_errors = {
+        token.casefold()
+        for token in _case_selection_tokens(tasks["verify-spec-errors"]["cmd"], "--cases")
+    }
+    excluded = {
+        token.casefold()
+        for token in _case_selection_tokens(tasks["verify-models-rest"]["cmd"], "--exclude")
+    }
+
+    models = {case.plan_id.casefold() for case in build_regression_spec_cases()}
+    guards = {case.plan_id.casefold() for case in build_guard_state_cases()}
+
+    # The exclusion is exactly the overlap, so the two slices are disjoint...
+    assert excluded == spec_errors & models
+
+    # ...and between them they reach every registered case. Heavy cases are the
+    # documented exception: --kind models drops them unless --include-heavy.
+    heavy = {
+        case.plan_id.casefold()
+        for case in build_regression_spec_cases()
+        if getattr(case, "heavy", False)
+    }
+    assert (spec_errors | (models - excluded)) >= (models | guards) - heavy
+
+    # And the claim that made this necessary: verify-guards is a strict subset
+    # of verify-spec-errors, so running both after the other is pure waste.
+    assert guards <= spec_errors
 
 
 def test_spec_error_task_covers_every_row2_status_surface(

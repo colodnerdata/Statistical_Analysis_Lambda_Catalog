@@ -155,6 +155,14 @@ help = "Layer 2: every guard-state case except the oversized L07 (needs Excel)."
 # sheet materializes a 206 x 2909 design matrix and then fails to invert the
 # Gram — minutes of work to confirm a WARNING string.  It is covered by
 # verify-spec-errors, which is where a width-guard change is checked.
+#
+# RUN THIS OR verify-spec-errors, NEVER BOTH.  This comment used to name L07 as
+# though it were the one overlap; it is not.  Every one of the 17 GuardStateCase
+# IDs appears in verify-spec-errors' --cases list, so this task is a strict
+# SUBSET of that one and re-running it after spec-errors builds ~20 sheets to
+# learn nothing.  It exists as the fast slice for when a guard-state change is
+# all you touched and you do not want spec-errors' fittable cases or L07.
+# After verify-spec-errors, the remainder is verify-models-rest below.
 cmd = """
 python scripts/build_test_models.py --verify --no-launch --verbose
   --kind guards --exclude L07
@@ -195,6 +203,24 @@ help = "Layer 2: every fittable case that produces a working regression, heavy e
 cmd = """
 python scripts/build_test_models.py --verify --no-launch --verbose
   --kind models
+"""
+
+[tool.poe.tasks.verify-models-rest]
+help = "Layer 2: the fittable cases verify-spec-errors did NOT already build (needs Excel)."
+# The resume path.  verify-spec-errors covers every guard state AND three
+# fittable cases — G08, M15 and L12 are registered as RegressionSpecCases
+# because they produce a real fit and an error surface at the same time, so
+# --kind models would rebuild them.  Excluding those three is what makes this
+# task and verify-spec-errors disjoint: run the two in either order and every
+# registered case is covered exactly once, heavy excluded.
+#
+# 30 sheets.  Use this instead of verify-models when spec-errors has already
+# run; use verify-models when it has not.  The exclusion list is not restated
+# anywhere — test_poe_tasks.py DERIVES it from the two registries and this
+# task's own --cases sibling, so the pair cannot drift.
+cmd = """
+python scripts/build_test_models.py --verify --no-launch --verbose
+  --kind models --exclude G08,M15,L12
 """
 
 # The three builds run CONCURRENTLY, then the screen runs over their output.

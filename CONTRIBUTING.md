@@ -44,6 +44,7 @@ Use these shortcuts for day-to-day work from an activated `.venv`. If the enviro
 | Build + verify the guard states | `poe verify-guards` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --kind guards --exclude L07` | Needs desktop Excel; every `GuardStateCase` except the 205-column `L07`. |
 | Build + verify the spec-block error surfaces | `poe verify-spec-errors` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --cases <20 IDs>` | Needs desktop Excel; the five row-2 status cells and the ten CF flag rules. Includes `L07`, so it is the slower of the two guard slices. |
 | Build + verify the happy-path fits | `poe verify-models` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --kind models` | Needs desktop Excel; the 33 fittable cases, heavy excluded. No guard sheets. |
+| Finish a run `verify-spec-errors` started | `poe verify-models-rest` | `uv run python scripts/build_test_models.py --verify --no-launch --verbose --kind models --exclude G08,M15,L12` | Needs desktop Excel; the 30 fittable cases `verify-spec-errors` did **not** already build. Disjoint from it — see *Narrower slices*. |
 | Run the whole verification ladder | `poe verify` | Run `verify-deep` + `verify-test-models` concurrently, then `verify-headless` over their output | Needs desktop Excel; stops on first failure. |
 | Resync workbook-scoped catalog names | `poe resync-names -- <workbook.xlsx>` | `uv run python tools/resync_workbook_names.py <workbook.xlsx>` | Use the `--` separator before positional args. |
 | Rebuild static reference sheets | `poe static-sheets` | `uv run python scripts/rebuild_static_sheets.py` | Needs desktop Excel; manual template maintenance. |
@@ -330,7 +331,24 @@ it along the axes worth iterating on:
 poe verify-guards        # every guard state except the oversized L07
 poe verify-spec-errors   # every spec-block status line and CF flag
 poe verify-models        # the 33 fittable cases, heavy excluded
+poe verify-models-rest   # verify-models minus what verify-spec-errors built
 ```
+
+**The slices overlap, and one containment is total.** Every one of the 17
+`GuardStateCase` IDs appears in `verify-spec-errors`' list, so **`verify-guards`
+is a strict subset of `verify-spec-errors`** — run one or the other, never both.
+`verify-guards` is the fast slice when a guard-state change is all you touched;
+`verify-spec-errors` is the one to run when a status cell or CF rule changed,
+and it also builds `L07` and three fittable cases (`G08`, `M15`, `L12`, each of
+which produces a real fit *and* an error surface).
+
+**Finishing a run you started.** After `verify-spec-errors`, the remainder is
+`poe verify-models-rest` — `--kind models` minus those same three IDs, 30
+sheets, disjoint from what you already built. The two together cover every
+registered case exactly once, heavy excluded;
+`tests/test_poe_tasks.py::test_the_two_resumable_slices_partition_the_registry`
+derives that exclusion from the registries rather than restating it, so the pair
+cannot drift.
 
 **Two of them select structurally, and that is the point.** `--kind guards` and
 `--kind models` ask the registry which half a case belongs to, so neither task

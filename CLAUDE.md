@@ -6,7 +6,7 @@
 
 **Reply to PR comments after committing fixes.** When a review comment (Copilot or human) leads to a fix, push the fix and then reply to that comment explaining what was changed and why. This is how the repo owner spots addressed comments and resolves the threads.
 
-**Automated verification.** Run `python scripts/build_production.py --verify --no-launch` to build and verify the unified workbook. The spec-driven verifier is **not in CI** — GitHub-hosted `windows-latest` lacks Microsoft Office, so `xw.App` fails with `pywintypes.com_error: (-2147221005, 'Invalid class string')`. Layer 1 (`poe verify-headless`) runs on every push. Full pipeline + flag tables: `CONTRIBUTING.md` → *Verifying builds*.
+**Automated verification.** Run `python scripts/build_production.py --verify --no-launch` to build and verify the unified workbook. The spec-driven verifier is **not in CI** — GitHub-hosted `windows-latest` lacks Microsoft Office, so `xw.App` fails with `pywintypes.com_error: (-2147221005, 'Invalid class string')`. Layer 1 (`poe verify-headless`) runs on every push; its committed-artifact checks (`tests/test_workbook_invariants.py`) read the `.xlsx` as a zipfile, so they need no Excel and screen the shipped workbook in CI — gate a check on whether it needs Excel, not on a blanket env var. Full pipeline + flag tables: `CONTRIBUTING.md` → *Verifying builds*.
 
 **Recalculate mode is unconditional.** The production constructor always runs `CalculateFullRebuild` and saves in full **Automatic** — there is no skip-calculation flag. (Regression's rebuild is cheap; Univariate's is slower because it materializes the Beta `Full_Factorial` spills, but it always runs.) Full flag tables: `CONTRIBUTING.md` → *Production build*.
 

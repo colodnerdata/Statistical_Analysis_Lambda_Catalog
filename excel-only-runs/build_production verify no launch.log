@@ -91,7 +91,7 @@ ERROR QC mismatch totals: Regression/coefficients=1, Regression/residuals=72, Re
 ERROR Verify mismatch totals: Regression/coefficients=1, Regression/residuals=72, Regression/scalars=2
   mode: spec
   workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
-  elapsed: 76.9s
+  elapsed: 77.5s
   failures (75 total):
     - [Regression/scalars] config_name='production_lots_fixed_effects' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
     - [Regression/scalars] config_name='production_lots_log_transform' allow_intercept=True stat_name='BFN_Panel_Durbin_Watson': expected=0.9854876217402377, excel_calc=nan, abs_diff=nan, fdd=0.0
@@ -114,8 +114,8 @@ ERROR Verify mismatch totals: Regression/coefficients=1, Regression/residuals=72
     - [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='Residuals': expected=-2.4519211872999875, excel_calc=-2.4519195879659037, abs_diff=1.5993340838349468e-06, fdd=6.0
     - [Regression/residuals] config_name='life_full_profile' allow_intercept=True row_idx=665 stat_name='PRESS_Residual': expected=-3.280485198286769, excel_calc=-3.280483058498659, abs_diff=2.1397881098117466e-06, fdd=5.0
     ... and 55 more (use --json for the full list)
-Timing: build+sync    289.0s
-Timing: recalculate   21.8s
-Timing: verify        81.3s
-Timing: total         392.1s
+Timing: build+sync    285.5s
+Timing: recalculate   22.0s
+Timing: verify        81.9s
+Timing: total         389.5s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production verify no launch.log

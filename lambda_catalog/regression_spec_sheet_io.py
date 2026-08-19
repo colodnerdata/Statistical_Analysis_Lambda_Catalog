@@ -274,6 +274,46 @@ def set_prediction_inputs(
         sheet.range(ROW_PRED_INPUT_FIRST + index, _C_AK).value = value
 
 
+def apply_case_inputs(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
+    """Apply a fittable case's visible inputs: spec, typed Sequence Period, prediction inputs.
+
+    The three writes every spec-driven case needs on top of a sheet whose spec
+    block already exists: ``apply_spec_case`` (Source_Table retarget, intercept,
+    FE group, back-transform, the spec rows), the typed Sequence Period into
+    column I, and ``set_prediction_inputs``. Centralizing the sequence is what
+    stops a second call site forgetting the middle step — which is how the BFN
+    panel Durbin-Watson cell (AE12) sat at ``nan`` for every verify run on
+    record while the oracle held a real number: the inspector duplicated this
+    sequence and dropped the override, and the only symptom was a multi-minute
+    Excel run that read like a broken diagnostic.
+
+    Padding the spec to the source table's width is the CALLER's concern, not
+    this helper's: the builder pads (it writes a fresh sheet sized to the
+    dataset and wants every column shown), the inspector does not (it writes
+    the fixed production sheet). Pass the padded ``expected`` if you want
+    padding — the Sequence-Period dict, row offsets, and prediction inputs are
+    all unchanged by appended ``Omit`` padding (``pad_spec_to_source_table``
+    appends, it does not interleave), so the helper reads the same values
+    either way.
+
+    Only cases that declare a period are touched by the override, so non-panel
+    configs are unaffected.
+    """
+    apply_spec_case(sheet, expected)
+    case = expected.case
+    if case.sequence_period is not None:
+        apply_sequence_period_overrides(
+            sheet,
+            case.spec,
+            {item.name: case.sequence_period for item in case.spec if item.sequence},
+        )
+    set_prediction_inputs(
+        sheet,
+        expected.results.prediction_interval.pred_input_values,
+        expected.design.constructed_column_transforms,
+    )
+
+
 # ── Read half ────────────────────────────────────────────────────────────
 
 

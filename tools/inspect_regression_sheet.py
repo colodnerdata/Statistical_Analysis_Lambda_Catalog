@@ -34,9 +34,8 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_qc_configs,
 )
 from lambda_catalog.regression_spec_sheet_io import (
-    apply_spec_case,
+    apply_case_inputs,
     read_case_comparison_rows,
-    set_prediction_inputs,
 )
 from lambda_catalog.workbook_builder import XL_CALCULATION_MANUAL
 from lambda_catalog.workbook_helpers import (
@@ -128,14 +127,17 @@ def read_regression_df(
     app.api.ScreenUpdating = False
     try:
         for expected in regression_sheet_configs:
-            # Set source-table fixture columns, full spec, prediction inputs.
+            # Set source-table fixture columns, then the case's visible spec
+            # inputs — spec block, typed Sequence Period, prediction inputs —
+            # through the one helper that owns that sequence. Routing the
+            # inspector through ``apply_case_inputs`` rather than re-inlining
+            # the three steps it composes is what stops it drifting off the
+            # sequence again: the BFN panel Durbin-Watson cell sat at nan for
+            # every verify run on record because an inlined copy here dropped
+            # the typed Sequence Period and the only symptom was a multi-minute
+            # Excel run that read like a broken statistic.
             _apply_extra_columns(data_sheet, expected, all_extra_names)
-            apply_spec_case(sheet, expected)
-            set_prediction_inputs(
-                sheet,
-                expected.results.prediction_interval.pred_input_values,
-                expected.design.constructed_column_transforms,
-            )
+            apply_case_inputs(sheet, expected)
             # Recalculate only the Regression sheet after changing the visible
             # inputs. A full dependency-graph rebuild here pulls in the entire
             # workbook for every QC config and can take several minutes.

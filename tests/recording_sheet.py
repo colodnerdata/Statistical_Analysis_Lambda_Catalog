@@ -33,6 +33,20 @@ class RecordingNames:
             raise OSError(f"Name not found: {index}")
         return self.items[index - 1]
 
+    def Item(self, index: int | str) -> RecordingName:
+        """COM ``Names.Item`` accessor.
+
+        Matches a sheet-scoped name by its UNQUALIFIED suffix (``Source_Table``,
+        not ``Regression!Source_Table``), which is how Excel resolves a name on
+        the owning sheet's ``Names`` collection — and differs from ``__call__``,
+        which compares the full (prefix-qualified) ``Name``. ``apply_spec_case``
+        retargets ``Source_Table`` through ``.Item("Source_Table").RefersTo =``,
+        so a headless test of the spec-write composition needs this resolution.
+        """
+        if isinstance(index, str):
+            return self.by_short_name(index)
+        return self.items[index - 1]
+
     def Add(self, *, Name: str, RefersTo: str) -> RecordingName:
         qualified_name = f"{self.scope_prefix}{Name}"
         item = RecordingName(self, qualified_name, RefersTo)
@@ -229,6 +243,32 @@ class RecordingRange:
 
     def merge(self) -> None:
         self._sheet.merges.append(self.address)
+
+    def clear_contents(self) -> None:
+        """Mirror Excel's ``ClearContents``: drop value/formula, keep formats.
+
+        For a block range ``((r1,c1),(r2,c2))`` clear each constituent cell's
+        per-cell state — the slot a headless assertion reads — not just the
+        block's aggregate, so a writer that clears a band before rewriting it
+        (``apply_spec_case`` clears the spec rows, ``set_prediction_inputs``
+        clears the AK prefill band) is faithfully testable and a prior wider
+        write does not linger in cells the new case leaves blank. For a single
+        cell the per-cell state IS this range's state, so clearing ``self.state``
+        is enough. Formats (color, number_format) are left alone, matching
+        Excel.
+        """
+        bounds = self.api._block_bounds()
+        if bounds is not None:
+            r1, c1, r2, c2 = bounds
+            for row in range(r1, r2 + 1):
+                for col in range(c1, c2 + 1):
+                    cell = self._sheet.cell(row, col)
+                    cell.state.value = None
+                    cell.api._state.formula = None
+                    cell.api._state.formula2 = None
+        self.state.value = None
+        self.api._state.formula = None
+        self.api._state.formula2 = None
 
     @property
     def value(self) -> Any:

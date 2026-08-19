@@ -322,6 +322,39 @@ def col_letter(col_idx: int) -> str:
     return result
 
 
+def quoted_sheet_name(name: str) -> str:
+    """Quote a sheet name for use in a formula or a ``RefersTo``.
+
+    Two things have to happen and only the first was ever done consistently.
+
+    **Wrap in single quotes.** A sheet name containing a space — which every
+    generated test-model sheet has ("M01 Baseline Categoricals") — makes an
+    unquoted reference an invalid formula, and Excel rejects the whole
+    ``Names.Add`` with "There's a problem with this formula". Quoting a name
+    that does not need it is always legal, which is why this is unconditional.
+
+    **Double any embedded apostrophe.** ``'`` is the quote character, so a
+    literal one inside the name must be written ``''`` — ``'M17 Cook''s D'!$A$1``.
+    ``test_model_sheets.validate_sheet_name`` rejects a LEADING or TRAILING
+    apostrophe (Excel's own rule) but permits an internal one, so a case named
+    "M17 Cook's D Threshold" is legal, plausible in this repo, and would
+    otherwise build a reference Excel cannot parse. No sheet name carries one
+    today; this closes the gap before one does rather than after.
+
+    Parameters
+    ----------
+    name : str
+        Bare sheet name.
+
+    Returns
+    -------
+    str
+        The name wrapped in single quotes, apostrophes escaped — ready to be
+        followed by ``!`` and a cell reference.
+    """
+    return "'" + name.replace("'", "''") + "'"
+
+
 # ── Cell address helpers ───────────────────────────────────────────────────────
 
 def rc(row: int, col: int) -> tuple[int, int]:

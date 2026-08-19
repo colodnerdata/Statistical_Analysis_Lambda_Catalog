@@ -1360,11 +1360,16 @@ def test_log_domain_status_reports_the_poisoned_column_then_the_dropped_count() 
         '*(typ="Continuous")))>0'
     ) in formula
     # Sample_Include(FALSE) — the mask BEFORE the positivity layer — is what
-    # makes both halves count the same population.
+    # makes both halves count the same population. It is bound ONCE, to `base`,
+    # and the excluded-row count reuses that binding rather than calling again:
+    # Sample_Include is a REDUCE over the spec, so a second call is a second
+    # full evaluation for a value already in hand. (Copilot review on #222;
+    # deferred from that PR to keep the body a byte-identical move of the
+    # formula it replaced, and landed here where it takes the same Excel pass
+    # as the rest of the v3.2 spike.)
     assert "base,Sample_Include(FALSE)" in formula
-    assert (
-        "d,SUMPRODUCT(N(Sample_Include(FALSE)))-SUMPRODUCT(N(Sample_Include()))"
-    ) in formula
+    assert formula.count("Sample_Include(FALSE)") == 1
+    assert "d,SUMPRODUCT(N(base))-SUMPRODUCT(N(Sample_Include()))" in formula
     assert '" rows excluded: Log of ≤ 0"' in formula
 
     conditions = sheet.range("$G$2").api.FormatConditions.items

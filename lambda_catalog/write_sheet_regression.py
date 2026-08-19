@@ -105,6 +105,7 @@ from .workbook_helpers import (
     f,
     format_input,
     note_dimensions,
+    quoted_sheet_name,
     rc,
     reset_column_groups,
     safe_activate,
@@ -740,7 +741,7 @@ def _setup_local_names(
     # call site to remember. write_spec_block's own
     # _set_sheet_scoped_names already did this; this function did not, and
     # four of its seven references were unquoted.
-    sname = f"'{sheet.name}'"
+    sname = quoted_sheet_name(sheet.name)
 
     if closures is None:
         closures = load_catalog_document(_DEFINITIONS_PATH).functions_for_sheet(
@@ -1122,12 +1123,30 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     # convention panel-regression software (e.g. R's plm) uses. Adjusted R²
     # and Standard Error also carry the absorbed df (element 2 of Model_Context,
     # 0 with no FE row) so their df-dependent penalty/divisor is correct.
+    # AB5 and AB8 are the v3.2 SPIKE: two cells, deliberately, reading the
+    # materialized spills through Fit_Design_Columns() / Fit_Sample_Include()
+    # instead of re-running the constructor. They are the only migrated call
+    # sites on the sheet until the mechanism is Excel-confirmed.
+    #
+    # Two cells rather than one because the two spills are different SHAPES,
+    # and the fallback differs by shape: Fit_Sample_Include is 1-D (one OFFSET
+    # count) and Fit_Design_Columns is 2-D (a height AND a width). Proving only
+    # the 1-D read would leave the harder half unanswered.
+    #
+    # These two in particular because the spec-driven verifier compares R² and
+    # Observations cell-by-cell against NumPy. A name resolving to the wrong
+    # range does not error — it returns numbers from the wrong rows — so the
+    # spike has to land where a silent misread is caught by an oracle.
+    #
+    # AB8 additionally keeps Design_Response() as a live constructor beside a
+    # materialized name, which is the mixed state every zone will be in while
+    # the migration proceeds writer by writer.
     for row, label, formula in [
         (4, "Multiple R",        "=Multiple_R(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
-        (5, "R Square",          "=R_Squared(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (5, "R Square",          "=R_Squared(Fit_Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
         (6, "Adjusted R Square", "=Adjusted_R_Squared(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
         (7, "Standard Error",    "=SE_Regression(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
-        (8, "Observations",      "=Observations(Design_Response(),Sample_Include())"),
+        (8, "Observations",      "=Observations(Design_Response(),Fit_Sample_Include())"),
     ]:
         val(sheet, row, _C_AA, label)
         f(sheet, row, _C_AB, formula)

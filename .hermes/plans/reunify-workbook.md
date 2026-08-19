@@ -2,8 +2,8 @@
 
 **Branch:** `refactor/reunify-workbook` (merged; follow-on work lands off `main`)
 **Date:** 2026-08-08
-**Status:** structural work complete (Parts 1–5); Part 6 formula cleanup outstanding —
-see the table below
+**Status:** COMPLETE. Parts 1–5 and 6.1–6.2 shipped; 6.3 and 6.4 closed without doing —
+see the table and the note below
 
 | Part | State | Landed as |
 |---|---|---|
@@ -16,14 +16,34 @@ see the table below
 | 5.2 Extract `regression_materialization.py` | **Shipped** | #220 — writer 2,441 → 2,098 lines |
 | 6.1 Audit the inline cell formulas | **Shipped** | `.hermes/plans/lambda-extraction-audit.md` |
 | 6.2 Extract the status-cell LAMBDAs | **Shipped** | catalog 141 → 145 = 123 workbook + 22 Regression-scoped |
-| 6.3 Split the prediction-interval VSTACK | **Open** | |
-| 6.4 Prediction-input prefill spill | **Open** | follow-on, as scoped |
+| 6.3 Split the prediction-interval VSTACK | **Closed — won't do** | decomposing makes each cell say *less*; see below |
+| 6.4 Prediction-input prefill spill | **Closed — not viable** | the target cells are user inputs; a spill contradicts the feature |
 
 Cleanup the reunification itself needed, tracked here because it is not a numbered
 Part: the merge committed a hand-edited `dist/Lambda_Library.xlsx` (15,369 cached error
 literals) and it survived eight merges because `TestRealWorkbook` was gated behind
 `RUN_EXCEL_INTEGRATION=1`. The artifact was rebuilt in #218; the gate is removed and the
 last two-artifact leftovers retired in the PR that added this table.
+
+**Why 6.3 and 6.4 close without doing.** Both were scoped from the transparency premise —
+*a cell should name what it computes* — and neither target actually violates it.
+
+*6.4 is not a deferral, it is a contradiction.* `AK19:AK62` are the **prediction input**
+cells: `_write_prediction_inputs` paints them `INPUT_COLOR` via `_input_range` and its own
+comment calls them "individually overridable". They hold a prefilled training mean that
+the user is meant to **type over**. Replacing forty-four editable cells with one
+`Prediction_Input_Means()` spill would make every override a `#SPILL!`. The plan listed it
+as a follow-on because it read the per-row formulas as duplication; they are not
+duplication, they are the feature.
+
+*6.3 would make the sheet less auditable, not more.* `AK3:AK11` is not logic — it is one
+result set from one fit, and AK3 already reads `Group_Prediction_Interval(...)`, which is
+exactly what produced all nine numbers. Option A (hidden helper + nine `INDEX` reads)
+replaces one honest call with nine pointers into a hidden cell: each cell then says *less*
+about where its number came from, and the opacity moves rather than leaves. Option B was
+already ruled out at nine full OLS fits. The four status cells were worth extracting
+because they held nested conditionals a reader had to decompile; this one is a single
+named call over a single computation.
 
 **The O2 threshold question, resolved.** `_DESIGN_MATRIX_MAX_COLUMNS` and the soft pair
 live in `regression_layout.py` and also size the design-matrix band, so they could not

@@ -63,10 +63,70 @@ from .workbook_helpers import (
     col_letter,
     drop_local_name,
     f,
+    quoted_sheet_name,
     rc,
     section_heading,
     val,
 )
+
+
+def _add_spill_reader(
+    sheet: xw.Sheet, sheet_name: str, name: str, column: int
+) -> None:
+    """Register a sheet-scoped thunk over one materialized spill.
+
+    The v3.2 half that makes the band pay for itself. Excel does not memoize a
+    name whose RefersTo is a formula, so ``Design_Columns()`` written into
+    forty-four cells constructs the design matrix forty-four times. These names
+    let a call site read the ONE materialized copy instead.
+
+    ``=LAMBDA('Sheet'!$BW$3#)`` — the anchor plus the spill operator, so the
+    reference tracks the array's live extent in both dimensions without a count
+    cell. That is the part no other name in this workbook does; ``Fit_Context``
+    wraps a FIXED range and sidesteps the question.
+
+    **``#`` inside a defined-name RefersTo works — confirmed in Excel on #223**,
+    which is what the two-call-site spike existed to establish. Both shapes
+    resolve: the 1-D mask (``ROWS(Source_Data)`` tall) and the 2-D design matrix
+    (``Observations`` x ``$O$1``). Treat this as settled rather than re-testing
+    it; what still needs Excel is whether a MIGRATED CALL SITE reads the right
+    rows, which is a different question and the reason the rest of the rewiring
+    goes zone by zone against the cell-by-cell verifier.
+
+    The escape hatch if it ever regresses is the OFFSET-sized-by-a-count-cell
+    form every ``RegChart*`` range already uses — same call syntax at every call
+    site, so only this function would change. The dimensions it needs are live
+    cells and were confirmed on the same run: ``$AB$8`` for height, ``$O$1`` for
+    the design matrix's width.
+
+    Wrapped in ``LAMBDA`` rather than left as a bare range name so call sites
+    read ``Fit_Design_Columns()``, matching ``Fit_Context()`` and the
+    constructor closures beside it. A bare range name would work too but would
+    make the sheet's formulas inconsistent about which names are callable.
+
+    Parameters
+    ----------
+    sheet : xw.Sheet
+        Sheet to register the name on.
+    sheet_name : str
+        Bare sheet name; this function quotes it. Every generated test-model
+        sheet has a space in its name ("M01 Baseline Categoricals"), and an
+        unquoted RefersTo is an invalid formula that makes Excel reject the
+        whole ``Names.Add``. Quoting a name that does not need it is always
+        legal, so the quotes live here rather than at each call site — the
+        same reasoning ``_setup_local_names`` records for its own ``sname``.
+    name : str
+        The defined name to create, dropping any stale copy first.
+    column : int
+        1-based column of the spill's anchor cell; the row is always
+        ``_MATERIALIZATION_SPILL_ROW``.
+    """
+    anchor = (
+        f"{quoted_sheet_name(sheet_name)}"
+        f"!${col_letter(column)}${_MATERIALIZATION_SPILL_ROW}"
+    )
+    drop_local_name(sheet, name)
+    sheet.api.Names.Add(Name=name, RefersTo=f"=LAMBDA({anchor}#)")
 
 
 def _write_materialization_zone(
@@ -130,15 +190,29 @@ def _write_materialization_zone(
     the fixed-height Model Context block — individual cells, no spill — carries
     a group, and it is the only zone that ships collapsed.
 
-    Surfacing the values is NOT the same as rewiring the readers, and only the
-    first half lands here. ``Sample_Include()`` and ``Design_Columns()`` remain
-    live closures evaluated per call site; promoting either to a thunk over its
-    spill is still deferred, because that needs the dynamic-array spill
-    operator (``#``) inside a ``LAMBDA`` defined-name RefersTo — a combination
-    used nowhere else in this workbook and verifiable only with Excel present.
-    A wrong guess would break the row-mask contract that keeps every spilled
-    array row-aligned, so the optimization lands separately, Excel-verified
-    rather than blind. Nothing on the sheet reads these two spills today.
+    Surfacing the values is NOT the same as rewiring the readers, and the two
+    halves ship separately. ``Fit_Sample_Include`` and ``Fit_Design_Columns``
+    are the readers: sheet-scoped thunks over the two spills, registered below
+    beside ``Fit_Context``, which is the same idea over the fixed-height
+    context block. They use the dynamic-array spill operator (``#``) inside a
+    ``LAMBDA`` defined-name RefersTo — a combination used nowhere else in this
+    workbook, which is why the v3.2 remainder spiked two call sites before
+    migrating the rest. It resolves correctly in Excel (confirmed on #223), so
+    the mechanism is settled and the remaining risk is per-call-site, not
+    structural.
+
+    **New names, not promotions, and that is structural.** ``Sample_Include``
+    and ``Design_Columns`` keep their meanings because the spill cells here
+    ARE ``=Sample_Include()`` and ``=Design_Columns()`` — promoting either name
+    to read its own spill would make the cell producing it self-referential.
+    ``Sample_Include`` additionally keeps an optional ``apply_log_domain``
+    argument that a materialized column cannot express: ``Log_Domain_Status``
+    calls ``Sample_Include(FALSE)`` for the mask BEFORE the positivity layer,
+    and only the default is materialized here.
+
+    A wrong range in one of these names does not error — it returns numbers
+    from the wrong rows — so the migration goes zone by zone against the
+    cell-by-cell spec verifier rather than in one sweep.
 
     The design matrix's header row is split across two cells:
     ``Design_Columns()`` is one column wider than
@@ -188,7 +262,7 @@ def _write_materialization_zone(
     # pre-split build) and any stale "Fit_Context" before re-adding, so a
     # rebuild never leaves a shadow.
     ctx_ref = (
-        f"'{sname}'!${ctx_col}${_MATERIALIZATION_FIRST_ROW}"
+        f"{quoted_sheet_name(sname)}!${ctx_col}${_MATERIALIZATION_FIRST_ROW}"
         f":${ctx_col}${_MODEL_CONTEXT_LAST_ROW}"
     )
     drop_local_name(sheet, "Model_Context")
@@ -238,6 +312,16 @@ def _write_materialization_zone(
         _MATERIALIZATION_SPILL_ROW,
         _C_SAMPLE_INCLUDE_MATERIALIZED,
         "=Sample_Include()",
+    )
+    # Fit_Sample_Include — the reader over the spill written above. 1-D (n x 1,
+    # one row per SOURCE row, not per included row), so the fallback if `#`
+    # misbehaves is a single-count OFFSET. Registered whether or not any call
+    # site reads it yet: the name is what the migration repoints cells AT.
+    _add_spill_reader(
+        sheet,
+        sname,
+        "Fit_Sample_Include",
+        _C_SAMPLE_INCLUDE_MATERIALIZED,
     )
     # Document what the column is for on the heading cell — it is a read-only
     # view of the mask every engine applies, not a second place to edit it.
@@ -289,6 +373,12 @@ def _write_materialization_zone(
         sheet, _MATERIALIZATION_HEADER_ROW, _C_DESIGN_MATRIX, _C_DESIGN_MATRIX_NAMES
     )
     f(sheet, _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX, "=Design_Columns()")
+    # Fit_Design_Columns — the reader over the design-matrix spill. 2-D
+    # (n x k, both dimensions dynamic), which is the harder of the two shapes:
+    # the `#` form is dimension-agnostic, but an OFFSET fallback would need a
+    # height AND a width ($AB$8 and $O$1 respectively). Spiking both shapes is
+    # what tells us which spelling the migration can rely on.
+    _add_spill_reader(sheet, sname, "Fit_Design_Columns", _C_DESIGN_MATRIX)
 
     # ── Model Formula readout ────────────────────────────────────────────────
     # Row 1 of this zone, right of its heading — the one row the design matrix

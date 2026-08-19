@@ -2,6 +2,7 @@
 # pylint: disable=missing-function-docstring
 from pathlib import Path
 from types import SimpleNamespace
+from typing import Any, cast
 
 from lambda_catalog.workbook_helpers import (
     copy_static_sheet,
@@ -190,3 +191,51 @@ def test_copy_static_sheet_reuses_and_leaves_open_a_template_it_did_not_open(
 
     assert books.opens == []
     assert already.closed is False
+
+
+def test_quoted_sheet_name_escapes_embedded_apostrophes() -> None:
+    """Two rules, and only the first was ever applied consistently.
+
+    Wrapping in single quotes is what makes a sheet name with a SPACE usable —
+    every generated test-model sheet has one, and an unquoted reference makes
+    Excel reject the whole Names.Add. That much the writers already did inline.
+
+    Doubling an embedded apostrophe is the half that was missing. `'` is the
+    quote character, so a literal one has to be written `''`.
+    `test_model_sheets.validate_sheet_name` rejects a LEADING or TRAILING
+    apostrophe — Excel's own rule — but permits an internal one, so a case
+    named "M17 Cook's D Threshold" is legal and, in a repo that already ships
+    Cook's Distance diagnostics, entirely plausible. Without escaping it builds
+    a reference Excel cannot parse, and the failure lands at build time on a
+    machine with Excel, which is the slowest place to find it.
+    """
+    from lambda_catalog.workbook_helpers import quoted_sheet_name
+
+    # The ordinary cases: quoted unconditionally, because quoting a name that
+    # does not need it is always legal and removes the per-call-site judgement.
+    assert quoted_sheet_name("Regression") == "'Regression'"
+    assert quoted_sheet_name("M01 Baseline Categoricals") == "'M01 Baseline Categoricals'"
+
+    # The case this function exists for.
+    assert quoted_sheet_name("M17 Cook's D Threshold") == "'M17 Cook''s D Threshold'"
+    assert quoted_sheet_name("a'b'c") == "'a''b''c'"
+
+
+def test_a_sheet_name_with_an_apostrophe_still_builds_valid_defined_names() -> None:
+    """End to end: the escaping reaches the RefersTo strings, not just the helper."""
+    import sys
+
+    sys.path.insert(0, ".")
+    from tests.recording_sheet import RecordingSheet
+    from lambda_catalog.regression_materialization import _write_materialization_zone
+
+    sheet = RecordingSheet(name="M17 Cook's D Threshold")
+    _write_materialization_zone(cast(Any, sheet), closures=())
+
+    refers_to = {
+        item.Name.split("!", 1)[-1]: item.RefersTo for item in sheet.api.Names.items
+    }
+    for name in ("Fit_Context", "Fit_Sample_Include", "Fit_Design_Columns"):
+        assert "'M17 Cook''s D Threshold'!" in refers_to[name], name
+        # The unescaped form would terminate the quoted name early at "Cook'".
+        assert "'M17 Cook's" not in refers_to[name], name

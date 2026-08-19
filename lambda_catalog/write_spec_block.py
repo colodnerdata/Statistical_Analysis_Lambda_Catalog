@@ -364,20 +364,21 @@ from .spec_dataset_profiles import (  # noqa: F401  — re-exported for importer
 # spilling one value per source-table column. This is the mechanism that
 # makes a Source_Table retarget resize the spec block.
 #
-# They used to be per-row formulas using [@Column] structured references
-# inside the SpecTable ListObject, which pinned the block to the row count
-# baked in at build time — a wider dataset left the computed columns with no
-# formulas at all in the rows it added. A spill cannot live inside a
-# ListObject, and J/K/L sit between the input columns I and M while O sits
-# after N, so making these self-sizing is exactly why the table was dropped.
+# They are single spills rather than per-row formulas, so a Source_Table
+# retarget resizes them automatically — a fixed row-by-row layout would pin
+# the block to the row count baked in at build time and leave the computed
+# columns with no formulas in any rows a wider dataset added. A spill cannot
+# live inside a ListObject, and J/K/L sit between the input columns I and M
+# while O sits after N, so the only way to keep them self-sizing is to leave
+# them as spills with no surrounding ListObject.
 #
 # Consequences worth knowing when editing them:
-#   * `[@Column]` becomes INDEX(<band>,i) and ROW()-_ROW_TO_COL_OFFSET
-#     becomes `i`, so a formula no longer depends on which row it occupies.
+#   * Each value is INDEX(<band>,i) with `i` from the MAP, so a formula does
+#     not depend on which row it occupies.
 #   * They are written with `f` (Formula2), never `f_structured`
 #     (Formula) — Formula enters an array formula as a legacy CSE range,
-#     which would NOT resize on retarget and so would silently reintroduce
-#     the bug this change removes.
+#     which does NOT resize on retarget and would silently pin the block
+#     to the build-time row count.
 #   * Nothing may be written into the cells below them in columns J/K/L/O;
 #     a spill blocked by stray content is a #SPILL! error, not a truncation.
 #
@@ -539,14 +540,13 @@ def _spec_band(sname: str, col: int) -> str:
     """One spec column, TAKE-trimmed to the live source-table width.
 
     **This is what makes a ``Source_Table`` retarget a genuine one-name
-    edit.** These bands used to be structured references into the
-    ``SpecTable`` ListObject (``SpecTable[[#Data],[Role]]``), which fixed
-    them at the row count baked in at build time. Retargeting to a wider
-    table then left every band short: ``TAKE`` does not pad, so
-    ``INDEX(rl, n_c)`` ran off the end and every engine cell downstream
-    read as an error. Excel offers no formula-driven way to resize a
-    ListObject and this workbook is macro-free, so the table was removed
-    and the bands size themselves instead.
+    edit.** The bands are ``TAKE``-trimmed to the live source-table width
+    rather than fixed-width references, which would lock them at the row
+    count baked in at build time. Retargeting to a wider table would then
+    leave every band short: ``TAKE`` does not pad, so ``INDEX(rl, n_c)``
+    would run off the end and every engine cell downstream would read as an
+    error. Excel offers no formula-driven way to resize a fixed table and
+    this workbook is macro-free, so the bands size themselves instead.
 
     ``TAKE`` (not ``OFFSET``) for the same reason ``Source_Data`` and
     ``Header_Names`` use it: it is non-volatile, so the band is not
@@ -591,9 +591,7 @@ def _set_sheet_scoped_names(
        ``Predictor_Columns``, etc.).
 
     This runs BEFORE the spec block is written, because the four computed
-    spec columns are spill formulas that reference these band names. It
-    used to run after, when the bands bound to a ListObject that
-    ``_write_spec_block`` had to create first.
+    spec columns are spill formulas that reference these band names.
     """
     sname = f"'{sheet.name}'"
 
@@ -811,19 +809,19 @@ def _write_spec_block(
 
     ``profile`` supplies the variable list and default Role/Include/Type/
     Sequence values — defaults to the shipped Auto MPG profile
-    (``SPEC_DATASET_PROFILES["auto_mpg"]``) when omitted, matching this
-    function's original hardcoded-to-Auto-MPG behavior.
+    (``SPEC_DATASET_PROFILES["auto_mpg"]``) when omitted.
 
     **The block has no fixed height.** The profile decides which rows get
     shipped *defaults*, not how many rows exist: the variable-name column,
     the four computed columns and the input band's fill all size themselves
     from ``COLUMNS(Source_Data)``, so retargeting ``Source_Table`` resizes
-    the block. This block used to build a ``SpecTable`` ListObject sized to
-    ``len(profile.variables)``, which pinned it to the build-time dataset.
+    the block. A fixed-height layout sized to ``len(profile.variables)``
+    would pin it to the build-time dataset, which is exactly what the
+    self-sizing bands avoid.
 
     Must run AFTER ``_set_sheet_scoped_names``: the computed columns are
     spills that reference the ``Spec_*`` bands, ``Source_Data`` and the
-    constructor closures. The dependency used to run the other way.
+    constructor closures, which must exist first.
     """
     profile = profile or _AUTO_MPG_PROFILE
     bold_row(sheet, _HEADER_ROW, _C_LABEL, _C_SPEC_LAST)
@@ -846,14 +844,12 @@ def _write_spec_block(
     ):
         val(sheet, _HEADER_ROW, col, header)
 
-    # Create the table before writing any [@Column] formulas below. Excel
-    # rejects row-scoped structured references until the target cell belongs
-    # to a ListObject with the referenced headers.
-    # The specification header row. Nothing overrides it any more — this
-    # used to have to be re-pinned AFTER _create_spec_table, because
-    # applying a TableStyle silently replaced the header fill and font.
+    # The specification header row. Nothing overrides it after the defaults
+    # are written — the fill and font are set once here and stay. Applying a
+    # TableStyle would silently replace the header fill and font, which is
+    # why the block carries no ListObject.
     # test_spec_block_prefills_the_t0_default_configuration still asserts
-    # all three properties.
+    # all three properties (fill, color, bold).
     header_range = sheet.range((_HEADER_ROW, _C_LABEL), (_HEADER_ROW, _C_SPEC_LAST))
     header_range.color = HEADER_COLOR
     header_range.api.Font.Bold = True
@@ -1118,13 +1114,13 @@ def _write_spec_block(
     # cells it applies to and the hide-in-place font rules still compose on
     # top (they set a font color, this sets a fill).
     #
-    # This replaces the per-row format_input() calls the writer used to
-    # make. Those painted exactly the profile's variables, so the input
-    # surface was pinned to the build-time dataset in the same way the old
-    # ListObject pinned the bands: retarget to a wider table and the rows it
-    # brought into play were functional but unpainted. Keying the fill on
-    # ROW() vs. COLUMNS(Source_Data) makes the visible input band track the
-    # source table exactly, the same predicate the Spec_* bands use.
+    # The input-band fill is a single lowest-priority CF rule keyed on
+    # ROW() vs. COLUMNS(Source_Data), so the visible input band tracks the
+    # source table exactly — the same predicate the Spec_* bands use — and
+    # retargeting to a wider table paints the rows it brings into play
+    # instead of leaving them functional but unpainted. A fixed per-row
+    # paint would pin the input surface to the build-time dataset the same
+    # way a fixed-width band would.
     for first_col, last_col in (
         (_C_ROLE, _C_SEQUENCE_PERIOD),
         (_C_INTERACTION_TERM, _C_INTERACTION_OPERATION),
@@ -1255,9 +1251,9 @@ def _write_spec_feedback(sheet: xw.Sheet) -> None:
     )
 
     # ── J1:L2 — the Fixed Effects readouts ──────────────────────────────────
-    # All three key off the same FE-count gate and return "" rather than the
-    # literal "n/a" they used to: with the labels hidden alongside them, an
-    # inactive block leaves no trace instead of three cells of filler. They
+    # All three key off the same FE-count gate and return "" so that with
+    # the labels hidden alongside them, an inactive block leaves no trace
+    # instead of three cells of filler. They
     # still resolve the FIRST FE row in the 2-plus-rows error state, exactly
     # like Fixed_Effects_Column() itself — B2 above is what flags that state,
     # not these display cells.
@@ -1395,10 +1391,9 @@ def _write_sequence_status(sheet: xw.Sheet) -> None:
     ``_write_spec_block``) points at the offending rows while this line says
     what is wrong.
 
-    This cell used to be written here and then abandoned — the function stopped
-    being called and the message moved to E1, above Reference Level, a column
-    with nothing to do with sequencing. It is back where it belongs, and it is
-    the only copy: E1 no longer carries a duplicate.
+    This cell is the single Sequence status message and lives in the
+    Sequence column itself, the column it is about — keep it as the only
+    copy rather than duplicating it in an unrelated column (E1 carries none).
     """
     status_cell = _status_cell(
         sheet,
@@ -1421,10 +1416,8 @@ def _write_intercept_control(sheet: xw.Sheet) -> None:
 
     The toggle sits at the top of the Include column, one row above the
     per-variable Include toggles, because that is what it is: the intercept's
-    Include cell. Its label is at C1 rather than A2, which is where it used to
-    be — the label now sits directly above the thing it names, like every other
-    labelled readout in this band, instead of two columns to its left with a
-    blank cell between them.
+    Include cell. Its label is at C1, directly above the thing it names, like
+    every other labelled readout in this band.
 
     Conditional formatting encodes the reference-coding coupling
     (ROADMAP: "Intercept coupling — flag, don't switch"): treatment coding

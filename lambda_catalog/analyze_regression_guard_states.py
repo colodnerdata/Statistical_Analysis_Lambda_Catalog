@@ -101,30 +101,26 @@ SEVERITY_AMBER = "amber"
 
 _LN_ZERO_GUARD_NOTE = """L06 is the strict-Log half of a two-token pair.
 
-docs/MODEL_TESTING_ASSETS.md § 1.2 used to say a Log transform on a column
-with true zeros makes the row "drop out of the mask, not a silent 0", and
-that was never what the sheet did: ``Sample_Include`` tests ``ISNUMBER(col)``
-on the Response and the included Continuous Predictors, and ``ISNUMBER(0)``
-is TRUE, so a zero-valued row stays in the sample; ``Ln_Positive`` then
-returns ``#N/A`` for it, and the #N/A propagates through Predictor_Columns
-into every downstream statistic.
+``Sample_Include`` tests ``ISNUMBER(col)`` on the Response and the
+included Continuous Predictors, and ``ISNUMBER(0)`` is TRUE, so a
+zero-valued row stays in the sample; ``Ln_Positive`` then returns ``#N/A``
+for it, and the #N/A propagates through ``Predictor_Columns`` into every
+downstream statistic. The Transform cell turns red and the G2 status line
+names the variable, the offending row count, and the fix.
 
-That discrepancy was recorded here as an open question — should
-``Sample_Include`` grow a positivity term? — and it has since been answered,
-by adding a SECOND Transform token rather than by changing this one:
+A second Transform token, rather than changing this one, is how the
+positivity question is answered:
 
 * ``Log`` behaves exactly as this case asserts, and always will. The rows
-  stay, the #N/A propagates, the sample does not narrow. What is new is that
-  the Transform cell now turns red and the G2 status line names the variable,
-  the offending row count, and the fix.
-* ``Log (drop ≤ 0)`` is the filtering variant. It adds the positivity term to
-  ``Sample_Include`` for its own columns only, and reports how many rows it
-  excluded.
+  stay, the #N/A propagates, the sample does not narrow.
+* ``Log (drop ≤ 0)`` is the filtering variant. It adds the positivity term
+  to ``Sample_Include`` for its own columns only, and reports how many rows
+  it excluded.
 
 Two tokens rather than one that silently filters, because narrowing the
 sample changes the model being fitted and must be something the user
 declared. L12 is the filtering half; this case is the strict half, and the
-red flag it now also asserts is what points a user from one to the other."""
+red flag it asserts is what points a user from one to the other."""
 
 
 @dataclass(frozen=True)

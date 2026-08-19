@@ -26,9 +26,9 @@ _LAST_COL = _COLUMNS[-1].index
 # Versions follow the interface-based semantic-versioning convention in
 # ROADMAP.md: MAJOR only when a workbook built against the prior version would
 # stop working or silently compute something different. Under that definition
-# the ladder was renumbered on 2026-07-05 — Univariate (previously released as
-# 2.0.0) is 1.1.0, the hardening release (previously 2.1.0) is 1.2.0, and
-# Specification-Driven Regression (previously 3.0.0) is 2.0.0, the one MAJOR.
+# the ladder was renumbered on 2026-07-05 — Univariate is 1.1.0, the
+# hardening release is 1.2.0, and Specification-Driven Regression is 2.0.0,
+# the one MAJOR.
 _VERSIONS = [
     {
         "version": "1.0.0",
@@ -274,19 +274,10 @@ _VERSIONS = [
 def write_version_history_sheet(workbook: xw.Book) -> None:
     """Create or refresh the Version History sheet.
 
-    One workbook, one lineage. This used to take an ``artifact`` argument
-    selecting between this changelog and a second one for the standalone
-    Univariate workbook — the v3.0 split gave each artifact its own version
-    line under the two-version scheme. The reunification retired that artifact,
-    and its lineage went with it here: no build could reach the branch, so it
-    was a second changelog nothing published. The two releases it recorded (the
-    split, and the Weibull/Gamma grid shrink) are narrated in
-    ``docs/ROADMAP.md`` § *Univariate releases*, which is where that history
-    lives now.
-
-    The pre-split Univariate history was always part of THIS lineage — the
-    Regression workbook carried the sheet until 3.0.0 — so nothing in the
-    changelog below changes.
+    One workbook, one lineage. The version history records the single
+    shipped workbook; the pre-split Univariate releases are narrated in
+    ``docs/ROADMAP.md`` § *Univariate releases*. The Univariate history is
+    part of this lineage, so nothing in the changelog below is conditional.
 
     Parameters
     ----------

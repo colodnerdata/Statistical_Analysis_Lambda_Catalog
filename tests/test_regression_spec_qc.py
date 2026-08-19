@@ -91,10 +91,9 @@ def test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis() -> No
 
     Auto MPG is cross-sectional — one row per car model, no unit observed
     across periods — so ``Model Year`` is not an ordering axis, and a spec
-    that flags it asserts panel structure the data does not have. Every
-    Auto MPG case used to carry the flag by inheritance from the shipped T0
-    default; that default is now empty, and this pins it so a copy-pasted
-    ``sequence=True`` cannot creep back.
+    that flags it asserts panel structure the data does not have. The
+    shipped default flags no Auto MPG variable, and this pins it so a
+    copy-pasted ``sequence=True`` cannot creep back.
 
     The two panel datasets keep theirs, because there the flag is true and
     the diagnostics it gates (Durbin-Watson, and Breusch-Godfrey/Newey-West
@@ -449,7 +448,7 @@ def test_usa_filter_degenerates_origin_and_drops_its_columns() -> None:
     not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
 )
 def test_durbin_watson_is_a_real_statistic_where_an_ordering_axis_exists() -> None:
-    """The bounds check the Auto MPG case above can no longer carry.
+    """The bounds check the Auto MPG case above does not exercise.
 
     P03b has a Sequence axis (Fiscal_Year) and no Fixed Effects, which is
     the one state where the sheet's AE11 shows a number — so it is where
@@ -489,13 +488,8 @@ def test_expected_outputs_are_internally_consistent() -> None:
     assert len(results.prediction_interval.pred_input_values) == k
     # NaN, not a number: this is an Auto MPG case, and Auto MPG declares no
     # Sequence axis, so the sheet's AE11 reads "n/a — requires Sequence".
-    #
-    # This line used to pin 0.8587513374458717 — the statistic computed over
-    # PHYSICAL ROW ORDER. It was never a reading the sheet could produce, and
-    # the live verifier rejected exactly this value (and eighteen siblings)
-    # as a real number compared against a text cell. DW is only meaningful
-    # along a declared ordering; without one the honest answer is "not
-    # computed".
+    # DW is only meaningful along a declared ordering; without one the
+    # honest answer is "not computed", and the oracle returns NaN to match.
     assert math.isnan(results.summary.durbin_watson)
     assert abs(sum(results.full_residuals.hat_diagonal) - p) < 1e-4
     for y, prediction, residual in zip(
@@ -1104,8 +1098,7 @@ def test_level_sort_key_files_accented_text_where_excel_does() -> None:
     On a categorical predictor that one-position difference shifts the WHOLE
     dummy block: every column keeps a valid name and a valid 0/1 pattern, so
     nothing errors — the columns are just paired with the wrong headers and
-    every per-predictor statistic reads off by one. It survived unnoticed
-    until a QC case first used a column with non-ASCII levels.
+    every per-predictor statistic reads off by one.
     """
     from lambda_catalog.analyze_model_construction import level_sort_key
 

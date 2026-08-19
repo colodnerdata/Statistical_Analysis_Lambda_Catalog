@@ -24,9 +24,8 @@ from .workbook_helpers import (
 )
 
 # The constructor closures live on the Regression sheet (scope "Regression"
-# in lambda_functions.json) — the spec block now lives there and the
-# standalone ``Model Construction`` sheet was dropped at the v2.0 release.
-# The helpers in this module remain the canonical owners of the spec-block
+# in lambda_functions.json), where the spec block lives. The
+# helpers in this module remain the canonical owners of the spec-block
 # column/row constants, role tokens, validation lists, and sheet-scoped
 # named ranges consumed by ``write_sheet_regression.py``.
 _CLOSURE_SCOPE = "Regression"
@@ -224,9 +223,9 @@ def _set_spec_block_optional_outline_group(sheet: xw.Sheet) -> None:
 # see the Regression sheet's _ZONES), so a single click on the spec
 # outline collapses the spec and its feedback together.
 #
-# The spectrum used to sit at M/N; the layout-break MAJOR took those two
-# columns for the interaction pair (and O for the Design Columns audit), so
-# it moved three columns right along with everything after it.
+# The spectrum sits at P/Q. The layout break put the interaction pair at M/N
+# (and the Design Columns audit at O), so the spectrum and everything after
+# it sit three columns right of the interaction pair.
 _C_FEEDBACK_DELTA = 16     # P — Δ header / spectrum column 1
 _C_FEEDBACK_COUNT = 17     # Q — Count header / spectrum column 2
 
@@ -406,15 +405,15 @@ _FALLBACK_SPEC: tuple[str, bool, str] = (_ROLE_PREDICTOR, False, "Continuous")
 # Variables shipped with their Sequence flag (column H) set TRUE — EMPTY for
 # Auto MPG, deliberately.
 #
-# Model Year used to ship flagged, on the reading that it is "the ordering
-# axis for the Auto MPG panel". Auto MPG is not a panel. Each row is a
-# distinct car model observed once; there is no unit repeated across periods,
-# so there is no time axis to order along. What the flag actually bought was a
-# Base Period Δ candidate nobody can interpret and a Durbin-Watson statistic
-# computed over an arbitrary row order — the shipped Identifier (Car Name) is
-# very nearly unique, so Sequence_Deltas finds no within-group consecutive
-# pairs and the spacing verdict comes back blank regardless. A default that
-# asserts panel structure the data does not have is worse than no default.
+# Model Year ships unflagged. Treating it as "the ordering axis for the Auto
+# MPG panel" would assert panel structure Auto MPG does not have: each row is
+# a distinct car model observed once, with no unit repeated across periods,
+# so there is no time axis to order along. The flag would buy a Base Period
+# Δ candidate nobody can interpret and a Durbin-Watson statistic computed
+# over an arbitrary row order — the shipped Identifier (Car Name) is very
+# nearly unique, so Sequence_Deltas finds no within-group consecutive pairs
+# and the spacing verdict comes back blank regardless. A default that asserts
+# panel structure the data does not have is worse than no default.
 #
 # The Sequence axis is still demonstrated by default, on the two datasets that
 # genuinely have one: _LIFE_EXPECTANCY_SEQUENCE_VARIABLES (Country x Year) and
@@ -689,15 +688,15 @@ _SEQUENCE_ACTIVE_FORMULA = "COUNT(Sequence_Deltas())>0"
 # Messages are short and imperative because they wrap inside a single column;
 # the hover Note beside each carries the long form.
 #
-# THE FORMULAS THEMSELVES ARE NO LONGER HERE (reunify Part 6.2). B2, G2 and H2
-# hold `=Role_Status()`, `=Log_Domain_Status()` and `=Sequence_Status()` —
+# The formulas live in the catalog, not here. B2, G2 and H2 hold
+# `=Role_Status()`, `=Log_Domain_Status()` and `=Sequence_Status()` —
 # sheet-scoped catalog LAMBDAs in lambda_functions.json, alongside O2's
-# `=Design_Width_Status()`. A cell that used to show a wall of nested IFs now
-# names what it checks, and the logic is documented on the LAMBDA_functions
-# sheet like every other function. What stays in Python is what the catalog
-# cannot carry: the long hover Notes below (the catalog's own `notes` field is
-# capped at 255 characters and goes to Name Manager), and the count
-# sub-formulas above, which many other cells still build on.
+# `=Design_Width_Status()`. Each cell names what it checks, and the logic is
+# documented on the LAMBDA_functions sheet like every other function. What
+# stays in Python is what the catalog cannot carry: the long hover Notes
+# below (the catalog's own `notes` field is capped at 255 characters and
+# goes to Name Manager), and the count sub-formulas above, which many other
+# cells still build on.
 #
 # The message text is pinned across the Python/JSON gap by
 # test_spec_block_writer.py — no import can reach a JSON string literal.

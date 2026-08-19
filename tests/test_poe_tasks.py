@@ -101,13 +101,12 @@ def test_the_excel_task_targets_the_suite_that_reads_the_env_var(
 ) -> None:
     """``test-excel`` must run the tests ``RUN_EXCEL_INTEGRATION`` actually gates.
 
-    The task sets the env var, so it is only worth running against a suite that
-    reads it. It used to point at ``test_workbook_invariants.py``, whose
-    committed-artifact checks were opt-in behind the same var; those are
-    always-on now (zipfile reads, no Excel), which left the task setting a
-    variable nothing downstream consulted — a slower spelling of
-    ``verify-headless``. Pinned to the pair so a future edit to either side
-    fails here instead of quietly reintroducing that.
+    The task sets the env var, so it is only worth running against a suite
+    that reads it. The committed-artifact invariants are always-on zipfile
+    reads (no Excel), so pointing the task at them would set a variable
+    nothing downstream consulted — a slower spelling of ``verify-headless``.
+    Pinned to the pair so a future edit to either side fails here instead of
+    quietly reintroducing that.
     """
     task = tasks["test-excel"]
     assert task["env"]["RUN_EXCEL_INTEGRATION"] == "1"
@@ -133,10 +132,10 @@ def test_verify_builds_the_artifacts_before_screening_them(
     """The screen has to run LAST.
 
     ``verify-headless`` reads whatever is sitting in ``dist/``; the three deep
-    tasks rewrite those files. The original sequence put the screen first, so
-    it validated the previously committed artifacts and never looked at the
-    ones the run had just built — a rebuild that broke a defined name or
-    orphaned a chart relationship passed ``verify`` clean.
+    tasks rewrite those files, so running the screen first would validate the
+    previously committed artifacts and never look at the ones the run just
+    built — a rebuild that broke a defined name or orphaned a chart
+    relationship would pass ``verify`` clean.
     """
     steps = tasks["verify"]["sequence"]
 

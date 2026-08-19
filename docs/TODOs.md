@@ -189,9 +189,8 @@ and two cleanups.
   only test for that behavior. Note that promoting them into the Regression
   writer turned out **not** to be needed — the audit is one spill written by the
   shared `_write_spec_block`, so the Regression sheet inherits it by already
-  calling that writer. (It was a per-row calculated column inside `SpecTable`
-  when this was written; the block is table-free now, but the inheritance
-  argument is unchanged.)
+  calling that writer. (The block is table-free; the inheritance argument is
+  unchanged.)
 
   Context: this is what remains of REVIEW.md F5 after the finding itself was
   struck as never-true — see
@@ -266,19 +265,13 @@ cross-artifact name residue. See
 [ROADMAP.md](ROADMAP.md#v31--interaction-wiring--shipped-2026-08-03) and
 [DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring).
 
-- **READY · S · needs Excel** — **Rebuild and commit the Regression artifact.**
-  The committed `Lambda_Library.xlsx` predates v3.2: `BU2` and `BW2` still read
-  the `"reserved"` placeholders where the `Sample_Include` and Constructed Design
-  Matrix spills now belong. Its Version History and interaction wiring are
-  current (2.1.0 / 2.2.0 / 3.1.0 entries are all present), so this is the
-  materialization work and nothing else. The Univariate sheet was already
-  rebuilt and committed (#160) — this item was Regression-only before the
-  reunification merged both sheets into one workbook.
-
-  A second, cosmetic reason has since joined it: the Normal Q-Q chart no longer
-  forces equal axis limits, so the shipped chart still carries the old scaling
-  until a rebuild. No input cell, named range, or fitted number moves, so no
-  version number moves with it.
+Rebuild shipped with the v3.2 Regression Statistics migration (9103e90): the
+committed `Lambda_Library.xlsx` now carries the `Sample_Include` zone header
+(`BU2` = "In Sample") and the Constructed Design Matrix zone header (`BW2` =
+`IF(Allow_Intercept,"Intercept","")`) where the `"reserved"` placeholders sat,
+and the Normal Q-Q chart carries the current non-equal axis scaling (the
+forced-equal-limits code is gone). No input cell, named range, or fitted
+number moved, so no version number moved with it.
 
 ## v3.2 — Full materialization of the design matrix
 

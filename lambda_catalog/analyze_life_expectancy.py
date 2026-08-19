@@ -357,10 +357,9 @@ def calculate_regression_summary(
         Predictor columns to include. Defaults to FEATURE_COLUMNS.
     filter_columns : list[str] or None, optional
         Columns that must be non-null for a row to be included. Defaults to
-        the full ``FEATURE_COLUMNS`` (the all-columns completeness rule the
-        legacy MLR test sheets bind to). Pass the model's own
-        ``feature_columns`` for the spec-driven completeness the Regression
-        sheet now uses.
+        the full ``FEATURE_COLUMNS`` (the all-columns completeness rule).
+        Pass the model's own ``feature_columns`` for the spec-driven
+        completeness the Regression sheet uses.
 
     Returns
     -------

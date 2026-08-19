@@ -270,16 +270,16 @@ _COLUMN_GROUPS: tuple[tuple[int, int], ...] = _ZONES
 
 # ── Content-column widths ─────────────────────────────────────────────────────
 # One entry per content column, KEYED ON THE LAYOUT CONSTANT, never on a
-# hard-coded letter. This table used to be a dict of literal letters, and the
-# layout-break MAJOR that shifted every zone right of the spec block three
-# columns over did not move its keys: the Predictor Summary's name column got
-# the width meant for a stats column, the Regression Outputs' diagnostics
-# labels got the width meant for its values, and the whole Prediction Outputs
-# zone (AJ–AL) fell off the table and rendered at Excel's default 8.43. A
-# letter key is exactly the silent-wrong-answer failure the `_C_*` constants
-# exist to prevent — the build still succeeds, it just sizes a different
-# column — so the widths now derive from the same constants the zones do, and
-# the coverage assertion below fails the next shift loudly.
+# hard-coded letter. A letter key is exactly the silent-wrong-answer
+# failure the `_C_*` constants exist to prevent: a layout break that shifts
+# every zone right of the spec block would not move a letter key, so the
+# Predictor Summary's name column would get the width meant for a stats
+# column, the Regression Outputs' diagnostics labels the width meant for
+# its values, and the whole Prediction Outputs zone (AJ–AL) would fall off
+# the table and render at Excel's default 8.43. The build still succeeds,
+# it just sizes a different column — so the widths derive from the same
+# constants the zones do, and the coverage assertion below fails the next
+# shift loudly.
 #
 # Widths are sized to the widest label/value each column actually carries;
 # row-2 headers wrap (see write_regression_output_sheet), so a header longer

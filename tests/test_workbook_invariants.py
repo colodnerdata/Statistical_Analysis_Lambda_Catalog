@@ -31,14 +31,9 @@ existing `RecordingSheet` unit tests cannot see:
 The synthetic 4-sheet fixture (``build_headless_fixture``) is the always-on
 source of truth for these invariants, alongside ``TestRealWorkbookNameScope``
 and ``TestRealWorkbook``, which run the same checks against the committed
-unified workbook on every commit. ``TestRealWorkbook`` used to be opt-in behind
-``RUN_EXCEL_INTEGRATION=1``, gated "until the committed artifact is cleaned
-up" — a temporary state that outlived its reason and took the shipped workbook
-out of CI's reach: the reunification committed a hand-edited artifact whose
-Regression sheet carried 15,369 cached error literals, and it survived eight
-merges because the one check that would have failed was skipped. Nothing here
-needs Excel — it is zipfile and lxml — so the gate is gone and the committed
-artifact is screened on every push.
+unified workbook on every commit. Those committed-artifact checks need no
+Excel — they are zipfile and lxml — so the committed workbook is screened on
+every push.
 
 The deep spec-driven check (``lambda_catalog.deep_verify.verify_test_sheets``, xlwings + Excel
 required) is the source of truth for cell-level correctness — *except* for the
@@ -129,9 +124,7 @@ _CELL_COLUMN_RE = re.compile(r"^([A-Z]{1,3})\d+$")
 # in the tab order that build_production._reorder_and_style_sheet_tabs
 # applies: the three Regression workbench sheets front-most, then the Univariate
 # workbench, the LAMBDA_functions catalog, Version History, and the three data
-# sheets last. (During the v3.0 split the Univariate sheet lived in its own standalone
-# workbook, Lambda_Library_Univariate.xlsx; the reunification merged it back
-# in and that artifact is no longer built or shipped.)
+# sheets last.
 EXPECTED_REAL_SHEETS: tuple[str, ...] = (
     "Regression",
     "Regression Instructions",

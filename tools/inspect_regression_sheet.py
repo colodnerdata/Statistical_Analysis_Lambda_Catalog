@@ -118,8 +118,8 @@ def read_regression_df(
     # redundant full recalculations/redraws instead of the one-per-config the
     # code below intends — this is what turns the loop from seconds into
     # (observed) hours. Suspend both for the whole loop, matching the
-    # Manual-during-writes convention build_production.py/build_univariate.py already
-    # use, and restore the caller's settings afterward.
+    # Manual-during-writes convention the other build drivers already use,
+    # and restore the caller's settings afterward.
     app = workbook.app
     previous_calculation = app.api.Calculation
     previous_screen_updating = app.api.ScreenUpdating
@@ -132,10 +132,10 @@ def read_regression_df(
             # through the one helper that owns that sequence. Routing the
             # inspector through ``apply_case_inputs`` rather than re-inlining
             # the three steps it composes is what stops it drifting off the
-            # sequence again: the BFN panel Durbin-Watson cell sat at nan for
-            # every verify run on record because an inlined copy here dropped
-            # the typed Sequence Period and the only symptom was a multi-minute
-            # Excel run that read like a broken statistic.
+            # sequence: an inlined copy would drop the typed Sequence Period,
+            # leaving the BFN panel Durbin-Watson cell at nan, and the only
+            # symptom would be a multi-minute Excel run that reads like a
+            # broken statistic.
             _apply_extra_columns(data_sheet, expected, all_extra_names)
             apply_case_inputs(sheet, expected)
             # Recalculate only the Regression sheet after changing the visible

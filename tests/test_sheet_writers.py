@@ -233,11 +233,10 @@ def test_regression_names_register_spec_wiring_and_constructors() -> None:
     assert sheet.api.Names.by_short_name("Allow_Intercept").RefersTo == (
         "='Regression'!$C$2"
     )
-    # Single-quoted, like every other name on the sheet. These four
-    # Regression-only names used to be registered UNQUOTED, which happened to
-    # work only because "Regression" is a single word — a sheet name with a
-    # space made the RefersTo an invalid formula and Excel rejected the
-    # Names.Add outright. See
+    # Single-quoted, like every other name on the sheet. A sheet name with a
+    # space in an UNQUOTED RefersTo would be an invalid formula and Excel
+    # would reject the Names.Add outright, so the quote is mandatory.
+    # See
     # tests/test_test_model_sheets.py::test_every_refers_to_quotes_a_sheet_name_containing_spaces.
     assert sheet.api.Names.by_short_name("alpha").RefersTo == "='Regression'!$AB$12"
 
@@ -1094,14 +1093,15 @@ def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
 def test_column_widths_cover_every_zone_column_and_no_gap_column() -> None:
     """Widths are keyed on the layout constants, one per content column.
 
-    The table used to be keyed on literal letters, and the layout break that
-    shifted every zone right of the spec block three columns over left the
-    keys behind: the Predictor Summary's name column was sized for a stats
-    value, the Regression Outputs' diagnostics labels got the width meant for
-    its values, and the whole Prediction Outputs zone fell off the table and
-    rendered at Excel's default width. Nothing failed — the build sized a
-    different column, which is exactly the silent-wrong-answer mode the `_C_*`
-    constants exist to prevent. Pin the coverage so the next shift fails here.
+    A table keyed on literal letters is the silent-wrong-answer mode the
+    `_C_*` constants exist to prevent: a layout break that shifts every
+    zone right of the spec block would leave letter keys behind, so the
+    Predictor Summary's name column would be sized for a stats value, the
+    Regression Outputs' diagnostics labels would get the width meant for
+    its values, and the whole Prediction Outputs zone would fall off the
+    table and render at Excel's default width — nothing fails, the build
+    just sizes a different column. Pin the coverage so the next shift
+    fails here.
     """
     widths = dict(_COLUMN_WIDTHS)
     assert len(widths) == len(_COLUMN_WIDTHS), "no column may be sized twice"
@@ -1201,11 +1201,11 @@ def test_model_formula_readout_is_clear_of_the_design_matrix_body() -> None:
 
 
 def test_model_formula_closure_assembles_the_spec_derived_caption() -> None:
-    """The catalog body that replaced the inline AB2 expression.
+    """The sheet-scoped catalog body that assembles the spec-derived caption.
 
     Sheet-scoped (it reads this sheet's Spec_* names and the
-    Constructed_Column_Names() closure beside them), and built from the same
-    four pieces the cell formula used to concatenate inline.
+    Constructed_Column_Names() closure beside them), and built from four
+    spec-derived pieces joined into the model-formula string.
     """
     document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
     closure = next(

@@ -125,8 +125,8 @@ def _run_deep_verify(
     so no ``skip_univariate`` or ``skip_regression`` flag is passed — the
     verifier checks both. ``mileage_path`` feeds the Regression QC oracle
     configs (``build_regression_spec_qc_configs``); the Mileage and
-    Production Lots data sheets no longer carry a Full_Data column, so the
-    verifier has no per-sheet completeness check for them.
+    Production Lots data sheets carry no completeness filter column, so
+    the verifier has no per-sheet completeness check for them.
     """
     start = time.monotonic()
     if verbose:

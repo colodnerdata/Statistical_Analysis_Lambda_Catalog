@@ -4,13 +4,12 @@ Python QC oracle (analyze_regression_spec.py / analyze_model_construction.py).
 The headline acceptance test: production_lots.csv ships both raw columns
 (Cumulative_Units, Unit_Cost_BY) and precomputed log columns ("log Cum
 Units", "log Unit Cost") that are bit-identical logs of the raw ones. The
-existing "production_lots_fixed_effects" QC case points its spec at the
-precomputed columns (a pre-Log-wiring workaround); the new
-"production_lots_log_transform" case points the SAME model at the raw
-columns with transform="Log" declared instead. If the two designs and
-every downstream statistic agree to floating-point precision, the Log
-wiring reproduces exactly what the precomputed-column workaround already
-delivered — a real learning-curve model (Crawford/Wright:
+"production_lots_fixed_effects" QC case points its spec at the precomputed
+columns; the "production_lots_log_transform" case points the SAME model at
+the raw columns with transform="Log" declared instead. If the two designs
+and every downstream statistic agree to floating-point precision, the Log
+wiring and the precomputed columns are two independent routes to the same
+fit — a real learning-curve model (Crawford/Wright:
 ln(unit cost) = a + b*ln(cumulative units)), composed with Fixed Effects.
 
 Runnable standalone (``python tests/test_transform_threading.py``) or

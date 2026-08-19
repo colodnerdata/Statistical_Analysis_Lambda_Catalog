@@ -69,8 +69,8 @@ def _quit_app_quietly(app: xw.App | None) -> None:
 
 
 # Where a driver's terminal transcript is archived. Every Excel-required
-# driver writes here — build_production.py, build_univariate.py and
-# build_test_models.py — because none of them can run on the GitHub-hosted
+# driver writes here — build_production.py, build_test_models.py and
+# build_demo_workbook.py — because none of them can run on the GitHub-hosted
 # Linux CI, so this directory is the cross-tool substitute for the CI log a
 # failed run would otherwise leave only in somebody's terminal scrollback.
 # It is tracked, not gitignored: the transcript is committed on the branch
@@ -185,11 +185,9 @@ def print_name_sync_summary(result: NameSyncResult) -> None:
 
     ``Removed names`` and ``Skipped names`` are the interesting two: the first
     counts workbook-scoped residue the sync cleared out (a name the catalog
-    retired, or one belonging to the other artifact), the second names the
-    catalog entries this artifact cannot carry because they reference a
-    worksheet it does not have. Both are normal on the first build after a
-    change and should settle to 0 / none on a rebuild — except the Univariate
-    artifact's permanent ``Base_Period_Delta`` skip.
+    retired), the second names catalog entries this workbook cannot carry
+    because they reference a worksheet it does not have. Both are normal on
+    the first build after a change and should settle to 0 / none on a rebuild.
     """
     print(f"Created names: {result.created}")
     print(f"Updated names: {result.updated}")

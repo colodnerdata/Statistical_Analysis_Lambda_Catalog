@@ -161,6 +161,42 @@ SCALE_FREE_STATS = frozenset({
 # ── Write half ───────────────────────────────────────────────────────────
 
 
+# Every WRITABLE spec-block column — the cells a case declares and therefore
+# the cells ``apply_spec_case`` must clear before it rewrites them. The spec
+# block's input band is B–I plus the appended M/N interaction pair; the rest
+# of A–O is either the A label or a computed display (J Period In Use,
+# K Levels, L Reference In Use, O Design Columns), which derive and must never
+# be cleared.
+#
+# Naming the set rather than inlining it is the point. Column I (Sequence
+# Period) was missing from the inline tuple, and the omission was invisible
+# because the two writers that type I both write each case onto its OWN fresh
+# sheet: the test-model builder and the guard path. The verify INSPECTOR is
+# the one caller that applies every case to a single reused ``Regression``
+# sheet, so on that path an uncleared I survives into the next case — and it
+# is not inert. ``Period In Use`` (J) is
+# ``IF(Sequence<>TRUE,"",IF(N(Sequence_Period)<>0,Sequence_Period,candidate))``,
+# so a stale typed period silently REPLACES the computed candidate on any
+# later case whose Sequence-flagged row lands on the same offset. Only two
+# cases declare a period (P01/P02, Δ=1) while seven more flag a Sequence axis
+# and expect the candidate, so the leak reads as a plausible number rather
+# than an error.
+#
+# F (Order) is reserved-and-unwired — no case writes it, so clearing it would
+# be a write against a column the spec does not yet own.
+_SPEC_INPUT_COLUMNS: tuple[int, ...] = (
+    _C_SPEC_ROLE,
+    _C_SPEC_INCLUDE,
+    _C_SPEC_TYPE,
+    _C_SPEC_REFERENCE,
+    _C_SPEC_TRANSFORM,
+    _C_SPEC_SEQUENCE,
+    _C_SPEC_SEQUENCE_PERIOD,
+    _C_SPEC_INTERACTION_TERM,
+    _C_SPEC_INTERACTION_OPERATION,
+)
+
+
 def apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
     """Write one case's full visible spec onto ``sheet``.
 
@@ -179,6 +215,14 @@ def apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
       carries the previous group forward.
     * Only the spec rows are cleared, not the whole column: the Sequence
       Spacing block lives below the spec on the Regression sheet.
+    * EVERY writable spec column is cleared (``_SPEC_INPUT_COLUMNS``), not
+      just the ones this function goes on to rewrite. The Sequence Period
+      (column I) is written by ``apply_sequence_period_overrides`` afterwards
+      and only for the cases that declare one, so leaving it out of the clear
+      list let a typed period survive into the next case on any caller that
+      reuses one sheet — the verify inspector. Same invariant as
+      ``Source_Table`` and ``$AK$12`` above: a case must never be evaluated
+      against what the previous write left behind.
     * A row with no interaction gets its M/N cells genuinely BLANK rather
       than ``""``. Both satisfy ``mate()``'s ``LEN(t&"")=0`` gate, but a
       written ``""`` defeats the dropdown's own blank default.
@@ -195,16 +239,7 @@ def apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
         _SPEC_FIRST_DATA_ROW + len(expected.case.spec) - 1,
     )
     for row in range(_SPEC_FIRST_DATA_ROW, last_row + 1):
-        for col in (
-            _C_SPEC_ROLE,
-            _C_SPEC_INCLUDE,
-            _C_SPEC_TYPE,
-            _C_SPEC_REFERENCE,
-            _C_SPEC_SEQUENCE,
-            _C_SPEC_TRANSFORM,
-            _C_SPEC_INTERACTION_TERM,
-            _C_SPEC_INTERACTION_OPERATION,
-        ):
+        for col in _SPEC_INPUT_COLUMNS:
             sheet.range(row, col).clear_contents()
 
     for offset, variable in enumerate(expected.case.spec):

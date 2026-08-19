@@ -83,10 +83,21 @@ def _add_spill_reader(
     ``=LAMBDA('Sheet'!$BW$3#)`` — the anchor plus the spill operator, so the
     reference tracks the array's live extent in both dimensions without a count
     cell. That is the part no other name in this workbook does; ``Fit_Context``
-    wraps a FIXED range and sidesteps the question. If Excel rejects ``#``
-    inside a defined name, the fallback is the OFFSET-sized-by-a-count-cell
-    form every ``RegChart*`` range already uses — same call syntax at every
-    call site, so only this function changes.
+    wraps a FIXED range and sidesteps the question.
+
+    **``#`` inside a defined-name RefersTo works — confirmed in Excel on #223**,
+    which is what the two-call-site spike existed to establish. Both shapes
+    resolve: the 1-D mask (``ROWS(Source_Data)`` tall) and the 2-D design matrix
+    (``Observations`` x ``$O$1``). Treat this as settled rather than re-testing
+    it; what still needs Excel is whether a MIGRATED CALL SITE reads the right
+    rows, which is a different question and the reason the rest of the rewiring
+    goes zone by zone against the cell-by-cell verifier.
+
+    The escape hatch if it ever regresses is the OFFSET-sized-by-a-count-cell
+    form every ``RegChart*`` range already uses — same call syntax at every call
+    site, so only this function would change. The dimensions it needs are live
+    cells and were confirmed on the same run: ``$AB$8`` for height, ``$O$1`` for
+    the design matrix's width.
 
     Wrapped in ``LAMBDA`` rather than left as a bare range name so call sites
     read ``Fit_Design_Columns()``, matching ``Fit_Context()`` and the
@@ -185,8 +196,10 @@ def _write_materialization_zone(
     beside ``Fit_Context``, which is the same idea over the fixed-height
     context block. They use the dynamic-array spill operator (``#``) inside a
     ``LAMBDA`` defined-name RefersTo — a combination used nowhere else in this
-    workbook and verifiable only with Excel present, which is why the v3.2
-    remainder spikes two call sites before migrating the rest.
+    workbook, which is why the v3.2 remainder spiked two call sites before
+    migrating the rest. It resolves correctly in Excel (confirmed on #223), so
+    the mechanism is settled and the remaining risk is per-call-site, not
+    structural.
 
     **New names, not promotions, and that is structural.** ``Sample_Include``
     and ``Design_Columns`` keep their meanings because the spill cells here

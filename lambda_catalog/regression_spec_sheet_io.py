@@ -301,21 +301,13 @@ def apply_case_inputs(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None
     """
     apply_spec_case(sheet, expected)
     case = expected.case
-
-    # Clear any previously-typed Sequence Period values so one case cannot
-    # affect the next when reusing the same sheet (e.g., the verify inspector).
-    last_row = max(_SPEC_LAST_DATA_ROW + 1, _SPEC_FIRST_DATA_ROW + len(case.spec) - 1)
-    sheet.range(
-        (_SPEC_FIRST_DATA_ROW, _C_SPEC_SEQUENCE_PERIOD),
-        (last_row, _C_SPEC_SEQUENCE_PERIOD),
-    ).clear_contents()
-
     if case.sequence_period is not None:
         apply_sequence_period_overrides(
             sheet,
             case.spec,
             {item.name: case.sequence_period for item in case.spec if item.sequence},
         )
+    set_prediction_inputs(
         sheet,
         expected.results.prediction_interval.pred_input_values,
         expected.design.constructed_column_transforms,

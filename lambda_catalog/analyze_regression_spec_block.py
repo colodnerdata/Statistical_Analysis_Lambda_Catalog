@@ -1,20 +1,19 @@
 """QC verification of the Regression sheet's spec block and constructor path.
 
-The spec-block changeover moved the declarative spec block onto the Regression
-sheet, and the Model Construction sheet (with its dedicated verifier, now
-``analyze_model_construction`` reading the Regression sheet) was retired at
-v2.0. The six regression QC configurations that run beside this one only
-exercise all-continuous designs — every config switches the shipped spec's
-Categorical predictors OFF — so without this module nothing would check the
-shipped workbook's own spec against an independent expectation at all.
+The declarative spec block lives on the Regression sheet, and
+``analyze_model_construction`` (pure Python, sheet-agnostic) supplies the
+expectation side. The six regression QC configurations that run beside this
+one only exercise all-continuous designs — every config switches the
+shipped spec's Categorical predictors OFF — so without this module nothing
+would check the shipped workbook's own spec against an independent
+expectation at all.
 
-This is the historical Model Construction verifier ported to the Regression
-sheet. The expectation side is reused verbatim (``analyze_model_construction``'s
+The expectation side is reused verbatim (``analyze_model_construction``'s
 calculator is pure Python and sheet-agnostic), and the spec block occupies
-identical coordinates on both sheets (columns A–O; intercept row 2, headers
-row 3, the spec data rows below that — the writers are shared), so the
-Levels / Reference In Use reads port unchanged. Only the assertions against
-the Regression sheet's display zones are retained:
+fixed coordinates on the Regression sheet (columns A–O; intercept row 2,
+headers row 3, the spec data rows below that — the writers are shared), so
+the Levels / Reference In Use reads port unchanged. Only the assertions
+against the Regression sheet's display zones are retained:
 
     MC audit k / twin tripwire   → S3 constructed-names spill width, and the
                                    AA21 coefficient-label spill (k+1 rows with
@@ -37,23 +36,17 @@ closures behind them are pinned by the unit suite.
 **This verifier checks whatever the workbook actually ships.** It resolves the
 dataset by reading the live ``Source_Table`` name off the Regression sheet and
 matching it to a registered profile, then builds its expectations from that
-profile. It used to hardcode Auto MPG, which was correct only while Auto MPG
-was the sole possible default: ``build_production.py --regression-dataset``
-made the shipped default a build-time CHOICE, and when the shipped workbook
-flipped to the curated Life Expectancy model every single assertion here
-compared the wrong dataset (`expected='MPG'`, `excel_calc='Life expectancy'`,
-and so on down). Deriving the dataset from the artifact is what makes that
-unrepresentable rather than merely fixed.
+profile. The shipped default is a build-time choice
+(``build_production.py --regression-dataset``), so a verifier that hardcoded
+one dataset would compare the wrong one whenever the default flipped;
+deriving the dataset from the artifact makes that unrepresentable.
 
-**The categorical corners moved to the test-model suite.** This module used to
-carry a second pass — an ``Is_USA`` Filter column added to the Auto MPG table
-to collapse ``Origin`` to one level and assert the degenerate skip — and its
-first pass leaned on Auto MPG's two multi-level categoricals (Model Year 13,
-Origin 3). Neither belongs to a verifier whose job is the SHIPPED artifact:
-they describe a configuration the shipped workbook is no longer in, and
-reproducing them here would mean retargeting ``Source_Table`` on the
-production sheet mid-verify. They are covered on their own sheets by
-``build_test_models.py --verify``:
+**The categorical corners live in the test-model suite.** This verifier's
+job is the SHIPPED artifact, so it carries no synthetic filter column and
+no extra categorical pass: those describe configurations the shipped
+workbook is not in, and reproducing them here would mean retargeting
+``Source_Table`` on the production sheet mid-verify. They are covered on
+their own sheets by ``build_test_models.py --verify``:
 
     multi-level dummies, level-qualified names   M01, M09, M14, M14b
     degenerate Categorical via a Filter column   M15
@@ -191,9 +184,10 @@ def read_observed_spec_values(
 
     ``variables`` is the resolved dataset's column list, in spec-block row
     order, and it is a PARAMETER for the same reason the expectations are:
-    the Levels and Reference In Use cells are read POSITIONALLY, so iterating
-    a hardcoded Auto MPG list against a Life Expectancy block read the wrong
-    rows and reported every categorical display as ``None``.
+    the Levels and Reference In Use cells are read POSITIONALLY, so the
+    column list must match the resolved dataset — iterating a list for the
+    wrong dataset would read the wrong rows and report every categorical
+    display as ``None``.
     """
     names = _read_column(
         sheet, _C_S, _ROW_NAMES_SPILL, k_bound + _READ_MARGIN

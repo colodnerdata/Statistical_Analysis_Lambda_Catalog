@@ -59,20 +59,19 @@ Notation: `C(x)` = Categorical, `Ln(x)` = `Transform = Log`, `| G` = Fixed Effec
 
 **Auto MPG carries no Sequence axis, and no case here may add one.** The
 dataset is cross-sectional: each row is a distinct car model observed once,
-with no unit repeated across periods. `Model Year` used to be flagged
-`Sequence = TRUE` in the shipped T0 spec, and every case built on that spec
-inherited it — which asserted panel structure the data does not have, and
-bought a Base Period Δ candidate nobody can interpret plus a Durbin-Watson
-computed over an arbitrary row order. (The shipped Identifier, `Car Name`, is
-very nearly unique, so `Sequence_Deltas` finds no within-group consecutive
-pairs and the spacing verdict is blank regardless.)
-`_DEFAULT_SEQUENCE_VARIABLES` is now empty and the flag is gone from every
-Auto MPG case except **G3** and **M16**, which test the flag's *mechanics* —
-the H2 cardinality rule counts flags, and the typed-override path reads the
-flagged row positionally; both are dataset-independent and need a flag
-present to be reachable at all. The Sequence layer's substantive coverage
-lives on the two datasets that are real panels: Production Lots
-(`Fiscal_Year`, §1.3) and Life Expectancy (`Year`, §1.2).
+with no unit repeated across periods. Flagging `Model Year` `Sequence = TRUE`
+would assert panel structure the data does not have, and buy a Base Period Δ
+candidate nobody can interpret plus a Durbin-Watson computed over an arbitrary
+row order. (The shipped Identifier, `Car Name`, is very nearly unique, so
+`Sequence_Deltas` finds no within-group consecutive pairs and the spacing
+verdict is blank regardless.) `_DEFAULT_SEQUENCE_VARIABLES` is empty and the
+flag is gone from every Auto MPG case except **G3** and **M16**, which test
+the flag's *mechanics* — the H2 cardinality rule counts flags, and the
+typed-override path reads the flagged row positionally; both are
+dataset-independent and need a flag present to be reachable at all. The
+Sequence layer's substantive coverage lives on the two datasets that are
+real panels: Production Lots (`Fiscal_Year`, §1.3) and Life Expectancy
+(`Year`, §1.2).
 `test_sequence_is_flagged_only_on_datasets_that_have_an_ordering_axis` and
 `test_only_the_two_mechanics_cases_flag_sequence_on_auto_mpg` pin both halves.
 
@@ -238,12 +237,14 @@ profile (12 columns) and then points `Source_Table` at `LifeExpectancyData`
 (23), which is what a user does by hand from the Name Manager — the one-name
 edit the Instructions sheet promises.
 
-Before the spec block was made table-free this state produced `#REF!` through
-the entire engine. The `Spec_*` bands were structured references into a
-`SpecTable` ListObject sized at build time; a 12-row band under a 23-column
-table meant `TAKE` returned 12 rows (it does not pad) and `INDEX(rl, 23)` ran
-off the end. Excel cannot resize a ListObject from a formula and the workbook is
-macro-free, so the table was removed and the block now sizes itself.
+The spec block sizes itself from `COLUMNS(Source_Data)`, so this retarget
+resizes the block from 12 columns to 23: the `Spec_*` bands are
+`TAKE(..., COLUMNS(Source_Data))` and the computed columns are single spills
+over `SEQUENCE(nc)`, which read whatever `Source_Table` points at. A fixed
+`ListObject` pinned to the build-time dataset could not track a retarget —
+`TAKE` does not pad, so a 12-row band under a 23-column table would return 12
+rows and `INDEX(rl, 23)` would run off the end — which is why the block is
+table-free (see CLAUDE.md → *The spec block has no fixed height*).
 
 The case earns its sheet by where its evidence sits, not by the model it fits:
 `Schooling` contributes design columns from spec index 21 — sheet row 25, ten
@@ -359,17 +360,10 @@ unit test rather than partway through a multi-minute Excel build:
 | 1–31 chars, none of `[ ] : * ? / \`, no leading/trailing apostrophe or space, not `History` | `validate_sheet_name` |
 | `<PlanID> <Concept>`, plan ID matching `[MLPG]\d\d[a-z]?` | `validate_sheet_name` |
 | Unique across model **and** guard cases, case-insensitively | `assert_sheet_names_unique` |
-| One `SpecTable_<PlanID>` ListObject per sheet | `spec_table_name` |
-
-That last row is not a style choice. Excel ListObject names are **workbook**-scoped,
-so a second sheet naming its table `SpecTable` is an error from `ListObjects.Add`,
-not a silent rename — `spec_table_name` is threaded through `_write_spec_block` →
-`_create_spec_table` and `_set_sheet_scoped_names` so the table and the `Spec_*`
-band names that bind to it can never disagree.
 
 **What the writer reuses.** Nothing reimplements the Regression sheet.
-`write_regression_output_sheet` gained three defaulted parameters — `sheet_name`,
-`include_charts`, `spec_table_name` — so the production build is unchanged, and
+`write_regression_output_sheet` gained two defaulted parameters — `sheet_name`,
+`include_charts` — so the production build is unchanged, and
 `lambda_catalog/write_sheet_test_model.py` calls it with a per-case identity. The
 spec is then applied through `lambda_catalog/regression_spec_sheet_io.py`, which
 is also what the legacy single-sheet verifier uses: if the builder and the verifier

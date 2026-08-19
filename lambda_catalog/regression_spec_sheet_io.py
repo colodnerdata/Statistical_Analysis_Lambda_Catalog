@@ -11,12 +11,11 @@ so that the three things that now need them cannot drift apart:
 * ``tools/inspect_test_model_sheets.py`` — the test-model verifier, which
   reads those sheets back and writes nothing at all.
 
-The write half and the read half used to be private functions inside the
-inspector. A second copy of either is exactly the drift this repo's
-one-source-of-truth rule exists to prevent: a builder that writes the spec
-one way and a verifier that reads it another would disagree about what a
-case *is*, and the disagreement would surface as a QC failure blamed on the
-workbook.
+The write half and the read half live in this one module. A second copy of
+either is exactly the drift this repo's one-source-of-truth rule exists to
+prevent: a builder that writes the spec one way and a verifier that reads
+it another would disagree about what a case *is*, and the disagreement
+would surface as a QC failure blamed on the workbook.
 
 Every cell address here is imported from the sheet writers, never spelled
 out — the same rule ``tools/inspect_regression_sheet.py`` and
@@ -515,9 +514,8 @@ def read_case_comparison_rows(
     ]
 
     # ── v3.3 unit-space block (AH5:AH8) ─────────────────────────────────
-    # Never previously compared cell-for-cell by this harness even though
-    # the oracle has carried the numbers since v3.3; the Back-Transform
-    # toggle (L02 vs L03) is only meaningful if these four are read.
+    # Compared cell-for-cell here: the Back-Transform toggle (L02 vs L03)
+    # is only meaningful if these four are read.
     unit = results.unit_space
     for stat_name, expected_value, row in (
         ("Smearing_Factor", unit.smearing_factor, 5),
@@ -695,8 +693,8 @@ def read_model_formula(sheet: xw.Sheet) -> object:
     """The Model Formula readout, as written text.
 
     It sits on row 1 of the §4b band's terminal Constructed Design Matrix
-    zone, right of that zone's heading (it used to be AB2); the coordinates
-    come from the layout constants, so a future move needs no edit here.
+    zone, right of that zone's heading; the coordinates come from the
+    layout constants, so a future move needs no edit here.
     """
     return sheet.range(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA).value
 

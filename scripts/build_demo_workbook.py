@@ -1,8 +1,8 @@
 """Build presentations/Lambda_Library_Regression_Demo.xlsx — one sheet per talk beat.
 
-A fourth build target, alongside ``build_production.py`` (the shipped
-Regression artifact), ``build_univariate.py`` (the Univariate artifact), and
-``build_test_models.py`` (the QC fixture). This one is a **presentation
+A build target alongside ``build_production.py`` (the shipped
+Regression artifact) and ``build_test_models.py`` (the QC fixture). This one
+is a **presentation
 handout**: the workbook a speaker opens on stage so the audience can follow
 the talk's regression beats live. Both decks headline the same four-driver
 Life Expectancy model (slide 19's coefficient table), so the demo opens on

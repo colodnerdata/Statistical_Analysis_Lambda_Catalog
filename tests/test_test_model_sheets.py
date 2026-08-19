@@ -9,8 +9,8 @@ Three things this covers, none of which needs Excel:
    case, and no plan ID is claimed twice.
 3. The writer's per-sheet parameterization — a generated sheet must point its
    chart-label formulas at itself and skip charts, and its spec block must
-   size itself from the source table rather than from a ListObject built at
-   the wrong width.
+   size itself from the source table rather than bake a fixed width in at
+   build time.
 """
 # pylint: disable=missing-function-docstring
 from __future__ import annotations
@@ -287,10 +287,10 @@ def test_only_cases_that_need_a_period_declare_one() -> None:
 
 
 def test_the_spec_block_creates_no_list_object() -> None:
-    """The block used to build a SpecTable ListObject sized to the profile,
-    which pinned it to the build-time dataset. It must not come back: a
-    ListObject cannot be resized by a formula, and a spill cannot live
-    inside one, so its return would silently re-break the retarget."""
+    """The block must not create a ListObject. A ListObject sized to the
+    profile would pin the block to the build-time dataset, and a ListObject
+    cannot be resized by a formula while a spill cannot live inside one —
+    so its return would silently re-break the retarget."""
     from lambda_catalog.write_spec_block import _write_spec_block
 
     sheet = RecordingSheet(name="M05 Log-Log NA Masking")

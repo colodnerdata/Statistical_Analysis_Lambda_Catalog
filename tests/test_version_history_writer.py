@@ -62,11 +62,8 @@ def _version_rows(sheet: _VHSheet) -> list[str]:
 def test_the_writer_takes_no_artifact_selector(stub_helpers) -> None:
     """One workbook, one lineage — there is no second changelog to select.
 
-    The writer used to take ``artifact="regression"|"univariate"``, one lineage
-    per v3.0 artifact. The reunification left the Univariate branch unreachable
-    (no build passed the argument, and the artifact it described was deleted),
-    so the parameter went with the lineage. Pinned because the failure mode of
-    reintroducing it is silent: a second changelog nothing publishes.
+    Pinned because the failure mode of reintroducing an ``artifact`` selector
+    is silent: a second changelog nothing publishes.
     """
     import inspect
 

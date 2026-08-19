@@ -954,11 +954,10 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     # another changed is the "silently switch" behaviour the spec block
     # exists to avoid — so it says so instead.
     _set_note(sheet, 17, _C_AJ, _PREDICTION_INPUT_NOTE, label="Predictor")
-    # Unit-Space Fit (AG4). The Duan/Naive caveat, on the control it
-    # describes rather than as a merged text row at the foot of the
-    # Prediction Outputs zone where it used to sit. Here with every other
-    # note for the reason stated above: AddComment is COM-only, so keeping
-    # it out of _write_unit_space_block keeps that writer headless-testable.
+    # Unit-Space Fit (AG4). The Duan/Naive caveat sits on the control it
+    # describes, here with every other note for the reason stated above:
+    # AddComment is COM-only, so keeping it out of _write_unit_space_block
+    # keeps that writer headless-testable.
     _set_note(sheet, 4, _C_AG, _BACK_TRANSFORM_NOTE, label="Back-Transform")
 
 
@@ -996,10 +995,8 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
 
     O1 sits directly above the per-row Design Columns audit it totals, so the
     number and its breakdown read as one column, and O2 sits directly under the
-    number it is a verdict on. The status used to be at M2, above Interaction
-    Term — a column with nothing to do with design-matrix width — and relied on
-    N2/O2 as overflow space. It is now in its own column like every other status
-    in this band; the runway it lost is made up by P2/Q2, which the Δ spectrum
+    number it is a verdict on. The status lives in its own column like every
+    other status in this band; its runway is P2/Q2, which the Δ spectrum
     vacated when it moved down to align with the spec block's own rows.
 
     Both thresholds are read from the SPEC, never from
@@ -1106,11 +1103,11 @@ def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
     # Derived response name — the header of the Role=Response spec row.
     f(sheet, 2, _C_AF, f"={_RESPONSE_NAME_FORMULA}")
 
-    # The Model Formula readout used to sit here (AA2 label, AB2 string). It
-    # is a caption rather than a headline statistic, and a long string in this
-    # zone's row 2 — which wraps and AutoFits — set the height of the whole
-    # header row, so it moved to row 1 of the §4b band's design-matrix zone.
-    # See _ROW_MODEL_FORMULA / _write_materialization_zone.
+    # The Model Formula readout lives at row 1 of the §4b band's design-matrix
+    # zone (see _ROW_MODEL_FORMULA / _write_materialization_zone), not in this
+    # zone's row 2. It is a caption rather than a headline statistic, and a
+    # long string in row 2 — which wraps and AutoFits — would set the height
+    # of the whole header row.
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
@@ -1664,25 +1661,24 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     sheet.range(rc(13, _C_AK), rc(13, _C_AK)).number_format = "0.0000"
     sheet.range(rc(14, _C_AK), rc(14, _C_AK)).number_format = "0"
 
-    # The Duan/Naive caveat used to be a merged text row here (AJ15:AL15).
-    # It now lives as a note on the Back-Transform label at AG4 — see
-    # _BACK_TRANSFORM_NOTE. It documents the toggle, so it belongs on the
-    # toggle: three zones away and below the interval it qualified, it read
-    # as a footnote to the prediction block rather than as an explanation of
-    # the control that causes the behaviour. Moving it also frees row 15 and
-    # lets this box close on the last cell that actually holds a value.
+    # The Duan/Naive caveat lives as a note on the Back-Transform label at AG4
+    # — see _BACK_TRANSFORM_NOTE. It documents the toggle, so it belongs on
+    # the toggle: parked three zones away and below the interval it qualified,
+    # it would read as a footnote to the prediction block rather than as an
+    # explanation of the control that causes the behaviour. Keeping it off
+    # row 15 frees the row and lets this box close on the last cell that
+    # actually holds a value.
     border_box(sheet, 1, _C_AJ, 14, _C_AL)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     """Zone AJ16+: one prediction-input row per constructed column.
 
-    No Intercept row here (unlike the pre-v2.1 layout): Group_Prediction_Interval's
-    pred_input is exactly COLUMNS(Predictor_Columns()) raw predictor values with no
-    intercept slot — group-mean recovery never uses one (the selected
-    group's own mean plays that role) — so the row that used to hold it
-    would be actively misleading now. Row 18 is a blank spacer between the
-    headers and the first predictor row.
+    No Intercept row here: Group_Prediction_Interval's pred_input is exactly
+    COLUMNS(Predictor_Columns()) raw predictor values with no intercept slot
+    — group-mean recovery never uses one (the selected group's own mean plays
+    that role) — so an intercept row would be actively misleading. Row 18 is
+    a blank spacer between the headers and the first predictor row.
     """
     section_heading(sheet, 16, _C_AJ, "PREDICTION INPUTS")
     val(sheet, 17, _C_AJ, "Predictor")
@@ -2006,13 +2002,10 @@ def write_regression_output_sheet(
     # constructor closures, so every one of those names has to exist before
     # they are written.
     #
-    # This order is the reverse of what it was through v3.3, when the block
-    # created a SpecTable ListObject that the Spec_* bands bound to via
-    # structured references and Excel validated at Names.Add time. The bands
-    # are dataset-sized dynamic ranges now (see _spec_band), which depend on
-    # no table, so nothing in the names needs the block to have run. The
-    # rest of the spec area (headers, feedback, intercept) still runs in
-    # _write_model_specification below.
+    # The bands are dataset-sized dynamic ranges (see _spec_band) that
+    # depend on no table, so nothing in the names needs the block to have
+    # run. The rest of the spec area (headers, feedback, intercept) still
+    # runs in _write_model_specification below.
     _setup_local_names(
         sheet,
         closures,

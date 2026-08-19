@@ -112,9 +112,9 @@ def _build_model_formula(
          &IF(<fe count>>0," | "&<fe name>,"")
 
     Three consequences of mirroring it literally rather than assembling
-    something equivalent-looking, each of which this function used to get
-    wrong (it was never string-compared against the live cell, so nothing
-    caught them):
+    something equivalent-looking, each a way a hand-built equivalent can
+    diverge from the cell (and the reason the assertion string-compares
+    against the live cell rather than an equivalent):
 
     * The intercept term is ``"0 + "`` when the intercept is OFF, not
       omitted — the sheet always writes one or the other.
@@ -361,17 +361,11 @@ def calculate_regression_results_from_matrix(
         # No Sequence axis declared, so AE11 reads "n/a — requires Sequence"
         # — the cell's FIRST gate, before the FE one above.
         #
-        # This used to compute DW over PHYSICAL ROW ORDER, and the bug was
-        # invisible while every Auto MPG case inherited a Sequence flag from
-        # the shipped T0 spec. Emptying _DEFAULT_SEQUENCE_VARIABLES (Auto MPG
-        # is cross-sectional) put all nineteen of them into this branch at
-        # once, and the verifier reported nineteen Durbin_Watson mismatches
-        # of a real number against a text cell.
-        #
-        # Differencing residuals in row order is not a weaker reading of the
-        # statistic, it is a different one: DW is only meaningful along a
-        # declared ordering, which is exactly why the sheet refuses to show
-        # one without a Sequence axis. The oracle now refuses too.
+        # The oracle returns NaN here, matching the sheet: differencing
+        # residuals in row order is not a weaker reading of the statistic,
+        # it is a different one. DW is only meaningful along a declared
+        # ordering, which is exactly why the sheet refuses to show one
+        # without a Sequence axis, so the oracle refuses too.
         durbin_watson = float("nan")
     else:
         order = np.argsort(np.asarray(sequence_values, dtype=np.float64), kind="stable")

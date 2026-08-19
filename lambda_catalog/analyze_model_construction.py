@@ -67,11 +67,10 @@ from .write_spec_block import (
     SpecDatasetProfile,
 )
 
-# The spec block has lived on the Regression sheet since the v2.0 release;
-# the standalone ``Model Construction`` sheet was dropped. The oracle is
-# still named ``analyze_model_construction`` for historical reasons (it is
-# the pure-Python half of the regression spec-block QC), but its reads
-# target the Regression sheet, the only place the spec block ships.
+# The spec block lives on the Regression sheet. The oracle is named
+# ``analyze_model_construction`` (it is the pure-Python half of the
+# regression spec-block QC), and its reads target the Regression sheet,
+# the only place the spec block ships.
 DEFAULT_INPUT_CSV = MILEAGE.default_csv_path
 DATA_SHEET_NAME = MILEAGE.sheet_name
 SPEC_BLOCK_SHEET_NAME = REGRESSION_SHEET_NAME
@@ -128,10 +127,10 @@ def build_profile_spec(profile: SpecDatasetProfile) -> list[SpecVariable]:
 
     Derived from the profile the sheet writer pre-fills from, so the
     expectation side can never drift from what the build wrote. The
-    dataset-agnostic half of ``build_default_spec`` — factored out when the
-    shipped Regression default became a build-time CHOICE
-    (``--regression-dataset``) rather than a constant, so a verifier can
-    describe whichever dataset the workbook in front of it actually targets.
+    dataset-agnostic half of ``build_default_spec`` — factored out so a
+    verifier can describe whichever dataset the workbook in front of it
+    actually targets (the shipped Regression default is a build-time choice
+    via ``--regression-dataset``).
     """
     spec: list[SpecVariable] = []
     for variable in profile.variables:
@@ -295,11 +294,10 @@ def level_sort_key(value: object) -> tuple[bool, object]:
     predictor that difference shifts the WHOLE dummy block by one position:
     every column keeps a valid name and a valid 0/1 pattern, so nothing
     errors — the columns are just paired with the wrong headers, and every
-    per-predictor statistic reads off by one. It went unnoticed until a QC
-    case first used a column with non-ASCII levels.
+    per-predictor statistic reads off by one.
 
-    The fix strips combining marks (NFD, drop category Mn) and casefolds,
-    which reproduces the locale order for Latin scripts. It is an
+    ``level_sort_key`` strips combining marks (NFD, drop category Mn) and
+    casefolds, which reproduces the locale order for Latin scripts. It is an
     APPROXIMATION, not a guarantee: real ICU/Windows collation also has
     per-locale rules this does not model (Scandinavian ``å`` sorting after
     ``z``, Hungarian digraphs, non-Latin scripts). Exact parity would need

@@ -81,12 +81,9 @@ from tests.recording_sheet import RecordingSheet
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 
-# Local label for the ``RecordingSheet`` instances below — historically
-# this module targeted a standalone "Model Construction" sheet; the sheet
-# was dropped at v2.0 (the spec block now lives on the Regression sheet),
-# and the ``SHEET_NAME`` constant that used to live in
-# ``write_sheet_model_construction.py`` went with it. The label survives
-# here only as a string the tests build ``RecordingSheet`` mocks with.
+# Local label for the ``RecordingSheet`` instances the tests build mocks
+# with. The spec block lives on the Regression sheet; this constant is only
+# a sheet name the mocks need, not a reference to a shipped sheet.
 SHEET_NAME = "Model Construction"
 
 _EXPECTED_NAME_ORDER = [
@@ -144,8 +141,8 @@ def _as_xw_sheet(sheet: RecordingSheet) -> xw.Sheet:
 def _model_construction_closures():
     """The sheet-scoped constructor functions as a standalone rebuild installs them.
 
-    The closures moved to scope "Regression" with the v2.0 release; this
-    module keeps installing the same set when its sheet is rebuilt standalone.
+    The closures are sheet-scoped to "Regression"; this module installs the
+    same set when its sheet is rebuilt standalone.
     """
     document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
     return document.functions_for_sheet(_CLOSURE_SCOPE)
@@ -166,18 +163,17 @@ _LAMBDA_CLOSE = "\n)"
 
 
 def _catalog_body(name: str) -> str:
-    """One status LAMBDA's body, as the cell formula it replaced.
+    """One status LAMBDA's body, as the cell formula now reads it.
 
-    Part 6.2 moved the row-2 status logic out of Python and into
-    lambda_functions.json, so the assertions that used to read a module
-    constant read the shipped catalog body instead. No import can reach a JSON
-    string literal, which is exactly why these assertions have to stay: they
-    are the only thing standing between a message edit and a silently changed
-    verdict on the sheet.
+    The row-2 status logic lives in lambda_functions.json, so these
+    assertions read the shipped catalog body. No import can reach a JSON
+    string literal, which is exactly why these assertions have to stay:
+    they are the only thing standing between a message edit and a silently
+    changed verdict on the sheet.
 
-    The zero-argument wrapper is stripped rather than the whole display string
-    being compared, so what comes back is character-for-character the formula
-    the cell used to hold — which keeps these assertions readable AND exact.
+    The zero-argument wrapper is stripped rather than the whole display
+    string being compared, so what comes back is character-for-character the
+    catalog body — which keeps these assertions readable AND exact.
     Compacting whitespace instead would have been the easy way and the wrong
     one: these bodies carry message strings with meaningful spaces.
     """
@@ -220,9 +216,9 @@ def test_both_writers_register_names_before_the_spec_block() -> None:
     bands, Source_Data, Header_Names and the constructor closures, so every
     one of those names has to exist first.
 
-    This inverted in v3.4: the bands used to be structured references into a
-    ListObject the block created, which Excel validated at Names.Add time, so
-    the block had to go first. Getting it backwards does not raise — the
+    The bands are TAKE-trimmed spills, not structured references into a
+    ListObject, so Excel validates nothing at Names.Add time and the names
+    must be registered first. Getting it backwards does not raise — the
     spills just parse against names that do not exist yet and sit at #NAME?
     until something re-registers them — which is exactly why it is pinned
     here rather than left to the build to reveal.
@@ -282,11 +278,10 @@ def test_spec_ranges_cover_the_standard_input_band() -> None:
 
     # Each Spec_* band is its column's full input range TAKE-trimmed to the
     # live source-table width, so a Source_Table retarget resizes every band
-    # with it. These used to be structured references into the SpecTable
-    # ListObject, which pinned them to the row count baked in at build time.
-    # The band's ceiling is the same _VALIDATION_LAST_ROW the dropdowns and
-    # the conditional formatting already use — one ceiling, so they cannot
-    # disagree about how far the block can grow.
+    # with it — a fixed-width reference would pin them to the row count baked
+    # in at build time. The band's ceiling is the same _VALIDATION_LAST_ROW
+    # the dropdowns and the conditional formatting already use — one ceiling,
+    # so they cannot disagree about how far the block can grow.
     for name, column in (
         ("Spec_Role", "B"),
         ("Spec_Include", "C"),
@@ -680,11 +675,9 @@ def test_sequence_period_name_is_read_only_by_the_base_period_layer() -> None:
     ]
     # Exactly one, and it is the Period In Use spill. That display reads the
     # typed override to decide whether to show it in place of the computed
-    # candidate; it used to reach the same cell through a
-    # [@[Sequence Period]] structured reference, so the band name did not
-    # appear in any formula. With the block table-free it goes through the
-    # band, which is why it shows up here. It is a DISPLAY, not a
-    # constructor — a second reader, or one that does not consult the
+    # candidate; it reaches the same cell through the band name (no
+    # structured reference — the block is table-free). It is a DISPLAY, not
+    # a constructor — a second reader, or one that does not consult the
     # candidate, is the regression this test exists to catch.
     assert len(formula_readers) == 1, formula_readers
     assert "Base_Period_Delta_Candidate()" in formula_readers[0]
@@ -768,8 +761,8 @@ def test_spec_block_prefills_the_t0_default_configuration() -> None:
         assert sheet.cell(row, 3).value is True
         assert sheet.cell(row, 4).value == "Categorical"
     # No column is Sequence-flagged. Auto MPG is cross-sectional, so the
-    # shipped profile declares no ordering axis — column H is blank on every
-    # row, including Model Year, which used to carry it.
+    # shipped profile declares no ordering axis — column H is blank on
+    # every row, including Model Year.
     for variable in by_variable:
         assert sheet.cell(by_variable[variable], _C_SEQUENCE).value is None
 
@@ -792,8 +785,8 @@ def test_the_four_computed_columns_are_one_spill_each() -> None:
         assert formula is not None, col
         assert formula.startswith("=LET(nc,COLUMNS(Source_Data),"), col
         assert "MAP(SEQUENCE(nc),LAMBDA(i," in formula, col
-        # No structured reference may survive — they only resolve inside a
-        # ListObject, which the block no longer creates.
+        # No structured reference may survive — the block is table-free, so
+        # one would never resolve.
         assert "[@" not in formula, col
         # Nor may the old row-arithmetic: the spill's position must not
         # determine which source column a row maps to.
@@ -1288,9 +1281,8 @@ def test_every_status_line_sits_in_the_spec_column_it_is_about() -> None:
         # ...and carries the long form as a hover note.
         assert sheet.cell(_FEEDBACK_STATUS_ROW, col).api.Comment.Text, col
 
-    # The cells the statuses used to occupy are now empty. E1 in particular:
-    # it held a duplicate of the H2 Sequence error for as long as H2's writer
-    # was dead code.
+    # The status cells that do not own a column are empty. E1 in particular
+    # carries no Sequence status — H2 is the single home for it.
     for row, col in ((1, _C_ROLE), (1, _C_REFERENCE), (2, _C_LABEL)):
         assert sheet.cell(row, col).value is None, (row, col)
         assert sheet.cell(row, col).api.Formula2 is None, (row, col)
@@ -1412,9 +1404,9 @@ def test_sequence_status_line_validates_zero_or_one_flags() -> None:
 def test_fixed_effects_status_block_shows_variable_groups_and_absorbed_df() -> None:
     """J1:L2 — labels over values, and both disappear when there is no FE row.
 
-    The values used to render the literal string "n/a" three times on every
-    non-panel model. They now return "" and the labels white-out with them, so
-    an inactive block leaves no trace instead of three cells of filler.
+    The values return "" (not a literal "n/a") and the labels white out
+    with them, so an inactive block leaves no trace instead of three cells
+    of filler.
     """
     sheet = _feedback_sheet()
 
@@ -1545,8 +1537,7 @@ def test_intercept_control_is_a_toggle_with_coupling_cf() -> None:
     _write_intercept_control(_as_xw_sheet(sheet))
 
     # C1 label (bold), C2 toggle prefilled TRUE with input styling. The label
-    # sits directly above the cell it names — it used to be at A2, two columns
-    # left of the toggle with a blank cell between them.
+    # sits directly above the cell it names.
     assert sheet.cell(_FEEDBACK_LABEL_ROW, _C_INCLUDE).value == "Intercept"
     assert sheet.cell(_FEEDBACK_LABEL_ROW, _C_INCLUDE).api.Font.Bold is True
     assert sheet.cell(_INTERCEPT_ROW, _C_LABEL).value is None

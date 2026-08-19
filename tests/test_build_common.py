@@ -1,10 +1,8 @@
 """Tests for the shared build scaffolding (lambda_catalog.build_common).
 
-These helpers were extracted from build_production.py when the project split
-into two build scripts (build_production.py for the Regression workbook,
-build_univariate.py for the standalone Univariate workbook). They live in
-lambda_catalog.build_common so both driver scripts stay thin and share the
-Excel-open retry handling and the "open headless Excel, run
+These helpers live in lambda_catalog.build_common so the build driver scripts
+(build_production.py, build_test_models.py, build_demo_workbook.py) stay thin
+and share the Excel-open retry handling and the "open headless Excel, run
 CalculateFullRebuild, save under a chosen calculation mode" recalc step
 without duplicating it.
 """

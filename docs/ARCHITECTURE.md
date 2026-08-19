@@ -26,9 +26,10 @@ the sheet as it is, not as it is planned. Where a §4a example shows a
 sheet-scoped reader `Fit_Context()`; a free-form caller outside the sheet passes
 the workbook-scoped constructor `Model_Context()`. One thing in §4b is still
 forward-looking and is marked where it appears: the `Sample_Include` and
-Constructed Design Matrix zones are now filled, but their spills are only
-*displayed* — both closures are still evaluated per call site, and promoting
-either to a thunk over its spill is Excel-verified work that lands separately.
+Constructed Design Matrix zones are now filled; the Regression Statistics zone
+reads them via `Fit_Design_Columns()` / `Fit_Sample_Include()`, but the
+remaining zones still call the live closures, and promoting either to a thunk
+over its spill is Excel-verified work that lands separately.
 
 ---
 
@@ -379,13 +380,11 @@ to reach outside a pre-applied range to find the rows it just brought into
 play. Every row a wider dataset reveals is already covered by dropdowns,
 hide-in-place relevance and error flags, with zero Python rebuild.
 
-The block used to be a real Excel Table (`SpecTable`), and the same widened
-ranges served a different mechanism: typing into the row below its bottom
-edge auto-extended the ListObject, carrying the structured `Spec_*` names
-and the J/K/L calculated-column formulas with it. That only ever worked
-when the *user* typed. A retarget alone left the block at its build-time
-height, which is why the table was replaced by self-sizing bands and spills
-— see CLAUDE.md → *The spec block has no fixed height*.
+The block is self-sizing bands and spills, not a fixed Excel Table, so a
+retarget resizes it rather than leaving it at its build-time height. A
+table-based block would grow only when the *user* typed into the row below
+its bottom edge — a retarget alone left it short — which is why the block is
+table-free (see CLAUDE.md → *The spec block has no fixed height*).
 
 ### Display derives, never feeds
 
@@ -681,11 +680,14 @@ displaced by an ordinary modeling choice.
   already existed. `Sample_Include()` and `Design_Columns()` now spill into
   their zones — each headed on row 2 and spilling from row 3, full height and
   row-aligned with the source table — but they are still **live closures
-  evaluated per call site**. Nothing on the sheet reads either spill. Promoting
-  either to a thunk over its own spill needs the dynamic-array spill operator
-  (`#`) inside a `LAMBDA` defined-name `Refers To`, a combination used nowhere
-  else in this workbook and verifiable only with Excel present, so it lands
-  separately and Excel-verified rather than blind.
+  evaluated per call site** everywhere except the Regression Statistics zone,
+  which reads the spills via `Fit_Design_Columns()` / `Fit_Sample_Include()`
+  (rows 4–8). That zone is the first fully migrated; the remaining zones still
+  call the constructors directly, and the migration proceeds zone by zone.
+  Promoting either to a thunk over its own spill needs the dynamic-array spill
+  operator (`#`) inside a `LAMBDA` defined-name `Refers To`, a combination used
+  nowhere else in this workbook and verifiable only with Excel present, so it
+  lands separately and Excel-verified rather than blind.
 
 - **The design matrix's header row is split across two cells.**
   `Design_Columns()` is one column wider than `Constructed_Column_Names()`

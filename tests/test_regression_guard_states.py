@@ -439,11 +439,11 @@ def test_retarget_case_puts_its_evidence_past_the_narrow_shells_last_row() -> No
     Source_Table in the Name Manager.
 
     The case is only worth its sheet if its evidence lies BEYOND the row the
-    narrow shell used to end at. Before the block was made table-free, the
-    Spec_* bands were structured references into a ListObject sized at build
-    time; a band 12 rows tall under a 23-column table meant TAKE returned 12
-    rows (it does not pad) and INDEX(rl, 23) ran off the end, so the whole
-    engine read #REF!.
+    narrow shell ended at. The Spec_* bands are TAKE-trimmed spills, not
+    structured references into a fixed-width table; a fixed band 12 rows
+    tall under a 23-column table would return 12 rows (TAKE does not pad)
+    and INDEX(rl, 23) would run off the end, so the whole engine would read
+    #REF!.
 
     So this pins the two things that make the case a detector rather than
     just another Life Expectancy fit: the audit is 23 long, and a predictor

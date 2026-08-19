@@ -162,12 +162,12 @@ def _write_materialization_zone(
 
     The block is written as ONE CELL PER ELEMENT, each with its own label in
     the column to its left, and boxed — it is a fixed-size table, not a data
-    range. It used to be a single ``VSTACK`` spill, which bought nothing (the
-    height is a build-time constant) and cost correctness: a spill is one
-    dependency node that Excel vacates and re-spills whenever the spec block
-    changes, and while it is vacated the range behind ``Fit_Context`` is
-    transiently blank, so every engine reading it sees a torn context. Four
-    independent cells recalculate independently and are never vacated.
+    range. A single spill would buy nothing (the height is a build-time
+    constant) and would cost correctness: a spill is one dependency node that
+    Excel vacates and re-spills whenever the spec block changes, and while it
+    is vacated the range behind ``Fit_Context`` is transiently blank, so
+    every engine reading it sees a torn context. Independent cells
+    recalculate independently and are never vacated.
 
     Elements 3-4 (Response_Transform, Predictor_Transform) are populated from
     the spec block now but have no engine reader until the v3.3 unit-space
@@ -258,9 +258,8 @@ def _write_materialization_zone(
     # _MODEL_CONTEXT_LAST_ROW; the sheet-scoped reader Fit_Context reads that
     # fixed range (no spill operator — the height is a structural constant, so
     # a fixed range is exact and avoids the dynamic-array-in-a-name question
-    # entirely). Drop both the legacy "Model_Context" sheet name (left by a
-    # pre-split build) and any stale "Fit_Context" before re-adding, so a
-    # rebuild never leaves a shadow.
+    # entirely). Drop any stale "Model_Context" or "Fit_Context" name before
+    # re-adding, so a rebuild never leaves a shadow.
     ctx_ref = (
         f"{quoted_sheet_name(sname)}!${ctx_col}${_MATERIALIZATION_FIRST_ROW}"
         f":${ctx_col}${_MODEL_CONTEXT_LAST_ROW}"
@@ -340,11 +339,11 @@ def _write_materialization_zone(
     # The zone that terminates the band. Its width is unbounded and one
     # dropdown away — Country as a Categorical Predictor is 156 columns, and
     # interactions multiply — which is why nothing may ever be placed to its
-    # right. It used to ship collapsed, on the grounds that an unbounded-width
-    # zone left open is a scrolling hazard; it no longer does. Hiding the
-    # columns a full-height spill occupies is what leaves Design_Columns()
-    # stale on recalculation, so every engine reading the matrix fits on old
-    # values. The zone stays expanded and the scrolling stays.
+    # right. The zone ships expanded, not collapsed: an unbounded-width zone
+    # left open is a scrolling hazard, but hiding the columns a full-height
+    # spill occupies leaves Design_Columns() stale on recalculation, so every
+    # engine reading the matrix would fit on old values. The scrolling is the
+    # accepted cost; the zone stays expanded.
     #
     # Establishing the zone and MATERIALIZING into it were deliberately
     # separate steps: the position and the width guard that reads the spec's

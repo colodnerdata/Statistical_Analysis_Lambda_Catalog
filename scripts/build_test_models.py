@@ -1,8 +1,7 @@
 """Build Lambda_Library_TestModels.xlsx — one worksheet per test-model case.
 
-A third build target, alongside ``build_production.py`` (the Regression
-artifact) and ``build_univariate.py`` (the Univariate artifact). Unlike
-those two this one is **not shipped**: it is a QC fixture, gitignored like
+A build target alongside ``build_production.py`` (the Regression
+artifact). Unlike that one this is **not shipped**: it is a QC fixture, gitignored like
 ``Lambda_Library_TestModels.xlsx``, and its only audience is whoever is changing the
 spec block or the engine.
 
@@ -313,7 +312,7 @@ def build_test_models_workbook(
         # The first session writes every case sheet under XL_CALCULATION_MANUAL
         # so the spec-block writes don't trigger a recalc mid-build, then saves
         # the workbook. Wrapped in _retry_on_open for the same reason as
-        # build_production.py / build_univariate.py: a workbook left open in
+        # build_production.py: a workbook left open in
         # Excel during an 80-minute run would otherwise abort the whole build
         # rather than prompting the user to close it and retrying.
         with xw.App(visible=False, add_book=False) as app:

@@ -6,11 +6,10 @@ template instead of re-running their COM writes on every build
 (see CONTRIBUTING.md -> "Static reference sheets"). Each sheet's authored
 content lives in its own module -- ``_ROWS`` in
 ``write_sheet_regression_instructions.py``, the body of
-``_write_template_sheet`` in ``write_sheet_diagnostic_guide.py`` -- and used
-to require running that module's own CLI separately per sheet. That made it
-easy to edit one sheet's content and forget the regenerate step entirely, or
-regenerate only one of two sheets that were edited together, silently
-shipping stale template text (see DECISIONS.md -> "Static template drift").
+``_write_template_sheet`` in ``write_sheet_diagnostic_guide.py``. Editing one sheet's content and
+forgetting the regenerate step -- or regenerating only one of two sheets
+edited together -- silently ships stale template text (see DECISIONS.md ->
+"Static template drift").
 
 This script opens the template once, rebuilds every static sheet from its
 current Python source, and saves once -- there is exactly one command to

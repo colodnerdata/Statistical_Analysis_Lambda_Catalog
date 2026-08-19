@@ -847,13 +847,13 @@ _IS_USA = ExtraSpecColumn(
 
 # ── Life Expectancy specs (docs/MODEL_TESTING_ASSETS.md § 1.2) ──────────────
 #
-# Until now not one regression QC case targeted this dataset, so three
-# things had no oracle anywhere: the (None, Mixed) and (Log, None) dispatch
-# pairs, transform behaviour at 2938-row scale, and — the reason the dataset
-# is in the plan at all — masking against genuinely heavy missingness
-# (Population 652 blanks, GDP 448, Alcohol 194, Schooling 163). Auto MPG's
-# 8-and-6 missing cells do not stress that; a model whose mask is the
-# intersection of four sparse columns does.
+# These cases give the Life Expectancy dataset a regression QC oracle for
+# three things that have none elsewhere: the (None, Mixed) and (Log, None)
+# dispatch pairs, transform behaviour at 2938-row scale, and — the reason
+# the dataset is in the plan at all — masking against genuinely heavy
+# missingness (Population 652 blanks, GDP 448, Alcohol 194, Schooling 163).
+# Auto MPG's 8-and-6 missing cells do not stress that; a model whose mask
+# is the intersection of four sparse columns does.
 #
 # Every spec below is built by _life_spec so the 23 rows stay in the
 # dataset's own column order (spec rows are positional, one per
@@ -1207,16 +1207,16 @@ def _production_lots_log_transform_spec() -> list[SpecVariable]:
 
     Sibling of _production_lots_fixed_effects_spec(), pointed at the RAW
     columns with transform="Log" instead of the precomputed "log Cum
-    Units" / "log Unit Cost" columns it uses — the acceptance test for the
-    v2.2 Transform=Log wiring on both a Predictor and the Response
-    simultaneously, composed with Fixed Effects. This is the textbook
-    Crawford/Wright learning-curve model (ln(unit cost) = a + b*ln(cum
-    units)). tests/test_transform_threading.py cross-checks this case
-    against the sibling above: the shipped "log Cum Units"/"log Unit
+    Units" / "log Unit Cost" columns the sibling uses — the acceptance
+    test for the v2.2 Transform=Log wiring on both a Predictor and the
+    Response simultaneously, composed with Fixed Effects. This is the
+    textbook Crawford/Wright learning-curve model (ln(unit cost) = a +
+    b*ln(cum units)). tests/test_transform_threading.py cross-checks this
+    case against the sibling above: the shipped "log Cum Units"/"log Unit
     Cost" columns are exact logs of the raw columns, so the two designs
     and every downstream statistic are expected to agree to floating-point
-    precision — independent proof the Log wiring reproduces what the
-    precomputed-column workaround already delivered.
+    precision — the precomputed columns and the Log wiring are two
+    independent routes to the same fit.
     """
     return [
         _spec_var("Lot_ID", _ROLE_IDENTIFIER),
@@ -1496,9 +1496,10 @@ def _production_lots_lsdv_equivalence_spec() -> list[SpecVariable]:
     That matters because the FE path is the one piece of the engine with no
     independent implementation to check against: everything else is OLS,
     which statsmodels also does. Fixed Effects demeaning, the absorbed-df
-    subtraction, and the level-shift recovery are bespoke, and until now
-    their only oracle was a second copy of the same arithmetic. This case
-    fits the same model by a completely different route.
+    subtraction, and the level-shift recovery are bespoke, and a second copy
+    of the same arithmetic is not an independent oracle. This case fits the
+    same model by a completely different route, so P6 == P2 is a real
+    cross-check rather than self-consistency.
 
     The two do NOT agree on everything, and the disagreements are the
     point: LSDV spends its degrees of freedom visibly (k = 3 columns:

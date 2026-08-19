@@ -503,6 +503,7 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
         assert "Fit_Design_Columns()" not in formula, row
         assert "Fit_Sample_Include()" not in formula, row
         assert "Design_Columns()" in formula, row
+        assert "Sample_Include()" in formula, row
 
 
 def test_materialization_zone_materializes_model_context() -> None:

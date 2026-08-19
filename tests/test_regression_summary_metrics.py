@@ -87,15 +87,11 @@ class RegressionSummaryMetricsTests(unittest.TestCase):
 
     def test_near_perfect_fit_keeps_metrics_well_defined(self) -> None:
         # Near-perfect fit drives SSR very close to zero -- but NOT to zero.
-        # These rows lie exactly on y = 1 + 2*x1 + 4*x2, so an exact solver
-        # returns ssr == 0.0 and the log term below is -inf, which is the
-        # correct limit rather than a defect. The fixture used to sit exactly
-        # on that plane and stayed finite only because the old pinv-based
-        # solve left ~1e-29 of rounding noise behind; switching to QR (which
-        # is accurate enough to return the true 0.0) turned that accident into
-        # a failure. The perturbation puts the case back in the regime this
-        # test is named for -- near-perfect, not perfect -- so it no longer
-        # depends on how imprecise the solver happens to be.
+        # These rows lie on y = 1 + 2*x1 + 4*x2, and an exactly-fitting design
+        # gives ssr == 0.0, whose log term is -inf: the correct limit for a
+        # perfect fit, and a different regime from the one this test covers.
+        # The perturbation keeps the case near-perfect rather than perfect, so
+        # what is asserted here does not depend on solver precision.
         rows = [
             _row(7.0, 1.0, 1.0),
             _row(9.0, 2.0, 1.0),

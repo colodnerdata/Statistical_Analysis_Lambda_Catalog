@@ -1,25 +1,24 @@
-"""``apply_spec_case`` must clear every writable spec column, column I included.
+"""``apply_spec_case`` must clear every writable spec column.
 
-The spec block's A–O columns split cleanly in two: the cells a case DECLARES
-(the B–I input band plus the appended M/N interaction pair) and the cells the
-sheet DERIVES (the A label and the J/K/L/O computed displays). ``apply_spec_case``
-clears the first set before rewriting it, because a case must never be evaluated
-against whatever the previous write left behind — the same invariant the function
-already enforces unconditionally for ``Source_Table`` and ``$AK$12``.
+The spec block's A-O columns split in two: the cells a case DECLARES (the B-I
+input band plus the appended M/N interaction pair) and the cells the sheet
+DERIVES (the A label and the J/K/L/O computed displays). ``apply_spec_case``
+clears the first set before rewriting it, because a case must never be
+evaluated against whatever the previous write left behind -- the same
+invariant the function already enforces unconditionally for ``Source_Table``
+and ``$AK$12``.
 
-Column I (Sequence Period) was missing from that set. The omission was invisible
-on both writers that type it — the test-model builder and the guard path each
-write a case onto its OWN fresh sheet — and reachable only on the verify
-inspector, which applies every case in turn to a single reused ``Regression``
-sheet. There a typed period survives into the next case, and ``Period In Use``
-(J) prefers a non-zero typed I over the computed candidate, so the stale value
-silently replaces the candidate on any later case whose Sequence-flagged row
-lands on the same row offset. Two cases declare a period; seven more flag a
-Sequence axis and expect the candidate.
+The clear has to cover every input the spec can declare, including the ones a
+LATER step writes. Sequence Period (column I) is the example: it is written by
+``apply_sequence_period_overrides`` and only for cases that declare a period,
+so a caller that reuses one sheet across cases can carry a typed period into a
+case that declared none, and ``Period In Use`` prefers a typed period over its
+computed candidate -- a stale value reads as a plausible number rather than an
+error.
 
-These tests pin the partition itself rather than the tuple's literal contents,
-so a newly appended INPUT column that nobody adds to the clear list fails here
-instead of leaking on the next multi-minute Excel verify run.
+These tests pin the PARTITION rather than the tuple's contents, so a newly
+appended input column that nobody adds to the clear list fails here instead of
+on the next Excel run.
 """
 from __future__ import annotations
 

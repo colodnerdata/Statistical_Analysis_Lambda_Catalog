@@ -4259,3 +4259,117 @@ an ACF chart's axis scaling changes the moment the user edits `max_lag` or the
 differencing order, which is the one thing this sheet is built to encourage.
 Recorded here because a horizontal threshold line is the most natural place in
 the whole project to reach for a shape.
+
+---
+
+## v3.x+ — QC comparison scale, the clear-list invariant, and the OLS solver
+
+### A compared statistic is scored against the magnitude its error comes from
+
+**Question:** `first_digit_deviation` scores a QC comparison in decimal
+places. Against which magnitude should a statistic be scored — its own, or
+something else?
+
+**Resolution:** RESOLVED — against the magnitude that SETS its error, which is
+its own only when the statistic is self-scaling. Three cases, declared in
+`regression_spec_sheet_io`: `SCALE_FREE_STATS` divides by
+`max(|expected|, 1.0)`; `_RESPONSE_UNIT_STATS` and
+`_STANDARDIZED_RESIDUAL_STATS` divide by a response-derived scale (the
+response RMS, and the response RMS over `SE_Regression` respectively);
+everything else is compared on the absolute scale. `compare_values` takes an
+explicit `scale` for the second case, and floors every divisor at 1.0 so the
+convention can only ever loosen a comparison, never tighten one.
+
+**Rationale.** A decimal-place score is an absolute test, so it silently gets
+harder as a statistic's magnitude grows — six decimals on a quantity of order
+70 is a demand for eight or nine significant figures. Self-scaling fixes that
+for a statistic whose error tracks its own value, and fails for one whose
+error is inherited. The residual band is the whole of the second class: every
+one of its statistics is built from the fitted values, so it carries the
+response's absolute precision floor regardless of its own size, and a residual
+— the difference of two response-sized numbers — can be of order 0.1 while
+carrying the error of numbers of order 70. Dividing both sides by the same
+scale leaves their relative difference untouched, so this moves the floor
+without hiding a wrong answer. Deriving the divisor from the fit rather than
+fixing a constant is what keeps it honest across datasets: a response in the
+tens and one in the billions are treated proportionately, and one below 1.0
+gets no adjustment at all.
+
+### `T_Statistics` is not response-scaled
+
+**Question:** the t-statistic is compared on a decimal-place score too, and an
+ill-conditioned design widens it. Should it join the response-scaled sets?
+
+**Resolution:** REJECTED — it stays on `SCALE_FREE_STATS`.
+
+**Rationale.** A t-statistic is dimensionless and of order 1, and its error
+comes from the coefficient — relative error on the order of `eps · cond(X)` —
+not from the response. A response-derived divisor is not a scale it has; it
+would be a number chosen because it makes the comparison pass, which is the
+one thing a tolerance convention must not be. Where a t-statistic and the
+sheet disagree, the design's conditioning is what widened it and conditioning
+is where it has to be addressed. Recorded because the response-scaled sets sit
+next to it and the inconsistency otherwise reads as an oversight.
+
+### The spec clear-list covers inputs written by a later step
+
+**Question:** `apply_spec_case` clears the spec's input columns before
+rewriting them. Should the clear cover columns this function does not itself
+write?
+
+**Resolution:** RESOLVED — yes. `_SPEC_INPUT_COLUMNS` names every writable
+spec column, including Sequence Period (I), which
+`apply_sequence_period_overrides` writes afterwards and only for the cases
+that declare a period.
+
+**Rationale.** The invariant `apply_spec_case` already enforces for
+`Source_Table` and `$AK$12` is that a case is never evaluated against what the
+previous write left behind, and that applies to an input whoever writes it.
+Scoping the clear to "what this function rewrites" makes correctness depend on
+which step happens to own a column, which is exactly the coupling the
+one-source-of-truth rule exists to remove. The failure mode it prevents is
+also the quiet kind: only a caller that reuses a single sheet across cases can
+observe a leak, and `Period In Use` prefers a typed period over its computed
+candidate, so a stale value surfaces as a plausible number rather than an
+error. Naming the set rather than inlining it is what lets a test pin the
+partition — block minus label minus computed displays — so a newly appended
+input column cannot be forgotten.
+
+### The OLS oracle is pinned to QR, not the statsmodels default
+
+**Question:** `_fit_ols_model` calls `sm.OLS(...).fit()`. Should the solver be
+left on the library default?
+
+**Resolution:** RESOLVED — `method="qr"` is passed explicitly. The statsmodels
+default is `"pinv"`, the Moore-Penrose pseudoinverse.
+
+**Rationale.** Both are backward stable, but on an ill-conditioned design the
+pseudoinverse is the less accurate of the two by several orders of magnitude.
+The oracle is the reference the workbook is scored against at a decimal-place
+tolerance, so it should be the more accurate side by as wide a margin as the
+choice allows — an oracle that is itself imprecise turns a tolerance question
+into an unanswerable one. It also matches the workbook, whose `Coefficients`
+is built on LINEST, itself QR-based; oracle and sheet solving the same problem
+by the same factorization is one fewer difference to account for when they
+disagree. Note the consequence for an exactly-fitting design: QR returns a
+true `ssr == 0.0` where the pseudoinverse left rounding noise, so AIC/BIC go
+to `-inf`, which is the correct limit for a perfect fit.
+
+### Dataset column units were not rescaled
+
+**Question:** a design matrix whose columns span many orders of magnitude is
+ill-conditioned by scaling alone, which widens every comparison against the
+sheet. Should the shipped datasets be re-expressed in better-scaled units?
+
+**Resolution:** DEFERRED — not taken at this version.
+
+**Rationale.** Rescaling is statistically free (predictions, residuals,
+t-statistics and R² are invariant to a column's units; only the coefficient
+and its standard error move, by exactly the divisor) and it is the only remedy
+that improves the SHEET's arithmetic rather than the oracle's. But pinning the
+oracle to QR already captures the whole oracle-side gain, so what remains is
+unverifiable without an Excel run; the rename that makes the new units honest
+propagates into constructed column names and the Model Formula readout; and
+changing shipped sample data leaves the committed workbook artifact stale
+until it is rebuilt. Recorded so the option is re-proposed with its costs
+rather than as a quick win.

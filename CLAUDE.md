@@ -49,6 +49,39 @@ they cannot disagree about how far the block can grow.
 
 **The ladder-order rule** (track-then-growth-rate, v3.10/v3.11 ship last as a block, ladder follows the MODEL_TESTING_ASSETS § 2 table): `docs/ROADMAP.md` § *Ladder order* and `CONTRIBUTING.md` → *The regime, in four rules*.
 
+## QC comparison scale
+
+**A compared statistic is scored against the magnitude its error comes from, not
+against its own.** `first_digit_deviation` scores in DECIMAL PLACES, so an
+absolute comparison silently gets stricter as a statistic's magnitude grows.
+Three cases, all declared in `lambda_catalog/regression_spec_sheet_io.py`:
+
+| Statistic's error tracks... | Divisor | Declared in |
+|---|---|---|
+| its own value | `max(\|expected\|, 1.0)` | `SCALE_FREE_STATS` |
+| the fitted values, in response units | response RMS | `_RESPONSE_UNIT_STATS` |
+| the fitted values, over `SE_Regression` | response RMS / `SE_Regression` | `_STANDARDIZED_RESIDUAL_STATS` |
+| nothing larger than itself | none — absolute | (default) |
+
+`compare_values` takes an explicit `scale` for the response-derived cases and
+floors every divisor at 1.0, so the convention can only loosen a comparison,
+never tighten one. **Derive the divisor from the fit, never a constant** — a
+response in the tens and one in the billions must be treated proportionately.
+
+**Adding a compared statistic means choosing its case.** The residual band is
+the inherited-error one: every statistic there is built from the predictions,
+so it carries the response's precision floor whatever its own size (a residual
+of order 0.1 carries the error of numbers of order 70, and self-scaling divides
+it by 1.0). `T_Statistics` is deliberately in none of the response-derived sets
+— it is dimensionless and O(1) and its error comes from the coefficient, so a
+response-derived divisor would be a number picked to fit. Full rationale:
+`docs/DECISIONS.md` → *QC comparison scale, the clear-list invariant, and the
+OLS solver*.
+
+**The OLS oracle is pinned to `method="qr"`** in `_fit_ols_model`, not the
+statsmodels `"pinv"` default: the oracle is the reference the sheet is scored
+against, so it should be the more accurate side, and LINEST is QR-based too.
+
 ## The Transform column has two Log tokens
 
 `None` · `Log` · `Log (drop ≤ 0)`, from `_TRANSFORM_LOG` / `_TRANSFORM_LOG_DROP`

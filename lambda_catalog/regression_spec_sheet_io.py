@@ -158,30 +158,30 @@ SCALE_FREE_STATS = frozenset({
 })
 
 
-# The residual band's statistics do not carry their own error — they inherit
-# the FITTED VALUE's. Every one of them is built from `predictions`, whose
-# absolute precision floor is set by the response magnitude and the design's
-# conditioning, so comparing them on an absolute decimal-place scale asks a
-# number of magnitude 0.1 to match to the same decimal as one of magnitude 70.
+# COMPARISON-SCALE CONVENTION. A QC comparison is scored on decimal places, so
+# every compared statistic needs a divisor that reflects the magnitude its
+# error actually comes from. Three cases:
 #
-# Measured on L05 (`life_full_profile`, k=19, cond(X)=6.7e8): all 73 QC
-# mismatches on that case are here, every one agreeing to 8-9 significant
-# figures and failing only because `first_digit_deviation` counts DECIMAL
-# PLACES. Re-scored, 0/73 pass on the absolute scale and 50/73 on
-# SCALE_FREE_STATS' `max(|expected|,1.0)` — the latter helps `Predictions`
-# (magnitude ~70) but does nothing for `Residuals`, which is the difference of
-# two ~70 numbers and so inherits their absolute error at a magnitude of ~0.1.
-# Dividing by the response scale instead clears the whole band.
+#   * a statistic whose error tracks its own value -> SCALE_FREE_STATS
+#     (divide by max(|expected|, 1.0));
+#   * a statistic that INHERITS the fitted value's error -> the two sets
+#     below, divided by a response-derived scale;
+#   * everything else -> compared on the absolute scale.
 #
-# Two families, because they are in two different units:
-#   * _RESPONSE_UNIT_STATS live in the response's own units -> divide by the
-#     response RMS.
-#   * _STANDARDIZED_RESIDUAL_STATS are the same quantities divided by
-#     SE_Regression -> divide by response RMS / SE_Regression.
-# T_Statistics is deliberately NOT here: it is dimensionless and O(1), and its
-# error comes from the COEFFICIENT (relative error ~ eps*cond(X)), not from the
-# response. Giving it a response-derived divisor would be a number chosen to
-# make a test pass. The real remedy for it is a better-conditioned design.
+# The residual band is the second case. Its statistics are all built from the
+# predictions, so they carry the response's absolute precision floor; scoring
+# them against their own magnitude asks a number of order 0.1 to match to the
+# same decimal as one of order 70. Two sets because they are in two units:
+# _RESPONSE_UNIT_STATS are in the response's own units and divide by the
+# response RMS; _STANDARDIZED_RESIDUAL_STATS are those quantities over
+# SE_Regression and divide by response RMS / SE_Regression.
+#
+# T_Statistics is deliberately in neither. It is dimensionless and O(1), and
+# its error comes from the COEFFICIENT — relative error on the order of
+# eps*cond(X) — not from the response, so a response-derived divisor would be
+# a number chosen to fit rather than a scale the statistic actually has. An
+# ill-conditioned design is what widens it, and conditioning is where it has
+# to be addressed.
 _RESPONSE_UNIT_STATS = frozenset({
     "Dependent_Variable", "Predictions", "Residuals", "PRESS_Residual",
 })
@@ -200,19 +200,16 @@ _STANDARDIZED_RESIDUAL_STATS = frozenset({
 # K Levels, L Reference In Use, O Design Columns), which derive and must never
 # be cleared.
 #
-# Naming the set rather than inlining it is the point. Column I (Sequence
-# Period) was missing from the inline tuple, and the omission was invisible
-# because the two writers that type I both write each case onto its OWN fresh
-# sheet: the test-model builder and the guard path. The verify INSPECTOR is
-# the one caller that applies every case to a single reused ``Regression``
-# sheet, so on that path an uncleared I survives into the next case — and it
-# is not inert. ``Period In Use`` (J) is
-# ``IF(Sequence<>TRUE,"",IF(N(Sequence_Period)<>0,Sequence_Period,candidate))``,
-# so a stale typed period silently REPLACES the computed candidate on any
-# later case whose Sequence-flagged row lands on the same offset. Only two
-# cases declare a period (P01/P02, Δ=1) while seven more flag a Sequence axis
-# and expect the candidate, so the leak reads as a plausible number rather
-# than an error.
+# The set is named rather than inlined because it is an invariant, not a list:
+# a case must never be evaluated against what the previous write left behind,
+# and the clear must therefore cover every input the spec can declare — not
+# only the ones the same function goes on to rewrite. Sequence Period (I) is
+# written afterwards by ``apply_sequence_period_overrides`` and only for the
+# cases that declare a period, so it is the column most easily left out and
+# the one where an omission is least visible: only a caller that reuses a
+# single sheet across cases can observe the leak, and ``Period In Use`` (J)
+# prefers a typed period over its computed candidate, so a stale value reads
+# as a plausible number rather than an error.
 #
 # F (Order) is reserved-and-unwired — no case writes it, so clearing it would
 # be a write against a column the spec does not yet own.
@@ -248,13 +245,10 @@ def apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
     * Only the spec rows are cleared, not the whole column: the Sequence
       Spacing block lives below the spec on the Regression sheet.
     * EVERY writable spec column is cleared (``_SPEC_INPUT_COLUMNS``), not
-      just the ones this function goes on to rewrite. The Sequence Period
-      (column I) is written by ``apply_sequence_period_overrides`` afterwards
-      and only for the cases that declare one, so leaving it out of the clear
-      list let a typed period survive into the next case on any caller that
-      reuses one sheet — the verify inspector. Same invariant as
+      just the ones this function goes on to rewrite. Same invariant as
       ``Source_Table`` and ``$AK$12`` above: a case must never be evaluated
-      against what the previous write left behind.
+      against what the previous write left behind, which holds for inputs
+      written by a later step as much as for the ones written here.
     * A row with no interaction gets its M/N cells genuinely BLANK rather
       than ``""``. Both satisfy ``mate()``'s ``LEN(t&"")=0`` gate, but a
       written ``""`` defeats the dropdown's own blank default.
@@ -645,11 +639,11 @@ def read_case_comparison_rows(
         ("Scale_Location", residuals.scale_location),
         ("PRESS_Residual", residuals.loocv_residuals),
     )
-    # Both divisors come from the fit itself, so every case carries its own
-    # floor rather than a constant tuned to one dataset: a response in the
-    # tens (life expectancy) and one in the billions (production cost) get
-    # proportionate treatment, and a response below 1.0 gets none at all
-    # (max(..., 1.0) inside compare_values never TIGHTENS the comparison).
+    # Both divisors are derived from the fit, never from a constant: each case
+    # carries its own floor, so a response in the tens and one in the billions
+    # are treated proportionately. ``compare_values`` floors the divisor at
+    # 1.0, so a small response gets no adjustment and the comparison is never
+    # made stricter than the absolute scale.
     dependent = tuple(
         value for value in residuals.dependent_var if value is not None
     )

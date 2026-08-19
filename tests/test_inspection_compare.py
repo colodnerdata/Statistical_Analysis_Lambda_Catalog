@@ -33,12 +33,11 @@ def test_compare_values_nan_expected_against_a_real_number_is_still_a_deviation(
 def test_explicit_scale_rescues_a_residual_that_self_scaling_cannot() -> None:
     """A residual inherits the FITTED VALUE's error, not its own magnitude.
 
-    The exact pair below is from the committed ``build_production --verify``
-    log: ``life_full_profile`` row 238, where Excel and the NumPy oracle agree
-    to nine significant figures and the harness still flagged it. The residual
-    is the difference of two numbers of magnitude ~74, so it carries their
-    absolute error (2.5e-07) at a magnitude of 0.33 — which is exactly the
-    case ``max(|expected|, 1.0)`` cannot help, because that divisor is 1.0.
+    The pair below is a residual of magnitude ~0.33 carrying the absolute
+    error of the two ~74-magnitude numbers it is the difference of. Self
+    scaling divides it by 1.0 and changes nothing, so an absolute
+    decimal-place score rejects a value that agrees to nine significant
+    figures. The response scale is the one that matches the error.
     """
     expected, actual = -0.3282595114048945, -0.32825926497521607
 
@@ -77,9 +76,9 @@ def test_residual_band_families_are_disjoint_and_exclude_t_statistics() -> None:
     """The two families are different UNITS, and T_Statistics is in neither.
 
     A t-statistic is dimensionless and O(1), and its error comes from the
-    coefficient (relative error ~ eps*cond(X)), not from the response. Handing
-    it a response-derived divisor would be picking a number to make a test
-    pass; the remedy for it is a better-conditioned design matrix.
+    coefficient — relative error on the order of eps*cond(X) — not from the
+    response. A response-derived divisor is not a scale it has; conditioning
+    is where its agreement has to be improved.
     """
     from lambda_catalog.regression_spec_sheet_io import (
         _RESPONSE_UNIT_STATS,

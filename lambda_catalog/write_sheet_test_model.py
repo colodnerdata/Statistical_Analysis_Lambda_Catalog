@@ -30,9 +30,9 @@ from .analyze_regression_guard_states import GuardStateExpected
 from .analyze_regression_spec import RegressionSpecExpected
 from .catalog_schema import CatalogFunction
 from .regression_spec_sheet_io import (
+    apply_case_inputs,
     apply_sequence_period_overrides,
     apply_spec_case,
-    set_prediction_inputs,
 )
 from .workbook_helpers import bold, val
 from .write_spec_block import _ROLE_OMIT, SPEC_DATASET_PROFILES
@@ -285,32 +285,7 @@ def write_test_model_sheet(
         include_charts=include_charts,
     )
     padded = _padded(expected)
-    apply_spec_case(sheet, padded)
-    if case.sequence_period is not None:
-        # Type the case's Sequence Period into spec column I. Not optional
-        # wiring: Base_Period_Delta() reads the TYPED value and returns #N/A
-        # when the cell is blank, and the BFN panel Durbin-Watson cell passes
-        # it as its delta. Skipping this would leave AE12 at #N/A while the
-        # oracle held a real number — a guaranteed QC mismatch that looks
-        # like a broken statistic and is really a blank input cell.
-        #
-        # Keyed on the Sequence-flagged row, the same row XMATCH resolves
-        # inside Base_Period_Delta, so the sheet and the oracle read the
-        # same declaration.
-        apply_sequence_period_overrides(
-            sheet,
-            padded.case.spec,
-            {
-                item.name: case.sequence_period
-                for item in case.spec
-                if item.sequence
-            },
-        )
-    set_prediction_inputs(
-        sheet,
-        expected.results.prediction_interval.pred_input_values,
-        expected.design.constructed_column_transforms,
-    )
+    apply_case_inputs(sheet, padded)
     _write_provenance(
         sheet,
         case.plan_id,

@@ -1123,29 +1123,31 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     # convention panel-regression software (e.g. R's plm) uses. Adjusted R²
     # and Standard Error also carry the absorbed df (element 2 of Model_Context,
     # 0 with no FE row) so their df-dependent penalty/divisor is correct.
-    # AB5 and AB8 are the v3.2 SPIKE: two cells, deliberately, reading the
-    # materialized spills through Fit_Design_Columns() / Fit_Sample_Include()
-    # instead of re-running the constructor. They are the only migrated call
-    # sites on the sheet until the mechanism is Excel-confirmed.
+    # The Regression Statistics zone is the FIRST fully-migrated zone (v3.2
+    # PR 2 of N): every cell reads the materialized spills through
+    # Fit_Design_Columns() / Fit_Sample_Include() instead of re-running the
+    # constructors. PR 1 (#223) spiked exactly two cells — AB5 and AB8, one per
+    # spill SHAPE — to confirm `#` resolves inside a defined-name RefersTo in
+    # Excel; it does, so the rest of the zone follows. The migration goes zone
+    # by zone against the cell-by-cell verifier rather than in one sweep, and
+    # the next zone (Diagnostics, col AE) still calls the constructors directly
+    # until its own PR.
     #
-    # Two cells rather than one because the two spills are different SHAPES,
-    # and the fallback differs by shape: Fit_Sample_Include is 1-D (one OFFSET
-    # count) and Fit_Design_Columns is 2-D (a height AND a width). Proving only
-    # the 1-D read would leave the harder half unanswered.
+    # A name resolving to the wrong range does not error — it returns numbers
+    # from the wrong rows — so every migrated cell lands where the spec-driven
+    # verifier compares it cell-by-cell against NumPy. All five rows here are
+    # (Multiple R, R², Adjusted R², SE, Observations), which is what makes this
+    # zone the safe one to complete first.
     #
-    # These two in particular because the spec-driven verifier compares R² and
-    # Observations cell-by-cell against NumPy. A name resolving to the wrong
-    # range does not error — it returns numbers from the wrong rows — so the
-    # spike has to land where a silent misread is caught by an oracle.
-    #
-    # AB8 additionally keeps Design_Response() as a live constructor beside a
-    # materialized name, which is the mixed state every zone will be in while
-    # the migration proceeds writer by writer.
+    # AB8 keeps Design_Response() as a live constructor beside the materialized
+    # Fit_Sample_Include — the mixed state every zone is in while the migration
+    # proceeds, and a reminder that Design_Response() is NOT one of the two
+    # materialized spills (it is a constructor the engines still evaluate).
     for row, label, formula in [
-        (4, "Multiple R",        "=Multiple_R(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
-        (5, "R Square",          "=R_Squared(Fit_Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
-        (6, "Adjusted R Square", "=Adjusted_R_Squared(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
-        (7, "Standard Error",    "=SE_Regression(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (4, "Multiple R",        "=Multiple_R(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (5, "R Square",          "=R_Squared(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (6, "Adjusted R Square", "=Adjusted_R_Squared(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (7, "Standard Error",    "=SE_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
         (8, "Observations",      "=Observations(Design_Response(),Fit_Sample_Include())"),
     ]:
         val(sheet, row, _C_AA, label)

@@ -428,40 +428,78 @@ def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
     )
 
 
-def test_exactly_two_call_sites_read_the_materialized_spills() -> None:
-    """The v3.2 spike, scoped as a spike and pinned as one.
+def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
+    """The Regression Statistics zone is the first fully-migrated zone (v3.2 PR 2).
 
-    `#` inside a defined-name RefersTo is used nowhere else in this workbook
-    and cannot be verified without Excel, so PR 1 migrates TWO cells and stops.
-    This pins that count: the point of a spike is that a failed mechanism costs
-    two cells to revert, not fifty, and "we'll only do a couple" is exactly the
-    kind of intent that erodes without a test.
+    PR 1 (#223) spiked exactly two cells — AB5 and AB8, one per spill SHAPE — to
+    confirm `#` resolves inside a defined-name RefersTo in Excel. It does, so PR
+    2 completes the zone: every cell in rows 4-8 reads the materialized spills
+    through Fit_Design_Columns() / Fit_Sample_Include() instead of re-running the
+    constructors.
 
-    The two are chosen by SHAPE, because the fallback differs by shape — a 1-D
-    spill needs one OFFSET count, a 2-D spill needs a height and a width — and
-    by ORACLE: R² and Observations are both compared cell-by-cell against NumPy
-    by the spec-driven verifier, which is what turns a silently misaligned read
-    into a failure instead of a plausible wrong number.
+    The migration goes zone by zone against the cell-by-cell verifier rather than
+    in one sweep, because a name resolving to the wrong range does not error — it
+    returns numbers from the wrong rows. All five rows here are compared against
+    NumPy (Multiple R, R², Adjusted R², SE, Observations), which is what makes
+    this zone the safe one to complete first. The previous test pinned the spike
+    at two cells; this is its deliberate rewrite (the old docstring said so).
 
-    When the migration proceeds this test is what gets rewritten, deliberately.
+    The zone-pinned property: the NEXT zone (Diagnostics, col AE rows 4-10) still
+    calls the constructors directly, so the migration cannot quietly erode past
+    one zone without touching this test.
     """
-    from lambda_catalog.write_sheet_regression import _write_regression_statistics
+    from lambda_catalog.write_sheet_regression import (
+        _write_diagnostics,
+        _write_regression_statistics,
+    )
 
     sheet = RecordingSheet(name="Regression")
     _write_regression_statistics(_as_xw_sheet(sheet))
 
+    # Every Regression Statistics cell reads the materialized spills. AB8 has no
+    # design-matrix argument (Observations takes the response + the mask only),
+    # so it carries Fit_Sample_Include but not Fit_Design_Columns; the other four
+    # carry both.
+    assert _formula(sheet, 4, _C_AB) == (
+        "=Multiple_R(Fit_Design_Columns(),Design_Response(),"
+        "Fit_Sample_Include(),Fit_Context())"
+    )
     assert _formula(sheet, 5, _C_AB) == (
         "=R_Squared(Fit_Design_Columns(),Design_Response(),"
-        "Sample_Include(),Fit_Context())"
+        "Fit_Sample_Include(),Fit_Context())"
+    )
+    assert _formula(sheet, 6, _C_AB) == (
+        "=Adjusted_R_Squared(Fit_Design_Columns(),Design_Response(),"
+        "Fit_Sample_Include(),Fit_Context())"
+    )
+    assert _formula(sheet, 7, _C_AB) == (
+        "=SE_Regression(Fit_Design_Columns(),Design_Response(),"
+        "Fit_Sample_Include(),Fit_Context())"
     )
     assert _formula(sheet, 8, _C_AB) == (
         "=Observations(Design_Response(),Fit_Sample_Include())"
     )
 
-    # ...and nothing else in the block moved yet. Rows 4, 6 and 7 still call
-    # the constructors directly, which is what makes this a spike.
-    for row in (4, 6, 7):
+    # No bare constructor call survives in the zone — a stray Design_Columns() or
+    # Sample_Include() here is a half-migration that re-runs the constructor.
+    # Count rather than substring-match: "Design_Columns()" is a suffix of
+    # "Fit_Design_Columns()", so every occurrence must be the Fit_ one.
+    for row in (4, 5, 6, 7, 8):
         formula = _formula(sheet, row, _C_AB)
+        assert formula.count("Design_Columns()") == formula.count(
+            "Fit_Design_Columns()"
+        ), row
+        assert formula.count("Sample_Include()") == formula.count(
+            "Fit_Sample_Include()"
+        ), row
+
+    # ...and the next zone has NOT moved yet. Diagnostics (col AE rows 4-10)
+    # still calls the constructors directly, which is what makes this a
+    # one-zone PR rather than a sweep.
+    diag = RecordingSheet(name="Regression")
+    _write_diagnostics(_as_xw_sheet(diag))
+    for row in (4, 5, 6, 7, 8, 9, 10):
+        formula = _formula(diag, row, _C_AE)
         assert "Fit_Design_Columns()" not in formula, row
         assert "Fit_Sample_Include()" not in formula, row
         assert "Design_Columns()" in formula, row

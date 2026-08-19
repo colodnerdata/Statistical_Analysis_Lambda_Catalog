@@ -1,12 +1,14 @@
-# Unify the apply-case-inputs sequence behind one helper
+# Part 0 fix now; apply-case-inputs helper still planned
 
 **Branch (plan):** `investigate/verify-baseline-failures` (this document)
 **Branch (implementation):** `refactor/apply-case-inputs-helper` (off `main`, not yet created)
 **Date:** 2026-08-18
-**Status:** PLAN — written as the permanent-prevention follow-up to the surgical
-BFN fix on this branch. The surgical fix (commit on this branch) repairs the
-symptom; this plan replaces the *cause* — two call sites duplicating a
-three-step sequence, one of which drifted.
+**Status:** Part 0 has already landed on this branch: the surgical BFN fix in
+`tools/inspect_regression_sheet.py` plus the source-grep guard test in
+`tests/test_inspect_regression_sheet_wires_sequence_period.py`. This document
+is the still-planned permanent-prevention follow-up: replace the duplicated
+three-step sequence with one helper so the two fittable call sites cannot drift
+again.
 
 | Part | State | Lands as |
 |---|---|---|

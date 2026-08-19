@@ -1,7 +1,7 @@
 """Build Lambda_Library_TestModels.xlsx — one worksheet per test-model case.
 
 A build target alongside ``build_production.py`` (the Regression
-artifact). Unlike that one this is **not shipped**: it is a QC fixture, gitignored like
+artifact). Unlike that one, this is **not shipped**: it is a QC fixture, gitignored like
 ``Lambda_Library_TestModels.xlsx``, and its only audience is whoever is changing the
 spec block or the engine.
 

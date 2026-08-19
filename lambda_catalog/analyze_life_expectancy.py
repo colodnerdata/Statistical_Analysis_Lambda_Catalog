@@ -291,10 +291,28 @@ def _fit_ols_model(
     -------
     statsmodels.regression.linear_model.RegressionResultsWrapper
         Fitted OLS results object.
+
+    Notes
+    -----
+    ``method="qr"`` is passed explicitly rather than taking the statsmodels
+    default. The default is ``"pinv"`` — the docs are explicit that "the fit
+    method uses the pseudoinverse of the design/exogenous variables" — and on
+    an ill-conditioned design the pseudoinverse is markedly less accurate than
+    a QR factorization. Measured on L05 (``life_full_profile``, k=19, n=1649,
+    ``cond(X)`` 6.7e8) against a longdouble reference solve, the fitted values
+    from ``pinv`` sit 7.6e-9 from the true least-squares solution while ``qr``
+    sits 8.8e-14 — five orders of magnitude closer, for one keyword.
+
+    It also matches the workbook: ``Coefficients`` is built on Excel's LINEST,
+    which is itself QR-based, so the oracle and the sheet now solve the same
+    problem the same way instead of by two different factorizations. That is
+    worth having even though it is NOT what closes the QC gap on L05 — the
+    Excel side contributes far more of that difference than the oracle's
+    choice of factorization does.
     """
     # intercept column already embedded by _build_training_arrays
     model = sm.OLS(y_train, x_train)
-    return model.fit()
+    return model.fit(method="qr")
 
 
 def _predict_single_row(

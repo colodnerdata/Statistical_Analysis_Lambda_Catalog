@@ -158,6 +158,38 @@ SCALE_FREE_STATS = frozenset({
 })
 
 
+# The residual band's statistics do not carry their own error — they inherit
+# the FITTED VALUE's. Every one of them is built from `predictions`, whose
+# absolute precision floor is set by the response magnitude and the design's
+# conditioning, so comparing them on an absolute decimal-place scale asks a
+# number of magnitude 0.1 to match to the same decimal as one of magnitude 70.
+#
+# Measured on L05 (`life_full_profile`, k=19, cond(X)=6.7e8): all 73 QC
+# mismatches on that case are here, every one agreeing to 8-9 significant
+# figures and failing only because `first_digit_deviation` counts DECIMAL
+# PLACES. Re-scored, 0/73 pass on the absolute scale and 50/73 on
+# SCALE_FREE_STATS' `max(|expected|,1.0)` — the latter helps `Predictions`
+# (magnitude ~70) but does nothing for `Residuals`, which is the difference of
+# two ~70 numbers and so inherits their absolute error at a magnitude of ~0.1.
+# Dividing by the response scale instead clears the whole band.
+#
+# Two families, because they are in two different units:
+#   * _RESPONSE_UNIT_STATS live in the response's own units -> divide by the
+#     response RMS.
+#   * _STANDARDIZED_RESIDUAL_STATS are the same quantities divided by
+#     SE_Regression -> divide by response RMS / SE_Regression.
+# T_Statistics is deliberately NOT here: it is dimensionless and O(1), and its
+# error comes from the COEFFICIENT (relative error ~ eps*cond(X)), not from the
+# response. Giving it a response-derived divisor would be a number chosen to
+# make a test pass. The real remedy for it is a better-conditioned design.
+_RESPONSE_UNIT_STATS = frozenset({
+    "Dependent_Variable", "Predictions", "Residuals", "PRESS_Residual",
+})
+_STANDARDIZED_RESIDUAL_STATS = frozenset({
+    "Studentized_Residuals", "Studentized_Residuals_Ranked", "Scale_Location",
+})
+
+
 # ── Write half ───────────────────────────────────────────────────────────
 
 
@@ -408,9 +440,11 @@ def read_case_comparison_rows(
         "allow_intercept": case.allow_intercept,
     }
 
-    def _row(extra: dict, expected_value, excel_value, scale_free=False) -> dict:
+    def _row(
+        extra: dict, expected_value, excel_value, scale_free=False, scale=None
+    ) -> dict:
         diff, fdd = compare_values(
-            expected_value, excel_value, scale_free=scale_free
+            expected_value, excel_value, scale_free=scale_free, scale=scale
         )
         return {
             **identity,
@@ -611,6 +645,32 @@ def read_case_comparison_rows(
         ("Scale_Location", residuals.scale_location),
         ("PRESS_Residual", residuals.loocv_residuals),
     )
+    # Both divisors come from the fit itself, so every case carries its own
+    # floor rather than a constant tuned to one dataset: a response in the
+    # tens (life expectancy) and one in the billions (production cost) get
+    # proportionate treatment, and a response below 1.0 gets none at all
+    # (max(..., 1.0) inside compare_values never TIGHTENS the comparison).
+    dependent = tuple(
+        value for value in residuals.dependent_var if value is not None
+    )
+    response_scale = (
+        math.sqrt(sum(float(v) ** 2 for v in dependent) / len(dependent))
+        if dependent
+        else 1.0
+    )
+    standardized_scale = (
+        response_scale / summary.se_regression
+        if summary.se_regression
+        else response_scale
+    )
+
+    def _residual_scale(stat_name: str) -> float | None:
+        if stat_name in _RESPONSE_UNIT_STATS:
+            return response_scale
+        if stat_name in _STANDARDIZED_RESIDUAL_STATS:
+            return standardized_scale
+        return None
+
     residual_rows = [
         _row(
             {"row_idx": row_index + 1, "stat_name": stat_name},
@@ -618,6 +678,7 @@ def read_case_comparison_rows(
             if row_index < len(expected_tuple)
             else None,
             excel_value,
+            scale=_residual_scale(stat_name),
         )
         for row_index, excel_row in enumerate(
             read_block(sheet, ROW_RESID_FIRST, _C_AO, _C_AX, n)

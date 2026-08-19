@@ -4373,3 +4373,34 @@ propagates into constructed column names and the Model Formula readout; and
 changing shipped sample data leaves the committed workbook artifact stale
 until it is rebuilt. Recorded so the option is re-proposed with its costs
 rather than as a quick win.
+
+### The committed-artifact screen is always-on pure-zipfile, not gated on an Excel env var
+
+**Question:** `verify-headless` (`pytest tests/test_workbook_invariants.py`)
+was reordered to run *after* the build, so it screens freshly built artifacts
+rather than the previously committed ones. But with no `RUN_EXCEL_INTEGRATION=1`,
+every test that opens `dist/*.xlsx` was skipped — 29 passed, 11 skipped, and the
+11 were the real-artifact checks. So the reorder delivered nothing: the screen
+CI actually ran was the one that did not screen the artifacts.
+
+**Resolution:** RESOLVED — the committed-artifact checks were rewritten to need
+no Excel. `tests/test_workbook_invariants.py` reads the committed `.xlsx` as a
+zipfile + lxml, so `TestRealWorkbookNameScope`, `TestShippedUnivariateFits`,
+`TestShippedUnivariateLayout`, and `TestRealWorkbook` run on every push with no
+env-var gate and no Office dependency. The opt-in `RUN_EXCEL_INTEGRATION` flag no
+longer gates these checks, and `poe verify-headless` is no longer a
+"byte-identical command that silently skips the real work in CI."
+
+**Rationale.** Gate an Excel-only check on whether it needs Excel, not on a
+blanket environment variable. A structural check — name scope, sheet layout,
+the presence and shape of a committed spill — needs only the package, not the
+application, and a blanket gate that skips it whenever Excel is absent is a gate
+that skips it in CI, which is the one place a committed-artifact screen has to
+run. The deep verifier (`build_production.py --verify`) genuinely needs Excel and
+stays developer-machine-only; the structural screen does not, so it runs where
+CI runs. The lesson for the next always-on check: if it can be expressed against
+the zipfile, it should be, because a check that needs Excel is a check CI never
+runs. (A gap remains by the same token: the structural screen reads workbook
+*structure* — names, scopes, charts — not cached cell *values*, so a literal
+`#VALUE!` cached in a data sheet is not caught by it; that is a separate open
+item, not a regression of this one.)

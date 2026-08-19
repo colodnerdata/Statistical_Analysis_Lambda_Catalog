@@ -48,7 +48,6 @@ Three self-contained items, in ascending cost:
 |---|---|---|
 | [Finish drift check 3 — function names resolve](#documentation) | S | Documentation |
 | [Wire the calendar-dated monthly series](#test-model-suite) | M | Test suite |
-| ~~[Rename `write_sheet_model_construction.py` → `write_spec_block.py`](#v20-leftovers)~~ ✅ DONE 2026-08-06 | M | v2.0 |
 | [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
 | [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
 | [`Numeric_Complete_Cases`](#v39--standalone-data-transformation-library) | S | v3.9 |
@@ -80,7 +79,6 @@ last in the Regression track — they are also listed in their own working order
 
 | Task | Size | Milestone |
 |---|---|---|
-| [Rebuild and commit the Regression artifact](#v31-leftovers) | S | v3.1 |
 | [Promote `Sample_Include()` to a thunk over its spill](#v32--full-materialization-of-the-design-matrix) | M | v3.2 |
 | [Point the engine call sites at the materialized spills](#v32--full-materialization-of-the-design-matrix) | L | v3.2 |
 | [Re-examine the intercept-only closed-form bypass](#v30-leftovers) | M | v3.0 |
@@ -150,51 +148,12 @@ Shipped 2026-06-29; see [ROADMAP.md](ROADMAP.md#v11--univariate--shipped-2026-06
   Uniform, Chi-Square, Student-t. (The engine half is headless; surfacing each
   new fit on the sheet needs Excel.)
 
-## Univariate 2.1 — the Beta half of the grid shrink
-
-The Weibull and Gamma half shipped as Univariate 2.0.0 (#160): both fits profile
-their scale / rate parameter out in closed form and search a profile-NLL column
-per stage, and the rebuilt artifact is committed —
-`TestShippedUnivariateLayout` passes against it.
-
-- **SUPERSEDED — overcome by events.** The planned Beta method-of-moments start
-  and ~12×12 body shrink were never implemented. They were a Data-Table-era cost
-  optimization — a fixed smaller grid to cut the expensive Data-Table recalc —
-  and that driver is gone: the PR #203 rework moved Beta onto a live
-  `Full_Factorial` spill (the Cartesian product of candidate parameters) with an
-  editable `Grid Points` (N) cell, so the grid size is a live user control, not a
-  build-time constant to shrink. The estimator (α₀, β₀ from the rescaled mean and
-  variance) and the 1-D-half design notes are kept in
-  [DECISIONS.md § the grid shrink](DECISIONS.md#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact)
-  and
-  [DECISIONS.md § Univariate 2.0.0](DECISIONS.md#univariate-200--the-grid-shrink-weibull-and-gamma-half);
-  revisit them there if a Beta starting-value heuristic is ever wanted again.
-
 ## v2.0 leftovers
 
 Specification-Driven Regression shipped 2026-07-05; the human test plan
 (T0–T16) was executed, signed off PASS, and retired — its cases live on in
 `tests/test_analyze_model_construction.py` and
-`tests/test_difference_by_verification.py`. What remains is one open decision
-and two cleanups.
-
-- **DONE 2026-08-06** — Renamed `write_sheet_model_construction.py` to `write_spec_block.py`. Importer rewrites landed in `write_sheet_regression.py`, `analyze_model_construction.py`, `analyze_regression_spec.py`, `analyze_regression_spec_block.py`, `analyze_regression_guard_states.py`, `regression_spec_sheet_io.py`, `write_sheet_test_model.py`, `scripts/build_production.py`, `tools/inspect_test_model_sheets.py`, the renamed `tests/test_spec_block_writer.py`, and 8 other test modules. Dropped at the same time: `write_model_construction_sheet()`, `main()`, `SHEET_NAME`, and the standalone-CLI path. `_write_audit_row` and `_write_filtered_zones` kept as planned.
-
-  **Keep** `_write_audit_row` and `_write_filtered_zones`. They are the working
-  reference implementations of the Design Columns audit column (now required —
-  [ARCHITECTURE.md § 4](ARCHITECTURE.md#4-the-model-spec-block-ao)) and the V/W
-  filtered-display pattern
-  ([ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone)). Their
-  `RecordingSheet` coverage in `tests/test_model_construction_writer.py` is the
-  only test for that behavior. Note that promoting them into the Regression
-  writer turned out **not** to be needed — the audit is one spill written by the
-  shared `_write_spec_block`, so the Regression sheet inherits it by already
-  calling that writer. (The block is table-free; the inheritance argument is
-  unchanged.)
-
-  Context: this is what remains of REVIEW.md F5 after the finding itself was
-  struck as never-true — see
-  [DECISIONS.md § v3.0 spec block](DECISIONS.md#the-spec-block-is-implemented-once-not-twice).
+`tests/test_difference_by_verification.py`. What remains is one open decision.
 
 - **OPEN · M · needs Excel** — Resolve the blank-categorical caveat.
   `Sample_Include()`'s role-aware completeness layer requires numeric Response
@@ -254,24 +213,6 @@ rationale in
   ones column in the zero-predictor state, so the engines could fit it directly
   and the bypass may be removable. Kept for stage 1 because the shipped
   behaviour was verified against it; retire it only with a QC pass behind it.
-
-## v3.1 leftovers
-
-Interaction wiring shipped 2026-08-03 (#156): spec columns M/N are read by
-`Predictor_Columns()` and its two twins, the Design Columns audit counts the
-interaction columns, and the Excel gate cleared. The same release gave the
-catalog sole ownership of workbook scope (#159), clearing the v3.0 split's
-cross-artifact name residue. See
-[ROADMAP.md](ROADMAP.md#v31--interaction-wiring--shipped-2026-08-03) and
-[DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring).
-
-Rebuild shipped with the v3.2 Regression Statistics migration (9103e90): the
-committed `Lambda_Library.xlsx` now carries the `Sample_Include` zone header
-(`BU2` = "In Sample") and the Constructed Design Matrix zone header (`BW2` =
-`IF(Allow_Intercept,"Intercept","")`) where the `"reserved"` placeholders sat,
-and the Normal Q-Q chart carries the current non-equal axis scaling (the
-forced-equal-limits code is gone). No input cell, named range, or fitted
-number moved, so no version number moved with it.
 
 ## v3.2 — Full materialization of the design matrix
 
@@ -663,14 +604,6 @@ other case does — so **the way to find work here is the
 page**. A corner with no case named against it is the open work; there is
 currently one.
 
-This section carried five items that the suite has since absorbed — the Auto MPG
-`Difference` / `Ratio` / Cat×Cat / (Log, Log) gaps, the typed Sequence-period
-override, the Life Expectancy wiring ("zero spec cases"), the P6 LSDV ↔ within
-equivalence case, and the open question of how guard states get exercised. All
-are in the registry; the guard-state question is resolved in
-[DECISIONS.md](DECISIONS.md#guard-states-get-their-own-case-type-not-a-flag-on-regressionspeccase).
-They are removed rather than restated, per this file's own rule.
-
 - **READY · M · no Excel** — Wire a **calendar-dated monthly series**
   (~144 rows, AirPassengers-shaped, with a real date column). This closes the one
   axis § 1.5 lists as uncovered: the Sequence **calendar-signature verdict**
@@ -689,17 +622,15 @@ They are removed rather than restated, per this file's own rule.
 
 ## Build tooling — found by the first real `poe verify` run
 
-Version-independent; not tied to a milestone. All four came out of the first
+Version-independent; not tied to a milestone. These came out of the first
 developer-machine `poe verify` after the concurrency change, on 2026-08-06 —
 the run [CONTRIBUTING.md](../CONTRIBUTING.md) asks for and no CI can perform.
 The transcripts are in [excel-only-runs/](../excel-only-runs).
 
-The concurrency itself worked: multiple Excel instances built artifacts side
-by side for ~84 minutes with no contention over `templates/static_sheets.xlsx`,
+The concurrency itself worked: multiple Excel instances built the workbook
+side by side for ~84 minutes with no contention over `templates/static_sheets.xlsx`,
 and the verifiers passed (Univariate `Verify: passed`; test-models 48/48 `ok`).
-What follows is what the run exposed around it. (The three-artifact concurrency
-described here was from the pre-reunification split era; the unified build
-now produces one workbook.)
+What follows is what the run exposed around it.
 
 - **READY · S · needs Excel** — **`warn_if_workbook_open` deadlocks under
   `poe verify`.** Its prompt is an `input()` call, but the warning above it goes
@@ -723,17 +654,6 @@ now produces one workbook.)
   the swallowed exception should be reported; better, the quit should be
   verified.
 
-- **READY · S · no Excel** — **`verify-headless` does not screen the artifacts
-  it was reordered to screen.** The task is `pytest tests/test_workbook_invariants.py -v`
-  with no `RUN_EXCEL_INTEGRATION=1`, so every test that opens `dist/*.xlsx` is
-  skipped: **29 passed, 11 skipped**, and the 11 are the real-artifact checks.
-  v3.x's fix to run builds *before* the screen — so it reads freshly built
-  artifacts rather than the previously committed ones — therefore delivers
-  nothing as wired. `poe test-excel` is the same file *with* the variable, which
-  is why the two were noted as "byte-identical commands differing only by an env
-  var" without the consequence being spotted. **Land this together with the item
-  below**: setting the variable turns the suite red until that one is fixed.
-
 - **READY · S · needs Excel** — **Four `#VALUE!` cells ship in the Regression
   artifact.** `Mileage Data` J159, K159, J355, K355 hold literal `#VALUE!`
   cached values. They are copied faithfully from
@@ -743,7 +663,8 @@ now produces one workbook.)
   documented exception in `tests/test_workbook_invariants.py` covers the `#N/A`
   that `Difference_By` / `Lag_By` legitimately return at gap rows — this is
   neither of those. Fix the two CSV rows, rebuild, commit the artifact. Present
-  on `main` today, and undetected precisely because of the item above.
+  on `main` today; the always-on structural screen checks workbook structure
+  (names, scopes, charts), not cached cell values, so it does not catch this.
 
 ## Documentation
 
@@ -751,17 +672,12 @@ Version-independent; not tied to a milestone.
 
 Three mechanical drift checks are proposed in
 [CONTRIBUTING.md § Documentation drift](../CONTRIBUTING.md#documentation-drift),
-tracked as review finding F7 (documentation drift is measurable). **Two and a
-half are built**; what is below is the remainder.
-
-- Check 1, **link targets** — built in `tests/test_doc_links.py`.
-- Check 2, **cross-document anchors** — built in the same file. It caught its
-  first live breakage on the commit that introduced it: the heading rename that
-  built check 1 broke the link *this entry used to carry* into it.
-- Check 3, **function names in docs resolve against `lambda_functions.json`** —
-  the *count* half is built in `tests/test_doc_catalog_counts.py`, which found
-  four stale numbers (139/139/131 for a 140-entry catalog, and 17 for 18
-  sheet-scoped closures). The name half is what remains.
+tracked as review finding F7 (documentation drift is measurable). Checks 1
+(**link targets**) and 2 (**cross-document anchors**) are built in
+`tests/test_doc_links.py`; check 3's *count* half is built in
+`tests/test_doc_catalog_counts.py`, which found four stale numbers (139/139/131
+for a 140-entry catalog, and 17 for 18 sheet-scoped closures). What remains is
+check 3's *name* half.
 
 - **READY · S · no Excel** — **Finish check 3: resolve function *names*.** Every
   name written as a function reference in a doc table or fenced block resolves to

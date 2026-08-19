@@ -727,7 +727,7 @@ The run's one reported failure, `[Univariate] sheet is missing`, was the verifie
 checking a sheet the Regression-only artifact stopped carrying at v3.0 (during the
 split era). It was a false positive against the post-split layout, not a result —
 `skip_univariate` reaches the force-calc list but does not yet guard the check
-itself. Tracked as its own follow-up; see [TODOs.md](TODOs.md#v31-leftovers).
+itself — moot after reunification: the unified build produces both sheets, so the check cannot fire.
 
 Design rationale: [DECISIONS.md § v3.1](DECISIONS.md#v31--interaction-wiring),
 building on the representation decisions in
@@ -1249,7 +1249,7 @@ replacing it. The planned Beta half — a method-of-moments start and a smaller
 fixed grid to take the total to ~370 — was never implemented and is superseded:
 the PR #203 rework moved Beta onto a live `Full_Factorial` spill with an editable
 `Grid Points` cell, retiring the Data-Table-recalc-cost driver that motivated a
-fixed shrink. See [TODOs.md § Univariate 2.1](TODOs.md#univariate-21--the-beta-half-of-the-grid-shrink).
+fixed shrink. See [DECISIONS.md § the grid shrink](DECISIONS.md#the-grid-shrink-ships-as-a-later-release-of-the-univariate-artifact).
 
 It is MAJOR because the Scale Min/Max/Step input cells change or disappear, so a
 user's saved bounds stop meaning anything. That is a workbook-interface break, and

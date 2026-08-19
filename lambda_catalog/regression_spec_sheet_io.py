@@ -158,7 +158,72 @@ SCALE_FREE_STATS = frozenset({
 })
 
 
+# COMPARISON-SCALE CONVENTION. A QC comparison is scored on decimal places, so
+# every compared statistic needs a divisor that reflects the magnitude its
+# error actually comes from. Three cases:
+#
+#   * a statistic whose error tracks its own value -> SCALE_FREE_STATS
+#     (divide by max(|expected|, 1.0));
+#   * a statistic that INHERITS the fitted value's error -> the two sets
+#     below, divided by a response-derived scale;
+#   * everything else -> compared on the absolute scale.
+#
+# The residual band is the second case. Its statistics are all built from the
+# predictions, so they carry the response's absolute precision floor; scoring
+# them against their own magnitude asks a number of order 0.1 to match to the
+# same decimal as one of order 70. Two sets because they are in two units:
+# _RESPONSE_UNIT_STATS are in the response's own units and divide by the
+# response RMS; _STANDARDIZED_RESIDUAL_STATS are those quantities over
+# SE_Regression and divide by response RMS / SE_Regression.
+#
+# T_Statistics is deliberately in neither. It is dimensionless and O(1), and
+# its error comes from the COEFFICIENT — relative error on the order of
+# eps*cond(X) — not from the response, so a response-derived divisor would be
+# a number chosen to fit rather than a scale the statistic actually has. An
+# ill-conditioned design is what widens it, and conditioning is where it has
+# to be addressed.
+_RESPONSE_UNIT_STATS = frozenset({
+    "Dependent_Variable", "Predictions", "Residuals", "PRESS_Residual",
+})
+_STANDARDIZED_RESIDUAL_STATS = frozenset({
+    "Studentized_Residuals", "Studentized_Residuals_Ranked", "Scale_Location",
+})
+
+
 # ── Write half ───────────────────────────────────────────────────────────
+
+
+# Every WRITABLE spec-block column — the cells a case declares and therefore
+# the cells ``apply_spec_case`` must clear before it rewrites them. The spec
+# block's input band is B–I plus the appended M/N interaction pair; the rest
+# of A–O is either the A label or a computed display (J Period In Use,
+# K Levels, L Reference In Use, O Design Columns), which derive and must never
+# be cleared.
+#
+# The set is named rather than inlined because it is an invariant, not a list:
+# a case must never be evaluated against what the previous write left behind,
+# and the clear must therefore cover every input the spec can declare — not
+# only the ones the same function goes on to rewrite. Sequence Period (I) is
+# written afterwards by ``apply_sequence_period_overrides`` and only for the
+# cases that declare a period, so it is the column most easily left out and
+# the one where an omission is least visible: only a caller that reuses a
+# single sheet across cases can observe the leak, and ``Period In Use`` (J)
+# prefers a typed period over its computed candidate, so a stale value reads
+# as a plausible number rather than an error.
+#
+# F (Order) is reserved-and-unwired — no case writes it, so clearing it would
+# be a write against a column the spec does not yet own.
+_SPEC_INPUT_COLUMNS: tuple[int, ...] = (
+    _C_SPEC_ROLE,
+    _C_SPEC_INCLUDE,
+    _C_SPEC_TYPE,
+    _C_SPEC_REFERENCE,
+    _C_SPEC_TRANSFORM,
+    _C_SPEC_SEQUENCE,
+    _C_SPEC_SEQUENCE_PERIOD,
+    _C_SPEC_INTERACTION_TERM,
+    _C_SPEC_INTERACTION_OPERATION,
+)
 
 
 def apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
@@ -179,6 +244,11 @@ def apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
       carries the previous group forward.
     * Only the spec rows are cleared, not the whole column: the Sequence
       Spacing block lives below the spec on the Regression sheet.
+    * EVERY writable spec column is cleared (``_SPEC_INPUT_COLUMNS``), not
+      just the ones this function goes on to rewrite. Same invariant as
+      ``Source_Table`` and ``$AK$12`` above: a case must never be evaluated
+      against what the previous write left behind, which holds for inputs
+      written by a later step as much as for the ones written here.
     * A row with no interaction gets its M/N cells genuinely BLANK rather
       than ``""``. Both satisfy ``mate()``'s ``LEN(t&"")=0`` gate, but a
       written ``""`` defeats the dropdown's own blank default.
@@ -195,16 +265,7 @@ def apply_spec_case(sheet: xw.Sheet, expected: RegressionSpecExpected) -> None:
         _SPEC_FIRST_DATA_ROW + len(expected.case.spec) - 1,
     )
     for row in range(_SPEC_FIRST_DATA_ROW, last_row + 1):
-        for col in (
-            _C_SPEC_ROLE,
-            _C_SPEC_INCLUDE,
-            _C_SPEC_TYPE,
-            _C_SPEC_REFERENCE,
-            _C_SPEC_SEQUENCE,
-            _C_SPEC_TRANSFORM,
-            _C_SPEC_INTERACTION_TERM,
-            _C_SPEC_INTERACTION_OPERATION,
-        ):
+        for col in _SPEC_INPUT_COLUMNS:
             sheet.range(row, col).clear_contents()
 
     for offset, variable in enumerate(expected.case.spec):
@@ -373,9 +434,11 @@ def read_case_comparison_rows(
         "allow_intercept": case.allow_intercept,
     }
 
-    def _row(extra: dict, expected_value, excel_value, scale_free=False) -> dict:
+    def _row(
+        extra: dict, expected_value, excel_value, scale_free=False, scale=None
+    ) -> dict:
         diff, fdd = compare_values(
-            expected_value, excel_value, scale_free=scale_free
+            expected_value, excel_value, scale_free=scale_free, scale=scale
         )
         return {
             **identity,
@@ -576,6 +639,32 @@ def read_case_comparison_rows(
         ("Scale_Location", residuals.scale_location),
         ("PRESS_Residual", residuals.loocv_residuals),
     )
+    # Both divisors are derived from the fit, never from a constant: each case
+    # carries its own floor, so a response in the tens and one in the billions
+    # are treated proportionately. ``compare_values`` floors the divisor at
+    # 1.0, so a small response gets no adjustment and the comparison is never
+    # made stricter than the absolute scale.
+    dependent = tuple(
+        value for value in residuals.dependent_var if value is not None
+    )
+    response_scale = (
+        math.sqrt(sum(float(v) ** 2 for v in dependent) / len(dependent))
+        if dependent
+        else 1.0
+    )
+    standardized_scale = (
+        response_scale / summary.se_regression
+        if summary.se_regression
+        else response_scale
+    )
+
+    def _residual_scale(stat_name: str) -> float | None:
+        if stat_name in _RESPONSE_UNIT_STATS:
+            return response_scale
+        if stat_name in _STANDARDIZED_RESIDUAL_STATS:
+            return standardized_scale
+        return None
+
     residual_rows = [
         _row(
             {"row_idx": row_index + 1, "stat_name": stat_name},
@@ -583,6 +672,7 @@ def read_case_comparison_rows(
             if row_index < len(expected_tuple)
             else None,
             excel_value,
+            scale=_residual_scale(stat_name),
         )
         for row_index, excel_row in enumerate(
             read_block(sheet, ROW_RESID_FIRST, _C_AO, _C_AX, n)

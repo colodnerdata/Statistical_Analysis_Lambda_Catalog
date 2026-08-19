@@ -291,10 +291,25 @@ def _fit_ols_model(
     -------
     statsmodels.regression.linear_model.RegressionResultsWrapper
         Fitted OLS results object.
+
+    Notes
+    -----
+    The solver is pinned to ``method="qr"`` rather than left on the
+    statsmodels default of ``"pinv"``. Both are backward stable, but on an
+    ill-conditioned design the pseudoinverse is the less accurate of the two
+    by several orders of magnitude, and this project's oracles are compared
+    against the workbook at a decimal-place tolerance, so the oracle should
+    be the more accurate side by as wide a margin as the choice allows.
+
+    It also matches the workbook, whose ``Coefficients`` is built on LINEST —
+    itself QR-based. Oracle and sheet solving the same problem by the same
+    factorization is one fewer difference to account for when the two
+    disagree.
+
     """
     # intercept column already embedded by _build_training_arrays
     model = sm.OLS(y_train, x_train)
-    return model.fit()
+    return model.fit(method="qr")
 
 
 def _predict_single_row(

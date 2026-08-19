@@ -37,6 +37,7 @@ def compare_values(
     actual: float | None,
     *,
     scale_free: bool = False,
+    scale: float | None = None,
 ) -> tuple[float | None, int | None]:
     """Return absolute difference and first-digit deviation for two values.
 
@@ -53,6 +54,16 @@ def compare_values(
     the IEEE-754 precision floor already sits above the third decimal and
     Excel and Python cannot agree there by construction.
 
+    An explicit ``scale`` overrides ``scale_free`` and divides both sides by a
+    caller-supplied magnitude instead of by the statistic's own. Use it when a
+    statistic's error is INHERITED from a larger quantity than its own value,
+    which is where self-scaling breaks down: a residual is the difference of
+    two response-sized numbers, so it carries the fitted value's absolute error
+    at its own much smaller magnitude, and ``max(|expected|, 1.0)`` divides it
+    by 1.0. The comparison scale must follow the quantity that sets the error,
+    not the one being printed. See ``_RESPONSE_UNIT_STATS`` in
+    ``regression_spec_sheet_io``.
+
     Dividing both sides by the same factor leaves their RELATIVE difference
     untouched, so this loosens the precision floor without hiding a genuinely
     wrong number. The divisor deliberately has no fixed floor in it: an
@@ -68,7 +79,10 @@ def compare_values(
     if expected is None or actual is None:
         return None, 0
     diff = abs(actual - expected)
+    if scale is not None:
+        divisor = max(float(scale), 1.0)
+        return diff, first_digit_deviation(expected / divisor, actual / divisor)
     if scale_free:
-        scale = max(abs(expected), 1.0)
-        return diff, first_digit_deviation(expected / scale, actual / scale)
+        divisor = max(abs(expected), 1.0)
+        return diff, first_digit_deviation(expected / divisor, actual / divisor)
     return diff, first_digit_deviation(expected, actual)

@@ -399,6 +399,59 @@ Expected terminal flow for the one-shot command:
 3. Timing summary lines (`Timing: build+sync`, `Timing: recalculate` or `skipped`, `Timing: verify`, `Timing: total`).
 
 
+### How a comparison is scored — the comparison-scale convention
+
+The verifiers score each compared value with `first_digit_deviation`, which
+returns the DECIMAL PLACE where the oracle and the sheet first differ, and
+fail anything at or below `TOLERANCE_DECIMALS`. Because that is an absolute
+measure, it silently gets stricter as a statistic's magnitude grows: six
+decimal places on a quantity of order 70 is a demand for eight or nine
+significant figures. The convention that keeps it meaningful is:
+
+> **Score a statistic against the magnitude its error comes from, not against
+> its own.**
+
+Every compared statistic falls into one of three cases, all declared in
+`lambda_catalog/regression_spec_sheet_io.py`:
+
+| Statistic's error tracks... | Divisor | Declared in |
+|---|---|---|
+| its own value | `max(\|expected\|, 1.0)` | `SCALE_FREE_STATS` |
+| the fitted values, in response units | response RMS | `_RESPONSE_UNIT_STATS` |
+| the fitted values, over `SE_Regression` | response RMS / `SE_Regression` | `_STANDARDIZED_RESIDUAL_STATS` |
+| nothing larger than itself | none — absolute | (default) |
+
+`compare_values` takes an explicit `scale` for the response-derived cases. It
+divides BOTH sides by the same factor, so the relative difference is untouched
+and a genuinely wrong number still fails; and it floors every divisor at 1.0,
+so the convention can only loosen a comparison, never tighten one.
+
+**Two rules when you add a compared statistic:**
+
+1. **Choose its case deliberately.** The residual band is the inherited-error
+   one — every statistic there is built from the predictions, so it carries the
+   response's absolute precision floor whatever its own magnitude. A residual is
+   the clearest example: it is the difference of two response-sized numbers, so
+   it can be of order 0.1 while carrying the error of numbers of order 70, and
+   self-scaling divides it by 1.0 and changes nothing.
+2. **Derive the divisor from the fit, never from a constant.** A response in the
+   tens and one in the billions must be treated proportionately, and one below
+   1.0 must get no adjustment at all.
+
+`T_Statistics` is deliberately in none of the response-derived sets: it is
+dimensionless and O(1) and its error comes from the coefficient (relative error
+on the order of `eps · cond(X)`), so a response-derived divisor is not a scale
+it has. Where a t-statistic and the sheet disagree, the design matrix's
+conditioning is what widened it, and conditioning is where it is addressed —
+not the tolerance.
+
+Related: the OLS oracle is pinned to `method="qr"` in `_fit_ols_model` rather
+than the statsmodels `"pinv"` default. The oracle is the reference the workbook
+is scored against, so it should be the more accurate side by as wide a margin
+as the choice allows; LINEST is QR-based too, so the two now solve the same
+problem the same way. Full rationale for all of this: `docs/DECISIONS.md` →
+*QC comparison scale, the clear-list invariant, and the OLS solver*.
+
 ### `poe verify`
 
 ```powershell

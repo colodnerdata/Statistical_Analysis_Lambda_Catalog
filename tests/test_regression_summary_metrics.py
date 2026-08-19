@@ -86,11 +86,16 @@ class RegressionSummaryMetricsTests(unittest.TestCase):
                 )
 
     def test_near_perfect_fit_keeps_metrics_well_defined(self) -> None:
-        # Near-perfect fit drives SSR very close to zero.
+        # Near-perfect fit drives SSR very close to zero -- but NOT to zero.
+        # These rows lie on y = 1 + 2*x1 + 4*x2, and an exactly-fitting design
+        # gives ssr == 0.0, whose log term is -inf: the correct limit for a
+        # perfect fit, and a different regime from the one this test covers.
+        # The perturbation keeps the case near-perfect rather than perfect, so
+        # what is asserted here does not depend on solver precision.
         rows = [
             _row(7.0, 1.0, 1.0),
             _row(9.0, 2.0, 1.0),
-            _row(19.0, 3.0, 3.0),
+            _row(19.0 + 1e-11, 3.0, 3.0),
             _row(17.0, 4.0, 2.0),
             _row(19.0, 5.0, 2.0),
         ]

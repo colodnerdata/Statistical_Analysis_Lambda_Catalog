@@ -12,7 +12,7 @@ Sheet updated: Univariate
 Created names: 0
 Updated names: 123
 Removed names: 0
-Timing: build+sync    135.4s
-Timing: recalculate   21.8s
-Timing: total         157.2s
+Timing: build+sync    77.8s
+Timing: recalculate   21.6s
+Timing: total         99.4s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production.log

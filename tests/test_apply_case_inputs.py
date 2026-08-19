@@ -51,7 +51,7 @@ def _p01_expected() -> object:
     """P01 (production_lots_fixed_effects) — the case that makes the BFN cell live.
 
     It is one of only two cases that declare a Sequence Period (1.0), so it is
-    the case the typed-column-I wiring exists for. Built (not padded here — the
+    the case the typed-column-I wiring exists for. Built (padded here — the
     builder pads before calling the helper, so the test mirrors the builder and
     pads too) into a full ``RegressionSpecExpected`` with ``.results`` and
     ``.design``, the two halves ``set_prediction_inputs`` reads.

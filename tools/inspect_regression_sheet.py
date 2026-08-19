@@ -34,6 +34,7 @@ from lambda_catalog.analyze_regression_spec import (
     build_regression_spec_qc_configs,
 )
 from lambda_catalog.regression_spec_sheet_io import (
+    apply_sequence_period_overrides,
     apply_spec_case,
     read_case_comparison_rows,
     set_prediction_inputs,
@@ -131,6 +132,27 @@ def read_regression_df(
             # Set source-table fixture columns, full spec, prediction inputs.
             _apply_extra_columns(data_sheet, expected, all_extra_names)
             apply_spec_case(sheet, expected)
+            # Type the case's Sequence Period into spec column I — the same
+            # wiring write_sheet_test_model.apply_case_to_sheet does. Not
+            # optional: Base_Period_Delta() reads the TYPED value and returns
+            # #N/A when column I is blank, and the BFN panel Durbin-Watson cell
+            # (AE12) passes it as its delta. Without this every Difference_By
+            # lookup misses, the n_terms guard fires #N/A, and the cell reads
+            # nan — while the oracle holds case.sequence_period (1.0 on P01/P02)
+            # and computes a real BFN. That mismatch reads as a broken statistic
+            # and is really a blank input cell the harness never typed. Only
+            # cases that declare a period are touched, so non-panel configs
+            # are unaffected.
+            if expected.case.sequence_period is not None:
+                apply_sequence_period_overrides(
+                    sheet,
+                    expected.case.spec,
+                    {
+                        item.name: expected.case.sequence_period
+                        for item in expected.case.spec
+                        if item.sequence
+                    },
+                )
             set_prediction_inputs(
                 sheet,
                 expected.results.prediction_interval.pred_input_values,

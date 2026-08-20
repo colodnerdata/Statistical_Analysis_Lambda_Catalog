@@ -4,13 +4,27 @@ Excel 365 LAMBDA functions that replicate and extend Analysis ToolPak regression
 
 ## Getting started
 
-1. Download `Lambda_Library.xlsx`.
+1. Download [`Lambda_Library.xlsx`](dist/Lambda_Library.xlsx) from the repository's `dist/` directory.
 2. Open it in Excel 365 (Windows or Mac).
-3. Enter your data in columns on any sheet, then call any function by name.
+3. Save a working copy before replacing sample data or changing the templates.
+
+The file in `dist/` is the ready-to-use workbook; you do not need Python or the build scripts unless you want to contribute to the project.
+
+### Choose a starting point
+
+| If you want to… | Start here |
+|---|---|
+| Explore a working regression model | Open **Regression**. It is preconfigured against one of the included sample datasets, so its outputs and diagnostic charts are populated immediately. |
+| Run a regression on your own table | Read **Regression Instructions**, then follow its table-setup and `Source_Table` retargeting steps. Merely pasting data onto an arbitrary sheet does not retarget the Regression template. |
+| Describe or fit a distribution | Open **Univariate** and use its input controls for descriptive statistics, histograms, fitted distributions, and Q-Q plots. |
+| Call a function directly | Open **LAMBDA_functions** to find the function signature, then enter that function by name in a cell in this workbook. |
+| Understand a regression warning or chart | Open **Diagnostic Guide** for thresholds, plot interpretations, and suggested next steps. |
 
 The workbook has two layers: the **library** — all 145 LAMBDA definitions, workbook-scoped and shared by every sheet — and the **templates**, the pre-built analysis sheets that demonstrate how to drive the library. The **Regression** template installs a small set of sheet-scoped constructor names for the spec block and provides a ready-to-use analysis interface: declare each table column's Role and Type on the spec block, and the sheet derives the row mask, the constructed design matrix, and the full regression output automatically. The **Univariate** template demonstrates descriptive statistics, histogram binning, and distribution fitting via search-based MLE. The **LAMBDA_functions** sheet is the canonical, always-in-sync function catalog — see [Documentation map](#documentation-map) below. Data sheets, instructions, and the diagnostic guide are reference sheets that support the templates.
 
 Most functions are defined as workbook-scoped names, so they work in any cell formula within the workbook. Around 30 catalog functions are called by no pre-built template. That is deliberate: they are the **standalone user-callable layer** — `Correlation_Matrix`, `Lag_By`, `Descriptive_Statistics`, `Design_Matrix` and others you call in your own cells on your own data. The templates demonstrate the library; they are not the whole of it.
+
+### Use the library in another workbook
 
 To use these functions in a different workbook, you have two options. **The easy one:** if you are using one of the pre-built templates (the Regression workbench or the Univariate Analysis sheet), copy the sheet into your own workbook. The sheet's named-range dependencies come with it — the **workbook-scoped LAMBDA definitions** (the 123 portable functions) and the **sheet-scoped definitions** (the Regression sheet's 22 Regression-scoped definitions — constructors like `Predictor_Columns`, `Sample_Include`, `Design_Columns`, plus the row-2 status readouts like `Role_Status`; the Univariate sheet's `UV_Data`, `UV_Include`, `GoF_AIC`) travel inside the sheet-copy and are renamed automatically. Open your workbook, the sheet calculates, and every function is ready in formulas. **The other one:** if you only want a single function, or you would rather not pull in the pre-built template at all, open both files in Excel at the same time and reference functions as `='[Lambda_Library.xlsx]'!FunctionName(args)`, or use Name Manager (Formulas → Name Manager → New) to copy individual definitions into your own workbook.
 
@@ -48,7 +62,7 @@ The **library** and the **templates**:
 - **Diagnostic Guide** — interpretation guide for regression diagnostics with Tier 1/Tier 2 plot specifications, threshold reference table, and "Common Patterns & Next Steps" guidance. A reference sheet.
 - **Version History** — changelog that travels with the workbook for non-git users. Every release's "Breaking? (yes/no)" flag is here so a workbook user gets the one signal the version number is *for* — "do my existing inputs still work?" — without the number also having to convey "how big is this release."
 - **Life Expectancy Data** — the WHO dataset as a structured table. It ships as a ready-made target for practicing the Regression template's `Source_Table` retarget: point `Source_Table` at `LifeExpectancyData[#All]` in Name Manager and the spec block re-populates from its columns, no data of your own required.
-- **Mileage Data** — the Auto MPG dataset (406 vehicles) as a structured table. This is the dataset the Regression template's `Source_Table` targets by default (`=MileageData[#All]`).
+- **Mileage Data** — the Auto MPG dataset (406 vehicles) as a structured table. Retarget `Source_Table` at `MileageData[#All]` for a multi-level categorical-encoding example.
 - **Production Lots** — a small unbalanced learning-curve panel (3 facilities, 51 lots) as a structured table. The only shipped dataset with a natural Fixed Effects grouping column (Facility) and Sequence column (Fiscal_Year) — retarget `Source_Table` at `ProductionLotsData[#All]` (or pass `--regression-dataset production_lots` to `build_production.py`) for a ready-made Fixed Effects example.
 
 The workbook ships in full **Automatic** calculation mode — no Data Tables anywhere — so fitted parameters update live as you change the input column or the Beta grid-points cell.

@@ -760,8 +760,8 @@ def _setup_local_names(
     # of the sentinel-only accumulator), so the width probe wraps IFERROR
     # rather than counting Include toggles the way v1 did.
     #
-    # It must probe Predictor_Columns(), NOT Design_Columns(): with the
-    # intercept relocated into the constructor, Design_Columns() returns the
+    # It must probe Predictor_Columns(), NOT Fit_Design_Columns(): with the
+    # intercept relocated into the constructor, Fit_Design_Columns() returns the
     # lone ones column in exactly this state, so counting its columns would
     # report 1 and the zero-predictor branch would never fire.
     drop_local_name(sheet, "Zero_Predictors_Selected")
@@ -785,31 +785,31 @@ def _setup_local_names(
     # Bypasses Predictor_Columns()/Coefficients()/Prediction_Interval()
     # entirely since Excel cannot represent a valid zero-column array.
     #
-    # Design_Columns() does return a well-formed ones column in this state
+    # Fit_Design_Columns() does return a well-formed ones column in this state
     # (the intercept stage runs even when the predictor stage is empty), so
     # the engines could in principle fit it directly. The closed-form bypass
     # is kept because it is what the shipped behaviour was verified against;
     # retiring it is a follow-up, not part of the relocation.
     # Intercept_Only_N uses SUMPRODUCT over the computed mask (COUNTIF needs
-    # a range reference, and Sample_Include() is an array) so it never
+    # a range reference, and Fit_Sample_Include() is an array) so it never
     # errors, even when the mask has zero TRUE rows — callers guard on its
     # value before invoking the FILTER/STDEV.S-based helpers below.
     drop_local_name(sheet, "Intercept_Only_N")
     sheet.api.Names.Add(
         Name="Intercept_Only_N",
-        RefersTo="=LAMBDA(SUMPRODUCT(N(Sample_Include())))",
+        RefersTo="=LAMBDA(SUMPRODUCT(N(Fit_Sample_Include())))",
     )
 
     drop_local_name(sheet, "Intercept_Only_Point")
     sheet.api.Names.Add(
         Name="Intercept_Only_Point",
-        RefersTo="=LAMBDA(AVERAGE(FILTER(Response_Column(),Sample_Include())))",
+        RefersTo="=LAMBDA(AVERAGE(FILTER(Response_Column(),Fit_Sample_Include())))",
     )
 
     drop_local_name(sheet, "Intercept_Only_S")
     sheet.api.Names.Add(
         Name="Intercept_Only_S",
-        RefersTo="=LAMBDA(STDEV.S(FILTER(Response_Column(),Sample_Include())))",
+        RefersTo="=LAMBDA(STDEV.S(FILTER(Response_Column(),Fit_Sample_Include())))",
     )
 
     drop_local_name(sheet, "Intercept_Only_SE")
@@ -988,7 +988,7 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
 
         N1 = "Σ Design Columns"   (bold label)
         O1 = the total            — Σ(spec column O) plus the intercept
-                                    column, i.e. exactly COLUMNS(Design_Columns())
+                                    column, i.e. exactly COLUMNS(Fit_Design_Columns())
         O2 = the guard status     — blank while the model is within limits,
                                     a WARNING line at the soft threshold, an
                                     ERROR line at the hard one
@@ -1000,7 +1000,7 @@ def _write_design_matrix_width_guard(sheet: xw.Sheet) -> None:
     vacated when it moved down to align with the spec block's own rows.
 
     Both thresholds are read from the SPEC, never from
-    ``COLUMNS(Design_Columns())`` — a matrix too wide to fit cannot be built
+    ``COLUMNS(Fit_Design_Columns())`` — a matrix too wide to fit cannot be built
     in order to be measured, which is the failure this guard exists to
     prevent. The hard limit is derived from the layout constants (see
     ``_DESIGN_MATRIX_MAX_COLUMNS``), so moving a zone moves the guard with it.
@@ -1084,12 +1084,12 @@ def _write_predictor_summary(sheet: xw.Sheet) -> None:
     # categorical predictor shares one value instead of a separate,
     # coding-dependent number per level.
     f(sheet, 3, _C_S, "=TRANSPOSE(Constructed_Column_Names())")
-    f(sheet, 3, _C_T, "=Pearson_R(Predictor_Columns(),Response_Column(),Sample_Include())")
-    f(sheet, 3, _C_U, "=Spearman_R(Predictor_Columns(),Response_Column(),Sample_Include())")
-    f(sheet, 3, _C_V, "=Skewness(Predictor_Columns(),Sample_Include())")
-    f(sheet, 3, _C_W, "=Kurtosis(Predictor_Columns(),Sample_Include())")
-    f(sheet, 3, _C_X, "=GVIF(Predictor_Columns(),Constructed_Column_Names(),Sample_Include())")
-    f(sheet, 3, _C_Y, "=Generalized_Tolerance(Predictor_Columns(),Constructed_Column_Names(),Sample_Include())")
+    f(sheet, 3, _C_T, "=Pearson_R(Predictor_Columns(),Response_Column(),Fit_Sample_Include())")
+    f(sheet, 3, _C_U, "=Spearman_R(Predictor_Columns(),Response_Column(),Fit_Sample_Include())")
+    f(sheet, 3, _C_V, "=Skewness(Predictor_Columns(),Fit_Sample_Include())")
+    f(sheet, 3, _C_W, "=Kurtosis(Predictor_Columns(),Fit_Sample_Include())")
+    f(sheet, 3, _C_X, "=GVIF(Predictor_Columns(),Constructed_Column_Names(),Fit_Sample_Include())")
+    f(sheet, 3, _C_Y, "=Generalized_Tolerance(Predictor_Columns(),Constructed_Column_Names(),Fit_Sample_Include())")
 
     sheet.range(
         (rc(3, _C_T)), (rc(_FORMAT_BAND_LAST_ROW, _C_Y))
@@ -1113,7 +1113,7 @@ def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
     """Cols X–Y, rows 3–8."""
     section_heading(sheet, 3, _C_AA, "REGRESSION STATISTICS")
-    # Fit-time X/y (Design_Columns()/Design_Response()): the response is
+    # Fit-time X/y (Fit_Design_Columns()/Design_Response()): the response is
     # Response_Column() unchanged with no Fixed Effects row and one-way
     # within-demeaned when one is declared
     # — every statistic below reports the "within" flavor under FE, the same
@@ -1125,9 +1125,10 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     # Fit_Design_Columns() / Fit_Sample_Include() instead of re-running the
     # constructors. PR 1 (#223) spiked exactly two cells — AB5 and AB8, one per
     # spill SHAPE — to confirm `#` resolves inside a defined-name RefersTo in
-    # Excel; it does, so the rest of the zone follows. The migration goes zone
-    # by zone against the cell-by-cell verifier rather than in one sweep, and
-    # the next zone (Diagnostics, col AE) still calls the constructors directly
+    # Excel; it does, so the rest of the zone follows. PR 3 migrated the
+    # Diagnostics zone (col AE rows 4-10). The migration goes zone by zone
+    # against the cell-by-cell verifier rather than in one sweep, and the next
+    # zone (ANOVA, col AC rows 15-17) still calls the constructors directly
     # until its own PR.
     #
     # A name resolving to the wrong range does not error — it returns numbers
@@ -1155,26 +1156,39 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
 
 
 def _write_diagnostics(sheet: xw.Sheet) -> None:
-    """Cols AA–AB, rows 3–12."""
+    """Cols AA–AB, rows 3–12.
+
+    Rows 4-10 (col AE) read the materialized spills through
+    Fit_Design_Columns() / Fit_Sample_Include() — the v3.2 rewiring, PR 3 of N.
+    Design_Response() and Fit_Context() stay live; only the design-matrix and
+    row-mask arguments move to the spill readers.
+    """
     section_heading(sheet, 3, _C_AD, "DIAGNOSTICS")
+    # The zone reads the materialized spills through Fit_Design_Columns() /
+    # Fit_Sample_Include() instead of re-running the constructors — the v3.2
+    # rewiring, zone by zone. Every row here is compared cell-by-cell against
+    # NumPy by the spec-driven verifier (regression_spec_sheet_io.py's
+    # scalar_specs: PRESS, PRESS_R2, Mean_Leverage, AIC, BIC, AICc,
+    # QQ_Correlation), so a name resolving to the wrong range returns numbers
+    # from the wrong rows and the gate catches it rather than silently shipping.
     for row, label, formula in [
-        (4,  "PRESS",          "=PRESS(Design_Columns(),Design_Response(),Sample_Include())"),
+        (4,  "PRESS",          "=PRESS(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"),
         (
             5,
             "PRESS R²",
-            "=1-PRESS(Design_Columns(),Design_Response(),Sample_Include())"
-            "/SS_Total(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())",
+            "=1-PRESS(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"
+            "/SS_Total(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())",
         ),
         (
             6,
             "Mean Leverage",
-            "=COLUMNS(Design_Columns())"
-            "/Observations(Design_Response(),Sample_Include())",
+            "=COLUMNS(Fit_Design_Columns())"
+            "/Observations(Design_Response(),Fit_Sample_Include())",
         ),
-        (7,  "AIC",            "=AIC(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
-        (8,  "BIC",            "=BIC(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
-        (9,  "AICc",           "=AICc(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
-        (10, "QQ Correlation", "=QQ_Correlation(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"),
+        (7,  "AIC",            "=AIC(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (8,  "BIC",            "=BIC(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (9,  "AICc",           "=AICc(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (10, "QQ Correlation", "=QQ_Correlation(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
     ]:
         val(sheet, row, _C_AD, label)
         f(sheet, row, _C_AE, formula)
@@ -1212,19 +1226,19 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         'IF(seq_flags=0,"n/a — requires Sequence",'
         'IF(seq_flags>1,"n/a — multiple Sequence flags",'
         'IF(fe_vars>0,"n/a — FE active",'
-        "Durbin_Watson_By(Design_Columns(),Design_Response(),Sequence_Column(),"
-        "Sample_Include())))))",
+        "Durbin_Watson_By(Fit_Design_Columns(),Design_Response(),Sequence_Column(),"
+        "Fit_Sample_Include())))))",
     )
     sheet.range(rc(11, _C_AE), rc(11, _C_AE)).number_format = "0.000"
 
     # BFN panel Durbin-Watson (Bhargava–Franzini–Narendranathan 1982): the
     # within-group form for panels under fixed effects. Both this cell and the
     # plain DW cell above read the fit-time pair
-    # (Design_Columns()/Design_Response()), and both must: BFN's own contract
+    # (Fit_Design_Columns()/Design_Response()), and both must: BFN's own contract
     # says "the residuals are within-demeaned" — Residuals(X, Y) only produces
     # within residuals when X/Y already ARE the within-transformed pair. The DW
     # cell above only ever fires in the no-FE state, where Design_Response()
-    # reduces to Response_Column() and Design_Columns() to the intercept plus
+    # reduces to Response_Column() and Fit_Design_Columns() to the intercept plus
     # Predictor_Columns(), so reading the fit-time pair there is the same
     # computation stated in the honest way. Differencing is
     # restricted to within-group (group, seq−Δ) pairs via Difference_By inside
@@ -1251,9 +1265,9 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         'IF(seq_flags>1,"n/a — multiple Sequence flags",'
         'IF(fe_vars=0,"n/a — no fixed effects",'
         'IF(fe_vars>1,"n/a — multiple FE variables",'
-        "BFN_Panel_Durbin_Watson(Design_Columns(),Design_Response(),"
+        "BFN_Panel_Durbin_Watson(Fit_Design_Columns(),Design_Response(),"
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
-        "Sample_Include()))))))",
+        "Fit_Sample_Include()))))))",
     )
     sheet.range(rc(12, _C_AE), rc(12, _C_AE)).number_format = "0.000"
     border_box(sheet, 3, _C_AD, 12, _C_AE)
@@ -1279,23 +1293,23 @@ def _write_anova(sheet: xw.Sheet) -> None:
     bold_row(sheet, 14, _C_AA, _C_AF)
 
     # SST = SSR + SSE must hold under FE too, so every row reads the SAME
-    # fit-time pair (Design_Columns()/Design_Response()) — mixing a raw Total SS against
+    # fit-time pair (Fit_Design_Columns()/Design_Response()) — mixing a raw Total SS against
     # within Regression/Residual SS would break the ANOVA identity.
     val(sheet, 15, _C_AA, "Regression")
-    f(sheet, 15, _C_AB, "=Regression_Degrees_Of_Freedom(Design_Columns(),Fit_Context())")
-    f(sheet, 15, _C_AC, "=SS_Regression(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
-    f(sheet, 15, _C_AD, "=MS_Regression(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
-    f(sheet, 15, _C_AE, "=F_Statistic(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
-    f(sheet, 15, _C_AF, "=F_Statistic_P_Value(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 15, _C_AB, "=Regression_Degrees_Of_Freedom(Fit_Design_Columns(),Fit_Context())")
+    f(sheet, 15, _C_AC, "=SS_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 15, _C_AD, "=MS_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 15, _C_AE, "=F_Statistic(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 15, _C_AF, "=F_Statistic_P_Value(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
 
     val(sheet, 16, _C_AA, "Residual")
-    f(sheet, 16, _C_AB, "=Residual_Degrees_Of_Freedom(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
-    f(sheet, 16, _C_AC, "=SS_Residual(Design_Columns(),Design_Response(),Sample_Include())")
-    f(sheet, 16, _C_AD, "=MS_Residual(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 16, _C_AB, "=Residual_Degrees_Of_Freedom(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 16, _C_AC, "=SS_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
+    f(sheet, 16, _C_AD, "=MS_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
 
     val(sheet, 17, _C_AA, "Total")
-    f(sheet, 17, _C_AB, "=Total_Degrees_Of_Freedom(Design_Response(),Sample_Include(),Fit_Context())")
-    f(sheet, 17, _C_AC, "=SS_Total(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 17, _C_AB, "=Total_Degrees_Of_Freedom(Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 17, _C_AC, "=SS_Total(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
 
     sheet.range(rc(15, _C_AB), rc(17, _C_AB)).number_format = "0"
     sheet.range(rc(15, _C_AC), rc(17, _C_AC)).number_format = "0.0"
@@ -1339,24 +1353,24 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     f(sheet, 21, _C_AB,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA()),'
-       'IF(Allow_Intercept,Coefficients(Design_Columns(),Design_Response(),Sample_Include()),'
-       'VSTACK("",Coefficients(Design_Columns(),Design_Response(),Sample_Include()))))')
+       'IF(Allow_Intercept,Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include()),'
+       'VSTACK("",Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include()))))')
     f(sheet, 21, _C_AC,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,SE_Coefficients(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()),'
-       'VSTACK("",SE_Coefficients(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()))))')
+       'IF(Allow_Intercept,SE_Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()),'
+       'VSTACK("",SE_Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()))))')
     f(sheet, 21, _C_AD,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,T_Statistics(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()),'
-       'VSTACK("",T_Statistics(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()))))')
+       'IF(Allow_Intercept,T_Statistics(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()),'
+       'VSTACK("",T_Statistics(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()))))')
     f(sheet, 21, _C_AE,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
-       'IF(Allow_Intercept,P_Values(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()),'
-       'VSTACK("",P_Values(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context()))))')
+       'IF(Allow_Intercept,P_Values(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()),'
+       'VSTACK("",P_Values(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()))))')
     # Confidence_Interval_Lower/Upper's [Context] sits after [Alpha], and
     # Excel LAMBDA calls cannot skip a middle optional argument — 0.05 is
     # passed explicitly here (matching the function's own internal default
@@ -1366,21 +1380,21 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,Confidence_Interval_Lower(Design_Columns(),Design_Response(),Sample_Include(),0.05,Fit_Context()),'
-       'VSTACK("",Confidence_Interval_Lower(Design_Columns(),Design_Response(),Sample_Include(),0.05,Fit_Context()))))')
+       'IF(Allow_Intercept,Confidence_Interval_Lower(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),0.05,Fit_Context()),'
+       'VSTACK("",Confidence_Interval_Lower(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),0.05,Fit_Context()))))')
     f(sheet, 21, _C_AG,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
-       'IF(Allow_Intercept,Confidence_Interval_Upper(Design_Columns(),Design_Response(),Sample_Include(),0.05,Fit_Context()),'
-       'VSTACK("",Confidence_Interval_Upper(Design_Columns(),Design_Response(),Sample_Include(),0.05,Fit_Context()))))')
+       'IF(Allow_Intercept,Confidence_Interval_Upper(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),0.05,Fit_Context()),'
+       'VSTACK("",Confidence_Interval_Upper(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),0.05,Fit_Context()))))')
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     # No predictor exists to standardize in the zero-predictor branch, so render
     # blank (not an error) when Allow_Intercept is TRUE; NA() when nothing is fit.
     f(sheet, 21, _C_AH,
        '=IF(Zero_Predictors_Selected(),'
        'IF(Allow_Intercept,"",NA()),'
-       'VSTACK("",Beta_Weights(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())))')
+       'VSTACK("",Beta_Weights(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())))')
 
     for col in [_C_AB, _C_AC, _C_AD, _C_AF, _C_AG, _C_AH]:
         sheet.range(
@@ -1408,7 +1422,7 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
     |-----|-------------------|--------------------------------------------|
     | 3   | "UNIT-SPACE FIT"  | (section heading merged across AG3:AH3)    |
     | 4   | "Back-Transform"  | input: "Duan" / "Naive" (default "Duan")   |
-    | 5   | "Smearing Factor" | =Smearing_Factor(Design_Columns(), ...)    |
+    | 5   | "Smearing Factor" | =Smearing_Factor(Fit_Design_Columns(), ...)    |
     | 6   | "R Square (Unit)" | =Unit_Space_R_Squared(...)                 |
     | 7   | "Adj R Square (Unit)" | =Unit_Space_Adjusted_R_Squared(...)    |
     | 8   | "RMSE (Unit)"     | =Unit_Space_RMSE(...)                      |
@@ -1456,16 +1470,16 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
             5,
             "Smearing Factor",
             (
-                "=Smearing_Factor(Design_Columns(),Design_Response(),"
-                "Sample_Include(),Fit_Context())"
+                "=Smearing_Factor(Fit_Design_Columns(),Design_Response(),"
+                "Fit_Sample_Include(),Fit_Context())"
             ),
         ),
         (
             6,
             "R Square (Unit)",
             (
-                "=Unit_Space_R_Squared(Design_Columns(),Design_Response(),"
-                "Response_Column(),Sample_Include(),Fit_Context(),"
+                "=Unit_Space_R_Squared(Fit_Design_Columns(),Design_Response(),"
+                "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
                 f"{_A_BACK_TRANSFORM_METHOD})"
             ),
         ),
@@ -1473,8 +1487,8 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
             7,
             "Adj R Square (Unit)",
             (
-                "=Unit_Space_Adjusted_R_Squared(Design_Columns(),Design_Response(),"
-                "Response_Column(),Sample_Include(),Fit_Context(),"
+                "=Unit_Space_Adjusted_R_Squared(Fit_Design_Columns(),Design_Response(),"
+                "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
                 f"{_A_BACK_TRANSFORM_METHOD})"
             ),
         ),
@@ -1482,8 +1496,8 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
             8,
             "RMSE (Unit)",
             (
-                "=Unit_Space_RMSE(Design_Columns(),Design_Response(),"
-                "Response_Column(),Sample_Include(),Fit_Context(),"
+                "=Unit_Space_RMSE(Fit_Design_Columns(),Design_Response(),"
+                "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
                 f"{_A_BACK_TRANSFORM_METHOD})"
             ),
         ),
@@ -1574,7 +1588,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         'pred_input,IF(trn="Log",Ln_Positive(raw),raw),'
         "Group_Prediction_Interval(Predictor_Columns(),Response_Column(),pred_input,"
         f"Prediction_Group_Column(),{_A_FE_GROUP},"
-        "Sample_Include(),alpha,Fit_Context())))",
+        "Fit_Sample_Include(),alpha,Fit_Context())))",
     )
     sheet.range(rc(3, _C_AK), rc(11, _C_AK)).number_format = "0.0000"
 
@@ -1594,7 +1608,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
             f"{_abs_ref(3, _C_AK)},"
             "Fit_Context(),"
             f"{_A_BACK_TRANSFORM_METHOD},"
-            "Smearing_Factor(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())"
+            "Smearing_Factor(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"
             ")"
         ),
     )
@@ -1626,7 +1640,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         sheet,
         12,
         _C_AK,
-        "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Sample_Include()))),1,1)",
+        "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Fit_Sample_Include()))),1,1)",
     )
     format_input(sheet, 12, _C_AK)
     fe_group_cell = f"${col_letter(_C_AK)}$12"
@@ -1649,14 +1663,14 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         13,
         _C_AK,
         f"=Group_Mean_At(Response_Column(),Prediction_Group_Column(),"
-        f"{_A_FE_GROUP},Sample_Include())",
+        f"{_A_FE_GROUP},Fit_Sample_Include())",
     )
     val(sheet, 14, _C_AJ, "Group Count")
     f(
         sheet,
         14,
         _C_AK,
-        f"=Group_Count_At(Prediction_Group_Column(),{_A_FE_GROUP},Sample_Include())",
+        f"=Group_Count_At(Prediction_Group_Column(),{_A_FE_GROUP},Fit_Sample_Include())",
     )
     sheet.range(rc(13, _C_AK), rc(13, _C_AK)).number_format = "0.0000"
     sheet.range(rc(14, _C_AK), rc(14, _C_AK)).number_format = "0"
@@ -1724,7 +1738,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
         _PRED_INPUT_FIRST_ROW,
         _C_AL,
         (
-            "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(Predictor_Columns(),Sample_Include()),"
+            "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(Predictor_Columns(),Fit_Sample_Include()),"
             "LAMBDA(c,AVERAGE(c))),t,Constructed_Column_Transforms(),"
             'IF(t="Log",EXP(m),m))),"")'
         ),
@@ -1767,7 +1781,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # (joined Identifier columns, or positional Obs. n labels).
     val(sheet, 2, _C_AN, "Observation")
 
-    # Every one of these columns is fit off Design_Columns()/Design_Response(), so once a
+    # Every one of these columns is fit off Fit_Design_Columns()/Design_Response(), so once a
     # Fixed Effects row is declared they hold within-demeaned quantities, not
     # the raw response — the header must say so or the table reads as if
     # "Y" - "Predicted Y" silently stopped equaling "Residuals" (see the
@@ -1791,7 +1805,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # "(Within Country)") rather than the bare "(Within)" token, via
     # _FIXED_EFFECTS_NAME_FORMULA — the same Role=Fixed Effects lookup that
     # fills the spec feedback block's "FE Variable" cell. Y (_C_AO) gets its
-    # own wording instead of "Within": Design_Columns()/Design_Response() only SUBTRACT the
+    # own wording instead of "Within": Fit_Design_Columns()/Design_Response() only SUBTRACT the
     # group mean, they never divide by a standard deviation, so "Y (Within
     # Country)" would read as a demeaning but "St Devs from Avg." would be
     # outright wrong — "Deviation from <FE> Avg." says exactly what the
@@ -1841,9 +1855,9 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # error left to absorb is an all-FALSE mask.
     f(
         sheet, 3, _C_AN,
-        "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())",
+        "=IFERROR(FILTER(Row_Labels(),Fit_Sample_Include()),NA())",
     )
-    # Spill anchors — each spills n rows downward. Fit-time Design_Columns()/Design_Response()
+    # Spill anchors — each spills n rows downward. Fit-time Fit_Design_Columns()/Design_Response()
     # throughout, INCLUDING the "Y" column (AL): under FE the whole table
     # must read as one internally consistent block — Residuals (AN) is an
     # independently-computed column, not a literal AL-AM subtraction, but a
@@ -1851,21 +1865,21 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # broken (Residuals would not visually match Y - Predicted Y). The actual
     # observed response is still available via Response_Column() elsewhere
     # (e.g. Intercept_Only_*); this table shows the model's own fit space.
-    f(sheet, 3, _C_AO, "=Dependent_Variable(Design_Response(),Sample_Include())")
-    f(sheet, 3, _C_AP, "=Predictions(Design_Columns(),Design_Response(),Sample_Include())")
-    f(sheet, 3, _C_AQ, "=Residuals(Design_Columns(),Design_Response(),Sample_Include())")
-    f(sheet, 3, _C_AR, "=Hat_Diagonal(Design_Columns(),Sample_Include())")
-    f(sheet, 3, _C_AS, "=Studentized_Residuals(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
-    f(sheet, 3, _C_AT, "=Cooks_Distance(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
-    f(sheet, 3, _C_AU, "=SORT(Normal_Scores(Design_Response(),Sample_Include()))")
-    f(sheet, 3, _C_AV, "=Studentized_Residuals_Ranked(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())")
+    f(sheet, 3, _C_AO, "=Dependent_Variable(Design_Response(),Fit_Sample_Include())")
+    f(sheet, 3, _C_AP, "=Predictions(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
+    f(sheet, 3, _C_AQ, "=Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
+    f(sheet, 3, _C_AR, "=Hat_Diagonal(Fit_Design_Columns(),Fit_Sample_Include())")
+    f(sheet, 3, _C_AS, "=Studentized_Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 3, _C_AT, "=Cooks_Distance(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 3, _C_AU, "=SORT(Normal_Scores(Design_Response(),Fit_Sample_Include()))")
+    f(sheet, 3, _C_AV, "=Studentized_Residuals_Ranked(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
     f(
         sheet, 3, _C_AW,
-        "=SQRT(ABS(Studentized_Residuals(Design_Columns(),Design_Response(),Sample_Include(),Fit_Context())))",
+        "=SQRT(ABS(Studentized_Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())))",
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
-    f(sheet, 3, _C_AX, "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())")
+    f(sheet, 3, _C_AX, "=LOOCV_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
     # Cook's Distance (Flagged): blank except where D exceeds the influence
     # cutoff, F(0.5, p, n−p) — see _COOKS_CUTOFF for why p comes from $O$1 and
     # not the ANOVA Regression df. This feeds the Cook's Distance chart's
@@ -1892,16 +1906,16 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     f(
         sheet, 3, _C_AZ,
         (
-            "=Unit_Space_Predictions(Design_Columns(),Design_Response(),"
-            "Response_Column(),Sample_Include(),Fit_Context(),"
+            "=Unit_Space_Predictions(Fit_Design_Columns(),Design_Response(),"
+            "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
             f"{_A_BACK_TRANSFORM_METHOD})"
         ),
     )
     f(
         sheet, 3, _C_BA,
         (
-            "=Unit_Space_Residuals(Design_Columns(),Design_Response(),"
-            "Response_Column(),Sample_Include(),Fit_Context(),"
+            "=Unit_Space_Residuals(Fit_Design_Columns(),Design_Response(),"
+            "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
             f"{_A_BACK_TRANSFORM_METHOD})"
         ),
     )

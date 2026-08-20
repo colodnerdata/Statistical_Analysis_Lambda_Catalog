@@ -224,7 +224,7 @@ def test_regression_names_register_spec_wiring_and_constructors() -> None:
     assert predictor_formula.startswith("=LAMBDA(LET(")
     assert "Dummy_Levels(" in predictor_formula
 
-    # The width probe counts PREDICTOR columns. Design_Columns() would report 1
+    # The width probe counts PREDICTOR columns. Fit_Design_Columns() would report 1
     # in exactly this state — the intercept stage still runs when the predictor
     # stage is empty — and the zero-predictor branch would never fire.
     zero_formula = sheet.api.Names.by_short_name("Zero_Predictors_Selected").RefersTo
@@ -363,8 +363,8 @@ def test_intercept_only_n_does_not_depend_on_filter() -> None:
     intercept_only_n_formula = sheet.api.Names.by_short_name("Intercept_Only_N").RefersTo
     assert "FILTER" not in intercept_only_n_formula
     # SUMPRODUCT over the computed mask: COUNTIF needs a range reference and
-    # Sample_Include() is an array; SUMPRODUCT never errors on an empty mask.
-    assert "SUMPRODUCT(N(Sample_Include()))" in intercept_only_n_formula
+    # Fit_Sample_Include() is an array; SUMPRODUCT never errors on an empty mask.
+    assert "SUMPRODUCT(N(Fit_Sample_Include()))" in intercept_only_n_formula
 
 
 def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> None:
@@ -391,7 +391,7 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     assert (
         "Group_Prediction_Interval(Predictor_Columns(),Response_Column(),pred_input,"
         "Prediction_Group_Column(),$AK$12,"
-        "Sample_Include(),alpha,Fit_Context())"
+        "Fit_Sample_Include(),alpha,Fit_Context())"
     ) in formula
     assert "Intercept_Only_Point()" in formula
     # The zero-predictor closed form also splits mean-CI from new-obs-PI now.
@@ -407,7 +407,7 @@ def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
     assert sheet.cell(12, _C_AJ).value == "FE Group"
     fe_group = sheet.cell(12, _C_AK).api.Formula2
     assert fe_group == (
-        "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Sample_Include()))),1,1)"
+        "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Fit_Sample_Include()))),1,1)"
     )
     conditions = sheet.range("$AK$12").api.FormatConditions.items
     assert [c.Formula1 for c in conditions] == [
@@ -419,11 +419,11 @@ def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
     assert sheet.cell(13, _C_AJ).value == "Group Mean (y)"
     assert sheet.cell(13, _C_AK).api.Formula2 == (
         "=Group_Mean_At(Response_Column(),Prediction_Group_Column(),"
-        "$AK$12,Sample_Include())"
+        "$AK$12,Fit_Sample_Include())"
     )
     assert sheet.cell(14, _C_AJ).value == "Group Count"
     assert sheet.cell(14, _C_AK).api.Formula2 == (
-        "=Group_Count_At(Prediction_Group_Column(),$AK$12,Sample_Include())"
+        "=Group_Count_At(Prediction_Group_Column(),$AK$12,Fit_Sample_Include())"
     )
 
 
@@ -443,11 +443,15 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
     this zone the safe one to complete first. The previous test pinned the spike
     at two cells; this is its deliberate rewrite (the old docstring said so).
 
-    The zone-pinned property: the NEXT zone (Diagnostics, col AE rows 4-10) still
-    calls the constructors directly, so the migration cannot quietly erode past
-    one zone without touching this test.
+    The zone-pinned property: the Diagnostics zone (col AE rows 4-10) is
+    migrated too (PR 3 of N), and this PR completes the rewiring by migrating
+    every remaining zone at once — ANOVA (rows 15-17, cols AB-AF) included — so
+    the test now pins ANOVA as migrated as well. No unmigrated zone remains on
+    the sheet; the count-not-substring guards below fail if a bare
+    Design_Columns() / Sample_Include() call survives in any of these zones.
     """
     from lambda_catalog.write_sheet_regression import (
+        _write_anova,
         _write_diagnostics,
         _write_regression_statistics,
     )
@@ -492,17 +496,48 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
             "Fit_Sample_Include()"
         ), row
 
-    # ...and the next zone has NOT moved yet. Diagnostics (col AE rows 4-10)
-    # still calls the constructors directly, which is what makes this a
-    # one-zone PR rather than a sweep.
+    # The Diagnostics zone (col AE rows 4-10) is now migrated too (PR 3 of N):
+    # every cell reads the materialized spills, and no bare constructor survives
+    # (count not substring, since "Design_Columns()" is a suffix of
+    # "Fit_Design_Columns()").
     diag = RecordingSheet(name="Regression")
     _write_diagnostics(_as_xw_sheet(diag))
     for row in (4, 5, 6, 7, 8, 9, 10):
         formula = _formula(diag, row, _C_AE)
-        assert "Fit_Design_Columns()" not in formula, row
-        assert "Fit_Sample_Include()" not in formula, row
-        assert "Design_Columns()" in formula, row
-        assert "Sample_Include()" in formula, row
+        assert "Fit_Design_Columns()" in formula, row
+        assert "Fit_Sample_Include()" in formula, row
+        assert formula.count("Design_Columns()") == formula.count(
+            "Fit_Design_Columns()"
+        ), row
+        assert formula.count("Sample_Include()") == formula.count(
+            "Fit_Sample_Include()"
+        ), row
+
+    # ...and ANOVA (rows 15-17, cols AB-AF) is now migrated too (this PR
+    # completes the rewiring — every remaining zone at once). ANOVA cells do
+    # not all carry both readers (the df cells read Fit_Design_Columns() only;
+    # the Total df cell reads Fit_Sample_Include() only), so the guard checks
+    # the block as a whole: both readers appear somewhere in it, and no bare
+    # constructor survives anywhere — the same count-not-substring invariant
+    # as the zones above (a bare Design_Columns() / Sample_Include() makes the
+    # left count larger than the Fit_ count).
+    anova = RecordingSheet(name="Regression")
+    _write_anova(_as_xw_sheet(anova))
+    anova_formulas = [
+        f
+        for row in (15, 16, 17)
+        for col in (_C_AB, _C_AC, _C_AD, _C_AE, _C_AF)
+        for f in (_formula(anova, row, col),)
+        if f is not None
+    ]
+    assert any("Fit_Design_Columns()" in f for f in anova_formulas)
+    assert any("Fit_Sample_Include()" in f for f in anova_formulas)
+    assert all(
+        f.count("Design_Columns()") == f.count("Fit_Design_Columns()") for f in anova_formulas
+    )
+    assert all(
+        f.count("Sample_Include()") == f.count("Fit_Sample_Include()") for f in anova_formulas
+    )
 
 
 def test_materialization_zone_materializes_model_context() -> None:
@@ -632,7 +667,7 @@ def test_materialization_zone_materializes_model_context() -> None:
     # full-height spill of the live closure. Surfacing the value is not the
     # same as rewiring the reader — promoting the closure to a thunk over this
     # spill stays deferred (Excel-verified, not blind), so nothing on the sheet
-    # reads this column and Sample_Include() is still evaluated per call site.
+    # reads this column and Fit_Sample_Include() is still evaluated per call site.
     assert (
         sheet.cell(_MATERIALIZATION_HEADER_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED).value
         == _SAMPLE_INCLUDE_HEADER
@@ -662,7 +697,7 @@ def test_materialization_zone_materializes_model_context() -> None:
     ) == "=Design_Columns()"
     assert _C_DESIGN_MATRIX - _C_GUTTER_AFTER_SAMPLE_INCLUDE == 1
 
-    # The header row is SPLIT across two cells, because Design_Columns() is one
+    # The header row is SPLIT across two cells, because Fit_Design_Columns() is one
     # column wider than Constructed_Column_Names() whenever the intercept is
     # on: the constructor prepends the ones column, and the names closure
     # describes the constructed predictor columns only. The anchor cell names
@@ -765,7 +800,7 @@ def test_width_guard_reads_the_spec_not_the_constructed_matrix() -> None:
     # The whole point of the pre-flight guard: a matrix too wide to fit
     # cannot be built in order to be measured. Both thresholds therefore
     # read the spec block's own Design Columns audit total, never
-    # COLUMNS(Design_Columns()).
+    # COLUMNS(Fit_Design_Columns()).
     sheet = RecordingSheet(name="Regression")
 
     _write_design_matrix_width_guard(_as_xw_sheet(sheet))
@@ -851,7 +886,7 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # INDEXes this spill — doesn't get double-logged when the row-3
     # prediction formula applies Ln_Positive to it.
     assert means == (
-        "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(Predictor_Columns(),Sample_Include()),"
+        "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(Predictor_Columns(),Fit_Sample_Include()),"
         "LAMBDA(c,AVERAGE(c))),t,Constructed_Column_Transforms(),"
         'IF(t="Log",EXP(m),m))),"")'
     )
@@ -879,7 +914,7 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     coefficient_formula = _formula(sheet, 21, _C_AB)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
-    assert "Coefficients(Design_Columns(),Design_Response(),Sample_Include())" in coefficient_formula
+    assert "Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())" in coefficient_formula
 
     se_formula = _formula(sheet, 21, _C_AC)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
@@ -921,7 +956,7 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # no-Identifier fallback, so only an all-FALSE mask is absorbed here.
     assert sheet.cell(2, _C_AN).value == "Observation"
     assert sheet.cell(3, _C_AN).api.Formula2 == (
-        "=IFERROR(FILTER(Row_Labels(),Sample_Include()),NA())"
+        "=IFERROR(FILTER(Row_Labels(),Fit_Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
     # Response-scale headers (Y, Predicted Y, Residuals, PRESS Residual) are
@@ -964,16 +999,16 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     )
     assert "Spec_Transform" not in hat_header
     assert sheet.cell(3, _C_AO).api.Formula2 == (
-        "=Dependent_Variable(Design_Response(),Sample_Include())"
+        "=Dependent_Variable(Design_Response(),Fit_Sample_Include())"
     )
     assert sheet.cell(3, _C_AQ).api.Formula2 == (
-        "=Residuals(Design_Columns(),Design_Response(),Sample_Include())"
+        "=Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"
     )
     assert sheet.cell(3, _C_AR).api.Formula2 == (
-        "=Hat_Diagonal(Design_Columns(),Sample_Include())"
+        "=Hat_Diagonal(Fit_Design_Columns(),Fit_Sample_Include())"
     )
     assert sheet.cell(3, _C_AX).api.Formula2 == (
-        "=LOOCV_Residual(Design_Columns(),Design_Response(),Sample_Include())"
+        "=LOOCV_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"
     )
     # Cook's Distance (Flagged): blank below the influence cutoff, so the
     # Cook's Distance chart's overlay series — whose data labels read this
@@ -1035,8 +1070,8 @@ def test_write_unit_space_block_writes_section_input_and_three_gof_cells() -> No
         assert sheet.cell(row, _C_AG).value == label, row
     smearing_formula = sheet.cell(5, _C_AH).api.Formula2
     assert smearing_formula == (
-        "=Smearing_Factor(Design_Columns(),Design_Response(),"
-        "Sample_Include(),Fit_Context())"
+        "=Smearing_Factor(Fit_Design_Columns(),Design_Response(),"
+        "Fit_Sample_Include(),Fit_Context())"
     )
     # The three GoF cells pass the Method input back through the catalog
     # entry-point so the Duan/Naive toggle actually changes the readout.
@@ -1079,13 +1114,13 @@ def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
     az_formula = sheet.cell(3, _C_AZ).api.Formula2
     ba_formula = sheet.cell(3, _C_BA).api.Formula2
     assert az_formula == (
-        "=Unit_Space_Predictions(Design_Columns(),Design_Response(),"
-        "Response_Column(),Sample_Include(),Fit_Context(),"
+        "=Unit_Space_Predictions(Fit_Design_Columns(),Design_Response(),"
+        "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
         f"{_A_BACK_TRANSFORM_METHOD})"
     )
     assert ba_formula == (
-        "=Unit_Space_Residuals(Design_Columns(),Design_Response(),"
-        "Response_Column(),Sample_Include(),Fit_Context(),"
+        "=Unit_Space_Residuals(Fit_Design_Columns(),Design_Response(),"
+        "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
         f"{_A_BACK_TRANSFORM_METHOD})"
     )
 
@@ -1280,8 +1315,8 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
     assert "IF(fe_vars>0," in dw_formula
     # With exactly one flag, DW is computed along the declared axis, not row order.
     assert (
-        "Durbin_Watson_By(Design_Columns(),Design_Response(),Sequence_Column(),"
-        "Sample_Include())"
+        "Durbin_Watson_By(Fit_Design_Columns(),Design_Response(),Sequence_Column(),"
+        "Fit_Sample_Include())"
     ) in dw_formula
     # Scalar numeric cell (the token is text and ignores the format).
     assert sheet.range(rc(11, _C_AE), rc(11, _C_AE)).number_format == "0.000"
@@ -1318,9 +1353,9 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
     # Serial_Correlation_Group() (the grouping-key resolver, the single
     # retargeting point), never the FE column accessor directly.
     assert (
-        "BFN_Panel_Durbin_Watson(Design_Columns(),Design_Response(),"
+        "BFN_Panel_Durbin_Watson(Fit_Design_Columns(),Design_Response(),"
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
-        "Sample_Include())"
+        "Fit_Sample_Include())"
     ) in bfn_formula
     assert "Fixed_Effects_Column()" not in bfn_formula
     assert sheet.range(rc(12, _C_AE), rc(12, _C_AE)).number_format == "0.000"

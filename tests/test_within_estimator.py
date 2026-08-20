@@ -141,7 +141,7 @@ def test_design_response_and_design_columns_are_regression_sheet_closures() -> N
 def test_design_response_no_fe_branch_returns_response_column_unchanged() -> None:
     formula = _formula("Design_Response")
     assert "IF(NOT(fe_active),Response_Column()," in formula
-    assert "Demean_By(Response_Column(),Fixed_Effects_Column(),Sample_Include())" in formula
+    assert "Demean_By(Response_Column(),Fixed_Effects_Column(),Fit_Sample_Include())" in formula
 
 
 def test_design_columns_demeans_with_reduce_hstack_not_bycol() -> None:

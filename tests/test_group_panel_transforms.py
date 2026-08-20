@@ -235,7 +235,7 @@ def test_absorbed_degrees_of_freedom_reuses_dummy_levels_for_group_count() -> No
     formula = _formula("Absorbed_Degrees_Of_Freedom")
     # One source of truth for the level count: the same mask-scoped,
     # reference-dropped level set the design matrix would use.
-    assert 'Dummy_Levels(Fixed_Effects_Column(),"",Sample_Include())' in formula
+    assert 'Dummy_Levels(Fixed_Effects_Column(),"",Fit_Sample_Include())' in formula
     assert "COLUMNS(lv)" in formula
     # Non-breaking default: no Fixed Effects row -> 0, never an error.
     assert "IF(NOT(fe_active),0," in formula

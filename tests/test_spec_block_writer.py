@@ -406,7 +406,7 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     # rows per iteration (the declaring row and its interaction operand) —
     # one textual site is what keeps the two encodings identical.
     assert x_s.count("Dummy_Levels(") == 1
-    assert 'lv,Dummy_Levels(col,r,Sample_Include())' in x_s
+    assert 'lv,Dummy_Levels(col,r,Fit_Sample_Include())' in x_s
     # Scalar skip guard: ISNA(INDEX(...,1,1)), NOT ISNA(lv). lv is a 1x(L-1)
     # row; an array condition in front of a wider HSTACK branch broadcasts to
     # #N/A (the T6 header-strip bug). INDEX(...,1,1) makes the test scalar,
@@ -431,7 +431,7 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     assert "trn,TAKE(Spec_Transform,n_c)" in x_s
     assert (
         'IF(OR(INDEX(trn,x)="Log",INDEX(trn,x)="Log (drop ≤ 0)"),'
-        "Ln_Positive(col,Sample_Include()),col)"
+        "Ln_Positive(col,Fit_Sample_Include()),col)"
     ) in x_s
 
 
@@ -450,9 +450,9 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     assert predicate in x_s
     assert predicate in names
     assert predicate in transforms
-    assert 'lv,Dummy_Levels(col,r,Sample_Include())' in names
+    assert 'lv,Dummy_Levels(col,r,Fit_Sample_Include())' in names
     assert names.count("Dummy_Levels(") == 1
-    assert 'lv,Dummy_Levels(col,r,Sample_Include())' in transforms
+    assert 'lv,Dummy_Levels(col,r,Fit_Sample_Include())' in transforms
     assert transforms.count("Dummy_Levels(") == 1
     # Same scalar skip guard as Predictor_Columns (the twin must match).
     for formula in (x_s, names, transforms):
@@ -1361,7 +1361,7 @@ def test_log_domain_status_reports_the_poisoned_column_then_the_dropped_count() 
     # as the rest of the v3.2 spike.)
     assert "base,Sample_Include(FALSE)" in formula
     assert formula.count("Sample_Include(FALSE)") == 1
-    assert "d,SUMPRODUCT(N(base))-SUMPRODUCT(N(Sample_Include()))" in formula
+    assert "d,SUMPRODUCT(N(base))-SUMPRODUCT(N(Fit_Sample_Include()))" in formula
     assert '" rows excluded: Log of ≤ 0"' in formula
 
     conditions = sheet.range("$G$2").api.FormatConditions.items

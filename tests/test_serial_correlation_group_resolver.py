@@ -310,9 +310,9 @@ def test_bfn_cell_consumes_the_resolver_as_the_single_retarget_point() -> None:
     # The group argument is the resolver — the ONE reference point for the
     # grouping key; the FE accessor no longer appears at the consumer.
     assert (
-        "BFN_Panel_Durbin_Watson(Design_Columns(),Design_Response(),"
+        "BFN_Panel_Durbin_Watson(Fit_Design_Columns(),Design_Response(),"
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
-        "Sample_Include())"
+        "Fit_Sample_Include())"
     ) in bfn
     assert "Fixed_Effects_Column(" not in bfn
     # The ordinary DW path takes no grouping key: the resolver does not leak

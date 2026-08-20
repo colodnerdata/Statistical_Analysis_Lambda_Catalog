@@ -80,7 +80,6 @@ last in the Regression track — they are also listed in their own working order
 | Task | Size | Milestone |
 |---|---|---|
 | [Promote `Sample_Include()` to a thunk over its spill](#v32--full-materialization-of-the-design-matrix) | M | v3.2 |
-| [Point the engine call sites at the materialized spills](#v32--full-materialization-of-the-design-matrix) | L | v3.2 |
 | [Re-examine the intercept-only closed-form bypass](#v30-leftovers) | M | v3.0 |
 | [Diagnostic-chart reference lines](#v1x--regression-sheet) | M | v1.x |
 | [Suppress worst-fit distributions from the combo charts](#v11-leftovers--univariate-sheet-writer) | M | v1.1 |
@@ -224,20 +223,54 @@ full height and row-aligned with the source table. See
 [ARCHITECTURE.md § 4b](ARCHITECTURE.md#4b-the-materialization-zone). What remains
 is rewiring the readers, which is where the performance win actually is.
 
-- **READY · L · needs Excel** — Point the readers at the spills. Surfacing the
-  values did not rewire anything: `Design_Columns()` is still a live closure
-  evaluated at each of its ~30 engine call sites, so the performance win the zone
-  exists for is not yet banked. Same `#`-inside-a-`LAMBDA`-`RefersTo` question as
-  the `Sample_Include` promotion below, and the same answer — it lands
-  Excel-verified, not blind.
+The rewiring proceeded zone by zone against the cell-by-cell spec verifier — a
+name resolving to the wrong range returns numbers from the wrong rows rather
+than erroring, so a sweep is unsafe. The `#`-inside-a-`LAMBDA`-`RefersTo`
+combination the readers use (`Fit_Design_Columns` / `Fit_Sample_Include`,
+registered by `_add_spill_reader` in `regression_materialization.py`) is
+Excel-verified — settled on #223's spike — so the rest were mechanical
+retargets, each landed Excel-verified.
 
-- **READY · M · needs Excel** — Promote `Sample_Include()` from a live closure to
-  a thunk over its materialized spill. Deferred out of v3.0 stage 2 for a reason
-  that still holds: it needs the dynamic-array spill operator (`#`) inside a
-  `LAMBDA` defined-name `RefersTo`, a combination used nowhere else in this
-  workbook and verifiable only with Excel present. A wrong guess breaks the
-  row-mask contract that keeps every spilled array row-aligned. The live closure
-  is untouched and remains the row mask until then. See
+Migrated:
+- **Regression Statistics** (col AB, rows 4-8) — #224.
+- **Diagnostics** (col AE, rows 4-10) — PR 3 of N.
+- **ANOVA, Coefficients, Smearing / Unit-Space, Prediction Interval / FE-group,
+  Residual Output (cols AO-AX), Predictor Summary (row 3), the
+  serial-correlation trigger cells (rows 11-12), and the `n` / `mean_y` / `sd_y`
+  named ranges** — the remaining zones, migrated together and Excel-verified.
+  Every engine call site on the sheet now reads `Fit_Design_Columns()` /
+  `Fit_Sample_Include()`; no bare `Design_Columns()` / `Sample_Include()`
+  constructor call survives outside the spill-source cells that PRODUCE the
+  arrays (which must stay bare — they are the source the readers read).
+
+- **DONE · L · needs Excel** — Point the readers at the spills. Complete: the
+  recalculate time fell from the 21.8s spike baseline to 10.5s, and the
+  cell-by-cell spec verifier (NumPy) passes across every migrated zone.
+
+The catalog LAMBDA bodies that *called* the constructors are rewired too:
+`Response_Column`, `Predictor_Columns`, `Constructed_Column_Names`,
+`Constructed_Column_Transforms`, `Absorbed_Degrees_Of_Freedom`,
+`Design_Response`, `Design_Columns`, and `Log_Domain_Status` now call
+`Fit_Sample_Include()` for the default mask. This is cycle-safe because
+`Sample_Include` is a leaf — its body depends only on `Source_Data` and the spec
+arrays, so the spill it produces can never depend back on a caller. No JSON
+lambda calls `Design_Columns()` (the engines receive the matrix as an
+argument), so there were no `Design_Columns()` swaps to make in the catalog.
+`Sample_Include(FALSE)` (the pre-positivity mask `Log_Domain_Status` differences
+against the default) stays bare — the materialized spill is the default mask
+only, and `FALSE` expresses an argument it cannot.
+
+- **READY · M · needs Excel** — Promote the `Sample_Include` *name* itself from
+  a live closure to a thunk over its materialized spill. Now optional rather
+  than load-bearing: with every call site (sheet zones and catalog lambdas)
+  reading `Fit_Sample_Include()`, the constructor `Sample_Include()` is
+  evaluated only at its spill cell, so the performance win is already banked.
+  The reason the promotion is still separate still holds — the spill cell IS
+  `=Sample_Include()`, so pointing the `Sample_Include` name at its own spill
+  makes the producing cell self-referential, and `Sample_Include(FALSE)`
+  expresses an argument the materialized default cannot — so the name stays a
+  constructor and the promotion is a cosmetic simplification, not a perf step.
+  See
   [DECISIONS.md § materialization in two steps](DECISIONS.md#materialization-lands-in-two-steps--model_context-now-sample_include-deferred).
 
 ## v3.4 — Model Comparison Sheet

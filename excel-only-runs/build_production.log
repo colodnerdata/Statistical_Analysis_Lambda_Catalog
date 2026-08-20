@@ -1,6 +1,4 @@
 python build_production.py 
-
-Excel's COM session dropped; retrying in a fresh Excel instance...
 Workbook: C:\LocalPython\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
 Sheet updated: LAMBDA_functions
 Sheet updated: Life Expectancy Data
@@ -14,7 +12,7 @@ Sheet updated: Univariate
 Created names: 0
 Updated names: 123
 Removed names: 0
-Timing: build+sync    293.7s
-Timing: recalculate   35.7s
-Timing: total         329.4s
+Timing: build+sync    303.6s
+Timing: recalculate   36.9s
+Timing: total         340.5s
 Log: C:\LocalPython\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production.log

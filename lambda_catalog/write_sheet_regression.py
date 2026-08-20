@@ -1111,7 +1111,7 @@ def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
-    """Cols X–Y, rows 3–8."""
+    """Cols AA–AB, rows 3–8."""
     section_heading(sheet, 3, _C_AA, "REGRESSION STATISTICS")
     # Fit-time X/y (Fit_Design_Columns()/Design_Response()): the response is
     # Response_Column() unchanged with no Fixed Effects row and one-way

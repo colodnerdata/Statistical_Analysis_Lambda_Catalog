@@ -1111,7 +1111,7 @@ def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
-    """Cols X–Y, rows 3–8."""
+    """Cols AA–AB, rows 3–8."""
     section_heading(sheet, 3, _C_AA, "REGRESSION STATISTICS")
     # Fit-time X/y (Fit_Design_Columns()/Design_Response()): the response is
     # Response_Column() unchanged with no Fixed Effects row and one-way
@@ -1120,27 +1120,27 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     # convention panel-regression software (e.g. R's plm) uses. Adjusted R²
     # and Standard Error also carry the absorbed df (element 2 of Model_Context,
     # 0 with no FE row) so their df-dependent penalty/divisor is correct.
-    # The Regression Statistics zone is the FIRST fully-migrated zone (v3.2
-    # PR 2 of N): every cell reads the materialized spills through
-    # Fit_Design_Columns() / Fit_Sample_Include() instead of re-running the
-    # constructors. PR 1 (#223) spiked exactly two cells — AB5 and AB8, one per
-    # spill SHAPE — to confirm `#` resolves inside a defined-name RefersTo in
-    # Excel; it does, so the rest of the zone follows. PR 3 migrated the
-    # Diagnostics zone (col AE rows 4-10). The migration goes zone by zone
-    # against the cell-by-cell verifier rather than in one sweep, and the next
-    # zone (ANOVA, col AC rows 15-17) still calls the constructors directly
-    # until its own PR.
+    # The Regression Statistics zone was the FIRST fully-migrated zone (v3.2):
+    # every cell reads the materialized spills through Fit_Design_Columns() /
+    # Fit_Sample_Include() instead of re-running the constructors. PR 1 (#223)
+    # spiked exactly two cells — AB5 and AB8, one per spill SHAPE — to confirm
+    # `#` resolves inside a defined-name RefersTo in Excel; it does, so the rest
+    # of the zone followed. The migration is now COMPLETE: every engine call
+    # site on this sheet reads the Fit_ readers (Diagnostics, ANOVA,
+    # Coefficients, Smearing/Unit-Space, Prediction/FE-group, Residual Output,
+    # Predictor Summary, the serial-correlation triggers, and the
+    # n/mean_y/sd_y named ranges all migrated with it).
     #
     # A name resolving to the wrong range does not error — it returns numbers
     # from the wrong rows — so every migrated cell lands where the spec-driven
     # verifier compares it cell-by-cell against NumPy. All five rows here are
-    # (Multiple R, R², Adjusted R², SE, Observations), which is what makes this
+    # (Multiple R, R², Adjusted R², SE, Observations), which is what made this
     # zone the safe one to complete first.
     #
     # AB8 keeps Design_Response() as a live constructor beside the materialized
-    # Fit_Sample_Include — the mixed state every zone is in while the migration
-    # proceeds, and a reminder that Design_Response() is NOT one of the two
-    # materialized spills (it is a constructor the engines still evaluate).
+    # Fit_Sample_Include — a reminder that Design_Response() is NOT one of the
+    # two materialized spills (it is a constructor the engines still evaluate);
+    # only Design_Columns and Sample_Include have spill readers.
     for row, label, formula in [
         (4, "Multiple R",        "=Multiple_R(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
         (5, "R Square",          "=R_Squared(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
@@ -1156,10 +1156,10 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
 
 
 def _write_diagnostics(sheet: xw.Sheet) -> None:
-    """Cols AA–AB, rows 3–12.
+    """Cols AD–AE, rows 3–12.
 
     Rows 4-10 (col AE) read the materialized spills through
-    Fit_Design_Columns() / Fit_Sample_Include() — the v3.2 rewiring, PR 3 of N.
+    Fit_Design_Columns() / Fit_Sample_Include() — the v3.2 rewiring.
     Design_Response() and Fit_Context() stay live; only the design-matrix and
     row-mask arguments move to the spill readers.
     """

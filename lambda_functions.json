@@ -2541,6 +2541,77 @@
       "notes": "Treatment-coded 0/1 dummy matrix, row-aligned to the source data. Levels come from Dummy_Levels (one source of truth); the reference level is dropped to avoid collinearity with the intercept; excluded rows return \"\". Returns #N/A on degenerate input."
     },
     {
+      "name": "Dummy_Column",
+      "category": "Data Transformation",
+      "subcategory": "Categorical & Model Construction",
+      "formula_display": "=LAMBDA(category, level, [include],\n    LET(\n        inc,    IF(ISOMITTED(include), TRUE, include),\n        x,      TOCOL(IF(category = \"\", \"\", category), 0),\n        active, (x <> \"\") * inc,\n        IF(active, --(x = level), \"\")\n    )\n)",
+      "arguments": [
+        {
+          "name": "category",
+          "description": "single-column categorical data range",
+          "optional": false
+        },
+        {
+          "name": "level",
+          "description": "the single level to indicator — 1 where category equals this level, 0 otherwise",
+          "optional": false
+        },
+        {
+          "name": "include",
+          "description": "boolean mask — TRUE keeps the row; when omitted all non-blank rows are used",
+          "optional": true
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to category: 1 where the row's category equals level, 0 where it does not (for included rows); \"\" on excluded rows and on blank category cells.",
+      "description": "Dummy_Column returns a single indicator (dummy) column for one explicitly named level: 1 where the category equals that level, 0 elsewhere. It is the free-form counterpart to the spec-driven categorical path — the constructor encodes inline via broadcast and delegates level determination to Dummy_Levels/Dummy_Code, but a standalone user building their own design matrix needs the raw primitive: one column, one level, no treatment-coding machinery attached.\n\nUnlike Dummy_Levels and Dummy_Code, Dummy_Column imposes no treatment-coding semantics and no reference validation. A level not present in the included sample yields a column of 0s — a valid but useless indicator, NOT #N/A. The treatment-coding functions return #N/A on an invalid reference because a bad reference reintroduces the exact collinearity they exist to prevent; an indicator column for a level that simply isn't observed is harmless (all zeros), so there is nothing to signal. The caller names the level and takes responsibility for it.\n\nBlank category cells are normalized to \"\" and excluded by the default include mask (active = (x <> \"\") * inc), the same blank-exclusion convention Dummy_Levels/Dummy_Code use, so a blank never coerces to a spurious match against a level named \"\". Excluded rows return \"\" so the spilled column stays row-aligned with the source — the standard row-aligned-transform contract every other transform in the catalog honours.",
+      "plain_language_summary": "One indicator column for a single named level — 1 where category equals it, 0 elsewhere; no treatment coding, no reference validation.",
+      "notes": "Single indicator column for one explicit level: 1 where category = level, else 0. No treatment coding, no reference validation — a missing level is an all-0 column, not #N/A. Free-form counterpart to the spec-driven path. Excluded rows return \"\"."
+    },
+    {
+      "name": "Interact",
+      "category": "Data Transformation",
+      "subcategory": "Categorical & Model Construction",
+      "formula_display": "=LAMBDA(x1, x2,\n    IF((x1 = \"\") + (x2 = \"\"), \"\", x1 * x2)\n)",
+      "arguments": [
+        {
+          "name": "x1",
+          "description": "first operand — a column or a dummy-coded matrix (n × k)",
+          "optional": false
+        },
+        {
+          "name": "x2",
+          "description": "second operand — a column (broadcasts across x1's columns when x1 is a matrix)",
+          "optional": false
+        }
+      ],
+      "yields": "elementwise product x1·x2, broadcasting n × k × n × 1 → n × k (one interaction column per retained level when one operand is a dummy matrix and the other a column); \"\" on rows where either operand is the excluded-row sentinel; #N/A and other errors propagate through the product.",
+      "description": "Interact returns the elementwise product of two operands — the standalone, free-form counterpart to the v3.0 spec-block interaction columns (§4 M/N). The spec-driven path does not call it: the constructor encodes interactions inline, the same relationship Predictor_Columns() already has with Dummy_Code. A user assembling their own design matrix calls Interact directly to form a continuous × categorical interaction (a dummy matrix times a continuous predictor broadcasts to one interaction column per retained level) or a self-interaction x·x for a quadratic term.\n\nIt takes no [include] mask: the operands carry their own row alignment. An excluded row in either operand is the library's \"\" sentinel, and Interact passes it through — IF((x1=\"\")+(x2=\"\"), \"\", x1*x2) returns \"\" where either side is blank, so the result stays row-aligned when composing transform outputs (Dummy_Code, Ln_Positive) that mark excluded rows with \"\". This is the same excluded-row contract every row-aligned transform honours; a bare x1*x2 would turn a \"\" into #VALUE! and break that alignment.\n\nGenuine errors and #N/A propagate through x1*x2 rather than being swallowed — the NA()-exception convention is respected: an included-but-incomputable value (a Log of a non-positive number, say) surfaces as #N/A in the interaction too, never silently coerced to 0. Excel's native array arithmetic does the broadcasting (n × k × n × 1 → n × k); non-conformable shapes (n × k × n × m with k ≠ m and neither 1) produce #VALUE!, the honest answer for inputs that cannot be multiplied.",
+      "plain_language_summary": "Elementwise product of two operands, broadcasting a column across a dummy matrix — the standalone way to build an interaction column (including x·x for a quadratic).",
+      "notes": "Elementwise product x1·x2 with Excel broadcasting (n×k × n×1 → n×k). \"\" in either operand → \"\" (stays row-aligned, composes with transform outputs). #N/A/errors propagate. No [include]. Free-form counterpart to the spec-block interaction columns."
+    },
+    {
+      "name": "Model_Matrix",
+      "category": "Data Transformation",
+      "subcategory": "Categorical & Model Construction",
+      "formula_display": "=LAMBDA(X, [add_intercept],\n    LET(\n        ai, IF(ISOMITTED(add_intercept), TRUE, add_intercept),\n        IF(ai, HSTACK(SEQUENCE(ROWS(X), 1, 1, 0), X), X)\n    )\n)",
+      "arguments": [
+        {
+          "name": "X",
+          "description": "predictor matrix assembled explicitly with HSTACK (the specification stays visible and auditable)",
+          "optional": false
+        },
+        {
+          "name": "add_intercept",
+          "description": "TRUE (the default) prepends a column of 1s; FALSE returns X unchanged — pass FALSE only when X already contains a constant, i.e. a full one-hot block that kept every level (Dummy_Levels output, which does NOT drop the reference). Dummy_Code output drops the reference level, so its columns are linearly independent of an intercept — keep the default TRUE there; passing FALSE fits a no-intercept model, which changes the model rather than avoiding collinearity",
+          "optional": true
+        }
+      ],
+      "yields": "X with a leading column of 1s prepended when add_intercept is TRUE (the default); X unchanged when add_intercept is FALSE.",
+      "description": "Model_Matrix assembles a design matrix from an already-HSTACKed predictor block, optionally prepending an intercept column of 1s. It is intentionally NOT variadic: predictors are assembled explicitly with HSTACK before being passed in, so the model specification stays visible and auditable rather than buried in a variadic argument list. The standalone, free-form counterpart to the v3.0 spec-driven constructor pipeline, which owns its own intercept (§4a) and builds the design matrix from the spec block — Model_Matrix is for a user constructing a matrix by hand from catalog transforms (Dummy_Column, Interact, Center, …) and feeding it to Coefficients or a LINEST call.\n\nThe intercept defaults to ON because the common regression design includes one. The one case to opt out with add_intercept = FALSE is when X already contains a constant — most importantly a full one-hot block that kept every level (Dummy_Levels output), where prepending an intercept would re-create the perfect multicollinearity that an all-levels dummy block has with a constant. That opt-out is the same decision the spec-driven constructor makes when Allow_Intercept is FALSE: no ones column, and the design-matrix header asymmetry (Design_Columns one wider than Constructed_Column_Names) disappears. Do NOT pass FALSE merely because X came from Dummy_Code: Dummy_Code drops the reference level, so its columns are linearly independent of an intercept and keeping the default is correct — passing FALSE there fits a no-intercept model (no constant term), which changes the model, not a collinearity fix. Model_Matrix does not validate that choice — it prepends or it doesn't, as asked — because the spec-driven pipeline, not this function, owns intercept correctness from v3.0 on.\n\nThe ones column is SEQUENCE(ROWS(X), 1, 1, 0) — a constant column of 1s the same height as X — HSTACKed in front of X. Row alignment is the caller's concern: X may contain the library's \"\" excluded-row sentinel from its constituent transforms, and the intercept is 1 for every row including those, which is correct (the sample mask is applied downstream at fit time, not by the design-matrix assembler).",
+      "plain_language_summary": "A design matrix from an HSTACKed predictor block, with an intercept column of 1s prepended by default — pass FALSE only when X already contains a constant (e.g. a full one-hot block that kept every level, not a reference-dropped Dummy_Code block).",
+      "notes": "Design matrix from an HSTACKed X: prepends a ones column when add_intercept is TRUE (default), else X unchanged. Keep the intercept with Dummy_Code (reference dropped). Pass FALSE only for a full one-hot block (all levels) that already has a constant."
+    },
+    {
       "name": "Base_Period_Delta",
       "category": "Data Transformation",
       "subcategory": "Longitudinal & Panel-Time",

@@ -1,3 +1,5 @@
+
+Excel's COM session dropped; retrying in a fresh Excel instance...
 python build_production.py --no-launch
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
 Sheet updated: LAMBDA_functions
@@ -9,10 +11,10 @@ Sheet updated: Diagnostic Guide
 Sheet updated: Version History
 Sheet updated: Regression
 Sheet updated: Univariate
-Created names: 1
-Updated names: 123
+Created names: 0
+Updated names: 127
 Removed names: 0
-Timing: build+sync    207.3s
+Timing: build+sync    243.3s
 Timing: recalculate   10.2s
-Timing: total         217.5s
+Timing: total         253.5s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production no launch.log

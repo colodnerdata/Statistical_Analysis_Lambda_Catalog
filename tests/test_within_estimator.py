@@ -148,7 +148,9 @@ def test_design_columns_demeans_with_reduce_hstack_not_bycol() -> None:
     # BYCOL cannot return a per-call array (Demean_By returns a column), so
     # the FE branch builds the demeaned matrix column-by-column via the same
     # REDUCE+HSTACK pattern Predictor_Columns() itself uses, not BYCOL.
-    formula = _formula("Design_Columns")
+    # The body lives in Design_Columns_Calc (the computational leaf); the
+    # public Design_Columns() name is a reader over the materialized spill.
+    formula = _formula("Design_Columns_Calc")
     assert "IF(NOT(fe_active),Predictor_Columns()," in formula
     assert "BYCOL" not in formula
     assert "REDUCE(seed,SEQUENCE(k_p),LAMBDA(acc,j,HSTACK(acc,Demean_By(INDEX(xp,0,j),fe,inc))))" in formula
@@ -159,7 +161,9 @@ def test_design_columns_applies_the_intercept_stage_after_demeaning() -> None:
     # Pipeline order is load-bearing: a ones column demeaned by group is a
     # column of zeros, which makes the Gram matrix exactly singular. The
     # intercept must therefore be stacked onto the ALREADY-demeaned block.
-    formula = _formula("Design_Columns")
+    # Body lives in Design_Columns_Calc (the leaf); Design_Columns() reads the
+    # spill — see test_design_columns_is_a_reader_over_its_spill.
+    formula = _formula("Design_Columns_Calc")
     assert "IF(has_int,HSTACK(ones,demeaned),demeaned)" in formula
     assert "ones,SEQUENCE(ROWS(Source_Data),1,1,0)" in formula
     # Design_Columns is the CONSTRUCTOR (spec-reading layer), not an engine
@@ -183,9 +187,27 @@ def test_design_columns_returns_the_bare_intercept_when_no_predictor_contributes
     # Predictor_Columns() errors when the spec contributes nothing (DROP of a
     # sentinel-only accumulator). HSTACK onto an error is an error, so the
     # zero-predictor state is branched on before the stack, not after.
-    formula = _formula("Design_Columns")
+    # Body lives in Design_Columns_Calc (the leaf); Design_Columns() reads the
+    # spill.
+    formula = _formula("Design_Columns_Calc")
     assert "k_p,IFERROR(COLUMNS(Predictor_Columns()),0)" in formula
     assert "IF(k_p=0,IF(has_int,ones,Predictor_Columns())" in formula
+
+
+def test_design_columns_and_sample_include_are_readers_over_their_spills() -> None:
+    # v3.2 name-promotion: the public names are readers over the materialized
+    # §4b spills, and the REDUCE bodies live in the _Calc computational leaves
+    # the spill-source cells call. This is what breaks the self-reference that
+    # kept the promotion deferred (the producing cell no longer calls the name
+    # that reads its own spill).
+    si = _formula("Sample_Include")
+    dc = _formula("Design_Columns")
+    # The default (omitted/TRUE) reads the spill; FALSE delegates to the _Calc
+    # leaf for the pre-positivity mask the materialized default cannot express.
+    assert "Fit_Sample_Include()" in si
+    assert "Sample_Include_Calc(FALSE)" in si
+    assert "Spec_Transform" not in si  # the REDUCE moved to _Calc
+    assert dc == "LAMBDA(Fit_Design_Columns())"  # _formula strips the leading =
 
 
 def test_constructors_are_registered_after_their_dependencies() -> None:
@@ -195,7 +217,17 @@ def test_constructors_are_registered_after_their_dependencies() -> None:
     ]
     for dependency in ("Response_Column", "Predictor_Columns", "Fixed_Effects_Column"):
         assert regression_closures.index(dependency) < regression_closures.index("Design_Response")
+        # The REDUCE body lives in the _Calc leaf, which the public reader
+        # delegates to, so the _Calc name must follow the same dependencies
+        # and precede the public name that calls it.
+        assert regression_closures.index(dependency) < regression_closures.index("Design_Columns_Calc")
         assert regression_closures.index(dependency) < regression_closures.index("Design_Columns")
+    # The v3.2 name-promotion: the public readers delegate to their _Calc
+    # leaves (Design_Columns -> Fit_Design_Columns over the spill produced by
+    # Design_Columns_Calc; Sample_Include -> Fit_Sample_Include / Sample_Include_Calc),
+    # so each _Calc leaf precedes the public name that references it.
+    assert regression_closures.index("Design_Columns_Calc") < regression_closures.index("Design_Columns")
+    assert regression_closures.index("Sample_Include_Calc") < regression_closures.index("Sample_Include")
 
 
 def main() -> None:  # pragma: no cover - standalone runner

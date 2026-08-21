@@ -107,6 +107,10 @@ _EXPECTED_NAME_ORDER = [
     # Base_Period_Delta leads: it reads only the wiring names above, never
     # another closure.
     "Base_Period_Delta",
+    # v3.2 name-promotion: the REDUCE bodies live in the _Calc computational
+    # leaves, which the spill-source cells call and the public reader names
+    # delegate to. _Calc precedes its public reader (dependency order).
+    "Sample_Include_Calc",
     "Sample_Include",
     "Response_Column",
     "Row_Labels",
@@ -118,6 +122,7 @@ _EXPECTED_NAME_ORDER = [
     "Absorbed_Degrees_Of_Freedom",
     "Prediction_Group_Column",
     "Design_Response",
+    "Design_Columns_Calc",
     "Design_Columns",
     "Serial_Correlation_Group",
     "Sequence_Deltas",
@@ -125,8 +130,9 @@ _EXPECTED_NAME_ORDER = [
     "Sequence_Delta_Spectrum",
     "Model_Formula",
     # The row-2 status readouts. Three read only the wiring names, but
-    # Log_Domain_Status calls Sample_Include(), so the whole group installs
-    # after the constructors rather than being interleaved among them.
+    # Log_Domain_Status calls Sample_Include(FALSE) (which delegates to the
+    # _Calc leaf), so the whole group installs after the constructors rather
+    # than being interleaved among them.
     "Role_Status",
     "Sequence_Status",
     "Log_Domain_Status",
@@ -301,12 +307,16 @@ def test_spec_ranges_cover_the_standard_input_band() -> None:
 
 def test_sample_include_is_the_reduce_product_mask() -> None:
     sheet = _named_sheet()
-    mask = _refers_to(sheet, "Sample_Include")
+    # v3.2 name-promotion: the REDUCE body lives in the _Calc computational
+    # leaf; the public Sample_Include name is a reader that delegates to it
+    # (see test_sample_include_is_a_reader_over_its_spill). The leaf carries
+    # the optional apply_log_domain argument verbatim.
+    mask = _refers_to(sheet, "Sample_Include_Calc")
 
-    # One optional argument: Sample_Include(FALSE) is the mask WITHOUT the
-    # Log positivity layer, which is what the G2 status cell differences
-    # against the default to report the excluded-row count. Every existing
-    # call site omits it and is unaffected.
+    # One optional argument: Sample_Include_Calc(FALSE) is the mask WITHOUT the
+    # Log positivity layer, which is what the G2 status cell (via the public
+    # Sample_Include(FALSE) reader) differences against the default to report
+    # the excluded-row count. Every existing call site omits it and is unaffected.
     assert mask.startswith("=LAMBDA([apply_log_domain],LET(")
     assert (
         "use_log,IF(ISOMITTED(apply_log_domain),TRUE,apply_log_domain)"
@@ -571,12 +581,14 @@ def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> No
     # caption), plus Sample_Include — and by nothing else; in particular NOT
     # by Row_Labels, which never transforms anything.
     #
-    # Sample_Include joined this list with the second Log token. It is the one
-    # reader that does not transform: it reads Spec_Transform ONLY to decide
-    # whether a column's non-positive rows leave the sample, which is the sole
-    # difference between "Log" and "Log (drop ≤ 0)". The narrower assertion
-    # below is what keeps that from widening into the mask making transform
-    # decisions of its own.
+    # Sample_Include_Calc joined this list with the second Log token (the REDUCE
+    # body lives in the _Calc leaf; the public Sample_Include name is a reader
+    # over the materialized spill and does not read Spec_Transform). It is the
+    # one reader that does not transform: it reads Spec_Transform ONLY to
+    # decide whether a column's non-positive rows leave the sample, which is
+    # the sole difference between "Log" and "Log (drop ≤ 0)". The narrower
+    # assertion below is what keeps that from widening into the mask making
+    # transform decisions of its own.
     #
     # Log_Domain_Status joined it with Part 6.2, and is the second non-
     # transforming reader: it REPORTS on the Log declarations (which column a
@@ -597,12 +609,15 @@ def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> No
         "Model_Formula",
         "Predictor_Columns",
         "Response_Column",
-        "Sample_Include",
+        "Sample_Include_Calc",
     ]
     assert "Spec_Transform" not in _refers_to(sheet, "Row_Labels")
-    # Sample_Include tests the filtering token and nothing else: no Ln, no
-    # renaming, no branch on plain "Log".
-    mask = _refers_to(sheet, "Sample_Include")
+    # The public Sample_Include reader delegates to the spill / _Calc leaf and
+    # does not read Spec_Transform itself — that read lives in the _Calc body.
+    assert "Spec_Transform" not in _refers_to(sheet, "Sample_Include")
+    # Sample_Include_Calc tests the filtering token and nothing else: no Ln,
+    # no renaming, no branch on plain "Log".
+    mask = _refers_to(sheet, "Sample_Include_Calc")
     assert 'INDEX(trn,j)="Log (drop ≤ 0)"' in mask
     assert "Ln_Positive" not in mask
     assert 'INDEX(trn,j)="Log"' not in mask
@@ -1803,11 +1818,15 @@ def test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform() ->
         "Model_Formula",
         "Predictor_Columns",
         "Response_Column",
-        "Sample_Include",
+        # The v3.2 name-promotion moved the REDUCE body (which reads
+        # Spec_Transform) from Sample_Include to the Sample_Include_Calc leaf;
+        # the public Sample_Include name is now a reader over the spill and no
+        # longer mentions Spec_Transform.
+        "Sample_Include_Calc",
     }
 
     for name, body in bodies.items():
-        if name == "Sample_Include":
+        if name == "Sample_Include_Calc":
             assert _TRANSFORM_LOG_DROP in body
             assert f'="{_TRANSFORM_LOG}"' not in body, name
             continue

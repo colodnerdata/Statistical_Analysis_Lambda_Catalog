@@ -201,14 +201,20 @@ def _write_materialization_zone(
     the mechanism is settled and the remaining risk is per-call-site, not
     structural.
 
-    **New names, not promotions, and that is structural.** ``Sample_Include``
-    and ``Design_Columns`` keep their meanings because the spill cells here
-    ARE ``=Sample_Include()`` and ``=Design_Columns()`` — promoting either name
-    to read its own spill would make the cell producing it self-referential.
-    ``Sample_Include`` additionally keeps an optional ``apply_log_domain``
-    argument that a materialized column cannot express: ``Log_Domain_Status``
-    calls ``Sample_Include(FALSE)`` for the mask BEFORE the positivity layer,
-    and only the default is materialized here.
+    **The v3.2 name-promotion landed here, via a ``_Calc`` split.** The
+    spill-source cells call the computational leaves ``=Sample_Include_Calc()``
+    and ``=Design_Columns_Calc()`` (catalog LAMBDAs holding the REDUCE bodies),
+    NOT the public ``Sample_Include()`` / ``Design_Columns()`` names. The public
+    names are READERS over these spills — ``Sample_Include`` dispatches to
+    ``Fit_Sample_Include()`` for the default and to ``Sample_Include_Calc(FALSE)``
+    for the pre-positivity mask; ``Design_Columns`` delegates to
+    ``Fit_Design_Columns()``. Producing the spill from the ``_Calc`` leaf is what
+    breaks the self-reference that kept the promotion deferred: the producing
+    cell no longer calls the name that reads its own spill. ``Sample_Include``
+    keeps its optional ``apply_log_domain`` argument because
+    ``Sample_Include(FALSE)`` — the mask BEFORE the positivity layer that
+    ``Log_Domain_Status`` differences against the default — still delegates to
+    ``Sample_Include_Calc(FALSE)``; only the default mask is materialized here.
 
     A wrong range in one of these names does not error — it returns numbers
     from the wrong rows — so the migration goes zone by zone against the
@@ -290,9 +296,13 @@ def _write_materialization_zone(
     # ── Sample_Include (materialized row mask) ───────────────────────────────
     # The mask spills full-height and row-aligned with the source table (the
     # row-mask contract), so it reads straight across into the design-matrix
-    # rows beside it. This SURFACES the value; it does not rewire the closure —
-    # Sample_Include() is still evaluated per call site, and promoting it to a
-    # thunk over this spill stays deferred (see the docstring).
+    # rows beside it. The spill-source cell calls the _Calc computational leaf
+    # (=Sample_Include_Calc()), NOT the public Sample_Include() name. Before the
+    # v3.2 promotion the spill cell WAS =Sample_Include(); pointing the public
+    # name — now a reader over THIS spill via Fit_Sample_Include() — at a cell
+    # that called itself would have been self-referential. The _Calc split is
+    # what breaks that cycle: the producing cell calls the leaf, so the public
+    # reader can read the spill without self-reference (see the docstring).
     section_heading(sheet, 1, _C_SAMPLE_INCLUDE_MATERIALIZED, "Sample Include")
     val(
         sheet,
@@ -310,7 +320,7 @@ def _write_materialization_zone(
         sheet,
         _MATERIALIZATION_SPILL_ROW,
         _C_SAMPLE_INCLUDE_MATERIALIZED,
-        "=Sample_Include()",
+        "=Sample_Include_Calc()",
     )
     # Fit_Sample_Include — the reader over the spill written above. 1-D (n x 1,
     # one row per SOURCE row, not per included row), so the fallback if `#`
@@ -371,7 +381,7 @@ def _write_materialization_zone(
     bold_row(
         sheet, _MATERIALIZATION_HEADER_ROW, _C_DESIGN_MATRIX, _C_DESIGN_MATRIX_NAMES
     )
-    f(sheet, _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX, "=Design_Columns()")
+    f(sheet, _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX, "=Design_Columns_Calc()")
     # Fit_Design_Columns — the reader over the design-matrix spill. 2-D
     # (n x k, both dimensions dynamic), which is the harder of the two shapes:
     # the `#` form is dimension-agnostic, but an OFFSET fallback would need a

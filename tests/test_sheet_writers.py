@@ -636,13 +636,16 @@ def test_materialization_zone_materializes_model_context() -> None:
     )
     # Each name anchors on the cell that actually holds its spill, not on a
     # neighbour — the assertion above would still pass if the two were swapped,
-    # so tie each anchor to the formula underneath it.
+    # so tie each anchor to the formula underneath it. The spill-source cells
+    # call the _Calc computational leaves (NOT the public Sample_Include() /
+    # Design_Columns() names, which are readers over these spills) — the v3.2
+    # name-promotion split that breaks the self-reference.
     assert sheet.cell(
         _MATERIALIZATION_SPILL_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED
-    ).api.Formula2 == "=Sample_Include()"
+    ).api.Formula2 == "=Sample_Include_Calc()"
     assert sheet.cell(
         _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX
-    ).api.Formula2 == "=Design_Columns()"
+    ).api.Formula2 == "=Design_Columns_Calc()"
 
     # Health check one row under the block: the height is the build-time
     # invariant, and — the part decomposition made worth checking — every
@@ -664,17 +667,20 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert set(box._borders) == {7, 8, 9, 10}
 
     # Sample_Include is SURFACED at its final §4b position: a header row and a
-    # full-height spill of the live closure. Surfacing the value is not the
-    # same as rewiring the reader — promoting the closure to a thunk over this
-    # spill stays deferred (Excel-verified, not blind), so nothing on the sheet
-    # reads this column and Fit_Sample_Include() is still evaluated per call site.
+    # full-height spill produced by the Sample_Include_Calc computational leaf.
+    # The v3.2 name-promotion landed: the spill cell calls Sample_Include_Calc
+    # (not the public Sample_Include() name, which is now a reader over this
+    # spill via Fit_Sample_Include()), so the producing cell is not
+    # self-referential and the spec-block Levels / Design Columns audit columns
+    # (which write =Sample_Include()) read the materialized array instead of
+    # re-running the REDUCE.
     assert (
         sheet.cell(_MATERIALIZATION_HEADER_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED).value
         == _SAMPLE_INCLUDE_HEADER
     )
     assert _formula(
         sheet, _MATERIALIZATION_SPILL_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED
-    ) == "=Sample_Include()"
+    ) == "=Sample_Include_Calc()"
 
     # The zone sits past the chart footprint with a structural gutter after
     # the charts; Model Context is a label/value pair and Sample_Include is one
@@ -694,7 +700,7 @@ def test_materialization_zone_materializes_model_context() -> None:
     assert sheet.cell(1, _C_DESIGN_MATRIX).color == HEADER_COLOR
     assert _formula(
         sheet, _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX
-    ) == "=Design_Columns()"
+    ) == "=Design_Columns_Calc()"
     assert _C_DESIGN_MATRIX - _C_GUTTER_AFTER_SAMPLE_INCLUDE == 1
 
     # The header row is SPLIT across two cells, because Fit_Design_Columns() is one

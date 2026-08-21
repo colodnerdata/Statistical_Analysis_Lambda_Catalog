@@ -1248,3 +1248,66 @@ def test_life_expectancy_country_levels_follow_excel_order() -> None:
     index = countries.index("Côte d'Ivoire")
     assert countries[index - 1] == "Costa Rica"
     assert countries[index + 1] == "Croatia"
+
+
+def test_unit_space_divisor_is_in_original_units_not_fit_space() -> None:
+    """The AZ/BA/BB columns must not be scored against the fit-space RMS.
+
+    ``response_scale`` is the RMS of ``Design_Response()`` — under a Log
+    response, log units. ``unit_response_scale`` is the RMS of the
+    reconstructed observed response in ORIGINAL units. On a Log-response case
+    the two differ by orders of magnitude, so passing the first where the
+    second belongs never applies the intended precision floor.
+
+    The reconstruction is exact by construction: ``Unit_Space_Residuals`` is
+    ``Unit_Space_Observed - Unit_Space_Predictions``, so the two sum back to
+    ``Unit_Space_Observed``.
+    """
+    expected = calculate_regression_spec_case(
+        _case("production_lots_log_loocv_leverage"), CSV_PATH
+    )
+    unit = expected.results.unit_space
+    residuals = expected.results.full_residuals
+
+    fit_space_scale = math.sqrt(
+        sum(float(v) ** 2 for v in residuals.dependent_var)
+        / len(residuals.dependent_var)
+    )
+    observed_unit = [
+        float(p) + float(r)
+        for p, r in zip(unit.predictions_unit, unit.residuals_unit)
+    ]
+    unit_scale = math.sqrt(sum(v ** 2 for v in observed_unit) / len(observed_unit))
+
+    # The divisor that actually belongs to these columns is the one on the
+    # same order as the quantities being compared.
+    typical_unit_error = max(abs(float(v)) for v in unit.residuals_unit)
+    assert unit_scale > 10 * fit_space_scale, (
+        f"expected the original-units RMS ({unit_scale}) to dwarf the "
+        f"fit-space RMS ({fit_space_scale}) on a Log-response case"
+    )
+    assert unit_scale > typical_unit_error
+
+
+def test_unit_space_divisor_collapses_to_the_fit_scale_without_a_transform() -> None:
+    """With no response transform the two divisors are the same number.
+
+    That is what keeps the split from changing any non-transformed case: the
+    unit-space columns reduce to the fit-space ones, so their divisor must
+    reduce too.
+    """
+    expected = calculate_regression_spec_case(_case("default_t0_intercept"), CSV_PATH)
+    unit = expected.results.unit_space
+    residuals = expected.results.full_residuals
+
+    fit_space_scale = math.sqrt(
+        sum(float(v) ** 2 for v in residuals.dependent_var)
+        / len(residuals.dependent_var)
+    )
+    observed_unit = [
+        float(p) + float(r)
+        for p, r in zip(unit.predictions_unit, unit.residuals_unit)
+    ]
+    unit_scale = math.sqrt(sum(v ** 2 for v in observed_unit) / len(observed_unit))
+
+    assert unit_scale == pytest.approx(fit_space_scale, rel=1e-12)

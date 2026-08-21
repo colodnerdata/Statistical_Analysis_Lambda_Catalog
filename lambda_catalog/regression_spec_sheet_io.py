@@ -193,8 +193,17 @@ SCALE_FREE_STATS = frozenset({
 # to be addressed.
 _RESPONSE_UNIT_STATS = frozenset({
     "Dependent_Variable", "Predictions", "Residuals", "PRESS_Residual",
-    # v3.4: the three original-units columns (AZ/BA/BB) ship in response units
-    # and inherit the same precision floor, so they divide by response RMS.
+})
+
+# The three original-units columns (AZ/BA/BB). They are response-unit
+# quantities like the band above, but they are NOT on the same scale: the band
+# above is in FIT space (logged and/or within-demeaned), these are in ORIGINAL
+# units. Dividing them by the fit-space RMS is a category error that happens to
+# produce a number — on P08 it hands a divisor of ~11.71 to errors of order
+# 13,000, so the promised precision floor is never actually applied, and on a
+# sub-unit Log response the mismatch runs the other way and makes the check too
+# permissive. They get their own divisor, ``unit_response_scale``, below.
+_UNIT_SPACE_RESPONSE_STATS = frozenset({
     "Unit_Space_Predictions", "Unit_Space_Residuals", "Unit_Space_LOOCV_Residual",
 })
 _STANDARDIZED_RESIDUAL_STATS = frozenset({
@@ -204,9 +213,10 @@ _STANDARDIZED_RESIDUAL_STATS = frozenset({
 # v3.4 unit-space SCALAR goodness-of-fit statistics in response units. Unlike
 # the residual-band set above, these are single cells read out of the AG/AH
 # block, so they need their own set to be scaled in the scalar loop. All three
-# divide by response RMS: their error comes from the back-transformed fitted
-# values (in response units), not from their own magnitude — exactly the
-# CLAUDE.md § *QC comparison scale* second case. ``compare_values`` floors the
+# divide by ``unit_response_scale`` — the ORIGINAL-units RMS, not the fit-space
+# one — because their error comes from the back-transformed fitted values, not
+# from their own magnitude: exactly the CLAUDE.md § *QC comparison scale*
+# second case, on the scale the statistics are actually reported in. ``compare_values`` floors the
 # divisor at 1.0, so a small response gets no adjustment and the comparison is
 # never made stricter than the absolute scale. Applying it to the existing
 # ``Unit_Space_RMSE`` removes a latent over-strictness (it was previously on
@@ -452,6 +462,7 @@ def read_case_comparison_rows(
     vectors = results.vectors
     predictor_summary = results.predictor_summary
     residuals = results.full_residuals
+    unit = results.unit_space
     interval = results.prediction_interval
     k = len(predictor_summary.predictor_names)
     n = summary.observations
@@ -498,9 +509,32 @@ def read_case_comparison_rows(
         else response_scale
     )
 
+    # The ORIGINAL-units counterpart of ``response_scale``, for the AZ/BA/BB
+    # columns and the unit-space error scalars. The observed response in unit
+    # space is reconstructed rather than re-derived: ``Unit_Space_Residuals``
+    # is defined as ``Unit_Space_Observed - Unit_Space_Predictions``, so their
+    # sum IS ``Unit_Space_Observed``, exactly. Under a None response transform
+    # this collapses to ``response_scale``, so the non-transformed cases are
+    # unaffected.
+    unit_observed = tuple(
+        float(pred) + float(resid)
+        for pred, resid in zip(unit.predictions_unit, unit.residuals_unit)
+        if pred is not None
+        and resid is not None
+        and math.isfinite(float(pred))
+        and math.isfinite(float(resid))
+    )
+    unit_response_scale = (
+        math.sqrt(sum(v ** 2 for v in unit_observed) / len(unit_observed))
+        if unit_observed
+        else response_scale
+    )
+
     def _residual_scale(stat_name: str) -> float | None:
         if stat_name in _RESPONSE_UNIT_STATS:
             return response_scale
+        if stat_name in _UNIT_SPACE_RESPONSE_STATS:
+            return unit_response_scale
         if stat_name in _STANDARDIZED_RESIDUAL_STATS:
             return standardized_scale
         return None
@@ -578,10 +612,9 @@ def read_case_comparison_rows(
     # bare literals, so a future shift in the block is caught by
     # ``test_row_constants_match_the_writers_own_layout`` rather than reading
     # the wrong cell. ``_RESPONSE_UNIT_SCALARS`` divides the three
-    # response-unit error scalars by ``response_scale`` (floored at 1.0 by
-    # ``compare_values``); the two R²-family readouts and the smearing factor
-    # stay on the absolute scale — they are dimensionless / relative.
-    unit = results.unit_space
+    # original-units error scalars by ``unit_response_scale`` (floored at 1.0
+    # by ``compare_values``); the two R²-family readouts and the smearing
+    # factor stay on the absolute scale — they are dimensionless / relative.
     for stat_name, expected_value, row in (
         ("Smearing_Factor", unit.smearing_factor, _ROW_UNIT_SMEARING),
         ("Unit_Space_R_Squared", unit.r_squared_unit, _ROW_UNIT_R2),
@@ -595,7 +628,11 @@ def read_case_comparison_rows(
                 {"stat_name": stat_name},
                 expected_value,
                 read_cell(sheet, row, _C_AH),
-                scale=response_scale if stat_name in _RESPONSE_UNIT_SCALARS else None,
+                scale=(
+                    unit_response_scale
+                    if stat_name in _RESPONSE_UNIT_SCALARS
+                    else None
+                ),
             )
         )
 
@@ -731,8 +768,9 @@ def read_case_comparison_rows(
     # above stops at ``_C_AX``, and the ``AY`` column in between returns ""
     # (a masked label helper), so the range cannot simply be widened. This
     # block closes that gap and adds the v3.4 LOOCV residual column (``BB``).
-    # All three are response-unit quantities (``_RESPONSE_UNIT_STATS``) and
-    # divide by ``response_scale`` via ``_residual_scale``.
+    # All three are ORIGINAL-units quantities (``_UNIT_SPACE_RESPONSE_STATS``)
+    # and divide by ``unit_response_scale`` via ``_residual_scale`` — never by
+    # the fit-space ``response_scale`` the band above uses.
     unit_residual_stats = (
         ("Unit_Space_Predictions", unit.predictions_unit),
         ("Unit_Space_Residuals", unit.residuals_unit),

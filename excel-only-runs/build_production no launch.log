@@ -9,10 +9,10 @@ Sheet updated: Diagnostic Guide
 Sheet updated: Version History
 Sheet updated: Regression
 Sheet updated: Univariate
-Created names: 1
-Updated names: 123
+Created names: 3
+Updated names: 124
 Removed names: 0
-Timing: build+sync    207.3s
-Timing: recalculate   10.2s
-Timing: total         217.5s
+Timing: build+sync    195.3s
+Timing: recalculate   10.0s
+Timing: total         205.4s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production no launch.log

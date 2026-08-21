@@ -140,6 +140,9 @@ Tests live in `tests/`. The current test files are:
 | `test_ln_positive_verification.py` | v2.2 Transform=Log — `Ln_Positive` pure-Python mirror (the `NA()`-exception contract, the geometric-mean round-trip the Prediction Inputs fix relies on) and implementation-shape assertions on the catalog formula |
 | `test_transform_threading.py` | v2.2 Transform=Log wiring end to end — cross-checks the new `production_lots_log_transform` QC case (raw columns, `transform="Log"`) against the pre-existing precomputed-log-column case to floating-point precision; Categorical×Log inertness |
 | `test_interaction_wiring.py` | v3.1 interaction wiring — the spec block's M/N pair against the Python mirror in `analyze_regression_spec.build_spec_design`: the three width regimes (1 / L−1 / (L₁−1)(L₂−1)), the closed Product/Difference/Ratio arithmetic, the four operand Role/Include cases, the two-way limit, the documented quadratic, and Ratio's zero-denominator refusal |
+| `test_numeric_complete_cases_verification.py` | v3.9 `Numeric_Complete_Cases` — pure-Python mirror (Excel `ISNUMBER` semantics, not pandas coercion) and implementation-shape assertions on the catalog formula |
+| `test_categorical_model_construction_verification.py` | v3.9 trio (`Dummy_Column`/`Interact`/`Model_Matrix`) — pure-Python mirrors with Excel broadcasting and `""`/`#N/A` propagation, plus catalog-formula shape assertions (workbook-scoped, document order, none calls `LINEST`) |
+| `test_categorical_model_construction_excel.py` | v3.9 trio — Excel COM evaluation of the catalog formulas (gated on `RUN_EXCEL_INTEGRATION=1`); the workbook-backed companion to the pure-Python mirror, reading the spills back after a full recalculation |
 
 ### Coverage scope
 
@@ -295,7 +298,7 @@ uv run pytest tests/test_workbook_invariants.py -v
 
 Every check in this layer is always-on, the committed-artifact ones included: they read `dist/Lambda_Library.xlsx` as a zip, so a stale or hand-edited workbook fails here rather than shipping. If it does fail, rebuild and commit the artifact (`python scripts/build_production.py --verify --no-launch`, needs Excel) — the check is not the thing to relax.
 
-`RUN_EXCEL_INTEGRATION=1` now gates one suite only, the Excel COM checks for the grid-search helpers:
+`RUN_EXCEL_INTEGRATION=1` now gates two suites only, the Excel COM checks for the grid-search helpers and the v3.9 categorical & model-construction trio:
 
 ```powershell
 poe test-excel               # needs desktop Excel; skips without it

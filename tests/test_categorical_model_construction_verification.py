@@ -73,14 +73,23 @@ def dummy_column_mirror(category, level, include=None):
     convention Dummy_Levels/Dummy_Code use. A level not present in the sample
     yields an all-0 column, NOT an error (the free-form primitive imposes no
     treatment-coding semantics and no reference validation).
+
+    A blank category row is *structurally* excluded: ``active = (x <> "") * inc``
+    ANDs the non-blank factor with the include mask, so an explicit include
+    mask can only exclude non-blank rows further — it cannot revive a blank
+    (you cannot indicator a blank level). This is the same ``active`` formula
+    Dummy_Levels/Dummy_Code use; the Excel integration test
+    (``test_categorical_model_construction_excel.py``) confirms Excel agrees.
     """
     cat = [BLANK if v is None else v for v in category]
     if include is None:
         inc = [(v != BLANK) for v in cat]
     else:
         inc = [bool(v) for v in include]
+    # active = (cat <> "") * inc: blank rows are excluded by the structural
+    # non-blank factor regardless of the include mask.
     return [
-        BLANK if not inc[i] else (1 if cat[i] == level else 0)
+        BLANK if (cat[i] == BLANK or not inc[i]) else (1 if cat[i] == level else 0)
         for i in range(len(cat))
     ]
 
@@ -153,6 +162,20 @@ def test_dummy_column_respects_an_explicit_include_mask() -> None:
     category = ["A", "A", "A"]
     include = [1, 0, 1]
     assert dummy_column_mirror(category, "A", include) == [1, "", 1]
+
+
+def test_dummy_column_explicit_include_does_not_revive_a_blank_row() -> None:
+    # The catalog formula is ``active = (x <> "") * inc`` — the non-blank factor
+    # is ANDed with the include mask, so an explicit include mask can only
+    # exclude non-blank rows further; it cannot revive a blank category row
+    # (you cannot indicator a blank level). A naive mirror that applied the
+    # include mask without the structural non-blank factor returned 0 here;
+    # the formula returns "". This pins the divergence so a future mirror
+    # edit cannot reintroduce it, and the Excel integration test confirms
+    # Excel agrees.
+    category = ["A", None, "A", ""]
+    include_all = [1, 1, 1, 1]  # every row "included" — but blanks stay excluded
+    assert dummy_column_mirror(category, "A", include_all) == [1, "", 1, ""]
 
 
 def test_dummy_column_a_missing_level_is_all_zero_not_an_error() -> None:

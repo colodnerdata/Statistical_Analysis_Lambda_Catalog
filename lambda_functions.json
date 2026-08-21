@@ -2675,6 +2675,23 @@
       "notes": "One-way within transformation x_ig − Group_Mean(x,group,include). v2.1 Fixed Effects constructor internal: demeaning by the FE group is algebraically equivalent to LSDV without materializing group dummy columns. G=1 collapses to grand-mean centering."
     },
     {
+      "name": "Numeric_Complete_Cases",
+      "category": "Data Transformation",
+      "subcategory": "Sample Construction & Diagnostics",
+      "formula_display": "=LAMBDA(data,\n    BYROW(data, LAMBDA(r, N(SUM(--ISNUMBER(r)) = COLUMNS(r))))\n)",
+      "arguments": [
+        {
+          "name": "data",
+          "description": "the data range to screen — any shape; each row is judged independently",
+          "optional": false
+        }
+      ],
+      "yields": "n × 1 column, row-aligned to data: 1 when every value in the row is numeric (Excel ISNUMBER), 0 otherwise (a blank, text, #N/A, or boolean cell makes its row 0).",
+      "description": "Numeric_Complete_Cases returns a listwise-deletion sample mask: 1 for a row in which every value is numeric, 0 for any row containing a blank, text, boolean, or error cell. It is the primitive the rest of the standalone Data Transformation library composes onto — every other sample-construction helper in the bundle accepts an [include] mask, and this is the mask a caller builds before passing it in, so the primitive itself takes no [include] (its job is to BE the mask, not to consume one).\n\nThis is a detector, not a transform output, so a non-numeric row returns 0 — not #N/A and not a blank. The library's NA()-exception convention (\"\" means excluded, #N/A means included-but-incomputable) applies to transform outputs like Ln_Positive, where a row that is part of the sample yet cannot be computed must surface loudly. A mask has no such state: a row either is a complete numeric case (1) or it is not (0), and 0 is the signal downstream callers filter on. Returning 0 (plotted, falsy, summable) rather than \"\" also keeps the column a clean numeric array a SUMPRODUCT or further BYROW can reduce without type coercion.\n\nThe check is row-wise by design — \"every value in a row\" is the definition of listwise deletion — so BYROW judges each row independently and the result stays row-aligned to data. The all-numeric test is written as SUM(--ISNUMBER(r)) = COLUMNS(r) rather than AND(ISNUMBER(r)): AND aggregates a whole array to one scalar, which would collapse the per-row judgement, while the count-equals-width form stays inside the per-row LAMBDA and is explicit about what \"complete\" means. A single-column input works too (each row is 1×1, so the test reduces to ISNUMBER on the one cell).",
+      "plain_language_summary": "Listwise-deletion mask — 1 when every value in a row is numeric, 0 otherwise (the sample-construction primitive the rest of the bundle composes onto).",
+      "notes": "Row-wise listwise-deletion mask: 1 when every cell in the row is numeric (ISNUMBER), else 0. The primitive the [include]-taking transforms compose onto; takes no [include] itself. Detector, not a transform output — rows return 0, not #N/A."
+    },
+    {
       "name": "Is_Balanced_Panel",
       "category": "Data Transformation",
       "subcategory": "Sample Construction & Diagnostics",

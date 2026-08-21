@@ -297,11 +297,12 @@ def _write_materialization_zone(
     # The mask spills full-height and row-aligned with the source table (the
     # row-mask contract), so it reads straight across into the design-matrix
     # rows beside it. The spill-source cell calls the _Calc computational leaf
-    # (=Sample_Include_Calc()), NOT the public Sample_Include() name: the public
-    # name is the v3.2 promotion — a reader over THIS spill via
-    # Fit_Sample_Include() — so pointing it at its own spill would be
-    # self-referential. The _Calc split is exactly what breaks that cycle (see
-    # the docstring).
+    # (=Sample_Include_Calc()), NOT the public Sample_Include() name. Before the
+    # v3.2 promotion the spill cell WAS =Sample_Include(); pointing the public
+    # name — now a reader over THIS spill via Fit_Sample_Include() — at a cell
+    # that called itself would have been self-referential. The _Calc split is
+    # what breaks that cycle: the producing cell calls the leaf, so the public
+    # reader can read the spill without self-reference (see the docstring).
     section_heading(sheet, 1, _C_SAMPLE_INCLUDE_MATERIALIZED, "Sample Include")
     val(
         sheet,

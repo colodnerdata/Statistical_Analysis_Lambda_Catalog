@@ -272,7 +272,7 @@ default mask only, and `FALSE` expresses an argument it cannot.
   bodies move verbatim into private `Sample_Include_Calc` /
   `Design_Columns_Calc` leaves, the spill-source cells call those leaves, and
   the public `Sample_Include` / `Design_Columns` names become thin readers
-  (`=LAMBDA([apply_log_domain],IF(use_log,Fit_Sample_Include(),Sample_Include_Calc(FALSE)))`
+  (`=LAMBDA([apply_log_domain],LET(use_log,IF(ISOMITTED(apply_log_domain),TRUE,apply_log_domain),IF(use_log,Fit_Sample_Include(),Sample_Include_Calc(FALSE))))`
   and `=LAMBDA(Fit_Design_Columns())`). Cosmetic, not a perf step — every call
   site already read the spills, so the win was banked at the rewiring; this
   just makes the names say what they do. Side-benefit: the spec-block K

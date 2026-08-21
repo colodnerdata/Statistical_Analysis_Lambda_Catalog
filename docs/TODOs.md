@@ -79,7 +79,6 @@ last in the Regression track — they are also listed in their own working order
 
 | Task | Size | Milestone |
 |---|---|---|
-| [Promote `Sample_Include()` to a thunk over its spill](#v32--full-materialization-of-the-design-matrix) | M | v3.2 |
 | [Re-examine the intercept-only closed-form bypass](#v30-leftovers) | M | v3.0 |
 | [Diagnostic-chart reference lines](#v1x--regression-sheet) | M | v1.x |
 | [Suppress worst-fit distributions from the combo charts](#v11-leftovers--univariate-sheet-writer) | M | v1.1 |
@@ -241,7 +240,11 @@ Migrated:
   Every engine call site on the sheet now reads `Fit_Design_Columns()` /
   `Fit_Sample_Include()`; no bare `Design_Columns()` / `Sample_Include()`
   constructor call survives outside the spill-source cells that PRODUCE the
-  arrays (which must stay bare — they are the source the readers read).
+  arrays. Those cells now call the `*_Calc` computational leaves
+  (`=Sample_Include_Calc()` / `=Design_Columns_Calc()`) rather than the public
+  names, which is what lets the public names themselves be readers over the
+  spills (see the promotion note below) without the producing cell becoming
+  self-referential.
 
 - **DONE · L · needs Excel** — Point the readers at the spills. Complete: the
   recalculate time fell from the 21.8s spike baseline to 10.5s, and the
@@ -251,26 +254,33 @@ The catalog LAMBDA bodies that *called* the constructors are rewired too:
 `Response_Column`, `Predictor_Columns`, `Constructed_Column_Names`,
 `Constructed_Column_Transforms`, `Absorbed_Degrees_Of_Freedom`,
 `Design_Response`, `Design_Columns`, and `Log_Domain_Status` now call
-`Fit_Sample_Include()` for the default mask. This is cycle-safe because
-`Sample_Include` is a leaf — its body depends only on `Source_Data` and the spec
-arrays, so the spill it produces can never depend back on a caller. No JSON
-lambda calls `Design_Columns()` (the engines receive the matrix as an
-argument), so there were no `Design_Columns()` swaps to make in the catalog.
-`Sample_Include(FALSE)` (the pre-positivity mask `Log_Domain_Status` differences
-against the default) stays bare — the materialized spill is the default mask
-only, and `FALSE` expresses an argument it cannot.
+`Fit_Sample_Include()` for the default mask. This is cycle-safe because the
+computational leaves `Sample_Include_Calc` / `Design_Columns_Calc` are leaves —
+their bodies depend only on `Source_Data` and the spec arrays, so the spill a
+leaf produces can never depend back on a caller. No JSON lambda calls
+`Design_Columns()` (the engines receive the matrix as an argument), so there
+were no `Design_Columns()` swaps to make in the catalog. `Sample_Include(FALSE)`
+(the pre-positivity mask `Log_Domain_Status` differences against the default)
+now delegates to `Sample_Include_Calc(FALSE)` — the materialized spill is the
+default mask only, and `FALSE` expresses an argument it cannot.
 
-- **READY · M · needs Excel** — Promote the `Sample_Include` *name* itself from
-  a live closure to a thunk over its materialized spill. Now optional rather
-  than load-bearing: with every call site (sheet zones and catalog lambdas)
-  reading `Fit_Sample_Include()`, the constructor `Sample_Include()` is
-  evaluated only at its spill cell, so the performance win is already banked.
-  The reason the promotion is still separate still holds — the spill cell IS
-  `=Sample_Include()`, so pointing the `Sample_Include` name at its own spill
-  makes the producing cell self-referential, and `Sample_Include(FALSE)`
-  expresses an argument the materialized default cannot — so the name stays a
-  constructor and the promotion is a cosmetic simplification, not a perf step.
-  See
+- **DONE · M · needs Excel** — Promote the `Sample_Include` / `Design_Columns`
+  *names* from live closures to readers over their materialized spills. The
+  self-reference that had kept this deferred (the spill cell WAS
+  `=Sample_Include()`, so pointing the name at its own spill made the producing
+  cell self-referential) is broken by a `_Calc` split: the existing REDUCE
+  bodies move verbatim into private `Sample_Include_Calc` /
+  `Design_Columns_Calc` leaves, the spill-source cells call those leaves, and
+  the public `Sample_Include` / `Design_Columns` names become thin readers
+  (`=LAMBDA([apply_log_domain],IF(use_log,Fit_Sample_Include(),Sample_Include_Calc(FALSE)))`
+  and `=LAMBDA(Fit_Design_Columns())`). Cosmetic, not a perf step — every call
+  site already read the spills, so the win was banked at the rewiring; this
+  just makes the names say what they do. Side-benefit: the spec-block K
+  (Levels) and O (Design Columns audit) computed columns call bare
+  `Sample_Include()`, so they now resolve through the reader to the spill and
+  stop recomputing the REDUCE. `Log_Domain_Status`'s `Sample_Include(FALSE)`
+  is unchanged in effect (it recomputes via the `_Calc` leaf — the
+  pre-positivity mask is deliberately NOT materialized). See
   [DECISIONS.md § materialization in two steps](DECISIONS.md#materialization-lands-in-two-steps--model_context-now-sample_include-deferred).
 
 ## v3.4 — Model Comparison Sheet

@@ -1792,6 +1792,23 @@ reason, so the band now carries two reserved positions and one live spill. The
 promotion lands at v3.2 alongside the design matrix's own materialization, since
 both need the same Excel-verified `#`-inside-a-`LAMBDA` answer.
 
+**Update — the promotion landed.** The `Sample_Include` / `Design_Columns` names
+are now readers over their materialized spills. The self-reference that the
+deferral hinged on (the spill-source cell WAS `=Sample_Include()`, so pointing
+the name at its own spill made the producing cell self-referential) is broken
+by a `_Calc` split: the existing REDUCE bodies move verbatim into private
+`Sample_Include_Calc` / `Design_Columns_Calc` leaves, the spill-source cells
+call those leaves, and the public names become thin readers
+(`Sample_Include` delegates to `Fit_Sample_Include()` for the default and
+`Sample_Include_Calc(FALSE)` for the pre-positivity mask; `Design_Columns` is
+`=LAMBDA(Fit_Design_Columns())`). Cycle-safety now rests on the `_Calc` leaves
+being leaves — they depend only on `Source_Data` and the spec arrays, so the
+spill a leaf produces can never depend back on a caller. This is a cosmetic
+simplification, not a perf step: every call site already read the spills, so
+the recalc win was banked at the rewiring. `Log_Domain_Status`'s
+`Sample_Include(FALSE)` is unchanged in effect (it recomputes via the `_Calc`
+leaf — the pre-positivity mask is deliberately NOT materialized).
+
 ### Versioning across two artifacts — SUPERSEDED
 
 > **SUPERSEDED** by the workbook reunification. The two-artifact split was

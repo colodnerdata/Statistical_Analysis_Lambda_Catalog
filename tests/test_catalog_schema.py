@@ -410,6 +410,13 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 # one Delta per sheet, not one shared with whichever sheet
                 # happens to be named "Regression".
                 "Base_Period_Delta",
+                # The v3.2 name-promotion: the _Calc computational leaf precedes
+                # the public reader that delegates to it. Sample_Include_Calc is
+                # the REDUCE leaf the spill cell (=Sample_Include_Calc()) calls;
+                # Sample_Include is the reader over that spill (and delegates
+                # FALSE to Sample_Include_Calc). Document order IS dependency
+                # order (see _set_sheet_scoped_names).
+                "Sample_Include_Calc",
                 "Sample_Include",
                 "Response_Column",
                 "Row_Labels",
@@ -421,6 +428,10 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 "Absorbed_Degrees_Of_Freedom",
                 "Prediction_Group_Column",
                 "Design_Response",
+                # The v3.2 name-promotion: Design_Columns_Calc is the REDUCE leaf
+                # the spill cell (=Design_Columns_Calc()) calls; Design_Columns is
+                # the reader over that spill via Fit_Design_Columns().
+                "Design_Columns_Calc",
                 "Design_Columns",
                 "Serial_Correlation_Group",
                 "Sequence_Deltas",

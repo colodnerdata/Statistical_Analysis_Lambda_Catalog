@@ -2719,6 +2719,27 @@
       "notes": "Group mean per row's own group, over included members only; full-height (a row's own inclusion doesn't gate its output). #N/A for a blank group or a group with no included members. Backs Demean_By."
     },
     {
+      "name": "Group_Size",
+      "category": "Data Transformation",
+      "subcategory": "Group & Panel",
+      "formula_display": "=LAMBDA(group, [include],\n    LET(\n        g_v,    TOCOL(IF(group = \"\", \"\", group), 0),\n        inc,    IF(ISOMITTED(include), (g_v <> \"\"), include * 1),\n        active, inc * (g_v <> \"\"),\n        IFERROR(\n            LET(\n                groups, UNIQUE(FILTER(g_v, active)),\n                sizes,  BYROW(groups, LAMBDA(gk, SUMPRODUCT(active, --(g_v = gk)))),\n                FILTER(XLOOKUP(g_v, groups, sizes, NA(), 0), active)\n            ),\n            NA()\n        )\n    )\n)",
+      "arguments": [
+        {
+          "name": "group",
+          "description": "the grouping key column — one label per row of the source data"
+        },
+        {
+          "name": "include",
+          "description": "boolean array — TRUE includes the row, FALSE excludes it",
+          "optional": true
+        }
+      ],
+      "yields": "n x 1 column of group sizes, row-aligned to the INCLUDED rows (the same length and order as Hat_Diagonal's output): each row carries the number of included rows sharing its group. #N/A when no row is included.",
+      "description": "Group_Size returns each included row's group size — the count of included rows sharing that row's grouping key.\n\nIt follows Group_Mean's shape rather than counting per row: the distinct keys are taken once with UNIQUE, counted once each with BYROW, and mapped back with XLOOKUP. That is O(n x G), not the O(n^2) an all-rows BYROW would cost, which matters on a high-cardinality panel (the 173-group Life Expectancy case).\n\nThe output is FILTERED to the included rows, so it aligns positionally with Hat_Diagonal, Residuals and Predictions rather than with the raw source column. Its first consumer is the Fixed Effects branch of Unit_Space_LOOCV_Residual, which needs 1/n_g per row to convert the within design's leverage into the equivalent LSDV design's leverage.",
+      "plain_language_summary": "How many rows share each row's group, counted over the rows the model uses.",
+      "notes": "Per-row group size over the included rows, aligned to the filtered sample. UNIQUE + BYROW + XLOOKUP (O(n x G), not O(n^2)), the same shape as Group_Mean. #N/A when nothing is included."
+    },
+    {
       "name": "Demean_By",
       "category": "Data Transformation",
       "subcategory": "Group & Panel",
@@ -3528,7 +3549,7 @@
       "name": "Unit_Space_LOOCV_Residual",
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    rt,          Context_Response_Transform(context_arg),\n    pt,          Context_Predictor_Transform(context_arg),\n    sm,          Smearing_Factor(X, Y, filt_arg, context_arg),\n    shift,       IF(rt = \"Log\", FILTER(Y_Full, filt_arg) - FILTER(Y, filt_arg), 0),\n    loo_fit,     IFERROR(LOOCV_Prediction(X, Y, filt_arg) + shift, NA()),\n    y_unit,      Unit_Space_Observed(Y, Y_Full, filt_arg, context_arg),\n    r_loo,       y_unit - Back_Transform_Response(loo_fit, context_arg, method_arg, sm),\n    SWITCH(rt & \"|\" & pt,\n      \"None|None\", r_loo, \"None|Log\", r_loo, \"None|Mixed\", r_loo,\n      \"Log|None\",  r_loo, \"Log|Log\",  r_loo, \"Log|Mixed\",  r_loo,\n      NA())\n  )\n)",
+      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method], [FE_Group],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    fe_arg,      IF(ISOMITTED(FE_Group), \"\", FE_Group),\n    rt,          Context_Response_Transform(context_arg),\n    pt,          Context_Predictor_Transform(context_arg),\n    absorbed,    Context_DF_Absorbed(context_arg),\n    sm,          Smearing_Factor(X, Y, filt_arg, context_arg),\n    shift,       IF(rt = \"Log\", FILTER(Y_Full, filt_arg) - FILTER(Y, filt_arg), 0),\n    e,           Residuals(X, Y, filt_arg),\n    h_fit,       Hat_Diagonal(X, filt_arg),\n    n_obs,       ROWS(h_fit),\n    h,           IF(absorbed = 0,\n                    h_fit,\n                    h_fit - 1 / n_obs + 1 / Group_Size(fe_arg, filt_arg)),\n    fitted,      Predictions(X, Y, filt_arg) + shift,\n    loo_fit,     IFERROR(fitted - h * e / (1 - h), NA()),\n    y_unit,      Unit_Space_Observed(Y, Y_Full, filt_arg, context_arg),\n    r_loo,       y_unit - Back_Transform_Response(loo_fit, context_arg, method_arg, sm),\n    fe_ok,       OR(absorbed = 0, NOT(ISOMITTED(FE_Group))),\n    IF(NOT(fe_ok), NA(),\n      SWITCH(rt & \"|\" & pt,\n        \"None|None\", r_loo, \"None|Log\", r_loo, \"None|Mixed\", r_loo,\n        \"Log|None\",  r_loo, \"Log|Log\",  r_loo, \"Log|Mixed\",  r_loo,\n        NA()))\n  )\n)",
       "arguments": [
         {
           "name": "X",
@@ -3556,6 +3577,11 @@
           "name": "Method",
           "description": "Duan (default) or Naive; passed through to Back_Transform_Response so the LOO residual corresponds to the back-transform method the sheet shows",
           "optional": true
+        },
+        {
+          "name": "FE_Group",
+          "description": "the Fixed Effects grouping column (Prediction_Group_Column() on the Regression sheet). REQUIRED when the model absorbs fixed effects: without it the leave-one-out leverage cannot be corrected to the equivalent LSDV design, so the function returns #N/A rather than the conditional number. Ignored when Context_DF_Absorbed is 0.",
+          "optional": true
         }
       ],
       "yields": "n × 1 column of leave-one-out residuals in response units (observed response in original units minus the back-transformed LOO fitted value). #N/A on a row whose leverage h_i = 1 (LOOCV_Prediction divides by 1 − h_i), and #N/A outside the six recognised (response, predictor) pairs.",
@@ -3567,7 +3593,7 @@
       "name": "Unit_Space_LOOCV_RMSE",
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    r,           Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg, context_arg, method_arg),\n    IFERROR(SQRT(SUMSQ(r) / ROWS(r)), NA())\n  )\n)",
+      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method], [FE_Group],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    r,           IF(ISOMITTED(FE_Group),\n                    Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg,\n                                              context_arg, method_arg),\n                    Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg,\n                                              context_arg, method_arg, FE_Group)),\n    IFERROR(SQRT(SUMSQ(r) / ROWS(r)), NA())\n  )\n)",
       "arguments": [
         {
           "name": "X",
@@ -3594,6 +3620,11 @@
         {
           "name": "Method",
           "description": "Duan (default) or Naive; passed through to Unit_Space_LOOCV_Residual",
+          "optional": true
+        },
+        {
+          "name": "FE_Group",
+          "description": "the Fixed Effects grouping column (Prediction_Group_Column() on the Regression sheet). REQUIRED when the model absorbs fixed effects: without it the leave-one-out leverage cannot be corrected to the equivalent LSDV design, so the function returns #N/A rather than the conditional number. Ignored when Context_DF_Absorbed is 0.",
           "optional": true
         }
       ],
@@ -3606,7 +3637,7 @@
       "name": "Unit_Space_LOOCV_MAE",
       "category": "Model Construction",
       "subcategory": "Back-Transformation",
-      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    r,           Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg, context_arg, method_arg),\n    IFERROR(AVERAGE(ABS(r)), NA())\n  )\n)",
+      "formula_display": "=LAMBDA(X, Y, Y_Full, [Include], [Context], [Method], [FE_Group],\n  LET(\n    context_arg, IF(ISOMITTED(Context), Model_Context(), Context),\n    filt_arg,    IF(ISOMITTED(Include), TRUE, Include),\n    method_arg,  IF(ISOMITTED(Method), \"Duan\", Method),\n    r,           IF(ISOMITTED(FE_Group),\n                    Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg,\n                                              context_arg, method_arg),\n                    Unit_Space_LOOCV_Residual(X, Y, Y_Full, filt_arg,\n                                              context_arg, method_arg, FE_Group)),\n    IFERROR(AVERAGE(ABS(r)), NA())\n  )\n)",
       "arguments": [
         {
           "name": "X",
@@ -3633,6 +3664,11 @@
         {
           "name": "Method",
           "description": "Duan (default) or Naive; passed through to Unit_Space_LOOCV_Residual",
+          "optional": true
+        },
+        {
+          "name": "FE_Group",
+          "description": "the Fixed Effects grouping column (Prediction_Group_Column() on the Regression sheet). REQUIRED when the model absorbs fixed effects: without it the leave-one-out leverage cannot be corrected to the equivalent LSDV design, so the function returns #N/A rather than the conditional number. Ignored when Context_DF_Absorbed is 0.",
           "optional": true
         }
       ],

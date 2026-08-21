@@ -1165,12 +1165,18 @@ def test_write_residuals_appends_unit_space_columns_az_ba_bb() -> None:
         "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
         f"{_A_BACK_TRANSFORM_METHOD})"
     )
-    # BB is the LOOCV sibling of BA: same six-argument shape, LOOCV_Prediction
-    # substituted for Predictions inside the LAMBDA.
+    # BB is the LOOCV sibling of BA, plus a SEVENTH argument: the Fixed
+    # Effects group column. Under FE the within design's hat diagonal omits
+    # the absorbed group effects, so the LAMBDA needs the grouping key to
+    # correct its leverage to the equivalent LSDV design's. It is
+    # Prediction_Group_Column() rather than Fixed_Effects_Column() because
+    # that name is defined on every spec — a constant "(all)" column when no
+    # FE row is declared — so the argument is safe to pass unconditionally.
     assert bb_formula == (
         "=Unit_Space_LOOCV_Residual(Fit_Design_Columns(),Design_Response(),"
         "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
-        f"{_A_BACK_TRANSFORM_METHOD})"
+        f"{_A_BACK_TRANSFORM_METHOD},"
+        "Prediction_Group_Column())"
     )
 
 

@@ -38,7 +38,7 @@ tag is deliberate, not an entry someone forgot to finish tagging.
 
 Three self-contained items, in ascending cost:
 
-1. [`Numeric_Complete_Cases`](#v39--standalone-data-transformation-library) — one catalog LAMBDA with a Python mirror; the sample-construction helper the rest of v3.9 builds on, and it widens no axis. `S · no Excel`
+1. [`Numeric_Complete_Cases`](#v310--standalone-data-transformation-library) — one catalog LAMBDA with a Python mirror; the sample-construction helper the rest of v3.10 builds on, and it widens no axis. `S · no Excel`
 2. [Finish drift check 3 — function names resolve](#documentation) — the count half is built; this is the name half, and the work is the exclusion list, not the lookup. `S · no Excel`
 3. [Wire the calendar-dated monthly series](#test-model-suite) — one dataset config closes the single axis the coverage matrix still lists as uncovered. `M · no Excel`
 
@@ -48,20 +48,20 @@ Three self-contained items, in ascending cost:
 |---|---|---|
 | [Finish drift check 3 — function names resolve](#documentation) | S | Documentation |
 | [Wire the calendar-dated monthly series](#test-model-suite) | M | Test suite |
-| [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
-| [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
-| [`Numeric_Complete_Cases`](#v39--standalone-data-transformation-library) | S | v3.9 |
-| [`Dummy_Column`, `Interact`, `Model_Matrix`](#v39--standalone-data-transformation-library) | M | v3.9 |
-| [Location & Scale transforms — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`](#v39--standalone-data-transformation-library) | M | v3.9 |
-| [Group & Panel transforms — `Zscore_By`, `Decompose_By`](#v39--standalone-data-transformation-library) | M | v3.9 |
-| [Two-sample tests — `T_Test_OneSample`, `F_Test_Variance`, `Covariance_Matrix`](#v310--bivariate--two-sample) | L | v3.10 |
-| [`Bootstrap_CI` / `MC_Percentile` / `PERT_Sample`](#v311--resampling--simulation) | L | v3.11 |
-| [`Autocorrelation` / `Bartlett_Bands` / `Partial_Autocorrelation`](#v312--time-series-analysis-sheet) | M | v3.12 |
-| [`Ljung_Box_Q` / `Box_Pierce_Q`](#v312--time-series-analysis-sheet) | S | v3.12 |
-| [`ADF_Statistic` + critical-value table](#v312--time-series-analysis-sheet) | L | v3.12 |
-| [`KPSS_Statistic` + critical-value table](#v312--time-series-analysis-sheet) | M | v3.12 |
-| [`Classical_Decomposition`](#v312--time-series-analysis-sheet) | M | v3.12 |
-| [`Moving_Average` / `Exponential_Smoothing` / MAE / MAPE](#v312--time-series-analysis-sheet) | M | v3.12 |
+| [`Model_Formula_String` LAMBDA](#v35--model-comparison-sheet) | M | v3.5 |
+| [`Cluster` Role — clustered-robust V_β](#v36--cluster-role-clustered-ses) | L | v3.6 |
+| [`Numeric_Complete_Cases`](#v310--standalone-data-transformation-library) | S | v3.10 |
+| [`Dummy_Column`, `Interact`, `Model_Matrix`](#v310--standalone-data-transformation-library) | M | v3.10 |
+| [Location & Scale transforms — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`](#v310--standalone-data-transformation-library) | M | v3.10 |
+| [Group & Panel transforms — `Zscore_By`, `Decompose_By`](#v310--standalone-data-transformation-library) | M | v3.10 |
+| [Two-sample tests — `T_Test_OneSample`, `F_Test_Variance`, `Covariance_Matrix`](#v311--bivariate--two-sample) | L | v3.11 |
+| [`Bootstrap_CI` / `MC_Percentile` / `PERT_Sample`](#v312--resampling--simulation) | L | v3.12 |
+| [`Autocorrelation` / `Bartlett_Bands` / `Partial_Autocorrelation`](#v313--time-series-analysis-sheet) | M | v3.13 |
+| [`Ljung_Box_Q` / `Box_Pierce_Q`](#v313--time-series-analysis-sheet) | S | v3.13 |
+| [`ADF_Statistic` + critical-value table](#v313--time-series-analysis-sheet) | L | v3.13 |
+| [`KPSS_Statistic` + critical-value table](#v313--time-series-analysis-sheet) | M | v3.13 |
+| [`Classical_Decomposition`](#v313--time-series-analysis-sheet) | M | v3.13 |
+| [`Moving_Average` / `Exponential_Smoothing` / MAE / MAPE](#v313--time-series-analysis-sheet) | M | v3.13 |
 
 The catalog-function items above are headless by construction: a LAMBDA lands in
 `lambda_functions.json` with a Python mirror and tests, and only the *sheet* that
@@ -71,8 +71,8 @@ Backlog and version-independent rows come first; the milestone rows below them a
 in ladder order. The ladder sorts on two keys — all remaining Regression work
 first, then, within that, how much the
 [regression test-model suite](MODEL_TESTING_ASSETS.md) has to grow to cover
-each milestone. That is why the three flat-cost non-Regression milestones (v3.10,
-v3.11, v3.12) sit below four more expensive ones, and why the four v3.9 rows are
+each milestone. That is why the three flat-cost non-Regression milestones (v3.11,
+v3.12, v3.13) sit below four more expensive ones, and why the four v3.10 rows are
 last in the Regression track — they are also listed in their own working order.
 
 ### Needs Excel on a developer machine
@@ -83,10 +83,10 @@ last in the Regression track — they are also listed in their own working order
 | [Diagnostic-chart reference lines](#v1x--regression-sheet) | M | v1.x |
 | [Suppress worst-fit distributions from the combo charts](#v11-leftovers--univariate-sheet-writer) | M | v1.1 |
 | [Relabel within-model residual outputs + Diagnostic Guide paragraph](#v21-leftovers--follow-on-polish) | S | v2.1 |
-| [Model Comparison sheet layout](#v34--model-comparison-sheet) | L | v3.4 |
-| [Two-sample sheet layout](#v310--bivariate--two-sample) | M | v3.10 |
-| [Simulation sheet layout](#v311--resampling--simulation) | M | v3.11 |
-| [Time-series sheet (`write_sheet_time_series.py`)](#v312--time-series-analysis-sheet) | L | v3.12 |
+| [Model Comparison sheet layout](#v35--model-comparison-sheet) | L | v3.5 |
+| [Two-sample sheet layout](#v311--bivariate--two-sample) | M | v3.11 |
+| [Simulation sheet layout](#v312--resampling--simulation) | M | v3.12 |
+| [Time-series sheet (`write_sheet_time_series.py`)](#v313--time-series-analysis-sheet) | L | v3.13 |
 | [Fix `warn_if_workbook_open`'s buffered-prompt deadlock](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
 | [Stop leaking Excel instances under `parallel`](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
 | [Clean the four `#VALUE!` cells out of the Regression artifact](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
@@ -100,13 +100,13 @@ baked into `templates/static_sheets.xlsx` and only regenerates through
 | Question | Milestone |
 |---|---|
 | [Blank-categorical caveat in `Sample_Include()`](#v20-leftovers) | v2.0 |
-| [Fold-specific Duan smearing for LOOCV](#v34--unit-space-loocv-shipped-340) | v3.4 |
-| [`Unit_Space_RMSE` divisor — ÷ n or ÷ df_residual](#v34--unit-space-loocv-shipped-340) | v3.4 |
-| [Mismatched-predictor-set fallback for the Comparison sheet](#v34--model-comparison-sheet) | v3.4 |
-| [Can a column be both `Sequence` and `Time`](#v36--time-role--lagdifference-semantics) | v3.6 |
-| [Two-sample selector — 3-way flag or separate `paired` boolean](#v310--bivariate--two-sample) | v3.10 |
-| [Does the Time Series sheet declare its own series, or read a `Time` Role](#v312--time-series-analysis-sheet) | v3.12 |
-| [Is the differenced series a materialized column or a closure](#v312--time-series-analysis-sheet) | v3.12 |
+| [Fold-specific Duan smearing for LOOCV](#v34--unit-space-loocv-shipped-340) | v3.5 |
+| [`Unit_Space_RMSE` divisor — ÷ n or ÷ df_residual](#v34--unit-space-loocv-shipped-340) | v3.5 |
+| [Mismatched-predictor-set fallback for the Comparison sheet](#v35--model-comparison-sheet) | v3.5 |
+| [Can a column be both `Sequence` and `Time`](#v37--time-role--lagdifference-semantics) | v3.7 |
+| [Two-sample selector — 3-way flag or separate `paired` boolean](#v311--bivariate--two-sample) | v3.11 |
+| [Does the Time Series sheet declare its own series, or read a `Time` Role](#v313--time-series-analysis-sheet) | v3.13 |
+| [Is the differenced series a materialized column or a closure](#v313--time-series-analysis-sheet) | v3.13 |
 
 Deliberately held, not available to pick up: [BFN critical
 values](#v21-leftovers--follow-on-polish), [Categorical × FE prediction
@@ -175,7 +175,7 @@ and one-way Fixed Effects all shipped inside the 3.0.0 artifact (TODOs #1–#10,
 verified at 0 mismatches across all 12 spec-driven QC cases). Design rationale:
 [DECISIONS.md § v2.1](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 Two-way FE is deliberately deferred until this framework is finished — see
-[v3.8](#v38--two-way-fixed-effects).
+[v3.9](#v39--two-way-fixed-effects).
 
 - **DEFERRED** — **BFN critical values**. N,T-dependent bounds per Bhargava et
   al. 1982 tables; do NOT present standard DW bounds next to the BFN cell. The
@@ -292,7 +292,10 @@ Cross-validation brought out of fit space into original units: the
 `Unit_Space_LOOCV_MAE` scalars, and the `Smearing_Treatment` readout that names
 how the smearing factor was obtained. Shipped non-breaking — the reduction
 invariant is extended (`Unit_Space_LOOCV_Residual ≡ LOOCV_Residual` under
-`Transform = None`, including under FE), not broken. Full rationale in
+`Transform = None`) rather than broken — with ONE deliberate exception: under
+Fixed Effects the two now differ, because the unit-space statistic reports the
+equivalent LSDV model's leave-one-out error while the fit-space `LOOCV_Residual`
+/ PRESS column reports the within model's. Full rationale in
 [DECISIONS.md § v3.4](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
 
 - **OPEN · M · no Excel** — **Fold-specific Duan smearing.** Under the shipped
@@ -318,22 +321,22 @@ invariant is extended (`Unit_Space_LOOCV_Residual ≡ LOOCV_Residual` under
   in that space, so `n − p` buys no unbiasedness. Decide whether to change the
   divisor (a breaking PR — it moves the invariant and the headline contract)
   or to keep it and document the choice as deliberate. Analysis in
-  [DECISIONS.md § v3.4 `Unit_Space_RMSE` divisor](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
+  [DECISIONS.md § v3.5 `Unit_Space_RMSE` divisor](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
 
 ## v3.2 regression — categorical dummy construction broken on `main` (introduced by `2cbf78b`)
 
-A pre-existing regression on `main`, found by the v3.4 Excel verification and
+A pre-existing regression on `main`, found by the v3.5 Excel verification and
 independent of LOOCV. Categorical dummy columns stop materializing in the
 built workbook: `Model_Formula` returns only the continuous predictors, the
 categorical predictor stats read back blank, and categorical-FE cases
 (L-series) cascade to a whole-sheet blank fit. Continuous-only models are
 unaffected. Bisected to the introducing commit `2cbf78b` ("v3.2: repoint all
 remaining engine call sites at the materialized spills", 2026-08-19):
-`9103e90`/`e2f94db` pass, `2cbf78b` fails, `abf68aa`/v3.9/`HEAD` inherit it. The
+`9103e90`/`e2f94db` pass, `2cbf78b` fails, `abf68aa`/v3.10/`HEAD` inherit it. The
 mechanism is the `Dummy_Levels(col, ref, Sample_Include())` →
 `Fit_Sample_Include()` repoint in `Predictor_Columns` /
 `Constructed_Column_Names` / `Constructed_Column_Transforms`. Full analysis in
-[DECISIONS.md § v3.4 — Pre-existing categorical-construction
+[DECISIONS.md § v3.5 — Pre-existing categorical-construction
 break](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
 
 - **OPEN · L · needs Excel** — **Fix the categorical dummy path.** The
@@ -343,7 +346,7 @@ break](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing
   tracking through the spill-reading name, post-`CalculateFullRebuild`. Until
   this is fixed the full `build_test_models.py --verify` cannot go green on
   `main` (every categorical case fails), so it gates every PR's item-4
-  transcript. Out of scope for the v3.4 LOOCV PR (#236), which verified on the
+  transcript. Out of scope for the v3.5 LOOCV PR (#236), which verified on the
   continuous-only P08 case instead. Reproduce: `build_test_models.py --cases
   M01 --verify --no-launch` (42 mismatches, `excel_calc='MPG ~ 1 + Horsepower +
   Weight'`); green baseline `git checkout 9103e90 && build_test_models.py
@@ -357,10 +360,10 @@ break](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing
   the production build path. A `None`-skip guard in `drop_local_name` (in the
   repo's `safe_*` defensive spirit) plus a clean `dist` rebuild would clear it.
 
-## v3.4 — Model Comparison Sheet
+## v3.5 — Model Comparison Sheet
 
 Planned as v2.3; moved after v3.0 when the feature train was resequenced — see
-[ROADMAP.md](ROADMAP.md#v34--model-comparison-sheet--planned). Comes after v3.3
+[ROADMAP.md](ROADMAP.md#v35--model-comparison-sheet--planned). Comes after v3.3
 because an R² computed on `Ln(y)` is not comparable with one computed on raw `y`.
 
 **Test assets — additive (~1×).** No new data: M1, L2, and P2 already supply ≥3
@@ -384,17 +387,17 @@ pair (M1 vs M14) for the `XLOOKUP [if_not_found]` question below. See
   (XLOOKUP `[if_not_found]`). See the open-decision note in
   [DECISIONS.md § v2.3 Model Comparison Sheet](DECISIONS.md#v23--model-comparison-sheet).
 
-## v3.5 — `Cluster` Role (clustered SEs)
+## v3.6 — `Cluster` Role (clustered SEs)
 
 Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering —
 it is Regression work, and a variance-estimator variant over a few existing models
 is the cheapest thing left to cover in that track. See
-[ROADMAP.md](ROADMAP.md#v35--cluster-role-clustered-robust-ses--planned).
+[ROADMAP.md](ROADMAP.md#v36--cluster-role-clustered-robust-ses--planned).
 
 **Test assets — near-additive, no new data to start.** Production Lots' three
 facilities are the initial within-group-correlated fixture, and deliberately few —
 three clusters is what exercises the small-cluster warning path. `Grunfeld` arrives
-with [v3.8](#v38--two-way-fixed-effects) and supplies 10–11 proper clusters. See
+with [v3.9](#v39--two-way-fixed-effects) and supplies 10–11 proper clusters. See
 [docs/MODEL_TESTING_ASSETS.md § 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 - **READY · L · no Excel** — Implement the `Cluster` Role (at most one) —
@@ -406,12 +409,12 @@ with [v3.8](#v38--two-way-fixed-effects) and supplies 10–11 proper clusters. S
   the BFN cell when Cluster is active (the BFN formula already uses
   `Serial_Correlation_Group()` as its resolver, so the wiring is partial).
 
-## v3.6 — `Time` Role + lag/difference semantics
+## v3.7 — `Time` Role + lag/difference semantics
 
 Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering.
-See [ROADMAP.md](ROADMAP.md#v36--time-role--lagdifference-semantics--planned).
+See [ROADMAP.md](ROADMAP.md#v37--time-role--lagdifference-semantics--planned).
 
-**The sheet half moved to [v3.12](#v312--time-series-analysis-sheet).** This
+**The sheet half moved to [v3.13](#v313--time-series-analysis-sheet).** This
 milestone was carrying both an engine change and a new worksheet;
 `Moving_Average`, `Exponential_Smoothing` and `write_sheet_time_series.py` now
 live there. What remains here is Regression-track work plus the dataset.
@@ -427,16 +430,16 @@ and [§ 3](MODEL_TESTING_ASSETS.md#section-3--supplemental-datasets-kept-minimal
 
 - **OPEN · L · no Excel** — Design and implement the `Time` Role. Partially
   forward-wired via the v2.1 Sequence axis, but the full `Time` Role adds
-  time-index semantics (for the v3.12 time-series sheet, for cross-sheet
+  time-index semantics (for the v3.13 time-series sheet, for cross-sheet
   `Lag_By` / `Difference_By` calls). The open question: can a column be both
   `Sequence` and `Time`, or are they mutually exclusive?
 
-## v3.7 — `Weight` Role (WLS)
+## v3.8 — `Weight` Role (WLS)
 
-Planned as v2.6 and claimed as v3.7; it keeps that number, but now as the first
+Planned as v2.6 and claimed as v3.8; it keeps that number, but now as the first
 ~2× item in the Regression track — the ladder reordering put `Cluster` and `Time`
 ahead of it and Two-sample and Resampling behind it. See
-[ROADMAP.md](ROADMAP.md#v37--weight-role-wls--planned). The standalone WLS milestone and its
+[ROADMAP.md](ROADMAP.md#v38--weight-role-wls--planned). The standalone WLS milestone and its
 `[weights]`-argument-vs-parallel-function-set debate are superseded by a
 **`Weight` value on the Role axis** (see
 [ARCHITECTURE.md § 3](ARCHITECTURE.md#3-variable-role--predictor-type--sequence)).
@@ -467,10 +470,10 @@ dispatch-pair family — not the whole suite**; that bound is what keeps this at
 Assert the recorded trap as an oracle: `DEVSQ(√w ⊙ y)` ≠ weighted SST. See
 [docs/MODEL_TESTING_ASSETS.md § 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
-## v3.8 — Two-way Fixed Effects
+## v3.9 — Two-way Fixed Effects
 
 Planned as v2.7+, promoted out of the unordered bucket by the ladder reordering.
-See [ROADMAP.md](ROADMAP.md#v38--two-way-fixed-effects--planned).
+See [ROADMAP.md](ROADMAP.md#v39--two-way-fixed-effects--planned).
 
 **Test assets — ~2× over the FE family.** R `Grunfeld` (200 rows, 10 firms × 20
 years) plus an **unbalanced variant** with rows deleted, to exercise
@@ -494,11 +497,11 @@ two-way. See
   as simple group means). The one-way-scope rationale is in
   [DECISIONS.md § v2.1 scope](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
 
-## v3.9 — Standalone Data Transformation library
+## v3.10 — Standalone Data Transformation library
 
 Planned as the second half of v2.2, then carried as the v3.3 remainder; moved to
 the end of the **Regression track** by the ladder reordering — see
-[ROADMAP.md](ROADMAP.md#v39--standalone-data-transformation-library--planned).
+[ROADMAP.md](ROADMAP.md#v310--standalone-data-transformation-library--planned).
 Full specs in
 [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
 
@@ -523,14 +526,14 @@ transform also multiplies the back-transformation / unit-space semantics. See
   (`Demean_By` / `Group_Mean` shipped at v2.1; the two-way functions follow the
   two-way FE milestone.)
 
-## v3.10 — Bivariate / Two-sample
+## v3.11 — Bivariate / Two-sample
 
-Planned as v2.5, claimed as v3.6, briefly held at v3.5. It sits here because the
+Planned as v2.5, claimed as v3.7, briefly held at v3.5. It sits here because the
 ladder reordering ships all remaining Regression work first — this is the first
 milestone that opens a **new analysis surface** rather than extending the
 Regression sheet. It still precedes Resampling: both are flat-cost to test, and
 two-sample is the parity gap a user hits first. See
-[ROADMAP.md](ROADMAP.md#v310--bivariate--two-sample--planned).
+[ROADMAP.md](ROADMAP.md#v311--bivariate--two-sample--planned).
 
 Nothing here got harder by waiting — this milestone depends on no Regression
 milestone and none depends on it.
@@ -564,11 +567,11 @@ for the wiring cost of a new dataset.
   selector, F-test assumption check, output (test statistic, df, p-value, CI,
   effect size). Implement `write_sheet_two_sample.py`.
 
-## v3.11 — Resampling & Simulation
+## v3.12 — Resampling & Simulation
 
-Planned as v2.4, claimed as v3.5, briefly held at v3.6. The second non-Regression
+Planned as v2.4, claimed as v3.6, briefly held at v3.6. The second non-Regression
 milestone, behind Two-sample — see
-[ROADMAP.md](ROADMAP.md#v311--resampling--simulation--planned).
+[ROADMAP.md](ROADMAP.md#v312--resampling--simulation--planned).
 
 **Test assets — additive, no new data.** The seeded pre-drawn
 `Bootstrap_Random_Draws` table *is* the asset; Production Lots (n = 51) is the
@@ -604,12 +607,12 @@ case), and PERT/MC cases need only parameter cells. See
   Monte Carlo section; may share one sheet). Implement
   `write_sheet_simulation.py`.
 
-## v3.12 — Time Series Analysis sheet
+## v3.13 — Time Series Analysis sheet
 
 The third and last new analysis surface, and it absorbs the sheet half of v3.6.
-See [ROADMAP.md](ROADMAP.md#v312--time-series-analysis-sheet--planned).
+See [ROADMAP.md](ROADMAP.md#v313--time-series-analysis-sheet--planned).
 
-**Test assets — additive, no new data.** The calendar-dated monthly series v3.6
+**Test assets — additive, no new data.** The calendar-dated monthly series v3.7
 wires is the only dataset needed: in levels it is the non-stationary seasonal
 case, log-differenced at `d=1, D=1, m=12` the stationary counterpart, so one
 series gives both verdicts of every test. Oracles are `statsmodels.tsa`
@@ -619,7 +622,7 @@ through a `TimeSeriesSpecCase` registry mirroring `RegressionSpecCase`. See
 
 - **BLOCKED · — · no Excel** — Decide whether the sheet declares its own series
   or consumes a Regression sheet's `Time` Role. Leaning independent; cross-sheet
-  reading is the v3.4 Comparison sheet's job. Everything else here waits on the
+  reading is the v3.5 Comparison sheet's job. Everything else here waits on the
   answer only for where the series comes from, not for what it is.
 
 - **BLOCKED · — · no Excel** — Decide whether the differenced series is a
@@ -729,7 +732,7 @@ currently one.
   `SpecDatasetProfile` + a registry entry. It is pulled out of the DEFERRED entry
   below because it is the only one of those datasets that closes a gap existing
   *now* rather than arriving with a milestone; the case can be written as soon as
-  the data lands, ahead of the [v3.6](#v36--time-role--lagdifference-semantics) `Time` Role
+  the data lands, ahead of the [v3.7](#v37--time-role--lagdifference-semantics) `Time` Role
   it also serves.
 
 - **DEFERRED** — Wire the remaining supplemental datasets (`warpbreaks`,

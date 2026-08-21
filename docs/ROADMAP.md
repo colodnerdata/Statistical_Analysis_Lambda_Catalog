@@ -15,7 +15,7 @@ and what's next. The "why" behind any design choice lives in
 categories, the Role / Type / Sequence taxonomy, the spec block, the data-transformation
 taxonomy) live in [ARCHITECTURE.md](ARCHITECTURE.md). Active work lives in
 [TODOs.md](TODOs.md). The test-model suite each milestone has to grow — and the
-ordering principle this ladder follows from v3.4 on — is
+ordering principle this ladder follows from v3.5 on — is
 [docs/MODEL_TESTING_ASSETS.md](MODEL_TESTING_ASSETS.md). A reader who needs the
 rationale behind a milestone's design should follow the cross-link from the
 milestone's bullet to the corresponding section in DECISIONS.md.
@@ -91,16 +91,16 @@ the reunification rationale is in
 | **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the Univariate split (later reunified — see below), and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0, later reunified). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
 | v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | **Shipped 2026-08-03** (workbook 3.1.0) — MINOR, and exactly the follow-on the reserved columns were for: three LAMBDA definitions and one audit formula changed, and no column moved. `Predictor_Columns()` and its two twins read M/N and emit the pairwise combination (1 column for Continuous × Continuous, L−1 for Continuous × Categorical, (L₁−1)(L₂−1) for Categorical × Categorical); the Design Columns audit gained its `k(row)×k(operand)` term in the same edit, off the same width helper. A spec with M and N blank computes identically to 3.0.0 |
 | v3.2 | Full materialization of the design matrix | No | Delivered — MINOR. Stage 3 established the terminal zone and its width guard, and the spills that fill it — `Design_Columns()` into the design-matrix zone, `Sample_Include()` into its own — landed in the code, replacing both `"reserved"` placeholders. The ~30 engine call sites are now repointed at those spills via the `Fit_Design_Columns()` / `Fit_Sample_Include()` readers (sheet zones and the eight catalog LAMBDA bodies that called the constructors), the performance win is banked (recalculate 21.8s → 10.5s, cell-by-cell spec verifier green), and the artifact rebuild carries it to users. Still open: the cosmetic `Sample_Include` *name*-over-a-spill promotion (self-referential at the producing cell, now optional since every call site already reads the reader) |
-| v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the model formula label | No | **SHIPPED** — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2. The **standalone transform library** was planned inside this milestone and now ships as **v3.9** — it is the ladder's most expensive item to test, and nothing else waits on it |
-| v3.4 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one. **Test scale: additive (~1×)** — it reads models the suite already has |
-| v3.5 | `Cluster` Role (clustered-robust SEs) | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket by the [ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).* Forward-wired from `Serial_Correlation_Group()`'s dormant branch. **Test scale: near-additive** — a variance-estimator variant over a few existing models |
-| v3.6 | `Time` Role + lag/difference semantics | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Partially forward-wired via the v2.1 Sequence axis. **The sheet half moved to v3.12** — this milestone is the engine work (the Role, cross-sheet `Lag_By` / `Difference_By` time semantics, the calendar-dated dataset), which is Regression-track and belongs here; the worksheet that consumes it is a new analysis surface and ships with the trailing block. **Test scale: near-additive — and it closes a coverage gap that exists today**: its calendar-dated dataset is what finally makes the Sequence calendar-signature verdict testable |
-| v3.7 | `Weight` Role (WLS) | No | Planned — MINOR. *Planned as v2.6; claimed as v3.7 all along, though it reaches the slot by a different route.* User-supplied weights as the first stage; variance-driver-derived weights and FGLS as later follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument. Shipping after v3.0 is what makes that the first implementation rather than a rewrite. **Test scale: ~2×** over a representative subset |
-| v3.8 | Two-way Fixed Effects | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Forward wiring from the v2.1 FE engine. **Test scale: ~2×** over the FE family |
-| v3.9 | Standalone Data Transformation library (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix`) | No | Planned — MINOR. *Planned as the second half of v2.2, then carried as the v3.3 remainder.* **The last regression milestone**, because it is **the ~10× axis-widener** — every added Transform value multiplies the response × predictor dispatch table, so it lands against the most mature harness the Regression track ever has |
-| v3.10 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Planned — MINOR. *Planned as v2.5, claimed as v3.6, briefly held at v3.5.* **The first milestone that is not Regression work** — a new sheet and a new analysis surface, held until the Regression template is feature-complete. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix`. **Test scale: additive** — a fixed set of cases on two small new datasets |
-| v3.11 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4; claimed as v3.5, briefly held at v3.6.* The second non-Regression milestone. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The artifact build seeds the table from a SHA-256 digest of the source CSV, so the draw is reproducible from the data alone. **Test scale: additive** — no new data at all |
-| v3.12+ | Multi-group means (ANOVA), Fourier, Decision analysis | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+.* Design-not-started, and nothing about their test cost sequences them |
+| v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the model formula label | No | **SHIPPED** — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2. The **standalone transform library** was planned inside this milestone and now ships as **v3.10** — it is the ladder's most expensive item to test, and nothing else waits on it |
+| v3.5 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one. **Test scale: additive (~1×)** — it reads models the suite already has |
+| v3.6 | `Cluster` Role (clustered-robust SEs) | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket by the [ladder reordering](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth).* Forward-wired from `Serial_Correlation_Group()`'s dormant branch. **Test scale: near-additive** — a variance-estimator variant over a few existing models |
+| v3.7 | `Time` Role + lag/difference semantics | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Partially forward-wired via the v2.1 Sequence axis. **The sheet half moved to v3.13** — this milestone is the engine work (the Role, cross-sheet `Lag_By` / `Difference_By` time semantics, the calendar-dated dataset), which is Regression-track and belongs here; the worksheet that consumes it is a new analysis surface and ships with the trailing block. **Test scale: near-additive — and it closes a coverage gap that exists today**: its calendar-dated dataset is what finally makes the Sequence calendar-signature verdict testable |
+| v3.8 | `Weight` Role (WLS) | No | Planned — MINOR. *Planned as v2.6; claimed as v3.8 all along, though it reaches the slot by a different route.* User-supplied weights as the first stage; variance-driver-derived weights and FGLS as later follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument. Shipping after v3.0 is what makes that the first implementation rather than a rewrite. **Test scale: ~2×** over a representative subset |
+| v3.9 | Two-way Fixed Effects | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Forward wiring from the v2.1 FE engine. **Test scale: ~2×** over the FE family |
+| v3.10 | Standalone Data Transformation library (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix`) | No | Planned — MINOR. *Planned as the second half of v2.2, then carried as the v3.3 remainder.* **The last regression milestone**, because it is **the ~10× axis-widener** — every added Transform value multiplies the response × predictor dispatch table, so it lands against the most mature harness the Regression track ever has |
+| v3.11 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Planned — MINOR. *Planned as v2.5, claimed as v3.7, briefly held at v3.5.* **The first milestone that is not Regression work** — a new sheet and a new analysis surface, held until the Regression template is feature-complete. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix`. **Test scale: additive** — a fixed set of cases on two small new datasets |
+| v3.12 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4; claimed as v3.6, briefly held at v3.6.* The second non-Regression milestone. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The artifact build seeds the table from a SHA-256 digest of the source CSV, so the draw is reproducible from the data alone. **Test scale: additive** — no new data at all |
+| v3.13+ | Multi-group means (ANOVA), Fourier, Decision analysis | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+.* Design-not-started, and nothing about their test cost sequences them |
 | v3.13 | QR decomposition (`Coefficients_QR`) | No | Planned — MINOR. Replace the normal-equations path (form X'X, invert via MINVERSE) with QR decomposition (X = QR, solve Rb = Q'y). This avoids squaring the condition number, which is what causes Excel to return all-nan results above ~200 constructed columns on the current path. Lifts the O2 width guard's hard error threshold substantially. The engine already supports a drop-in replacement — `Coefficients` is the only function that forms X'X; a `Coefficients_QR` sibling would leave every downstream statistic untouched. The challenge is implementing Householder reflections or Gram-Schmidt in LAMBDA without exceeding Excel's formula-size limits on the intermediate arrays. **Test scale: near-additive** — re-runs existing models against a new solver and compares |
 
 
@@ -118,30 +118,30 @@ and the DECISIONS entries keep their original headings as the record of when eac
 decision was actually made.
 
 A **second** reordering came later and did change the sequence: everything from
-v3.4 on is ordered by two keys — Regression work first, then the test-suite growth
+v3.5 on is ordered by two keys — Regression work first, then the test-suite growth
 each milestone forces. Three milestones changed number, three candidates left the
-unordered bucket, and WLS keeps v3.7 by coincidence rather than by inheritance. It
+unordered bucket, and WLS keeps v3.8 by coincidence rather than by inheritance. It
 is described in
-[Ladder order from v3.4 on](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+[Ladder order from v3.5 on](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth)
 below. The two renumberings are independent: the v3.0 one answers "what number can
 this ship under," this one answers "what should ship next."
 
 One milestone gets materially cheaper rather than merely renumbered. `Weight`
-(WLS, now v3.7) carried a standing warning that shipping before v3.0 would force
+(WLS, now v3.8) carried a standing warning that shipping before v3.0 would force
 the `[Weights]` argument it was designed around, with v3.0 then unwinding it across
 the same ~24 functions. Behind v3.0 the constructor already owns the intercept, so
 √w scaling is the first implementation instead of a rewrite. Two others —
-Model Comparison (v3.4) and the Transforms remainder (v3.3) — keep their relative
+Model Comparison (v3.5) and the Transforms remainder (v3.3) — keep their relative
 order for the reason they always had: comparison is only honest once the numbers
 being compared are unit-space comparable.
 
-### Ladder order from v3.4 on: Regression work first, then test-suite growth
+### Ladder order from v3.5 on: Regression work first, then test-suite growth
 
-Everything at v3.4 and beyond is sequenced by two keys, in this order:
+Everything at v3.5 and beyond is sequenced by two keys, in this order:
 
 1. **Finish the Regression template first.** Every milestone that extends the
    Regression sheet, its spec block, or its engine ships before either milestone
-   that opens a *new* analysis surface. Two-sample (v3.10) and Resampling (v3.11)
+   that opens a *new* analysis surface. Two-sample (v3.11) and Resampling (v3.12)
    are the only two of the latter, and they go last as a block.
 2. **Within the Regression track, order by how much the test-model suite has to
    grow** — additive features first, per-model multipliers next, axis-wideners
@@ -156,12 +156,12 @@ That table is the source; this ladder follows it.
 
 | Tier | Effect on the suite | Milestones |
 |---|---|---|
-| Additive | a fixed number of new cases | v3.4 Model Comparison |
-| Near-additive | a variant over a few existing models | v3.5 `Cluster` · v3.6 `Time` Role |
-| ~2× multiplier | re-runs a whole model family | v3.7 WLS · v3.8 Two-way FE |
-| ~10× axis-widener | widens an axis every model is crossed against | v3.9 standalone transform library |
+| Additive | a fixed number of new cases | v3.5 Model Comparison |
+| Near-additive | a variant over a few existing models | v3.6 `Cluster` · v3.7 `Time` Role |
+| ~2× multiplier | re-runs a whole model family | v3.8 WLS · v3.9 Two-way FE |
+| ~10× axis-widener | widens an axis every model is crossed against | v3.10 standalone transform library |
 
-**Then the new surfaces:** v3.10 Two-sample, v3.11 Resampling, v3.12 Time Series.
+**Then the new surfaces:** v3.11 Two-sample, v3.12 Resampling, v3.13 Time Series.
 All three are flat-cost to test — cheaper than four of the milestones ahead of
 them — and they are held anyway, because key 1 outranks key 2.
 
@@ -179,27 +179,27 @@ milestone, and neither is depended on by one.
 
 Consequences worth stating plainly, because each moved a number:
 
-- **`Cluster` (v3.5) and `Time` (v3.6) leave the unordered bucket and land ahead
-  of WLS (v3.7).** A variance-estimator variant on a handful of models is cheaper
+- **`Cluster` (v3.6) and `Time` (v3.7) leave the unordered bucket and land ahead
+  of WLS (v3.8).** A variance-estimator variant on a handful of models is cheaper
   to cover than a weighted re-run of one model per dispatch-pair family. `Time`
   earns its slot twice over: its calendar-dated dataset is the only asset that
   closes a Section-1 coverage gap *existing today* — the Sequence
   calendar-signature verdict has no test because no wired dataset carries real
   dates.
-- **The time-series *sheet* splits off v3.6 and becomes v3.12.** v3.6 was
+- **The time-series *sheet* splits off v3.7 and becomes v3.12.** v3.7 was
   carrying two unlike things under one number: engine wiring (the `Time` Role
   and the lag/difference semantics — Regression-track work) and a new worksheet.
   Key 1 says a new analysis surface ships in the trailing block, so the sheet
-  goes there and v3.6 keeps the engine. Splitting also makes v3.6's
+  goes there and v3.7 keeps the engine. Splitting also makes v3.7's
   near-additive rating honest: its test cost was always the dataset, never the
   sheet.
-- **The standalone transform library leaves v3.3 for v3.9**, the last slot in the
+- **The standalone transform library leaves v3.3 for v3.10**, the last slot in the
   Regression track. It is the one item that widens the predictor-transform axis
   {None, Log}, and every widening multiplies the response × predictor dispatch
   table that every other model is scored against. v3.3 keeps its number for what
   actually shipped.
-- **Two-sample (v3.10) still precedes Resampling (v3.11), and both precede Time
-  Series (v3.12).** All three are flat-cost, so the ties break on value and on
+- **Two-sample (v3.11) still precedes Resampling (v3.12), and both precede Time
+  Series (v3.13).** All three are flat-cost, so the ties break on value and on
   dependency: two-sample tests are the ToolPak-parity gap a user hits first;
   Time Series goes last of the three because it is the only one waiting on
   another milestone's asset.
@@ -403,7 +403,7 @@ proper (`y_s`, `[DF_Absorbed]`, `Demean_By`, `Group_Mean`,
 activates the engine (FE Role dropdown, status-block validation, CI+PI
 prediction layout, FE group dropdown, BFN cell flips active when FE is set).
 Two-way FE remains a post-2.1 milestone (see
-[v3.8](#v38--two-way-fixed-effects--planned)).
+[v3.9](#v39--two-way-fixed-effects--planned)).
 
 The 2.1.0 release ships as **a single release**, not as a sequence of preview
 builds — the FE Role dropdown, the CI+PI prediction layout, and the FE
@@ -509,7 +509,7 @@ correctly-fitted log-space model. They are no longer v2.2 work: when the feature
 train was resequenced behind v3.0, the unfinished half became its own milestone.
 See [v3.3](#v33--transforms-remainder--shipped-dispatcher--duan--model-formula-label)
 for the half that shipped and
-[v3.9](#v39--standalone-data-transformation-library--planned) for the standalone
+[v3.10](#v310--standalone-data-transformation-library--planned) for the standalone
 transform library.
 
 Design rationale and resolved decisions: [DECISIONS.md § v2.2](DECISIONS.md#v22--transforms--unit-space-comparability).
@@ -750,10 +750,10 @@ production.
 
 **The standalone transform library is no longer part of this milestone.** It was
 planned here, never started, and now ships as
-[v3.9](#v39--standalone-data-transformation-library--planned), the last milestone
+[v3.10](#v310--standalone-data-transformation-library--planned), the last milestone
 in the Regression track — it is that track's single most expensive item to test
 (the ~10× axis-widener), and nothing between here and there waits on it. See
-[Ladder order from v3.4 on](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).
+[Ladder order from v3.5 on](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth).
 
 - **Unit-space dispatcher, RESOLVED & SHIPPED** — eight catalog functions
   (`Smearing_Factor`, `Back_Transform_Response`, `Unit_Space_Predictions`,
@@ -786,17 +786,17 @@ in the Regression track — it is that track's single most expensive item to tes
 - **`Comparison_*` named ranges, RESOLVED & SHIPPED** — sheet-scoped
   `Comparison_Anchor` (`$AF$2`), `Comparison_Headline_GoF` (`$AH$6:$AH$8`),
   `Comparison_Model_Formula` (the Model Formula readout in the §4b band).
-  v3.4 Model Comparison reads from these surfaces — by NAME, which is why
+  v3.5 Model Comparison reads from these surfaces — by NAME, which is why
   moving the readout off `$AB$2` cost its consumer nothing.
 - **Statistics with a unit-space counterpart:** R², Adjusted R², RMSE
   (SHIPPED at v3.3); LOOCV RMSE / MAE and the LOOCV residual column
-  (SHIPPED at v3.4 — v3.3 left cross-validation in fit space; the v3.4
+  (SHIPPED at v3.5 — v3.3 left cross-validation in fit space; the v3.5
   unit-space LOOCV block closes that gap, in original units). AIC / AICc /
   BIC deferred (likelihood depends on the Jacobian of the transformation;
   the "right" comparison is on the original response's likelihood, not the
   transformed one's).
 - **Standalone transform library, remainder — MOVED to
-  [v3.9](#v39--standalone-data-transformation-library--planned).**
+  [v3.10](#v310--standalone-data-transformation-library--planned).**
   `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`,
   `Decompose_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`,
   `Model_Matrix` (`Ln_Positive` shipped early with the column-G wiring
@@ -807,11 +807,47 @@ in the Regression track — it is that track's single most expensive item to tes
 
 Design rationale and resolved decisions: [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label),
 recorded there under v3.3 (the original v2.2 entries describe the standalone
-library, now [v3.9](#v39--standalone-data-transformation-library--planned)).
+library, now [v3.10](#v310--standalone-data-transformation-library--planned)).
 
 ---
 
-## v3.4 — Model Comparison Sheet — PLANNED
+## v3.4 — Unit-space LOOCV — SHIPPED 2026-08-21
+
+Leave-one-out cross-validation reported in the ORIGINAL response units, and a
+visible statement of how the smearing factor behind it was obtained.
+
+v3.3 shipped the unit-space family but left cross-validation in fit space:
+`LOOCV_Residual`, `LOOCV_Prediction`, `PRESS` and `Hat_Diagonal` all report in
+the space the model was fitted in, which under a Log response is log units.
+
+- **Four catalog functions** under `Model Construction` / `Back-Transformation`:
+  `Unit_Space_LOOCV_Residual` (n x 1 spill), `Unit_Space_LOOCV_RMSE`,
+  `Unit_Space_LOOCV_MAE`, `Smearing_Treatment`. A fifth, `Group_Size`, lands
+  under `Data Transformation` / `Group & Panel` to support the Fixed Effects
+  branch.
+- **Divisor is n, not df_residual** — every leave-one-out prediction is
+  genuinely out-of-sample, so no degrees of freedom are consumed, and the MAE
+  averages over the same n.
+- **Fixed Effects use the equivalent LSDV design's leverage.** The within
+  design's hat diagonal omits the absorbed group effects, which understates the
+  error; the correction is `h_lsdv = h - 1/n + 1/n_g`, exact because the within
+  and group-mean projections are orthogonal. Pinned against explicit n-fold
+  LSDV refits.
+- **Sheet:** a `CROSS-VALIDATED FIT` sub-block at `AG10:AH13` and a
+  `LOOCV Residual (Original Units)` column at `BB`. `AG8` was relabelled from
+  `RMSE (Unit)` to `SE Regression (Unit)`, because that cell divides by
+  `df_residual` and is a standard error of the regression, not an RMSE.
+- **Smearing treatment is named on the sheet**, not assumed: `n/a - no
+  back-transform` / `Naive (no smearing)` / `Full-sample Duan (approx.)`. Under
+  Duan the smearing factor is estimated on all n residuals, the held-out row
+  included; fold-specific smearing is an open item and arrives as a fourth
+  `SWITCH` arm.
+
+Design rationale: [DECISIONS.md § v3.4](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
+
+---
+
+## v3.5 — Model Comparison Sheet — PLANNED
 
 *Planned as v2.3. Moved after v3.0 when the feature train was resequenced — see the [ladder rationale](#versioning--release-conventions).*
 
@@ -851,10 +887,10 @@ recorded there under the original milestone number.
 
 ---
 
-## v3.5 — `Cluster` Role (clustered-robust SEs) — PLANNED
+## v3.6 — `Cluster` Role (clustered-robust SEs) — PLANNED
 
 *Planned as v2.7+ and carried in the unordered bucket until the
-[ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+[ladder reordering](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth)
 gave it a number: it is Regression work, and a variance-estimator variant over a
 few existing models is cheaper to cover than anything below it in that track.*
 
@@ -870,18 +906,18 @@ token on the BFN cell when Cluster is active.
 **Test assets — near-additive.** Within-group correlated data, which the wired
 datasets already supply: Production Lots' three facilities are enough to start (and
 deliberately few, so the small-cluster warning path is exercised); `Grunfeld`
-arrives with v3.8 and provides 10–11 proper clusters. See
+arrives with v3.9 and provides 10–11 proper clusters. See
 [docs/MODEL_TESTING_ASSETS.md § 2 item 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 ---
 
-## v3.6 — `Time` Role + lag/difference semantics — PLANNED
+## v3.7 — `Time` Role + lag/difference semantics — PLANNED
 
 *Planned as v2.7+ and carried in the unordered bucket until the
-[ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).
+[ladder reordering](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth).
 It is the one milestone that closes a coverage gap existing **today**.*
 
-**Engine work only — the sheet this used to carry is now [v3.12](#v312--time-series-analysis-sheet--planned).**
+**Engine work only — the sheet this used to carry is now [v3.13](#v313--time-series-analysis-sheet--planned).**
 This entry was written as "`Time` Role + time series" and bundled two unlike
 things: time-index semantics on the Regression spec block, and a whole new
 worksheet. Key 1 of the ladder ordering says a new analysis surface ships in the
@@ -900,7 +936,7 @@ mutually exclusive?
 
 The milestone also wires the calendar-dated dataset, and that is the half with a
 consumer waiting on it in two directions — the Section-1 coverage gap below, and
-every case on the v3.12 sheet.
+every case on the v3.13 sheet.
 
 **Test assets — near-additive, plus one gap closed.** This milestone brings the
 first **calendar-dated** dataset into the workbook (~144 rows, AirPassengers-shaped,
@@ -914,11 +950,11 @@ and [§ 1.5](MODEL_TESTING_ASSETS.md#15-coverage-matrix).
 
 ---
 
-## v3.7 — `Weight` Role (WLS) — PLANNED
+## v3.8 — `Weight` Role (WLS) — PLANNED
 
-*Planned as v2.6 and claimed as v3.7; it keeps that number, but now as the first
+*Planned as v2.6 and claimed as v3.8; it keeps that number, but now as the first
 ~2× item in the Regression track rather than by inheritance — the
-[ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+[ladder reordering](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth)
 put `Cluster` and `Time` ahead of it and Two-sample and Resampling behind it.*
 
 A `Weight` value on the Role axis (see
@@ -964,10 +1000,10 @@ full re-run. The trap above is an oracle assertion, not just prose:
 
 ---
 
-## v3.8 — Two-way Fixed Effects — PLANNED
+## v3.9 — Two-way Fixed Effects — PLANNED
 
 *Planned as v2.7+ and carried in the unordered bucket until the
-[ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).*
+[ladder reordering](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth).*
 
 The trio `Absorb_Two_Way_Fixed_Effects` (alternating-projection demeaning for
 unbalanced panels), `Demean_Two_Way_Balanced`, and
@@ -980,17 +1016,17 @@ wiring from the v2.1 FE engine; the one-way-scope rationale is in
 **Test assets — ~2× over the FE family.** A balanced two-factor panel (R
 `Grunfeld`, 200 rows, 10 firms × 20 years) plus an **unbalanced variant** (rows
 deleted) to exercise `Is_Balanced_Panel` and the convergence check, with the FE
-family (P1/P2/L8 analogues) re-run two-way. `Grunfeld` also back-fills v3.5's
+family (P1/P2/L8 analogues) re-run two-way. `Grunfeld` also back-fills v3.6's
 cluster count. See
 [docs/MODEL_TESTING_ASSETS.md § 2 item 5](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
 
 ---
 
-## v3.9 — Standalone Data Transformation library — PLANNED
+## v3.10 — Standalone Data Transformation library — PLANNED
 
 *Planned as the second half of v2.2, then carried as the v3.3 remainder. Moved to
 the end of the **Regression track** by the
-[ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth) —
+[ladder reordering](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth) —
 it is the only item that widens an axis every model is crossed against, so it lands
 against the most mature harness that track ever has.*
 
@@ -1022,10 +1058,10 @@ See
 
 ---
 
-## v3.10 — Bivariate / Two-sample — PLANNED
+## v3.11 — Bivariate / Two-sample — PLANNED
 
-*Planned as v2.5, then claimed as v3.6, briefly held at v3.5. It lands here because
-the [ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+*Planned as v2.5, then claimed as v3.7, briefly held at v3.5. It lands here because
+the [ladder reordering](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth)
 ships all remaining Regression work first: this is the first milestone that opens a
 **new analysis surface** rather than extending the Regression sheet. It still
 precedes Resampling — both are flat-cost to test, and two-sample is the
@@ -1052,11 +1088,11 @@ Welch t, paired t, and the F-test of variances feeding the selector cell. See
 
 ---
 
-## v3.11 — Resampling & Simulation — PLANNED
+## v3.12 — Resampling & Simulation — PLANNED
 
-*Planned as v2.4, then claimed as v3.5, briefly held at v3.6. The second
+*Planned as v2.4, then claimed as v3.6, briefly held at v3.6. The second
 non-Regression milestone, behind Two-sample — see the
-[ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).*
+[ladder reordering](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth).*
 
 Bootstrap confidence intervals and Monte Carlo simulation. Validated as worthwhile
 differentiators by their presence in Pyrcz's Excel demos and squarely in cost-estimation
@@ -1087,14 +1123,14 @@ recorded there under the original milestone number.
 
 ---
 
-## v3.12 — Time Series Analysis sheet — PLANNED
+## v3.13 — Time Series Analysis sheet — PLANNED
 
 *New milestone, and the last of the three new analysis surfaces. It takes this
-slot for two reasons: [key 1](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+slot for two reasons: [key 1](#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth)
 puts new surfaces behind all Regression work, and within that block it goes last
 because it is the only one waiting on another milestone's asset — the
-calendar-dated series [v3.6](#v36--time-role--lagdifference-semantics--planned)
-wires. It **absorbs the sheet half of v3.6**, which was carrying a worksheet
+calendar-dated series [v3.7](#v37--time-role--lagdifference-semantics--planned)
+wires. It **absorbs the sheet half of v3.7**, which was carrying a worksheet
 inside the Regression track by historical accident.*
 
 A dedicated `Time Series` sheet organized around the **identification
@@ -1165,14 +1201,14 @@ land here as one bullet out of six.
 - **Interface contract** — the `TSChart`-prefixed sheet-scoped named ranges the
   charts read (following the `RegChart` precedent in `_setup_local_names`) and
   the series-constructor closures become part of the public interface the moment
-  they ship. The v3.12.0 changelog entry must name them, exactly as v3.4's
+  they ship. The v3.12.0 changelog entry must name them, exactly as v3.5's
   entry must name its three.
 
 **Open design questions:**
 
 - **Does the sheet declare its own series, or consume a Regression sheet's
   `Time` Role?** Leaning independent — this is not a Regression sheet, and
-  cross-sheet reading is the v3.4 Comparison sheet's job. Consuming would couple
+  cross-sheet reading is the v3.5 Comparison sheet's job. Consuming would couple
   a new surface to a Regression sheet's spec for no capability gain.
 - **Is the differenced series a materialized column, or a constructor closure
   each consumer evaluates?** The ARCHITECTURE §4b lesson — one materialized
@@ -1185,7 +1221,7 @@ land here as one bullet out of six.
   `df_fitted` argument already exists to make it correct there.
 
 **Test assets — additive, and no new data.** The calendar-dated monthly series
-v3.6 wires (~144 rows, AirPassengers-shaped) is the only dataset this milestone
+v3.7 wires (~144 rows, AirPassengers-shaped) is the only dataset this milestone
 needs, because **one series supplies both sides of every verdict**: in levels it
 is the non-stationary seasonal case (ADF fails to reject, KPSS rejects, ACF
 decays slowly, decomposition is multiplicative), and log-differenced at
@@ -1199,10 +1235,10 @@ registry mirroring `RegressionSpecCase`. One guard state, a series shorter than
 
 ---
 
-## v3.13+ — Unordered (no claim; planned as v2.7+)
+## v3.14+ — Unordered (no claim; planned as v2.7+)
 
 What is left after the reordering gave the other candidates numbers, and after
-the Time Series sheet took v3.12: multi-group means (ANOVA, with Tukey HSD or
+the Time Series sheet took v3.13: multi-group means (ANOVA, with Tukey HSD or
 Bonferroni post-hoc comparisons); Fourier analysis and Decision analysis
 (long-tail, out of planning horizon).
 
@@ -1297,10 +1333,10 @@ predictors via the declarative spec, which the ToolPak has never offered; fixed-
 panel regression follows at v2.1.
 
 **Planned:** Rank/Percentile; t-tests, F-test,
-Covariance (v3.10 two-sample); one-way ANOVA (unordered, v3.13+); Moving Average +
-Exponential Smoothing (v3.12 Time Series sheet).
+Covariance (v3.11 two-sample); one-way ANOVA (unordered, v3.13+); Moving Average +
+Exponential Smoothing (v3.13 Time Series sheet).
 
-**Planned to exceed — the Time Series sheet (v3.12).** The ToolPak's entire
+**Planned to exceed — the Time Series sheet (v3.13).** The ToolPak's entire
 time-series offering is Moving Average and Exponential Smoothing. It has no ACF,
 no PACF, and no stationarity or white-noise test of any kind, so ACF/PACF with
 significance bands, Ljung–Box, ADF and KPSS are not parity items — there is

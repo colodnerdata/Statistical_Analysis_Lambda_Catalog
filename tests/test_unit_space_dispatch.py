@@ -738,10 +738,25 @@ def test_unit_space_loocv_residual_substitutes_loocv_prediction_for_predictions(
     dispatch — and an elementwise IFERROR(…, NA()) so a leverage-1 row yields
     #N/A (mirroring LOOCV_Residual's own IFERROR(e/(1-h), NA()))."""
     formula = _formula("Unit_Space_LOOCV_Residual")
-    assert "LOOCV_Prediction(" in formula
+    # The Sherman-Morrison-Woodbury step is spelled out rather than delegated
+    # to LOOCV_Prediction, because under Fixed Effects the leverage it uses is
+    # NOT the one LOOCV_Prediction would compute: that function reads the hat
+    # diagonal of the within-demeaned design, which omits the absorbed group
+    # effects. The correction needs its own `h`, so the subtraction lives here.
+    assert "LOOCV_Prediction(" not in formula
     # The level shift is gated on Log exactly as in Unit_Space_Predictions.
     assert 'shift,IF(rt="Log",FILTER(Y_Full,filt_arg)-FILTER(Y,filt_arg),0)' in formula
-    assert "loo_fit,IFERROR(LOOCV_Prediction(X,Y,filt_arg)+shift,NA())" in formula
+    assert "fitted,Predictions(X,Y,filt_arg)+shift" in formula
+    assert "loo_fit,IFERROR(fitted-h*e/(1-h),NA())" in formula
+    # h is the within design's hat diagonal without FE, and the equivalent
+    # LSDV design's with it: h_lsdv = h - 1/n + 1/n_g. The shipped h already
+    # carries the single overall intercept's 1/n, which is what is subtracted.
+    assert "h_fit,Hat_Diagonal(X,filt_arg)" in formula
+    assert "h_fit-1/n_obs+1/Group_Size(fe_arg,filt_arg)" in formula
+    # An FE model with no group column returns #N/A rather than the
+    # conditional (within-only) number.
+    assert "fe_ok,OR(absorbed=0,NOT(ISOMITTED(FE_Group)))" in formula
+    assert "IF(NOT(fe_ok),NA()," in formula
     assert "y_unit,Unit_Space_Observed(Y,Y_Full,filt_arg,context_arg)" in formula
     assert "r_loo,y_unit-Back_Transform_Response(loo_fit,context_arg,method_arg,sm)" in formula
     # The same six-pair SWITCH gate the rest of the family uses.

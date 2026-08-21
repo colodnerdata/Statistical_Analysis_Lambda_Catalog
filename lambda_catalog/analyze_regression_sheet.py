@@ -676,7 +676,45 @@ def calculate_regression_results_from_matrix(
     # cases has such a row (the existing fit-space PRESS has the same
     # 1/(1-h) and is finite on every case), so the NumPy mirror is left
     # unguarded to match the existing `press` computation's own discipline.
-    loo_fit_space = loocv_predictions + level_shift
+    # FIXED EFFECTS: the fit-space LOO prediction above is NOT a genuine
+    # leave-one-out under FE, and using it here understates the error. Its hat
+    # diagonal comes from the design the model was fitted on — the
+    # within-demeaned predictors plus ONE overall intercept — so it omits the
+    # absorbed group effects entirely and never re-estimates the held-out
+    # row's own group mean.
+    #
+    # The equivalent full LSDV design (predictors + one dummy per non-reference
+    # group) has a hat diagonal that decomposes exactly, because the within
+    # projection and the group-mean projection are orthogonal:
+    #
+    #     h_lsdv(i) = h_within(i) + 1 / n_g(i)
+    #
+    # and the shipped ``h`` is already ``h_within + 1/n`` (that single overall
+    # intercept), so the correction is a subtraction and an addition, with no
+    # G-column dummy matrix to materialize:
+    #
+    #     h_lsdv = h - 1/n + 1/n_g
+    #
+    # The fitted values and residuals need no correction: the LSDV fit equals
+    # the within fit plus the group mean, and the response shifts by the same
+    # group mean, so ``predictions + level_shift`` IS the LSDV fitted value and
+    # ``e`` IS the LSDV residual. Verified against explicit n-fold LSDV refits
+    # to 7e-14 on production_lots_fixed_effects and production_lots_log_transform
+    # (``tests/test_regression_spec_qc.py``).
+    #
+    # The fit-space PRESS Residual column is deliberately left alone: it is the
+    # shipped v1.2 statistic and reports the within model's own leave-one-out
+    # residual, which is a different quantity from this one.
+    if group_labels is not None and df_absorbed > 0:
+        group_sizes = np.array(
+            [int(np.count_nonzero(group_labels == label)) for label in group_labels],
+            dtype=float,
+        )
+        h_lsdv = h - 1.0 / n + 1.0 / group_sizes
+        loocv_fit = predictions - h_lsdv * e / (1.0 - h_lsdv)
+    else:
+        loocv_fit = loocv_predictions
+    loo_fit_space = loocv_fit + level_shift
     if response_transform == "Log":
         loocv_duan = np.exp(loo_fit_space) * smearing_factor
         loocv_naive = np.exp(loo_fit_space)

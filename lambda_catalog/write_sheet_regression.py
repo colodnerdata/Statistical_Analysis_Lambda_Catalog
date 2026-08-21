@@ -1583,7 +1583,8 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
             (
                 "=Unit_Space_LOOCV_RMSE(Fit_Design_Columns(),Design_Response(),"
                 "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
-                f"{_A_BACK_TRANSFORM_METHOD})"
+                f"{_A_BACK_TRANSFORM_METHOD},"
+                "Prediction_Group_Column())"
             ),
         ),
         (
@@ -1592,7 +1593,8 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
             (
                 "=Unit_Space_LOOCV_MAE(Fit_Design_Columns(),Design_Response(),"
                 "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
-                f"{_A_BACK_TRANSFORM_METHOD})"
+                f"{_A_BACK_TRANSFORM_METHOD},"
+                "Prediction_Group_Column())"
             ),
         ),
     ]:
@@ -2027,7 +2029,8 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         (
             "=Unit_Space_LOOCV_Residual(Fit_Design_Columns(),Design_Response(),"
             "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
-            f"{_A_BACK_TRANSFORM_METHOD})"
+            f"{_A_BACK_TRANSFORM_METHOD},"
+            "Prediction_Group_Column())"
         ),
     )
     # Format every numeric residual-output column — the actual Y (AO) through

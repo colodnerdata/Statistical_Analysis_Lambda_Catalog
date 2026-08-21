@@ -49,7 +49,13 @@ def _is_excel_number(v) -> bool:
     if isinstance(v, bool):
         return False
     if isinstance(v, (int, float, np.integer, np.floating)):
-        return not (isinstance(v, float) and math.isnan(v))
+        # Excel's ISNUMBER is FALSE on a NaN/error cell, so reject NaN for
+        # every numeric type — not only Python float. math.isnan accepts
+        # numpy scalars (they implement __float__), so it catches
+        # np.float32 NaNs as well as np.float64/Python-float NaNs; a guard
+        # of ``isinstance(v, float) and math.isnan(v)`` would let the former
+        # through, because np.float32 is not a subclass of float.
+        return not math.isnan(v)
     return False
 
 
@@ -118,6 +124,20 @@ def test_a_nan_cell_makes_its_row_zero() -> None:
     data = [
         [1.0, 2.0, 3.0],
         [4.0, NA, 6.0],
+    ]
+    assert numeric_complete_cases_mirror(data) == [1, 0]
+
+
+def test_a_numpy_float32_nan_makes_its_row_zero() -> None:
+    # Regression guard: a guard of ``isinstance(v, float) and math.isnan(v)``
+    # would WRONGLY accept np.float32(np.nan) as numeric, because
+    # np.float32 is not a subclass of Python float (only np.float64 is),
+    # so the NaN check never ran. math.isnan accepts numpy scalars via
+    # __float__, so the fix catches np.float32 NaNs as well as Python/
+    # np.float64 NaNs, and this row must be 0.
+    data = [
+        [1.0, 2.0, 3.0],
+        [4.0, np.float32(np.nan), 6.0],
     ]
     assert numeric_complete_cases_mirror(data) == [1, 0]
 

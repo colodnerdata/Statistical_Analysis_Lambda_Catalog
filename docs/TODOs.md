@@ -339,6 +339,29 @@ mechanism is the `Dummy_Levels(col, ref, Sample_Include())` →
 [DECISIONS.md § v3.5 — Pre-existing categorical-construction
 break](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
 
+**Full-suite bracket (2026-08-21, `poe verify-models` = `build_test_models.py
+--verify --no-launch --verbose --kind models`, 33 fittable model sheets).** The
+targeted M01 bisect above is confirmed across the full covering array:
+
+| Commit | Subject | Result | Mismatches | Wall |
+|---|---|---|---|---|
+| `e2f94db` | `#` resolves inside a defined-name `RefersTo` (the spike) | **GREEN** — `Verify: passed`, exit 0, 33/33 `ok` | 0 | 694.1 s |
+| `2cbf78b` | repoint all remaining engine call sites at the materialized spills | **RED** — `Verify: FAILED`, exit 1 | 159,986 | 478.6 s |
+| `e2427ac` | (`abf68aa`'s parent / current `main` HEAD) | **RED** — inherited | 159,986 | 505.1 s |
+
+The GREEN→RED transition lands on `2cbf78b` exactly — `e2f94db`, the isolated
+spike that proved `#` resolves inside a `RefersTo`, is clean on its own, and the
+very next commit, which made every engine call site *depend* on that reader,
+breaks the full suite. `abf68aa` is cleared: its parent `e2427ac` already
+carries the same 159,986-mismatch signature, so `abf68aa` (and the LOOCV PR on
+top of it) inherited the break rather than introduced it. The signature is
+uniform across the RED commits — categorical dummy terms read back
+`excel_calc=None`, `Model_Formula` reports only the continuous predictors, and
+categorical-FE (L-series) sheets cascade to a whole-sheet blank fit — which is
+the `Fit_Sample_Include()` spill-reader regression, not anything LOOCV touched.
+Reproduce: `git worktree add .bisect-wt <sha> && cd .bisect-wt && python
+scripts/build_test_models.py --verify --no-launch --verbose --kind models`.
+
 - **OPEN · L · needs Excel** — **Fix the categorical dummy path.** The
   materialized-spill read via `Fit_Sample_Include()` breaks `Dummy_Levels`
   masking (categoricals drop to `#N/A`) while `Ln_Positive` survives, so the

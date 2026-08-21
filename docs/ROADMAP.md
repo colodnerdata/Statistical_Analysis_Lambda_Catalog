@@ -789,9 +789,12 @@ in the Regression track — it is that track's single most expensive item to tes
   v3.4 Model Comparison reads from these surfaces — by NAME, which is why
   moving the readout off `$AB$2` cost its consumer nothing.
 - **Statistics with a unit-space counterpart:** R², Adjusted R², RMSE
-  (SHIPPED). AIC / AICc / BIC deferred (likelihood depends on the Jacobian
-  of the transformation; the "right" comparison is on the original
-  response's likelihood, not the transformed one's).
+  (SHIPPED at v3.3); LOOCV RMSE / MAE and the LOOCV residual column
+  (SHIPPED at v3.4 — v3.3 left cross-validation in fit space; the v3.4
+  unit-space LOOCV block closes that gap, in original units). AIC / AICc /
+  BIC deferred (likelihood depends on the Jacobian of the transformation;
+  the "right" comparison is on the original response's likelihood, not the
+  transformed one's).
 - **Standalone transform library, remainder — MOVED to
   [v3.9](#v39--standalone-data-transformation-library--planned).**
   `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`,

@@ -100,6 +100,8 @@ baked into `templates/static_sheets.xlsx` and only regenerates through
 | Question | Milestone |
 |---|---|
 | [Blank-categorical caveat in `Sample_Include()`](#v20-leftovers) | v2.0 |
+| [Fold-specific Duan smearing for LOOCV](#v34--unit-space-loocv-shipped-340) | v3.4 |
+| [`Unit_Space_RMSE` divisor — ÷ n or ÷ df_residual](#v34--unit-space-loocv-shipped-340) | v3.4 |
 | [Mismatched-predictor-set fallback for the Comparison sheet](#v34--model-comparison-sheet) | v3.4 |
 | [Can a column be both `Sequence` and `Time`](#v36--time-role--lagdifference-semantics) | v3.6 |
 | [Two-sample selector — 3-way flag or separate `paired` boolean](#v310--bivariate--two-sample) | v3.10 |
@@ -282,6 +284,78 @@ default mask only, and `FALSE` expresses an argument it cannot.
   is unchanged in effect (it recomputes via the `_Calc` leaf — the
   pre-positivity mask is deliberately NOT materialized). See
   [DECISIONS.md § materialization in two steps](DECISIONS.md#materialization-lands-in-two-steps--model_context-now-sample_include-deferred).
+
+## v3.4 — Unit-space LOOCV (shipped 3.4.0)
+
+Cross-validation brought out of fit space into original units: the
+`Unit_Space_LOOCV_Residual` column (BB), `Unit_Space_LOOCV_RMSE` /
+`Unit_Space_LOOCV_MAE` scalars, and the `Smearing_Treatment` readout that names
+how the smearing factor was obtained. Shipped non-breaking — the reduction
+invariant is extended (`Unit_Space_LOOCV_Residual ≡ LOOCV_Residual` under
+`Transform = None`, including under FE), not broken. Full rationale in
+[DECISIONS.md § v3.4](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
+
+- **OPEN · M · no Excel** — **Fold-specific Duan smearing.** Under the shipped
+  Duan back-transform the smearing factor is estimated on the full sample
+  including the held-out row, a real but small optimism the `Smearing_Treatment`
+  cell names as `"Full-sample Duan (approx.)"`. The exact form excludes the
+  held-out row from the smearing mean for each LOO prediction. It arrives as a
+  fourth `SWITCH` arm in `Smearing_Treatment` plus a third item on the `AH4`
+  validation list — the function is structured for it — and as a per-row
+  smearing in `Unit_Space_LOOCV_Residual` rather than a single scalar. The open
+  question is whether the per-row refit is worth the cost (n smearing factors
+  vs one) given the optimism is small; the sheet already says "approx.", so
+  shipping the exact form is an honesty upgrade, not a fix.
+
+- **OPEN · S · no Excel** — **`Unit_Space_RMSE` divisor — ÷ n or ÷ df_residual.**
+  The cell was relabelled `"SE Regression (Unit)"` at v3.4.0 so the label stops
+  promising `÷ n` while `LOOCV RMSE (Unit)` one row below delivers it; the
+  formula (`SQRT(SSE_unit / df_residual)`) was deliberately left unchanged,
+  because `÷ df_residual` is the v3.3 reduction invariant's acceptance
+  criterion (`Unit_Space_RMSE ≡ SE_Regression` under `Transform = None`) and the
+  `Comparison_Headline_GoF` contract. The critique stands on its merits: once
+  the response is back-transformed, `SSE_unit` is not the RSS of a linear fit
+  in that space, so `n − p` buys no unbiasedness. Decide whether to change the
+  divisor (a breaking PR — it moves the invariant and the headline contract)
+  or to keep it and document the choice as deliberate. Analysis in
+  [DECISIONS.md § v3.4 `Unit_Space_RMSE` divisor](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
+
+## v3.2 regression — categorical dummy construction broken on `main` (introduced by `2cbf78b`)
+
+A pre-existing regression on `main`, found by the v3.4 Excel verification and
+independent of LOOCV. Categorical dummy columns stop materializing in the
+built workbook: `Model_Formula` returns only the continuous predictors, the
+categorical predictor stats read back blank, and categorical-FE cases
+(L-series) cascade to a whole-sheet blank fit. Continuous-only models are
+unaffected. Bisected to the introducing commit `2cbf78b` ("v3.2: repoint all
+remaining engine call sites at the materialized spills", 2026-08-19):
+`9103e90`/`e2f94db` pass, `2cbf78b` fails, `abf68aa`/v3.9/`HEAD` inherit it. The
+mechanism is the `Dummy_Levels(col, ref, Sample_Include())` →
+`Fit_Sample_Include()` repoint in `Predictor_Columns` /
+`Constructed_Column_Names` / `Constructed_Column_Transforms`. Full analysis in
+[DECISIONS.md § v3.4 — Pre-existing categorical-construction
+break](DECISIONS.md#v34--unit-space-loocv-residual-rmse-mae-and-a-named-smearing-treatment).
+
+- **OPEN · L · needs Excel** — **Fix the categorical dummy path.** The
+  materialized-spill read via `Fit_Sample_Include()` breaks `Dummy_Levels`
+  masking (categoricals drop to `#N/A`) while `Ln_Positive` survives, so the
+  cell-level root cause is the thing to pin — calculation order vs. dependency
+  tracking through the spill-reading name, post-`CalculateFullRebuild`. Until
+  this is fixed the full `build_test_models.py --verify` cannot go green on
+  `main` (every categorical case fails), so it gates every PR's item-4
+  transcript. Out of scope for the v3.4 LOOCV PR (#236), which verified on the
+  continuous-only P08 case instead. Reproduce: `build_test_models.py --cases
+  M01 --verify --no-launch` (42 mismatches, `excel_calc='MPG ~ 1 + Horsepower +
+  Weight'`); green baseline `git checkout 9103e90 && build_test_models.py
+  --cases M01 --verify`.
+
+- **OPEN · S · needs Excel** — **`drop_local_name` robustness / stale
+  `dist`.** The production build crashes in `drop_local_name` (iterating a
+  sheet name whose COM `.Name` is `None` on the committed
+  `dist/Lambda_Library.xlsx`). Separate from the categorical break and not
+  caused by LOOCV (this PR touches no name creation); noted because it blocks
+  the production build path. A `None`-skip guard in `drop_local_name` (in the
+  repo's `safe_*` defensive spirit) plus a clean `dist` rebuild would clear it.
 
 ## v3.4 — Model Comparison Sheet
 
@@ -637,7 +711,7 @@ pre-order work that may not be the next thing actually needed.
 
 Version-independent; the plan of record is
 [docs/MODEL_TESTING_ASSETS.md](MODEL_TESTING_ASSETS.md). Every model in Section 1
-now has an oracle: 33 fittable `RegressionSpecCase` entries in
+now has an oracle: 36 fittable `RegressionSpecCase` entries in
 `lambda_catalog/analyze_regression_spec.py` and 17 `GuardStateCase` entries in
 `lambda_catalog/analyze_regression_guard_states.py`, each pinned in
 `_EXPECTED_CASE_NAMES` / `_EXPECTED_GUARD_NAMES` and materialized as a worksheet.

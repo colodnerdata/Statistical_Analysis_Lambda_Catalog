@@ -1,0 +1,264 @@
+python build_test_models.py --verify --no-launch
+[    0.0s] Plan: 34 model + 17 guard = 51 sheet(s)
+[    0.0s] Oracles: computing
+[    0.9s] Oracles: done
+[    1.6s] Catalog + data sheets
+[    7.5s] Sheets: writing 51
+[  598.0s] Save
+[  601.9s] Sync names
+[  602.1s] CalculateFullRebuild
+Timing: write sheets  600.9s
+Timing: sync names    0.3s
+Timing: rebuild       222.8s
+Timing:   CalculateFullRebuild only   186.3s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 51
+Created names: 131
+Updated names: 0
+Removed names: 0
+[  824.9s] Verify: reading 51 sheet(s)
+Timing: verify        42.1s
+Verify: mismatch totals by case:
+    L02   35612
+    L03   35612
+    L12   30221
+    L11   29952
+    L04   29167
+    L01   23380
+    L09   23380
+    M15   1804
+    P06   748
+    P04   733
+    P08   733
+    P02   718
+    P03b  718
+    P01   707
+    P05   610
+    M09   86
+    M14   44
+    M01   42
+    M02   42
+    M14b  38
+    M08   24
+    M13   20
+    M12   20
+    L07   4
+    L10   3
+    G01   2
+    G02   2
+    G03   2
+    G04   2
+    G05   2
+    G06   2
+    G07   2
+    G09   2
+    G10   2
+    G11   2
+    G12   2
+    M16   2
+    G01b  1
+    P07   1
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Horsepower': expected=5.554395992042226, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Weight': expected=5.718591413614914, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 71': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 72': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 73': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 74': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 75': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 76': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 77': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 78': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 79': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 80': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 81': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 82': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Origin: Europe': expected=1.8119606956111374, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Origin: US': expected=1.8119606956111374, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Horsepower': expected=0.18003757770110349, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Weight': expected=0.17486823724093734, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 71': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 72': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 73': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 74': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 75': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 76': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 77': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 78': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 79': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 80': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 81': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 82': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Origin: Europe': expected=0.5518883507915829, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Origin: US': expected=0.5518883507915829, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='Point_Estimate': expected=23.445918367346938, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='SE_Mean': expected=0.15492024062955484, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='SE_New': expected=3.0711741103347814, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='T_Critical': expected=1.9663101608024123, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='CI_Lower': expected=23.14129712408309, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='CI_Upper': expected=23.750539610610787, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='PI_Lower': expected=17.40703750860235, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='PI_Upper': expected=29.484799226091525, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/prediction_interval] config_name='default_t0_intercept' stat_name='Confidence_Level': expected=0.95, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/formula] expected='MPG ~ 1 + Horsepower + Weight + Model Year: 71 + Model Year: 72 + Model Year: 73 + Model Year: 74 + Model Year: 75 + Model Year: 76 + Model Year: 77 + Model Year: 78 + Model Year: 79 + Model Year: 80 + Model Year: 81 + Model Year: 82 + Origin: Europe + Origin: US', excel_calc='MPG ~ 1 + Horsepower + Weight'
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Horsepower': expected=5.554395992042226, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Weight': expected=5.718591413614914, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 71': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 72': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 73': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 74': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 75': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 76': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 77': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 78': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 79': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 80': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 81': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Model Year: 82': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Origin: Europe': expected=1.8119606956111374, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='GVIF' predictor_name='Origin: US': expected=1.8119606956111374, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Horsepower': expected=0.18003757770110349, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Weight': expected=0.17486823724093734, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 71': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 72': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 73': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 74': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 75': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 76': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 77': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 78': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 79': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 80': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 81': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Model Year: 82': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Origin: Europe': expected=0.5518883507915829, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/predictors] config_name='default_t0_no_intercept' stat_name='Tolerance' predictor_name='Origin: US': expected=0.5518883507915829, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='Point_Estimate': expected=23.445918367346938, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='SE_Mean': expected=0.15471409251344825, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='SE_New': expected=3.067087383161444, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='T_Critical': expected=1.9662932291780244, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='CI_Lower': expected=23.141705094779322, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='CI_Upper': expected=23.750131639914553, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='PI_Lower': expected=17.415125212539245, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='PI_Upper': expected=29.47671152215463, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/prediction_interval] config_name='default_t0_no_intercept' stat_name='Confidence_Level': expected=0.95, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M02 Intercept Off Categorical/formula] expected='MPG ~ 0 + Horsepower + Weight + Model Year: 71 + Model Year: 72 + Model Year: 73 + Model Year: 74 + Model Year: 75 + Model Year: 76 + Model Year: 77 + Model Year: 78 + Model Year: 79 + Model Year: 80 + Model Year: 81 + Model Year: 82 + Origin: Europe + Origin: US', excel_calc='MPG ~ 0 + Horsepower + Weight'
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='GVIF' predictor_name='Displacement': expected=12.6779395207089, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='GVIF' predictor_name='Horsepower': expected=5.8127040370348535, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='GVIF' predictor_name='Weight': expected=8.188570352224415, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='GVIF' predictor_name='Origin: Europe': expected=1.9844952140478367, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='GVIF' predictor_name='Origin: US': expected=1.9844952140478367, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='Tolerance' predictor_name='Displacement': expected=0.07887717072372372, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='Tolerance' predictor_name='Horsepower': expected=0.17203697171379034, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='Tolerance' predictor_name='Weight': expected=0.12212143963913691, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='Tolerance' predictor_name='Origin: Europe': expected=0.5039064810644057, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/predictors] config_name='origin_default_reference' stat_name='Tolerance' predictor_name='Origin: US': expected=0.5039064810644057, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='Point_Estimate': expected=23.445918367346938, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='SE_Mean': expected=0.2101694513161499, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='SE_New': expected=4.166447037794539, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='T_Critical': expected=1.9661287528933267, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='CI_Lower': expected=23.03269816613444, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='CI_Upper': expected=23.859138568559434, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='PI_Lower': expected=15.254147048931866, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='PI_Upper': expected=31.63768968576201, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/prediction_interval] config_name='origin_default_reference' stat_name='Confidence_Level': expected=0.95, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M13 Default Reference/formula] expected='MPG ~ 1 + Displacement + Horsepower + Weight + Origin: Europe + Origin: US', excel_calc='MPG ~ 1 + Displacement + Horsepower + Weight'
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='GVIF' predictor_name='Displacement': expected=12.677939520708943, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='GVIF' predictor_name='Horsepower': expected=5.81270403703485, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='GVIF' predictor_name='Weight': expected=8.188570352224465, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='GVIF' predictor_name='Origin: Asia': expected=1.9844952140478453, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='GVIF' predictor_name='Origin: US': expected=1.9844952140478453, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='Tolerance' predictor_name='Displacement': expected=0.07887717072372345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='Tolerance' predictor_name='Horsepower': expected=0.17203697171379045, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='Tolerance' predictor_name='Weight': expected=0.12212143963913617, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='Tolerance' predictor_name='Origin: Asia': expected=0.5039064810644035, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/predictors] config_name='origin_explicit_reference' stat_name='Tolerance' predictor_name='Origin: US': expected=0.5039064810644035, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='Point_Estimate': expected=23.445918367346938, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='SE_Mean': expected=0.2101694513161499, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='SE_New': expected=4.166447037794539, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='T_Critical': expected=1.9661287528933267, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='CI_Lower': expected=23.03269816613444, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='CI_Upper': expected=23.859138568559434, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='PI_Lower': expected=15.254147048931866, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='PI_Upper': expected=31.63768968576201, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/prediction_interval] config_name='origin_explicit_reference' stat_name='Confidence_Level': expected=0.95, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M12 Explicit Reference/formula] expected='MPG ~ 1 + Displacement + Horsepower + Weight + Origin: Asia + Origin: US', excel_calc='MPG ~ 1 + Displacement + Horsepower + Weight'
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Displacement': expected=13.498552378045206, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Horsepower': expected=6.965366685066454, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Weight': expected=9.658769352163612, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 71': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 72': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 73': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 74': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 75': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 76': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 77': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 78': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 79': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 80': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 81': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Model Year: 82': expected=1.8701893461700276, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Origin: Europe': expected=2.22920496649212, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='GVIF' predictor_name='Origin: US': expected=2.22920496649212, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Displacement': expected=0.07408201798190267, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Horsepower': expected=0.14356745957739328, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Weight': expected=0.10353285843563446, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 71': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 72': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 73': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 74': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 75': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 76': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 77': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 78': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 79': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 80': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 81': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Model Year: 82': expected=0.5347052169064626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Origin: Europe': expected=0.44859042350583017, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/predictors] config_name='model_year_origin_categorical' stat_name='Tolerance' predictor_name='Origin: US': expected=0.44859042350583017, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='Point_Estimate': expected=23.445918367346938, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='SE_Mean': expected=0.15381185334324, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='SE_New': expected=3.0492011885001573, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='T_Critical': expected=1.9663271832585472, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='CI_Lower': expected=23.143473939010747, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='CI_Upper': expected=23.74836279568313, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='PI_Lower': expected=17.45019118317481, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='PI_Upper': expected=29.441645551519066, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/prediction_interval] config_name='model_year_origin_categorical' stat_name='Confidence_Level': expected=0.95, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M14 Mixed Cat And Continuous/formula] expected='MPG ~ 1 + Displacement + Horsepower + Weight + Model Year: 71 + Model Year: 72 + Model Year: 73 + Model Year: 74 + Model Year: 75 + Model Year: 76 + Model Year: 77 + Model Year: 78 + Model Year: 79 + Model Year: 80 + Model Year: 81 + Model Year: 82 + Origin: Europe + Origin: US', excel_calc='MPG ~ 1 + Displacement + Horsepower + Weight'
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='Adjusted_R_Squared': expected=0.8350728836141428, excel_calc=0.8336261545230395, abs_diff=0.001446729091103327, fdd=2
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='SE_Regression': expected=2.6155185345742247, excel_calc=2.6269650598733083, abs_diff=0.011446525299083632, fdd=2
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='PRESS': expected=1798.1577382624002, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='PRESS_R2': expected=0.8223298692971794, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='Mean_Leverage': expected=0.061224489795918366, excel_calc=0.06938775510204082, abs_diff=0.00816326530612245, fdd=2
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='AIC': expected=485.637730520203, excel_calc=489.63773052020304, abs_diff=4.000000000000057, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='BIC': expected=538.1566036783739, excel_calc=549.1591200994634, abs_diff=11.002516421089467, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='AICc': expected=487.7338003891986, excel_calc=492.3337657624938, abs_diff=4.599965373295163, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='Regression_Degrees_Of_Freedom': expected=14.0, excel_calc=16.0, abs_diff=2.0, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='MS_Regression': expected=610.5249995670791, excel_calc=534.2093746211968, abs_diff=76.31562494588229, fdd=1
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='F_Statistic': expected=89.24581256900117, excel_calc=77.4110417718079, abs_diff=11.834770797193272, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='Residual_Degrees_Of_Freedom': expected=230.0, excel_calc=228.0, abs_diff=2.0, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='MS_Residual': expected=6.840937204701301, excel_calc=6.9009454257951734, abs_diff=0.06000822109387283, fdd=2
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='Unit_Space_Adjusted_R_Squared': expected=0.8350728836141428, excel_calc=0.8336261545230388, abs_diff=0.0014467290911039932, fdd=2
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='Unit_Space_RMSE': expected=2.6155185345742247, excel_calc=2.6269650598733074, abs_diff=0.011446525299082744, fdd=3
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='Unit_Space_LOOCV_RMSE': expected=2.709136271922572, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/scalars] config_name='usa_filter_degenerate_origin' stat_name='Unit_Space_LOOCV_MAE': expected=2.0825389992620353, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Horsepower': expected=5.232093294201327, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Weight': expected=4.392771386649205, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 71': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 72': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 73': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 74': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 75': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 76': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 77': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 78': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 79': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 80': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 81': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='GVIF' predictor_name='Model Year: 82': expected=1.958701114864681, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M15 Filter Degenerate Cat/predictors] config_name='usa_filter_degenerate_origin' stat_name='Tolerance' predictor_name='Horsepower': expected=0.1911280903779543, excel_calc=None, abs_diff=None, fdd=0
+ERROR ... and 214244 more mismatch(es).
+Verify: FAILED with 214444 mismatch(es).
+Timing: total         867.0s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch.log

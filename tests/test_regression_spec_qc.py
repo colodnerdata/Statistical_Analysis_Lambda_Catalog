@@ -57,6 +57,7 @@ _EXPECTED_CASE_NAMES = [
     "production_lots_log_mixed_predictors",
     "production_lots_log_predictor_only",
     "production_lots_lsdv_equivalence",
+    "production_lots_log_loocv_leverage",
     "life_partial_linear_log",
     "life_log_response_duan",
     "life_log_response_naive",
@@ -519,6 +520,7 @@ _LOG_SPEC_CASES = (
     "production_lots_log_no_fe",  # Log + Log, no FE
     "production_lots_log_mixed_predictors",  # Log response, Log + None predictors
     "production_lots_log_predictor_only",  # None response, Log predictor
+    "production_lots_log_loocv_leverage",  # Log response, heavy-tailed leverage
 )
 
 
@@ -573,6 +575,115 @@ def test_unit_space_oracle_matches_an_independent_recomputation(case_name: str) 
     assert got.rmse_unit == pytest.approx(want["rmse_unit"], rel=1e-10)
     assert np.allclose(got.predictions_unit, want["predictions_unit"], rtol=1e-10)
     assert np.allclose(got.residuals_unit, want["residuals_unit"], rtol=1e-8, atol=1e-8)
+
+
+# v3.4 unit-space LOOCV — a SECOND independent path to the same answers.
+#
+# tests/test_unit_space_dispatch.py mirrors the catalog formulas by REFITTING
+# n times (no hat-diagonal shortcut). This check recomputes the LOOCV residual
+# the OTHER way — the hat-diagonal identity loo_fit = predictions - h*e/(1-h),
+# applied to the oracle's OWN already-verified residual columns
+# (full_residuals.hat_diagonal / .residuals / .predictions) — and cross-checks
+# the oracle's loocv_residuals_unit / loocv_rmse_unit / loocv_mae_unit against
+# it. Two independent derivations agreeing is the point: a mirror sharing the
+# oracle's reading of Y_Full would produce a green suite and a wrong workbook
+# (DECISIONS.md:2949-2958).
+
+def _expected_unit_space_loocv(design, results) -> dict:
+    """Independent recomputation of the v3.4 unit-space LOOCV statistics via
+    the hat-diagonal identity, from the oracle's already-verified columns."""
+    y_fit = np.asarray(results.full_residuals.dependent_var, dtype=float)
+    fitted = np.asarray(results.full_residuals.predictions, dtype=float)
+    resid = np.asarray(results.full_residuals.residuals, dtype=float)
+    hat = np.asarray(results.full_residuals.hat_diagonal, dtype=float)
+    y_train = np.asarray(design.y_train, dtype=float)
+
+    logged = design.response_transform == "Log"
+    shift = (y_train - y_fit) if logged else np.zeros_like(y_fit)
+    smearing = float(np.mean(np.exp(resid))) if logged else 1.0
+
+    # The leave-one-out fit-space prediction by the hat-diagonal identity —
+    # the same identity the oracle's analyze_regression_sheet.py uses
+    # (`loocv_predictions = predictions - h*e/(1-h)`), reached from the
+    # already-verified columns rather than recomputed.
+    loo_fit_space = fitted - hat * resid / (1.0 - hat)
+    loo_fit = loo_fit_space + shift
+    if logged:
+        loo_pred_unit = np.exp(loo_fit) * smearing  # Duan (the four cases' default)
+        y_unit = np.exp(y_fit + shift)
+    else:
+        loo_pred_unit = loo_fit
+        y_unit = y_fit
+    r = y_unit - loo_pred_unit
+    n = r.size
+    return {
+        "loocv_residuals_unit": r,
+        "loocv_rmse_unit": math.sqrt(float(np.sum(r ** 2)) / n),
+        "loocv_mae_unit": float(np.mean(np.abs(r))),
+        "smearing_treatment": (
+            "n/a — no back-transform" if not logged
+            else "Full-sample Duan (approx.)"
+        ),
+    }
+
+
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
+@pytest.mark.parametrize("case_name", _LOG_SPEC_CASES)
+def test_unit_space_loocv_oracle_matches_an_independent_recomputation(
+    case_name: str,
+) -> None:
+    """The oracle's LOOCV residual / RMSE / MAE must match a hat-diagonal
+    recomputation from its own already-verified residual columns — a second
+    independent path to the same answers the n-refit mirror in
+    test_unit_space_dispatch.py also reaches."""
+    expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
+    want = _expected_unit_space_loocv(expected.design, expected.results)
+    got = expected.results.unit_space
+
+    assert np.allclose(
+        got.loocv_residuals_unit, want["loocv_residuals_unit"], rtol=1e-9, atol=1e-9
+    )
+    assert got.loocv_rmse_unit == pytest.approx(want["loocv_rmse_unit"], rel=1e-10)
+    assert got.loocv_mae_unit == pytest.approx(want["loocv_mae_unit"], rel=1e-10)
+    # The LOOCV scalars must exceed the in-sample SE Regression (Unit): LOOCV is
+    # out-of-sample, so it is the optimistic-free upper bound the plan's
+    # verification section looks for (AH11/AH12 numeric and > AH8).
+    assert got.loocv_rmse_unit > got.rmse_unit
+    assert got.loocv_mae_unit > 0.0
+    assert got.smearing_treatment == want["smearing_treatment"]
+
+
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
+@pytest.mark.parametrize(
+    "case_name",
+    ("production_lots_fixed_effects", "production_lots_log_predictor_only"),
+)
+def test_unit_space_loocv_reduces_to_loocv_residual_under_none(
+    case_name: str,
+) -> None:
+    """Reduction invariant extended to the LOOCV pair: under Transform = None
+    the unit-space LOOCV residual IS the ordinary (fit-space) LOOCV residual
+    (the PRESS Residual column), and the LOOCV RMSE is sqrt(PRESS / n). This
+    must hold WITH Fixed Effects — the level shift is inert under None, or the
+    reduction silently becomes a total one (DECISIONS.md:2941-2947)."""
+    expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
+    unit = expected.results.unit_space
+    full = expected.results.full_residuals
+    summary = expected.results.summary
+
+    assert expected.design.response_transform == "None"
+    assert np.allclose(
+        unit.loocv_residuals_unit, full.loocv_residuals, atol=1e-9
+    ), "Unit_Space_LOOCV_Residual must collapse to the PRESS Residual under None"
+    n = summary.observations
+    assert unit.loocv_rmse_unit == pytest.approx(
+        math.sqrt(summary.press / n), rel=1e-12
+    ), "Unit_Space_LOOCV_RMSE must be sqrt(PRESS / n) under None"
+    assert unit.smearing_treatment == "n/a — no back-transform"
 
 
 # ── The cases added for docs/MODEL_TESTING_ASSETS.md § 1.1–1.3 ───────────────

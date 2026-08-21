@@ -3022,6 +3022,168 @@ cache schema version bumps to 17.
   — pick up the 7 new entries automatically.
 ---
 
+## v3.4 — Unit-space LOOCV (residual, RMSE, MAE, and a named smearing treatment)
+
+v3.3 shipped the unit-space *fit* but left cross-validation in fit space:
+`LOOCV_Residual`, `LOOCV_Prediction`, `PRESS`, and the hat diagonal all report
+in the space the model was fitted in (log units on a Log-response model), which
+is not the space anyone decides in. v3.4 closes that gap with an out-of-sample
+residual column and two out-of-sample error scalars in original units, plus the
+thing that makes them honest — a visible statement of how the smearing factor
+was obtained.
+
+**LOOCV divisor is n, not df_residual — and that is the load-bearing choice.**
+`Unit_Space_LOOCV_RMSE` is `SQRT(SUMSQ(r_loo) / ROWS(r_loo))` and
+`Unit_Space_LOOCV_MAE` is `AVERAGE(ABS(r_loo))`. Every leave-one-out prediction is
+genuinely out-of-sample — the held-out row was not in the fit — so no degrees of
+freedom are consumed by the LOO step, and dividing by n is the honest RMS, not a
+standard error. `ROWS(r)`, not `COUNT(r)`: an `#N/A` row (the `h_i = 1` case,
+guarded by `IFERROR(…, NA())` mirroring `LOOCV_Residual`'s own guard) propagates
+through `SUMSQ` regardless, so the divisor stays plainly the sample size the fit
+used. This is deliberately *different* from the in-sample
+`Unit_Space_RMSE = SQRT(SSE_unit / df_residual)`, whose `÷ df_residual` is the
+reduction invariant's acceptance criterion (`Unit_Space_RMSE ≡ SE_Regression`
+under `Transform = None`). The pair reads consistently because both LOO scalars
+average over the same n; using df_residual for one and n for the other would be
+the inconsistency. The reduction invariant is **extended**, not broken: with
+`Transform = None` throughout, `Unit_Space_LOOCV_Residual ≡ LOOCV_Residual` and
+`Unit_Space_LOOCV_RMSE ≡ SQRT(PRESS/n)` to fp precision, including under Fixed
+Effects (the level shift is zero and the back-transform is the identity, so the
+LOO residual is the fit-space LOO residual unchanged).
+
+**The full-sample Duan smearing factor leaks, and the leak is named on the
+sheet, not hidden.** Under Duan, the LOO residual for row *i* is back-
+transformed with a smearing factor estimated from *all n* in-sample residuals,
+row *i* included. That is a real (small) optimism: the held-out row's own
+residual is in the smearing mean that back-transforms its own LOO prediction.
+`Smearing_Treatment` is a pure function of `(response_transform, method)` that
+returns the text `"Full-sample Duan (approx.)"` under Duan, `"Naive (no
+smearing)"` under Naive, and `"n/a — no back-transform"` when there is no Log
+response. Surfacing it in-cell at `AH13` (with the full explanation on hover) is
+what separates "we approximated" from "we didn't notice", and it gives the
+eventual fold-specific implementation a slot to land in rather than a silent
+change of meaning.
+
+**Fold-specific Duan is a fourth `SWITCH` arm, by design.** `Smearing_Treatment`'s
+`SWITCH(method, "Naive", …, "Duan", …, NA())` is the extension point: a
+fold-specific smearing factor (one that excludes the held-out row) arrives as a
+fourth arm plus a third item on the `AH4` validation list, with no
+restructuring. The same structure is why `Unit_Space_LOOCV_*` take `[Method]` as
+an argument — fold-specific Duan is a method value, not a new function.
+
+**`Unit_Space_RMSE`'s divisor is flagged, not changed.** The label said "RMSE
+(Unit)" (promising `÷ n`) while the formula divided by `df_residual` (a standard
+error of the regression). The critique is fair on its face: once the response is
+back-transformed, `SSE_unit` is not the residual sum of squares of a linear fit
+in that space, so `n − p` buys no unbiasedness there. It is nonetheless
+**deliberate**: the reduction invariant (`Unit_Space_RMSE ≡ SE_Regression` under
+`Transform = None`) is v3.3's acceptance criterion and the
+`Comparison_Headline_GoF` contract v3.4 is built against, and changing the
+divisor breaks both. In scope here: relabel `AG8` to `"SE Regression (Unit)"`
+with a hover Note stating the divisor, so the label stops promising `÷ n` while
+`LOOCV RMSE (Unit)` one row below genuinely delivers it. A formula change is a
+separate, breaking PR — it gets an OPEN item in `docs/TODOs.md` cross-referenced
+to this analysis, not a silent edit here.
+
+**Two independent LOOCV verification paths, neither sharing a derivation with the
+code.** The v3.3 mirror-test discipline (a mirror sharing the author's reading of
+`Y_Full` produces a green suite and a wrong workbook) applies in full.
+`tests/test_unit_space_dispatch.py` adds pure-Python mirrors of the three new
+LAMBDAs against a NumPy LOO reference that **refits n times explicitly** — not via
+the Sherman-Morrison-Woodbury hat-diagonal shortcut the oracle itself uses, so a
+wrong shortcut cannot agree with a wrong mirror. `tests/test_regression_spec_qc.py`
+adds the second path: recompute the unit-space LOO residuals from the oracle's
+own *already-verified* residual columns (`hat_diagonal`, `residuals`,
+`predictions`) via the identity `loo_fit = predictions − h·e/(1−h)` and
+cross-check, over the Log-response cases. The reduction check
+(`Unit_Space_LOOCV_Residual ≡ LOOCV_Residual` under `Transform = None`) is
+parametrized on a Fixed-Effects case precisely because the no-FE case is
+trivially inert.
+
+**P08 — the leverage corner no other case was chosen for.** The three new
+statistics become compared on every existing case the moment the QC reader
+lands, so the new test-model case exists for the corner none of them cover:
+heavy-tailed **leverage**, where LOOCV departs materially from the in-sample fit
+and the full-sample Duan leak is largest. `production_lots_log_loocv_leverage`
+is Production Lots (n = 51), Log response, no FE, with a quadratic self-
+interaction on `Cumulative_Units` (`Ln(Cumulative_Units) + Ln(Cumulative_Units)²`).
+The squared term is dominated by the single largest lot, so that point's hat
+diagonal reaches ~0.41 against a mean of ~0.06, LOOCV RMSE (~15109) exceeds the
+in-sample SE Regression (Unit) (~14658), and the smearing treatment reads
+`"Full-sample Duan (approx.)"` — the exact state the block exists to surface.
+
+**Pre-existing categorical-construction break — not introduced here, but it
+gates the full test-model verify.** The v3.4 Excel verification surfaced a
+regression already on `main` that is independent of LOOCV: categorical dummy
+columns stop materializing in the built workbook. The `Model_Formula` readout
+returns only the continuous predictors (`MPG ~ 1 + Horsepower + Weight`,
+dropping every `Model Year: …` and `Origin: …` level); the categorical
+predictor stats (GVIF, Tolerance, coefficients, p-values, CIs) read back blank;
+and any case with a categorical Fixed-Effects column (the Life-Expectancy
+L-series) cascades to a whole-sheet blank fit. Continuous-only models are
+unaffected, which is exactly why the break reached `main` unnoticed.
+
+Bisected to the introducing commit with `build_test_models.py --cases M01
+--verify` (M01 is the Auto-MPG baseline with `Model Year` + `Origin`
+categoricals): `9103e90` (Migrate Regression Statistics to materialized spills,
+2026-08-18) and `e2f94db` (`#` in a defined-name `RefersTo`, 2026-08-19) both
+**pass**; `2cbf78b` ("v3.2: repoint all remaining engine call sites at the
+materialized spills", 2026-08-19) **fails** — dummies gone; `abf68aa` (the
+v3.2 name-promotion `_Calc` split, 2026-08-20), the v3.9 `Dummy_Column`/
+`Interact`/`Model_Matrix` trio (`a05e6e0`), and `HEAD` all fail identically —
+they inherit the break. The introducing commit is therefore `2cbf78b`, **not**
+`abf68aa` (which the investigation began from) and **not** v3.9 (whose trio
+deliberately does not call the spec-driven path, per its own commit body). The
+last full-green test-models verify was 2026-08-15 (50/50); the
+v3.2-materialization-remainder PRs shipped 2026-08-16→20 without one.
+
+The mechanism is in the repointing. `2cbf78b` changed the categorical dummy
+constructor `Dummy_Levels(col, ref, Sample_Include())` →
+`Dummy_Levels(col, ref, Fit_Sample_Include())` — and the continuous
+`Ln_Positive(col, Sample_Include())` → `Fit_Sample_Include()` in lockstep — in
+`Predictor_Columns`, `Constructed_Column_Names`, and
+`Constructed_Column_Transforms`, reading the materialized `Sample_Include`
+spill through the `Fit_Sample_Include()` reader instead of recomputing the
+leaf. The continuous path survives the change while the categorical path
+returns `#N/A` (no levels found) and is dropped by the `keep` predicate — the
+signature of a materialized-spill read that `Dummy_Levels`' masking does not
+tolerate the way `Ln_Positive` does (an empty or still-pending mask yields
+`#N/A` from `Dummy_Levels` but yields the column from `Ln_Positive`). The exact
+cell-level root cause — calculation order versus dependency tracking through
+the spill-reading name, post-`CalculateFullRebuild` — is left for the fix PR;
+the introducing commit and the affected path are pinned here.
+
+Why it shipped unnoticed: `2cbf78b`'s own verification was continuous-only.
+`build_production.py --verify` runs the Life-Expectancy production default,
+which declares no categorical predictor, so a broken dummy path is inert there
+and the verify passes. The test-models full verify — the only thing that
+exercises categorical M-cases — was not run after the v3.2 remainder landed, so
+the break reached `main` and stayed through v3.9. (A second, unrelated
+pre-existing blocker was hit in passing: the production build crashes in
+`drop_local_name` iterating a sheet name whose COM `.Name` is `None` on the
+committed `dist/Lambda_Library.xlsx`. That is fragile-`drop_local_name` /
+stale-dist, not LOOCV — this PR touches no name creation — and is noted here
+only because it blocks the production build path; the categorical break would
+block it regardless, since the LE default's `Status` categorical would fail
+the same way the L-series does.)
+
+**Verification of this PR against that backdrop.** LOOCV is orthogonal to the
+broken path — it adds workbook-scoped catalog functions and a residual column;
+it touches no name creation and no `Sample_Include` / `Design_Columns` reader
+— so the break is not a LOOCV regression, confirmed by building M01 on clean
+`HEAD` with the LOOCV changes stashed: it fails identically. The full
+test-models verify therefore cannot go green on `main` regardless of this PR,
+so the LOOCV Excel evidence is the continuous-only path the break leaves
+intact: `build_test_models.py --cases P08 --verify` (P08 is Production Lots,
+continuous + a quadratic self-interaction, the heavy-leverage corner) **passes**
+— the LOOCV residual column `BB`, `Unit_Space_LOOCV_RMSE` / `_MAE`, and
+`Smearing_Treatment` match the NumPy oracle bit-for-bit on the case chosen to
+stress them. The headless suite (the two independent LOOCV verification paths
+above) passes in full. Fixing the categorical break is out of scope for this PR
+and gets an OPEN item in `docs/TODOs.md`.
+
+---
+
 ## v3.3.x — Regression sheet layout repair
 
 Three defects found by reading the built Regression sheet against its own

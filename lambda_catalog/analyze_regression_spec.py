@@ -1362,6 +1362,44 @@ def _production_lots_log_predictor_only_spec() -> list[SpecVariable]:
     ]
 
 
+def _production_lots_log_loocv_leverage_spec() -> list[SpecVariable]:
+    """P08 — the corner none of the other Production Lots cases was chosen
+    for: a genuinely heavy-tailed LEVERAGE distribution, where leave-one-out
+    cross-validation departs materially from the in-sample fit and the
+    full-sample smearing leak is largest.
+
+    Sibling of ``_production_lots_log_no_fe_spec`` (Log response, no FE) with
+    one change: ``Cumulative_Units`` carries a quadratic self-interaction
+    (``interaction_term="Cumulative_Units"``, ``Product``), so the design
+    matrix gains ``Ln(Cumulative_Units)`` and ``Ln(Cumulative_Units)²``. The
+    squared term is dominated by the single largest cumulative-units lot, so
+    that point's hat diagonal reaches ~0.41 against a mean of ~0.06 — the
+    heavy tail that makes LOOCV RMSE (out-of-sample) exceed the in-sample SE
+    Regression (Unit). That gap is what the v3.4 CROSS-VALIDATED FIT block
+    exists to surface, and the case pins it against the oracle.
+    """
+    return [
+        _spec_var("Lot_ID", _ROLE_IDENTIFIER),
+        _spec_var("Facility", _ROLE_OMIT),
+        _spec_var("Fiscal_Year", _ROLE_OMIT, sequence=True),
+        _spec_var("Lot_Quantity", _ROLE_OMIT),
+        _spec_var(
+            "Cumulative_Units",
+            _ROLE_PREDICTOR,
+            True,
+            "Continuous",
+            transform="Log",
+            interaction_term="Cumulative_Units",
+            interaction_operation="Product",
+        ),
+        _spec_var("Experience_Stock", _ROLE_OMIT),
+        _spec_var("Unit_Cost_BY", _ROLE_RESPONSE, transform="Log"),
+        _spec_var("log Cum Units", _ROLE_OMIT),
+        _spec_var("log experience", _ROLE_OMIT),
+        _spec_var("log Unit Cost", _ROLE_OMIT),
+    ]
+
+
 # Case name -> (plan ID, worksheet name) for every fittable case, keyed by
 # the case's own name so a rename shows up here as a KeyError rather than as
 # a silently unnamed sheet. The plan ID is the row in
@@ -1434,6 +1472,13 @@ _CASE_SHEET_IDENTITY: dict[str, tuple[str, str]] = {
     "production_lots_log_mixed_predictors": ("P04", "P04 Log Mixed Predictors"),
     "production_lots_log_predictor_only": ("P05", "P05 Log Predictor Only"),
     "production_lots_lsdv_equivalence": ("P06", "P06 LSDV vs Within Estimator"),
+    # P08 — the v3.4 unit-space LOOCV corner: a heavy-tailed leverage
+    # distribution that makes leave-one-out cross-validation depart materially
+    # from the in-sample fit, and the full-sample Duan smearing leak is
+    # largest. P07 is a guard-state case (irregular panel spacing), so this is
+    # the next fittable Production Lots number. See
+    # _production_lots_log_loocv_leverage_spec.
+    "production_lots_log_loocv_leverage": ("P08", "P08 LOOCV Leverage Spread"),
     # § 1.4 — G8 is the one guard-rail row that IS a fittable model (the
     # invalid reference degrades to zero columns rather than erroring), so
     # it lives with the fittable cases and carries a G-tier sheet name.
@@ -1724,6 +1769,26 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
             # No Fixed Effects row now (Facility is an ordinary Categorical
             # Predictor), so group recovery resolves to "(all)" exactly as
             # it does for the other no-FE Production Lots cases.
+            prediction_group=None,
+        )
+    )
+    # P8 — the v3.4 unit-space LOOCV corner. A sibling of production_lots_log
+    # with a quadratic self-interaction on Cumulative_Units, so the squared
+    # log term is dominated by the single largest lot and that point carries
+    # a heavy hat diagonal (~0.41 vs a mean of ~0.06). That leverage tail is
+    # what makes LOOCV RMSE depart from the in-sample SE Regression (Unit) —
+    # the gap the v3.4 CROSS-VALIDATED FIT block surfaces — and it makes the
+    # full-sample Duan smearing leak largest. The spec is the only thing that
+    # differs from production_lots_log_no_fe; dataset, loader, Source_Table
+    # and prediction group are identical, so it drops into the same harness.
+    cases.append(
+        RegressionSpecCase(
+            name="production_lots_log_loocv_leverage",
+            spec=tuple(_production_lots_log_loocv_leverage_spec()),
+            allow_intercept=True,
+            source_csv_path=PRODUCTION_LOTS_CSV_PATH,
+            row_loader=load_production_lots_source_rows,
+            source_table_ref="=ProductionLotsData[#All]",
             prediction_group=None,
         )
     )

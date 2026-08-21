@@ -1,0 +1,70 @@
+Log_Domain_Status amber fix — live Excel probe transcript
+==========================================================
+
+Root cause: the amber half of Log_Domain_Status sums the materialized
+sample-include reader with N():
+    d = SUMPRODUCT(N(base)) - SUMPRODUCT(N(Fit_Sample_Include()))
+N() of a range-returning thunk (the Fit_Sample_Include() reader, whether
+spelled `#`/ANCHORARRAY or OFFSET) collapses to the top-left cell (=1),
+so the buggy term returns 1 and d = (complete cases) - 1 = n-1, firing a
+false "n-1 rows excluded: Log of <= 0" amber on EVERY sheet regardless of
+transforms. On a real Log (drop <= 0) sheet that n-1 false amber ALSO masks
+the genuine, intended excluded-row count.
+
+Fix: sum the reader with `--` instead of N():
+    d = SUMPRODUCT(N(base)) - SUMPRODUCT(--(Fit_Sample_Include()))
+`--` coerces a range OR an array to a summable 1/0 array, so it is robust
+to the reader's form and to Sample_Include()'s promotion to the reader.
+
+These probes do NOT rebuild the shipped dist (it is stale for unrelated
+v3.9 categorical reasons; rebuilding it is a separate PR). They evaluate
+the exact buggy and fixed amber bodies against the REAL reader on each
+sheet by writing the amber-half LET into scratch cells and reading the
+verdict under CalculateFull (normal recalc -- the regime where the symptom
+fires; CalculateFullRebuild hides it, which is why verify-models never
+reproduced the amber).
+
+(ASCII: "? 0" in the verdict strings is the "<= 0" glyph, replaced by the
+ascii-safe probe helper.)
+
+==========================================================================
+PROBE 1 — main dist Regression sheet (Life Expectancy default, no Log drop)
+==========================================================================
+Log_Domain_Status amber probe on main dist Regression sheet (LE default)
+========================================================================
+  base N(Sample_Include(FALSE))                = 2735.0
+  buggy term N(Fit_Sample_Include())           = 1.0
+  fixed term --(Fit_Sample_Include())          = 2735.0
+  live G2 (baked-in buggy body)                = '2734 rows excluded: Log of ? 0'
+  amber body, BUGGY N(reader) -> G2 verdict    = '2734 rows excluded: Log of ? 0'
+  amber body, FIXED --(reader) -> G2 verdict   = None
+========================================================================
+
+==========================================================================
+PROBE 2 — test-models workbook (M03 clear, L11 LE default, L12 real Log drop)
+==========================================================================
+
+Log_Domain_Status amber probe on test-models workbook
+==============================================================================
+[M03 All Continuous]
+    base N(Sample_Include(FALSE))            = 392.0
+    buggy term N(Fit_Sample_Include())       = 1.0
+    fixed term --(Fit_Sample_Include())      = 392.0
+    baked-in live G2                         = '391 rows excluded: Log of ? 0'
+    BUGGY body verdict                        = '391 rows excluded: Log of ? 0'
+    FIXED body verdict                       = (clear)
+[L11 Curated Talk Default]
+    base N(Sample_Include(FALSE))            = 2735.0
+    buggy term N(Fit_Sample_Include())       = 1.0
+    fixed term --(Fit_Sample_Include())      = 2735.0
+    baked-in live G2                         = '2734 rows excluded: Log of ? 0'
+    BUGGY body verdict                        = '2734 rows excluded: Log of ? 0'
+    FIXED body verdict                       = (clear)
+[L12 Log Drop Nonpositive]
+    base N(Sample_Include(FALSE))            = 2768.0
+    buggy term N(Fit_Sample_Include())       = 1.0
+    fixed term --(Fit_Sample_Include())      = 2742.0
+    baked-in live G2                         = '2767 rows excluded: Log of ? 0'
+    BUGGY body verdict                        = '2767 rows excluded: Log of ? 0'
+    FIXED body verdict                       = '26 rows excluded: Log of ? 0'
+==============================================================================

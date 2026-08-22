@@ -1,0 +1,377 @@
+python build_test_models.py --exclude M01,M14,M09,P01,P02,P06,P07 --verify --no-launch --verbose
+[    0.0s] Plan: 27 model + 16 guard = 43 sheet(s)
+           M03   M03 All Continuous
+           M04   M04 Excluded Candidates
+           M02   M02 Intercept Off Categorical
+           M03b  M03b All Continuous NoInt
+           M04b  M04b Excluded Cands NoInt
+           M13   M13 Default Reference
+           M12   M12 Explicit Reference
+           G08   G08 Invalid Reference Level
+           M15   M15 Filter Degenerate Cat
+           M07   M07 Continuous Product
+           M06   M06 Quadratic Self Product
+           M08   M08 Cont x Cat Broadcast
+           M05   M05 Log-Log NA Masking
+           M14b  M14b Categorical Only Design
+           M10   M10 Difference Interaction
+           M11   M11 Ratio Reciprocal Pair
+           P03   P03 Power Law Derived Cols
+           P03b  P03b Power Law Transform Axis
+           P04   P04 Log Mixed Predictors
+           P05   P05 Log Predictor Only
+           L01   L01 Partial Linear-Log
+           L02   L02 Log Response Duan
+           L03   L03 Log Response Naive
+           L04   L04 Elasticity Log-Log
+           L09   L09 Binary Cat Reference
+           L12   L12 Log Drop Nonpositive
+           L11   L11 Curated Talk Default
+           G01   G01 No Response Row
+           G01b  G01b Empty Model
+           G02   G02 Two Response Rows
+           G03   G03 Two Sequence Flags
+           G04   G04 Two Fixed Effects Rows
+           G05   G05 FE Plus Intercept
+           G06   G06 Intercept Off With Cat
+           G07   G07 Log On Categorical
+           G09   G09 Interaction Bad Operand
+           G10   G10 Symmetric Product Pair
+           G11   G11 Excluded Operand
+           G12   G12 Unknown Interaction Op
+           L06   L06 Ln Zero Guard
+           L07   L07 Width Guard Warning
+           L10   L10 Retarget Widens Spec
+           M16   M16 Sequence Period Override
+[    0.0s] Oracles: computing
+[    0.8s] Oracles: done
+[    1.2s] Catalog + data sheets
+[    7.0s] Sheets: writing 43
+[    7.0s]   1/43 M03   M03 All Continuous                 7.5s
+[   14.5s]   2/43 M04   M04 Excluded Candidates            7.4s
+[   21.9s]   3/43 M02   M02 Intercept Off Categorical      7.2s
+[   29.1s]   4/43 M03b  M03b All Continuous NoInt          7.3s
+[   36.3s]   5/43 M04b  M04b Excluded Cands NoInt          7.5s
+[   43.8s]   6/43 M13   M13 Default Reference              7.4s
+[   51.2s]   7/43 M12   M12 Explicit Reference             7.6s
+[   58.9s]   8/43 G08   G08 Invalid Reference Level        6.1s
+[   65.0s]   9/43 M15   M15 Filter Degenerate Cat          6.3s
+[   71.2s]  10/43 M07   M07 Continuous Product             6.4s
+[   77.6s]  11/43 M06   M06 Quadratic Self Product         6.5s
+[   84.1s]  12/43 M08   M08 Cont x Cat Broadcast           6.8s
+[   90.9s]  13/43 M05   M05 Log-Log NA Masking             6.9s
+[   97.8s]  14/43 M14b  M14b Categorical Only Design       7.2s
+[  105.1s]  15/43 M10   M10 Difference Interaction         7.4s
+[  112.5s]  16/43 M11   M11 Ratio Reciprocal Pair          7.7s
+[  120.2s]  17/43 P03   P03 Power Law Derived Cols         7.5s
+[  127.7s]  18/43 P03b  P03b Power Law Transform Axis      7.5s
+[  135.2s]  19/43 P04   P04 Log Mixed Predictors           7.7s
+[  142.9s]  20/43 P05   P05 Log Predictor Only             7.9s
+[  150.8s]  21/43 L01   L01 Partial Linear-Log            17.8s
+[  168.6s]  22/43 L02   L02 Log Response Duan             18.4s
+[  187.0s]  23/43 L03   L03 Log Response Naive            18.5s
+[  205.4s]  24/43 L04   L04 Elasticity Log-Log            18.5s
+[  223.9s]  25/43 L09   L09 Binary Cat Reference          19.0s
+[  242.9s]  26/43 L12   L12 Log Drop Nonpositive          18.7s
+[  261.6s]  27/43 L11   L11 Curated Talk Default          18.8s
+[  280.4s]  28/43 G01   G01 No Response Row                9.7s
+[  290.0s]  29/43 G01b  G01b Empty Model                   9.4s
+[  299.4s]  30/43 G02   G02 Two Response Rows              9.9s
+[  309.4s]  31/43 G03   G03 Two Sequence Flags            10.0s
+[  319.4s]  32/43 G04   G04 Two Fixed Effects Rows        10.6s
+[  330.0s]  33/43 G05   G05 FE Plus Intercept             11.0s
+[  341.0s]  34/43 G06   G06 Intercept Off With Cat        11.1s
+[  352.1s]  35/43 G07   G07 Log On Categorical            11.3s
+[  363.4s]  36/43 G09   G09 Interaction Bad Operand       11.8s
+[  375.2s]  37/43 G10   G10 Symmetric Product Pair        12.2s
+[  387.3s]  38/43 G11   G11 Excluded Operand              13.0s
+[  400.3s]  39/43 G12   G12 Unknown Interaction Op        13.4s
+[  413.7s]  40/43 L06   L06 Ln Zero Guard                 23.1s
+[  436.8s]  41/43 L07   L07 Width Guard Warning           24.5s
+[  461.3s]  42/43 L10   L10 Retarget Widens Spec          19.9s
+[  481.2s]  43/43 M16   M16 Sequence Period Override      15.0s
+[  496.2s] Save
+[  501.3s] Sync names
+[  501.7s] CalculateFullRebuild
+Timing: write sheets  500.4s
+Timing: sync names    0.4s
+Timing: rebuild       1393.7s
+Timing:   CalculateFullRebuild only   865.8s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\Lambda_Library_TestModels.xlsx
+Sheets built: 43
+Created names: 127
+Updated names: 0
+Removed names: 0
+[ 1895.5s] Verify: reading 43 sheet(s)
+             1/43 M03   M03 All Continuous               ok
+             2/43 M04   M04 Excluded Candidates          ok
+             3/43 M02   M02 Intercept Off Categorical    ok
+             4/43 M03b  M03b All Continuous NoInt        ok
+             5/43 M04b  M04b Excluded Cands NoInt        ok
+             6/43 M13   M13 Default Reference            ok
+             7/43 M12   M12 Explicit Reference           ok
+             8/43 G08   G08 Invalid Reference Level      ok
+             9/43 M15   M15 Filter Degenerate Cat        ok
+            10/43 M07   M07 Continuous Product           ok
+            11/43 M06   M06 Quadratic Self Product       ok
+            12/43 M08   M08 Cont x Cat Broadcast         ok
+            13/43 M05   M05 Log-Log NA Masking           ok
+            14/43 M14b  M14b Categorical Only Design     ok
+            15/43 M10   M10 Difference Interaction       ok
+            16/43 M11   M11 Ratio Reciprocal Pair        ok
+            17/43 P03   P03 Power Law Derived Cols       ok
+            18/43 P03b  P03b Power Law Transform Axis    563 mismatch(es)
+            19/43 P04   P04 Log Mixed Predictors         578 mismatch(es)
+            20/43 P05   P05 Log Predictor Only           455 mismatch(es)
+            21/43 L01   L01 Partial Linear-Log           17015 mismatch(es)
+            22/43 L02   L02 Log Response Duan            24577 mismatch(es)
+            23/43 L03   L03 Log Response Naive           24577 mismatch(es)
+            24/43 L04   L04 Elasticity Log-Log           22379 mismatch(es)
+            25/43 L09   L09 Binary Cat Reference         17015 mismatch(es)
+            26/43 L12   L12 Log Drop Nonpositive         21993 mismatch(es)
+            27/43 L11   L11 Curated Talk Default         ok
+            28/43 G01   G01 No Response Row              ok
+            29/43 G01b  G01b Empty Model                 1 mismatch(es)
+            30/43 G02   G02 Two Response Rows            1 mismatch(es)
+            31/43 G03   G03 Two Sequence Flags           1 mismatch(es)
+            32/43 G04   G04 Two Fixed Effects Rows       1 mismatch(es)
+            33/43 G05   G05 FE Plus Intercept            1 mismatch(es)
+            34/43 G06   G06 Intercept Off With Cat       1 mismatch(es)
+            35/43 G07   G07 Log On Categorical           1 mismatch(es)
+            36/43 G09   G09 Interaction Bad Operand      1 mismatch(es)
+            37/43 G10   G10 Symmetric Product Pair       1 mismatch(es)
+            38/43 G11   G11 Excluded Operand             1 mismatch(es)
+            39/43 G12   G12 Unknown Interaction Op       1 mismatch(es)
+            40/43 L06   L06 Ln Zero Guard                ok
+            41/43 L07   L07 Width Guard Warning          3 mismatch(es)
+            42/43 L10   L10 Retarget Widens Spec         2 mismatch(es)
+            43/43 M16   M16 Sequence Period Override     1 mismatch(es)
+Timing: verify        84.7s
+Verify: mismatch totals by case:
+    L02   24577
+    L03   24577
+    L04   22379
+    L12   21993
+    L01   17015
+    L09   17015
+    P04   578
+    P03b  563
+    P05   455
+    L07   3
+    L10   2
+    G01b  1
+    G02   1
+    G03   1
+    G04   1
+    G05   1
+    G06   1
+    G07   1
+    G09   1
+    G10   1
+    G11   1
+    G12   1
+    M16   1
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Multiple_R': expected=0.6629103971601278, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='R_Squared': expected=0.4394501946629984, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Adjusted_R_Squared': expected=0.42801040271734525, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='SE_Regression': expected=0.1223934871068414, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Observations': expected=51.0, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='PRESS': expected=0.8018763489793169, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='PRESS_R2': expected=0.38763704016099665, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Mean_Leverage': expected=0.0392156862745098, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='AIC': expected=-212.29271232886427, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='BIC': expected=-208.42906106341562, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='AICc': expected=-212.04271232886427, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='QQ_Correlation': expected=0.9766181009560218, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Durbin_Watson': expected=2.6309763582471146, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='SS_Regression': expected=0.5754507388024594, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='MS_Regression': expected=0.5754507388024594, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='F_Statistic': expected=38.414177176533464, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='F_Statistic_P_Value': expected=1.1586227179535933e-07, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Residual_Degrees_Of_Freedom': expected=49.0, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='SS_Residual': expected=0.7340281186224551, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='MS_Residual': expected=0.014980165686172553, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Total_Degrees_Of_Freedom': expected=50.0, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='SS_Total': expected=1.3094788574249145, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Smearing_Factor': expected=1.0071486124887996, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Unit_Space_R_Squared': expected=0.49527020862718674, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Unit_Space_Adjusted_R_Squared': expected=0.4849696006399864, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/scalars] config_name='production_lots_log_no_fe' stat_name='Unit_Space_RMSE': expected=15331.715267022675, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/predictors] config_name='production_lots_log_no_fe' stat_name='Pearson_R' predictor_name='Ln(Cumulative_Units)': expected=-0.6629103971601275, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/predictors] config_name='production_lots_log_no_fe' stat_name='Spearman_R' predictor_name='Ln(Cumulative_Units)': expected=-0.5136095221914182, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/predictors] config_name='production_lots_log_no_fe' stat_name='Skewness' predictor_name='Ln(Cumulative_Units)': expected=-1.0750546631975533, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/predictors] config_name='production_lots_log_no_fe' stat_name='Kurtosis' predictor_name='Ln(Cumulative_Units)': expected=0.5614811495501608, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='Coefficients' term_name='Intercept': expected=12.372065663331716, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='Coefficients' term_name='Ln(Cumulative_Units)': expected=-0.137388930971408, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='SE_Coefficients' term_name='Intercept': expected=0.10814796242143455, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='SE_Coefficients' term_name='Ln(Cumulative_Units)': expected=0.022166951788411136, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='T_Statistics' term_name='Intercept': expected=114.39943376020199, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='T_Statistics' term_name='Ln(Cumulative_Units)': expected=-6.197917164381384, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='P_Values' term_name='Intercept': expected=3.653224743612826e-61, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='P_Values' term_name='Ln(Cumulative_Units)': expected=1.158622717953634e-07, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='Confidence_Interval_Lower' term_name='Intercept': expected=12.154734196103618, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='Confidence_Interval_Lower' term_name='Ln(Cumulative_Units)': expected=-0.18193508836803673, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='Confidence_Interval_Upper' term_name='Intercept': expected=12.589397130559814, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='Confidence_Interval_Upper' term_name='Ln(Cumulative_Units)': expected=-0.09284277357477928, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/coefficients] config_name='production_lots_log_no_fe' stat_name='Beta_Weights' term_name='Ln(Cumulative_Units)': expected=-0.6629103971601298, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='Point_Estimate': expected=11.710243807864869, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='SE_Mean': expected=0.01713851624104491, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='SE_New': expected=0.12358759818491956, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='T_Critical': expected=2.0095752371292392, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='CI_Lower': expected=11.675802670025728, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='CI_Upper': expected=11.744684945704009, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='PI_Lower': expected=11.461885230936176, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='PI_Upper': expected=11.958602384793561, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='Confidence_Level': expected=0.95, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/prediction_interval] config_name='production_lots_log_no_fe' stat_name='Group_Mean': expected=11.710243807864869, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=1: expected=12.109077046203975, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=1: expected=12.009488398043617, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=1: expected=0.09958864816035806, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=1: expected=0.17522033733198053, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=1: expected=0.8959474896611069, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=1: expected=0.08526713812751426, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=1: expected=-2.333768574807138, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=1: expected=-2.0253314034582326, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=1: expected=0.9465450278043337, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=1: expected=0.12074576116269142, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=2: expected=11.763793126799197, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=2: expected=11.887582760634928, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=2: expected=-0.12378963383573094, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=2: expected=0.07425909657908542, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=2: expected=-1.051190054430972, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=2: expected=0.04431928027252755, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=2: expected=-1.8895099603334302, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=2: expected=-1.9027937169225833, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=2: expected=1.025275599256596, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=2: expected=-0.1337195249537828, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=3: expected=11.772616929920082, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=3: expected=11.824023409512249, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=3: expected=-0.05140647959216693, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=3: expected=0.042104638915078735, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=3: expected=-0.4291415052263799, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=3: expected=0.00404746332187231, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=3: expected=-1.6544347256902527, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=3: expected=-1.7190831826424486, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=3: expected=0.6550889292503576, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=3: expected=-0.05366607009553093, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=4: expected=11.691339396933166, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=4: expected=11.7985510588601, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=4: expected=-0.1072116619269341, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=4: expected=0.033159256060215594, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=4: expected=-0.8908534123433005, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=4: expected=0.013609191794683997, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=4: expected=-1.4860915693304562, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=4: expected=-1.572731087803905, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=4: expected=0.9438503124666011, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=4: expected=-0.11088864696584544, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=5: expected=11.620424691953675, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=5: expected=11.766631216858952, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=5: expected=-0.14620652490527775, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=5: expected=0.025133146484128573, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=5: expected=-1.2098618825817566, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=5: expected=0.018868750900159086, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=5: expected=-1.3517022399306613, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=5: expected=-1.4940915835082333, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=5: expected=1.099937217563692, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=5: expected=-0.14997589094139485, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=6: expected=11.62652197155277, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=6: expected=11.743551012491972, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=6: expected=-0.11702904093920274, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=6: expected=0.021535670847373872, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=6: expected=-0.9666357181631973, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=6: expected=0.010282745543885842, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=6: expected=-1.238080335547108, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=6: expected=-1.4422797380680399, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=6: expected=0.9831763413361803, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=6: expected=-0.11960481077583296, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=7: expected=11.900857767786087, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=7: expected=11.731360751541388, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=7: expected=0.1694970162446996, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=7: expected=0.020382757965178005, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=7: expected=1.3991862828659327, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=7: expected=0.02036702558782205, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=7: expected=-1.138523478460069, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=7: expected=-1.2098618825817566, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=7: expected=1.1828720483915125, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=7: expected=0.17302371678618833, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=8: expected=11.815663623575993, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=8: expected=11.70761406225929, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=8: expected=0.10804956131670274, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=8: expected=0.01961986078096235, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=8: expected=0.8915946364582854, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=8: expected=0.00795437965437474, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=8: expected=-1.0491313979639711, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=8: expected=-1.051190054430972, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=8: expected=0.9442428906051056, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=8: expected=0.11021190352017385, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=9: expected=11.746573648929523, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=9: expected=11.694123564752612, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=9: expected=0.052450084176911105, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=9: expected=0.020059423473287024, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=9: expected=0.4329004234625233, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=9: expected=0.0019180712313678703, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=9: expected=-0.9674215661017014, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=9: expected=-0.9798847018793234, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=9: expected=0.6579516877875786, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=9: expected=0.053523739534099946, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=10: expected=11.743473535048805, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=10: expected=11.674792958362659, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=10: expected=0.06868057668614647, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=10: expected=0.02179180545702503, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=10: expected=0.5673616492748662, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=10: expected=0.0035855177237566187, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=10: expected=-0.8917088296734071, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=10: expected=-0.9666357181631973, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=10: expected=0.7532341264672401, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=10: expected=0.07021059225355764, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=11: expected=11.618392974903964, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=11: expected=11.65633992988248, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=11: expected=-0.037946954978515635, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=11: expected=0.024657151211108647, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=11: expected=-0.31393516953402717, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=11: expected=0.001245763327086112, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=11: expected=-0.8207920883323804, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=11: expected=-0.8908534123433005, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=11: expected=0.5602991785948175, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=11: expected=-0.038906272830764976, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=12: expected=11.641494565764937, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=12: expected=11.650461431882857, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=12: expected=-0.008966866117919636, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=12: expected=0.025818509380367678, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=12: expected=-0.07422709091707413, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=12: expected=7.301064342345845e-05, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=12: expected=-0.7537815702731446, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=12: expected=-0.8317544761105204, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=12: expected=0.2724464918421122, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=12: expected=-0.009204512921115793, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=13: expected=11.558434060200995, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=13: expected=11.636130001398412, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=13: expected=-0.07769594119741718, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=13: expected=0.029153154210064647, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=13: expected=-0.6442651823152413, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=13: expected=0.006232096271124787, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=13: expected=-0.6899969928587829, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=13: expected=-0.7909948606859618, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=13: expected=0.8026613123324441, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=13: expected=-0.08002904014607992, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=14: expected=11.5111238430236, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=14: expected=11.629180114072035, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=14: expected=-0.11805627104843452, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=14: expected=0.031027278387287943, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=14: expected=-0.9798847018793234, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=14: expected=0.015372768620221635, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=14: expected=-0.6289042176321901, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals_Ranked' row_idx=14: expected=-0.7314217037061557, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Scale_Location' row_idx=14: expected=0.9898912576032397, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='PRESS_Residual' row_idx=14: expected=-0.121836526885863, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Dependent_Variable' row_idx=15: expected=11.549768353337546, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Predictions' row_idx=15: expected=11.622564927186971, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Residuals' row_idx=15: expected=-0.07279657384942517, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Hat_Diagonal' row_idx=15: expected=0.032967085898724394, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Studentized_Residuals' row_idx=15: expected=-0.6048281603494434, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Cooks_Distance' row_idx=15: expected=0.006235529163564838, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P03b Power Law Transform Axis/residuals] config_name='production_lots_log_no_fe' stat_name='Normal_Scores_Ranked' row_idx=15: expected=-0.5700740851824606, excel_calc=None, abs_diff=None, fdd=0
+ERROR ... and 128969 more mismatch(es).
+Verify: FAILED with 129169 mismatch(es).
+Timing: total         1980.2s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\excel-only-runs\build_test_models exclude verify no launch verbose.log

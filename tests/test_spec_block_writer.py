@@ -1376,8 +1376,19 @@ def test_log_domain_status_reports_the_poisoned_column_then_the_dropped_count() 
     # as the rest of the v3.2 spike.)
     assert "base,Sample_Include(FALSE)" in formula
     assert formula.count("Sample_Include(FALSE)") == 1
-    assert "d,SUMPRODUCT(N(base))-SUMPRODUCT(N(Fit_Sample_Include()))" in formula
+    # The DEFAULT-mask half reads the materialized spill via Fit_Sample_Include()
+    # — the same reader the ~30 engine call sites use — but sums it with `--`
+    # rather than N(). N() of a range-returning thunk (the reader, whether
+    # spelled `#`/ANCHORARRAY or OFFSET) collapses to the top-left cell, so
+    # SUMPRODUCT(N(Fit_Sample_Include())) returns 1 and the amber fires
+    # "n-1 rows excluded" on EVERY sheet regardless of transforms. `--` coerces
+    # a range OR an array to a summable 1/0 array, so it is robust to the
+    # reader's form (and to Sample_Include()'s promotion to the reader on main,
+    # which would make N(Sample_Include()) collapse the same way).
+    assert "d,SUMPRODUCT(N(base))-SUMPRODUCT(--(Fit_Sample_Include()))" in formula
     assert '" rows excluded: Log of ≤ 0"' in formula
+    # Guard the regression: the amber must never sum the reader with N().
+    assert "N(Fit_Sample_Include())" not in formula
 
     conditions = sheet.range("$G$2").api.FormatConditions.items
     assert [c.Formula1 for c in conditions] == [

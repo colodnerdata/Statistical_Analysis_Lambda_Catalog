@@ -790,14 +790,24 @@ def _setup_local_names(
     # the engines could in principle fit it directly. The closed-form bypass
     # is kept because it is what the shipped behaviour was verified against;
     # retiring it is a follow-up, not part of the relocation.
-    # Intercept_Only_N uses SUMPRODUCT over the computed mask (COUNTIF needs
-    # a range reference, and Fit_Sample_Include() is an array) so it never
-    # errors, even when the mask has zero TRUE rows — callers guard on its
-    # value before invoking the FILTER/STDEV.S-based helpers below.
+    # Intercept_Only_N counts the included rows via SUMPRODUCT over the
+    # computed mask (COUNTIF needs a range reference, and Fit_Sample_Include()
+    # is an array) so it never errors, even when the mask has zero TRUE rows —
+    # callers guard on its value before invoking the FILTER/STDEV.S-based
+    # helpers below.
+    #
+    # The mask is summed with `--`, NOT N(): Fit_Sample_Include() returns a
+    # range/array thunk, and N() of such a thunk collapses to the top-left cell
+    # (=1), so SUMPRODUCT(N(Fit_Sample_Include())) would return 1 for any
+    # non-empty sample. That makes Intercept_Only_N()=1, which fails every
+    # N()>=2 inference branch (SE / t / CI / PI return #N/A) and zeroes
+    # Intercept_Only_DF() for an intercept-only model with n>1. `--` coerces a
+    # range OR array to a summable 1/0 array — the same fix as Log_Domain_Status
+    # (see tests/test_spec_block_writer.py and the amber-fix PR).
     drop_local_name(sheet, "Intercept_Only_N")
     sheet.api.Names.Add(
         Name="Intercept_Only_N",
-        RefersTo="=LAMBDA(SUMPRODUCT(N(Fit_Sample_Include())))",
+        RefersTo="=LAMBDA(SUMPRODUCT(--(Fit_Sample_Include())))",
     )
 
     drop_local_name(sheet, "Intercept_Only_Point")

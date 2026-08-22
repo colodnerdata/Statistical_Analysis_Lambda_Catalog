@@ -362,9 +362,58 @@ def test_intercept_only_n_does_not_depend_on_filter() -> None:
 
     intercept_only_n_formula = sheet.api.Names.by_short_name("Intercept_Only_N").RefersTo
     assert "FILTER" not in intercept_only_n_formula
-    # SUMPRODUCT over the computed mask: COUNTIF needs a range reference and
-    # Fit_Sample_Include() is an array; SUMPRODUCT never errors on an empty mask.
-    assert "SUMPRODUCT(N(Fit_Sample_Include()))" in intercept_only_n_formula
+    # SUMPRODUCT over the computed mask, summed with `--` not N(): COUNTIF
+    # needs a range reference and Fit_Sample_Include() is an array, so SUMPRODUCT
+    # never errors on an empty mask. The `--` (not N()) is load-bearing —
+    # N() of the range/array thunk Fit_Sample_Include() returns collapses to the
+    # top-left cell (=1), so SUMPRODUCT(N(Fit_Sample_Include())) would report
+    # n=1 for any non-empty sample, failing every N()>=2 inference branch and
+    # zeroing Intercept_Only_DF() for an intercept-only model with n>1.
+    assert "SUMPRODUCT(--(Fit_Sample_Include()))" in intercept_only_n_formula
+    # Guard the regression: this name must never sum the reader with N().
+    assert "N(Fit_Sample_Include())" not in intercept_only_n_formula
+
+
+def test_no_catalog_body_or_sheet_name_sums_a_range_reader_with_n() -> None:
+    """Repo-wide guard for the N()-of-range-reader coercion defect.
+
+    N() of a range/array-returning thunk (Fit_Sample_Include(), or the no-arg
+    Sample_Include() which on main returns that same reader) collapses to the
+    top-left cell, so SUMPRODUCT(N(<reader>())) returns 1 for any non-empty
+    sample. That is the Log_Domain_Status amber bug (PR #237) and the
+    Intercept_Only_N bug this test sits next to: both made a per-sheet count
+    read 1 instead of the included-row count.
+
+    No import can reach a JSON string literal or a Python RefersTo string, so a
+    source scan is the only thing that catches a future call site retaining the
+    pattern. The guard sweeps every catalog body AND every RefersTo the
+    Regression sheet-writer registers (the constructor closures AND the
+    local-only names like Intercept_Only_N), so neither half can regress alone.
+    N(Sample_Include(FALSE)) / N(base) are NOT defects — the FALSE arg returns
+    an array leaf, which N() sums correctly — so only the no-arg reader forms
+    are rejected.
+    """
+    defect_patterns = ("N(Fit_Sample_Include())", "N(Sample_Include())")
+
+    # 1. Every catalog LAMBDA body.
+    document = load_catalog_document(ROOT_DIR / "lambda_functions.json")
+    for fn in document.functions:
+        for pat in defect_patterns:
+            assert pat not in fn.formula_display, (
+                f"catalog body {fn.name!r} sums a range reader with N() "
+                f"({pat!r}); use --(<reader>()) instead — see PR #237"
+            )
+
+    # 2. Every RefersTo the Regression writer registers (closures + locals).
+    sheet = RecordingSheet(name="Regression")
+    _setup_regression_names(_as_xw_sheet(sheet))
+    for item in sheet.api.Names.items:
+        refers_to = item.RefersTo
+        for pat in defect_patterns:
+            assert pat not in refers_to, (
+                f"sheet name {item.Name!r} sums a range reader with N() "
+                f"({pat!r}); use --(<reader>()) instead — see PR #237"
+            )
 
 
 def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> None:

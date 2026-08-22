@@ -68,3 +68,42 @@ Log_Domain_Status amber probe on test-models workbook
     BUGGY body verdict                        = '2767 rows excluded: Log of ? 0'
     FIXED body verdict                       = '26 rows excluded: Log of ? 0'
 ==============================================================================
+
+==========================================================================
+PROBE 3 — Intercept_Only_N coercion bug (same N()-of-range-reader defect)
+==========================================================================
+
+Intercept_Only_N (worksheet-scoped, write_sheet_regression.py) was defined
+as  =LAMBDA(SUMPRODUCT(N(Fit_Sample_Include())))  — the SAME N()-of-range-
+reader collapse as the amber bug. It returned 1 for any non-empty sample,
+feeding Intercept_Only_SE / Intercept_Only_DF=N-1 / every N()>=2 branch —
+so an intercept-only model with n>1 got N=1, DF=0, and #N/A for SE/t/CI/PI.
+
+Fix: =LAMBDA(SUMPRODUCT(--(Fit_Sample_Include()))). Probe evaluates the
+baked-in (buggy) name and the fixed body in scratch cells under CalculateFull,
+cross-checked against an INDEPENDENT ROWS(FILTER(...,reader)) count.
+
+Intercept_Only_N coercion-bug probe on test-models workbook
+==================================================================================
+[M03 All Continuous]
+    Intercept_Only_N() baked-in (BUGGY N(reader))   = 1.0   <- bug: should be 392.0
+    fixed body --(Fit_Sample_Include())             = 392.0
+    independent ROWS(FILTER(...,reader))            = 392.0
+    complete-case base N(Sample_Include(FALSE))     = 392.0
+    fixed == independent count?                      = True
+    buggy == 1 (the collapse)?                       = True
+[L11 Curated Talk Default]
+    Intercept_Only_N() baked-in (BUGGY N(reader))   = 1.0   <- bug: should be 2735.0
+    fixed body --(Fit_Sample_Include())             = 2735.0
+    independent ROWS(FILTER(...,reader))            = 2735.0
+    complete-case base N(Sample_Include(FALSE))     = 2735.0
+    fixed == independent count?                      = True
+    buggy == 1 (the collapse)?                       = True
+[L12 Log Drop Nonpositive]
+    Intercept_Only_N() baked-in (BUGGY N(reader))   = 1.0   <- bug: should be 2742.0
+    fixed body --(Fit_Sample_Include())             = 2742.0
+    independent ROWS(FILTER(...,reader))            = 2742.0
+    complete-case base N(Sample_Include(FALSE))     = 2768.0
+    fixed == independent count?                      = True
+    buggy == 1 (the collapse)?                       = True
+==================================================================================

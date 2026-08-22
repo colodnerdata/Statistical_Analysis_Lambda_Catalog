@@ -1,26 +1,35 @@
-python build_test_models.py --cases L11 --verify --no-launch --verbose
-[    0.0s] Plan: 1 model + 0 guard = 1 sheet(s)
-           L11   L11 Curated Talk Default
+python build_test_models.py --cases P01,P02,P06,P07 --verify --no-launch --verbose
+[    0.0s] Plan: 3 model + 1 guard = 4 sheet(s)
+           P01   P01 Learning Curve FE
+           P02   P02 FE Log Transform Axis
+           P06   P06 LSDV vs Within Estimator
+           P07   P07 Irregular Panel Spacing
 [    0.0s] Oracles: computing
-[    0.1s] Oracles: done
+[    0.0s] Oracles: done
 [    0.5s] Catalog + data sheets
-[    5.9s] Sheets: writing 1
-[    5.9s]   1/1 L11   L11 Curated Talk Default           11.7s
-[   17.6s] Save
-[   18.5s] Sync names
-[   18.5s] CalculateFullRebuild
-Timing: write sheets  18.4s
+[    6.0s] Sheets: writing 4
+[    6.0s]   1/4 P01   P01 Learning Curve FE               6.9s
+[   12.9s]   2/4 P02   P02 FE Log Transform Axis           7.1s
+[   20.0s]   3/4 P06   P06 LSDV vs Within Estimator        7.0s
+[   27.0s]   4/4 P07   P07 Irregular Panel Spacing         7.1s
+[   34.1s] Save
+[   34.5s] Sync names
+[   34.5s] CalculateFullRebuild
+Timing: write sheets  34.4s
 Timing: sync names    0.1s
-Timing: rebuild       17.2s
-Timing:   CalculateFullRebuild only   10.3s
-Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
-Sheets built: 1
-Created names: 123
+Timing: rebuild       1.2s
+Timing:   CalculateFullRebuild only   0.2s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\Lambda_Library_TestModels.xlsx
+Sheets built: 4
+Created names: 127
 Updated names: 0
 Removed names: 0
-[   35.8s] Verify: reading 1 sheet(s)
-             1/1 L11   L11 Curated Talk Default         ok
-Timing: verify        5.5s
+[   35.8s] Verify: reading 4 sheet(s)
+             1/4 P01   P01 Learning Curve FE            ok
+             2/4 P02   P02 FE Log Transform Axis        ok
+             3/4 P06   P06 LSDV vs Within Estimator     ok
+             4/4 P07   P07 Irregular Panel Spacing      ok
+Timing: verify        1.6s
 Verify: passed
-Timing: total         41.3s
-Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models cases verify no launch verbose.log
+Timing: total         37.4s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\excel-only-runs\build_test_models cases verify no launch verbose.log

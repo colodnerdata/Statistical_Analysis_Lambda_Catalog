@@ -1,0 +1,23 @@
+python build_test_models.py --cases L03 --verify --no-launch
+[    0.0s] Plan: 1 model + 0 guard = 1 sheet(s)
+[    0.0s] Oracles: computing
+[    0.1s] Oracles: done
+[    0.5s] Catalog + data sheets
+[    6.0s] Sheets: writing 1
+[   22.7s] Save
+[   23.4s] Sync names
+[   23.5s] CalculateFullRebuild
+Timing: write sheets  23.3s
+Timing: sync names    0.1s
+Timing: rebuild       9.2s
+Timing:   CalculateFullRebuild only   4.8s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\Lambda_Library_TestModels.xlsx
+Sheets built: 1
+Created names: 127
+Updated names: 0
+Removed names: 0
+[   32.7s] Verify: reading 1 sheet(s)
+Timing: verify        2.3s
+Verify: passed
+Timing: total         35.0s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\excel-only-runs\build_test_models cases verify no launch.log

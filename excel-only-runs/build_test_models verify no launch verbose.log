@@ -52,71 +52,71 @@ python build_test_models.py --verify --no-launch --verbose
            P07   P07 Irregular Panel Spacing
 [    0.0s] Oracles: computing
 [    0.9s] Oracles: done
-[    1.4s] Catalog + data sheets
-[    6.5s] Sheets: writing 50
-[    6.5s]   1/50 M01   M01 Baseline Categoricals          8.1s
-[   14.7s]   2/50 M03   M03 All Continuous                 6.3s
-[   21.0s]   3/50 M04   M04 Excluded Candidates            7.2s
-[   28.2s]   4/50 M02   M02 Intercept Off Categorical      8.6s
-[   36.8s]   5/50 M03b  M03b All Continuous NoInt         10.1s
-[   46.9s]   6/50 M04b  M04b Excluded Cands NoInt         11.8s
-[   58.7s]   7/50 M13   M13 Default Reference             13.8s
-[   72.5s]   8/50 M12   M12 Explicit Reference            15.9s
-[   88.3s]   9/50 G08   G08 Invalid Reference Level       18.2s
-[  106.6s]  10/50 M14   M14 Mixed Cat And Continuous      20.9s
-[  127.4s]  11/50 M15   M15 Filter Degenerate Cat         23.6s
-[  151.0s]  12/50 M07   M07 Continuous Product            26.8s
-[  177.8s]  13/50 M06   M06 Quadratic Self Product        29.9s
-[  207.7s]  14/50 M08   M08 Cont x Cat Broadcast          33.6s
-[  241.2s]  15/50 M05   M05 Log-Log NA Masking            37.6s
-[  278.8s]  16/50 M14b  M14b Categorical Only Design      41.2s
-[  320.0s]  17/50 M09   M09 Cat x Cat Full Product        45.2s
-[  365.2s]  18/50 M10   M10 Difference Interaction        49.4s
-[  414.7s]  19/50 M11   M11 Ratio Reciprocal Pair         54.2s
-[  468.9s]  20/50 P01   P01 Learning Curve FE             58.2s
-[  527.1s]  21/50 P02   P02 FE Log Transform Axis         59.2s
-[  586.3s]  22/50 P03   P03 Power Law Derived Cols        60.9s
-[  647.2s]  23/50 P03b  P03b Power Law Transform Axis     62.2s
-[  709.4s]  24/50 P04   P04 Log Mixed Predictors          63.5s
-[  772.9s]  25/50 P05   P05 Log Predictor Only            65.3s
-[  838.1s]  26/50 P06   P06 LSDV vs Within Estimator      66.8s
-[  905.0s]  27/50 L01   L01 Partial Linear-Log            83.6s
-[  988.6s]  28/50 L02   L02 Log Response Duan             84.8s
-[ 1073.4s]  29/50 L03   L03 Log Response Naive            86.1s
-[ 1159.4s]  30/50 L04   L04 Elasticity Log-Log            87.3s
-[ 1246.7s]  31/50 L09   L09 Binary Cat Reference          88.8s
-[ 1335.5s]  32/50 L12   L12 Log Drop Nonpositive          90.6s
-[ 1426.1s]  33/50 L11   L11 Curated Talk Default          92.6s
-[ 1518.7s]  34/50 G01   G01 No Response Row               80.9s
-[ 1599.6s]  35/50 G01b  G01b Empty Model                  84.9s
-[ 1684.5s]  36/50 G02   G02 Two Response Rows             90.5s
-[ 1775.0s]  37/50 G03   G03 Two Sequence Flags            96.1s
-[ 1871.0s]  38/50 G04   G04 Two Fixed Effects Rows       101.7s
-[ 1972.7s]  39/50 G05   G05 FE Plus Intercept            107.5s
-[ 2080.2s]  40/50 G06   G06 Intercept Off With Cat       113.8s
-[ 2194.0s]  41/50 G07   G07 Log On Categorical           120.2s
-[ 2314.2s]  42/50 G09   G09 Interaction Bad Operand      127.2s
-[ 2441.3s]  43/50 G10   G10 Symmetric Product Pair       133.8s
-[ 2575.1s]  44/50 G11   G11 Excluded Operand             141.3s
-[ 2716.4s]  45/50 G12   G12 Unknown Interaction Op       148.4s
-[ 2864.9s]  46/50 L06   L06 Ln Zero Guard                169.8s
-[ 3034.6s]  47/50 L07   L07 Width Guard Warning          173.2s
-[ 3207.8s]  48/50 L10   L10 Retarget Widens Spec         169.1s
-[ 3377.0s]  49/50 M16   M16 Sequence Period Override     164.7s
-[ 3541.6s]  50/50 P07   P07 Irregular Panel Spacing      170.7s
-[ 3712.3s] Save
-[ 3720.5s] Sync names
-[ 3720.8s] CalculateFullRebuild
-Timing: write sheets  3719.5s
+[    1.7s] Catalog + data sheets
+[    7.8s] Sheets: writing 50
+[    7.8s]   1/50 M01   M01 Baseline Categoricals          7.9s
+[   15.8s]   2/50 M03   M03 All Continuous                 7.7s
+[   23.5s]   3/50 M04   M04 Excluded Candidates            7.8s
+[   31.2s]   4/50 M02   M02 Intercept Off Categorical      7.9s
+[   39.2s]   5/50 M03b  M03b All Continuous NoInt          7.6s
+[   46.8s]   6/50 M04b  M04b Excluded Cands NoInt          6.0s
+[   52.8s]   7/50 M13   M13 Default Reference              6.1s
+[   58.9s]   8/50 M12   M12 Explicit Reference             6.4s
+[   65.3s]   9/50 G08   G08 Invalid Reference Level        6.6s
+[   71.8s]  10/50 M14   M14 Mixed Cat And Continuous       6.9s
+[   78.7s]  11/50 M15   M15 Filter Degenerate Cat          6.9s
+[   85.6s]  12/50 M07   M07 Continuous Product             7.0s
+[   92.6s]  13/50 M06   M06 Quadratic Self Product         7.3s
+[   99.9s]  14/50 M08   M08 Cont x Cat Broadcast           7.6s
+[  107.5s]  15/50 M05   M05 Log-Log NA Masking             7.6s
+[  115.1s]  16/50 M14b  M14b Categorical Only Design       8.0s
+[  123.1s]  17/50 M09   M09 Cat x Cat Full Product         8.4s
+[  131.5s]  18/50 M10   M10 Difference Interaction         8.5s
+[  139.9s]  19/50 M11   M11 Ratio Reciprocal Pair          8.7s
+[  148.6s]  20/50 P01   P01 Learning Curve FE              8.7s
+[  157.3s]  21/50 P02   P02 FE Log Transform Axis          8.7s
+[  166.0s]  22/50 P03   P03 Power Law Derived Cols         8.8s
+[  174.7s]  23/50 P03b  P03b Power Law Transform Axis      8.9s
+[  183.6s]  24/50 P04   P04 Log Mixed Predictors           9.1s
+[  192.7s]  25/50 P05   P05 Log Predictor Only             9.2s
+[  201.9s]  26/50 P06   P06 LSDV vs Within Estimator       9.2s
+[  211.2s]  27/50 L01   L01 Partial Linear-Log            19.7s
+[  230.9s]  28/50 L02   L02 Log Response Duan             20.2s
+[  251.0s]  29/50 L03   L03 Log Response Naive            20.5s
+[  271.6s]  30/50 L04   L04 Elasticity Log-Log            21.8s
+[  293.4s]  31/50 L09   L09 Binary Cat Reference          21.9s
+[  315.2s]  32/50 L12   L12 Log Drop Nonpositive          21.7s
+[  337.0s]  33/50 L11   L11 Curated Talk Default          21.5s
+[  358.5s]  34/50 G01   G01 No Response Row               11.1s
+[  369.5s]  35/50 G01b  G01b Empty Model                  11.0s
+[  380.5s]  36/50 G02   G02 Two Response Rows             11.2s
+[  391.8s]  37/50 G03   G03 Two Sequence Flags            11.5s
+[  403.3s]  38/50 G04   G04 Two Fixed Effects Rows        11.8s
+[  415.2s]  39/50 G05   G05 FE Plus Intercept             12.1s
+[  427.3s]  40/50 G06   G06 Intercept Off With Cat        12.5s
+[  439.8s]  41/50 G07   G07 Log On Categorical            12.8s
+[  452.5s]  42/50 G09   G09 Interaction Bad Operand       13.3s
+[  465.8s]  43/50 G10   G10 Symmetric Product Pair        13.6s
+[  479.4s]  44/50 G11   G11 Excluded Operand              14.1s
+[  493.5s]  45/50 G12   G12 Unknown Interaction Op        14.4s
+[  507.9s]  46/50 L06   L06 Ln Zero Guard                 24.6s
+[  532.5s]  47/50 L07   L07 Width Guard Warning           25.2s
+[  557.6s]  48/50 L10   L10 Retarget Widens Spec          19.4s
+[  577.0s]  49/50 M16   M16 Sequence Period Override      15.8s
+[  592.8s]  50/50 P07   P07 Irregular Panel Spacing       15.4s
+[  608.2s] Save
+[  613.3s] Sync names
+[  613.6s] CalculateFullRebuild
+Timing: write sheets  612.4s
 Timing: sync names    0.3s
-Timing: rebuild       1872.4s
-Timing:   CalculateFullRebuild only   1273.7s
-Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Timing: rebuild       1465.5s
+Timing:   CalculateFullRebuild only   940.9s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\Lambda_Library_TestModels.xlsx
 Sheets built: 50
-Created names: 123
+Created names: 127
 Updated names: 0
 Removed names: 0
-[ 5593.1s] Verify: reading 50 sheet(s)
+[ 2079.1s] Verify: reading 50 sheet(s)
              1/50 M01   M01 Baseline Categoricals        ok
              2/50 M03   M03 All Continuous               ok
              3/50 M04   M04 Excluded Candidates          ok
@@ -137,37 +137,265 @@ Removed names: 0
             18/50 M10   M10 Difference Interaction       ok
             19/50 M11   M11 Ratio Reciprocal Pair        ok
             20/50 P01   P01 Learning Curve FE            ok
-            21/50 P02   P02 FE Log Transform Axis        ok
+            21/50 P02   P02 FE Log Transform Axis        563 mismatch(es)
             22/50 P03   P03 Power Law Derived Cols       ok
-            23/50 P03b  P03b Power Law Transform Axis    ok
-            24/50 P04   P04 Log Mixed Predictors         ok
-            25/50 P05   P05 Log Predictor Only           ok
-            26/50 P06   P06 LSDV vs Within Estimator     ok
-            27/50 L01   L01 Partial Linear-Log           ok
-            28/50 L02   L02 Log Response Duan            ok
-            29/50 L03   L03 Log Response Naive           ok
-            30/50 L04   L04 Elasticity Log-Log           ok
-            31/50 L09   L09 Binary Cat Reference         ok
-            32/50 L12   L12 Log Drop Nonpositive         ok
+            23/50 P03b  P03b Power Law Transform Axis    563 mismatch(es)
+            24/50 P04   P04 Log Mixed Predictors         578 mismatch(es)
+            25/50 P05   P05 Log Predictor Only           455 mismatch(es)
+            26/50 P06   P06 LSDV vs Within Estimator     591 mismatch(es)
+            27/50 L01   L01 Partial Linear-Log           17015 mismatch(es)
+            28/50 L02   L02 Log Response Duan            24577 mismatch(es)
+            29/50 L03   L03 Log Response Naive           24577 mismatch(es)
+            30/50 L04   L04 Elasticity Log-Log           22379 mismatch(es)
+            31/50 L09   L09 Binary Cat Reference         17015 mismatch(es)
+            32/50 L12   L12 Log Drop Nonpositive         21993 mismatch(es)
             33/50 L11   L11 Curated Talk Default         ok
             34/50 G01   G01 No Response Row              ok
-            35/50 G01b  G01b Empty Model                 ok
-            36/50 G02   G02 Two Response Rows            ok
-            37/50 G03   G03 Two Sequence Flags           ok
-            38/50 G04   G04 Two Fixed Effects Rows       ok
-            39/50 G05   G05 FE Plus Intercept            ok
-            40/50 G06   G06 Intercept Off With Cat       ok
-            41/50 G07   G07 Log On Categorical           ok
-            42/50 G09   G09 Interaction Bad Operand      ok
-            43/50 G10   G10 Symmetric Product Pair       ok
-            44/50 G11   G11 Excluded Operand             ok
-            45/50 G12   G12 Unknown Interaction Op       ok
+            35/50 G01b  G01b Empty Model                 1 mismatch(es)
+            36/50 G02   G02 Two Response Rows            1 mismatch(es)
+            37/50 G03   G03 Two Sequence Flags           1 mismatch(es)
+            38/50 G04   G04 Two Fixed Effects Rows       1 mismatch(es)
+            39/50 G05   G05 FE Plus Intercept            1 mismatch(es)
+            40/50 G06   G06 Intercept Off With Cat       1 mismatch(es)
+            41/50 G07   G07 Log On Categorical           1 mismatch(es)
+            42/50 G09   G09 Interaction Bad Operand      1 mismatch(es)
+            43/50 G10   G10 Symmetric Product Pair       1 mismatch(es)
+            44/50 G11   G11 Excluded Operand             1 mismatch(es)
+            45/50 G12   G12 Unknown Interaction Op       1 mismatch(es)
             46/50 L06   L06 Ln Zero Guard                ok
-            47/50 L07   L07 Width Guard Warning          ok
-            48/50 L10   L10 Retarget Widens Spec         ok
-            49/50 M16   M16 Sequence Period Override     ok
-            50/50 P07   P07 Irregular Panel Spacing      ok
-Timing: verify        143.5s
-Verify: passed
-Timing: total         5736.7s
-Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch verbose.log
+            47/50 L07   L07 Width Guard Warning          3 mismatch(es)
+            48/50 L10   L10 Retarget Widens Spec         2 mismatch(es)
+            49/50 M16   M16 Sequence Period Override     1 mismatch(es)
+            50/50 P07   P07 Irregular Panel Spacing      1 mismatch(es)
+Timing: verify        88.7s
+Verify: mismatch totals by case:
+    L02   24577
+    L03   24577
+    L04   22379
+    L12   21993
+    L01   17015
+    L09   17015
+    P06   591
+    P04   578
+    P02   563
+    P03b  563
+    P05   455
+    L07   3
+    L10   2
+    G01b  1
+    G02   1
+    G03   1
+    G04   1
+    G05   1
+    G06   1
+    G07   1
+    G09   1
+    G10   1
+    G11   1
+    G12   1
+    M16   1
+    P07   1
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Multiple_R': expected=0.8572433255260948, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='R_Squared': expected=0.7348661191590382, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Adjusted_R_Squared': expected=0.7179426799564237, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='SE_Regression': expected=0.07406551134957443, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Observations': expected=51.0, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='PRESS': expected=0.27955293218063376, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='PRESS_R2': expected=0.7125254706920938, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Mean_Leverage': expected=0.0392156862745098, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='AIC': expected=-261.65171905023675, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='BIC': expected=-253.92441651933945, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='AICc': expected=-260.78215383284544, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='QQ_Correlation': expected=0.9877959423029139, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='BFN_Panel_Durbin_Watson': expected=0.985487621740238, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='SS_Regression': expected=0.7146162787558732, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='MS_Regression': expected=0.7146162787558732, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='F_Statistic': expected=130.26893240095757, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='F_Statistic_P_Value': expected=3.7911113948861444e-15, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Residual_Degrees_Of_Freedom': expected=47.0, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='SS_Residual': expected=0.257827898659275, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='MS_Residual': expected=0.005485699971473937, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Total_Degrees_Of_Freedom': expected=50.0, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='SS_Total': expected=0.9724441774151482, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Smearing_Factor': expected=1.0025388899187924, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Unit_Space_R_Squared': expected=0.8214113623447572, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Unit_Space_Adjusted_R_Squared': expected=0.8100120876008056, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/scalars] config_name='production_lots_log_transform' stat_name='Unit_Space_RMSE': expected=9311.878454887628, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/predictors] config_name='production_lots_log_transform' stat_name='Pearson_R' predictor_name='Ln(Cumulative_Units)': expected=-0.6629103971601275, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/predictors] config_name='production_lots_log_transform' stat_name='Spearman_R' predictor_name='Ln(Cumulative_Units)': expected=-0.5136095221914182, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/predictors] config_name='production_lots_log_transform' stat_name='Skewness' predictor_name='Ln(Cumulative_Units)': expected=-1.0750546631975533, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/predictors] config_name='production_lots_log_transform' stat_name='Kurtosis' predictor_name='Ln(Cumulative_Units)': expected=0.5614811495501608, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='Coefficients' term_name='Intercept': expected=4.773816375795143e-16, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='Coefficients' term_name='Ln(Cumulative_Units)': expected=-0.15453841743619845, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='SE_Coefficients' term_name='Intercept': expected=0.010371246045615958, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='SE_Coefficients' term_name='Ln(Cumulative_Units)': expected=0.01353991797886134, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='T_Statistics' term_name='Intercept': expected=4.602934261513436e-14, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='T_Statistics' term_name='Ln(Cumulative_Units)': expected=-11.413541623920132, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='P_Values' term_name='Intercept': expected=0.9999999999999635, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='P_Values' term_name='Ln(Cumulative_Units)': expected=3.791111394886219e-15, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='Confidence_Interval_Lower' term_name='Intercept': expected=-0.020864255847824767, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='Confidence_Interval_Lower' term_name='Ln(Cumulative_Units)': expected=-0.18177721898685184, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='Confidence_Interval_Upper' term_name='Intercept': expected=0.020864255847825725, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='Confidence_Interval_Upper' term_name='Ln(Cumulative_Units)': expected=-0.12729961588554506, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/coefficients] config_name='production_lots_log_transform' stat_name='Beta_Weights' term_name='Ln(Cumulative_Units)': expected=-0.8572433255260943, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='Point_Estimate': expected=11.820111208810339, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='SE_Mean': expected=0.016640479629308407, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='SE_New': expected=0.0759118273641688, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='T_Critical': expected=2.0117405137297655, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='CI_Lower': expected=11.786634881772164, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='CI_Upper': expected=11.853587535848513, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='PI_Lower': expected=11.66739631023058, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='PI_Upper': expected=11.972826107390096, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='Confidence_Level': expected=0.95, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/prediction_interval] config_name='production_lots_log_transform' stat_name='Group_Mean': expected=11.80163479037878, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=1: expected=0.41972296000172626, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=1: expected=0.33188317063582484, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=1: expected=0.08783978936590142, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=1: expected=0.1737415261021177, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=1: expected=1.3047199313662192, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=1: expected=0.17897497213705255, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=1: expected=-2.333768574807138, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=1: expected=-1.7447969954861384, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=1: expected=1.142243376591092, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=1: expected=0.10631030378607359, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=2: expected=0.07443904059694795, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=2: expected=0.1947607390943026, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=2: expected=-0.12032169849735466, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=2: expected=0.07268772197600314, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=2: expected=-1.6869993813550845, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=2: expected=0.11154109387158284, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=2: expected=-1.8895099603334302, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=2: expected=-1.6869993813550845, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=2: expected=1.2988454031774084, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=2: expected=-0.1297531601261091, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=3: expected=0.08326284371783288, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=3: expected=0.12326763214368082, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=3: expected=-0.04000478842584794, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=3: expected=0.04087087560100402, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=3: expected=-0.5515151068791128, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=3: expected=0.006480696651476174, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=3: expected=-1.6544347256902527, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=3: expected=-1.558033117925449, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=3: expected=0.7426406310451326, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=3: expected=-0.04170949187985039, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=4: expected=0.0019853107309177886, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=4: expected=0.09461571142248204, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=4: expected=-0.09263040069156425, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=4: expected=0.03213503166361724, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=4: expected=-1.271247557931325, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=4: expected=0.0268283663944928, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=4: expected=-1.4860915693304562, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=4: expected=-1.4640747534186511, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=4: expected=1.127496145417502, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=4: expected=-0.09570591324405744, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=5: expected=-0.06892939424857403, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=5: expected=0.05871149532011337, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=5: expected=-0.1276408895686874, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=5: expected=0.024431466367227837, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=5: expected=-1.7447969954861384, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=5: expected=0.03811988341756577, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=5: expected=-1.3517022399306613, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=5: expected=-1.315434495524423, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=5: expected=1.3209076407857359, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=5: expected=-0.13083744008571574, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=6: expected=-0.06283211464947946, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=6: expected=0.03275031903205112, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=6: expected=-0.09558243368153058, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=6: expected=0.021108765280490206, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=6: expected=-1.3043520909837953, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=6: expected=0.01834374788500885, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=6: expected=-1.238080335547108, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=6: expected=-1.3043520909837953, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=6: expected=1.1420823486000453, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=6: expected=-0.0976435688576971, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=7: expected=0.2115036815838387, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=7: expected=0.019038416463789017, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=7: expected=0.1924652651200497, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=7: expected=0.020115054226931856, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=7: expected=2.6251177828062873, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=7: expected=0.07073163780555107, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=7: expected=-1.138523478460069, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=7: expected=-1.271247557931325, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=7: expected=1.6202215227573935, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=7: expected=0.19641618738025063, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=8: expected=0.12630953737374462, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=8: expected=-0.007672438297634611, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=8: expected=0.13398197567137923, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=8: expected=0.019690217848244557, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=8: expected=1.8270426427383553, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=8: expected=0.03352390155978823, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=8: expected=-1.0491313979639711, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=8: expected=-1.1898518300139418, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=8: expected=1.351681413180767, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=8: expected=0.13667309875995742, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=9: expected=0.057219562727274464, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=9: expected=-0.022846878628224033, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=9: expected=0.0800664413554985, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=9: expected=0.02033827690789552, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=9: expected=1.0921855610260875, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=9: expected=0.012382287457314062, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=9: expected=-0.9674215661017014, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=9: expected=-1.130132127069729, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=9: expected=1.045076820633817, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=9: expected=0.08172866150448845, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=10: expected=0.054119448846556395, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=10: expected=-0.044590415741902235, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=10: expected=0.09870986458845862, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=10: expected=0.022390182744039828, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=10: expected=1.3479126635621648, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=10: expected=0.020805856337981897, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=10: expected=-0.8917088296734071, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=10: expected=-1.1137591962502242, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=10: expected=1.1609964097972763, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=10: expected=0.10097061511260803, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=11: expected=-0.07096111129828486, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=11: expected=-0.06534683183793634, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=11: expected=-0.005614279460348523, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=11: expected=0.025583369525612444, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=11: expected=-0.07679017499210125, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=11: expected=7.740952012550796e-05, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=11: expected=-0.8207920883323804, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=11: expected=-1.0252907625774317, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=11: expected=0.27711040217231336, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=11: expected=-0.005761682718423283, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=12: expected=-0.04785952043731179, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=12: expected=-0.07195910963455636, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=12: expected=0.024099589197244572, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=12: expected=0.0268538485996733, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=12: expected=0.3298409551011507, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=12: expected=0.001501093103506288, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=12: expected=-0.7537815702731446, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=12: expected=-1.0153591473060348, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=12: expected=0.5743178171545357, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=12: expected=0.024764614403053456, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=13: expected=-0.13092002600125419, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=13: expected=-0.08807945187030786, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=13: expected=-0.04284057413094633, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=13: expected=0.030464004789883918, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=13: expected=-0.5874315771671551, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=13: expected=0.005421352398696476, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=13: expected=-0.6899969928587829, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=13: expected=-0.9496989718470151, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=13: expected=0.7664408504034445, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=13: expected=-0.04418667727922984, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=14: expected=-0.178230243178648, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=14: expected=-0.09589685448916574, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=14: expected=-0.08233338868948226, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=14: expected=0.03247657699387324, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=14: expected=-1.130132127069729, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=14: expected=0.02143567715423144, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=14: expected=-0.6289042176321901, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals_Ranked' row_idx=14: expected=-0.686889398099223, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Scale_Location' row_idx=14: expected=1.0630767268027879, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='PRESS_Residual' row_idx=14: expected=-0.08509704957185402, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Dependent_Variable' row_idx=15: expected=-0.13958573286470255, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Predictions' row_idx=15: expected=-0.10333777789568947, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Residuals' row_idx=15: expected=-0.03624795496901308, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Hat_Diagonal' row_idx=15: expected=0.03455110241901973, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Studentized_Residuals' row_idx=15: expected=-0.498084283883719, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Cooks_Distance' row_idx=15: expected=0.004439236672153863, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/P02 FE Log Transform Axis/residuals] config_name='production_lots_log_transform' stat_name='Normal_Scores_Ranked' row_idx=15: expected=-0.5700740851824606, excel_calc=None, abs_diff=None, fdd=0
+ERROR ... and 130124 more mismatch(es).
+Verify: FAILED with 130324 mismatch(es).
+Timing: total         2167.9s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\excel-only-runs\build_test_models verify no launch verbose.log

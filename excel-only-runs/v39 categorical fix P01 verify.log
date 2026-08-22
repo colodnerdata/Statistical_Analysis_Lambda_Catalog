@@ -3,11 +3,11 @@ python build_test_models.py --cases P01 --verify --no-launch
 [    0.0s] Oracles: computing
 [    0.0s] Oracles: done
 [    0.4s] Catalog + data sheets
-[    6.3s] Sheets: writing 1
-[   13.5s] Save
-[   13.8s] Sync names
-[   13.9s] CalculateFullRebuild
-Timing: write sheets  13.8s
+[    6.1s] Sheets: writing 1
+[   13.4s] Save
+[   13.7s] Sync names
+[   13.8s] CalculateFullRebuild
+Timing: write sheets  13.7s
 Timing: sync names    0.1s
 Timing: rebuild       0.8s
 Timing:   CalculateFullRebuild only   0.0s
@@ -16,8 +16,8 @@ Sheets built: 1
 Created names: 127
 Updated names: 0
 Removed names: 0
-[   14.7s] Verify: reading 1 sheet(s)
+[   14.6s] Verify: reading 1 sheet(s)
 Timing: verify        0.9s
 Verify: passed
-Timing: total         15.7s
+Timing: total         15.6s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\excel-only-runs\build_test_models cases verify no launch.log

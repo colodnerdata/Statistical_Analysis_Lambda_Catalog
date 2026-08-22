@@ -9,15 +9,15 @@ python build_test_models.py --cases M14 --verify --no-launch
 [   14.3s] CalculateFullRebuild
 Timing: write sheets  14.2s
 Timing: sync names    0.1s
-Timing: rebuild       2.5s
-Timing:   CalculateFullRebuild only   1.2s
+Timing: rebuild       2.7s
+Timing:   CalculateFullRebuild only   1.3s
 Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\Lambda_Library_TestModels.xlsx
 Sheets built: 1
 Created names: 127
 Updated names: 0
 Removed names: 0
-[   16.9s] Verify: reading 1 sheet(s)
-Timing: verify        1.4s
+[   17.0s] Verify: reading 1 sheet(s)
+Timing: verify        1.5s
 Verify: passed
-Timing: total         18.3s
+Timing: total         18.5s
 Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\.lds-wt\excel-only-runs\build_test_models cases verify no launch.log

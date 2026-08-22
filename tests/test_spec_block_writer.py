@@ -416,7 +416,16 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     # rows per iteration (the declaring row and its interaction operand) —
     # one textual site is what keeps the two encodings identical.
     assert x_s.count("Dummy_Levels(") == 1
-    assert 'lv,Dummy_Levels(col,r,Sample_Include_Calc())' in x_s
+    # The row mask is bound once in the outer LET (si,Sample_Include_Calc())
+    # and passed into Dummy_Levels by name, not recomputed inside blk() on
+    # every REDUCE iteration: blk() runs once per categorical spec row (and
+    # again for an interaction operand), so an inline Sample_Include_Calc()
+    # would rebuild the full row-mask REDUCE on each call. A LET-bound
+    # computed array is still an array value (not a range reference), so the
+    # reader-as-LAMBDA-arg fix (see project_v39_categorical_construction_broken)
+    # is preserved — only the recomputation cost is removed.
+    assert x_s.count("si,Sample_Include_Calc()") == 1
+    assert "lv,Dummy_Levels(col,r,si)" in x_s
     # Scalar skip guard: ISNA(INDEX(...,1,1)), NOT ISNA(lv). lv is a 1x(L-1)
     # row; an array condition in front of a wider HSTACK branch broadcasts to
     # #N/A (the T6 header-strip bug). INDEX(...,1,1) makes the test scalar,
@@ -460,9 +469,11 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     assert predicate in x_s
     assert predicate in names
     assert predicate in transforms
-    assert 'lv,Dummy_Levels(col,r,Sample_Include_Calc())' in names
+    assert names.count("si,Sample_Include_Calc()") == 1
+    assert "lv,Dummy_Levels(col,r,si)" in names
     assert names.count("Dummy_Levels(") == 1
-    assert 'lv,Dummy_Levels(col,r,Sample_Include_Calc())' in transforms
+    assert transforms.count("si,Sample_Include_Calc()") == 1
+    assert "lv,Dummy_Levels(col,r,si)" in transforms
     assert transforms.count("Dummy_Levels(") == 1
     # Same scalar skip guard as Predictor_Columns (the twin must match).
     for formula in (x_s, names, transforms):

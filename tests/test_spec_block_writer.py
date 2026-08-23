@@ -450,7 +450,7 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     assert "trn,TAKE(Spec_Transform,n_c)" in x_s
     assert (
         'IF(OR(INDEX(trn,x)="Log",INDEX(trn,x)="Log (drop ≤ 0)"),'
-        "Ln_Positive(col,Fit_Sample_Include()),col)"
+        "Ln_Positive(col,si),col)"
     ) in x_s
 
 

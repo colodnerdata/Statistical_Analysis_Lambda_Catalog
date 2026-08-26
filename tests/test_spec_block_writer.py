@@ -416,7 +416,16 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     # rows per iteration (the declaring row and its interaction operand) —
     # one textual site is what keeps the two encodings identical.
     assert x_s.count("Dummy_Levels(") == 1
-    assert 'lv,Dummy_Levels(col,r,Fit_Sample_Include())' in x_s
+    # The row mask is bound once in the outer LET (si,Sample_Include_Calc())
+    # and passed into Dummy_Levels by name, not recomputed inside blk() on
+    # every REDUCE iteration: blk() runs once per categorical spec row (and
+    # again for an interaction operand), so an inline Sample_Include_Calc()
+    # would rebuild the full row-mask REDUCE on each call. A LET-bound
+    # computed array is still an array value (not a range reference), so the
+    # reader-as-LAMBDA-arg fix (see project_v39_categorical_construction_broken)
+    # is preserved — only the recomputation cost is removed.
+    assert x_s.count("si,Sample_Include_Calc()") == 1
+    assert "lv,Dummy_Levels(col,r,si)" in x_s
     # Scalar skip guard: ISNA(INDEX(...,1,1)), NOT ISNA(lv). lv is a 1x(L-1)
     # row; an array condition in front of a wider HSTACK branch broadcasts to
     # #N/A (the T6 header-strip bug). INDEX(...,1,1) makes the test scalar,
@@ -441,7 +450,7 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     assert "trn,TAKE(Spec_Transform,n_c)" in x_s
     assert (
         'IF(OR(INDEX(trn,x)="Log",INDEX(trn,x)="Log (drop ≤ 0)"),'
-        "Ln_Positive(col,Fit_Sample_Include()),col)"
+        "Ln_Positive(col,si),col)"
     ) in x_s
 
 
@@ -460,9 +469,11 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     assert predicate in x_s
     assert predicate in names
     assert predicate in transforms
-    assert 'lv,Dummy_Levels(col,r,Fit_Sample_Include())' in names
+    assert names.count("si,Sample_Include_Calc()") == 1
+    assert "lv,Dummy_Levels(col,r,si)" in names
     assert names.count("Dummy_Levels(") == 1
-    assert 'lv,Dummy_Levels(col,r,Fit_Sample_Include())' in transforms
+    assert transforms.count("si,Sample_Include_Calc()") == 1
+    assert "lv,Dummy_Levels(col,r,si)" in transforms
     assert transforms.count("Dummy_Levels(") == 1
     # Same scalar skip guard as Predictor_Columns (the twin must match).
     for formula in (x_s, names, transforms):
@@ -1376,8 +1387,19 @@ def test_log_domain_status_reports_the_poisoned_column_then_the_dropped_count() 
     # as the rest of the v3.2 spike.)
     assert "base,Sample_Include(FALSE)" in formula
     assert formula.count("Sample_Include(FALSE)") == 1
-    assert "d,SUMPRODUCT(N(base))-SUMPRODUCT(N(Fit_Sample_Include()))" in formula
+    # The DEFAULT-mask half reads the materialized spill via Fit_Sample_Include()
+    # — the same reader the ~30 engine call sites use — but sums it with `--`
+    # rather than N(). N() of a range-returning thunk (the reader, whether
+    # spelled `#`/ANCHORARRAY or OFFSET) collapses to the top-left cell, so
+    # SUMPRODUCT(N(Fit_Sample_Include())) returns 1 and the amber fires
+    # "n-1 rows excluded" on EVERY sheet regardless of transforms. `--` coerces
+    # a range OR an array to a summable 1/0 array, so it is robust to the
+    # reader's form (and to Sample_Include()'s promotion to the reader on main,
+    # which would make N(Sample_Include()) collapse the same way).
+    assert "d,SUMPRODUCT(N(base))-SUMPRODUCT(--(Fit_Sample_Include()))" in formula
     assert '" rows excluded: Log of ≤ 0"' in formula
+    # Guard the regression: the amber must never sum the reader with N().
+    assert "N(Fit_Sample_Include())" not in formula
 
     conditions = sheet.range("$G$2").api.FormatConditions.items
     assert [c.Formula1 for c in conditions] == [

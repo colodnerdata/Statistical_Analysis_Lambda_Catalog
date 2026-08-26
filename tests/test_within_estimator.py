@@ -149,6 +149,25 @@ def test_design_response_no_fe_branch_returns_response_column_unchanged() -> Non
     assert "Demean_By(Response_Column(),Fixed_Effects_Column(),Sample_Include_Calc())" in formula
 
 
+def test_response_column_log_path_uses_sample_include_calc() -> None:
+    # Same collapse class as the Demean_By fix above, on the no-FE response
+    # path. Response_Column() feeds Dependent_Variable's FILTER as the Y arg;
+    # when its Ln_Positive(col, include) call passed the Fit_Sample_Include()
+    # reader (a range reference) as the ``include`` LAMBDA arg, the reader
+    # collapsed to a truncated height inside Ln_Positive's array math and
+    # broadcast #N/A past the truncation against the full-height logged
+    # column — so every no-FE Log-response sheet's filtered Y was mostly
+    # #N/A and LINEST returned #VALUE! (L01-L04, L09, L12, P03b-P05). The leaf
+    # Sample_Include_Calc() returns a computed array (value-identical to the
+    # materialized mask) and is stable, matching the Demean_By/Dummy_Levels
+    # fix. The logged-predictor path is covered by test_spec_block_writer's
+    # ``Ln_Positive(col,si)`` assertion (si = the Sample_Include_Calc() binding
+    # Predictor_Columns already binds once for Dummy_Levels).
+    formula = _formula("Response_Column")
+    assert "Ln_Positive(col,Sample_Include_Calc())" in formula
+    assert "Fit_Sample_Include()" not in formula
+
+
 def test_design_columns_demeans_with_reduce_hstack_not_bycol() -> None:
     # BYCOL cannot return a per-call array (Demean_By returns a column), so
     # the FE branch builds the demeaned matrix column-by-column via the same

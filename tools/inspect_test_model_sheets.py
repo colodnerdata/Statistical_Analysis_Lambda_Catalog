@@ -47,6 +47,7 @@ from lambda_catalog.regression_spec_sheet_io import (
     read_case_comparison_rows,
     read_model_formula,
     read_response_readout,
+    read_smearing_treatment,
 )
 from lambda_catalog.workbook_helpers import (
     OPEN_WORKBOOK_ERRORS,
@@ -126,6 +127,18 @@ def verify_model_sheet(
         failures.append(
             f"[TestModel/{expected.case.sheet_name}/formula] "
             f"expected={wanted_formula!r}, excel_calc={actual_formula!r}"
+        )
+    # The v3.4 Smearing Treatment readout (AH13) is a string, so it is
+    # compared exactly — naming the small full-sample optimism Duan smearing
+    # carries, exactly as the Model Formula readout is. It is the one cell
+    # that catches the Duan/Naive toggle (AH4) being applied to the wrong
+    # case, since the numeric unit-space block reads the same on both.
+    actual_treatment = _as_text(read_smearing_treatment(sheet))
+    wanted_treatment = expected.results.unit_space.smearing_treatment
+    if actual_treatment != wanted_treatment:
+        failures.append(
+            f"[TestModel/{expected.case.sheet_name}/smearing_treatment] "
+            f"expected={wanted_treatment!r}, excel_calc={actual_treatment!r}"
         )
     return failures
 

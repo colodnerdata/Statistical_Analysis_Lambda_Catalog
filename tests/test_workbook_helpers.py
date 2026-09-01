@@ -239,3 +239,89 @@ def test_a_sheet_name_with_an_apostrophe_still_builds_valid_defined_names() -> N
         assert "'M17 Cook''s D Threshold'!" in refers_to[name], name
         # The unescaped form would terminate the quoted name early at "Cook'".
         assert "'M17 Cook's" not in refers_to[name], name
+
+
+# --- drop_local_name --------------------------------------------------------
+#
+# A worksheet Names collection can hand back None at a valid index when the
+# entry is broken or orphaned. Reading .Name on it raised
+# "AttributeError: 'NoneType' object has no attribute 'Name'" partway through
+# the Regression sheet and aborted the whole production build, leaving the
+# shipped dist/ workbook stale. These pin the guard.
+
+
+class _Name:
+    def __init__(self, name: str) -> None:
+        self.Name = name
+        self.deleted = False
+
+    def Delete(self) -> None:
+        self.deleted = True
+
+
+class _Names:
+    """1-indexed COM-style Names collection; a None entry models a broken name."""
+
+    def __init__(self, entries: list[object]) -> None:
+        self._entries = entries
+
+    @property
+    def Count(self) -> int:
+        return len(self._entries)
+
+    def __call__(self, idx: int) -> object:
+        return self._entries[idx - 1]
+
+
+def _sheet_with_names(entries: list[object]) -> object:
+    return SimpleNamespace(api=SimpleNamespace(Names=_Names(entries)))
+
+
+def test_drop_local_name_deletes_the_matching_sheet_scoped_name() -> None:
+    from lambda_catalog.workbook_helpers import drop_local_name
+
+    target = _Name("Regression!Fit_Context")
+    other = _Name("Regression!Fit_Sample_Include")
+    drop_local_name(cast(Any, _sheet_with_names([other, target])), "Fit_Context")
+
+    assert target.deleted is True
+    assert other.deleted is False
+
+
+def test_drop_local_name_matches_case_insensitively_and_ignores_the_sheet_prefix() -> None:
+    from lambda_catalog.workbook_helpers import drop_local_name
+
+    target = _Name("Some Sheet!FIT_CONTEXT")
+    drop_local_name(cast(Any, _sheet_with_names([target])), "fit_context")
+
+    assert target.deleted is True
+
+
+def test_drop_local_name_skips_a_none_entry_and_still_deletes_the_match() -> None:
+    """The regression: a None entry must not abort the sweep."""
+    from lambda_catalog.workbook_helpers import drop_local_name
+
+    target = _Name("Regression!Fit_Context")
+    # None sits BELOW the target so the reverse walk reaches the target only
+    # if the None is skipped rather than raised on.
+    drop_local_name(
+        cast(Any, _sheet_with_names([None, target, None])), "Fit_Context"
+    )
+
+    assert target.deleted is True
+
+
+def test_drop_local_name_skips_an_entry_whose_name_raises() -> None:
+    from lambda_catalog.workbook_helpers import drop_local_name
+
+    class _Broken:
+        @property
+        def Name(self) -> str:
+            raise OSError("name refers to a deleted range")
+
+    target = _Name("Regression!Fit_Context")
+    drop_local_name(
+        cast(Any, _sheet_with_names([_Broken(), target])), "Fit_Context"
+    )
+
+    assert target.deleted is True

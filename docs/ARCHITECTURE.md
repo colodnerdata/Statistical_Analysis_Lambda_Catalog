@@ -129,7 +129,7 @@ category can grow its own subdivisions independently as it fills up.
 | **Data Transformation** | Sample Construction & Diagnostics · Location & Scale · Group & Panel · Categorical & Model Construction · Longitudinal & Panel-Time |
 | **Distribution Fitting** | Descriptive · Histogram Binning · Parameter Estimation · Goodness-of-Fit |
 | **Resampling & Simulation** | Bootstrap · Monte Carlo |
-| **Model Comparison** | Spec String & Registry *(provisional — promote from a subcategory only once it holds 2+ functions; see v3.4)* |
+| **Model Comparison** | Spec String & Registry *(provisional — promote from a subcategory only once it holds 2+ functions; see v3.5)* |
 
 Notes:
 
@@ -162,7 +162,7 @@ its value on another.
 
 | Axis | Values | Future values | Meaning |
 |---|---|---|---|
-| **Variable Role** | `Response (y)` · `Predictor (x)` · `Identifier (Row Label)` · `Filter` · `Omit` · `Fixed Effects` (v2.1) | Cluster (v3.5), Time (v3.6), Weight (v3.7) | What the column *is* in the model |
+| **Variable Role** | `Response (y)` · `Predictor (x)` · `Identifier (Row Label)` · `Filter` · `Omit` · `Fixed Effects` (v2.1) | Cluster (v3.6), Time (v3.7), Weight (v3.8) | What the column *is* in the model |
 | **Predictor Type** | Continuous · Categorical | *(closed — never grows)* | How a Predictor *enters* the design matrix — meaningful only when Role = Predictor |
 | **Sequence** *(structural, post-v2.0)* | TRUE · blank | *(flag — never grows)* | Which column *orders* the data, for lag/difference/serial-correlation features |
 
@@ -195,7 +195,7 @@ lag/difference/serial-correlation features land on a declared axis.
   exactly-one-Response, with a >1 threshold).
 - **At most one** of each Role value that is single-instance by nature:
   Fixed Effects (shipped v2.1; a B1 cardinality error fires at two-plus
-  rows), Cluster, Time, Weight (all still future — v3.5/v3.6/v3.7). The status block
+  rows), Cluster, Time, Weight (all still future — v3.6/v3.7/v3.8). The status block
   validates each the same way it validates exactly-one-Response.
 - **Zero-or-more** Filter columns. AND-composed: no Filter columns → all rows
   included; multiple → logical AND (declarative stratification, e.g.
@@ -223,15 +223,15 @@ lag/difference/serial-correlation features land on a declared axis.
 - **Fixed Effects** *(v2.1)* — the panel role: enters no column; the entire
   design matrix and the Response are demeaned by its groups (one FE
   variable → `Demean_By`; two-plus → visible error — two-way absorption via
-  `Absorb_Two_Way_Fixed_Effects` is its own post-v2.1 milestone, see v3.8).
-- **Cluster** *(v3.5)* — clustered-robust variance estimator. Forward
+  `Absorb_Two_Way_Fixed_Effects` is its own post-v2.1 milestone, see v3.9).
+- **Cluster** *(v3.6)* — clustered-robust variance estimator. Forward
   wiring is partial (the dormant branch in `Serial_Correlation_Group()`'s
   SWITCH).
-- **Time** *(v3.6)* — time-index designation. Partially forward-wired via
+- **Time** *(v3.7)* — time-index designation. Partially forward-wired via
   the Sequence axis but the full semantics still need design work. Its
-  consumers are cross-sheet `Lag_By` / `Difference_By` calls and the v3.12
+  consumers are cross-sheet `Lag_By` / `Difference_By` calls and the v3.13
   Time Series sheet; the Role ships first, the sheet last.
-- **Weight** *(v3.7)* — WLS. See DECISIONS § v2.6, recorded under the
+- **Weight** *(v3.8)* — WLS. See DECISIONS § v2.6, recorded under the
   milestone's original number.
 
 ### Predictor Type semantics
@@ -744,7 +744,7 @@ its own catalog category, separate from the version ladder.
 **Delivery, however, is pinned to the ladder.** The user-callable transform
 library was planned for **v2.2** alongside the column-G wiring, then carried
 as the v3.3 remainder, and now ships **last in the Regression track, at
-[v3.9](ROADMAP.md#v39--standalone-data-transformation-library--planned)** —
+[v3.10](ROADMAP.md#v310--standalone-data-transformation-library--planned)** —
 it is the only item that widens the predictor-transform axis every model is
 crossed against, so it is the most expensive Regression milestone to test (see
 [docs/MODEL_TESTING_ASSETS.md § 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order)).
@@ -755,7 +755,7 @@ internals, `Ln_Positive` as part of the **v2.2 column-G Log wiring** itself
 the Location & Scale bundle), and the two-way functions
 (`Absorb_Two_Way_Fixed_Effects`, `Demean_Two_Way_Balanced`,
 `Fixed_Effects_Convergence_Check`) with the **two-way FE milestone,
-[v3.8](ROADMAP.md#v38--two-way-fixed-effects--planned)**.
+[v3.9](ROADMAP.md#v39--two-way-fixed-effects--planned)**.
 
 The taxonomy itself is version-independent — reordering the ladder does not
 change what any of these functions mean.
@@ -838,8 +838,8 @@ change what any of these functions mean.
   to the same standard. **v2.0 constructor internal** for Categorical
   roles, via `Dummy_Levels`.
 The three entries below are **specified, not yet built** — none is in
-`lambda_functions.json`. They are v3.9 work items in
-[TODOs.md](TODOs.md#v39--standalone-data-transformation-library) (planned as
+`lambda_functions.json`. They are v3.10 work items in
+[TODOs.md](TODOs.md#v310--standalone-data-transformation-library) (planned as
 v2.2, carried as the v3.3 remainder, then moved to the end of the ladder — the
 standalone transform library is the most expensive item in the plan to test).
 Recorded explicitly because REVIEW.md F6 cited `Interact` as already shipping.
@@ -964,7 +964,7 @@ form:
   resolver (`Serial_Correlation_Group()`) does this for the `Cluster`
   role — supplying the grouping key from a Cluster role for pooled-panel
   diagnostics without absorption is a resolver-only edit, no engine
-  change. The `Cluster` work (v3.5) lights up the dormant branch by adding
+  change. The `Cluster` work (v3.6) lights up the dormant branch by adding
   the engine-side estimator.
 
 The general principle: when a feature lands across multiple versions, the

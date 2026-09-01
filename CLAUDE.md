@@ -36,7 +36,7 @@
 
 **Case-name pinning** (`_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py` and `_EXPECTED_GUARD_NAMES` in `tests/test_regression_guard_states.py` — add the name in the same commit): `CONTRIBUTING.md` → *The regime, in four rules*.
 
-**The ladder-order rule** (track-then-growth-rate, v3.10/v3.11 ship last as a block, ladder follows the MODEL_TESTING_ASSETS § 2 table): `docs/ROADMAP.md` § *Ladder order* and `CONTRIBUTING.md` → *The regime, in four rules*.
+**The ladder-order rule** (track-then-growth-rate, v3.11/v3.12 ship last as a block, ladder follows the MODEL_TESTING_ASSETS § 2 table): `docs/ROADMAP.md` § *Ladder order* and `CONTRIBUTING.md` → *The regime, in four rules*.
 
 ## QC comparison scale
 

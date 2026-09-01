@@ -1,0 +1,227 @@
+python build_test_models.py --cases M01,L01 --verify --no-launch
+[    0.0s] Plan: 2 model + 0 guard = 2 sheet(s)
+[    0.0s] Oracles: computing
+[    0.1s] Oracles: done
+[    0.5s] Catalog + data sheets
+[    6.0s] Sheets: writing 2
+[   31.0s] Save
+[   31.5s] Sync names
+[   31.6s] CalculateFullRebuild
+Timing: write sheets  31.4s
+Timing: sync names    0.1s
+Timing: rebuild       8.0s
+Timing:   CalculateFullRebuild only   4.1s
+Workbook: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 2
+Created names: 127
+Updated names: 0
+Removed names: 0
+[   39.5s] Verify: reading 2 sheet(s)
+Timing: verify        2.3s
+Verify: mismatch totals by case:
+    M01   3367
+    L01   18
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Multiple_R': expected=0.9229740928315785, excel_calc=0.8404613457678076, abs_diff=0.08251274706377087, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='R_Squared': expected=0.8518811760382752, excel_calc=0.7063752737298343, abs_diff=0.14550590230844085, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Adjusted_R_Squared': expected=0.8455614395492416, excel_calc=0.7048656350343578, abs_diff=0.14069580451488373, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='SE_Regression': expected=3.0672642753818784, excel_calc=4.240169467644431, abs_diff=1.1729051922625522, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='PRESS': expected=3865.0233891256094, excel_calc=7100.276149125829, abs_diff=3235.2527600002195, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='PRESS_R2': expected=0.8377335551943894, excel_calc=0.7019069610035733, abs_diff=0.1358265941908161, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Mean_Leverage': expected=0.04336734693877551, excel_calc=0.007653061224489796, abs_diff=0.03571428571428571, fdd=2
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='AIC': expected=895.3166232486843, excel_calc=1135.5573994882623, abs_diff=240.24077623957794, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='BIC': expected=962.8280745251221, excel_calc=1147.4711850076337, abs_diff=184.6431104825116, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='AICc': expected=896.952986885048, excel_calc=1135.6192551583654, abs_diff=238.66626827331743, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='QQ_Correlation': expected=0.9911373443499187, excel_calc=0.9864801662335522, abs_diff=0.004657178116366567, fdd=3
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Regression_Degrees_Of_Freedom': expected=16.0, excel_calc=2.0, abs_diff=14.0, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='SS_Regression': expected=20290.95216875004, excel_calc=16825.148031907895, abs_diff=3465.8041368421436, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='MS_Regression': expected=1268.1845105468774, excel_calc=8412.574015953947, abs_diff=7144.38950540707, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='F_Statistic': expected=134.79694565058418, excel_calc=467.91015349994575, abs_diff=333.1132078493616, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Residual_Degrees_Of_Freedom': expected=375.0, excel_calc=389.0, abs_diff=14.0, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='SS_Residual': expected=3528.0413006377194, excel_calc=6993.845437479836, abs_diff=3465.8041368421163, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='MS_Residual': expected=9.408110135033919, excel_calc=17.979037114344052, abs_diff=8.570926979310133, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Unit_Space_R_Squared': expected=0.8518811760382752, excel_calc=0.7063752737298348, abs_diff=0.1455059023084404, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Unit_Space_Adjusted_R_Squared': expected=0.8455614395492416, excel_calc=0.7048656350343583, abs_diff=0.14069580451488328, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/scalars] config_name='default_t0_intercept' stat_name='Unit_Space_RMSE': expected=3.0672642753818775, excel_calc=4.240169467644429, abs_diff=1.1729051922625513, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 71': expected=-0.08146439096800064, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 72': expected=-0.16835292832299734, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 73': expected=-0.27443182636274127, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 74': expected=-0.02313745990760464, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 75': expected=-0.11741202684773301, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 76': expected=-0.07402447684694534, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 77': expected=-0.0025232970710477864, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 78': expected=0.025096825241507175, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 79': expected=0.059726823421571526, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 80': expected=0.36139628740230567, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 81': expected=0.23980398783122625, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Model Year: 82': expected=0.3159083195884925, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Origin: Europe': expected=0.24431250098438836, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Pearson_R' predictor_name='Origin: US': expected=-0.5651605934550846, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 71': expected=-0.07885166012852685, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 72': expected=-0.17118576357006526, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 73': expected=-0.28890633665588533, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 74': expected=-0.013094569363613499, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 75': expected=-0.11154790812345598, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 76': expected=-0.06353935553640098, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 77': expected=0.007092607083977128, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 78': expected=0.03623200113543119, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 79': expected=0.07258856119506696, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 80': expected=0.3155847357374355, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 81': expected=0.24784721421231184, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Model Year: 82': expected=0.3094500143227129, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Origin: Europe': expected=0.2533501199292232, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Spearman_R' predictor_name='Origin: US': expected=-0.5716421278488228, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 71': expected=3.4178672534749936, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 72': expected=3.3409992263809634, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 73': expected=2.6394903089250215, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 74': expected=3.498795067043407, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 75': expected=3.1980848073673793, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 76': expected=2.948022837422056, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 77': expected=3.340999226380963, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 78': expected=2.8375304723496653, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 79': expected=3.267841324862298, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 80': expected=3.4178672534749936, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 81': expected=3.340999226380964, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Model Year: 82': expected=3.1980848073673784, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Origin: Europe': expected=1.731329819054199, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Skewness' predictor_name='Origin: US': expected=-0.5183835020358901, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 71': expected=9.73144132335315, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 72': expected=9.209236245265515, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 73': expected=4.992354522084606, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 74': expected=10.294062234453264, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 75': expected=8.269914328405712, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 76': expected=6.725124861495164, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 77': expected=9.209236245265503, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 78': expected=6.082587096364861, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 79': expected=8.723267876257216, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 80': expected=9.73144132335315, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 81': expected=9.209236245265503, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Model Year: 82': expected=8.269914328405712, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Origin: Europe': expected=1.0025921775707554, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Kurtosis' predictor_name='Origin: US': expected=-1.7401832443477687, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Horsepower': expected=5.554395992042226, excel_calc=3.959227866518259, abs_diff=1.5951681255239665, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Weight': expected=5.718591413614914, excel_calc=3.959227866518259, abs_diff=1.7593635470966547, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 71': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 72': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 73': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 74': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 75': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 76': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 77': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 78': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 79': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 80': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 81': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Model Year: 82': expected=1.7564955677455345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Origin: Europe': expected=1.8119606956111374, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='GVIF' predictor_name='Origin: US': expected=1.8119606956111374, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Horsepower': expected=0.18003757770110349, excel_calc=0.2525745003101827, abs_diff=0.07253692260907921, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Weight': expected=0.17486823724093734, excel_calc=0.2525745003101827, abs_diff=0.07770626306924536, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 71': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 72': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 73': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 74': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 75': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 76': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 77': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 78': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 79': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 80': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 81': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Model Year: 82': expected=0.5693154132369955, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Origin: Europe': expected=0.5518883507915829, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/predictors] config_name='default_t0_intercept' stat_name='Tolerance' predictor_name='Origin: US': expected=0.5518883507915829, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Intercept': expected=38.75108828286013, excel_calc=45.640210840177154, abs_diff=6.889122557317023, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Horsepower': expected=-0.016236431953541394, excel_calc=-0.04730286308619176, abs_diff=0.03106643113265037, fdd=2
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Weight': expected=-0.005063309615116745, excel_calc=-0.005794157364802927, abs_diff=0.0007308477496861818, fdd=3
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 71': expected=0.9104101945827527, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 72': expected=-0.34595173995934714, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 73': expected=-0.7062540515092844, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 74': expected=1.2578616049411306, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 75': expected=0.6393522010033057, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 76': expected=1.414424770599515, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 77': expected=2.848117500468029, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 78': expected=2.6980951580993255, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 79': expected=5.105982084524003, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 80': expected=9.167083561819243, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 81': expected=6.530904761985154, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Model Year: 82': expected=8.20934067157775, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Origin: Europe': expected=-0.12197684194985485, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Coefficients' term_name='Origin: US': expected=-2.059941611098985, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Intercept': expected=0.9626280433913318, excel_calc=0.7931958328884775, abs_diff=0.16943221050285429, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Horsepower': expected=0.009497739162989613, excel_calc=0.011085086484199223, abs_diff=0.0015873473212096104, fdd=3
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Weight': expected=0.00043671065291282053, excel_calc=0.0005023269964137771, abs_diff=6.561634350095658e-05, fdd=3
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 71': expected=0.8670062049110971, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 72': expected=0.8439249745395181, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 73': expected=0.7707716823592679, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 74': expected=0.902234573773286, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 75': expected=0.8846894303215695, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 76': expected=0.848784769232819, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 77': expected=0.8645588221261511, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 78': expected=0.8236933540190365, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 79': expected=0.8740769390972272, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 80': expected=0.9224605906375801, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 81': expected=0.9098439558476593, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Model Year: 82': expected=0.884053787163814, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Origin: Europe': expected=0.5275085125625089, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='SE_Coefficients' term_name='Origin: US': expected=0.49646458927845116, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Intercept': expected=40.25551566765115, excel_calc=57.539650295407085, abs_diff=17.284134627755932, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Horsepower': expected=-1.7095049332172474, excel_calc=-4.267252506655466, abs_diff=2.5577475734382187, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Weight': expected=-11.594197625693187, excel_calc=-11.534632632067737, abs_diff=0.05956499362545031, fdd=2
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 71': expected=1.050061913543175, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 72': expected=-0.40993186645307345, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 73': expected=-0.9162947571549329, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 74': expected=1.3941624955476455, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 75': expected=0.7226854748009277, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 76': expected=1.6664115826182346, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 77': expected=3.294301587789997, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 78': expected=3.2756063223462277, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 79': expected=5.841570525585098, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 80': expected=9.937642491028479, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 81': expected=7.178049290771639, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Model Year: 82': expected=9.286019460325631, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Origin: Europe': expected=-0.23123198781631188, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='T_Statistics' term_name='Origin: US': expected=-4.149221627453533, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Horsepower': expected=0.08818472714576124, excel_calc=2.4884820391714206e-05, abs_diff=0.08815984232536953, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 71': expected=0.2943658787707997, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 72': expected=0.6820900076657131, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 73': expected=0.36010118595540896, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 74': expected=0.1640940198010942, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 75': expected=0.47032360057388145, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 76': expected=0.09646645591917839, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 77': expected=0.0010805831577804913, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 78': expected=0.0011525516881498155, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 79': expected=1.1226645573083445e-08, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 80': expected=8.22402757421304e-21, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 81': expected=3.819192077925079e-12, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Model Year: 82': expected=1.3188191200499326e-18, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Origin: Europe': expected=0.8172606926747066, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='P_Values' term_name='Origin: US': expected=4.1310663778079474e-05, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Intercept': expected=36.85826298006641, excel_calc=44.08072353305435, abs_diff=7.222460552987947, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Horsepower': expected=-0.03491193297437887, excel_calc=-0.06909704171609604, abs_diff=0.03418510874171717, fdd=1
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Weight': expected=-0.0059220182092698795, excel_calc=-0.006781772960411516, abs_diff=0.0008597547511416366, fdd=3
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 71': expected=-0.7943929156126759, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 72': expected=-2.005369992351319, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 73': expected=-2.221830242191082, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 74': expected=-0.5162114048965152, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 75': expected=-1.1002216149924942, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 76': expected=-0.2545493454773078, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 77': expected=1.1481267039100127, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 78': expected=1.0784585467062755, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 79': expected=3.387275717854054, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 80': expected=7.353239929508775, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 81': expected=4.741869346857239, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Model Year: 82': expected=6.47101672718169, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Origin: Europe': expected=-1.159222190111283, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Lower' term_name='Origin: US': expected=-3.0361449774758, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Upper' term_name='Intercept': expected=40.643913585653856, excel_calc=47.199698147299955, abs_diff=6.5557845616460995, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Upper' term_name='Horsepower': expected=0.0024390690672960805, excel_calc=-0.02550868445628749, abs_diff=0.02794775352358357, fdd=2
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Upper' term_name='Weight': expected=-0.004204601020963611, excel_calc=-0.004806541769194338, abs_diff=0.000601940748230727, fdd=3
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Upper' term_name='Model Year: 71': expected=2.615213304778181, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Upper' term_name='Model Year: 72': expected=1.3134665124326244, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Upper' term_name='Model Year: 73': expected=0.8093221391725133, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Upper' term_name='Model Year: 74': expected=3.0319346147787765, excel_calc=None, abs_diff=None, fdd=0
+ERROR [TestModel/M01 Baseline Categoricals/coefficients] config_name='default_t0_intercept' stat_name='Confidence_Interval_Upper' term_name='Model Year: 75': expected=2.3789260169991056, excel_calc=None, abs_diff=None, fdd=0
+ERROR ... and 3185 more mismatch(es).
+Verify: FAILED with 3385 mismatch(es).
+Timing: total         41.9s
+Log: C:\Users\Stephen_Colodner\windows code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models cases verify no launch.log

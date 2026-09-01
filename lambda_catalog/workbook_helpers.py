@@ -558,7 +558,27 @@ def anchor_comment_right_of_cell(
 
 
 def drop_local_name(sheet: xw.Sheet, name: str) -> None:
+    """Delete every sheet-scoped name whose local part matches ``name``.
+
+    Iterates the collection in REVERSE so a delete cannot shift the indices of
+    entries not yet visited.
+
+    Each entry is handled defensively because a worksheet ``Names`` collection
+    is not guaranteed to hand back a live object at every index: Excel can
+    return ``None`` for a broken or orphaned entry (one whose ``RefersTo``
+    target no longer exists), and reading ``.Name`` on it raised
+    ``AttributeError: 'NoneType' object has no attribute 'Name'``, which
+    aborted the whole production build partway through the Regression sheet.
+    A name we cannot even read is, by definition, not the one being dropped,
+    so skipping it is both safe and the only thing that can be done with it.
+    """
     for idx in range(sheet.api.Names.Count, 0, -1):
-        local = sheet.api.Names(idx).Name.split("!", 1)[-1]
+        try:
+            entry = sheet.api.Names(idx)
+            if entry is None:
+                continue
+            local = entry.Name.split("!", 1)[-1]
+        except Exception:  # pylint: disable=broad-exception-caught
+            continue
         if local.lower() == name.lower():
-            sheet.api.Names(idx).Delete()
+            entry.Delete()

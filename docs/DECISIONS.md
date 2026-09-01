@@ -989,7 +989,7 @@ Welch, and paired variants?
 Welch cases; the paired case is a separate code path the flag does
 not cover. A 3-way flag or a separate `paired` boolean is the open
 question, not yet resolved. Tracked in
-[TODOs.md § v3.10](TODOs.md#v310--bivariate--two-sample).
+[TODOs.md § v3.11](TODOs.md#v311--bivariate--two-sample).
 
 ### v2.6 — WLS: `Weight` Role, default-uniform `[Weights]` argument
 
@@ -1722,7 +1722,7 @@ each and ship **expanded**; the Constructed Design Matrix ships **collapsed by
 default**, because an unbounded-width zone that cannot be collapsed is a scrolling
 hazard.
 
-> **SUPERSEDED** by v3.4+ *The spilled §4b zones are no longer grouped or
+> **SUPERSEDED** by v3.5+ *The spilled §4b zones are no longer grouped or
 > collapsed*. Only `Model_Context` is grouped now; the two zones that hold
 > spills are ungrouped and expanded, because a collapsed group over a spill
 > range leaves the array stale and the model refits on it.
@@ -2788,7 +2788,7 @@ just records what was replaced, when, and by what.
   then AutoFitted, so the sheet's longest string set the height of the
   whole header row; and an inline 300-character concatenation in one cell
   documented nothing on the LAMBDA_functions sheet. `Comparison_Model_Formula`
-  is why the move cost its v3.4 consumer nothing — that surface is a NAME.
+  is why the move cost its v3.5 consumer nothing — that surface is a NAME.
 - **Content-column widths keyed on literal column letters** (pre-v3.0) →
   SUPERSEDED by `_COLUMN_WIDTHS`, keyed on the `_C_*` layout constants with
   a coverage assertion. The letter keys survived the v3.0 layout break
@@ -2804,7 +2804,7 @@ there. The `Y`, `Predicted Y`, residual columns, and the whole Prediction
 Outputs block stay in log space, labelled `(Log)`; an R² computed on `Ln(y)`
 is not comparable with one computed on raw `y`. v3.3 closes that gap and,
 alongside it, ships the model-formula label — needed to head the unit-space
-block and read again by v3.4 Model Comparison.
+block and read again by v3.5 Model Comparison.
 
 Six amendments to the v2.2/v2.3 design record:
 
@@ -2991,7 +2991,7 @@ checks.
   readout); `Comparison_Headline_GoF` → `$AH$6:$AH$8` (the three
   unit-space GoF statistics); `Comparison_Model_Formula` → `$AB$2` (the
   assembled model formula string; retargeted at v3.3.x when the readout moved,
-  which is the point of naming the surface). All three are the v3.4 Model Comparison
+  which is the point of naming the surface). All three are the v3.5 Model Comparison
   sheet's reading surface — the public-interface commitment this milestone
   ships.
 
@@ -3020,6 +3020,168 @@ cache schema version bumps to 17.
   scope checks.
 - `tests/test_catalog_schema.py` and `tests/test_lambda_catalog_plain_language.py`
   — pick up the 7 new entries automatically.
+---
+
+## v3.4 — Unit-space LOOCV (residual, RMSE, MAE, and a named smearing treatment)
+
+v3.3 shipped the unit-space *fit* but left cross-validation in fit space:
+`LOOCV_Residual`, `LOOCV_Prediction`, `PRESS`, and the hat diagonal all report
+in the space the model was fitted in (log units on a Log-response model), which
+is not the space anyone decides in. v3.5 closes that gap with an out-of-sample
+residual column and two out-of-sample error scalars in original units, plus the
+thing that makes them honest — a visible statement of how the smearing factor
+was obtained.
+
+**LOOCV divisor is n, not df_residual — and that is the load-bearing choice.**
+`Unit_Space_LOOCV_RMSE` is `SQRT(SUMSQ(r_loo) / ROWS(r_loo))` and
+`Unit_Space_LOOCV_MAE` is `AVERAGE(ABS(r_loo))`. Every leave-one-out prediction is
+genuinely out-of-sample — the held-out row was not in the fit — so no degrees of
+freedom are consumed by the LOO step, and dividing by n is the honest RMS, not a
+standard error. `ROWS(r)`, not `COUNT(r)`: an `#N/A` row (the `h_i = 1` case,
+guarded by `IFERROR(…, NA())` mirroring `LOOCV_Residual`'s own guard) propagates
+through `SUMSQ` regardless, so the divisor stays plainly the sample size the fit
+used. This is deliberately *different* from the in-sample
+`Unit_Space_RMSE = SQRT(SSE_unit / df_residual)`, whose `÷ df_residual` is the
+reduction invariant's acceptance criterion (`Unit_Space_RMSE ≡ SE_Regression`
+under `Transform = None`). The pair reads consistently because both LOO scalars
+average over the same n; using df_residual for one and n for the other would be
+the inconsistency. The reduction invariant is **extended**, not broken: with
+`Transform = None` throughout, `Unit_Space_LOOCV_Residual ≡ LOOCV_Residual` and
+`Unit_Space_LOOCV_RMSE ≡ SQRT(PRESS/n)` to fp precision, including under Fixed
+Effects (the level shift is zero and the back-transform is the identity, so the
+LOO residual is the fit-space LOO residual unchanged).
+
+**The full-sample Duan smearing factor leaks, and the leak is named on the
+sheet, not hidden.** Under Duan, the LOO residual for row *i* is back-
+transformed with a smearing factor estimated from *all n* in-sample residuals,
+row *i* included. That is a real (small) optimism: the held-out row's own
+residual is in the smearing mean that back-transforms its own LOO prediction.
+`Smearing_Treatment` is a pure function of `(response_transform, method)` that
+returns the text `"Full-sample Duan (approx.)"` under Duan, `"Naive (no
+smearing)"` under Naive, and `"n/a — no back-transform"` when there is no Log
+response. Surfacing it in-cell at `AH13` (with the full explanation on hover) is
+what separates "we approximated" from "we didn't notice", and it gives the
+eventual fold-specific implementation a slot to land in rather than a silent
+change of meaning.
+
+**Fold-specific Duan is a fourth `SWITCH` arm, by design.** `Smearing_Treatment`'s
+`SWITCH(method, "Naive", …, "Duan", …, NA())` is the extension point: a
+fold-specific smearing factor (one that excludes the held-out row) arrives as a
+fourth arm plus a third item on the `AH4` validation list, with no
+restructuring. The same structure is why `Unit_Space_LOOCV_*` take `[Method]` as
+an argument — fold-specific Duan is a method value, not a new function.
+
+**`Unit_Space_RMSE`'s divisor is flagged, not changed.** The label said "RMSE
+(Unit)" (promising `÷ n`) while the formula divided by `df_residual` (a standard
+error of the regression). The critique is fair on its face: once the response is
+back-transformed, `SSE_unit` is not the residual sum of squares of a linear fit
+in that space, so `n − p` buys no unbiasedness there. It is nonetheless
+**deliberate**: the reduction invariant (`Unit_Space_RMSE ≡ SE_Regression` under
+`Transform = None`) is v3.3's acceptance criterion and the
+`Comparison_Headline_GoF` contract v3.5 is built against, and changing the
+divisor breaks both. In scope here: relabel `AG8` to `"SE Regression (Unit)"`
+with a hover Note stating the divisor, so the label stops promising `÷ n` while
+`LOOCV RMSE (Unit)` one row below genuinely delivers it. A formula change is a
+separate, breaking PR — it gets an OPEN item in `docs/TODOs.md` cross-referenced
+to this analysis, not a silent edit here.
+
+**Two independent LOOCV verification paths, neither sharing a derivation with the
+code.** The v3.3 mirror-test discipline (a mirror sharing the author's reading of
+`Y_Full` produces a green suite and a wrong workbook) applies in full.
+`tests/test_unit_space_dispatch.py` adds pure-Python mirrors of the three new
+LAMBDAs against a NumPy LOO reference that **refits n times explicitly** — not via
+the Sherman-Morrison-Woodbury hat-diagonal shortcut the oracle itself uses, so a
+wrong shortcut cannot agree with a wrong mirror. `tests/test_regression_spec_qc.py`
+adds the second path: recompute the unit-space LOO residuals from the oracle's
+own *already-verified* residual columns (`hat_diagonal`, `residuals`,
+`predictions`) via the identity `loo_fit = predictions − h·e/(1−h)` and
+cross-check, over the Log-response cases. The reduction check
+(`Unit_Space_LOOCV_Residual ≡ LOOCV_Residual` under `Transform = None`) is
+parametrized on a Fixed-Effects case precisely because the no-FE case is
+trivially inert.
+
+**P08 — the leverage corner no other case was chosen for.** The three new
+statistics become compared on every existing case the moment the QC reader
+lands, so the new test-model case exists for the corner none of them cover:
+heavy-tailed **leverage**, where LOOCV departs materially from the in-sample fit
+and the full-sample Duan leak is largest. `production_lots_log_loocv_leverage`
+is Production Lots (n = 51), Log response, no FE, with a quadratic self-
+interaction on `Cumulative_Units` (`Ln(Cumulative_Units) + Ln(Cumulative_Units)²`).
+The squared term is dominated by the single largest lot, so that point's hat
+diagonal reaches ~0.41 against a mean of ~0.06, LOOCV RMSE (~15109) exceeds the
+in-sample SE Regression (Unit) (~14658), and the smearing treatment reads
+`"Full-sample Duan (approx.)"` — the exact state the block exists to surface.
+
+**Pre-existing categorical-construction break — not introduced here, but it
+gates the full test-model verify.** The v3.5 Excel verification surfaced a
+regression already on `main` that is independent of LOOCV: categorical dummy
+columns stop materializing in the built workbook. The `Model_Formula` readout
+returns only the continuous predictors (`MPG ~ 1 + Horsepower + Weight`,
+dropping every `Model Year: …` and `Origin: …` level); the categorical
+predictor stats (GVIF, Tolerance, coefficients, p-values, CIs) read back blank;
+and any case with a categorical Fixed-Effects column (the Life-Expectancy
+L-series) cascades to a whole-sheet blank fit. Continuous-only models are
+unaffected, which is exactly why the break reached `main` unnoticed.
+
+Bisected to the introducing commit with `build_test_models.py --cases M01
+--verify` (M01 is the Auto-MPG baseline with `Model Year` + `Origin`
+categoricals): `9103e90` (Migrate Regression Statistics to materialized spills,
+2026-08-18) and `e2f94db` (`#` in a defined-name `RefersTo`, 2026-08-19) both
+**pass**; `2cbf78b` ("v3.2: repoint all remaining engine call sites at the
+materialized spills", 2026-08-19) **fails** — dummies gone; `abf68aa` (the
+v3.2 name-promotion `_Calc` split, 2026-08-20), the v3.10 `Dummy_Column`/
+`Interact`/`Model_Matrix` trio (`a05e6e0`), and `HEAD` all fail identically —
+they inherit the break. The introducing commit is therefore `2cbf78b`, **not**
+`abf68aa` (which the investigation began from) and **not** v3.10 (whose trio
+deliberately does not call the spec-driven path, per its own commit body). The
+last full-green test-models verify was 2026-08-15 (50/50); the
+v3.2-materialization-remainder PRs shipped 2026-08-16→20 without one.
+
+The mechanism is in the repointing. `2cbf78b` changed the categorical dummy
+constructor `Dummy_Levels(col, ref, Sample_Include())` →
+`Dummy_Levels(col, ref, Fit_Sample_Include())` — and the continuous
+`Ln_Positive(col, Sample_Include())` → `Fit_Sample_Include()` in lockstep — in
+`Predictor_Columns`, `Constructed_Column_Names`, and
+`Constructed_Column_Transforms`, reading the materialized `Sample_Include`
+spill through the `Fit_Sample_Include()` reader instead of recomputing the
+leaf. The continuous path survives the change while the categorical path
+returns `#N/A` (no levels found) and is dropped by the `keep` predicate — the
+signature of a materialized-spill read that `Dummy_Levels`' masking does not
+tolerate the way `Ln_Positive` does (an empty or still-pending mask yields
+`#N/A` from `Dummy_Levels` but yields the column from `Ln_Positive`). The exact
+cell-level root cause — calculation order versus dependency tracking through
+the spill-reading name, post-`CalculateFullRebuild` — is left for the fix PR;
+the introducing commit and the affected path are pinned here.
+
+Why it shipped unnoticed: `2cbf78b`'s own verification was continuous-only.
+`build_production.py --verify` runs the Life-Expectancy production default,
+which declares no categorical predictor, so a broken dummy path is inert there
+and the verify passes. The test-models full verify — the only thing that
+exercises categorical M-cases — was not run after the v3.2 remainder landed, so
+the break reached `main` and stayed through v3.9. (A second, unrelated
+pre-existing blocker was hit in passing: the production build crashes in
+`drop_local_name` iterating a sheet name whose COM `.Name` is `None` on the
+committed `dist/Lambda_Library.xlsx`. That is fragile-`drop_local_name` /
+stale-dist, not LOOCV — this PR touches no name creation — and is noted here
+only because it blocks the production build path; the categorical break would
+block it regardless, since the LE default's `Status` categorical would fail
+the same way the L-series does.)
+
+**Verification of this PR against that backdrop.** LOOCV is orthogonal to the
+broken path — it adds workbook-scoped catalog functions and a residual column;
+it touches no name creation and no `Sample_Include` / `Design_Columns` reader
+— so the break is not a LOOCV regression, confirmed by building M01 on clean
+`HEAD` with the LOOCV changes stashed: it fails identically. The full
+test-models verify therefore cannot go green on `main` regardless of this PR,
+so the LOOCV Excel evidence is the continuous-only path the break leaves
+intact: `build_test_models.py --cases P08 --verify` (P08 is Production Lots,
+continuous + a quadratic self-interaction, the heavy-leverage corner) **passes**
+— the LOOCV residual column `BB`, `Unit_Space_LOOCV_RMSE` / `_MAE`, and
+`Smearing_Treatment` match the NumPy oracle bit-for-bit on the case chosen to
+stress them. The headless suite (the two independent LOOCV verification paths
+above) passes in full. Fixing the categorical break is out of scope for this PR
+and gets an OPEN item in `docs/TODOs.md`.
+
 ---
 
 ## v3.3.x — Regression sheet layout repair
@@ -3100,11 +3262,11 @@ hides its columns including row 1 — so the caption, like the zone's own headin
 is not visible until the zone is expanded. `Comparison_Model_Formula` reads it
 regardless; hidden columns still calculate.
 
-> **SUPERSEDED** by v3.4+ *The spilled §4b zones are no longer grouped or
+> **SUPERSEDED** by v3.5+ *The spilled §4b zones are no longer grouped or
 > collapsed*. The zone ships expanded, so this cost is not paid: the caption is
 > visible. `Comparison_Model_Formula` reads it by name either way.
 
-`Comparison_Model_Formula` is what makes the move free. The v3.4 reading surface
+`Comparison_Model_Formula` is what makes the move free. The v3.5 reading surface
 is a sheet-scoped NAME, and its `RefersTo` is now built from the layout
 constants (`_abs_ref(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA)`) rather than the
 literal `$AB$2` it shipped with — the address was the last hardcoded A1 string in
@@ -3142,16 +3304,71 @@ that it now covers the catalog body rather than an inline cell formula.
 
 ---
 
-## v3.4+ — Ladder ordering and the test-model suite
+### Fixed Effects LOOCV uses the LSDV design's leverage, not the within design's
+
+**Question:** under Fixed Effects, `Unit_Space_LOOCV_Residual` originally reached
+its leave-one-out fitted value through `LOOCV_Prediction`, which reads
+`Hat_Diagonal` of the design the model was fitted on — the within-demeaned
+predictors plus one overall intercept. Is that a genuine leave-one-out?
+
+**No.** That hat diagonal omits the absorbed group effects entirely, so removing
+row *i* never re-estimates *i*'s own group mean, and under a Log response the
+`Y_Full − Y` level shift is computed from the full-sample demeaning and
+therefore still contains the held-out response. The result understates the
+error, and it does so silently — it is a plausible number, not an error.
+Measured against explicit n-fold LSDV refits: RMSE 0.07404 against a true
+0.07733 on `production_lots_fixed_effects`, and 9378.38 against 9786.90 on
+`production_lots_log_transform`.
+
+**Resolution: correct the leverage to the equivalent LSDV design's, in closed
+form.** The within projection and the group-mean projection are orthogonal, so
+the LSDV hat diagonal decomposes exactly:
+
+    h_lsdv(i) = h_within(i) + 1 / n_g(i)
+
+and the shipped `h` already carries the single overall intercept's `1/n`, so
+
+    h_lsdv = h − 1/n + 1/n_g
+
+The fitted values and residuals need no correction at all: the LSDV fit is the
+within fit plus the group mean, and the response shifts by that same group mean,
+so `Predictions + level_shift` IS the LSDV fitted value and `e` IS the LSDV
+residual. Only the leverage was ever wrong.
+
+**Why not materialize the dummies.** The obvious alternative — build the full
+LSDV design with one dummy per non-reference group and take its hat diagonal —
+is correct but costs a G-column matrix, and G is 173 on the Life Expectancy
+panel. The decomposition gets the identical number (agreement with explicit
+refits to 7e-14) from a per-row group size, which `Group_Size` supplies in
+O(n × G) by taking the distinct keys once rather than counting per row.
+
+**The group column is required, not optional.** `Unit_Space_LOOCV_*` take an
+optional `[FE_Group]`. When the model absorbs fixed effects and no group column
+is supplied, they return `#N/A` rather than falling back to the within number —
+the conditional value is exactly the wrong answer this decision exists to
+remove. `Unit_Space_LOOCV_RMSE` / `_MAE` branch on `ISOMITTED(FE_Group)` and
+make two distinct calls rather than forwarding a defaulted `""`, because a
+defaulted value would read as *present* downstream and defeat the guard.
+
+**What is deliberately NOT changed:** the fit-space `PRESS` / `LOOCV_Residual`
+column (`AX`). It is the shipped v1.2 statistic and reports the within model's
+own leave-one-out residual, which is a different and legitimate quantity. The
+consequence is that the v3.3 reduction invariant now has one documented
+exception: `Unit_Space_LOOCV_Residual ≡ LOOCV_Residual` under
+`Transform = None` **without** FE, and deliberately not with it.
+
+---
+
+## v3.5+ — Ladder ordering and the test-model suite
 
 ### The post-v3.3 ladder: Regression work first, then test-suite growth
 
 **Question:** in what order should the remaining planned milestones ship?
 Through v3.3 the order was inherited from the original v2.x feature train,
 renumbered but never re-argued, with five candidates sitting in an
-unordered "v3.8+" bucket.
+unordered "v3.9+" bucket.
 
-**Resolution:** RESOLVED — every milestone from v3.4 on is sequenced by two
+**Resolution:** RESOLVED — every milestone from v3.5 on is sequenced by two
 keys, in this order:
 
 1. **All remaining Regression work ships first.** A milestone that extends
@@ -3165,34 +3382,34 @@ keys, in this order:
 
 | Track | Tier | Milestones |
 |---|---|---|
-| Regression | additive | v3.4 Model Comparison |
-| Regression | near-additive | v3.5 `Cluster` · v3.6 `Time` Role |
-| Regression | ~2× | v3.7 WLS · v3.8 Two-way FE |
-| Regression | ~10× axis-widener | v3.9 standalone transform library |
-| New surface | additive | v3.10 Two-sample · v3.11 Resampling · v3.12 Time Series |
+| Regression | additive | v3.5 Model Comparison |
+| Regression | near-additive | v3.6 `Cluster` · v3.7 `Time` Role |
+| Regression | ~2× | v3.8 WLS · v3.9 Two-way FE |
+| Regression | ~10× axis-widener | v3.10 standalone transform library |
+| New surface | additive | v3.11 Two-sample · v3.12 Resampling · v3.13 Time Series |
 
 Three milestones changed number and three left the unordered bucket:
-`Cluster` → **v3.5**, `Time` → **v3.6**, two-way FE →
-**v3.8** (all promoted); the standalone transform library out of the v3.3
-remainder to **v3.9**; Two-sample v3.6 → **v3.10** and Resampling v3.5 →
-**v3.11**. WLS holds **v3.7**, the number it was claimed under, but reaches
+`Cluster` → **v3.6**, `Time` → **v3.7**, two-way FE →
+**v3.9** (all promoted); the standalone transform library out of the v3.3
+remainder to **v3.10**; Two-sample v3.7 → **v3.11** and Resampling v3.6 →
+**v3.12**. WLS holds **v3.8**, the number it was claimed under, but reaches
 it as the first ~2× item in the Regression track rather than by inheritance.
 v3.3 keeps its number for the half that shipped. What was left unordered —
 ANOVA, Fourier, decision analysis — stays unordered, because nothing about
-their test cost sequences them either; it was numbered **v3.12+** at the time
-of this decision and is **v3.13+** since the Time Series sheet took v3.12 (see
+their test cost sequences them either; it was numbered **v3.13+** at the time
+of this decision and is **v3.13+** since the Time Series sheet took v3.13 (see
 below).
 
-**Later amendment — v3.6 splits, and the Time Series sheet becomes v3.12.**
+**Later amendment — v3.7 splits, and the Time Series sheet becomes v3.12.**
 This decision applied key 1 to every milestone except one it did not notice:
-v3.6 was itself half Regression work and half a new analysis surface. Its
+v3.7 was itself half Regression work and half a new analysis surface. Its
 entry read "`Time` Role + time series" and bundled time-index semantics on the
 spec block with a whole new worksheet. Under key 1 those belong on opposite
-ends of the ladder, so the sheet moved to **v3.12**, ahead of the unordered
-bucket, and v3.6 kept the Role, the lag/difference semantics, and the
-calendar-dated dataset. The split also makes v3.6's near-additive rating
+ends of the ladder, so the sheet moved to **v3.13**, ahead of the unordered
+bucket, and v3.7 kept the Role, the lag/difference semantics, and the
+calendar-dated dataset. The split also makes v3.7's near-additive rating
 honest — its test cost was always the dataset, never the sheet. See
-[§ v3.12 below](#v312--time-series-analysis-sheet).
+[§ v3.13 below](#v313--time-series-analysis-sheet).
 
 **Rationale, key 2.** The suite is a covering array over the implemented
 feature axes, so a feature's cost is not the code it adds but the *cross* it
@@ -3220,10 +3437,10 @@ actually have feature-incomplete for longer while effort goes elsewhere. The
 deferral costs no rework: none depends on any Regression milestone, and no
 Regression milestone depends on them, so all cost the same whenever they are
 built. The one prerequisite anywhere in the block is a *dataset* — the Time
-Series sheet wants the calendar series v3.6 wires, which is why it goes last of
+Series sheet wants the calendar series v3.7 wires, which is why it goes last of
 the three.
 
-**The inversion is deliberate.** v3.10, v3.11 and v3.12 are *cheaper* to test
+**The inversion is deliberate.** v3.11, v3.12 and v3.13 are *cheaper* to test
 than four of the milestones ahead of them and still ship last. That is key 1
 overriding key 2, recorded explicitly so a future reader does not "correct"
 the ladder back to pure test-scale order.
@@ -3235,14 +3452,14 @@ axes to cross.
 
 **REJECTED — pure test-scale ordering across both tracks.** That was the
 first form of this decision, and it interleaved the two non-Regression
-milestones at v3.5 and v3.6, ahead of every multiplier. It optimizes the
+milestones at v3.6 and v3.7, ahead of every multiplier. It optimizes the
 suite's growth curve at the cost of the artifact's completeness, which is the
 wrong trade for a tool with one user waiting on the Regression workbook.
 
 **Not frozen.** The tool is single-user and pre-release. A user pressing for a
 milestone reorders it; the rule is that
 [docs/MODEL_TESTING_ASSETS.md](MODEL_TESTING_ASSETS.md) § 2 is edited
-first and the [ROADMAP.md](ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth)
+first and the [ROADMAP.md](ROADMAP.md#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth)
 ladder second, so the two never disagree about why the order is what it is.
 
 ### The test-model plan is a document, not a test file
@@ -3265,7 +3482,7 @@ The half that *is* enforced in code stays enforced: `_EXPECTED_CASE_NAMES` in
 or dropped without a test failure. The document says what should exist; the
 pinned list says what does.
 
-## v3.4+ — Test-model oracles and the one-sheet-per-model framework
+## v3.5+ — Test-model oracles and the one-sheet-per-model framework
 
 ### Guard states get their own case type, not a flag on `RegressionSpecCase`
 
@@ -3731,7 +3948,7 @@ every oracle, then the verifier computes them again — is 3.4 s.
 same (1.65 s), so this is not a claim that the existing cache was a mistake;
 it is a claim that a second one buys nothing today. If a future milestone
 adds a genuinely expensive oracle — a bootstrap or permutation case under
-v3.11 Resampling, say, where the cost is in resamples rather than a single
+v3.12 Resampling, say, where the cost is in resamples rather than a single
 fit — revisit it for that case rather than for the suite.
 
 ### BFN panel Durbin-Watson joins the compared scalars
@@ -3806,7 +4023,7 @@ failure.**
 
 ---
 
-## v3.4+ — The spec block sizes itself; `SpecTable` removed
+## v3.5+ — The spec block sizes itself; `SpecTable` removed
 
 **RESOLVED — the `Spec_*` bands and the four computed spec columns derive their
 height from `COLUMNS(Source_Data)`, and the `SpecTable` ListObject is gone.**
@@ -3910,7 +4127,7 @@ stopped creating has no other sweeper.
 
 ---
 
-## v3.4+ — The spilled §4b zones are no longer grouped or collapsed
+## v3.5+ — The spilled §4b zones are no longer grouped or collapsed
 
 ### Collapsing a zone that holds a spill stops the model recalculating
 
@@ -4148,36 +4365,36 @@ necessarily expanded the group to do so.
 
 ---
 
-## v3.12 — Time Series Analysis sheet
+## v3.13 — Time Series Analysis sheet
 
 The milestone that gives the library an identification surface: ACF and PACF,
 white-noise and stationarity testing, decomposition, and the smoothing and
 forecasting that used to sit under v3.6. Planned entry:
-[ROADMAP.md § v3.12](ROADMAP.md#v312--time-series-analysis-sheet--planned).
+[ROADMAP.md § v3.13](ROADMAP.md#v313--time-series-analysis-sheet--planned).
 
-### The sheet splits off v3.6 rather than shipping inside it
+### The sheet splits off v3.7 rather than shipping inside it
 
-**Question:** v3.6 was written as "`Time` Role + time series" and carried both
+**Question:** v3.7 was written as "`Time` Role + time series" and carried both
 an engine change and a new worksheet. Should the ACF/PACF work extend that
 entry, or take a number of its own?
 
-**Resolution:** RESOLVED — split. v3.6 keeps the `Time` Role, the cross-sheet
+**Resolution:** RESOLVED — split. v3.7 keeps the `Time` Role, the cross-sheet
 `Lag_By` / `Difference_By` semantics, and the calendar-dated dataset; the
-worksheet and every function that only exists to feed it become **v3.12**,
+worksheet and every function that only exists to feed it become **v3.13**,
 after Two-sample and Resampling.
 
 **Rationale.** Key 1 of the ladder ordering already answers this: a milestone
 that opens a new analysis surface ships behind every milestone that extends the
-Regression artifact. v3.6 was the one entry that straddled the rule, and it did
+Regression artifact. v3.7 was the one entry that straddled the rule, and it did
 so by accident of history rather than by argument — the Role and the sheet were
 written into one bullet before key 1 existed. Splitting applies the rule the
-ladder already committed to, and it makes v3.6's *near-additive* test rating
+ladder already committed to, and it makes v3.7's *near-additive* test rating
 true: the cost of that milestone was always wiring one dataset, never building
 a worksheet, and the rating was quietly counting only the former.
 
 The split costs no rework. The Role is what the sheet would read anyway, and it
-lands two milestones earlier; the dataset it wires is the only asset v3.12
-needs, which is also why v3.12 goes *last* of the three new surfaces rather
+lands two milestones earlier; the dataset it wires is the only asset v3.13
+needs, which is also why v3.13 goes *last* of the three new surfaces rather
 than first — it is the only one with a prerequisite anywhere on the ladder,
 cheap as that prerequisite is.
 

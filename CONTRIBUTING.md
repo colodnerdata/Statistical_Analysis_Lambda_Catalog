@@ -140,9 +140,9 @@ Tests live in `tests/`. The current test files are:
 | `test_ln_positive_verification.py` | v2.2 Transform=Log — `Ln_Positive` pure-Python mirror (the `NA()`-exception contract, the geometric-mean round-trip the Prediction Inputs fix relies on) and implementation-shape assertions on the catalog formula |
 | `test_transform_threading.py` | v2.2 Transform=Log wiring end to end — cross-checks the new `production_lots_log_transform` QC case (raw columns, `transform="Log"`) against the pre-existing precomputed-log-column case to floating-point precision; Categorical×Log inertness |
 | `test_interaction_wiring.py` | v3.1 interaction wiring — the spec block's M/N pair against the Python mirror in `analyze_regression_spec.build_spec_design`: the three width regimes (1 / L−1 / (L₁−1)(L₂−1)), the closed Product/Difference/Ratio arithmetic, the four operand Role/Include cases, the two-way limit, the documented quadratic, and Ratio's zero-denominator refusal |
-| `test_numeric_complete_cases_verification.py` | v3.9 `Numeric_Complete_Cases` — pure-Python mirror (Excel `ISNUMBER` semantics, not pandas coercion) and implementation-shape assertions on the catalog formula |
-| `test_categorical_model_construction_verification.py` | v3.9 trio (`Dummy_Column`/`Interact`/`Model_Matrix`) — pure-Python mirrors with Excel broadcasting and `""`/`#N/A` propagation, plus catalog-formula shape assertions (workbook-scoped, document order, none calls `LINEST`) |
-| `test_categorical_model_construction_excel.py` | v3.9 trio — Excel COM evaluation of the catalog formulas (gated on `RUN_EXCEL_INTEGRATION=1`); the workbook-backed companion to the pure-Python mirror, reading the spills back after a full recalculation |
+| `test_numeric_complete_cases_verification.py` | v3.10 `Numeric_Complete_Cases` — pure-Python mirror (Excel `ISNUMBER` semantics, not pandas coercion) and implementation-shape assertions on the catalog formula |
+| `test_categorical_model_construction_verification.py` | v3.10 trio (`Dummy_Column`/`Interact`/`Model_Matrix`) — pure-Python mirrors with Excel broadcasting and `""`/`#N/A` propagation, plus catalog-formula shape assertions (workbook-scoped, document order, none calls `LINEST`) |
+| `test_categorical_model_construction_excel.py` | v3.10 trio — Excel COM evaluation of the catalog formulas (gated on `RUN_EXCEL_INTEGRATION=1`); the workbook-backed companion to the pure-Python mirror, reading the spills back after a full recalculation |
 
 ### Coverage scope
 
@@ -171,7 +171,7 @@ The unit tests above check functions. The **test-model suite** checks *model con
 1. **It is a covering array, not a full factorial.** Every implemented corner case is exercised by at least one model, and every model earns its place by covering something no other model does. Target size: ~25–30 fittable models plus ~10 guard-state configurations. Full crosses (every transform × every interaction × every role) are explicitly out of scope — they multiply sheet count without adding information.
 2. **A case is a `RegressionSpecCase`, not a sheet fixture.** Cases are declared in `lambda_catalog/analyze_regression_spec.py` (`SpecVariable` rows built with `_spec_var(...)`, `source_csv_path` / `row_loader` / `source_table_ref` for a non-default dataset, `prediction_group` for the FE prediction box, `back_transform` for the Duan/Naive toggle) and expected values come from `calculate_regression_spec_case`, which fits with NumPy/statsmodels rather than reading the workbook back. A **guard-rail** configuration is a `GuardStateCase` in `lambda_catalog/analyze_regression_guard_states.py` instead — most of them make `calculate_regression_spec_case` raise by design, and what they assert is status text, the per-row Design Columns audit and which CF rules fire, not fit statistics.
 3. **Every case is pinned by name.** `_EXPECTED_CASE_NAMES` in `tests/test_regression_spec_qc.py` is an ordered list asserted against `build_regression_spec_cases()`, so a case cannot be added, renamed, reordered, or silently dropped without the test failing. Add the name there in the same commit. Guard cases have the same regime in `_EXPECTED_GUARD_NAMES` (`tests/test_regression_guard_states.py`).
-4. **The suite's growth rate orders the roadmap, under one constraint.** From v3.4 on the ladder sorts first by track — all remaining Regression work before the three milestones that open a new analysis surface (v3.10 Two-sample, v3.11 Resampling, v3.12 Time Series) — and then, within the Regression track, by how much a milestone forces this suite to grow: additive first, axis-wideners last. See [ROADMAP.md § Ladder order](docs/ROADMAP.md#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).
+4. **The suite's growth rate orders the roadmap, under one constraint.** From v3.5 on the ladder sorts first by track — all remaining Regression work before the three milestones that open a new analysis surface (v3.11 Two-sample, v3.12 Resampling, v3.13 Time Series) — and then, within the Regression track, by how much a milestone forces this suite to grow: additive first, axis-wideners last. See [ROADMAP.md § Ladder order](docs/ROADMAP.md#ladder-order-from-v35-on-regression-work-first-then-test-suite-growth).
 
 ### Adding a case
 
@@ -215,7 +215,7 @@ One build script produces one workbook. `build_production.py` emits the unified 
 |---|---|---|---|
 | `Lambda_Library.xlsx` | The unified workbook | **Automatic** (full) | Regression, Regression Instructions, Diagnostic Guide, Univariate, LAMBDA_functions, Version History, Production Lots, Life Expectancy Data, Mileage Data |
 
-**The workbook carries the complete function library.** All 152 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
+**The workbook carries the complete function library.** All 157 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
 
 **The production constructor always runs the full `CalculateFullRebuild` and saves in full Automatic** — there is no skip-calculation flag.
 
@@ -298,7 +298,7 @@ uv run pytest tests/test_workbook_invariants.py -v
 
 Every check in this layer is always-on, the committed-artifact ones included: they read `dist/Lambda_Library.xlsx` as a zip, so a stale or hand-edited workbook fails here rather than shipping. If it does fail, rebuild and commit the artifact (`python scripts/build_production.py --verify --no-launch`, needs Excel) — the check is not the thing to relax.
 
-`RUN_EXCEL_INTEGRATION=1` now gates two suites only, the Excel COM checks for the grid-search helpers and the v3.9 categorical & model-construction trio:
+`RUN_EXCEL_INTEGRATION=1` now gates two suites only, the Excel COM checks for the grid-search helpers and the v3.10 categorical & model-construction trio:
 
 ```powershell
 poe test-excel               # needs desktop Excel; skips without it

@@ -872,7 +872,7 @@ def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:
     assert "Dummy_Levels" not in formula
     # Sample_Include() is hoisted out of the MAP: it does not vary by row,
     # and the per-row version re-evaluated the whole mask once per row.
-    assert "si,Sample_Include()," in formula
+    assert "si,Fit_Sample_Include()," in formula
     # The map index selects the source column — no row arithmetic, so the
     # spill does not care which row it sits on.
     assert "col,INDEX(Source_Data,0,i)" in formula
@@ -896,7 +896,7 @@ def test_design_columns_audit_mirrors_the_constructors_own_skip_rules() -> None:
     assert 'kk,LAMBDA(x,IF(INDEX(typ,x)<>"Categorical",1,' in formula
     assert "COLUMNS(Dummy_Levels(" in formula
     assert 'IF(LEN(INDEX(refs,x)&"")=0,"",INDEX(refs,x))' in formula
-    assert "si,Sample_Include()," in formula
+    assert "si,Fit_Sample_Include()," in formula
     # The map index selects the source column, same mapping K and L use.
     assert "k,kk(i)," in formula
     # Reading the Levels display instead would make one display depend on
@@ -1063,7 +1063,7 @@ def test_reference_in_use_echoes_e_or_shows_the_sorted_default() -> None:
     # EXCEPT the reference.
     assert "INDEX(SORT(UNIQUE(FILTER(" in formula
     assert "Dummy_Levels" not in formula
-    assert "si,Sample_Include()," in formula
+    assert "si,Fit_Sample_Include()," in formula
     assert "col,INDEX(Source_Data,0,i)" in formula
     assert 'x,IF(col="","",col)' in formula
     # Empty masked sample degrades to blank (H shows 0 and flags red there).
@@ -1145,7 +1145,7 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
         f'=AND($G{r}="Log",'
         f'OR($B{r}="Response (y)",'
         f'AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Continuous")),'
-        "SUMPRODUCT(--Sample_Include(),"
+        "SUMPRODUCT(--Fit_Sample_Include(),"
         f"--IFERROR((INDEX(Source_Data,0,ROW()-{off})+0)<=0,FALSE))>0)",
     ]
     assert transform_col[0].Font.Color == excel_color(INPUT_COLOR)
@@ -1206,7 +1206,7 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
     invalid = sheet.range(f"$E${r}:$E${_VALIDATION_LAST_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in invalid] == [
         f'=AND($E{r}<>"",ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-{off}),'
-        f"$E{r},Sample_Include())))"
+        f"$E{r},Fit_Sample_Include())))"
     ]
     assert invalid[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert invalid[0].Font.Color == excel_color(CF_DARK_RED_TEXT)

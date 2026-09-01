@@ -201,20 +201,17 @@ def _write_materialization_zone(
     the mechanism is settled and the remaining risk is per-call-site, not
     structural.
 
-    **The v3.2 name-promotion landed here, via a ``_Calc`` split.** The
-    spill-source cells call the computational leaves ``=Sample_Include_Calc()``
-    and ``=Design_Columns_Calc()`` (catalog LAMBDAs holding the REDUCE bodies),
-    NOT the public ``Sample_Include()`` / ``Design_Columns()`` names. The public
-    names are READERS over these spills — ``Sample_Include`` dispatches to
-    ``Fit_Sample_Include()`` for the default and to ``Sample_Include_Calc(FALSE)``
-    for the pre-positivity mask; ``Design_Columns`` delegates to
-    ``Fit_Design_Columns()``. Producing the spill from the ``_Calc`` leaf is what
-    breaks the self-reference that kept the promotion deferred: the producing
-    cell no longer calls the name that reads its own spill. ``Sample_Include``
-    keeps its ordinary pre-drop eligibility semantics because
-    ``Sample_Include()`` — the mask BEFORE the positivity layer that
-    ``Log_Domain_Status`` differences against the default — still delegates to
-    ``Sample_Include_Calc(FALSE)``; only the default mask is materialized here.
+    The sample-mask surface now makes the Log-drop distinction explicit.
+    ``Sample_Include_Calc()`` computes ordinary eligibility only (Filters plus
+    numeric completeness), and public ``Sample_Include()`` delegates directly
+    to that ordinary mask. ``Log_Drop_Sample_Include_Calc()`` starts from it and
+    adds positivity only where the spec declares exactly ``Log (drop ≤ 0)``.
+    THAT final mask is what the spill-source cell materializes here, and
+    ``Fit_Sample_Include()`` is the sheet-scoped reader over the materialized
+    spill. Strict ``Log`` therefore never filters a row; a surviving non-positive
+    value reaches ``Ln_Positive`` and fails visibly. ``Design_Columns_Calc()``
+    remains the design-matrix spill source and public ``Design_Columns()`` reads
+    it through ``Fit_Design_Columns()``.
 
     A wrong range in one of these names does not error — it returns numbers
     from the wrong rows — so the migration goes zone by zone against the
@@ -296,13 +293,11 @@ def _write_materialization_zone(
     # ── Sample_Include (materialized row mask) ───────────────────────────────
     # The mask spills full-height and row-aligned with the source table (the
     # row-mask contract), so it reads straight across into the design-matrix
-    # rows beside it. The spill-source cell calls the _Calc computational leaf
-    # (=Log_Drop_Sample_Include_Calc()), while public Sample_Include() remains the ordinary pre-drop eligibility mask. Before the
-    # v3.2 promotion the spill cell WAS =Sample_Include(); pointing the public
-    # name — now a reader over THIS spill via Fit_Sample_Include() — at a cell
-    # that called itself would have been self-referential. The _Calc split is
-    # what breaks that cycle: the producing cell calls the leaf, so the public
-    # reader can read the spill without self-reference (see the docstring).
+    # rows beside it. The spill-source cell calls the explicitly Log-drop-aware
+    # computational leaf (=Log_Drop_Sample_Include_Calc()). Public
+    # Sample_Include() is deliberately different: it returns ordinary eligibility
+    # before transform-driven dropping. Fit_Sample_Include() is the reader over
+    # THIS final fitted-mask spill (see the docstring).
     section_heading(sheet, 1, _C_SAMPLE_INCLUDE_MATERIALIZED, "Sample Include")
     val(
         sheet,
@@ -338,7 +333,7 @@ def _write_materialization_zone(
         sheet.range(rc(1, _C_SAMPLE_INCLUDE_MATERIALIZED)).api.AddComment(
             "TRUE for every source row the model is fitted on. Read-only view "
             "of the row mask the engines apply — change it through the spec "
-            "block (Include, and any Role=Filter column), not here. Full "
+            "block (Include, Role=Filter, or Transform=Log (drop ≤ 0)), not here. Full "
             "height and row-aligned with the source table, so it reads "
             "straight across into the design matrix to its right."
         )

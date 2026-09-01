@@ -377,21 +377,20 @@ def test_intercept_only_n_does_not_depend_on_filter() -> None:
 def test_no_catalog_body_or_sheet_name_sums_a_range_reader_with_n() -> None:
     """Repo-wide guard for the N()-of-range-reader coercion defect.
 
-    N() of a range/array-returning thunk (Fit_Sample_Include(), or the no-arg
-    Sample_Include() which on main returns that same reader) collapses to the
-    top-left cell, so SUMPRODUCT(N(<reader>())) returns 1 for any non-empty
-    sample. That is the Log_Domain_Status amber bug (PR #237) and the
-    Intercept_Only_N bug this test sits next to: both made a per-sheet count
-    read 1 instead of the included-row count.
+    N() of an array/range-returning thunk such as Sample_Include() or
+    Fit_Sample_Include() can collapse to the top-left cell, so
+    SUMPRODUCT(N(<reader>())) may return 1 for any non-empty sample. That is
+    the Log_Domain_Status amber bug (PR #237) and the Intercept_Only_N bug this
+    test sits next to: both made a per-sheet count read 1 instead of the row
+    count represented by the mask.
 
     No import can reach a JSON string literal or a Python RefersTo string, so a
     source scan is the only thing that catches a future call site retaining the
     pattern. The guard sweeps every catalog body AND every RefersTo the
     Regression sheet-writer registers (the constructor closures AND the
     local-only names like Intercept_Only_N), so neither half can regress alone.
-    N(Sample_Include()) / N(base) are NOT defects — the FALSE arg returns
-    an array leaf, which N() sums correctly — so only the no-arg reader forms
-    are rejected.
+    Both no-argument mask thunks are rejected here; callers that need a count
+    must coerce the returned array explicitly with -- rather than N().
     """
     defect_patterns = ("N(Fit_Sample_Include())", "N(Sample_Include())")
 
@@ -2217,3 +2216,19 @@ def test_betapert_cdf_expr_uses_valid_let_variable_names() -> None:
     assert ",a2," not in cdf_expr
     # parentheses must balance
     assert cdf_expr.count("(") == cdf_expr.count(")")
+
+
+def test_spec_fit_dependent_displays_use_materialized_fit_mask() -> None:
+    from lambda_catalog.write_spec_block import (
+        _DESIGN_COLUMNS_SPILL_FORMULA,
+        _LEVELS_SPILL_FORMULA,
+        _REF_IN_USE_SPILL_FORMULA,
+    )
+
+    for formula in (
+        _LEVELS_SPILL_FORMULA,
+        _REF_IN_USE_SPILL_FORMULA,
+        _DESIGN_COLUMNS_SPILL_FORMULA,
+    ):
+        assert "Fit_Sample_Include()" in formula
+        assert "Sample_Include()" not in formula.replace("Fit_Sample_Include()", "")

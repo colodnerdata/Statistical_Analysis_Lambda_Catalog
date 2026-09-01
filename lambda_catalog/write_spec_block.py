@@ -51,7 +51,7 @@ non-narrow columns T/W/Z/AB/AD/AF/AH/AJ (never on a width-2 break):
 
     k = COLUMNS(Predictor_Columns()) · rows = ROWS(Predictor_Columns()) · response = <derived name> ·
     responses = <count of Role="Response (y)"> (red CF when <> 1) ·
-    included rows = SUMPRODUCT(N(Sample_Include())) ·
+    included rows = SUMPRODUCT(--Fit_Sample_Include()) ·
     sequence flags = <count of Sequence=TRUE> (red CF when > 1)
 
 Row 3 above R carries the =Constructed_Column_Names() header strip
@@ -178,7 +178,7 @@ ROWS(Sample_Include()) = 406 always — the constructor reads the mask ONLY
 to fix level sets; nothing here ever row-filters. With the real mask live,
 the T0 mask-dependent values are real on the sheet: k = 16 (2 continuous +
 2 Origin dummies + 12 Model Year dummies), and
-SUMPRODUCT(N(Sample_Include())) = 392 (completeness-only on the response
+SUMPRODUCT(--Fit_Sample_Include()) = 392 in the shipped no-Log-drop default (completeness-only on the response
 and the two continuous predictors; Auto MPG ships no Filter-by-default
 column, so the active Filter role is exercised only by the Is_USA fixture).
 
@@ -398,7 +398,7 @@ _PERIOD_IN_USE_SPILL_FORMULA = (
 )
 
 # K — Levels display. Categorical Predictors only; the raw distinct level
-# count L over the mask-included rows, with Dummy_Levels' blank
+# count L over the fitted rows, with Dummy_Levels' blank
 # normalization mirrored inline. Deliberately NOT a Dummy_Levels call: the
 # display must show L (including 1 for a degenerate column, feeding the red
 # CF), while Dummy_Levels returns the L−1 retained levels and #N/A when
@@ -407,7 +407,7 @@ _LEVELS_SPILL_FORMULA = (
     "=LET(nc,COLUMNS(Source_Data),"
     "rl,TAKE(Spec_Role,nc),"
     "typ,TAKE(Spec_Type,nc),"
-    "si,Sample_Include(),"
+    "si,Fit_Sample_Include(),"
     "MAP(SEQUENCE(nc),LAMBDA(i,"
     f'IF(OR(INDEX(rl,i)<>"{_ROLE_PREDICTOR}",'
     'INDEX(typ,i)<>"Categorical"),"",'
@@ -420,7 +420,7 @@ _LEVELS_SPILL_FORMULA = (
 # drop, surfaced even when defaulted. A nonblank Reference Level is echoed
 # verbatim (its invalid-reference CF carries the error signal); a blank one
 # shows Dummy_Levels' own default, the first sorted level over the
-# mask-included sample. Deliberately NOT a Dummy_Levels call: that function
+# fitted sample. Deliberately NOT a Dummy_Levels call: that function
 # returns the RETAINED levels, which is the set the reference has been
 # dropped from. IFERROR -> "" covers the empty-masked-sample edge (K shows 0
 # and flags red there).
@@ -429,7 +429,7 @@ _REF_IN_USE_SPILL_FORMULA = (
     "rl,TAKE(Spec_Role,nc),"
     "typ,TAKE(Spec_Type,nc),"
     "refs,TAKE(Spec_Reference,nc),"
-    "si,Sample_Include(),"
+    "si,Fit_Sample_Include(),"
     "MAP(SEQUENCE(nc),LAMBDA(i,"
     f'IF(OR(INDEX(rl,i)<>"{_ROLE_PREDICTOR}",'
     'INDEX(typ,i)<>"Categorical"),"",'
@@ -484,7 +484,7 @@ _REF_IN_USE_SPILL_FORMULA = (
 # arithmetic, so the formula no longer depends on where it is written.
 #
 # Everything invariant across rows is hoisted into the outer LET —
-# Sample_Include(), TOROW(Header_Names) and the kk helper itself. The
+# Fit_Sample_Include(), TOROW(Header_Names) and the kk helper itself. The
 # per-row version re-evaluated all three once per row; kk still calls
 # Sample_Include() once per categorical operand, but the closure is now
 # built once for the column rather than once per row.
@@ -496,7 +496,7 @@ _DESIGN_COLUMNS_SPILL_FORMULA = (
     "inc,TAKE(Spec_Include,nc),"
     "it,TAKE(Spec_Interaction_Term,nc),"
     "io,TAKE(Spec_Interaction_Operation,nc),"
-    "si,Sample_Include(),"
+    "si,Fit_Sample_Include(),"
     "hdr,TOROW(Header_Names),"
     'kk,LAMBDA(x,IF(INDEX(typ,x)<>"Categorical",1,'
     "IFERROR(COLUMNS(Dummy_Levels(INDEX(Source_Data,0,x),"
@@ -1067,7 +1067,7 @@ def _write_spec_block(
     # "Log (drop ≤ 0)" never fires this rule. It is a correct declaration whose
     # consequence — a narrower sample — is reported at G2 in amber instead.
     #
-    # The row test mirrors Sample_Include's own eligibility branch exactly:
+    # The row test mirrors the transform eligibility branch exactly:
     # only the Response and included Continuous Predictors reach Ln_Positive,
     # so a Log left on an Identifier or an excluded row is inert and unflagged.
     # Sample_Include() is the mask BEFORE the positivity layer, which is
@@ -1083,7 +1083,7 @@ def _write_spec_block(
             f'AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
             f"$C{_FIRST_DATA_ROW}=TRUE,"
             f'$D{_FIRST_DATA_ROW}="Continuous")),'
-            "SUMPRODUCT(--Sample_Include(),"
+            "SUMPRODUCT(--Fit_Sample_Include(),"
             "--IFERROR((INDEX(Source_Data,0,"
             f"ROW()-{_ROW_TO_COL_OFFSET})+0)<=0,FALSE))>0)"
         ),
@@ -1092,7 +1092,7 @@ def _write_spec_block(
     )
 
     # Invalid-reference flag: red E when a nonblank reference makes
-    # Dummy_Levels fail — the constructor's exact skip condition, tested
+    # Dummy_Levels fail on the fitted sample — the constructor's exact skip condition, tested
     # directly rather than via level-set membership (a membership test
     # against the returned set would false-positive on the default
     # reference itself, which Dummy_Levels excludes from its output).
@@ -1102,7 +1102,7 @@ def _write_spec_block(
         (
             f'=AND($E{_FIRST_DATA_ROW}<>"",'
             f"ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-{_ROW_TO_COL_OFFSET}),"
-            f"$E{_FIRST_DATA_ROW},Sample_Include())))"
+            f"$E{_FIRST_DATA_ROW},Fit_Sample_Include())))"
         ),
         fill=CF_LIGHT_RED_FILL,
         font_color=CF_DARK_RED_TEXT,

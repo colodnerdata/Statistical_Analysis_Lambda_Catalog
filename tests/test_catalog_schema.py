@@ -410,12 +410,12 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 # one Delta per sheet, not one shared with whichever sheet
                 # happens to be named "Regression".
                 "Base_Period_Delta",
-                # The v3.2 name-promotion: the _Calc computational leaf precedes
-                # the public reader that delegates to it. Sample_Include_Calc is
-                # the REDUCE leaf the spill cell (=Log_Drop_Log_Drop_Sample_Include_Calc()) calls;
-                # Sample_Include is the reader over that spill (and delegates
-                # FALSE to Sample_Include_Calc). Document order IS dependency
-                # order (see _set_sheet_scoped_names).
+                # Two-mask contract: Sample_Include_Calc computes ordinary
+                # eligibility and public Sample_Include delegates to it. The
+                # later Log_Drop_Sample_Include_Calc adds only the explicit
+                # Log (drop ≤ 0) positivity layer and is the final-mask spill
+                # source read by Fit_Sample_Include(). Document order IS
+                # dependency order (see _set_sheet_scoped_names).
                 "Sample_Include_Calc",
                 "Sample_Include",
                 "Log_Drop_Sample_Include_Calc",

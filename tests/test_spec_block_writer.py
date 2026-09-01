@@ -112,6 +112,7 @@ _EXPECTED_NAME_ORDER = [
     # delegate to. _Calc precedes its public reader (dependency order).
     "Sample_Include_Calc",
     "Sample_Include",
+    "Log_Drop_Sample_Include_Calc",
     "Response_Column",
     "Row_Labels",
     "Predictor_Columns",
@@ -130,7 +131,7 @@ _EXPECTED_NAME_ORDER = [
     "Sequence_Delta_Spectrum",
     "Model_Formula",
     # The row-2 status readouts. Three read only the wiring names, but
-    # Log_Domain_Status calls Sample_Include(FALSE) (which delegates to the
+    # Log_Domain_Status calls Sample_Include() (which delegates to the
     # _Calc leaf), so the whole group installs after the constructors rather
     # than being interleaved among them.
     "Role_Status",
@@ -307,52 +308,32 @@ def test_spec_ranges_cover_the_standard_input_band() -> None:
 
 def test_sample_include_is_the_reduce_product_mask() -> None:
     sheet = _named_sheet()
-    # v3.2 name-promotion: the REDUCE body lives in the _Calc computational
-    # leaf; the public Sample_Include name is a reader that delegates to it
-    # (see test_sample_include_is_a_reader_over_its_spill). The leaf carries
-    # the optional apply_log_domain argument verbatim.
-    mask = _refers_to(sheet, "Sample_Include_Calc")
+    base = _refers_to(sheet, "Sample_Include_Calc")
+    final = _refers_to(sheet, "Log_Drop_Sample_Include_Calc")
 
-    # One optional argument: Sample_Include_Calc(FALSE) is the mask WITHOUT the
-    # Log positivity layer, which is what the G2 status cell (via the public
-    # Sample_Include(FALSE) reader) differences against the default to report
-    # the excluded-row count. Every existing call site omits it and is unaffected.
-    assert mask.startswith("=LAMBDA([apply_log_domain],LET(")
-    assert (
-        "use_log,IF(ISOMITTED(apply_log_domain),TRUE,apply_log_domain)"
-    ) in mask
-    # Filter columns: truthy — TRUE and 1 pass, FALSE/0/blank/text fail.
-    # Coercion is (col+0), NOT N(col): col is a bare range reference, and N()
-    # of a bare reference implicit-intersects it to a scalar, silently voiding
-    # the Filter (the 2482-vs-1649 mask bug). Arithmetic broadcasts instead.
-    assert 'IF(INDEX(rl,j)="Filter",acc*--(IFERROR((col+0)=1,FALSE))' in mask
-    assert "N(IFERROR(N(col)" not in mask
-    # Completeness: the Response and every included Continuous Predictor —
-    # and, for those declaring Log (drop ≤ 0) only, strict positivity. Same
-    # (col+0) coercion as the Filter branch, for the same reason.
-    assert (
-        'IF(OR(INDEX(rl,j)="Response (y)",'
-        'AND(INDEX(rl,j)="Predictor (x)",INDEX(inc,j)=TRUE,'
-        'INDEX(typ,j)="Continuous")),acc*N(ISNUMBER(col))'
-        '*IF(AND(use_log,INDEX(trn,j)="Log (drop ≤ 0)"),'
-        "--(IFERROR((col+0)>0,FALSE)),1),acc)"
-    ) in mask
-    # Plain Log must NOT filter — the #N/A is the signal, and the token test
-    # is an equality against the filtering token alone.
-    assert 'INDEX(trn,j)="Log"' not in mask
-    # Full-height ones seed; product over {0,1} is the AND, no per-row loop.
-    assert "seed,SEQUENCE(ROWS(Source_Data),1,1,0)" in mask
-    assert "BYROW(" not in mask
-    assert mask.endswith("prod=1))")
-    # Reads the model axes only — never the reserved Order column or the
-    # Sequence structural axis (which no constructor may consume).
-    # Spec_Transform IS read now, and only for the positivity layer above.
-    for non_model_axis in (
-        "Spec_Order",
-        "Spec_Sequence",
-        "Spec_Sequence_Period",
-    ):
-        assert non_model_axis not in mask
+    # Ordinary eligibility owns Filters and numeric completeness, but no
+    # transform semantics at all.
+    assert base.startswith("=LAMBDA(LET(")
+    assert 'INDEX(Spec_Roles,Column_Number)="Filter"' in base
+    assert 'Accumulated_Mask*N(ISNUMBER(Source_Column))' in base
+    assert "Spec_Transform" not in base
+    assert "Log (drop ≤ 0)" not in base
+    assert '="Log"' not in base
+    assert "REDUCE(" in base
+    assert "BYROW(" not in base
+    assert base.endswith("Sample_Mask=1))")
+
+    # The specialized final-mask leaf starts from ordinary eligibility and
+    # adds positivity only for the explicit row-dropping transform.
+    assert "Base_Sample_Mask,Sample_Include_Calc()" in final
+    assert 'INDEX(Spec_Transforms,Column_Number)="Log (drop ≤ 0)"' in final
+    assert "Accumulated_Mask*--IFERROR((Source_Column+0)>0,FALSE)" in final
+    assert 'INDEX(Spec_Transforms,Column_Number)="Log"' not in final
+    assert "Ln_Positive" not in final
+    assert final.endswith("Log_Drop_Sample_Mask=1))")
+
+    # The public Sample_Include name is intentionally the ordinary mask.
+    assert _refers_to(sheet, "Sample_Include") == "=LAMBDA(Sample_Include_Calc())"
 
 
 def test_row_labels_dispatches_on_identifier_presence() -> None:
@@ -382,7 +363,7 @@ def test_row_zones_spill_full_height_next_to_the_spec_block() -> None:
 
     # S/T headers on the spec-header row, bold like the A–O headers.
     assert sheet.cell(_HEADER_ROW, 19).value == "Row Labels"
-    assert sheet.cell(_HEADER_ROW, 20).value == "Included"
+    assert sheet.cell(_HEADER_ROW, 20).value == "Eligible"
     assert sheet.range((_HEADER_ROW, 19), (_HEADER_ROW, 20)).api.Font.Bold is True
 
     # Full-height spills at the first data row; row 1 belongs to
@@ -416,7 +397,7 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     # rows per iteration (the declaring row and its interaction operand) —
     # one textual site is what keeps the two encodings identical.
     assert x_s.count("Dummy_Levels(") == 1
-    # The row mask is bound once in the outer LET (si,Sample_Include_Calc())
+    # The row mask is bound once in the outer LET (si,Log_Drop_Sample_Include_Calc())
     # and passed into Dummy_Levels by name, not recomputed inside blk() on
     # every REDUCE iteration: blk() runs once per categorical spec row (and
     # again for an interaction operand), so an inline Sample_Include_Calc()
@@ -424,7 +405,7 @@ def test_x_s_binds_dummy_levels_once_and_skips_on_isna() -> None:
     # computed array is still an array value (not a range reference), so the
     # reader-as-LAMBDA-arg fix (see project_v39_categorical_construction_broken)
     # is preserved — only the recomputation cost is removed.
-    assert x_s.count("si,Sample_Include_Calc()") == 1
+    assert x_s.count("si,Log_Drop_Sample_Include_Calc()") == 1
     assert "lv,Dummy_Levels(col,r,si)" in x_s
     # Scalar skip guard: ISNA(INDEX(...,1,1)), NOT ISNA(lv). lv is a 1x(L-1)
     # row; an array condition in front of a wider HSTACK branch broadcasts to
@@ -469,10 +450,10 @@ def test_constructed_column_names_is_a_structural_twin_of_x_s() -> None:
     assert predicate in x_s
     assert predicate in names
     assert predicate in transforms
-    assert names.count("si,Sample_Include_Calc()") == 1
+    assert names.count("si,Log_Drop_Sample_Include_Calc()") == 1
     assert "lv,Dummy_Levels(col,r,si)" in names
     assert names.count("Dummy_Levels(") == 1
-    assert transforms.count("si,Sample_Include_Calc()") == 1
+    assert transforms.count("si,Log_Drop_Sample_Include_Calc()") == 1
     assert "lv,Dummy_Levels(col,r,si)" in transforms
     assert transforms.count("Dummy_Levels(") == 1
     # Same scalar skip guard as Predictor_Columns (the twin must match).
@@ -586,26 +567,6 @@ def test_reserved_spec_order_is_defined_but_read_by_nothing() -> None:
 
 
 def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> None:
-    # Confirm-by-construction property: Spec_Transform is read by exactly the
-    # four constructors the Log wiring touches, plus Model_Formula (the
-    # DISPLAY that renders the response's Log wrapping into the formula
-    # caption), plus Sample_Include — and by nothing else; in particular NOT
-    # by Row_Labels, which never transforms anything.
-    #
-    # Sample_Include_Calc joined this list with the second Log token (the REDUCE
-    # body lives in the _Calc leaf; the public Sample_Include name is a reader
-    # over the materialized spill and does not read Spec_Transform). It is the
-    # one reader that does not transform: it reads Spec_Transform ONLY to
-    # decide whether a column's non-positive rows leave the sample, which is
-    # the sole difference between "Log" and "Log (drop ≤ 0)". The narrower
-    # assertion below is what keeps that from widening into the mask making
-    # transform decisions of its own.
-    #
-    # Log_Domain_Status joined it with Part 6.2, and is the second non-
-    # transforming reader: it REPORTS on the Log declarations (which column a
-    # strict Log poisoned, how many rows the filtering token dropped) without
-    # building a single column. A status readout is allowed to read the spec;
-    # what this test still forbids is a new CONSTRUCTOR appearing here.
     sheet = _named_sheet()
     readers = sorted(
         item.Name.split("!", 1)[-1]
@@ -617,21 +578,19 @@ def test_spec_transform_is_read_only_by_the_transform_aware_constructors() -> No
         "Constructed_Column_Names",
         "Constructed_Column_Transforms",
         "Log_Domain_Status",
+        "Log_Drop_Sample_Include_Calc",
         "Model_Formula",
         "Predictor_Columns",
         "Response_Column",
-        "Sample_Include_Calc",
     ]
     assert "Spec_Transform" not in _refers_to(sheet, "Row_Labels")
-    # The public Sample_Include reader delegates to the spill / _Calc leaf and
-    # does not read Spec_Transform itself — that read lives in the _Calc body.
     assert "Spec_Transform" not in _refers_to(sheet, "Sample_Include")
-    # Sample_Include_Calc tests the filtering token and nothing else: no Ln,
-    # no renaming, no branch on plain "Log".
-    mask = _refers_to(sheet, "Sample_Include_Calc")
-    assert 'INDEX(trn,j)="Log (drop ≤ 0)"' in mask
+    assert "Spec_Transform" not in _refers_to(sheet, "Sample_Include_Calc")
+
+    mask = _refers_to(sheet, "Log_Drop_Sample_Include_Calc")
+    assert 'INDEX(Spec_Transforms,Column_Number)="Log (drop ≤ 0)"' in mask
     assert "Ln_Positive" not in mask
-    assert 'INDEX(trn,j)="Log"' not in mask
+    assert 'INDEX(Spec_Transforms,Column_Number)="Log"' not in mask
 
 
 def test_sequence_name_is_read_only_by_validation_and_axis_layers() -> None:
@@ -913,7 +872,7 @@ def test_levels_column_counts_raw_levels_without_dummy_levels() -> None:
     assert "Dummy_Levels" not in formula
     # Sample_Include() is hoisted out of the MAP: it does not vary by row,
     # and the per-row version re-evaluated the whole mask once per row.
-    assert "si,Sample_Include()," in formula
+    assert "si,Fit_Sample_Include()," in formula
     # The map index selects the source column — no row arithmetic, so the
     # spill does not care which row it sits on.
     assert "col,INDEX(Source_Data,0,i)" in formula
@@ -937,7 +896,7 @@ def test_design_columns_audit_mirrors_the_constructors_own_skip_rules() -> None:
     assert 'kk,LAMBDA(x,IF(INDEX(typ,x)<>"Categorical",1,' in formula
     assert "COLUMNS(Dummy_Levels(" in formula
     assert 'IF(LEN(INDEX(refs,x)&"")=0,"",INDEX(refs,x))' in formula
-    assert "si,Sample_Include()," in formula
+    assert "si,Fit_Sample_Include()," in formula
     # The map index selects the source column, same mapping K and L use.
     assert "k,kk(i)," in formula
     # Reading the Levels display instead would make one display depend on
@@ -1104,7 +1063,7 @@ def test_reference_in_use_echoes_e_or_shows_the_sorted_default() -> None:
     # EXCEPT the reference.
     assert "INDEX(SORT(UNIQUE(FILTER(" in formula
     assert "Dummy_Levels" not in formula
-    assert "si,Sample_Include()," in formula
+    assert "si,Fit_Sample_Include()," in formula
     assert "col,INDEX(Source_Data,0,i)" in formula
     assert 'x,IF(col="","",col)' in formula
     # Empty masked sample degrades to blank (H shows 0 and flags red there).
@@ -1181,12 +1140,12 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
         # Strict Log on a column that holds a zero or a negative among the
         # rows the model would fit. Equality against "Log" alone, NOT _is_log:
         # the whole point of the filtering token is that it does not fire this.
-        # Sample_Include(FALSE) is the mask before the positivity layer, so
+        # Sample_Include() is the mask before the positivity layer, so
         # the count is of rows the fit would otherwise have used.
         f'=AND($G{r}="Log",'
         f'OR($B{r}="Response (y)",'
         f'AND($B{r}="Predictor (x)",$C{r}=TRUE,$D{r}="Continuous")),'
-        "SUMPRODUCT(--Sample_Include(FALSE),"
+        "SUMPRODUCT(--Fit_Sample_Include(),"
         f"--IFERROR((INDEX(Source_Data,0,ROW()-{off})+0)<=0,FALSE))>0)",
     ]
     assert transform_col[0].Font.Color == excel_color(INPUT_COLOR)
@@ -1247,7 +1206,7 @@ def test_conditional_formats_cover_cascading_relevance_degeneracy_and_reference(
     invalid = sheet.range(f"$E${r}:$E${_VALIDATION_LAST_ROW}").api.FormatConditions.items
     assert [c.Formula1 for c in invalid] == [
         f'=AND($E{r}<>"",ISNA(Dummy_Levels(INDEX(Source_Data,0,ROW()-{off}),'
-        f"$E{r},Sample_Include())))"
+        f"$E{r},Fit_Sample_Include())))"
     ]
     assert invalid[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert invalid[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
@@ -1347,19 +1306,7 @@ def test_role_status_ranks_response_cardinality_above_fixed_effects() -> None:
 
 
 def test_log_domain_status_reports_the_poisoned_column_then_the_dropped_count() -> None:
-    """G2 — the two Log states, red outranking amber.
-
-    RED names the variable, its count of non-positive rows IN THE SAMPLE, and
-    the token that would exclude them: with strict Log the fit is #N/A
-    everywhere, and the fix is a different dropdown value the user has no way
-    to guess from a sheet full of errors.
-
-    AMBER is Log (drop ≤ 0) doing its job — not a problem, but the sample is
-    now smaller than the data and that must never be invisible.
-
-    StopIfTrue on red matters because a spec can declare both tokens on
-    different variables, making both states true at once.
-    """
+    """G2 — strict Log failure outranks intentional Log-drop sample shrinkage."""
     sheet = _feedback_sheet()
 
     assert (
@@ -1367,38 +1314,28 @@ def test_log_domain_status_reports_the_poisoned_column_then_the_dropped_count() 
         == "=Log_Domain_Status()"
     )
     formula = _catalog_body("Log_Domain_Status")
-    # Only the STRICT token is counted as poisoned — the whole point of the
-    # filtering token is that these rows leaving is intended.
-    assert 'INDEX(trn,j)="Log"' in formula
+    compact = "".join(formula.splitlines()).replace(" ", "")
+
+    # RED: only strict Log is tested, and only on rows that actually survive
+    # into the fit.
+    assert 'INDEX(Spec_Transforms,Column_Number)="Log"' in formula
+    assert "--Fitted_Sample_Include" in formula
     assert "Use Log (drop ≤ 0)." in formula
-    # The eligibility test mirrors Sample_Include's own branch, so a Log left
-    # on an Identifier or an excluded row is inert and uncounted.
     assert (
-        'elig,((rl="Response (y)")+((rl="Predictor (x)")*(inc=TRUE)'
-        '*(typ="Continuous")))>0'
-    ) in formula
-    # Sample_Include(FALSE) — the mask BEFORE the positivity layer — is what
-    # makes both halves count the same population. It is bound ONCE, to `base`,
-    # and the excluded-row count reuses that binding rather than calling again:
-    # Sample_Include is a REDUCE over the spec, so a second call is a second
-    # full evaluation for a value already in hand. (Copilot review on #222;
-    # deferred from that PR to keep the body a byte-identical move of the
-    # formula it replaced, and landed here where it takes the same Excel pass
-    # as the rest of the v3.2 spike.)
-    assert "base,Sample_Include(FALSE)" in formula
-    assert formula.count("Sample_Include(FALSE)") == 1
-    # The DEFAULT-mask half reads the materialized spill via Fit_Sample_Include()
-    # — the same reader the ~30 engine call sites use — but sums it with `--`
-    # rather than N(). N() of a range-returning thunk (the reader, whether
-    # spelled `#`/ANCHORARRAY or OFFSET) collapses to the top-left cell, so
-    # SUMPRODUCT(N(Fit_Sample_Include())) returns 1 and the amber fires
-    # "n-1 rows excluded" on EVERY sheet regardless of transforms. `--` coerces
-    # a range OR an array to a summable 1/0 array, so it is robust to the
-    # reader's form (and to Sample_Include()'s promotion to the reader on main,
-    # which would make N(Sample_Include()) collapse the same way).
-    assert "d,SUMPRODUCT(N(base))-SUMPRODUCT(--(Fit_Sample_Include()))" in formula
-    assert '" rows excluded: Log of ≤ 0"' in formula
-    # Guard the regression: the amber must never sum the reader with N().
+        'Eligible_Columns,((Spec_Roles="Response(y)")+'
+        '((Spec_Roles="Predictor(x)")*(Spec_Includes=TRUE)'
+        '*(Spec_Types="Continuous")))>0'
+    ) in compact
+
+    # AMBER: ordinary eligibility minus the final fit mask is exactly the
+    # distinct rows removed by the explicit Log-drop layer.
+    assert "Base_Sample_Include,Sample_Include()" in formula
+    assert "Fitted_Sample_Include,Fit_Sample_Include()" in formula
+    assert (
+        "Log_Drop_Excluded_Row_Count,SUMPRODUCT(--Base_Sample_Include)-"
+        "SUMPRODUCT(--Fitted_Sample_Include)"
+    ) in compact
+    assert '" excluded: Log of ≤ 0"' in formula
     assert "N(Fit_Sample_Include())" not in formula
 
     conditions = sheet.range("$G$2").api.FormatConditions.items
@@ -1637,7 +1574,7 @@ def test_audit_row_is_bold_label_value_pairs_with_response_count_cf() -> None:
             "responses",
             '=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Response (y)"))',
         ),
-        (29, 30, "included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+        (29, 30, "included rows", "=SUMPRODUCT(--Fit_Sample_Include())"),
         (
             31,
             32,
@@ -1720,7 +1657,7 @@ def test_filtered_zones_filter_by_the_mask_and_degrade_gracefully() -> None:
     }
     for col, source in expected_spills.items():
         assert sheet.cell(_FIRST_DATA_ROW, col).api.Formula2 == (
-            f'=IFERROR(FILTER({source},Sample_Include()),"(empty model)")'
+            f'=IFERROR(FILTER({source},Fit_Sample_Include()),"(empty model)")'
         ), source
 
 
@@ -1794,7 +1731,7 @@ def test_status_lambda_messages_are_the_ones_the_guard_oracle_expects() -> None:
     # the interpolated values are what both sides have to agree on.
     log = _catalog_body("Log_Domain_Status")
     assert '" values ≤ 0 under Log — the fit is #N/A. Use Log (drop ≤ 0)."' in log
-    assert '" rows excluded: Log of ≤ 0"' in log
+    assert '" excluded: Log of ≤ 0"' in log
 
     # The width guard's oracle deliberately mirrors only the leading token —
     # the full message embeds counts and prose — so that is what is pinned.
@@ -1804,19 +1741,6 @@ def test_status_lambda_messages_are_the_ones_the_guard_oracle_expects() -> None:
 
 
 def test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform() -> None:
-    """The two spellings live in Python AND in lambda_functions.json.
-
-    No import can bridge that gap: the catalog bodies are JSON string data, so
-    the token appears there as a literal. Five closures read Spec_Transform,
-    and a rename or a half-applied edit that updated only some of them would
-    leave the sheet silently treating one token as unrecognized — the column
-    would fit raw, unlogged, with no error anywhere. This asserts the two
-    tokens travel together through every body that mentions either.
-
-    Sample_Include is the deliberate exception in the other direction: it must
-    mention ONLY the filtering token, since plain Log not filtering is the
-    whole distinction between them.
-    """
     import json
     from pathlib import Path
 
@@ -1837,42 +1761,25 @@ def test_both_log_tokens_reach_every_catalog_body_that_reads_spec_transform() ->
         "Constructed_Column_Names",
         "Constructed_Column_Transforms",
         "Log_Domain_Status",
+        "Log_Drop_Sample_Include_Calc",
         "Model_Formula",
         "Predictor_Columns",
         "Response_Column",
-        # The v3.2 name-promotion moved the REDUCE body (which reads
-        # Spec_Transform) from Sample_Include to the Sample_Include_Calc leaf;
-        # the public Sample_Include name is now a reader over the spill and no
-        # longer mentions Spec_Transform.
-        "Sample_Include_Calc",
     }
 
     for name, body in bodies.items():
-        if name == "Sample_Include_Calc":
+        compact = "".join(body.splitlines()).replace(" ", "")
+        if name == "Log_Drop_Sample_Include_Calc":
             assert _TRANSFORM_LOG_DROP in body
-            assert f'="{_TRANSFORM_LOG}"' not in body, name
+            assert f'="{_TRANSFORM_LOG}"' not in compact, name
             continue
         if name == "Log_Domain_Status":
-            # The mirror of Sample_Include's exception, and the other half of
-            # the same distinction. Sample_Include tests ONLY the filtering
-            # token because plain Log not filtering is the whole difference
-            # between them; this body tests ONLY the strict token because the
-            # rows it counts are the ones a strict Log leaves in the sample to
-            # poison the fit. Rows the filtering token removed are not an
-            # error, so there is nothing here to equality-test them against —
-            # the drop token appears as the REMEDY the message names, which is
-            # prose, not a comparison. Pairing the counts here would mean
-            # inventing a test that must never fire.
-            assert f'="{_TRANSFORM_LOG}"' in body.replace(" ", "").replace("\n", "")
+            assert f'="{_TRANSFORM_LOG}"' in compact
             assert f"Use {_TRANSFORM_LOG_DROP}." in body
-            assert f'="{_TRANSFORM_LOG_DROP}"' not in body, name
+            assert f'="{_TRANSFORM_LOG_DROP.replace(" ", "")}"' not in compact, name
             continue
-        # Whitespace around "=" varies between bodies, so normalize it out
-        # rather than pinning each body's own formatting.
-        compact = body.replace(" ", "").replace("\n", "")
         assert f'="{_TRANSFORM_LOG}"' in compact, name
-        # Paired, not merely both present: every equality test against the
-        # strict token is matched by one against the other.
         assert compact.count(f'="{_TRANSFORM_LOG}"') == compact.count(
             f'="{_TRANSFORM_LOG_DROP.replace(" ", "")}"'
         ), name
+

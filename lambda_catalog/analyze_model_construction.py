@@ -235,9 +235,9 @@ def _compute_mask(
     spec: list[SpecVariable],
     rows: list[dict[str, object]],
     *,
-    apply_log_domain: bool = True,
+    apply_log_drop: bool = True,
 ) -> list[bool]:
-    """Mirror ``Sample_Include()``: AND over role-derived row conditions.
+    """Compute the model row mask; by default include the explicit Log-drop layer.
 
     Three layers, matching the closure's three:
 
@@ -250,9 +250,11 @@ def _compute_mask(
     row in, so ``Ln_Positive`` returns ``#N/A`` and the fit fails visibly —
     which is why ``build_spec_design`` still raises on it.
 
-    ``apply_log_domain=False`` mirrors ``Sample_Include(FALSE)``: the mask
-    before layer 3, which is what the sheet's G2 status cell differences
-    against the default to report how many rows the transform excluded.
+    ``apply_log_drop=False`` mirrors public ``Sample_Include()``: ordinary
+    eligibility before layer 3. The default mirrors the final fitted mask
+    produced by ``Log_Drop_Sample_Include_Calc()`` / read by
+    ``Fit_Sample_Include()``. Their population difference is the number of
+    distinct rows intentionally removed by Log (drop ≤ 0).
     """
     filter_columns = [v.name for v in spec if v.role == _ROLE_FILTER]
     eligible = [
@@ -264,7 +266,7 @@ def _compute_mask(
     numeric_columns = [v.name for v in eligible]
     positive_columns = (
         [v.name for v in eligible if v.transform == _TRANSFORM_LOG_DROP]
-        if apply_log_domain
+        if apply_log_drop
         else []
     )
     return [

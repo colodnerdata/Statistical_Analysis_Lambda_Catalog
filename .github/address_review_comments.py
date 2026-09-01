@@ -37,3 +37,11 @@ replace_exact(
     '''    N() of a range/array-returning thunk (Fit_Sample_Include(), or the no-arg\n    Sample_Include() which on main returns that same reader) collapses to the\n    top-left cell, so SUMPRODUCT(N(<reader>())) returns 1 for any non-empty\n    sample. That is the Log_Domain_Status amber bug (PR #237) and the\n    Intercept_Only_N bug this test sits next to: both made a per-sheet count\n    read 1 instead of the included-row count.\n\n    No import can reach a JSON string literal or a Python RefersTo string, so a\n    source scan is the only thing that catches a future call site retaining the\n    pattern. The guard sweeps every catalog body AND every RefersTo the\n    Regression sheet-writer registers (the constructor closures AND the\n    local-only names like Intercept_Only_N), so neither half can regress alone.\n    N(Sample_Include()) / N(base) are NOT defects — the FALSE arg returns\n    an array leaf, which N() sums correctly — so only the no-arg reader forms\n    are rejected.\n''',
     '''    N() of an array/range-returning thunk such as Sample_Include() or\n    Fit_Sample_Include() can collapse to the top-left cell, so\n    SUMPRODUCT(N(<reader>())) may return 1 for any non-empty sample. That is\n    the Log_Domain_Status amber bug (PR #237) and the Intercept_Only_N bug this\n    test sits next to: both made a per-sheet count read 1 instead of the row\n    count represented by the mask.\n\n    No import can reach a JSON string literal or a Python RefersTo string, so a\n    source scan is the only thing that catches a future call site retaining the\n    pattern. The guard sweeps every catalog body AND every RefersTo the\n    Regression sheet-writer registers (the constructor closures AND the\n    local-only names like Intercept_Only_N), so neither half can regress alone.\n    Both no-argument mask thunks are rejected here; callers that need a count\n    must coerce the returned array explicitly with -- rather than N().\n''',
 )
+
+# Fit-dependent spec-display tests must assert the final materialized mask.
+replace_exact(
+    "tests/test_spec_block_writer.py",
+    '    assert "si,Sample_Include()," in formula\n',
+    '    assert "si,Fit_Sample_Include()," in formula\n',
+    expected=3,
+)

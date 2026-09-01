@@ -38,7 +38,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/refactor-log-drop-sample-mask.yml .github/workflows/retry-log-drop-sample-mask.yml .github/refactor_log_drop_retry.py .github/patch_refactor_helper.py
+          git rm -f .github/workflows/refactor-log-drop-sample-mask.yml .github/workflows/retry-log-drop-sample-mask.yml .github/refactor_log_drop_retry.py .github/patch_refactor_helper.py
           git add lambda_functions.json lambda_catalog tests
           git commit -m "Refactor Log-drop sample mask semantics"
           git push origin HEAD:refactor/log-drop-sample-mask

@@ -246,16 +246,16 @@ def _role_status(spec: tuple[SpecVariable, ...]) -> str:
 def _log_domain_columns(
     spec: tuple[SpecVariable, ...], rows: list[dict[str, object]]
 ) -> list[tuple[SpecVariable, int]]:
-    """Every strict-``Log`` column, with its count of non-positive fit rows.
+    """Every strict-``Log`` column, with its count of non-positive fitted rows.
 
-    "Fit rows" means the mask BEFORE the positivity layer — the rows the model
-    would otherwise have used — which is what ``Sample_Include(FALSE)`` gives
-    the sheet. Only columns that actually reach ``Ln_Positive`` are considered:
-    the Response and included Continuous Predictors, exactly the eligibility
-    branch ``_compute_mask`` uses. Columns with a zero count are included so
-    callers can tell "checked, clean" from "not checked".
+    "Fitted rows" means the FINAL mask after any explicitly declared
+    ``Log (drop ≤ 0)`` exclusions. A strict-Log non-positive on a row already
+    removed by another Log-drop variable cannot poison the fit and therefore is
+    not counted. Only the Response and included Continuous Predictors can reach
+    ``Ln_Positive``. Columns with a zero count are included so callers can tell
+    "checked, clean" from "not checked".
     """
-    base = _compute_mask(list(spec), rows, apply_log_domain=False)
+    base = _compute_mask(list(spec), rows)
     eligible = [
         item
         for item in spec
@@ -299,10 +299,13 @@ def _log_domain_status(
             f"ERROR: {name} has {worst} values ≤ 0 under Log — "
             f"the fit is #N/A. Use {_TRANSFORM_LOG_DROP}."
         )
-    dropped = sum(_compute_mask(list(spec), rows, apply_log_domain=False)) - sum(
+    dropped = sum(_compute_mask(list(spec), rows, apply_log_drop=False)) - sum(
         _compute_mask(list(spec), rows)
     )
-    return f"{dropped} rows excluded: Log of ≤ 0" if dropped else ""
+    if dropped == 0:
+        return ""
+    suffix = "row" if dropped == 1 else "rows"
+    return f"{dropped} {suffix} excluded: Log of ≤ 0"
 
 
 def _sequence_deltas(

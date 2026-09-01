@@ -146,7 +146,7 @@ def test_design_response_no_fe_branch_returns_response_column_unchanged() -> Non
     # a LAMBDA argument into Demean_By's array math collapses unstably across
     # array contexts, so every FE fit cell reads None. The leaf returns a
     # computed array (value-identical to the materialized mask) and is stable.
-    assert "Demean_By(Response_Column(),Fixed_Effects_Column(),Sample_Include_Calc())" in formula
+    assert "Demean_By(Response_Column(),Fixed_Effects_Column(),Log_Drop_Sample_Include_Calc())" in formula
 
 
 def test_response_column_log_path_uses_sample_include_calc() -> None:
@@ -164,7 +164,7 @@ def test_response_column_log_path_uses_sample_include_calc() -> None:
     # ``Ln_Positive(col,si)`` assertion (si = the Sample_Include_Calc() binding
     # Predictor_Columns already binds once for Dummy_Levels).
     formula = _formula("Response_Column")
-    assert "Ln_Positive(col,Sample_Include_Calc())" in formula
+    assert "Ln_Positive(col,Log_Drop_Sample_Include_Calc())" in formula
     assert "Fit_Sample_Include()" not in formula
 
 
@@ -219,19 +219,16 @@ def test_design_columns_returns_the_bare_intercept_when_no_predictor_contributes
 
 
 def test_design_columns_and_sample_include_are_readers_over_their_spills() -> None:
-    # v3.2 name-promotion: the public names are readers over the materialized
-    # §4b spills, and the REDUCE bodies live in the _Calc computational leaves
-    # the spill-source cells call. This is what breaks the self-reference that
-    # kept the promotion deferred (the producing cell no longer calls the name
-    # that reads its own spill).
+    # Sample_Include is now deliberately the ordinary pre-drop eligibility
+    # mask. The final fitted mask remains materialized through
+    # Fit_Sample_Include; Design_Columns remains a reader over its own spill.
     si = _formula("Sample_Include")
+    log_drop = _formula("Log_Drop_Sample_Include_Calc")
     dc = _formula("Design_Columns")
-    # The default (omitted/TRUE) reads the spill; FALSE delegates to the _Calc
-    # leaf for the pre-positivity mask the materialized default cannot express.
-    assert "Fit_Sample_Include()" in si
-    assert "Sample_Include_Calc(FALSE)" in si
-    assert "Spec_Transform" not in si  # the REDUCE moved to _Calc
-    assert dc == "LAMBDA(Fit_Design_Columns())"  # _formula strips the leading =
+    assert si == "LAMBDA(Sample_Include_Calc())"
+    assert "Sample_Include_Calc()" in log_drop
+    assert 'Log (drop ≤ 0)' in log_drop
+    assert dc == "LAMBDA(Fit_Design_Columns())"
 
 
 def test_constructors_are_registered_after_their_dependencies() -> None:

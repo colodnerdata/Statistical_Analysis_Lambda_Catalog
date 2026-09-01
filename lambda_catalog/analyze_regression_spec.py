@@ -299,10 +299,11 @@ def build_spec_design(
     # The same mask WITHOUT the Log (drop ≤ 0) positivity layer, so the
     # difference in population is the excluded-row count the sheet's G2 status
     # cell reports. Computed here rather than by re-deriving which rows were
-    # non-positive, for the same reason the cell differences two calls to
-    # Sample_Include: one predicate, two evaluations, nothing to drift.
+    # non-positive. Compare ordinary eligibility against the final Log-drop
+    # mask: one eligibility predicate plus one explicit transform layer,
+    # matching Sample_Include() versus Fit_Sample_Include() on the sheet.
     unfiltered_mask = _compute_mask(
-        list(spec_tuple), rows, apply_log_domain=False
+        list(spec_tuple), rows, apply_log_drop=False
     )
     log_excluded_rows = sum(unfiltered_mask) - sum(mask)
     response_name = _numeric_response_name(spec_tuple)

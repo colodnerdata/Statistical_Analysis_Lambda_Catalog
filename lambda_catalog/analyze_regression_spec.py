@@ -302,7 +302,7 @@ def build_spec_design(
     # non-positive, for the same reason the cell differences two calls to
     # Sample_Include: one predicate, two evaluations, nothing to drift.
     unfiltered_mask = _compute_mask(
-        list(spec_tuple), rows, apply_log_domain=False
+        list(spec_tuple), rows, apply_log_drop=False
     )
     log_excluded_rows = sum(unfiltered_mask) - sum(mask)
     response_name = _numeric_response_name(spec_tuple)

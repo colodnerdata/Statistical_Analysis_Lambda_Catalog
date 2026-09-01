@@ -240,7 +240,7 @@ def test_absorbed_degrees_of_freedom_reuses_dummy_levels_for_group_count() -> No
     # argument into Dummy_Levels' array math collapses unstably, so the level
     # count drops to 0 on the FE path. The leaf returns a computed array
     # (value-identical to the materialized mask) and is stable as an argument.
-    assert 'Dummy_Levels(Fixed_Effects_Column(),"",Sample_Include_Calc())' in formula
+    assert 'Dummy_Levels(Fixed_Effects_Column(),"",Log_Drop_Sample_Include_Calc())' in formula
     assert "COLUMNS(lv)" in formula
     # Non-breaking default: no Fixed Effects row -> 0, never an error.
     assert "IF(NOT(fe_active),0," in formula

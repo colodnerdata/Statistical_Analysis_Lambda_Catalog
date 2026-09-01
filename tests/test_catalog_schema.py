@@ -412,12 +412,13 @@ class RealCatalogIntegrationTests(unittest.TestCase):
                 "Base_Period_Delta",
                 # The v3.2 name-promotion: the _Calc computational leaf precedes
                 # the public reader that delegates to it. Sample_Include_Calc is
-                # the REDUCE leaf the spill cell (=Sample_Include_Calc()) calls;
+                # the REDUCE leaf the spill cell (=Log_Drop_Log_Drop_Sample_Include_Calc()) calls;
                 # Sample_Include is the reader over that spill (and delegates
                 # FALSE to Sample_Include_Calc). Document order IS dependency
                 # order (see _set_sheet_scoped_names).
                 "Sample_Include_Calc",
                 "Sample_Include",
+                "Log_Drop_Sample_Include_Calc",
                 "Response_Column",
                 "Row_Labels",
                 "Predictor_Columns",

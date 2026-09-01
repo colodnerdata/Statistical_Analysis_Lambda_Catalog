@@ -211,8 +211,8 @@ def _write_materialization_zone(
     ``Fit_Design_Columns()``. Producing the spill from the ``_Calc`` leaf is what
     breaks the self-reference that kept the promotion deferred: the producing
     cell no longer calls the name that reads its own spill. ``Sample_Include``
-    keeps its optional ``apply_log_domain`` argument because
-    ``Sample_Include(FALSE)`` — the mask BEFORE the positivity layer that
+    keeps its ordinary pre-drop eligibility semantics because
+    ``Sample_Include()`` — the mask BEFORE the positivity layer that
     ``Log_Domain_Status`` differences against the default — still delegates to
     ``Sample_Include_Calc(FALSE)``; only the default mask is materialized here.
 
@@ -297,7 +297,7 @@ def _write_materialization_zone(
     # The mask spills full-height and row-aligned with the source table (the
     # row-mask contract), so it reads straight across into the design-matrix
     # rows beside it. The spill-source cell calls the _Calc computational leaf
-    # (=Sample_Include_Calc()), NOT the public Sample_Include() name. Before the
+    # (=Log_Drop_Sample_Include_Calc()), while public Sample_Include() remains the ordinary pre-drop eligibility mask. Before the
     # v3.2 promotion the spill cell WAS =Sample_Include(); pointing the public
     # name — now a reader over THIS spill via Fit_Sample_Include() — at a cell
     # that called itself would have been self-referential. The _Calc split is
@@ -320,7 +320,7 @@ def _write_materialization_zone(
         sheet,
         _MATERIALIZATION_SPILL_ROW,
         _C_SAMPLE_INCLUDE_MATERIALIZED,
-        "=Sample_Include_Calc()",
+        "=Log_Drop_Sample_Include_Calc()",
     )
     # Fit_Sample_Include — the reader over the spill written above. 1-D (n x 1,
     # one row per SOURCE row, not per included row), so the fallback if `#`

@@ -1070,7 +1070,7 @@ def _write_spec_block(
     # The row test mirrors Sample_Include's own eligibility branch exactly:
     # only the Response and included Continuous Predictors reach Ln_Positive,
     # so a Log left on an Identifier or an excluded row is inert and unflagged.
-    # Sample_Include(FALSE) is the mask BEFORE the positivity layer, which is
+    # Sample_Include() is the mask BEFORE the positivity layer, which is
     # what makes this count the rows the fit would otherwise have used.
     # Calling a closure with INDEX(Source_Data,0,ROW()-offset) from inside a CF
     # expression is the same idiom the invalid-reference rule below uses.
@@ -1083,7 +1083,7 @@ def _write_spec_block(
             f'AND($B{_FIRST_DATA_ROW}="{_ROLE_PREDICTOR}",'
             f"$C{_FIRST_DATA_ROW}=TRUE,"
             f'$D{_FIRST_DATA_ROW}="Continuous")),'
-            "SUMPRODUCT(--Sample_Include(FALSE),"
+            "SUMPRODUCT(--Sample_Include(),"
             "--IFERROR((INDEX(Source_Data,0,"
             f"ROW()-{_ROW_TO_COL_OFFSET})+0)<=0,FALSE))>0)"
         ),
@@ -1504,7 +1504,7 @@ def _write_row_zones(sheet: xw.Sheet) -> None:
 
     bold_row(sheet, _HEADER_ROW, _C_ROW_LABELS, _C_INCLUDED)
     val(sheet, _HEADER_ROW, _C_ROW_LABELS, "Row Labels")
-    val(sheet, _HEADER_ROW, _C_INCLUDED, "Included")
+    val(sheet, _HEADER_ROW, _C_INCLUDED, "Eligible")
 
     f(sheet, _FIRST_DATA_ROW, _C_ROW_LABELS, "=Row_Labels()")
     f(sheet, _FIRST_DATA_ROW, _C_INCLUDED, "=Sample_Include()")
@@ -1529,7 +1529,7 @@ def _write_audit_row(sheet: xw.Sheet) -> None:
             "=SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))"
             f'="{_ROLE_RESPONSE}"))',
         ),
-        ("included rows", "=SUMPRODUCT(N(Sample_Include()))"),
+        ("included rows", "=SUMPRODUCT(--Fit_Sample_Include())"),
         ("sequence flags", f"={_SEQUENCE_FLAG_COUNT_FORMULA}"),
         ("fixed effects", f"={_FIXED_EFFECTS_COUNT_FORMULA}"),
         ("FE absorbed df", "=Absorbed_Degrees_Of_Freedom()"),
@@ -1620,7 +1620,7 @@ def _write_filtered_zones(sheet: xw.Sheet) -> None:
             _FIRST_DATA_ROW,
             col,
             (
-                f"=IFERROR(FILTER({source},Sample_Include()),"
+                f"=IFERROR(FILTER({source},Fit_Sample_Include()),"
                 f"{_EMPTY_MODEL_FALLBACK})"
             ),
         )

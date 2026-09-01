@@ -389,7 +389,7 @@ def test_no_catalog_body_or_sheet_name_sums_a_range_reader_with_n() -> None:
     pattern. The guard sweeps every catalog body AND every RefersTo the
     Regression sheet-writer registers (the constructor closures AND the
     local-only names like Intercept_Only_N), so neither half can regress alone.
-    N(Sample_Include(FALSE)) / N(base) are NOT defects — the FALSE arg returns
+    N(Sample_Include()) / N(base) are NOT defects — the FALSE arg returns
     an array leaf, which N() sums correctly — so only the no-arg reader forms
     are rejected.
     """
@@ -691,7 +691,7 @@ def test_materialization_zone_materializes_model_context() -> None:
     # name-promotion split that breaks the self-reference.
     assert sheet.cell(
         _MATERIALIZATION_SPILL_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED
-    ).api.Formula2 == "=Sample_Include_Calc()"
+    ).api.Formula2 == "=Log_Drop_Sample_Include_Calc()"
     assert sheet.cell(
         _MATERIALIZATION_SPILL_ROW, _C_DESIGN_MATRIX
     ).api.Formula2 == "=Design_Columns_Calc()"
@@ -729,7 +729,7 @@ def test_materialization_zone_materializes_model_context() -> None:
     )
     assert _formula(
         sheet, _MATERIALIZATION_SPILL_ROW, _C_SAMPLE_INCLUDE_MATERIALIZED
-    ) == "=Sample_Include_Calc()"
+    ) == "=Log_Drop_Sample_Include_Calc()"
 
     # The zone sits past the chart footprint with a structural gutter after
     # the charts; Model Context is a label/value pair and Sample_Include is one

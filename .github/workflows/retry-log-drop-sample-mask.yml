@@ -1,0 +1,52 @@
+name: Retry log-drop sample mask
+
+on:
+  push:
+    branches:
+      - refactor/log-drop-sample-mask
+
+permissions:
+  contents: write
+
+jobs:
+  refactor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: refactor/log-drop-sample-mask
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Apply staged refactor
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          workflow = Path('.github/workflows/refactor-log-drop-sample-mask.yml').read_text(encoding='utf-8')
+          marker = "          python - <<'PY'\n"
+          start = workflow.index(marker) + len(marker)
+          end = workflow.index("\n          PY\n", start)
+          lines = workflow[start:end].splitlines()
+          code = "\n".join(line[10:] if line.startswith('          ') else line for line in lines)
+          exec(compile(code, '<staged-refactor>', 'exec'), {'__name__': '__main__'})
+          PY
+      - name: Install test dependencies
+        run: python -m pip install -q pytest numpy pandas openpyxl xlwings
+      - name: Run focused tests
+        run: |
+          pytest -q \
+            tests/test_catalog_schema.py \
+            tests/test_spec_block_writer.py \
+            tests/test_sheet_writers.py \
+            tests/test_within_estimator.py \
+            tests/test_group_panel_transforms.py \
+            tests/test_regression_spec_qc.py
+      - name: Commit refactor
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/refactor-log-drop-sample-mask.yml .github/workflows/retry-log-drop-sample-mask.yml
+          git add lambda_functions.json lambda_catalog tests
+          git commit -m "Refactor Log-drop sample mask semantics"
+          git push origin HEAD:refactor/log-drop-sample-mask

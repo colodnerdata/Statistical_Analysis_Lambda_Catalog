@@ -57,6 +57,7 @@ _EXPECTED_CASE_NAMES = [
     "production_lots_log_mixed_predictors",
     "production_lots_log_predictor_only",
     "production_lots_lsdv_equivalence",
+    "production_lots_log_loocv_leverage",
     "life_partial_linear_log",
     "life_log_response_duan",
     "life_log_response_naive",
@@ -519,6 +520,7 @@ _LOG_SPEC_CASES = (
     "production_lots_log_no_fe",  # Log + Log, no FE
     "production_lots_log_mixed_predictors",  # Log response, Log + None predictors
     "production_lots_log_predictor_only",  # None response, Log predictor
+    "production_lots_log_loocv_leverage",  # Log response, heavy-tailed leverage
 )
 
 
@@ -573,6 +575,146 @@ def test_unit_space_oracle_matches_an_independent_recomputation(case_name: str) 
     assert got.rmse_unit == pytest.approx(want["rmse_unit"], rel=1e-10)
     assert np.allclose(got.predictions_unit, want["predictions_unit"], rtol=1e-10)
     assert np.allclose(got.residuals_unit, want["residuals_unit"], rtol=1e-8, atol=1e-8)
+
+
+# v3.4 unit-space LOOCV — a SECOND independent path to the same answers.
+#
+# tests/test_unit_space_dispatch.py mirrors the catalog formulas by REFITTING
+# n times (no hat-diagonal shortcut). This check recomputes the LOOCV residual
+# the OTHER way — the hat-diagonal identity loo_fit = predictions - h*e/(1-h),
+# applied to the oracle's OWN already-verified residual columns
+# (full_residuals.hat_diagonal / .residuals / .predictions) — and cross-checks
+# the oracle's loocv_residuals_unit / loocv_rmse_unit / loocv_mae_unit against
+# it. Two independent derivations agreeing is the point: a mirror sharing the
+# oracle's reading of Y_Full would produce a green suite and a wrong workbook
+# (DECISIONS.md:2949-2958).
+
+def _expected_unit_space_loocv(design, results) -> dict:
+    """Independent recomputation of the v3.4 unit-space LOOCV statistics via
+    the hat-diagonal identity, from the oracle's already-verified columns."""
+    y_fit = np.asarray(results.full_residuals.dependent_var, dtype=float)
+    fitted = np.asarray(results.full_residuals.predictions, dtype=float)
+    resid = np.asarray(results.full_residuals.residuals, dtype=float)
+    hat = np.asarray(results.full_residuals.hat_diagonal, dtype=float)
+    y_train = np.asarray(design.y_train, dtype=float)
+
+    logged = design.response_transform == "Log"
+    shift = (y_train - y_fit) if logged else np.zeros_like(y_fit)
+    smearing = float(np.mean(np.exp(resid))) if logged else 1.0
+
+    # The leave-one-out fit-space prediction by the hat-diagonal identity,
+    # reached from the already-verified columns rather than recomputed.
+    #
+    # Under Fixed Effects the shipped `hat` is the WITHIN design's diagonal
+    # (demeaned predictors + one overall intercept), which omits the absorbed
+    # group effects. The equivalent LSDV design's diagonal decomposes as
+    # h_lsdv = h_within + 1/n_g, and h_within = hat - 1/n, so the correction
+    # is h_lsdv = hat - 1/n + 1/n_g. Fitted values and residuals need none:
+    # the LSDV fit is the within fit plus the group mean, and the response
+    # shifts by that same mean.
+    if design.group_labels is not None:
+        labels = list(design.group_labels)
+        sizes = np.array([labels.count(g) for g in labels], dtype=float)
+        hat = hat - 1.0 / hat.size + 1.0 / sizes
+    loo_fit_space = fitted - hat * resid / (1.0 - hat)
+    loo_fit = loo_fit_space + shift
+    if logged:
+        loo_pred_unit = np.exp(loo_fit) * smearing  # Duan (the four cases' default)
+        y_unit = np.exp(y_fit + shift)
+    else:
+        loo_pred_unit = loo_fit
+        y_unit = y_fit
+    r = y_unit - loo_pred_unit
+    n = r.size
+    return {
+        "loocv_residuals_unit": r,
+        "loocv_rmse_unit": math.sqrt(float(np.sum(r ** 2)) / n),
+        "loocv_mae_unit": float(np.mean(np.abs(r))),
+        "smearing_treatment": (
+            "n/a — no back-transform" if not logged
+            else "Full-sample Duan (approx.)"
+        ),
+    }
+
+
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
+@pytest.mark.parametrize("case_name", _LOG_SPEC_CASES)
+def test_unit_space_loocv_oracle_matches_an_independent_recomputation(
+    case_name: str,
+) -> None:
+    """The oracle's LOOCV residual / RMSE / MAE must match a hat-diagonal
+    recomputation from its own already-verified residual columns — a second
+    independent path to the same answers the n-refit mirror in
+    test_unit_space_dispatch.py also reaches."""
+    expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
+    want = _expected_unit_space_loocv(expected.design, expected.results)
+    got = expected.results.unit_space
+
+    assert np.allclose(
+        got.loocv_residuals_unit, want["loocv_residuals_unit"], rtol=1e-9, atol=1e-9
+    )
+    assert got.loocv_rmse_unit == pytest.approx(want["loocv_rmse_unit"], rel=1e-10)
+    assert got.loocv_mae_unit == pytest.approx(want["loocv_mae_unit"], rel=1e-10)
+    # The LOOCV scalars must exceed the in-sample SE Regression (Unit): LOOCV is
+    # out-of-sample, so it is the optimistic-free upper bound the plan's
+    # verification section looks for (AH11/AH12 numeric and > AH8).
+    assert got.loocv_rmse_unit > got.rmse_unit
+    assert got.loocv_mae_unit > 0.0
+    assert got.smearing_treatment == want["smearing_treatment"]
+
+
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
+@pytest.mark.parametrize(
+    "case_name",
+    ("production_lots_fixed_effects", "production_lots_log_predictor_only"),
+)
+def test_unit_space_loocv_reduces_to_loocv_residual_under_none(
+    case_name: str,
+) -> None:
+    """Reduction invariant for the LOOCV pair, and its ONE exception.
+
+    Without Fixed Effects, under Transform = None the unit-space LOOCV
+    residual IS the ordinary (fit-space) LOOCV residual (the PRESS Residual
+    column) and the LOOCV RMSE is sqrt(PRESS / n).
+
+    WITH Fixed Effects the two deliberately DIVERGE, and that divergence is
+    the v3.4 correction rather than a broken invariant. The PRESS Residual
+    column reports the WITHIN model's leave-one-out residual; the unit-space
+    LOOCV reports the equivalent LSDV model's, which re-estimates the held-out
+    row's group effect. The within one is smaller, because omitting the
+    absorbed group effects understates leverage — on
+    production_lots_fixed_effects, RMSE 0.07404 against the LSDV 0.07733,
+    which explicit n-fold refits confirm.
+    """
+    expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
+    unit = expected.results.unit_space
+    full = expected.results.full_residuals
+    summary = expected.results.summary
+    n = summary.observations
+
+    assert expected.design.response_transform == "None"
+    assert unit.smearing_treatment == "n/a — no back-transform"
+
+    if expected.design.group_labels is None:
+        assert np.allclose(
+            unit.loocv_residuals_unit, full.loocv_residuals, atol=1e-9
+        ), "Unit_Space_LOOCV_Residual must collapse to the PRESS Residual under None"
+        assert unit.loocv_rmse_unit == pytest.approx(
+            math.sqrt(summary.press / n), rel=1e-12
+        ), "Unit_Space_LOOCV_RMSE must be sqrt(PRESS / n) under None"
+    else:
+        within_rmse = math.sqrt(summary.press / n)
+        assert unit.loocv_rmse_unit > within_rmse, (
+            "under FE the LSDV leave-one-out error must EXCEED the within "
+            "model's, which omits the absorbed group effects from its leverage"
+        )
+        assert not np.allclose(
+            unit.loocv_residuals_unit, full.loocv_residuals, atol=1e-9
+        ), "under FE the two are different statistics and must not coincide"
 
 
 # ── The cases added for docs/MODEL_TESTING_ASSETS.md § 1.1–1.3 ───────────────
@@ -1137,3 +1279,132 @@ def test_life_expectancy_country_levels_follow_excel_order() -> None:
     index = countries.index("Côte d'Ivoire")
     assert countries[index - 1] == "Costa Rica"
     assert countries[index + 1] == "Croatia"
+
+
+def test_unit_space_divisor_is_in_original_units_not_fit_space() -> None:
+    """The AZ/BA/BB columns must not be scored against the fit-space RMS.
+
+    ``response_scale`` is the RMS of ``Design_Response()`` — under a Log
+    response, log units. ``unit_response_scale`` is the RMS of the
+    reconstructed observed response in ORIGINAL units. On a Log-response case
+    the two differ by orders of magnitude, so passing the first where the
+    second belongs never applies the intended precision floor.
+
+    The reconstruction is exact by construction: ``Unit_Space_Residuals`` is
+    ``Unit_Space_Observed - Unit_Space_Predictions``, so the two sum back to
+    ``Unit_Space_Observed``.
+    """
+    expected = calculate_regression_spec_case(
+        _case("production_lots_log_loocv_leverage"), CSV_PATH
+    )
+    unit = expected.results.unit_space
+    residuals = expected.results.full_residuals
+
+    fit_space_scale = math.sqrt(
+        sum(float(v) ** 2 for v in residuals.dependent_var)
+        / len(residuals.dependent_var)
+    )
+    observed_unit = [
+        float(p) + float(r)
+        for p, r in zip(unit.predictions_unit, unit.residuals_unit)
+    ]
+    unit_scale = math.sqrt(sum(v ** 2 for v in observed_unit) / len(observed_unit))
+
+    # The divisor that actually belongs to these columns is the one on the
+    # same order as the quantities being compared.
+    typical_unit_error = max(abs(float(v)) for v in unit.residuals_unit)
+    assert unit_scale > 10 * fit_space_scale, (
+        f"expected the original-units RMS ({unit_scale}) to dwarf the "
+        f"fit-space RMS ({fit_space_scale}) on a Log-response case"
+    )
+    assert unit_scale > typical_unit_error
+
+
+def test_unit_space_divisor_collapses_to_the_fit_scale_without_a_transform() -> None:
+    """With no response transform the two divisors are the same number.
+
+    That is what keeps the split from changing any non-transformed case: the
+    unit-space columns reduce to the fit-space ones, so their divisor must
+    reduce too.
+    """
+    expected = calculate_regression_spec_case(_case("default_t0_intercept"), CSV_PATH)
+    unit = expected.results.unit_space
+    residuals = expected.results.full_residuals
+
+    fit_space_scale = math.sqrt(
+        sum(float(v) ** 2 for v in residuals.dependent_var)
+        / len(residuals.dependent_var)
+    )
+    observed_unit = [
+        float(p) + float(r)
+        for p, r in zip(unit.predictions_unit, unit.residuals_unit)
+    ]
+    unit_scale = math.sqrt(sum(v ** 2 for v in observed_unit) / len(observed_unit))
+
+    assert unit_scale == pytest.approx(fit_space_scale, rel=1e-12)
+
+
+@pytest.mark.skipif(
+    not PRODUCTION_LOTS_CSV_PATH.exists(), reason="Production Lots CSV not found"
+)
+@pytest.mark.parametrize(
+    "case_name",
+    ("production_lots_fixed_effects", "production_lots_log_transform"),
+)
+def test_fe_loocv_matches_explicit_lsdv_refits(case_name: str) -> None:
+    """Under FE the LOOCV statistics must equal LEAVING A ROW OUT OF THE FULL
+    FE MODEL, not out of the within model.
+
+    The shortcut is only trustworthy if it agrees with the thing it is a
+    shortcut FOR, so this brute-forces the definition: n separate least-squares
+    fits on the explicit LSDV design (intercept + predictors + one dummy per
+    non-reference group), each omitting one row, each evaluated at the omitted
+    row. No hat-diagonal identity on this side — that is what is being checked.
+
+    This is the test the review asked for. The previous FE test only proved
+    reduction to the fit-space shortcut, which is the defective quantity.
+    """
+    expected = calculate_regression_spec_case(_case(case_name), CSV_PATH)
+    design = expected.design
+    unit = expected.results.unit_space
+
+    y_full = np.asarray(design.y_train, dtype=float)
+    groups = list(design.group_labels)
+    x_features = np.asarray(design.x_features, dtype=float)
+    n = y_full.size
+    levels = sorted(set(groups))
+    assert len(levels) > 1, "case must actually absorb fixed effects"
+
+    dummies = np.column_stack(
+        [[1.0 if g == lv else 0.0 for g in groups] for lv in levels[1:]]
+    )
+    columns = [x_features, dummies]
+    if expected.case.allow_intercept:
+        columns.insert(0, np.ones((n, 1)))
+    lsdv = np.column_stack(columns)
+
+    loo_fit = np.empty(n)
+    for i in range(n):
+        keep = np.arange(n) != i
+        beta, *_ = np.linalg.lstsq(lsdv[keep], y_full[keep], rcond=None)
+        loo_fit[i] = lsdv[i] @ beta
+
+    logged = design.response_transform == "Log"
+    if logged:
+        smearing = float(
+            np.mean(np.exp(np.asarray(expected.results.full_residuals.residuals)))
+        )
+        observed = np.exp(y_full)
+        predicted = np.exp(loo_fit) * smearing  # Duan, the cases' default
+    else:
+        observed = y_full
+        predicted = loo_fit
+    brute_force = observed - predicted
+
+    assert np.allclose(unit.loocv_residuals_unit, brute_force, rtol=1e-9, atol=1e-9)
+    assert unit.loocv_rmse_unit == pytest.approx(
+        math.sqrt(float(np.sum(brute_force ** 2)) / n), rel=1e-9
+    )
+    assert unit.loocv_mae_unit == pytest.approx(
+        float(np.mean(np.abs(brute_force))), rel=1e-9
+    )

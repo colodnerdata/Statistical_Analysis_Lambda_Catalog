@@ -152,6 +152,7 @@ deviations are recorded rather than papered over.**
 | P5 | `Unit_Cost_BY ~ Ln(Cumulative_Units)` | | **(None, Log)** pair; must reproduce ordinary fit-space stats exactly | existing — `production_lots_log_predictor_only` |
 | P6 | P2 with `Facility` as **Categorical Predictor** instead of Fixed Effects | intercept ON, default reference | **LSDV ↔ within-estimator equivalence** — identical slope and residual vector as P2 (agreement to ~1e-15), by a completely different estimator path; the strongest cheap cross-oracle in the suite | existing — `production_lots_lsdv_equivalence` |
 | P7 | P1 with `Facility` as the **Identifier** | per-facility Fiscal_Year gaps (A 1998–2023, B 2001–2020, C 2005–2024) | **irregular-spacing Regularity verdict** (yellow); typed Δ = 1 override on a gapped panel | existing — **guard state** `guard_irregular_panel_spacing` |
+| P8 | `Ln(Unit_Cost_BY) ~ Ln(Cumulative_Units) + Ln(Cumulative_Units)²` | P3b's sibling with a quadratic **self-interaction** on `Cumulative_Units` (Log response, no FE) | **heavy-tailed leverage** (max hat diagonal ~0.41 vs mean ~0.06) — the corner where leave-one-out cross-validation departs materially from the in-sample fit (LOOCV RMSE ≈ 15109 > in-sample SE Reg (Unit) ≈ 14658) and the full-sample Duan smearing leak is largest; the v3.4 CROSS-VALIDATED FIT block, the `Unit_Space_LOOCV_Residual` column, and the `Smearing_Treatment` readout | existing — `production_lots_log_loocv_leverage` |
 
 **P7's Identifier change is not cosmetic.** `Sequence_Deltas` groups by the
 **Identifier** columns — the Identifier is what the spacing layer treats as the
@@ -304,6 +305,8 @@ message text implies.
 | Dispatch (Log, Mixed) | P4 |
 | Back-Transform = Duan / Naive | L2 / L3 (the toggle's first oracle) |
 | Unit-space reduction invariant (no transforms) | M1, L11 |
+| Unit-space LOOCV (RMSE / MAE / residual column) | P8 (heavy-tailed leverage: LOOCV RMSE ≈ 15109 > in-sample ≈ 14658); the (Log,*) dispatch cases P2/P3b/P4/P5/P6 exercise the ordinary-leverage path the reduction invariant pins |
+| `Smearing_Treatment` readout (full-sample Duan leak named on sheet) | P8 ("Full-sample Duan (approx.)" under Duan; flips to "Naive (no smearing)" under Naive via L2/L3's toggle) |
 | `Ln_Positive` zero/negative guard — strict / filtering | L6 (`Log` → #N/A propagation + red flag) / L12 (`Log (drop ≤ 0)` → 26 rows excluded, model fits) |
 | Missing-data NA propagation | M5, L1, L4, L7, L8 |
 | Intercept OFF | M2, M3/M4 variants |

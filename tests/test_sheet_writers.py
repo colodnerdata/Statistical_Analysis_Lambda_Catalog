@@ -49,6 +49,7 @@ from lambda_catalog.write_sheet_regression import (
     _C_AZ,
     _C_BA,
     _C_BB,
+    _C_BC,
     _C_CHART_LABEL_NAME,
     _C_CHART_TITLE,
     _C_CHART_XLABEL,
@@ -1119,7 +1120,7 @@ def test_write_unit_space_block_writes_section_input_and_three_gof_cells() -> No
         (5, "Smearing Factor"),
         (6, "R Square (Unit)"),
         (7, "Adj R Square (Unit)"),
-        (8, "RMSE (Unit)"),
+        (8, "SE Regression (Unit)"),
     ]:
         assert sheet.cell(row, _C_AG).value == label, row
     smearing_formula = sheet.cell(5, _C_AH).api.Formula2
@@ -1142,12 +1143,45 @@ def test_write_unit_space_block_writes_section_input_and_three_gof_cells() -> No
     assert '"Original units (back-transformed)"' in response_space_formula
     assert '"Same as fit space"' in response_space_formula
 
+    # ── v3.4 CROSS-VALIDATED FIT sub-block (AG10:AH13) ───────────────────
+    # The out-of-sample pair the toggle's smearing optimism actually touches,
+    # plus the named treatment. Rows 3–9 are byte-identical to v3.3, so
+    # Comparison_Headline_GoF ($AH$6:$AH$8) is untouched — the qualification is
+    # scoped to the pair it caveats.
+    assert sheet.cell(10, _C_AG).value == "CROSS-VALIDATED FIT"
+    for row, label in [
+        (11, "LOOCV RMSE (Unit)"),
+        (12, "LOOCV MAE (Unit)"),
+        (13, "Smearing Treatment"),
+    ]:
+        assert sheet.cell(row, _C_AG).value == label, row
+    # The two numeric GoF cells take the same six-argument call as the rows
+    # above, with the Method toggle from $AH$4.
+    for row in (11, 12):
+        formula = sheet.cell(row, _C_AH).api.Formula2
+        assert formula is not None
+        assert formula.startswith("=Unit_Space_LOOCV_"), row
+        assert "Fit_Context()" in formula
+        assert _A_BACK_TRANSFORM_METHOD in formula  # the $AH$4 anchor
+    # AH13 holds the Smearing_Treatment text readout, which wraps (the full
+    # explanation of what is approximated lives on the AG13 label's hover
+    # Note, following the sheet's status-cell convention).
+    treatment_formula = sheet.cell(13, _C_AH).api.Formula2
+    assert treatment_formula is not None
+    assert treatment_formula.startswith("=Smearing_Treatment(")
+    assert "Fit_Context()" in treatment_formula
+    assert _A_BACK_TRANSFORM_METHOD in treatment_formula
+    assert sheet.cell(13, _C_AH).state.wrap_text is True
 
-def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
-    """v3.3: Predicted Y (Original Units) and Residual (Original Units) on
-    columns AZ and BA. Plain labels (no (Log) / (Within) suffix), back-
+
+def test_write_residuals_appends_unit_space_columns_az_ba_bb() -> None:
+    """v3.3/v3.4: the three original-units residual columns.
+
+    AZ = Predicted Y (Original Units), BA = Residual (Original Units) (v3.3),
+    BB = LOOCV Residual (Original Units) (v3.4). Plain labels (no (Log) /
+    (Within) suffix — they are in original units by construction), back-
     transformation routed through Unit_Space_Predictions / Unit_Space_Residuals
-    with the AH4 Method input.
+    / Unit_Space_LOOCV_Residual with the AH4 Method input.
     """
     sheet = RecordingSheet(name="Regression")
     _write_residuals(_as_xw_sheet(sheet))
@@ -1157,8 +1191,9 @@ def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
     # logic that decorates the AO–AY columns does not apply here.
     assert sheet.cell(2, _C_AZ).value == "Predicted Y (Original Units)"
     assert sheet.cell(2, _C_BA).value == "Residual (Original Units)"
-    # Neither header leaks the With_FE/Log conditional fragments.
-    for col in (_C_AZ, _C_BA):
+    assert sheet.cell(2, _C_BB).value == "LOOCV Residual (Original Units)"
+    # None of the three headers leaks the With_FE/Log conditional fragments.
+    for col in (_C_AZ, _C_BA, _C_BB):
         header = sheet.cell(2, col).value
         assert isinstance(header, str)
         assert "(Log)" not in header
@@ -1167,6 +1202,7 @@ def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
     # Method toggle from the unit-space block.
     az_formula = sheet.cell(3, _C_AZ).api.Formula2
     ba_formula = sheet.cell(3, _C_BA).api.Formula2
+    bb_formula = sheet.cell(3, _C_BB).api.Formula2
     assert az_formula == (
         "=Unit_Space_Predictions(Fit_Design_Columns(),Design_Response(),"
         "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
@@ -1176,6 +1212,19 @@ def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
         "=Unit_Space_Residuals(Fit_Design_Columns(),Design_Response(),"
         "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
         f"{_A_BACK_TRANSFORM_METHOD})"
+    )
+    # BB is the LOOCV sibling of BA, plus a SEVENTH argument: the Fixed
+    # Effects group column. Under FE the within design's hat diagonal omits
+    # the absorbed group effects, so the LAMBDA needs the grouping key to
+    # correct its leverage to the equivalent LSDV design's. It is
+    # Prediction_Group_Column() rather than Fixed_Effects_Column() because
+    # that name is defined on every spec — a constant "(all)" column when no
+    # FE row is declared — so the argument is safe to pass unconditionally.
+    assert bb_formula == (
+        "=Unit_Space_LOOCV_Residual(Fit_Design_Columns(),Design_Response(),"
+        "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
+        f"{_A_BACK_TRANSFORM_METHOD},"
+        "Prediction_Group_Column())"
     )
 
 
@@ -1202,9 +1251,10 @@ def test_column_widths_cover_every_zone_column_and_no_gap_column() -> None:
         col for first, last in _ZONES[1:] for col in range(first, last + 1)
     } | {_C_P, _C_Q}  # zone 1's spec-feedback columns; A–O is the spec block
     assert content <= set(widths)
-    # ...and nothing else is sized except the column-I overlay and the BB
-    # post-zone gutter.
-    assert set(widths) - content == {_C_SPEC_SEQUENCE_PERIOD, _C_BB}
+    # ...and nothing else is sized except the column-I overlay and the BC
+    # post-zone gutter (the v3.4 chart anchor; BB is now the LOOCV residual
+    # content column and is sized inside the zone above).
+    assert set(widths) - content == {_C_SPEC_SEQUENCE_PERIOD, _C_BC}
     # Gap columns are sized by the _GAP_COLUMNS loop (width 2) and must not
     # appear here, or a stale entry would silently widen a separator.
     assert not set(widths) & set(_GAP_COLUMNS)

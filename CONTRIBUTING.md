@@ -215,7 +215,7 @@ One build script produces one workbook. `build_production.py` emits the unified 
 |---|---|---|---|
 | `Lambda_Library.xlsx` | The unified workbook | **Automatic** (full) | Regression, Regression Instructions, Diagnostic Guide, Univariate, LAMBDA_functions, Version History, Production Lots, Life Expectancy Data, Mileage Data |
 
-**The workbook carries the complete function library.** All 152 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
+**The workbook carries the complete function library.** All 157 LAMBDA definitions are written into the Name Manager. There is no bundling step, no dependency closure, and no per-function subsetting. When you add a function, it lands in the workbook; there is no list to update.
 
 **The production constructor always runs the full `CalculateFullRebuild` and saves in full Automatic** — there is no skip-calculation flag.
 

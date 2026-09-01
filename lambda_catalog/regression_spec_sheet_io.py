@@ -78,6 +78,9 @@ from .write_sheet_regression import (
     _C_AK,
     _C_AO,
     _C_AX,
+    _C_AZ,
+    _C_BA,
+    _C_BB,
     _C_MODEL_FORMULA,
     _C_T,
     _C_U,
@@ -85,7 +88,14 @@ from .write_sheet_regression import (
     _C_W,
     _C_X,
     _C_Y,
+    _ROW_LOOCV_MAE_UNIT,
+    _ROW_LOOCV_RMSE_UNIT,
     _ROW_MODEL_FORMULA,
+    _ROW_SMEARING_TREATMENT,
+    _ROW_UNIT_ADJ_R2,
+    _ROW_UNIT_R2,
+    _ROW_UNIT_RMSE,
+    _ROW_UNIT_SMEARING,
 )
 
 # ── Row positions (1-based) ──────────────────────────────────────────────
@@ -184,8 +194,36 @@ SCALE_FREE_STATS = frozenset({
 _RESPONSE_UNIT_STATS = frozenset({
     "Dependent_Variable", "Predictions", "Residuals", "PRESS_Residual",
 })
+
+# The three original-units columns (AZ/BA/BB). They are response-unit
+# quantities like the band above, but they are NOT on the same scale: the band
+# above is in FIT space (logged and/or within-demeaned), these are in ORIGINAL
+# units. Dividing them by the fit-space RMS is a category error that happens to
+# produce a number — on P08 it hands a divisor of ~11.71 to errors of order
+# 13,000, so the promised precision floor is never actually applied, and on a
+# sub-unit Log response the mismatch runs the other way and makes the check too
+# permissive. They get their own divisor, ``unit_response_scale``, below.
+_UNIT_SPACE_RESPONSE_STATS = frozenset({
+    "Unit_Space_Predictions", "Unit_Space_Residuals", "Unit_Space_LOOCV_Residual",
+})
 _STANDARDIZED_RESIDUAL_STATS = frozenset({
     "Studentized_Residuals", "Studentized_Residuals_Ranked", "Scale_Location",
+})
+
+# v3.4 unit-space SCALAR goodness-of-fit statistics in response units. Unlike
+# the residual-band set above, these are single cells read out of the AG/AH
+# block, so they need their own set to be scaled in the scalar loop. All three
+# divide by ``unit_response_scale`` — the ORIGINAL-units RMS, not the fit-space
+# one — because their error comes from the back-transformed fitted values, not
+# from their own magnitude: exactly the CLAUDE.md § *QC comparison scale*
+# second case, on the scale the statistics are actually reported in. ``compare_values`` floors the
+# divisor at 1.0, so a small response gets no adjustment and the comparison is
+# never made stricter than the absolute scale. Applying it to the existing
+# ``Unit_Space_RMSE`` removes a latent over-strictness (it was previously on
+# the absolute scale, where a response in the billions demands six-decimal
+# agreement the IEEE-754 floor will not give).
+_RESPONSE_UNIT_SCALARS = frozenset({
+    "Unit_Space_RMSE", "Unit_Space_LOOCV_RMSE", "Unit_Space_LOOCV_MAE",
 })
 
 
@@ -424,6 +462,7 @@ def read_case_comparison_rows(
     vectors = results.vectors
     predictor_summary = results.predictor_summary
     residuals = results.full_residuals
+    unit = results.unit_space
     interval = results.prediction_interval
     k = len(predictor_summary.predictor_names)
     n = summary.observations
@@ -447,6 +486,58 @@ def read_case_comparison_rows(
             "abs_diff": diff,
             "first_digit_deviation": fdd,
         }
+
+    # Both residual divisors are derived from the fit, never from a constant:
+    # each case carries its own floor, so a response in the tens and one in the
+    # billions are treated proportionately. ``compare_values`` floors the
+    # divisor at 1.0, so a small response gets no adjustment and the comparison
+    # is never made stricter than the absolute scale. Hoisted above the scalar
+    # section because the v3.4 unit-space SCALARS (``_RESPONSE_UNIT_SCALARS``)
+    # divide by ``response_scale`` too — the same response-unit precision floor
+    # the residual band carries, applied to single cells instead of n rows.
+    dependent = tuple(
+        value for value in residuals.dependent_var if value is not None
+    )
+    response_scale = (
+        math.sqrt(sum(float(v) ** 2 for v in dependent) / len(dependent))
+        if dependent
+        else 1.0
+    )
+    standardized_scale = (
+        response_scale / summary.se_regression
+        if summary.se_regression
+        else response_scale
+    )
+
+    # The ORIGINAL-units counterpart of ``response_scale``, for the AZ/BA/BB
+    # columns and the unit-space error scalars. The observed response in unit
+    # space is reconstructed rather than re-derived: ``Unit_Space_Residuals``
+    # is defined as ``Unit_Space_Observed - Unit_Space_Predictions``, so their
+    # sum IS ``Unit_Space_Observed``, exactly. Under a None response transform
+    # this collapses to ``response_scale``, so the non-transformed cases are
+    # unaffected.
+    unit_observed = tuple(
+        float(pred) + float(resid)
+        for pred, resid in zip(unit.predictions_unit, unit.residuals_unit)
+        if pred is not None
+        and resid is not None
+        and math.isfinite(float(pred))
+        and math.isfinite(float(resid))
+    )
+    unit_response_scale = (
+        math.sqrt(sum(v ** 2 for v in unit_observed) / len(unit_observed))
+        if unit_observed
+        else response_scale
+    )
+
+    def _residual_scale(stat_name: str) -> float | None:
+        if stat_name in _RESPONSE_UNIT_STATS:
+            return response_scale
+        if stat_name in _UNIT_SPACE_RESPONSE_STATS:
+            return unit_response_scale
+        if stat_name in _STANDARDIZED_RESIDUAL_STATS:
+            return standardized_scale
+        return None
 
     # ── Scalars: Regression Statistics, diagnostics, ANOVA ───────────────
     press_r2 = 1.0 - summary.press / summary.ss_total
@@ -513,21 +604,35 @@ def read_case_comparison_rows(
         for stat_name, expected_value, row, col in scalar_specs
     ]
 
-    # ── v3.3 unit-space block (AH5:AH8) ─────────────────────────────────
+    # ── v3.3/v3.4 unit-space block (AH5:AH13) ────────────────────────────
     # Compared cell-for-cell here: the Back-Transform toggle (L02 vs L03)
-    # is only meaningful if these four are read.
-    unit = results.unit_space
+    # is only meaningful if the in-sample quartet (rows 5–8) is read, and the
+    # v3.4 out-of-sample pair (rows 11–12) is what the toggle's smearing
+    # optimism actually touches. Row positions are the layout constants, not
+    # bare literals, so a future shift in the block is caught by
+    # ``test_row_constants_match_the_writers_own_layout`` rather than reading
+    # the wrong cell. ``_RESPONSE_UNIT_SCALARS`` divides the three
+    # original-units error scalars by ``unit_response_scale`` (floored at 1.0
+    # by ``compare_values``); the two R²-family readouts and the smearing
+    # factor stay on the absolute scale — they are dimensionless / relative.
     for stat_name, expected_value, row in (
-        ("Smearing_Factor", unit.smearing_factor, 5),
-        ("Unit_Space_R_Squared", unit.r_squared_unit, 6),
-        ("Unit_Space_Adjusted_R_Squared", unit.adjusted_r2_unit, 7),
-        ("Unit_Space_RMSE", unit.rmse_unit, 8),
+        ("Smearing_Factor", unit.smearing_factor, _ROW_UNIT_SMEARING),
+        ("Unit_Space_R_Squared", unit.r_squared_unit, _ROW_UNIT_R2),
+        ("Unit_Space_Adjusted_R_Squared", unit.adjusted_r2_unit, _ROW_UNIT_ADJ_R2),
+        ("Unit_Space_RMSE", unit.rmse_unit, _ROW_UNIT_RMSE),
+        ("Unit_Space_LOOCV_RMSE", unit.loocv_rmse_unit, _ROW_LOOCV_RMSE_UNIT),
+        ("Unit_Space_LOOCV_MAE", unit.loocv_mae_unit, _ROW_LOOCV_MAE_UNIT),
     ):
         scalar_rows.append(
             _row(
                 {"stat_name": stat_name},
                 expected_value,
                 read_cell(sheet, row, _C_AH),
+                scale=(
+                    unit_response_scale
+                    if stat_name in _RESPONSE_UNIT_SCALARS
+                    else None
+                ),
             )
         )
 
@@ -637,31 +742,9 @@ def read_case_comparison_rows(
         ("Scale_Location", residuals.scale_location),
         ("PRESS_Residual", residuals.loocv_residuals),
     )
-    # Both divisors are derived from the fit, never from a constant: each case
-    # carries its own floor, so a response in the tens and one in the billions
-    # are treated proportionately. ``compare_values`` floors the divisor at
-    # 1.0, so a small response gets no adjustment and the comparison is never
-    # made stricter than the absolute scale.
-    dependent = tuple(
-        value for value in residuals.dependent_var if value is not None
-    )
-    response_scale = (
-        math.sqrt(sum(float(v) ** 2 for v in dependent) / len(dependent))
-        if dependent
-        else 1.0
-    )
-    standardized_scale = (
-        response_scale / summary.se_regression
-        if summary.se_regression
-        else response_scale
-    )
-
-    def _residual_scale(stat_name: str) -> float | None:
-        if stat_name in _RESPONSE_UNIT_STATS:
-            return response_scale
-        if stat_name in _STANDARDIZED_RESIDUAL_STATS:
-            return standardized_scale
-        return None
+    # ``response_scale`` / ``standardized_scale`` / ``_residual_scale`` are
+    # hoisted above the scalar section (the v3.4 unit-space scalars divide by
+    # ``response_scale`` too); see there for the divisor rationale.
 
     residual_rows = [
         _row(
@@ -680,6 +763,36 @@ def read_case_comparison_rows(
         )
     ]
 
+    # ── v3.4 original-units residual band (AZ–BB, n rows from row 3) ──────
+    # ``AZ``/``BA`` shipped in v3.3 with NO cell-by-cell comparison — the read
+    # above stops at ``_C_AX``, and the ``AY`` column in between returns ""
+    # (a masked label helper), so the range cannot simply be widened. This
+    # block closes that gap and adds the v3.4 LOOCV residual column (``BB``).
+    # All three are ORIGINAL-units quantities (``_UNIT_SPACE_RESPONSE_STATS``)
+    # and divide by ``unit_response_scale`` via ``_residual_scale`` — never by
+    # the fit-space ``response_scale`` the band above uses.
+    unit_residual_stats = (
+        ("Unit_Space_Predictions", unit.predictions_unit),
+        ("Unit_Space_Residuals", unit.residuals_unit),
+        ("Unit_Space_LOOCV_Residual", unit.loocv_residuals_unit),
+    )
+    residual_rows.extend(
+        _row(
+            {"row_idx": row_index + 1, "stat_name": stat_name},
+            float(expected_tuple[row_index])
+            if row_index < len(expected_tuple)
+            else None,
+            excel_value,
+            scale=_residual_scale(stat_name),
+        )
+        for row_index, excel_row in enumerate(
+            read_block(sheet, ROW_RESID_FIRST, _C_AZ, _C_BB, n)
+        )
+        for (stat_name, expected_tuple), excel_value in zip(
+            unit_residual_stats, excel_row
+        )
+    )
+
     return {
         "scalars": scalar_rows,
         "predictors": predictor_rows,
@@ -697,6 +810,18 @@ def read_model_formula(sheet: xw.Sheet) -> object:
     layout constants, so a future move needs no edit here.
     """
     return sheet.range(_ROW_MODEL_FORMULA, _C_MODEL_FORMULA).value
+
+
+def read_smearing_treatment(sheet: xw.Sheet) -> object:
+    """The v3.4 ``Smearing Treatment`` readout at ``AH13``, as written text.
+
+    A pure function of (response transform, back-transform method), surfacing
+    the small full-sample optimism Duan smearing carries — the numeric
+    comparison path cannot carry a string, so this is read and compared as an
+    exact text match, exactly as ``read_model_formula`` is. Coordinates come
+    from the layout constant so a future block move needs no edit here.
+    """
+    return sheet.range(_ROW_SMEARING_TREATMENT, _C_AH).value
 
 
 def read_response_readout(sheet: xw.Sheet) -> object:

@@ -148,11 +148,13 @@ class RegressionPredictionInterval:
 class RegressionUnitSpace:
     """v3.3 unit-space / back-transformation outputs for the Regression sheet.
 
-    Mirrors the AG3:AH9 unit-space block plus the Original Units prediction
-    column (AL) and the two new residual columns (AZ/BA). The smearing
-    factor is the scalar that lifts EXP(ŷ) from a median predictor to a
-    mean predictor under a Log response; under ``None`` it is exactly 1 so
-    the reduction invariant (Unit_Space_* ≡ ordinary statistic) holds.
+    Mirrors the AG3:AH9 unit-space block, the Original Units prediction column
+    (AL), the two v3.3 residual columns (AZ/BA), and the v3.4 leave-one-out
+    family: the LOOCV residual column (BB) plus the LOOCV RMSE / MAE scalars
+    (AH11/AH12) and the named smearing treatment (AH13). The smearing factor
+    is the scalar that lifts EXP(ŷ) from a median predictor to a mean predictor
+    under a Log response; under ``None`` it is exactly 1 so the reduction
+    invariant (Unit_Space_* ≡ ordinary statistic) holds.
     """
 
     smearing_factor: float
@@ -166,6 +168,10 @@ class RegressionUnitSpace:
     prediction_pi_upper_unit: float
     predictions_unit: tuple[float, ...]
     residuals_unit: tuple[float, ...]
+    loocv_residuals_unit: tuple[float, ...]
+    loocv_rmse_unit: float
+    loocv_mae_unit: float
+    smearing_treatment: str
     model_formula: str
 
 

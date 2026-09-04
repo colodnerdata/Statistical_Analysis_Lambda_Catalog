@@ -2133,13 +2133,18 @@ def write_regression_output_sheet(
     # zone's column headers (row 3 everywhere). Requires an active window,
     # which Excel may refuse to grant in a headless/non-interactive session,
     # so this is best-effort.
+    #
+    # Frozen the way Excel's UI freezes — select A4, then FreezePanes — and
+    # NOT via SplitRow: setting SplitRow turns the window's Split on, and
+    # freezing a split persists as state="frozenSplit" (draggable split
+    # bars) instead of a true freeze. Any pre-existing freeze/split is
+    # cleared first so re-freezing a rebuilt sheet is idempotent.
     try:
-        sheet.activate()
-        sheet.range("A4").select()
         win = sheet.api.Application.ActiveWindow
         win.FreezePanes = False
-        win.SplitRow = 3
-        win.SplitColumn = 0
+        win.Split = False
+        sheet.activate()
+        sheet.range("A4").select()
         win.FreezePanes = True
     except Exception:
         pass

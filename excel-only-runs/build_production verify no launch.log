@@ -1,26 +1,20 @@
 python build_production.py --verify --no-launch
-
-Excel's COM session dropped; retrying in a fresh Excel instance...
-Traceback (most recent call last):
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\lambda_catalog\build_common.py", line 171, in tee_run_log
-    yield log_path
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\scripts\build_production.py", line 695, in main
-    exit_code = _build_and_verify(args, workbook_path)
-                ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\scripts\build_production.py", line 596, in _build_and_verify
-    _retry_on_open(
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\lambda_catalog\build_common.py", line 299, in _retry_on_open
-    fn()
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\scripts\build_production.py", line 582, in _run_build
-    result = build_production_workbook(
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\scripts\build_production.py", line 374, in build_production_workbook
-    write_regression_output_sheet(
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\lambda_catalog\write_sheet_regression.py", line 2045, in write_regression_output_sheet
-    _write_regression_outputs_header(sheet)
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\lambda_catalog\write_sheet_regression.py", line 1115, in _write_regression_outputs_header
-    section_heading(sheet, 3, _C_AF, "")
-  File "C:\LocalPython\Statistical_Analysis_Lambda_Catalog\lambda_catalog\workbook_helpers.py", line 436, in section_heading
-    sheet.range(rc(row, col)).api.Font.Bold = True
-    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-AttributeError: 'NoneType' object has no attribute 'Font'
+Workbook: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\dist\Lambda_Library.xlsx
+Sheet updated: LAMBDA_functions
+Sheet updated: Life Expectancy Data
+Sheet updated: Mileage Data
+Sheet updated: Production Lots
+Sheet updated: Regression Instructions
+Sheet updated: Diagnostic Guide
+Sheet updated: Version History
+Sheet updated: Regression
+Sheet updated: Univariate
+Created names: 0
+Updated names: 127
+Removed names: 0
+Verify: passed (spec mode, 74.4s, workbook='C:\\Users\\Stephen_Colodner\\windows_code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library.xlsx')
+Timing: build+sync    148.5s
+Timing: recalculate   14.6s
+Timing: verify        74.4s
+Timing: total         237.5s
+Log: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production verify no launch.log

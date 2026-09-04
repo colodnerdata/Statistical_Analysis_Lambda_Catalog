@@ -180,6 +180,15 @@ def safe_freeze_top_row(sheet: xw.Sheet) -> None:
     same headless/no-focus sessions ``safe_activate`` guards against, that
     property access can itself raise, so this is best-effort too.
 
+    The freeze is done the way Excel's own UI does it — select the cell
+    below the header row, then set ``FreezePanes`` — never via ``SplitRow``.
+    Setting ``SplitRow`` turns the window's ``Split`` on, and freezing a
+    split persists in the saved workbook as ``state="frozenSplit"``: the
+    header stays pinned but draggable split bars ship with it. Selecting
+    and then freezing with no split present persists as a true
+    ``state="frozen"``. Any pre-existing freeze or split is cleared first so
+    the helper is idempotent on a rebuilt sheet.
+
     Parameters
     ----------
     sheet : xw.Sheet
@@ -187,8 +196,10 @@ def safe_freeze_top_row(sheet: xw.Sheet) -> None:
     """
     try:
         window = sheet.api.Application.ActiveWindow
-        window.SplitRow = 1
-        window.SplitColumn = 0
+        window.FreezePanes = False
+        window.Split = False
+        sheet.activate()
+        sheet.range("A2").select()
         window.FreezePanes = True
     except Exception:
         pass

@@ -2274,9 +2274,15 @@ def _finalize_sheet(sheet: xw.Sheet) -> None:
     sheet.range(rc(_ROW_METHOD_HDR, 1)).api.EntireRow.RowHeight = 18
     sheet.range(rc(_ROW_SECTION_HDR, 1)).api.EntireRow.RowHeight = 18
     sheet.range(rc(_ROW_COL_HDRS, 1)).api.EntireRow.RowHeight = 18
-    # Freeze at C4: rows 1-3 and cols A-B (data + filter) always visible
+    # Freeze at C4: rows 1-3 and cols A-B (data + filter) always visible.
+    # Select-then-FreezePanes (never SplitRow — freezing a split persists as
+    # state="frozenSplit", draggable split bars), clearing any stale freeze or
+    # split first so re-freezing a rebuilt sheet is idempotent.
+    _win = sheet.book.app.api.ActiveWindow
+    _win.FreezePanes = False
+    _win.Split = False
     sheet.range(rc(_ROW_DATA_START, 3)).api.Select()
-    sheet.book.app.api.ActiveWindow.FreezePanes = True
+    _win.FreezePanes = True
 
 
 # ── Main entry point ──────────────────────────────────────────────────────────

@@ -424,7 +424,7 @@ def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) ->
         (7, _C_AA, "Adjusted R Square"),
         (8, _C_AA, "Standard Error"),
         (9, _C_AA, "Observations"),
-        (2, _C_AA, "Model Formula"),
+        (_ROW_MODEL_FORMULA, _C_MODEL_FORMULA_LABEL, "Model Formula"),
         (5, _C_AD, "PRESS"),
         (6, _C_AD, "PRESS R²"),
         (7, _C_AD, "Mean Leverage"),

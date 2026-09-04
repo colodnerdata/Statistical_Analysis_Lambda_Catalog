@@ -24,12 +24,12 @@ v3.0 shipped in three stages and **both sections are now built** — they descri
 the sheet as it is, not as it is planned. Where a §4a example shows a
 `Fit_Context()` argument, that is the current signature. The sheet call passes the
 sheet-scoped reader `Fit_Context()`; a free-form caller outside the sheet passes
-the workbook-scoped constructor `Model_Context()`. One thing in §4b is still
-forward-looking and is marked where it appears: the `Sample_Include` and
-Constructed Design Matrix zones are now filled; the Regression Statistics zone
-reads them via `Fit_Design_Columns()` / `Fit_Sample_Include()`, but the
-remaining zones still call the live closures, and promoting either to a thunk
-over its spill is Excel-verified work that lands separately.
+the workbook-scoped constructor `Model_Context()`. In §4b the `Sample_Include` and
+Constructed Design Matrix zones are filled and every zone reads them via the
+`Fit_Design_Columns()` / `Fit_Sample_Include()` readers; the public
+`Sample_Include` / `Design_Columns` names are themselves readers over their
+materialized spills (the spill-source cells call the private `Sample_Include_Calc`
+/ `Design_Columns_Calc` leaves).
 
 ---
 
@@ -268,7 +268,7 @@ alternative shifts eight columns to preserve a reading convention. See
 | D | **Predictor Type** | Dropdown: `Continuous` · `Categorical`; meaningful only when Role = Predictor; pre-filled `Continuous` |
 | E | **Reference Level** | Orange input, meaningful only for Categorical Predictors. Blank = **first level in sort order** (confirmed default, matching R). CF: red when the entered level does not exist in the analysis sample. |
 | F | **Order** *(reserved, not implemented v2.0)* | Input, integer. Will control user-specified ordering of Identifier columns in the row-label text-join; v2.0 always joins in table order. Present now so the layout absorbs the feature without a future column insertion. Cell comment marks it reserved; no validation yet (no fixed domain). |
-| G | **Transform** *(live — v2.2 Log wiring, v3.3 back-transformation)* | Orange input, dropdown `None` · `Log` · `Log (drop ≤ 0)`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). The two Log tokens build the IDENTICAL column and differ only in what happens to a row whose value is zero or negative: under `Log` the row stays in the sample, `Ln_Positive` returns `#N/A`, and the fit is `#N/A` throughout — flagged red on the cell, with the `G2` status line naming the variable, the count and the fix; under `Log (drop ≤ 0)` the row leaves the sample (row-mask layer 3) and `G2` reports the count in amber. `Constructed_Column_Transforms()` reports `Log` for both, so the unit-space dispatcher gains no new combination. Either token applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. The unit-space block at `AG3:AH9` (v3.3) computes Duan-smearing back-transformed GoF (`R²`, `Adj R²`, `RMSE` in original units), and the Prediction Outputs block's `AL` column carries the back-transformed point estimate (Duan by default, Naive on toggle) and the four CI/PI bounds (always Naive). Default `None` fits the raw column — under `None` everywhere, `Unit_Space_*` reduce to the ordinary statistics exactly. See [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label). |
+| G | **Transform** *(live — v2.2 Log wiring, v3.3 back-transformation)* | Orange input, dropdown `None` · `Log` · `Log (drop ≤ 0)`. Meaningful on the **Response row and on Continuous Predictor rows**; disallowed on Categorical Predictors (flagged red, never silently applied). The two Log tokens build the IDENTICAL column and differ only in what happens to a row whose value is zero or negative: under `Log` the row stays in the sample, `Ln_Positive` returns `#N/A`, and the fit is `#N/A` throughout — flagged red on the cell, with the `G2` status line naming the variable, the count and the fix; under `Log (drop ≤ 0)` the row leaves the sample (row-mask layer 3) and `G2` reports the count in amber. `Constructed_Column_Transforms()` reports `Log` for both, so the unit-space dispatcher gains no new combination. Either token applies `Ln_Positive` inside `Response_Column()` / `Predictor_Columns()`, so the whole fit — coefficients, R², diagnostics, residuals, prediction interval — is in log space, and the constructed column is relabelled `Ln(name)` by `Constructed_Column_Names()`. The unit-space block at `AG4:AH10` (v3.3) computes Duan-smearing back-transformed GoF (`R²`, `Adj R²`, `RMSE` in original units), and the Prediction Outputs block's `AL` column carries the back-transformed point estimate (Duan by default, Naive on toggle) and the four CI/PI bounds (always Naive). Default `None` fits the raw column — under `None` everywhere, `Unit_Space_*` reduce to the ordinary statistics exactly. See [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label). |
 | H | **Sequence** *(structural axis, post-v2.0)* | Orange input flag, dropdown `TRUE`/blank. The shipped default pre-flags **Year** `TRUE` (the WHO panel's ordering axis; every other row blank) so the Sequence machinery is live at T0; on a non-panel dataset leave it blank. Marks **at most one** variable as the ordering axis. Status line at H2: red error at two-plus flags (zero is valid); per-cell red CF points at the offending rows. Read by the validation layer, by the sequence-spacing layer (`Sequence_Deltas`, `Base_Period_Delta`) since the base-period release, and — since the DW-gate release — by the serial-correlation accessor `Sequence_Column` (which feeds the gated `Durbin_Watson_By` diagnostic cell). No design-matrix constructor consumes it: Sequence orders the data, it never enters the model matrix. |
 | I | **Sequence Period** *(typed override input, post-v2.1 Sequence fix)* | Orange input — the user types a number on the Sequence-flagged row to declare a Δ that differs from the computed candidate. Blank by default; the spec falls back to the candidate. Read only by the in-use display at column J, not by any constructor. The cell is the load-bearing override point of the reference-level pattern. |
 | J | **Period In Use** *(live — base-period release; Sequence companion)* | **Computed-with-override display**, the reference-level pattern: shows the typed value at I if non-blank, otherwise the candidate closure's value (`Base_Period_Delta_Candidate()` — MODE of within-group consecutive spacings, MIN fallback when no spacing repeats). No other on-sheet formula reads J; the workbook-scoped `Base_Period_Delta()` accessor (lambda_functions.json) separately provides the omitted-`[delta]` default for `Lag_By`/`Difference_By`. The J cell stays plain, with no on-sheet override-flagging display. |
@@ -315,7 +315,7 @@ which is exactly what the constructor's skip does.
 The column is a computed display and is bound by "Display derives, never feeds"
 like J, K, and L — no constructor may read it. Its **total** — Σ(column O) plus
 the intercept, i.e. exactly `COLUMNS(Design_Columns())` — sits above it at O1 with
-the width-guard status at M2, and is likewise read only by the guard, which is
+the width-guard status at O2, and is likewise read only by the guard, which is
 itself a display.
 
 ### Reserved-column policy (F)
@@ -352,7 +352,7 @@ it is now read by exactly four constructors — `Response_Column()`, `Predictor_
 `Model_Formula()`, the display that renders the response's `Ln(...)` wrapping
 into the sheet's formula caption; and by nothing else. `Sample_Include()` and
 `Row_Labels()` still never reference it (confirmed by construction in
-`tests/test_model_construction_writer.py`).
+`tests/test_spec_block_writer.py`).
 
 ### Cascading relevance
 
@@ -678,16 +678,21 @@ displaced by an ordinary modeling choice.
   could not add without moving columns a second time, so they landed with the
   layout break; filling the zone was then a formula change against columns that
   already existed. `Sample_Include()` and `Design_Columns()` now spill into
-  their zones — each headed on row 2 and spilling from row 3, full height and
-  row-aligned with the source table — but they are still **live closures
-  evaluated per call site** everywhere except the Regression Statistics zone,
-  which reads the spills via `Fit_Design_Columns()` / `Fit_Sample_Include()`
-  (rows 4–8). That zone is the first fully migrated; the remaining zones still
-  call the constructors directly, and the migration proceeds zone by zone.
-  Promoting either to a thunk over its own spill needs the dynamic-array spill
-  operator (`#`) inside a `LAMBDA` defined-name `Refers To`, a combination used
-  nowhere else in this workbook and verifiable only with Excel present, so it
-  lands separately and Excel-verified rather than blind.
+  their zones — each headed on row 3 and spilling from row 4, full height and
+  row-aligned with the source table — and every zone reads those spills via
+  `Fit_Design_Columns()` / `Fit_Sample_Include()`. The public
+  `Sample_Include` / `Design_Columns` names are themselves readers over their
+  materialized spills: the spill-source cells call the private
+  `Sample_Include_Calc` / `Design_Columns_Calc` leaves (the catalog LAMBDAs
+  holding the recompute bodies), so the producing cell no longer self-references.
+  **A reader is a range, not a recompute.** Passing one where a consumer
+  expects a LAMBDA argument and then does array math over the mask collapses
+  it — truncated height in `Dummy_Levels` and `Demean_By`, or `N()` flattening
+  it to the top-left cell — and the fit silently narrows. Call sites of that
+  shape pass the recomputing `Sample_Include_Calc()` leaf instead (the
+  `Ln_Positive` sites inside `Response_Column()` / `Predictor_Columns()`, and
+  the `Dummy_Levels` / `Demean_By` carriers), and sum-style readers aggregate
+  with `--`, never `N()` — a repo-wide guard pins both.
 
 - **The design matrix's header row is split across two cells.**
   `Design_Columns()` is one column wider than `Constructed_Column_Names()`
@@ -744,7 +749,7 @@ its own catalog category, separate from the version ladder.
 **Delivery, however, is pinned to the ladder.** The user-callable transform
 library was planned for **v2.2** alongside the column-G wiring, then carried
 as the v3.3 remainder, and now ships **last in the Regression track, at
-[v3.9](ROADMAP.md#v39--standalone-data-transformation-library--planned)** —
+[v3.9](ROADMAP.md#v39--standalone-data-transformation-library--partially-delivered)** —
 it is the only item that widens the predictor-transform axis every model is
 crossed against, so it is the most expensive Regression milestone to test (see
 [docs/MODEL_TESTING_ASSETS.md § 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order)).
@@ -837,22 +842,24 @@ change what any of these functions mean.
   does not call it directly (it encodes inline via broadcast) but is held
   to the same standard. **v2.0 constructor internal** for Categorical
   roles, via `Dummy_Levels`.
-The three entries below are **specified, not yet built** — none is in
-`lambda_functions.json`. They are v3.9 work items in
-[TODOs.md](TODOs.md#v39--standalone-data-transformation-library) (planned as
-v2.2, carried as the v3.3 remainder, then moved to the end of the ladder — the
-standalone transform library is the most expensive item in the plan to test).
-Recorded explicitly because REVIEW.md F6 cited `Interact` as already shipping.
+The three entries below ship at **v3.9** (#235, alongside
+`Numeric_Complete_Cases` at #234 in **Sample Construction & Diagnostics**) as
+the additive-helper slice of
+[v3.9](ROADMAP.md#v39--standalone-data-transformation-library--partially-delivered)
+(planned as v2.2, carried as the v3.3 remainder, then moved to the end of the
+ladder — the standalone transform library is the most expensive item in the
+plan to test).
 
-- `Dummy_Column(category, level, [include])` — *(planned)* single indicator
-  column per explicit call.
-- `Interact(x1, x2)` — *(planned)* elementwise product \(x_1 x_2\); broadcasts
+- `Dummy_Column(category, level, [include])` — single indicator
+  column per explicit call: `1` where the category equals the named level,
+  `0` elsewhere.
+- `Interact(x1, x2)` — elementwise product \(x_1 x_2\); broadcasts
   across dummy-coded matrices to produce one interaction column per retained
   level. This is the standalone, free-form counterpart to the v3.0 spec-block
   interaction columns (§4 M/N); the spec-driven path does not call it — the
   constructor encodes inline, the same relationship `Predictor_Columns()` already has with
   `Dummy_Code`.
-- `Model_Matrix(X, [add_intercept])` — *(planned)* optionally prepends an
+- `Model_Matrix(X, [add_intercept])` — optionally prepends an
   intercept column. Intentionally not variadic — predictors are assembled
   explicitly with `HSTACK` so the specification stays visible and
   auditable. Note that from v3.0 the *spec-driven* intercept is owned by the

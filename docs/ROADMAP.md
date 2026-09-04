@@ -87,17 +87,17 @@ the reunification rationale is in
 | v1.2 | Workbook hardening & regression usability (Name Manager notes, identity-line data series, intercept-only and undersized-sample guards, LOOCV_Residual, build retry/RPC handling) | No | **Shipped 2026-07-03** (workbook 1.2.0; renumbered from 2.1.0) |
 | v2.0 | Specification-Driven Regression (roles: Continuous / Categorical) | **Yes** | **Shipped 2026-07-05** (workbook 2.0.0; renumbered from 3.0.0) — MAJOR. Changed `x_s()` return semantics and restructured the Regression control block; includes the canonical rename pass. Shipped with `Transform` as a reserved placeholder column as planned; users transform their own variables via extra input-table columns in the interim |
 | v2.1 | Sequence axis + gap-aware longitudinal + serial-correlation diagnostics + Fixed Effects (Role axis, one-way only) + Generalized VIF | No | **Shipped inside the 3.0.0 artifact** — every TODOs #1–#10 item is DONE and verified against a live build (0 mismatches across all 12 spec-driven QC cases), with the FE engine independently pinned against `statsmodels` LSDV by `test_within_estimator`, `test_df_absorbed_threading`, and `test_group_prediction_interval`. `Design_Response` and `Design_Columns` (shipped at v2.1 as `y_s` / `X_s_Within`; renamed by the v3.0 constructor pipeline), `Absorbed_Degrees_Of_Freedom`, `Group_Prediction_Interval`, `GVIF`, and `Generalized_Tolerance` are all in `lambda_functions.json`. Never got its own release build — the features reached users inside 3.0.0, and the 2.1.0 Version History entry was backfilled later, at v3.1, rather than written at release. DEFERRED follow-on polish remains |
-| v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR, and likewise shipped inside the 3.0.0 artifact; its 2.2.0 Version History entry was backfilled later, at v3.1, rather than written at release. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()` — renamed `Predictor_Columns()` at v3.0 — plus `Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher, Duan back-transformation, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) remain open and ship as **v3.3**, after v3.0 |
+| v2.2 | Transforms (Response / Predictor Log, unit-space comparability) + the standalone Data Transformation function library | No | Partially delivered — MINOR, and likewise shipped inside the 3.0.0 artifact; its 2.2.0 Version History entry was backfilled later, at v3.1, rather than written at release. Column-G `Log` wiring shipped (`Response_Column()`/`X_s()` — renamed `Predictor_Columns()` at v3.0 — plus `Constructed_Column_Names()`/`Constructed_Column_Transforms()`, the Prediction Inputs auto-log step, `Ln_Positive`); the unit-space dispatcher and Duan back-transformation remain open and ship at **v3.3**, and the rest of the standalone transform library (Center, Zscore, Winsorize, …) ships at **v3.9**, both after v3.0 |
 | **v3.0** | **The engine-interface release** — bounded `Model_Context`, intercept relocation, the constructor pipeline, the Univariate split (later reunified — see below), and the layout break | **Yes** | **Shipped 2026-08-02** (workbook 3.0.0; Univariate artifact 1.0.0, later reunified). Three stages plus the split, landed as separate reviewable pull requests: stage 1 (constructor pipeline + intercept relocation), stage 2 (the `Model_Context` / `[Context]` collapse), the Univariate split, and stage 3 (the layout break). Stages 1-2 and the split were non-breaking — they restructure the engine and the packaging, not the user-typed spec block, so a Regression spec saved under 2.0.0 produces identical output (stage one QC: zero mismatches across all twelve cases; stage two gate green). Stage 3 is where the `Breaking?` flag turns **Yes**, and it breaks ADDRESSES, not meanings: three columns are APPENDED to the spec block (M/N interaction pair, O Design Columns audit), so A–L keep their letters and their meanings and no fitted number moves, but every zone right of the spec block shifts three columns. See the milestone entry below |
 | v3.1 | Interaction wiring — the constructor actually builds the interaction columns v3.0 stage 3 inserted | No | **Shipped 2026-08-03** (workbook 3.1.0) — MINOR, and exactly the follow-on the reserved columns were for: three LAMBDA definitions and one audit formula changed, and no column moved. `Predictor_Columns()` and its two twins read M/N and emit the pairwise combination (1 column for Continuous × Continuous, L−1 for Continuous × Categorical, (L₁−1)(L₂−1) for Categorical × Categorical); the Design Columns audit gained its `k(row)×k(operand)` term in the same edit, off the same width helper. A spec with M and N blank computes identically to 3.0.0 |
-| v3.2 | Full materialization of the design matrix | No | Delivered — MINOR. Stage 3 established the terminal zone and its width guard, and the spills that fill it — `Design_Columns()` into the design-matrix zone, `Sample_Include()` into its own — landed in the code, replacing both `"reserved"` placeholders. The ~30 engine call sites are now repointed at those spills via the `Fit_Design_Columns()` / `Fit_Sample_Include()` readers (sheet zones and the eight catalog LAMBDA bodies that called the constructors), the performance win is banked (recalculate 21.8s → 10.5s, cell-by-cell spec verifier green), and the artifact rebuild carries it to users. Still open: the cosmetic `Sample_Include` *name*-over-a-spill promotion (self-referential at the producing cell, now optional since every call site already reads the reader) |
+| v3.2 | Full materialization of the design matrix | No | Delivered — MINOR. Stage 3 established the terminal zone and its width guard, and the spills that fill it — `Design_Columns()` into the design-matrix zone, `Sample_Include()` into its own — landed in the code, replacing both `"reserved"` placeholders. The ~30 engine call sites are now repointed at those spills via the `Fit_Design_Columns()` / `Fit_Sample_Include()` readers (sheet zones and the eight catalog LAMBDA bodies that called the constructors), the performance win is banked (recalculate 21.8s → 10.5s, cell-by-cell spec verifier green), and the artifact rebuild carries it to users. The public `Sample_Include` / `Design_Columns` names are themselves readers over their materialized spills — the spill-source cells call the private `Sample_Include_Calc` / `Design_Columns_Calc` leaves, and `Sample_Include(FALSE)` delegates to `Sample_Include_Calc(FALSE)` — so the producing cell no longer self-references |
 | v3.3 | Transforms remainder — unit-space dispatcher, Duan back-transformation, the model formula label | No | **SHIPPED** — MINOR. *Planned as the second half of v2.2*, moved after v3.0 with the rest of the feature train; the column-G `Log` wiring already shipped at v2.2. The **standalone transform library** was planned inside this milestone and now ships as **v3.9** — it is the ladder's most expensive item to test, and nothing else waits on it |
 | v3.4 | Model Comparison Sheet | No | Planned — MINOR, a *nice-to-have*. *Planned as v2.3.* Read-only across finished Regression sheets; ships after the Transforms remainder (v3.3) so its comparisons are unit-space-honest from day one. **Test scale: additive (~1×)** — it reads models the suite already has |
 | v3.5 | `Cluster` Role (clustered-robust SEs) | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket by the [ladder reordering](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).* Forward-wired from `Serial_Correlation_Group()`'s dormant branch. **Test scale: near-additive** — a variance-estimator variant over a few existing models |
 | v3.6 | `Time` Role + lag/difference semantics | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Partially forward-wired via the v2.1 Sequence axis. **The sheet half moved to v3.12** — this milestone is the engine work (the Role, cross-sheet `Lag_By` / `Difference_By` time semantics, the calendar-dated dataset), which is Regression-track and belongs here; the worksheet that consumes it is a new analysis surface and ships with the trailing block. **Test scale: near-additive — and it closes a coverage gap that exists today**: its calendar-dated dataset is what finally makes the Sequence calendar-signature verdict testable |
 | v3.7 | `Weight` Role (WLS) | No | Planned — MINOR. *Planned as v2.6; claimed as v3.7 all along, though it reaches the slot by a different route.* User-supplied weights as the first stage; variance-driver-derived weights and FGLS as later follow-ons. The `Weight` Role, its cardinality rule, and the three-stage scope stand; the **implementation mechanism changed at v3.0** — √w scaling in the constructor, not a threaded `[Weights]` argument. Shipping after v3.0 is what makes that the first implementation rather than a rewrite. **Test scale: ~2×** over a representative subset |
 | v3.8 | Two-way Fixed Effects | No | Planned — MINOR. *Planned as v2.7+; promoted out of the unordered bucket.* Forward wiring from the v2.1 FE engine. **Test scale: ~2×** over the FE family |
-| v3.9 | Standalone Data Transformation library (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix`) | No | Planned — MINOR. *Planned as the second half of v2.2, then carried as the v3.3 remainder.* **The last regression milestone**, because it is **the ~10× axis-widener** — every added Transform value multiplies the response × predictor dispatch table, so it lands against the most mature harness the Regression track ever has |
+| v3.9 | Standalone Data Transformation library (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix`) | No | Partially delivered — MINOR. *Planned as the second half of v2.2, then carried as the v3.3 remainder.* **The last regression milestone**, because it is **the ~10× axis-widener** — every added Transform value multiplies the response × predictor dispatch table, so it lands against the most mature harness the Regression track ever has. The additive-helper slice ships first (`Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix` — #234/#235, catalog 148 → 151); the Location & Scale and Group & Panel transforms (`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`) remain |
 | v3.10 | Bivariate / two-sample (one-sample t, two-sample t [equal-var / Welch / paired], F-test, Covariance) | No | Planned — MINOR. *Planned as v2.5, claimed as v3.6, briefly held at v3.5.* **The first milestone that is not Regression work** — a new sheet and a new analysis surface, held until the Regression template is feature-complete. F-test feeds a recommendation cell that selects the t-test variant; Covariance complements the existing `Correlation_Matrix`. **Test scale: additive** — a fixed set of cases on two small new datasets |
 | v3.11 | Resampling & Simulation (bootstrap, Monte Carlo) | No | Planned — MINOR. *Planned as v2.4; claimed as v3.5, briefly held at v3.6.* The second non-Regression milestone. Pre-drawn random table (`Bootstrap_Random_Draws` named range) indexed at use time; non-volatile by design (every recalc reproduces the same draw). The artifact build seeds the table from a SHA-256 digest of the source CSV, so the draw is reproducible from the data alone. **Test scale: additive** — no new data at all |
 | v3.12+ | Multi-group means (ANOVA), Fourier, Decision analysis | mixed | Unordered (deliberate — see Future section). *Planned as v2.7+.* Design-not-started, and nothing about their test cost sequences them |
@@ -509,7 +509,7 @@ correctly-fitted log-space model. They are no longer v2.2 work: when the feature
 train was resequenced behind v3.0, the unfinished half became its own milestone.
 See [v3.3](#v33--transforms-remainder--shipped-dispatcher--duan--model-formula-label)
 for the half that shipped and
-[v3.9](#v39--standalone-data-transformation-library--planned) for the standalone
+[v3.9](#v39--standalone-data-transformation-library--partially-delivered) for the standalone
 transform library.
 
 Design rationale and resolved decisions: [DECISIONS.md § v2.2](DECISIONS.md#v22--transforms--unit-space-comparability).
@@ -750,7 +750,7 @@ production.
 
 **The standalone transform library is no longer part of this milestone.** It was
 planned here, never started, and now ships as
-[v3.9](#v39--standalone-data-transformation-library--planned), the last milestone
+[v3.9](#v39--standalone-data-transformation-library--partially-delivered), the last milestone
 in the Regression track — it is that track's single most expensive item to test
 (the ~10× axis-widener), and nothing between here and there waits on it. See
 [Ladder order from v3.4 on](#ladder-order-from-v34-on-regression-work-first-then-test-suite-growth).
@@ -793,7 +793,7 @@ in the Regression track — it is that track's single most expensive item to tes
   of the transformation; the "right" comparison is on the original
   response's likelihood, not the transformed one's).
 - **Standalone transform library, remainder — MOVED to
-  [v3.9](#v39--standalone-data-transformation-library--planned).**
+  [v3.9](#v39--standalone-data-transformation-library--partially-delivered).**
   `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`,
   `Decompose_By`, `Numeric_Complete_Cases`, `Dummy_Column`, `Interact`,
   `Model_Matrix` (`Ln_Positive` shipped early with the column-G wiring
@@ -804,7 +804,7 @@ in the Regression track — it is that track's single most expensive item to tes
 
 Design rationale and resolved decisions: [DECISIONS.md § v3.3](DECISIONS.md#v33--transforms-remainder-unit-space-dispatch--duan-back-transformation--model-formula-label),
 recorded there under v3.3 (the original v2.2 entries describe the standalone
-library, now [v3.9](#v39--standalone-data-transformation-library--planned)).
+library, now [v3.9](#v39--standalone-data-transformation-library--partially-delivered)).
 
 ---
 
@@ -983,7 +983,7 @@ cluster count. See
 
 ---
 
-## v3.9 — Standalone Data Transformation library — PLANNED
+## v3.9 — Standalone Data Transformation library — PARTIALLY DELIVERED
 
 *Planned as the second half of v2.2, then carried as the v3.3 remainder. Moved to
 the end of the **Regression track** by the
@@ -991,10 +991,17 @@ the end of the **Regression track** by the
 it is the only item that widens an axis every model is crossed against, so it lands
 against the most mature harness that track ever has.*
 
-`Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`, `Decompose_By`,
-`Numeric_Complete_Cases`, `Dummy_Column`, `Interact`, `Model_Matrix`.
-(`Ln_Positive`, `Demean_By`, `Group_Mean`, `Lag_By`, and `Difference_By` shipped
-early, with the v2.2 column-G wiring and the v2.1 FE work.) The full taxonomy and
+**Shipped so far — the additive helpers (#234/#235):** `Numeric_Complete_Cases`,
+`Dummy_Column`, `Interact`, `Model_Matrix`, each a standalone catalog LAMBDA with
+a pure-Python mirror; the construction trio also carries a workbook-backed Excel
+COM test (`tests/test_categorical_model_construction_excel.py`, gated on
+`RUN_EXCEL_INTEGRATION=1`). The catalog grows 148 → 151. These four widen no
+axis.
+
+Remaining: `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`, `Zscore_By`,
+`Decompose_By`. (`Ln_Positive`, `Demean_By`, `Group_Mean`, `Lag_By`, and
+`Difference_By` shipped early, with the v2.2 column-G wiring and the v2.1 FE work.)
+The full taxonomy and
 the `""`-vs-`NA()` row-alignment convention are in
 [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
 
@@ -1004,9 +1011,9 @@ widening multiplies the response × predictor dispatch table (six recognized pai
 now). The existing datasets cover all of them. **Sequencing within the milestone**
 matters as much as its position on the ladder:
 
-1. **The additive helpers first** — `Numeric_Complete_Cases`, `Dummy_Column`,
-   `Interact`, `Model_Matrix`. Standalone LAMBDAs with a fixed test count; they
-   widen nothing.
+1. **The additive helpers first — shipped (#234/#235)** — `Numeric_Complete_Cases`,
+   `Dummy_Column`, `Interact`, `Model_Matrix`. Standalone LAMBDAs with a fixed test
+   count; they widen nothing.
 2. **Predictor-side location/scale transforms next** — each adds dispatch pairs
    but no back-transformation semantics.
 3. **Any response-side extension last.** A response transform also multiplies the

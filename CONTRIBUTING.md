@@ -110,6 +110,7 @@ Tests live in `tests/`. The current test files are:
 | `test_dummy_functions.py` | `Dummy_Levels`/`Dummy_Code` NA()-based error contract: formula statics, signatures, and parser translation to workbook XML |
 | `test_lambda_catalog_plain_language.py` | All LAMBDA functions have a `plain_language_summary` in `lambda_functions.json` |
 | `test_sheet_writers.py` | Sheet writer integration (conditional formatting, named ranges) |
+| `test_write_sheet_univariate_cartesian.py` | The cartesian Beta grid-search writer (`write_sheet_univariate_cartesian.py`) — separate from `test_sheet_writers.py` so the cartesian writer can grow its own coverage without swelling the standard-writer suite |
 | `test_spec_block_writer.py` | Spec-block component library: sheet-scoped name definitions and order, T0 default-spec prefill, dropdowns, conditional formats, `Predictor_Columns`/`Constructed_Column_Names` twin invariants |
 | `test_analyze_model_construction.py` | Spec-block QC analyzer: default-spec expectations pinned against the sample CSV (mask size, k, level-qualified names), the stratified-Filter degeneracy case, and the observed-vs-expected comparison layer |
 | `test_weibull_grid_excel.py` | Weibull grid-search mechanics validation |
@@ -120,7 +121,11 @@ Tests live in `tests/`. The current test files are:
 | `test_serial_correlation_group_resolver.py` | `Serial_Correlation_Group()` SWITCH, including the dormant Cluster branch (the reserved-spec-column pattern) |
 | `test_difference_by_verification.py` | Gap-aware `Difference_By` — WHO exact counts plus the punched-out-year and calendar-date synthetic cases (the automated form of the retired v2.0 test plan's T17–T19) |
 | `test_analyze_regression_spec_block.py` | Post-changeover spec-block QC analyzer (predicted counts and values, regression sheet spec state) |
+| `test_apply_case_inputs.py` | `apply_case_inputs` — the one helper that composes the three writes every fittable case needs (`apply_spec_case`, the typed Sequence Period into column I, `set_prediction_inputs`) so a second call site cannot forget the middle step |
+| `test_spec_input_columns_are_cleared.py` | `apply_spec_case` clears every writable spec column before rewriting it, so a case is never evaluated against whatever the previous write left behind |
 | `test_regression_spec_qc.py` | Spec-driven Regression QC oracle (`analyze_regression_spec.py` case definitions) |
+| `test_regression_guard_states.py` | Guard-state QC oracle (`analyze_regression_guard_states.py` case definitions) — status text, the per-row Design Columns audit, the model formula, and which CF rules fire; pinned in `_EXPECTED_GUARD_NAMES` |
+| `test_test_model_sheets.py` | The one-sheet-per-test-model framework — the sheet-naming contract (`<PlanID> <Concept>`, Excel's limits, uniqueness), coverage in both directions across both registries, and the writer's per-sheet parameterization |
 | `test_csv_dataset_loader.py` | `load_csv_rows` (`write_sheet_csv_dataset.py`) against all three `CsvDatasetConfig`s and the committed sample CSVs |
 | `test_mileage_completeness_qc.py` | `calculate_mileage_completeness_flags` (`analyze_mileage.py`) against the Auto MPG dataset |
 | `test_intercept_relocation.py` | v3.0 stage 1 — the relocated intercept read back through the context-accessor path (200 datasets, both intercept states), the FE correction routed through element 2 of the same context array, plus the contract assertions: only `Model_Context` declares `Has_Intercept`/`DF_Absorbed`, no carrier reads the context with a bare positional index, `ROWS(Model_Context())` is 4 |
@@ -130,6 +135,8 @@ Tests live in `tests/`. The current test files are:
 | `test_df_absorbed_threading.py` | v2.1 Fixed Effects phase 3 — `[DF_Absorbed]` threaded through SE/t/p/CI/MS-Residual/AIC/BIC/AICc, against an independent `statsmodels` LSDV fit |
 | `test_group_prediction_interval.py` | v2.1 Fixed Effects phase 5 — `Group_Mean_At`, `Group_Count_At`, `Prediction_Group_Column`, `Group_Prediction_Interval` (the group-mean-recovery CI+PI form), against an explicit LSDV `get_prediction()` reference |
 | `test_doc_links.py` | Every relative `](*.md)` link in the repo's markdown resolves to a file that exists, relative to the linking file's own directory |
+| `test_doc_catalog_counts.py` | Catalog-function counts stated in prose (README, CONTRIBUTING, ROADMAP) match `lambda_functions.json` — the count half of the documentation-drift proposal, with the phrasings pinned, not sniffed |
+| `test_poe_tasks.py` | Pins the `[tool.poe.tasks]` table in `pyproject.toml` so a silent task rename or deletion breaks the unit suite, not the CI workflow or the docs |
 | `test_workbook_helpers.py` | `safe_activate()` / `safe_freeze_top_row()` against stub sheet/window objects (headless/no-focus Excel session guards) |
 | `test_workbook_builder.py` | Workbook package-patching helpers (`sync_workbook_names` and friends) that don't require Excel |
 | `test_build_common.py` | Shared build scaffolding (`lambda_catalog.build_common`: recalculate-and-save calc-mode handling, retry-on-open) that doesn't require Excel |
@@ -139,6 +146,7 @@ Tests live in `tests/`. The current test files are:
 | `test_workbook_invariants.py` | Layer 1 headless structural check of a built `.xlsx` package (`zipfile` + `lxml`): dangling defined names, `#REF!`/`#NAME?` cached-value literals, broken package parts, orphan chart-relationship targets, charts reading a sheet other than the one they sit on, sheet drift — see [Verifying builds](#verifying-builds) |
 | `test_ln_positive_verification.py` | v2.2 Transform=Log — `Ln_Positive` pure-Python mirror (the `NA()`-exception contract, the geometric-mean round-trip the Prediction Inputs fix relies on) and implementation-shape assertions on the catalog formula |
 | `test_transform_threading.py` | v2.2 Transform=Log wiring end to end — cross-checks the new `production_lots_log_transform` QC case (raw columns, `transform="Log"`) against the pre-existing precomputed-log-column case to floating-point precision; Categorical×Log inertness |
+| `test_unit_space_dispatch.py` | v3.3 unit-space dispatch (`Smearing_Factor`, `Back_Transform_Response`, the `Unit_Space_*` family) — pure-Python mirrors cross-checked against a NumPy OLS reference, plus catalog `formula_display` shape assertions |
 | `test_interaction_wiring.py` | v3.1 interaction wiring — the spec block's M/N pair against the Python mirror in `analyze_regression_spec.build_spec_design`: the three width regimes (1 / L−1 / (L₁−1)(L₂−1)), the closed Product/Difference/Ratio arithmetic, the four operand Role/Include cases, the two-way limit, the documented quadratic, and Ratio's zero-denominator refusal |
 | `test_numeric_complete_cases_verification.py` | v3.9 `Numeric_Complete_Cases` — pure-Python mirror (Excel `ISNUMBER` semantics, not pandas coercion) and implementation-shape assertions on the catalog formula |
 | `test_categorical_model_construction_verification.py` | v3.9 trio (`Dummy_Column`/`Interact`/`Model_Matrix`) — pure-Python mirrors with Excel broadcasting and `""`/`#N/A` propagation, plus catalog-formula shape assertions (workbook-scoped, document order, none calls `LINEST`) |
@@ -461,7 +469,7 @@ problem the same way. Full rationale for all of this: `docs/DECISIONS.md` →
 poe verify                  # both layers, plus the test-model suite
 poe verify-headless         # Layer 1 only (any platform)
 poe verify-deep             # Layer 2, the workbook (needs Excel)
-poe verify-test-models      # Layer 2, the ~48-sheet test-model suite (needs Excel)
+poe verify-test-models      # Layer 2, the ~50-sheet test-model suite (needs Excel)
 ```
 
 **`poe verify` runs the two builds concurrently, then screens their output.** It stops at the first stage that exits non-zero, and the stage boundary is what makes the order matter: `verify-headless` reads whatever `.xlsx` files are sitting in `dist/`, and the deep tasks *rewrite* those files. The task used to run the screen first, which meant it validated the previously committed artifacts and never looked at the ones the run had just built — a rebuild that broke a defined name or orphaned a chart relationship passed `verify` clean. Builds first, screen last.
@@ -472,7 +480,7 @@ Wall time becomes roughly the longest build — `verify-test-models`, minutes �
 
 `poe verify-deep` shells out to `build_production.py --verify --no-launch`, so it both rebuilds and verifies the workbook. It tees its run into [`excel-only-runs/`](excel-only-runs/) (`<script> <flags>.log`, via `lambda_catalog.build_common.run_log_path`) — stderr and any traceback included — so a failed deep verify is a file you can commit and hand over rather than terminal scrollback; override the destination with `--log PATH`. To verify an already-built workbook, use `python tools/verify_workbook.py <workbook>` instead.
 
-The `verify-test-models` task passes `--verbose` because that run takes minutes across ~48 sheets: it names each sheet *before* writing it, so an interrupted run leaves the offending case on screen. It archives its transcript the same way — all three Excel-required drivers do. The heavy `L08` case is excluded by default; append `--include-heavy` (`poe verify-test-models --include-heavy`) to include it. Its Python oracle runs in the unit suite regardless.
+The `verify-test-models` task passes `--verbose` because that run takes minutes across ~50 sheets: it names each sheet *before* writing it, so an interrupted run leaves the offending case on screen. It archives its transcript the same way — all three Excel-required drivers do. The heavy `L08` case is excluded by default; append `--include-heavy` (`poe verify-test-models --include-heavy`) to include it. Its Python oracle runs in the unit suite regardless.
 
 ### CI
 
@@ -603,16 +611,16 @@ All cell colors are defined once in `lambda_catalog/sheet_styles.py` and importe
 
 Chart `SERIES` formulas do not support the `#` spill operator, and referencing full columns (`$AI$3:$AI$1048576`) degrades Excel's recalculation performance and can crash the workbook on large datasets.
 
-Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$AB$8` (the `Observations` cell in the Regression Outputs zone):
+Instead, all chart series reference **worksheet-scoped named ranges** defined via `OFFSET` sized to the observation count in `$AB$9` (the `Observations` cell in the Regression Outputs zone):
 
 ```python
 sheet.api.Names.Add(
     Name="RegChartFitY",
-    RefersTo=f"=OFFSET('{sname}'!$AP$2,1,0,MAX(IFERROR('{sname}'!$AB$8,1),1),1)",
+    RefersTo=f"=OFFSET('{sname}'!$AP$3,1,0,MAX(IFERROR('{sname}'!$AB$9,1),1),1)",
 )
 ```
 
-This starts one row below the column header (row 2) and extends exactly `$AB$8` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$AB$8` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
+This starts one row below the column header (row 3) and extends exactly `$AB$9` rows — the number of filtered observations. The `MAX(IFERROR(...,1),1)` guard keeps the range one row tall (instead of erroring) when `$AB$9` cannot resolve. Each name also carries a Name Manager `Comment` identifying the chart it feeds — see the loop in `_setup_local_names`.
 
 **Naming convention** — all OFFSET-based named ranges used by diagnostic charts carry the `RegChart` prefix, distinguishing them from the constructor closures (`Design_Columns`, `Sample_Include`, etc.) and formula-helper names:
 

@@ -96,7 +96,7 @@ def _add_spill_reader(
     The escape hatch if it ever regresses is the OFFSET-sized-by-a-count-cell
     form every ``RegChart*`` range already uses — same call syntax at every call
     site, so only this function would change. The dimensions it needs are live
-    cells and were confirmed on the same run: ``$AB$8`` for height, ``$O$1`` for
+    cells and were confirmed on the same run: ``$AB$9`` for height, ``$O$1`` for
     the design matrix's width.
 
     Wrapped in ``LAMBDA`` rather than left as a bare range name so call sites
@@ -380,7 +380,7 @@ def _write_materialization_zone(
     # Fit_Design_Columns — the reader over the design-matrix spill. 2-D
     # (n x k, both dimensions dynamic), which is the harder of the two shapes:
     # the `#` form is dimension-agnostic, but an OFFSET fallback would need a
-    # height AND a width ($AB$8 and $O$1 respectively). Spiking both shapes is
+    # height AND a width ($AB$9 and $O$1 respectively). Spiking both shapes is
     # what tells us which spelling the migration can rely on.
     _add_spill_reader(sheet, sname, "Fit_Design_Columns", _C_DESIGN_MATRIX)
 
@@ -430,7 +430,7 @@ def _write_materialization_zone(
     # across — the mask value beside its design-matrix row, both aligned to
     # the source table rows. Asserted rather than merely intended.
     assert _MATERIALIZATION_SPILL_ROW == _MATERIALIZATION_HEADER_ROW + 1
-    assert _MATERIALIZATION_FIRST_ROW == 2
+    assert _MATERIALIZATION_FIRST_ROW == 3
 
     # ── Column widths + outline groups ───────────────────────────────────────
     # Only the Model Context zone is grouped, and only it ships collapsed. The

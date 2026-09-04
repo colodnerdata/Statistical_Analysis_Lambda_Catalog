@@ -173,6 +173,20 @@ def _set_spec_block_column_widths(sheet: xw.Sheet) -> None:
     set_column_widths(sheet, _SPEC_COLUMN_WIDTHS.items())
 
 
+# Spec feedback zone (P, Q, I — the verdict overlay): the delta spectrum
+# (Sequence_Delta_Spectrum() spill) sits in P and Q, aligned with the spec
+# block's own rows — Δ/Count headers on the spec header row (3), the N×2
+# spectrum spilling from the spec block's first data row (4). The combined
+# verdict switch lives at I2 (the Sequence_Period column's row-1/row-2
+# cells are unused by the spec block, so the verdict overlays them
+# without disturbing the spec rows).
+#
+# The spectrum sits at P/Q. The layout break put the interaction pair at M/N
+# (and the Design Columns audit at O), so the spectrum and everything after
+# it sit three columns right of the interaction pair.
+_C_FEEDBACK_DELTA = 16     # P — Δ header / spectrum column 1
+_C_FEEDBACK_COUNT = 17     # Q — Count header / spectrum column 2
+
 # Spec-block optional columns. The first four columns (Variable, Role,
 # Include, Type) are what a regular MLR user actually edits; the rest
 # (Reference Level, Order, Transform, Sequence, Sequence Period, Period
@@ -180,20 +194,21 @@ def _set_spec_block_column_widths(sheet: xw.Sheet) -> None:
 # Interaction Operation / Design Columns audit columns) only matter for
 # Categorical predictors, the Transform feature, the Sequence axis, panel
 # data, and the interaction-pair / audit workflow. The Regression sheet's
-# zone-level outline group already wraps A:O as one collapsible block;
+# zone-level outline group already wraps A:Q as one collapsible block;
 # this sub-group nests underneath it so the user can collapse the optional
 # columns down to the MLR essentials on demand. The sub-group is collapsed
 # by default (columns hidden) so the shipped artifact shows only what a
 # regular MLR user needs; click the "+" to expand when Reference Level,
-# Sequence, the interaction pair, or the Design Columns audit is in play.
+# Sequence, the interaction pair, the Design Columns audit, or the Δ/Count
+# spectrum is in play.
 _SPEC_OPTIONAL_FIRST_COL = 5    # E — Reference Level
-_SPEC_OPTIONAL_LAST_COL = _C_DESIGN_COLUMNS  # O — Design Columns audit
+_SPEC_OPTIONAL_LAST_COL = _C_FEEDBACK_COUNT  # Q — Δ/Count spectrum columns
 
 
 def _set_spec_block_optional_outline_group(sheet: xw.Sheet) -> None:
-    """Group the optional spec columns (E:O) into a sub-outline and collapse.
+    """Group the optional spec columns (E:Q) into a sub-outline and collapse.
 
-    Layered under the Regression sheet's zone-level A:O outline group, so
+    Layered under the Regression sheet's zone-level A:Q outline group, so
     the spec block has two outline levels: the outer one collapses the
     whole zone, this inner one collapses only the optional part. Collapsed
     by default — the first MLR experience is four visible columns
@@ -201,33 +216,22 @@ def _set_spec_block_optional_outline_group(sheet: xw.Sheet) -> None:
     toggle. The optional columns (Reference Level, Order, Transform,
     Sequence, Sequence Period, Period In Use, Levels, Reference In Use,
     Interaction Term, Interaction Operation, Design Columns) and the
-    P/Q spec feedback are all hidden behind the same outline button, so
-    the Sequence / interaction / audit workflows are one click away.
+    P/Q spec feedback (the Δ/Count spectrum) are all hidden behind the
+    same outline button, so the Sequence / interaction / audit workflows
+    are one click away.
 
     F (Order) is width 0 already; including it in the group is harmless.
     Hiding a spec column does not break anything that reads it: the Spec_*
     bands are per-column range references and the four computed columns are
-    spills, neither of which cares whether the column is visible.
+    spills, neither of which cares whether the column is visible. The Δ
+    spectrum is the same — display-only, IFERROR-wrapped at its consumers,
+    and the guard-state oracle mirrors it in Python rather than reading it
+    back — so hiding P/Q cannot leave a stale value anywhere that matters.
     """
     group_and_hide_columns(
         sheet, _SPEC_OPTIONAL_FIRST_COL, _SPEC_OPTIONAL_LAST_COL
     )
 
-
-# Spec feedback zone (P, Q, I — the verdict overlay): the delta spectrum
-# (Sequence_Delta_Spectrum() spill at P2:Q?) sits in P and Q; the combined
-# verdict switch lives at I2 (the Sequence_Period column's row-1/row-2
-# cells are unused by the spec block, so the verdict overlays them
-# without disturbing anything below row 3). Headers on row 1, content on
-# row 2 — both sit INSIDE the spec block's zone (which extends from A:Q,
-# see the Regression sheet's _ZONES), so a single click on the spec
-# outline collapses the spec and its feedback together.
-#
-# The spectrum sits at P/Q. The layout break put the interaction pair at M/N
-# (and the Design Columns audit at O), so the spectrum and everything after
-# it sit three columns right of the interaction pair.
-_C_FEEDBACK_DELTA = 16     # P — Δ header / spectrum column 1
-_C_FEEDBACK_COUNT = 17     # Q — Count header / spectrum column 2
 
 # Gap before the derived-row zone. One ungrouped column (width 2) so the
 # spec outline and the derived-row outline collapse independently.

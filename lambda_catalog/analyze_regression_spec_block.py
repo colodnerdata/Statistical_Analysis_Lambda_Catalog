@@ -15,14 +15,14 @@ headers row 3, the spec data rows below that — the writers are shared), so
 the Levels / Reference In Use reads port unchanged. Only the assertions
 against the Regression sheet's display zones are retained:
 
-    MC audit k / twin tripwire   → S3 constructed-names spill width, and the
-                                   AA21 coefficient-label spill (k+1 rows with
+    MC audit k / twin tripwire   → S4 constructed-names spill width, and the
+                                   AA22 coefficient-label spill (k+1 rows with
                                    the default intercept ON)
-    MC header strip names        → S3 spill contents (vertical)
-    MC audit response            → AF2 Predicted Variable readout
-    MC audit included rows       → AB8 Observations cell
-    MC first filtered label      → AN3 (first residual-output row label)
-    MC filtered zone heights     → AN3 spill height
+    MC header strip names        → S4 spill contents (vertical)
+    MC audit response            → AF3 Predicted Variable readout
+    MC audit included rows       → AB9 Observations cell
+    MC first filtered label      → AN4 (first residual-output row label)
+    MC filtered zone heights     → AN4 spill height
     MC audit sequence flags      → H2 Sequence status line (blank while the
                                    spec carries zero-or-one flags)
 
@@ -148,11 +148,11 @@ def _resolve_shipped_profile(
 
 # Row anchors on the Regression sheet (1-based; must match
 # write_sheet_regression.py's section writers).
-_ROW_RESPONSE_READOUT = 2   # AF2 = derived response name
-_ROW_NAMES_SPILL = 3        # S3 = TRANSPOSE(Constructed_Column_Names())
-_ROW_RESID_FIRST = 3        # AN3 = FILTER(Row_Labels(), Sample_Include())
-_ROW_OBSERVATIONS = 8       # AB8 = Observations(...)
-_ROW_COEFF_FIRST = 21       # AA21 = coefficient label spill (k+1 with intercept)
+_ROW_RESPONSE_READOUT = 3   # AF3 = derived response name
+_ROW_NAMES_SPILL = 4        # S4 = TRANSPOSE(Constructed_Column_Names())
+_ROW_RESID_FIRST = 4        # AN4 = FILTER(Row_Labels(), Sample_Include())
+_ROW_OBSERVATIONS = 9       # AB9 = Observations(...)
+_ROW_COEFF_FIRST = 22       # AA22 = coefficient label spill (k+1 with intercept)
 
 
 @dataclass(frozen=True)

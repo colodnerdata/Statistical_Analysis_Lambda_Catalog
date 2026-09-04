@@ -97,38 +97,38 @@ from .write_sheet_regression import (
 # Without that pin a zone could move and this reader would silently compare
 # the wrong cells — reporting a wrong NUMBER rather than an error, which is
 # the failure mode the whole layout-constant discipline exists to prevent.
-ROW_SUMMARY_FIRST = 3      # S3 spills constructed names; T3–Y3 the stats
-ROW_MULTIPLE_R = 4
-ROW_R_SQUARED = 5
-ROW_ADJ_R2 = 6
-ROW_SE_REG = 7
-ROW_OBS = 8
+ROW_SUMMARY_FIRST = 4      # S4 spills constructed names; T4–Y4 the stats
+ROW_MULTIPLE_R = 5
+ROW_R_SQUARED = 6
+ROW_ADJ_R2 = 7
+ROW_SE_REG = 8
+ROW_OBS = 9
 
-ROW_PRESS = 4
-ROW_PRESS_R2 = 5
-ROW_MEAN_LEV = 6
-ROW_AIC = 7
-ROW_BIC = 8
-ROW_AICC = 9
-ROW_QQ_CORR = 10
-ROW_DURBIN_WATSON = 11
-ROW_BFN_PANEL_DW = 12
+ROW_PRESS = 5
+ROW_PRESS_R2 = 6
+ROW_MEAN_LEV = 7
+ROW_AIC = 8
+ROW_BIC = 9
+ROW_AICC = 10
+ROW_QQ_CORR = 11
+ROW_DURBIN_WATSON = 12
+ROW_BFN_PANEL_DW = 13
 
-ROW_ANOVA_REG = 15
-ROW_ANOVA_RES = 16
-ROW_ANOVA_TOT = 17
+ROW_ANOVA_REG = 16
+ROW_ANOVA_RES = 17
+ROW_ANOVA_TOT = 18
 
-ROW_COEFF_DATA = 21        # AA21 spills coefficient labels (k+1 rows)
-ROW_PI_POINT = 3           # AK3 = point estimate
-ROW_FE_GROUP = 12          # AK12 = FE Group selector (an input)
-ROW_GROUP_MEAN = 13
-ROW_GROUP_COUNT = 14
-ROW_PRED_INPUT_FIRST = 19  # AK19 = first user-editable predictor value
-ROW_PRED_INPUT_LAST = 62   # end of the guarded prefill band
-ROW_RESID_FIRST = 3
+ROW_COEFF_DATA = 22        # AA22 spills coefficient labels (k+1 rows)
+ROW_PI_POINT = 4           # AK4 = point estimate
+ROW_FE_GROUP = 13          # AK13 = FE Group selector (an input)
+ROW_GROUP_MEAN = 14
+ROW_GROUP_COUNT = 15
+ROW_PRED_INPUT_FIRST = 20  # AK20 = first user-editable predictor value
+ROW_PRED_INPUT_LAST = 63   # end of the guarded prefill band
+ROW_RESID_FIRST = 4
 
-# The v3.3 Back-Transform Method input ($AH$4).
-ROW_BACK_TRANSFORM = 4
+# The v3.3 Back-Transform Method input ($AH$5).
+ROW_BACK_TRANSFORM = 5
 
 # Statistics that must compare scale-free — as 3 SIGNIFICANT digits rather
 # than 3 decimal places — because their accuracy is bounded by the data's own
@@ -513,15 +513,15 @@ def read_case_comparison_rows(
         for stat_name, expected_value, row, col in scalar_specs
     ]
 
-    # ── v3.3 unit-space block (AH5:AH8) ─────────────────────────────────
+    # ── v3.3 unit-space block (AH6:AH9) ─────────────────────────────────
     # Compared cell-for-cell here: the Back-Transform toggle (L02 vs L03)
     # is only meaningful if these four are read.
     unit = results.unit_space
     for stat_name, expected_value, row in (
-        ("Smearing_Factor", unit.smearing_factor, 5),
-        ("Unit_Space_R_Squared", unit.r_squared_unit, 6),
-        ("Unit_Space_Adjusted_R_Squared", unit.adjusted_r2_unit, 7),
-        ("Unit_Space_RMSE", unit.rmse_unit, 8),
+        ("Smearing_Factor", unit.smearing_factor, 6),
+        ("Unit_Space_R_Squared", unit.r_squared_unit, 7),
+        ("Unit_Space_Adjusted_R_Squared", unit.adjusted_r2_unit, 8),
+        ("Unit_Space_RMSE", unit.rmse_unit, 9),
     ):
         scalar_rows.append(
             _row(
@@ -531,7 +531,7 @@ def read_case_comparison_rows(
             )
         )
 
-    # ── Predictor Summary (T–Y, k rows from row 3) ──────────────────────
+    # ── Predictor Summary (T–Y, k rows from row 4) ──────────────────────
     predictor_rows = [
         _row(
             {
@@ -554,7 +554,7 @@ def read_case_comparison_rows(
         )
     ]
 
-    # ── Coefficients (AB–AG, k+1 rows from row 21) ──────────────────────
+    # ── Coefficients (AB–AG, k+1 rows from row 22) ──────────────────────
     # Intercept models spill k+1 rows, intercept first. No-intercept models
     # prepend one blank display row so predictor rows stay aligned across
     # both; drop it before comparing.
@@ -597,7 +597,7 @@ def read_case_comparison_rows(
         )
     )
 
-    # ── Prediction Interval (AK3:AK14) ──────────────────────────────────
+    # ── Prediction Interval (AK4:AK15) ──────────────────────────────────
     interval_specs = (
         ("Point_Estimate", interval.point_estimate),
         ("SE_Mean", interval.se_mean),
@@ -624,7 +624,7 @@ def read_case_comparison_rows(
         )
     )
 
-    # ── Residual Output (AO–AX, n rows from row 3) ──────────────────────
+    # ── Residual Output (AO–AX, n rows from row 4) ──────────────────────
     residual_stats = (
         ("Dependent_Variable", residuals.dependent_var),
         ("Predictions", residuals.predictions),
@@ -700,8 +700,8 @@ def read_model_formula(sheet: xw.Sheet) -> object:
 
 
 def read_response_readout(sheet: xw.Sheet) -> object:
-    """The AF2 Predicted Variable readout."""
-    return sheet.range(2, _C_AF).value
+    """The AF3 Predicted Variable readout."""
+    return sheet.range(3, _C_AF).value
 
 
 def read_regression_outputs_label(sheet: xw.Sheet) -> object:

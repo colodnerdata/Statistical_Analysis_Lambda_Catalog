@@ -16,10 +16,11 @@ single ungrouped GAP column so the zones collapse independently; see the
                    (the row-1/row-2 cells of column I are above the spec
                    block's own rows, so the verdict overlays the
                    Sequence_Period column's input cells without
-                   disturbing the spec rows); M2 carries the design-matrix
+                   disturbing the spec rows); O2 carries the design-matrix
                    width-guard status and N1/O1 its Σ label and total;
-                   P holds the Δ header and Q holds the Count header for
-                   the Sequence_Delta_Spectrum() spill at P2:Q?
+                   P holds the Δ header and Q holds the Count header on
+                   the spec block's own header row (3), aligned with it,
+                   for the Sequence_Delta_Spectrum() spill from row 4
   Col R          — thin gap (width 2, ungrouped)
   Col S–Y        — Predictor Summary: level-qualified constructed names (S) +
                    Pearson R, Spearman R, Skewness, Kurtosis, GVIF, Tolerance —
@@ -27,31 +28,32 @@ single ungrouped GAP column so the zones collapse independently; see the
                    GVIF/Tolerance share one value across a categorical
                    predictor's dummy columns (Generalized VIF)
   Col Z          — thin gap (width 2, ungrouped)
-  Col AA–AH      — Regression Outputs: Predicted Variable readout (AE2:AF2),
-                   Statistics (AA–AB rows 3–8), Diagnostics (AD–AE rows 3–12;
-                   the serial-correlation pair DW/BFN at rows 11–12),
-                   Alpha input (AB12), ANOVA Table (rows 13–17, AA–AF),
-                   Coefficients (rows 19+, AA–AH), Beta Weights (AH)
+  Col AA–AH      — Regression Outputs: Predicted Variable readout (AE3:AF3),
+                   Statistics (AA–AB rows 4–9), Diagnostics (AD–AE rows 4–13;
+                   the serial-correlation pair DW/BFN at rows 12–13),
+                   Alpha input (AB13), ANOVA Table (rows 14–18, AA–AF),
+                   Coefficients (rows 20+, AA–AH), Beta Weights (AH)
   Col AI         — thin gap (width 2, ungrouped)
-  Col AJ–AL      — Prediction Outputs: Prediction Interval (AJ1:AK14, boxed —
-                   point/CI/PI rows 3-11, FE Group selector + ybar_i/T_i
-                   readouts rows 12-14), Prediction Inputs (AJ16+, one row
+  Col AJ–AL      — Prediction Outputs: Prediction Interval (AJ1:AK15, boxed —
+                   point/CI/PI rows 4-12, FE Group selector + ybar_i/T_i
+                   readouts rows 13-15), Prediction Inputs (AJ17+, one row
                    per constructed column, no Intercept row), Training Mean
-                   spill (AL19 — the single Predictor_Columns() evaluation
+                   spill (AL20 — the single Predictor_Columns() evaluation
                    the orange AK prefills INDEX into; owns column AL downward
                    so it can never collide with another spill)
   Col AM         — thin gap (width 2, ungrouped)
-  Col AN–AZ      — Residual Output: heading + Row_Labels() identifiers in AN;
+  Col AN–BA      — Residual Output: heading + Row_Labels() identifiers in AN;
                    11 diagnostics columns (AO–AY, the last being the Cook's
                    Distance flagged-point overlay feeding chart data labels),
-                   plus AZ gutter; spills downward from row 3
-  Col BA–BD      — chart title / axis-label formula cells (below the chart grid)
+                   plus the v3.3 original-units pair AZ/BA; spills
+                   downward from row 4
+  Col BC–BF      — chart title / axis-label formula cells (below the chart grid)
   Col BQ →       — the ARCHITECTURE §4b materialization band: the Model
                    Context block (a boxed, fixed-size label/value pair, one
                    labelled cell per context element), the materialized
                    Sample_Include row mask, and the terminal Constructed
-                   Design Matrix — the last two headed on row 2 and spilling
-                   from row 3 — separated by ungrouped gutters. Only the
+                   Design Matrix — the last two headed on row 3 and spilling
+                   from row 4 — separated by ungrouped gutters. Only the
                    Model Context block is grouped: the two data-dependent
                    zones are left ungrouped and visible, because collapsing
                    a spilled zone hides the cells the engines recalculate
@@ -411,76 +413,76 @@ def _set_note(
 def _annotate_statistical_terms(sheet: xw.Sheet, sheet_notes: dict[str, str]) -> None:
     """Attach plain-language notes to key statistical labels on the sheet."""
     note_cells = [
-        (2, _C_T, "Pearson R"),
-        (2, _C_U, "Spearman R"),
-        (2, _C_V, "Skewness"),
-        (2, _C_W, "Kurtosis"),
-        (2, _C_X, "GVIF"),
-        (2, _C_Y, "Tolerance"),
-        (4, _C_AA, "Multiple R"),
-        (5, _C_AA, "R Square"),
-        (6, _C_AA, "Adjusted R Square"),
-        (7, _C_AA, "Standard Error"),
-        (8, _C_AA, "Observations"),
+        (3, _C_T, "Pearson R"),
+        (3, _C_U, "Spearman R"),
+        (3, _C_V, "Skewness"),
+        (3, _C_W, "Kurtosis"),
+        (3, _C_X, "GVIF"),
+        (3, _C_Y, "Tolerance"),
+        (5, _C_AA, "Multiple R"),
+        (6, _C_AA, "R Square"),
+        (7, _C_AA, "Adjusted R Square"),
+        (8, _C_AA, "Standard Error"),
+        (9, _C_AA, "Observations"),
         (2, _C_AA, "Model Formula"),
-        (4, _C_AD, "PRESS"),
-        (5, _C_AD, "PRESS R²"),
-        (6, _C_AD, "Mean Leverage"),
-        (7, _C_AD, "AIC"),
-        (8, _C_AD, "BIC"),
-        (9, _C_AD, "AICc"),
-        (10, _C_AD, "QQ Correlation"),
-        (11, _C_AD, "Durbin-Watson"),
-        (12, _C_AD, "BFN Panel Durbin-Watson"),
-        (12, _C_AA, "Alpha"),
-        (14, _C_AB, "df"),
-        (14, _C_AC, "SS"),
-        (14, _C_AD, "MS"),
-        (14, _C_AE, "F"),
-        (14, _C_AF, "Significance F"),
-        (15, _C_AA, "Regression"),
-        (16, _C_AA, "Residual"),
-        (17, _C_AA, "Total"),
-        (20, _C_AB, "Coefficients"),
-        (20, _C_AC, "Std Error"),
-        (20, _C_AD, "t Stat"),
-        (20, _C_AE, "P-value"),
-        (20, _C_AF, "Lower 95%"),
-        (20, _C_AG, "Upper 95%"),
-        (20, _C_AH, "Beta Weight"),
-        (17, _C_AL, "Training Mean"),
-        (4, _C_AG, "Back-Transform"),
-        (5, _C_AG, "Smearing Factor"),
-        (6, _C_AG, "R Square (Unit)"),
-        (7, _C_AG, "Adj R Square (Unit)"),
-        (8, _C_AG, "RMSE (Unit)"),
-        (9, _C_AG, "Response Space"),
-        (3, _C_AJ, "Point Estimate"),
-        (4, _C_AJ, "SE (Mean)"),
-        (5, _C_AJ, "SE (New Obs)"),
-        (6, _C_AJ, "t Critical"),
-        (7, _C_AJ, "CI Lower"),
-        (8, _C_AJ, "CI Upper"),
-        (9, _C_AJ, "PI Lower"),
-        (10, _C_AJ, "PI Upper"),
-        (11, _C_AJ, "Confidence Level"),
-        (12, _C_AJ, "FE Group"),
-        (13, _C_AJ, "Group Mean (y)"),
-        (14, _C_AJ, "Group Count"),
-        (3, _C_AL, "Point Estimate (Original Units)"),
-        (2, _C_AO, "Y"),
-        (2, _C_AP, "Predicted Y"),
-        (2, _C_AQ, "Residuals"),
-        (2, _C_AR, "Hat Diagonal"),
-        (2, _C_AS, "Studentized Residuals"),
-        (2, _C_AT, "Cook's Distance"),
-        (2, _C_AU, "Normal Scores Ranked"),
-        (2, _C_AV, "Studentized Residuals Ranked"),
-        (2, _C_AW, "Scale-Location"),
-        (2, _C_AX, "PRESS Residual"),
-        (2, _C_AY, "Cook's Distance (Flagged)"),
-        (2, _C_AZ, "Predicted Y (Original Units)"),
-        (2, _C_BA, "Residual (Original Units)"),
+        (5, _C_AD, "PRESS"),
+        (6, _C_AD, "PRESS R²"),
+        (7, _C_AD, "Mean Leverage"),
+        (8, _C_AD, "AIC"),
+        (9, _C_AD, "BIC"),
+        (10, _C_AD, "AICc"),
+        (11, _C_AD, "QQ Correlation"),
+        (12, _C_AD, "Durbin-Watson"),
+        (13, _C_AD, "BFN Panel Durbin-Watson"),
+        (13, _C_AA, "Alpha"),
+        (15, _C_AB, "df"),
+        (15, _C_AC, "SS"),
+        (15, _C_AD, "MS"),
+        (15, _C_AE, "F"),
+        (15, _C_AF, "Significance F"),
+        (16, _C_AA, "Regression"),
+        (17, _C_AA, "Residual"),
+        (18, _C_AA, "Total"),
+        (21, _C_AB, "Coefficients"),
+        (21, _C_AC, "Std Error"),
+        (21, _C_AD, "t Stat"),
+        (21, _C_AE, "P-value"),
+        (21, _C_AF, "Lower 95%"),
+        (21, _C_AG, "Upper 95%"),
+        (21, _C_AH, "Beta Weight"),
+        (18, _C_AL, "Training Mean"),
+        (5, _C_AG, "Back-Transform"),
+        (6, _C_AG, "Smearing Factor"),
+        (7, _C_AG, "R Square (Unit)"),
+        (8, _C_AG, "Adj R Square (Unit)"),
+        (9, _C_AG, "RMSE (Unit)"),
+        (10, _C_AG, "Response Space"),
+        (4, _C_AJ, "Point Estimate"),
+        (5, _C_AJ, "SE (Mean)"),
+        (6, _C_AJ, "SE (New Obs)"),
+        (7, _C_AJ, "t Critical"),
+        (8, _C_AJ, "CI Lower"),
+        (9, _C_AJ, "CI Upper"),
+        (10, _C_AJ, "PI Lower"),
+        (11, _C_AJ, "PI Upper"),
+        (12, _C_AJ, "Confidence Level"),
+        (13, _C_AJ, "FE Group"),
+        (14, _C_AJ, "Group Mean (y)"),
+        (15, _C_AJ, "Group Count"),
+        (4, _C_AL, "Point Estimate (Original Units)"),
+        (3, _C_AO, "Y"),
+        (3, _C_AP, "Predicted Y"),
+        (3, _C_AQ, "Residuals"),
+        (3, _C_AR, "Hat Diagonal"),
+        (3, _C_AS, "Studentized Residuals"),
+        (3, _C_AT, "Cook's Distance"),
+        (3, _C_AU, "Normal Scores Ranked"),
+        (3, _C_AV, "Studentized Residuals Ranked"),
+        (3, _C_AW, "Scale-Location"),
+        (3, _C_AX, "PRESS Residual"),
+        (3, _C_AY, "Cook's Distance (Flagged)"),
+        (3, _C_AZ, "Predicted Y (Original Units)"),
+        (3, _C_BA, "Residual (Original Units)"),
     ]
 
     for row, col, key in note_cells:
@@ -567,14 +569,15 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         (col_letter(_C_AV), addresses["studentized_ranked"]),
     ]:
         # 2 < |r| < 3: light-yellow fill and dark-yellow text.
+        r_anchor = f"{column}{_ROW_DATA_FIRST}"
         add_expression_format(
             sheet,
             address,
             (
                 f"=AND("
-                f"ISNUMBER({column}3),"
-                f"ABS({column}3)>2,"
-                f"ABS({column}3)<3"
+                f"ISNUMBER({r_anchor}),"
+                f"ABS({r_anchor})>2,"
+                f"ABS({r_anchor})<3"
                 f")"
             ),
             fill=CF_YELLOW_FILL,
@@ -585,7 +588,7 @@ def _write_residual_conditional_formatting(sheet: xw.Sheet) -> None:
         add_expression_format(
             sheet,
             address,
-            f"=AND(ISNUMBER({column}3),ABS({column}3)>=3)",
+            f"=AND(ISNUMBER({r_anchor}),ABS({r_anchor})>=3)",
             fill=CF_LIGHT_RED_FILL,
             font_color=CF_DARK_RED_TEXT,
         )
@@ -870,14 +873,14 @@ def _setup_local_names(
         _nm = sheet.api.Names.Add(
             Name=_name,
             RefersTo=(
-                f"=OFFSET({sname}!${_col_ltr}$2,1,0,"
+                f"=OFFSET({sname}!${_col_ltr}$3,1,0,"
                 f"MAX(IFERROR({sname}!{_A_OBSERVATIONS},1),1),1)"
             ),
         )
         _nm.Comment = _comment
 
     # ── v3.3 Comparison_* names (committed public interface for v3.4 Model
-    # Comparison). The unit-space block (AG3:AH9) and the Model Formula
+    # Comparison). The unit-space block (AG4:AH10) and the Model Formula
     # readout in the §4b materialization band are the surfaces v3.4 reads
     # from — the readout moved out of AB2, and this name is why that move
     # costs a consumer nothing: v3.4 reads the NAME, never the address.
@@ -895,7 +898,7 @@ def _setup_local_names(
         ),
         (
             "Comparison_Headline_GoF",
-            f"={sname}!$AH$6:$AH$8",
+            f"={sname}!$AH$7:$AH$9",
             "Unit-space goodness-of-fit triplet (R², adjusted R², RMSE) — feeds the v3.4 Model Comparison headline row",
         ),
         (
@@ -963,12 +966,12 @@ def _write_model_specification(sheet: xw.Sheet) -> None:
     # prediction row is a user input, and rewriting one input because
     # another changed is the "silently switch" behaviour the spec block
     # exists to avoid — so it says so instead.
-    _set_note(sheet, 17, _C_AJ, _PREDICTION_INPUT_NOTE, label="Predictor")
-    # Unit-Space Fit (AG4). The Duan/Naive caveat sits on the control it
+    _set_note(sheet, 18, _C_AJ, _PREDICTION_INPUT_NOTE, label="Predictor")
+    # Unit-Space Fit (AG5). The Duan/Naive caveat sits on the control it
     # describes, here with every other note for the reason stated above:
     # AddComment is COM-only, so keeping it out of _write_unit_space_block
     # keeps that writer headless-testable.
-    _set_note(sheet, 4, _C_AG, _BACK_TRANSFORM_NOTE, label="Back-Transform")
+    _set_note(sheet, 5, _C_AG, _BACK_TRANSFORM_NOTE, label="Back-Transform")
 
 
 _WIDTH_GUARD_NOTE = (
@@ -1084,45 +1087,45 @@ def _write_predictor_summary(sheet: xw.Sheet) -> None:
         [_C_S, _C_T, _C_U, _C_V, _C_W, _C_X, _C_Y],
         ["", "Pearson R", "Spearman R", "Skewness", "Kurtosis", "GVIF", "Tolerance"],
     ):
-        val(sheet, 2, col, header)
-    bold_row(sheet, 2, _C_S, _C_Y)
+        val(sheet, 3, col, header)
+    bold_row(sheet, 3, _C_S, _C_Y)
 
-    # Spill anchors at row 3 — each spills once per constructed column.
+    # Spill anchors at row 4 — each spills once per constructed column.
     # Names come from the constructor twin, so dummies are level-qualified
     # and the stats run on the actual design matrix. GVIF/Tolerance are
     # generalized (Fox & Monette): every dummy column from the same
     # categorical predictor shares one value instead of a separate,
     # coding-dependent number per level.
-    f(sheet, 3, _C_S, "=TRANSPOSE(Constructed_Column_Names())")
-    f(sheet, 3, _C_T, "=Pearson_R(Predictor_Columns(),Response_Column(),Fit_Sample_Include())")
-    f(sheet, 3, _C_U, "=Spearman_R(Predictor_Columns(),Response_Column(),Fit_Sample_Include())")
-    f(sheet, 3, _C_V, "=Skewness(Predictor_Columns(),Fit_Sample_Include())")
-    f(sheet, 3, _C_W, "=Kurtosis(Predictor_Columns(),Fit_Sample_Include())")
-    f(sheet, 3, _C_X, "=GVIF(Predictor_Columns(),Constructed_Column_Names(),Fit_Sample_Include())")
-    f(sheet, 3, _C_Y, "=Generalized_Tolerance(Predictor_Columns(),Constructed_Column_Names(),Fit_Sample_Include())")
+    f(sheet, 4, _C_S, "=TRANSPOSE(Constructed_Column_Names())")
+    f(sheet, 4, _C_T, "=Pearson_R(Predictor_Columns(),Response_Column(),Fit_Sample_Include())")
+    f(sheet, 4, _C_U, "=Spearman_R(Predictor_Columns(),Response_Column(),Fit_Sample_Include())")
+    f(sheet, 4, _C_V, "=Skewness(Predictor_Columns(),Fit_Sample_Include())")
+    f(sheet, 4, _C_W, "=Kurtosis(Predictor_Columns(),Fit_Sample_Include())")
+    f(sheet, 4, _C_X, "=GVIF(Predictor_Columns(),Constructed_Column_Names(),Fit_Sample_Include())")
+    f(sheet, 4, _C_Y, "=Generalized_Tolerance(Predictor_Columns(),Constructed_Column_Names(),Fit_Sample_Include())")
 
     sheet.range(
-        (rc(3, _C_T)), (rc(_FORMAT_BAND_LAST_ROW, _C_Y))
+        (rc(4, _C_T)), (rc(_FORMAT_BAND_LAST_ROW, _C_Y))
     ).number_format = "0.00"
 
 
 def _write_regression_outputs_header(sheet: xw.Sheet) -> None:
     section_heading(sheet, 1, _C_AA, "REGRESSION OUTPUTS")
-    section_heading(sheet, 2, _C_AE, "Predicted Variable")
-    section_heading(sheet, 2, _C_AF, "")
+    section_heading(sheet, 3, _C_AE, "Predicted Variable")
+    section_heading(sheet, 3, _C_AF, "")
     # Derived response name — the header of the Role=Response spec row.
-    f(sheet, 2, _C_AF, f"={_RESPONSE_NAME_FORMULA}")
+    f(sheet, 3, _C_AF, f"={_RESPONSE_NAME_FORMULA}")
 
     # The Model Formula readout lives at row 1 of the §4b band's design-matrix
     # zone (see _ROW_MODEL_FORMULA / _write_materialization_zone), not in this
-    # zone's row 2. It is a caption rather than a headline statistic, and a
-    # long string in row 2 — which wraps and AutoFits — would set the height
+    # zone's row 3. It is a caption rather than a headline statistic, and a
+    # long string in row 3 — which wraps and AutoFits — would set the height
     # of the whole header row.
 
 
 def _write_regression_statistics(sheet: xw.Sheet) -> None:
-    """Cols AA–AB, rows 3–8."""
-    section_heading(sheet, 3, _C_AA, "REGRESSION STATISTICS")
+    """Cols AA–AB, rows 4–9."""
+    section_heading(sheet, 4, _C_AA, "REGRESSION STATISTICS")
     # Fit-time X/y (Fit_Design_Columns()/Design_Response()): the response is
     # Response_Column() unchanged with no Fixed Effects row and one-way
     # within-demeaned when one is declared
@@ -1133,7 +1136,7 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     # The Regression Statistics zone was the FIRST fully-migrated zone (v3.2):
     # every cell reads the materialized spills through Fit_Design_Columns() /
     # Fit_Sample_Include() instead of re-running the constructors. PR 1 (#223)
-    # spiked exactly two cells — AB5 and AB8, one per spill SHAPE — to confirm
+    # spiked exactly two cells — one per spill SHAPE — to confirm
     # `#` resolves inside a defined-name RefersTo in Excel; it does, so the rest
     # of the zone followed. The migration is now COMPLETE: every engine call
     # site on this sheet reads the Fit_ readers (Diagnostics, ANOVA,
@@ -1147,33 +1150,33 @@ def _write_regression_statistics(sheet: xw.Sheet) -> None:
     # (Multiple R, R², Adjusted R², SE, Observations), which is what made this
     # zone the safe one to complete first.
     #
-    # AB8 keeps Design_Response() as a live constructor beside the materialized
+    # AB9 keeps Design_Response() as a live constructor beside the materialized
     # Fit_Sample_Include — a reminder that Design_Response() is NOT one of the
     # two materialized spills (it is a constructor the engines still evaluate);
     # only Design_Columns and Sample_Include have spill readers.
     for row, label, formula in [
-        (4, "Multiple R",        "=Multiple_R(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
-        (5, "R Square",          "=R_Squared(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
-        (6, "Adjusted R Square", "=Adjusted_R_Squared(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
-        (7, "Standard Error",    "=SE_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
-        (8, "Observations",      "=Observations(Design_Response(),Fit_Sample_Include())"),
+        (5, "Multiple R",        "=Multiple_R(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (6, "R Square",          "=R_Squared(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (7, "Adjusted R Square", "=Adjusted_R_Squared(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (8, "Standard Error",    "=SE_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (9, "Observations",      "=Observations(Design_Response(),Fit_Sample_Include())"),
     ]:
         val(sheet, row, _C_AA, label)
         f(sheet, row, _C_AB, formula)
-    sheet.range(rc(4, _C_AB), rc(7, _C_AB)).number_format = "0.0000"
-    sheet.range(rc(8, _C_AB), rc(8, _C_AB)).number_format = "0"
-    border_box(sheet, 3, _C_AA, 8, _C_AB)
+    sheet.range(rc(5, _C_AB), rc(8, _C_AB)).number_format = "0.0000"
+    sheet.range(rc(9, _C_AB), rc(9, _C_AB)).number_format = "0"
+    border_box(sheet, 4, _C_AA, 9, _C_AB)
 
 
 def _write_diagnostics(sheet: xw.Sheet) -> None:
-    """Cols AD–AE, rows 3–12.
+    """Cols AD–AE, rows 4–13.
 
-    Rows 4-10 (col AE) read the materialized spills through
+    Rows 5-11 (col AE) read the materialized spills through
     Fit_Design_Columns() / Fit_Sample_Include() — the v3.2 rewiring.
     Design_Response() and Fit_Context() stay live; only the design-matrix and
     row-mask arguments move to the spill readers.
     """
-    section_heading(sheet, 3, _C_AD, "DIAGNOSTICS")
+    section_heading(sheet, 4, _C_AD, "DIAGNOSTICS")
     # The zone reads the materialized spills through Fit_Design_Columns() /
     # Fit_Sample_Include() instead of re-running the constructors — the v3.2
     # rewiring, zone by zone. Every row here is compared cell-by-cell against
@@ -1182,30 +1185,30 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     # QQ_Correlation), so a name resolving to the wrong range returns numbers
     # from the wrong rows and the gate catches it rather than silently shipping.
     for row, label, formula in [
-        (4,  "PRESS",          "=PRESS(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"),
+        (5,  "PRESS",          "=PRESS(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"),
         (
-            5,
+            6,
             "PRESS R²",
             "=1-PRESS(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"
             "/SS_Total(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())",
         ),
         (
-            6,
+            7,
             "Mean Leverage",
             "=COLUMNS(Fit_Design_Columns())"
             "/Observations(Design_Response(),Fit_Sample_Include())",
         ),
-        (7,  "AIC",            "=AIC(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
-        (8,  "BIC",            "=BIC(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
-        (9,  "AICc",           "=AICc(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
-        (10, "QQ Correlation", "=QQ_Correlation(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (8,  "AIC",            "=AIC(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (9,  "BIC",            "=BIC(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (10, "AICc",           "=AICc(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
+        (11, "QQ Correlation", "=QQ_Correlation(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"),
     ]:
         val(sheet, row, _C_AD, label)
         f(sheet, row, _C_AE, formula)
-    sheet.range(rc(4, _C_AE), rc(10, _C_AE)).number_format = "0.0000"
+    sheet.range(rc(5, _C_AE), rc(11, _C_AE)).number_format = "0.0000"
 
-    # Serial-correlation trigger matrix — two fixed cells (AD11/AE11 plain DW,
-    # AD12/AE12 BFN panel DW), each SELF-GUARDING: every state a cell can show is
+    # Serial-correlation trigger matrix — two fixed cells (AD12/AE12 plain DW,
+    # AD13/AE13 BFN panel DW), each SELF-GUARDING: every state a cell can show is
     # visible in that cell's own formula, never dispatched from a shared
     # selector cell — the audit-friendly form. Off-spec states show an explicit
     # not-applicable token (never NA(), which is reserved for genuine errors,
@@ -1226,10 +1229,10 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     # below takes over. With exactly one flag and no FE, Durbin_Watson_By sorts
     # residuals by Sequence_Column() before differencing — all array work
     # internal, scalar out, no spill.
-    val(sheet, 11, _C_AD, "Durbin-Watson")
+    val(sheet, 12, _C_AD, "Durbin-Watson")
     f(
         sheet,
-        11,
+        12,
         _C_AE,
         f"=LET(seq_flags,{_SEQUENCE_FLAG_COUNT_FORMULA},"
         f"fe_vars,{_FIXED_EFFECTS_COUNT_FORMULA},"
@@ -1239,7 +1242,7 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         "Durbin_Watson_By(Fit_Design_Columns(),Design_Response(),Sequence_Column(),"
         "Fit_Sample_Include())))))",
     )
-    sheet.range(rc(11, _C_AE), rc(11, _C_AE)).number_format = "0.000"
+    sheet.range(rc(12, _C_AE), rc(12, _C_AE)).number_format = "0.000"
 
     # BFN panel Durbin-Watson (Bhargava–Franzini–Narendranathan 1982): the
     # within-group form for panels under fixed effects. Both this cell and the
@@ -1264,10 +1267,10 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
     # autocorrelation), but its critical values depend on N and T — surfacing
     # those bounds is a recorded open item, and the standard DW bounds must
     # not be presented next to it (the cell note carries that caveat).
-    val(sheet, 12, _C_AD, "BFN Panel Durbin-Watson")
+    val(sheet, 13, _C_AD, "BFN Panel Durbin-Watson")
     f(
         sheet,
-        12,
+        13,
         _C_AE,
         f"=LET(seq_flags,{_SEQUENCE_FLAG_COUNT_FORMULA},"
         f"fe_vars,{_FIXED_EFFECTS_COUNT_FORMULA},"
@@ -1279,66 +1282,66 @@ def _write_diagnostics(sheet: xw.Sheet) -> None:
         "Serial_Correlation_Group(),Sequence_Column(),Base_Period_Delta(),"
         "Fit_Sample_Include()))))))",
     )
-    sheet.range(rc(12, _C_AE), rc(12, _C_AE)).number_format = "0.000"
-    border_box(sheet, 3, _C_AD, 12, _C_AE)
+    sheet.range(rc(13, _C_AE), rc(13, _C_AE)).number_format = "0.000"
+    border_box(sheet, 4, _C_AD, 13, _C_AE)
 
 
 def _write_alpha(sheet: xw.Sheet) -> None:
-    """Alpha input cell at AB12 — controls prediction interval confidence level."""
-    val(sheet, 12, _C_AA, "Alpha")
-    bold(sheet, 12, _C_AA)
-    val(sheet, 12, _C_AB, 0.05)
-    format_input(sheet, 12, _C_AB)
+    """Alpha input cell at AB13 — controls prediction interval confidence level."""
+    val(sheet, 13, _C_AA, "Alpha")
+    bold(sheet, 13, _C_AA)
+    val(sheet, 13, _C_AB, 0.05)
+    format_input(sheet, 13, _C_AB)
 
 
 def _write_anova(sheet: xw.Sheet) -> None:
-    """ANOVA table, rows 13–17, cols X–AC."""
-    section_heading(sheet, 13, _C_AA, "ANOVA TABLE")
+    """ANOVA table, rows 14–18, cols X–AC."""
+    section_heading(sheet, 14, _C_AA, "ANOVA TABLE")
 
     for col, header in zip(
         [_C_AA, _C_AB, _C_AC, _C_AD, _C_AE, _C_AF],
         ["", "df", "SS", "MS", "F", "Significance F"],
     ):
-        val(sheet, 14, col, header)
-    bold_row(sheet, 14, _C_AA, _C_AF)
+        val(sheet, 15, col, header)
+    bold_row(sheet, 15, _C_AA, _C_AF)
 
     # SST = SSR + SSE must hold under FE too, so every row reads the SAME
     # fit-time pair (Fit_Design_Columns()/Design_Response()) — mixing a raw Total SS against
     # within Regression/Residual SS would break the ANOVA identity.
-    val(sheet, 15, _C_AA, "Regression")
-    f(sheet, 15, _C_AB, "=Regression_Degrees_Of_Freedom(Fit_Design_Columns(),Fit_Context())")
-    f(sheet, 15, _C_AC, "=SS_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
-    f(sheet, 15, _C_AD, "=MS_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
-    f(sheet, 15, _C_AE, "=F_Statistic(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
-    f(sheet, 15, _C_AF, "=F_Statistic_P_Value(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    val(sheet, 16, _C_AA, "Regression")
+    f(sheet, 16, _C_AB, "=Regression_Degrees_Of_Freedom(Fit_Design_Columns(),Fit_Context())")
+    f(sheet, 16, _C_AC, "=SS_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 16, _C_AD, "=MS_Regression(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 16, _C_AE, "=F_Statistic(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 16, _C_AF, "=F_Statistic_P_Value(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
 
-    val(sheet, 16, _C_AA, "Residual")
-    f(sheet, 16, _C_AB, "=Residual_Degrees_Of_Freedom(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
-    f(sheet, 16, _C_AC, "=SS_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
-    f(sheet, 16, _C_AD, "=MS_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    val(sheet, 17, _C_AA, "Residual")
+    f(sheet, 17, _C_AB, "=Residual_Degrees_Of_Freedom(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 17, _C_AC, "=SS_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
+    f(sheet, 17, _C_AD, "=MS_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
 
-    val(sheet, 17, _C_AA, "Total")
-    f(sheet, 17, _C_AB, "=Total_Degrees_Of_Freedom(Design_Response(),Fit_Sample_Include(),Fit_Context())")
-    f(sheet, 17, _C_AC, "=SS_Total(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    val(sheet, 18, _C_AA, "Total")
+    f(sheet, 18, _C_AB, "=Total_Degrees_Of_Freedom(Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 18, _C_AC, "=SS_Total(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
 
-    sheet.range(rc(15, _C_AB), rc(17, _C_AB)).number_format = "0"
-    sheet.range(rc(15, _C_AC), rc(17, _C_AC)).number_format = "0.0"
-    sheet.range(rc(15, _C_AD), rc(16, _C_AD)).number_format = "0.0"
-    sheet.range(rc(15, _C_AE), rc(15, _C_AE)).number_format = "0.0"
-    sheet.range(rc(15, _C_AF), rc(15, _C_AF)).number_format = "0.0E+00"
-    border_box(sheet, 13, _C_AA, 17, _C_AF)
+    sheet.range(rc(16, _C_AB), rc(18, _C_AB)).number_format = "0"
+    sheet.range(rc(16, _C_AC), rc(18, _C_AC)).number_format = "0.0"
+    sheet.range(rc(16, _C_AD), rc(17, _C_AD)).number_format = "0.0"
+    sheet.range(rc(16, _C_AE), rc(16, _C_AE)).number_format = "0.0"
+    sheet.range(rc(16, _C_AF), rc(16, _C_AF)).number_format = "0.0E+00"
+    border_box(sheet, 14, _C_AA, 18, _C_AF)
 
 
 def _write_coefficients(sheet: xw.Sheet) -> None:
-    """Cols X–AE, rows 19+. Spills downward — nothing placed below row 39 in these cols."""
-    section_heading(sheet, 19, _C_AA, "COEFFICIENTS")
+    """Cols X–AE, rows 20+. Spills downward — nothing placed below row 40 in these cols."""
+    section_heading(sheet, 20, _C_AA, "COEFFICIENTS")
 
     for col, header in zip(
         [_C_AA, _C_AB, _C_AC, _C_AD, _C_AE, _C_AF, _C_AG, _C_AH],
         ["", "Coefficients", "Std Error", "t Stat", "P-value", "Lower 95%", "Upper 95%", "Beta Weight"],
     ):
-        val(sheet, 20, col, header)
-    bold_row(sheet, 20, _C_AA, _C_AH)
+        val(sheet, 21, col, header)
+    bold_row(sheet, 21, _C_AA, _C_AH)
 
     # Spill row labels aligned to the constructed columns (level-qualified via
     # the constructor twin). Zero_Predictors_Selected() branch computes a real
@@ -1346,7 +1349,7 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     # for an unselected variable; NA() when nothing is fit.
     f(
         sheet,
-        21,
+        22,
         _C_AA,
         '=IF(Zero_Predictors_Selected(),'
         'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA()),'
@@ -1355,27 +1358,27 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
         'VSTACK("",TRANSPOSE(Constructed_Column_Names()))))',
     )
 
-    # Spill anchors at row 21 — pad with blank top row when intercept is disabled;
+    # Spill anchors at row 22 — pad with blank top row when intercept is disabled;
     # zero-predictor branch uses the closed-form intercept-only statistic, or
     # NA() when there is nothing to fit. The mean (Y) only needs one observation;
     # SE/t/p/CI (Z-AA-AD) need at least two to estimate variance, so they're guarded
     # separately rather than sharing the N>=1 check used for the mean.
-    f(sheet, 21, _C_AB,
+    f(sheet, 22, _C_AB,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA()),'
        'IF(Allow_Intercept,Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include()),'
        'VSTACK("",Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include()))))')
-    f(sheet, 21, _C_AC,
+    f(sheet, 22, _C_AC,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,SE_Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()),'
        'VSTACK("",SE_Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()))))')
-    f(sheet, 21, _C_AD,
+    f(sheet, 22, _C_AD,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_Point()/Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,T_Statistics(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()),'
        'VSTACK("",T_Statistics(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context()))))')
-    f(sheet, 21, _C_AE,
+    f(sheet, 22, _C_AE,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'T.DIST.2T(ABS(Intercept_Only_Point()/Intercept_Only_SE()),Intercept_Only_DF()),NA()),'
@@ -1386,13 +1389,13 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     # passed explicitly here (matching the function's own internal default
     # bit-for-bit) so [Context] can be reached without changing the
     # pre-existing (Alpha-input-independent) 95% CI behavior.
-    f(sheet, 21, _C_AF,
+    f(sheet, 22, _C_AF,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()-T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
        'IF(Allow_Intercept,Confidence_Interval_Lower(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),0.05,Fit_Context()),'
        'VSTACK("",Confidence_Interval_Lower(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),0.05,Fit_Context()))))')
-    f(sheet, 21, _C_AG,
+    f(sheet, 22, _C_AG,
        '=IF(Zero_Predictors_Selected(),'
        'IF(AND(Allow_Intercept,Intercept_Only_N()>=2),'
        'Intercept_Only_Point()+T.INV.2T(alpha,Intercept_Only_DF())*Intercept_Only_SE(),NA()),'
@@ -1401,61 +1404,61 @@ def _write_coefficients(sheet: xw.Sheet) -> None:
     # Beta Weights: k×1 (no intercept row); always prepend blank to align with other columns.
     # No predictor exists to standardize in the zero-predictor branch, so render
     # blank (not an error) when Allow_Intercept is TRUE; NA() when nothing is fit.
-    f(sheet, 21, _C_AH,
+    f(sheet, 22, _C_AH,
        '=IF(Zero_Predictors_Selected(),'
        'IF(Allow_Intercept,"",NA()),'
        'VSTACK("",Beta_Weights(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())))')
 
     for col in [_C_AB, _C_AC, _C_AD, _C_AF, _C_AG, _C_AH]:
         sheet.range(
-            rc(21, col), rc(_FORMAT_BAND_LAST_ROW, col)
+            rc(22, col), rc(_FORMAT_BAND_LAST_ROW, col)
         ).number_format = "0.0000"
     sheet.range(
-        rc(21, _C_AE), rc(_FORMAT_BAND_LAST_ROW, _C_AE)
+        rc(22, _C_AE), rc(_FORMAT_BAND_LAST_ROW, _C_AE)
     ).number_format = "0.0E+00"
 
 
 def _write_unit_space_block(sheet: xw.Sheet) -> None:
-    """v3.3 unit-space / back-transformation block at AG3:AH9.
+    """v3.3 unit-space / back-transformation block at AG4:AH10.
 
-    Sits between the Coefficients spill (rows 19+) and the Prediction Outputs
+    Sits between the Coefficients spill (rows 20+) and the Prediction Outputs
     zone (AJ1+). Pair the catalog's `Unit_Space_*` LAMBDA functions with the
-    Back-Transform Method input on row 4 (default "Duan") so the prediction
+    Back-Transform Method input on row 5 (default "Duan") so the prediction
     column (AL) and the residual-zone original-units columns (AZ, BA) can
     stitch onto a single source. Reads are gated by the response Transform
-    string read off Fit_Context(); the Response Space readout on row 9 makes
+    string read off Fit_Context(); the Response Space readout on row 10 makes
     the active state visible at a glance.
 
     Row layout:
 
     | Row | AG                | AH                                         |
     |-----|-------------------|--------------------------------------------|
-    | 3   | "UNIT-SPACE FIT"  | (section heading merged across AG3:AH3)    |
-    | 4   | "Back-Transform"  | input: "Duan" / "Naive" (default "Duan")   |
-    | 5   | "Smearing Factor" | =Smearing_Factor(Fit_Design_Columns(), ...)    |
-    | 6   | "R Square (Unit)" | =Unit_Space_R_Squared(...)                 |
-    | 7   | "Adj R Square (Unit)" | =Unit_Space_Adjusted_R_Squared(...)    |
-    | 8   | "RMSE (Unit)"     | =Unit_Space_RMSE(...)                      |
-    | 9   | "Response Space"  | readout (Fit_Context → "Log"/"None")       |
+    | 4   | "UNIT-SPACE FIT"  | (section heading merged across AG4:AH4)    |
+    | 5   | "Back-Transform"  | input: "Duan" / "Naive" (default "Duan")   |
+    | 6   | "Smearing Factor" | =Smearing_Factor(Fit_Design_Columns(), ...)    |
+    | 7   | "R Square (Unit)" | =Unit_Space_R_Squared(...)                 |
+    | 8   | "Adj R Square (Unit)" | =Unit_Space_Adjusted_R_Squared(...)    |
+    | 9   | "RMSE (Unit)"     | =Unit_Space_RMSE(...)                      |
+    | 10  | "Response Space"  | readout (Fit_Context → "Log"/"None")       |
     """
-    section_heading(sheet, 3, _C_AG, "UNIT-SPACE FIT")
-    val(sheet, 4, _C_AG, "Back-Transform")
-    format_input(sheet, 4, _C_AH)
+    section_heading(sheet, 4, _C_AG, "UNIT-SPACE FIT")
+    val(sheet, 5, _C_AG, "Back-Transform")
+    format_input(sheet, 5, _C_AH)
     # A LITERAL default, never a formula. This cell is an INPUT, and the
-    # earlier "=IF(OR($AH$4=..." form read its own address: a circular
+    # earlier "=IF(OR($AH$5=..." form read its own address: a circular
     # reference, which Excel resolves to 0 with iterative calculation off,
-    # so every consumer below (rows 6-8, AL3, AZ, BA) received an
+    # so every consumer below (rows 7-9, AL4, AZ, BA) received an
     # unrecognised method and returned #N/A. Same shape as the Alpha input
-    # at AB12 (val(sheet, 12, _C_AB, 0.05)) — a typed value is constrained
+    # at AB13 (val(sheet, 13, _C_AB, 0.05)) — a typed value is constrained
     # by the list validation, not by the cell re-deriving itself.
-    val(sheet, 4, _C_AH, _BACK_TRANSFORM_DEFAULT)
+    val(sheet, 5, _C_AH, _BACK_TRANSFORM_DEFAULT)
     # Restrict the input to the two supported methods via list validation.
     try:
-        sheet.range(rc(4, _C_AH)).api.Validation.Delete()
+        sheet.range(rc(5, _C_AH)).api.Validation.Delete()
     except Exception:  # pylint: disable=broad-exception-caught
         pass
     try:
-        sheet.range(rc(4, _C_AH)).api.Validation.Add(
+        sheet.range(rc(5, _C_AH)).api.Validation.Add(
             Type=3,  # xlValidateList
             AlertStyle=1,
             # Bare comma-separated items, NOT wrapped in quotes. Excel's
@@ -1471,13 +1474,13 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
         # IgnoreBlank would let a cleared cell through, and a blank method is
         # not one of the six recognised states — it would silently #N/A the
         # whole block rather than being rejected at entry.
-        sheet.range(rc(4, _C_AH)).api.Validation.IgnoreBlank = False
+        sheet.range(rc(5, _C_AH)).api.Validation.IgnoreBlank = False
     except Exception:  # pylint: disable=broad-exception-caught
         pass
 
     for row, label, formula in [
         (
-            5,
+            6,
             "Smearing Factor",
             (
                 "=Smearing_Factor(Fit_Design_Columns(),Design_Response(),"
@@ -1485,7 +1488,7 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
             ),
         ),
         (
-            6,
+            7,
             "R Square (Unit)",
             (
                 "=Unit_Space_R_Squared(Fit_Design_Columns(),Design_Response(),"
@@ -1494,7 +1497,7 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
             ),
         ),
         (
-            7,
+            8,
             "Adj R Square (Unit)",
             (
                 "=Unit_Space_Adjusted_R_Squared(Fit_Design_Columns(),Design_Response(),"
@@ -1503,7 +1506,7 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
             ),
         ),
         (
-            8,
+            9,
             "RMSE (Unit)",
             (
                 "=Unit_Space_RMSE(Fit_Design_Columns(),Design_Response(),"
@@ -1516,19 +1519,19 @@ def _write_unit_space_block(sheet: xw.Sheet) -> None:
         f(sheet, row, _C_AH, formula)
         sheet.range(rc(row, _C_AH), rc(row, _C_AH)).number_format = "0.0000"
 
-    val(sheet, 9, _C_AG, "Response Space")
+    val(sheet, 10, _C_AG, "Response Space")
     f(
         sheet,
-        9,
+        10,
         _C_AH,
         '=IF(Context_Response_Transform(Fit_Context())="Log",'
         '"Original units (back-transformed)","Same as fit space")',
     )
-    border_box(sheet, 3, _C_AG, 9, _C_AH)
+    border_box(sheet, 4, _C_AG, 10, _C_AH)
 
 
 def _write_prediction_interval(sheet: xw.Sheet) -> None:
-    """Zone AJ1:AK14: boxed prediction interval output, plus the FE group
+    """Zone AJ1:AK15: boxed prediction interval output, plus the FE group
     selector and its group-mean/count readouts.
 
     v2.1 Fixed Effects group-mean recovery (docs/DECISIONS.md "FE point
@@ -1543,25 +1546,25 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     the "build it once" property the whole v2.1 FE design relies on.
     """
     section_heading(sheet, 1, _C_AJ, "PREDICTION OUTPUTS")
-    val(sheet, 2, _C_AJ, "PREDICTION INTERVAL")
-    bold(sheet, 2, _C_AJ)
-    # Sub-headers row 2: AK is "Fit Space" (the log/identity values above),
+    val(sheet, 3, _C_AJ, "PREDICTION INTERVAL")
+    bold(sheet, 3, _C_AJ)
+    # Sub-headers row 3: AK is "Fit Space" (the log/identity values above),
     # AL is "Original Units" (the back-transformed sibling). Both are
     # unmerged so they read as the column header for the point estimate that
     # follows directly underneath.
-    val(sheet, 2, _C_AK, "Fit Space")
-    val(sheet, 2, _C_AL, "Original Units")
-    bold_row(sheet, 2, _C_AJ, _C_AL)
+    val(sheet, 3, _C_AK, "Fit Space")
+    val(sheet, 3, _C_AL, "Original Units")
+    bold_row(sheet, 3, _C_AJ, _C_AL)
     for row, label in [
-        (3, "Point Estimate"),
-        (4, "SE (Mean)"),
-        (5, "SE (New Obs)"),
-        (6, "t Critical"),
-        (7, "CI Lower"),
-        (8, "CI Upper"),
-        (9, "PI Lower"),
-        (10, "PI Upper"),
-        (11, "Confidence Level"),
+        (4, "Point Estimate"),
+        (5, "SE (Mean)"),
+        (6, "SE (New Obs)"),
+        (7, "t Critical"),
+        (8, "CI Lower"),
+        (9, "CI Upper"),
+        (10, "PI Lower"),
+        (11, "PI Upper"),
+        (12, "Confidence Level"),
     ]:
         val(sheet, row, _C_AJ, label)
     # Zero_Predictors_Selected() branch: the closed-form intercept-only
@@ -1580,7 +1583,7 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
     # user always types a raw value in AK (e.g. actual miles), never ln(x).
     f(
         sheet,
-        3,
+        4,
         _C_AK,
         "=IF(Zero_Predictors_Selected(),"
         "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),"
@@ -1600,29 +1603,29 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         f"Prediction_Group_Column(),{_A_FE_GROUP},"
         "Fit_Sample_Include(),alpha,Fit_Context())))",
     )
-    sheet.range(rc(3, _C_AK), rc(11, _C_AK)).number_format = "0.0000"
+    sheet.range(rc(4, _C_AK), rc(12, _C_AK)).number_format = "0.0000"
 
     # Original Units column (AL): the back-transformed sibling of AK under a
-    # Log response. Point estimate (row 3) honors the Method toggle (Duan =
+    # Log response. Point estimate (row 4) honors the Method toggle (Duan =
     # conditional mean via smearing factor; Naive = textbook EXP(ŷ)). CI/PI
-    # bounds (rows 7–10) ALWAYS use Naive — bounds are quantiles, so EXP(L)
+    # bounds (rows 8–11) ALWAYS use Naive — bounds are quantiles, so EXP(L)
     # to EXP(U) preserves the right coverage; multiplying by smearing would
-    # destroy it. Rows 4–6 (SE and t-critical) have no unit-space counterpart
+    # destroy it. Rows 5–7 (SE and t-critical) have no unit-space counterpart
     # and stay blank.
     f(
         sheet,
-        3,
+        4,
         _C_AL,
         (
             "=Back_Transform_Response("
-            f"{_abs_ref(3, _C_AK)},"
+            f"{_abs_ref(4, _C_AK)},"
             "Fit_Context(),"
             f"{_A_BACK_TRANSFORM_METHOD},"
             "Smearing_Factor(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())"
             ")"
         ),
     )
-    for row in (7, 8, 9, 10):
+    for row in (8, 9, 10, 11):
         f(
             sheet,
             row,
@@ -1635,25 +1638,25 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
                 "1)"
             ),
         )
-    sheet.range(rc(3, _C_AL), rc(3, _C_AL)).number_format = "0.0000"
-    sheet.range(rc(7, _C_AL), rc(10, _C_AL)).number_format = "0.0000"
+    sheet.range(rc(4, _C_AL), rc(4, _C_AL)).number_format = "0.0000"
+    sheet.range(rc(8, _C_AL), rc(11, _C_AL)).number_format = "0.0000"
 
-    # FE Group selector (row 12): computed-with-override, the same
+    # FE Group selector (row 13): computed-with-override, the same
     # reference-level pattern as the Categorical Reference Level (E) —
     # pre-filled with the alphabetically-first observed group (which is
     # always the "(all)" sentinel itself when no Fixed Effects row is
     # declared, since Prediction_Group_Column() is constant in that state),
     # and directly editable to any other observed group. Red CF flags a
     # typed value that is not among the observed groups.
-    val(sheet, 12, _C_AJ, "FE Group")
+    val(sheet, 13, _C_AJ, "FE Group")
     f(
         sheet,
-        12,
+        13,
         _C_AK,
         "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Fit_Sample_Include()))),1,1)",
     )
-    format_input(sheet, 12, _C_AK)
-    fe_group_cell = f"${col_letter(_C_AK)}$12"
+    format_input(sheet, 13, _C_AK)
+    fe_group_cell = f"${col_letter(_C_AK)}$13"
     add_expression_format(
         sheet,
         fe_group_cell,
@@ -1662,37 +1665,37 @@ def _write_prediction_interval(sheet: xw.Sheet) -> None:
         font_color=CF_DARK_RED_TEXT,
     )
 
-    # Group Mean (y) / Group Count (rows 13-14): the ȳᵢ / Tᵢ readouts
+    # Group Mean (y) / Group Count (rows 14-15): the ȳᵢ / Tᵢ readouts
     # DECISIONS.md calls for, computed on the selected group directly via
     # Group_Mean_At / Group_Count_At — the same primitives
     # Group_Prediction_Interval uses internally, so these never disagree
     # with what the interval above actually used.
-    val(sheet, 13, _C_AJ, "Group Mean (y)")
-    f(
-        sheet,
-        13,
-        _C_AK,
-        f"=Group_Mean_At(Response_Column(),Prediction_Group_Column(),"
-        f"{_A_FE_GROUP},Fit_Sample_Include())",
-    )
-    val(sheet, 14, _C_AJ, "Group Count")
+    val(sheet, 14, _C_AJ, "Group Mean (y)")
     f(
         sheet,
         14,
         _C_AK,
+        f"=Group_Mean_At(Response_Column(),Prediction_Group_Column(),"
+        f"{_A_FE_GROUP},Fit_Sample_Include())",
+    )
+    val(sheet, 15, _C_AJ, "Group Count")
+    f(
+        sheet,
+        15,
+        _C_AK,
         f"=Group_Count_At(Prediction_Group_Column(),{_A_FE_GROUP},Fit_Sample_Include())",
     )
-    sheet.range(rc(13, _C_AK), rc(13, _C_AK)).number_format = "0.0000"
-    sheet.range(rc(14, _C_AK), rc(14, _C_AK)).number_format = "0"
+    sheet.range(rc(14, _C_AK), rc(14, _C_AK)).number_format = "0.0000"
+    sheet.range(rc(15, _C_AK), rc(15, _C_AK)).number_format = "0"
 
-    # The Duan/Naive caveat lives as a note on the Back-Transform label at AG4
+    # The Duan/Naive caveat lives as a note on the Back-Transform label at AG5
     # — see _BACK_TRANSFORM_NOTE. It documents the toggle, so it belongs on
     # the toggle: parked three zones away and below the interval it qualified,
     # it would read as a footnote to the prediction block rather than as an
     # explanation of the control that causes the behaviour. Keeping it off
-    # row 15 frees the row and lets this box close on the last cell that
+    # row 16 frees the row and lets this box close on the last cell that
     # actually holds a value.
-    border_box(sheet, 1, _C_AJ, 14, _C_AL)
+    border_box(sheet, 1, _C_AJ, 15, _C_AL)
 
 
 def _write_prediction_inputs(sheet: xw.Sheet) -> None:
@@ -1701,21 +1704,21 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     No Intercept row here: Group_Prediction_Interval's pred_input is exactly
     COLUMNS(Predictor_Columns()) raw predictor values with no intercept slot
     — group-mean recovery never uses one (the selected group's own mean plays
-    that role) — so an intercept row would be actively misleading. Row 18 is
+    that role) — so an intercept row would be actively misleading. Row 19 is
     a blank spacer between the headers and the first predictor row.
     """
-    section_heading(sheet, 16, _C_AJ, "PREDICTION INPUTS")
-    val(sheet, 17, _C_AJ, "Predictor")
-    val(sheet, 17, _C_AK, "Prediction Value")
-    bold_row(sheet, 17, _C_AJ, _C_AL)
+    section_heading(sheet, 17, _C_AJ, "PREDICTION INPUTS")
+    val(sheet, 18, _C_AJ, "Predictor")
+    val(sheet, 18, _C_AK, "Prediction Value")
+    bold_row(sheet, 18, _C_AJ, _C_AL)
     # The band's header note lives in _write_model_specification alongside
     # every other note: AddComment is a COM-only call, and keeping it out of
     # here is what lets this writer stay exercisable through RecordingSheet.
 
-    # AJ19: spill formula — level-qualified names, one per constructed column
+    # AJ20: spill formula — level-qualified names, one per constructed column
     f(sheet, _PRED_INPUT_FIRST_ROW, _C_AJ, "=TRANSPOSE(Constructed_Column_Names())")
 
-    # AL19: the Training Mean column — per-column means of the filtered design
+    # AL20: the Training Mean column — per-column means of the filtered design
     # matrix, computed with a SINGLE Predictor_Columns() evaluation. Predictor_Columns() is
     # a full
     # design-matrix construction on every call (Excel does not cache LAMBDA
@@ -1731,7 +1734,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     #
     # Log columns need the GEOMETRIC mean here, not the arithmetic mean of
     # the already-logged Predictor_Columns() column: the AH prefill cells below just
-    # INDEX into this spill, and the row-3 prediction formula applies
+    # INDEX into this spill, and the row-4 prediction formula applies
     # Ln_Positive to whatever it finds in AK — so if this spill held the
     # log-space arithmetic mean, the default prediction would silently
     # double-log (ln(ln(x)), not merely un-back-transformed). EXP(mean(ln
@@ -1741,7 +1744,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
     # Constructed_Column_Transforms() gives the per-column Log/None flag in
     # the same 1xk shape as the BYCOL means row, so the two combine
     # elementwise before the single TRANSPOSE down into the AL column.
-    val(sheet, 17, _C_AL, "Training Mean")
+    val(sheet, 18, _C_AL, "Training Mean")
     means_anchor = _abs_ref(_PRED_INPUT_FIRST_ROW, _C_AL)
     f(
         sheet,
@@ -1754,7 +1757,7 @@ def _write_prediction_inputs(sheet: xw.Sheet) -> None:
         ),
     )
 
-    # AK19:AK62 — the Training Mean of each constructed column, individually
+    # AK20:AK63 — the Training Mean of each constructed column, individually
     # overridable. Each row guards on its position against the means-spill
     # height so rows beyond the live constructed width render blank (the
     # width is spec-dependent — 19 on the default WHO spec). Cheap spill
@@ -1787,9 +1790,9 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     """Residual diagnostic table — row identifiers + 11 diagnostics columns starting at AO."""
     section_heading(sheet, 1, _C_AN, "RESIDUAL OUTPUT")
 
-    # AN2: static header — Row_Labels() supplies its own per-row content
+    # AN3: static header — Row_Labels() supplies its own per-row content
     # (joined Identifier columns, or positional Obs. n labels).
-    val(sheet, 2, _C_AN, "Observation")
+    val(sheet, 3, _C_AN, "Observation")
 
     # Every one of these columns is fit off Fit_Design_Columns()/Design_Response(), so once a
     # Fixed Effects row is declared they hold within-demeaned quantities, not
@@ -1851,20 +1854,20 @@ def _write_residuals(sheet: xw.Sheet) -> None:
             formula = (
                 f'=IF({_FIXED_EFFECTS_COUNT_FORMULA}>0,"{header}"&{within_suffix},"{header}")'
             )
-        f(sheet, 2, col, formula)
+        f(sheet, 3, col, formula)
     # v3.3 unit-space columns: AZ/BA are the original-units siblings of the
     # fit-space Predicted Y / Residuals columns. They carry no (Log) or
     # (Within …) suffix — they are in original units by construction, so the
     # conditional suffix logic above does not apply to them.
-    val(sheet, 2, _C_AZ, "Predicted Y (Original Units)")
-    val(sheet, 2, _C_BA, "Residual (Original Units)")
-    bold_row(sheet, 2, _C_AN, _C_BA)
+    val(sheet, 3, _C_AZ, "Predicted Y (Original Units)")
+    val(sheet, 3, _C_BA, "Residual (Original Units)")
+    bold_row(sheet, 3, _C_AN, _C_BA)
 
-    # AN3: row labels — the spec-derived Row_Labels() filtered to the sample.
+    # AN4: row labels — the spec-derived Row_Labels() filtered to the sample.
     # Row_Labels() has its own no-Identifier fallback ("Obs. n"), so the only
     # error left to absorb is an all-FALSE mask.
     f(
-        sheet, 3, _C_AN,
+        sheet, 4, _C_AN,
         "=IFERROR(FILTER(Row_Labels(),Fit_Sample_Include()),NA())",
     )
     # Spill anchors — each spills n rows downward. Fit-time Fit_Design_Columns()/Design_Response()
@@ -1875,21 +1878,21 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # broken (Residuals would not visually match Y - Predicted Y). The actual
     # observed response is still available via Response_Column() elsewhere
     # (e.g. Intercept_Only_*); this table shows the model's own fit space.
-    f(sheet, 3, _C_AO, "=Dependent_Variable(Design_Response(),Fit_Sample_Include())")
-    f(sheet, 3, _C_AP, "=Predictions(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
-    f(sheet, 3, _C_AQ, "=Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
-    f(sheet, 3, _C_AR, "=Hat_Diagonal(Fit_Design_Columns(),Fit_Sample_Include())")
-    f(sheet, 3, _C_AS, "=Studentized_Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
-    f(sheet, 3, _C_AT, "=Cooks_Distance(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
-    f(sheet, 3, _C_AU, "=SORT(Normal_Scores(Design_Response(),Fit_Sample_Include()))")
-    f(sheet, 3, _C_AV, "=Studentized_Residuals_Ranked(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 4, _C_AO, "=Dependent_Variable(Design_Response(),Fit_Sample_Include())")
+    f(sheet, 4, _C_AP, "=Predictions(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
+    f(sheet, 4, _C_AQ, "=Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
+    f(sheet, 4, _C_AR, "=Hat_Diagonal(Fit_Design_Columns(),Fit_Sample_Include())")
+    f(sheet, 4, _C_AS, "=Studentized_Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 4, _C_AT, "=Cooks_Distance(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
+    f(sheet, 4, _C_AU, "=SORT(Normal_Scores(Design_Response(),Fit_Sample_Include()))")
+    f(sheet, 4, _C_AV, "=Studentized_Residuals_Ranked(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())")
     # Scale-Location: SQRT(|Studentized_Residuals|) — horizontal spread should be flat.
     f(
-        sheet, 3, _C_AW,
+        sheet, 4, _C_AW,
         "=SQRT(ABS(Studentized_Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include(),Fit_Context())))",
     )
     # PRESS Residual equals the leave-one-out residual e_i / (1 - h_i).
-    f(sheet, 3, _C_AX, "=LOOCV_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
+    f(sheet, 4, _C_AX, "=LOOCV_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())")
     # Cook's Distance (Flagged): blank except where D exceeds the influence
     # cutoff, F(0.5, p, n−p) — see _COOKS_CUTOFF for why p comes from $O$1 and
     # not the ANOVA Regression df. This feeds the Cook's Distance chart's
@@ -1903,18 +1906,18 @@ def _write_residuals(sheet: xw.Sheet) -> None:
     # Name off and lets the range supply the whole label.
     cooks_col = col_letter(_C_AT)
     f(
-        sheet, 3, _C_AY,
-        f'=IF({cooks_col}3#>{_COOKS_CUTOFF},{cooks_col}3#,"")',
+        sheet, 4, _C_AY,
+        f'=IF({cooks_col}4#>{_COOKS_CUTOFF},{cooks_col}4#,"")',
     )
     # AZ: Predicted Y in original units — the unit-space siblings of AP/AR/AQ
     # /AX. Method defaults to Duan smearing when the response is Log, which
     # lifts EXP(ŷ) from a median predictor to a mean predictor; under
     # `None` it reduces to the same Predicted Y as AP. BA: Residual in
     # original units = observed response in original units minus the unit-
-    # space predicted. Both carry the Method toggle from `AH4` so flipping
+    # space predicted. Both carry the Method toggle from `AH5` so flipping
     # Duan → Naive propagates here.
     f(
-        sheet, 3, _C_AZ,
+        sheet, 4, _C_AZ,
         (
             "=Unit_Space_Predictions(Fit_Design_Columns(),Design_Response(),"
             "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
@@ -1922,7 +1925,7 @@ def _write_residuals(sheet: xw.Sheet) -> None:
         ),
     )
     f(
-        sheet, 3, _C_BA,
+        sheet, 4, _C_BA,
         (
             "=Unit_Space_Residuals(Fit_Design_Columns(),Design_Response(),"
             "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
@@ -2054,7 +2057,7 @@ def write_regression_output_sheet(
     _annotate_statistical_terms(sheet, sheet_notes or {})
     _write_residual_conditional_formatting(sheet)
 
-    sheet.range(rc(2, _C_S), rc(2, _C_BA)).api.WrapText = True
+    sheet.range(rc(3, _C_S), rc(3, _C_BA)).api.WrapText = True
 
     # A–O (spec block) widths are owned by write_spec_block.py
     # so the standalone and shared-block builds can never drift.
@@ -2083,22 +2086,23 @@ def write_regression_output_sheet(
             f"{col_letter(first_col)}:{col_letter(last_col)}"
         ).Group()
 
-    # Spec-block optional sub-group (E:N). Nested inside the A:N zone group
+    # Spec-block optional sub-group (E:Q). Nested inside the A:Q zone group
     # so the regular-MLR essentials (A: Variable, B: Role, C: Include, D:
     # Type) stay visible by default while the optional columns
     # (Reference Level, Order, Transform, Sequence, Sequence Period,
-    # Period In Use, Levels, Reference In Use, plus the M/N spec feedback
-    # and the I Verdict overlay) collapse to a single "+" button. One
-    # click expands them when a Categorical predictor, a Transform, or a
-    # Sequence axis enters the spec. Order matters: this must run AFTER
+    # Period In Use, Levels, Reference In Use, the M/N interaction pair,
+    # the O Design Columns audit, and the P/Q Δ-spectrum feedback)
+    # collapse to a single "+" button. One click expands them when a
+    # Categorical predictor, a Transform, or a Sequence axis enters the
+    # spec. Order matters: this must run AFTER
     # the zone-level group above so Excel assigns it outline level 2
-    # underneath the level-1 A:N parent.
+    # underneath the level-1 A:Q parent.
     _set_spec_block_optional_outline_group(sheet)
 
     # Size the sub-header row to its wrapped contents (two lines for the
     # longer residual headers). Must run after the column widths above,
     # since wrap points — and therefore the fitted height — depend on them.
-    sheet.api.Rows(2).AutoFit()
+    sheet.api.Rows(3).AutoFit()
 
     # Chart label formula cells are plain cell writes (no COM chart API), so
     # they're written unconditionally — safe in headless/CI environments and
@@ -2125,14 +2129,16 @@ def write_regression_output_sheet(
     # is guarded), so it is headless-safe.
     _write_materialization_zone(sheet, closures)
 
-    # Freeze top 2 rows. Requires an active window, which Excel may refuse to
-    # grant in a headless/non-interactive session, so this is best-effort.
+    # Freeze top 3 rows: zone labels, the spec-zone status band, and every
+    # zone's column headers (row 3 everywhere). Requires an active window,
+    # which Excel may refuse to grant in a headless/non-interactive session,
+    # so this is best-effort.
     try:
         sheet.activate()
-        sheet.range("A3").select()
+        sheet.range("A4").select()
         win = sheet.api.Application.ActiveWindow
         win.FreezePanes = False
-        win.SplitRow = 2
+        win.SplitRow = 3
         win.SplitColumn = 0
         win.FreezePanes = True
     except Exception:

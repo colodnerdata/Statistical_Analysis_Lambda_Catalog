@@ -55,16 +55,16 @@ def test_reads_anchor_to_the_documented_regression_cells() -> None:
     # letting the verifier read a neighbouring column and compare the wrong
     # numbers — so import the SAME constants the module under test uses,
     # never a parallel set that happens to spell the old letters.
-    # S3 = TRANSPOSE(Constructed_Column_Names()) spill
-    assert (col_letter(_C_S), _ROW_NAMES_SPILL) == ("S", 3)
-    # AA21 = coefficient label spill (k+1 rows with the default intercept ON)
-    assert (col_letter(_C_AA), _ROW_COEFF_FIRST) == ("AA", 21)
-    # AB8 = Observations cell
-    assert (col_letter(_C_AB), _ROW_OBSERVATIONS) == ("AB", 8)
-    # AF2 = Predicted Variable readout
-    assert (col_letter(_C_AF), _ROW_RESPONSE_READOUT) == ("AF", 2)
-    # AN3 = FILTER(Row_Labels(), Sample_Include()) spill
-    assert (col_letter(_C_AN), _ROW_RESID_FIRST) == ("AN", 3)
+    # S4 = TRANSPOSE(Constructed_Column_Names()) spill
+    assert (col_letter(_C_S), _ROW_NAMES_SPILL) == ("S", 4)
+    # AA22 = coefficient label spill (k+1 rows with the default intercept ON)
+    assert (col_letter(_C_AA), _ROW_COEFF_FIRST) == ("AA", 22)
+    # AB9 = Observations cell
+    assert (col_letter(_C_AB), _ROW_OBSERVATIONS) == ("AB", 9)
+    # AF3 = Predicted Variable readout
+    assert (col_letter(_C_AF), _ROW_RESPONSE_READOUT) == ("AF", 3)
+    # AN4 = FILTER(Row_Labels(), Sample_Include()) spill
+    assert (col_letter(_C_AN), _ROW_RESID_FIRST) == ("AN", 4)
     # H2 = Sequence status line (shared spec-block coordinates)
     assert (col_letter(_C_SEQUENCE), _INTERCEPT_ROW) == ("H", 2)
 

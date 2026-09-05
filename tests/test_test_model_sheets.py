@@ -473,10 +473,10 @@ def test_row_constants_match_the_writers_own_layout() -> None:
 
     unit_space = _labels(_write_unit_space_block, _C_AG)
     assert unit_space[io.ROW_BACK_TRANSFORM] == "Back-Transform"
-    assert unit_space[5] == "Smearing Factor"
-    assert unit_space[6] == "R Square (Unit)"
-    assert unit_space[7] == "Adj R Square (Unit)"
-    assert unit_space[8] == "RMSE (Unit)"
+    assert unit_space[6] == "Smearing Factor"
+    assert unit_space[7] == "R Square (Unit)"
+    assert unit_space[8] == "Adj R Square (Unit)"
+    assert unit_space[9] == "RMSE (Unit)"
 
     interval = _labels(_write_prediction_interval, _C_AJ)
     assert interval[io.ROW_PI_POINT] == "Point Estimate"

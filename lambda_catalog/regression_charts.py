@@ -171,7 +171,7 @@ def _write_chart_label_cells(sheet: xw.Sheet) -> None:
 def _write_diagnostic_charts(sheet: xw.Sheet) -> None:  # pylint: disable=too-many-locals,too-many-statements
     """Create 7 pre-built diagnostic charts to the right of the Residual Output section."""
     start_left = sheet.range(a1(1, _C_BB)).left
-    start_top = sheet.range("A3").top
+    start_top = sheet.range("A4").top
 
     col_step = _CHART_WIDTH + _CHART_GAP
     row_step = _CHART_HEIGHT + _CHART_GAP

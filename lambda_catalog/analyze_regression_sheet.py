@@ -253,7 +253,7 @@ def calculate_regression_results_from_matrix(
     legitimate state, and saying so beats inventing a Δ of 1.
 
     ``back_transform`` mirrors the sheet's Back-Transform Method input
-    (``$AH$4``, "Duan" or "Naive"), which the unit-space block's
+    (``$AH$5``, "Duan" or "Naive"), which the unit-space block's
     ``Unit_Space_R_Squared`` / ``Unit_Space_Adjusted_R_Squared`` /
     ``Unit_Space_RMSE`` calls all take as an argument, and which the AL
     prediction column and the AZ/BA original-units residual columns
@@ -262,7 +262,7 @@ def calculate_regression_results_from_matrix(
     the unit-space residuals differs between the two, which is exactly why
     both need an oracle. Two things do NOT dispatch on it: the CI/PI bounds
     (quantiles, back-transformed with ``EXP`` only under both settings —
-    see the AL7:AL10 caveat row on the sheet), and the observed column
+    see the AL8:AL11 caveat row on the sheet), and the observed column
     (an observation is not a prediction and never carries the smearing
     factor). Under ``response_transform="None"`` the two methods coincide
     exactly, which keeps the reduction invariant holding either way.
@@ -588,7 +588,7 @@ def calculate_regression_results_from_matrix(
     )
 
     # ── v3.3 unit-space / back-transformation arithmetic ──────────────────
-    # Mirrors the AG3:AH9 unit-space block, the AL Original Units prediction
+    # Mirrors the AG4:AH10 unit-space block, the AL Original Units prediction
     # column, and the AZ/BA Predicted Y (Original Units) / Residual
     # (Original Units) columns on the sheet.
     #
@@ -646,7 +646,7 @@ def calculate_regression_results_from_matrix(
     else:
         y_unit = np.full(n, float("nan"))
 
-    # The Back-Transform Method input ($AH$4) selects between them. An
+    # The Back-Transform Method input ($AH$5) selects between them. An
     # unrecognised method is not guessed at: the sheet's Unit_Space_*
     # functions return #N/A for anything outside the two-item validation
     # list, so the oracle refuses here rather than silently defaulting to

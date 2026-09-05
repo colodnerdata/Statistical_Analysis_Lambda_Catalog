@@ -160,6 +160,7 @@ def test_build_preserves_original_write_error_when_cleanup_fails(
     for writer_name in [
         "write_catalog_sheet",
         "write_regression_instructions_sheet",
+        "write_modeling_concepts_sheet",
         "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
     ]:
@@ -388,6 +389,7 @@ def _stub_regression_build_writers(monkeypatch, writer_calls: list[str]) -> None
     for writer_name in [
         "write_catalog_sheet",
         "write_regression_instructions_sheet",
+        "write_modeling_concepts_sheet",
         "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
         "write_regression_output_sheet",
@@ -903,6 +905,9 @@ def test_build_uses_life_expectancy_source_table_when_requested(
         build_production, "write_regression_instructions_sheet", lambda *_, **__: None
     )
     monkeypatch.setattr(
+        build_production, "write_modeling_concepts_sheet", lambda *_, **__: None
+    )
+    monkeypatch.setattr(
         build_production, "write_diagnostic_guide_sheet", lambda *_, **__: None
     )
     monkeypatch.setattr(
@@ -962,6 +967,7 @@ def test_build_defaults_to_life_expectancy_source_table(monkeypatch, tmp_path) -
     for name in [
         "write_catalog_sheet",
         "write_regression_instructions_sheet",
+        "write_modeling_concepts_sheet",
         "write_diagnostic_guide_sheet",
         "write_version_history_sheet",
         "write_univariate_sheet",
@@ -1028,14 +1034,16 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
     monkeypatch,
 ) -> None:
     """The unified workbook's tab order puts the analysis templates first
-    (Regression, Regression Instructions, Diagnostic Guide, Univariate),
-    then the reference sheets (LAMBDA_functions, Version History), then the
-    data sheets (Production Lots, Life Expectancy Data, Mileage Data)."""
+    (Regression, Regression Instructions, Modeling Concepts, Diagnostic
+    Guide, Univariate), then the reference sheets (LAMBDA_functions, Version
+    History), then the data sheets (Production Lots, Life Expectancy Data,
+    Mileage Data)."""
     book = _TabOrderBook(
         [
             "LAMBDA_functions",
             "Regression",
             "Diagnostic Guide",
+            "Modeling Concepts",
             "Mileage Data",
             "Life Expectancy Data",
             "Production Lots",
@@ -1060,6 +1068,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
     assert book.sheets.names() == [
         "Regression",
         "Regression Instructions",
+        "Modeling Concepts",
         "Diagnostic Guide",
         "Univariate",
         "LAMBDA_functions",
@@ -1075,6 +1084,7 @@ def test_reorder_and_style_sheet_tabs_orders_front_matter_and_sets_colors(
         "Version History": (128, 128, 128),
         "Univariate": build_production.SUBHDR_COLOR,
         "Regression Instructions": build_production.SUBHDR_COLOR,
+        "Modeling Concepts": build_production.SUBHDR_COLOR,
         "Regression": build_production.SUBHDR_COLOR,
         "Diagnostic Guide": build_production.SUBHDR_COLOR,
     }

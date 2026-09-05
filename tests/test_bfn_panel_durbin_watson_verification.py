@@ -382,7 +382,7 @@ def test_trigger_matrix_states() -> None:
 
 
 def _diagnostic_cell_formulas() -> tuple[str, str]:
-    """The shipped DW (AB11) and BFN (AB12) formulas, via the sheet writer."""
+    """The shipped DW (AB12) and BFN (AB13) formulas, via the sheet writer."""
     # pylint: disable=import-outside-toplevel
     import xlwings as xw
 
@@ -391,8 +391,8 @@ def _diagnostic_cell_formulas() -> tuple[str, str]:
 
     sheet = RecordingSheet(name="Regression")
     _write_diagnostics(cast(xw.Sheet, sheet))
-    dw = cast(str, sheet.cell(11, _C_AE).api.Formula2)
-    bfn = cast(str, sheet.cell(12, _C_AE).api.Formula2)
+    dw = cast(str, sheet.cell(12, _C_AE).api.Formula2)
+    bfn = cast(str, sheet.cell(13, _C_AE).api.Formula2)
     return dw, bfn
 
 

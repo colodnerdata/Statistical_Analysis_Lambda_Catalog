@@ -324,8 +324,13 @@ def test_sample_include_is_the_reduce_product_mask() -> None:
     assert base.endswith("Sample_Mask=1))")
 
     # The specialized final-mask leaf starts from ordinary eligibility and
-    # adds positivity only for the explicit row-dropping transform.
-    assert "Base_Sample_Mask,Sample_Include_Calc()" in final
+    # adds positivity only for the explicit row-dropping transform.  The
+    # ``--`` coercion is load-bearing: ``Sample_Include_Calc()`` returns a
+    # BOOLEAN array, and Excel's ``=`` does not coerce boolean vs number, so
+    # comparing a boolean mask to 1 with ``Log_Drop_Sample_Mask=1`` would
+    # yield all-FALSE — an empty fit sample and a dead design matrix.  The
+    # numeric accumulator keeps the final comparison numeric-to-numeric.
+    assert "Base_Sample_Mask,--Sample_Include_Calc()" in final
     assert 'INDEX(Spec_Transforms,Column_Number)="Log (drop ≤ 0)"' in final
     assert "Accumulated_Mask*--IFERROR((Source_Column+0)>0,FALSE)" in final
     assert 'INDEX(Spec_Transforms,Column_Number)="Log"' not in final

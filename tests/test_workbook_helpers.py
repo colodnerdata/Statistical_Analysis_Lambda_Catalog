@@ -39,17 +39,58 @@ def test_safe_freeze_top_row_swallows_missing_active_window() -> None:
     safe_freeze_top_row(sheet)  # must not raise
 
 
-def test_safe_freeze_top_row_sets_split_and_freeze_on_success() -> None:
-    window = SimpleNamespace(SplitRow=None, SplitColumn=None, FreezePanes=None)
+def test_safe_freeze_top_row_selects_then_freezes_on_success() -> None:
+    class _Window:
+        """COM Window double that records every FreezePanes/Split assignment
+        in order, so the test can pin the full call sequence."""
+
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+            self.freeze = None
+            self.split = None
+
+        @property
+        def FreezePanes(self):  # noqa: N802 — mirrors the COM property
+            return self.freeze
+
+        @FreezePanes.setter
+        def FreezePanes(self, value):
+            self.calls.append(f"FreezePanes={value}")
+            self.freeze = value
+
+        @property
+        def Split(self):  # noqa: N802 — mirrors the COM property
+            return self.split
+
+        @Split.setter
+        def Split(self, value):
+            self.calls.append(f"Split={value}")
+            self.split = value
+
+    window = _Window()
     sheet = SimpleNamespace(
-        api=SimpleNamespace(Application=SimpleNamespace(ActiveWindow=window))
+        activate=lambda: window.calls.append("activated"),
+        range=lambda addr: SimpleNamespace(
+            select=lambda: window.calls.append(f"select:{addr}")
+        ),
+        api=SimpleNamespace(Application=SimpleNamespace(ActiveWindow=window)),
     )
 
     safe_freeze_top_row(sheet)
 
-    assert window.SplitRow == 1
-    assert window.SplitColumn == 0
-    assert window.FreezePanes is True
+    # Freeze at the SELECTION (A2, one row below the header), never via
+    # SplitRow — setting SplitRow leaves a draggable split bar in the saved
+    # workbook (state="frozenSplit") instead of a true freeze. The stale
+    # freeze/split is cleared BEFORE the selection so re-freezing a rebuilt
+    # sheet is idempotent.
+    assert window.calls == [
+        "FreezePanes=False",
+        "Split=False",
+        "activated",
+        "select:A2",
+        "FreezePanes=True",
+    ]
+    assert window.freeze is True
 
 
 # --- copy_static_sheet ------------------------------------------------------

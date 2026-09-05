@@ -3534,6 +3534,42 @@ Until `build_production.py` is re-run and the artifact committed,
 `test_workbook_scope_belongs_to_the_catalog` reports the stale
 name as residue, which is exactly what it is.
 
+### RefersTo bodies qualify the late-created spill readers at install time
+
+**Question:** every guard case in the test-model artifact failed
+`log_domain_status` — 16 sheets, one mismatch each, all reporting the fitted
+count of `'G01 No Response Row'` ("-8 rows excluded" on a clean spec). The
+component probes were right while the `Log_Domain_Status` name itself was
+wrong. What reads a foreign sheet inside a sheet-scoped name?
+
+**Resolution:** RESOLVED — the reference itself. `Log_Domain_Status` and
+`Intercept_Only_N` referenced `Fit_Sample_Include()` unqualified, but the
+spill readers (`Fit_Context`, `Fit_Design_Columns`, `Fit_Sample_Include`)
+are created by the materialization zone, AFTER `_set_sheet_scoped_names`
+installs the constructor closures and after `_setup_local_names` registers
+the `Intercept_Only_*` helpers. A name that does not exist on the owning
+sheet at `Names.Add` time stays unresolved, and at calculation Excel
+resolves it against the workbook's whole name collection — which in a
+50-sheet workbook holds one `Fit_Sample_Include` per sheet, and the lookup
+pinned `'G01 No Response Row'!` into 49 of 50 RefersTo bodies.
+
+The `Base_Period_Delta` rule — an unqualified name resolves against the
+calling formula's sheet — holds for cell formulas; it does not hold inside a
+RefersTo written before the referenced name exists. Production's single
+Regression sheet offers one candidate and hides the class entirely, so only
+the test-model verifier could see it.
+
+**Fix:** the installer qualifies, so the catalog stays sheet-agnostic.
+`qualify_spill_reader_references` / `SPILL_READER_NAMES` in
+`regression_materialization.py` prefixes every spill-reader reference with
+the owning sheet, applied in `_set_sheet_scoped_names` and on the
+`Intercept_Only_*` adds in `_setup_local_names`;
+`tests/test_sheet_writers.py::test_every_registered_refers_to_qualifies_spill_reader_references`
+sweeps every registered RefersTo for an unqualified (or foreign-qualified)
+reader reference, so neither half can regress alone. Already-qualified
+references and the distinct `Fit_Sample_Include_Calc` constructor closure
+are left untouched by the matcher.
+
 ### Auto MPG ships no Sequence axis — `Model Year` was never one
 
 **Question:** the shipped T0 spec flagged `Model Year` as

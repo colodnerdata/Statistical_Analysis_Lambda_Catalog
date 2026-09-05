@@ -1,0 +1,29 @@
+python build_test_models.py --verify --no-launch
+[    0.0s] Plan: 33 model + 17 guard = 50 sheet(s)
+[    0.0s] Oracles: computing
+[    0.9s] Oracles: done
+[    1.4s] Catalog + data sheets
+[    4.8s] Sheets: writing 50
+[  704.4s] Save
+[  709.5s] Sync names
+[  709.8s] CalculateFullRebuild
+Timing: write sheets  708.6s
+Timing: sync names    0.3s
+Timing: rebuild       1452.4s
+Timing:   CalculateFullRebuild only   930.7s
+Workbook: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\Lambda_Library_TestModels.xlsx
+Sheets built: 50
+Created names: 127
+Updated names: 0
+Removed names: 0
+[ 2162.2s] Verify: reading 50 sheet(s)
+Timing: verify        79.9s
+Verify: mismatch totals by case:
+    L07   2
+    L10   1
+ERROR [TestModel/L07 Width Guard Warning/design_columns row=1] expected=182, excel_calc=0
+ERROR [TestModel/L07 Width Guard Warning/design_columns row=2] expected=15, excel_calc=0
+ERROR [TestModel/L10 Retarget Widens Spec/design_columns row=3] expected=1, excel_calc=0
+Verify: FAILED with 3 mismatch(es).
+Timing: total         2242.1s
+Log: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_test_models verify no launch.log

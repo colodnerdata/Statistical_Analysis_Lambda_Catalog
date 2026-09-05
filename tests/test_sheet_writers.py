@@ -26,6 +26,9 @@ from lambda_catalog.workbook_helpers import (
 from lambda_catalog.workbook_helpers import (
     note_dimensions as _note_dimensions,
 )
+from lambda_catalog.regression_materialization import SPILL_READER_NAMES
+from lambda_catalog.spec_layout import _CLOSURE_SCOPE
+from lambda_catalog.write_spec_block import _set_sheet_scoped_names
 from lambda_catalog.write_sheet_regression import (
     _A_BACK_TRANSFORM_METHOD,
     _BACK_TRANSFORM_METHODS,
@@ -238,7 +241,7 @@ def test_regression_names_register_spec_wiring_and_constructors() -> None:
     # would reject the Names.Add outright, so the quote is mandatory.
     # See
     # tests/test_test_model_sheets.py::test_every_refers_to_quotes_a_sheet_name_containing_spaces.
-    assert sheet.api.Names.by_short_name("alpha").RefersTo == "='Regression'!$AB$12"
+    assert sheet.api.Names.by_short_name("alpha").RefersTo == "='Regression'!$AB$13"
 
 
 def test_regression_chart_names_size_to_the_observation_cell() -> None:
@@ -248,15 +251,15 @@ def test_regression_chart_names_size_to_the_observation_cell() -> None:
 
     fit_y = sheet.api.Names.by_short_name("RegChartFitY").RefersTo
     assert fit_y == (
-        "=OFFSET('Regression'!$AP$2,1,0,"
-        "MAX(IFERROR('Regression'!$AB$8,1),1),1)"
+        "=OFFSET('Regression'!$AP$3,1,0,"
+        "MAX(IFERROR('Regression'!$AB$9,1),1),1)"
     )
     press = sheet.api.Names.by_short_name("RegChartPRESSResid").RefersTo
-    assert "$AX$2" in press
+    assert "$AX$3" in press
     cooks_flag = sheet.api.Names.by_short_name("RegChartCookDistFlag").RefersTo
-    assert "$AY$2" in cooks_flag
+    assert "$AY$3" in cooks_flag
     obs_label = sheet.api.Names.by_short_name("RegChartObsLabel").RefersTo
-    assert "$AN$2" in obs_label
+    assert "$AN$3" in obs_label
     assert {
         name: sheet.api.Names.by_short_name(name).Comment
         for name in (
@@ -319,7 +322,7 @@ def test_chart_label_cells_reference_live_statistics_and_stay_ordered() -> None:
     # The cutoff is the median of the reference F distribution, with p taken
     # from the Sigma Design Columns total (intercept included) — matching the
     # p that Cooks_Distance itself divides by — and n-p from the ANOVA.
-    assert "F.INV(0.5,$O$1,$AB$16)" in cooks_title
+    assert "F.INV(0.5,$O$1,$AB$17)" in cooks_title
     # TEXT() is wrapped, not the cutoff: the cutoff stays NA() so comparisons
     # fail closed, but TEXT(NA(),…) is #N/A and would take the whole title
     # down with it through the concatenation.
@@ -327,11 +330,11 @@ def test_chart_label_cells_reference_live_statistics_and_stay_ordered() -> None:
 
     qq_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Normal Q-Q")
     qq_title = sheet.ranges[((qq_row, _C_CHART_TITLE),)].state.formula2
-    assert "$AE$10" in qq_title
+    assert "$AE$11" in qq_title
 
     fitted_row = _ROW_CHART_LABELS + [s[0] for s in specs].index("Residuals vs. Fitted")
     fitted_title = sheet.ranges[((fitted_row, _C_CHART_TITLE),)].state.formula2
-    assert "$AF$2" in fitted_title
+    assert "$AF$3" in fitted_title
 
 
 def test_scale_location_y_axis_always_shows_one_decimal() -> None:
@@ -369,7 +372,16 @@ def test_intercept_only_n_does_not_depend_on_filter() -> None:
     # top-left cell (=1), so SUMPRODUCT(N(Fit_Sample_Include())) would report
     # n=1 for any non-empty sample, failing every N()>=2 inference branch and
     # zeroing Intercept_Only_DF() for an intercept-only model with n>1.
-    assert "SUMPRODUCT(--(Fit_Sample_Include()))" in intercept_only_n_formula
+    assert "SUMPRODUCT(--(Fit_Sample_Include()))" in intercept_only_n_formula.replace(
+        "'Regression'!", ""
+    )
+    # The reader reference is sheet-qualified: Fit_Sample_Include does not
+    # exist when this name is registered (the materialization zone creates it
+    # later), and an unqualified reference resolves against the workbook's
+    # whole name collection at calculation — pinning a FOREIGN sheet's copy in
+    # any multi-Regression-sheet workbook. See SPILL_READER_NAMES in
+    # regression_materialization.py.
+    assert "'Regression'!Fit_Sample_Include" in intercept_only_n_formula
     # Guard the regression: this name must never sum the reader with N().
     assert "N(Fit_Sample_Include())" not in intercept_only_n_formula
 
@@ -415,12 +427,55 @@ def test_no_catalog_body_or_sheet_name_sums_a_range_reader_with_n() -> None:
             )
 
 
+def test_every_registered_refers_to_qualifies_spill_reader_references() -> None:
+    """Repo-wide guard for the unqualified-reader resolution defect.
+
+    The spill readers (Fit_Context / Fit_Design_Columns / Fit_Sample_Include)
+    are registered late — after the spec block installs the constructor
+    closures and after _setup_local_names registers the Intercept_Only_*
+    helpers — so a RefersTo written in those phases cannot leave a reference
+    to them unqualified: a name that does not exist on the owning sheet at
+    Names.Add time stays unresolved, and at calculation Excel resolves it
+    against the workbook's whole name collection. In the 50-sheet test-model
+    artifact that collection holds one Fit_Sample_Include per sheet, the
+    lookup landed on a foreign sheet's copy, and every sheet's
+    Log_Domain_Status reported the first guard sheet's fitted-mask count
+    ("-8 rows excluded" on clean specs). Production's single Regression
+    sheet hides the class entirely, so only this guard and the test-model
+    verifier see it.
+    """
+    sheet = RecordingSheet(name="Some Sheet With Spaces")
+
+    _setup_regression_names(_as_xw_sheet(sheet))
+    _set_sheet_scoped_names(
+        _as_xw_sheet(sheet),
+        load_catalog_document(ROOT_DIR / "lambda_functions.json").functions_for_sheet(
+            _CLOSURE_SCOPE
+        ),
+    )
+
+    qualified_prefix = "'Some Sheet With Spaces'!"
+    for item in sheet.api.Names.items:
+        refers_to = item.RefersTo or ""
+        for reader in SPILL_READER_NAMES:
+            for match in re.finditer(
+                rf"(?<![!\w]){reader}(?![\w])", refers_to
+            ):
+                before = refers_to[: match.start()]
+                assert before.endswith(qualified_prefix), (
+                    f"sheet name {item.Name!r} references spill reader "
+                    f"{reader} without this sheet's qualifier (expected "
+                    f"{qualified_prefix}{reader}); see SPILL_READER_NAMES "
+                    "in regression_materialization.py"
+                )
+
+
 def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> None:
     sheet = RecordingSheet(name="Regression")
 
     _write_prediction_interval(_as_xw_sheet(sheet))
 
-    formula = sheet.cell(3, _C_AK).api.Formula2
+    formula = sheet.cell(4, _C_AK).api.Formula2
     assert formula is not None
     assert formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert "IFERROR" not in formula
@@ -438,7 +493,7 @@ def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> N
     assert 'pred_input,IF(trn="Log",Ln_Positive(raw),raw),' in formula
     assert (
         "Group_Prediction_Interval(Predictor_Columns(),Response_Column(),pred_input,"
-        "Prediction_Group_Column(),$AK$12,"
+        "Prediction_Group_Column(),$AK$13,"
         "Fit_Sample_Include(),alpha,Fit_Context())"
     ) in formula
     assert "Intercept_Only_Point()" in formula
@@ -452,26 +507,26 @@ def test_prediction_interval_writes_fe_group_selector_and_readouts() -> None:
 
     _write_prediction_interval(_as_xw_sheet(sheet))
 
-    assert sheet.cell(12, _C_AJ).value == "FE Group"
-    fe_group = sheet.cell(12, _C_AK).api.Formula2
+    assert sheet.cell(13, _C_AJ).value == "FE Group"
+    fe_group = sheet.cell(13, _C_AK).api.Formula2
     assert fe_group == (
         "=INDEX(SORT(UNIQUE(FILTER(Prediction_Group_Column(),Fit_Sample_Include()))),1,1)"
     )
-    conditions = sheet.range("$AK$12").api.FormatConditions.items
+    conditions = sheet.range("$AK$13").api.FormatConditions.items
     assert [c.Formula1 for c in conditions] == [
-        "=ISNA(MATCH($AK$12,Prediction_Group_Column(),0))"
+        "=ISNA(MATCH($AK$13,Prediction_Group_Column(),0))"
     ]
     assert conditions[0].Interior.Color == excel_color(CF_LIGHT_RED_FILL)
     assert conditions[0].Font.Color == excel_color(CF_DARK_RED_TEXT)
 
-    assert sheet.cell(13, _C_AJ).value == "Group Mean (y)"
-    assert sheet.cell(13, _C_AK).api.Formula2 == (
-        "=Group_Mean_At(Response_Column(),Prediction_Group_Column(),"
-        "$AK$12,Fit_Sample_Include())"
-    )
-    assert sheet.cell(14, _C_AJ).value == "Group Count"
+    assert sheet.cell(14, _C_AJ).value == "Group Mean (y)"
     assert sheet.cell(14, _C_AK).api.Formula2 == (
-        "=Group_Count_At(Prediction_Group_Column(),$AK$12,Fit_Sample_Include())"
+        "=Group_Mean_At(Response_Column(),Prediction_Group_Column(),"
+        "$AK$13,Fit_Sample_Include())"
+    )
+    assert sheet.cell(15, _C_AJ).value == "Group Count"
+    assert sheet.cell(15, _C_AK).api.Formula2 == (
+        "=Group_Count_At(Prediction_Group_Column(),$AK$13,Fit_Sample_Include())"
     )
 
 
@@ -480,7 +535,7 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
 
     PR 1 (#223) spiked exactly two cells — AB5 and AB8, one per spill SHAPE — to
     confirm `#` resolves inside a defined-name RefersTo in Excel. It does, so PR
-    2 completes the zone: every cell in rows 4-8 reads the materialized spills
+    2 completes the zone: every cell in rows 5-9 reads the materialized spills
     through Fit_Design_Columns() / Fit_Sample_Include() instead of re-running the
     constructors.
 
@@ -491,7 +546,7 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
     this zone the safe one to complete first. The previous test pinned the spike
     at two cells; this is its deliberate rewrite (the old docstring said so).
 
-    The zone-pinned property: the Diagnostics zone (col AE rows 4-10) is
+    The zone-pinned property: the Diagnostics zone (col AE rows 5-11) is
     migrated too (PR 3 of N), and this PR completes the rewiring by migrating
     every remaining zone at once — ANOVA (rows 15-17, cols AB-AF) included — so
     the test now pins ANOVA as migrated as well. No unmigrated zone remains on
@@ -507,27 +562,27 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
     sheet = RecordingSheet(name="Regression")
     _write_regression_statistics(_as_xw_sheet(sheet))
 
-    # Every Regression Statistics cell reads the materialized spills. AB8 has no
+    # Every Regression Statistics cell reads the materialized spills. AB9 has no
     # design-matrix argument (Observations takes the response + the mask only),
     # so it carries Fit_Sample_Include but not Fit_Design_Columns; the other four
     # carry both.
-    assert _formula(sheet, 4, _C_AB) == (
+    assert _formula(sheet, 5, _C_AB) == (
         "=Multiple_R(Fit_Design_Columns(),Design_Response(),"
         "Fit_Sample_Include(),Fit_Context())"
     )
-    assert _formula(sheet, 5, _C_AB) == (
+    assert _formula(sheet, 6, _C_AB) == (
         "=R_Squared(Fit_Design_Columns(),Design_Response(),"
         "Fit_Sample_Include(),Fit_Context())"
     )
-    assert _formula(sheet, 6, _C_AB) == (
+    assert _formula(sheet, 7, _C_AB) == (
         "=Adjusted_R_Squared(Fit_Design_Columns(),Design_Response(),"
         "Fit_Sample_Include(),Fit_Context())"
     )
-    assert _formula(sheet, 7, _C_AB) == (
+    assert _formula(sheet, 8, _C_AB) == (
         "=SE_Regression(Fit_Design_Columns(),Design_Response(),"
         "Fit_Sample_Include(),Fit_Context())"
     )
-    assert _formula(sheet, 8, _C_AB) == (
+    assert _formula(sheet, 9, _C_AB) == (
         "=Observations(Design_Response(),Fit_Sample_Include())"
     )
 
@@ -535,7 +590,7 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
     # Sample_Include() here is a half-migration that re-runs the constructor.
     # Count rather than substring-match: "Design_Columns()" is a suffix of
     # "Fit_Design_Columns()", so every occurrence must be the Fit_ one.
-    for row in (4, 5, 6, 7, 8):
+    for row in (5, 6, 7, 8, 9):
         formula = _formula(sheet, row, _C_AB)
         assert formula.count("Design_Columns()") == formula.count(
             "Fit_Design_Columns()"
@@ -544,13 +599,13 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
             "Fit_Sample_Include()"
         ), row
 
-    # The Diagnostics zone (col AE rows 4-10) is now migrated too (PR 3 of N):
+    # The Diagnostics zone (col AE rows 5-11) is now migrated too (PR 3 of N):
     # every cell reads the materialized spills, and no bare constructor survives
     # (count not substring, since "Design_Columns()" is a suffix of
     # "Fit_Design_Columns()").
     diag = RecordingSheet(name="Regression")
     _write_diagnostics(_as_xw_sheet(diag))
-    for row in (4, 5, 6, 7, 8, 9, 10):
+    for row in (5, 6, 7, 8, 9, 10, 11):
         formula = _formula(diag, row, _C_AE)
         assert "Fit_Design_Columns()" in formula, row
         assert "Fit_Sample_Include()" in formula, row
@@ -561,7 +616,7 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
             "Fit_Sample_Include()"
         ), row
 
-    # ...and ANOVA (rows 15-17, cols AB-AF) is now migrated too (this PR
+    # ...and ANOVA (rows 16-18, cols AB-AF) is now migrated too (this PR
     # completes the rewiring — every remaining zone at once). ANOVA cells do
     # not all carry both readers (the df cells read Fit_Design_Columns() only;
     # the Total df cell reads Fit_Sample_Include() only), so the guard checks
@@ -573,7 +628,7 @@ def test_regression_statistics_zone_reads_the_materialized_spills() -> None:
     _write_anova(_as_xw_sheet(anova))
     anova_formulas = [
         f
-        for row in (15, 16, 17)
+        for row in (16, 17, 18)
         for col in (_C_AB, _C_AC, _C_AD, _C_AE, _C_AF)
         for f in (_formula(anova, row, col),)
         if f is not None
@@ -767,7 +822,7 @@ def test_materialization_zone_materializes_model_context() -> None:
 
     # Both data-dependent zones head on one row and spill from the next, so
     # the band reads across — the mask value beside its design-matrix row.
-    assert _MATERIALIZATION_FIRST_ROW == 2
+    assert _MATERIALIZATION_FIRST_ROW == 3
     assert _MATERIALIZATION_HEADER_ROW == _MATERIALIZATION_FIRST_ROW
     assert _MATERIALIZATION_SPILL_ROW == _MATERIALIZATION_HEADER_ROW + 1
     # The fixed-height Model Context block needs no header row, so it still
@@ -933,11 +988,11 @@ def test_prediction_prefills_index_the_single_training_mean_spill() -> None:
     # The Training Mean spill is the ONE Predictor_Columns() evaluation for the whole
     # prefill band; it owns column AI downward so it can never collide with
     # another spill when the source data or spec changes.
-    assert sheet.cell(17, _C_AL).value == "Training Mean"
+    assert sheet.cell(18, _C_AL).value == "Training Mean"
     means = _formula(sheet, _PRED_INPUT_FIRST_ROW, _C_AL)
     # v2.2 Log wiring: a Log-transformed column's mean is EXP'd back to
     # input space (the geometric mean) so the AH prefill — which just
-    # INDEXes this spill — doesn't get double-logged when the row-3
+    # INDEXes this spill — doesn't get double-logged when the row-4
     # prediction formula applies Ln_Positive to it.
     assert means == (
         "=IFERROR(TRANSPOSE(LET(m,BYCOL(FILTER(Predictor_Columns(),Fit_Sample_Include()),"
@@ -960,20 +1015,20 @@ def test_write_coefficients_adds_intercept_only_closed_form_branch() -> None:
 
     _write_coefficients(_as_xw_sheet(sheet))
 
-    label_formula = _formula(sheet, 21, _C_AA)
+    label_formula = _formula(sheet, 22, _C_AA)
     assert label_formula.startswith("=IF(Zero_Predictors_Selected(),")
     assert 'IF(AND(Allow_Intercept,Intercept_Only_N()>=1),"Intercept",NA())' in label_formula
     # Level-qualified names come from the constructor twin (a row vector).
     assert 'VSTACK("Intercept",TRANSPOSE(Constructed_Column_Names()))' in label_formula
 
-    coefficient_formula = _formula(sheet, 21, _C_AB)
+    coefficient_formula = _formula(sheet, 22, _C_AB)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=1),Intercept_Only_Point(),NA())" in coefficient_formula
     assert "Coefficients(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())" in coefficient_formula
 
-    se_formula = _formula(sheet, 21, _C_AC)
+    se_formula = _formula(sheet, 22, _C_AC)
     assert "IF(AND(Allow_Intercept,Intercept_Only_N()>=2),Intercept_Only_SE(),NA())" in se_formula
 
-    beta_formula = _formula(sheet, 21, _C_AH)
+    beta_formula = _formula(sheet, 22, _C_AH)
     assert 'IF(Allow_Intercept,"",NA())' in beta_formula
 
 
@@ -982,11 +1037,11 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
 
     _write_regression_outputs_header(_as_xw_sheet(sheet))
 
-    assert sheet.cell(2, _C_AE).value == "Predicted Variable"
-    assert sheet.cell(2, _C_AE).api.Font.Bold is True
-    assert sheet.cell(2, _C_AE).color == HEADER_COLOR
+    assert sheet.cell(3, _C_AE).value == "Predicted Variable"
+    assert sheet.cell(3, _C_AE).api.Font.Bold is True
+    assert sheet.cell(3, _C_AE).color == HEADER_COLOR
     # Derived response name — the header of the Role=Response spec row.
-    readout = sheet.cell(2, _C_AF).api.Formula2
+    readout = sheet.cell(3, _C_AF).api.Formula2
     assert readout is not None
     assert readout.startswith("=LET(n_c,COLUMNS(Source_Data),")
     assert 'XMATCH("Response (y)"' in readout
@@ -997,8 +1052,8 @@ def test_regression_outputs_header_writes_predicted_variable_readout() -> None:
         'IF(OR(INDEX(TAKE(Spec_Transform,n_c),p)="Log",'
         'INDEX(TAKE(Spec_Transform,n_c),p)="Log (drop ≤ 0)"),"Ln("&h&")",h)'
     ) in readout
-    assert sheet.cell(2, _C_AF).api.Font.Bold is True
-    assert sheet.cell(2, _C_AF).color == HEADER_COLOR
+    assert sheet.cell(3, _C_AF).api.Font.Bold is True
+    assert sheet.cell(3, _C_AF).color == HEADER_COLOR
 
 
 def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
@@ -1008,8 +1063,8 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
 
     # Static header; Row_Labels() supplies its own per-row content and
     # no-Identifier fallback, so only an all-FALSE mask is absorbed here.
-    assert sheet.cell(2, _C_AN).value == "Observation"
-    assert sheet.cell(3, _C_AN).api.Formula2 == (
+    assert sheet.cell(3, _C_AN).value == "Observation"
+    assert sheet.cell(4, _C_AN).api.Formula2 == (
         "=IFERROR(FILTER(Row_Labels(),Fit_Sample_Include()),NA())"
     )
     # The diagnostics columns shift one slot right of the identifiers column.
@@ -1021,7 +1076,7 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # Within transform only subtracts the group mean, it never divides by a
     # standard deviation, so "Within" alone would be accurate but vaguer,
     # and a "St Devs" framing would be outright wrong).
-    header_formula = sheet.cell(2, _C_AO).api.Formula2
+    header_formula = sheet.cell(3, _C_AO).api.Formula2
     assert header_formula is not None
     assert '"Y"&" (Deviation from "' in header_formula
     assert '" Avg., Log)"' in header_formula
@@ -1044,7 +1099,7 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # it isn't in response units either way, so a Log-transformed response
     # must not relabel it. Its suffix names the FE variable ("Within
     # Country"), not the bare "(Within)" token.
-    hat_header = sheet.cell(2, _C_AR).api.Formula2
+    hat_header = sheet.cell(3, _C_AR).api.Formula2
     assert hat_header == (
         '=IF(SUMPRODUCT(N(TAKE(Spec_Role,COLUMNS(Source_Data))="Fixed Effects"))>0,'
         '"Hat Diagonal"&" (Within "&IFERROR(INDEX(TOROW(Header_Names),'
@@ -1052,16 +1107,16 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
         '"Hat Diagonal")'
     )
     assert "Spec_Transform" not in hat_header
-    assert sheet.cell(3, _C_AO).api.Formula2 == (
+    assert sheet.cell(4, _C_AO).api.Formula2 == (
         "=Dependent_Variable(Design_Response(),Fit_Sample_Include())"
     )
-    assert sheet.cell(3, _C_AQ).api.Formula2 == (
+    assert sheet.cell(4, _C_AQ).api.Formula2 == (
         "=Residuals(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"
     )
-    assert sheet.cell(3, _C_AR).api.Formula2 == (
+    assert sheet.cell(4, _C_AR).api.Formula2 == (
         "=Hat_Diagonal(Fit_Design_Columns(),Fit_Sample_Include())"
     )
-    assert sheet.cell(3, _C_AX).api.Formula2 == (
+    assert sheet.cell(4, _C_AX).api.Formula2 == (
         "=LOOCV_Residual(Fit_Design_Columns(),Design_Response(),Fit_Sample_Include())"
     )
     # Cook's Distance (Flagged): blank below the influence cutoff, so the
@@ -1070,31 +1125,31 @@ def test_write_residuals_writes_row_labels_and_diagnostics() -> None:
     # points. The false branch is "" and not NA() precisely because Value From
     # Cells prints the cell verbatim, and #N/A would show up as a literal
     # "#N/A" label on every unflagged point.
-    assert sheet.cell(3, _C_AY).api.Formula2 == (
-        '=IF(AT3#>IFERROR(F.INV(0.5,$O$1,$AB$16),NA()),AT3#,"")'
+    assert sheet.cell(4, _C_AY).api.Formula2 == (
+        '=IF(AT4#>IFERROR(F.INV(0.5,$O$1,$AB$17),NA()),AT4#,"")'
     )
 
 
 def test_write_unit_space_block_writes_section_input_and_three_gof_cells() -> None:
-    """v3.3 unit-space block at AG3:AH9 — section heading, Method input,
+    """v3.3 unit-space block at AG4:AH10 — section heading, Method input,
     Smearing Factor, R²/Adj R²/RMSE in original units, Response Space readout.
     """
     sheet = RecordingSheet(name="Regression")
     _write_unit_space_block(_as_xw_sheet(sheet))
 
-    # Section heading on row 3 spans AG3 (a single value cell here — the
+    # Section heading on row 4 spans AG4 (a single value cell here — the
     # section_heading helper writes it as a label, not a merge).
-    assert sheet.cell(3, _C_AG).value == "UNIT-SPACE FIT"
-    # Row 4: Back-Transform Method input. A LITERAL "Duan", never a formula —
-    # the cell is an input, and a formula reading its own $AH$4 address is a
+    assert sheet.cell(4, _C_AG).value == "UNIT-SPACE FIT"
+    # Row 5: Back-Transform Method input. A LITERAL "Duan", never a formula —
+    # the cell is an input, and a formula reading its own $AH$5 address is a
     # circular reference that Excel resolves to 0 with iterative calculation
     # off, feeding an unrecognised method to every consumer below. The
     # Duan/Naive constraint lives in the list validation, not in the cell.
-    assert sheet.cell(4, _C_AG).value == "Back-Transform"
-    assert sheet.cell(4, _C_AH).value == "Duan"
-    method_formula = sheet.cell(4, _C_AH).api.Formula2
+    assert sheet.cell(5, _C_AG).value == "Back-Transform"
+    assert sheet.cell(5, _C_AH).value == "Duan"
+    method_formula = sheet.cell(5, _C_AH).api.Formula2
     assert method_formula is None or not str(method_formula).startswith("="), (
-        "AH4 must hold a literal default, not a self-referential formula"
+        "AH5 must hold a literal default, not a self-referential formula"
     )
     # The dropdown's item list. Excel's xlValidateList takes the items as a
     # bare comma-separated string; the quotes VBA examples show around it are
@@ -1103,8 +1158,8 @@ def test_write_unit_space_block_writes_section_input_and_three_gof_cells() -> No
     # the validation and rejected by every consumer, since neither matches a
     # recognised method. Assert the parsed items, not the raw string, so the
     # check is about what the user is offered.
-    rules = sheet.cell(4, _C_AH).api.Validation.rules
-    assert len(rules) == 1, "AH4 must carry exactly one validation rule"
+    rules = sheet.cell(5, _C_AH).api.Validation.rules
+    assert len(rules) == 1, "AH5 must carry exactly one validation rule"
     items = str(rules[0]["Formula1"]).split(",")
     assert items == list(_BACK_TRANSFORM_METHODS), (
         f"dropdown offers {items!r}, not the two supported methods"
@@ -1112,32 +1167,32 @@ def test_write_unit_space_block_writes_section_input_and_three_gof_cells() -> No
     assert '"' not in str(rules[0]["Formula1"]), (
         "quote characters in Formula1 become part of the list items"
     )
-    assert sheet.cell(4, _C_AH).api.Validation.IgnoreBlank is False
-    # Rows 5–8: the four GoF statistics; each formula lifts the smearing
+    assert sheet.cell(5, _C_AH).api.Validation.IgnoreBlank is False
+    # Rows 6–9: the four GoF statistics; each formula lifts the smearing
     # factor's own X/Y/Include/Context wiring rather than re-stating it.
     for row, label in [
-        (5, "Smearing Factor"),
-        (6, "R Square (Unit)"),
-        (7, "Adj R Square (Unit)"),
-        (8, "RMSE (Unit)"),
+        (6, "Smearing Factor"),
+        (7, "R Square (Unit)"),
+        (8, "Adj R Square (Unit)"),
+        (9, "RMSE (Unit)"),
     ]:
         assert sheet.cell(row, _C_AG).value == label, row
-    smearing_formula = sheet.cell(5, _C_AH).api.Formula2
+    smearing_formula = sheet.cell(6, _C_AH).api.Formula2
     assert smearing_formula == (
         "=Smearing_Factor(Fit_Design_Columns(),Design_Response(),"
         "Fit_Sample_Include(),Fit_Context())"
     )
     # The three GoF cells pass the Method input back through the catalog
     # entry-point so the Duan/Naive toggle actually changes the readout.
-    for row in (6, 7, 8):
+    for row in (7, 8, 9):
         formula = sheet.cell(row, _C_AH).api.Formula2
         assert formula is not None
         assert "Fit_Context()" in formula
-        assert _A_BACK_TRANSFORM_METHOD in formula  # the $AH$4 anchor
-    # Row 9: Response Space readout — "Original units (back-transformed)"
+        assert _A_BACK_TRANSFORM_METHOD in formula  # the $AH$5 anchor
+    # Row 10: Response Space readout — "Original units (back-transformed)"
     # under Log, "Same as fit space" otherwise.
-    assert sheet.cell(9, _C_AG).value == "Response Space"
-    response_space_formula = sheet.cell(9, _C_AH).api.Formula2
+    assert sheet.cell(10, _C_AG).value == "Response Space"
+    response_space_formula = sheet.cell(10, _C_AH).api.Formula2
     assert "Context_Response_Transform(Fit_Context())" in response_space_formula
     assert '"Original units (back-transformed)"' in response_space_formula
     assert '"Same as fit space"' in response_space_formula
@@ -1147,7 +1202,7 @@ def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
     """v3.3: Predicted Y (Original Units) and Residual (Original Units) on
     columns AZ and BA. Plain labels (no (Log) / (Within) suffix), back-
     transformation routed through Unit_Space_Predictions / Unit_Space_Residuals
-    with the AH4 Method input.
+    with the AH5 Method input.
     """
     sheet = RecordingSheet(name="Regression")
     _write_residuals(_as_xw_sheet(sheet))
@@ -1155,18 +1210,18 @@ def test_write_residuals_appends_unit_space_columns_az_ba() -> None:
     # Static headers — no Log/Within conditional; the unit-space columns
     # are by construction in original units, so the conditional suffix
     # logic that decorates the AO–AY columns does not apply here.
-    assert sheet.cell(2, _C_AZ).value == "Predicted Y (Original Units)"
-    assert sheet.cell(2, _C_BA).value == "Residual (Original Units)"
+    assert sheet.cell(3, _C_AZ).value == "Predicted Y (Original Units)"
+    assert sheet.cell(3, _C_BA).value == "Residual (Original Units)"
     # Neither header leaks the With_FE/Log conditional fragments.
     for col in (_C_AZ, _C_BA):
-        header = sheet.cell(2, col).value
+        header = sheet.cell(3, col).value
         assert isinstance(header, str)
         assert "(Log)" not in header
         assert "(Within" not in header
-    # Row 3 formulas call the catalog Unit_Space_* functions and feed the
+    # Row 4 formulas call the catalog Unit_Space_* functions and feed the
     # Method toggle from the unit-space block.
-    az_formula = sheet.cell(3, _C_AZ).api.Formula2
-    ba_formula = sheet.cell(3, _C_BA).api.Formula2
+    az_formula = sheet.cell(4, _C_AZ).api.Formula2
+    ba_formula = sheet.cell(4, _C_BA).api.Formula2
     assert az_formula == (
         "=Unit_Space_Predictions(Fit_Design_Columns(),Design_Response(),"
         "Response_Column(),Fit_Sample_Include(),Fit_Context(),"
@@ -1224,7 +1279,7 @@ def test_column_widths_cover_every_zone_column_and_no_gap_column() -> None:
 def test_regression_outputs_header_no_longer_holds_the_model_formula() -> None:
     """The Model Formula readout left AA2/AB2.
 
-    Row 2 of this zone wraps and then AutoFits, so the longest string on the
+    Row 3 of this zone wraps and then AutoFits, so the longest string on the
     sheet sitting in a 12-wide column set the height of the whole header row.
     The caption moved to the §4b materialization band; the header keeps only
     the zone heading and the Predicted Variable readout.
@@ -1233,10 +1288,10 @@ def test_regression_outputs_header_no_longer_holds_the_model_formula() -> None:
     _write_regression_outputs_header(_as_xw_sheet(sheet))
 
     assert sheet.cell(1, _C_AA).value == "REGRESSION OUTPUTS"
-    assert sheet.cell(2, _C_AA).value is None
-    assert sheet.cell(2, _C_AB).api.Formula2 is None
+    assert sheet.cell(3, _C_AA).value is None
+    assert sheet.cell(3, _C_AB).api.Formula2 is None
     # The Predicted Variable readout stays put.
-    assert sheet.cell(2, _C_AE).value == "Predicted Variable"
+    assert sheet.cell(3, _C_AE).value == "Predicted Variable"
 
 
 def test_materialization_zone_writes_the_model_formula_readout() -> None:
@@ -1326,8 +1381,8 @@ def test_model_formula_closure_assembles_the_spec_derived_caption() -> None:
 def test_setup_local_names_registers_comparison_anchor_headline_and_formula() -> None:
     """v3.3: Comparison_Anchor, Comparison_Headline_GoF, Comparison_Model_Formula
     are sheet-scoped names that the v3.4 Model Comparison sheet reads from.
-    Comparison_Anchor → AF2 (the response-name readout), Comparison_Headline_GoF
-    → AH6:AH8 (the three unit-space GoF statistics), Comparison_Model_Formula
+    Comparison_Anchor → AF3 (the response-name readout), Comparison_Headline_GoF
+    → AH7:AH9 (the three unit-space GoF statistics), Comparison_Model_Formula
     → the Model Formula readout in the §4b band (it moved off AB2; v3.4 reads
     the NAME, which is why the move costs its consumer nothing).
     """
@@ -1335,10 +1390,10 @@ def test_setup_local_names_registers_comparison_anchor_headline_and_formula() ->
     _setup_regression_names(_as_xw_sheet(sheet), closures=())
 
     assert sheet.api.Names.by_short_name("Comparison_Anchor").RefersTo == (
-        "='Regression'!$AF$2"
+        "='Regression'!$AF$3"
     )
     assert sheet.api.Names.by_short_name("Comparison_Headline_GoF").RefersTo == (
-        "='Regression'!$AH$6:$AH$8"
+        "='Regression'!$AH$7:$AH$9"
     )
     assert sheet.api.Names.by_short_name("Comparison_Model_Formula").RefersTo == (
         f"='Regression'!${col_letter(_C_MODEL_FORMULA)}${_ROW_MODEL_FORMULA}"
@@ -1350,8 +1405,8 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
 
     _write_diagnostics(_as_xw_sheet(sheet))
 
-    assert sheet.cell(11, _C_AD).value == "Durbin-Watson"
-    dw_formula = cast(str, sheet.cell(11, _C_AE).api.Formula2)
+    assert sheet.cell(12, _C_AD).value == "Durbin-Watson"
+    dw_formula = cast(str, sheet.cell(12, _C_AE).api.Formula2)
     # All off-spec states show an explicit text token, never NA() or "".
     assert '"n/a — requires Sequence"' in dw_formula      # zero flags
     assert '"n/a — multiple Sequence flags"' in dw_formula  # two-plus flags
@@ -1373,7 +1428,7 @@ def test_diagnostics_durbin_watson_is_gated_on_a_sequence_flag() -> None:
         "Fit_Sample_Include())"
     ) in dw_formula
     # Scalar numeric cell (the token is text and ignores the format).
-    assert sheet.range(rc(11, _C_AE), rc(11, _C_AE)).number_format == "0.000"
+    assert sheet.range(rc(12, _C_AE), rc(12, _C_AE)).number_format == "0.000"
 
 
 def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
@@ -1384,8 +1439,8 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
 
     _write_diagnostics(_as_xw_sheet(sheet))
 
-    assert sheet.cell(12, _C_AD).value == "BFN Panel Durbin-Watson"
-    bfn_formula = cast(str, sheet.cell(12, _C_AE).api.Formula2)
+    assert sheet.cell(13, _C_AD).value == "BFN Panel Durbin-Watson"
+    bfn_formula = cast(str, sheet.cell(13, _C_AE).api.Formula2)
     # The four trigger-matrix states, each an explicit token (never NA()/""):
     assert '"n/a — requires Sequence"' in bfn_formula       # no Sequence axis
     assert '"n/a — multiple Sequence flags"' in bfn_formula  # spec error
@@ -1412,7 +1467,7 @@ def test_diagnostics_bfn_panel_dw_is_self_guarded_on_sequence_and_fe() -> None:
         "Fit_Sample_Include())"
     ) in bfn_formula
     assert "Fixed_Effects_Column()" not in bfn_formula
-    assert sheet.range(rc(12, _C_AE), rc(12, _C_AE)).number_format == "0.000"
+    assert sheet.range(rc(13, _C_AE), rc(13, _C_AE)).number_format == "0.000"
 
 
 def test_univariate_filter_reads_blanks_from_the_source_table() -> None:

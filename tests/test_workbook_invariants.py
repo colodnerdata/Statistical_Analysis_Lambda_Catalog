@@ -115,19 +115,20 @@ _DEFINED_NAME_TAG = f"{_WB}definedName"
 # ---------------------------------------------------------------------------
 _NA_MASKED_RANGE_NAMES = ("RegChartCookDistFlag",)
 _NA_LITERAL = "#N/A"
-# $AY$2 out of "OFFSET(Regression!$AY$2,1,0,MAX(...),1)" — the anchor column of
+# $AY$3 out of "OFFSET(Regression!$AY$3,1,0,MAX(...),1)" — the anchor column of
 # an OFFSET-based RegChart range.
 _OFFSET_ANCHOR_RE = re.compile(r"OFFSET\([^!,]*!\$([A-Z]{1,3})\$\d+", re.IGNORECASE)
 _CELL_COLUMN_RE = re.compile(r"^([A-Z]{1,3})\d+$")
 
-# Real Lambda_Library.xlsx (the unified production artifact) ships nine sheets
+# Real Lambda_Library.xlsx (the unified production artifact) ships ten sheets
 # in the tab order that build_production._reorder_and_style_sheet_tabs
-# applies: the three Regression workbench sheets front-most, then the Univariate
+# applies: the four Regression workbench sheets front-most, then the Univariate
 # workbench, the LAMBDA_functions catalog, Version History, and the three data
 # sheets last.
 EXPECTED_REAL_SHEETS: tuple[str, ...] = (
     "Regression",
     "Regression Instructions",
+    "Modeling Concepts",
     "Diagnostic Guide",
     "Univariate",
     "LAMBDA_functions",
@@ -911,8 +912,8 @@ def _workbook_xml_with_flag_ranges(
     )
     names = "".join(
         f'<definedName name="RegChartCookDistFlag" localSheetId="{index}">'
-        f"OFFSET({sheet_names[index]}!${column}$2,1,0,"
-        f"MAX(IFERROR({sheet_names[index]}!$AB$8,1),1),1)"
+        f"OFFSET({sheet_names[index]}!${column}$3,1,0,"
+        f"MAX(IFERROR({sheet_names[index]}!$AB$9,1),1),1)"
         f"</definedName>"
         for index, column in sorted(flag_columns.items())
     )

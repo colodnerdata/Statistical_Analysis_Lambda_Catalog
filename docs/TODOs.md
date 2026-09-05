@@ -36,11 +36,10 @@ tag is deliberate, not an entry someone forgot to finish tagging.
 
 ### Start here
 
-Three self-contained items, in ascending cost:
+Two self-contained items, in ascending cost:
 
-1. [`Numeric_Complete_Cases`](#v39--standalone-data-transformation-library) — one catalog LAMBDA with a Python mirror; the sample-construction helper the rest of v3.9 builds on, and it widens no axis. `S · no Excel`
-2. [Finish drift check 3 — function names resolve](#documentation) — the count half is built; this is the name half, and the work is the exclusion list, not the lookup. `S · no Excel`
-3. [Wire the calendar-dated monthly series](#test-model-suite) — one dataset config closes the single axis the coverage matrix still lists as uncovered. `M · no Excel`
+1. [Finish drift check 3 — function names resolve](#documentation) — the count half is built; this is the name half, and the work is the exclusion list, not the lookup. `S · no Excel`
+2. [Wire the calendar-dated monthly series](#test-model-suite) — one dataset config closes the single axis the coverage matrix still lists as uncovered. `M · no Excel`
 
 ### Ready now — no Excel required
 
@@ -50,8 +49,6 @@ Three self-contained items, in ascending cost:
 | [Wire the calendar-dated monthly series](#test-model-suite) | M | Test suite |
 | [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
 | [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
-| [`Numeric_Complete_Cases`](#v39--standalone-data-transformation-library) | S | v3.9 |
-| [`Dummy_Column`, `Interact`, `Model_Matrix`](#v39--standalone-data-transformation-library) | M | v3.9 |
 | [Location & Scale transforms — `Center`, `Zscore`, `Minmax_Scale`, `Winsorize`](#v39--standalone-data-transformation-library) | M | v3.9 |
 | [Group & Panel transforms — `Zscore_By`, `Decompose_By`](#v39--standalone-data-transformation-library) | M | v3.9 |
 | [Two-sample tests — `T_Test_OneSample`, `F_Test_Variance`, `Covariance_Matrix`](#v310--bivariate--two-sample) | L | v3.10 |
@@ -72,7 +69,7 @@ in ladder order. The ladder sorts on two keys — all remaining Regression work
 first, then, within that, how much the
 [regression test-model suite](MODEL_TESTING_ASSETS.md) has to grow to cover
 each milestone. That is why the three flat-cost non-Regression milestones (v3.10,
-v3.11, v3.12) sit below four more expensive ones, and why the four v3.9 rows are
+v3.11, v3.12) sit below four more expensive ones, and why the two v3.9 rows are
 last in the Regression track — they are also listed in their own working order.
 
 ### Needs Excel on a developer machine
@@ -424,22 +421,23 @@ two-way. See
 
 Planned as the second half of v2.2, then carried as the v3.3 remainder; moved to
 the end of the **Regression track** by the ladder reordering — see
-[ROADMAP.md](ROADMAP.md#v39--standalone-data-transformation-library--planned).
+[ROADMAP.md](ROADMAP.md#v39--standalone-data-transformation-library--partially-delivered).
 Full specs in
 [ARCHITECTURE.md § 5](ARCHITECTURE.md#5-data-transformation-taxonomy).
 
+**Shipped so far — the additive helpers (#234/#235):** `Numeric_Complete_Cases`,
+`Dummy_Column`, `Interact`, `Model_Matrix`, each a standalone catalog LAMBDA with
+a pure-Python mirror (catalog 148 → 151); the construction trio also carries a
+workbook-backed Excel COM test (`tests/test_categorical_model_construction_excel.py`,
+gated on `RUN_EXCEL_INTEGRATION=1`). They widen no axis.
+
 **Test assets — the ~10× axis-widener, and no new data.** Every new `Transform`
 value widens the predictor-transform axis that today holds {None, Log}, and each
-widening multiplies the response × predictor dispatch table. **Work the four items
-below in the order given** — helpers first (they widen nothing), predictor-side
-transforms next, and any response-side extension last, because a response
+widening multiplies the response × predictor dispatch table. **Work the two items
+below in the order given** — predictor-side Location & Scale transforms before the
+Group & Panel pair — and hold any response-side extension for last, because a response
 transform also multiplies the back-transformation / unit-space semantics. See
 [docs/MODEL_TESTING_ASSETS.md § 2](MODEL_TESTING_ASSETS.md#section-2--assets-for-roadmap-features-in-ladder-order).
-
-- **READY · S · no Excel** — Sample construction: `Numeric_Complete_Cases`.
-
-- **READY · M · no Excel** — Categorical & model construction: `Dummy_Column`,
-  `Interact`, `Model_Matrix`.
 
 - **READY · M · no Excel** — Location & Scale: `Center`, `Zscore`,
   `Minmax_Scale`, `Winsorize`. (`Ln_Positive` shipped early, alongside the
@@ -637,8 +635,9 @@ pre-order work that may not be the next thing actually needed.
 
 Version-independent; the plan of record is
 [docs/MODEL_TESTING_ASSETS.md](MODEL_TESTING_ASSETS.md). Every model in Section 1
-now has an oracle: 33 fittable `RegressionSpecCase` entries in
-`lambda_catalog/analyze_regression_spec.py` and 17 `GuardStateCase` entries in
+now has an oracle: 35 fittable `RegressionSpecCase` entries in
+`lambda_catalog/analyze_regression_spec.py` (two of them heavy — built only under
+`--include-heavy`) and 17 `GuardStateCase` entries in
 `lambda_catalog/analyze_regression_guard_states.py`, each pinned in
 `_EXPECTED_CASE_NAMES` / `_EXPECTED_GUARD_NAMES` and materialized as a worksheet.
 The covering-array rule is that a case earns its place by covering something no

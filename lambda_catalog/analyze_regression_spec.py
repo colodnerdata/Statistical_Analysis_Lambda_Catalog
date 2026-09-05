@@ -118,7 +118,7 @@ class RegressionSpecCase:
     # None mirrors the sheet's own default (AK12's formula, the
     # alphabetically-first observed group) rather than hardcoding it here.
     prediction_group: str | None = None
-    # The Back-Transform Method input ($AH$4): "Duan" (the sheet's shipped
+    # The Back-Transform Method input ($AH$5): "Duan" (the sheet's shipped
     # default) or "Naive". Written into that cell before the unit-space
     # block is read back. Only a Log-response case can distinguish the two;
     # under Transform=None they coincide, so every other case leaves it at
@@ -945,7 +945,7 @@ def _life_log_response_spec() -> list[SpecVariable]:
     and AZ/BA residual columns all have something to back-transform.
 
     L2 and L3 share this spec exactly and differ ONLY in the Back-Transform
-    Method cell ($AH$4): Duan vs Naive. Keeping one spec builder for both
+    Method cell ($AH$5): Duan vs Naive. Keeping one spec builder for both
     is the point — any difference between the two cases' expected values is
     attributable to the toggle and nothing else.
 
@@ -1737,7 +1737,7 @@ def build_regression_spec_cases() -> list[RegressionSpecCase]:
     for name, spec, back_transform in (
         ("life_partial_linear_log", _life_partial_linear_log_spec(), "Duan"),
         ("life_log_response_duan", _life_log_response_spec(), "Duan"),
-        # L03 is L02's spec verbatim with the sheet's $AH$4 flipped to
+        # L03 is L02's spec verbatim with the sheet's $AH$5 flipped to
         # Naive: EXP(y_hat) with no smearing factor. Every unit-space
         # number moves; the CI/PI bounds do not (they are EXP-only under
         # both methods). Sharing the spec builder is what makes the

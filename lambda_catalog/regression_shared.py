@@ -148,7 +148,7 @@ class RegressionPredictionInterval:
 class RegressionUnitSpace:
     """v3.3 unit-space / back-transformation outputs for the Regression sheet.
 
-    Mirrors the AG3:AH9 unit-space block plus the Original Units prediction
+    Mirrors the AG4:AH10 unit-space block plus the Original Units prediction
     column (AL) and the two new residual columns (AZ/BA). The smearing
     factor is the scalar that lifts EXP(ŷ) from a median predictor to a
     mean predictor under a Log response; under ``None`` it is exactly 1 so

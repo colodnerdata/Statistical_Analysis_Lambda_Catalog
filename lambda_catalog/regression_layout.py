@@ -72,7 +72,9 @@ _DEFINITIONS_PATH = Path(__file__).resolve().parent.parent / "lambda_functions.j
 _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 
 # Spec feedback (P, Q, plus the I Verdict overlay): the delta spectrum
-# (Sequence_Delta_Spectrum() spill at P2:Q?) sits in P and Q. The combined
+# (Sequence_Delta_Spectrum() spill) sits in P and Q, headers on the spec
+# block's own header row (3) and the spill from its first data row (4),
+# aligned with the spec table. The combined
 # verdict switch overlays column I (the Sequence_Period spec column on
 # the spec data rows; the row-1/row-2 cells are above the spec table and
 # free). I1 holds the "Verdict" header (bold), I2 the priority-ordered
@@ -80,7 +82,7 @@ _C_A = 1    # spec: Variable labels / A1 zone heading / A2 Intercept label
 # and calendar; red CF outranks yellow via StopIfTrue). The E1 cell
 # carries the multi-flag Sequence error status (moved here from H2 when the
 # spec data area became a structured table — that table is gone, but the
-# status stayed put). The design-matrix width guard writes M2 (status) and
+# status stayed put). The design-matrix width guard writes O2 (status) and
 # N1/O1 (label/total).
 _C_P = 16   # spec feedback: Δ header / spectrum spill
 _C_Q = 17   # spec feedback: Count header / spectrum spill
@@ -125,8 +127,8 @@ _C_AM = 39  # thin gap (ungrouped)
 
 # Zone 5: Residual Output
 # _C_AN holds Row_Labels() (the identifiers spill); _C_AO onward hold the
-# residual-diagnostic columns. Row-2 headers are written by _write_residuals
-# (see the note_cells table); row-3 formulas are the source of truth for what
+# residual-diagnostic columns. Row-3 headers are written by _write_residuals
+# (see the note_cells table); row-4 formulas are the source of truth for what
 # each column actually contains.
 _C_AN = 40  # row identifiers (Row_Labels() spill)
 _C_AO = 41  # Y (actual dependent variable)
@@ -146,9 +148,9 @@ _C_BB = 54  # chart anchor — formerly _C_AZ; everything past it shifts right b
 
 # The constructed-column count is spec-dependent (19 on the default WHO spec),
 # so bands that v1 sized with the fixed k=18 now cover a generous fixed range.
-_PRED_INPUT_FIRST_ROW = 19
-_PRED_INPUT_LAST_ROW = 62
-_FORMAT_BAND_LAST_ROW = 62
+_PRED_INPUT_FIRST_ROW = 20
+_PRED_INPUT_LAST_ROW = 63
+_FORMAT_BAND_LAST_ROW = 63
 
 # ── Cell anchors referenced from formulas ─────────────────────────────────────
 # Conditional-format expressions, chart titles, and OFFSET-based named ranges
@@ -158,20 +160,25 @@ _FORMAT_BAND_LAST_ROW = 62
 # different cell. Every such address is therefore BUILT from the _C_* constants
 # and the row anchors below, so the layout constants stay the single source of
 # truth for formulas exactly as they already are for widths and outlines.
-_ROW_DATA_FIRST = 3            # first spilled data row in every full-height zone
-_ROW_ADJUSTED_R_SQUARED = 6
-_ROW_STANDARD_ERROR = 7
-_ROW_OBSERVATIONS = 8
-_ROW_PRESS = 4
-_ROW_PRESS_R_SQUARED = 5
-_ROW_MEAN_LEVERAGE = 6
-_ROW_QQ_CORRELATION = 10
-_ROW_ALPHA = 12                # confidence-level input
-_ROW_SIGNIFICANCE_F = 15
-_ROW_ANOVA_RESIDUAL_DF = 16    # ANOVA table: the Residual row's df cell
-_ROW_COEFF_FIRST = 21
-_ROW_RESPONSE_READOUT = 2      # Predicted Variable readout
-_ROW_FE_GROUP = 12             # prediction-zone FE group selector
+# Rows are counted from the sheet's three-row frozen header band: row 1 =
+# zone labels, row 2 = the spec zone's control/status cells (blank
+# elsewhere), row 3 = column headers everywhere (the spec block's own
+# header row included — see write_spec_block._HEADER_ROW), row 4+ = data
+# and spills. Freeze panes at A4 keeps all of rows 1–3 on screen.
+_ROW_DATA_FIRST = 4            # first spilled data row in every full-height zone
+_ROW_ADJUSTED_R_SQUARED = 7
+_ROW_STANDARD_ERROR = 8
+_ROW_OBSERVATIONS = 9
+_ROW_PRESS = 5
+_ROW_PRESS_R_SQUARED = 6
+_ROW_MEAN_LEVERAGE = 7
+_ROW_QQ_CORRELATION = 11
+_ROW_ALPHA = 13                # confidence-level input
+_ROW_SIGNIFICANCE_F = 16
+_ROW_ANOVA_RESIDUAL_DF = 17    # ANOVA table: the Residual row's df cell
+_ROW_COEFF_FIRST = 22
+_ROW_RESPONSE_READOUT = 3      # Predicted Variable readout
+_ROW_FE_GROUP = 13             # prediction-zone FE group selector
 
 
 def _abs_ref(row: int, col: int) -> str:
@@ -210,7 +217,7 @@ _A_DESIGN_COLUMNS_TOTAL = _abs_ref(1, _C_SPEC_DESIGN_COLUMNS)
 # can never disagree about what "flagged" means.
 #
 # The numerator df is p — the design matrix's COLUMN COUNT, intercept included —
-# not the ANOVA Regression df at $AB$15, which is p−1. Cooks_Distance divides by
+# not the ANOVA Regression df at $AB$16, which is p−1. Cooks_Distance divides by
 # COLUMNS(Design_Matrix(X, Include)), so p is what makes the statistic and its
 # reference distribution the same quantity. $O$1 already totals exactly that
 # (Σ of the spec's Design Columns audit plus N(Allow_Intercept)).
@@ -225,11 +232,11 @@ _A_DESIGN_COLUMNS_TOTAL = _abs_ref(1, _C_SPEC_DESIGN_COLUMNS)
 # handed to Formula2 goes through Excel's own parser, exactly like the T.INV.2T
 # calls in the coefficient block below.
 _COOKS_CUTOFF = f"IFERROR(F.INV(0.5,{_A_DESIGN_COLUMNS_TOTAL},{_A_RESIDUAL_DF}),NA())"
-# Unit-space block anchors (v3.3). The Method cell lives at row 4 of the
-# block — sibling to the section heading at row 3 — so the rest of the block
-# (rows 5–9) and the prediction column (AL) can reference a single source.
-_A_BACK_TRANSFORM_METHOD = _abs_ref(4, _C_AH)
-# The two back-transform methods, and the default written into AH4 as a
+# Unit-space block anchors (v3.3). The Method cell lives at row 5 of the
+# block — sibling to the section heading at row 4 — so the rest of the block
+# (rows 6–10) and the prediction column (AL) can reference a single source.
+_A_BACK_TRANSFORM_METHOD = _abs_ref(5, _C_AH)
+# The two back-transform methods, and the default written into AH5 as a
 # LITERAL. The cell is an input: it must never hold a formula that reads its
 # own address (a circular reference), and the validation list below is what
 # constrains a typed value.
@@ -282,7 +289,7 @@ _COLUMN_GROUPS: tuple[tuple[int, int], ...] = _ZONES
 # shift loudly.
 #
 # Widths are sized to the widest label/value each column actually carries;
-# row-2 headers wrap (see write_regression_output_sheet), so a header longer
+# row-3 headers wrap (see write_regression_output_sheet), so a header longer
 # than its column costs height rather than truncation.
 _COLUMN_WIDTHS: tuple[tuple[int, float], ...] = (
     # ── Spec block (A–O) ────────────────────────────────────────────────────
@@ -336,7 +343,7 @@ _COLUMN_WIDTHS: tuple[tuple[int, float], ...] = (
     (_C_BA, 14),       # Residual (Original Units) — v3.3
     # ── Post-zone gutter ────────────────────────────────────────────────────
     # BB is NOT a content column and NOT a zone gap — it is the gutter that
-    # bounds the row-2 header wrap (last content column = BA) and anchors the
+    # bounds the row-3 header wrap (last content column = BA) and anchors the
     # diagnostic charts. Sized here so it reads as a deliberate margin rather
     # than a default-width column.
     (_C_BB, 15),
@@ -488,8 +495,11 @@ _C_DESIGN_MATRIX_NAMES = _C_DESIGN_MATRIX + 1
 #   Sample_Include     column-header row, spilling from the row beneath
 #   Design Matrix      column-header row, spilling from the row beneath
 #
-# so this is deliberately NOT "the first data row" of every zone.
-_MATERIALIZATION_FIRST_ROW = 2
+# so this is deliberately NOT "the first data row" of every zone. It matches
+# the sheet-wide header row (3), so the Sample_Include mask and the design
+# matrix spill from the same row as every other zone's data and stay
+# row-aligned with the Residual Output zone beside them.
+_MATERIALIZATION_FIRST_ROW = 3
 
 # The read-across contract lives on the SPILL row, not the header row: the two
 # data-dependent zones spill full-height and row-aligned with the source table,

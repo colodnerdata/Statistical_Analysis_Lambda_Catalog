@@ -26,6 +26,9 @@ from lambda_catalog.workbook_helpers import (
 from lambda_catalog.workbook_helpers import (
     note_dimensions as _note_dimensions,
 )
+from lambda_catalog.regression_materialization import SPILL_READER_NAMES
+from lambda_catalog.spec_layout import _CLOSURE_SCOPE
+from lambda_catalog.write_spec_block import _set_sheet_scoped_names
 from lambda_catalog.write_sheet_regression import (
     _A_BACK_TRANSFORM_METHOD,
     _BACK_TRANSFORM_METHODS,
@@ -369,7 +372,16 @@ def test_intercept_only_n_does_not_depend_on_filter() -> None:
     # top-left cell (=1), so SUMPRODUCT(N(Fit_Sample_Include())) would report
     # n=1 for any non-empty sample, failing every N()>=2 inference branch and
     # zeroing Intercept_Only_DF() for an intercept-only model with n>1.
-    assert "SUMPRODUCT(--(Fit_Sample_Include()))" in intercept_only_n_formula
+    assert "SUMPRODUCT(--(Fit_Sample_Include()))" in intercept_only_n_formula.replace(
+        "'Regression'!", ""
+    )
+    # The reader reference is sheet-qualified: Fit_Sample_Include does not
+    # exist when this name is registered (the materialization zone creates it
+    # later), and an unqualified reference resolves against the workbook's
+    # whole name collection at calculation — pinning a FOREIGN sheet's copy in
+    # any multi-Regression-sheet workbook. See SPILL_READER_NAMES in
+    # regression_materialization.py.
+    assert "'Regression'!Fit_Sample_Include" in intercept_only_n_formula
     # Guard the regression: this name must never sum the reader with N().
     assert "N(Fit_Sample_Include())" not in intercept_only_n_formula
 
@@ -413,6 +425,49 @@ def test_no_catalog_body_or_sheet_name_sums_a_range_reader_with_n() -> None:
                 f"sheet name {item.Name!r} sums a range reader with N() "
                 f"({pat!r}); use --(<reader>()) instead — see PR #237"
             )
+
+
+def test_every_registered_refers_to_qualifies_spill_reader_references() -> None:
+    """Repo-wide guard for the unqualified-reader resolution defect.
+
+    The spill readers (Fit_Context / Fit_Design_Columns / Fit_Sample_Include)
+    are registered late — after the spec block installs the constructor
+    closures and after _setup_local_names registers the Intercept_Only_*
+    helpers — so a RefersTo written in those phases cannot leave a reference
+    to them unqualified: a name that does not exist on the owning sheet at
+    Names.Add time stays unresolved, and at calculation Excel resolves it
+    against the workbook's whole name collection. In the 50-sheet test-model
+    artifact that collection holds one Fit_Sample_Include per sheet, the
+    lookup landed on a foreign sheet's copy, and every sheet's
+    Log_Domain_Status reported the first guard sheet's fitted-mask count
+    ("-8 rows excluded" on clean specs). Production's single Regression
+    sheet hides the class entirely, so only this guard and the test-model
+    verifier see it.
+    """
+    sheet = RecordingSheet(name="Some Sheet With Spaces")
+
+    _setup_regression_names(_as_xw_sheet(sheet))
+    _set_sheet_scoped_names(
+        _as_xw_sheet(sheet),
+        load_catalog_document(ROOT_DIR / "lambda_functions.json").functions_for_sheet(
+            _CLOSURE_SCOPE
+        ),
+    )
+
+    qualified_prefix = "'Some Sheet With Spaces'!"
+    for item in sheet.api.Names.items:
+        refers_to = item.RefersTo or ""
+        for reader in SPILL_READER_NAMES:
+            for match in re.finditer(
+                rf"(?<![!\w]){reader}(?![\w])", refers_to
+            ):
+                before = refers_to[: match.start()]
+                assert before.endswith(qualified_prefix), (
+                    f"sheet name {item.Name!r} references spill reader "
+                    f"{reader} without this sheet's qualifier (expected "
+                    f"{qualified_prefix}{reader}); see SPILL_READER_NAMES "
+                    "in regression_materialization.py"
+                )
 
 
 def test_prediction_interval_binds_constructed_inputs_in_the_cell_formula() -> None:

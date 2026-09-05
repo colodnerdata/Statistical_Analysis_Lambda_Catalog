@@ -197,6 +197,7 @@ from .lambda_formula_parser import (
     _normalize_user_formula,
     _strip_non_string_whitespace,
 )
+from .regression_materialization import qualify_spill_reader_references
 from .sheet_styles import (
     CF_DARK_RED_TEXT,
     CF_DARK_YELLOW_TEXT,
@@ -665,6 +666,14 @@ def _set_sheet_scoped_names(
         refers_to = "=" + _strip_non_string_whitespace(
             _normalize_user_formula(closure.formula_display)
         )
+        # Qualify the spill-reader references (Fit_Sample_Include, ...) per
+        # sheet: those names do not exist yet at this point (the
+        # materialization zone creates them later in the sheet's build), so an
+        # unqualified reference would resolve — at calculation, not here —
+        # against the workbook's whole name collection and pin to a foreign
+        # sheet's copy in any multi-Regression-sheet workbook. See
+        # SPILL_READER_NAMES in regression_materialization.py.
+        refers_to = qualify_spill_reader_references(refers_to, sheet.name)
         drop_local_name(sheet, closure.name)
         sheet.api.Names.Add(Name=closure.name, RefersTo=refers_to)
 

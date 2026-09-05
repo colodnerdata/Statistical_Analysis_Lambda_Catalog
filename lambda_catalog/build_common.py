@@ -113,7 +113,15 @@ def positive_grid_size(value: str) -> int:
 
 
 class _Tee(io.TextIOBase):
-    """Write to two streams at once, flushing both."""
+    """Write to two streams at once, flushing both.
+
+    The secondary (the UTF-8 run log) is written first, so a console that
+    cannot represent a character — a cp1252 terminal meeting the "≤" in a
+    Log_Domain_Status message — loses a rendering, never evidence: the
+    transcript lands in the file before the console write is attempted,
+    and the console write falls back to the closest encoding it supports
+    instead of killing the run mid-report.
+    """
 
     def __init__(self, primary: TextIO, secondary: TextIO) -> None:
         self._primary = primary
@@ -122,7 +130,11 @@ class _Tee(io.TextIOBase):
     def write(self, s: str) -> int:
         self._secondary.write(s)
         self._secondary.flush()
-        return self._primary.write(s)
+        try:
+            return self._primary.write(s)
+        except UnicodeEncodeError:
+            encoding = getattr(self._primary, "encoding", None) or "ascii"
+            return self._primary.write(s.encode(encoding, "replace").decode(encoding))
 
     def flush(self) -> None:
         self._primary.flush()

@@ -21,6 +21,8 @@ keep working unchanged.
 """
 from __future__ import annotations
 
+import re
+
 import xlwings as xw
 
 from .catalog_schema import CatalogFunction, load_catalog_document
@@ -127,6 +129,51 @@ def _add_spill_reader(
     )
     drop_local_name(sheet, name)
     sheet.api.Names.Add(Name=name, RefersTo=f"=LAMBDA({anchor}#)")
+
+
+# The sheet-scoped spill readers this module registers (Fit_Context via the
+# Model Context block, the other two via _add_spill_reader). They are created
+# LATE — _write_materialization_zone runs after the spec block has already
+# installed the constructor closures (_set_sheet_scoped_names) and after
+# _setup_local_names has registered the Intercept_Only_* helpers — so a
+# RefersTo written in those earlier phases cannot rely on Excel resolving an
+# unqualified reference for it. It cannot: a name that does not exist on the
+# owning sheet at Names.Add time stays unqualified, and at calculation Excel
+# resolves it against the workbook's whole name collection, which in a
+# multi-Regression-sheet workbook (the test-model artifact has 50) contains
+# one Fit_Sample_Include per sheet. The lookup lands on a FOREIGN sheet's
+# copy and pins the qualification into the RefersTo, so every sheet's
+# Log_Domain_Status read the first guard sheet's fitted mask and reported
+# nonsense like "-8 rows excluded" on a clean spec. Production hides the
+# whole class (one Regression sheet ⇒ one candidate), which is why only the
+# test-model verifier caught it. References to these three names in any
+# earlier-written RefersTo must be qualified with the owning sheet up front:
+# qualify_spill_reader_references does that, and the repo-wide guard in
+# tests/test_sheet_writers.py keeps every registered RefersTo honest.
+SPILL_READER_NAMES = ("Fit_Context", "Fit_Design_Columns", "Fit_Sample_Include")
+
+_SPILL_READER_REFERENCE_RE = re.compile(
+    r"(?<![!\w])(" + "|".join(SPILL_READER_NAMES) + r")(?![\w])"
+)
+
+
+def qualify_spill_reader_references(body: str, sheet_name: str) -> str:
+    """Prefix every spill-reader reference in a RefersTo body with the sheet.
+
+    A catalog body must stay sheet-agnostic (lambda_functions.json is written
+    once and installed on every Regression-shaped sheet), so it names the
+    readers unqualified. The INSTALLER qualifies them per sheet, which pins
+    each copy to the sheet it was installed on regardless of what other
+    sheets' names exist at Names.Add or calculation time. The lookbehind
+    skips an already-qualified reference (``'S'!Fit_Sample_Include``) and the
+    lookahead keeps distinct longer names (``Fit_Sample_Include_Calc`` — a
+    constructor closure installed with the spec wiring, never a reader)
+    untouched.
+    """
+    quoted = quoted_sheet_name(sheet_name)
+    return _SPILL_READER_REFERENCE_RE.sub(
+        lambda match: f"{quoted}!{match.group(1)}", body
+    )
 
 
 def _write_materialization_zone(

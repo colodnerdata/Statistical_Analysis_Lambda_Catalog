@@ -807,22 +807,32 @@ def _setup_local_names(
     # Intercept_Only_DF() for an intercept-only model with n>1. `--` coerces a
     # range OR array to a summable 1/0 array — the same fix as Log_Domain_Status
     # (see tests/test_spec_block_writer.py and the amber-fix PR).
+    # Each body qualifies Fit_Sample_Include with this sheet: the spill reader
+    # is created later (materialization zone), so an unqualified reference
+    # would resolve against the workbook's name collection at calculation and
+    # pin to a FOREIGN sheet's copy in any multi-Regression-sheet workbook —
+    # the same defect class as the closure loop's spill-reader qualification
+    # (see SPILL_READER_NAMES in regression_materialization.py).
     drop_local_name(sheet, "Intercept_Only_N")
     sheet.api.Names.Add(
         Name="Intercept_Only_N",
-        RefersTo="=LAMBDA(SUMPRODUCT(--(Fit_Sample_Include())))",
+        RefersTo=f"=LAMBDA(SUMPRODUCT(--({sname}!Fit_Sample_Include())))",
     )
 
     drop_local_name(sheet, "Intercept_Only_Point")
     sheet.api.Names.Add(
         Name="Intercept_Only_Point",
-        RefersTo="=LAMBDA(AVERAGE(FILTER(Response_Column(),Fit_Sample_Include())))",
+        RefersTo=(
+            f"=LAMBDA(AVERAGE(FILTER(Response_Column(),{sname}!Fit_Sample_Include())))"
+        ),
     )
 
     drop_local_name(sheet, "Intercept_Only_S")
     sheet.api.Names.Add(
         Name="Intercept_Only_S",
-        RefersTo="=LAMBDA(STDEV.S(FILTER(Response_Column(),Fit_Sample_Include())))",
+        RefersTo=(
+            f"=LAMBDA(STDEV.S(FILTER(Response_Column(),{sname}!Fit_Sample_Include())))"
+        ),
     )
 
     drop_local_name(sheet, "Intercept_Only_SE")

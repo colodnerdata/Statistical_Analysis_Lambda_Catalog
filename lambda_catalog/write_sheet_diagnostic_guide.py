@@ -256,6 +256,53 @@ def _write_template_sheet(workbook: xw.Book) -> None:
     for vals in guidance:
         _row(sheet, r, vals); r += 1
 
+    r += 1
+
+    # ── Residuals under Fixed Effects ──────────────────────────────────────────
+    # A Fixed Effects model changes what the Residual Output table holds, and
+    # nothing on the Regression sheet explains it beyond the relabeled headers
+    # (write_sheet_regression.py → _write_residuals) — this section is the
+    # paragraph the v2.1 follow-on polish item asked for.
+    _subheading(sheet, r, "RESIDUALS UNDER FIXED EFFECTS", cols=3); r += 1
+    _table_header_row(sheet, r, ["What you'll see", "What it means", "How to read it"]); r += 1
+
+    fe_residuals = [
+        [
+            "The response-scale Residual Output headers relabel: Predicted Y, "
+            "Residuals, and PRESS Residual gain \"(Within <FE variable>)\" and Y "
+            "becomes \"Deviation from <FE variable> Avg.\"",
+            "Once a Fixed Effects row is declared, every diagnostic column is "
+            "computed from the within (group-demeaned) fit. The model absorbs a "
+            "separate intercept per group, so each column holds deviations from "
+            "the group's own average, not from the pooled response. The "
+            "dimensionless columns (Hat Diagonal, Studentized Residuals, Cook's "
+            "Distance, Scale-Location, …) keep their names — they were never in "
+            "response units.",
+            "The Tier 1 and Tier 2 plots read these same within-group values: a "
+            "funnel means non-constant variance within groups, a curve means the "
+            "within-group relationship is misspecified. Between-group differences "
+            "no longer appear in the residuals at all — absorbing them is the "
+            "point of Fixed Effects.",
+        ],
+        [
+            "Each group's Deviation values average zero by construction; "
+            "Durbin-Watson reads \"n/a — FE active\" and the BFN Panel "
+            "Durbin-Watson row below it takes over.",
+            "The demeaning centers every group on zero, so a large Deviation is "
+            "a row far from its own group's average — the quantity the model "
+            "actually fits. Classical Durbin-Watson assumes one ordered series; "
+            "with a Sequence axis and Fixed Effects the residuals form panels, "
+            "so serial correlation is read with the Bhargava–Franzini–"
+            "Narendranathan (1982) panel statistic instead.",
+            "Treat the BFN cell as the DW cell's replacement while Fixed "
+            "Effects is active — the classical DW bounds do not apply to panel "
+            "residuals. The influence flags (Cook's Distance, PRESS) apply "
+            "unchanged, now measuring influence on the within-group fit.",
+        ],
+    ]
+    for vals in fe_residuals:
+        _row(sheet, r, vals); r += 1
+
     sheet.autofit("rows")
 
 

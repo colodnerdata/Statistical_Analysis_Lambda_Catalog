@@ -120,14 +120,15 @@ _NA_LITERAL = "#N/A"
 _OFFSET_ANCHOR_RE = re.compile(r"OFFSET\([^!,]*!\$([A-Z]{1,3})\$\d+", re.IGNORECASE)
 _CELL_COLUMN_RE = re.compile(r"^([A-Z]{1,3})\d+$")
 
-# Real Lambda_Library.xlsx (the unified production artifact) ships nine sheets
+# Real Lambda_Library.xlsx (the unified production artifact) ships ten sheets
 # in the tab order that build_production._reorder_and_style_sheet_tabs
-# applies: the three Regression workbench sheets front-most, then the Univariate
+# applies: the four Regression workbench sheets front-most, then the Univariate
 # workbench, the LAMBDA_functions catalog, Version History, and the three data
 # sheets last.
 EXPECTED_REAL_SHEETS: tuple[str, ...] = (
     "Regression",
     "Regression Instructions",
+    "Modeling Concepts",
     "Diagnostic Guide",
     "Univariate",
     "LAMBDA_functions",

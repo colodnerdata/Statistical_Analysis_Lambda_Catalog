@@ -60,6 +60,9 @@ from lambda_catalog.write_sheet_csv_dataset import (
 )
 from lambda_catalog.write_sheet_diagnostic_guide import write_diagnostic_guide_sheet
 from lambda_catalog.write_sheet_lambda_functions import write_catalog_sheet
+from lambda_catalog.write_sheet_modeling_concepts import (
+    write_modeling_concepts_sheet,
+)
 from lambda_catalog.write_spec_block import SPEC_DATASET_PROFILES
 from lambda_catalog.write_sheet_regression import write_regression_output_sheet
 from lambda_catalog.write_sheet_regression_instructions import (
@@ -83,6 +86,7 @@ _SHEET_NAME_LIFE_EXPECTANCY_DATA = "Life Expectancy Data"
 _SHEET_NAME_PRODUCTION_LOTS = "Production Lots"
 _SHEET_NAME_VERSION_HISTORY = "Version History"
 _SHEET_NAME_REGRESSION_INSTRUCTIONS = "Regression Instructions"
+_SHEET_NAME_MODELING_CONCEPTS = "Modeling Concepts"
 _SHEET_NAME_REGRESSION = "Regression"
 _SHEET_NAME_DIAGNOSTIC_GUIDE = "Diagnostic Guide"
 _SHEET_NAME_UNIVARIATE = UNIVARIATE_SHEET_NAME
@@ -210,13 +214,14 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book) -> None:
     """Apply build-time tab order and tab colors for the unified workbook's sheets.
 
     Tab order (left to right):
-    Regression, Regression Instructions, Diagnostic Guide, Univariate,
-    LAMBDA_functions, Version History, Production Lots, Life Expectancy Data,
-    Mileage Data.
+    Regression, Regression Instructions, Modeling Concepts, Diagnostic
+    Guide, Univariate, LAMBDA_functions, Version History, Production Lots,
+    Life Expectancy Data, Mileage Data.
     """
     ordered_front = [
         _SHEET_NAME_REGRESSION,
         _SHEET_NAME_REGRESSION_INSTRUCTIONS,
+        _SHEET_NAME_MODELING_CONCEPTS,
         _SHEET_NAME_DIAGNOSTIC_GUIDE,
         _SHEET_NAME_UNIVARIATE,
         _SHEET_NAME_LAMBDA_FUNCTIONS,
@@ -242,6 +247,7 @@ def _reorder_and_style_sheet_tabs(workbook: xw.Book) -> None:
         _SHEET_NAME_VERSION_HISTORY: _TAB_COLOR_DARK_GRAY,
         _SHEET_NAME_UNIVARIATE: SUBHDR_COLOR,
         _SHEET_NAME_REGRESSION_INSTRUCTIONS: SUBHDR_COLOR,
+        _SHEET_NAME_MODELING_CONCEPTS: SUBHDR_COLOR,
         _SHEET_NAME_REGRESSION: SUBHDR_COLOR,
         _SHEET_NAME_DIAGNOSTIC_GUIDE: SUBHDR_COLOR,
     }
@@ -369,6 +375,7 @@ def build_production_workbook(
                 workbook, production_lots_headers, production_lots_rows, PRODUCTION_LOTS
             )
             write_regression_instructions_sheet(workbook)
+            write_modeling_concepts_sheet(workbook)
             write_diagnostic_guide_sheet(workbook)
             write_version_history_sheet(workbook)
             write_regression_output_sheet(
@@ -630,6 +637,7 @@ def _build_and_verify(args: argparse.Namespace, workbook_path: Path) -> int:
     print("Sheet updated: Mileage Data")
     print("Sheet updated: Production Lots")
     print("Sheet updated: Regression Instructions")
+    print("Sheet updated: Modeling Concepts")
     print("Sheet updated: Diagnostic Guide")
     print("Sheet updated: Version History")
     print("Sheet updated: Regression")

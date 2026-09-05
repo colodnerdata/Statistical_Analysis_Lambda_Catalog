@@ -5,6 +5,7 @@ Sheet updated: Life Expectancy Data
 Sheet updated: Mileage Data
 Sheet updated: Production Lots
 Sheet updated: Regression Instructions
+Sheet updated: Modeling Concepts
 Sheet updated: Diagnostic Guide
 Sheet updated: Version History
 Sheet updated: Regression
@@ -12,9 +13,9 @@ Sheet updated: Univariate
 Created names: 0
 Updated names: 127
 Removed names: 0
-Verify: passed (spec mode, 74.4s, workbook='C:\\Users\\Stephen_Colodner\\windows_code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library.xlsx')
-Timing: build+sync    148.5s
-Timing: recalculate   14.6s
-Timing: verify        74.4s
-Timing: total         237.5s
+Verify: passed (spec mode, 73.1s, workbook='C:\\Users\\Stephen_Colodner\\windows_code\\Statistical_Analysis_Lambda_Catalog\\dist\\Lambda_Library.xlsx')
+Timing: build+sync    117.1s
+Timing: recalculate   14.5s
+Timing: verify        73.1s
+Timing: total         204.7s
 Log: C:\Users\Stephen_Colodner\windows_code\Statistical_Analysis_Lambda_Catalog\excel-only-runs\build_production verify no launch.log

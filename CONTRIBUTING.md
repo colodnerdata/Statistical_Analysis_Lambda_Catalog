@@ -247,13 +247,14 @@ The `Breaking?` flag in the Version History sheet attaches to the **workbook** v
 uv run python scripts/build_production.py
 ```
 
-Produces `Lambda_Library.xlsx` — the distributable workbook committed to the repo. Writes nine sheets:
+Produces `Lambda_Library.xlsx` — the distributable workbook committed to the repo. Writes ten sheets:
 
 - **LAMBDA_functions** — browsable catalog of all function definitions (the library)
 - **Life Expectancy Data** — WHO dataset as a structured table; this is one of the datasets the Regression template's `Source_Table` can target (a curated four-driver model: Adult Mortality, Alcohol, percentage expenditure, and `Status`)
 - **Mileage Data** — Auto MPG dataset as a structured table (a second sample dataset for the multi-level categorical-encoding demo, and for practicing the Source_Table retarget workflow)
 - **Production Lots** — a small unbalanced learning-curve panel (3 facilities, 51 lots) as a structured table; a third sample dataset, and the only one with a natural Fixed Effects grouping column (Facility) and Sequence column (Fiscal_Year)
 - **Regression Instructions** — step-by-step guide for adapting the template to new datasets (reference sheet)
+- **Modeling Concepts** — per-feature explainers (Fixed Effects, reference levels, Sequence, Log transforms, interactions, sample filtering, intercept control): the point of each feature, the statistical method it enables, and a use case (reference sheet)
 - **Diagnostic Guide** — interpretation guide for regression diagnostics (reference sheet)
 - **Univariate** — descriptive statistics, histogram binning, and two-stage MLE distribution fitting (a pre-built template)
 - **Version History** — changelog that travels with the workbook

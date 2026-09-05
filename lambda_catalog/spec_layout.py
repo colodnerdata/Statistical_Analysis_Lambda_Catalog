@@ -112,8 +112,8 @@ _ROW_TO_COL_OFFSET = _FIRST_DATA_ROW - 1  # 3
 # the J/K/L computed displays, which reads slightly against the block's
 # inputs-then-displays order. That was the cheaper of the two; the
 # alternative shifts eight columns to preserve a reading convention.
-# Both are RESERVED-and-unwired at this release: validated and flagged on
-# the sheet, read by no constructor until the interaction wiring release.
+# Both are constructor-wired since v3.1: validated and flagged on the sheet,
+# and read by the constructor to build the interaction term.
 #
 # O is the per-row Design Columns audit — a computed display bound by
 # "display derives, never feeds" like J/K/L, and the pre-flight width

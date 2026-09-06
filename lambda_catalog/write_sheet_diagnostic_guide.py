@@ -15,6 +15,7 @@ from pathlib import Path
 
 import xlwings as xw
 
+from .regression_layout import _A_PRESS_R_SQUARED, _A_QQ_CORRELATION, _A_SIGNIFICANCE_F
 from .sheet_styles import HEADER_COLOR as _HEADER_COLOR
 from .sheet_styles import SUBHDR_COLOR as _SUBHEADER_COLOR
 from .workbook_helpers import (
@@ -55,7 +56,7 @@ _TIER1: list[list[str]] = [
         "Normal Scores (theoretical)",
         "Studentized Residuals Ranked",
         "Points close to a straight diagonal line. Heavy tails or an S-curve indicate "
-        "non-normal errors. Check QQ Correlation (Cell P10): below 0.98 = mild concern, "
+        f"non-normal errors. Check QQ Correlation (Cell {_A_QQ_CORRELATION.replace('$', '')}): below 0.98 = mild concern, "
         "below 0.95 = stronger concern. The chart title itself shows the live r and appends "
         "a '— check normality' warning when it falls below 0.95, matching the table's red "
         "threshold.",
@@ -64,10 +65,11 @@ _TIER1: list[list[str]] = [
         "Actual vs. Predicted",
         "Predicted Y",
         "Y",
-        "Points close to a 45° line. A bow or fan shape confirms the same problems "
-        "seen in Residuals vs. Fitted but from a different angle. The chart title shows "
-        "the response name and the live Adjusted R², so the fit's headline quality is "
-        "on the plot itself.",
+        (
+            "Points close to a 45° line. A bow or fan shape can suggest the same problems seen in"
+            " Residuals vs. Fitted but from a different angle. The chart title shows the response"
+            " name and the live Adjusted R², so the fit's headline quality is on the plot itself."
+        ),
     ],
 ]
 
@@ -77,26 +79,28 @@ _TIER2: list[list[str]] = [
         "Scale-Location",
         "Predicted Y",
         "Scale-Location\n(√|Studentized Residuals|)",
-        "Flat horizontal spread of points = homoscedasticity. An upward trend "
-        "confirms heteroscedasticity flagged in Tier 1. Yellow cells: value > √2 ≈ 1.41; "
-        "red cells: value > √3 ≈ 1.73.",
+        (
+            "A roughly horizontal spread is consistent with constant error variance. A trend "
+            "suggests changing variance; inspect it alongside Residuals vs. Fitted. Yellow cells:"
+            " value > √2 ≈ 1.41; red cells: value > √3 ≈ 1.73."
+        ),
     ],
     [
         "Cook's Distance",
         "Observation (bar position)",
         "Cook's Distance",
-        "Spikes above F.INV(0.5, p, n-p) — the median of the reference F "
-        "distribution, so the bar to beat scales with the model's own size — "
-        "mark observations with "
-        "outsized influence on the fitted coefficients. Bars are ordered by "
-        "observation number. The title prints the live cutoff, so the bar to "
-        "beat is visible on the plot itself, and bars above it carry data "
-        "labels naming the row. Inspect those rows for data entry errors or genuine "
-        "outliers before removing them. Remove outliers only when you have a "
-        "definitive, non-statistical reason to believe the data point is invalid, "
-        "comes from a different population, or disproportionately distorts the "
-        "analysis. Never filter out data solely because it is an extreme statistical "
-        "value, as doing so can introduce bias and erase genuine insights.",
+        (
+            "Spikes above F.INV(0.5, p, n-p) — the median of the reference F distribution, so the"
+            " bar to beat scales with the model's own size — mark observations with outsized "
+            "influence on the fitted coefficients. Bars are ordered by observation number. The "
+            "title prints the live cutoff, so the bar to beat is visible on the plot itself, and "
+            "bars above it carry data labels naming the row. Inspect those rows for data entry "
+            "errors or genuine outliers before removing them. Remove outliers only when you have "
+            "a definitive, non-statistical reason to believe the data point is invalid, comes "
+            "from a population excluded by the study definition, or is otherwise outside the "
+            "prespecified analysis scope. Never filter out data solely because it is an extreme "
+            "statistical value, as doing so can introduce bias and erase genuine insights."
+        ),
     ],
     [
         "Studentized Residuals vs. Leverage",
@@ -125,11 +129,11 @@ _THRESHOLDS: list[list[str]] = [
      "GVIF > 5  (possible collinearity)", "GVIF > 10  (strong collinearity)"],
     ["Tolerance", "Col V, Predictor Summary",
      "Tolerance < 0.2", "Tolerance < 0.1"],
-    ["PRESS R²", "Cell P5, Diagnostics",
+    ["PRESS R²", f"Cell {_A_PRESS_R_SQUARED.replace('$', '')}, Diagnostics",
      "—", "PRESS R² < 0  (worse than predicting Y-mean)"],
-    ["QQ Correlation", "Cell P10, Diagnostics",
+    ["QQ Correlation", f"Cell {_A_QQ_CORRELATION.replace('$', '')}, Diagnostics",
      "< 0.98  (mild non-normality)", "< 0.95  (clear non-normality)"],
-    ["Significance F", "Cell Q15, ANOVA Table",
+    ["Significance F", f"Cell {_A_SIGNIFICANCE_F.replace('$', '')}, ANOVA Table",
      "—", "P-value > alpha  (model not significant)"],
     # Column letters are the CURRENT layout. They had drifted a whole zone
     # out of date (AB/AC/AD/AG/AH) from before the Residual Output zone
@@ -166,8 +170,12 @@ _GUIDANCE: list[list[str]] = [
      "on/off to isolate which variable is driving the curve."],
     ["Non-normal errors\n(Q-Q deviation)",
      "Q-Q plot shows heavy tails or S-curve; QQ Correlation < 0.98.",
-     "With n > 100 moderate departures rarely invalidate inference. For small n, "
-     "consider robust standard errors or a bootstrap Confidence Interval approach."],
+     (
+         "Assess the severity of the departure and the sampling design; there is no universal "
+         "sample-size cutoff that makes it harmless. Robust standard errors address variance "
+         "misspecification, not all non-normality. A bootstrap must respect dependence in the "
+         "data. These alternatives require tools beyond this template."
+     )],
     ["Influential observations\n(high Cook's D or PRESS)",
      "Cook's D > F.INV(0.5, p, n-p) or |PRESS| > 2 × SE for one or more rows.",
      "Inspect those rows. Verify data entry. Refit without the observation(s) and "
@@ -232,8 +240,8 @@ def _write_template_sheet(workbook: xw.Book) -> None:
     _heading(sheet, r, "REGRESSION DIAGNOSTIC GUIDE"); r += 1
     sheet.range((r, 1)).value = (
         "Use the charts and flagged cells on the Regression sheet to assess model assumptions. "
-        "Work through Tier 1 first; investigate Tier 2 only when a Tier 1 plot raises a concern. "
-        "Each chart's title carries the live statistics it judges against — the Q-Q correlation, "
+        "Start with Tier 1, then review Tier 2 for spread and influence even if Tier 1 looks clear. "
+        "Thresholds are screening rules, not universal tests of model validity. Chart titles display statistics — the Q-Q correlation, "
         "the Adjusted R², the mean leverage, the Cook's Distance cutoff and the PRESS total — so "
         "a chart can be read without scrolling back to its source cell."
     )
@@ -250,7 +258,7 @@ def _write_template_sheet(workbook: xw.Book) -> None:
     r += 1
 
     # ── Tier 2: Follow-up plots ────────────────────────────────────────────────
-    _subheading(sheet, r, "TIER 2 — Investigate when Tier 1 raises a concern"); r += 1
+    _subheading(sheet, r, "TIER 2 — Review spread and influence"); r += 1
     _table_header_row(sheet, r, ["Plot", "X-axis", "Y-axis", "What to look for"]); r += 1
 
     for vals in _TIER2:

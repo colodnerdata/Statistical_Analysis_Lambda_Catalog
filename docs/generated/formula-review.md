@@ -14,7 +14,7 @@ annotated in plain English.
 =TAKE(Regression!$B$4:$B$16000,MAX(1,COLUMNS(Source_Data)))
 ```
 
-Take the first `COLUMNS(Source_Data)` rows of the fixed 16000-row band under column B. Because it is `TAKE` (not the volatile `OFFSET`), the name costs nothing until the table is retargeted — and retargeting `Source_Table` resizes every spec column at once. This one formula is the whole "one edit" promise.
+Take the first `COLUMNS(Source_Data)` rows of the fixed 16000-row band under column B. The `TAKE` formula sizes the named range to the source table column count when Excel recalculates.
 
 ## A status cell is a call, not text
 
@@ -58,7 +58,7 @@ Multiple R is not a bespoke formula — it is the catalog's `Multiple_R` LAMBDA 
 =Unit_Space_R_Squared(Fit_Design_Columns(),Design_Response(),Response_Column(),Fit_Sample_Include(),Fit_Context(),$AH$5)
 ```
 
-When the response is Log-transformed, the fit runs in log space and `EXP(ŷ)` is the *median* prediction, not the mean. The last argument here is the AH5 toggle: Duan multiplies by the smearing factor (the mean of EXP(residuals)) to recover the conditional mean; Naive is plain EXP. One toggle re-points R², RMSE, the prediction bounds and the residual columns together.
+When the response is Log-transformed, the fit runs in log space. The last argument reads the AH5 toggle: Duan multiplies EXP(ŷ) by the smearing factor, the mean of EXP(residuals); Naive uses EXP(ŷ) without adjustment. The toggle changes original-unit fit statistics, point predictions, and residuals. Interval bounds always use the Naive back-transformation.
 
 ## A distribution fit is one formula — Weibull's profile NLL
 
@@ -103,4 +103,4 @@ Beta has no closed-form partner, so each stage is a Cartesian product: an N²×2
   ))
 ```
 
-The whole search-recovery trick in one LAMBDA: find the minimum of a grid, then recover WHERE it sits. `TOCOL` flattens the grid row-major, `XMATCH` finds the first minimum's flat position, and `QUOTIENT`/`MOD` convert it back to (row, column). The boundary guard reads the column: if the best shape is the first or last grid point, the optimum is on the edge and the Min/Max bounds should be widened — the sheet turns that cell red.
+Find the minimum of a grid, then recover its row and column. `TOCOL` flattens the grid row-major, `XMATCH` finds the first minimum's flat position, and `QUOTIENT`/`MOD` convert it back to (row, column). The boundary guard reads the column: if the best shape is the first or last grid point, the optimum is on the edge and the Min/Max bounds should be widened — the sheet turns that cell red.

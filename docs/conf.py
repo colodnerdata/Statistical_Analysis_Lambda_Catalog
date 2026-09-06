@@ -4,7 +4,7 @@ Run order matters: ``uv run --group docs poe docs`` regenerates the pages
 under ``docs/generated/`` from the repo's authored sheet lists
 (``scripts/generate_docs_pages.py``) and then runs ``sphinx-build -W``.
 The generated pages import the same module-level content lists that write
-the workbook's static sheets, so the docs cannot drift from the sheets.
+the workbook's static sheets, so both outputs use the same authored text.
 
 The hand-written narrative lives at the ``docs/`` root; the existing
 planning documents (ARCHITECTURE.md, ROADMAP.md, ...) are contributor
@@ -39,7 +39,7 @@ html_static_path = ["_static"]
 html_css_files = ["custom.css"]
 html_title = "Lambda Catalog — a guided tour for Excel users"
 
-# Sidebar stays usable at tutorial length; the site is one linear story.
+# Group the sidebar by task and audience.
 html_theme_options = {
     "repository_url": "https://github.com/colodnerdata/Statistical_Analysis_Lambda_Catalog",
     "use_repository_button": True,

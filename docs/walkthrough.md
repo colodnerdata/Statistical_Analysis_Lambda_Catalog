@@ -1,6 +1,6 @@
-# Part 1 — A walk through the workbook
+# Connect and use the template sheets
 
-This page walks one full analysis, the way you would actually do it: point
+This page describes the steps in a regression analysis: point
 the sheet at data, declare a model, read the outputs, check the
 diagnostics, make a prediction. The tab-by-tab inventory is on
 {doc}`generated/workbook-tour`; the three built-in manual sheets have
@@ -8,12 +8,11 @@ their own generated pages — {doc}`generated/regression-instructions`
 (the *how*), {doc}`generated/modeling-concepts` (the *why*), and
 {doc}`generated/diagnostic-guide` (the *what to look for*).
 
-## Step 1 — Point the sheet at your data: one edit
+## Step 1 — Connect the Regression sheet to your data
 
-The Regression sheet does not know or care what data it ships with. It
-reads **one name**: `Source_Table`. Everything else — the header row, the
-data body, the variable list in the specification block — derives from
-it. So retargeting the sheet to your own data is a single edit:
+The Regression sheet reads its source table through the name
+`Source_Table`. The header row, data body, and variable list in the
+specification block derive from this name. To connect your data:
 
 1. Put your data in an **Excel Table** (select the range with headers,
    press **Ctrl+T**, or Home → Format as Table). It must be a true
@@ -23,26 +22,24 @@ it. So retargeting the sheet to your own data is a single edit:
    made one before, Microsoft's guide covers both routes:
    <https://support.microsoft.com/en-us/excel/get-started/create-and-format-tables>
 2. Open the **Name Manager** (Formulas → Name Manager), find
-   `Source_Table`, and edit *Refers To* to your table including its
+   `Source_Table` with scope **Regression**, and edit *Refers To* to your table including its
    header row — e.g. `=MyTable[#All]`.
-3. Done. The specification block below gains one row per column of your
-   table, and every dropdown, band and output resizes with it.
+3. Review the specification block, which displays one row per column of
+   your table. Set the roles and other inputs for the new variables.
 
 The shipped default is `LifeExpectancyData` (a curated four-driver
 model of life expectancy); a second sample table, `MileageData`, ships
-for a multi-level categorical demo. Practice the retarget on either
-before pointing at your own data.
+for a multi-level categorical example. You can use either sample table
+or connect your own.
 
 ## Step 2 — Declare the model in MODEL SPECIFICATION (columns A–O)
 
-The block at the left of the sheet (frozen, so it stays visible while you
-scroll) is the model's control panel: **one row per column of your
-table**, and you fill in the orange cells. The full column-by-column
-reference is on {doc}`generated/spec-block`; the short version. The three
-fields that actually have to be set — for every row you want in the
-model — are the **main mandatory fields: Role (B), Include (C) and Type
-(D)**; everything after them is an optional refinement with a safe
-default:
+The block at the left of the sheet has **one row per column of your
+table**. Enter specifications in the orange cells. Rows 1–3 stay visible
+as you scroll down. The column-by-column reference is on
+{doc}`generated/spec-block`. Set each variable's Role and, for predictors,
+its Include setting and Type. Other fields configure transformations,
+interactions, and panel ordering:
 
 - **Role (B)** — what this column *is*: `Response (y)` for the one
   variable being modeled (exactly one, or the status cell above the
@@ -60,18 +57,17 @@ default:
 - **Interaction Term / Operation (M/N)** — pick another predictor and
   one of Product / Difference / Ratio to add an interaction column;
   naming the row's *own* variable under Product is the documented way
-  to add a quadratic (x²). These columns are fully wired: the
-  interaction is built into the design matrix automatically.
+  to add a quadratic (x²). The interaction is added to the design matrix.
 - **Sequence (H) + Sequence Period (I)** — for panel data, mark the
   ordering axis and (optionally) type a period step Δ; lag and
   difference features follow it within each group.
 
-Two ideas carry the whole block. First, **the status cells**: above the
-block, the cells in row 2 are quiet when the specification is legal, and
-when it is not, the relevant one states its own problem in plain
+Two displays help you review the specification. First, **the status cells**:
+the cells in row 2 are blank when their checks pass, and
+when a check fails, the relevant cell displays a message in plain
 English — *no Response row*, *multiple Fixed Effects*, *this Log column
 contains N values ≤ 0*, *the declared reference level is not in the
-sample*. Look at row 2 first, always. Second, **the Design Columns audit
+sample*. Check row 2 after editing the model. Second, **the Design Columns audit
 (column O)**: each row shows how many design-matrix columns it
 contributes, and the total above the block (with the intercept) is the
 full width of the model — it turns amber when a model gets slow and red
@@ -81,35 +77,32 @@ when it gets too wide to fit.
 
 Right of the spec block, each zone holds one part of the answer:
 
-- **REGRESSION OUTPUTS** — the classic table: R² and Adjusted R², the
+- **REGRESSION OUTPUTS** — R² and Adjusted R², the
   ANOVA F-test, the coefficient table (estimate, standard error,
   t-statistic, P-value, confidence bounds) with non-significant terms
-  flagged red, and the **Predictor Summary** (each term's partial R²,
-  tolerance and GVIF — a collinearity check).
-- **PREDICTION OUTPUTS** — prefilled with each predictor's **Training
-  Mean** so it always shows a valid prediction out of the box; type
+  flagged red.
+- **PREDICTOR SUMMARY** — each term's partial R², tolerance and GVIF
+  (a collinearity check).
+- **PREDICTION OUTPUTS** — prediction inputs are prefilled with each
+  constructed column's **Training Mean**; type
   scenario values over them to ask "what if?" The **Original Units**
   column back-transforms log-space predictions to real units.
 - **RESIDUAL OUTPUT** — per-observation fitted values, residuals,
   studentized residuals, leverage, Cook's Distance and PRESS residuals,
   one row per observation, feeding the diagnostic charts.
 
-### The one subtlety worth understanding: Duan vs. Naive
+### Back-transformation: Duan vs. Naive
 
-When the response is Log-transformed, the fit runs in log space, and
-`EXP(predicted)` is the **median** of the response — not the mean.
-That is not a technicality: for skewed data the mean and median differ
-materially. The **Unit-Space Fit** block (AG4:AH10) reports the
-back-transformed R² / Adj R² / RMSE both ways, on the **AH5 toggle**:
+When the response is Log-transformed, the fit runs in log space. The
+**Unit-Space Fit** block (AG4:AH10) reports R², Adjusted R², and RMSE in
+original units using the method selected in **AH5**:
 
-- **Duan** (default) multiplies by a *smearing factor* — the average of
-  EXP(residuals) — recovering the conditional **mean**;
-- **Naive** is plain EXP — the conditional **median**.
+- **Duan** (default) multiplies EXP(predicted log response) by a
+  *smearing factor*: the average of EXP(residuals).
+- **Naive** uses EXP(predicted log response) without that adjustment.
 
-If you need "average value given these inputs" (forecasting a total),
-use Duan; if you need the typical case, Naive. The toggle re-points the
-prediction bounds and the original-units residual columns at the same
-time, so nothing can be read against the wrong basis.
+The toggle also changes the original-unit point prediction and residual
+columns. The interval bounds always use the Naive back-transformation.
 
 ## Step 4 — Judge the model with the charts
 
@@ -118,36 +111,54 @@ carries the live statistic it judges against** — the Q-Q correlation, the
 Adjusted R², the mean leverage, the Cook's Distance cutoff, the PRESS
 total — so a chart can be read without scrolling back to its source
 cell. The {doc}`generated/diagnostic-guide` page (the workbook's own
-Diagnostic Guide sheet) is the full curriculum; the 30-second version:
+Diagnostic Guide sheet) provides further guidance. The main checks are:
 
-1. **Residuals vs. Fitted**: random scatter is good; a curve means
-   nonlinearity, a funnel means non-constant variance.
-2. **Normal Q-Q**: points on the diagonal are good; the title warns
+1. **Residuals vs. Fitted**: look for scatter around zero; a curve
+   suggests nonlinearity, and a funnel suggests non-constant variance.
+2. **Normal Q-Q**: look for departures from the diagonal; the title warns
    "— check normality" when the correlation drops below 0.95.
-3. **Actual vs. Predicted**: hugging the 45° line is good; the title
+3. **Actual vs. Predicted**: compare the points with the 45° line; the title
    carries the live Adjusted R².
 4. **Cook's Distance / leverage / PRESS**: the influence checks for
    Tier 2 — individual rows that unduly drive the fit, with the cutoff
    printed in the title and flagged bars labeled.
 
-A clean Tier 1 usually means you can trust the coefficients and their
-P-values; a flagged Tier 2 plot means one or a few rows deserve
-inspection — the guide is explicit that an extreme value is a reason to
-*investigate*, never a license to delete data.
+Use these plots to look for problems with the model. An apparently clean
+plot does not establish that all model assumptions hold. Influence flags
+identify observations to inspect; an extreme value alone is not a reason
+to delete an observation.
 
-## Step 5 — The Univariate sheet: one column, understood
+## Step 5 — Analyze a column on the Univariate sheet
 
-The **Univariate** sheet runs the same philosophy on a single data
-column: point it at a column of values and it reports descriptive
+To connect Univariate to your own data, put the column in an Excel Table
+in the same workbook. For a table named `MyTable` with a column named
+`Measurement`, replace the formula in **A4** with:
+
+```excel
+=IF(MyTable[Measurement]="","",MyTable[Measurement])
+```
+
+Replace the companion numeric-inclusion formula in **B4** with:
+
+```excel
+=ISNUMBER(MyTable[Measurement])
+```
+
+Both formulas must read
+the same column; changing Regression's `Source_Table` does not change
+Univariate's source. Keep the cells below the two formula anchors clear
+so the results can spill.
+
+The **Univariate** sheet analyzes a single data column. It reports descriptive
 statistics, a histogram (with three bin-width rules — Sturges, Scott,
-Freedman-Diaconis — so the binning can't drive the conclusion), and a
+Freedman-Diaconis — for comparing bin choices), and a
 **distribution-fitting comparison**: Weibull, Gamma and Beta fits are
 found by a two-stage grid search (a wide first pass, then a refined
-second pass around the best point — the two passes are both drawn on the
+second pass around the best point — the Weibull and Gamma passes are drawn on
 profile-likelihood charts), with the best-fitting distribution's
 parameters highlighted, and Q-Q plots for every candidate against your
-data. Use it before the regression: know what each variable looks like
-on its own.
+data. You can use this sheet to inspect individual variables before fitting a
+regression.
 
 Each fit's **Grid Points** cell is a live input — raise it for a finer
 search and the grid, its NLL column and the charts all grow with it.

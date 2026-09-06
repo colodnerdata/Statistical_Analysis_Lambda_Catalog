@@ -3,11 +3,8 @@
 
 Run as `uv run --group docs poe docs-generate` (or via `poe docs`, which
 generates then builds). The workbook's user-facing content is authored in
-module-level Python lists — the same lists that write the static reference
-sheets — so the docs can be rendered FROM that single source of truth and
-cannot drift from the sheets. If a source move breaks an extraction, the
-assertions here fail loudly at generation time instead of the docs quietly
-shipping a stale formula.
+module-level Python lists — the same lists used to build the static reference
+sheets. Assertions check that expected source structures can be extracted.
 
 Pages produced:
 
@@ -64,6 +61,14 @@ def _write(name: str, body: str) -> None:
 
 
 def write_regression_instructions() -> None:
+    paragraph_headings = {
+        "For each included Predictor,": "Predictor types and reference levels",
+        "Review Role for every source column,": "Review the specification after changing data",
+        "The Transform column": "Transforms and original-unit outputs",
+        "The Sequence column": "Sequence and period",
+        "The Interaction Term": "Interactions and quadratic terms",
+        "The Design Columns column": "Check the model width",
+    }
     lines = [
         "# Regression Instructions",
         "",
@@ -76,7 +81,17 @@ def write_regression_instructions() -> None:
         if kind == "heading":
             lines += [f"## {text}", ""]
         elif kind == "body":
-            lines += [text, ""]
+            for paragraph in text.split("\n\n"):
+                for prefix, heading in paragraph_headings.items():
+                    if paragraph.startswith(prefix):
+                        lines += [f"### {heading}", ""]
+                        break
+                if "\n" in paragraph:
+                    items = paragraph.splitlines()
+                    lines += [items[0], ""]
+                    lines += [f"- {item}" for item in items[1:]] + [""]
+                else:
+                    lines += [paragraph, ""]
     _write("regression-instructions.md", "\n".join(lines))
 
 
@@ -93,19 +108,31 @@ def _concept_table(rows: list[list[str]], headers: list[str]) -> list[str]:
     return out
 
 
+def _reference_sections(rows: list[list[str]], headers: list[str]) -> list[str]:
+    """Render narrative reference rows as sections, preserving the authored text."""
+    out = []
+    for row in rows:
+        assert len(row) == len(headers), f"row width {len(row)} != {len(headers)}"
+        out += [f"### {row[0].replace(chr(10), ' ')}", ""]
+        for label, value in zip(headers[1:], row[1:]):
+            out += [f"**{label}**", "", value.replace("\n", " "), ""]
+    return out
+
+
 def write_modeling_concepts() -> None:
     headers = [c.header for c in _mc._COLUMNS]
     lines = [
         "# Modeling Concepts",
         "",
-        "The same table as the workbook's **Modeling Concepts** sheet, rendered",
+        "The content of the workbook's **Modeling Concepts** sheet, organized",
+        "as sections for reading on the web. Generated",
         "from the authored lists in",
         "`lambda_catalog/write_sheet_modeling_concepts.py`.",
         "",
         "## Shipped features",
         "",
     ]
-    lines += _concept_table(_mc._FEATURES, headers)
+    lines += _reference_sections(_mc._FEATURES, headers)
     lines += [
         "## Planned features",
         "",
@@ -113,7 +140,12 @@ def write_modeling_concepts() -> None:
         "the workbook sheet for the same rows.",
         "",
     ]
-    lines += _concept_table(_mc._PLANNED_FEATURES, headers)
+    lines += _reference_sections(_mc._PLANNED_FEATURES, headers)
+    lines += [
+        "## Further reading", "",
+        "[Stata: interpreting log-transformed outcomes](https://www.stata.com/stata-news/news34-2/spotlight/) explains why exponentiating a log prediction does not in general estimate an arithmetic mean.",
+        "",
+    ]
     _write("modeling-concepts.md", "\n".join(lines))
 
 
@@ -129,23 +161,35 @@ def write_diagnostic_guide() -> None:
         "`lambda_catalog/write_sheet_diagnostic_guide.py`.",
         "",
         "Use the charts and flagged cells on the Regression sheet to assess",
-        "model assumptions. Work through Tier 1 first; investigate Tier 2",
-        "only when a Tier 1 plot raises a concern.",
+        "model assumptions. Start with Tier 1, then review spread and influence",
+        "in Tier 2 even if the first plots show no obvious problem.",
+        "",
+        "The thresholds below are the workbook's screening rules, not universal",
+        "tests of model validity. In particular, Q-Q correlation cutoffs are not",
+        "sample-size-adjusted normality tests. Consider the sampling design and",
+        "possible dependence as well as the plots.",
         "",
         "## Tier 1 — review for every model",
         "",
     ]
     plot_headers = ["Plot", "X-axis", "Y-axis", "What to look for"]
-    lines += _concept_table(_dg._TIER1, plot_headers)
-    lines += ["## Tier 2 — investigate when Tier 1 raises a concern", ""]
-    lines += _concept_table(_dg._TIER2, plot_headers)
+    lines += _reference_sections(_dg._TIER1, plot_headers)
+    lines += ["## Tier 2 — review spread and influence", ""]
+    lines += _reference_sections(_dg._TIER2, plot_headers)
     lines += ["## Diagnostic threshold reference", ""]
     lines += _concept_table(
         _dg._THRESHOLDS,
         ["Diagnostic", "Location on sheet", "Yellow threshold", "Red threshold"],
     )
     lines += ["## Common patterns and next steps", ""]
-    lines += _concept_table(_dg._GUIDANCE, ["Pattern", "Symptom", "Next step"])
+    lines += _reference_sections(_dg._GUIDANCE, ["Pattern", "Symptom", "Next step"])
+    lines += [
+        "## Further reading", "",
+        "[NIST: checking regression assumptions](https://itl.nist.gov/div898/handbook/pri/section2/pri245.htm) discusses residual shape, variance, and independence.",
+        "",
+        "[NIST: regression diagnostics](https://www.itl.nist.gov/div898/software/dataplot/refman1/auxillar/regrdiag.htm) describes leverage and influence measures.",
+        "",
+    ]
     _write("diagnostic-guide.md", "\n".join(lines))
 
 
@@ -204,7 +248,7 @@ def write_spec_block() -> None:
         "# The MODEL SPECIFICATION block (columns A–O)",
         "",
         "One row per source-table column, header row 3, spec rows from row 4.",
-        "Orange cells are yours to type; everything else computes. The block",
+        "Orange cells accept inputs; computed columns contain formulas. The block",
         "sizes itself from `Source_Table`, so retargeting the one name resizes",
         "every band.",
         "",
@@ -357,10 +401,8 @@ _FORMULA_SAMPLES: list[dict[str, str]] = [
         "formula": lambda: _spec_band("Regression", _sl._C_ROLE),
         "plain": (
             "Take the first `COLUMNS(Source_Data)` rows of the fixed 16000-row "
-            "band under column B. Because it is `TAKE` (not the volatile "
-            "`OFFSET`), the name costs nothing until the table is retargeted — "
-            "and retargeting `Source_Table` resizes every spec column at once. "
-            "This one formula is the whole \"one edit\" promise."
+            "band under column B. The `TAKE` formula sizes the named range "
+            "to the source table column count when Excel recalculates."
         ),
     },
     {
@@ -414,12 +456,12 @@ _FORMULA_SAMPLES: list[dict[str, str]] = [
         "source": "lambda_catalog/write_sheet_regression.py — the Unit-Space Fit block",
         "formula": _unit_space_r_squared_formula,
         "plain": (
-            "When the response is Log-transformed, the fit runs in log space "
-            "and `EXP(ŷ)` is the *median* prediction, not the mean. The last "
-            "argument here is the AH5 toggle: Duan multiplies by the smearing "
-            "factor (the mean of EXP(residuals)) to recover the conditional "
-            "mean; Naive is plain EXP. One toggle re-points R², RMSE, the "
-            "prediction bounds and the residual columns together."
+            "When the response is Log-transformed, the fit runs in log space. "
+            "The last argument reads the AH5 toggle: Duan multiplies EXP(ŷ) "
+            "by the smearing factor, the mean of EXP(residuals); Naive uses "
+            "EXP(ŷ) without adjustment. The toggle changes original-unit "
+            "fit statistics, point predictions, and residuals. Interval "
+            "bounds always use the Naive back-transformation."
         ),
     },
     {
@@ -461,8 +503,8 @@ _FORMULA_SAMPLES: list[dict[str, str]] = [
             if f["name"] == "Grid_Argument_Minimum"
         ),
         "plain": (
-            "The whole search-recovery trick in one LAMBDA: find the minimum "
-            "of a grid, then recover WHERE it sits. `TOCOL` flattens the grid "
+            "Find the minimum "
+            "of a grid, then recover its row and column. `TOCOL` flattens the grid "
             "row-major, `XMATCH` finds the first minimum's flat position, "
             "and `QUOTIENT`/`MOD` convert it back to (row, column). The "
             "boundary guard reads the column: if the best shape is the first "

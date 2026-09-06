@@ -51,17 +51,18 @@ _LAST_COL = _COLUMNS[-1].index
 _FEATURES: list[list[str]] = [
     [
         "Intercept Control\n(C2 toggle)",
-        "The intercept is the model's baseline — the expected response at "
-        "zero on every predictor. Usually that baseline is meaningful and "
-        "should stay; occasionally theory says the response must be zero "
-        "when the predictors are.",
-        "A model-level on/off toggle (cell C2). With reference-coded "
-        "categoricals in the model, turning it OFF is flagged red: each "
-        "dummy coefficient redefines from a contrast against the reference "
-        "to an absolute level mean, which is usually not the question being "
-        "asked. Under Fixed Effects it is flagged because the within "
-        "transformation demeans the data, and the intercept of demeaned "
-        "data is an uninterpretable artifact.",
+        (
+            "The intercept is the model's baseline — the expected response at zero on every "
+            "predictor. Keep the intercept unless the model requires a zero response when all "
+            "predictors are zero; the baseline need not itself be a meaningful observed case."
+        ),
+        (
+            "A model-level on/off toggle (cell C2). With reference-coded categoricals in the "
+            "model, turning it OFF is flagged red: the workbook still drops the reference "
+            "category, so removing the intercept also constrains the reference baseline to zero. "
+            "Under Fixed Effects it is flagged because the within transformation demeans the "
+            "data, and the intercept of demeaned data is an uninterpretable artifact."
+        ),
         "Theory says cost is zero at zero production, or the instrument "
         "reads zero with no input? Turn the intercept off for a "
         "regression-through-origin fit. Otherwise leave it on and let it "
@@ -87,23 +88,31 @@ _FEATURES: list[list[str]] = [
     ],
     [
         "Log Transforms\n(Transform = Log / Log (drop ≤ 0))",
-        "Many relationships are multiplicative, not additive — effects are "
-        "percentages, not absolute amounts. Fitting in log space makes "
-        "percentages linear, tames skewed data, and turns elasticity models "
-        "into simple slopes.",
-        "The fit runs on Ln(y) and/or Ln(x): every statistic (coefficients, "
-        "R², residuals, prediction intervals) is in log space. The Unit-Space "
-        "Fit block back-transforms predictions and fit statistics to the "
-        "original units with Duan smearing — a retransformation correction "
-        "for the bias of exp(Ln ỹ) under non-constant variance — next to the "
-        "naive exp() form so the two can be compared. Zeros and negatives "
-        "have no logarithm: plain Log keeps them in the sample and the fit "
-        "fails loudly (#N/A, cell turns red); Log (drop ≤ 0) excludes them "
-        "and reports how many.",
-        "Price vs. size: a Log response with Log predictors gives an "
-        "elasticity — each coefficient is the % change in price for a 1% "
-        "change in its predictor. For a skewed response like income, "
-        "Log(y) makes the residuals symmetric and the Q-Q plot behave.",
+        (
+            "Log transforms can represent multiplicative relationships. They change the scale on "
+            "which the model is fitted and its coefficients are interpreted; they do not "
+            "guarantee an adequate fit or symmetric residuals."
+        ),
+        (
+            "Only variables marked Log are transformed. Logging a predictor alone leaves the "
+            "response and residuals in response units. When the response is logged, Naive "
+            "exponentiates its fitted log value; Duan also multiplies by the average of "
+            "exp(residuals). This common smearing factor estimates an original-unit conditional "
+            "mean only when the error retransformation factor is constant across predictor "
+            "values. It does not generally correct heteroscedasticity. Naive represents a "
+            "conditional median when log errors have conditional median zero. Original-unit "
+            "interval bounds always use Naive; they are not confidence bounds for the Duan-"
+            "adjusted mean. Zeros and negatives have no logarithm: plain Log keeps them in the "
+            "sample and the fit returns #N/A and flags the Transform cell red; Log (drop ≤ 0) "
+            "excludes them and reports how many."
+        ),
+        (
+            "In a log-log model without interactions, a coefficient gives the proportional change"
+            " in the fitted geometric mean of the response for a proportional change in that "
+            "predictor, holding other predictors fixed. For small changes, a 1% predictor "
+            "increase corresponds to approximately that coefficient percent change in the fitted "
+            "response. Inspect residual plots after transformation."
+        ),
     ],
     [
         "Sample Filtering & Completeness\n(Role = Filter)",
@@ -165,11 +174,12 @@ _FEATURES: list[list[str]] = [
     ],
     [
         "Sequence Effects\n(Sequence flag, column H)",
-        "Panel and repeated-measures data violate the independence "
-        "assumption — rows within one unit follow each other in time. Lags, "
-        "differences, and serial-correlation diagnostics all need to know "
-        "which variable defines that ordering, which is what the Sequence "
-        "flag declares.",
+        (
+            "Panel and repeated-measures data can violate the independence assumption — rows "
+            "within one unit follow each other in time. Lags, differences, and serial-correlation"
+            " diagnostics all need to know which variable defines that ordering, which is what "
+            "the Sequence flag declares."
+        ),
         "Within-group exact-time matching: Lag_By and Difference_By find each "
         "group's prior period by matching its time value, never by row "
         "position, so a gap in the panel yields #N/A instead of a silently "

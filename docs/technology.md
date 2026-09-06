@@ -1,22 +1,17 @@
-# Part 0 — What this is, in plain terms
+# How the workbook works
 
 ## What you get is a spreadsheet
 
-Everything this project produces is **one Excel file**:
-`dist/Lambda_Library.xlsx`. Open it, and you are looking at the whole
-thing. There is no app, no installer, and — importantly — **no macros**,
-so it opens without any security warnings and works in Excel for Windows
-and Mac alike (the workbook itself needs no Python; the formulas use
-functions built into modern Excel).
+The analysis workbook is `dist/Lambda_Library.xlsx`. Its calculations use
+Excel formulas, including LAMBDA and dynamic-array functions. Using the
+workbook requires an Excel version that supports those functions; it does
+not require Python, macros, or add-ins.
 
-The rest of this repository — all the Python code — is the **factory**
-that builds that one file. You never run Python to *use* the workbook, only
-to rebuild it.
+The repository's Python code builds and verifies the workbook.
 
-## Three technologies, from zero
+## How the workbook uses Excel formulas
 
-If you have used Excel's `SUM`, you are three ideas away
-from understanding every formula in this workbook:
+The following concepts explain how the formulas are organized.
 
 ### 1. LAMBDA and the Name Manager — Excel's own function language
 
@@ -29,7 +24,7 @@ where a cell formula would need a helper column, `LET` keeps the whole
 chain in one place. You will see `LAMBDA` and `LET` in nearly every
 formula this workbook writes.
 
-This project takes that idea further than most: the workbook's LAMBDA
+The workbook's LAMBDA
 functions — the regression engine, the distribution fitters, the
 diagnostic statistics — form a **catalog** of named functions, one row
 each on the `LAMBDA_functions` tab, every one documented. The complete
@@ -41,19 +36,16 @@ that sheet's layout.
 ### 2. Dynamic arrays — formulas that spill
 
 In old Excel, one formula filled one cell. In modern Excel, a formula can
-**spill**: `=A1:A10` written in one cell fills ten cells downward with a
-blue outline around the result. That spilled range is referred to as
-`A1#` — "whatever that spill currently is."
+**spill**: entering `=A1:A10` in C1 fills C1:C10. The reference `C1#`
+refers to that spilled result, using the address of the formula cell.
 
-This workbook leans on spills everywhere, for one reason: **the model
-resizes**. Point the sheet at a table with 12 columns and every
-specification row, design-matrix column and output resizes itself. The
-helper vocabulary you will see over and over:
+Spills allow computed ranges to resize when the source table or model
+specification changes. The formulas use these functions:
 
 | Function | What it does |
 |---|---|
 | `SEQUENCE(n)` | The numbers 1..n as a column |
-| `TAKE(range, n)` | The first n rows of a range — non-volatile, so cheap |
+| `TAKE(range, n)` | The first n rows of a range when n is positive |
 | `MAP(range, LAMBDA(...))` | Evaluate a formula once per element |
 | `BYROW(range, LAMBDA(...))` | Evaluate once per **row** of a 2-D range |
 | `FILTER(range, condition)` | Keep the rows where the condition is TRUE |
@@ -64,34 +56,28 @@ helper vocabulary you will see over and over:
 
 ### 3. Python as the builder, not the engine
 
-The Python in this repository is a **factory robot**: it opens Excel
-through a library called `xlwings`, writes every sheet, formula, chart,
-named range and color into a new workbook, saves it, and exits. Its
-output is a normal file you can email to a colleague; from then on
-Excel alone does all the math. (The workbook needs no Python; it needs
-only the Excel you already have.)
+The build scripts use `xlwings` to open Excel, write formulas and formatting,
+copy template sheets, and save the workbook. Excel evaluates the formulas
+when you use the resulting file.
 
-Why build it with Python at all? Because writing 150+ interlocking
-formulas by hand is error-prone — the factory writes them the same way
-every time, and the project's tests can verify the result.
+Building with Python makes the workbook's formulas and layout reproducible
+and allows the project's tests to check the result.
 
 ## The color grammar
 
-Every sheet follows one convention — learn it once, read any sheet:
+The sheets use the following color conventions:
 
 | Color | Meaning |
 |---|---|
 | **Light orange** | An input cell — this one is yours to type in |
 | **Light blue** | A heading — structure, not data |
-| **Red fill, dark red text** | Something is wrong; read the message and fix it |
+| **Red fill, dark red text** | A validation or diagnostic threshold has been crossed; inspect the associated value or message |
 | **Yellow/amber fill** | A borderline warning — legal, but worth a look |
 | No fill | Computed — the workbook owns this cell |
 
-Red and yellow are **conditional formats**: the fill appears only when a
-rule fires, and the matching status cell near the top of the sheet states
-the problem in plain English (for example, the cell above the Role column
-says *"ERROR: multiple Response (y) rows — mark exactly one."*). Nothing
-fails silently.
+Red and yellow are **conditional formats**: the fill appears when a rule
+fires. Some specification checks also display a message in row 2; for
+example, the cell above the Role column reports multiple Response rows.
 
 ## One caution before you start
 

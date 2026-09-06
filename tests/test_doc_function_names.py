@@ -98,6 +98,7 @@ _POLICED_DOCS = (
     "docs/index.md",
     "docs/technology.md",
     "docs/walkthrough.md",
+    "docs/worked-example.md",
     "docs/improvements.md",
     "excel-only-runs/README.md",
 )

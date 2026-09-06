@@ -2,7 +2,7 @@
 # The MODEL SPECIFICATION block (columns A–O)
 
 One row per source-table column, header row 3, spec rows from row 4.
-Orange cells are yours to type; everything else computes. The block
+Orange cells accept inputs; computed columns contain formulas. The block
 sizes itself from `Source_Table`, so retargeting the one name resizes
 every band.
 

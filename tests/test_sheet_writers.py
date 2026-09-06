@@ -1578,7 +1578,12 @@ def test_local_name_setup_removes_legacy_globals_and_uses_method_cells() -> None
         "=OFFSET('Univariate'!$X$4,1,0,"
         "MAX(IFERROR(Number_Of_Histogram_Bins(UV_Data,'Univariate'!$W$2,UV_Include),1),1),1)"
     )
-    assert getattr(names.by_short_name("UV_Sturges_Normal_CDF"), "Comment", None) is None
+    # The non-chart zone columns carry a Name Manager comment too, stating
+    # their role in the histogram zone instead of a chart they feed.
+    assert names.by_short_name("UV_Sturges_Normal_CDF").Comment == (
+        "Sturges Method histogram zone: per-bin Normal CDF deltas "
+        "(input to the expected-count overlay)"
+    )
 
 
 def test_local_name_setup_drops_legacy_globals_without_enumerating_all_workbook_names() -> None:

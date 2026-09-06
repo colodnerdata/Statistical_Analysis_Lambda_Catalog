@@ -648,11 +648,73 @@ def _set_sheet_scoped_names(
         ),
     }
 
+    # The Name Manager is the surface a user reads to learn what a name is
+    # for — or to retarget Source_Table at another dataset — so every wiring
+    # name carries a brief purpose comment there, mirroring the chart-range
+    # convention in write_sheet_regression's _setup_local_names.
+    local_name_comments: dict[str, str] = {
+        "Source_Table": (
+            "The sheet's data source: the source Excel Table (header + all "
+            "rows). Edit this one name to retarget the sheet at a different "
+            "dataset."
+        ),
+        "Source_Data": "Data body of Source_Table (header row dropped).",
+        "Header_Names": "Header row of Source_Table.",
+        "Spec_Role": (
+            "Spec block input band: the Role column (Response / Predictor / "
+            "Identifier / Filter / Omit / Fixed Effects)."
+        ),
+        "Spec_Include": "Spec block input band: the Include toggle column.",
+        "Spec_Type": (
+            "Spec block input band: the Type column (Continuous / "
+            "Categorical)."
+        ),
+        "Spec_Reference": (
+            "Spec block input band: the categorical Reference-level column."
+        ),
+        "Spec_Order": (
+            "Spec block band: the Order column — reserved, bound but not "
+            "read by any formula yet."
+        ),
+        "Spec_Transform": (
+            "Spec block input band: the Transform column (None / Log / "
+            "Log (drop ≤ 0))."
+        ),
+        "Spec_Sequence": (
+            "Spec block band: the Sequence structural flag column (H)."
+        ),
+        "Spec_Sequence_Period": (
+            "Spec block input band: the Sequence Period typed override (I)."
+        ),
+        "Spec_Period_In_Use": (
+            "Spec block band: the Period In Use display (J) — the candidate "
+            "Δ with the typed override applied."
+        ),
+        "Spec_Interaction_Term": (
+            "Spec block input band: the Interaction Term column (M)."
+        ),
+        "Spec_Interaction_Operation": (
+            "Spec block input band: the Interaction Operation column (N)."
+        ),
+        "Spec_Design_Columns": (
+            "Spec block band: the Design Columns audit display (O); only "
+            "the width guard reads it."
+        ),
+        "Allow_Intercept": (
+            "Model-level Intercept toggle — the row-2 control cell in the "
+            "Include column (C2)."
+        ),
+    }
+    assert set(local_names) == set(local_name_comments), (
+        "every spec-wiring name needs a Name Manager comment"
+    )
+
     # Wiring first: Excel resolves each name against the ones already added,
     # and the constructor closures below reference Source_Data / Spec_*.
     for name, refers_to in local_names.items():
         drop_local_name(sheet, name)
-        sheet.api.Names.Add(Name=name, RefersTo=refers_to)
+        _nm = sheet.api.Names.Add(Name=name, RefersTo=refers_to)
+        _nm.Comment = local_name_comments[name]
 
     # Constructor closures (Sample_Include, Response_Column, Row_Labels, Predictor_Columns,
     # Constructed_Column_Names) come from lambda_functions.json, in document
@@ -675,7 +737,11 @@ def _set_sheet_scoped_names(
         # SPILL_READER_NAMES in regression_materialization.py.
         refers_to = qualify_spill_reader_references(refers_to, sheet.name)
         drop_local_name(sheet, closure.name)
-        sheet.api.Names.Add(Name=closure.name, RefersTo=refers_to)
+        _nm = sheet.api.Names.Add(Name=closure.name, RefersTo=refers_to)
+        # The catalog entry's notes ARE the Name Manager comment: one
+        # description of the closure's purpose, shared with the
+        # LAMBDA_functions sheet's tooltip column.
+        _nm.Comment = closure.notes
 
 
 def _add_list_validation(sheet: xw.Sheet, col: int, formula: str) -> None:

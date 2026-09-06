@@ -102,14 +102,19 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
     sname = sheet.name
     f_col = col_letter(_DATA_COL)
     i_col = col_letter(_INCLUDE_COL)
-    sheet.api.Names.Add(
+    nm = sheet.api.Names.Add(
         Name="UV_Data",
         RefersTo=f"='{sname}'!${f_col}${_DATA_ROW_START}#",
     )
-    sheet.api.Names.Add(
+    nm.Comment = (
+        "The raw data column spill, unfiltered — the completeness mask is "
+        "UV_Include."
+    )
+    nm = sheet.api.Names.Add(
         Name="UV_Include",
         RefersTo=f"='{sname}'!${i_col}${_DATA_ROW_START}#",
     )
+    nm.Comment = "Completeness filter mask spill: TRUE where the raw value is numeric."
 
 
 def _write_data_feed(sheet: xw.Sheet) -> None:
@@ -389,9 +394,12 @@ def _write_grid_stage_cartesian(
     name_alpha = f"{body_name}_ALPHA"
     name_beta = f"{body_name}_BETA"
     name_nll = f"{body_name}_NLL"
-    sheet.api.Names.Add(Name=name_alpha, RefersTo=f"='{sname}'!{body_alpha_a1}")
-    sheet.api.Names.Add(Name=name_beta, RefersTo=f"='{sname}'!{body_beta_a1}")
-    sheet.api.Names.Add(Name=name_nll, RefersTo=f"='{sname}'!{body_nll_a1}")
+    nm = sheet.api.Names.Add(Name=name_alpha, RefersTo=f"='{sname}'!{body_alpha_a1}")
+    nm.Comment = f"{body_name}: the Alpha candidate values (fixed A1 range over the spill)"
+    nm = sheet.api.Names.Add(Name=name_beta, RefersTo=f"='{sname}'!{body_beta_a1}")
+    nm.Comment = f"{body_name}: the Beta candidate values (fixed A1 range over the spill)"
+    nm = sheet.api.Names.Add(Name=name_nll, RefersTo=f"='{sname}'!{body_nll_a1}")
+    nm.Comment = f"{body_name}: the NLL body — Min NLL and Best α/β recovery read it"
 
     # ── Min NLL, Best alpha, Best beta (read from the NLL column name) ─────
     # The body is row-major, so the 1-based body-row index of the min NLL is

@@ -204,6 +204,7 @@ Don't wrap `build_production_workbook()` in one retry loop. The fast (~10s) reca
 ## Sheet writer conventions
 
 - **Layout single-source-of-truth**: row constants (`_ROW_TITLE`, `_ROW_DATA_START`, …) at the top of each writer; chart series via `OFFSET` named ranges (CONTRIBUTING.md § *Chart series data ranges*); `app.api.Calculation = XL_CALCULATION_MANUAL` before writes, `XL_CALCULATION_SEMIAUTOMATIC` after, before save.
+- **Every defined name carries a Name Manager comment**: set `.Comment` at the `Names.Add` site immediately after the add (`_nm = sheet.api.Names.Add(...); _nm.Comment = "..."` — sheet-scoped wiring, chart-range, and spill-reader names), and the constructor-closure sites set it to the catalog entry's `notes` verbatim, so a name's purpose is stated exactly once. `tests/test_workbook_invariants.py::test_every_defined_name_carries_a_comment` (always-on, pure zipfile) fails the suite on a comment-less name in the committed dist, so a new name without a comment fails CI, not the first user who opens the Name Manager.
 
 ### Guard headless/no-focus Excel calls with the `safe_*` helpers
 

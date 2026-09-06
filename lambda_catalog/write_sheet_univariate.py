@@ -562,29 +562,41 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
 
     # UV_Data: spill range of the raw column formula in A4; unfiltered — filter is UV_Include
     drop_local_name(sheet, "UV_Data")
-    sheet.api.Names.Add(
+    nm = sheet.api.Names.Add(
         Name="UV_Data",
         RefersTo=f"='{sname}'!${col_letter(_C_A)}${_ROW_DATA_START}#",
+    )
+    nm.Comment = (
+        "The raw data column spill (A4#), unfiltered — the completeness "
+        "mask is UV_Include."
     )
 
     # UV_Include: local filter mask — spill of the Data_Completeness formula in B4
     drop_local_name(sheet, "UV_Include")
-    sheet.api.Names.Add(
+    nm = sheet.api.Names.Add(
         Name="UV_Include",
         RefersTo=f"='{sname}'!${col_letter(_C_B)}${_ROW_DATA_START}#",
+    )
+    nm.Comment = (
+        "Completeness filter mask spill (B4#): TRUE where the raw value is "
+        "numeric."
     )
 
     # UV_n: count of numeric included observations; used by GoF_BIC and chart range sizing
     drop_local_name(sheet, "UV_n")
-    sheet.api.Names.Add(
+    nm = sheet.api.Names.Add(
         Name="UV_n",
         RefersTo=f"=IFERROR(COUNT(FILTER('{sname}'!${col_letter(_C_A)}${_ROW_DATA_START}#,UV_Include)),0)",
+    )
+    nm.Comment = (
+        "Count of included numeric observations; feeds GoF_BIC and chart "
+        "range sizing."
     )
 
     # Histogram column ranges: OFFSET-based, anchored at the header row like
     # Regression chart ranges, and sized by the method value stored in row 2.
-    # Upper_Edges and Counts feed the histogram chart SERIES formulas, so they
-    # get a Name Manager comment saying which chart they belong to.
+    # Every column name carries a Name Manager comment stating its role in
+    # the zone; Upper_Edges and Counts name the chart they feed.
     method_labels = {
         "UV_Sturges": "Sturges",
         "UV_Scott": "Scott",
@@ -617,6 +629,18 @@ def _setup_local_names(sheet: xw.Sheet) -> None:
             )
             if suffix in chart_comments:
                 nm.Comment = chart_comments[suffix]
+            elif suffix == "Lower_Edges":
+                nm.Comment = (
+                    f"{method_labels[prefix]} Method histogram zone: bin "
+                    "lower edges (intermediate column; the charts read "
+                    "Upper_Edges)"
+                )
+            else:  # the per-distribution CDF column
+                nm.Comment = (
+                    f"{method_labels[prefix]} Method histogram zone: "
+                    f"per-bin {distribution} CDF deltas (input to the "
+                    "expected-count overlay)"
+                )
 
             if not distribution:
                 continue
@@ -1710,20 +1734,27 @@ def _write_profile_fit(
     # profile axis is N points, not N².  Sizing these off the cell rather than
     # pinning them to the default window is what lets Min NLL, the Optimal
     # Shape recovery, and the boundary guard all see a resized grid.
-    for name, col_off, n_ref in (
-        (body_s1, _PR_C_S1,     s1_n_ref), (axis_s1, _PR_C_LABEL, s1_n_ref),
-        (body_s2, _PR_C_S2_NLL, s2_n_ref), (axis_s2, _PR_C_S2,    s2_n_ref),
+    for name, col_off, n_ref, comment in (
+        (body_s1, _PR_C_S1,     s1_n_ref,
+         f"{dist_name} fit Stage 1: the profile-NLL column over the axis"),
+        (axis_s1, _PR_C_LABEL, s1_n_ref,
+         f"{dist_name} fit Stage 1: the {p1_label} axis (Full_Factorial grid)"),
+        (body_s2, _PR_C_S2_NLL, s2_n_ref,
+         f"{dist_name} fit Stage 2 (refined): the profile-NLL column over the axis"),
+        (axis_s2, _PR_C_S2,    s2_n_ref,
+         f"{dist_name} fit Stage 2 (refined): the {p1_label} axis (Full_Factorial grid)"),
     ):
         cl = col_letter(c0 + col_off)
         _drop_wb_name(sheet, name)
         drop_local_name(sheet, name)
-        sheet.api.Names.Add(
+        nm = sheet.api.Names.Add(
             Name=name,
             RefersTo=(
                 f"=OFFSET('{sname}'!${cl}${body_row},0,0,"
                 f"MAX(IFERROR('{sname}'!{n_ref},1),1),1)"
             ),
         )
+        nm.Comment = comment + ", sized to the live Grid Points cell"
 
     # ── OFFSET chart ranges (sized by each stage's Grid Points cell) ───────────
     stem = body_prefix.removeprefix("UV_")
@@ -1737,9 +1768,17 @@ def _write_profile_fit(
             cl = col_letter(c0 + col_off)
             _drop_wb_name(sheet, name)
             drop_local_name(sheet, name)
-            sheet.api.Names.Add(
+            nm = sheet.api.Names.Add(
                 Name=name,
                 RefersTo=f"=OFFSET('{sname}'!${cl}${body_row},0,0,{size},1)",
+            )
+            nm.Comment = (
+                f"{dist_name} profile-NLL chart: Stage {stage} "
+                + (
+                    f"{p1_label} values (X axis)"
+                    if suffix == "Axis"
+                    else "profile-NLL curve values (Y axis)"
+                )
             )
 
     # ── Boundary guard (Best P1 cells) + NLL colour scale ─────────────────────
@@ -1933,43 +1972,57 @@ def _write_beta_fit(sheet: xw.Sheet, beta_grid_size: int = _N_GRID) -> dict:
     # ── OFFSET named ranges (height N², tracking the live Grid Points cell) ───
     name_s1_alpha, name_s1_beta, name_s1_nll = "UV_BETA_S1_Alpha", "UV_BETA_S1_Beta", "UV_BETA_S1_NLL"
     name_s2_alpha, name_s2_beta, name_s2_nll = "UV_BETA_S2_Alpha", "UV_BETA_S2_Beta", "UV_BETA_S2_NLL"
-    for name, col_off, n_ref in (
-        (name_s1_alpha, _BETA_C_LABEL,  s1_n),
-        (name_s1_beta,  _BETA_C_S1_A,   s1_n),
-        (name_s1_nll,   _BETA_C_S1_B,   s1_n),
-        (name_s2_alpha, _BETA_C_S2_A,   s2_n),
-        (name_s2_beta,  _BETA_C_S2_B,   s2_n),
-        (name_s2_nll,   _BETA_C_S2_NLL, s2_n),
+    for name, col_off, n_ref, comment in (
+        (name_s1_alpha, _BETA_C_LABEL,  s1_n,
+         "Beta fit Stage 1: the Alpha column of the N² Cartesian grid, sized to the live Grid Points cell"),
+        (name_s1_beta,  _BETA_C_S1_A,   s1_n,
+         "Beta fit Stage 1: the Beta column of the N² Cartesian grid, sized to the live Grid Points cell"),
+        (name_s1_nll,   _BETA_C_S1_B,   s1_n,
+         "Beta fit Stage 1: the NLL column over the N² grid — Min NLL and Best α/β recovery read it"),
+        (name_s2_alpha, _BETA_C_S2_A,   s2_n,
+         "Beta fit Stage 2 (refined): the Alpha column of the N² Cartesian grid, sized to the live Grid Points cell"),
+        (name_s2_beta,  _BETA_C_S2_B,   s2_n,
+         "Beta fit Stage 2 (refined): the Beta column of the N² Cartesian grid, sized to the live Grid Points cell"),
+        (name_s2_nll,   _BETA_C_S2_NLL, s2_n,
+         "Beta fit Stage 2 (refined): the NLL column over the N² grid — Min NLL and Best α/β recovery read it"),
     ):
         cl = col_letter(c0 + col_off)
         _drop_wb_name(sheet, name)
         drop_local_name(sheet, name)
-        sheet.api.Names.Add(
+        nm = sheet.api.Names.Add(
             Name=name,
             RefersTo=(
                 f"=OFFSET('{sname}'!${cl}${body_row},0,0,"
                 f"MAX(IFERROR('{sname}'!{n_ref},1),1)^2,1)"
             ),
         )
+        nm.Comment = comment
 
-    for name, col_off, n_ref in (
-        ("UV_Profile_BETA_S1_Alpha_Axis", _BETA_C_LABEL, s1_n),
-        ("UV_Profile_BETA_S1_Beta_Axis", _BETA_C_S1_A, s1_n),
-        ("UV_Profile_BETA_S1_NLL", _BETA_C_S1_B, s1_n),
-        ("UV_Profile_BETA_S2_Alpha_Axis", _BETA_C_S2_A, s2_n),
-        ("UV_Profile_BETA_S2_Beta_Axis", _BETA_C_S2_B, s2_n),
-        ("UV_Profile_BETA_S2_NLL", _BETA_C_S2_NLL, s2_n),
+    for name, col_off, n_ref, comment in (
+        ("UV_Profile_BETA_S1_Alpha_Axis", _BETA_C_LABEL, s1_n,
+         "Beta fit Stage 1: Alpha values over the N² grid — reserved for the future Beta chart"),
+        ("UV_Profile_BETA_S1_Beta_Axis", _BETA_C_S1_A, s1_n,
+         "Beta fit Stage 1: Beta values over the N² grid — reserved for the future Beta chart"),
+        ("UV_Profile_BETA_S1_NLL", _BETA_C_S1_B, s1_n,
+         "Beta fit Stage 1: NLL values over the N² grid — reserved for the future Beta chart"),
+        ("UV_Profile_BETA_S2_Alpha_Axis", _BETA_C_S2_A, s2_n,
+         "Beta fit Stage 2 (refined): Alpha values over the N² grid — reserved for the future Beta chart"),
+        ("UV_Profile_BETA_S2_Beta_Axis", _BETA_C_S2_B, s2_n,
+         "Beta fit Stage 2 (refined): Beta values over the N² grid — reserved for the future Beta chart"),
+        ("UV_Profile_BETA_S2_NLL", _BETA_C_S2_NLL, s2_n,
+         "Beta fit Stage 2 (refined): NLL values over the N² grid — reserved for the future Beta chart"),
     ):
         cl = col_letter(c0 + col_off)
         _drop_wb_name(sheet, name)
         drop_local_name(sheet, name)
-        sheet.api.Names.Add(
+        nm = sheet.api.Names.Add(
             Name=name,
             RefersTo=(
                 f"=OFFSET('{sname}'!${cl}${body_row},0,0,"
                 f"MAX(IFERROR('{sname}'!{n_ref},1),1)^2,1)"
             ),
         )
+        nm.Comment = comment
 
     # ── Recovery: Min NLL and Optimal (α, β) ───────────────────────────────────
     for nll_name, alpha_name, beta_name, minnll_coff, best_a_coff, n_ref in (

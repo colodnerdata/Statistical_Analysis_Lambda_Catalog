@@ -4,8 +4,9 @@ This sheet is a fixed, dataset-independent reference, so artifact
 builds just copy the already-styled sheet out of ``TEMPLATE_PATH`` (see
 ``copy_static_sheet``) instead of re-running the row-by-row COM writes on
 every build. ``_write_template_sheet`` remains the authored source of the
-content; run this module's CLI after editing it to regenerate the template,
-then commit the updated ``.xlsx``.
+content; run ``scripts/rebuild_static_sheets.py`` after editing it to
+regenerate the template (it refreshes every static sheet so two edited
+modules cannot half-regenerate), then commit the updated ``.xlsx``.
 """
 from __future__ import annotations
 
@@ -88,7 +89,10 @@ def _write_template_sheet(workbook: xw.Book) -> None:
     _heading(sheet, r, "REGRESSION DIAGNOSTIC GUIDE"); r += 1
     sheet.range((r, 1)).value = (
         "Use the charts and flagged cells on the Regression sheet to assess model assumptions. "
-        "Work through Tier 1 first; investigate Tier 2 only when a Tier 1 plot raises a concern."
+        "Work through Tier 1 first; investigate Tier 2 only when a Tier 1 plot raises a concern. "
+        "Each chart's title carries the live statistics it judges against — the Q-Q correlation, "
+        "the Adjusted R², the mean leverage, the Cook's Distance cutoff and the PRESS total — so "
+        "a chart can be read without scrolling back to its source cell."
     )
     sheet.range((r, 1)).api.WrapText = True
     r += 2
@@ -111,14 +115,18 @@ def _write_template_sheet(workbook: xw.Book) -> None:
             "Studentized Residuals Ranked",
             "Points close to a straight diagonal line. Heavy tails or an S-curve indicate "
             "non-normal errors. Check QQ Correlation (Cell P10): below 0.98 = mild concern, "
-            "below 0.95 = stronger concern.",
+            "below 0.95 = stronger concern. The chart title itself shows the live r and appends "
+            "a '— check normality' warning when it falls below 0.95, matching the table's red "
+            "threshold.",
         ],
         [
             "Actual vs. Predicted",
             "Predicted Y",
             "Y",
             "Points close to a 45° line. A bow or fan shape confirms the same problems "
-            "seen in Residuals vs. Fitted but from a different angle.",
+            "seen in Residuals vs. Fitted but from a different angle. The chart title shows "
+            "the response name and the live Adjusted R², so the fit's headline quality is "
+            "on the plot itself.",
         ],
     ]
     for vals in tier1:
@@ -147,7 +155,9 @@ def _write_template_sheet(workbook: xw.Book) -> None:
             "distribution, so the bar to beat scales with the model's own size — "
             "mark observations with "
             "outsized influence on the fitted coefficients. Bars are ordered by "
-            "observation number. Inspect those rows for data entry errors or genuine "
+            "observation number. The title prints the live cutoff, so the bar to "
+            "beat is visible on the plot itself, and bars above it carry data "
+            "labels naming the row. Inspect those rows for data entry errors or genuine "
             "outliers before removing them. Remove outliers only when you have a "
             "definitive, non-statistical reason to believe the data point is invalid, "
             "comes from a different population, or disproportionately distorts the "
@@ -160,7 +170,9 @@ def _write_template_sheet(workbook: xw.Book) -> None:
             "Studentized Residuals",
             "High leverage alone is not a problem. Combined high leverage and large "
             "residual (top-right or bottom-right of the plot) = influential outlier. "
-            "Hat > 2p/n is flagged red; Hat > 3p/n is additionally bold.",
+            "Hat > 2p/n is flagged red; Hat > 3p/n is additionally bold. The title "
+            "prints the live mean leverage (p/n), so 'Hat > 2p/n' reads directly as "
+            "'more than twice the printed mean.'",
         ],
         [
             "PRESS Residuals",
@@ -168,7 +180,8 @@ def _write_template_sheet(workbook: xw.Book) -> None:
             "PRESS Residual\n(e / (1 − h))",
             "PRESS residuals inflate the ordinary residual by leverage. Bars are ordered "
             "by observation number. Large values (|PRESS| > 2 × SE yellow, > 3 × SE red) "
-            "flag observations whose removal would substantially shift the fitted model.",
+            "flag observations whose removal would substantially shift the fitted model. "
+            "The chart title carries the live PRESS total.",
         ],
     ]
     for vals in tier2:
@@ -218,7 +231,14 @@ def _write_template_sheet(workbook: xw.Book) -> None:
     for vals in thresholds:
         _row(sheet, r, vals); r += 1
 
-    r += 1
+    sheet.range((r, 1)).value = (
+        "These thresholds surface in three places: the flagged cells named above, the "
+        "diagnostic and audit cells the table cites, and the chart titles and data "
+        "labels on the Regression sheet — a chart can be judged against its own printed "
+        "cutoff without scrolling back to its source cell."
+    )
+    sheet.range((r, 1)).api.WrapText = True
+    r += 2
 
     # ── Interpretation guidance ────────────────────────────────────────────────
     _subheading(sheet, r, "COMMON PATTERNS AND NEXT STEPS", cols=3); r += 1

@@ -16,21 +16,17 @@ data body, the variable list in the specification block — derives from
 it. So retargeting the sheet to your own data is a single edit:
 
 1. Put your data in an **Excel Table** (select the range with headers,
-   press **Ctrl+T**, or Home → Format as Table). Tables carry their own
-   headers and resize when rows are added.
+   press **Ctrl+T**, or Home → Format as Table). It must be a true
+   Excel Table, not a plain named range — the `[#All]` structured
+   reference in the example below is table syntax, and Tables carry
+   their own headers and resize when rows are added. If you haven't
+   made one before, Microsoft's guide covers both routes:
+   <https://support.microsoft.com/en-us/excel/get-started/create-and-format-tables>
 2. Open the **Name Manager** (Formulas → Name Manager), find
-   `Source_Table`, and edit *Refers To* to your data including its
+   `Source_Table`, and edit *Refers To* to your table including its
    header row — e.g. `=MyTable[#All]`.
 3. Done. The specification block below gains one row per column of your
    table, and every dropdown, band and output resizes with it.
-
-A structured Table is the convenient form, not a requirement: a **Named
-Range** works just as well. `Source_Table` can point at any rectangular
-range whose first row is headers — `=Data!$A$1:$F$100` — because the
-sheet reads it positionally: `Header_Names` takes the first row, and
-`Source_Data` is everything below it. The one trade-off to know: a Table
-grows by itself when you append rows, a fixed range does not, so point
-the name at the new extent after adding data.
 
 The shipped default is `LifeExpectancyData` (a curated four-driver
 model of life expectancy); a second sample table, `MileageData`, ships

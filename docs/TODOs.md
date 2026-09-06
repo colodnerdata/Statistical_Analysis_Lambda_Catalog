@@ -77,7 +77,6 @@ last in the Regression track — they are also listed in their own working order
 | [Re-examine the intercept-only closed-form bypass](#v30-leftovers) | M | v3.0 |
 | [Diagnostic-chart reference lines](#v1x--regression-sheet) | M | v1.x |
 | [Suppress worst-fit distributions from the combo charts](#v11-leftovers--univariate-sheet-writer) | M | v1.1 |
-| [Relabel within-model residual outputs + Diagnostic Guide paragraph](#v21-leftovers--follow-on-polish) | S | v2.1 |
 | [Model Comparison sheet layout](#v34--model-comparison-sheet) | L | v3.4 |
 | [Two-sample sheet layout](#v310--bivariate--two-sample) | M | v3.10 |
 | [Simulation sheet layout](#v311--resampling--simulation) | M | v3.11 |
@@ -85,10 +84,6 @@ last in the Regression track — they are also listed in their own working order
 | [Fix `warn_if_workbook_open`'s buffered-prompt deadlock](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
 | [Stop leaking Excel instances under `parallel`](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
 | [Clean the four `#VALUE!` cells out of the Regression artifact](#build-tooling--found-by-the-first-real-poe-verify-run) | S | — |
-
-The Diagnostic Guide item also needs Excel for a second reason: that sheet is
-baked into `templates/static_sheets.xlsx` and only regenerates through
-`python scripts/rebuild_static_sheets.py`.
 
 ### Blocked on a decision
 
@@ -181,13 +176,6 @@ Two-way FE is deliberately deferred until this framework is finished — see
   prediction; recorded so the encoding step is not forgotten. The deferral record
   is in
   [DECISIONS.md § v2.1 Categorical × FE](DECISIONS.md#v21--sequence-gap-aware-longitudinal-serial-correlation-diagnostics-fixed-effects).
-
-- **READY · S · needs Excel** — **Relabel within-model residual outputs + add a
-  Diagnostic Guide paragraph on residuals under FE.** Documentation-only, but the
-  Diagnostic Guide is a static template sheet: edit
-  `write_sheet_diagnostic_guide.py`, then run `python scripts/rebuild_static_sheets.py`
-  and commit the regenerated `templates/static_sheets.xlsx` alongside it, or the
-  change reaches no build.
 
 ## v3.0 leftovers
 

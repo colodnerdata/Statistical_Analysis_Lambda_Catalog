@@ -36,16 +36,14 @@ tag is deliberate, not an entry someone forgot to finish tagging.
 
 ### Start here
 
-Two self-contained items, in ascending cost:
+One self-contained item:
 
-1. [Finish drift check 3 — function names resolve](#documentation) — the count half is built; this is the name half, and the work is the exclusion list, not the lookup. `S · no Excel`
-2. [Wire the calendar-dated monthly series](#test-model-suite) — one dataset config closes the single axis the coverage matrix still lists as uncovered. `M · no Excel`
+1. [Wire the calendar-dated monthly series](#test-model-suite) — one dataset config closes the single axis the coverage matrix still lists as uncovered. `M · no Excel`
 
 ### Ready now — no Excel required
 
 | Task | Size | Milestone |
 |---|---|---|
-| [Finish drift check 3 — function names resolve](#documentation) | S | Documentation |
 | [Wire the calendar-dated monthly series](#test-model-suite) | M | Test suite |
 | [`Model_Formula_String` LAMBDA](#v34--model-comparison-sheet) | M | v3.4 |
 | [`Cluster` Role — clustered-robust V_β](#v35--cluster-role-clustered-ses) | L | v3.5 |
@@ -712,22 +710,23 @@ What follows is what the run exposed around it.
 
 Version-independent; not tied to a milestone.
 
-Three mechanical drift checks are proposed in
-[CONTRIBUTING.md § Documentation drift](../CONTRIBUTING.md#documentation-drift),
-tracked as review finding F7 (documentation drift is measurable). Checks 1
-(**link targets**) and 2 (**cross-document anchors**) are built in
-`tests/test_doc_links.py`; check 3's *count* half is built in
-`tests/test_doc_catalog_counts.py`, which found four stale numbers (139/139/131
-for a 140-entry catalog, and 17 for 18 sheet-scoped closures). What remains is
-check 3's *name* half.
+The three mechanical drift checks of
+[CONTRIBUTING.md § Documentation drift](../CONTRIBUTING.md#documentation-drift)
+(review finding F7 — documentation drift is measurable) are all built:
 
-- **READY · S · no Excel** — **Finish check 3: resolve function *names*.** Every
-  name written as a function reference in a doc table or fenced block resolves to
-  an entry in `lambda_functions.json`, unless it is a native Excel function or
-  explicitly tagged as planned. This is what would have caught the stale `X_s`
-  references the 2026-08-03 review found by hand. The hard part is not the
-  lookup, it is the exclusion list — the docs legitimately name native Excel
-  functions (`TAKE`, `MAP`, `XLOOKUP`), *planned* functions that do not exist
-  yet by design (every `READY` item above names one), and prose words that
-  happen to be capitalized. Start from the count half's file, which already
-  loads the catalog and pins the phrasings the docs use.
+- **Check 1 (link targets) and check 2 (cross-document anchors)** —
+  `tests/test_doc_links.py`.
+- **Check 3, count half** — `tests/test_doc_catalog_counts.py`, which found
+  four stale numbers on its first run (139/139/131 for a 140-entry catalog,
+  and 17 for 18 sheet-scoped closures).
+- **Check 3, name half** — `tests/test_doc_function_names.py`. Every function
+  name the docs *call* — written as `Name(...)`, in the catalog's naming
+  convention, inside an inline span or a fenced block — resolves to a catalog
+  entry or one of five pinned exclusion lists (native Excel functions, planned
+  names, the v3.2 spill readers, retired names the shipped-changelog prose
+  cites in rename history, doc shorthand). The exclusion lists are the hard
+  part, so each is guarded: a planned name must still appear in ROADMAP or
+  TODOs, a dead entry fails, and no entry may shadow a catalog function. The
+  blind spots (bare backticked names, CamelCase single words like `Interact`)
+  are deliberate and derived from the catalog by a test, so they cannot grow
+  silently.

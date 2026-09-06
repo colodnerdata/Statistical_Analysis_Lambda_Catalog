@@ -392,6 +392,19 @@ def _unit_space_r_squared_formula() -> str:
     return body
 
 
+def _catalog_formula_display(name: str) -> str:
+    """A catalog entry's ``formula_display``, looked up by name.
+
+    The samples' rule is that a formula is always imported or extracted,
+    never hand-copied; this is the lambda_functions.json flavour — one
+    load per call, then a direct lookup by entry name.
+    """
+    functions = json.loads(
+        (ROOT / "lambda_functions.json").read_text(encoding="utf-8")
+    )["functions"]
+    return next(f["formula_display"] for f in functions if f["name"] == name)
+
+
 # The narrative annotation for each sample lives here; the formula itself is
 # always imported or extracted, never hand-copied.
 _FORMULA_SAMPLES: list[dict[str, str]] = [
@@ -408,13 +421,7 @@ _FORMULA_SAMPLES: list[dict[str, str]] = [
     {
         "title": "A status cell is a call, not text",
         "source": "lambda_catalog/write_spec_block.py — the B2 cell; body from lambda_functions.json",
-        "formula": lambda: (
-            "=Role_Status()\n\n"
-            + json.loads((ROOT / "lambda_functions.json").read_text(encoding="utf-8"))
-            ["functions"][[f["name"] for f in json.loads(
-                (ROOT / "lambda_functions.json").read_text(encoding="utf-8")
-            )["functions"]].index("Role_Status")]["formula_display"]
-        ),
+        "formula": lambda: "=Role_Status()\n\n" + _catalog_formula_display("Role_Status"),
         "plain": (
             "Click B2 and the formula bar shows `=Role_Status()` — one name. "
             "The check itself lives in the Name Manager: exactly one Response "
@@ -495,13 +502,7 @@ _FORMULA_SAMPLES: list[dict[str, str]] = [
     {
         "title": "Finding the optimum: `Grid_Argument_Minimum`",
         "source": "lambda_functions.json — the Grid_Argument_Minimum entry",
-        "formula": lambda: next(
-            f["formula_display"]
-            for f in json.loads(
-                (ROOT / "lambda_functions.json").read_text(encoding="utf-8")
-            )["functions"]
-            if f["name"] == "Grid_Argument_Minimum"
-        ),
+        "formula": lambda: _catalog_formula_display("Grid_Argument_Minimum"),
         "plain": (
             "Find the minimum "
             "of a grid, then recover its row and column. `TOCOL` flattens the grid "

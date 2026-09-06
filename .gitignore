@@ -24,6 +24,9 @@ build/
 dist/
 *.egg-info/
 
+# Sphinx HTML output — regenerate with `uv run --group docs poe docs`
+docs/_build/
+
 # Local environment/config
 .env
 .env.*

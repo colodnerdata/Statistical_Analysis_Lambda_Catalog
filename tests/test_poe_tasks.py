@@ -51,6 +51,10 @@ _EXPECTED_TASK_NAMES = [
     "build-presentation",
     "static-sheets",
     "resync-names",
+    # Docs site (PR: sphinx-tutorial-site): generate the derived pages from
+    # the authored sheet lists, then run sphinx-build -W.
+    "docs-generate",
+    "docs",
 ]
 
 # The tasks .github/workflows/ci.yml runs by name. Renaming either without

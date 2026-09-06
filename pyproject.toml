@@ -44,6 +44,17 @@ dev = [
   # tomllib is stdlib from 3.11; tests/test_poe_tasks.py needs the backport on 3.10.
   "tomli>=2.0; python_version < '3.11'",
 ]
+# The tutorial docs site (`uv run --group docs poe docs`). A separate group,
+# not part of default-groups, so `uv sync` / `poe test` never need Sphinx.
+docs = [
+  "myst-parser>=4.0,<5",
+  "sphinx>=8.1,<10",
+  # Book theme: sidebar ToC built for tutorial-length content (the owner's
+  # ask was "whatever matches the content best", not a literal RTD look).
+  "sphinx-book-theme>=1.1,<2",
+  "sphinx-copybutton>=0.5,<1",
+  "sphinx-design>=0.6,<1",
+]
 
 [tool.uv]
 default-groups = ["dev"]
@@ -272,6 +283,19 @@ cmd = "python scripts/rebuild_static_sheets.py"
 [tool.poe.tasks.resync-names]
 help = "Re-apply the workbook-scope name cleanup to a built artifact. Takes workbook paths."
 cmd = "python tools/resync_workbook_names.py"
+
+# -- Docs (no Excel needed; run as `uv run --group docs poe docs`) ------------
+
+[tool.poe.tasks.docs-generate]
+help = "Regenerate the generated docs pages from the authored sheet lists."
+cmd = "python scripts/generate_docs_pages.py"
+
+[tool.poe.tasks.docs]
+help = "Generate pages, then build the tutorial site into docs/_build/html (warnings as errors)."
+sequence = [
+  "docs-generate",
+  { cmd = "sphinx-build -W -b html docs docs/_build/html" },
+]
 
 [tool.mypy]
 check_untyped_defs = true

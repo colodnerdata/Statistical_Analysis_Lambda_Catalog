@@ -85,11 +85,7 @@ CATALOG_PATH = ROOT_DIR / "lambda_functions.json"
 # The documents that describe the catalog and the workbook as they are now (or
 # as they are planned to be). Pinned, like the count half's doc set — and the
 # classification guard below fails when a markdown file exists that this list
-# and _EXCLUDED_PREFIXES do not account for. The tutorial-site pages
-# (docs/index.md, technology.md, walkthrough.md, worked-example.md,
-# improvements.md) join this list when the docs-site PR lands: they do not
-# exist on main yet, and "a policed entry that no longer exists" fails the
-# same guard, so the docs-site merge is what adds them.
+# and _EXCLUDED_PREFIXES do not account for.
 _POLICED_DOCS = (
     "README.md",
     "CONTRIBUTING.md",
@@ -99,6 +95,11 @@ _POLICED_DOCS = (
     "docs/ARCHITECTURE.md",
     "docs/TODOs.md",
     "docs/MODEL_TESTING_ASSETS.md",
+    "docs/index.md",
+    "docs/technology.md",
+    "docs/walkthrough.md",
+    "docs/worked-example.md",
+    "docs/improvements.md",
     "excel-only-runs/README.md",
 )
 
@@ -148,7 +149,7 @@ _CAMEL_CASE_WORD = re.compile(r"^[A-Z][a-z]+$")
 _NATIVE_EXCEL = frozenset(
     {
         "AND", "BYROW", "COUNT", "DEVSQ", "EXP", "IF", "INDEX", "ISNA",
-        "LET", "LN", "MAP", "MAX", "MIN", "MOD", "NA", "ROWS",
+        "LET", "LN", "MAP", "MAX", "MIN", "MOD", "NA", "ROWS", "SUM",
         "SUMSQ", "TAKE",
     }
 )

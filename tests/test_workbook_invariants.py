@@ -159,8 +159,10 @@ def _workbook_xml(sheet_names: Iterable[str]) -> bytes:
         b'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'
         b"<sheets>" + sheet_elements.encode("utf-8") + b"</sheets>"
         b"<definedNames>"
-        b'<definedName name="Real_Name">LAMBDA(x,x)</definedName>'
-        b'<definedName name="Local_Name" localSheetId="0">\'Sheet1\'!$A$1</definedName>'
+        b'<definedName name="Real_Name" comment="Real_Name purpose.">'
+        b"LAMBDA(x,x)</definedName>"
+        b'<definedName name="Local_Name" localSheetId="0" '
+        b'comment="Local_Name purpose.">\'Sheet1\'!$A$1</definedName>'
         b"</definedNames>"
         b"</workbook>"
     )
@@ -589,6 +591,30 @@ def _assert_no_error_literals_in_defined_names(package: WorkbookPackage) -> None
     )
 
 
+def _assert_every_defined_name_is_commented(package: WorkbookPackage) -> None:
+    """Every non-``_xlnm.*`` defined name carries a Name Manager comment.
+
+    The Name Manager is the workbook's discovery surface for a user who wants
+    to know what a name is for — or retarget ``Source_Table`` at another
+    dataset — so a blank Comment column is a missing label, not a cosmetic
+    gap. Workbook-scoped comments come from the catalog entry's ``notes``
+    (``workbook_builder.sync_workbook_names``); sheet-scoped ones are set at
+    each writer's ``Names.Add`` site.
+    """
+    offenders = [
+        name_element.get("name")
+        for name_element in package.workbook_root.iter(_DEFINED_NAME_TAG)
+        if not (name_element.get("name") or "").startswith("_xlnm.")
+        and not (name_element.get("comment") or "").strip()
+    ]
+    assert not offenders, (
+        f"Defined names with no Name Manager comment ({len(offenders)}): "
+        f"{sorted(offenders)!r}. Set a Comment at the owning writer's "
+        "Names.Add site (sheet-scoped names) or fill the catalog entry's "
+        "notes (workbook-scoped names), then rebuild dist."
+    )
+
+
 def _assert_no_external_links(package: WorkbookPackage) -> None:
     """The artifact links to no other workbook.
 
@@ -725,6 +751,12 @@ def test_no_orphan_named_ranges_synthetic(synthetic_workbook: WorkbookPackage) -
     _assert_no_orphan_named_ranges(synthetic_workbook)
 
 
+def test_every_defined_name_is_commented_synthetic(
+    synthetic_workbook: WorkbookPackage,
+) -> None:
+    _assert_every_defined_name_is_commented(synthetic_workbook)
+
+
 def test_no_error_literals_in_cached_values_synthetic(
     synthetic_workbook: WorkbookPackage,
 ) -> None:
@@ -847,6 +879,33 @@ def test_fault_inject_external_link_is_rejected(tmp_path: Path) -> None:
     package = WorkbookPackage(workbook_path)
     with pytest.raises(AssertionError, match="External link parts present"):
         _assert_no_external_links(package)
+
+
+def test_fault_inject_commentless_defined_name_is_rejected(
+    tmp_path: Path,
+) -> None:
+    """A name with no Name Manager comment fails the always-on screen.
+
+    The clean fixture's names all carry comments, so the injected bare name
+    is the only offender — the failure must name it rather than fail
+    vacuously on the fixture.
+    """
+    workbook_path = build_headless_fixture(tmp_path)
+    with zipfile.ZipFile(workbook_path) as zf:
+        root = etree.fromstring(zf.read("xl/workbook.xml"))
+    bare = etree.SubElement(root.find(_DEFINED_NAMES_TAG), _DEFINED_NAME_TAG)
+    bare.set("name", "Bare_Name")
+    bare.text = "LAMBDA(x,x)"
+    _replace_member(
+        workbook_path,
+        "xl/workbook.xml",
+        b'<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        + etree.tostring(root, encoding="UTF-8"),
+    )
+
+    package = WorkbookPackage(workbook_path)
+    with pytest.raises(AssertionError, match="Bare_Name"):
+        _assert_every_defined_name_is_commented(package)
 
 
 def test_fault_inject_extra_sheet_causes_inventory_check_to_fail(
@@ -1235,6 +1294,11 @@ class TestRealWorkbookNameScope:
         self, real_workbook_package: WorkbookPackage
     ) -> None:
         _assert_no_external_links(real_workbook_package)
+
+    def test_every_defined_name_carries_a_comment(
+        self, real_workbook_package: WorkbookPackage
+    ) -> None:
+        _assert_every_defined_name_is_commented(real_workbook_package)
 
 
 # ---------------------------------------------------------------------------

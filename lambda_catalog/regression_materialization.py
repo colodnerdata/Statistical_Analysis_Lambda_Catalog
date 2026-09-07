@@ -73,7 +73,7 @@ from .workbook_helpers import (
 
 
 def _add_spill_reader(
-    sheet: xw.Sheet, sheet_name: str, name: str, column: int
+    sheet: xw.Sheet, sheet_name: str, name: str, column: int, comment: str
 ) -> None:
     """Register a sheet-scoped thunk over one materialized spill.
 
@@ -122,13 +122,17 @@ def _add_spill_reader(
     column : int
         1-based column of the spill's anchor cell; the row is always
         ``_MATERIALIZATION_SPILL_ROW``.
+    comment : str
+        The Name Manager comment — what the read spill holds, stated
+        briefly for a user browsing the sheet's names.
     """
     anchor = (
         f"{quoted_sheet_name(sheet_name)}"
         f"!${col_letter(column)}${_MATERIALIZATION_SPILL_ROW}"
     )
     drop_local_name(sheet, name)
-    sheet.api.Names.Add(Name=name, RefersTo=f"=LAMBDA({anchor}#)")
+    _nm = sheet.api.Names.Add(Name=name, RefersTo=f"=LAMBDA({anchor}#)")
+    _nm.Comment = comment
 
 
 # The sheet-scoped spill readers this module registers (Fit_Context via the
@@ -316,9 +320,13 @@ def _write_materialization_zone(
     )
     drop_local_name(sheet, "Model_Context")
     drop_local_name(sheet, "Fit_Context")
-    sheet.api.Names.Add(
+    _nm = sheet.api.Names.Add(
         Name="Fit_Context",
         RefersTo=f"=LAMBDA({ctx_ref})",
+    )
+    _nm.Comment = (
+        "Spill reader over the Model Context block (the fixed label/value "
+        "range) — the fit context the engines read as Fit_Context()."
     )
     # Health check, one row under the block and inside its box. The height
     # half is the build-time invariant (_MODEL_CONTEXT_ROWS); the error half
@@ -373,6 +381,9 @@ def _write_materialization_zone(
         sname,
         "Fit_Sample_Include",
         _C_SAMPLE_INCLUDE_MATERIALIZED,
+        "Spill reader over the materialized final-sample mask (one row per "
+        "source row) — the fit-time sample the engines read as "
+        "Fit_Sample_Include().",
     )
     # Document what the column is for on the heading cell — it is a read-only
     # view of the mask every engine applies, not a second place to edit it.
@@ -429,7 +440,15 @@ def _write_materialization_zone(
     # the `#` form is dimension-agnostic, but an OFFSET fallback would need a
     # height AND a width ($AB$9 and $O$1 respectively). Spiking both shapes is
     # what tells us which spelling the migration can rely on.
-    _add_spill_reader(sheet, sname, "Fit_Design_Columns", _C_DESIGN_MATRIX)
+    _add_spill_reader(
+        sheet,
+        sname,
+        "Fit_Design_Columns",
+        _C_DESIGN_MATRIX,
+        "Spill reader over the materialized design matrix (n × k, both "
+        "dimensions dynamic) — the fit-time design matrix the engines read "
+        "as Fit_Design_Columns().",
+    )
 
     # ── Model Formula readout ────────────────────────────────────────────────
     # Row 1 of this zone, right of its heading — the one row the design matrix

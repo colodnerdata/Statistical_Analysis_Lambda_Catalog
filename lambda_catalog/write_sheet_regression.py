@@ -768,17 +768,23 @@ def _setup_local_names(
     # lone ones column in exactly this state, so counting its columns would
     # report 1 and the zero-predictor branch would never fire.
     drop_local_name(sheet, "Zero_Predictors_Selected")
-    sheet.api.Names.Add(
+    _nm = sheet.api.Names.Add(
         Name="Zero_Predictors_Selected",
         RefersTo="=LAMBDA(IFERROR(COLUMNS(Predictor_Columns()),0)=0)",
+    )
+    _nm.Comment = (
+        "TRUE when the spec contributes no predictor columns (no included "
+        "Predictor rows, or every included Categorical degenerate) — gates "
+        "the intercept-only closed-form branches."
     )
 
     # alpha: the confidence-level input cell in the Statistics block.
     drop_local_name(sheet, "alpha")
-    sheet.api.Names.Add(
+    _nm = sheet.api.Names.Add(
         Name="alpha",
         RefersTo=f"={sname}!{_A_ALPHA}",
     )
+    _nm.Comment = "The confidence-level input cell in the Statistics block."
 
     # ── Intercept-only closed-form helpers ──────────────────────────────────
     # Used by _write_coefficients and _write_prediction_interval when
@@ -814,38 +820,48 @@ def _setup_local_names(
     # the same defect class as the closure loop's spill-reader qualification
     # (see SPILL_READER_NAMES in regression_materialization.py).
     drop_local_name(sheet, "Intercept_Only_N")
-    sheet.api.Names.Add(
+    _nm = sheet.api.Names.Add(
         Name="Intercept_Only_N",
         RefersTo=f"=LAMBDA(SUMPRODUCT(--({sname}!Fit_Sample_Include())))",
     )
+    _nm.Comment = "Intercept-only fit: count of included rows in the sample."
 
     drop_local_name(sheet, "Intercept_Only_Point")
-    sheet.api.Names.Add(
+    _nm = sheet.api.Names.Add(
         Name="Intercept_Only_Point",
         RefersTo=(
             f"=LAMBDA(AVERAGE(FILTER(Response_Column(),{sname}!Fit_Sample_Include())))"
         ),
     )
+    _nm.Comment = "Intercept-only fit: the mean of the included response values."
 
     drop_local_name(sheet, "Intercept_Only_S")
-    sheet.api.Names.Add(
+    _nm = sheet.api.Names.Add(
         Name="Intercept_Only_S",
         RefersTo=(
             f"=LAMBDA(STDEV.S(FILTER(Response_Column(),{sname}!Fit_Sample_Include())))"
         ),
     )
+    _nm.Comment = (
+        "Intercept-only fit: sample standard deviation of the included "
+        "response values."
+    )
 
     drop_local_name(sheet, "Intercept_Only_SE")
-    sheet.api.Names.Add(
+    _nm = sheet.api.Names.Add(
         Name="Intercept_Only_SE",
         RefersTo="=LAMBDA(Intercept_Only_S()/SQRT(Intercept_Only_N()))",
     )
+    _nm.Comment = (
+        "Intercept-only fit: standard error of the intercept (S / √N)."
+    )
 
     drop_local_name(sheet, "Intercept_Only_DF")
-    sheet.api.Names.Add(
+    _nm = sheet.api.Names.Add(
         Name="Intercept_Only_DF",
         RefersTo="=LAMBDA(Intercept_Only_N()-1)",
     )
+    _nm.Comment = "Intercept-only fit: residual degrees of freedom (N − 1)."
 
     # ── Chart data ranges (OFFSET-based, sized to n = the Observations cell) ───
     # These worksheet-scoped names feed chart SERIES formulas as

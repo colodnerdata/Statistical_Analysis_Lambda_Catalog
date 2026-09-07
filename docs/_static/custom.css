@@ -1,0 +1,30 @@
+/* Formula blocks: Consolas-first stack.
+ *
+ * The workbook's formulas are dense single-line expressions the reader has
+ * to scan character by character ($AB$9, TAKE($B$4:$B$16000,...)) — a true
+ * monospace with wide, unambiguous glyphs matters more than the theme's
+ * default. Consolas first (the owner's ask — the repo is built on Windows,
+ * where Consolas is universal); Cascadia Mono / Code as the modern Windows
+ * successors; then the usual Mac/Linux fallbacks. */
+pre,
+code,
+kbd,
+samp,
+.highlight,
+.codehilite {
+  font-family: Consolas, "Cascadia Mono", "Cascadia Code", "SF Mono", Menlo,
+    Consolas, "Liberation Mono", "DejaVu Sans Mono", monospace;
+}
+
+/* Formula blocks wrap instead of overflowing: several shipped formulas
+ * (BYROW NLL spills) are single 200+ character lines, and a horizontal
+ * scrollbar hides exactly the part a beginner needs to see. */
+.highlight pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* sphinx-copybutton should not eat the leading "=" of a formula. */
+.copybtn {
+  margin-left: 0.25em;
+}

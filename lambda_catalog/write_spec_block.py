@@ -25,8 +25,9 @@ comments, v3.0 means the engine-interface release (ROADMAP).
     (rsvd. input)    (rsvd. drop)           (disp.)
 
 M and N are the layout-break MAJOR's interaction pair — declared,
-validated, and flagged now, read by no constructor until the interaction
-wiring release (the same reserved-column pattern F and G went live under).
+validated, and flagged on the sheet, and built into the design matrix by
+the constructor's interaction wiring (the mate() closure reading the pair
+through Predictor_Columns / Constructed_Column_Names).
 O is the per-row Design Columns audit: how many columns this spec row
 contributes to the constructed design matrix. It is a computed display,
 bound by "display derives, never feeds" exactly like J/K/L, and it is
@@ -629,10 +630,10 @@ def _set_sheet_scoped_names(
         "Spec_Sequence_Period": _spec_band(sname, _C_SEQUENCE_PERIOD),
         "Spec_Period_In_Use": _spec_band(sname, _C_PERIOD_IN_USE),
         # The interaction pair (M/N) and the Design Columns audit (O),
-        # added by the layout-break MAJOR. The first two are RESERVED —
-        # bound so the grid shape is final and so the conditional-format
-        # rules on the pair have a band to read, but consumed by no
-        # constructor until the interaction wiring release. The third is
+        # added by the layout-break MAJOR. The first two are live inputs —
+        # bound so the grid shape is final, read by the constructor's
+        # interaction wiring to build Product/Difference/Ratio columns
+        # (and by the pair's conditional-format rules). The third is
         # a computed display, bound by "display derives, never feeds":
         # only the width guard reads it, and the guard is a display too.
         "Spec_Interaction_Term": _spec_band(sname, _C_INTERACTION_TERM),
